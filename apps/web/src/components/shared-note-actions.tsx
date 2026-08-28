@@ -1,9 +1,8 @@
-import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 
-import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
+import { cn } from "@anlg/utils";
 
-import { sharedButtonStyles } from "@/components/shared-note-viewer";
+import { sharedPrimaryButtonClassName } from "@/components/shared-note-viewer";
 import { getShareRouteToken } from "@/lib/share-route-privacy";
 import {
   createLinkShareHandoff,
@@ -15,60 +14,7 @@ import {
   buildShareHandoffDeepLink,
   type SharedNoteDesktopScheme,
 } from "@/lib/shared-notes";
-const styles = stylex.create({
-  style1: {
-    position: "relative",
-  },
-  style2: {
-    display: {
-      default: "none",
-      "@media (width >= 40rem)": "inline",
-    },
-  },
-  style3: {
-    display: {
-      default: null,
-      "@media (width >= 40rem)": "none",
-    },
-  },
-  style4: {
-    flexBasis: "100%",
-    textAlign: "right",
-    fontSize: ".75rem",
-    lineHeight: "1rem",
-    color: colors.mutedForeground,
-  },
-  tooltip: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: shadows.lg,
-    color: colors.mutedForeground,
-    fontSize: ".75rem",
-    marginTop: ".5rem",
-    opacity: {
-      default: 0,
-      [stylex.when.ancestor(":focus-within")]: 1,
-      [stylex.when.ancestor(":hover")]: 1,
-    },
-    paddingBlock: ".375rem",
-    paddingInline: ".625rem",
-    pointerEvents: "none",
-    position: "absolute",
-    right: 0,
-    top: "100%",
-    transform: {
-      default: "translateY(-2px)",
-      [stylex.when.ancestor(":focus-within")]: "translateY(0)",
-      [stylex.when.ancestor(":hover")]: "translateY(0)",
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "opacity, transform",
-    whiteSpace: "nowrap",
-  },
-});
+
 export function AccountSharedNoteActions({
   canEdit,
   scheme,
@@ -87,6 +33,7 @@ export function AccountSharedNoteActions({
     />
   );
 }
+
 export function LinkSharedNoteActions({
   canEdit,
   pathname,
@@ -117,6 +64,7 @@ export function LinkSharedNoteActions({
       );
     },
   });
+
   return (
     <SharedNoteActionButtons
       canEdit={canEdit}
@@ -126,6 +74,7 @@ export function LinkSharedNoteActions({
     />
   );
 }
+
 export function StableSharedNoteActions({
   canEdit,
   scheme,
@@ -150,6 +99,7 @@ export function StableSharedNoteActions({
       );
     },
   });
+
   return (
     <SharedNoteActionButtons
       canEdit={canEdit}
@@ -159,6 +109,7 @@ export function StableSharedNoteActions({
     />
   );
 }
+
 export function PublicSharedNoteActions({
   canEdit,
   publicSlug,
@@ -183,6 +134,7 @@ export function PublicSharedNoteActions({
       );
     },
   });
+
   return (
     <SharedNoteActionButtons
       canEdit={canEdit}
@@ -192,6 +144,7 @@ export function PublicSharedNoteActions({
     />
   );
 }
+
 function SharedNoteActionButtons({
   canEdit,
   error = false,
@@ -205,36 +158,37 @@ function SharedNoteActionButtons({
 }) {
   return (
     <>
-      <div {...stylex.props(stylex.defaultMarker(), styles.style1)}>
+      <div className="group relative">
         <button
           type="button"
-          {...stylex.props([
-            sharedButtonStyles.base,
-            sharedButtonStyles.primary,
-          ])}
+          className={sharedPrimaryButtonClassName}
           disabled={isPending}
           aria-describedby={canEdit ? "open-in-anarlog-tooltip" : undefined}
           onClick={onOpen}
         >
-          <span {...stylex.props(styles.style2)}>
+          <span className="hidden sm:inline">
             {isPending ? "Opening…" : "Open in Anarlog"}
           </span>
-          <span {...stylex.props(styles.style3)}>
-            {isPending ? "Opening…" : "Open"}
-          </span>
+          <span className="sm:hidden">{isPending ? "Opening…" : "Open"}</span>
         </button>
         {canEdit && (
           <span
             id="open-in-anarlog-tooltip"
             role="tooltip"
-            {...stylex.props(styles.tooltip)}
+            className={cn([
+              "surface border-color-subtle text-color-muted pointer-events-none absolute top-full right-0 mt-2 w-max rounded-lg border px-2.5 py-1.5 text-xs shadow-lg",
+              "translate-y-[-2px] opacity-0 transition-[opacity,transform] group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:translate-y-0 group-hover:opacity-100",
+            ])}
           >
             Open in Anarlog to edit
           </span>
         )}
       </div>
       {error && (
-        <p {...stylex.props(styles.style4)} role="status">
+        <p
+          className="text-color-muted basis-full text-right text-xs"
+          role="status"
+        >
           Anarlog couldn’t be opened. Try again.
         </p>
       )}

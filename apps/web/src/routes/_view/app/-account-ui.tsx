@@ -1,103 +1,34 @@
-import * as stylex from "@stylexjs/stylex";
+import { cn } from "@anlg/utils";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
+export const accountCardClassName = cn([
+  "overflow-hidden rounded-[24px] border border-[#e5ddcf] bg-white",
+  "shadow-[0_18px_50px_rgba(24,22,19,0.08)]",
+]);
 
-export const accountStyles = stylex.create({
-  card: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderRadius: "24px",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: "0 18px 50px rgb(24 22 19 / 0.08)",
-    overflow: "hidden",
-  },
-  pill: {
-    alignItems: "center",
-    borderRadius: radii.full,
-    cursor: {
-      default: "pointer",
-      ":disabled": "not-allowed",
-    },
-    display: "flex",
-    fontSize: ".875rem",
-    fontWeight: 500,
-    height: "2.25rem",
-    justifyContent: "center",
-    opacity: {
-      default: 1,
-      ":disabled": 0.5,
-    },
-    paddingInline: "1rem",
-    transitionDuration: "150ms",
-    transitionProperty: "background-color, border-color, color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  pillPrimary: {
-    backgroundColor: {
-      default: colors.foreground,
-      ":hover": colors.mutedForeground,
-    },
-    color: colors.primaryForeground,
-  },
-  pillSecondary: {
-    backgroundColor: {
-      default: colors.card,
-      ":hover": colors.muted,
-    },
-    borderColor: colors.border,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    color: colors.foreground,
-  },
-  pillDanger: {
-    backgroundColor: colors.card,
-    borderColor: {
-      default: colors.alertBorder,
-      ":hover": colors.destructive,
-    },
-    borderStyle: "solid",
-    borderWidth: "1px",
-    color: {
-      default: colors.alertForeground,
-      ":hover": colors.destructive,
-    },
-  },
-  menuTrigger: {
-    alignItems: "center",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.muted,
-      ":is([data-state='open'])": colors.muted,
-    },
-    borderRadius: radii.full,
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    cursor: {
-      default: "pointer",
-      ":disabled": "not-allowed",
-    },
-    display: "flex",
-    flexShrink: 0,
-    height: "2.25rem",
-    justifyContent: "center",
-    opacity: {
-      default: 1,
-      ":disabled": 0.5,
-    },
-    outline: {
-      default: null,
-      ":focus-visible": `2px solid ${colors.mutedForeground}`,
-    },
-    outlineOffset: {
-      default: null,
-      ":focus-visible": "2px",
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "background-color, color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "2.25rem",
-  },
-});
+export const accountPillPrimaryClassName = cn([
+  "flex h-9 cursor-pointer items-center justify-center rounded-full px-4",
+  "bg-[#181613] text-sm font-medium text-white",
+  "transition-colors hover:bg-[#4f4940]",
+  "disabled:cursor-not-allowed disabled:opacity-50",
+]);
+
+export const accountPillSecondaryClassName = cn([
+  "flex h-9 cursor-pointer items-center justify-center rounded-full border border-[#d9d1c5] bg-white px-4",
+  "text-sm font-medium text-[#181613]",
+  "transition-colors hover:bg-[#f7f4ef]",
+  "disabled:cursor-not-allowed disabled:opacity-50",
+]);
+
+export const accountPillDangerClassName = cn([
+  "flex h-9 cursor-pointer items-center justify-center rounded-full border border-red-200 bg-white px-4",
+  "text-sm font-medium text-red-700",
+  "transition-colors hover:border-red-300 hover:text-red-800",
+  "disabled:cursor-not-allowed disabled:opacity-50",
+]);
+
+export const accountMenuTriggerClassName = cn([
+  "flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full",
+  "text-[#756b5d] transition-colors hover:bg-[#f7f4ef] hover:text-[#181613]",
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#756b5d]",
+  "disabled:cursor-not-allowed disabled:opacity-50 data-[state=open]:bg-[#f7f4ef]",
+]);

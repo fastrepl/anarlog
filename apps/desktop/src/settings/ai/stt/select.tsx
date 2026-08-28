@@ -6,7 +6,6 @@ import {
   Trash,
   Warning,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import {
   useMutation,
   useQueries,
@@ -15,7 +14,6 @@ import {
 } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 
-import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
 import {
   commands as localSttCommands,
   type LocalModel,
@@ -37,6 +35,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@anlg/ui/components/ui/tooltip";
+import { cn } from "@anlg/utils";
 
 import { useSttSettings } from "./context";
 import { HealthStatusIndicator, useConnectionHealth } from "./health";
@@ -226,7 +225,7 @@ export function SelectProviderAndModel() {
     });
   };
   return (
-    <div {...stylex.props(styles.container)}>
+    <div className="flex flex-col gap-4">
       {defaultSelection && !pendingProvider ? (
         <PersistAiSelection
           key={`stt:${defaultSelection.provider}:${defaultSelection.model}`}
@@ -243,16 +242,13 @@ export function SelectProviderAndModel() {
       />
       {!alertDescription && <TranscriptionLanguageWarningToast />}
 
-      <h3 {...stylex.props(styles.heading)}>
+      <h3 className="text-md font-sans font-semibold">
         <Trans>Model being used</Trans>
       </h3>
-      <div {...stylex.props(styles.selection)}>
-        <div
-          {...stylex.props(styles.providerControl)}
-          data-stt-provider-selector
-        >
+      <div className="flex flex-row items-center gap-4">
+        <div className="min-w-0 flex-2" data-stt-provider-selector>
           <Select value={visibleProvider} onValueChange={handleProviderChange}>
-            <SelectTrigger sx={styles.providerTrigger}>
+            <SelectTrigger className="bg-card shadow-none focus:ring-0">
               <SelectValue placeholder={t`Select a provider`} />
             </SelectTrigger>
             <SelectContent>
@@ -269,23 +265,23 @@ export function SelectProviderAndModel() {
                     key={provider.id}
                     value={provider.id}
                     disabled={provider.disabled || locked}
-                    sx={[
-                      styles.providerItem,
-                      !configured && !locked && styles.unconfiguredProvider,
-                    ]}
+                    className={cn([
+                      "data-disabled:text-muted-foreground data-disabled:!opacity-100",
+                      !configured && !locked && "text-muted-foreground",
+                    ])}
                   >
-                    <div {...stylex.props(styles.providerOption)}>
-                      <div {...stylex.props(styles.providerIdentity)}>
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-2">
                         <ProviderIconSlot>{provider.icon}</ProviderIconSlot>
                         <span>{provider.displayName}</span>
                         {requiresPro ? (
-                          <span {...stylex.props(styles.proBadge)}>
+                          <span className="border-border text-muted-foreground rounded-full border px-2 py-0.5 text-[10px] tracking-wide uppercase">
                             <Trans>Pro</Trans>
                           </span>
                         ) : null}
                       </div>
                       {locked ? (
-                        <span {...stylex.props(styles.lockedDescription)}>
+                        <span className="text-muted-foreground text-[11px]">
                           <Trans>Upgrade to Pro to use this provider.</Trans>
                         </span>
                       ) : null}
@@ -297,45 +293,43 @@ export function SelectProviderAndModel() {
           </Select>
         </div>
 
-        <span {...stylex.props(styles.separator)}>/</span>
+        <span className="text-muted-foreground">/</span>
 
         {visibleProvider === "local_file" ? (
-          <div {...stylex.props(styles.modelControl)}>
+          <div className="min-w-0 flex-3">
             <LocalFileModel healthStatus={health.status} />
           </div>
         ) : visibleProvider === "custom" ? (
-          <div {...stylex.props(styles.modelControl)}>
+          <div className="min-w-0 flex-3">
             <Input
               value={displayedSttModel || ""}
               onChange={(event) => handleModelChange(event.target.value)}
-              sx={styles.customModelInput}
+              className="text-xs"
               placeholder={t`Enter a model identifier`}
             />
           </div>
         ) : (
-          <div {...stylex.props(styles.modelControl)}>
+          <div className="min-w-0 flex-3">
             <Select
               value={displayedSttModel || ""}
               onValueChange={handleModelChange}
               disabled={selectedModels.length === 0}
             >
               <SelectTrigger
-                sx={[
-                  styles.modelTrigger,
-                  isConfigured && styles.configuredTrigger,
-                ]}
+                className={cn([
+                  "bg-card text-left shadow-none focus:ring-0",
+                  "[&>span]:!flex [&>span]:w-full [&>span]:min-w-0 [&>span]:items-center [&>span]:justify-start [&>span]:gap-2 [&>span]:overflow-visible [&>span]:[-webkit-line-clamp:unset]",
+                  isConfigured && "[&>svg:last-child]:hidden",
+                ])}
               >
-                <SelectValue
-                  placeholder={t`Select a model`}
-                  {...stylex.props(styles.modelValue)}
-                >
+                <SelectValue placeholder={t`Select a model`}>
                   {selectedModel ? (
                     <ModelSelectedValue model={selectedModel} />
                   ) : undefined}
                 </SelectValue>
                 {isConfigured && <HealthStatusIndicator />}
                 {isConfigured && health.status === "success" && (
-                  <Check {...stylex.props(styles.configuredIcon)} />
+                  <Check className="-mr-1 h-4 w-4 shrink-0 text-green-600" />
                 )}
               </SelectTrigger>
               <SelectContent align="end">
@@ -350,7 +344,7 @@ export function SelectProviderAndModel() {
                   return (
                     <span key={model.id}>
                       {categoryLabel && (
-                        <div {...stylex.props(styles.category)}>
+                        <div className="text-muted-foreground px-2 pt-2 pb-1 text-[11px] font-medium tracking-wide uppercase">
                           {categoryLabel}
                         </div>
                       )}
@@ -464,7 +458,7 @@ function TranscriptionLanguageWarningToastLifecycle({
     sonnerToast.warning(description, {
       id: TRANSCRIPTION_LANGUAGE_WARNING_TOAST_ID,
       duration: Infinity,
-      icon: <Warning {...stylex.props(styles.warningIcon)} />,
+      icon: <Warning className="size-4 shrink-0 text-amber-500" />,
       action: {
         label: actionLabel,
         onClick: () => {
@@ -821,26 +815,25 @@ function ModelSelectItem({
   const downloadInfo = activeDownloads.find((d) => d.model === model.id);
   const isDownloading =
     !!downloadInfo || queuedDownloads.includes(model.id as LocalModel);
-  const [isInteractive, setIsInteractive] = useState(false);
 
   const label = displayModelLabel(model.id, model.displayName);
   const sizeLabel = formatModelSize(model.sizeBytes);
   const showLocalActions = model.isDownloaded && isLocalModelId(model.id);
   const isDeprecated = model.isDeprecated === true;
   const content = (
-    <div {...stylex.props(styles.modelItemContent)}>
+    <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
       <LocalModelLabel
         model={model.id}
         label={label}
         title={label}
-        sx={styles.modelLabel}
+        className="min-w-0 flex-1"
       />
-      <div {...stylex.props(styles.modelMetadata)}>
+      <div className="flex shrink-0 items-center gap-2 text-[11px]">
         <LocalModelBackendBadge model={model.id} />
         {isDeprecated && <DeprecatedBadge />}
         {model.mode !== "realtime" && <ModelModeBadge mode={model.mode} />}
         {!model.isDownloaded && sizeLabel && (
-          <span {...stylex.props(styles.modelSize)}>{sizeLabel}</span>
+          <span className="text-muted-foreground font-mono">{sizeLabel}</span>
         )}
       </div>
     </div>
@@ -848,33 +841,21 @@ function ModelSelectItem({
 
   if (model.isDownloaded) {
     return (
-      <div
-        {...stylex.props(styles.downloadedRow)}
-        onPointerEnter={() => setIsInteractive(true)}
-        onPointerLeave={() => setIsInteractive(false)}
-        onFocusCapture={() => setIsInteractive(true)}
-        onBlurCapture={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget)) {
-            setIsInteractive(false);
-          }
-        }}
-      >
+      <div className="group/model-row relative overflow-hidden rounded-full has-[[data-model-actions-pending]]:[&>*:first-child>span:first-child]:opacity-0">
         <SelectItem
           key={model.id}
           value={model.id}
-          sx={[
-            isInteractive && styles.interactiveModelItem,
-            showLocalActions && styles.modelItemWithActions,
-            isDeprecated && styles.deprecatedModelItem,
-          ]}
+          className={cn([
+            "group-hover/model-row:bg-accent group-hover/model-row:text-accent-foreground",
+            showLocalActions &&
+              "pr-20 group-focus-within/model-row:[&>span:first-child]:opacity-0 group-hover/model-row:[&>span:first-child]:opacity-0",
+            isDeprecated && "text-muted-foreground focus:text-muted-foreground",
+          ])}
         >
           {content}
         </SelectItem>
         {showLocalActions && (
-          <LocalModelDropdownActions
-            model={model.id as LocalModel}
-            visible={isInteractive}
-          />
+          <LocalModelDropdownActions model={model.id as LocalModel} />
         )}
       </div>
     );
@@ -895,23 +876,25 @@ function ModelSelectItem({
 
   return (
     <div
-      {...stylex.props(
-        styles.unavailableModel,
-        isCloud ? styles.cloudModelPadding : styles.localModelPadding,
-      )}
-      onPointerEnter={() => setIsInteractive(true)}
-      onPointerLeave={() => setIsInteractive(false)}
-      onFocusCapture={() => setIsInteractive(true)}
-      onBlurCapture={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) {
-          setIsInteractive(false);
-        }
-      }}
+      className={cn([
+        "relative flex items-center justify-between",
+        "rounded-full py-1.5 text-sm outline-hidden",
+        isCloud ? "pr-1.5 pl-2" : "px-2",
+        "cursor-pointer select-none",
+        "hover:bg-accent hover:text-accent-foreground",
+        "group",
+      ])}
     >
-      <div {...stylex.props(styles.unavailableContent)}>{content}</div>
+      <div className="text-muted-foreground min-w-0 flex-1">{content}</div>
       {isDownloading ? (
-        <span {...stylex.props(styles.downloadProgress)}>
-          <CircleNotch {...stylex.props(styles.progressSpinner)} />
+        <span
+          className={cn([
+            "rounded-full px-2 py-0.5 text-[11px] font-medium",
+            "flex items-center gap-1",
+            "from-muted to-accent text-muted-foreground bg-linear-to-t",
+          ])}
+        >
+          <CircleNotch className="size-3 animate-spin" />
           {downloadInfo ? (
             formatDownloadProgress(downloadInfo.progress)
           ) : (
@@ -920,11 +903,14 @@ function ModelSelectItem({
         </span>
       ) : (
         <button
-          {...stylex.props(
-            styles.modelActionButton,
-            isInteractive && styles.visibleModelAction,
-            isCloud ? styles.cloudModelAction : styles.downloadModelAction,
-          )}
+          className={cn([
+            "rounded-full px-2 text-[11px] font-medium",
+            "opacity-0 group-hover:opacity-100",
+            "transition-all duration-150",
+            isCloud
+              ? "bg-primary text-primary-foreground hover:bg-primary/90 py-1 shadow-xs hover:shadow-md dark:!bg-white dark:!text-black dark:hover:!bg-white/90"
+              : "from-muted to-accent text-foreground bg-linear-to-t py-0.5 shadow-xs hover:shadow-md",
+          ])}
           onClick={handleAction}
         >
           {isCloud ? <Trans>Upgrade to use</Trans> : <Trans>Download</Trans>}
@@ -939,13 +925,13 @@ function ModelSelectedValue({ model }: { model: ModelEntry }) {
   const label = displayModelLabel(model.id, model.displayName);
 
   return (
-    <div {...stylex.props(styles.selectedModel)}>
+    <div className="flex max-w-full min-w-0 items-center gap-2">
       <LocalModelLabel
         model={model.id}
         label={label}
         title={label}
-        sx={[styles.selectedModelLabel, isDeprecated && styles.faded]}
-        labelSx={isDeprecated && styles.deprecatedLabel}
+        className={cn(["min-w-0", isDeprecated && "opacity-60"])}
+        labelClassName={cn([isDeprecated && "text-muted-foreground"])}
       />
       {isDeprecated && <DeprecatedBadge />}
       <ModelModeBadge mode={model.mode} />
@@ -955,7 +941,12 @@ function ModelSelectedValue({ model }: { model: ModelEntry }) {
 
 function DeprecatedBadge() {
   return (
-    <span {...stylex.props(styles.deprecatedBadge)}>
+    <span
+      className={cn([
+        "shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium",
+        "bg-amber-50 text-amber-800",
+      ])}
+    >
       <Trans>Deprecated</Trans>
     </span>
   );
@@ -972,15 +963,17 @@ function ModelModeBadge({ mode }: { mode?: ModelEntry["mode"] }) {
     <Tooltip delayDuration={100}>
       <TooltipTrigger asChild>
         <span
-          {...stylex.props(
-            styles.modeBadge,
-            isRealtime ? styles.liveBadge : styles.batchBadge,
-          )}
+          className={cn([
+            "shrink-0 cursor-help rounded-md px-1.5 py-0.5 text-[11px] font-medium",
+            isRealtime
+              ? "bg-sky-50 text-sky-700"
+              : "bg-muted text-muted-foreground",
+          ])}
         >
           {isRealtime ? <Trans>Live</Trans> : <Trans>After recording</Trans>}
         </span>
       </TooltipTrigger>
-      <TooltipContent side="top" sx={styles.modeTooltip}>
+      <TooltipContent side="top" className="max-w-64 text-xs">
         {isRealtime ? (
           <Trans>Can transcribe while the meeting is happening.</Trans>
         ) : (
@@ -997,13 +990,7 @@ function isLocalModelId(model: string): model is LocalModel {
   return isSupportedLocalSttModel(model);
 }
 
-function LocalModelDropdownActions({
-  model,
-  visible,
-}: {
-  model: LocalModel;
-  visible: boolean;
-}) {
+function LocalModelDropdownActions({ model }: { model: LocalModel }) {
   const { t } = useLingui();
   const queryClient = useQueryClient();
 
@@ -1045,28 +1032,38 @@ function LocalModelDropdownActions({
   return (
     <div
       data-model-actions-pending={deleteModel.isPending || undefined}
-      {...stylex.props(
-        styles.modelActions,
-        (visible || deleteModel.isPending) && styles.visibleModelActions,
-      )}
+      className={cn([
+        "absolute top-0 right-0 bottom-0 flex items-center justify-end gap-1 rounded-r-full pl-6",
+        "pointer-events-none opacity-0 transition-opacity duration-150",
+        "group-hover/model-row:pointer-events-auto group-hover/model-row:opacity-100",
+        "group-focus-within/model-row:pointer-events-auto group-focus-within/model-row:opacity-100",
+        deleteModel.isPending && "pointer-events-auto opacity-100",
+      ])}
     >
       <button
         type="button"
         aria-label={t`Show in Finder`}
-        {...stylex.props(styles.modelActionIconButton)}
+        className={cn([
+          "flex size-6 items-center justify-center rounded-full",
+          "text-muted-foreground hover:text-foreground",
+        ])}
         onPointerDown={stopSelect}
         onClick={(event) => {
           stopSelect(event);
           handleOpen();
         }}
       >
-        <FolderOpen {...stylex.props(styles.smallIcon)} />
+        <FolderOpen className="size-3.5" />
       </button>
       <button
         type="button"
         aria-label={t`Delete model`}
         disabled={deleteModel.isPending}
-        {...stylex.props(styles.deleteModelButton)}
+        className={cn([
+          "flex size-6 items-center justify-center rounded-full",
+          "text-red-500 hover:text-red-600",
+          "disabled:opacity-70",
+        ])}
         onPointerDown={stopSelect}
         onClick={(event) => {
           stopSelect(event);
@@ -1074,391 +1071,11 @@ function LocalModelDropdownActions({
         }}
       >
         {deleteModel.isPending ? (
-          <CircleNotch {...stylex.props(styles.deletingSpinner)} />
+          <CircleNotch className="size-3.5 animate-spin" />
         ) : (
-          <Trash {...stylex.props(styles.smallIcon)} />
+          <Trash className="size-3.5" />
         )}
       </button>
     </div>
   );
 }
-
-const spin = stylex.keyframes({
-  to: { transform: "rotate(360deg)" },
-});
-
-const styles = stylex.create({
-  batchBadge: {
-    backgroundColor: colors.muted,
-    color: colors.mutedForeground,
-  },
-  category: {
-    color: colors.mutedForeground,
-    fontSize: "11px",
-    fontWeight: 500,
-    letterSpacing: "0.025em",
-    paddingBottom: "0.25rem",
-    paddingInline: "0.5rem",
-    paddingTop: "0.5rem",
-    textTransform: "uppercase",
-  },
-  cloudModelAction: {
-    backgroundColor: {
-      default: colors.primary,
-      ":hover": `color-mix(in oklab, ${colors.primary} 90%, transparent)`,
-      ":is(.dark *)": "white",
-      ":is(.dark *):hover": "rgb(255 255 255 / 0.9)",
-    },
-    boxShadow: {
-      default: "0 1px 2px rgb(0 0 0 / 0.05)",
-      ":hover":
-        "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
-    },
-    color: {
-      default: colors.primaryForeground,
-      ":is(.dark *)": "black",
-    },
-    paddingBlock: "0.25rem",
-  },
-  cloudModelPadding: {
-    paddingLeft: "0.5rem",
-    paddingRight: "0.375rem",
-  },
-  configuredIcon: {
-    backgroundColor: colors.card,
-    color: "rgb(22 163 74)",
-    flexShrink: 0,
-    height: "1rem",
-    position: "absolute",
-    right: "0.75rem",
-    width: "1rem",
-    zIndex: 1,
-  },
-  configuredTrigger: {
-    isolation: "isolate",
-    position: "relative",
-  },
-  container: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  customModelInput: {
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-  },
-  deleteModelButton: {
-    alignItems: "center",
-    borderRadius: radii.full,
-    color: {
-      default: "rgb(239 68 68)",
-      ":hover": "rgb(220 38 38)",
-    },
-    display: "flex",
-    height: "1.5rem",
-    justifyContent: "center",
-    opacity: {
-      default: 1,
-      ":disabled": 0.7,
-    },
-    width: "1.5rem",
-  },
-  deletingSpinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  deprecatedBadge: {
-    backgroundColor: "rgb(255 251 235)",
-    borderRadius: radii.md,
-    color: "rgb(146 64 14)",
-    flexShrink: 0,
-    fontSize: "11px",
-    fontWeight: 500,
-    paddingBlock: "0.125rem",
-    paddingInline: "0.375rem",
-  },
-  deprecatedLabel: {
-    color: colors.mutedForeground,
-  },
-  deprecatedModelItem: {
-    color: {
-      default: colors.mutedForeground,
-      ":focus": colors.mutedForeground,
-    },
-  },
-  downloadedRow: {
-    borderRadius: radii.full,
-    overflow: "hidden",
-    position: "relative",
-  },
-  downloadModelAction: {
-    backgroundImage: `linear-gradient(to top, ${colors.muted}, ${colors.accent})`,
-    boxShadow: {
-      default: "0 1px 2px rgb(0 0 0 / 0.05)",
-      ":hover":
-        "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
-    },
-    color: colors.foreground,
-    paddingBlock: "0.125rem",
-  },
-  downloadProgress: {
-    alignItems: "center",
-    backgroundImage: `linear-gradient(to top, ${colors.muted}, ${colors.accent})`,
-    borderRadius: radii.full,
-    color: colors.mutedForeground,
-    display: "flex",
-    fontSize: "11px",
-    fontWeight: 500,
-    gap: "0.25rem",
-    paddingBlock: "0.125rem",
-    paddingInline: "0.5rem",
-  },
-  faded: {
-    opacity: 0.6,
-  },
-  heading: {
-    fontFamily: fonts.sans,
-    fontSize: "1rem",
-    fontWeight: 600,
-  },
-  interactiveModelItem: {
-    backgroundColor: colors.accent,
-    color: colors.accentForeground,
-  },
-  liveBadge: {
-    backgroundColor: "rgb(240 249 255)",
-    color: "rgb(3 105 161)",
-  },
-  localModelPadding: {
-    paddingInline: "0.5rem",
-  },
-  lockedDescription: {
-    color: colors.mutedForeground,
-    fontSize: "11px",
-  },
-  modeBadge: {
-    borderRadius: radii.md,
-    cursor: "help",
-    flexShrink: 0,
-    fontSize: "11px",
-    fontWeight: 500,
-    paddingBlock: "0.125rem",
-    paddingInline: "0.375rem",
-  },
-  modeTooltip: {
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-    maxWidth: "16rem",
-  },
-  modelActionButton: {
-    borderRadius: radii.full,
-    fontSize: "11px",
-    fontWeight: 500,
-    opacity: 0,
-    paddingInline: "0.5rem",
-    transitionDuration: "150ms",
-    transitionProperty: "all",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  modelActionIconButton: {
-    alignItems: "center",
-    borderRadius: radii.full,
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    display: "flex",
-    height: "1.5rem",
-    justifyContent: "center",
-    width: "1.5rem",
-  },
-  modelActions: {
-    alignItems: "center",
-    borderBottomRightRadius: radii.full,
-    borderTopRightRadius: radii.full,
-    bottom: 0,
-    display: "flex",
-    gap: "0.25rem",
-    justifyContent: "flex-end",
-    opacity: 0,
-    paddingLeft: "1.5rem",
-    pointerEvents: "none",
-    position: "absolute",
-    right: 0,
-    top: 0,
-    transitionDuration: "150ms",
-    transitionProperty: "opacity",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  modelControl: {
-    flex: "3",
-    minWidth: 0,
-  },
-  modelItemContent: {
-    alignItems: "center",
-    display: "flex",
-    flex: "1",
-    gap: "0.75rem",
-    justifyContent: "space-between",
-    minWidth: 0,
-  },
-  modelItemWithActions: {
-    paddingRight: "5rem",
-  },
-  modelLabel: {
-    flex: "1",
-    minWidth: 0,
-  },
-  modelMetadata: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    fontSize: "11px",
-    gap: "0.5rem",
-  },
-  modelSize: {
-    color: colors.mutedForeground,
-    fontFamily: fonts.mono,
-  },
-  modelTrigger: {
-    backgroundColor: colors.card,
-    boxShadow: {
-      default: "none",
-      ":focus": "none",
-    },
-    textAlign: "left",
-  },
-  modelValue: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-    justifyContent: "flex-start",
-    minWidth: 0,
-    overflow: "visible",
-    width: "100%",
-    WebkitLineClamp: "unset",
-  },
-  proBadge: {
-    borderColor: colors.border,
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    color: colors.mutedForeground,
-    fontSize: "10px",
-    letterSpacing: "0.025em",
-    paddingBlock: "0.125rem",
-    paddingInline: "0.5rem",
-    textTransform: "uppercase",
-  },
-  progressSpinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-    height: "0.75rem",
-    width: "0.75rem",
-  },
-  providerControl: {
-    flex: "2",
-    minWidth: 0,
-  },
-  providerIdentity: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-  },
-  providerItem: {
-    color: {
-      default: null,
-      ":is([data-disabled])": colors.mutedForeground,
-    },
-    opacity: {
-      default: null,
-      ":is([data-disabled])": 1,
-    },
-  },
-  providerOption: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.125rem",
-  },
-  providerTrigger: {
-    backgroundColor: colors.card,
-    boxShadow: {
-      default: "none",
-      ":focus": "none",
-    },
-  },
-  selectedModel: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-    maxWidth: "100%",
-    minWidth: 0,
-  },
-  selectedModelLabel: {
-    minWidth: 0,
-  },
-  selection: {
-    alignItems: "center",
-    display: "flex",
-    flexDirection: "row",
-    gap: "1rem",
-  },
-  separator: {
-    color: colors.mutedForeground,
-  },
-  smallIcon: {
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  unavailableContent: {
-    color: colors.mutedForeground,
-    flex: "1",
-    minWidth: 0,
-  },
-  unavailableModel: {
-    alignItems: "center",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    borderRadius: radii.full,
-    color: {
-      default: null,
-      ":hover": colors.accentForeground,
-    },
-    cursor: "pointer",
-    display: "flex",
-    fontSize: "0.875rem",
-    justifyContent: "space-between",
-    lineHeight: "1.25rem",
-    outlineWidth: "2px",
-    outlineStyle: "solid",
-    outlineColor: "transparent",
-    outlineOffset: "2px",
-    paddingBlock: "0.375rem",
-    position: "relative",
-    userSelect: "none",
-  },
-  unconfiguredProvider: {
-    color: colors.mutedForeground,
-  },
-  visibleModelAction: {
-    opacity: 1,
-  },
-  visibleModelActions: {
-    opacity: 1,
-    pointerEvents: "auto",
-  },
-  warningIcon: {
-    color: "rgb(245 158 11)",
-    flexShrink: 0,
-    height: "1rem",
-    width: "1rem",
-  },
-});

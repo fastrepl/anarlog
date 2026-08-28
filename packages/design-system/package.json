@@ -5,13 +5,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./tokens.css": "./src/tokens.css",
-    "./tokens.stylex": "./src/tokens.stylex.ts"
+    "./tokens.css": "./src/tokens.css"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@stylexjs/stylex": "^0.19.0"
   }
 }

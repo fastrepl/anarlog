@@ -1,101 +1,22 @@
-import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { radii } from "@anlg/design-system/tokens.stylex";
+import { cn } from "@anlg/utils";
 
 import { deleteAccount } from "@/functions/billing";
 import { captureOperationalError } from "@/lib/error-reporting";
 
-import { accountStyles } from "./-account-ui";
-const styles = stylex.create({
-  style1: {
-    fontSize: "1rem",
-    lineHeight: "1.5rem",
-    fontWeight: 500,
-    color: "#7f1d1d",
-  },
-  style2: {
-    marginTop: ".75rem",
-    fontSize: ".875rem",
-    lineHeight: "1.5rem",
-    color: "#7f1d1d",
-  },
-  style3: {
-    marginTop: {
-      default: "1rem",
-      ":is(*) > :not(:first-child)": ".75rem",
-    },
-  },
-  style4: {
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: "#991b1b",
-  },
-  style5: {
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: "#dc2626",
-  },
-  style6: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: ".5rem",
-  },
-  style7: {
-    display: "flex",
-    height: "2.25rem",
-    cursor: {
-      default: "pointer",
-      ":disabled": "not-allowed",
-    },
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radii.full,
-    backgroundColor: {
-      default: "#b91c1c",
-      ":hover": "#991b1b",
-    },
-    paddingInline: "1rem",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    fontWeight: 500,
-    color: "#fff",
-    transitionProperty: "color, background-color",
-    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
-    transitionDuration: ".15s",
-    opacity: {
-      default: null,
-      ":disabled": 0.5,
-    },
-  },
-  dangerCard: {
-    backgroundColor: "#fef2f2",
-    borderColor: "#fecaca",
-    borderRadius: "24px",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: "0 18px 50px rgb(24 22 19 / 0.08)",
-    overflow: "hidden",
-    padding: {
-      default: "1.5rem",
-      "@media (width >= 40rem)": "2rem",
-    },
-  },
-  continueButton: {
-    marginTop: "1rem",
-  },
-});
+import { accountPillDangerClassName } from "./-account-ui";
+
 export function DangerAreaSection() {
   const navigate = useNavigate();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   const deleteAccountMutation = useMutation({
     mutationFn: () => deleteAccount(),
     onSuccess: () => {
-      navigate({
-        to: "/",
-      });
+      navigate({ to: "/" });
     },
     onError: (error) => {
       captureOperationalError(error, {
@@ -103,33 +24,40 @@ export function DangerAreaSection() {
       });
     },
   });
+
   return (
-    <div {...stylex.props(styles.dangerCard)}>
-      <p {...stylex.props(styles.style1)}>Delete account</p>
-      <p {...stylex.props(styles.style2)}>
+    <div
+      className={cn([
+        "overflow-hidden rounded-[24px] border border-red-200 bg-red-50",
+        "shadow-[0_18px_50px_rgba(24,22,19,0.08)]",
+        "p-6 sm:p-8",
+      ])}
+    >
+      <p className="text-base font-medium text-red-900">Delete account</p>
+      <p className="mt-3 text-sm leading-6 text-red-900">
         Anarlog is a local-first app. Your notes, transcripts, and meeting data
         stay on your device. Deleting your account only removes cloud-stored
         data.
       </p>
 
       {showDeleteConfirm ? (
-        <div {...stylex.props(styles.style3)}>
-          <p {...stylex.props(styles.style4)}>
+        <div className="mt-4 space-y-3">
+          <p className="text-sm text-red-800">
             This permanently deletes your account and cloud data.
           </p>
 
           {deleteAccountMutation.isError && (
-            <p {...stylex.props(styles.style5)}>
+            <p className="text-sm text-red-600">
               {deleteAccountMutation.error?.message ||
                 "Failed to delete account"}
             </p>
           )}
 
-          <div {...stylex.props(styles.style6)}>
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => deleteAccountMutation.mutate()}
               disabled={deleteAccountMutation.isPending}
-              {...stylex.props(styles.style7)}
+              className="flex h-9 cursor-pointer items-center justify-center rounded-full bg-red-700 px-4 text-sm font-medium text-white transition-colors hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {deleteAccountMutation.isPending
                 ? "Deleting..."
@@ -141,7 +69,7 @@ export function DangerAreaSection() {
                 deleteAccountMutation.reset();
               }}
               disabled={deleteAccountMutation.isPending}
-              {...stylex.props([accountStyles.pill, accountStyles.pillDanger])}
+              className={accountPillDangerClassName}
             >
               Cancel
             </button>
@@ -150,11 +78,7 @@ export function DangerAreaSection() {
       ) : (
         <button
           onClick={() => setShowDeleteConfirm(true)}
-          {...stylex.props(
-            accountStyles.pill,
-            accountStyles.pillDanger,
-            styles.continueButton,
-          )}
+          className={cn([accountPillDangerClassName, "mt-4"])}
         >
           Continue
         </button>

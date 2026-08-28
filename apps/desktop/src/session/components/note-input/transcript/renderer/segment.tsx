@@ -1,7 +1,6 @@
-import * as stylex from "@stylexjs/stylex";
 import { Fragment, memo, useCallback, useMemo } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
+import { cn } from "@anlg/utils";
 
 import { SegmentHeader } from "./segment-header";
 import {
@@ -110,7 +109,11 @@ export const SegmentRenderer = memo(
         data-segment-speaker-human-id={segment.key.speaker_human_id ?? ""}
         data-transcript-offset-ms={offsetMs}
         data-transcript-selected={selected ? "true" : undefined}
-        {...stylex.props(styles.segment, selectMode && styles.selectable)}
+        className={cn([
+          "rounded-lg px-2 transition-colors",
+          selectMode ? "cursor-pointer" : null,
+          "data-[transcript-selected=true]:bg-primary/10 data-[transcript-selected=true]:ring-primary/30 data-[transcript-selected=true]:ring-1 data-[transcript-selected=true]:ring-inset",
+        ])}
       >
         <SegmentHeader
           segment={segment}
@@ -125,10 +128,10 @@ export const SegmentRenderer = memo(
         ) : (
           <div
             data-transcript-segment-content
-            {...stylex.props(
-              styles.segmentContent,
-              selectMode ? styles.unselectable : styles.selectableText,
-            )}
+            className={cn([
+              "overflow-wrap-anywhere mt-1.5 text-sm leading-relaxed wrap-break-word",
+              selectMode ? "select-none" : "select-text-deep",
+            ])}
           >
             {lines.map((line, lineIdx) => {
               const lineStartMs = offsetMs + line.startMs;
@@ -143,7 +146,10 @@ export const SegmentRenderer = memo(
                 <span
                   key={line.words[0]?.id ?? `line-${lineIdx}`}
                   data-line-current={isCurrentLine ? "true" : undefined}
-                  {...stylex.props(styles.line)}
+                  className={cn([
+                    "-mx-0.5 rounded-xs px-0.5",
+                    isCurrentLine && "bg-yellow-100/50 dark:bg-yellow-900/30",
+                  ])}
                 >
                   {lineIdx > 0 ? " " : null}
                   {line.words.map((word, idx) => (
@@ -279,7 +285,10 @@ const EditableSegmentText = memo(function EditableSegmentText({
       contentEditable
       suppressContentEditableWarning
       spellCheck
-      {...stylex.props(styles.editor)}
+      className={cn([
+        "overflow-wrap-anywhere mt-1.5 rounded-md text-sm leading-relaxed wrap-break-word outline-hidden",
+        "select-text-deep",
+      ])}
       onBlur={handleBlur}
       onKeyDown={handleKeyDown}
     >
@@ -325,64 +334,3 @@ function segmentContainsWordId(segment: Segment, wordId: string | null) {
 function getWordDisplayText(word: SegmentWord) {
   return word.text.trim();
 }
-
-const styles = stylex.create({
-  editor: {
-    borderRadius: radii.md,
-    fontSize: "0.875rem",
-    lineHeight: 1.625,
-    marginTop: "0.375rem",
-    outline: "none",
-    overflowWrap: "anywhere",
-    userSelect: {
-      default: "text",
-      ":is(*) *": "text",
-    },
-    wordBreak: "break-word",
-  },
-  line: {
-    backgroundColor: {
-      default: null,
-      ":is([data-line-current='true'])": "rgb(254 249 195 / 0.5)",
-      ":is(.dark [data-line-current='true'])": "rgb(113 63 18 / 0.3)",
-    },
-    borderRadius: "0.125rem",
-    marginInline: "-0.125rem",
-    paddingInline: "0.125rem",
-  },
-  segment: {
-    backgroundColor: {
-      default: null,
-      ":is([data-transcript-selected='true'])": `color-mix(in oklab, ${colors.primary} 10%, transparent)`,
-    },
-    borderRadius: radii.lg,
-    boxShadow: {
-      default: null,
-      ":is([data-transcript-selected='true'])": `inset 0 0 0 1px color-mix(in oklab, ${colors.primary} 30%, transparent)`,
-    },
-    paddingInline: "0.5rem",
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color",
-  },
-  segmentContent: {
-    fontSize: "0.875rem",
-    lineHeight: 1.625,
-    marginTop: "0.375rem",
-    overflowWrap: "anywhere",
-    wordBreak: "break-word",
-  },
-  selectable: {
-    cursor: "pointer",
-  },
-  selectableText: {
-    userSelect: {
-      default: "text",
-      ":is(*) *": "text",
-    },
-  },
-  unselectable: {
-    userSelect: "none",
-  },
-});
-
-export { styles as transcriptSegmentStyles };

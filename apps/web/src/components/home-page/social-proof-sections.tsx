@@ -1,10 +1,8 @@
 import { ArrowRight, XLogo } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
 import { type CSSProperties, useState } from "react";
 
-import { colors, fonts, media, radii } from "@anlg/design-system/tokens.stylex";
-import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
+import { cn } from "@anlg/utils";
 
 import { getResizedImageSrcSet, getResizedImageUrl } from "@/lib/image-cdn";
 
@@ -12,519 +10,12 @@ import { getResizedImageSrcSet, getResizedImageUrl } from "@/lib/image-cdn";
 // can reserve the correct aspect ratio before the image loads (CLS). CSS still
 // controls the rendered size. `resizeWidth` routes oversized bitmap logos
 // through the Netlify Image CDN at ~2x their rendered width.
-const scrollLeft = stylex.keyframes({
-  from: { transform: "translateX(0)" },
-  to: { transform: "translateX(-50%)" },
-});
-
-const styles = stylex.create({
-  style1: {
-    backgroundColor: "#fff0b3",
-    boxDecorationBreak: "clone",
-    borderRadius: ".125rem",
-    paddingInline: ".25rem",
-    paddingBlock: ".125rem",
-    color: "#181613",
-  },
-  style2: {
-    display: "flex",
-    height: "100%",
-    flexDirection: "column",
-  },
-  style3: {
-    display: "flex",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: "1rem",
-  },
-  style4: {
-    display: "flex",
-    minWidth: 0,
-    alignItems: "center",
-    gap: ".75rem",
-  },
-  style5: {
-    width: "3rem",
-    height: "3rem",
-    borderRadius: radii.full,
-    objectFit: "cover",
-    boxShadow: "0 1px 2px 0 #0000000d",
-  },
-  style6: {
-    minWidth: 0,
-  },
-  style7: {
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    fontWeight: 600,
-    color: "#181613",
-  },
-  style8: {
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: "#756b5d",
-  },
-  style9: {
-    display: "inline-flex",
-    width: "2.25rem",
-    height: "2.25rem",
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radii.full,
-    color: "#181613",
-    transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
-    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
-    transitionDuration: ".15s",
-    backgroundColor: {
-      default: null,
-      ":hover": "#f7f4ef",
-    },
-  },
-  style10: {
-    display: "flex",
-    flexBasis: "0%",
-    flexGrow: 1,
-    flexShrink: 1,
-    alignItems: "center",
-    justifyContent: "flex-start",
-    paddingBlock: ".75rem",
-  },
-  style11: {
-    textAlign: "left",
-    fontSize: "1.125rem",
-    lineHeight: 1.25,
-    fontWeight: 600,
-    textWrap: "balance",
-    color: "#181613",
-  },
-  style12: {
-    borderTopStyle: "solid",
-    borderTopWidth: "1px",
-    borderColor: "#ede7dc",
-    paddingTop: ".75rem",
-    fontSize: ".75rem",
-    lineHeight: "1.25rem",
-    color: "#756b5d",
-  },
-  style13: {
-    position: "relative",
-    paddingTop: 0,
-    paddingBottom: {
-      default: ".5rem",
-      "@media (width >= 48rem)": 0,
-    },
-  },
-  style14: {
-    clipPath: "inset(50%)",
-    whiteSpace: "nowrap",
-    borderWidth: 0,
-    width: "1px",
-    height: "1px",
-    margin: "-1px",
-    padding: 0,
-    position: "absolute",
-    overflow: "hidden",
-  },
-  style15: {
-    pointerEvents: "none",
-    position: "absolute",
-    top: "-4.4rem",
-    left: "50%",
-    zIndex: 20,
-    height: "5rem",
-    width: "15rem",
-    translate: "calc(160% * -1) 0",
-    color: "#0a0a0a",
-    display: {
-      default: null,
-      "@media (width < 899px)": "none",
-    },
-  },
-  style16: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: "max-content",
-    rotate: "-3deg",
-    fontFamily: "Reenie Beanie, Patrick Hand, cursive",
-    fontSize: {
-      default: "25px",
-      "@media (width >= 64rem)": "28px",
-    },
-    lineHeight: 1,
-    fontWeight: 400,
-    whiteSpace: "nowrap",
-  },
-  style17: {
-    position: "absolute",
-    top: "1.65rem",
-    left: "1.15rem",
-    height: "2.9rem",
-    width: "4.65rem",
-    rotate: "5deg",
-    color: "#0a0a0a",
-  },
-  style18: {
-    position: "relative",
-    left: "50%",
-    width: "100vw",
-    translate: "calc(calc(1 / 2 * 100%) * -1) 0",
-    overflow: {
-      default: "hidden",
-      "@media (prefers-reduced-motion: reduce)": "visible",
-    },
-    backgroundColor: "#fff",
-  },
-  style19: {
-    display: "flex",
-    width: {
-      default: "max-content",
-      "@media (prefers-reduced-motion: reduce)": "100%",
-    },
-    maxWidth: {
-      default: null,
-      [media.reducedMotion]: "72rem",
-    },
-    alignItems: "center",
-    marginInline: {
-      default: null,
-      "@media (prefers-reduced-motion: reduce)": "auto",
-    },
-    animationDuration: "36s",
-    animationIterationCount: "infinite",
-    animationName: {
-      default: scrollLeft,
-      [media.reducedMotion]: "none",
-    },
-    animationTimingFunction: "linear",
-    justifyContent: {
-      default: null,
-      "@media (prefers-reduced-motion: reduce)": "center",
-    },
-    paddingInline: {
-      default: null,
-      "@media (prefers-reduced-motion: reduce)": "1.5rem",
-    },
-  },
-  style20: {
-    pointerEvents: "none",
-    position: "absolute",
-    insetBlock: 0,
-    left: 0,
-    width: {
-      default: "4rem",
-      "@media (width >= 48rem)": "8rem",
-    },
-    backgroundImage: `linear-gradient(to right, ${colors.card}, transparent)`,
-    display: {
-      default: null,
-      "@media (prefers-reduced-motion: reduce)": "none",
-    },
-  },
-  style21: {
-    pointerEvents: "none",
-    position: "absolute",
-    insetBlock: 0,
-    right: 0,
-    width: {
-      default: "4rem",
-      "@media (width >= 48rem)": "8rem",
-    },
-    backgroundImage: `linear-gradient(to left, ${colors.card}, transparent)`,
-    display: {
-      default: null,
-      "@media (prefers-reduced-motion: reduce)": "none",
-    },
-  },
-  style22: {
-    marginTop: ".25rem",
-    fontFamily: "Reenie Beanie, Patrick Hand, cursive",
-    fontSize: "22px",
-    lineHeight: 1,
-    fontWeight: 400,
-    color: "#0a0a0a",
-    clipPath: {
-      default: null,
-      "@media (width >= 900px)": "inset(50%)",
-    },
-    whiteSpace: {
-      default: null,
-      "@media (width >= 900px)": "nowrap",
-    },
-    borderWidth: {
-      default: null,
-      "@media (width >= 900px)": 0,
-    },
-    width: {
-      default: null,
-      "@media (width >= 900px)": "1px",
-    },
-    height: {
-      default: null,
-      "@media (width >= 900px)": "1px",
-    },
-    margin: {
-      default: null,
-      "@media (width >= 900px)": "-1px",
-    },
-    padding: {
-      default: null,
-      "@media (width >= 900px)": 0,
-    },
-    position: {
-      default: null,
-      "@media (width >= 900px)": "absolute",
-    },
-    overflow: {
-      default: null,
-      "@media (width >= 900px)": "hidden",
-    },
-  },
-  style23: {
-    paddingBlock: {
-      default: "4rem",
-      "@media (width >= 48rem)": "5rem",
-    },
-  },
-  style24: {
-    fontFamily: fonts.hand,
-    fontSize: "1.875rem",
-    lineHeight: 1,
-    fontWeight: 600,
-    color: "#756b5d",
-  },
-  style25: {
-    marginInline: "auto",
-    marginTop: "1.5rem",
-    maxWidth: "42rem",
-    fontSize: "1.125rem",
-    lineHeight: "2rem",
-    color: "#4f4940",
-  },
-  style26: {
-    position: "relative",
-    left: "50%",
-    marginInline: "auto",
-    marginTop: "2rem",
-    height: {
-      default: "19rem",
-      "@media (width >= 40rem)": "18rem",
-    },
-    width: "100vw",
-    maxWidth: "980px",
-    translate: "calc(calc(1 / 2 * 100%) * -1) 0",
-    overflow: "visible",
-    paddingInline: "1.25rem",
-  },
-  style27: {
-    position: "absolute",
-    top: 0,
-    left: "50%",
-    zIndex: 0,
-    display: "flex",
-    height: {
-      default: "15.5rem",
-      "@media (width >= 40rem)": "13.5rem",
-    },
-    width: {
-      default: "calc(100% - 2.5rem)",
-      "@media (width >= 40rem)": "380px",
-    },
-    maxWidth: "380px",
-    translate: {
-      default: "calc(calc(1 / 2 * 100%) * -1) 0",
-      "@media (width >= 40rem)": "0 34px",
-    },
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    textAlign: "center",
-  },
-  style28: {
-    fontFamily: fonts.hand,
-    fontSize: {
-      default: "1.875rem",
-      "@media (width >= 40rem)": "2.25rem",
-    },
-    lineHeight: {
-      default: 1,
-      "@media (width >= 40rem)": "2.5rem",
-    },
-    fontWeight: 600,
-    color: "#181613",
-  },
-  style29: {
-    marginTop: "1.5rem",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  style30: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: ".5rem",
-    borderRadius: radii.full,
-    backgroundColor: {
-      default: "#181613",
-      ":hover": "#4f4940",
-    },
-    paddingInline: "1.25rem",
-    paddingBlock: ".75rem",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    fontWeight: 500,
-    color: "#fff",
-    transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
-    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
-    transitionDuration: ".15s",
-  },
-  style31: {
-    display: {
-      default: null,
-      "@media (width >= 40rem)": "none",
-    },
-  },
-  style32: {
-    display: {
-      default: "none",
-      "@media (width >= 40rem)": "block",
-    },
-  },
-  testimonialCard: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderRadius: radii.xl,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    cornerShape: "squircle",
-    padding: "1.25rem",
-    position: "absolute",
-    textAlign: "left",
-    transitionDuration: {
-      default: "500ms",
-      [media.reducedMotion]: "0ms",
-    },
-    transitionProperty: "transform, box-shadow, opacity",
-    transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-    userSelect: "none",
-  },
-  logoTrack: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    gap: {
-      default: "3.5rem",
-      [media.md]: "5rem",
-    },
-    paddingInline: {
-      default: "1.75rem",
-      [media.md]: "2.5rem",
-    },
-  },
-  logoTrackReducedPrimary: {
-    columnGap: {
-      default: "3rem",
-      [media.md]: "4rem",
-    },
-    flexShrink: {
-      default: 0,
-      [media.reducedMotion]: 1,
-    },
-    flexWrap: {
-      default: "nowrap",
-      [media.reducedMotion]: "wrap",
-    },
-    justifyContent: {
-      default: "flex-start",
-      [media.reducedMotion]: "center",
-    },
-    paddingInline: {
-      default: null,
-      [media.reducedMotion]: 0,
-    },
-    rowGap: {
-      default: null,
-      [media.reducedMotion]: "1.5rem",
-    },
-    width: {
-      default: null,
-      [media.reducedMotion]: "100%",
-    },
-  },
-  logoTrackReducedDuplicate: {
-    display: {
-      default: "flex",
-      [media.reducedMotion]: "none",
-    },
-  },
-  credibilityLogo: {
-    filter: {
-      default: "grayscale(100%)",
-      ":hover": "grayscale(0)",
-    },
-    height: "1.5rem",
-    maxWidth: "none",
-    objectFit: "contain",
-    opacity: {
-      default: 0.65,
-      ":hover": 1,
-    },
-    transitionDuration: "200ms",
-    transitionProperty: "filter, opacity",
-    width: "auto",
-  },
-  compactCredibilityLogo: {
-    maxHeight: "1.25rem",
-  },
-  mobileTestimonialCard: {
-    boxShadow: {
-      default: "0 24px 60px rgb(24 22 19 / 0.14)",
-      ":hover": "0 30px 75px rgb(24 22 19 / 0.16)",
-    },
-    cursor: "pointer",
-    height: "15.5rem",
-    left: "50%",
-    top: 0,
-    width: "calc(100% - 2.5rem)",
-  },
-  testimonialCardDisabled: {
-    pointerEvents: "none",
-  },
-  desktopTestimonialCard: {
-    cursor: "pointer",
-    height: "13.5rem",
-    left: "50%",
-    top: 0,
-    width: "380px",
-  },
-  desktopTestimonialCardTop: {
-    boxShadow: {
-      default: "0 24px 60px rgb(24 22 19 / 0.14)",
-      ":hover": "0 30px 75px rgb(24 22 19 / 0.16)",
-    },
-  },
-  desktopTestimonialCardStacked: {
-    boxShadow: {
-      default: "0 14px 36px rgb(24 22 19 / 0.1)",
-      ":hover": "0 18px 44px rgb(24 22 19 / 0.13)",
-    },
-  },
-});
 const credibilityLogos: {
   name: string;
   src: string;
   width: number;
   height: number;
-  compact?: boolean;
+  className?: string;
   resizeWidth?: number;
 }[] = [
   {
@@ -532,7 +23,7 @@ const credibilityLogos: {
     src: "/icons/databricks.svg",
     width: 276,
     height: 42,
-    compact: true,
+    className: "max-h-5",
   },
   {
     name: "Cloudflare",
@@ -546,79 +37,75 @@ const credibilityLogos: {
     src: "/icons/amazon.svg",
     width: 399,
     height: 133,
-    compact: true,
+    className: "max-h-5",
   },
   {
     name: "Meta",
     src: "/icons/meta.svg",
     width: 256,
     height: 171,
-    compact: true,
+    className: "max-h-5",
   },
-  {
-    name: "Y Combinator",
-    src: "/icons/yc.svg",
-    width: 64,
-    height: 64,
-  },
+  { name: "Y Combinator", src: "/icons/yc.svg", width: 64, height: 64 },
   {
     name: "Palantir",
     src: "/icons/palantir.svg",
     width: 210,
     height: 51,
-    compact: true,
+    className: "max-h-5",
   },
   {
     name: "Apple",
     src: "/icons/apple.svg",
     width: 42,
     height: 51,
-    compact: true,
+    className: "max-h-5",
   },
   {
     name: "Disney",
     src: "/icons/disney.svg",
     width: 155,
     height: 66,
-    compact: true,
+    className: "max-h-5",
   },
   {
     name: "Richmond American",
     src: "/icons/richmond_american.svg",
     width: 165,
     height: 51,
-    compact: true,
+    className: "max-h-5",
   },
   {
     name: "Adobe",
     src: "/icons/adobe.svg",
     width: 66,
     height: 17,
-    compact: true,
+    className: "max-h-5",
   },
   {
     name: "Wayfair",
     src: "/icons/wayfair.svg",
     width: 630,
     height: 150,
-    compact: true,
+    className: "max-h-5",
   },
   {
     name: "Bain & Company",
     src: "/icons/bain.svg",
     width: 547,
     height: 60,
-    compact: true,
+    className: "max-h-5",
   },
   {
     name: "McKinsey & Company",
     src: "/icons/mckinsey.png",
     width: 960,
     height: 297,
-    compact: true,
+    className: "max-h-5",
     resizeWidth: 130,
   },
 ];
+
 const testimonials = [
   {
     quote: "Anarlog is great and local.",
@@ -657,168 +144,82 @@ const testimonials = [
     url: "https://twitter.com/tomyang11_/status/1956395933538902092",
   },
 ];
+
 type TestimonialCardPosition = {
   x: number | string;
   y: number;
   rotate: number;
   scale: number;
 };
+
 const mobileTestimonialPilePositions: TestimonialCardPosition[] = [
-  {
-    x: 0,
-    y: 0,
-    rotate: -0.5,
-    scale: 1,
-  },
-  {
-    x: 7,
-    y: 12,
-    rotate: 1.1,
-    scale: 0.985,
-  },
-  {
-    x: -7,
-    y: 24,
-    rotate: -1.4,
-    scale: 0.97,
-  },
-  {
-    x: 9,
-    y: 36,
-    rotate: 1.7,
-    scale: 0.955,
-  },
-  {
-    x: -9,
-    y: 48,
-    rotate: -1.7,
-    scale: 0.94,
-  },
+  { x: 0, y: 0, rotate: -0.5, scale: 1 },
+  { x: 7, y: 12, rotate: 1.1, scale: 0.985 },
+  { x: -7, y: 24, rotate: -1.4, scale: 0.97 },
+  { x: 9, y: 36, rotate: 1.7, scale: 0.955 },
+  { x: -9, y: 48, rotate: -1.7, scale: 0.94 },
 ];
+
 const mobileTestimonialSidePositions: TestimonialCardPosition[] = [
-  {
-    x: "calc(5.75rem - 100vw)",
-    y: 0,
-    rotate: -6,
-    scale: 0.94,
-  },
-  {
-    x: "calc(100vw - 5.75rem)",
-    y: 16,
-    rotate: 6,
-    scale: 0.94,
-  },
-  {
-    x: "calc(5.25rem - 100vw)",
-    y: 44,
-    rotate: 5,
-    scale: 0.9,
-  },
-  {
-    x: "calc(100vw - 5.25rem)",
-    y: 60,
-    rotate: -5,
-    scale: 0.9,
-  },
-  {
-    x: "calc(5.75rem - 100vw)",
-    y: 80,
-    rotate: -2.5,
-    scale: 0.86,
-  },
+  { x: "calc(5.75rem - 100vw)", y: 0, rotate: -6, scale: 0.94 },
+  { x: "calc(100vw - 5.75rem)", y: 16, rotate: 6, scale: 0.94 },
+  { x: "calc(5.25rem - 100vw)", y: 44, rotate: 5, scale: 0.9 },
+  { x: "calc(100vw - 5.25rem)", y: 60, rotate: -5, scale: 0.9 },
+  { x: "calc(5.75rem - 100vw)", y: 80, rotate: -2.5, scale: 0.86 },
 ];
+
 const desktopTestimonialPilePositions: TestimonialCardPosition[] = [
-  {
-    x: 0,
-    y: 34,
-    rotate: -1.5,
-    scale: 1,
-  },
-  {
-    x: 10,
-    y: 44,
-    rotate: 1.7,
-    scale: 0.985,
-  },
-  {
-    x: -11,
-    y: 54,
-    rotate: -2.2,
-    scale: 0.97,
-  },
-  {
-    x: 14,
-    y: 64,
-    rotate: 2.8,
-    scale: 0.955,
-  },
-  {
-    x: -14,
-    y: 74,
-    rotate: -3,
-    scale: 0.94,
-  },
+  { x: 0, y: 34, rotate: -1.5, scale: 1 },
+  { x: 10, y: 44, rotate: 1.7, scale: 0.985 },
+  { x: -11, y: 54, rotate: -2.2, scale: 0.97 },
+  { x: 14, y: 64, rotate: 2.8, scale: 0.955 },
+  { x: -14, y: 74, rotate: -3, scale: 0.94 },
 ];
+
 const desktopTestimonialSidePositions: TestimonialCardPosition[] = [
-  {
-    x: -430,
-    y: 0,
-    rotate: -7,
-    scale: 0.9,
-  },
-  {
-    x: 430,
-    y: 8,
-    rotate: 7,
-    scale: 0.9,
-  },
-  {
-    x: -420,
-    y: 132,
-    rotate: 6,
-    scale: 0.88,
-  },
-  {
-    x: 420,
-    y: 140,
-    rotate: -6,
-    scale: 0.88,
-  },
-  {
-    x: -430,
-    y: 74,
-    rotate: -3,
-    scale: 0.82,
-  },
+  { x: -430, y: 0, rotate: -7, scale: 0.9 },
+  { x: 430, y: 8, rotate: 7, scale: 0.9 },
+  { x: -420, y: 132, rotate: 6, scale: 0.88 },
+  { x: 420, y: 140, rotate: -6, scale: 0.88 },
+  { x: -430, y: 74, rotate: -3, scale: 0.82 },
 ];
+
 const testimonialDeckStateVersion = 3;
 const testimonialNameContext =
   "Name context: Hyprnote became Char, then Anarlog.";
+
 function formatTestimonialOffset(offset: TestimonialCardPosition["x"]) {
   return typeof offset === "number" ? `${offset}px` : offset;
 }
+
 function renderPullQuote(quote: string) {
   return quote.split(/(Anarlog)/g).map((part, index) => {
     if (part !== "Anarlog") return part;
+
     return (
-      <mark key={index} {...stylex.props(styles.style1)}>
+      <mark
+        key={index}
+        className="rounded-xs bg-[#fff0b3] box-decoration-clone px-1 py-0.5 text-[#181613]"
+      >
         {part}
       </mark>
     );
   });
 }
+
 function TestimonialTweetCard({
   testimonial,
   ariaLabel,
-  sx,
+  className,
   style,
   onMoveToSide,
 }: {
   testimonial: (typeof testimonials)[number];
   ariaLabel: string;
+  className?: string;
   style?: CSSProperties;
   onMoveToSide: () => void;
-} & StyleXProps) {
+}) {
   return (
     <article
       role="button"
@@ -827,14 +228,19 @@ function TestimonialTweetCard({
       onClick={onMoveToSide}
       onKeyDown={(event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
+
         event.preventDefault();
         onMoveToSide();
       }}
-      {...mergeStyleXProps([styles.testimonialCard, sx], undefined, style)}
+      className={cn([
+        "border-color-subtle absolute rounded-xl border bg-white p-5 text-left transition-[transform,box-shadow,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] select-none [corner-shape:squircle] motion-reduce:transition-none sm:p-5",
+        className,
+      ])}
+      style={style}
     >
-      <figure {...stylex.props(styles.style2)}>
-        <figcaption {...stylex.props(styles.style3)}>
-          <div {...stylex.props(styles.style4)}>
+      <figure className="flex h-full flex-col">
+        <figcaption className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
             <img
               src={getResizedImageUrl(testimonial.avatar, {
                 width: 48,
@@ -844,13 +250,17 @@ function TestimonialTweetCard({
               alt={`${testimonial.author} profile photo`}
               width={48}
               height={48}
-              {...stylex.props(styles.style5)}
+              className="size-12 rounded-full object-cover shadow-sm"
               decoding="async"
               loading="lazy"
             />
-            <div {...stylex.props(styles.style6)}>
-              <p {...stylex.props(styles.style7)}>{testimonial.author}</p>
-              <p {...stylex.props(styles.style8)}>@{testimonial.username}</p>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-[#181613]">
+                {testimonial.author}
+              </p>
+              <p className="truncate text-sm leading-5 text-[#756b5d]">
+                @{testimonial.username}
+              </p>
             </div>
           </div>
 
@@ -860,35 +270,47 @@ function TestimonialTweetCard({
             rel="noreferrer"
             aria-label={`View ${testimonial.author} post on X`}
             onClick={(event) => event.stopPropagation()}
-            {...stylex.props(styles.style9)}
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[#181613] transition-colors hover:bg-[#f7f4ef]"
           >
             <XLogo size={15} aria-hidden="true" />
           </a>
         </figcaption>
 
-        <blockquote {...stylex.props(styles.style10)}>
-          <p {...stylex.props(styles.style11)}>
+        <blockquote className="flex flex-1 items-center justify-start py-3">
+          <p className="text-left text-lg leading-[1.25] font-semibold text-balance text-[#181613]">
             {renderPullQuote(testimonial.quote)}
           </p>
         </blockquote>
 
-        <p {...stylex.props(styles.style12)}>{testimonialNameContext}</p>
+        <p className="border-t border-[#ede7dc] pt-3 text-xs leading-5 text-[#756b5d]">
+          {testimonialNameContext}
+        </p>
       </figure>
     </article>
   );
 }
+
 export function CredibilityLogoMarquee() {
   return (
     <section
-      {...stylex.props(styles.style13)}
+      className="relative pt-0 pb-2 md:pb-0"
       aria-labelledby="credibility-heading"
     >
-      <p {...stylex.props(styles.style14)}>
+      <p className="sr-only">
         {credibilityLogos.map((logo) => logo.name).join(", ")}
       </p>
-      <div {...stylex.props(styles.style15)} aria-hidden="true">
-        <p {...stylex.props(styles.style16)}>people love us at</p>
-        <svg {...stylex.props(styles.style17)} viewBox="0 0 74 46" fill="none">
+      <div
+        className="pointer-events-none absolute -top-[4.4rem] left-1/2 z-20 h-20 w-[15rem] -translate-x-[160%] text-neutral-950 max-[899px]:hidden"
+        aria-hidden="true"
+      >
+        <p className="absolute top-0 left-0 w-max -rotate-[3deg] font-['Reenie_Beanie','Patrick_Hand',cursive] text-[25px] leading-none font-normal whitespace-nowrap lg:text-[28px]">
+          people love us at
+        </p>
+        <svg
+          className="absolute top-[1.65rem] left-[1.15rem] h-[2.9rem] w-[4.65rem] rotate-[5deg] text-neutral-950"
+          viewBox="0 0 74 46"
+          fill="none"
+        >
           <path
             d="M7 8L56 30"
             stroke="currentColor"
@@ -906,15 +328,20 @@ export function CredibilityLogoMarquee() {
         </svg>
       </div>
 
-      <div {...stylex.props(styles.style18)}>
-        <div {...stylex.props(styles.style19)} aria-hidden="true">
+      <div className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-white motion-reduce:overflow-visible">
+        <div
+          className="animate-scroll-left flex w-max items-center motion-reduce:mx-auto motion-reduce:w-full motion-reduce:max-w-6xl motion-reduce:animate-none motion-reduce:justify-center motion-reduce:px-6"
+          style={{ animationDuration: "36s" }}
+          aria-hidden="true"
+        >
           {[0, 1].map((trackIndex) => (
             <div
               key={trackIndex}
-              {...stylex.props([
-                styles.logoTrack,
-                trackIndex === 0 && styles.logoTrackReducedPrimary,
-                trackIndex === 1 && styles.logoTrackReducedDuplicate,
+              className={cn([
+                "flex shrink-0 items-center gap-14 px-7 md:gap-20 md:px-10",
+                trackIndex === 0 &&
+                  "motion-reduce:w-full motion-reduce:shrink motion-reduce:flex-wrap motion-reduce:justify-center motion-reduce:gap-x-12 motion-reduce:gap-y-6 motion-reduce:px-0 md:motion-reduce:gap-x-16",
+                trackIndex === 1 && "motion-reduce:hidden",
               ])}
             >
               {credibilityLogos.map((logo) => (
@@ -930,9 +357,9 @@ export function CredibilityLogoMarquee() {
                   width={logo.width}
                   height={logo.height}
                   alt=""
-                  {...stylex.props([
-                    styles.credibilityLogo,
-                    logo.compact && styles.compactCredibilityLogo,
+                  className={cn([
+                    "h-6 w-auto max-w-none object-contain opacity-65 grayscale transition-[filter,opacity] duration-200 hover:opacity-100 hover:grayscale-0",
+                    logo.className,
                   ])}
                   draggable={false}
                 />
@@ -940,15 +367,25 @@ export function CredibilityLogoMarquee() {
             </div>
           ))}
         </div>
-        <div {...stylex.props(styles.style20)} aria-hidden="true" />
-        <div {...stylex.props(styles.style21)} aria-hidden="true" />
+        <div
+          className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-linear-to-r from-white to-transparent motion-reduce:hidden md:w-32"
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-linear-to-l from-white to-transparent motion-reduce:hidden md:w-32"
+          aria-hidden="true"
+        />
       </div>
-      <h2 id="credibility-heading" {...stylex.props(styles.style22)}>
+      <h2
+        id="credibility-heading"
+        className="mt-1 font-['Reenie_Beanie','Patrick_Hand',cursive] text-[22px] leading-none font-normal text-neutral-950 min-[900px]:sr-only"
+      >
         people love us at
       </h2>
     </section>
   );
 }
+
 export function TestimonialsSection() {
   const [testimonialDeckState, setTestimonialDeckState] = useState({
     version: testimonialDeckStateVersion,
@@ -962,38 +399,51 @@ export function TestimonialsSection() {
   const remainingTestimonialIndexes = testimonials
     .map((_, index) => index)
     .filter((index) => !movedTestimonialSet.has(index));
+
   const handleMoveToSide = (itemIndex: number) => {
     setTestimonialDeckState((currentState) => {
       const currentIndexes =
         currentState.version === testimonialDeckStateVersion
           ? currentState.movedIndexes
           : [];
+
       if (currentIndexes.includes(itemIndex)) return currentState;
+
       return {
         version: testimonialDeckStateVersion,
         movedIndexes: [...currentIndexes, itemIndex],
       };
     });
   };
+
   return (
-    <section {...stylex.props(styles.style23)}>
+    <section className="py-16 md:py-20">
       <div>
-        <h2 {...stylex.props(styles.style24)}>What people say</h2>
-        <p {...stylex.props(styles.style25)}>It's clear they love Anarlog.</p>
+        <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+          What people say
+        </h2>
+        <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
+          It's clear they love Anarlog.
+        </p>
       </div>
 
-      <div {...stylex.props(styles.style26)}>
-        <div {...stylex.props(styles.style27)}>
-          <p {...stylex.props(styles.style28)}>Try for yourself.</p>
-          <div {...stylex.props(styles.style29)}>
-            <Link to="/download/" {...stylex.props(styles.style30)}>
+      <div className="relative left-1/2 mx-auto mt-8 h-[19rem] w-screen max-w-[980px] -translate-x-1/2 overflow-visible px-5 sm:h-[18rem]">
+        <div className="absolute top-0 left-1/2 z-0 flex h-[15.5rem] w-[calc(100%-2.5rem)] max-w-[380px] -translate-x-1/2 flex-col items-center justify-center text-center sm:h-[13.5rem] sm:w-[380px] sm:translate-y-[34px]">
+          <p className="font-hand text-3xl leading-none font-semibold text-[#181613] sm:text-4xl">
+            Try for yourself.
+          </p>
+          <div className="mt-6 flex items-center justify-center">
+            <Link
+              to="/download/"
+              className="inline-flex items-center gap-2 rounded-full bg-[#181613] px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-[#4f4940]"
+            >
               Start using for free
               <ArrowRight size={16} weight="bold" aria-hidden="true" />
             </Link>
           </div>
         </div>
 
-        <div {...stylex.props(styles.style31)}>
+        <div className="sm:hidden">
           {testimonials.map((testimonial, itemIndex) => {
             const movedIndex = movedTestimonialIndexes.indexOf(itemIndex);
             const isMoved = movedIndex >= 0;
@@ -1007,17 +457,17 @@ export function TestimonialsSection() {
                   Math.max(remainingIndex, 0) %
                     mobileTestimonialPilePositions.length
                 ];
+
             return (
               <TestimonialTweetCard
                 key={itemIndex}
                 testimonial={testimonial}
                 ariaLabel={`Move ${testimonial.author} testimonial to the side`}
                 onMoveToSide={() => handleMoveToSide(itemIndex)}
-                sx={[
-                  styles.mobileTestimonialCard,
-                  (isMoved || remainingIndex > 0) &&
-                    styles.testimonialCardDisabled,
-                ]}
+                className={cn([
+                  "top-0 left-1/2 h-[15.5rem] w-[calc(100%-2.5rem)] cursor-pointer shadow-[0_24px_60px_rgba(24,22,19,0.14)] hover:shadow-[0_30px_75px_rgba(24,22,19,0.16)]",
+                  isMoved || remainingIndex > 0 ? "pointer-events-none" : "",
+                ])}
                 style={{
                   transform: `translate(calc(-50% + ${formatTestimonialOffset(pilePosition.x)}), ${pilePosition.y}px) scale(${pilePosition.scale}) rotate(${pilePosition.rotate}deg)`,
                   transformOrigin: "top center",
@@ -1030,7 +480,7 @@ export function TestimonialsSection() {
           })}
         </div>
 
-        <div {...stylex.props(styles.style32)}>
+        <div className="hidden sm:block">
           {testimonials.map((testimonial, itemIndex) => {
             const movedIndex = movedTestimonialIndexes.indexOf(itemIndex);
             const isMoved = movedIndex >= 0;
@@ -1044,18 +494,19 @@ export function TestimonialsSection() {
                   Math.max(remainingIndex, 0) %
                     desktopTestimonialPilePositions.length
                 ];
+
             return (
               <TestimonialTweetCard
                 key={itemIndex}
                 testimonial={testimonial}
                 ariaLabel={`Move ${testimonial.author} testimonial to the side`}
                 onMoveToSide={() => handleMoveToSide(itemIndex)}
-                sx={[
-                  styles.desktopTestimonialCard,
+                className={cn([
+                  "top-0 left-1/2 h-[13.5rem] w-[380px] cursor-pointer",
                   !isMoved && remainingIndex === 0
-                    ? styles.desktopTestimonialCardTop
-                    : styles.desktopTestimonialCardStacked,
-                ]}
+                    ? "shadow-[0_24px_60px_rgba(24,22,19,0.14)] hover:shadow-[0_30px_75px_rgba(24,22,19,0.16)]"
+                    : "shadow-[0_14px_36px_rgba(24,22,19,0.1)] hover:shadow-[0_18px_44px_rgba(24,22,19,0.13)]",
+                ])}
                 style={{
                   transform: `translate(calc(-50% + ${formatTestimonialOffset(pilePosition.x)}), ${pilePosition.y}px) scale(${pilePosition.scale}) rotate(${pilePosition.rotate}deg)`,
                   transformOrigin: "top center",

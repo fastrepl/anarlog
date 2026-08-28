@@ -5,18 +5,18 @@ import {
   Prohibit,
   SignIn,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ClientOnly, createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { useShareRouteContinuation } from "@/components/share-route-continuation";
 import {
+  sharedPrimaryButtonClassName,
+  sharedSecondaryButtonClassName,
   SharedNoteLoading,
   SharedNotePrompt,
   SharedNoteTransientError,
   SharedNoteUnavailable,
-  sharedButtonStyles,
 } from "@/components/shared-note-viewer";
 import { fetchUser } from "@/functions/auth";
 import { clearShareRouteContinuation } from "@/functions/share-route-continuation";
@@ -30,47 +30,28 @@ import {
 } from "@/lib/share-route-privacy";
 import { privateShareHeaders } from "@/lib/shared-note-meta";
 import { getInvitationRouteFailure } from "@/lib/shared-note-route-state";
-const styles = stylex.create({
-  style1: {
-    width: "1.5rem",
-    height: "1.5rem",
-  },
-  style2: {
-    flexBasis: "100%",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: "#b91c1c",
-  },
-});
+
 const invitationIdSchema = z.string().uuid();
+
 export const Route = createFileRoute("/team/invite/$invitationId")({
   beforeLoad: () => prepareShareRoutePrivacy(),
-  loader: async () => ({
-    user: await fetchUser(),
-  }),
+  loader: async () => ({ user: await fetchUser() }),
   head: () => ({
     meta: [
-      {
-        title: "Team invitation · Anarlog",
-      },
+      { title: "Team invitation · Anarlog" },
       {
         name: "robots",
         content: "noindex, nofollow, noarchive, nosnippet",
       },
-      {
-        name: "referrer",
-        content: "no-referrer",
-      },
-      {
-        name: "ai-content",
-        content: "private",
-      },
+      { name: "referrer", content: "no-referrer" },
+      { name: "ai-content", content: "private" },
     ],
   }),
   headers: () => privateShareHeaders,
   pendingComponent: SharedNoteLoading,
   component: Component,
 });
+
 function Component() {
   const { user } = Route.useLoaderData();
   const { invitationId } = Route.useParams();
@@ -80,6 +61,7 @@ function Component() {
     </ClientOnly>
   );
 }
+
 function InvitationClient({
   invitationId,
   signedIn,
@@ -116,6 +98,7 @@ function InvitationClient({
       if (!continuation.token || !parsedInvitationId) {
         throw new Error("workspace invitation unavailable");
       }
+
       const result = await acceptWorkspaceInvitation({
         data: {
           invitationId: parsedInvitationId,
@@ -131,9 +114,11 @@ function InvitationClient({
       await clearInvitationContinuation(pathname);
     },
   });
+
   if (continuation.isPending) {
     return <SharedNoteLoading />;
   }
+
   if (continuation.isError) {
     return (
       <SharedNoteTransientError
@@ -143,9 +128,11 @@ function InvitationClient({
       />
     );
   }
+
   if (!continuation.token || !parsedInvitationId) {
     return <SharedNoteUnavailable />;
   }
+
   if (!signedIn) {
     const search = new URLSearchParams({
       flow: "web",
@@ -153,16 +140,13 @@ function InvitationClient({
     });
     return (
       <SharedNotePrompt
-        icon={<SignIn {...stylex.props(styles.style1)} aria-hidden="true" />}
+        icon={<SignIn className="size-6" aria-hidden="true" />}
         title="Sign in to accept this invitation"
         description="Use the email address this workspace invitation was sent to. Your invitation stays in this browser tab while you sign in."
         actions={
           <a
             href={`/auth/?${search.toString()}`}
-            {...stylex.props([
-              sharedButtonStyles.base,
-              sharedButtonStyles.primary,
-            ])}
+            className={sharedPrimaryButtonClassName}
           >
             Sign in to Anarlog
           </a>
@@ -170,9 +154,11 @@ function InvitationClient({
       />
     );
   }
+
   if (invitationQuery.isPending) {
     return <SharedNoteLoading />;
   }
+
   const invitationFailure = getInvitationRouteFailure({
     acceptanceFailed: acceptMutation.isError,
     inspectionFailed: invitationQuery.isError,
@@ -184,62 +170,54 @@ function InvitationClient({
   ) {
     return <SharedNoteUnavailable />;
   }
+
   const invitation = invitationQuery.data.invitation;
+
   if (invitation.status === "accepted" || acceptMutation.isSuccess) {
     return (
       <SharedNotePrompt
-        icon={
-          <CheckCircle {...stylex.props(styles.style1)} aria-hidden="true" />
-        }
+        icon={<CheckCircle className="size-6" aria-hidden="true" />}
         title={`You've joined ${invitation.workspaceName}`}
         description="Open Anarlog on your computer to start collaborating in this workspace."
         actions={
-          <a
-            href="/download/"
-            {...stylex.props([
-              sharedButtonStyles.base,
-              sharedButtonStyles.primary,
-            ])}
-          >
+          <a href="/download/" className={sharedPrimaryButtonClassName}>
             Download Anarlog
           </a>
         }
       />
     );
   }
+
   if (invitation.status === "revoked") {
     return (
       <SharedNotePrompt
-        icon={<Prohibit {...stylex.props(styles.style1)} aria-hidden="true" />}
+        icon={<Prohibit className="size-6" aria-hidden="true" />}
         title="This invitation was revoked"
         description="Ask a workspace admin to send a new invitation."
       />
     );
   }
+
   if (invitation.status === "expired") {
     return (
       <SharedNotePrompt
-        icon={<Clock {...stylex.props(styles.style1)} aria-hidden="true" />}
+        icon={<Clock className="size-6" aria-hidden="true" />}
         title="This invitation has expired"
         description="Ask a workspace admin to send a new invitation."
       />
     );
   }
+
   return (
     <SharedNotePrompt
-      icon={
-        <EnvelopeOpen {...stylex.props(styles.style1)} aria-hidden="true" />
-      }
+      icon={<EnvelopeOpen className="size-6" aria-hidden="true" />}
       title={`Join ${invitation.workspaceName}`}
       description="Accept the invitation to become a member of this Anarlog workspace."
       actions={
         <>
           <button
             type="button"
-            {...stylex.props([
-              sharedButtonStyles.base,
-              sharedButtonStyles.primary,
-            ])}
+            className={sharedPrimaryButtonClassName}
             disabled={acceptMutation.isPending}
             onClick={() => acceptMutation.mutate()}
           >
@@ -247,10 +225,7 @@ function InvitationClient({
           </button>
           <button
             type="button"
-            {...stylex.props([
-              sharedButtonStyles.base,
-              sharedButtonStyles.secondary,
-            ])}
+            className={sharedSecondaryButtonClassName}
             onClick={() => {
               void clearInvitationContinuation(pathname).then(() => {
                 window.location.assign("/");
@@ -260,7 +235,7 @@ function InvitationClient({
             Not now
           </button>
           {invitationFailure === "accept-retry" && (
-            <p {...stylex.props(styles.style2)} role="status">
+            <p className="basis-full text-sm text-red-700" role="status">
               We couldn’t accept this invitation. Please try again.
             </p>
           )}
@@ -269,9 +244,8 @@ function InvitationClient({
     />
   );
 }
+
 async function clearInvitationContinuation(pathname: string) {
   clearShareRouteToken(pathname);
-  await clearShareRouteContinuation({
-    data: pathname,
-  }).catch(() => undefined);
+  await clearShareRouteContinuation({ data: pathname }).catch(() => undefined);
 }

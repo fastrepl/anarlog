@@ -1,10 +1,9 @@
 import { Trans } from "@lingui/react/macro";
 import { CheckCircle, PencilSimple } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import type { RefObject } from "react";
 import { useCallback } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
+import { cn } from "@anlg/utils";
 
 import { useRegenerateTranscript } from "./actions";
 import { TranscriptViewer } from "./renderer";
@@ -24,23 +23,24 @@ export function TranscriptEditButton({
   onEditModeChange: (editMode: boolean) => void;
 }) {
   return (
-    <div {...stylex.props(styles.editButtonWrapper)}>
+    <div className="mr-1 shrink-0">
       <button
         type="button"
         data-tauri-drag-region="false"
         aria-pressed={editMode}
         onClick={() => onEditModeChange(!editMode)}
-        {...stylex.props(
-          styles.editButton,
-          editMode && styles.editButtonActive,
-        )}
+        className={cn([
+          "border-border bg-card text-foreground flex h-7 items-center gap-1.5 rounded-full border px-2 text-sm font-medium @max-[480px]:w-7 @max-[480px]:justify-center @max-[480px]:gap-0 @max-[480px]:px-0",
+          "hover:bg-accent focus-visible:ring-ring transition-colors focus-visible:ring-2 focus-visible:outline-hidden",
+          editMode ? "border-primary/30 bg-primary/10 text-primary" : null,
+        ])}
       >
         {editMode ? (
-          <CheckCircle aria-hidden {...stylex.props(styles.icon)} />
+          <CheckCircle aria-hidden className="size-3.5" />
         ) : (
-          <PencilSimple aria-hidden {...stylex.props(styles.icon)} />
+          <PencilSimple aria-hidden className="size-3.5" />
         )}
-        <span {...stylex.props(styles.compactHidden)}>
+        <span className="@max-[480px]:sr-only">
           {editMode ? <Trans>Done</Trans> : <Trans>Edit</Trans>}
         </span>
       </button>
@@ -85,7 +85,7 @@ function TranscriptContent({
   }, [sessionId, stopTranscription]);
 
   return (
-    <div {...stylex.props(styles.root)}>
+    <div className="relative flex h-full flex-col overflow-hidden">
       {screen.kind === "running_batch" && (
         <TranscriptEmptyState
           isBatching
@@ -128,104 +128,3 @@ function TranscriptContent({
     </div>
   );
 }
-
-const compact = "@container (max-width: 480px)";
-
-const styles = stylex.create({
-  compactHidden: {
-    clip: {
-      default: null,
-      [compact]: "rect(0, 0, 0, 0)",
-    },
-    height: {
-      default: null,
-      [compact]: "1px",
-    },
-    margin: {
-      default: null,
-      [compact]: "-1px",
-    },
-    overflow: {
-      default: null,
-      [compact]: "hidden",
-    },
-    padding: {
-      default: null,
-      [compact]: 0,
-    },
-    position: {
-      default: null,
-      [compact]: "absolute",
-    },
-    whiteSpace: {
-      default: null,
-      [compact]: "nowrap",
-    },
-    width: {
-      default: null,
-      [compact]: "1px",
-    },
-  },
-  editButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: colors.card,
-      ":hover": colors.accent,
-    },
-    borderColor: colors.border,
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: {
-      default: null,
-      ":focus-visible": `0 0 0 2px ${colors.ring}`,
-    },
-    color: colors.foreground,
-    display: "flex",
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    gap: {
-      default: "0.375rem",
-      [compact]: 0,
-    },
-    height: "1.75rem",
-    justifyContent: {
-      default: null,
-      [compact]: "center",
-    },
-    outline: {
-      default: null,
-      ":focus-visible": "none",
-    },
-    paddingInline: {
-      default: "0.5rem",
-      [compact]: 0,
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color, border-color",
-    width: {
-      default: null,
-      [compact]: "1.75rem",
-    },
-  },
-  editButtonActive: {
-    backgroundColor: `color-mix(in oklab, ${colors.primary} 10%, transparent)`,
-    borderColor: `color-mix(in oklab, ${colors.primary} 30%, transparent)`,
-    color: colors.primary,
-  },
-  editButtonWrapper: {
-    flexShrink: 0,
-    marginRight: "0.25rem",
-  },
-  icon: {
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  root: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    overflow: "hidden",
-    position: "relative",
-  },
-});

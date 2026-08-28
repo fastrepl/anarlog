@@ -1,14 +1,13 @@
-import * as stylex from "@stylexjs/stylex";
 import { format } from "date-fns";
 import { useEffect, useRef, useState } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import {
   AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
+import { cn } from "@anlg/utils";
 
 import { EventChip } from "./event-chip";
 import { SessionChip } from "./session-chip";
@@ -95,32 +94,36 @@ export function DayCell({
 
   return (
     <div
-      {...stylex.props([
-        styles.cell,
-        (day.getDay() === 0 || day.getDay() === 6) && styles.weekend,
+      className={cn([
+        "border-r-border border-b-border border-r border-b",
+        "flex min-w-0 flex-col p-1.5 select-none",
+        (day.getDay() === 0 || day.getDay() === 6) && "bg-muted",
       ])}
     >
-      <div {...stylex.props(styles.dayHeader)}>
+      <div className="flex shrink-0 justify-end">
         <div
-          {...stylex.props([
-            styles.dayNumber,
-            today && styles.today,
-            !today && !isCurrentMonth && styles.outsideMonth,
+          className={cn([
+            "mb-1 flex h-7 w-7 items-center justify-center rounded-full text-sm font-medium",
+            today && "bg-primary text-primary-foreground",
+            !today && !isCurrentMonth && "text-muted-foreground/70",
             !today &&
               isCurrentMonth &&
               (day.getDay() === 0 || day.getDay() === 6) &&
-              styles.weekendDay,
+              "text-muted-foreground",
             !today &&
               isCurrentMonth &&
               day.getDay() !== 0 &&
               day.getDay() !== 6 &&
-              styles.currentMonthDay,
+              "text-foreground",
           ])}
         >
           {format(day, "d")}
         </div>
       </div>
-      <div ref={itemsRef} {...stylex.props(styles.items)}>
+      <div
+        ref={itemsRef}
+        className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden"
+      >
         {visibleEvents.map((eventId) => (
           <EventChip
             key={eventId}
@@ -138,21 +141,21 @@ export function DayCell({
         {overflow > 0 && (
           <Popover>
             <PopoverTrigger asChild>
-              <button {...stylex.props(styles.moreButton)}>
+              <button className="text-muted-foreground hover:text-muted-foreground shrink-0 cursor-pointer pl-1 text-left text-xs">
                 +{overflow} more
               </button>
             </PopoverTrigger>
             <PopoverContent
               variant="app"
               align="start"
-              sx={styles.popover}
+              className="max-h-[300px] w-[220px] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <AppFloatingPanel sx={styles.popoverPanel}>
-                <div {...stylex.props(styles.popoverTitle)}>
+              <AppFloatingPanel className="p-2">
+                <div className="text-foreground mb-2 text-sm font-medium">
                   {format(day, "MMM d, yyyy")}
                 </div>
-                <div {...stylex.props(styles.popoverItems)}>
+                <div className="flex flex-col gap-0.5">
                   {eventIds.map((eventId) => (
                     <EventChip
                       key={eventId}
@@ -176,89 +179,3 @@ export function DayCell({
     </div>
   );
 }
-
-const styles = stylex.create({
-  cell: {
-    borderBottomColor: colors.border,
-    borderBottomStyle: "solid",
-    borderBottomWidth: "1px",
-    borderRightColor: colors.border,
-    borderRightStyle: "solid",
-    borderRightWidth: "1px",
-    display: "flex",
-    flexDirection: "column",
-    minWidth: 0,
-    padding: "0.375rem",
-    userSelect: "none",
-  },
-  currentMonthDay: {
-    color: colors.foreground,
-  },
-  dayHeader: {
-    display: "flex",
-    flexShrink: 0,
-    justifyContent: "flex-end",
-  },
-  dayNumber: {
-    alignItems: "center",
-    borderRadius: radii.full,
-    display: "flex",
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    height: "1.75rem",
-    justifyContent: "center",
-    lineHeight: "1.25rem",
-    marginBottom: "0.25rem",
-    width: "1.75rem",
-  },
-  items: {
-    display: "flex",
-    flex: "1",
-    flexDirection: "column",
-    gap: "0.125rem",
-    minHeight: 0,
-    overflow: "hidden",
-  },
-  moreButton: {
-    color: colors.mutedForeground,
-    cursor: "pointer",
-    flexShrink: 0,
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-    paddingLeft: "0.25rem",
-    textAlign: "left",
-  },
-  outsideMonth: {
-    color: `color-mix(in srgb, ${colors.mutedForeground} 70%, transparent)`,
-  },
-  popover: {
-    maxHeight: "300px",
-    overflowY: "auto",
-    width: "220px",
-  },
-  popoverItems: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.125rem",
-  },
-  popoverPanel: {
-    padding: "0.5rem",
-  },
-  popoverTitle: {
-    color: colors.foreground,
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    lineHeight: "1.25rem",
-    marginBottom: "0.5rem",
-  },
-  today: {
-    backgroundColor: colors.primary,
-    color: colors.primaryForeground,
-  },
-  weekend: {
-    backgroundColor: colors.muted,
-  },
-  weekendDay: {
-    color: colors.mutedForeground,
-  },
-});

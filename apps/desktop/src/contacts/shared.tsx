@@ -1,9 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowsDownUp, MagnifyingGlass, Plus, X } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import type { KeyboardEvent, RefObject } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Avatar } from "@anlg/ui/components/avatar";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
@@ -20,13 +18,13 @@ import { CustomSidebarHeader } from "~/sidebar/custom-sidebar-header";
 export function ContactFacehash({
   name,
   size = 40,
-  sx,
+  className,
 }: {
   name: string;
   size?: number;
-  sx?: stylex.StyleXStyles;
+  className?: string;
 }) {
-  return <Avatar seed={name} label={name} size={size} sx={sx} />;
+  return <Avatar seed={name} label={name} size={size} className={className} />;
 }
 
 export type SortOption =
@@ -49,31 +47,40 @@ function SortDropdown({
         <Button
           size="icon"
           variant="ghost"
-          sx={styles.iconButton}
+          className="text-muted-foreground hover:text-foreground"
           aria-label={t`Sort options`}
         >
           <ArrowsDownUp size={16} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent variant="app" align="end">
-        <AppFloatingPanel sx={styles.menuPanel}>
+        <AppFloatingPanel className="overflow-hidden p-1">
           <DropdownMenuRadioGroup
             value={sortOption}
             onValueChange={(value) => setSortOption(value as SortOption)}
           >
-            <DropdownMenuRadioItem value="alphabetical" sx={styles.menuItem}>
+            <DropdownMenuRadioItem
+              value="alphabetical"
+              className="cursor-pointer text-xs"
+            >
               A-Z
             </DropdownMenuRadioItem>
             <DropdownMenuRadioItem
               value="reverse-alphabetical"
-              sx={styles.menuItem}
+              className="cursor-pointer text-xs"
             >
               Z-A
             </DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="oldest" sx={styles.menuItem}>
+            <DropdownMenuRadioItem
+              value="oldest"
+              className="cursor-pointer text-xs"
+            >
               <Trans>Oldest</Trans>
             </DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="newest" sx={styles.menuItem}>
+            <DropdownMenuRadioItem
+              value="newest"
+              className="cursor-pointer text-xs"
+            >
               <Trans>Newest</Trans>
             </DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
@@ -106,11 +113,11 @@ export function ColumnHeader({
   };
 
   return (
-    <div {...stylex.props(styles.container)}>
+    <div className="@container">
       <CustomSidebarHeader>
-        <div {...stylex.props(styles.headerActions)}>
+        <div className="flex shrink-0 items-center">
           {sortOption && setSortOption && (
-            <div {...stylex.props(styles.sortControl)}>
+            <div className="hidden @[220px]:block">
               <SortDropdown
                 sortOption={sortOption}
                 setSortOption={setSortOption}
@@ -121,7 +128,7 @@ export function ColumnHeader({
             onClick={onAdd}
             size="icon"
             variant="ghost"
-            sx={styles.iconButton}
+            className="text-muted-foreground hover:text-foreground"
             title={t`Add`}
           >
             <Plus size={16} />
@@ -129,9 +136,9 @@ export function ColumnHeader({
         </div>
       </CustomSidebarHeader>
       {onSearchChange && (
-        <div {...stylex.props(styles.searchSection)}>
-          <div {...stylex.props(styles.searchField)}>
-            <MagnifyingGlass {...stylex.props(styles.searchIcon)} />
+        <div className="pb-2">
+          <div className="border-border bg-muted focus-within:bg-accent flex h-8 w-full items-center gap-2 rounded-lg border px-3 transition-colors">
+            <MagnifyingGlass className="text-muted-foreground h-4 w-4 shrink-0" />
             <input
               ref={searchInputRef}
               type="text"
@@ -139,15 +146,15 @@ export function ColumnHeader({
               onChange={(e) => onSearchChange(e.target.value)}
               onKeyDown={handleSearchKeyDown}
               placeholder={t`Search contacts...`}
-              {...stylex.props(styles.searchInput)}
+              className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm placeholder:text-sm focus:outline-hidden"
             />
             {searchValue && (
               <button
                 onClick={() => onSearchChange("")}
-                {...stylex.props(styles.clearButton)}
+                className="text-muted-foreground hover:text-foreground h-4 w-4 shrink-0 transition-colors"
                 aria-label={t`Clear search`}
               >
-                <X {...stylex.props(styles.clearIcon)} />
+                <X className="h-4 w-4" />
               </button>
             )}
           </div>
@@ -156,94 +163,3 @@ export function ColumnHeader({
     </div>
   );
 }
-
-const styles = stylex.create({
-  clearButton: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    flexShrink: 0,
-    height: "1rem",
-    transitionDuration: "150ms",
-    transitionProperty: "color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "1rem",
-  },
-  clearIcon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  container: {
-    containerType: "inline-size",
-  },
-  headerActions: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-  },
-  iconButton: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-  },
-  menuItem: {
-    cursor: "pointer",
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-  },
-  menuPanel: {
-    overflow: "hidden",
-    padding: "0.25rem",
-  },
-  searchField: {
-    alignItems: "center",
-    backgroundColor: {
-      default: colors.muted,
-      ":focus-within": colors.accent,
-    },
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    display: "flex",
-    gap: "0.5rem",
-    height: "2rem",
-    paddingInline: "0.75rem",
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "100%",
-  },
-  searchIcon: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    height: "1rem",
-    width: "1rem",
-  },
-  searchInput: {
-    "::placeholder": {
-      color: colors.mutedForeground,
-      fontSize: "0.875rem",
-    },
-    backgroundColor: "transparent",
-    flex: "1",
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-    minWidth: 0,
-    outline: {
-      default: null,
-      ":focus": "none",
-    },
-  },
-  searchSection: {
-    paddingBottom: "0.5rem",
-  },
-  sortControl: {
-    display: {
-      default: "none",
-      "@container (min-width: 220px)": "block",
-    },
-  },
-});

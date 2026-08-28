@@ -6,10 +6,8 @@ import {
   Users,
   WarningCircle,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { NoteEditor } from "@anlg/editor/note";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { Button } from "@anlg/ui/components/ui/button";
@@ -95,7 +93,7 @@ function SharedNoteSignInAction() {
 
   return (
     <Button
-      sx={styles.signInButton}
+      className="mt-4"
       disabled={signInMutation.isPending}
       onClick={() => signInMutation.mutate()}
     >
@@ -259,22 +257,19 @@ function SharedNoteDocument({
   return (
     <SessionSurface
       header={
-        <div {...stylex.props(styles.header)}>
-          <Icon {...stylex.props(styles.headerIcon)} />
-          <div {...stylex.props(styles.headerCopy)}>
-            <div {...stylex.props(styles.headerTitle)}>
+        <div className="flex h-12 min-w-0 items-center gap-2 px-3">
+          <Icon className="text-muted-foreground size-4 shrink-0" />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium">
               {title || t`Untitled`}
             </div>
-            <div {...stylex.props(styles.headerSubtitle)}>{subtitle}</div>
+            <div className="text-muted-foreground text-xs">{subtitle}</div>
           </div>
         </div>
       }
     >
-      <div {...stylex.props(styles.content)}>
-        <div
-          ref={commentController.containerRef}
-          {...stylex.props(styles.editorContainer)}
-        >
+      <div className="h-full overflow-auto px-3 pt-2 pb-6">
+        <div ref={commentController.containerRef} className="relative">
           <NoteEditor
             key={contentKey}
             className="session-note-editor"
@@ -357,25 +352,25 @@ function SharedAttachmentList({
   );
   if (unreferenced.length === 0) return null;
   return (
-    <section {...stylex.props(styles.attachments)}>
-      <h2 {...stylex.props(styles.attachmentsTitle)}>Attachments</h2>
-      <div {...stylex.props(styles.attachmentList)}>
+    <section className="border-border/60 mt-8 border-t pt-5">
+      <h2 className="mb-2 text-sm font-medium">Attachments</h2>
+      <div className="space-y-2">
         {unreferenced.map((attachment) => {
           const resolution = resolveAttachment(attachment.id);
           if (attachment.contentType.startsWith("audio/") && resolution?.src) {
             return (
               <div
                 key={attachment.id}
-                {...stylex.props(styles.audioAttachment)}
+                className="border-border/60 rounded-xl border px-3 py-3"
               >
-                <p {...stylex.props(styles.audioAttachmentName)}>
+                <p className="text-muted-foreground mb-2 truncate text-xs">
                   {attachment.filename}
                 </p>
                 <audio
                   controls
                   preload="metadata"
                   src={resolution.src}
-                  {...stylex.props(styles.audio)}
+                  className="h-9 w-full"
                 />
               </div>
             );
@@ -393,16 +388,13 @@ function SharedAttachmentList({
                   void openerCommands.openPath(resolution.path, null);
                 }
               }}
-              {...stylex.props(styles.fileAttachment)}
+              className="border-border/60 hover:bg-muted/60 disabled:text-muted-foreground flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left disabled:cursor-not-allowed"
             >
-              <Paperclip
-                {...stylex.props(styles.attachmentIcon)}
-                aria-hidden="true"
-              />
-              <span {...stylex.props(styles.attachmentName)}>
+              <Paperclip className="size-4 shrink-0" aria-hidden="true" />
+              <span className="min-w-0 flex-1 truncate text-sm">
                 {attachment.filename}
               </span>
-              <span {...stylex.props(styles.attachmentMeta)}>
+              <span className="text-muted-foreground shrink-0 text-xs">
                 {resolution
                   ? formatFileSize(attachment.sizeBytes)
                   : "Unavailable"}
@@ -435,10 +427,10 @@ function formatFileSize(bytes: number) {
 function SharedNoteLoading() {
   return (
     <SessionSurface>
-      <div {...stylex.props(styles.loading)}>
-        <div {...stylex.props(styles.skeleton, styles.skeletonTitle)} />
-        <div {...stylex.props(styles.skeleton, styles.skeletonWide)} />
-        <div {...stylex.props(styles.skeleton, styles.skeletonNarrow)} />
+      <div className="flex h-full flex-col gap-3 px-4 py-5">
+        <div className="bg-muted h-5 w-3/5 animate-pulse rounded-md" />
+        <div className="bg-muted/80 h-4 w-4/5 animate-pulse rounded-md" />
+        <div className="bg-muted/70 h-4 w-2/3 animate-pulse rounded-md" />
       </div>
     </SessionSurface>
   );
@@ -457,208 +449,14 @@ function SharedNoteUnavailable({
 }) {
   return (
     <SessionSurface>
-      <div {...stylex.props(styles.unavailable)}>
-        <div {...stylex.props(styles.unavailableContent)}>
-          <Icon {...stylex.props(styles.unavailableIcon)} />
-          <h1 {...stylex.props(styles.unavailableTitle)}>{title}</h1>
-          <p {...stylex.props(styles.unavailableDescription)}>{description}</p>
+      <div className="flex h-full items-center justify-center px-6 text-center">
+        <div className="max-w-sm">
+          <Icon className="text-muted-foreground mx-auto mb-3 size-6" />
+          <h1 className="text-sm font-medium">{title}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">{description}</p>
           {action}
         </div>
       </div>
     </SessionSurface>
   );
 }
-
-const pulse = stylex.keyframes({
-  "0%, 100%": {
-    opacity: 1,
-  },
-  "50%": {
-    opacity: 0.5,
-  },
-});
-
-const styles = stylex.create({
-  attachmentIcon: {
-    flexShrink: 0,
-    height: "1rem",
-    width: "1rem",
-  },
-  attachmentList: {
-    marginTop: {
-      default: null,
-      ":is(*) > * + *": "0.5rem",
-    },
-  },
-  attachmentMeta: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    fontSize: "0.75rem",
-  },
-  attachmentName: {
-    flex: "1",
-    fontSize: "0.875rem",
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  attachments: {
-    borderColor: `color-mix(in oklab, ${colors.border} 60%, transparent)`,
-    borderStyle: "solid",
-    borderTopWidth: "1px",
-    borderRightWidth: "0",
-    borderBottomWidth: "0",
-    borderLeftWidth: "0",
-    marginTop: "2rem",
-    paddingTop: "1.25rem",
-  },
-  attachmentsTitle: {
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    marginBottom: "0.5rem",
-  },
-  audio: {
-    height: "2.25rem",
-    width: "100%",
-  },
-  audioAttachment: {
-    borderColor: `color-mix(in oklab, ${colors.border} 60%, transparent)`,
-    borderRadius: radii.xl,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    paddingBlock: "0.75rem",
-    paddingInline: "0.75rem",
-  },
-  audioAttachmentName: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    marginBottom: "0.5rem",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  content: {
-    height: "100%",
-    overflow: "auto",
-    paddingBottom: "1.5rem",
-    paddingInline: "0.75rem",
-    paddingTop: "0.5rem",
-  },
-  editorContainer: {
-    position: "relative",
-  },
-  fileAttachment: {
-    alignItems: "center",
-    backgroundColor: {
-      default: null,
-      ":hover": `color-mix(in oklab, ${colors.muted} 60%, transparent)`,
-    },
-    borderColor: `color-mix(in oklab, ${colors.border} 60%, transparent)`,
-    borderRadius: radii.xl,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    color: {
-      default: null,
-      ":disabled": colors.mutedForeground,
-    },
-    cursor: {
-      default: null,
-      ":disabled": "not-allowed",
-    },
-    display: "flex",
-    gap: "0.75rem",
-    paddingBlock: "0.75rem",
-    paddingInline: "0.75rem",
-    textAlign: "left",
-    width: "100%",
-  },
-  header: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-    height: "3rem",
-    minWidth: 0,
-    paddingInline: "0.75rem",
-  },
-  headerCopy: {
-    minWidth: 0,
-  },
-  headerIcon: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    height: "1rem",
-    width: "1rem",
-  },
-  headerSubtitle: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-  },
-  headerTitle: {
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  loading: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-    height: "100%",
-    paddingBlock: "1.25rem",
-    paddingInline: "1rem",
-  },
-  signInButton: {
-    marginTop: "1rem",
-  },
-  skeleton: {
-    animationDuration: "2s",
-    animationIterationCount: "infinite",
-    animationName: pulse,
-    animationTimingFunction: "cubic-bezier(0.4, 0, 0.6, 1)",
-    borderRadius: radii.md,
-  },
-  skeletonNarrow: {
-    backgroundColor: `color-mix(in oklab, ${colors.muted} 70%, transparent)`,
-    height: "1rem",
-    width: "66.666667%",
-  },
-  skeletonTitle: {
-    backgroundColor: colors.muted,
-    height: "1.25rem",
-    width: "60%",
-  },
-  skeletonWide: {
-    backgroundColor: `color-mix(in oklab, ${colors.muted} 80%, transparent)`,
-    height: "1rem",
-    width: "80%",
-  },
-  unavailable: {
-    alignItems: "center",
-    display: "flex",
-    height: "100%",
-    justifyContent: "center",
-    paddingInline: "1.5rem",
-    textAlign: "center",
-  },
-  unavailableContent: {
-    maxWidth: "24rem",
-  },
-  unavailableDescription: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    marginTop: "0.25rem",
-  },
-  unavailableIcon: {
-    color: colors.mutedForeground,
-    height: "1.5rem",
-    marginBottom: "0.75rem",
-    marginInline: "auto",
-    width: "1.5rem",
-  },
-  unavailableTitle: {
-    fontSize: "0.875rem",
-    fontWeight: 500,
-  },
-});

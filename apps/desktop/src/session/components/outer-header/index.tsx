@@ -1,14 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import { Headset, Square, VideoCamera } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useCallback, useRef, useState } from "react";
 
-import {
-  colors,
-  fonts,
-  radii,
-  shadows,
-} from "@anlg/design-system/tokens.stylex";
 import { commands as deeplinkCommands } from "@anlg/plugin-deeplink2";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import {
@@ -16,7 +9,7 @@ import {
   PopoverAnchor,
   PopoverContent,
 } from "@anlg/ui/components/ui/popover";
-import { safeParseDate } from "@anlg/utils";
+import { cn, safeParseDate } from "@anlg/utils";
 
 import { FolderPicker } from "../folder-picker";
 import { TranscriptEditButton } from "../note-input/transcript";
@@ -89,31 +82,30 @@ export function OuterHeader({
   return (
     <div
       data-tauri-drag-region
-      {...stylex.props(
-        styles.root,
-        standaloneWindow &&
-          (showWindowControlsGutter
-            ? styles.windowControlsPadding
-            : styles.defaultPadding),
-        !standaloneWindow && leftsidebar.expanded && styles.defaultPadding,
+      className={cn([
+        "relative flex w-full items-center gap-[2px]",
+        "h-12",
+        standaloneWindow && (showWindowControlsGutter ? "pl-[76px]" : "pl-2"),
+        !standaloneWindow && leftsidebar.expanded && "pl-2",
         showSidebarTimelineHeaderGutter &&
-          (showWindowControlsGutter
-            ? styles.sidebarWindowControlsPadding
-            : styles.sidebarPadding),
-      )}
+          (showWindowControlsGutter ? "pl-[108px]" : "pl-[32px]"),
+      ])}
     >
       {viewSwitcher}
       {showTitleInput && tab ? (
-        <div {...stylex.props(styles.titleContainer)}>
+        <div className="max-w-56 min-w-0 shrink">
           <TitleInput key={tab.id} tab={tab} variant="breadcrumb" />
         </div>
       ) : null}
       <div
         data-tauri-drag-region
         data-session-header-spacer
-        {...stylex.props(styles.spacer)}
+        className="min-h-full min-w-0 flex-1"
       />
-      <div data-tauri-drag-region {...stylex.props(styles.actions)}>
+      <div
+        data-tauri-drag-region
+        className="relative z-10 flex shrink-0 items-center pr-1"
+      >
         <HeaderMeetingControl
           sessionId={sessionId}
           sessionMode={sessionMode}
@@ -312,7 +304,7 @@ function HeaderMeetingActionPill({
       return {
         label: t`Stop`,
         title: t`Stop listening`,
-        icon: <Square {...stylex.props(styles.stopIcon)} weight="fill" />,
+        icon: <Square className="size-3 text-red-500" weight="fill" />,
         onClick: stopListening,
       };
     }
@@ -321,7 +313,7 @@ function HeaderMeetingActionPill({
       return {
         label: t`Stop`,
         title: t`Stop transcription`,
-        icon: <Square {...stylex.props(styles.stopIcon)} weight="fill" />,
+        icon: <Square className="size-3 text-red-500" weight="fill" />,
         onClick: () => {
           void stopTranscription(sessionId);
         },
@@ -336,7 +328,7 @@ function HeaderMeetingActionPill({
           <img
             src="/assets/anarlog-icon.png"
             alt=""
-            {...stylex.props(styles.meetingIcon)}
+            className="size-3.5 shrink-0"
           />
         ) : remote ? (
           getMeetingDisplay(remote.type).icon
@@ -369,7 +361,7 @@ function HeaderMeetingActionPill({
 
   return (
     <Popover open={showWelcomeDemoPrompt}>
-      <div {...stylex.props(styles.meetingControl)}>
+      <div className="relative mr-1 flex min-w-0 shrink-0 items-center">
         <PopoverAnchor asChild>
           <button
             type="button"
@@ -378,20 +370,22 @@ function HeaderMeetingActionPill({
             title={action.title}
             disabled={disabled}
             onClick={action.onClick}
-            {...stylex.props(
-              styles.meetingButton,
+            className={cn([
+              "flex h-7 max-w-56 shrink-0 items-center gap-1.5 overflow-hidden rounded-full border pr-2.5 pl-1.5",
+              "text-sm font-medium",
+              "transition-colors",
               isPrimaryCta
-                ? styles.primaryMeetingButton
-                : styles.secondaryMeetingButton,
+                ? "border-primary bg-primary text-primary-foreground shadow-sm dark:border-white dark:bg-white dark:text-black"
+                : "border-border bg-card text-foreground",
               !disabled &&
                 (isPrimaryCta
-                  ? styles.primaryMeetingButtonEnabled
-                  : styles.secondaryMeetingButtonEnabled),
-              disabled && styles.meetingButtonDisabled,
-            )}
+                  ? "hover:bg-primary/90 dark:hover:bg-white/90"
+                  : "hover:bg-accent"),
+              disabled && "cursor-default opacity-60",
+            ])}
           >
             {action.icon}
-            <span {...stylex.props(styles.truncate)}>{action.label}</span>
+            <span className="truncate">{action.label}</span>
           </button>
         </PopoverAnchor>
         {showWelcomeDemoPrompt ? (
@@ -400,29 +394,29 @@ function HeaderMeetingActionPill({
             side="bottom"
             sideOffset={10}
             onOpenAutoFocus={(event) => event.preventDefault()}
-            sx={styles.welcomePrompt}
+            className="border-border bg-popover text-popover-foreground pointer-events-none w-72 max-w-[calc(100vw-1rem)] rounded-md border px-3 py-2.5 text-sm shadow-sm"
           >
             <span
               data-welcome-demo-prompt-tail
               aria-hidden="true"
-              {...stylex.props(styles.promptTail)}
+              className="border-border bg-popover absolute -top-1.5 left-1/2 size-3 -translate-x-1/2 rotate-45 border-t border-l"
             />
-            <span {...stylex.props(styles.promptTitle)}>{t`Try the demo`}</span>
-            <span {...stylex.props(styles.promptDescription)}>
+            <span className="relative block font-medium">{t`Try the demo`}</span>
+            <span className="text-muted-foreground relative mt-0.5 block leading-snug">
               {t`This is a prerecorded demo, so your camera stays off. Click Join & record to see Anarlog in action.`}
             </span>
           </PopoverContent>
         ) : showCountdown ? (
           <div
             data-header-meeting-countdown
-            {...stylex.props(styles.countdown)}
+            className="border-border bg-popover text-popover-foreground pointer-events-none absolute top-full left-1/2 z-20 mt-2 -translate-x-1/2 rounded-md border px-2.5 py-1 font-mono text-xs whitespace-nowrap tabular-nums shadow-sm"
           >
             <span
               data-header-meeting-countdown-tail
               aria-hidden="true"
-              {...stylex.props(styles.promptTail)}
+              className="border-border bg-popover absolute -top-1.5 left-1/2 size-3 -translate-x-1/2 rotate-45 border-t border-l"
             />
-            <span {...stylex.props(styles.relative)}>{countdown.label}</span>
+            <span className="relative">{countdown.label}</span>
           </div>
         ) : null}
       </div>
@@ -439,7 +433,7 @@ function getMeetingDisplay(type: RemoteMeeting["type"]) {
           <img
             src="/assets/zoom-icon.svg"
             alt=""
-            {...stylex.props(styles.meetingIcon)}
+            className="size-3.5 shrink-0"
           />
         ),
       };
@@ -450,7 +444,7 @@ function getMeetingDisplay(type: RemoteMeeting["type"]) {
           <img
             src="/assets/google-meet.svg"
             alt=""
-            {...stylex.props(styles.meetingIcon)}
+            className="size-3.5 shrink-0"
           />
         ),
       };
@@ -458,212 +452,25 @@ function getMeetingDisplay(type: RemoteMeeting["type"]) {
       return {
         name: "Webex",
         icon: (
-          <img
-            src="/assets/webex.png"
-            alt=""
-            {...stylex.props(styles.meetingIcon)}
-          />
+          <img src="/assets/webex.png" alt="" className="size-3.5 shrink-0" />
         ),
       };
     case "teams":
       return {
         name: "Teams",
         icon: (
-          <img
-            src="/assets/teams.png"
-            alt=""
-            {...stylex.props(styles.meetingIcon)}
-          />
+          <img src="/assets/teams.png" alt="" className="size-3.5 shrink-0" />
         ),
       };
     case "cal-com":
       return {
         name: "Cal.com",
-        icon: <VideoCamera {...stylex.props(styles.meetingIcon)} />,
+        icon: <VideoCamera className="size-3.5 shrink-0" />,
       };
     default:
       return {
         name: "Meeting",
-        icon: <Headset {...stylex.props(styles.meetingIcon)} />,
+        icon: <Headset className="size-3.5 shrink-0" />,
       };
   }
 }
-
-const styles = stylex.create({
-  actions: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    paddingRight: "0.25rem",
-    position: "relative",
-    zIndex: 10,
-  },
-  countdown: {
-    backgroundColor: colors.popover,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: shadows.sm,
-    color: colors.popoverForeground,
-    fontFamily: fonts.mono,
-    fontSize: "0.75rem",
-    fontVariantNumeric: "tabular-nums",
-    left: "50%",
-    marginTop: "0.5rem",
-    paddingBlock: "0.25rem",
-    paddingInline: "0.625rem",
-    pointerEvents: "none",
-    position: "absolute",
-    top: "100%",
-    transform: "translateX(-50%)",
-    whiteSpace: "nowrap",
-    zIndex: 20,
-  },
-  defaultPadding: {
-    paddingLeft: "0.5rem",
-  },
-  meetingButton: {
-    alignItems: "center",
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    display: "flex",
-    flexShrink: 0,
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    gap: "0.375rem",
-    height: "1.75rem",
-    maxWidth: "14rem",
-    overflow: "hidden",
-    paddingLeft: "0.375rem",
-    paddingRight: "0.625rem",
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color, border-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  meetingButtonDisabled: {
-    cursor: "default",
-    opacity: 0.6,
-  },
-  meetingControl: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    marginRight: "0.25rem",
-    minWidth: 0,
-    position: "relative",
-  },
-  meetingIcon: {
-    flexShrink: 0,
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  primaryMeetingButton: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-    boxShadow: shadows.sm,
-    color: colors.primaryForeground,
-  },
-  primaryMeetingButtonEnabled: {
-    backgroundColor: {
-      default: colors.primary,
-      ":hover": `color-mix(in srgb, ${colors.primary} 90%, transparent)`,
-    },
-  },
-  promptDescription: {
-    color: colors.mutedForeground,
-    display: "block",
-    lineHeight: 1.375,
-    marginTop: "0.125rem",
-    position: "relative",
-  },
-  promptTail: {
-    backgroundColor: colors.popover,
-    borderLeftColor: colors.border,
-    borderLeftStyle: "solid",
-    borderLeftWidth: "1px",
-    borderTopColor: colors.border,
-    borderTopStyle: "solid",
-    borderTopWidth: "1px",
-    height: "0.75rem",
-    left: "50%",
-    position: "absolute",
-    top: "-0.375rem",
-    transform: "translateX(-50%) rotate(45deg)",
-    width: "0.75rem",
-  },
-  promptTitle: {
-    display: "block",
-    fontWeight: 500,
-    position: "relative",
-  },
-  relative: {
-    position: "relative",
-  },
-  root: {
-    alignItems: "center",
-    display: "flex",
-    gap: "2px",
-    height: "3rem",
-    position: "relative",
-    width: "100%",
-  },
-  secondaryMeetingButton: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    color: colors.foreground,
-  },
-  secondaryMeetingButtonEnabled: {
-    backgroundColor: {
-      default: colors.card,
-      ":hover": colors.accent,
-    },
-  },
-  sidebarPadding: {
-    paddingLeft: "32px",
-  },
-  sidebarWindowControlsPadding: {
-    paddingLeft: "108px",
-  },
-  spacer: {
-    flex: "1",
-    minHeight: "100%",
-    minWidth: 0,
-  },
-  stopIcon: {
-    color: "#ef4444",
-    height: "0.75rem",
-    width: "0.75rem",
-  },
-  titleContainer: {
-    flexShrink: 1,
-    maxWidth: "14rem",
-    minWidth: 0,
-  },
-  truncate: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  welcomePrompt: {
-    backgroundColor: colors.popover,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: shadows.sm,
-    color: colors.popoverForeground,
-    fontSize: "0.875rem",
-    maxWidth: "calc(100vw - 1rem)",
-    paddingBlock: "0.625rem",
-    paddingInline: "0.75rem",
-    pointerEvents: "none",
-    width: "18rem",
-  },
-  windowControlsPadding: {
-    paddingLeft: "76px",
-  },
-});
-
-export { styles as outerHeaderStyles };

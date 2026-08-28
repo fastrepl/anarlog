@@ -1,14 +1,14 @@
-import * as stylex from "@stylexjs/stylex";
 import { type ComponentProps, type ReactNode } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@anlg/ui/components/ui/tooltip";
-import type { StyleXProps } from "@anlg/ui/lib/stylex";
+import { cn } from "@anlg/utils";
+
+import { floatingActionSurfaceClassName } from "~/shared/floating-action-surface";
 
 export { ActionableTooltipContent } from "~/session/components/shared";
 
@@ -22,7 +22,7 @@ export function FloatingButton({
   tooltip,
   error,
   subtle,
-  sx,
+  className,
 }: {
   icon?: ReactNode;
   children: ReactNode;
@@ -32,7 +32,7 @@ export function FloatingButton({
   disabled?: boolean;
   error?: boolean;
   subtle?: boolean;
-  sx?: StyleXProps["sx"];
+  className?: string;
   tooltip?: {
     content: ReactNode;
     side?: ComponentProps<typeof TooltipContent>["side"];
@@ -43,7 +43,13 @@ export function FloatingButton({
   const button = (
     <Button
       size="lg"
-      sx={[styles.button, error && styles.error, subtle && styles.subtle, sx]}
+      className={cn([
+        "rounded-full border-2 transition-[background-color,border-color,color,opacity,box-shadow] duration-200 focus-visible:ring-0",
+        floatingActionSurfaceClassName,
+        error && "border-red-500",
+        subtle && "opacity-40 hover:opacity-100",
+        className,
+      ])}
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
@@ -66,43 +72,10 @@ export function FloatingButton({
       <TooltipContent
         side={tooltip.side ?? "top"}
         align={tooltip.align}
-        sx={styles.tooltip}
+        className="rounded-xl pr-1.5"
       >
         {tooltip.content}
       </TooltipContent>
     </Tooltip>
   );
 }
-
-const styles = stylex.create({
-  button: {
-    backgroundColor: {
-      default: colors.foreground,
-      ":hover": colors.foreground,
-    },
-    borderColor: "rgb(255 255 255 / 0.2)",
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "2px",
-    boxShadow:
-      "inset 0 0 0 1px rgb(255 255 255 / 0.22), 0 10px 28px rgb(0 0 0 / 0.28)",
-    color: colors.background,
-    transitionDuration: "200ms",
-    transitionProperty:
-      "background-color, border-color, color, opacity, box-shadow",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  error: {
-    borderColor: "#ef4444",
-  },
-  subtle: {
-    opacity: {
-      default: 0.4,
-      ":hover": 1,
-    },
-  },
-  tooltip: {
-    borderRadius: radii.xl,
-    paddingRight: "0.375rem",
-  },
-});

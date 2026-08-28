@@ -14,7 +14,6 @@ import {
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
 import { Buildings, Note, User } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import {
   type EditorState,
   NodeSelection,
@@ -230,14 +229,13 @@ export function MentionSuggestion({ config }: { config: MentionConfig }) {
   });
 
   if (!active || items.length === 0) return null;
-  const popupStyles = stylex.props(styles.popup);
 
   return createPortal(
     <div
       ref={popupRef}
       data-editor-escape-consumer
-      {...popupStyles}
-      className={`mention-container ${popupStyles.className}`}
+      className="mention-container z-50"
+      style={{ position: "absolute", top: 0, left: 0 }}
     >
       {items.map((item, index) => (
         <button
@@ -311,12 +309,3 @@ export function mentionSkipPlugin() {
     },
   });
 }
-
-const styles = stylex.create({
-  popup: {
-    left: 0,
-    position: "absolute",
-    top: 0,
-    zIndex: 50,
-  },
-});

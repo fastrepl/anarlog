@@ -1,9 +1,7 @@
 import { ArrowElbowDownLeft } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { type CSSProperties, useEffect, useRef } from "react";
 
-import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
-import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
+import { cn } from "@anlg/utils";
 
 type DropdownOption = {
   id: string;
@@ -48,50 +46,43 @@ export function ParticipantDropdown({
   return (
     <div
       ref={floatingRef}
-      {...mergeStyleXProps(styles.root, undefined, floatingStyles)}
+      style={floatingStyles}
+      className="bg-popover overflow-hidden rounded-md border shadow-md"
       onMouseDown={(event) => {
         event.preventDefault();
         event.stopPropagation();
       }}
     >
-      <div ref={listRef} {...stylex.props(styles.list)}>
+      <div ref={listRef} className="max-h-50 overflow-auto py-1">
         {options.map((option, index) => (
           <button
             key={option.id}
             type="button"
             tabIndex={-1}
-            {...stylex.props(
-              styles.option,
-              selectedIndex === index
-                ? styles.selectedOption
-                : styles.unselectedOption,
-            )}
+            className={cn([
+              "w-full px-3 py-1.5 text-left text-sm",
+              selectedIndex === index ? "bg-muted" : "hover:bg-accent",
+            ])}
             onClick={() => onSelect(option)}
             onMouseEnter={() => onHover(index)}
           >
-            <span {...stylex.props(styles.optionContent)}>
+            <span className="flex w-full items-center justify-between">
               {option.isNew ? (
                 <span>
-                  Add "
-                  <span {...stylex.props(styles.mediumText)}>
-                    {option.name}
-                  </span>
-                  "
+                  Add "<span className="font-medium">{option.name}</span>"
                 </span>
               ) : (
-                <span {...stylex.props(styles.optionDetails)}>
-                  <span {...stylex.props(styles.mediumText)}>
-                    {option.name}
-                  </span>
+                <span className="flex items-center gap-2">
+                  <span className="font-medium">{option.name}</span>
                   {option.jobTitle && (
-                    <span {...stylex.props(styles.jobTitle)}>
+                    <span className="text-muted-foreground text-xs">
                       {option.jobTitle}
                     </span>
                   )}
                 </span>
               )}
               {selectedIndex === index && (
-                <ArrowElbowDownLeft {...stylex.props(styles.enterIcon)} />
+                <ArrowElbowDownLeft className="text-muted-foreground size-3" />
               )}
             </span>
           </button>
@@ -100,59 +91,3 @@ export function ParticipantDropdown({
     </div>
   );
 }
-
-const styles = stylex.create({
-  enterIcon: {
-    color: colors.mutedForeground,
-    height: "0.75rem",
-    width: "0.75rem",
-  },
-  jobTitle: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-  },
-  list: {
-    maxHeight: "12.5rem",
-    overflow: "auto",
-    paddingBlock: "0.25rem",
-  },
-  mediumText: {
-    fontWeight: 500,
-  },
-  option: {
-    fontSize: "0.875rem",
-    paddingBlock: "0.375rem",
-    paddingInline: "0.75rem",
-    textAlign: "left",
-    width: "100%",
-  },
-  optionContent: {
-    alignItems: "center",
-    display: "flex",
-    justifyContent: "space-between",
-    width: "100%",
-  },
-  optionDetails: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-  },
-  root: {
-    backgroundColor: colors.popover,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: shadows.lg,
-    overflow: "hidden",
-  },
-  selectedOption: {
-    backgroundColor: colors.muted,
-  },
-  unselectedOption: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-  },
-});

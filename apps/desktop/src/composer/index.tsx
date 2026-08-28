@@ -6,16 +6,15 @@ import {
   Sparkle,
   X,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { platform } from "@tauri-apps/plugin-os";
 import { useEffect, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { ChatEditor, type ChatEditorHandle } from "@anlg/editor/chat";
 import type { PlaceholderFunction } from "@anlg/editor/plugins";
 import { commands as windowsCommands } from "@anlg/plugin-windows";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { cn } from "@anlg/utils";
 
 import { useLanguageModel } from "~/ai/hooks";
 import {
@@ -65,11 +64,11 @@ export function ComposerScreen() {
   );
 
   if (!userId) {
-    return <div {...stylex.props(styles.screen)} />;
+    return <div className="h-screen w-screen bg-transparent" />;
   }
 
   return (
-    <div {...stylex.props(styles.screen)}>
+    <div className="h-screen w-screen bg-transparent">
       <ChatSession
         key={chat.sessionId}
         sessionId={chat.sessionId}
@@ -114,11 +113,18 @@ export function ComposerScreen() {
 
 function ComposerSettingsCard() {
   return (
-    <div {...stylex.props(styles.card)}>
-      <div {...stylex.props(styles.settingsHeader)}>
-        <div data-tauri-drag-region {...stylex.props(styles.headerCopy)}>
-          <p {...stylex.props(styles.eyebrow)}>{t`Composer`}</p>
-          <p {...stylex.props(styles.settingsSubtitle)}>
+    <div
+      className={cn([
+        "h-full w-full rounded-[28px] px-5 py-4",
+        "bg-primary/88 text-primary-foreground",
+      ])}
+    >
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div data-tauri-drag-region className="min-w-0 flex-1 pr-4">
+          <p className="text-primary-foreground/38 text-[10px] font-semibold tracking-[0.24em] uppercase">
+            {t`Composer`}
+          </p>
+          <p className="text-primary-foreground/72 truncate pt-1 text-sm">
             {t`Configure a chat model to use the quick composer.`}
           </p>
         </div>
@@ -127,18 +133,26 @@ function ComposerSettingsCard() {
           type="button"
           onClick={() => void dismissComposer()}
           data-tauri-drag-region="false"
-          {...stylex.props(styles.closeButton)}
+          className={cn([
+            "inline-flex size-8 items-center justify-center rounded-full",
+            "bg-primary-foreground/7 text-primary-foreground/65 transition-colors",
+            "hover:bg-primary-foreground/12 hover:text-primary-foreground",
+          ])}
         >
-          <X {...stylex.props(styles.iconMd)} />
+          <X className="size-4" />
         </button>
       </div>
 
       <button
         type="button"
         onClick={() => void openSettingsInMainWindow()}
-        {...stylex.props(styles.settingsButton)}
+        className={cn([
+          "inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium",
+          "bg-primary-foreground/7 text-primary-foreground/85 transition-colors",
+          "hover:bg-primary-foreground/10 hover:text-primary-foreground",
+        ])}
       >
-        <GearSix {...stylex.props(styles.iconMd)} />
+        <GearSix className="size-4" />
         {t`Configure a chat model in Settings`}
       </button>
     </div>
@@ -184,33 +198,47 @@ function ComposerInput({
   });
 
   return (
-    <div {...stylex.props(styles.card)}>
-      <div {...stylex.props(styles.composerHeader)}>
-        <div data-tauri-drag-region {...stylex.props(styles.headerCopy)}>
-          <p {...stylex.props(styles.eyebrow)}>{t`Composer`}</p>
-          <p {...stylex.props(styles.composerTitle)}>{title}</p>
+    <div
+      className={cn([
+        "h-full w-full rounded-[28px] px-5 py-4",
+        "bg-primary/88 text-primary-foreground",
+      ])}
+    >
+      <div className="mb-3 flex items-start justify-between gap-4">
+        <div data-tauri-drag-region className="min-w-0 flex-1 pr-4">
+          <p className="text-primary-foreground/38 text-[10px] font-semibold tracking-[0.24em] uppercase">
+            {t`Composer`}
+          </p>
+          <p className="text-primary-foreground/90 truncate pt-1 text-[15px]">
+            {title}
+          </p>
         </div>
 
-        <div
-          data-tauri-drag-region="false"
-          {...stylex.props(styles.headerActions)}
-        >
+        <div data-tauri-drag-region="false" className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => void openMainWindow()}
             data-tauri-drag-region="false"
-            {...stylex.props(styles.openButton)}
+            className={cn([
+              "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium",
+              "bg-primary-foreground/7 text-primary-foreground/76",
+              "hover:bg-primary-foreground/12 hover:text-primary-foreground transition-colors",
+            ])}
           >
-            <ArrowUpRight {...stylex.props(styles.iconSm)} />
+            <ArrowUpRight className="size-3.5" />
             {t`Open Anarlog`}
           </button>
           <button
             type="button"
             onClick={() => void dismissComposer()}
             data-tauri-drag-region="false"
-            {...stylex.props(styles.closeButton)}
+            className={cn([
+              "inline-flex size-8 items-center justify-center rounded-full",
+              "bg-primary-foreground/7 text-primary-foreground/65 transition-colors",
+              "hover:bg-primary-foreground/12 hover:text-primary-foreground",
+            ])}
           >
-            <X {...stylex.props(styles.iconMd)} />
+            <X className="size-4" />
           </button>
         </div>
       </div>
@@ -218,7 +246,11 @@ function ComposerInput({
       <ChatEditor
         ref={editorRef}
         onAttachmentError={(message) => sonnerToast.error(message)}
-        sx={styles.editor}
+        className={cn([
+          "text-primary-foreground max-h-[88px] min-h-[34px] overflow-y-auto text-[15px] leading-6",
+          "[&_.ProseMirror]:min-h-[34px] [&_.ProseMirror]:outline-none",
+          "[&_.ProseMirror]:placeholder:text-primary-foreground/28",
+        ])}
         initialContent={initialContent}
         mentionConfig={mentionConfig}
         placeholder={composerPlaceholder}
@@ -226,10 +258,12 @@ function ComposerInput({
         onSubmit={handleSubmit}
       />
 
-      <div {...stylex.props(styles.footer)}>
-        <div {...stylex.props(styles.hints)}>
-          <span {...stylex.props(styles.hint)}>{t`Esc to dismiss`}</span>
-          <span {...stylex.props(styles.hint)}>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <div className="text-primary-foreground/40 flex items-center gap-2 text-[11px]">
+          <span className="bg-primary-foreground/8 rounded-full px-2 py-1">
+            {t`Esc to dismiss`}
+          </span>
+          <span className="bg-primary-foreground/8 rounded-full px-2 py-1">
             {t`${primaryModifier} ↩ to send`}
           </span>
         </div>
@@ -238,9 +272,13 @@ function ComposerInput({
           <button
             type="button"
             onClick={onStop}
-            {...stylex.props(styles.stopButton)}
+            className={cn([
+              "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium",
+              "bg-primary-foreground/8 text-primary-foreground/82 transition-colors",
+              "hover:bg-primary-foreground/12 hover:text-primary-foreground",
+            ])}
           >
-            <Sparkle {...stylex.props(styles.iconSm)} />
+            <Sparkle className="size-3.5" />
             {t`Stop`}
           </button>
         ) : (
@@ -248,13 +286,18 @@ function ComposerInput({
             type="button"
             onClick={handleSubmit}
             disabled={disabled}
-            {...stylex.props(
-              styles.sendButton,
-              disabled ? styles.sendButtonDisabled : styles.sendButtonEnabled,
-              !hasContent && !disabled && styles.sendButtonEmpty,
-            )}
+            className={cn([
+              "inline-flex size-10 items-center justify-center rounded-full",
+              disabled
+                ? "bg-primary-foreground/8 text-primary-foreground/25 cursor-default"
+                : [
+                    "bg-primary-foreground text-primary",
+                    "transition-transform hover:scale-[1.02]",
+                  ],
+              !hasContent && !disabled && "opacity-55",
+            ])}
           >
-            <ArrowUp {...stylex.props(styles.iconMd)} />
+            <ArrowUp className="size-4" />
           </button>
         )}
       </div>
@@ -291,227 +334,3 @@ async function dismissComposer() {
     console.error("Failed to dismiss composer:", result.error);
   }
 }
-
-const styles = stylex.create({
-  card: {
-    backgroundColor: `color-mix(in oklab, ${colors.primary} 88%, transparent)`,
-    borderRadius: "28px",
-    color: colors.primaryForeground,
-    height: "100%",
-    paddingBlock: "1rem",
-    paddingInline: "1.25rem",
-    width: "100%",
-  },
-  closeButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: `color-mix(in oklab, ${colors.primaryForeground} 7%, transparent)`,
-      ":hover": `color-mix(in oklab, ${colors.primaryForeground} 12%, transparent)`,
-    },
-    borderRadius: radii.full,
-    color: {
-      default: `color-mix(in oklab, ${colors.primaryForeground} 65%, transparent)`,
-      ":hover": colors.primaryForeground,
-    },
-    display: "inline-flex",
-    height: "2rem",
-    justifyContent: "center",
-    transitionDuration: "150ms",
-    transitionProperty:
-      "color, background-color, border-color, text-decoration-color, fill, stroke",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "2rem",
-  },
-  composerHeader: {
-    alignItems: "flex-start",
-    display: "flex",
-    gap: "1rem",
-    justifyContent: "space-between",
-    marginBottom: "0.75rem",
-  },
-  composerTitle: {
-    color: `color-mix(in oklab, ${colors.primaryForeground} 90%, transparent)`,
-    fontSize: "15px",
-    overflow: "hidden",
-    paddingTop: "0.25rem",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  editor: {
-    color: {
-      default: colors.primaryForeground,
-      "::placeholder": `color-mix(in oklab, ${colors.primaryForeground} 28%, transparent)`,
-      ":is(*) .ProseMirror::placeholder": `color-mix(in oklab, ${colors.primaryForeground} 28%, transparent)`,
-    },
-    fontSize: "15px",
-    lineHeight: "1.5rem",
-    maxHeight: "88px",
-    minHeight: {
-      default: "34px",
-      ":is(*) .ProseMirror": "34px",
-    },
-    outline: {
-      default: null,
-      ":is(*) .ProseMirror": "none",
-    },
-    overflowY: "auto",
-  },
-  eyebrow: {
-    color: `color-mix(in oklab, ${colors.primaryForeground} 38%, transparent)`,
-    fontSize: "10px",
-    fontWeight: 600,
-    letterSpacing: "0.24em",
-    textTransform: "uppercase",
-  },
-  footer: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.75rem",
-    justifyContent: "space-between",
-    marginTop: "0.75rem",
-  },
-  headerActions: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-  },
-  headerCopy: {
-    flex: "1",
-    minWidth: 0,
-    paddingRight: "1rem",
-  },
-  hint: {
-    backgroundColor: `color-mix(in oklab, ${colors.primaryForeground} 8%, transparent)`,
-    borderRadius: radii.full,
-    paddingBlock: "0.25rem",
-    paddingInline: "0.5rem",
-  },
-  hints: {
-    alignItems: "center",
-    color: `color-mix(in oklab, ${colors.primaryForeground} 40%, transparent)`,
-    display: "flex",
-    fontSize: "11px",
-    gap: "0.5rem",
-  },
-  iconMd: {
-    height: "1rem",
-    width: "1rem",
-  },
-  iconSm: {
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  openButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: `color-mix(in oklab, ${colors.primaryForeground} 7%, transparent)`,
-      ":hover": `color-mix(in oklab, ${colors.primaryForeground} 12%, transparent)`,
-    },
-    borderRadius: radii.full,
-    color: {
-      default: `color-mix(in oklab, ${colors.primaryForeground} 76%, transparent)`,
-      ":hover": colors.primaryForeground,
-    },
-    display: "inline-flex",
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    gap: "0.375rem",
-    paddingBlock: "0.375rem",
-    paddingInline: "0.75rem",
-    transitionDuration: "150ms",
-    transitionProperty:
-      "color, background-color, border-color, text-decoration-color, fill, stroke",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  screen: {
-    backgroundColor: "transparent",
-    height: "100vh",
-    width: "100vw",
-  },
-  sendButton: {
-    alignItems: "center",
-    borderRadius: radii.full,
-    display: "inline-flex",
-    height: "2.5rem",
-    justifyContent: "center",
-    width: "2.5rem",
-  },
-  sendButtonDisabled: {
-    backgroundColor: `color-mix(in oklab, ${colors.primaryForeground} 8%, transparent)`,
-    color: `color-mix(in oklab, ${colors.primaryForeground} 25%, transparent)`,
-    cursor: "default",
-  },
-  sendButtonEmpty: {
-    opacity: 0.55,
-  },
-  sendButtonEnabled: {
-    backgroundColor: colors.primaryForeground,
-    color: colors.primary,
-    transform: {
-      default: null,
-      ":hover": "scale(1.02)",
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "transform",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  settingsButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: `color-mix(in oklab, ${colors.primaryForeground} 7%, transparent)`,
-      ":hover": `color-mix(in oklab, ${colors.primaryForeground} 10%, transparent)`,
-    },
-    borderRadius: radii.full,
-    color: {
-      default: `color-mix(in oklab, ${colors.primaryForeground} 85%, transparent)`,
-      ":hover": colors.primaryForeground,
-    },
-    display: "inline-flex",
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    gap: "0.5rem",
-    paddingBlock: "0.5rem",
-    paddingInline: "0.875rem",
-    transitionDuration: "150ms",
-    transitionProperty:
-      "color, background-color, border-color, text-decoration-color, fill, stroke",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  settingsHeader: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.75rem",
-    justifyContent: "space-between",
-    marginBottom: "0.75rem",
-  },
-  settingsSubtitle: {
-    color: `color-mix(in oklab, ${colors.primaryForeground} 72%, transparent)`,
-    fontSize: "0.875rem",
-    overflow: "hidden",
-    paddingTop: "0.25rem",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  stopButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: `color-mix(in oklab, ${colors.primaryForeground} 8%, transparent)`,
-      ":hover": `color-mix(in oklab, ${colors.primaryForeground} 12%, transparent)`,
-    },
-    borderRadius: radii.full,
-    color: {
-      default: `color-mix(in oklab, ${colors.primaryForeground} 82%, transparent)`,
-      ":hover": colors.primaryForeground,
-    },
-    display: "inline-flex",
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    gap: "0.5rem",
-    paddingBlock: "0.375rem",
-    paddingInline: "0.75rem",
-    transitionDuration: "150ms",
-    transitionProperty:
-      "color, background-color, border-color, text-decoration-color, fill, stroke",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-});

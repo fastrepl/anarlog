@@ -1,9 +1,7 @@
-import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { generateText } from "ai";
 import { useEffect } from "react";
 
-import { colors } from "@anlg/design-system/tokens.stylex";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
 
 import { useLanguageModel } from "~/ai/hooks";
@@ -17,7 +15,7 @@ export function HealthStatusIndicator() {
   const health = useConnectionHealth();
 
   if (health.status === "pending") {
-    return <Spinner size={14} sx={styles.spinner} />;
+    return <Spinner size={14} className="text-muted-foreground shrink-0" />;
   }
 
   return null;
@@ -132,10 +130,3 @@ function firstUsefulLine(value: string): string {
       .find((part) => part.length > 0) ?? value.trim();
   return line.length > 200 ? `${line.slice(0, 197)}...` : line;
 }
-
-const styles = stylex.create({
-  spinner: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-  },
-});

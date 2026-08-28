@@ -7,12 +7,11 @@ import {
   Microphone,
   SpeakerHigh,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { platform } from "@tauri-apps/plugin-os";
 import { useRef } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { type PermissionStatus } from "@anlg/plugin-permissions";
+import { cn } from "@anlg/utils";
 
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
@@ -63,16 +62,17 @@ function PermissionBlock({
 
   return (
     <button
-      data-permission-block
       type="button"
       onClick={onAction}
       disabled={isPending || isAuthorized}
       title={body}
-      {...stylex.props([
-        styles.permission,
-        isAuthorized ? styles.authorized : styles.unauthorized,
-        (isPending || isAuthorized) && styles.cursorDefault,
-        isPending && styles.pending,
+      className={cn([
+        "group flex w-full min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all",
+        isAuthorized
+          ? "border-border bg-card border"
+          : "border-primary bg-primary text-primary-foreground hover:bg-primary/90 border shadow-[0_4px_14px_rgba(87,83,78,0.18)] active:scale-[0.98]",
+        (isPending || isAuthorized) && "cursor-default",
+        isPending && "opacity-50",
       ])}
       aria-label={
         opensSettings
@@ -81,30 +81,30 @@ function PermissionBlock({
       }
     >
       <div
-        {...stylex.props([
-          styles.iconContainer,
+        className={cn([
+          "flex size-6 shrink-0 items-center justify-center rounded-md",
           isAuthorized
-            ? styles.authorizedIconContainer
-            : styles.unauthorizedIconContainer,
+            ? "text-green-600"
+            : "bg-primary-foreground/10 text-primary-foreground",
         ])}
       >
         {isAuthorized ? (
-          <Check {...stylex.props(styles.icon)} />
+          <Check className="size-3.5" />
         ) : (
-          <Icon {...stylex.props(styles.icon)} />
+          <Icon className="size-3.5" />
         )}
       </div>
       <span
-        {...stylex.props([
-          styles.label,
-          isAuthorized ? styles.authorizedLabel : styles.unauthorizedLabel,
+        className={cn([
+          "min-w-0 flex-1 truncate text-sm font-medium",
+          isAuthorized ? "text-foreground" : "text-primary-foreground",
         ])}
       >
         {title}
       </span>
       {!isAuthorized && (
         <ArrowRight
-          {...stylex.props(styles.arrow)}
+          className="text-primary-foreground/70 size-4 shrink-0 transition-transform group-hover:translate-x-0.5"
           data-testid="permission-action-arrow"
         />
       )}
@@ -196,7 +196,7 @@ function PermissionsSectionContent({
         />
       )}
 
-      <div {...stylex.props(styles.list)}>
+      <div className="flex flex-col gap-2">
         <PermissionBlock
           enabledLabel={t`Anarlog can hear your voice`}
           enableLabel={t`Help Anarlog listen to you`}
@@ -298,99 +298,3 @@ export function PermissionsSection({
     <PermissionsSectionContent onContinue={onContinue} runtimeCapabilities />
   );
 }
-
-const styles = stylex.create({
-  arrow: {
-    color: `color-mix(in srgb, ${colors.primaryForeground} 70%, transparent)`,
-    flexShrink: 0,
-    height: "1rem",
-    transform: {
-      default: "translateX(0)",
-      ":is([data-permission-block]:hover *)": "translateX(0.125rem)",
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "transform",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "1rem",
-  },
-  authorized: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-  },
-  authorizedIconContainer: {
-    color: "rgb(22 163 74)",
-  },
-  authorizedLabel: {
-    color: colors.foreground,
-  },
-  cursorDefault: {
-    cursor: "default",
-  },
-  icon: {
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  iconContainer: {
-    alignItems: "center",
-    borderRadius: radii.md,
-    display: "flex",
-    flexShrink: 0,
-    height: "1.5rem",
-    justifyContent: "center",
-    width: "1.5rem",
-  },
-  label: {
-    flex: "1",
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    lineHeight: "1.25rem",
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  list: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-  },
-  pending: {
-    opacity: 0.5,
-  },
-  permission: {
-    alignItems: "center",
-    borderRadius: radii.xl,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    display: "flex",
-    gap: "0.75rem",
-    minWidth: 0,
-    paddingBlock: "0.625rem",
-    paddingInline: "0.75rem",
-    textAlign: "left",
-    transitionDuration: "150ms",
-    transitionProperty: "all",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "100%",
-  },
-  unauthorized: {
-    backgroundColor: {
-      default: colors.primary,
-      ":hover": `color-mix(in oklab, ${colors.primary} 90%, transparent)`,
-    },
-    borderColor: colors.primary,
-    boxShadow: "0 4px 14px rgb(87 83 78 / 0.18)",
-    color: colors.primaryForeground,
-    transform: {
-      default: "scale(1)",
-      ":active": "scale(0.98)",
-    },
-  },
-  unauthorizedIconContainer: {
-    backgroundColor: `color-mix(in srgb, ${colors.primaryForeground} 10%, transparent)`,
-    color: colors.primaryForeground,
-  },
-  unauthorizedLabel: {
-    color: colors.primaryForeground,
-  },
-});

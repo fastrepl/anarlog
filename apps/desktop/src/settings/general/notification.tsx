@@ -1,12 +1,10 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { X } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { platform } from "@tauri-apps/plugin-os";
 import { useState } from "react";
 
-import { colors } from "@anlg/design-system/tokens.stylex";
 import {
   commands as detectCommands,
   type InstalledApp,
@@ -36,6 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@anlg/ui/components/ui/select";
+import { cn } from "@anlg/utils";
 
 import {
   getIgnoredBundleIds,
@@ -163,7 +162,7 @@ export function NotificationSettingsView() {
   };
 
   return (
-    <div {...stylex.props(styles.stack)}>
+    <div className="flex flex-col gap-6">
       <form.Field name="notification_event">
         {(field) => (
           <SettingSwitchRow
@@ -198,7 +197,7 @@ export function NotificationSettingsView() {
       {supportsMicDetection && (
         <form.Field name="notification_detect">
           {(field) => (
-            <div {...stylex.props(styles.micSettings)}>
+            <div className="flex flex-col gap-4">
               <SettingSwitchRow
                 title={<Trans>Microphone detection</Trans>}
                 description={
@@ -209,15 +208,15 @@ export function NotificationSettingsView() {
               />
 
               {field.state.value && (
-                <div {...stylex.props(styles.nestedSettings)}>
+                <div className={cn(["border-muted ml-3 border-l-2 pt-2 pl-4"])}>
                   <form.Field name="mic_active_threshold">
                     {(thresholdField) => (
-                      <div {...stylex.props(styles.thresholdRow)}>
-                        <div {...stylex.props(styles.flexible)}>
-                          <h4 {...stylex.props(styles.rowTitle)}>
+                      <div className="mb-4 flex items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <h4 className="text-sm font-medium">
                             <Trans>Detection delay</Trans>
                           </h4>
-                          <p {...stylex.props(styles.rowDescription)}>
+                          <p className="text-muted-foreground text-xs">
                             <Trans>
                               Wait before treating microphone activity as a
                               meeting.
@@ -230,7 +229,7 @@ export function NotificationSettingsView() {
                             thresholdField.handleChange(Number(v))
                           }
                         >
-                          <SelectTrigger sx={styles.thresholdSelect}>
+                          <SelectTrigger className="w-[100px]">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent align="end">
@@ -246,11 +245,11 @@ export function NotificationSettingsView() {
                     )}
                   </form.Field>
 
-                  <div {...stylex.props(styles.excludeHeading)}>
-                    <h4 {...stylex.props(styles.rowTitle)}>
+                  <div className="mb-3 flex flex-col gap-1">
+                    <h4 className="text-sm font-medium">
                       <Trans>Exclude apps from detection</Trans>
                     </h4>
-                    <p {...stylex.props(styles.rowDescription)}>
+                    <p className="text-muted-foreground text-xs">
                       <Trans>
                         Prevent selected apps from triggering meeting detection.
                       </Trans>
@@ -275,7 +274,7 @@ export function NotificationSettingsView() {
                       });
 
                       return (
-                        <div {...stylex.props(styles.appSelector)}>
+                        <div className="flex flex-col gap-3">
                           <Popover
                             open={searchOpen}
                             onOpenChange={setSearchOpen}
@@ -285,7 +284,10 @@ export function NotificationSettingsView() {
                                 role="button"
                                 tabIndex={0}
                                 aria-expanded={searchOpen}
-                                {...stylex.props(styles.appSelectorTrigger)}
+                                className={cn([
+                                  "flex min-h-[38px] w-full cursor-text flex-wrap items-center gap-2 rounded-2xl border p-2",
+                                  "focus-visible:ring-ring focus-visible:ring-1 focus-visible:outline-hidden",
+                                ])}
                                 onKeyDown={(event) => {
                                   if (
                                     event.key === "Enter" ||
@@ -302,19 +304,17 @@ export function NotificationSettingsView() {
                                     <Badge
                                       key={bundleId}
                                       variant="secondary"
-                                      sx={[
-                                        styles.appBadge,
+                                      className={cn([
+                                        "flex items-center gap-1 px-2 py-0.5 text-xs",
                                         isDefault
-                                          ? styles.defaultBadge
-                                          : styles.customBadge,
-                                      ]}
+                                          ? ["bg-accent text-muted-foreground"]
+                                          : ["bg-muted"],
+                                      ])}
                                       title={isDefault ? "default" : undefined}
                                     >
                                       {bundleIdToName(bundleId)}
                                       {isDefault && (
-                                        <span
-                                          {...stylex.props(styles.defaultLabel)}
-                                        >
+                                        <span className="text-[10px] opacity-70">
                                           <Trans>(default)</Trans>
                                         </span>
                                       )}
@@ -322,7 +322,7 @@ export function NotificationSettingsView() {
                                         type="button"
                                         variant="ghost"
                                         size="sm"
-                                        sx={styles.removeButton}
+                                        className="ml-0.5 h-3 w-3 p-0 hover:bg-transparent"
                                         onClick={(event) => {
                                           event.stopPropagation();
                                           handleToggleIgnoredApp(
@@ -332,16 +332,12 @@ export function NotificationSettingsView() {
                                           );
                                         }}
                                       >
-                                        <X
-                                          {...stylex.props(styles.removeIcon)}
-                                        />
+                                        <X className="h-2.5 w-2.5" />
                                       </Button>
                                     </Badge>
                                   );
                                 })}
-                                <span
-                                  {...stylex.props(styles.searchPlaceholder)}
-                                >
+                                <span className="text-muted-foreground text-sm">
                                   <Trans>Search installed apps...</Trans>
                                 </span>
                               </div>
@@ -353,20 +349,20 @@ export function NotificationSettingsView() {
                                 width: "var(--radix-popover-trigger-width)",
                               }}
                             >
-                              <AppFloatingPanel sx={styles.panel}>
-                                <Command sx={styles.command}>
+                              <AppFloatingPanel className="overflow-hidden">
+                                <Command className="rounded-[inherit] border-0 bg-transparent">
                                   <CommandInput
                                     placeholder={t`Search installed apps...`}
                                     value={searchQuery}
                                     onValueChange={setSearchQuery}
                                   />
                                   <CommandEmpty>
-                                    <div {...stylex.props(styles.empty)}>
+                                    <div className="text-muted-foreground px-2 py-1.5 text-sm">
                                       <Trans>No apps found.</Trans>
                                     </div>
                                   </CommandEmpty>
                                   <CommandList>
-                                    <CommandGroup sx={styles.commandGroup}>
+                                    <CommandGroup className="max-h-[250px] overflow-y-auto">
                                       {ignorableApps.map((app) => (
                                         <CommandItem
                                           key={app.id}
@@ -378,11 +374,12 @@ export function NotificationSettingsView() {
                                               includedPlatforms,
                                             )
                                           }
-                                          sx={styles.commandItem}
+                                          className={cn([
+                                            "cursor-pointer",
+                                            "hover:bg-accent! focus:bg-accent! aria-selected:bg-transparent",
+                                          ])}
                                         >
-                                          <span
-                                            {...stylex.props(styles.appName)}
-                                          >
+                                          <span className="flex-1 truncate">
                                             {app.name}
                                           </span>
                                         </CommandItem>
@@ -405,13 +402,13 @@ export function NotificationSettingsView() {
       )}
 
       {supportsDoNotDisturb && (
-        <div {...stylex.props(styles.stack)}>
-          <div {...stylex.props(styles.dividerRow)}>
-            <div {...stylex.props(styles.divider)} />
-            <span {...stylex.props(styles.dividerLabel)}>
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center gap-4 pt-4 pb-2">
+            <div className="border-muted min-w-0 flex-1 border-t" />
+            <span className="text-muted-foreground shrink-0 text-xs font-medium">
               <Trans>For enabled notifications</Trans>
             </span>
-            <div {...stylex.props(styles.divider)} />
+            <div className="border-muted min-w-0 flex-1 border-t" />
           </div>
 
           <form.Subscribe
@@ -441,168 +438,3 @@ export function NotificationSettingsView() {
     </div>
   );
 }
-
-const styles = stylex.create({
-  appBadge: {
-    alignItems: "center",
-    display: "flex",
-    fontSize: "0.75rem",
-    gap: "0.25rem",
-    paddingBlock: "0.125rem",
-    paddingInline: "0.5rem",
-  },
-  appName: {
-    flex: "1",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  appSelector: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-  },
-  appSelectorTrigger: {
-    alignItems: "center",
-    borderColor: colors.border,
-    borderRadius: "1rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: {
-      default: null,
-      ":focus-visible": `0 0 0 1px ${colors.ring}`,
-    },
-    cursor: "text",
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "0.5rem",
-    minHeight: "38px",
-    outline: {
-      default: null,
-      ":focus-visible": "none",
-    },
-    padding: "0.5rem",
-    width: "100%",
-  },
-  command: {
-    backgroundColor: "transparent",
-    borderWidth: 0,
-    borderRadius: "inherit",
-  },
-  commandGroup: {
-    maxHeight: "250px",
-    overflowY: "auto",
-  },
-  commandItem: {
-    backgroundColor: {
-      default: null,
-      ":hover": colors.accent,
-      ":focus": colors.accent,
-      ":is([aria-selected='true'])": "transparent",
-    },
-    cursor: "pointer",
-  },
-  customBadge: {
-    backgroundColor: colors.muted,
-  },
-  defaultBadge: {
-    backgroundColor: colors.accent,
-    color: colors.mutedForeground,
-  },
-  defaultLabel: {
-    fontSize: "10px",
-    opacity: 0.7,
-  },
-  divider: {
-    borderTopColor: colors.muted,
-    borderTopStyle: "solid",
-    borderTopWidth: "1px",
-    flex: "1",
-    minWidth: 0,
-  },
-  dividerLabel: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    fontSize: "0.75rem",
-    fontWeight: 500,
-  },
-  dividerRow: {
-    alignItems: "center",
-    display: "flex",
-    gap: "1rem",
-    paddingBottom: "0.5rem",
-    paddingTop: "1rem",
-  },
-  empty: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    paddingBlock: "0.375rem",
-    paddingInline: "0.5rem",
-  },
-  excludeHeading: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.25rem",
-    marginBottom: "0.75rem",
-  },
-  flexible: {
-    flex: "1",
-  },
-  micSettings: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  nestedSettings: {
-    borderLeftColor: colors.muted,
-    borderLeftStyle: "solid",
-    borderLeftWidth: "2px",
-    marginLeft: "0.75rem",
-    paddingLeft: "1rem",
-    paddingTop: "0.5rem",
-  },
-  panel: {
-    overflow: "hidden",
-  },
-  removeButton: {
-    backgroundColor: {
-      default: null,
-      ":hover": "transparent",
-    },
-    height: "0.75rem",
-    marginLeft: "0.125rem",
-    padding: 0,
-    width: "0.75rem",
-  },
-  removeIcon: {
-    height: "0.625rem",
-    width: "0.625rem",
-  },
-  rowDescription: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-  },
-  rowTitle: {
-    fontSize: "0.875rem",
-    fontWeight: 500,
-  },
-  searchPlaceholder: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-  },
-  stack: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1.5rem",
-  },
-  thresholdRow: {
-    alignItems: "center",
-    display: "flex",
-    gap: "1rem",
-    justifyContent: "space-between",
-    marginBottom: "1rem",
-  },
-  thresholdSelect: {
-    width: "100px",
-  },
-});

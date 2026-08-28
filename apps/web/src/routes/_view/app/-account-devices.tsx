@@ -1,84 +1,25 @@
-import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 
 import { getSupabaseBrowserClient } from "@/functions/supabase";
 
-import { accountStyles } from "./-account-ui";
-const styles = stylex.create({
-  style1: {
-    padding: {
-      default: "1.5rem",
-      "@media (width >= 40rem)": "2rem",
-    },
-    fontSize: ".875rem",
-    lineHeight: "1.5rem",
-    color: "#756b5d",
-  },
-  style2: {
-    borderBottomColor: {
-      ":is(*) > :not(:last-child)": "#ede7dc",
-    },
-    borderBottomStyle: {
-      ":is(*) > :not(:last-child)": "solid",
-    },
-    borderBottomWidth: {
-      ":is(*) > :not(:last-child)": "1px",
-    },
-  },
-  style3: {
-    display: "flex",
-    flexDirection: {
-      default: "column",
-      "@media (width >= 40rem)": "row",
-    },
-    gap: "1rem",
-    padding: "1.5rem",
-    alignItems: {
-      default: null,
-      "@media (width >= 40rem)": "center",
-    },
-    justifyContent: {
-      default: null,
-      "@media (width >= 40rem)": "space-between",
-    },
-    paddingInline: {
-      default: null,
-      "@media (width >= 40rem)": "2rem",
-    },
-  },
-  style4: {
-    fontSize: "1rem",
-    lineHeight: "1.5rem",
-    fontWeight: 500,
-    color: "#181613",
-  },
-  style5: {
-    marginTop: ".25rem",
-    fontSize: ".875rem",
-    lineHeight: "1.5rem",
-    color: "#756b5d",
-  },
-  style6: {
-    paddingInline: {
-      default: "1.5rem",
-      "@media (width >= 40rem)": "2rem",
-    },
-    paddingBottom: "1.5rem",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: "#dc2626",
-  },
-});
+import {
+  accountCardClassName,
+  accountPillDangerClassName,
+} from "./-account-ui";
+
 const deviceRowSchema = z.object({
   id: z.string(),
   device_name: z.string().nullable(),
   created_at: z.string(),
   last_seen_at: z.string(),
 });
+
 const devicesQueryKey = ["account-sync-devices"];
+
 export function DevicesSection() {
   const queryClient = useQueryClient();
+
   const devicesQuery = useQuery({
     queryKey: devicesQueryKey,
     // Skip the SSR fetch: the browser-only Supabase client throws on the
@@ -89,15 +30,14 @@ export function DevicesSection() {
       const { data, error } = await supabase
         .from("sync_devices")
         .select("id, device_name, created_at, last_seen_at")
-        .order("last_seen_at", {
-          ascending: false,
-        });
+        .order("last_seen_at", { ascending: false });
       if (error) {
         throw new Error(error.message);
       }
       return z.array(deviceRowSchema).parse(data);
     },
   });
+
   const removeDevice = useMutation({
     mutationFn: async (deviceId: string) => {
       const supabase = getSupabaseBrowserClient();
@@ -110,33 +50,38 @@ export function DevicesSection() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: devicesQueryKey,
-      });
+      queryClient.invalidateQueries({ queryKey: devicesQueryKey });
     },
   });
+
   const devices = devicesQuery.data ?? [];
+
   return (
-    <div {...stylex.props(accountStyles.card)}>
+    <div className={accountCardClassName}>
       {devicesQuery.isPending ? (
-        <p {...stylex.props(styles.style1)}>Checking your devices...</p>
+        <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
+          Checking your devices...
+        </p>
       ) : devicesQuery.isError ? (
-        <p {...stylex.props(styles.style1)}>
+        <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
           Couldn't load your devices. Refresh to try again.
         </p>
       ) : devices.length === 0 ? (
-        <p {...stylex.props(styles.style1)}>
+        <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
           No synced devices yet. Devices appear here once sync is on.
         </p>
       ) : (
-        <ul {...stylex.props(styles.style2)}>
+        <ul className="divide-y divide-[#ede7dc]">
           {devices.map((device) => (
-            <li key={device.id} {...stylex.props(styles.style3)}>
+            <li
+              key={device.id}
+              className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:px-8"
+            >
               <div>
-                <p {...stylex.props(styles.style4)}>
+                <p className="text-base font-medium text-[#181613]">
                   {device.device_name || "Unnamed device"}
                 </p>
-                <p {...stylex.props(styles.style5)}>
+                <p className="mt-1 text-sm leading-6 text-[#756b5d]">
                   Last seen{" "}
                   {new Date(device.last_seen_at).toLocaleDateString("en-US", {
                     month: "long",
@@ -147,10 +92,7 @@ export function DevicesSection() {
               <button
                 onClick={() => removeDevice.mutate(device.id)}
                 disabled={removeDevice.isPending}
-                {...stylex.props([
-                  accountStyles.pill,
-                  accountStyles.pillDanger,
-                ])}
+                className={accountPillDangerClassName}
               >
                 {removeDevice.isPending && removeDevice.variables === device.id
                   ? "Removing..."
@@ -161,7 +103,7 @@ export function DevicesSection() {
         </ul>
       )}
       {removeDevice.isError && (
-        <p {...stylex.props(styles.style6)}>
+        <p className="px-6 pb-6 text-sm text-red-600 sm:px-8">
           {removeDevice.error?.message || "Failed to remove device"}
         </p>
       )}

@@ -1,11 +1,8 @@
 import { useLingui } from "@lingui/react/macro";
 import { Copy } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 
-import { colors, radii, spacing } from "@anlg/design-system/tokens.stylex";
 import { Button, type ButtonProps } from "@anlg/ui/components/ui/button";
-import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
 
 import { getTemplateCreatorLabel } from "~/templates/utils";
 
@@ -18,7 +15,7 @@ export function ResourcePreviewHeader({
   actionLabel,
   actionIcon,
   actionVariant,
-  actionSx,
+  actionClassName,
   actions,
   titleMeta,
   footer,
@@ -32,7 +29,7 @@ export function ResourcePreviewHeader({
   actionLabel?: string;
   actionIcon?: ReactNode;
   actionVariant?: ButtonProps["variant"];
-  actionSx?: StyleXProps["sx"];
+  actionClassName?: string;
   actions?: ReactNode;
   titleMeta?: ReactNode;
   footer?: ReactNode;
@@ -40,9 +37,14 @@ export function ResourcePreviewHeader({
 }) {
   const { t } = useLingui();
   const actionButton = onClone ? (
-    <Button onClick={onClone} size="sm" variant={actionVariant} sx={actionSx}>
+    <Button
+      onClick={onClone}
+      size="sm"
+      variant={actionVariant}
+      className={actionClassName}
+    >
       {actionIcon === undefined ? (
-        <Copy {...stylex.props(styles.copyIcon)} />
+        <Copy className="mr-2 h-4 w-4" />
       ) : (
         actionIcon
       )}
@@ -51,35 +53,42 @@ export function ResourcePreviewHeader({
   ) : null;
 
   return (
-    <div {...stylex.props(styles.root)}>
-      <div {...stylex.props(styles.header)}>
-        <div {...stylex.props(styles.titleRow)}>
+    <div className="flex h-full flex-col">
+      <div className="flex h-12 items-center justify-between gap-3 pr-1 pl-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           {icon}
-          <h2 {...stylex.props(styles.title)}>{title || t`Untitled`}</h2>
+          <h2 className="min-w-0 truncate text-sm font-semibold">
+            {title || t`Untitled`}
+          </h2>
           {titleMeta}
         </div>
-        <div {...stylex.props(styles.actions)}>
+        <div className="flex items-center gap-0">
           {actions}
           {actionButton}
         </div>
       </div>
 
-      <div {...mergeStyleXProps(styles.scrollContent, "scroll-fade-y")}>
-        <div {...stylex.props(styles.content)}>
+      <div className="scroll-fade-y min-h-0 flex-1 overflow-y-auto px-6 pt-3 pb-6">
+        <div className="min-w-0">
           {description && (
-            <p {...stylex.props(styles.description)}>{description}</p>
+            <p className="text-muted-foreground min-h-[24px] text-sm">
+              {description}
+            </p>
           )}
           {targets && targets.length > 0 && (
-            <div {...stylex.props(styles.targets)}>
+            <div className="mt-2 flex min-h-6 flex-wrap items-center gap-1.5">
               {targets.map((target, index) => (
-                <span key={index} {...stylex.props(styles.target)}>
+                <span
+                  key={index}
+                  className="bg-muted text-muted-foreground inline-flex h-6 items-center rounded-md px-2 py-0.5 text-xs"
+                >
                   {target}
                 </span>
               ))}
             </div>
           )}
           {footer === undefined ? (
-            <p {...stylex.props(styles.footer)}>
+            <p className="text-muted-foreground mt-2 text-xs">
               {getTemplateCreatorLabel({ isUserTemplate: false })}
             </p>
           ) : (
@@ -91,85 +100,3 @@ export function ResourcePreviewHeader({
     </div>
   );
 }
-
-const styles = stylex.create({
-  actions: {
-    alignItems: "center",
-    display: "flex",
-    gap: 0,
-  },
-  content: {
-    minWidth: 0,
-  },
-  copyIcon: {
-    height: "1rem",
-    marginRight: spacing.sm,
-    width: "1rem",
-  },
-  description: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    minHeight: "24px",
-  },
-  footer: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    marginTop: spacing.sm,
-  },
-  header: {
-    alignItems: "center",
-    display: "flex",
-    gap: spacing.md,
-    height: "3rem",
-    justifyContent: "space-between",
-    paddingLeft: spacing.md,
-    paddingRight: spacing.xs,
-  },
-  root: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-  },
-  scrollContent: {
-    flex: "1",
-    minHeight: 0,
-    overflowY: "auto",
-    paddingBottom: spacing.xl,
-    paddingInline: spacing.xl,
-    paddingTop: spacing.md,
-  },
-  target: {
-    alignItems: "center",
-    backgroundColor: colors.muted,
-    borderRadius: radii.md,
-    color: colors.mutedForeground,
-    display: "inline-flex",
-    fontSize: "0.75rem",
-    height: "1.5rem",
-    paddingBlock: "0.125rem",
-    paddingInline: spacing.sm,
-  },
-  targets: {
-    alignItems: "center",
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "0.375rem",
-    marginTop: spacing.sm,
-    minHeight: "1.5rem",
-  },
-  title: {
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  titleRow: {
-    alignItems: "center",
-    display: "flex",
-    flex: "1",
-    gap: spacing.sm,
-    minWidth: 0,
-  },
-});

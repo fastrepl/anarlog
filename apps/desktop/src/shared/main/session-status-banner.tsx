@@ -1,4 +1,3 @@
-import * as stylex from "@stylexjs/stylex";
 import { AnimatePresence, motion } from "motion/react";
 import {
   createContext,
@@ -10,7 +9,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
+import { cn } from "@anlg/utils";
 
 import { useMainContentCenterOffset } from "./content-offset";
 
@@ -76,9 +75,13 @@ export function MainSessionStatusBannerHost() {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        {...mergeStyleXProps(styles.banner, undefined, {
-          left: `calc(50% + ${contentOffset}px)`,
-        })}
+        style={{ left: `calc(50% + ${contentOffset}px)` }}
+        className={cn([
+          "fixed z-50 -translate-x-1/2",
+          "text-center text-xs whitespace-nowrap",
+          "text-red-400",
+          "bottom-6",
+        ])}
       >
         {banner.skipReason}
       </motion.div>
@@ -86,18 +89,3 @@ export function MainSessionStatusBannerHost() {
     document.body,
   );
 }
-
-const styles = stylex.create({
-  banner: {
-    bottom: "1.5rem",
-    color: "rgb(248 113 113)",
-    fontSize: "0.75rem",
-    position: "fixed",
-    textAlign: "center",
-    transform: "translateX(-50%)",
-    whiteSpace: "nowrap",
-    zIndex: 50,
-  },
-});
-
-export { styles as sessionStatusBannerStyles };

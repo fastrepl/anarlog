@@ -1,10 +1,8 @@
 import { CircleNotch } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useCallback, useMemo } from "react";
 
-import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
@@ -12,6 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
+import { cn } from "@anlg/utils";
 
 import { toTz, useTimezone } from "~/calendar/hooks";
 import { useIgnoredEvents } from "~/calendar/ignored-events";
@@ -89,20 +88,32 @@ export function EventChip({
       <PopoverTrigger asChild>
         {isAllDay ? (
           <button
-            {...stylex.props(styles.allDayChip, styles.color(color))}
+            className={cn([
+              "text-primary-foreground w-full truncate rounded px-1.5 py-0.5 text-left text-xs leading-tight",
+              "cursor-pointer select-none hover:opacity-80",
+            ])}
+            style={{ backgroundColor: color }}
             onContextMenu={showContextMenu}
           >
             {title}
           </button>
         ) : (
           <button
-            {...stylex.props(styles.timedChip)}
+            className={cn([
+              "flex w-full items-center gap-1 rounded pl-0.5 text-left text-xs leading-tight",
+              "cursor-pointer select-none hover:opacity-80",
+            ])}
             onContextMenu={showContextMenu}
           >
-            <div {...stylex.props(styles.eventMarker, styles.color(color))} />
-            <span {...stylex.props(styles.truncate)}>{title}</span>
+            <div
+              className="w-[2.5px] shrink-0 self-stretch rounded-full"
+              style={{ backgroundColor: color }}
+            />
+            <span className="truncate">{title}</span>
             {startedAt && (
-              <span {...stylex.props(styles.time)}>{startedAt}</span>
+              <span className="text-muted-foreground ml-auto shrink-0 font-mono">
+                {startedAt}
+              </span>
             )}
           </button>
         )}
@@ -110,7 +121,7 @@ export function EventChip({
       <PopoverContent
         variant="app"
         align="start"
-        sx={styles.popover}
+        className="flex max-h-[80vh] w-[280px] flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <AppFloatingPanel>
@@ -142,7 +153,7 @@ function EventPopoverContent({
   });
 
   return (
-    <div {...stylex.props(styles.popoverContent)}>
+    <div className="flex flex-col gap-3 p-4">
       <EventDisplay
         event={{
           title: event.title ?? undefined,
@@ -156,104 +167,15 @@ function EventPopoverContent({
       />
       <Button
         size="sm"
-        sx={styles.openButton}
+        className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-8 w-full"
         disabled={openNote.isPending}
         onClick={() => openNote.mutate()}
       >
         {openNote.isPending ? (
-          <CircleNotch {...stylex.props(styles.spinner)} aria-hidden="true" />
+          <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
         ) : null}
         Open note
       </Button>
     </div>
   );
 }
-
-const spin = stylex.keyframes({
-  to: {
-    transform: "rotate(360deg)",
-  },
-});
-
-const styles = stylex.create({
-  allDayChip: {
-    borderRadius: "0.25rem",
-    color: colors.primaryForeground,
-    cursor: "pointer",
-    fontSize: "0.75rem",
-    lineHeight: 1.25,
-    opacity: {
-      default: 1,
-      ":hover": 0.8,
-    },
-    overflow: "hidden",
-    paddingBlock: "0.125rem",
-    paddingInline: "0.375rem",
-    textAlign: "left",
-    textOverflow: "ellipsis",
-    userSelect: "none",
-    whiteSpace: "nowrap",
-    width: "100%",
-  },
-  color: (color: string) => ({
-    backgroundColor: color,
-  }),
-  eventMarker: {
-    alignSelf: "stretch",
-    borderRadius: radii.full,
-    flexShrink: 0,
-    width: "2.5px",
-  },
-  openButton: {
-    minHeight: "2rem",
-    width: "100%",
-  },
-  popover: {
-    display: "flex",
-    flexDirection: "column",
-    maxHeight: "80vh",
-    width: "280px",
-  },
-  popoverContent: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-    padding: "1rem",
-  },
-  spinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  time: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    fontFamily: fonts.mono,
-    marginLeft: "auto",
-  },
-  timedChip: {
-    alignItems: "center",
-    borderRadius: "0.25rem",
-    cursor: "pointer",
-    display: "flex",
-    fontSize: "0.75rem",
-    gap: "0.25rem",
-    lineHeight: 1.25,
-    opacity: {
-      default: 1,
-      ":hover": 0.8,
-    },
-    paddingLeft: "0.125rem",
-    textAlign: "left",
-    userSelect: "none",
-    width: "100%",
-  },
-  truncate: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-});

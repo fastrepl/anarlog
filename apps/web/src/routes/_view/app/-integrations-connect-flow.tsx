@@ -1,12 +1,10 @@
 import Nango, { type ConnectUI } from "@nangohq/frontend";
-import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 import { createSession } from "@anlg/api-client";
 import { createClient } from "@anlg/api-client/client";
-import { fonts, media } from "@anlg/design-system/tokens.stylex";
 
 import { env } from "@/env";
 import { getAccessToken } from "@/functions/access-token";
@@ -25,76 +23,7 @@ import {
 import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
 import { getIntegrationDisplay, Route } from "./integration";
 
-const spin = stylex.keyframes({
-  to: { transform: "rotate(360deg)" },
-});
-
-const styles = stylex.create({
-  style1: {
-    display: "flex",
-    flexDirection: "column",
-    gap: ".75rem",
-  },
-  style2: {
-    fontFamily: fonts.sans,
-    fontSize: "1.875rem",
-    lineHeight: "2.25rem",
-    letterSpacing: "-.025em",
-    color: "#44403c",
-  },
-  style3: {
-    color: "#525252",
-  },
-  style4: {
-    display: "flex",
-    flexDirection: "column",
-    gap: ".75rem",
-    borderRadius: "1rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    borderColor: "#e7e5e4",
-    backgroundColor: "#fafaf9",
-    padding: "1.25rem",
-    textAlign: "left",
-    fontSize: ".875rem",
-    lineHeight: "1.5rem",
-    color: "#44403c",
-  },
-  style5: {
-    textDecorationLine: "underline",
-  },
-  style6: {
-    height: "1rem",
-    width: "1rem",
-    animationDuration: "1s",
-    animationTimingFunction: "linear",
-    animationIterationCount: "infinite",
-    animationName: {
-      default: spin,
-      [media.reducedMotion]: "none",
-    },
-    color: "#fff",
-  },
-  style7: {
-    opacity: 0.25,
-  },
-  style8: {
-    opacity: 0.75,
-  },
-  style9: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  style10: {
-    color: "#dc2626",
-  },
-});
-export function ConnectFlow({
-  sessionToken,
-}: {
-  sessionToken?: string;
-} = {}) {
+export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const { track } = useAnalytics();
@@ -113,7 +42,9 @@ export function ConnectFlow({
   const connectUIRef = useRef<ConnectUI | null>(null);
   const disposedRef = useRef(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+
   const display = getIntegrationDisplay(search.integration_id);
+
   const sessionQuery = useQuery({
     queryKey: [
       "nango-connect-session",
@@ -125,10 +56,9 @@ export function ConnectFlow({
       const token = await getAccessToken();
       const apiClient = createClient({
         baseUrl: env.VITE_API_URL,
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
+
       const { data, error } = await createSession({
         client: apiClient,
         body: {
@@ -147,6 +77,7 @@ export function ConnectFlow({
     refetchOnWindowFocus: false,
     retry: 1,
   });
+
   const connectSessionToken = sessionToken ?? sessionQuery.data?.token;
   const sessionFailed = isConnectSessionFailed({
     handedOffToken: sessionToken,
@@ -156,12 +87,14 @@ export function ConnectFlow({
   const sessionLoading =
     !sessionToken && (sessionQuery.isPending || sessionQuery.isFetching);
   const reportedSessionErrorCountRef = useRef(0);
+
   const updateStatus = (
     nextStatus: "idle" | "loading" | "connecting" | "success" | "error",
   ) => {
     statusRef.current = nextStatus;
     setStatus(nextStatus);
   };
+
   const finishWithSessionError = () => {
     if (disposedRef.current) return;
     captureOperationalError(
@@ -183,6 +116,7 @@ export function ConnectFlow({
       failure_stage: "session",
     });
   };
+
   const finishWithAuthError = (error: unknown) => {
     if (disposedRef.current) return;
     const errorType = getNangoAuthErrorType(error);
@@ -216,6 +150,7 @@ export function ConnectFlow({
       void sessionQuery.refetch();
     }
   };
+
   const finishWithSuccess = () => {
     if (disposedRef.current) return;
     inFlightRef.current = false;
@@ -245,21 +180,22 @@ export function ConnectFlow({
       search: callbackSearch,
     });
   };
+
   const startHeadlessAuth = (token: string) => {
     // nango.auth() opens the popup synchronously. Do not await before this
     // call or browsers will block the provider window.
-    const nango = new Nango({
-      connectSessionToken: token,
-    });
+    const nango = new Nango({ connectSessionToken: token });
     nangoRef.current = nango;
     // The connect/reconnect session already binds the connection. Passing a
     // client-side connection ID is rejected by Nango's session model.
     const auth = nango.auth(search.integration_id, {
       detectClosedAuthWindow: true,
     });
+
     updateStatus("connecting");
     void auth.then(finishWithSuccess).catch(finishWithAuthError);
   };
+
   const startConnectUI = (token: string) => {
     const nango = new Nango();
     nangoRef.current = nango;
@@ -281,18 +217,18 @@ export function ConnectFlow({
             });
           }
         } else if (event.type === "error") {
-          finishWithAuthError({
-            type: event.payload.errorType,
-          });
+          finishWithAuthError({ type: event.payload.errorType });
         } else if (event.type === "connect") {
           finishWithSuccess();
         }
       },
     });
+
     connectUIRef.current = connect;
     updateStatus("connecting");
     connect.setSessionToken(token);
   };
+
   const handleConnect = () => {
     if (inFlightRef.current) return;
     if (sessionLoading) return;
@@ -300,6 +236,7 @@ export function ConnectFlow({
       finishWithSessionError();
       return;
     }
+
     inFlightRef.current = true;
     setConnectionError(null);
     updateStatus("loading");
@@ -308,12 +245,15 @@ export function ConnectFlow({
       mode: search.action,
       flow: search.flow,
     });
+
     if (skipConnectUI) {
       startHeadlessAuth(connectSessionToken);
       return;
     }
+
     startConnectUI(connectSessionToken);
   };
+
   useEffect(() => {
     if (!sessionFailed) return;
     if (
@@ -324,6 +264,7 @@ export function ConnectFlow({
     reportedSessionErrorCountRef.current = sessionQuery.errorUpdateCount;
     finishWithSessionError();
   }, [sessionFailed, sessionQuery.errorUpdateCount]);
+
   useMountEffect(() => {
     disposedRef.current = false;
     return () => {
@@ -334,20 +275,24 @@ export function ConnectFlow({
       connectUIRef.current = null;
     };
   });
+
   const isLoading = status === "loading" || sessionLoading;
   const isConnecting = status === "connecting";
   const consentProvider = isGoogleCalendar ? "Google" : "Microsoft";
+
   return (
     <IntegrationPageLayout>
-      <div {...stylex.props(styles.style1)}>
-        <h1 {...stylex.props(styles.style2)}>Connect {display.name}</h1>
-        <p {...stylex.props(styles.style3)}>
+      <div className="flex flex-col gap-3">
+        <h1 className="font-sans text-3xl tracking-tight text-stone-700">
+          Connect {display.name}
+        </h1>
+        <p className="text-neutral-600">
           {isConnecting ? display.connectingHint : display.description}
         </p>
       </div>
 
       {isConnectedCalendar && !isConnecting && status !== "success" && (
-        <div {...stylex.props(styles.style4)}>
+        <div className="flex flex-col gap-3 rounded-2xl border border-stone-200 bg-stone-50 p-5 text-left text-sm leading-6 text-stone-700">
           <p>
             Anarlog reads your calendar and event details to show upcoming
             events and link them to private notes. Access is read-only: Anarlog
@@ -371,12 +316,12 @@ export function ConnectFlow({
           </p>
           <p>
             Read our{" "}
-            <a {...stylex.props(styles.style5)} href="/privacy">
+            <a className="underline" href="/privacy">
               Privacy Policy
             </a>{" "}
             and{" "}
             <a
-              {...stylex.props(styles.style5)}
+              className="underline"
               href="https://docs.anarlog.so/calendar#manage-or-delete-connected-calendar-data"
             >
               calendar data instructions
@@ -393,13 +338,13 @@ export function ConnectFlow({
         >
           {(status === "loading" || sessionLoading) && (
             <svg
-              {...stylex.props(styles.style6)}
+              className="h-4 w-4 animate-spin text-white"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
             >
               <circle
-                {...stylex.props(styles.style7)}
+                className="opacity-25"
                 cx="12"
                 cy="12"
                 r="10"
@@ -407,7 +352,7 @@ export function ConnectFlow({
                 strokeWidth="4"
               />
               <path
-                {...stylex.props(styles.style8)}
+                className="opacity-75"
                 fill="currentColor"
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
               />
@@ -422,8 +367,8 @@ export function ConnectFlow({
       )}
 
       {(status === "error" || (sessionFailed && status === "idle")) && (
-        <div {...stylex.props(styles.style9)}>
-          <p {...stylex.props(styles.style10)}>
+        <div className="flex flex-col gap-4">
+          <p className="text-red-600">
             {connectionError ?? "Something went wrong. Please try again."}
           </p>
           <IntegrationButton

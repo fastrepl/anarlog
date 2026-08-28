@@ -8,11 +8,9 @@ import {
   Play,
   Sparkle,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
@@ -23,8 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
-import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
-import { formatDistanceToNow } from "@anlg/utils";
+import { cn, formatDistanceToNow } from "@anlg/utils";
 
 import {
   AutomationLastRunLine,
@@ -75,7 +72,7 @@ export function TabContentAutomations() {
   return (
     <StandardContentWrapper>
       <SettingsHydrationBoundary>
-        <div {...stylex.props(styles.page)}>
+        <div className="bg-card dark:bg-accent flex w-full flex-1 flex-col overflow-hidden">
           <AutomationsContent />
         </div>
       </SettingsHydrationBoundary>
@@ -112,11 +109,11 @@ export function AutomationsContent() {
 
 function AutomationsOverview() {
   return (
-    <div {...mergeStyleXProps(styles.scroller, "scroll-fade-y")}>
-      <div {...stylex.props(styles.content)}>
-        <div {...stylex.props(styles.titleBlock)}>
+    <div className="scroll-fade-y scrollbar-hide h-full w-full flex-1 overflow-y-auto px-6 pt-3 pb-8">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+        <div className="flex flex-col gap-2">
           <SettingsPageTitle title={<Trans>Automations</Trans>} />
-          <p {...stylex.props(styles.description)}>
+          <p className="text-muted-foreground max-w-2xl text-sm leading-relaxed">
             <Trans>
               Automate what happens before, during, or after meetings based on
               the conditions you choose.
@@ -124,14 +121,14 @@ function AutomationsOverview() {
           </p>
         </div>
 
-        <section {...stylex.props(styles.emptyState)}>
-          <span {...stylex.props(styles.emptyIconFrame)}>
-            <Lightning {...stylex.props(styles.muted)} size={20} />
+        <section className="border-border bg-muted/20 flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-10 text-center">
+          <span className="bg-background border-border flex size-11 items-center justify-center rounded-2xl border">
+            <Lightning className="text-muted-foreground" size={20} />
           </span>
-          <h3 {...stylex.props(styles.emptyTitle)}>
+          <h3 className="mt-4 text-sm font-semibold">
             <Trans>No automation draft yet</Trans>
           </h3>
-          <p {...stylex.props(styles.emptyDescription)}>
+          <p className="text-muted-foreground mt-1 max-w-sm text-xs leading-relaxed">
             <Trans>
               Choose a starter from the sidebar, or create a workflow and add
               steps like Zapier.
@@ -172,10 +169,12 @@ function AutomationDetailHeader({
   actions: React.ReactNode;
 }) {
   return (
-    <header {...stylex.props(styles.detailHeader)}>
-      <div {...stylex.props(styles.detailTitleRow)}>
-        <span {...stylex.props(styles.detailIcon)}>{icon}</span>
-        <h2 {...stylex.props(styles.detailTitle)}>{title}</h2>
+    <header className="flex h-12 shrink-0 items-center justify-between gap-3 pr-1 pl-3">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <span className="flex size-7 shrink-0 items-center justify-center">
+          {icon}
+        </span>
+        <h2 className="min-w-0 truncate text-sm font-semibold">{title}</h2>
       </div>
       {actions}
     </header>
@@ -196,12 +195,14 @@ function AutomationDetailsLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div {...stylex.props(styles.detailLayout)}>
+    <div className="flex h-full min-h-0 flex-1 flex-col">
       <AutomationDetailHeader icon={icon} title={title} actions={actions} />
-      <div {...mergeStyleXProps(styles.detailScroller, "scroll-fade-y")}>
-        <div {...stylex.props(styles.content)}>
+      <div className="scroll-fade-y scrollbar-hide min-h-0 w-full flex-1 overflow-y-auto px-6 pt-3 pb-8">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
           {description && (
-            <p {...stylex.props(styles.description)}>{description}</p>
+            <p className="text-muted-foreground max-w-2xl text-sm leading-relaxed">
+              {description}
+            </p>
           )}
           {children}
         </div>
@@ -226,15 +227,15 @@ function AutomationActionsMenu({
           type="button"
           size="icon"
           variant="ghost"
-          sx={styles.menuTrigger}
+          className="text-muted-foreground hover:text-foreground"
           aria-label={t`Automation actions`}
         >
-          <DotsThree {...stylex.props(styles.icon)} />
+          <DotsThree className="size-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent variant="app" align="end">
-        <AppFloatingPanel sx={styles.menuPanel}>
-          <DropdownMenuItem onClick={onAction} sx={styles.pointer}>
+        <AppFloatingPanel className="overflow-hidden p-1">
+          <DropdownMenuItem onClick={onAction} className="cursor-pointer">
             {actionLabel}
           </DropdownMenuItem>
         </AppFloatingPanel>
@@ -315,17 +316,11 @@ function CustomWorkflowDetails({
 
   return (
     <AutomationDetailsLayout
-      icon={
-        <Lightning
-          {...stylex.props(styles.workflowIcon)}
-          size={16}
-          weight="fill"
-        />
-      }
+      icon={<Lightning className="text-violet-500" size={16} weight="fill" />}
       title={title}
       description={description}
       actions={
-        <div {...stylex.props(styles.headerActions)}>
+        <div className="flex items-center gap-2">
           {workflow.enabled ? (
             <Button
               type="button"
@@ -507,20 +502,16 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
       }
     >
       <section
-        {...stylex.props(styles.draft)}
+        className="border-border bg-background overflow-hidden rounded-2xl border"
         aria-labelledby="automation-draft-title"
       >
-        <div {...stylex.props(styles.draftHeader)}>
-          <div {...stylex.props(styles.minWidth)}>
-            <div {...stylex.props(styles.draftTitleRow)}>
-              <Lightning
-                {...stylex.props(styles.primary)}
-                size={17}
-                weight="fill"
-              />
+        <div className="border-border flex flex-wrap items-start justify-between gap-3 border-b px-5 py-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <Lightning className="text-primary" size={17} weight="fill" />
               <h3
                 id="automation-draft-title"
-                {...stylex.props(styles.draftTitle)}
+                className="truncate text-sm font-semibold"
               >
                 {starter.title}
               </h3>
@@ -534,11 +525,11 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
                 </Badge>
               )}
             </div>
-            <p {...stylex.props(styles.draftDescription)}>
+            <p className="text-muted-foreground mt-1 text-xs">
               <Trans>Steps run from top to bottom.</Trans>
             </p>
           </div>
-          <div {...stylex.props(styles.draftActions)}>
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               size="sm"
@@ -608,27 +599,25 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
           </div>
         </div>
 
-        <div {...stylex.props(styles.steps)}>
+        <div className="flex flex-col gap-2 p-5">
           {starter.steps.map((step, index) => (
             <div key={`${step.kind}-${step.title}`}>
-              <div {...stylex.props(styles.step)}>
+              <div className="border-border bg-card flex items-start gap-3 rounded-xl border p-4">
                 <span
-                  {...stylex.props(
-                    styles.stepBadge,
+                  className={cn([
+                    "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
                     step.kind === "ai"
-                      ? styles.aiBadge
+                      ? "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300"
                       : step.kind === "trigger"
-                        ? styles.triggerBadge
-                        : styles.actionBadge,
-                  )}
+                        ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                        : "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
+                  ])}
                 >
                   {step.kind === "ai" ? <Sparkle size={13} /> : index + 1}
                 </span>
-                <span {...stylex.props(styles.stepContent)}>
-                  <span {...stylex.props(styles.stepTitleRow)}>
-                    <span {...stylex.props(styles.stepTitle)}>
-                      {step.title}
-                    </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium">{step.title}</span>
                     <Badge variant="outline" size="sm">
                       {step.kind === "ai" ? (
                         <Trans>AI step</Trans>
@@ -639,24 +628,21 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
                       )}
                     </Badge>
                   </span>
-                  <span {...stylex.props(styles.stepDetail)}>
+                  <span className="text-muted-foreground mt-1 block text-xs leading-relaxed">
                     {step.detail}
                   </span>
                 </span>
               </div>
               {index < starter.steps.length - 1 ? (
-                <div {...stylex.props(styles.connector)}>
-                  <ArrowRight
-                    {...stylex.props(styles.connectorIcon)}
-                    size={13}
-                  />
+                <div className="text-muted-foreground flex h-6 items-center pl-6">
+                  <ArrowRight className="rotate-90" size={13} />
                 </div>
               ) : null}
             </div>
           ))}
         </div>
 
-        <div {...stylex.props(styles.draftFooter)}>
+        <div className="border-border border-t px-5 py-4">
           {starterId === "markdown-export" ? (
             <MarkdownExportConfig />
           ) : starterId === "slack-recap" ? (
@@ -672,14 +658,14 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
         </div>
 
         {showPreview ? (
-          <div {...stylex.props(styles.preview)}>
-            <div {...stylex.props(styles.previewRow)}>
-              <Eye {...stylex.props(styles.previewIcon)} size={15} />
+          <div className="border-border bg-muted/35 border-t px-5 py-4">
+            <div className="flex items-start gap-3">
+              <Eye className="text-muted-foreground mt-0.5" size={15} />
               <div>
-                <h4 {...stylex.props(styles.previewTitle)}>
+                <h4 className="text-xs font-semibold">
                   <Trans>Expected output</Trans>
                 </h4>
-                <p {...stylex.props(styles.previewDescription)}>
+                <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
                   {starter.preview}
                 </p>
               </div>
@@ -690,348 +676,3 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
     </AutomationDetailsLayout>
   );
 }
-
-const styles = stylex.create({
-  actionBadge: {
-    backgroundColor: {
-      default: "rgb(219 234 254)",
-      ":is(.dark *)": "rgb(23 37 84)",
-    },
-    color: {
-      default: "rgb(29 78 216)",
-      ":is(.dark *)": "rgb(147 197 253)",
-    },
-  },
-  aiBadge: {
-    backgroundColor: {
-      default: "rgb(237 233 254)",
-      ":is(.dark *)": "rgb(46 16 101)",
-    },
-    color: {
-      default: "rgb(109 40 217)",
-      ":is(.dark *)": "rgb(196 181 253)",
-    },
-  },
-  connector: {
-    alignItems: "center",
-    color: colors.mutedForeground,
-    display: "flex",
-    height: "1.5rem",
-    paddingLeft: "1.5rem",
-  },
-  connectorIcon: {
-    transform: "rotate(90deg)",
-  },
-  content: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1.5rem",
-    marginInline: "auto",
-    maxWidth: "64rem",
-    width: "100%",
-  },
-  description: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    lineHeight: 1.625,
-    maxWidth: "42rem",
-  },
-  detailHeader: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    gap: "0.75rem",
-    height: "3rem",
-    justifyContent: "space-between",
-    paddingLeft: "0.75rem",
-    paddingRight: "0.25rem",
-  },
-  detailIcon: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    height: "1.75rem",
-    justifyContent: "center",
-    width: "1.75rem",
-  },
-  detailLayout: {
-    display: "flex",
-    flex: "1",
-    flexDirection: "column",
-    height: "100%",
-    minHeight: 0,
-  },
-  detailScroller: {
-    display: {
-      default: null,
-      "::-webkit-scrollbar": "none",
-    },
-    flex: "1",
-    minHeight: 0,
-    overflowY: "auto",
-    paddingBottom: "2rem",
-    paddingLeft: "1.5rem",
-    paddingRight: "1.5rem",
-    paddingTop: "0.75rem",
-    scrollbarWidth: "none",
-    width: "100%",
-  },
-  detailTitle: {
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  detailTitleRow: {
-    alignItems: "center",
-    display: "flex",
-    flex: "1",
-    gap: "0.5rem",
-    minWidth: 0,
-  },
-  draft: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderRadius: "1rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    overflow: "hidden",
-  },
-  draftActions: {
-    alignItems: "center",
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "0.5rem",
-  },
-  draftDescription: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    marginTop: "0.25rem",
-  },
-  draftFooter: {
-    borderTopColor: colors.border,
-    borderTopStyle: "solid",
-    borderTopWidth: "1px",
-    paddingBlock: "1rem",
-    paddingInline: "1.25rem",
-  },
-  draftHeader: {
-    alignItems: "flex-start",
-    borderBottomColor: colors.border,
-    borderBottomStyle: "solid",
-    borderBottomWidth: "1px",
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "0.75rem",
-    justifyContent: "space-between",
-    paddingBlock: "1rem",
-    paddingInline: "1.25rem",
-  },
-  draftTitle: {
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  draftTitleRow: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-  },
-  emptyDescription: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    lineHeight: 1.625,
-    marginTop: "0.25rem",
-    maxWidth: "24rem",
-  },
-  emptyIconFrame: {
-    alignItems: "center",
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderRadius: "1rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    display: "flex",
-    height: "2.75rem",
-    justifyContent: "center",
-    width: "2.75rem",
-  },
-  emptyState: {
-    alignItems: "center",
-    backgroundColor: `color-mix(in srgb, ${colors.muted} 20%, transparent)`,
-    borderColor: colors.border,
-    borderRadius: "1rem",
-    borderStyle: "dashed",
-    borderWidth: "1px",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    minHeight: "14rem",
-    paddingBlock: "2.5rem",
-    paddingInline: "1.5rem",
-    textAlign: "center",
-  },
-  emptyTitle: {
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    marginTop: "1rem",
-  },
-  headerActions: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  menuPanel: {
-    overflow: "hidden",
-    padding: "0.25rem",
-  },
-  menuTrigger: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-  },
-  minWidth: {
-    minWidth: 0,
-  },
-  muted: {
-    color: colors.mutedForeground,
-  },
-  page: {
-    backgroundColor: {
-      default: colors.card,
-      ":is(.dark *)": colors.accent,
-    },
-    display: "flex",
-    flex: "1",
-    flexDirection: "column",
-    overflow: "hidden",
-    width: "100%",
-  },
-  pointer: {
-    cursor: "pointer",
-  },
-  preview: {
-    backgroundColor: `color-mix(in srgb, ${colors.muted} 35%, transparent)`,
-    borderTopColor: colors.border,
-    borderTopStyle: "solid",
-    borderTopWidth: "1px",
-    paddingBlock: "1rem",
-    paddingInline: "1.25rem",
-  },
-  previewDescription: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    lineHeight: 1.625,
-    marginTop: "0.25rem",
-  },
-  previewIcon: {
-    color: colors.mutedForeground,
-    marginTop: "0.125rem",
-  },
-  previewRow: {
-    alignItems: "flex-start",
-    display: "flex",
-    gap: "0.75rem",
-  },
-  previewTitle: {
-    fontSize: "0.75rem",
-    fontWeight: 600,
-  },
-  primary: {
-    color: colors.primary,
-  },
-  scroller: {
-    display: {
-      default: null,
-      "::-webkit-scrollbar": "none",
-    },
-    flex: "1",
-    height: "100%",
-    overflowY: "auto",
-    paddingBottom: "2rem",
-    paddingLeft: "1.5rem",
-    paddingRight: "1.5rem",
-    paddingTop: "0.75rem",
-    scrollbarWidth: "none",
-    width: "100%",
-  },
-  step: {
-    alignItems: "flex-start",
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderRadius: radii.xl,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    display: "flex",
-    gap: "0.75rem",
-    padding: "1rem",
-  },
-  stepBadge: {
-    alignItems: "center",
-    borderRadius: radii.full,
-    display: "flex",
-    flexShrink: 0,
-    fontSize: "0.75rem",
-    fontWeight: 600,
-    height: "1.75rem",
-    justifyContent: "center",
-    marginTop: "0.125rem",
-    width: "1.75rem",
-  },
-  stepContent: {
-    flex: "1",
-    minWidth: 0,
-  },
-  stepDetail: {
-    color: colors.mutedForeground,
-    display: "block",
-    fontSize: "0.75rem",
-    lineHeight: 1.625,
-    marginTop: "0.25rem",
-  },
-  steps: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-    padding: "1.25rem",
-  },
-  stepTitle: {
-    fontSize: "0.875rem",
-    fontWeight: 500,
-  },
-  stepTitleRow: {
-    alignItems: "center",
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "0.5rem",
-  },
-  titleBlock: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-  },
-  triggerBadge: {
-    backgroundColor: {
-      default: "rgb(254 243 199)",
-      ":is(.dark *)": "rgb(69 26 3)",
-    },
-    color: {
-      default: "rgb(180 83 9)",
-      ":is(.dark *)": "rgb(252 211 77)",
-    },
-  },
-  workflowIcon: {
-    color: "rgb(139 92 246)",
-  },
-});
-
-export { styles as automationSettingsStyles };

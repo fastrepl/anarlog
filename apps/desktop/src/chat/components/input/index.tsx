@@ -7,15 +7,13 @@ import {
   Microphone,
   Square,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMemo, useRef } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { ChatEditor, type ChatEditorHandle } from "@anlg/editor/chat";
 import type { PlaceholderFunction } from "@anlg/editor/plugins";
 import { Button } from "@anlg/ui/components/ui/button";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
-import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
+import { cn } from "@anlg/utils";
 
 import {
   useAutoFocusEditor,
@@ -55,7 +53,7 @@ export function ChatMessageInput({
 }) {
   const { t } = useLingui();
   const { chat } = useShell();
-  const { elevatedSurfaceStyle } = useChatAppearance();
+  const { elevatedSurfaceClassName } = useChatAppearance();
   const editorRef = useRef<ChatEditorHandle>(null);
   const disabled =
     typeof disabledProp === "object" ? disabledProp.disabled : disabledProp;
@@ -96,20 +94,10 @@ export function ChatMessageInput({
     () => createChatPlaceholder(() => placeholderTextRef.current),
     [],
   );
-  const editorSemanticClassName = [
-    "chat-input-editor",
-    isFloating && hasVoiceStatus && "chat-input-editor-voice-active",
-    isFloating &&
-      hasContent &&
-      !hasVoiceStatus &&
-      "chat-input-editor-two-actions",
-  ]
-    .filter(Boolean)
-    .join(" ");
 
   return (
     <Container
-      elevatedSurfaceStyle={elevatedSurfaceStyle}
+      elevatedSurfaceClassName={elevatedSurfaceClassName}
       isFloating={isFloating}
       isRightPanel={isRightPanel}
       hasVoiceStatus={hasVoiceStatus}
@@ -117,11 +105,9 @@ export function ChatMessageInput({
         history.position !== null && (
           <div
             data-chat-history-indicator
-            {...stylex.props([
-              styles.historyIndicator,
-              isFloating
-                ? styles.floatingHistoryIndicator
-                : styles.elevatedHistoryIndicator,
+            className={cn([
+              "text-muted-foreground/80 pb-1 text-[11px] leading-none",
+              isFloating ? "px-4" : "px-2",
             ])}
           >
             {t`History ${history.position}/${history.total}`}
@@ -131,41 +117,32 @@ export function ChatMessageInput({
     >
       <div
         data-chat-message-input
-        data-chat-layout={layout}
-        data-chat-voice-state={dictation.phase}
-        {...stylex.props([
-          styles.messageInput,
+        className={cn([
           isFloating
-            ? styles.floatingMessageInput
-            : styles.elevatedMessageInput,
-          isFloating &&
-            (hasVoiceStatus
-              ? styles.voiceMessageInput
-              : styles.idleMessageInput),
+            ? [
+                "relative flex max-h-full min-h-[30px] w-full min-w-0",
+                hasVoiceStatus ? "flex-col items-stretch" : "items-center",
+              ]
+            : "flex flex-col px-2 pt-3 pb-2",
         ])}
+        data-chat-voice-state={dictation.phase}
       >
-        <div
-          {...stylex.props(
-            isFloating
-              ? styles.floatingEditorContainer
-              : styles.elevatedEditorContainer,
-          )}
-        >
+        <div className={cn([isFloating ? "min-w-0 flex-1" : "mb-1 min-h-0"])}>
           <ChatEditor
             ref={editorRef}
-            className={
-              mergeStyleXProps(
-                [
-                  styles.editor,
-                  isFloating ? styles.floatingEditor : styles.elevatedEditor,
-                  !isFloating &&
-                    (isRightPanel
-                      ? styles.rightPanelEditor
-                      : styles.compactEditor),
-                ],
-                editorSemanticClassName,
-              ).className
-            }
+            className={cn([
+              "chat-input-editor",
+              "text-sm",
+              isFloating
+                ? "max-h-36 min-h-5 w-full min-w-0 overflow-y-auto overscroll-contain"
+                : "overflow-y-auto overscroll-contain",
+              !isFloating && (isRightPanel ? "max-h-[40vh]" : "max-h-48"),
+              isFloating && hasVoiceStatus && "chat-input-editor-voice-active",
+              isFloating &&
+                hasContent &&
+                !hasVoiceStatus &&
+                "chat-input-editor-two-actions",
+            ])}
             initialContent={initialContent}
             mentionConfig={mentionConfig}
             placeholder={placeholder}
@@ -190,11 +167,9 @@ export function ChatMessageInput({
           />
         ) : (
           <div
-            data-chat-input-actions
-            data-chat-layout={layout}
-            {...stylex.props([
-              styles.actions,
-              isFloating ? styles.floatingActions : styles.elevatedActions,
+            className={cn([
+              "flex shrink-0 items-center gap-1",
+              isFloating ? "absolute right-0 bottom-0.5" : "justify-end",
             ])}
           >
             {!isStreaming && (
@@ -203,7 +178,10 @@ export function ChatMessageInput({
                 aria-label={t`Start voice input`}
                 onClick={() => void dictation.start()}
                 disabled={Boolean(disabled)}
-                {...stylex.props(styles.voiceButton)}
+                className={cn([
+                  "text-muted-foreground hover:bg-muted inline-flex size-7 shrink-0 items-center justify-center rounded-full transition-colors",
+                  "disabled:cursor-default disabled:opacity-45",
+                ])}
               >
                 <Microphone size={17} weight="regular" />
               </button>
@@ -213,7 +191,7 @@ export function ChatMessageInput({
                 onClick={onStop}
                 size="icon"
                 variant="ghost"
-                sx={styles.roundIconButton}
+                className="h-7 w-7 rounded-full"
                 aria-label={t`Stop response`}
               >
                 <Square size={14} weight="fill" />
@@ -230,14 +208,14 @@ export function ChatMessageInput({
 
 function Container({
   children,
-  elevatedSurfaceStyle,
+  elevatedSurfaceClassName,
   isFloating,
   isRightPanel,
   hasVoiceStatus,
   indicator,
 }: {
   children: React.ReactNode;
-  elevatedSurfaceStyle: StyleXProps["sx"];
+  elevatedSurfaceClassName: string;
   isFloating: boolean;
   isRightPanel: boolean;
   hasVoiceStatus: boolean;
@@ -245,25 +223,23 @@ function Container({
 }) {
   return (
     <div
-      data-chat-input-container
-      data-chat-layout={isRightPanel ? "right-panel" : "floating"}
-      {...stylex.props([
-        styles.container,
-        isRightPanel ? styles.rightPanelContainer : styles.floatingContainer,
+      className={cn([
+        "relative min-w-0 shrink-0",
+        isRightPanel ? "px-2 pb-3" : "px-1 pb-1",
       ])}
     >
       {indicator}
       <div
         data-chat-input-surface={isFloating ? "floating" : "elevated"}
-        {...stylex.props([
-          styles.inputSurface,
+        className={cn([
+          "flex max-h-full border",
           isFloating
-            ? styles.floatingInputSurface
-            : [styles.elevatedInputSurface, elevatedSurfaceStyle],
-          isFloating &&
-            (hasVoiceStatus
-              ? styles.voiceInputSurface
-              : styles.idleInputSurface),
+            ? [
+                "border-border/70 text-card-foreground max-h-40 min-h-[38px] flex-row overflow-hidden rounded-[19px] bg-white pr-[6px] pl-4 text-sm shadow-none",
+                "dark:bg-card dark:text-card-foreground",
+                hasVoiceStatus ? "items-stretch py-2" : "items-center py-[3px]",
+              ]
+            : [elevatedSurfaceClassName, "flex-col rounded-xl"],
         ])}
       >
         {children}
@@ -287,9 +263,14 @@ function SendButton({
       aria-label={t`Send message`}
       onClick={onClick}
       disabled={disabled}
-      {...stylex.props([
-        styles.sendButton,
-        !disabled && styles.enabledSendButton,
+      className={cn([
+        "chat-input-send",
+        "border-border text-muted-foreground/60 inline-flex size-7 shrink-0 items-center justify-center rounded-full border transition-all duration-100",
+        !disabled && [
+          "bg-primary text-primary-foreground border-stone-600",
+          "hover:bg-primary/90",
+          "active:bg-primary/80 active:scale-[0.97]",
+        ],
       ])}
     >
       <ArrowUp size={15} weight="bold" />
@@ -322,11 +303,14 @@ function VoiceStatus({
   const isProcessing = phase !== "recording";
 
   return (
-    <div {...stylex.props(styles.voiceStatus)}>
-      <div aria-hidden="true" {...stylex.props(styles.waveform)}>
+    <div className="mt-2 flex min-h-7 w-full items-center gap-2">
+      <div
+        aria-hidden="true"
+        className="flex min-w-0 flex-1 items-center gap-[3px] overflow-hidden"
+      >
         {isProcessing ? (
-          <div {...stylex.props(styles.processingStatus)}>
-            <CircleNotch {...stylex.props(styles.smallSpinner)} />
+          <div className="text-muted-foreground flex items-center gap-2 text-xs">
+            <CircleNotch className="size-3.5 animate-spin" />
             <span>
               {phase === "starting" ? t`Starting…` : t`Transcribing…`}
             </span>
@@ -335,16 +319,17 @@ function VoiceStatus({
           WAVEFORM_HEIGHTS.map((height, index) => (
             <span
               key={index}
-              {...mergeStyleXProps(styles.waveformBar, undefined, {
+              className="chat-input-waveform-bar bg-muted-foreground/55 w-px shrink-0 rounded-full"
+              style={{
                 height,
                 animationDelay: `${index * -70}ms`,
-              })}
+              }}
             />
           ))
         )}
       </div>
       {!isProcessing && (
-        <span {...stylex.props(styles.elapsedTime)}>
+        <span className="text-muted-foreground text-xs tabular-nums">
           {formatElapsedTime(elapsedSeconds)}
         </span>
       )}
@@ -359,10 +344,10 @@ function VoiceStatus({
         }
         onClick={onStop}
         disabled={isProcessing}
-        {...stylex.props(styles.stopVoiceButton)}
+        className="bg-muted text-foreground inline-flex size-7 shrink-0 items-center justify-center rounded-full disabled:opacity-60"
       >
         {isProcessing ? (
-          <CircleNotch {...stylex.props(styles.smallSpinner)} />
+          <CircleNotch className="size-3.5 animate-spin" />
         ) : (
           <Square size={12} weight="fill" />
         )}
@@ -372,7 +357,7 @@ function VoiceStatus({
           onClick={onStopResponse}
           size="icon"
           variant="ghost"
-          sx={styles.roundIconButton}
+          className="h-7 w-7 rounded-full"
           aria-label={t`Stop response`}
         >
           <Square size={14} weight="fill" />
@@ -383,277 +368,6 @@ function VoiceStatus({
     </div>
   );
 }
-
-const spin = stylex.keyframes({
-  to: {
-    transform: "rotate(360deg)",
-  },
-});
-
-const waveform = stylex.keyframes({
-  "0%, 100%": {
-    transform: "scaleY(0.45)",
-  },
-  "50%": {
-    transform: "scaleY(1)",
-  },
-});
-
-const styles = stylex.create({
-  historyIndicator: {
-    color: `color-mix(in oklab, ${colors.mutedForeground} 80%, transparent)`,
-    fontSize: "0.6875rem",
-    lineHeight: 1,
-    paddingBottom: "0.25rem",
-  },
-  floatingHistoryIndicator: {
-    paddingInline: "1rem",
-  },
-  elevatedHistoryIndicator: {
-    paddingInline: "0.5rem",
-  },
-  messageInput: {
-    display: "flex",
-  },
-  floatingMessageInput: {
-    maxHeight: "100%",
-    minHeight: "30px",
-    minWidth: 0,
-    position: "relative",
-    width: "100%",
-  },
-  elevatedMessageInput: {
-    flexDirection: "column",
-    paddingBottom: "0.5rem",
-    paddingInline: "0.5rem",
-    paddingTop: "0.75rem",
-  },
-  voiceMessageInput: {
-    alignItems: "stretch",
-    flexDirection: "column",
-  },
-  idleMessageInput: {
-    alignItems: "center",
-  },
-  floatingEditorContainer: {
-    flex: "1",
-    minWidth: 0,
-  },
-  elevatedEditorContainer: {
-    marginBottom: "0.25rem",
-    minHeight: 0,
-  },
-  editor: {
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-    overflowY: "auto",
-    overscrollBehavior: "contain",
-  },
-  floatingEditor: {
-    maxHeight: "9rem",
-    minHeight: "1.25rem",
-    minWidth: 0,
-    width: "100%",
-  },
-  elevatedEditor: {
-    maxHeight: "12rem",
-  },
-  rightPanelEditor: {
-    maxHeight: "40vh",
-  },
-  compactEditor: {
-    maxHeight: "12rem",
-  },
-  actions: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    gap: "0.25rem",
-  },
-  floatingActions: {
-    bottom: "0.125rem",
-    position: "absolute",
-    right: 0,
-  },
-  elevatedActions: {
-    justifyContent: "flex-end",
-  },
-  voiceButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.muted,
-    },
-    borderRadius: radii.full,
-    color: colors.mutedForeground,
-    cursor: {
-      default: "pointer",
-      ":disabled": "default",
-    },
-    display: "inline-flex",
-    flexShrink: 0,
-    height: "1.75rem",
-    justifyContent: "center",
-    opacity: {
-      default: 1,
-      ":disabled": 0.45,
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color, border-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "1.75rem",
-  },
-  roundIconButton: {
-    borderRadius: radii.full,
-    height: "1.75rem",
-    width: "1.75rem",
-  },
-  container: {
-    flexShrink: 0,
-    minWidth: 0,
-    position: "relative",
-  },
-  floatingContainer: {
-    paddingBottom: "0.25rem",
-    paddingInline: "0.25rem",
-  },
-  rightPanelContainer: {
-    paddingBottom: "0.75rem",
-    paddingInline: "0.5rem",
-  },
-  inputSurface: {
-    borderStyle: "solid",
-    borderWidth: "1px",
-    display: "flex",
-    maxHeight: "100%",
-  },
-  floatingInputSurface: {
-    backgroundColor: {
-      default: "#ffffff",
-      ":is(.dark *)": colors.card,
-    },
-    borderColor: `color-mix(in oklab, ${colors.border} 70%, transparent)`,
-    borderRadius: "19px",
-    boxShadow: "none",
-    color: colors.cardForeground,
-    flexDirection: "row",
-    fontSize: "0.875rem",
-    maxHeight: "10rem",
-    minHeight: "38px",
-    overflow: "hidden",
-    paddingLeft: "1rem",
-    paddingRight: "6px",
-  },
-  elevatedInputSurface: {
-    borderRadius: radii.xl,
-    flexDirection: "column",
-  },
-  voiceInputSurface: {
-    alignItems: "stretch",
-    paddingBlock: "0.5rem",
-  },
-  idleInputSurface: {
-    alignItems: "center",
-    paddingBlock: "3px",
-  },
-  sendButton: {
-    alignItems: "center",
-    borderColor: colors.border,
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    color: `color-mix(in oklab, ${colors.mutedForeground} 60%, transparent)`,
-    cursor: {
-      default: "pointer",
-      ":disabled": "default",
-    },
-    display: "inline-flex",
-    flexShrink: 0,
-    height: "1.75rem",
-    justifyContent: "center",
-    transitionDuration: "100ms",
-    transitionProperty: "all",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "1.75rem",
-  },
-  enabledSendButton: {
-    backgroundColor: {
-      default: colors.primary,
-      ":active": `color-mix(in oklab, ${colors.primary} 80%, transparent)`,
-      ":hover": `color-mix(in oklab, ${colors.primary} 90%, transparent)`,
-    },
-    borderColor: "oklch(44.4% 0.011 73.639)",
-    color: colors.primaryForeground,
-    transform: {
-      default: "scale(1)",
-      ":active": "scale(0.97)",
-    },
-  },
-  voiceStatus: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-    marginTop: "0.5rem",
-    minHeight: "1.75rem",
-    width: "100%",
-  },
-  waveform: {
-    alignItems: "center",
-    display: "flex",
-    flex: "1",
-    gap: "3px",
-    minWidth: 0,
-    overflow: "hidden",
-  },
-  processingStatus: {
-    alignItems: "center",
-    color: colors.mutedForeground,
-    display: "flex",
-    fontSize: "0.75rem",
-    gap: "0.5rem",
-    lineHeight: "1rem",
-  },
-  smallSpinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  waveformBar: {
-    animationDuration: "700ms",
-    animationIterationCount: "infinite",
-    animationName: waveform,
-    animationTimingFunction: "ease-in-out",
-    backgroundColor: `color-mix(in oklab, ${colors.mutedForeground} 55%, transparent)`,
-    borderRadius: radii.full,
-    flexShrink: 0,
-    transformOrigin: "center",
-    width: "1px",
-  },
-  elapsedTime: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    fontVariantNumeric: "tabular-nums",
-    lineHeight: "1rem",
-  },
-  stopVoiceButton: {
-    alignItems: "center",
-    backgroundColor: colors.muted,
-    borderRadius: radii.full,
-    color: colors.foreground,
-    display: "inline-flex",
-    flexShrink: 0,
-    height: "1.75rem",
-    justifyContent: "center",
-    opacity: {
-      default: 1,
-      ":disabled": 0.6,
-    },
-    width: "1.75rem",
-  },
-});
 
 function formatElapsedTime(elapsedSeconds: number) {
   const minutes = Math.floor(elapsedSeconds / 60);

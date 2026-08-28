@@ -4,10 +4,9 @@ import {
   Sidebar,
   SidebarSimple,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { memo, type ReactNode } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
+import { cn } from "@anlg/utils";
 
 import type { SidebarNoteFilter } from "~/sidebar/note-filter";
 import { SidebarNoteFilterMenu } from "~/sidebar/note-filter-menu";
@@ -84,8 +83,8 @@ function SidebarTimelineChrome({
     : null;
 
   return (
-    <div data-tauri-drag-region {...stylex.props(styles.root)}>
-      <div data-tauri-drag-region {...stylex.props(styles.controls)}>
+    <div data-tauri-drag-region className="flex w-full items-center">
+      <div data-tauri-drag-region className="flex items-center gap-0">
         {showSidebarToggle ? (
           <LeftSurfaceChromeButton
             ariaLabel={sidebarExpanded ? "Hide sidebar" : "Show sidebar"}
@@ -102,7 +101,7 @@ function SidebarTimelineChrome({
           <span
             aria-hidden="true"
             data-tauri-drag-region
-            {...stylex.props(styles.placeholder)}
+            className="size-7 shrink-0"
           />
         )}
         {sidebarExpanded ? (
@@ -143,7 +142,12 @@ export function LeftSurfaceChromeButton({
       aria-label={ariaLabel}
       data-tauri-drag-region="false"
       disabled={disabled}
-      {...stylex.props(styles.button)}
+      className={cn([
+        "pointer-events-auto relative flex size-7 items-center justify-center rounded-full",
+        "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
+        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
+        "disabled:text-muted-foreground/70 disabled:hover:text-muted-foreground/70 disabled:hover:bg-transparent",
+      ])}
       onClick={onClick}
     >
       {children}
@@ -151,74 +155,9 @@ export function LeftSurfaceChromeButton({
         <span
           aria-hidden="true"
           data-testid="collapsed-sidebar-upcoming-meeting-badge"
-          {...stylex.props(styles.badge)}
+          className="ring-background pointer-events-none absolute top-1 right-1 size-1.5 rounded-full bg-red-500 ring-2"
         />
       ) : null}
     </button>
   );
 }
-
-const styles = stylex.create({
-  badge: {
-    backgroundColor: "rgb(239 68 68)",
-    borderRadius: radii.full,
-    boxShadow: `0 0 0 2px ${colors.background}`,
-    height: "0.375rem",
-    pointerEvents: "none",
-    position: "absolute",
-    right: "0.25rem",
-    top: "0.25rem",
-    width: "0.375rem",
-  },
-  button: {
-    alignItems: "center",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-      ":disabled:hover": "transparent",
-    },
-    borderRadius: radii.full,
-    boxShadow: {
-      default: null,
-      ":focus-visible": `0 0 0 2px ${colors.ring}`,
-    },
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-      ":disabled": `color-mix(in oklab, ${colors.mutedForeground} 70%, transparent)`,
-      ":disabled:hover": `color-mix(in oklab, ${colors.mutedForeground} 70%, transparent)`,
-    },
-    display: "flex",
-    height: "1.75rem",
-    justifyContent: "center",
-    outline: {
-      default: null,
-      ":focus-visible": "2px solid transparent",
-    },
-    outlineOffset: {
-      default: null,
-      ":focus-visible": "2px",
-    },
-    pointerEvents: "auto",
-    position: "relative",
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "1.75rem",
-  },
-  controls: {
-    alignItems: "center",
-    display: "flex",
-    gap: 0,
-  },
-  placeholder: {
-    flexShrink: 0,
-    height: "1.75rem",
-    width: "1.75rem",
-  },
-  root: {
-    alignItems: "center",
-    display: "flex",
-    width: "100%",
-  },
-});

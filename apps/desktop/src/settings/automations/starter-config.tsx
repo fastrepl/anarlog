@@ -5,7 +5,6 @@ import {
   LockSimple,
   MagnifyingGlass,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { open as selectFolder } from "@tauri-apps/plugin-dialog";
 import { type ReactNode, useState } from "react";
@@ -16,7 +15,6 @@ import {
   notionSearchPages,
 } from "@anlg/api-client";
 import { createClient } from "@anlg/api-client/client";
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Select,
@@ -26,7 +24,7 @@ import {
   SelectValue,
 } from "@anlg/ui/components/ui/select";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
-import { formatDistanceToNow } from "@anlg/utils";
+import { cn, formatDistanceToNow } from "@anlg/utils";
 
 import { useAuth } from "~/auth";
 import { useConnections } from "~/auth/useConnections";
@@ -69,10 +67,12 @@ export function AutomationLastRunLine({
   });
   return (
     <p
-      {...stylex.props(
-        styles.lastRun,
-        lastRun.status === "error" ? styles.error : styles.muted,
-      )}
+      className={cn([
+        "mt-3 truncate text-xs",
+        lastRun.status === "error"
+          ? "text-destructive"
+          : "text-muted-foreground",
+      ])}
       title={lastRun.detail}
     >
       {lastRun.status === "success" ? (
@@ -107,7 +107,7 @@ function IntegrationGate({
 
   if (connections.isLoading) {
     return (
-      <p {...stylex.props(styles.mutedText)}>
+      <p className="text-muted-foreground text-xs">
         <Trans>Checking connection…</Trans>
       </p>
     );
@@ -129,7 +129,7 @@ function IntegrationGate({
         }
       >
         {openingAction ? (
-          <CircleNotch {...stylex.props(styles.spinner)} aria-hidden="true" />
+          <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
         ) : null}
         {reconnect ? reconnectLabel : connectLabel}
       </Button>
@@ -167,10 +167,10 @@ function ConfigRow({
   children?: ReactNode;
 }) {
   return (
-    <div {...stylex.props(styles.configRow)}>
-      <div {...stylex.props(styles.configCopy)}>
-        <h4 {...stylex.props(styles.configTitle)}>{title}</h4>
-        <p {...stylex.props(styles.configValue)}>{value}</p>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="min-w-0">
+        <h4 className="text-xs font-semibold">{title}</h4>
+        <p className="text-muted-foreground mt-1 truncate text-xs">{value}</p>
       </div>
       {children}
     </div>
@@ -299,7 +299,7 @@ function SlackChannelSelect({
       }}
       disabled={channels.isLoading || (!onChange && saveTarget.isPending)}
     >
-      <SelectTrigger sx={styles.selectTrigger}>
+      <SelectTrigger className="h-8 w-52 text-xs">
         <SelectValue
           placeholder={
             channels.isLoading ? t`Loading channels…` : t`Choose a channel`
@@ -309,12 +309,9 @@ function SlackChannelSelect({
       <SelectContent>
         {channels.data?.map((channel) => (
           <SelectItem key={channel.id} value={channel.id}>
-            <span {...stylex.props(styles.channel)}>
+            <span className="flex items-center gap-1.5">
               {channel.isPrivate ? (
-                <LockSimple
-                  {...stylex.props(styles.lockIcon)}
-                  aria-hidden="true"
-                />
+                <LockSimple className="size-3" aria-hidden="true" />
               ) : (
                 <span aria-hidden="true">#</span>
               )}
@@ -411,7 +408,7 @@ function LinearTeamSelect({
       }}
       disabled={teams.isLoading || (!onChange && saveTarget.isPending)}
     >
-      <SelectTrigger sx={styles.selectTrigger}>
+      <SelectTrigger className="h-8 w-52 text-xs">
         <SelectValue
           placeholder={teams.isLoading ? t`Loading teams…` : t`Choose a team`}
         />
@@ -442,7 +439,7 @@ export function NotionUpdateConfig({
         );
 
   return (
-    <div {...stylex.props(styles.notionConfig)}>
+    <div className="flex flex-col gap-3">
       <ConfigRow
         title={<Trans>Notion page</Trans>}
         value={selected?.name ?? <Trans>No page selected yet.</Trans>}
@@ -511,8 +508,8 @@ function NotionPageSearch({
   });
 
   return (
-    <div {...stylex.props(styles.notionSearch)}>
-      <div {...stylex.props(styles.searchRow)}>
+    <div className="flex flex-col gap-2">
+      <div className="flex gap-2">
         <input
           type="text"
           value={query}
@@ -523,7 +520,10 @@ function NotionPageSearch({
             }
           }}
           placeholder={t`Search pages shared with Anarlog…`}
-          {...stylex.props(styles.searchInput)}
+          className={cn([
+            "border-border bg-accent/50 h-8 min-w-0 flex-1 rounded-lg border px-3 text-xs",
+            "placeholder:text-muted-foreground focus:outline-hidden",
+          ])}
         />
         <Button
           type="button"
@@ -533,7 +533,7 @@ function NotionPageSearch({
           disabled={pages.isFetching}
         >
           {pages.isFetching ? (
-            <CircleNotch {...stylex.props(styles.spinner)} aria-hidden="true" />
+            <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
           ) : (
             <MagnifyingGlass size={14} />
           )}
@@ -541,25 +541,23 @@ function NotionPageSearch({
         </Button>
       </div>
       {pages.data && pages.data.length > 0 ? (
-        <div {...stylex.props(styles.pages)}>
+        <div className="flex flex-col gap-1">
           {pages.data.map((page) => (
             <button
               key={page.id}
               type="button"
               onClick={() => applyTarget({ id: page.id, name: page.title })}
-              {...stylex.props(
-                styles.page,
-                page.id === selected?.id
-                  ? styles.selectedPage
-                  : styles.pageHover,
-              )}
+              className={cn([
+                "rounded-lg px-3 py-1.5 text-left text-xs transition-colors",
+                page.id === selected?.id ? "bg-accent" : "hover:bg-accent/50",
+              ])}
             >
               {page.title}
             </button>
           ))}
         </div>
       ) : pages.data ? (
-        <p {...stylex.props(styles.mutedText)}>
+        <p className="text-muted-foreground text-xs">
           <Trans>
             No pages found. Share the page with the Anarlog integration in
             Notion first.
@@ -569,128 +567,3 @@ function NotionPageSearch({
     </div>
   );
 }
-
-const spin = stylex.keyframes({
-  to: { transform: "rotate(360deg)" },
-});
-
-const styles = stylex.create({
-  channel: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.375rem",
-  },
-  configCopy: {
-    minWidth: 0,
-  },
-  configRow: {
-    alignItems: "center",
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "0.75rem",
-    justifyContent: "space-between",
-  },
-  configTitle: {
-    fontSize: "0.75rem",
-    fontWeight: 600,
-  },
-  configValue: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    marginTop: "0.25rem",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  error: {
-    color: colors.destructive,
-  },
-  lastRun: {
-    fontSize: "0.75rem",
-    marginTop: "0.75rem",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  lockIcon: {
-    height: "0.75rem",
-    width: "0.75rem",
-  },
-  muted: {
-    color: colors.mutedForeground,
-  },
-  mutedText: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-  },
-  notionConfig: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-  },
-  notionSearch: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-  },
-  page: {
-    borderRadius: radii.lg,
-    fontSize: "0.75rem",
-    paddingBlock: "0.375rem",
-    paddingInline: "0.75rem",
-    textAlign: "left",
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color",
-  },
-  pageHover: {
-    backgroundColor: {
-      default: null,
-      ":hover": `color-mix(in oklab, ${colors.accent} 50%, transparent)`,
-    },
-  },
-  pages: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.25rem",
-  },
-  searchInput: {
-    backgroundColor: `color-mix(in oklab, ${colors.accent} 50%, transparent)`,
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    color: {
-      default: null,
-      "::placeholder": colors.mutedForeground,
-    },
-    flex: "1",
-    fontSize: "0.75rem",
-    height: "2rem",
-    minWidth: 0,
-    outline: {
-      default: null,
-      ":focus": "none",
-    },
-    paddingInline: "0.75rem",
-  },
-  searchRow: {
-    display: "flex",
-    gap: "0.5rem",
-  },
-  selectedPage: {
-    backgroundColor: colors.accent,
-  },
-  selectTrigger: {
-    fontSize: "0.75rem",
-    height: "2rem",
-    width: "13rem",
-  },
-  spinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-});

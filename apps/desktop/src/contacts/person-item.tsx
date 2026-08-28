@@ -1,10 +1,7 @@
 import { PushPin } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import React, { useCallback } from "react";
 
-import { colors } from "@anlg/design-system/tokens.stylex";
-
-import { contactItemStyles } from "./contact-item-styles";
+import { cn } from "@anlg/utils";
 
 import { ContactImage } from "~/contacts/contact-avatar";
 import { type HumanRecord, toggleContactPin } from "~/contacts/queries";
@@ -56,7 +53,6 @@ export function PersonItem({
 
   return (
     <div
-      data-contact-item
       role="button"
       tabIndex={0}
       onClick={onClick}
@@ -67,9 +63,9 @@ export function PersonItem({
           onClick();
         }
       }}
-      {...stylex.props([
-        contactItemStyles.item,
-        active ? contactItemStyles.active : contactItemStyles.inactive,
+      className={cn([
+        "group flex w-full items-center gap-2 overflow-hidden rounded-lg px-3 py-2 text-left text-sm transition-colors select-none",
+        active ? "bg-accent" : "hover:bg-accent/50",
       ])}
     >
       {person.avatarDataUrl ? (
@@ -77,47 +73,28 @@ export function PersonItem({
       ) : (
         <ContactFacehash name={facehashName} size={32} />
       )}
-      <div {...stylex.props(contactItemStyles.body)}>
-        <div {...stylex.props(styles.name)}>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1 truncate font-medium">
           {personName || personEmail || "Unnamed"}
         </div>
         {personEmail && personName && (
-          <div {...stylex.props(styles.email)}>{personEmail}</div>
+          <div className="text-muted-foreground truncate text-xs">
+            {personEmail}
+          </div>
         )}
       </div>
       <button
         onClick={handleTogglePin}
-        {...stylex.props([
-          contactItemStyles.pin,
-          isPinned ? contactItemStyles.pinned : contactItemStyles.unpinned,
+        className={cn([
+          "shrink-0 rounded-xs p-1 transition-colors",
+          isPinned
+            ? "text-blue-600 hover:text-blue-700"
+            : "text-muted-foreground/70 hover:text-muted-foreground opacity-0 group-hover:opacity-100",
         ])}
         aria-label={isPinned ? "Unpin contact" : "Pin contact"}
       >
-        <PushPin
-          {...stylex.props(contactItemStyles.icon)}
-          weight={isPinned ? "fill" : "regular"}
-        />
+        <PushPin className="size-3.5" weight={isPinned ? "fill" : "regular"} />
       </button>
     </div>
   );
 }
-
-const styles = stylex.create({
-  email: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  name: {
-    alignItems: "center",
-    display: "flex",
-    fontWeight: 500,
-    gap: "0.25rem",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-});

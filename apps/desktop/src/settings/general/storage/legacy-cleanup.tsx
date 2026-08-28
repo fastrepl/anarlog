@@ -7,11 +7,9 @@ import {
   Trash,
   Warning,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
 import {
   cleanupLegacyFiles,
   getLegacyCleanupStatus,
@@ -141,24 +139,24 @@ export function LegacyMigrationCleanupRow() {
 
   return (
     <>
-      <div {...stylex.props(styles.row)}>
-        <div {...stylex.props(styles.status)}>
+      <div className="grid grid-cols-[minmax(0,1fr)_9rem] items-center gap-3">
+        <div className="flex min-w-0 items-start gap-1.5 text-sm">
           {statusCopy.state === "loading" && (
-            <CircleNotch {...stylex.props(styles.loadingIcon)} />
+            <CircleNotch className="text-muted-foreground mt-0.5 size-4 shrink-0 animate-spin" />
           )}
           {statusCopy.state === "success" && (
-            <CheckCircle {...stylex.props(styles.successIcon)} />
+            <CheckCircle className="mt-0.5 size-4 shrink-0 text-green-600" />
           )}
           {statusCopy.state === "warning" && (
-            <Warning {...stylex.props(styles.warningIcon)} />
+            <Warning className="mt-0.5 size-4 shrink-0 text-yellow-600" />
           )}
           {statusCopy.state === "unavailable" && (
-            <Info {...stylex.props(styles.infoIcon)} />
+            <Info className="text-muted-foreground mt-0.5 size-4 shrink-0" />
           )}
-          <div {...stylex.props(styles.statusCopy)}>
-            <p {...stylex.props(styles.statusLabel)}>{statusCopy.label}</p>
+          <div className="min-w-0">
+            <p className="font-medium">{statusCopy.label}</p>
             {statusCopy.description && (
-              <p {...stylex.props(styles.statusDescription)}>
+              <p className="text-muted-foreground mt-0.5 text-xs break-words">
                 {statusCopy.description}
               </p>
             )}
@@ -167,20 +165,14 @@ export function LegacyMigrationCleanupRow() {
         {status && !status.migrationReady && (
           <Button
             variant="outline"
-            sx={styles.actionButton}
+            className="h-9 w-full justify-center"
             onClick={() => retryMutation.mutate()}
             disabled={retryMutation.isPending}
           >
             {retryMutation.isPending ? (
-              <CircleNotch
-                {...stylex.props(styles.spinner)}
-                aria-hidden="true"
-              />
+              <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
             ) : (
-              <ArrowCounterClockwise
-                {...stylex.props(styles.icon)}
-                aria-hidden="true"
-              />
+              <ArrowCounterClockwise className="size-4" aria-hidden="true" />
             )}
             {t`Retry`}
           </Button>
@@ -188,10 +180,10 @@ export function LegacyMigrationCleanupRow() {
         {status?.migrationVerified && status.available && (
           <Button
             variant="destructive"
-            sx={styles.actionButton}
+            className="h-9 w-full justify-center"
             onClick={() => setConfirmationOpen(true)}
           >
-            <Trash {...stylex.props(styles.icon)} aria-hidden="true" />
+            <Trash className="size-4" aria-hidden="true" />
             <Trans>Clean Up</Trans>
           </Button>
         )}
@@ -204,20 +196,12 @@ export function LegacyMigrationCleanupRow() {
             if (!cleanupMutation.isPending) setConfirmationOpen(open);
           }}
         >
-          <DialogContent
-            ref={(node) => {
-              const closeButton = node?.querySelector<HTMLElement>(
-                ":scope > button:last-child",
-              );
-              if (closeButton) closeButton.hidden = true;
-            }}
-            sx={styles.dialog}
-          >
-            <DialogHeader sx={styles.dialogHeader}>
-              <DialogTitle sx={styles.dialogTitle}>
+          <DialogContent className="border-border/45 bg-card/95 w-[calc(100vw-48px)] max-w-[320px] gap-0 overflow-hidden rounded-[26px] p-0 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:rounded-[26px] [&>button:last-child]:hidden">
+            <DialogHeader className="items-center gap-2 px-5 pt-6 text-center sm:text-center">
+              <DialogTitle className="text-foreground text-[13px] leading-5 font-semibold tracking-normal">
                 <Trans>Clean up legacy files?</Trans>
               </DialogTitle>
-              <DialogDescription sx={styles.dialogDescription}>
+              <DialogDescription className="text-foreground w-full text-center text-[13px] leading-[1.36]">
                 <Trans>
                   This will remove {status.fileCount} legacy files and free{" "}
                   {formatBytes(status.totalBytes)}. Your app data will not be
@@ -227,15 +211,15 @@ export function LegacyMigrationCleanupRow() {
             </DialogHeader>
 
             {cleanupMutation.error && (
-              <p {...stylex.props(styles.dialogError)}>
+              <p className="mx-4 mt-3 text-center text-xs text-red-500">
                 {cleanupMutation.error.message}
               </p>
             )}
 
-            <DialogFooter sx={styles.dialogFooter}>
+            <DialogFooter className="grid grid-cols-2 gap-2 px-4 pt-4 pb-4 sm:grid-cols-2 sm:justify-normal">
               <Button
                 variant="ghost"
-                sx={styles.cancelButton}
+                className="bg-accent/80 text-foreground hover:bg-accent hover:text-foreground h-8 rounded-full px-4 text-xs font-medium shadow-none"
                 onClick={() => setConfirmationOpen(false)}
                 disabled={cleanupMutation.isPending}
               >
@@ -243,7 +227,7 @@ export function LegacyMigrationCleanupRow() {
               </Button>
               <Button
                 variant="destructive"
-                sx={styles.confirmButton}
+                className="h-8 rounded-full px-4 text-xs font-medium shadow-sm"
                 onClick={() => cleanupMutation.mutate()}
                 disabled={cleanupMutation.isPending}
               >
@@ -262,157 +246,3 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
-
-const spin = stylex.keyframes({
-  to: { transform: "rotate(360deg)" },
-});
-
-const styles = stylex.create({
-  actionButton: {
-    height: "2.25rem",
-    justifyContent: "center",
-    width: "100%",
-  },
-  cancelButton: {
-    backgroundColor: {
-      default: `color-mix(in oklab, ${colors.accent} 80%, transparent)`,
-      ":hover": colors.accent,
-    },
-    borderRadius: radii.full,
-    boxShadow: "none",
-    color: colors.foreground,
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    height: "2rem",
-    paddingInline: "1rem",
-  },
-  confirmButton: {
-    borderRadius: radii.full,
-    boxShadow: shadows.sm,
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    height: "2rem",
-    paddingInline: "1rem",
-  },
-  dialog: {
-    backdropFilter: "blur(24px)",
-    backgroundColor: `color-mix(in oklab, ${colors.card} 95%, transparent)`,
-    borderColor: `color-mix(in oklab, ${colors.border} 45%, transparent)`,
-    borderRadius: "26px",
-    boxShadow: "0 24px 70px rgb(0 0 0 / 0.32)",
-    gap: 0,
-    maxWidth: "320px",
-    overflow: "hidden",
-    padding: 0,
-    width: "calc(100vw - 48px)",
-  },
-  dialogDescription: {
-    color: colors.foreground,
-    fontSize: "13px",
-    lineHeight: 1.36,
-    textAlign: "center",
-    width: "100%",
-  },
-  dialogError: {
-    color: "rgb(239 68 68)",
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-    marginInline: "1rem",
-    marginTop: "0.75rem",
-    textAlign: "center",
-  },
-  dialogFooter: {
-    display: "grid",
-    gap: "0.5rem",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    justifyContent: "normal",
-    paddingBottom: "1rem",
-    paddingInline: "1rem",
-    paddingTop: "1rem",
-  },
-  dialogHeader: {
-    alignItems: "center",
-    gap: "0.5rem",
-    paddingInline: "1.25rem",
-    paddingTop: "1.5rem",
-    textAlign: "center",
-  },
-  dialogTitle: {
-    color: colors.foreground,
-    fontSize: "13px",
-    fontWeight: 600,
-    letterSpacing: "0em",
-    lineHeight: "1.25rem",
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  infoIcon: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    height: "1rem",
-    marginTop: "0.125rem",
-    width: "1rem",
-  },
-  loadingIcon: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    height: "1rem",
-    marginTop: "0.125rem",
-    width: "1rem",
-  },
-  row: {
-    alignItems: "center",
-    display: "grid",
-    gap: "0.75rem",
-    gridTemplateColumns: "minmax(0, 1fr) 9rem",
-  },
-  spinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-    height: "1rem",
-    width: "1rem",
-  },
-  status: {
-    alignItems: "flex-start",
-    display: "flex",
-    fontSize: "0.875rem",
-    gap: "0.375rem",
-    lineHeight: "1.25rem",
-    minWidth: 0,
-  },
-  statusCopy: {
-    minWidth: 0,
-  },
-  statusDescription: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-    marginTop: "0.125rem",
-    overflowWrap: "break-word",
-  },
-  statusLabel: {
-    fontWeight: 500,
-  },
-  successIcon: {
-    color: "rgb(22 163 74)",
-    flexShrink: 0,
-    height: "1rem",
-    marginTop: "0.125rem",
-    width: "1rem",
-  },
-  warningIcon: {
-    color: "rgb(202 138 4)",
-    flexShrink: 0,
-    height: "1rem",
-    marginTop: "0.125rem",
-    width: "1rem",
-  },
-});

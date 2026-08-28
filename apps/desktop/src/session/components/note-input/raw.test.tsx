@@ -9,10 +9,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { audioDropTargetStyles } from "./audio-drop-target";
-import { RawEditor as SessionRawEditor, rawEditorStyles } from "./raw";
-
-import { expectStyle, hasStyle } from "~/session/stylex-test";
+import { RawEditor as SessionRawEditor } from "./raw";
 
 const hoisted = vi.hoisted(() => ({
   rawMd: JSON.stringify({ type: "doc", content: [] }),
@@ -439,10 +436,25 @@ describe("RawEditor", () => {
     const heading = screen.getByText("Suggested templates");
     const buttons = screen.getAllByRole("button");
 
-    expectStyle(heading, rawEditorStyles.sectionLabel);
+    expect(heading.className).toContain("h-8");
+    expect(heading.className).toContain("text-muted-foreground");
+    expect(heading.className).not.toContain("px-2");
+    expect(buttons.every((button) => button.className.includes("h-8"))).toBe(
+      true,
+    );
     expect(
       buttons.every((button) =>
-        hasStyle(button, rawEditorStyles.templateButton),
+        button.className.includes("text-muted-foreground"),
+      ),
+    ).toBe(true);
+    expect(
+      buttons.every(
+        (button) =>
+          button.className.includes("w-fit") &&
+          button.className.includes("pointer-events-auto") &&
+          // px-2 offset by -ml-2 keeps content aligned with the editor column
+          button.className.includes("-ml-2") &&
+          button.className.includes("px-2"),
       ),
     ).toBe(true);
     expect(buttons.map((button) => button.textContent)).toEqual([
@@ -679,7 +691,8 @@ describe("RawEditor", () => {
     const briefButton = screen.getByRole("button", {
       name: "Create a brief to prepare this meeting",
     });
-    expectStyle(briefButton.parentElement, rawEditorStyles.emptyActions);
+    expect(briefButton.parentElement?.className).toContain("top-8");
+    expect(briefButton.parentElement?.className).not.toContain("top-16");
     expect(
       screen.getAllByRole("button").map((button) => button.textContent),
     ).toEqual([
@@ -931,7 +944,7 @@ describe("RawEditor", () => {
     expect(
       screen.getByText("Drop to upload and transcribe audio"),
     ).not.toBeNull();
-    expectStyle(screen.getByRole("status"), audioDropTargetStyles.overlay);
+    expect(screen.getByRole("status").className).not.toContain("backdrop-blur");
     expect(
       screen.getByText("WAV, MP3, OGG, MP4, M4A, FLAC, WEBM, or AAC audio"),
     ).not.toBeNull();

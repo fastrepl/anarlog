@@ -1,8 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowCounterClockwise, ArrowSquareOut } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 
-import { colors } from "@anlg/design-system/tokens.stylex";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 
 import { ActionButton, MessageBubble, MessageContainer } from "./shared";
@@ -41,10 +39,13 @@ export function ErrorMessage({
   return (
     <MessageContainer align="start">
       <MessageBubble variant="error" withActionButton={!!onRetry}>
-        <p {...stylex.props(styles.message)}>{error.message}</p>
+        <p className="text-sm">{error.message}</p>
         {showContextLengthHelp && (
-          <button onClick={handleOpenFaq} {...stylex.props(styles.helpButton)}>
-            <ArrowSquareOut {...stylex.props(styles.icon)} />
+          <button
+            onClick={handleOpenFaq}
+            className="mt-2 flex items-center gap-1 text-xs text-red-700 underline hover:text-red-900"
+          >
+            <ArrowSquareOut className="h-3 w-3" />
             <Trans>Learn how to fix this</Trans>
           </button>
         )}
@@ -60,27 +61,3 @@ export function ErrorMessage({
     </MessageContainer>
   );
 }
-
-const styles = stylex.create({
-  message: {
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-  },
-  helpButton: {
-    alignItems: "center",
-    color: {
-      default: colors.alertForeground,
-      ":hover": "oklch(39.6% 0.141 25.723)",
-    },
-    display: "flex",
-    fontSize: "0.75rem",
-    gap: "0.25rem",
-    lineHeight: "1rem",
-    marginTop: "0.5rem",
-    textDecorationLine: "underline",
-  },
-  icon: {
-    height: "0.75rem",
-    width: "0.75rem",
-  },
-});

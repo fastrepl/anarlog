@@ -1,8 +1,6 @@
 import { CalendarBlank, MapPin, VideoCamera } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { forwardRef, useState } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
@@ -11,7 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
-import { safeFormat, safeParseDate, TZDate } from "@anlg/utils";
+import { cn, safeFormat, safeParseDate, TZDate } from "@anlg/utils";
 
 import { DateEditor } from "./date";
 import { ParticipantsDisplay } from "./participants";
@@ -29,8 +27,12 @@ export function MetadataButton({ sessionId }: { sessionId: string }) {
       <PopoverTrigger asChild>
         <TriggerInner label={label} open={open} />
       </PopoverTrigger>
-      <PopoverContent variant="app" align="end" sx={styles.popover}>
-        <AppFloatingPanel sx={styles.panel}>
+      <PopoverContent
+        variant="app"
+        align="end"
+        className="w-85 overflow-hidden"
+      >
+        <AppFloatingPanel className="scrollbar-soft max-h-[80vh] min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain">
           <ContentInner sessionId={sessionId} />
         </AppFloatingPanel>
       </PopoverContent>
@@ -52,9 +54,13 @@ const TriggerInner = forwardRef<
       data-tauri-drag-region="false"
       aria-label={label}
       title={label}
-      sx={[styles.trigger, open && styles.triggerOpen]}
+      className={cn([
+        "size-7 rounded-full",
+        "text-muted-foreground hover:bg-accent hover:text-foreground",
+        open && "bg-muted text-foreground",
+      ])}
     >
-      <CalendarBlank {...stylex.props(styles.icon)} />
+      <CalendarBlank className="size-4" />
     </Button>
   );
 });
@@ -75,7 +81,7 @@ function ContentInner({ sessionId }: { sessionId: string }) {
     : null;
 
   return (
-    <div {...stylex.props(styles.content)}>
+    <div className="flex flex-col gap-4 p-4">
       {!eventDisplayData && <DateEditor sessionId={sessionId} />}
       {eventDisplayData && (
         <EventDisplay event={eventDisplayData}>
@@ -166,17 +172,17 @@ export function EventDisplay({
   const shouldShowLocation = event.location && !isLocationURL(event.location);
 
   return (
-    <div {...stylex.props(styles.event)}>
-      <div {...stylex.props(styles.title)}>
+    <div className="flex flex-col gap-3">
+      <div className="text-foreground text-base font-medium">
         {event.title || "Untitled Event"}
       </div>
 
-      <div {...stylex.props(styles.divider)} />
+      <div className="bg-accent h-px" />
 
       {shouldShowLocation && (
         <>
-          <div {...stylex.props(styles.eventRow)}>
-            <MapPin size={16} {...stylex.props(styles.rowIcon)} />
+          <div className="text-muted-foreground flex items-center gap-2 text-sm">
+            <MapPin size={16} className="text-muted-foreground shrink-0" />
             <span>{event.location}</span>
           </div>
         </>
@@ -184,17 +190,20 @@ export function EventDisplay({
 
       {event.meetingLink && (
         <>
-          <div {...stylex.props(styles.meetingRow)}>
-            <div {...stylex.props(styles.eventRow, styles.meetingDetails)}>
-              <VideoCamera size={16} {...stylex.props(styles.rowIcon)} />
-              <span {...stylex.props(styles.truncate)}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-muted-foreground flex min-w-0 items-center gap-2 text-sm">
+              <VideoCamera
+                size={16}
+                className="text-muted-foreground shrink-0"
+              />
+              <span className="truncate">
                 {meetingDomain || "Meeting link"}
               </span>
             </div>
             <Button
               size="sm"
               variant="default"
-              sx={styles.joinButton}
+              className="shrink-0"
               onClick={handleJoinMeeting}
             >
               Join
@@ -204,15 +213,17 @@ export function EventDisplay({
       )}
 
       {event.startedAt && (
-        <div {...stylex.props(styles.eventText)}>{formatEventDateTime()}</div>
+        <div className="text-muted-foreground text-sm">
+          {formatEventDateTime()}
+        </div>
       )}
 
       {children}
 
       {event.description && (
         <>
-          <div {...stylex.props(styles.divider)} />
-          <div {...stylex.props(styles.description)}>
+          <div className="bg-accent h-px" />
+          <div className="select-text-deep text-muted-foreground text-sm break-words whitespace-pre-wrap">
             {renderDescriptionWithLinks(event.description)}
           </div>
         </>
@@ -277,7 +288,7 @@ function renderDescriptionWithLinks(description: string): React.ReactNode {
       <a
         key={`description-link-${linkIndex}`}
         href={url}
-        {...stylex.props(styles.link)}
+        className="hover:text-foreground cursor-pointer underline transition-colors"
         onClick={(e) => {
           e.preventDefault();
           void openerCommands.openUrl(url, null);
@@ -300,115 +311,3 @@ function renderDescriptionWithLinks(description: string): React.ReactNode {
 
   return nodes.length > 0 ? nodes : description;
 }
-
-const styles = stylex.create({
-  content: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-    padding: "1rem",
-  },
-  description: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    overflowWrap: "break-word",
-    userSelect: {
-      default: "text",
-      ":is(*) *": "text",
-    },
-    whiteSpace: "pre-wrap",
-  },
-  divider: {
-    backgroundColor: colors.accent,
-    height: "1px",
-  },
-  event: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-  },
-  eventRow: {
-    alignItems: "center",
-    color: colors.mutedForeground,
-    display: "flex",
-    fontSize: "0.875rem",
-    gap: "0.5rem",
-  },
-  eventText: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  joinButton: {
-    flexShrink: 0,
-  },
-  link: {
-    color: {
-      default: "inherit",
-      ":hover": colors.foreground,
-    },
-    cursor: "pointer",
-    textDecorationLine: "underline",
-    transitionDuration: "150ms",
-    transitionProperty: "color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  meetingDetails: {
-    minWidth: 0,
-  },
-  meetingRow: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-    justifyContent: "space-between",
-  },
-  panel: {
-    maxHeight: "80vh",
-    minHeight: 0,
-    overflowX: "hidden",
-    overflowY: "auto",
-    overscrollBehavior: "contain",
-    scrollbarColor:
-      "hsl(var(--muted-foreground, 25 5% 45%) / 0.18) transparent",
-  },
-  popover: {
-    overflow: "hidden",
-    width: "21.25rem",
-  },
-  rowIcon: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-  },
-  title: {
-    color: colors.foreground,
-    fontSize: "1rem",
-    fontWeight: 500,
-  },
-  trigger: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    borderRadius: radii.full,
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    height: "1.75rem",
-    width: "1.75rem",
-  },
-  triggerOpen: {
-    backgroundColor: colors.muted,
-    color: colors.foreground,
-  },
-  truncate: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-});
-
-export { styles as metadataStyles };

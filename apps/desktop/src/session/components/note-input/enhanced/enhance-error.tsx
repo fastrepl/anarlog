@@ -1,9 +1,7 @@
 import { Trans } from "@lingui/react/macro";
 import { ArrowsClockwise, WarningCircle } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 
-import { colors } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 
 import { useAITask } from "~/ai/contexts";
@@ -41,17 +39,23 @@ export function EnhanceError({
   };
 
   return (
-    <div role="alert" {...stylex.props(styles.root)}>
-      <WarningCircle aria-hidden {...stylex.props(styles.icon)} />
-      <div {...stylex.props(styles.copy)}>
-        <p {...stylex.props(styles.title)}>
+    <div
+      role="alert"
+      className="flex h-full min-h-[400px] flex-col items-center justify-center px-6 text-center"
+    >
+      <WarningCircle
+        aria-hidden
+        className="text-muted-foreground mb-5 size-9 stroke-[1.5]"
+      />
+      <div className="mb-6 flex max-w-md flex-col gap-2">
+        <p className="text-base font-medium">
           {isUnauthenticated ? (
             <Trans>Sign in to generate this summary</Trans>
           ) : (
             <Trans>Summary generation failed</Trans>
           )}
         </p>
-        <p {...stylex.props(styles.description)}>
+        <p className="text-muted-foreground text-sm leading-relaxed">
           {isUnauthenticated ? (
             <Trans>
               Anarlog could not generate this summary because you were not
@@ -82,7 +86,7 @@ export function EnhanceError({
           onClick={handleRetry}
           disabled={!model}
           size="sm"
-          sx={styles.button}
+          className="gap-2"
           variant="default"
         >
           <ArrowsClockwise size={16} />
@@ -94,42 +98,3 @@ export function EnhanceError({
     </div>
   );
 }
-
-const styles = stylex.create({
-  button: {
-    gap: "0.5rem",
-  },
-  copy: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-    marginBottom: "1.5rem",
-    maxWidth: "28rem",
-  },
-  description: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    lineHeight: 1.625,
-  },
-  icon: {
-    color: colors.mutedForeground,
-    height: "2.25rem",
-    marginBottom: "1.25rem",
-    strokeWidth: 1.5,
-    width: "2.25rem",
-  },
-  root: {
-    alignItems: "center",
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    justifyContent: "center",
-    minHeight: "400px",
-    paddingInline: "1.5rem",
-    textAlign: "center",
-  },
-  title: {
-    fontSize: "1rem",
-    fontWeight: 500,
-  },
-});

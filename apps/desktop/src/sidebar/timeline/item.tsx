@@ -1,6 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
 import { Lock, LockOpen, Square, Users } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { platform } from "@tauri-apps/plugin-os";
 import {
   createContext,
@@ -13,18 +12,11 @@ import {
   useState,
 } from "react";
 
-import {
-  colors,
-  fonts,
-  radii,
-  spacing,
-} from "@anlg/design-system/tokens.stylex";
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
-import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
-import { format, getYear, safeParseDate, TZDate } from "@anlg/utils";
+import { cn, format, getYear, safeParseDate, TZDate } from "@anlg/utils";
 
 import {
   type EventTimelineItem,
@@ -209,7 +201,7 @@ const ItemBase = memo(function ItemBase({
       data-sidebar-timeline-session-id={timelineSessionId}
       onFocus={onPreload}
       onPointerDown={onPreload}
-      {...stylex.props(styles.root, stylex.defaultMarker())}
+      className="group/sidebar-live-item relative [contain-intrinsic-size:auto_56px] [content-visibility:auto]"
     >
       <InteractiveButton
         onClick={ignored ? undefined : onClick}
@@ -218,37 +210,46 @@ const ItemBase = memo(function ItemBase({
         onShiftClick={ignored ? undefined : onShiftClick}
         onDragStart={onDragStart}
         contextMenu={hasSelection ? undefined : contextMenu}
-        sx={[
-          styles.item,
-          showUpcomingGauge && styles.itemWithGauge,
-          showTrailingStatus && styles.itemWithTrailingStatus,
-          ignored ? styles.itemIgnoredCursor : styles.itemCursor,
-          (multiSelected || (!multiSelected && selected)) &&
-            styles.itemSelected,
-          !multiSelected && !selected && styles.itemIdle,
-          isUpcoming && !isLive && styles.itemUpcoming,
-          isLive && styles.itemLive,
-          ignored && styles.itemIgnored,
-          !ignored && muted && !isLive && !isUpcoming && styles.itemMuted,
-        ]}
+        className={cn([
+          "w-full rounded-lg px-3 py-2 text-left",
+          showUpcomingGauge && "pl-4",
+          showTrailingStatus && "pr-10",
+          ignored ? "cursor-default" : "cursor-pointer",
+          multiSelected && "bg-accent",
+          !multiSelected && selected && "bg-accent",
+          !multiSelected && !selected && "hover:bg-accent/50",
+          isUpcoming &&
+            !isLive && [
+              "bg-destructive/8 text-foreground",
+              "focus-visible:ring-destructive/25",
+            ],
+          isLive && [
+            "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+            "focus-visible:ring-destructive/40 focus-visible:ring-2 focus-visible:outline-hidden",
+          ],
+          ignored && "opacity-40",
+          !ignored && muted && !isLive && !isUpcoming && "opacity-65",
+        ])}
         draggable={draggable}
       >
-        <div {...stylex.props(styles.itemRow)}>
-          <div {...stylex.props(styles.itemText)}>
+        <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <div
-              {...stylex.props(
-                styles.itemTitle,
-                ignored && styles.itemTitleIgnored,
+              className={cn(
+                "pointer-events-none min-w-0 truncate text-sm font-normal",
+                ignored && "line-through",
               )}
             >
               {title || t`Untitled`}
             </div>
             {displayTime && (
               <div
-                {...stylex.props(
-                  styles.itemTime,
-                  isLive ? styles.itemTimeLive : styles.itemTimeDefault,
-                )}
+                className={cn([
+                  "font-mono text-xs",
+                  isLive
+                    ? "text-destructive-foreground/65"
+                    : "text-muted-foreground",
+                ])}
               >
                 {displayTime}
               </div>
@@ -258,13 +259,13 @@ const ItemBase = memo(function ItemBase({
             isLockRevealed ? (
               <LockOpen
                 aria-label={t`Unlock Note`}
-                {...stylex.props(styles.statusIcon)}
+                className="text-muted-foreground size-3.5 shrink-0"
                 weight="fill"
               />
             ) : (
               <Lock
                 aria-label={t`Locked note`}
-                {...stylex.props(styles.statusIcon)}
+                className="text-muted-foreground size-3.5 shrink-0"
                 weight="fill"
               />
             )
@@ -272,7 +273,7 @@ const ItemBase = memo(function ItemBase({
           {isShared ? (
             <Users
               aria-label={t`Shared note`}
-              {...stylex.props(styles.statusIcon)}
+              className="text-muted-foreground size-3.5 shrink-0"
             />
           ) : null}
         </div>
@@ -281,18 +282,20 @@ const ItemBase = memo(function ItemBase({
         <div
           aria-hidden
           data-sidebar-timeline-upcoming-gauge
-          {...stylex.props(styles.upcomingGauge)}
+          className="bg-destructive/20 pointer-events-none absolute top-2 bottom-2 left-1.5 w-0.5 overflow-hidden rounded-full"
         >
           <div
             data-sidebar-timeline-upcoming-gauge-fill
-            {...mergeStyleXProps(styles.upcomingGaugeFill, undefined, {
-              height: `${upcomingGaugePercent}%`,
-            })}
+            className="bg-destructive absolute bottom-0 left-0 w-full rounded-full transition-[height] duration-300 ease-linear"
+            style={{ height: `${upcomingGaugePercent}%` }}
           />
         </div>
       ) : null}
       {showSpinner ? (
-        <div aria-hidden {...stylex.props(styles.trailingSlot)}>
+        <div
+          aria-hidden
+          className="text-muted-foreground pointer-events-none absolute top-1/2 right-3 flex size-5 -translate-y-1/2 items-center justify-center"
+        >
           <Spinner size={14} />
         </div>
       ) : null}
@@ -305,9 +308,16 @@ const ItemBase = memo(function ItemBase({
             event.stopPropagation();
             onStop();
           }}
-          {...stylex.props(styles.stopButton)}
+          className={cn([
+            "absolute top-1/2 right-3 flex size-5 -translate-y-1/2 items-center justify-center rounded-sm",
+            "text-white/80 transition-colors hover:bg-white/15 hover:text-white",
+            "focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-hidden",
+          ])}
         >
-          <span aria-hidden {...stylex.props(styles.liveIndicator)}>
+          <span
+            aria-hidden
+            className="flex items-center justify-center group-hover/sidebar-live-item:hidden"
+          >
             <DancingSticks
               amplitude={amplitude ?? 0.25}
               color="currentColor"
@@ -317,7 +327,10 @@ const ItemBase = memo(function ItemBase({
               gap={2}
             />
           </span>
-          <span aria-hidden {...stylex.props(styles.stopIndicator)}>
+          <span
+            aria-hidden
+            className="hidden items-center justify-center group-hover/sidebar-live-item:flex"
+          >
             <Square size={10} weight="fill" />
           </span>
         </button>
@@ -766,200 +779,3 @@ function formatDisplayTime(
 
   return `${dateStr}, ${time}`;
 }
-
-const styles = stylex.create({
-  item: {
-    borderRadius: radii.lg,
-    paddingBlock: spacing.sm,
-    paddingInline: spacing.md,
-    textAlign: "left",
-    width: "100%",
-  },
-  itemCursor: {
-    cursor: "pointer",
-  },
-  itemIdle: {
-    backgroundColor: {
-      default: null,
-      ":hover": `color-mix(in oklab, ${colors.accent} 50%, transparent)`,
-    },
-  },
-  itemIgnored: {
-    opacity: 0.4,
-  },
-  itemIgnoredCursor: {
-    cursor: "default",
-  },
-  itemLive: {
-    backgroundColor: {
-      default: colors.destructive,
-      ":hover": `color-mix(in oklab, ${colors.destructive} 90%, transparent)`,
-    },
-    boxShadow: {
-      default: null,
-      ":focus-visible": `0 0 0 2px color-mix(in oklab, ${colors.destructive} 40%, transparent)`,
-    },
-    color: colors.destructiveForeground,
-    outline: {
-      default: null,
-      ":focus-visible": "2px solid transparent",
-    },
-    outlineOffset: {
-      default: null,
-      ":focus-visible": "2px",
-    },
-  },
-  itemMuted: {
-    opacity: 0.65,
-  },
-  itemRow: {
-    alignItems: "center",
-    display: "flex",
-    gap: spacing.sm,
-  },
-  itemSelected: {
-    backgroundColor: colors.accent,
-  },
-  itemText: {
-    display: "flex",
-    flex: "1",
-    flexDirection: "column",
-    gap: "0.125rem",
-    minWidth: 0,
-  },
-  itemTime: {
-    fontFamily: fonts.mono,
-    fontSize: "0.75rem",
-  },
-  itemTimeDefault: {
-    color: colors.mutedForeground,
-  },
-  itemTimeLive: {
-    color: `color-mix(in oklab, ${colors.destructiveForeground} 65%, transparent)`,
-  },
-  itemTitle: {
-    fontSize: "0.875rem",
-    fontWeight: 400,
-    minWidth: 0,
-    overflow: "hidden",
-    pointerEvents: "none",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  itemTitleIgnored: {
-    textDecorationLine: "line-through",
-  },
-  itemUpcoming: {
-    backgroundColor: `color-mix(in oklab, ${colors.destructive} 8%, transparent)`,
-    boxShadow: {
-      default: null,
-      ":focus-visible": `0 0 0 1px color-mix(in oklab, ${colors.destructive} 25%, transparent)`,
-    },
-    color: colors.foreground,
-  },
-  itemWithGauge: {
-    paddingLeft: "1rem",
-  },
-  itemWithTrailingStatus: {
-    paddingRight: "2.5rem",
-  },
-  liveIndicator: {
-    alignItems: "center",
-    display: {
-      default: "flex",
-      [stylex.when.ancestor(":hover")]: "none",
-    },
-    justifyContent: "center",
-  },
-  root: {
-    containIntrinsicSize: "auto 56px",
-    contentVisibility: "auto",
-    position: "relative",
-  },
-  statusIcon: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  stopButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": "rgb(255 255 255 / 0.15)",
-    },
-    borderRadius: radii.sm,
-    boxShadow: {
-      default: null,
-      ":focus-visible": "0 0 0 2px rgb(255 255 255 / 0.7)",
-    },
-    color: {
-      default: "rgb(255 255 255 / 0.8)",
-      ":hover": "white",
-    },
-    display: "flex",
-    height: "1.25rem",
-    justifyContent: "center",
-    outline: {
-      default: null,
-      ":focus-visible": "2px solid transparent",
-    },
-    outlineOffset: {
-      default: null,
-      ":focus-visible": "2px",
-    },
-    position: "absolute",
-    right: spacing.md,
-    top: "50%",
-    transform: "translateY(-50%)",
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "1.25rem",
-  },
-  stopIndicator: {
-    alignItems: "center",
-    display: {
-      default: "none",
-      [stylex.when.ancestor(":hover")]: "flex",
-    },
-    justifyContent: "center",
-  },
-  trailingSlot: {
-    alignItems: "center",
-    color: colors.mutedForeground,
-    display: "flex",
-    height: "1.25rem",
-    justifyContent: "center",
-    pointerEvents: "none",
-    position: "absolute",
-    right: spacing.md,
-    top: "50%",
-    transform: "translateY(-50%)",
-    width: "1.25rem",
-  },
-  upcomingGauge: {
-    backgroundColor: `color-mix(in oklab, ${colors.destructive} 20%, transparent)`,
-    borderRadius: radii.full,
-    bottom: spacing.sm,
-    left: "0.375rem",
-    overflow: "hidden",
-    pointerEvents: "none",
-    position: "absolute",
-    top: spacing.sm,
-    width: "0.125rem",
-  },
-  upcomingGaugeFill: {
-    backgroundColor: colors.destructive,
-    borderRadius: radii.full,
-    bottom: 0,
-    left: 0,
-    position: "absolute",
-    transitionDuration: "300ms",
-    transitionProperty: "height",
-    transitionTimingFunction: "linear",
-    width: "100%",
-  },
-});
-
-export { styles as timelineItemStyles };

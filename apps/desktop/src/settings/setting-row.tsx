@@ -1,20 +1,10 @@
-import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, useId } from "react";
 
-import { colors } from "@anlg/design-system/tokens.stylex";
 import { Switch } from "@anlg/ui/components/ui/switch";
+import { cn } from "@anlg/utils";
 
-export const settingControlStyles = stylex.create({
-  control: {
-    backgroundColor: colors.card,
-    boxShadow: {
-      default: "none",
-      ":focus": "none",
-    },
-    height: "2.25rem",
-    width: "100%",
-  },
-});
+export const SETTING_CONTROL_CLASS =
+  "bg-card h-9 w-full shadow-none focus:ring-0";
 
 export function SettingRow({
   title,
@@ -34,22 +24,22 @@ export function SettingRow({
   const descriptionId = useId();
 
   return (
-    <div {...stylex.props(styles.row)}>
-      <div {...stylex.props(styles.copy)}>
-        <h3 id={titleId} {...stylex.props(styles.title)}>
+    <div className="flex items-center justify-between gap-4">
+      <div className="min-w-0 flex-1">
+        <h3 id={titleId} className="mb-1 text-sm font-medium">
           {title}
         </h3>
         {description && (
-          <p id={descriptionId} {...stylex.props(styles.description)}>
+          <p id={descriptionId} className="text-muted-foreground text-xs">
             {description}
           </p>
         )}
       </div>
       <div
-        {...stylex.props(
-          styles.control,
-          controlWidth === "fixed" && styles.fixedControl,
-        )}
+        className={cn([
+          "flex shrink-0 justify-end",
+          controlWidth === "fixed" && "w-48",
+        ])}
       >
         {children({
           "aria-labelledby": titleId,
@@ -86,37 +76,3 @@ export function SettingSwitchRow({
     </SettingRow>
   );
 }
-
-const styles = stylex.create({
-  control: {
-    display: "flex",
-    flexShrink: 0,
-    justifyContent: "flex-end",
-  },
-  copy: {
-    flex: "1",
-    minWidth: 0,
-  },
-  description: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-  },
-  fixedControl: {
-    width: "12rem",
-  },
-  row: {
-    alignItems: "center",
-    display: "flex",
-    gap: "1rem",
-    justifyContent: "space-between",
-  },
-  title: {
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    lineHeight: "1.25rem",
-    marginBottom: "0.25rem",
-  },
-});
-
-export { styles as settingRowStyles };

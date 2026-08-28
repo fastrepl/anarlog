@@ -5,7 +5,6 @@ import {
   Square,
   Warning,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useEffect, useRef, useState } from "react";
 
 import type {
@@ -13,7 +12,7 @@ import type {
   FloatingTranscriptBubble,
 } from "@anlg/plugin-windows";
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
-import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
+import { cn } from "@anlg/utils";
 
 import {
   FLOATING_BAR_COMPACT_GAP,
@@ -50,9 +49,8 @@ export function FloatingBarOverlay({
 
   return (
     <div
-      {...mergeStyleXProps(styles.root, undefined, {
-        padding: FLOATING_BAR_INSET,
-      })}
+      className="flex h-full w-full items-end justify-end"
+      style={{ padding: FLOATING_BAR_INSET }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -94,20 +92,22 @@ function CompactPill({
 
   return (
     <div
-      {...mergeStyleXProps(styles.panel, undefined, {
+      className="relative overflow-hidden"
+      style={{
         width,
         height,
         borderRadius: FLOATING_BAR_COMPACT_RADIUS,
         background: hovered ? colors.envelopeSurface : colors.surface,
         boxShadow: `inset 0 0 0 0.5px ${colors.outerStroke}`,
-      })}
+      }}
     >
       {hovered ? <HoverHandle color={colors.handle} width={width} /> : null}
       <div
-        {...mergeStyleXProps(styles.compactContent, undefined, {
+        className="absolute right-0 bottom-0 flex items-center justify-center"
+        style={{
           width,
           height: FLOATING_BAR_COMPACT_HEIGHT,
-        })}
+        }}
       >
         <FloatingControls
           state={state}
@@ -136,7 +136,8 @@ function ExpandedPanel({
 
   return (
     <div
-      {...mergeStyleXProps(styles.panel, undefined, {
+      className="relative overflow-hidden"
+      style={{
         width: FLOATING_BAR_EXPANDED_WIDTH,
         height:
           FLOATING_BAR_EXPANDED_HEIGHT +
@@ -144,14 +145,15 @@ function ExpandedPanel({
         borderRadius: FLOATING_BAR_EXPANDED_RADIUS,
         background: colors.surface,
         boxShadow: `inset 0 0 0 0.5px ${colors.outerStroke}`,
-      })}
+      }}
     >
       <div
-        {...mergeStyleXProps(styles.hoverHandleSlot, undefined, {
+        className="absolute inset-x-0 top-0"
+        style={{
           height: FLOATING_BAR_HOVER_HANDLE_RESERVED_HEIGHT,
           paddingTop: FLOATING_BAR_HOVER_HANDLE_TOP_PADDING,
           opacity: hovered ? 1 : 0,
-        })}
+        }}
       >
         <HoverHandle
           color={colors.handle}
@@ -159,22 +161,21 @@ function ExpandedPanel({
         />
       </div>
       <div
-        {...mergeStyleXProps(styles.expandedContent, undefined, {
-          height: FLOATING_BAR_EXPANDED_HEIGHT,
-        })}
+        className="absolute inset-x-0 bottom-0"
+        style={{ height: FLOATING_BAR_EXPANDED_HEIGHT }}
       >
         <div
-          {...mergeStyleXProps(styles.titleRow, undefined, {
+          className="flex items-center"
+          style={{
             height: FLOATING_BAR_COMPACT_HEIGHT,
             paddingLeft: 16,
             paddingRight:
               compactControlsWidth(state.liveCaptionToggleVisible) + 12,
-          })}
+          }}
         >
           <p
-            {...mergeStyleXProps(styles.title, undefined, {
-              color: colors.content,
-            })}
+            className="min-w-0 truncate text-[13px] font-semibold"
+            style={{ color: colors.content }}
           >
             {state.title}
           </p>
@@ -184,11 +185,12 @@ function ExpandedPanel({
           colorScheme={state.colorScheme}
         />
         <div
-          {...mergeStyleXProps(styles.expandedControls, undefined, {
+          className="absolute top-0 right-0 flex items-center justify-center"
+          style={{
             width: compactControlsWidth(state.liveCaptionToggleVisible),
             height: FLOATING_BAR_COMPACT_HEIGHT,
             marginRight: FLOATING_BAR_COMPACT_HORIZONTAL_PADDING,
-          })}
+          }}
         >
           <FloatingControls
             state={state}
@@ -218,9 +220,8 @@ function FloatingControls({
 }) {
   return (
     <div
-      {...mergeStyleXProps(styles.controls, undefined, {
-        gap: FLOATING_BAR_COMPACT_GAP,
-      })}
+      className="flex items-center"
+      style={{ gap: FLOATING_BAR_COMPACT_GAP }}
     >
       <StopControl state={state} colors={colors} onStop={onStop} />
       {state.liveCaptionToggleVisible ? (
@@ -231,12 +232,13 @@ function FloatingControls({
             isExpanded ? "Collapse live transcript" : "Expand live transcript"
           }
           onClick={() => onToggleExpanded(!isExpanded)}
-          {...mergeStyleXProps(styles.control, undefined, {
+          className="flex items-center justify-center"
+          style={{
             width: FLOATING_BAR_COMPACT_ICON_SIZE,
             height: FLOATING_BAR_COMPACT_ICON_SIZE,
             borderRadius: FLOATING_BAR_CONTROL_RADIUS,
             color: colors.content,
-          })}
+          }}
         >
           {isExpanded ? (
             <ArrowsInSimple size={14} weight="bold" />
@@ -271,16 +273,17 @@ function StopControl({
       onClick={onStop}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      {...mergeStyleXProps(styles.control, undefined, {
+      className="flex items-center justify-center"
+      style={{
         width,
         height: FLOATING_BAR_COMPACT_ICON_SIZE,
         borderRadius: FLOATING_BAR_CONTROL_RADIUS,
         background: hovered ? "rgba(255, 51, 77, 0.18)" : colors.controlFill,
         color: colors.accent,
-      })}
+      }}
     >
       {hovered ? (
-        <span {...stylex.props(styles.stopLabel)}>
+        <span className="flex items-center gap-1.5 text-xs font-semibold">
           <Square size={9} weight="fill" />
           Stop
         </span>
@@ -317,9 +320,9 @@ function TranscriptList({
   }, [bubbles, pinned]);
 
   return (
-    <div {...stylex.props(styles.transcript)}>
+    <div className="relative h-[calc(100%-38px)] px-3 pb-3">
       <div
-        {...stylex.props(styles.transcriptScroll)}
+        className="h-full overflow-y-auto"
         onScroll={(event) => {
           const target = event.currentTarget;
           const distance =
@@ -327,7 +330,7 @@ function TranscriptList({
           setPinned(distance < 20);
         }}
       >
-        <div {...stylex.props(styles.transcriptList)}>
+        <div className="flex min-h-full flex-col justify-end gap-2">
           {bubbles.map((bubble, index) => (
             <TranscriptBubble
               key={bubble.id}
@@ -354,11 +357,12 @@ function TranscriptList({
               behavior: "smooth",
             });
           }}
-          {...mergeStyleXProps(styles.scrollToBottom, undefined, {
+          className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[11px] font-medium"
+          style={{
             background:
               colorScheme === "dark" ? "rgb(46, 46, 43)" : "rgb(242, 242, 237)",
             color: colorScheme === "dark" ? "white" : "rgb(31, 28, 26)",
-          })}
+          }}
         >
           <CaretDown size={10} weight="bold" />
           Go to bottom
@@ -381,24 +385,22 @@ function TranscriptBubble({
 
   return (
     <div
-      {...stylex.props(
-        styles.bubbleRow,
-        bubble.isSelf ? styles.bubbleRowSelf : styles.bubbleRowOther,
-      )}
+      className={cn(["flex", bubble.isSelf ? "justify-end" : "justify-start"])}
     >
       <div
-        {...stylex.props(
-          styles.bubbleContent,
-          bubble.isSelf ? styles.bubbleContentSelf : styles.bubbleContentOther,
-        )}
+        className={cn([
+          "max-w-[calc(100%-40px)]",
+          bubble.isSelf ? "items-end" : "items-start",
+        ])}
       >
         {(showsSpeakerLabel || overlapping) && (
-          <p {...stylex.props(styles.speakerLabel)}>
+          <p className="mb-1 px-1 text-[10px] font-semibold text-white">
             {showsSpeakerLabel ? bubble.speakerLabel : ""}
           </p>
         )}
         <p
-          {...mergeStyleXProps(styles.bubble, undefined, {
+          className="rounded-[11px] px-2.5 py-2 text-[13px] leading-5 text-white"
+          style={{
             background: bubble.isSelf
               ? `rgba(0, 0, 0, ${colorScheme === "dark" ? 0.34 : 0.24})`
               : `rgba(0, 0, 0, ${colorScheme === "dark" ? 0.28 : 0.2})`,
@@ -407,7 +409,7 @@ function TranscriptBubble({
                   colorScheme === "dark" ? 0.26 : 0.34
                 })`
               : undefined,
-          })}
+          }}
         >
           {bubble.text}
         </p>
@@ -420,164 +422,24 @@ function HoverHandle({ color, width }: { color: string; width: number }) {
   return (
     <div
       data-tauri-drag-region
-      {...mergeStyleXProps(styles.handle, undefined, {
+      className="flex items-center justify-center"
+      style={{
         height: FLOATING_BAR_HOVER_HANDLE_HEIGHT,
         width,
-      })}
+      }}
     >
       <div
         data-tauri-drag-region
-        {...mergeStyleXProps(styles.handleDots, undefined, {
+        className="h-full"
+        style={{
           width: Math.max(0, width - 16),
           backgroundImage: `radial-gradient(circle, ${color} 0.8px, transparent 0.9px)`,
           backgroundSize: "5px 7px",
-        })}
+        }}
       />
     </div>
   );
 }
-
-const styles = stylex.create({
-  bubble: {
-    borderRadius: "11px",
-    color: "white",
-    fontSize: "13px",
-    lineHeight: "1.25rem",
-    paddingBlock: "0.5rem",
-    paddingInline: "0.625rem",
-  },
-  bubbleContent: {
-    maxWidth: "calc(100% - 40px)",
-  },
-  bubbleContentOther: {
-    alignItems: "flex-start",
-  },
-  bubbleContentSelf: {
-    alignItems: "flex-end",
-  },
-  bubbleRow: {
-    display: "flex",
-  },
-  bubbleRowOther: {
-    justifyContent: "flex-start",
-  },
-  bubbleRowSelf: {
-    justifyContent: "flex-end",
-  },
-  compactContent: {
-    alignItems: "center",
-    bottom: 0,
-    display: "flex",
-    justifyContent: "center",
-    position: "absolute",
-    right: 0,
-  },
-  control: {
-    alignItems: "center",
-    display: "flex",
-    justifyContent: "center",
-  },
-  controls: {
-    alignItems: "center",
-    display: "flex",
-  },
-  expandedContent: {
-    bottom: 0,
-    left: 0,
-    position: "absolute",
-    right: 0,
-  },
-  expandedControls: {
-    alignItems: "center",
-    display: "flex",
-    justifyContent: "center",
-    position: "absolute",
-    right: 0,
-    top: 0,
-  },
-  handle: {
-    alignItems: "center",
-    display: "flex",
-    justifyContent: "center",
-  },
-  handleDots: {
-    height: "100%",
-  },
-  hoverHandleSlot: {
-    left: 0,
-    position: "absolute",
-    right: 0,
-    top: 0,
-  },
-  panel: {
-    overflow: "hidden",
-    position: "relative",
-  },
-  root: {
-    alignItems: "flex-end",
-    display: "flex",
-    height: "100%",
-    justifyContent: "flex-end",
-    width: "100%",
-  },
-  scrollToBottom: {
-    alignItems: "center",
-    borderRadius: "10px",
-    bottom: "0.75rem",
-    display: "flex",
-    fontSize: "11px",
-    fontWeight: 500,
-    gap: "0.375rem",
-    left: "50%",
-    paddingBlock: "0.375rem",
-    paddingInline: "0.75rem",
-    position: "absolute",
-    transform: "translateX(-50%)",
-  },
-  speakerLabel: {
-    color: "white",
-    fontSize: "10px",
-    fontWeight: 600,
-    marginBottom: "0.25rem",
-    paddingInline: "0.25rem",
-  },
-  stopLabel: {
-    alignItems: "center",
-    display: "flex",
-    fontSize: "0.75rem",
-    fontWeight: 600,
-    gap: "0.375rem",
-  },
-  title: {
-    fontSize: "13px",
-    fontWeight: 600,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  titleRow: {
-    alignItems: "center",
-    display: "flex",
-  },
-  transcript: {
-    height: "calc(100% - 38px)",
-    paddingBottom: "0.75rem",
-    paddingInline: "0.75rem",
-    position: "relative",
-  },
-  transcriptList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-    justifyContent: "flex-end",
-    minHeight: "100%",
-  },
-  transcriptScroll: {
-    height: "100%",
-    overflowY: "auto",
-  },
-});
 
 type BarColors = {
   surface: string;

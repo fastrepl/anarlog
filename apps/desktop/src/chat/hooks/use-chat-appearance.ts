@@ -1,10 +1,10 @@
 import {
-  chatElevatedSurfaceStyle,
-  chatInputEditorStyle,
-  chatPanelBorderStyle,
-  chatPanelStyle,
-  chatSendButtonDisabledStyle,
-  chatSendButtonShortcutDisabledStyle,
+  chatElevatedSurfaceClassNames,
+  chatInputEditorClassNames,
+  chatPanelBorderClassNames,
+  chatPanelClassNames,
+  chatSendButtonDisabledClassNames,
+  chatSendButtonShortcutDisabledClassNames,
   chatToolbarSurface,
   isChatDarkAppearance,
 } from "~/chat/surface";
@@ -15,11 +15,12 @@ export function useChatAppearance() {
   return {
     isDarkAppearance,
     toolbarSurface: chatToolbarSurface(),
-    panelStyle: chatPanelStyle,
-    panelBorderStyle: chatPanelBorderStyle,
-    elevatedSurfaceStyle: chatElevatedSurfaceStyle,
-    inputEditorStyle: chatInputEditorStyle,
-    sendButtonDisabledStyle: chatSendButtonDisabledStyle,
-    sendButtonShortcutDisabledStyle: chatSendButtonShortcutDisabledStyle,
+    panelClassName: chatPanelClassNames(),
+    panelBorderClassName: chatPanelBorderClassNames(),
+    elevatedSurfaceClassName: chatElevatedSurfaceClassNames(),
+    inputEditorClassName: chatInputEditorClassNames(),
+    sendButtonDisabledClassName: chatSendButtonDisabledClassNames(),
+    sendButtonShortcutDisabledClassName:
+      chatSendButtonShortcutDisabledClassNames(),
   };
 }

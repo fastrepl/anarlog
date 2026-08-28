@@ -25,7 +25,6 @@ import {
   TextHTwo,
   TextT,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { setBlockType } from "prosemirror-commands";
 import { wrapInList } from "prosemirror-schema-list";
 import type { EditorState, Transaction } from "prosemirror-state";
@@ -33,7 +32,7 @@ import type { EditorView } from "prosemirror-view";
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
+import { cn } from "@anlg/utils";
 
 import { schema } from "../note/schema";
 import { createTaskItemAttrs } from "../tasks";
@@ -357,24 +356,34 @@ export function SlashCommandMenu() {
     <div
       ref={popupRef}
       data-editor-escape-consumer
-      {...stylex.props(styles.popup)}
+      className={cn([
+        "absolute z-50 max-h-64 w-[224px]",
+        "bg-popover text-popover-foreground ring-border overflow-y-auto rounded-[1rem] p-1 ring-1",
+        "text-sm shadow-lg",
+      ])}
+      style={{ top: 0, left: 0 }}
     >
-      <div {...stylex.props(styles.heading)}>Commands</div>
-      <div {...stylex.props(styles.list)}>
+      <div className="text-muted-foreground px-2 pb-0.5 text-[10px] font-semibold tracking-wide uppercase select-none">
+        Commands
+      </div>
+      <div className="space-y-0.5">
         {items.map((item, index) => (
           <button
             key={item.id}
-            {...stylex.props(
-              styles.item,
-              index === selectedIndex && styles.selectedItem,
-            )}
+            className={cn([
+              "flex h-8 w-full items-center gap-1.5 rounded-xl px-2 text-left",
+              "cursor-pointer border-none bg-transparent transition-colors outline-none",
+              index === selectedIndex && "bg-muted",
+            ])}
             onClick={() => executeCommand(item)}
             onMouseEnter={() => setSelectedIndex(index)}
           >
-            <span {...stylex.props(styles.iconContainer)}>
-              <item.icon className={stylex.props(styles.icon).className} />
+            <span className="text-muted-foreground flex size-4 shrink-0 items-center justify-center">
+              <item.icon className="size-4" />
             </span>
-            <span {...stylex.props(styles.itemLabel)}>{item.label}</span>
+            <span className="text-popover-foreground min-w-0 flex-1 truncate text-sm leading-4">
+              {item.label}
+            </span>
           </button>
         ))}
       </div>
@@ -382,80 +391,3 @@ export function SlashCommandMenu() {
     document.body,
   );
 }
-
-const styles = stylex.create({
-  popup: {
-    backgroundColor: colors.popover,
-    borderRadius: "1rem",
-    boxShadow: shadows.lg,
-    color: colors.popoverForeground,
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-    maxHeight: "16rem",
-    overflowY: "auto",
-    padding: "0.25rem",
-    left: 0,
-    position: "absolute",
-    top: 0,
-    width: "224px",
-    zIndex: 50,
-  },
-  heading: {
-    color: colors.mutedForeground,
-    fontSize: "10px",
-    fontWeight: 600,
-    letterSpacing: "0.025em",
-    paddingBottom: "0.125rem",
-    paddingInline: "0.5rem",
-    textTransform: "uppercase",
-    userSelect: "none",
-  },
-  list: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.125rem",
-  },
-  item: {
-    alignItems: "center",
-    backgroundColor: "transparent",
-    borderColor: "transparent",
-    borderRadius: radii.xl,
-    borderStyle: "none",
-    cursor: "pointer",
-    display: "flex",
-    gap: "0.375rem",
-    height: "2rem",
-    outlineStyle: "none",
-    paddingInline: "0.5rem",
-    textAlign: "left",
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color",
-    width: "100%",
-  },
-  selectedItem: {
-    backgroundColor: colors.muted,
-  },
-  iconContainer: {
-    alignItems: "center",
-    color: colors.mutedForeground,
-    display: "flex",
-    flexShrink: 0,
-    height: "1rem",
-    justifyContent: "center",
-    width: "1rem",
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  itemLabel: {
-    color: colors.popoverForeground,
-    flexGrow: 1,
-    fontSize: "0.875rem",
-    lineHeight: "1rem",
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-});

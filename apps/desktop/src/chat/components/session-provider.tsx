@@ -1,6 +1,5 @@
 import { Chat, useChat } from "@ai-sdk/react";
 import { useLingui } from "@lingui/react/macro";
-import * as stylex from "@stylexjs/stylex";
 import type { ChatStatus, ChatTransport, LanguageModel, ToolSet } from "ai";
 import {
   type ReactNode,
@@ -758,17 +757,8 @@ function ChatSessionLifecycle({
     return content;
   }
 
-  return <div {...stylex.props(styles.root)}>{content}</div>;
+  return <div className="flex min-h-0 flex-1 flex-col">{content}</div>;
 }
-
-const styles = stylex.create({
-  root: {
-    display: "flex",
-    flex: "1",
-    flexDirection: "column",
-    minHeight: 0,
-  },
-});
 
 const unavailableChatTransport: ChatTransport<AnlgUIMessage> = {
   sendMessages: async () => {

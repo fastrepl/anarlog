@@ -1,11 +1,8 @@
 import { t } from "@lingui/core/macro";
-import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useCallback, useMemo } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
-import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 import { restoreDeletedSession } from "~/session/queries";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -165,13 +162,17 @@ function UndoDeleteSonnerToast({ group }: { group: ToastGroup }) {
       description: (
         <span
           aria-hidden="true"
-          {...mergeStyleXProps(styles.gauge, undefined, {
-            "--undo-delete-duration": `${remainingDuration}ms`,
-            "--undo-delete-progress": progress,
-          } as CSSProperties)}
+          className="undo-delete-toast-gauge bg-primary block h-full w-full"
+          style={
+            {
+              "--undo-delete-duration": `${remainingDuration}ms`,
+              "--undo-delete-progress": progress,
+            } as CSSProperties
+          }
         />
       ),
-      descriptionClassName: stylex.props(styles.description).className,
+      descriptionClassName:
+        "bg-muted absolute inset-x-0 bottom-0 h-1 overflow-hidden rounded-b-xl",
       action: {
         label: t`Undo`,
         onClick: () => restoreGroup(group),
@@ -183,35 +184,3 @@ function UndoDeleteSonnerToast({ group }: { group: ToastGroup }) {
 
   return null;
 }
-
-const gaugeCountdown = stylex.keyframes({
-  to: {
-    transform: "scaleX(0)",
-  },
-});
-
-const styles = stylex.create({
-  description: {
-    backgroundColor: colors.muted,
-    borderBottomLeftRadius: radii.xl,
-    borderBottomRightRadius: radii.xl,
-    bottom: 0,
-    height: "0.25rem",
-    left: 0,
-    overflow: "hidden",
-    position: "absolute",
-    right: 0,
-  },
-  gauge: {
-    animationDuration: "var(--undo-delete-duration)",
-    animationFillMode: "forwards",
-    animationName: gaugeCountdown,
-    animationTimingFunction: "linear",
-    backgroundColor: colors.primary,
-    display: "block",
-    height: "100%",
-    transform: "scaleX(var(--undo-delete-progress))",
-    transformOrigin: "left",
-    width: "100%",
-  },
-});

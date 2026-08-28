@@ -1,9 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import { Check, FolderSimple, Plus } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo, useState } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import {
   Command,
   CommandEmpty,
@@ -19,6 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
+import { cn } from "@anlg/utils";
 
 import { folderDisplayName, normalizeFolderPath } from "~/session/folders";
 import {
@@ -98,31 +97,44 @@ export function FolderPicker({
             currentPath ? t`Folder: ${currentPath}` : t`Select folder`
           }
           title={currentPath ? currentPath : t`Select folder`}
-          {...stylex.props(
-            styles.trigger,
-            currentPath ? styles.triggerWithFolder : styles.triggerEmpty,
-            open && styles.triggerOpen,
-          )}
+          className={cn([
+            "flex h-7 items-center rounded-full",
+            currentPath
+              ? "max-w-full min-w-0 gap-1 px-1.5"
+              : "w-7 justify-center",
+            "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
+            "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
+            open && "bg-accent text-foreground",
+          ])}
         >
-          <FolderSimple {...stylex.props(styles.icon)} aria-hidden="true" />
+          <FolderSimple className="size-4 shrink-0" aria-hidden="true" />
           {currentPath ? (
-            <span {...stylex.props(styles.folderLabel)}>{currentPath}</span>
+            <span className="min-w-0 truncate text-xs text-neutral-600 dark:text-neutral-300">
+              {currentPath}
+            </span>
           ) : null}
         </button>
       </PopoverTrigger>
-      <PopoverContent variant="app" align={align} sx={styles.popover}>
-        <AppFloatingPanel sx={styles.panel}>
-          <Command filter={filterFolders} sx={styles.command}>
-            <div {...stylex.props(styles.content)}>
+      <PopoverContent
+        variant="app"
+        align={align}
+        className="w-85 overflow-hidden"
+      >
+        <AppFloatingPanel className="overflow-hidden">
+          <Command
+            filter={filterFolders}
+            className="rounded-[inherit] border-0 bg-transparent **:[[cmdk-input-wrapper]]:h-7 **:[[cmdk-input-wrapper]]:border-0 **:[[cmdk-input-wrapper]]:px-0"
+          >
+            <div className="flex flex-col gap-4 p-4">
               <CommandInput
                 placeholder={t`Search or create folder`}
                 value={query}
                 onValueChange={setQuery}
-                sx={styles.input}
+                className="h-7 py-0"
               />
-              <div {...stylex.props(styles.divider)} />
+              <div className="bg-accent h-px" />
               <CommandList>
-                <CommandEmpty sx={styles.empty}>
+                <CommandEmpty className="text-muted-foreground py-0 text-left text-sm">
                   {trimmedQuery
                     ? normalizedQuery === null
                       ? t`Enter a valid folder name.`
@@ -134,11 +146,9 @@ export function FolderPicker({
                     <CommandItem
                       value={`no-folder ${t`No folder`}`}
                       onSelect={() => handleSelect("")}
-                      sx={styles.pointer}
+                      className="cursor-pointer"
                     >
-                      <span {...stylex.props(styles.itemLabel)}>
-                        {t`No folder`}
-                      </span>
+                      <span className="flex-1 truncate">{t`No folder`}</span>
                     </CommandItem>
                   </CommandGroup>
                 ) : null}
@@ -152,14 +162,12 @@ export function FolderPicker({
                         key={path}
                         value={path}
                         onSelect={() => handleSelect(path)}
-                        sx={styles.pointer}
+                        className="cursor-pointer"
                       >
-                        <FolderSimple
-                          {...stylex.props(styles.icon, styles.mutedIcon)}
-                        />
-                        <span {...stylex.props(styles.itemLabel)}>{path}</span>
+                        <FolderSimple className="size-4 shrink-0 opacity-70" />
+                        <span className="min-w-0 flex-1 truncate">{path}</span>
                         {path === currentPath ? (
-                          <Check {...stylex.props(styles.icon)} />
+                          <Check className="size-4 shrink-0" />
                         ) : null}
                       </CommandItem>
                     ))}
@@ -170,10 +178,10 @@ export function FolderPicker({
                     <CommandItem
                       value={`create-folder ${normalizedQuery}`}
                       onSelect={() => handleSelect(normalizedQuery)}
-                      sx={styles.pointer}
+                      className="cursor-pointer"
                     >
-                      <Plus {...stylex.props(styles.icon)} />
-                      <span {...stylex.props(styles.itemLabel)}>
+                      <Plus className="size-4 shrink-0" />
+                      <span className="min-w-0 flex-1 truncate">
                         {t`Create "${folderName}"`}
                       </span>
                     </CommandItem>
@@ -193,119 +201,3 @@ function collectWithCurrent(folderPaths: string[], currentPath: string) {
     left.localeCompare(right),
   );
 }
-
-const styles = stylex.create({
-  command: {
-    backgroundColor: "transparent",
-    borderRadius: "inherit",
-    borderWidth: 0,
-    height: {
-      default: null,
-      ":is(*) [cmdk-input-wrapper]": "1.75rem",
-    },
-    paddingInline: {
-      default: null,
-      ":is(*) [cmdk-input-wrapper]": 0,
-    },
-    borderColor: {
-      default: null,
-      ":is(*) [cmdk-input-wrapper]": "transparent",
-    },
-  },
-  content: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-    padding: "1rem",
-  },
-  divider: {
-    backgroundColor: colors.accent,
-    height: "1px",
-  },
-  empty: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    paddingBlock: 0,
-    textAlign: "left",
-  },
-  folderLabel: {
-    color: {
-      default: "rgb(82 82 82)",
-      ":is(.dark *)": "rgb(212 212 212)",
-    },
-    fontSize: "0.75rem",
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  icon: {
-    flexShrink: 0,
-    height: "1rem",
-    width: "1rem",
-  },
-  input: {
-    height: "1.75rem",
-    paddingBlock: 0,
-  },
-  itemLabel: {
-    flex: "1",
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  mutedIcon: {
-    opacity: 0.7,
-  },
-  panel: {
-    overflow: "hidden",
-  },
-  pointer: {
-    cursor: "pointer",
-  },
-  popover: {
-    overflow: "hidden",
-    width: "21.25rem",
-  },
-  trigger: {
-    alignItems: "center",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    borderRadius: radii.full,
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    display: "flex",
-    height: "1.75rem",
-    outline: {
-      default: null,
-      ":focus-visible": "none",
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color",
-    boxShadow: {
-      default: null,
-      ":focus-visible": `0 0 0 2px ${colors.ring}`,
-    },
-  },
-  triggerEmpty: {
-    justifyContent: "center",
-    width: "1.75rem",
-  },
-  triggerOpen: {
-    backgroundColor: colors.accent,
-    color: colors.foreground,
-  },
-  triggerWithFolder: {
-    gap: "0.25rem",
-    maxWidth: "100%",
-    minWidth: 0,
-    paddingInline: "0.375rem",
-  },
-});
-
-export { styles as folderPickerStyles };

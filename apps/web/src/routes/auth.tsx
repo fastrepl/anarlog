@@ -1,14 +1,19 @@
 import { Icon } from "@iconify-icon/react";
 import { ArrowLeft, Buildings, Envelope } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useRef, useState, type ReactNode } from "react";
 import { z } from "zod";
 
-import { radii } from "@anlg/design-system/tokens.stylex";
+import { cn } from "@anlg/utils";
 
-import { AuthShell, authStyles } from "@/components/auth-shell";
+import {
+  AuthShell,
+  authInputClassName,
+  authNoticeClassName,
+  authPrimaryButtonClassName,
+  authSecondaryButtonClassName,
+} from "@/components/auth-shell";
 import {
   createDesktopSession,
   doAuth,
@@ -33,220 +38,37 @@ import {
   capturePrivateRouteEvent,
   identifyPrivateRouteUser,
 } from "@/lib/private-route-analytics";
-const styles = stylex.create({
-  style1: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  style2: {
-    display: "flex",
-    flexDirection: "column",
-    gap: ".75rem",
-  },
-  style3: {
-    width: "18px",
-    height: "18px",
-  },
-  style4: {
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    fontWeight: 500,
-    color: "#4f4940",
-  },
-  style5: {
-    textAlign: "center",
-  },
-  style6: {
-    marginBottom: ".25rem",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    fontWeight: 500,
-    color: "#4f4940",
-  },
-  style7: {
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: "#8b8174",
-  },
-  style8: {
-    marginTop: "1.5rem",
-    textAlign: "center",
-    fontSize: ".75rem",
-    lineHeight: "1.25rem",
-    color: "#8b8174",
-  },
-  style9: {
-    textDecorationLine: "underline",
-    textDecorationColor: "#b9ae9f",
-    textUnderlineOffset: "2px",
-    color: {
-      default: null,
-      ":hover": "#181613",
-    },
-  },
-  style10: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1.25rem",
-  },
-  style11: {
-    display: "flex",
-    cursor: "pointer",
-    alignItems: "center",
-    gap: ".25rem",
-    alignSelf: "flex-start",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: {
-      default: "#756b5d",
-      ":hover": "#181613",
-    },
-    transitionProperty: "color",
-    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
-    transitionDuration: ".15s",
-  },
-  style12: {
-    width: ".875rem",
-    height: ".875rem",
-  },
-  style13: {
-    display: "flex",
-    gap: ".25rem",
-    borderRadius: radii.full,
-    backgroundColor: "#f4efe6",
-    padding: ".25rem",
-  },
-  style14: {
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: "#b91c1c",
-  },
-  style15: {
-    fontWeight: 500,
-    color: "#4f4940",
-  },
-  style16: {
-    marginTop: ".25rem",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: "#756b5d",
-  },
-  style17: {
-    textAlign: "center",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: "#b91c1c",
-  },
-  style18: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: ".25rem",
-  },
-  style19: {
-    cursor: "pointer",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: {
-      default: "#756b5d",
-      ":hover": "#181613",
-    },
-    transitionProperty: "color, text-decoration-color",
-    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
-    transitionDuration: ".15s",
-    textDecorationLine: {
-      default: null,
-      ":hover": "underline",
-    },
-  },
-  style20: {
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: {
-      default: "#756b5d",
-      ":hover": "#181613",
-    },
-    transitionProperty: "color, text-decoration-color",
-    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
-    transitionDuration: ".15s",
-    textDecorationLine: {
-      default: null,
-      ":hover": "underline",
-    },
-  },
-  style21: {
-    display: "grid",
-    width: "14rem",
-    gridTemplateColumns: "18px 1fr",
-    alignItems: "center",
-    gap: ".75rem",
-    textAlign: "left",
-  },
-  style22: {
-    display: {
-      default: "flex",
-      ":is(*) iconify-icon": "block",
-    },
-    width: "18px",
-    height: "18px",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  modeTab: {
-    borderRadius: radii.full,
-    cursor: "pointer",
-    flexGrow: 1,
-    fontSize: ".875rem",
-    fontWeight: 500,
-    lineHeight: "1.25rem",
-    paddingBlock: ".5rem",
-    transitionDuration: ".15s",
-    transitionProperty: "background-color, box-shadow, color",
-    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
-  },
-  activeModeTab: {
-    backgroundColor: "#fff",
-    boxShadow: "0 1px 2px rgb(0 0 0 / 0.05)",
-    color: "#181613",
-  },
-  inactiveModeTab: {
-    color: {
-      default: "#756b5d",
-      ":hover": "#181613",
-    },
-  },
-});
+
 const commonSearch = {
   redirect: z.string().optional(),
   provider: z.enum(["azure", "github", "google"]).optional(),
   rra: z.boolean().optional(),
 };
+
 const validateSearch = flowSearchSchema(commonSearch);
+
 export const Route = createFileRoute("/auth")({
   validateSearch,
   component: Component,
   head: () => ({
-    meta: [
-      {
-        name: "robots",
-        content: "noindex, nofollow",
-      },
-    ],
+    meta: [{ name: "robots", content: "noindex, nofollow" }],
   }),
   beforeLoad: async ({ search }) => {
     const user = await fetchUser();
+
     if (user) {
       const shouldReauthWithProvider =
         search.flow === "web" && !!search.provider;
+
       if (search.flow === "web" && !shouldReauthWithProvider) {
         throw redirect({
           href: sanitizeInternalReturnPath(search.redirect),
         } as any);
       }
+
       if (search.flow === "desktop") {
         const result = await createDesktopSession();
+
         if (result) {
           throw redirect({
             to: "/callback/auth/",
@@ -260,22 +82,25 @@ export const Route = createFileRoute("/auth")({
         }
       }
     }
-    return {
-      existingUser: user,
-    };
+
+    return { existingUser: user };
   },
 });
+
 type AuthView = "main" | "email" | "sso";
 type OAuthProvider = "azure" | "github" | "google";
+
 function getOAuthProviderName(provider: OAuthProvider) {
   return provider === "azure"
     ? "Microsoft"
     : provider.charAt(0).toUpperCase() + provider.slice(1);
 }
+
 function Component() {
   const { flow, scheme, redirect, provider, rra } = Route.useSearch();
   const { existingUser } = Route.useRouteContext();
   const [view, setView] = useState<AuthView>("main");
+
   if (existingUser && flow === "desktop") {
     return (
       <AuthShell
@@ -289,14 +114,16 @@ function Component() {
       </AuthShell>
     );
   }
+
   if (existingUser && flow === "web" && provider) {
     const providerName = getOAuthProviderName(provider);
+
     return (
       <AuthShell
         title={`Reconnect ${providerName}`}
         description={`Refresh your ${providerName} access to continue with admin actions.`}
       >
-        <div {...stylex.props(styles.style1)}>
+        <div className="flex flex-col gap-4">
           <OAuthButton
             flow={flow}
             scheme={scheme}
@@ -309,15 +136,17 @@ function Component() {
       </AuthShell>
     );
   }
+
   const showGoogle = !provider || provider === "google";
   const showMicrosoft = !provider || provider === "azure";
   const showGithub = !provider || provider === "github";
   const showEmail = !provider;
+
   return (
     <AuthShell title="Welcome to Anarlog" showEyebrow={false}>
       {view === "main" && (
         <>
-          <div {...stylex.props(styles.style2)}>
+          <div className="flex flex-col gap-3">
             {showGoogle && (
               <OAuthButton
                 flow={flow}
@@ -346,15 +175,10 @@ function Component() {
             {showEmail && (
               <button
                 onClick={() => setView("email")}
-                {...stylex.props(authStyles.secondaryButton)}
+                className={authSecondaryButtonClassName}
               >
                 <AuthProviderContent
-                  icon={
-                    <Envelope
-                      {...stylex.props(styles.style3)}
-                      aria-hidden="true"
-                    />
-                  }
+                  icon={<Envelope className="size-[18px]" aria-hidden="true" />}
                 >
                   Sign in with Email
                 </AuthProviderContent>
@@ -363,14 +187,11 @@ function Component() {
             {showEmail && (
               <button
                 onClick={() => setView("sso")}
-                {...stylex.props(authStyles.secondaryButton)}
+                className={authSecondaryButtonClassName}
               >
                 <AuthProviderContent
                   icon={
-                    <Buildings
-                      {...stylex.props(styles.style3)}
-                      aria-hidden="true"
-                    />
+                    <Buildings className="size-[18px]" aria-hidden="true" />
                   }
                 >
                   Sign in with SSO
@@ -400,6 +221,7 @@ function Component() {
     </AuthShell>
   );
 }
+
 function DesktopReauthView({
   email,
   scheme,
@@ -433,27 +255,34 @@ function DesktopReauthView({
       });
     },
   });
+
   useMountEffect(() => {
     retryMutation.mutate();
   });
+
   const hasRetryFailed =
     retryMutation.isError || (retryMutation.isSuccess && !retryMutation.data);
+
   return (
-    <div {...stylex.props(styles.style1)}>
+    <div className="flex flex-col gap-4">
       {!hasRetryFailed && (
-        <div {...stylex.props(authStyles.notice)}>
-          <p {...stylex.props(styles.style4)}>Signing in as {email}...</p>
+        <div className={authNoticeClassName}>
+          <p className="text-sm font-medium text-[#4f4940]">
+            Signing in as {email}...
+          </p>
         </div>
       )}
       {hasRetryFailed && (
         <>
-          <div {...stylex.props(styles.style5)}>
-            <p {...stylex.props(styles.style6)}>Signed in as {email}</p>
-            <p {...stylex.props(styles.style7)}>
+          <div className="text-center">
+            <p className="mb-1 text-sm font-medium text-[#4f4940]">
+              Signed in as {email}
+            </p>
+            <p className="text-sm text-[#8b8174]">
               Sign in with your provider to continue to the app
             </p>
           </div>
-          <div {...stylex.props(styles.style2)}>
+          <div className="flex flex-col gap-3">
             <OAuthButton flow="desktop" scheme={scheme} provider="google" />
             <OAuthButton flow="desktop" scheme={scheme} provider="azure" />
             <OAuthButton flow="desktop" scheme={scheme} provider="github" />
@@ -464,22 +293,31 @@ function DesktopReauthView({
     </div>
   );
 }
+
 function LegalText() {
   return (
-    <p {...stylex.props(styles.style8)}>
+    <p className="mt-6 text-center text-xs leading-5 text-[#8b8174]">
       By signing up, you agree to our{" "}
-      <a href="https://anarlog.so/terms" {...stylex.props(styles.style9)}>
+      <a
+        href="https://anarlog.so/terms"
+        className="underline decoration-[#b9ae9f] underline-offset-2 hover:text-[#181613]"
+      >
         Terms of Service
       </a>{" "}
       and{" "}
-      <a href="https://anarlog.so/privacy" {...stylex.props(styles.style9)}>
+      <a
+        href="https://anarlog.so/privacy"
+        className="underline decoration-[#b9ae9f] underline-offset-2 hover:text-[#181613]"
+      >
         Privacy Policy
       </a>
       .
     </p>
   );
 }
+
 type EmailMode = "password" | "magic-link";
+
 function EmailAuthView({
   flow,
   scheme,
@@ -492,30 +330,36 @@ function EmailAuthView({
   onBack: () => void;
 }) {
   const [mode, setMode] = useState<EmailMode>("password");
+
   return (
-    <div {...stylex.props(styles.style10)}>
-      <button onClick={onBack} {...stylex.props(styles.style11)}>
-        <ArrowLeft {...stylex.props(styles.style12)} />
+    <div className="flex flex-col gap-5">
+      <button
+        onClick={onBack}
+        className="flex cursor-pointer items-center gap-1 self-start text-sm text-[#756b5d] transition-colors hover:text-[#181613]"
+      >
+        <ArrowLeft className="size-3.5" />
         Back
       </button>
 
-      <div {...stylex.props(styles.style13)}>
+      <div className="flex gap-1 rounded-full bg-[#f4efe6] p-1">
         <button
           onClick={() => setMode("password")}
-          {...stylex.props([
-            styles.modeTab,
-            mode === "password" ? styles.activeModeTab : styles.inactiveModeTab,
+          className={cn([
+            "flex-1 cursor-pointer rounded-full py-2 text-sm font-medium transition-colors",
+            mode === "password"
+              ? "bg-white text-[#181613] shadow-sm"
+              : "text-[#756b5d] hover:text-[#181613]",
           ])}
         >
           Password
         </button>
         <button
           onClick={() => setMode("magic-link")}
-          {...stylex.props([
-            styles.modeTab,
+          className={cn([
+            "flex-1 cursor-pointer rounded-full py-2 text-sm font-medium transition-colors",
             mode === "magic-link"
-              ? styles.activeModeTab
-              : styles.inactiveModeTab,
+              ? "bg-white text-[#181613] shadow-sm"
+              : "text-[#756b5d] hover:text-[#181613]",
           ])}
         >
           Magic link
@@ -533,6 +377,7 @@ function EmailAuthView({
     </div>
   );
 }
+
 function SsoAuthView({
   flow,
   scheme,
@@ -579,16 +424,20 @@ function SsoAuthView({
       });
     },
   });
+
   return (
-    <div {...stylex.props(styles.style10)}>
+    <div className="flex flex-col gap-5">
       {onBack ? (
-        <button onClick={onBack} {...stylex.props(styles.style11)}>
-          <ArrowLeft {...stylex.props(styles.style12)} />
+        <button
+          onClick={onBack}
+          className="flex cursor-pointer items-center gap-1 self-start text-sm text-[#756b5d] transition-colors hover:text-[#181613]"
+        >
+          <ArrowLeft className="size-3.5" />
           Back
         </button>
       ) : null}
       <form
-        {...stylex.props(styles.style2)}
+        className="flex flex-col gap-3"
         onSubmit={(event) => {
           event.preventDefault();
           if (domain.trim()) ssoMutation.mutate();
@@ -600,25 +449,26 @@ function SsoAuthView({
           placeholder="you@company.com"
           value={domain}
           onChange={(event) => setDomain(event.target.value)}
-          {...stylex.props(authStyles.input)}
+          className={authInputClassName}
         />
         <button
           type="submit"
           disabled={!domain.trim() || ssoMutation.isPending}
-          {...stylex.props(authStyles.primaryButton)}
+          className={authPrimaryButtonClassName}
         >
           Continue with SSO
         </button>
         {ssoMutation.data &&
         "error" in ssoMutation.data &&
         ssoMutation.data.error ? (
-          <p {...stylex.props(styles.style14)}>{ssoMutation.data.message}</p>
+          <p className="text-sm text-red-700">{ssoMutation.data.message}</p>
         ) : null}
       </form>
       {onBack ? <LegalText /> : null}
     </div>
   );
 }
+
 function PasswordForm({
   flow,
   scheme,
@@ -635,6 +485,7 @@ function PasswordForm({
   const [isSignUp, setIsSignUp] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
+
   const signInMutation = useMutation({
     mutationFn: () => {
       capturePrivateRouteEvent("auth_started", {
@@ -643,13 +494,7 @@ function PasswordForm({
         flow,
       });
       return doPasswordSignIn({
-        data: {
-          email,
-          password,
-          flow,
-          scheme,
-          redirect,
-        },
+        data: { email, password, flow, scheme, redirect },
       });
     },
     onSuccess: (result) => {
@@ -661,12 +506,7 @@ function PasswordForm({
           failure_stage: "provider",
         });
         setErrorMessage(
-          (
-            result as {
-              error: boolean;
-              message: string;
-            }
-          ).message,
+          (result as { error: boolean; message: string }).message,
         );
         return;
       }
@@ -680,11 +520,7 @@ function PasswordForm({
           "userId" in result
             ? (result.userId as string | undefined)
             : undefined,
-          {
-            method: "password",
-            action: "sign_in",
-            flow,
-          },
+          { method: "password", action: "sign_in", flow },
         );
         handlePasswordSuccess(
           result.access_token as string,
@@ -705,6 +541,7 @@ function PasswordForm({
       });
     },
   });
+
   const signUpMutation = useMutation({
     mutationFn: () => {
       capturePrivateRouteEvent("auth_started", {
@@ -713,14 +550,7 @@ function PasswordForm({
         flow,
       });
       return doPasswordSignUp({
-        data: {
-          name,
-          email,
-          password,
-          flow,
-          scheme,
-          redirect,
-        },
+        data: { name, email, password, flow, scheme, redirect },
       });
     },
     onSuccess: (result) => {
@@ -732,12 +562,7 @@ function PasswordForm({
           failure_stage: "provider",
         });
         setErrorMessage(
-          (
-            result as {
-              error: boolean;
-              message: string;
-            }
-          ).message,
+          (result as { error: boolean; message: string }).message,
         );
         return;
       }
@@ -746,11 +571,7 @@ function PasswordForm({
           "userId" in result
             ? (result.userId as string | undefined)
             : undefined,
-          {
-            method: "password",
-            action: "sign_up",
-            flow,
-          },
+          { method: "password", action: "sign_up", flow },
         );
         if ("needsConfirmation" in result && result.needsConfirmation) {
           setSubmitted(true);
@@ -777,10 +598,13 @@ function PasswordForm({
       });
     },
   });
+
   const isPending = signInMutation.isPending || signUpMutation.isPending;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
+
     if (isSignUp) {
       if (password !== confirmPassword) {
         capturePrivateRouteEvent("auth_failed", {
@@ -807,18 +631,20 @@ function PasswordForm({
       signInMutation.mutate();
     }
   };
+
   if (submitted) {
     return (
-      <div {...stylex.props(authStyles.notice)}>
-        <p {...stylex.props(styles.style15)}>Check your email</p>
-        <p {...stylex.props(styles.style16)}>
+      <div className={authNoticeClassName}>
+        <p className="font-medium text-[#4f4940]">Check your email</p>
+        <p className="mt-1 text-sm text-[#756b5d]">
           We sent a confirmation link to {email}
         </p>
       </div>
     );
   }
+
   return (
-    <form onSubmit={handleSubmit} {...stylex.props(styles.style2)}>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       {isSignUp && (
         <input
           type="text"
@@ -827,7 +653,7 @@ function PasswordForm({
           placeholder="Name"
           autoComplete="name"
           required
-          {...stylex.props(authStyles.input)}
+          className={authInputClassName}
         />
       )}
       <input
@@ -836,7 +662,7 @@ function PasswordForm({
         onChange={(e) => setEmail(e.target.value)}
         placeholder="Email"
         required
-        {...stylex.props(authStyles.input)}
+        className={authInputClassName}
       />
       <input
         type="password"
@@ -844,7 +670,7 @@ function PasswordForm({
         onChange={(e) => setPassword(e.target.value)}
         placeholder="Password"
         required
-        {...stylex.props(authStyles.input)}
+        className={authInputClassName}
       />
       {isSignUp && (
         <input
@@ -853,10 +679,12 @@ function PasswordForm({
           onChange={(e) => setConfirmPassword(e.target.value)}
           placeholder="Confirm password"
           required
-          {...stylex.props(authStyles.input)}
+          className={authInputClassName}
         />
       )}
-      {errorMessage && <p {...stylex.props(styles.style17)}>{errorMessage}</p>}
+      {errorMessage && (
+        <p className="text-center text-sm text-red-700">{errorMessage}</p>
+      )}
       <button
         type="submit"
         disabled={
@@ -865,11 +693,11 @@ function PasswordForm({
           !password ||
           (isSignUp && (!name.trim() || !confirmPassword))
         }
-        {...stylex.props(authStyles.primaryButton)}
+        className={authPrimaryButtonClassName}
       >
         {isPending ? "Loading..." : isSignUp ? "Create account" : "Sign in"}
       </button>
-      <div {...stylex.props(styles.style18)}>
+      <div className="flex flex-col items-center gap-1">
         <button
           type="button"
           onClick={() => {
@@ -878,7 +706,7 @@ function PasswordForm({
             setName("");
             setConfirmPassword("");
           }}
-          {...stylex.props(styles.style19)}
+          className="cursor-pointer text-sm text-[#756b5d] transition-colors hover:text-[#181613] hover:underline"
         >
           {isSignUp
             ? "Already have an account? Sign in"
@@ -887,12 +715,8 @@ function PasswordForm({
         {!isSignUp && (
           <Link
             to="/reset-password/"
-            search={toAuthFlowSearch({
-              flow,
-              scheme,
-              redirect,
-            })}
-            {...stylex.props(styles.style20)}
+            search={toAuthFlowSearch({ flow, scheme, redirect })}
+            className="text-sm text-[#756b5d] transition-colors hover:text-[#181613] hover:underline"
           >
             Forgot password?
           </Link>
@@ -901,6 +725,7 @@ function PasswordForm({
     </form>
   );
 }
+
 function handlePasswordSuccess(
   accessToken: string,
   refreshToken: string,
@@ -923,6 +748,7 @@ function handlePasswordSuccess(
     });
   }
 }
+
 function MagicLinkForm({
   flow,
   scheme,
@@ -934,6 +760,7 @@ function MagicLinkForm({
 }) {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+
   const magicLinkMutation = useMutation({
     mutationFn: (email: string) => {
       capturePrivateRouteEvent("auth_started", {
@@ -968,14 +795,18 @@ function MagicLinkForm({
       });
     },
   });
+
   if (submitted) {
     return (
-      <div {...stylex.props(authStyles.notice)}>
-        <p {...stylex.props(styles.style15)}>Check your email</p>
-        <p {...stylex.props(styles.style16)}>We sent a magic link to {email}</p>
+      <div className={authNoticeClassName}>
+        <p className="font-medium text-[#4f4940]">Check your email</p>
+        <p className="mt-1 text-sm text-[#756b5d]">
+          We sent a magic link to {email}
+        </p>
       </div>
     );
   }
+
   return (
     <form
       onSubmit={(e) => {
@@ -984,7 +815,7 @@ function MagicLinkForm({
           magicLinkMutation.mutate(email);
         }
       }}
-      {...stylex.props(styles.style2)}
+      className="flex flex-col gap-3"
     >
       <input
         type="email"
@@ -992,23 +823,24 @@ function MagicLinkForm({
         onChange={(e) => setEmail(e.target.value)}
         placeholder="Enter your email"
         required
-        {...stylex.props(authStyles.input)}
+        className={authInputClassName}
       />
       <button
         type="submit"
         disabled={magicLinkMutation.isPending || !email}
-        {...stylex.props(authStyles.primaryButton)}
+        className={authPrimaryButtonClassName}
       >
         {magicLinkMutation.isPending ? "Sending..." : "Send magic link"}
       </button>
       {magicLinkMutation.isError && (
-        <p {...stylex.props(styles.style17)}>
+        <p className="text-center text-sm text-red-700">
           Failed to send magic link. Please try again.
         </p>
       )}
     </form>
   );
 }
+
 function AuthProviderContent({
   icon,
   children,
@@ -1017,12 +849,15 @@ function AuthProviderContent({
   children: ReactNode;
 }) {
   return (
-    <span {...stylex.props(styles.style21)}>
-      <span {...stylex.props(styles.style22)}>{icon}</span>
+    <span className="grid w-56 grid-cols-[18px_1fr] items-center gap-3 text-left">
+      <span className="flex size-[18px] items-center justify-center overflow-hidden [&_iconify-icon]:block">
+        {icon}
+      </span>
       <span>{children}</span>
     </span>
   );
 }
+
 function OAuthButton({
   flow,
   scheme,
@@ -1078,17 +913,19 @@ function OAuthButton({
   });
   const { mutate, isPending } = oauthMutation;
   const hasAutoStartedRef = useRef(false);
+
   useMountEffect(() => {
     if (autoStart && !hasAutoStartedRef.current) {
       hasAutoStartedRef.current = true;
       mutate(provider);
     }
   });
+
   return (
     <button
       onClick={() => mutate(provider)}
       disabled={isPending}
-      {...stylex.props(authStyles.secondaryButton)}
+      className={authSecondaryButtonClassName}
     >
       <AuthProviderContent
         icon={

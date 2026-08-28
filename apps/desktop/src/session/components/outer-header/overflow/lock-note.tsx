@@ -1,6 +1,5 @@
 import { Trans } from "@lingui/react/macro";
 import { Lock, LockOpen } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useCallback } from "react";
 
 import { DropdownMenuItem } from "@anlg/ui/components/ui/dropdown-menu";
@@ -29,7 +28,7 @@ export function LockNote({ sessionId }: { sessionId: string }) {
         handleToggle();
       }}
       disabled={authenticating || session == null}
-      sx={styles.item}
+      className="cursor-pointer"
     >
       {locked ? <LockOpen /> : <Lock />}
       <span>
@@ -38,9 +37,3 @@ export function LockNote({ sessionId }: { sessionId: string }) {
     </DropdownMenuItem>
   );
 }
-
-const styles = stylex.create({
-  item: {
-    cursor: "pointer",
-  },
-});

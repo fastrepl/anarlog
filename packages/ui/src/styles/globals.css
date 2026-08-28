@@ -1,62 +1,220 @@
+@import "tailwindcss";
 @import "@anlg/design-system/tokens.css";
 @import "./corners.css";
 
-@layer base {
-  :root {
-    --color-border: hsl(var(--border));
-    --color-input: hsl(var(--input));
-    --color-ring: hsl(var(--ring));
-    --color-background: hsl(var(--background));
-    --color-foreground: hsl(var(--foreground));
-    --color-primary: hsl(var(--primary));
-    --color-primary-foreground: hsl(var(--primary-foreground));
-    --color-secondary: hsl(var(--secondary));
-    --color-secondary-foreground: hsl(var(--secondary-foreground));
-    --color-destructive: hsl(var(--destructive));
-    --color-destructive-foreground: hsl(var(--destructive-foreground));
-    --color-alert: hsl(var(--alert));
-    --color-alert-foreground: hsl(var(--alert-foreground));
-    --color-alert-border: hsl(var(--alert-border));
-    --color-muted: hsl(var(--muted));
-    --color-muted-foreground: hsl(var(--muted-foreground));
-    --color-accent: hsl(var(--accent));
-    --color-accent-foreground: hsl(var(--accent-foreground));
-    --color-popover: hsl(var(--popover));
-    --color-popover-foreground: hsl(var(--popover-foreground));
-    --color-app-floating-chrome: hsl(var(--app-floating-chrome));
-    --color-app-floating-panel: hsl(var(--app-floating-panel));
-    --color-app-floating-border: hsl(var(--app-floating-border));
-    --color-card: hsl(var(--card));
-    --color-card-foreground: hsl(var(--card-foreground));
-    --color-sidebar: hsl(var(--sidebar-background));
-    --color-sidebar-foreground: hsl(var(--sidebar-foreground));
-    --color-sidebar-primary: hsl(var(--sidebar-primary));
-    --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
-    --color-sidebar-accent: hsl(var(--sidebar-accent));
-    --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
-    --color-sidebar-border: hsl(var(--sidebar-border));
-    --color-sidebar-ring: hsl(var(--sidebar-ring));
-    --radius-xl: calc(var(--radius) + 4px);
-    --radius-lg: var(--radius);
-    --radius-md: calc(var(--radius) - 2px);
-    --radius-sm: calc(var(--radius) - 4px);
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-anarlog-dancing-stick: anarlog-dancing-stick 1s ease-in-out
+    infinite;
+  --animate-ios-opacity-spin: ios-opacity-spin 1s linear infinite;
+
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-alert: hsl(var(--alert));
+  --color-alert-foreground: hsl(var(--alert-foreground));
+  --color-alert-border: hsl(var(--alert-border));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-app-floating-chrome: hsl(var(--app-floating-chrome));
+  --color-app-floating-panel: hsl(var(--app-floating-panel));
+  --color-app-floating-border: hsl(var(--app-floating-border));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-sidebar: hsl(var(--sidebar-background));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+@theme inline {
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+
+    to {
+      height: var(--radix-accordion-content-height);
+    }
   }
 
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+
+    to {
+      height: 0;
+    }
+  }
+
+  @keyframes ios-opacity-spin {
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    8.33% {
+      opacity: 0.9;
+    }
+
+    16.67% {
+      opacity: 0.8;
+    }
+
+    25% {
+      opacity: 0.7;
+    }
+
+    33.33% {
+      opacity: 0.6;
+    }
+
+    41.67% {
+      opacity: 0.5;
+    }
+
+    50% {
+      opacity: 0.4;
+    }
+
+    58.33% {
+      opacity: 0.35;
+    }
+
+    66.67% {
+      opacity: 0.3;
+    }
+
+    75% {
+      opacity: 0.25;
+    }
+
+    83.33% {
+      opacity: 0.2;
+    }
+
+    91.67% {
+      opacity: 0.15;
+    }
+  }
+
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+
+    to {
+      transform: translateX(calc(-100% - var(--gap)));
+    }
+  }
+
+  @keyframes marquee-vertical {
+    from {
+      transform: translateY(0);
+    }
+
+    to {
+      transform: translateY(calc(-100% - var(--gap)));
+    }
+  }
+
+  @keyframes anarlog-dancing-stick {
+    0%,
+    100% {
+      transform: scaleY(0.2);
+    }
+
+    50% {
+      transform: scaleY(1);
+    }
+  }
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
   *,
   ::after,
   ::before,
   ::backdrop,
   ::file-selector-button {
     border-color: var(--color-border, currentcolor);
-    outline-color: hsl(var(--ring) / 50%);
+  }
+}
+
+@layer base {
+  .theme {
+    --animate-marquee: marquee var(--duration) infinite linear;
+    --animate-marquee-vertical: marquee-vertical var(--duration) linear
+      infinite;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
   }
 
   body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
   }
 
-  :where(button, [role="button"], [type="button"], [type="submit"], [type="reset"]) {
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  button,
+  [role="button"],
+  [type="button"],
+  [type="submit"],
+  [type="reset"] {
     cursor: pointer;
   }
 }

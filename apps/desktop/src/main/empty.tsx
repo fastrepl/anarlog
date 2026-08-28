@@ -1,10 +1,9 @@
 import { Trans } from "@lingui/react/macro";
-import * as stylex from "@stylexjs/stylex";
 import { platform } from "@tauri-apps/plugin-os";
 import { useCallback } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Kbd } from "@anlg/ui/components/ui/kbd";
+import { cn } from "@anlg/utils";
 
 import { FloatingChatCTA } from "~/shared/chat-cta";
 import { StandardContentWrapper } from "~/shared/main";
@@ -35,8 +34,11 @@ function EmptyView() {
   );
 
   return (
-    <div data-tauri-drag-region {...stylex.props(styles.root)}>
-      <div {...stylex.props(styles.actions)}>
+    <div
+      data-tauri-drag-region
+      className="flex h-full flex-col items-center justify-center gap-6"
+    >
+      <div className="flex min-w-[280px] flex-col gap-1 text-center">
         <ActionItem
           label={<Trans>New Note</Trans>}
           shortcut={[primaryModifier, "N"]}
@@ -47,7 +49,7 @@ function EmptyView() {
           shortcut={[primaryModifier, "⇧", "N"]}
           onClick={newNoteAndListen}
         />
-        <div {...stylex.props(styles.separator)} />
+        <div className="bg-accent my-1 h-px" />
         <ActionItem
           label={<Trans>Settings</Trans>}
           shortcut={[primaryModifier, ","]}
@@ -73,72 +75,28 @@ function ActionItem({
     <button
       onClick={onClick}
       data-tauri-drag-region="false"
-      {...stylex.props(styles.action, stylex.defaultMarker())}
+      className={cn([
+        "group",
+        "flex items-center justify-between gap-8",
+        "text-foreground text-sm",
+        "rounded-full px-4 py-2",
+        "hover:bg-accent cursor-pointer transition-colors",
+      ])}
     >
       <span>{label}</span>
       {shortcut && shortcut.length > 0 ? (
-        <Kbd sx={styles.shortcut}>{shortcut.join(" ")}</Kbd>
+        <Kbd
+          className={cn([
+            "transition-all duration-100",
+            "group-hover:-translate-y-0.5 group-hover:shadow-[0_2px_0_0_var(--kbd-shadow-outer-hover),inset_0_1px_0_0_var(--kbd-shadow-inset)]",
+            "group-active:translate-y-0.5 group-active:shadow-none",
+          ])}
+        >
+          {shortcut.join(" ")}
+        </Kbd>
       ) : (
         icon
       )}
     </button>
   );
 }
-
-const styles = stylex.create({
-  action: {
-    alignItems: "center",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    borderRadius: radii.full,
-    color: colors.foreground,
-    cursor: "pointer",
-    display: "flex",
-    fontSize: "0.875rem",
-    gap: "2rem",
-    justifyContent: "space-between",
-    paddingBlock: "0.5rem",
-    paddingInline: "1rem",
-    transitionDuration: "150ms",
-    transitionProperty: "background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  actions: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.25rem",
-    minWidth: "280px",
-    textAlign: "center",
-  },
-  root: {
-    alignItems: "center",
-    display: "flex",
-    flexDirection: "column",
-    gap: "1.5rem",
-    height: "100%",
-    justifyContent: "center",
-  },
-  separator: {
-    backgroundColor: colors.accent,
-    height: "1px",
-    marginBlock: "0.25rem",
-  },
-  shortcut: {
-    boxShadow: {
-      default: null,
-      [stylex.when.ancestor(":active")]: "none",
-      [stylex.when.ancestor(":hover")]:
-        "0 2px 0 0 var(--kbd-shadow-outer-hover), inset 0 1px 0 0 var(--kbd-shadow-inset)",
-    },
-    transform: {
-      default: "none",
-      [stylex.when.ancestor(":active")]: "translateY(0.125rem)",
-      [stylex.when.ancestor(":hover")]: "translateY(-0.125rem)",
-    },
-    transitionDuration: "100ms",
-    transitionProperty: "all",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-});

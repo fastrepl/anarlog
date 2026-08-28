@@ -5,15 +5,8 @@ import {
   Check,
   WarningCircle,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 
-import {
-  colors,
-  media,
-  radii,
-  shadows,
-} from "@anlg/design-system/tokens.stylex";
 import { type PermissionStatus } from "@anlg/plugin-permissions";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
@@ -23,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@anlg/ui/components/ui/dialog";
+import { cn } from "@anlg/utils";
 
 import {
   GlassDialogCancelButton,
@@ -41,23 +35,23 @@ export function AppleCalendarPermissionDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <GlassDialogContent>
-        <DialogHeader sx={styles.dialogHeader}>
-          <DialogTitle sx={styles.dialogTitle}>
+        <DialogHeader className="items-center gap-2 text-center sm:text-center">
+          <DialogTitle className="text-foreground text-[13px] leading-5 font-semibold tracking-normal">
             <Trans>Apple Calendar access is off</Trans>
           </DialogTitle>
-          <DialogDescription sx={styles.dialogDescription}>
+          <DialogDescription className="text-foreground w-full text-center text-[13px] leading-[1.36]">
             <Trans>
               Turn on Anarlog in System Settings → Privacy &amp; Security →
               Calendars, then return here.
             </Trans>
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter sx={styles.dialogFooter}>
+        <DialogFooter className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:justify-normal">
           <GlassDialogCancelButton onClick={() => onOpenChange(false)}>
             <Trans>Cancel</Trans>
           </GlassDialogCancelButton>
           <Button
-            sx={styles.dialogAction}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 h-8 rounded-full px-4 text-xs font-medium shadow-sm dark:bg-white dark:text-black dark:hover:bg-white/90"
             onClick={() => {
               onOpenSettings();
               onOpenChange(false);
@@ -85,7 +79,10 @@ function ActionLink({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      {...stylex.props([styles.actionLink, disabled && styles.disabled])}
+      className={cn([
+        "hover:text-foreground underline transition-colors",
+        disabled && "cursor-not-allowed opacity-50",
+      ])}
     >
       {children}
     </button>
@@ -123,20 +120,22 @@ export function AccessPermissionRow({
 
   return (
     <div
-      {...stylex.props([
-        styles.permissionRow,
-        showActionButton ? styles.rowWithAction : styles.rowWithoutAction,
+      className={cn([
+        "flex gap-4 py-2",
+        showActionButton
+          ? "items-center justify-between"
+          : "items-start justify-start",
       ])}
     >
-      <div {...stylex.props(styles.permissionCopy)}>
+      <div className="flex-1">
         <div
-          {...stylex.props([
-            styles.permissionTitle,
-            !isAuthorized && styles.unauthorizedTitle,
+          className={cn([
+            "mb-1 flex items-center gap-2",
+            !isAuthorized && "text-red-500",
           ])}
         >
-          {!isAuthorized && <WarningCircle {...stylex.props(styles.icon)} />}
-          <h3 {...stylex.props(styles.heading)}>{title}</h3>
+          {!isAuthorized && <WarningCircle className="size-4" />}
+          <h3 className="text-sm font-medium">{title}</h3>
         </div>
         <TroubleShootingLink
           onRequest={onRequest}
@@ -151,10 +150,10 @@ export function AccessPermissionRow({
           size="icon"
           onClick={handleButtonClick}
           disabled={isPending}
-          sx={[
-            styles.permissionAction,
-            isAuthorized && styles.authorizedAction,
-          ]}
+          className={cn([
+            "size-8",
+            isAuthorized && "bg-muted text-foreground hover:bg-accent",
+          ])}
           aria-label={
             isAuthorized
               ? t`Open ${title.toLowerCase()} settings`
@@ -162,9 +161,9 @@ export function AccessPermissionRow({
           }
         >
           {isAuthorized ? (
-            <Check {...stylex.props(styles.actionIcon)} />
+            <Check className="size-5" />
           ) : (
-            <ArrowRight {...stylex.props(styles.actionIcon)} />
+            <ArrowRight className="size-5" />
           )}
         </Button>
       )}
@@ -177,23 +176,23 @@ export function TroubleShootingLink({
   onReset,
   onOpen,
   isPending,
-  sx,
+  className,
 }: {
   onRequest: () => void;
   onReset: () => void;
   onOpen: () => void;
   isPending: boolean;
-  sx?: stylex.StyleXStyles;
+  className?: string;
 }) {
   const { t } = useLingui();
   const [showActions, setShowActions] = useState(false);
   return (
-    <div {...stylex.props([styles.troubleshooting, sx])}>
+    <div className={cn(["text-muted-foreground text-xs", className])}>
       {!showActions ? (
         <button
           type="button"
           onClick={() => setShowActions(true)}
-          {...stylex.props(styles.actionLink)}
+          className="hover:text-foreground underline transition-colors"
         >
           <Trans>Having trouble?</Trans>
         </button>
@@ -212,7 +211,7 @@ export function TroubleShootingLink({
           </ActionLink>{" "}
           <Trans>permission panel.</Trans>{" "}
           <ActionLink onClick={() => setShowActions(false)}>
-            <ArrowLeft {...stylex.props(styles.backIcon)} />
+            <ArrowLeft className="inline-block size-3 underline" />
             <Trans>Back</Trans>
           </ActionLink>
         </div>
@@ -220,126 +219,3 @@ export function TroubleShootingLink({
     </div>
   );
 }
-
-const styles = stylex.create({
-  actionIcon: {
-    height: "1.25rem",
-    width: "1.25rem",
-  },
-  actionLink: {
-    color: {
-      default: null,
-      ":hover": colors.foreground,
-    },
-    textDecorationLine: "underline",
-    transitionDuration: "150ms",
-    transitionProperty: "color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  authorizedAction: {
-    backgroundColor: {
-      default: colors.muted,
-      ":hover": colors.accent,
-    },
-    color: colors.foreground,
-  },
-  backIcon: {
-    display: "inline-block",
-    height: "0.75rem",
-    textDecorationLine: "underline",
-    width: "0.75rem",
-  },
-  dialogAction: {
-    backgroundColor: {
-      default: colors.primary,
-      ":hover": `color-mix(in oklab, ${colors.primary} 90%, transparent)`,
-      ":is(.dark *)": "white",
-      ":is(.dark *):hover": "rgb(255 255 255 / 0.9)",
-    },
-    borderRadius: radii.full,
-    boxShadow: shadows.sm,
-    color: {
-      default: colors.primaryForeground,
-      ":is(.dark *)": "black",
-    },
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    height: "2rem",
-    paddingInline: "1rem",
-  },
-  dialogDescription: {
-    color: colors.foreground,
-    fontSize: "0.8125rem",
-    lineHeight: 1.36,
-    textAlign: "center",
-    width: "100%",
-  },
-  dialogFooter: {
-    display: "grid",
-    gap: "0.5rem",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    justifyContent: {
-      default: null,
-      [media.sm]: "normal",
-    },
-  },
-  dialogHeader: {
-    alignItems: "center",
-    gap: "0.5rem",
-    textAlign: "center",
-  },
-  dialogTitle: {
-    color: colors.foreground,
-    fontSize: "0.8125rem",
-    fontWeight: 600,
-    letterSpacing: "normal",
-    lineHeight: "1.25rem",
-  },
-  disabled: {
-    cursor: "not-allowed",
-    opacity: 0.5,
-  },
-  heading: {
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    lineHeight: "1.25rem",
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  permissionAction: {
-    height: "2rem",
-    width: "2rem",
-  },
-  permissionCopy: {
-    flex: "1",
-  },
-  permissionRow: {
-    display: "flex",
-    gap: "1rem",
-    paddingBlock: "0.5rem",
-  },
-  permissionTitle: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-    marginBottom: "0.25rem",
-  },
-  rowWithAction: {
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  rowWithoutAction: {
-    alignItems: "flex-start",
-    justifyContent: "flex-start",
-  },
-  troubleshooting: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-  },
-  unauthorizedTitle: {
-    color: "rgb(239 68 68)",
-  },
-});

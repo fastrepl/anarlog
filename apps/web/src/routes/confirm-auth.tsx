@@ -1,11 +1,14 @@
 import { ShieldCheck } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
 
-import { AuthShell, authStyles } from "@/components/auth-shell";
+import {
+  AuthShell,
+  authNoticeClassName,
+  authPrimaryButtonClassName,
+} from "@/components/auth-shell";
 import { exchangeOtpToken } from "@/functions/auth";
 import {
   DEFAULT_DESKTOP_SCHEME,
@@ -17,49 +20,7 @@ import {
 } from "@/lib/auth-flow-context";
 import { buildPostAuthDestination } from "@/lib/auth-redirect";
 import { identifyPrivateRouteUser } from "@/lib/private-route-analytics";
-const styles = stylex.create({
-  style1: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  style2: {
-    marginInline: "auto",
-    marginBottom: ".5rem",
-    width: "1.25rem",
-    height: "1.25rem",
-    color: "#4f4940",
-  },
-  style3: {
-    textAlign: "center",
-    fontSize: ".875rem",
-    lineHeight: "1.5rem",
-    color: "#756b5d",
-  },
-  style4: {
-    textAlign: "center",
-    fontSize: ".875rem",
-    lineHeight: "1.5rem",
-    color: "#b91c1c",
-  },
-  style5: {
-    textAlign: "center",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: {
-      default: "#756b5d",
-      ":hover": "#181613",
-    },
-    transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
-    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
-    transitionDuration: ".15s",
-    textDecorationLine: {
-      default: null,
-      ":hover": "underline",
-    },
-  },
-});
+
 const validateSearch = z.object({
   token_hash: z.string().min(1),
   type: z.enum([
@@ -75,18 +36,15 @@ const validateSearch = z.object({
   redirect: z.string().optional(),
   redirect_to: z.string().max(2048).optional(),
 });
+
 export const Route = createFileRoute("/confirm-auth")({
   validateSearch,
   component: Component,
   head: () => ({
-    meta: [
-      {
-        name: "robots",
-        content: "noindex, nofollow",
-      },
-    ],
+    meta: [{ name: "robots", content: "noindex, nofollow" }],
   }),
 });
+
 function Component() {
   const search = Route.useSearch();
   const navigate = useNavigate();
@@ -98,6 +56,7 @@ function Component() {
     redirect: search.redirect,
     redirectTo: search.redirect_to,
   });
+
   const confirmMutation = useMutation({
     mutationFn: () =>
       exchangeOtpToken({
@@ -118,11 +77,13 @@ function Component() {
         setErrorMessage(result.error);
         return;
       }
+
       identifyPrivateRouteUser(result.userId, {
         method: "otp",
         action: search.type,
         flow: context.flow,
       });
+
       if (search.type === "recovery") {
         navigate({
           to: "/update-password/",
@@ -130,6 +91,7 @@ function Component() {
         });
         return;
       }
+
       if (context.flow === "web") {
         window.location.href = buildPostAuthDestination({
           newAccount: result.newAccount,
@@ -137,6 +99,7 @@ function Component() {
         });
         return;
       }
+
       const params = new URLSearchParams({
         flow: "desktop",
         scheme: context.scheme ?? DEFAULT_DESKTOP_SCHEME,
@@ -146,24 +109,31 @@ function Component() {
       window.location.href = `/callback/auth?${params.toString()}`;
     },
   });
+
   return (
     <AuthShell
       title="Continue securely"
       description="Confirm this action to continue with your account."
     >
-      <div {...stylex.props(styles.style1)}>
-        <div {...stylex.props(authStyles.notice)}>
-          <ShieldCheck {...stylex.props(styles.style2)} />
-          <p {...stylex.props(styles.style3)}>
+      <div className="flex flex-col gap-4">
+        <div className={authNoticeClassName}>
+          <ShieldCheck className="mx-auto mb-2 size-5 text-[#4f4940]" />
+          <p className="text-center text-sm leading-6 text-[#756b5d]">
             This extra step keeps automated email scanners from using your
             one-time link.
           </p>
         </div>
 
-        {errorMessage && <p {...stylex.props(styles.style4)}>{errorMessage}</p>}
+        {errorMessage && (
+          <p className="text-center text-sm leading-6 text-red-700">
+            {errorMessage}
+          </p>
+        )}
 
         {noticeMessage && (
-          <p {...stylex.props(styles.style3)}>{noticeMessage}</p>
+          <p className="text-center text-sm leading-6 text-[#756b5d]">
+            {noticeMessage}
+          </p>
         )}
 
         {!noticeMessage && (
@@ -174,7 +144,7 @@ function Component() {
               confirmMutation.mutate();
             }}
             disabled={confirmMutation.isPending}
-            {...stylex.props(authStyles.primaryButton)}
+            className={authPrimaryButtonClassName}
           >
             {confirmMutation.isPending ? "Confirming..." : "Continue"}
           </button>
@@ -183,7 +153,7 @@ function Component() {
         <Link
           to="/auth/"
           search={toAuthFlowSearch(context)}
-          {...stylex.props(styles.style5)}
+          className="text-center text-sm text-[#756b5d] transition-colors hover:text-[#181613] hover:underline"
         >
           Back to sign in
         </Link>

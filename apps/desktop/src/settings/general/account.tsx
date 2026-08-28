@@ -1,6 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowsClockwise, PencilSimple } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 import {
   type ReactNode,
@@ -10,13 +9,6 @@ import {
   useState,
 } from "react";
 
-import {
-  colors,
-  fonts,
-  media,
-  radii,
-  shadows,
-} from "@anlg/design-system/tokens.stylex";
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { openUrlWithInstruction } from "@anlg/plugin-windows";
@@ -29,6 +21,7 @@ import {
 } from "@anlg/pricing";
 import { Button } from "@anlg/ui/components/ui/button";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { cn } from "@anlg/utils";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
@@ -104,7 +97,7 @@ export function SettingsAccount() {
   if (!isAuthenticated) {
     if (isPending) {
       return (
-        <div {...stylex.props(styles.page)}>
+        <div className="flex flex-col gap-8">
           <SettingsPageTitle title={<Trans>Account</Trans>} />
           <Container
             title={<Trans>Finish sign-in</Trans>}
@@ -117,7 +110,7 @@ export function SettingsAccount() {
               </Button>
             }
           >
-            <p {...stylex.props(styles.mutedSmall)}>
+            <p className="text-muted-foreground text-xs">
               <Trans>
                 If Anarlog stays closed, paste the link in the sign-in window.
               </Trans>
@@ -128,16 +121,16 @@ export function SettingsAccount() {
     }
 
     return (
-      <div {...stylex.props(styles.page)}>
+      <div className="flex flex-col gap-8">
         <SettingsPageTitle title={<Trans>Account</Trans>} />
-        <section {...stylex.props(styles.signInSection)}>
-          <div {...stylex.props(styles.signInLayout)}>
-            <div {...stylex.props(styles.signInContent)}>
-              <div {...stylex.props(styles.signInCopy)}>
-                <h3 {...stylex.props(styles.smallHeading)}>
+        <section className="pb-4">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 flex-1 flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <h3 className="text-sm font-medium">
                   <Trans>Sign in to Anarlog</Trans>
                 </h3>
-                <div {...stylex.props(styles.muted)}>
+                <div className="text-muted-foreground text-sm">
                   <Trans>
                     Sign in for cloud transcription, AI models, and sharing.
                   </Trans>
@@ -146,7 +139,7 @@ export function SettingsAccount() {
               <button
                 type="button"
                 onClick={handleSignIn}
-                {...stylex.props(styles.getStartedButton)}
+                className="border-primary bg-primary text-primary-foreground hover:bg-primary/90 h-10 w-fit rounded-full border-2 px-6 text-sm font-medium shadow-[0_4px_14px_rgba(87,83,78,0.4)] transition-all duration-200"
               >
                 <Trans>Get started</Trans>
               </button>
@@ -162,7 +155,7 @@ export function SettingsAccount() {
   const currentTier = plan === "free" ? "free" : "pro";
 
   return (
-    <div {...stylex.props(styles.page)}>
+    <div className="flex flex-col gap-8">
       <SettingsPageTitle title={<Trans>Account</Trans>} />
       <Container
         title={<Trans>Your Account</Trans>}
@@ -172,13 +165,10 @@ export function SettingsAccount() {
               type="button"
               onClick={() => openAccountMutation.mutate()}
               disabled={openAccountMutation.isPending}
-              {...stylex.props(styles.accountLink)}
+              className="hover:text-foreground focus-visible:ring-ring inline-flex items-center gap-1.5 rounded-sm transition-colors focus-visible:ring-1 focus-visible:outline-hidden disabled:opacity-50"
             >
               <span>{auth.session.user.email}</span>
-              <PencilSimple
-                {...stylex.props(styles.tinyIcon)}
-                aria-hidden="true"
-              />
+              <PencilSimple className="size-3" aria-hidden="true" />
             </button>
           ) : (
             t`Signed in`
@@ -271,8 +261,7 @@ function PlanBillingSection({
     <Trans>Your Pro trial has ended</Trans>
   ) : (
     <Trans>
-      You're on the <span {...stylex.props(styles.strong)}>{planLabel}</span>{" "}
-      plan
+      You're on the <span className="font-semibold">{planLabel}</span> plan
     </Trans>
   );
   const handleOpenBillingPortal = useCallback(() => {
@@ -302,7 +291,7 @@ function PlanBillingSection({
               type="button"
               onClick={handleAddPaymentMethod}
               disabled={actionPending}
-              {...stylex.props(styles.compactCurrentAction)}
+              className="text-foreground hover:text-foreground text-xs font-medium transition-colors disabled:opacity-50"
             >
               <Trans>Add payment method</Trans>
             </button>
@@ -314,7 +303,7 @@ function PlanBillingSection({
             type="button"
             onClick={handleAddPaymentMethod}
             disabled={actionPending}
-            {...stylex.props(styles.actionButton, styles.primaryAction)}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-8 w-full cursor-pointer items-center justify-center rounded-full text-xs font-medium shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%] disabled:opacity-50 disabled:hover:scale-100"
           >
             <Trans>Add payment method</Trans>
           </button>
@@ -323,14 +312,14 @@ function PlanBillingSection({
 
       if (compact) {
         return (
-          <span {...stylex.props(styles.mutedSmall)}>
+          <span className="text-muted-foreground text-xs">
             {tierActionLabel(action)}
           </span>
         );
       }
 
       return (
-        <div {...stylex.props(styles.currentPlan)}>
+        <div className="border-border bg-muted text-muted-foreground flex h-8 w-full items-center justify-center rounded-full border text-xs">
           {tierActionLabel(action)}
         </div>
       );
@@ -388,25 +377,31 @@ function PlanBillingSection({
           type="button"
           onClick={handleClick}
           disabled={isBusy}
-          {...stylex.props(
-            styles.compactAction,
-            isUpgrade ? styles.compactUpgrade : styles.compactDowngrade,
-          )}
+          className={cn([
+            "text-xs font-medium transition-colors",
+            isUpgrade
+              ? "text-muted-foreground hover:text-foreground"
+              : "text-muted-foreground hover:text-muted-foreground",
+          ])}
         >
           {label}
         </button>
       );
     }
 
+    const buttonClass = cn([
+      "flex h-8 w-full cursor-pointer items-center justify-center rounded-full text-xs font-medium transition-all hover:scale-[102%] active:scale-[98%] disabled:opacity-50 disabled:hover:scale-100",
+      isUpgrade
+        ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md hover:shadow-lg"
+        : "border-border from-card to-background text-muted-foreground border bg-linear-to-b shadow-xs hover:shadow-md",
+    ]);
+
     return (
       <button
         type="button"
         onClick={handleClick}
         disabled={isBusy}
-        {...stylex.props(
-          styles.actionButton,
-          isUpgrade ? styles.primaryAction : styles.secondaryAction,
-        )}
+        className={buttonClass}
       >
         {label}
       </button>
@@ -415,8 +410,8 @@ function PlanBillingSection({
 
   return (
     <div>
-      <div {...stylex.props(styles.planHeadingRow)}>
-        <h2 {...stylex.props(styles.sectionHeading)}>
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="font-sans text-lg font-semibold">
           <Trans>Plan & Billing</Trans>
         </h2>
         {isPaid && (
@@ -424,15 +419,15 @@ function PlanBillingSection({
             type="button"
             onClick={handleOpenBillingPortal}
             disabled={actionPending}
-            {...stylex.props(styles.manageBilling)}
+            className="text-muted-foreground hover:text-muted-foreground text-xs transition-colors disabled:opacity-50"
           >
             <Trans>Manage billing</Trans>
           </button>
         )}
       </div>
 
-      <div {...stylex.props(styles.planStatus)}>
-        <p {...stylex.props(styles.muted)}>{statusText}</p>
+      <div className="mb-4 flex items-center gap-2">
+        <p className="text-muted-foreground text-sm">{statusText}</p>
         <RefreshBillingButton />
       </div>
 
@@ -454,14 +449,14 @@ function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
     if (action.kind === "current") {
       if (compact) {
         return (
-          <span {...stylex.props(styles.mutedSmall)}>
+          <span className="text-muted-foreground text-xs">
             {tierActionLabel(action)}
           </span>
         );
       }
 
       return (
-        <div {...stylex.props(styles.currentPlan)}>
+        <div className="border-border bg-muted text-muted-foreground flex h-8 w-full items-center justify-center rounded-full border text-xs">
           {tierActionLabel(action)}
         </div>
       );
@@ -474,7 +469,7 @@ function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
         <button
           type="button"
           onClick={onSignIn}
-          {...stylex.props(styles.compactAction, styles.compactUpgrade)}
+          className="text-muted-foreground hover:text-foreground text-xs font-medium transition-colors"
         >
           <Trans>Sign in</Trans>
         </button>
@@ -485,7 +480,7 @@ function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
       <button
         type="button"
         onClick={onSignIn}
-        {...stylex.props(styles.actionButton, styles.primaryAction)}
+        className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-8 w-full cursor-pointer items-center justify-center rounded-full text-xs font-medium shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
       >
         {label}
       </button>
@@ -494,11 +489,11 @@ function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
 
   return (
     <section>
-      <div {...stylex.props(styles.guestHeading)}>
-        <h2 {...stylex.props(styles.sectionHeading)}>
+      <div className="mb-4 flex flex-col gap-1">
+        <h2 className="font-sans text-lg font-semibold">
           <Trans>Plans</Trans>
         </h2>
-        <p {...stylex.props(styles.muted)}>
+        <p className="text-muted-foreground text-sm">
           <Trans>Compare Free and Pro before you sign in.</Trans>
         </p>
       </div>
@@ -541,7 +536,7 @@ function PlanTierList({
   return (
     <div ref={containerRef}>
       {isWide ? (
-        <div {...stylex.props(styles.tierGrid)}>
+        <div className="grid grid-cols-2">
           {PLAN_TIERS.map((tier) => {
             const isCurrent = tier.id === currentTier;
             const action = getActionForTier(
@@ -551,43 +546,45 @@ function PlanTierList({
             );
 
             return (
-              <div key={tier.id} {...stylex.props(styles.tierCard)}>
-                <div {...stylex.props(styles.tierNameRow)}>
-                  <span {...stylex.props(styles.tierName)}>{tier.name}</span>
+              <div key={tier.id} className="flex flex-col p-3">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-foreground font-sans text-base font-medium">
+                    {tier.name}
+                  </span>
                   {isCurrent && isTrialing && (
-                    <span {...stylex.props(styles.trialBadge)}>
+                    <span className="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase">
                       <Trans>Trial</Trans>
                     </span>
                   )}
                 </div>
 
-                <div {...stylex.props(styles.tierPriceBlock)}>
-                  <span {...stylex.props(styles.tierPrice)}>{tier.price}</span>
+                <div className="mb-2">
+                  <span className="text-muted-foreground font-sans text-xl">
+                    {tier.price}
+                  </span>
                   {tier.period && (
-                    <span {...stylex.props(styles.tierPeriod)}>
+                    <span className="text-muted-foreground ml-1 text-sm">
                       {tier.period}
                     </span>
                   )}
                   {tier.subtitle && (
-                    <div {...stylex.props(styles.tierSubtitle)}>
+                    <div className="text-muted-foreground mt-0.5 text-xs">
                       {tier.subtitle}
                     </div>
                   )}
                 </div>
 
-                <div {...stylex.props(styles.tierFeatures)}>
+                <div className="mb-3">
                   <PlanFeatureList features={tier.features} dense />
                 </div>
 
-                <div {...stylex.props(styles.tierAction)}>
-                  {renderAction(action, false)}
-                </div>
+                <div className="mt-auto">{renderAction(action, false)}</div>
               </div>
             );
           })}
         </div>
       ) : (
-        <div {...stylex.props(styles.tierList)}>
+        <div className="flex flex-col">
           {PLAN_TIERS.map((tier) => {
             const isCurrent = tier.id === currentTier;
             const action = getActionForTier(
@@ -597,32 +594,25 @@ function PlanTierList({
             );
 
             return (
-              <div key={tier.id} {...stylex.props(styles.tierListItem)}>
-                <div {...stylex.props(styles.tierListRow)}>
-                  <div {...stylex.props(styles.tierListInfo)}>
-                    <span {...stylex.props(styles.tierListName)}>
+              <div key={tier.id} className="py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="text-foreground text-sm font-medium">
                       {tier.name}
                     </span>
-                    <span {...stylex.props(styles.muted)}>
+                    <span className="text-muted-foreground text-sm">
                       {tier.price}
                       {tier.period}
                     </span>
                     {isCurrent && isTrialing && (
-                      <span
-                        {...stylex.props(
-                          styles.trialBadge,
-                          styles.compactTrialBadge,
-                        )}
-                      >
+                      <span className="bg-primary text-primary-foreground rounded-full px-1.5 py-px text-[10px] font-medium tracking-wide uppercase">
                         <Trans>Trial</Trans>
                       </span>
                     )}
                   </div>
-                  <div {...stylex.props(styles.noShrink)}>
-                    {renderAction(action, true)}
-                  </div>
+                  <div className="shrink-0">{renderAction(action, true)}</div>
                 </div>
-                <div {...stylex.props(styles.compactFeatures)}>
+                <div className="mt-2">
                   <PlanFeatureList features={tier.features} dense />
                 </div>
               </div>
@@ -646,14 +636,11 @@ function RefreshBillingButton() {
       type="button"
       onClick={handleClick}
       disabled={auth.isRefreshingSession}
-      {...stylex.props(styles.refreshButton)}
+      className="text-muted-foreground hover:text-muted-foreground transition-colors disabled:opacity-50"
       aria-label={t`Refresh billing status`}
     >
       <ArrowsClockwise
-        {...stylex.props(
-          styles.tinyIcon,
-          auth.isRefreshingSession && styles.spinning,
-        )}
+        className={cn(["size-3", auth.isRefreshingSession && "animate-spin"])}
       />
     </button>
   );
@@ -672,376 +659,16 @@ function Container({
 }) {
   return (
     <section>
-      <div {...stylex.props(styles.containerHeader)}>
-        <div {...stylex.props(styles.containerCopy)}>
-          <h3 {...stylex.props(styles.smallHeading)}>{title}</h3>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <h3 className="text-sm font-medium">{title}</h3>
           {description && (
-            <div {...stylex.props(styles.muted)}>{description}</div>
+            <div className="text-muted-foreground text-sm">{description}</div>
           )}
         </div>
-        {action ? <div {...stylex.props(styles.noShrink)}>{action}</div> : null}
+        {action ? <div className="shrink-0">{action}</div> : null}
       </div>
-      {children ? (
-        <div {...stylex.props(styles.containerChildren)}>{children}</div>
-      ) : null}
+      {children ? <div className="mt-4">{children}</div> : null}
     </section>
   );
 }
-
-const spin = stylex.keyframes({
-  to: {
-    transform: "rotate(360deg)",
-  },
-});
-
-const styles = stylex.create({
-  accountLink: {
-    alignItems: "center",
-    borderRadius: radii.sm,
-    boxShadow: {
-      default: null,
-      ":focus-visible": `0 0 0 1px ${colors.ring}`,
-    },
-    color: {
-      default: null,
-      ":hover": colors.foreground,
-    },
-    display: "inline-flex",
-    gap: "0.375rem",
-    opacity: {
-      default: 1,
-      ":disabled": 0.5,
-    },
-    outline: {
-      default: null,
-      ":focus-visible": "none",
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "color",
-  },
-  actionButton: {
-    alignItems: "center",
-    borderRadius: radii.full,
-    cursor: "pointer",
-    display: "flex",
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    height: "2rem",
-    justifyContent: "center",
-    opacity: {
-      default: 1,
-      ":disabled": 0.5,
-    },
-    transform: {
-      default: "scale(1)",
-      ":active": "scale(0.98)",
-      ":disabled:hover": "scale(1)",
-      ":hover": "scale(1.02)",
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "all",
-    width: "100%",
-  },
-  compactAction: {
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    transitionDuration: "150ms",
-    transitionProperty: "color",
-  },
-  compactCurrentAction: {
-    color: colors.foreground,
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    opacity: {
-      default: 1,
-      ":disabled": 0.5,
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "color",
-  },
-  compactDowngrade: {
-    color: colors.mutedForeground,
-  },
-  compactFeatures: {
-    marginTop: "0.5rem",
-  },
-  compactTrialBadge: {
-    paddingBlock: "1px",
-    paddingInline: "0.375rem",
-  },
-  compactUpgrade: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-  },
-  containerChildren: {
-    marginTop: "1rem",
-  },
-  containerCopy: {
-    display: "flex",
-    flex: "1",
-    flexDirection: "column",
-    gap: "0.5rem",
-    minWidth: 0,
-  },
-  containerHeader: {
-    alignItems: {
-      default: null,
-      [media.sm]: "flex-start",
-    },
-    display: "flex",
-    flexDirection: {
-      default: "column",
-      [media.sm]: "row",
-    },
-    gap: "1rem",
-    justifyContent: {
-      default: null,
-      [media.sm]: "space-between",
-    },
-  },
-  currentPlan: {
-    alignItems: "center",
-    backgroundColor: colors.muted,
-    borderColor: colors.border,
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    color: colors.mutedForeground,
-    display: "flex",
-    fontSize: "0.75rem",
-    height: "2rem",
-    justifyContent: "center",
-    width: "100%",
-  },
-  getStartedButton: {
-    backgroundColor: {
-      default: colors.primary,
-      ":hover": `color-mix(in srgb, ${colors.primary} 90%, transparent)`,
-    },
-    borderColor: colors.primary,
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "2px",
-    boxShadow: "0 4px 14px rgb(87 83 78 / 0.4)",
-    color: colors.primaryForeground,
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    height: "2.5rem",
-    paddingInline: "1.5rem",
-    transitionDuration: "200ms",
-    transitionProperty: "all",
-    width: "fit-content",
-  },
-  guestHeading: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.25rem",
-    marginBottom: "1rem",
-  },
-  manageBilling: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    opacity: {
-      default: 1,
-      ":disabled": 0.5,
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "color",
-  },
-  muted: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-  },
-  mutedSmall: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-  },
-  noShrink: {
-    flexShrink: 0,
-  },
-  page: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "2rem",
-  },
-  planHeadingRow: {
-    alignItems: "center",
-    display: "flex",
-    justifyContent: "space-between",
-    marginBottom: "0.5rem",
-  },
-  planStatus: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-    marginBottom: "1rem",
-  },
-  primaryAction: {
-    backgroundColor: {
-      default: colors.primary,
-      ":hover": `color-mix(in srgb, ${colors.primary} 90%, transparent)`,
-    },
-    boxShadow: {
-      default: shadows.sm,
-      ":hover": shadows.lg,
-    },
-    color: colors.primaryForeground,
-  },
-  refreshButton: {
-    color: colors.mutedForeground,
-    opacity: {
-      default: 1,
-      ":disabled": 0.5,
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "color",
-  },
-  secondaryAction: {
-    backgroundImage: `linear-gradient(to bottom, ${colors.card}, ${colors.background})`,
-    borderColor: colors.border,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: {
-      default: "0 1px 2px rgb(0 0 0 / 0.05)",
-      ":hover": shadows.sm,
-    },
-    color: colors.mutedForeground,
-  },
-  sectionHeading: {
-    fontFamily: fonts.sans,
-    fontSize: "1.125rem",
-    fontWeight: 600,
-  },
-  signInContent: {
-    display: "flex",
-    flex: "1",
-    flexDirection: "column",
-    gap: "1rem",
-    minWidth: 0,
-  },
-  signInCopy: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-  },
-  signInLayout: {
-    alignItems: {
-      default: null,
-      [media.sm]: "center",
-    },
-    display: "flex",
-    flexDirection: {
-      default: "column",
-      [media.sm]: "row",
-    },
-    gap: "1.5rem",
-    justifyContent: {
-      default: null,
-      [media.sm]: "space-between",
-    },
-  },
-  signInSection: {
-    paddingBottom: "1rem",
-  },
-  smallHeading: {
-    fontSize: "0.875rem",
-    fontWeight: 500,
-  },
-  spinning: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-  },
-  strong: {
-    fontWeight: 600,
-  },
-  tierAction: {
-    marginTop: "auto",
-  },
-  tierCard: {
-    display: "flex",
-    flexDirection: "column",
-    padding: "0.75rem",
-  },
-  tierFeatures: {
-    marginBottom: "0.75rem",
-  },
-  tierGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  },
-  tierList: {
-    display: "flex",
-    flexDirection: "column",
-  },
-  tierListInfo: {
-    alignItems: "center",
-    display: "flex",
-    flexWrap: "wrap",
-    columnGap: "0.5rem",
-    minWidth: 0,
-    rowGap: "0.25rem",
-  },
-  tierListItem: {
-    paddingBlock: "0.75rem",
-  },
-  tierListName: {
-    color: colors.foreground,
-    fontSize: "0.875rem",
-    fontWeight: 500,
-  },
-  tierListRow: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.75rem",
-    justifyContent: "space-between",
-  },
-  tierName: {
-    color: colors.foreground,
-    fontFamily: fonts.sans,
-    fontSize: "1rem",
-    fontWeight: 500,
-  },
-  tierNameRow: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-    marginBottom: "0.5rem",
-  },
-  tierPeriod: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    marginLeft: "0.25rem",
-  },
-  tierPrice: {
-    color: colors.mutedForeground,
-    fontFamily: fonts.sans,
-    fontSize: "1.25rem",
-  },
-  tierPriceBlock: {
-    marginBottom: "0.5rem",
-  },
-  tierSubtitle: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    marginTop: "0.125rem",
-  },
-  tinyIcon: {
-    height: "0.75rem",
-    width: "0.75rem",
-  },
-  trialBadge: {
-    backgroundColor: colors.primary,
-    borderRadius: radii.full,
-    color: colors.primaryForeground,
-    fontSize: "0.625rem",
-    fontWeight: 500,
-    letterSpacing: "0.025em",
-    paddingBlock: "0.125rem",
-    paddingInline: "0.5rem",
-    textTransform: "uppercase",
-  },
-});

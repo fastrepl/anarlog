@@ -1,262 +1,81 @@
 import { Icon } from "@iconify-icon/react";
 import { ArrowSquareOut, DownloadSimple } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, Link } from "@tanstack/react-router";
-
-import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
 
 import { SiteFooter } from "@/components/site-footer";
 import { useAnalytics } from "@/hooks/use-posthog";
 import { comingSoonPlatforms, desktopDownloadSections } from "@/lib/download";
 import { getCanonicalUrl } from "@/lib/seo";
-const styles = stylex.create({
-  style1: {
-    minHeight: "100vh",
-    backgroundColor: colors.card,
-    color: colors.foreground,
-  },
-  style2: {
-    marginInline: "auto",
-    width: "100%",
-    maxWidth: "700px",
-    paddingInline: {
-      default: "1.25rem",
-      "@media (width >= 48rem)": "2rem",
-    },
-    paddingBlock: {
-      default: "2rem",
-      "@media (width >= 48rem)": "3rem",
-    },
-  },
-  style3: {
-    height: "2.25rem",
-    width: "auto",
-  },
-  style4: {
-    paddingTop: {
-      default: "6rem",
-      "@media (width >= 48rem)": "8rem",
-    },
-    paddingBottom: "4rem",
-  },
-  style5: {
-    fontFamily: fonts.hand,
-    fontSize: {
-      default: "3.75rem",
-      "@media (width >= 48rem)": "6rem",
-    },
-    lineHeight: {
-      default: 0.98,
-      "@media (width >= 48rem)": 1,
-    },
-    fontWeight: 600,
-    letterSpacing: 0,
-    textWrap: "balance",
-  },
-  style6: {
-    display: "grid",
-    gap: "3.5rem",
-    paddingBottom: "3rem",
-  },
-  style7: {
-    marginBottom: "1.25rem",
-    display: "flex",
-    alignItems: "center",
-    gap: ".625rem",
-    fontFamily: fonts.hand,
-    fontSize: "1.875rem",
-    lineHeight: 1,
-    fontWeight: 600,
-    letterSpacing: 0,
-  },
-  style8: {
-    fontSize: "1.5rem",
-    lineHeight: "2rem",
-  },
-  style9: {
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    borderColor: colors.border,
-    paddingInline: ".625rem",
-    paddingBlock: ".25rem",
-    fontFamily: fonts.sans,
-    fontSize: ".75rem",
-    lineHeight: 1,
-    fontWeight: 500,
-    letterSpacing: ".025em",
-    color: colors.mutedForeground,
-    textTransform: "uppercase",
-  },
-  style10: {
-    borderBlockStyle: "solid",
-    borderBlockWidth: "1px",
-    borderColor: colors.border,
-  },
-  downloadRow: {
-    borderBottomColor: colors.border,
-    borderBottomStyle: {
-      default: "solid",
-      ":last-child": "none",
-    },
-    borderBottomWidth: {
-      default: "1px",
-      ":last-child": 0,
-    },
-  },
-  style11: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "1.5rem",
-    paddingInline: ".25rem",
-    paddingBlock: "1.25rem",
-  },
-  style12: {
-    fontWeight: 500,
-  },
-  style13: {
-    display: "inline-flex",
-    flexShrink: 0,
-    alignItems: "center",
-    gap: ".375rem",
-    borderRadius: radii.full,
-    backgroundColor: "#181613",
-    paddingInline: {
-      default: "1rem",
-      "@media (width >= 40rem)": "1.25rem",
-    },
-    paddingBlock: ".75rem",
-    fontSize: {
-      default: "13px",
-      "@media (width >= 40rem)": ".875rem",
-    },
-    fontWeight: 500,
-    color: "#fff",
-    lineHeight: {
-      default: null,
-      "@media (width >= 40rem)": "1.25rem",
-    },
-  },
-  style14: {
-    marginTop: "1rem",
-    fontSize: ".875rem",
-    lineHeight: "1.5rem",
-    color: colors.mutedForeground,
-  },
-  style15: {
-    color: colors.foreground,
-    textDecorationLine: "underline",
-    textUnderlineOffset: "4px",
-  },
-  style16: {
-    marginBottom: "1.25rem",
-    fontFamily: fonts.hand,
-    fontSize: "1.875rem",
-    lineHeight: 1,
-    fontWeight: 600,
-    letterSpacing: 0,
-  },
-  style17: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: ".5rem",
-  },
-  style18: {
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    borderColor: colors.border,
-    paddingInline: "1rem",
-    paddingBlock: ".5rem",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    fontWeight: 500,
-    color: colors.mutedForeground,
-  },
-});
+
 const platformIcons = {
   macOS: "simple-icons:apple",
   Windows: "simple-icons:windows",
   Linux: "simple-icons:linux",
 } as const;
+
 export const Route = createFileRoute("/_view/download/")({
   component: Component,
   head: () => ({
-    links: [
-      {
-        rel: "canonical",
-        href: getCanonicalUrl("/download"),
-      },
-    ],
+    links: [{ rel: "canonical", href: getCanonicalUrl("/download") }],
     meta: [
-      {
-        title: "Download Anarlog",
-      },
+      { title: "Download Anarlog" },
       {
         name: "description",
         content:
           "Download Anarlog for macOS, Windows, or Linux. Every desktop build uses the same release version.",
       },
-      {
-        property: "og:title",
-        content: "Download Anarlog",
-      },
-      {
-        property: "og:url",
-        content: getCanonicalUrl("/download"),
-      },
+      { property: "og:title", content: "Download Anarlog" },
+      { property: "og:url", content: getCanonicalUrl("/download") },
     ],
   }),
 });
+
 function Component() {
   const { track } = useAnalytics();
+
   return (
-    <main {...stylex.props(styles.style1)}>
-      <div {...stylex.props(styles.style2)}>
+    <main className="surface text-color min-h-screen">
+      <div className="mx-auto w-full max-w-[700px] px-5 py-8 md:px-8 md:py-12">
         <header>
           <Link to="/" aria-label="Anarlog home">
-            <img
-              src="/logo.svg"
-              alt="Anarlog"
-              {...stylex.props(styles.style3)}
-            />
+            <img src="/logo.svg" alt="Anarlog" className="h-9 w-auto" />
           </Link>
         </header>
 
-        <section {...stylex.props(styles.style4)}>
-          <h1 {...stylex.props(styles.style5)}>Download Anarlog</h1>
+        <section className="pt-24 pb-16 md:pt-32">
+          <h1 className="font-hand text-color text-6xl leading-[0.98] font-semibold tracking-normal text-balance md:text-8xl">
+            Download Anarlog
+          </h1>
         </section>
 
-        <div {...stylex.props(styles.style6)}>
+        <div className="grid gap-14 pb-12">
           {desktopDownloadSections.map((section) => {
             const headingId = `${section.name.toLowerCase()}-downloads`;
+
             return (
               <section key={section.name} aria-labelledby={headingId}>
-                <h2 id={headingId} {...stylex.props(styles.style7)}>
+                <h2
+                  id={headingId}
+                  className="font-hand mb-5 flex items-center gap-2.5 text-3xl leading-none font-semibold tracking-normal"
+                >
                   <Icon
                     icon={platformIcons[section.name]}
-                    {...stylex.props(styles.style8)}
+                    className="text-2xl"
                     aria-hidden="true"
                   />
                   {section.name}
                   {section.status && (
-                    <span {...stylex.props(styles.style9)}>
+                    <span className="border-color-subtle text-color-muted rounded-full border px-2.5 py-1 font-sans text-xs leading-none font-medium tracking-wide uppercase">
                       {section.status}
                     </span>
                   )}
                 </h2>
 
-                <ul {...stylex.props(styles.style10)}>
+                <ul className="border-color-subtle divide-y divide-[var(--color-border-subtle)] border-y">
                   {section.downloads.map((download) => (
-                    <li
-                      key={download.name}
-                      {...stylex.props(styles.downloadRow)}
-                    >
-                      <div {...stylex.props(styles.style11)}>
-                        <span {...stylex.props(styles.style12)}>
-                          {download.name}
-                        </span>
+                    <li key={download.name}>
+                      <div className="flex items-center justify-between gap-6 px-1 py-5">
+                        <span className="font-medium">{download.name}</span>
                         <a
                           href={download.url}
                           {...("actionLabel" in download
@@ -277,7 +96,7 @@ function Component() {
                               source: "download_page",
                             })
                           }
-                          {...stylex.props(styles.style13)}
+                          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#181613] px-4 py-3 text-[13px] font-medium text-white sm:px-5 sm:text-sm"
                         >
                           {"actionLabel" in download ? (
                             <>
@@ -296,11 +115,11 @@ function Component() {
                   ))}
                 </ul>
                 {section.platform === "linux" && (
-                  <p {...stylex.props(styles.style14)}>
+                  <p className="text-color-muted mt-4 text-sm leading-6">
                     If the window is black on Wayland with NVIDIA, see{" "}
                     <a
                       href="https://docs.anarlog.so/desktop-installation#appimage"
-                      {...stylex.props(styles.style15)}
+                      className="text-color underline underline-offset-4"
                     >
                       Linux install notes
                     </a>
@@ -312,13 +131,19 @@ function Component() {
           })}
 
           <section aria-labelledby="coming-soon-platforms">
-            <h2 id="coming-soon-platforms" {...stylex.props(styles.style16)}>
+            <h2
+              id="coming-soon-platforms"
+              className="font-hand mb-5 text-3xl leading-none font-semibold tracking-normal"
+            >
               Coming soon
             </h2>
 
-            <ul {...stylex.props(styles.style17)}>
+            <ul className="flex flex-wrap gap-2">
               {comingSoonPlatforms.map((platform) => (
-                <li key={platform} {...stylex.props(styles.style18)}>
+                <li
+                  key={platform}
+                  className="border-color-subtle text-color-muted rounded-full border px-4 py-2 text-sm font-medium"
+                >
                   {platform}
                 </li>
               ))}

@@ -1,8 +1,6 @@
 import { t } from "@lingui/core/macro";
 import { CircleNotch, Waveform } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Switch } from "@anlg/ui/components/ui/switch";
 
 import {
@@ -38,20 +36,20 @@ export function SessionAttachmentControls({
   const available = isAttachmentShareable(audio);
 
   return (
-    <section {...stylex.props(styles.root)}>
-      <div {...stylex.props(styles.row)}>
-        <div {...stylex.props(styles.details)}>
-          <div {...stylex.props(styles.iconContainer)}>
-            <Waveform {...stylex.props(styles.icon)} aria-hidden="true" />
+    <section className="border-border/60 border-t py-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="bg-muted flex size-7 shrink-0 items-center justify-center rounded-lg">
+            <Waveform className="size-4" aria-hidden="true" />
           </div>
-          <div {...stylex.props(styles.copy)}>
+          <div className="min-w-0">
             <label
               htmlFor={`share-audio-${audio.id}`}
-              {...stylex.props(styles.label)}
+              className="text-xs font-medium"
             >
               {t`Share audio`}
             </label>
-            <p {...stylex.props(styles.description)}>
+            <p className="text-muted-foreground text-[11px]">
               {available || included
                 ? t`Let people with access play the recording.`
                 : t`Audio is not available on this device.`}
@@ -61,7 +59,7 @@ export function SessionAttachmentControls({
         {pending ? (
           <CircleNotch
             aria-label={t`Updating audio sharing`}
-            {...stylex.props(styles.spinner)}
+            className="text-muted-foreground size-4 animate-spin"
           />
         ) : (
           <Switch
@@ -76,64 +74,3 @@ export function SessionAttachmentControls({
     </section>
   );
 }
-
-const spin = stylex.keyframes({
-  to: {
-    transform: "rotate(360deg)",
-  },
-});
-
-const styles = stylex.create({
-  copy: {
-    minWidth: 0,
-  },
-  description: {
-    color: colors.mutedForeground,
-    fontSize: "0.6875rem",
-  },
-  details: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.625rem",
-    minWidth: 0,
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  iconContainer: {
-    alignItems: "center",
-    backgroundColor: colors.muted,
-    borderRadius: radii.lg,
-    display: "flex",
-    flexShrink: 0,
-    height: "1.75rem",
-    justifyContent: "center",
-    width: "1.75rem",
-  },
-  label: {
-    fontSize: "0.75rem",
-    fontWeight: 500,
-  },
-  root: {
-    borderTopColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
-    borderTopStyle: "solid",
-    borderTopWidth: "1px",
-    paddingBlock: "0.75rem",
-  },
-  row: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.75rem",
-    justifyContent: "space-between",
-  },
-  spinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-    color: colors.mutedForeground,
-    height: "1rem",
-    width: "1rem",
-  },
-});

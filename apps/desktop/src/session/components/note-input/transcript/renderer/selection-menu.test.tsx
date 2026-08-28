@@ -8,15 +8,10 @@ import {
 import { createRef, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  MultiSelectionBar,
-  SelectionMenu,
-  selectionMenuStyles,
-} from "./selection-menu";
+import { MultiSelectionBar, SelectionMenu } from "./selection-menu";
 import type { TranscriptContextMenuRequest } from "./selection-menu";
 
 import { setSessionFabSelectionHost } from "~/session/components/floating/selection-slot";
-import { expectNotStyle, expectStyle } from "~/session/stylex-test";
 
 vi.mock("@floating-ui/react", () => ({
   autoUpdate: vi.fn(),
@@ -89,8 +84,9 @@ describe("SelectionMenu", () => {
 
     expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
     const confirm = screen.getByRole("button", { name: "Confirm" });
-    expectStyle(confirm.parentElement, selectionMenuStyles.menu);
-    expectStyle(confirm.parentElement, selectionMenuStyles.speakerMenu);
+    expect(confirm.parentElement?.className).toContain(
+      "max-h-[min(28rem,calc(100vh-1rem))]",
+    );
   });
 
   it("hides playback when the transcript has no audio", () => {
@@ -210,8 +206,7 @@ describe("MultiSelectionBar", () => {
     );
 
     expect(host.textContent).toContain("2 selected");
-    expectStyle(host.firstElementChild, selectionMenuStyles.selectionBar);
-    expectNotStyle(host.firstElementChild, selectionMenuStyles.floating);
+    expect(host.firstElementChild?.className).not.toContain("absolute");
 
     host.remove();
   });

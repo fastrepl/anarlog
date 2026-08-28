@@ -153,18 +153,22 @@ describe("ChatView", () => {
     );
     expect(screen.queryByTestId("chat-toolbar")).toBeNull();
     expect(mocks.toolbarControls).not.toHaveBeenCalled();
-    expect(container.firstElementChild?.getAttribute("data-chat-layout")).toBe(
-      "right-panel",
-    );
+    expect(container.firstElementChild?.className).not.toContain("pb-3");
   });
 
   it("uses the sidebar card shell in the right panel layout", () => {
     const { container } = render(<ChatView layout="right-panel" />);
-    const root = container.firstElementChild as HTMLElement | null;
-    const toolbarFrame = root?.querySelector("[data-chat-toolbar-frame]");
+    const root = container.firstElementChild;
 
-    expect(root?.dataset.chatLayout).toBe("right-panel");
-    expect(toolbarFrame?.hasAttribute("data-tauri-drag-region")).toBe(true);
+    expect(root?.className).toContain("bg-card");
+    expect(root?.className).toContain("text-card-foreground");
+    expect(root?.className).toContain("h-full");
+    expect(root?.className).not.toContain("bg-primary");
+    expect(root?.firstElementChild?.className).toContain("h-9");
+    expect(root?.firstElementChild?.className).not.toContain("border-b");
+    expect(
+      root?.firstElementChild?.hasAttribute("data-tauri-drag-region"),
+    ).toBe(true);
     expect(screen.getByTestId("chat-toolbar").dataset.surface).toBe("light");
     expect(mocks.toolbarControls).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -177,11 +181,18 @@ describe("ChatView", () => {
 
   it("uses the neutral shell in the floating layout", () => {
     const { container } = render(<ChatView layout="floating" />);
-    const root = container.firstElementChild as HTMLElement | null;
-    const toolbarFrame = root?.querySelector("[data-chat-toolbar-frame]");
+    const root = container.firstElementChild;
 
-    expect(root?.dataset.chatLayout).toBe("floating");
-    expect(toolbarFrame?.hasAttribute("data-tauri-drag-region")).toBe(false);
+    expect(root?.className).toContain("bg-[#f4f4f5]");
+    expect(root?.className).toContain("text-card-foreground");
+    expect(root?.className).toContain("max-h-full");
+    expect(root?.className).not.toContain("bg-card");
+    expect(root?.className.split(" ")).not.toContain("h-full");
+    expect(root?.firstElementChild?.className).toContain("h-11");
+    expect(root?.firstElementChild?.className).not.toContain("border-b");
+    expect(
+      root?.firstElementChild?.hasAttribute("data-tauri-drag-region"),
+    ).toBe(false);
     expect(screen.getByTestId("chat-toolbar").dataset.surface).toBe("light");
   });
 });

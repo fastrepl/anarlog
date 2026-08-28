@@ -1,18 +1,13 @@
 import type { NodeViewComponentProps } from "@handlewithcare/react-prosemirror";
-import * as stylex from "@stylexjs/stylex";
 import {
   Component,
   createElement,
   forwardRef,
   type ComponentType,
-  type CSSProperties,
   type ErrorInfo,
   type ForwardedRef,
   type ReactNode,
 } from "react";
-
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
-import { cn } from "@anlg/utils";
 
 type FallbackTag = "div" | "li" | "span";
 
@@ -61,25 +56,21 @@ class NodeViewErrorBoundary extends Component<
 
   render() {
     if (this.state.hasError) {
-      const { className, style, ...attrs } = this.props.fallbackAttrs;
-      const fallbackStyles = stylex.props(styles.fallback);
+      const { className, ...attrs } = this.props.fallbackAttrs;
       return createElement(
         this.props.fallbackTag,
         {
           ...attrs,
-          ...fallbackStyles,
           ref: this.props.forwardedRef,
           contentEditable: false,
           suppressContentEditableWarning: true,
           "data-node-view-error": this.props.name,
-          className: cn([
-            fallbackStyles.className,
+          className: [
+            "rounded-md border border-border bg-muted px-2 py-1 text-sm text-muted-foreground",
             typeof className === "string" ? className : "",
-          ]),
-          style: {
-            ...fallbackStyles.style,
-            ...(style as CSSProperties | undefined),
-          },
+          ]
+            .filter(Boolean)
+            .join(" "),
         },
         this.props.fallbackText,
       );
@@ -161,18 +152,3 @@ export function withNodeViewErrorBoundary<E extends HTMLElement>(
   Wrapped.displayName = `NodeViewErrorBoundary(${name})`;
   return Wrapped;
 }
-
-const styles = stylex.create({
-  fallback: {
-    backgroundColor: colors.muted,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-    paddingBlock: "0.25rem",
-    paddingInline: "0.5rem",
-  },
-});

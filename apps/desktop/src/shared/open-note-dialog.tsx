@@ -1,6 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { FileText, MagnifyingGlass, Users, X } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { Command as CommandPrimitive } from "cmdk";
 import {
   createContext,
@@ -12,12 +11,12 @@ import {
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { colors, media, radii } from "@anlg/design-system/tokens.stylex";
 import {
   Dialog,
   DialogContent,
   DialogTitle,
 } from "@anlg/ui/components/ui/dialog";
+import { cn } from "@anlg/utils";
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { useAuth } from "~/auth";
@@ -235,16 +234,20 @@ export function OpenNoteDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         aria-describedby={undefined}
-        overlaySx={styles.overlay}
+        overlayClassName="bg-black/20 backdrop-blur-xs"
         overlayChildren={
           <div
             data-open-note-dialog-drag-region
             data-tauri-drag-region
-            {...stylex.props(styles.dragRegion)}
+            className="absolute top-0 right-0 left-0 h-[15%]"
             onClick={(event) => event.stopPropagation()}
           />
         }
-        sx={styles.dialog}
+        className={cn([
+          "top-[15%] w-full max-w-lg -translate-y-0 gap-0 border-0 bg-transparent px-4 py-0 shadow-none sm:rounded-none",
+          "data-[state=closed]:animate-none data-[state=open]:animate-none",
+          "[&>button:last-child]:hidden",
+        ])}
         style={{ marginLeft: mainContentCenterOffset }}
         onPointerDownOutside={(event) => {
           const target = event.detail.originalEvent.target;
@@ -256,46 +259,56 @@ export function OpenNoteDialog({
           }
         }}
       >
-        <DialogTitle sx={styles.visuallyHidden}>
+        <DialogTitle className="sr-only">
           <Trans>Find a note...</Trans>
         </DialogTitle>
-        <div {...stylex.props(styles.surface)}>
-          <CommandPrimitive
-            shouldFilter={false}
-            {...stylex.props(styles.command)}
-          >
-            <div {...stylex.props(styles.searchRow)}>
-              <MagnifyingGlass {...stylex.props(styles.searchIcon)} />
+        <div
+          className={cn([
+            "border-border/80 bg-background rounded-2xl border",
+            "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
+            "overflow-hidden",
+          ])}
+        >
+          <CommandPrimitive shouldFilter={false} className="flex flex-col">
+            <div className="border-border/60 flex items-center gap-3 border-b px-4 py-3">
+              <MagnifyingGlass className="text-muted-foreground h-4 w-4 shrink-0" />
               <CommandPrimitive.Input
                 ref={focusInput}
                 value={query}
                 onValueChange={setQuery}
                 placeholder={t`Find a note...`}
-                {...stylex.props(styles.input)}
+                className={cn([
+                  "flex-1 bg-transparent text-sm",
+                  "placeholder:text-muted-foreground outline-hidden",
+                ])}
               />
               <button
                 aria-label={t`Close`}
                 onClick={() => handleOpenChange(false)}
-                {...stylex.props(styles.close)}
+                className={cn([
+                  "h-5 w-5 rounded-full",
+                  "flex items-center justify-center",
+                  "bg-accent/80 hover:bg-accent/80",
+                  "text-muted-foreground text-xs",
+                  "transition-colors",
+                ])}
               >
-                <X {...stylex.props(styles.closeIcon)} />
+                <X className="h-3 w-3" />
               </button>
             </div>
 
-            <CommandPrimitive.List {...stylex.props(styles.list)}>
+            <CommandPrimitive.List className="max-h-80 overflow-y-auto p-2">
               {!hasAnyResults ? (
-                <CommandPrimitive.Empty {...stylex.props(styles.empty)}>
+                <CommandPrimitive.Empty className="text-muted-foreground py-6 text-center text-sm">
                   <Trans>No notes found.</Trans>
                 </CommandPrimitive.Empty>
               ) : (
                 <>
                   {filteredRecentSessions.length > 0 && (
                     <CommandPrimitive.Group
-                      {...stylex.props(
-                        filteredOtherNotes.length > 0 && styles.recentGroup,
-                      )}
+                      className={filteredOtherNotes.length > 0 ? "pb-1.5" : ""}
                       heading={
-                        <div {...stylex.props(styles.groupHeading)}>
+                        <div className="text-muted-foreground px-2 py-1.5 text-xs font-medium tracking-wider uppercase">
                           <Trans>Recent</Trans>
                         </div>
                       }
@@ -305,12 +318,15 @@ export function OpenNoteDialog({
                           key={`recent-${session.id}`}
                           value={`recent-${session.id}`}
                           onSelect={() => handleSelect(session)}
-                          {...stylex.props(styles.item)}
+                          className={cn([
+                            "flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5",
+                            "text-muted-foreground text-sm",
+                            "data-[selected=true]:bg-accent/60",
+                            "transition-colors",
+                          ])}
                         >
-                          <FileText {...stylex.props(styles.itemIcon)} />
-                          <span {...stylex.props(styles.itemTitle)}>
-                            {session.title}
-                          </span>
+                          <FileText className="text-muted-foreground h-4 w-4 shrink-0" />
+                          <span className="truncate">{session.title}</span>
                         </CommandPrimitive.Item>
                       ))}
                     </CommandPrimitive.Group>
@@ -319,11 +335,11 @@ export function OpenNoteDialog({
                   {filteredOtherNotes.length > 0 && (
                     <CommandPrimitive.Group
                       heading={
-                        <div {...stylex.props(styles.allHeading)}>
+                        <div className="flex flex-col gap-3">
                           {filteredRecentSessions.length > 0 && (
-                            <div {...stylex.props(styles.separator)} />
+                            <div className="bg-accent mx-2 h-px" />
                           )}
-                          <div {...stylex.props(styles.groupHeading)}>
+                          <div className="text-muted-foreground px-2 py-1.5 text-xs font-medium tracking-wider uppercase">
                             <Trans>All Notes</Trans>
                           </div>
                         </div>
@@ -334,19 +350,22 @@ export function OpenNoteDialog({
                           key={`${note.resourceType}-${note.id}`}
                           value={`${note.resourceType}-${note.id}`}
                           onSelect={() => handleSelect(note)}
-                          {...stylex.props(styles.item)}
+                          className={cn([
+                            "flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5",
+                            "text-muted-foreground text-sm",
+                            "data-[selected=true]:bg-accent/60",
+                            "transition-colors",
+                          ])}
                         >
                           {note.resourceType === "shared_session" ? (
                             <Users
-                              {...stylex.props(styles.itemIcon)}
+                              className="text-muted-foreground h-4 w-4 shrink-0"
                               data-testid="shared-note-icon"
                             />
                           ) : (
-                            <FileText {...stylex.props(styles.itemIcon)} />
+                            <FileText className="text-muted-foreground h-4 w-4 shrink-0" />
                           )}
-                          <span {...stylex.props(styles.itemTitle)}>
-                            {note.title}
-                          </span>
+                          <span className="truncate">{note.title}</span>
                         </CommandPrimitive.Item>
                       ))}
                     </CommandPrimitive.Group>
@@ -360,180 +379,3 @@ export function OpenNoteDialog({
     </Dialog>
   );
 }
-
-const styles = stylex.create({
-  allHeading: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-  },
-  close: {
-    alignItems: "center",
-    backgroundColor: {
-      default: `color-mix(in oklab, ${colors.accent} 80%, transparent)`,
-      ":hover": `color-mix(in oklab, ${colors.accent} 80%, transparent)`,
-    },
-    borderRadius: radii.full,
-    color: colors.mutedForeground,
-    display: "flex",
-    fontSize: "0.75rem",
-    height: "1.25rem",
-    justifyContent: "center",
-    transitionDuration: "150ms",
-    transitionProperty:
-      "color, background-color, border-color, text-decoration-color, fill, stroke",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "1.25rem",
-  },
-  closeIcon: {
-    height: "0.75rem",
-    width: "0.75rem",
-  },
-  command: {
-    display: "flex",
-    flexDirection: "column",
-  },
-  dialog: {
-    animationName: {
-      default: null,
-      ':is([data-state="closed"])': "none",
-      ':is([data-state="open"])': "none",
-    },
-    backgroundColor: "transparent",
-    borderRadius: {
-      default: 0,
-      [media.sm]: 0,
-    },
-    borderWidth: 0,
-    boxShadow: "none",
-    display: {
-      default: "grid",
-      ":is(*) > button:last-child": "none",
-    },
-    gap: 0,
-    maxWidth: "32rem",
-    paddingBlock: 0,
-    paddingInline: "1rem",
-    top: "15%",
-    transform: "translate(-50%, 0)",
-    width: "100%",
-  },
-  dragRegion: {
-    height: "15%",
-    left: 0,
-    position: "absolute",
-    right: 0,
-    top: 0,
-  },
-  empty: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    paddingBlock: "1.5rem",
-    textAlign: "center",
-  },
-  groupHeading: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    letterSpacing: "0.05em",
-    paddingBlock: "0.375rem",
-    paddingInline: "0.5rem",
-    textTransform: "uppercase",
-  },
-  input: {
-    backgroundColor: "transparent",
-    color: {
-      default: null,
-      "::placeholder": colors.mutedForeground,
-    },
-    flex: "1",
-    fontSize: "0.875rem",
-    outlineWidth: "2px",
-    outlineStyle: "solid",
-    outlineColor: "transparent",
-    outlineOffset: "2px",
-  },
-  item: {
-    alignItems: "center",
-    backgroundColor: {
-      default: null,
-      ':is([data-selected="true"])': `color-mix(in oklab, ${colors.accent} 60%, transparent)`,
-    },
-    borderRadius: radii.lg,
-    color: colors.mutedForeground,
-    cursor: "pointer",
-    display: "flex",
-    fontSize: "0.875rem",
-    gap: "0.75rem",
-    paddingBlock: "0.625rem",
-    paddingInline: "0.75rem",
-    transitionDuration: "150ms",
-    transitionProperty:
-      "color, background-color, border-color, text-decoration-color, fill, stroke",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  itemIcon: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    height: "1rem",
-    width: "1rem",
-  },
-  itemTitle: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  list: {
-    maxHeight: "20rem",
-    overflowY: "auto",
-    padding: "0.5rem",
-  },
-  overlay: {
-    backdropFilter: "blur(4px)",
-    backgroundColor: "rgb(0 0 0 / 0.2)",
-  },
-  recentGroup: {
-    paddingBottom: "0.375rem",
-  },
-  searchIcon: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    height: "1rem",
-    width: "1rem",
-  },
-  searchRow: {
-    alignItems: "center",
-    borderBottomColor: `color-mix(in oklab, ${colors.border} 60%, transparent)`,
-    borderBottomStyle: "solid",
-    borderBottomWidth: "1px",
-    display: "flex",
-    gap: "0.75rem",
-    paddingBlock: "0.75rem",
-    paddingInline: "1rem",
-  },
-  separator: {
-    backgroundColor: colors.accent,
-    height: "1px",
-    marginInline: "0.5rem",
-  },
-  surface: {
-    backgroundColor: colors.background,
-    borderColor: `color-mix(in oklab, ${colors.border} 80%, transparent)`,
-    borderRadius: "1rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-    overflow: "hidden",
-  },
-  visuallyHidden: {
-    borderWidth: 0,
-    clipPath: "inset(50%)",
-    height: "1px",
-    margin: "-1px",
-    overflow: "hidden",
-    padding: 0,
-    position: "absolute",
-    whiteSpace: "nowrap",
-    width: "1px",
-  },
-});

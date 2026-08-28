@@ -1,44 +1,28 @@
 import { CaretDown, CaretUp, Check } from "@phosphor-icons/react";
 import * as SelectPrimitive from "@radix-ui/react-select";
-import * as stylex from "@stylexjs/stylex";
 import * as React from "react";
 
-import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
-import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
-
-import { floatingContentStyle } from "./floating-content";
+import { cn } from "@anlg/utils";
 
 const Select = SelectPrimitive.Root;
 const SelectGroup = SelectPrimitive.Group;
-
-const SelectValue = React.forwardRef<
-  React.ComponentRef<typeof SelectPrimitive.Value>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Value> & StyleXProps
->(({ className, style, sx, ...props }, ref) => (
-  <SelectPrimitive.Value
-    {...props}
-    {...mergeStyleXProps([styles.value, sx], className, style)}
-    ref={ref}
-  />
-));
-SelectValue.displayName = SelectPrimitive.Value.displayName;
+const SelectValue = SelectPrimitive.Value;
 
 const SelectTrigger = React.forwardRef<
   React.ComponentRef<typeof SelectPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger> & StyleXProps
->(({ className, children, style, sx, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
+>(({ className, children, ...props }, ref) => (
   <SelectPrimitive.Trigger
-    {...props}
-    {...mergeStyleXProps(
-      [styles.trigger, styles.focusOutlineHidden, sx],
-      className,
-      style,
-    )}
     ref={ref}
+    className={cn([
+      "border-input ring-offset-background data-placeholder:text-muted-foreground focus:ring-ring flex h-9 w-full items-center justify-between rounded-full border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs focus:ring-1 focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
+      className,
+    ])}
+    {...props}
   >
     {children}
     <SelectPrimitive.Icon asChild>
-      <CaretDown {...stylex.props(styles.triggerIcon)} />
+      <CaretDown className="-mr-1 h-4 w-4 shrink-0 opacity-50" />
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 ));
@@ -46,30 +30,34 @@ SelectTrigger.displayName = SelectPrimitive.Trigger.displayName;
 
 const SelectScrollUpButton = React.forwardRef<
   React.ComponentRef<typeof SelectPrimitive.ScrollUpButton>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollUpButton> &
-    StyleXProps
->(({ className, style, sx, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollUpButton>
+>(({ className, ...props }, ref) => (
   <SelectPrimitive.ScrollUpButton
-    {...props}
-    {...mergeStyleXProps([styles.scrollButton, sx], className, style)}
     ref={ref}
+    className={cn([
+      "flex cursor-default items-center justify-center py-1",
+      className,
+    ])}
+    {...props}
   >
-    <CaretUp {...stylex.props(styles.icon)} />
+    <CaretUp className="h-4 w-4" />
   </SelectPrimitive.ScrollUpButton>
 ));
 SelectScrollUpButton.displayName = SelectPrimitive.ScrollUpButton.displayName;
 
 const SelectScrollDownButton = React.forwardRef<
   React.ComponentRef<typeof SelectPrimitive.ScrollDownButton>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollDownButton> &
-    StyleXProps
->(({ className, style, sx, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollDownButton>
+>(({ className, ...props }, ref) => (
   <SelectPrimitive.ScrollDownButton
-    {...props}
-    {...mergeStyleXProps([styles.scrollButton, sx], className, style)}
     ref={ref}
+    className={cn([
+      "flex cursor-default items-center justify-center py-1",
+      className,
+    ])}
+    {...props}
   >
-    <CaretDown {...stylex.props(styles.icon)} />
+    <CaretDown className="h-4 w-4" />
   </SelectPrimitive.ScrollDownButton>
 ));
 SelectScrollDownButton.displayName =
@@ -77,30 +65,27 @@ SelectScrollDownButton.displayName =
 
 const SelectContent = React.forwardRef<
   React.ComponentRef<typeof SelectPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content> & StyleXProps
->(({ className, children, position = "popper", style, sx, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
+>(({ className, children, position = "popper", ...props }, ref) => (
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
-      {...props}
-      {...mergeStyleXProps(
-        [
-          floatingContentStyle,
-          styles.content,
-          position === "popper" && styles.popperContent,
-          sx,
-        ],
-        className,
-        style,
-      )}
       ref={ref}
+      className={cn([
+        "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 relative z-50 max-h-(--radix-select-content-available-height) min-w-32 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-[18px] border shadow-md",
+        position === "popper" &&
+          "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
+        className,
+      ])}
       position={position}
+      {...props}
     >
       <SelectScrollUpButton />
       <SelectPrimitive.Viewport
-        {...stylex.props(
-          styles.viewport,
-          position === "popper" && styles.popperViewport,
-        )}
+        className={cn([
+          "p-1",
+          position === "popper" &&
+            "h-(--radix-select-trigger-height) w-full min-w-(--radix-select-trigger-width)",
+        ])}
       >
         {children}
       </SelectPrimitive.Viewport>
@@ -112,32 +97,31 @@ SelectContent.displayName = SelectPrimitive.Content.displayName;
 
 const SelectLabel = React.forwardRef<
   React.ComponentRef<typeof SelectPrimitive.Label>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Label> & StyleXProps
->(({ className, style, sx, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Label>
+>(({ className, ...props }, ref) => (
   <SelectPrimitive.Label
-    {...props}
-    {...mergeStyleXProps([styles.label, sx], className, style)}
     ref={ref}
+    className={cn(["px-2 py-1.5 text-sm font-semibold", className])}
+    {...props}
   />
 ));
 SelectLabel.displayName = SelectPrimitive.Label.displayName;
 
 const SelectItem = React.forwardRef<
   React.ComponentRef<typeof SelectPrimitive.Item>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item> & StyleXProps
->(({ className, children, style, sx, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
+>(({ className, children, ...props }, ref) => (
   <SelectPrimitive.Item
-    {...props}
-    {...mergeStyleXProps(
-      [styles.item, styles.outlineHidden, sx],
-      className,
-      style,
-    )}
     ref={ref}
+    className={cn([
+      "data-highlighted:bg-accent data-highlighted:text-accent-foreground focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-default items-center rounded-full py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50",
+      className,
+    ])}
+    {...props}
   >
-    <span {...stylex.props(styles.itemIndicator)}>
+    <span className="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
       <SelectPrimitive.ItemIndicator>
-        <Check {...stylex.props(styles.icon)} />
+        <Check className="h-4 w-4" />
       </SelectPrimitive.ItemIndicator>
     </span>
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
@@ -147,210 +131,15 @@ SelectItem.displayName = SelectPrimitive.Item.displayName;
 
 const SelectSeparator = React.forwardRef<
   React.ComponentRef<typeof SelectPrimitive.Separator>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Separator> & StyleXProps
->(({ className, style, sx, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Separator>
+>(({ className, ...props }, ref) => (
   <SelectPrimitive.Separator
-    {...props}
-    {...mergeStyleXProps([styles.separator, sx], className, style)}
     ref={ref}
+    className={cn(["bg-muted -mx-1 my-1 h-px", className])}
+    {...props}
   />
 ));
 SelectSeparator.displayName = SelectPrimitive.Separator.displayName;
-
-const styles = stylex.create({
-  content: {
-    backgroundColor: colors.popover,
-    borderColor: colors.border,
-    borderRadius: "18px",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow:
-      "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
-    maxHeight: "var(--radix-select-content-available-height)",
-    minWidth: "8rem",
-    overflowX: "hidden",
-    overflowY: "auto",
-    position: "relative",
-    transformOrigin: "var(--radix-select-content-transform-origin)",
-    zIndex: 50,
-  },
-  focusOutlineHidden: {
-    outlineColor: {
-      default: null,
-      ":focus": {
-        default: null,
-        "@media (forced-colors: active)": "transparent",
-      },
-    },
-    outlineOffset: {
-      default: null,
-      ":focus": {
-        default: null,
-        "@media (forced-colors: active)": "2px",
-      },
-    },
-    outlineStyle: {
-      default: null,
-      ":focus": {
-        default: "none",
-        "@media (forced-colors: active)": "solid",
-      },
-    },
-    outlineWidth: {
-      default: null,
-      ":focus": {
-        default: null,
-        "@media (forced-colors: active)": "2px",
-      },
-    },
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  item: {
-    alignItems: "center",
-    backgroundColor: {
-      default: null,
-      ":focus": colors.accent,
-      ":is([data-highlighted])": colors.accent,
-    },
-    borderRadius: radii.full,
-    color: {
-      default: null,
-      ":focus": colors.accentForeground,
-      ":is([data-highlighted])": colors.accentForeground,
-    },
-    cursor: "default",
-    display: "flex",
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-    opacity: {
-      default: 1,
-      ":is([data-disabled])": 0.5,
-    },
-    paddingBlock: "0.375rem",
-    paddingLeft: "0.5rem",
-    paddingRight: "2rem",
-    pointerEvents: {
-      default: null,
-      ":is([data-disabled])": "none",
-    },
-    position: "relative",
-    userSelect: "none",
-    width: "100%",
-  },
-  outlineHidden: {
-    outlineColor: {
-      default: null,
-      "@media (forced-colors: active)": "transparent",
-    },
-    outlineOffset: {
-      default: null,
-      "@media (forced-colors: active)": "2px",
-    },
-    outlineStyle: {
-      default: "none",
-      "@media (forced-colors: active)": "solid",
-    },
-    outlineWidth: {
-      default: null,
-      "@media (forced-colors: active)": "2px",
-    },
-  },
-  itemIndicator: {
-    alignItems: "center",
-    display: "flex",
-    height: "0.875rem",
-    justifyContent: "center",
-    position: "absolute",
-    right: "0.5rem",
-    width: "0.875rem",
-  },
-  label: {
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    lineHeight: "1.25rem",
-    paddingBlock: "0.375rem",
-    paddingInline: "0.5rem",
-  },
-  popperContent: {
-    translate: {
-      default: null,
-      ':is([data-side="bottom"])': "0 0.25rem",
-      ':is([data-side="left"])': "-0.25rem 0",
-      ':is([data-side="right"])': "0.25rem 0",
-      ':is([data-side="top"])': "0 -0.25rem",
-    },
-  },
-  popperViewport: {
-    height: "var(--radix-select-trigger-height)",
-    minWidth: "var(--radix-select-trigger-width)",
-    width: "100%",
-  },
-  scrollButton: {
-    alignItems: "center",
-    cursor: "default",
-    display: "flex",
-    justifyContent: "center",
-    paddingBlock: "0.25rem",
-  },
-  separator: {
-    backgroundColor: colors.muted,
-    height: "1px",
-    marginBlock: "0.25rem",
-    marginInline: "-0.25rem",
-  },
-  trigger: {
-    alignItems: "center",
-    backgroundColor: "transparent",
-    borderColor: colors.input,
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: {
-      default: shadows.sm,
-      ":focus": `0 0 0 1px ${colors.ring}, ${shadows.sm}`,
-    },
-    color: {
-      default: null,
-      ":is([data-placeholder])": colors.mutedForeground,
-    },
-    cursor: {
-      default: null,
-      ":disabled": "not-allowed",
-    },
-    display: "flex",
-    fontSize: "0.875rem",
-    height: "2.25rem",
-    justifyContent: "space-between",
-    lineHeight: "1.25rem",
-    opacity: {
-      default: 1,
-      ":disabled": 0.5,
-    },
-    paddingBlock: "0.5rem",
-    paddingInline: "0.75rem",
-    whiteSpace: "nowrap",
-    width: "100%",
-  },
-  triggerIcon: {
-    flexShrink: 0,
-    height: "1rem",
-    marginRight: "-0.25rem",
-    opacity: 0.5,
-    width: "1rem",
-  },
-  value: {
-    WebkitBoxOrient: "vertical",
-    WebkitLineClamp: 1,
-    display: "-webkit-box",
-    overflow: "hidden",
-  },
-  viewport: {
-    padding: "0.25rem",
-  },
-});
 
 export {
   Select,

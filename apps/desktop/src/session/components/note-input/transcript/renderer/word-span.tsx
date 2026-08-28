@@ -1,7 +1,6 @@
-import * as stylex from "@stylexjs/stylex";
 import { Fragment, memo, useMemo } from "react";
 
-import { colors } from "@anlg/design-system/tokens.stylex";
+import { cn } from "@anlg/utils";
 
 import type { HighlightSegment } from "./utils";
 
@@ -25,14 +24,19 @@ export const WordSpan = memo(function WordSpan(props: WordSpanProps) {
     props.isActiveMatch ?? false,
   );
   const canSeek = props.audioExists && isTranscriptWordSeekable(props.word);
+  const className = useMemo(
+    () =>
+      cn([
+        canSeek && "hover:bg-accent/60 cursor-pointer",
+        !props.word.is_final && ["opacity-60", "italic"],
+      ]),
+    [canSeek, props.word.is_final],
+  );
 
   return (
     <span
       onClick={() => canSeek && props.onClickWord(props.word)}
-      {...stylex.props(
-        canSeek && styles.seekable,
-        !props.word.is_final && styles.interim,
-      )}
+      className={className}
       data-transcript-word-id={props.word.id}
       data-transcript-word-start-ms={props.word.start_ms}
     >
@@ -58,9 +62,7 @@ function useHighlightedContent(
       segment.isMatch ? (
         <span
           key={`${baseKey}-match-${index}`}
-          {...stylex.props(
-            isActive ? styles.activeMatch : styles.inactiveMatch,
-          )}
+          className={isActive ? "bg-yellow-500" : "bg-yellow-200/50"}
         >
           {segment.text}
         </span>
@@ -70,23 +72,3 @@ function useHighlightedContent(
     );
   }, [displayText, isActive, segments, word.id, word.text]);
 }
-
-const styles = stylex.create({
-  activeMatch: {
-    backgroundColor: "#eab308",
-  },
-  inactiveMatch: {
-    backgroundColor: "rgb(254 240 138 / 0.5)",
-  },
-  interim: {
-    fontStyle: "italic",
-    opacity: 0.6,
-  },
-  seekable: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": `color-mix(in srgb, ${colors.accent} 60%, transparent)`,
-    },
-    cursor: "pointer",
-  },
-});

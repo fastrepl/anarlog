@@ -83,13 +83,15 @@ describe("ChatContent", () => {
     cleanup();
   });
 
-  it("marks the floating content layout", () => {
-    const container = renderContent() as HTMLElement | null;
+  it("lets floating chat body shrink before the composer is clipped", () => {
+    const container = renderContent();
 
-    expect(container?.dataset.chatLayout).toBe("floating");
+    expect(container?.className).toContain("max-h-full");
+    expect(container?.className).not.toContain("flex-1");
+    expect(container?.className).not.toContain("shrink-0");
   });
 
-  it("marks the right-panel content layout", () => {
+  it("fills available height in the right panel layout", () => {
     const { container } = render(
       <ChatContent
         sessionId="active-session"
@@ -107,9 +109,10 @@ describe("ChatContent", () => {
       />,
     );
 
-    const content = container.querySelector<HTMLElement>("[data-chat-content]");
+    const content = container.querySelector("[data-chat-content]");
 
-    expect(content?.dataset.chatLayout).toBe("right-panel");
+    expect(content?.className).toContain("flex-1");
+    expect(content?.className).not.toContain("shrink-0");
   });
 
   it("adds dropped session refs to chat context", () => {

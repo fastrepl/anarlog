@@ -2,10 +2,8 @@
 
 import { lingui, linguiTransformerBabelPreset } from "@lingui/vite-plugin";
 import babel from "@rolldown/plugin-babel";
-import stylex from "@stylexjs/unplugin";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
-import { fileURLToPath } from "node:url";
 import { defineConfig, type UserConfig } from "vite";
 
 import { relayShim } from "@anlg/plugin-relay/vite";
@@ -17,18 +15,6 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(() => ({
   plugins: [
-    stylex.vite({
-      runtimeInjection: false,
-      unstable_moduleResolution: {
-        type: "commonJS",
-        rootDir: fileURLToPath(new URL("../..", import.meta.url)),
-      },
-      useCSSLayers: {
-        before: ["theme", "base"],
-        after: ["components", "utilities"],
-        prefix: "stylex",
-      },
-    }),
     relayShim(),
     changelog(),
     tanstackRouter({ target: "react", autoCodeSplitting: true }),

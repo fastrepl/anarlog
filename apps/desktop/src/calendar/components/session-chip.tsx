@@ -1,10 +1,8 @@
 import { useLingui } from "@lingui/react/macro";
-import * as stylex from "@stylexjs/stylex";
 import { platform } from "@tauri-apps/plugin-os";
 import { format } from "date-fns";
 import { useCallback, useMemo } from "react";
 
-import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { Button } from "@anlg/ui/components/ui/button";
@@ -14,6 +12,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
+import { cn } from "@anlg/utils";
 
 import { toTz, useTimezone } from "~/calendar/hooks";
 import { useDeleteSession } from "~/session/hooks/useDeleteSession";
@@ -81,16 +80,26 @@ export function SessionChip({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button {...stylex.props(styles.chip)} onContextMenu={showContextMenu}>
-          <div {...stylex.props(styles.marker)} />
-          <span {...stylex.props(styles.truncate)}>{title}</span>
-          {createdAt && <span {...stylex.props(styles.time)}>{createdAt}</span>}
+        <button
+          className={cn([
+            "flex w-full items-center gap-1 rounded pl-0.5 text-left text-xs leading-tight",
+            "cursor-pointer select-none hover:opacity-80",
+          ])}
+          onContextMenu={showContextMenu}
+        >
+          <div className="border-border w-[4px] shrink-0 self-stretch rounded-full border bg-transparent" />
+          <span className="truncate">{title}</span>
+          {createdAt && (
+            <span className="text-muted-foreground ml-auto shrink-0 font-mono">
+              {createdAt}
+            </span>
+          )}
         </button>
       </PopoverTrigger>
       <PopoverContent
         variant="app"
         align="start"
-        sx={styles.popover}
+        className="w-[280px]"
         onClick={(e) => e.stopPropagation()}
       >
         <AppFloatingPanel>
@@ -120,82 +129,21 @@ function SessionPopoverContent({
     : null;
 
   return (
-    <div {...stylex.props(styles.popoverContent)}>
-      <div {...stylex.props(styles.title)}>{session.title}</div>
-      <div {...stylex.props(styles.separator)} />
-      {createdAt && <div {...stylex.props(styles.createdAt)}>{createdAt}</div>}
-      <Button size="sm" sx={styles.openButton} onClick={handleOpen}>
+    <div className="flex flex-col gap-3 p-4">
+      <div className="text-foreground text-base font-medium">
+        {session.title}
+      </div>
+      <div className="bg-accent h-px" />
+      {createdAt && (
+        <div className="text-muted-foreground text-sm">{createdAt}</div>
+      )}
+      <Button
+        size="sm"
+        className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-8 w-full"
+        onClick={handleOpen}
+      >
         Open note
       </Button>
     </div>
   );
 }
-
-const styles = stylex.create({
-  chip: {
-    alignItems: "center",
-    cursor: "pointer",
-    display: "flex",
-    fontSize: "0.75rem",
-    gap: "0.25rem",
-    lineHeight: 1.25,
-    opacity: {
-      default: 1,
-      ":hover": 0.8,
-    },
-    paddingLeft: "0.125rem",
-    borderRadius: "0.25rem",
-    textAlign: "left",
-    userSelect: "none",
-    width: "100%",
-  },
-  createdAt: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-  },
-  marker: {
-    alignSelf: "stretch",
-    backgroundColor: "transparent",
-    borderColor: colors.border,
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    flexShrink: 0,
-    width: "4px",
-  },
-  openButton: {
-    minHeight: "2rem",
-    width: "100%",
-  },
-  popover: {
-    width: "280px",
-  },
-  popoverContent: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-    padding: "1rem",
-  },
-  separator: {
-    backgroundColor: colors.accent,
-    height: "1px",
-  },
-  time: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    fontFamily: fonts.mono,
-    marginLeft: "auto",
-  },
-  title: {
-    color: colors.foreground,
-    fontSize: "1rem",
-    fontWeight: 500,
-    lineHeight: "1.5rem",
-  },
-  truncate: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-});

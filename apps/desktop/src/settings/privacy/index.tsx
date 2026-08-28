@@ -1,5 +1,4 @@
 import { useLingui } from "@lingui/react/macro";
-import * as stylex from "@stylexjs/stylex";
 import { platform } from "@tauri-apps/plugin-os";
 import { useEffect } from "react";
 
@@ -52,10 +51,10 @@ export function SettingsPrivacy() {
       : t`Require Touch ID or your password when opening Anarlog.`;
 
   return (
-    <div {...stylex.props(styles.page)}>
+    <div className="flex flex-col gap-8">
       <SettingsPageTitle title={i18n._(privacyMessages.title)} />
 
-      <section {...stylex.props(styles.settings)}>
+      <section className="flex flex-col gap-4">
         <SettingSwitchRow
           title={t`Lock app`}
           description={lockAppDescription}
@@ -96,16 +95,3 @@ export function SettingsPrivacy() {
     </div>
   );
 }
-
-const styles = stylex.create({
-  page: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "2rem",
-  },
-  settings: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-});

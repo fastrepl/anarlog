@@ -1,6 +1,6 @@
 import contentCollections from "@content-collections/vite";
 import netlify from "@netlify/vite-plugin-tanstack-start";
-import stylex from "@stylexjs/unplugin";
+import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
@@ -19,19 +19,8 @@ const config = defineConfig(() => {
       sourcemap: generateSourceMaps ? ("hidden" as const) : false,
     },
     plugins: [
-      stylex.vite({
-        runtimeInjection: false,
-        unstable_moduleResolution: {
-          type: "commonJS",
-          rootDir: fileURLToPath(new URL("../..", import.meta.url)),
-        },
-        useCSSLayers: {
-          before: ["theme", "base"],
-          after: ["components", "utilities"],
-          prefix: "stylex",
-        },
-      }),
       contentCollections(),
+      tailwindcss(),
       tanstackStart({
         sitemap: {
           host: "https://anarlog.so",

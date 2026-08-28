@@ -10,16 +10,9 @@ import {
   Pause,
   Play,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSyncExternalStore } from "react";
 
-import {
-  colors,
-  radii,
-  shadows,
-  spacing,
-} from "@anlg/design-system/tokens.stylex";
 import { getCloudsyncStatus, syncCloudsyncNow } from "@anlg/plugin-db";
 import {
   DropdownMenu,
@@ -28,7 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
-import { formatDistanceToNow } from "@anlg/utils";
+import { cn, formatDistanceToNow } from "@anlg/utils";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
@@ -287,37 +280,35 @@ export function SyncStatusIndicator() {
           type="button"
           aria-label={t`Cloud sync status: ${view.label}`}
           data-testid="sync-status-indicator"
-          {...stylex.props(styles.indicator)}
+          className={cn([
+            "absolute right-2 bottom-2 z-10",
+            "border-border/60 bg-background/90 flex size-7 items-center justify-center rounded-lg border shadow-sm backdrop-blur",
+            "text-muted-foreground hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground outline-hidden transition-colors",
+          ])}
         >
           {view.kind === "error" && (
-            <CloudWarning {...stylex.props(styles.icon, styles.errorIcon)} />
+            <CloudWarning className="size-4 text-yellow-600" />
           )}
           {view.kind === "connecting" && (
-            <CircleNotch
-              {...stylex.props(styles.icon, styles.spinIcon, styles.syncIcon)}
-            />
+            <CircleNotch className="size-4 animate-spin text-blue-500" />
           )}
           {view.kind === "syncing" && (
-            <ArrowsClockwise
-              {...stylex.props(styles.icon, styles.spinIcon, styles.syncIcon)}
-            />
+            <ArrowsClockwise className="size-4 animate-spin text-blue-500" />
           )}
-          {view.kind === "deferred" && (
-            <HardDrive {...stylex.props(styles.icon)} />
-          )}
-          {view.kind === "paused" && (
-            <CloudSlash {...stylex.props(styles.icon)} />
-          )}
+          {view.kind === "deferred" && <HardDrive className="size-4" />}
+          {view.kind === "paused" && <CloudSlash className="size-4" />}
           {view.kind === "synced" && (
-            <CheckCircle {...stylex.props(styles.icon, styles.successIcon)} />
+            <CheckCircle className="size-4 text-emerald-500" />
           )}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent side="top" align="end" sx={styles.menu}>
-        <div {...stylex.props(styles.menuHeader)}>
-          <p {...stylex.props(styles.menuTitle)}>{view.label}</p>
+      <DropdownMenuContent side="top" align="end" className="w-64">
+        <div className="px-2 py-1.5">
+          <p className="text-sm font-medium">{view.label}</p>
           {view.description && (
-            <p {...stylex.props(styles.menuDescription)}>{view.description}</p>
+            <p className="text-muted-foreground mt-0.5 text-xs break-words">
+              {view.description}
+            </p>
           )}
         </div>
         <DropdownMenuSeparator />
@@ -337,7 +328,7 @@ export function SyncStatusIndicator() {
             syncNowMutation.mutate();
           }}
         >
-          <ArrowsClockwise {...stylex.props(styles.icon)} />
+          <ArrowsClockwise className="size-4" />
           {canRetry ? <Trans>Retry</Trans> : <Trans>Sync now</Trans>}
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -345,9 +336,9 @@ export function SyncStatusIndicator() {
           onSelect={() => setSyncEnabledMutation.mutate(!syncPreferred)}
         >
           {syncPreferred ? (
-            <Pause {...stylex.props(styles.icon)} />
+            <Pause className="size-4" />
           ) : (
-            <Play {...stylex.props(styles.icon)} />
+            <Play className="size-4" />
           )}
           {syncPreferred ? (
             <Trans>Pause sync</Trans>
@@ -357,90 +348,10 @@ export function SyncStatusIndicator() {
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={openSyncSettings}>
-          <Gear {...stylex.props(styles.icon)} />
+          <Gear className="size-4" />
           <Trans>Sync settings</Trans>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
-
-const spin = stylex.keyframes({
-  to: {
-    transform: "rotate(360deg)",
-  },
-});
-
-const styles = stylex.create({
-  errorIcon: {
-    color: "rgb(202 138 4)",
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  indicator: {
-    alignItems: "center",
-    backdropFilter: "blur(8px)",
-    backgroundColor: {
-      default: `color-mix(in oklab, ${colors.background} 90%, transparent)`,
-      ":focus-visible": colors.accent,
-    },
-    borderColor: `color-mix(in oklab, ${colors.border} 60%, transparent)`,
-    borderRadius: radii.lg,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    bottom: spacing.sm,
-    boxShadow: shadows.sm,
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-      ":focus-visible": colors.foreground,
-    },
-    display: "flex",
-    height: "1.75rem",
-    justifyContent: "center",
-    outlineWidth: "2px",
-    outlineStyle: "solid",
-    outlineColor: "transparent",
-    outlineOffset: "2px",
-    position: "absolute",
-    right: spacing.sm,
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "1.75rem",
-    zIndex: 10,
-  },
-  menu: {
-    width: "16rem",
-  },
-  menuDescription: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    marginTop: "0.125rem",
-    overflowWrap: "break-word",
-  },
-  menuHeader: {
-    paddingBlock: "0.375rem",
-    paddingInline: spacing.sm,
-  },
-  menuTitle: {
-    fontSize: "0.875rem",
-    fontWeight: 500,
-  },
-  spinIcon: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-  },
-  successIcon: {
-    color: "rgb(16 185 129)",
-  },
-  syncIcon: {
-    color: "rgb(59 130 246)",
-  },
-});
-
-export { styles as syncStatusStyles };

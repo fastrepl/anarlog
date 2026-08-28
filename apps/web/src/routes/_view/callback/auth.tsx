@@ -1,10 +1,14 @@
 import { Check, Copy } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
 
-import { AuthShell, authStyles } from "@/components/auth-shell";
+import {
+  AuthShell,
+  authNoticeClassName,
+  authPrimaryButtonClassName,
+  authSecondaryButtonClassName,
+} from "@/components/auth-shell";
 import { exchangeOAuthCode } from "@/functions/auth";
 import {
   DEFAULT_DESKTOP_SCHEME,
@@ -28,49 +32,7 @@ import {
   getDesktopAppOpenLinkProps,
   useDesktopAppAutoOpen,
 } from "@/lib/desktop-auth-handoff";
-const styles = stylex.create({
-  style1: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  style2: {
-    textAlign: "center",
-    fontSize: ".875rem",
-    lineHeight: "1.5rem",
-    color: "#756b5d",
-  },
-  style3: {
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    fontWeight: 500,
-    color: "#4f4940",
-  },
-  style4: {
-    display: "flex",
-    flexDirection: "column",
-    gap: ".75rem",
-  },
-  style5: {
-    borderRadius: ".75rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    borderColor: "#e5ddcf",
-    backgroundColor: "#fbfaf7",
-    padding: "1rem",
-    textAlign: "center",
-  },
-  style6: {
-    marginBottom: ".75rem",
-    fontSize: ".875rem",
-    lineHeight: "1.5rem",
-    color: "#756b5d",
-  },
-  style7: {
-    width: "1rem",
-    height: "1rem",
-  },
-});
+
 const validateSearch = z.object({
   code: z.string().optional(),
   token_hash: z.string().optional(),
@@ -95,35 +57,32 @@ const validateSearch = z.object({
   error_code: z.string().optional(),
   error_description: z.string().optional(),
 });
+
 export const Route = createFileRoute("/_view/callback/auth")({
   validateSearch,
   component: Component,
   head: () => ({
-    meta: [
-      {
-        name: "robots",
-        content: "noindex, nofollow",
-      },
-    ],
+    meta: [{ name: "robots", content: "noindex, nofollow" }],
   }),
   beforeLoad: async ({ search }) => {
     const context = resolveAuthFlowContext(search);
+
     if (search.code) {
       const result = await exchangeOAuthCode({
-        data: {
-          code: search.code,
-          flow: search.flow,
-        },
+        data: { code: search.code, flow: search.flow },
       });
+
       if (!result.success) {
         throw redirectToExchangeError(search, result.error);
       }
+
       if (search.type === "recovery") {
         throw redirect({
           to: "/update-password/",
           search: toAuthFlowSearch(context),
         });
       }
+
       if (search.flow === "web") {
         throw redirect({
           href: buildPostAuthDestination({
@@ -132,6 +91,7 @@ export const Route = createFileRoute("/_view/callback/auth")({
           }),
         } as any);
       }
+
       throw redirect({
         to: "/callback/auth/",
         search: {
@@ -143,6 +103,7 @@ export const Route = createFileRoute("/_view/callback/auth")({
         },
       });
     }
+
     if (search.token_hash && search.type) {
       throw redirect({
         to: "/confirm-auth/",
@@ -155,6 +116,7 @@ export const Route = createFileRoute("/_view/callback/auth")({
         },
       });
     }
+
     if (search.flow === "web" && !search.error) {
       throw redirect({
         href: sanitizeInternalReturnPath(search.redirect),
@@ -162,10 +124,12 @@ export const Route = createFileRoute("/_view/callback/auth")({
     }
   },
 });
+
 function Component() {
   const search = Route.useSearch();
   const [storedHandoff, setStoredHandoff] =
     useState<ReturnType<typeof consumeDesktopAuthHandoff>>(null);
+
   const accessToken = search.access_token ?? storedHandoff?.accessToken;
   const refreshToken = search.refresh_token ?? storedHandoff?.refreshToken;
   const deeplink = buildDesktopAuthDeeplink(
@@ -173,6 +137,7 @@ function Component() {
     accessToken,
     refreshToken,
   );
+
   useMountEffect(() => {
     prepareAuthRoutePrivacy();
     if (
@@ -185,20 +150,20 @@ function Component() {
       }
     }
   });
+
   if (search.error) {
     const retrySearch = toAuthFlowSearch(resolveAuthFlowContext(search));
-    const retryParams = new URLSearchParams({
-      flow: retrySearch.flow,
-    });
+    const retryParams = new URLSearchParams({ flow: retrySearch.flow });
     if (retrySearch.scheme) retryParams.set("scheme", retrySearch.scheme);
     if (retrySearch.redirect) retryParams.set("redirect", retrySearch.redirect);
+
     return (
       <AuthShell
         title="Sign-in didn’t work"
         description="Your notes are safe. Try the sign-in flow again."
       >
-        <div {...stylex.props(styles.style1)}>
-          <p {...stylex.props(styles.style2)}>
+        <div className="flex flex-col gap-4">
+          <p className="text-center text-sm leading-6 text-[#756b5d]">
             {search.error_description
               ? search.error_description.replaceAll("+", " ")
               : "Something went wrong during sign-in"}
@@ -206,7 +171,7 @@ function Component() {
 
           <a
             href={`/auth?${retryParams.toString()}`}
-            {...stylex.props(authStyles.primaryButton)}
+            className={authPrimaryButtonClassName}
           >
             Try again
           </a>
@@ -214,8 +179,10 @@ function Component() {
       </AuthShell>
     );
   }
+
   if (search.flow === "desktop") {
     const hasTokens = accessToken && refreshToken;
+
     return (
       <AuthShell
         title={hasTokens ? "You’re signed in" : "Finishing sign-in"}
@@ -225,64 +192,70 @@ function Component() {
             : "Please wait while we complete the secure handoff."
         }
       >
-        <div {...stylex.props(styles.style1)}>
+        <div className="flex flex-col gap-4">
           {deeplink && <DesktopAuthHandoffActions deeplink={deeplink} />}
 
           {!hasTokens && (
-            <div {...stylex.props(authStyles.notice)}>
-              <p {...stylex.props(styles.style3)}>Connecting your account...</p>
+            <div className={authNoticeClassName}>
+              <p className="text-sm font-medium text-[#4f4940]">
+                Connecting your account...
+              </p>
             </div>
           )}
         </div>
       </AuthShell>
     );
   }
+
   if (search.flow === "web") {
     return (
       <AuthShell
         title="Taking you back"
         description="Your sign-in is complete."
       >
-        <div {...stylex.props(authStyles.notice)}>
-          <p {...stylex.props(styles.style3)}>Opening your account...</p>
+        <div className={authNoticeClassName}>
+          <p className="text-sm font-medium text-[#4f4940]">
+            Opening your account...
+          </p>
         </div>
       </AuthShell>
     );
   }
 }
+
 function DesktopAuthHandoffActions({ deeplink }: { deeplink: string }) {
   const [copied, setCopied] = useState(false);
+
   useDesktopAppAutoOpen(deeplink);
+
   const handleCopy = async () => {
     await navigator.clipboard.writeText(deeplink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
   return (
-    <div {...stylex.props(styles.style4)}>
+    <div className="flex flex-col gap-3">
       <a
         {...getDesktopAppOpenLinkProps(deeplink)}
-        {...stylex.props(authStyles.primaryButton)}
+        className={authPrimaryButtonClassName}
       >
         Open Anarlog
       </a>
 
-      <div {...stylex.props(styles.style5)}>
-        <p {...stylex.props(styles.style6)}>
+      <div className="rounded-xl border border-[#e5ddcf] bg-[#fbfaf7] p-4 text-center">
+        <p className="mb-3 text-sm leading-6 text-[#756b5d]">
           Button not working? Copy the link instead
         </p>
-        <button
-          onClick={handleCopy}
-          {...stylex.props(authStyles.secondaryButton)}
-        >
+        <button onClick={handleCopy} className={authSecondaryButtonClassName}>
           {copied ? (
             <>
-              <Check {...stylex.props(styles.style7)} />
+              <Check className="size-4" />
               Copied!
             </>
           ) : (
             <>
-              <Copy {...stylex.props(styles.style7)} />
+              <Copy className="size-4" />
               Copy URL
             </>
           )}
@@ -291,6 +264,7 @@ function DesktopAuthHandoffActions({ deeplink }: { deeplink: string }) {
     </div>
   );
 }
+
 function redirectToExchangeError(
   search: {
     flow: "desktop" | "web";

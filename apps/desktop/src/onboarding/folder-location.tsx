@@ -1,11 +1,9 @@
 import { useLingui } from "@lingui/react/macro";
 import { FolderSimple } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { homeDir } from "@tauri-apps/api/path";
 import { message, open as selectFolder } from "@tauri-apps/plugin-dialog";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { commands as settingsCommands } from "@anlg/plugin-settings";
 
@@ -114,23 +112,26 @@ export function FolderLocationSection({
   );
 
   return (
-    <div {...stylex.props(styles.root)}>
-      <div {...stylex.props(styles.location)}>
-        <FolderSimple {...stylex.props(styles.folderIcon)} />
-        <button onClick={handleOpenPath} {...stylex.props(styles.pathButton)}>
+    <div className="flex flex-col gap-3">
+      <div className="border-border bg-muted flex items-center gap-3 rounded-lg border px-4 py-3">
+        <FolderSimple className="text-muted-foreground size-4 shrink-0" />
+        <button
+          onClick={handleOpenPath}
+          className="text-muted-foreground min-w-0 flex-1 truncate text-left text-sm hover:underline"
+        >
           {displayPath(vaultBase, home)}
         </button>
         <button
           onClick={handleChange}
           disabled={isPending}
-          {...stylex.props(styles.changeButton)}
+          className="text-muted-foreground hover:text-muted-foreground shrink-0 text-sm transition-colors disabled:opacity-50"
         >
           {t`Change`}
         </button>
         <button
           onClick={onContinue}
           disabled={isPending}
-          {...stylex.props(styles.confirmButton)}
+          className="bg-primary text-primary-foreground hover:bg-primary/90 shrink-0 rounded-full px-3 py-1 text-sm font-medium duration-150 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
         >
           {t`Confirm`}
         </button>
@@ -145,81 +146,3 @@ export function FolderLocationSection({
     </div>
   );
 }
-
-const styles = stylex.create({
-  changeButton: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-    opacity: {
-      default: 1,
-      ":disabled": 0.5,
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  confirmButton: {
-    backgroundColor: {
-      default: colors.primary,
-      ":hover": `color-mix(in oklab, ${colors.primary} 90%, transparent)`,
-    },
-    borderRadius: radii.full,
-    color: colors.primaryForeground,
-    flexShrink: 0,
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    lineHeight: "1.25rem",
-    opacity: {
-      default: 1,
-      ":disabled": 0.5,
-    },
-    paddingBlock: "0.25rem",
-    paddingInline: "0.75rem",
-    transform: {
-      default: "scale(1)",
-      ":hover": "scale(1.01)",
-      ":active": "scale(0.99)",
-    },
-    transitionDuration: "150ms",
-  },
-  folderIcon: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    height: "1rem",
-    width: "1rem",
-  },
-  location: {
-    alignItems: "center",
-    backgroundColor: colors.muted,
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    display: "flex",
-    gap: "0.75rem",
-    paddingBlock: "0.75rem",
-    paddingInline: "1rem",
-  },
-  pathButton: {
-    color: colors.mutedForeground,
-    flex: "1",
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-    minWidth: 0,
-    overflow: "hidden",
-    textAlign: "left",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    textDecorationLine: {
-      default: "none",
-      ":hover": "underline",
-    },
-  },
-  root: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-  },
-});

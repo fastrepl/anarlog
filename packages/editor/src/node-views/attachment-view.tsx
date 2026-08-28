@@ -3,11 +3,8 @@ import {
   useEditorEventCallback,
 } from "@handlewithcare/react-prosemirror";
 import { File, X } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import type { NodeSpec } from "prosemirror-model";
 import { forwardRef } from "react";
-
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 
 import { getSafeNodePos } from "./error-boundary";
 
@@ -75,14 +72,18 @@ export const AttachmentChipView = forwardRef<
       <span
         contentEditable={false}
         suppressContentEditableWarning
-        {...stylex.props(styles.attachment)}
+        className="border-border bg-muted text-muted-foreground inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs"
       >
         {isImage && url ? (
-          <img src={url} alt={name} {...stylex.props(styles.preview)} />
+          <img
+            src={url}
+            alt={name}
+            className="h-4 w-4 shrink-0 rounded object-cover"
+          />
         ) : (
-          <File size={12} {...stylex.props(styles.icon)} />
+          <File size={12} className="text-muted-foreground shrink-0" />
         )}
-        <span {...stylex.props(styles.name)}>{displayName}</span>
+        <span className="max-w-[120px] truncate">{displayName}</span>
         <button
           type="button"
           onMouseDown={(e) => {
@@ -90,56 +91,11 @@ export const AttachmentChipView = forwardRef<
             e.stopPropagation();
             handleRemove();
           }}
-          {...stylex.props(styles.remove)}
+          className="hover:bg-accent shrink-0 rounded p-0.5"
         >
           <X size={10} />
         </button>
       </span>
     </span>
   );
-});
-
-const styles = stylex.create({
-  attachment: {
-    alignItems: "center",
-    backgroundColor: colors.muted,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    color: colors.mutedForeground,
-    display: "inline-flex",
-    fontSize: "0.75rem",
-    gap: "0.25rem",
-    lineHeight: "1rem",
-    paddingBlock: "0.125rem",
-    paddingInline: "0.375rem",
-  },
-  preview: {
-    borderRadius: "0.25rem",
-    flexShrink: 0,
-    height: "1rem",
-    objectFit: "cover",
-    width: "1rem",
-  },
-  icon: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-  },
-  name: {
-    maxWidth: "120px",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  remove: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    borderRadius: "0.25rem",
-    borderStyle: "none",
-    flexShrink: 0,
-    padding: "0.125rem",
-  },
 });

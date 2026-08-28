@@ -1,4 +1,3 @@
-import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import {
   Fragment,
@@ -11,8 +10,6 @@ import {
   useState,
 } from "react";
 
-import { colors } from "@anlg/design-system/tokens.stylex";
-import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 // The read surface that otherwise carries these styles is lazy-loaded, so the
 // static document would render unstyled during SSR and on the fallback paths.
 import "@anlg/editor/styles.css";
@@ -24,152 +21,18 @@ import {
   type SharedNoteAttachmentDownload,
   type SharedNoteNode,
 } from "@/lib/shared-notes";
-const styles = stylex.create({
-  style1: {
-    color: colors.foreground,
-  },
-  style2: {
-    marginTop: "2.5rem",
-    borderColor: colors.border,
-    borderTopStyle: "solid",
-    borderTopWidth: "1px",
-    paddingTop: "1.5rem",
-  },
-  style3: {
-    marginBlock: "2rem",
-    borderColor: colors.border,
-    borderTopStyle: "solid",
-    borderTopWidth: "1px",
-  },
-  style4: {
-    listStyleType: "disc",
-    paddingLeft: "1.5rem",
-  },
-  style5: {
-    listStyleType: "decimal",
-    paddingLeft: "1.5rem",
-  },
-  orderedListStart: (start: number) => ({
-    counterReset: `ol-counter ${start - 1}`,
-  }),
-  style8: {
-    minWidth: 0,
-    flexBasis: "0%",
-    flexGrow: 1,
-    flexShrink: 1,
-  },
-  style9: {
-    marginBlock: "1.5rem",
-    overflowX: "auto",
-  },
-  style10: {
-    width: "100%",
-    borderCollapse: "collapse",
-    borderColor: colors.border,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    textAlign: "left",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-  },
-  style11: {
-    borderColor: colors.border,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    paddingInline: ".75rem",
-    paddingBlock: ".5rem",
-    verticalAlign: "top",
-  },
-  style12: {
-    backgroundColor: colors.muted,
-    borderColor: colors.border,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    paddingInline: ".75rem",
-    paddingBlock: ".5rem",
-    verticalAlign: "top",
-    fontWeight: 500,
-  },
-  style13: {
-    marginBlock: "1rem",
-    backgroundColor: colors.muted,
-    borderColor: colors.border,
-    borderRadius: ".75rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    paddingInline: "1rem",
-    paddingBlock: ".75rem",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: colors.mutedForeground,
-  },
-  style14: {
-    marginBlock: "1.5rem",
-  },
-  style15: {
-    maxHeight: "70vh",
-    maxWidth: "100%",
-    borderColor: colors.border,
-    borderRadius: ".75rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    objectFit: "contain",
-  },
-  style16: {
-    marginBlock: "1.25rem",
-  },
-  style17: {
-    marginBottom: ".5rem",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: colors.mutedForeground,
-  },
-  style18: {
-    width: "100%",
-  },
-  style19: {
-    marginBlock: "1rem",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "1rem",
-    backgroundColor: colors.muted,
-    borderColor: colors.border,
-    borderRadius: ".75rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    paddingInline: "1rem",
-    paddingBlock: ".75rem",
-    color: colors.foreground,
-    textDecorationLine: "none",
-  },
-  style20: {
-    minWidth: 0,
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    fontWeight: 500,
-  },
-  style21: {
-    flexShrink: 0,
-    fontSize: ".75rem",
-    lineHeight: "1rem",
-    color: colors.mutedForeground,
-  },
-});
+
 export type SharedAttachmentResolver = (
   attachment: SharedNoteAttachment,
   signal: AbortSignal,
 ) => Promise<SharedNoteAttachmentDownload | null>;
+
 const AttachmentContext = createContext<{
   attachments: ReadonlyMap<string, SharedNoteAttachment>;
   excluded: ReadonlySet<string>;
   resolve: SharedAttachmentResolver | null;
-}>({
-  attachments: new Map(),
-  excluded: new Set(),
-  resolve: null,
-});
+}>({ attachments: new Map(), excluded: new Set(), resolve: null });
+
 export function SharedNoteDocument({
   attachments,
   document,
@@ -201,15 +64,10 @@ export function SharedNoteDocument({
   }, [attachments, document, excludedAttachmentIds]);
   return (
     <AttachmentContext.Provider value={context}>
-      <div
-        {...mergeStyleXProps(
-          styles.style1,
-          "ProseMirror prosemirror-editor note-typography session-note-editor shared-note-document",
-        )}
-      >
+      <div className="ProseMirror prosemirror-editor note-typography session-note-editor shared-note-document text-color">
         {renderChildren(document.content, "document")}
         {unreferencedAttachments.length > 0 ? (
-          <section {...stylex.props(styles.style2)}>
+          <section className="border-color-subtle mt-10 border-t pt-6">
             <h2>Attachments</h2>
             {unreferencedAttachments.map((attachment) => (
               <SharedAttachmentNode
@@ -218,9 +76,7 @@ export function SharedNoteDocument({
                   type: attachment.contentType.startsWith("audio/")
                     ? "clip"
                     : "fileAttachment",
-                  attrs: {
-                    sharedAttachmentId: attachment.id,
-                  },
+                  attrs: { sharedAttachmentId: attachment.id },
                 }}
               />
             ))}
@@ -230,6 +86,7 @@ export function SharedNoteDocument({
     </AttachmentContext.Provider>
   );
 }
+
 function collectSharedAttachmentIds(root: SharedNoteNode) {
   const ids = new Set<string>();
   const visit = (node: SharedNoteNode) => {
@@ -240,11 +97,14 @@ function collectSharedAttachmentIds(root: SharedNoteNode) {
   visit(root);
   return ids;
 }
+
 function renderChildren(nodes: SharedNoteNode[] | undefined, path: string) {
   return nodes?.map((node, index) => renderNode(node, `${path}-${index}`));
 }
+
 function renderNode(node: SharedNoteNode, key: string): ReactNode {
   const children = renderChildren(node.content, key);
+
   switch (node.type) {
     case "text":
       return <Fragment key={key}>{renderMarkedText(node, key)}</Fragment>;
@@ -254,13 +114,7 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
       return <p key={key}>{children}</p>;
     case "heading": {
       const level = getIntegerAttr(node, "level", 1, 6, 2);
-      return createElement(
-        `h${level}`,
-        {
-          key,
-        },
-        children,
-      );
+      return createElement(`h${level}`, { key }, children);
     }
     case "blockquote":
       return <blockquote key={key}>{children}</blockquote>;
@@ -271,14 +125,14 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
         </pre>
       );
     case "horizontalRule":
-      return <hr key={key} {...stylex.props(styles.style3)} />;
+      return <hr key={key} className="border-color-subtle my-8 border-t" />;
     case "image":
     case "fileAttachment":
     case "clip":
       return <SharedAttachmentNode key={key} node={node} />;
     case "bulletList":
       return (
-        <ul key={key} {...stylex.props(styles.style4)}>
+        <ul key={key} className="list-disc pl-6">
           {children}
         </ul>
       );
@@ -287,11 +141,13 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
       return (
         <ol
           key={key}
-          {...stylex.props(
-            styles.style5,
-            start !== 1 && styles.orderedListStart(start),
-          )}
+          className="list-decimal pl-6"
           start={start}
+          style={
+            start === 1
+              ? undefined
+              : { counterReset: `ol-counter ${start - 1}` }
+          }
         >
           {children}
         </ol>
@@ -319,14 +175,14 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
               className="task-checkbox"
             />
           </label>
-          <div {...stylex.props(styles.style8)}>{children}</div>
+          <div className="min-w-0 flex-1">{children}</div>
         </li>
       );
     }
     case "table":
       return (
-        <div key={key} {...stylex.props(styles.style9)}>
-          <table {...stylex.props(styles.style10)}>
+        <div key={key} className="my-6 overflow-x-auto">
+          <table className="border-color-subtle w-full border-collapse border text-left text-sm">
             <tbody>{children}</tbody>
           </table>
         </div>
@@ -339,7 +195,7 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
           key={key}
           colSpan={getIntegerAttr(node, "colspan", 1, 1000, 1)}
           rowSpan={getIntegerAttr(node, "rowspan", 1, 1000, 1)}
-          {...stylex.props(styles.style11)}
+          className="border-color-subtle border px-3 py-2 align-top"
         >
           {children}
         </td>
@@ -350,7 +206,7 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
           key={key}
           colSpan={getIntegerAttr(node, "colspan", 1, 1000, 1)}
           rowSpan={getIntegerAttr(node, "rowspan", 1, 1000, 1)}
-          {...stylex.props(styles.style12)}
+          className="surface-subtle border-color-subtle border px-3 py-2 align-top font-medium"
         >
           {children}
         </th>
@@ -359,6 +215,7 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
       return null;
   }
 }
+
 function SharedAttachmentNode({ node }: { node: SharedNoteNode }) {
   const { attachments, excluded, resolve } = useContext(AttachmentContext);
   const [pinnedAudioDownload, setPinnedAudioDownload] =
@@ -391,31 +248,35 @@ function SharedAttachmentNode({ node }: { node: SharedNoteNode }) {
       ? downloadQuery.data
       : null;
   const activeDownload = isAudio ? (pinnedAudioDownload ?? download) : download;
+
   if (attachment && excluded.has(attachment.id)) {
     return null;
   }
+
   if (!attachment || !resolve || !activeDownload) {
     return (
-      <div {...stylex.props(styles.style13)}>
+      <div className="surface-subtle border-color-subtle text-color-muted my-4 rounded-xl border px-4 py-3 text-sm">
         {downloadQuery.isPending && attachment && resolve
           ? `Loading ${attachment.filename}…`
           : "Attachment unavailable"}
       </div>
     );
   }
+
   if (node.type === "image" && isInlineImage(attachment.contentType)) {
     return (
-      <figure {...stylex.props(styles.style14)}>
+      <figure className="my-6">
         <img
           src={activeDownload.signedUrl}
           alt={getStringAttr(node, "alt") ?? attachment.filename}
           loading="lazy"
           referrerPolicy="no-referrer"
-          {...stylex.props(styles.style15)}
+          className="border-color-subtle max-h-[70vh] max-w-full rounded-xl border object-contain"
         />
       </figure>
     );
   }
+
   if (isAudio) {
     const refreshAudioGrant = async (
       audio: HTMLAudioElement,
@@ -439,8 +300,8 @@ function SharedAttachmentNode({ node }: { node: SharedNoteNode }) {
       });
     };
     return (
-      <div {...stylex.props(styles.style16)}>
-        <p {...stylex.props(styles.style17)}>{attachment.filename}</p>
+      <div className="my-5">
+        <p className="text-color-muted mb-2 text-sm">{attachment.filename}</p>
         <audio
           ref={audioRef}
           controls
@@ -469,11 +330,12 @@ function SharedAttachmentNode({ node }: { node: SharedNoteNode }) {
               void refreshAudioGrant(event.currentTarget, audioPlaying);
             }
           }}
-          {...stylex.props(styles.style18)}
+          className="w-full"
         />
       </div>
     );
   }
+
   return (
     <a
       href={activeDownload.signedUrl}
@@ -481,15 +343,18 @@ function SharedAttachmentNode({ node }: { node: SharedNoteNode }) {
       target="_blank"
       rel="ugc noopener noreferrer"
       referrerPolicy="no-referrer"
-      {...stylex.props(styles.style19)}
+      className="surface-subtle border-color-subtle text-color my-4 flex items-center justify-between gap-4 rounded-xl border px-4 py-3 no-underline"
     >
-      <span {...stylex.props(styles.style20)}>{attachment.filename}</span>
-      <span {...stylex.props(styles.style21)}>
+      <span className="min-w-0 truncate font-medium">
+        {attachment.filename}
+      </span>
+      <span className="text-color-muted shrink-0 text-xs">
         {formatFileSize(attachment.sizeBytes)}
       </span>
     </a>
   );
 }
+
 function isInlineImage(contentType: string) {
   return [
     "image/avif",
@@ -499,17 +364,21 @@ function isInlineImage(contentType: string) {
     "image/webp",
   ].includes(contentType);
 }
+
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
 function getStringAttr(node: SharedNoteNode, name: string) {
   const value = node.attrs?.[name];
   return typeof value === "string" && value ? value : null;
 }
+
 function renderMarkedText(node: SharedNoteNode, key: string) {
   let content: ReactNode = node.text ?? "";
+
   for (const [index, mark] of (node.marks ?? []).entries()) {
     const markKey = `${key}-mark-${index}`;
     switch (mark.type) {
@@ -550,8 +419,10 @@ function renderMarkedText(node: SharedNoteNode, key: string) {
       }
     }
   }
+
   return content;
 }
+
 function getIntegerAttr(
   node: SharedNoteNode,
   name: string,

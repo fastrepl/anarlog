@@ -35,6 +35,13 @@
       }
     ]
   },
+  "sortTailwindcss": {
+    "functions": [
+      "cn",
+      "clsx",
+      "cva"
+    ]
+  },
   "ignorePatterns": [
     "**/.venv",
     "**/.turbo",

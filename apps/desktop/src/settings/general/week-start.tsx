@@ -10,7 +10,7 @@ import {
 } from "@anlg/ui/components/ui/select";
 
 import { useSetSettingValue } from "~/settings/queries";
-import { settingControlStyles, SettingRow } from "~/settings/setting-row";
+import { SETTING_CONTROL_CLASS, SettingRow } from "~/settings/setting-row";
 import { useConfigValue } from "~/shared/config";
 
 function getSystemWeekStart(): "sunday" | "monday" {
@@ -51,7 +51,7 @@ export function WeekStartSelector() {
     >
       {(labelProps) => (
         <Select value={displayValue} onValueChange={handleChange}>
-          <SelectTrigger {...labelProps} sx={settingControlStyles.control}>
+          <SelectTrigger {...labelProps} className={SETTING_CONTROL_CLASS}>
             <SelectValue placeholder={t`Select day`} />
           </SelectTrigger>
           <SelectContent>

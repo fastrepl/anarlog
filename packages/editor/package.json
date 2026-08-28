@@ -22,15 +22,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@anlg/design-system": "workspace:^",
+    "@floating-ui/dom": "^1.7.6",
+    "@handlewithcare/react-prosemirror": "^3.2.6",
     "@anlg/plugin-opener2": "workspace:*",
     "@anlg/store": "workspace:*",
     "@anlg/utils": "workspace:^",
-    "@floating-ui/dom": "^1.7.6",
-    "@handlewithcare/react-prosemirror": "^3.2.6",
-    "@phosphor-icons/react": "^2.1.10",
-    "@stylexjs/stylex": "^0.19.0",
     "facehash": "^0.0.7",
+    "@phosphor-icons/react": "^2.1.10",
     "markdown-it": "^14.2.0",
     "prosemirror-commands": "^1.7.1",
     "prosemirror-dropcursor": "^1.8.2",
@@ -48,7 +46,6 @@
     "usehooks-ts": "^3.1.1"
   },
   "devDependencies": {
-    "@stylexjs/unplugin": "^0.19.0",
     "@testing-library/react": "^16.3.2",
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^22.19.17",

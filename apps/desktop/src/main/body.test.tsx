@@ -1,4 +1,3 @@
-import * as stylex from "@stylexjs/stylex";
 import {
   act,
   cleanup,
@@ -62,24 +61,24 @@ vi.mock("@anlg/ui/components/ui/resizable", () => ({
   ResizablePanelGroup: ({
     autoSaveId,
     children,
+    className,
     dir,
     direction,
     onLayout,
-    sx,
   }: {
     autoSaveId?: string;
     children: React.ReactNode;
+    className?: string;
     dir?: string;
     direction: string;
     onLayout?: (sizes: number[]) => void;
-    sx?: stylex.StyleXStyles;
   }) => {
     mocks.onPanelLayout = onLayout ?? null;
 
     return (
       <div
         data-auto-save-id={autoSaveId}
-        data-class-name={stylex.props(sx).className}
+        data-class-name={className}
         data-dir={dir}
         data-direction={direction}
         data-testid="panel-group"
@@ -92,6 +91,7 @@ vi.mock("@anlg/ui/components/ui/resizable", () => ({
     (
       {
         children,
+        className,
         collapsedSize,
         collapsible,
         defaultSize,
@@ -101,9 +101,9 @@ vi.mock("@anlg/ui/components/ui/resizable", () => ({
         onCollapse,
         order,
         style,
-        sx,
       }: {
         children: React.ReactNode;
+        className?: string;
         collapsedSize?: number;
         collapsible?: boolean;
         defaultSize?: number;
@@ -113,7 +113,6 @@ vi.mock("@anlg/ui/components/ui/resizable", () => ({
         onCollapse?: () => void;
         order?: number;
         style?: React.CSSProperties;
-        sx?: stylex.StyleXStyles;
       },
       ref,
     ) => {
@@ -125,7 +124,7 @@ vi.mock("@anlg/ui/components/ui/resizable", () => ({
 
       return (
         <div
-          data-class-name={stylex.props(sx).className}
+          data-class-name={className}
           data-collapsed-size={collapsedSize}
           data-collapsible={collapsible}
           data-default-size={defaultSize}
@@ -146,20 +145,15 @@ vi.mock("@anlg/ui/components/ui/resizable", () => ({
     },
   ),
   ResizableHandle: ({
+    className,
     onDragging,
-    sx,
   }: {
+    className?: string;
     onDragging?: (isDragging: boolean) => void;
-    sx?: stylex.StyleXStyles;
   }) => {
     mocks.onResizeDragging = onDragging ?? null;
 
-    return (
-      <div
-        data-class-name={stylex.props(sx).className}
-        data-testid="resize-handle"
-      />
-    );
+    return <div data-class-name={className} data-testid="resize-handle" />;
   },
 }));
 
@@ -228,7 +222,7 @@ vi.mock("~/sidebar/timeline/upcoming-meeting", () => ({
   },
 }));
 
-import { classicMainBodyStyles, ClassicMainBody } from "./body";
+import { ClassicMainBody } from "./body";
 
 function rectWithWidth(width: number) {
   return {
@@ -288,13 +282,11 @@ describe("ClassicMainBody", () => {
     );
     expect(screen.getByTestId("panel-group").previousElementSibling).toBeNull();
     expect(screen.getByTestId("classic-main-sidebar")).toBeTruthy();
-    expectDataStyle(
-      screen.getByTestId("resize-handle"),
-      classicMainBodyStyles.resizeHandle,
+    expect(screen.getByTestId("resize-handle").dataset.className).toContain(
+      "after:w-2",
     );
-    expectDataStyle(
-      screen.getByTestId("resize-handle"),
-      classicMainBodyStyles.resizeHandleEnabled,
+    expect(screen.getByTestId("resize-handle").dataset.className).toContain(
+      "w-1",
     );
 
     const panels = screen.getAllByTestId("panel");
@@ -323,12 +315,15 @@ describe("ClassicMainBody", () => {
       "[data-sidebar-timeline-header]",
     );
 
-    expectStyle(sidebarContent, classicMainBodyStyles.sidebarContent);
-    expectStyle(sidebarContent, classicMainBodyStyles.sidebarContentExpanded);
+    expect(sidebarContent?.className).toContain("translate-x-0");
+    expect(sidebarContent?.className).toContain(
+      "transition-[opacity,transform]",
+    );
     expect(sidebarContent?.getAttribute("aria-hidden")).toBe("false");
     expect(sidebarChrome).toBeNull();
     expect(sidebarTimelineHeader).toBeTruthy();
-    expectStyle(sidebarTimelineHeader, classicMainBodyStyles.timelineHeader);
+    expect(sidebarTimelineHeader?.className).toContain("h-9");
+    expect(sidebarTimelineHeader?.className).not.toContain("absolute");
 
     const bodyRoot = screen.getByTestId("panel-group").parentElement;
     expect(bodyRoot?.getAttribute("style")).toContain(
@@ -354,7 +349,7 @@ describe("ClassicMainBody", () => {
       "[data-main-content-panel]",
     );
 
-    expectStyle(mainContentPanel, classicMainBodyStyles.mainContent);
+    expect(mainContentPanel?.className).toContain("relative");
     expect(screen.getByTestId("sync-status-indicator").parentElement).toBe(
       mainContentPanel,
     );
@@ -380,9 +375,14 @@ describe("ClassicMainBody", () => {
     expect(screen.getByTestId("panel-group").dataset.autoSaveId).toBe(
       undefined,
     );
-    expectDataStyle(
-      screen.getByTestId("resize-handle"),
-      classicMainBodyStyles.resizeHandleDisabled,
+    expect(screen.getByTestId("resize-handle").dataset.className).toContain(
+      "pointer-events-none",
+    );
+    expect(screen.getByTestId("resize-handle").dataset.className).toContain(
+      "w-0",
+    );
+    expect(screen.getByTestId("resize-handle").dataset.className).toContain(
+      "after:w-0",
     );
     expect(mocks.onResizeDragging).toBeNull();
 
@@ -721,7 +721,8 @@ describe("ClassicMainBody", () => {
 
     const resizeHandle = screen.getByTestId("resize-handle");
 
-    expectDataStyle(resizeHandle, classicMainBodyStyles.resizeHandleDisabled);
+    expect(resizeHandle.dataset.className).toContain("pointer-events-none");
+    expect(resizeHandle.dataset.className).toContain("w-0");
     expect(screen.queryByTestId("classic-main-sidebar")).toBeNull();
 
     const panels = screen.getAllByTestId("panel");
@@ -735,7 +736,8 @@ describe("ClassicMainBody", () => {
     const sidebarContent = document.querySelector<HTMLElement>(
       "[data-left-sidebar-panel-content]",
     );
-    expectStyle(sidebarContent, classicMainBodyStyles.sidebarContentCollapsed);
+    expect(sidebarContent?.className).toContain("-translate-x-3");
+    expect(sidebarContent?.className).toContain("opacity-0");
     expect(document.querySelector("[data-sidebar-timeline-header]")).toBeNull();
     expect(sidebarContent?.getAttribute("aria-hidden")).toBe("true");
     expect(sidebarContent?.hasAttribute("inert")).toBe(true);
@@ -827,21 +829,3 @@ describe("ClassicMainBody", () => {
     expect(screen.getAllByTestId("panel")).toHaveLength(1);
   });
 });
-
-function expectStyle(element: Element | null, sx: stylex.StyleXStyles) {
-  expect(element).toBeTruthy();
-  const classNames = stylex.props(sx).className;
-  expect(classNames).toBeTruthy();
-  for (const className of classNames?.split(" ") ?? []) {
-    expect(element?.classList.contains(className)).toBe(true);
-  }
-}
-
-function expectDataStyle(element: HTMLElement, sx: stylex.StyleXStyles) {
-  const classNames = new Set(element.dataset.className?.split(" "));
-  const expectedClassNames = stylex.props(sx).className;
-  expect(expectedClassNames).toBeTruthy();
-  for (const className of expectedClassNames?.split(" ") ?? []) {
-    expect(classNames.has(className)).toBe(true);
-  }
-}

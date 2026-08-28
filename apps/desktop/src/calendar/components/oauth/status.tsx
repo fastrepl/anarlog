@@ -1,5 +1,4 @@
 import { Trans } from "@lingui/react/macro";
-import * as stylex from "@stylexjs/stylex";
 
 import {
   Tooltip,
@@ -11,7 +10,7 @@ export function ReconnectRequiredIndicator() {
   return (
     <Tooltip delayDuration={0}>
       <TooltipTrigger asChild>
-        <span {...stylex.props(styles.indicator)} />
+        <span className="size-2.5 rounded-full bg-amber-500" />
       </TooltipTrigger>
       <TooltipContent side="bottom">
         <Trans>Reconnect required</Trans>
@@ -19,12 +18,3 @@ export function ReconnectRequiredIndicator() {
     </Tooltip>
   );
 }
-
-const styles = stylex.create({
-  indicator: {
-    backgroundColor: "rgb(245 158 11)",
-    borderRadius: "9999px",
-    height: "0.625rem",
-    width: "0.625rem",
-  },
-});

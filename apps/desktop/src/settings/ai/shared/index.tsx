@@ -4,26 +4,14 @@ import {
   CircleNotch,
   WarningCircle,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { type AnyFieldApi, useForm } from "@tanstack/react-form";
 import { useMutation, useQueries } from "@tanstack/react-query";
-import {
-  Children,
-  cloneElement,
-  type ComponentType,
-  type CSSProperties,
-  isValidElement,
-  type ReactNode,
-  useMemo,
-  useState,
-} from "react";
+import { type ComponentType, type ReactNode, useMemo, useState } from "react";
 import { Streamdown } from "streamdown";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import type { AIProvider } from "@anlg/store";
 import { aiProviderSchema } from "@anlg/store";
-import { markdownComponents } from "@anlg/ui/components/markdown";
 import {
   AccordionContent,
   AccordionItem,
@@ -39,7 +27,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@anlg/ui/components/ui/tooltip";
-import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
+import { cn } from "@anlg/utils";
 
 import {
   getProviderSelectionBlockers,
@@ -93,7 +81,7 @@ export function AnarlogProviderIcon() {
       src={ANARLOG_ICON_SRC}
       alt="Anarlog"
       data-slot="provider-logo"
-      {...stylex.props(styles.providerLogo)}
+      className="size-full object-contain object-center"
     />
   );
 }
@@ -132,17 +120,21 @@ export function ProviderLobeIcon({ icon: Icon }: { icon: LobeIconComponent }) {
 export function ProviderBrandImage({
   src,
   alt,
-  sx,
+  className,
 }: {
   src: string;
   alt: string;
-} & StyleXProps) {
+  className?: string;
+}) {
   return (
     <img
       src={src}
       alt={alt}
       data-slot="provider-brand-icon"
-      {...stylex.props(styles.providerBrandImage, sx)}
+      className={cn([
+        "object-contain object-center [filter:var(--provider-brand-filter)]",
+        className,
+      ])}
     />
   );
 }
@@ -150,20 +142,31 @@ export function ProviderBrandImage({
 export function AiIconSlot({
   children,
   title,
-  sx,
+  className,
 }: {
   children: ReactNode;
   title?: string;
-} & StyleXProps) {
+  className?: string;
+}) {
   return (
     <span
       title={title}
       aria-label={title}
       data-slot="ai-icon"
-      {...stylex.props(styles.aiIcon, sx)}
+      className={cn([
+        "text-foreground flex size-5 shrink-0 items-center justify-center overflow-hidden",
+        "[&_[data-slot=provider-brand-icon]]:[filter:var(--provider-brand-filter)]",
+        className,
+      ])}
     >
-      <span data-slot="ai-icon-art" {...stylex.props(styles.aiIconArt)}>
-        {styleArtwork(children, styles.aiIconArtwork)}
+      <span
+        data-slot="ai-icon-art"
+        className={cn([
+          "flex size-full items-center justify-center overflow-hidden",
+          "[&>img]:block [&>img]:size-full [&>svg]:block [&>svg]:size-full [&>svg]:text-inherit",
+        ])}
+      >
+        {children}
       </span>
     </span>
   );
@@ -175,28 +178,13 @@ export function ProviderIconSlot({ children }: { children: ReactNode }) {
 
 export function ProviderButtonIcon({ children }: { children: ReactNode }) {
   return (
-    <span aria-hidden {...stylex.props(styles.buttonIcon)}>
-      {styleArtwork(children, styles.buttonIconArtwork)}
+    <span
+      aria-hidden
+      className="flex size-3.5 shrink-0 items-center justify-center overflow-hidden [&>img]:block [&>img]:size-full [&>svg]:block [&>svg]:size-full"
+    >
+      {children}
     </span>
   );
-}
-
-function styleArtwork(children: ReactNode, sx: StyleXProps["sx"]) {
-  return Children.map(children, (child) => {
-    if (
-      !isValidElement<{
-        className?: string;
-        style?: CSSProperties;
-      }>(child)
-    ) {
-      return child;
-    }
-
-    return cloneElement(
-      child,
-      mergeStyleXProps(sx, child.props.className, child.props.style),
-    );
-  });
 }
 
 export function providerRowId(providerType: ProviderType, providerId: string) {
@@ -474,13 +462,10 @@ export function NonAnarlogProviderCard({
       size="sm"
       onClick={() => void handleReset()}
       disabled={clearProvider.isPending}
-      sx={styles.resetButton}
+      className="text-destructive hover:text-destructive/80 h-7 self-start px-0 hover:bg-transparent"
     >
       {clearProvider.isPending ? (
-        <CircleNotch
-          {...stylex.props(styles.smallSpinner)}
-          aria-hidden="true"
-        />
+        <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
       ) : null}
       <Trans>Reset</Trans>
     </Button>
@@ -490,10 +475,10 @@ export function NonAnarlogProviderCard({
     <AccordionItem
       disabled={config.disabled || locked}
       value={config.id}
-      sx={[
-        styles.providerCard,
-        looksReady ? styles.providerCardReady : styles.providerCardIncomplete,
-      ]}
+      className={cn([
+        "bg-muted rounded-[22px] border-2",
+        looksReady ? "border-border border-solid" : "border-dashed",
+      ])}
     >
       <SettingsAlertToast
         id={`provider-keychain-access:${providerType}:${config.id}`}
@@ -512,29 +497,30 @@ export function NonAnarlogProviderCard({
         }
       />
       <AccordionTrigger
-        sx={[
-          styles.providerTrigger,
-          (config.disabled || locked) && styles.providerTriggerDisabled,
-        ]}
+        className={cn([
+          "gap-2 px-4 capitalize hover:no-underline",
+          (config.disabled || locked) &&
+            "text-muted-foreground cursor-not-allowed",
+        ])}
       >
-        <div {...stylex.props(styles.providerIdentity)}>
+        <div className="flex items-center gap-2">
           <ProviderIconSlot>{config.icon}</ProviderIconSlot>
           <span>{config.displayName}</span>
           {config.badge && <ProviderBadge badge={config.badge} />}
         </div>
       </AccordionTrigger>
       <AccordionContent
-        sx={[
-          styles.providerContent,
-          providerType === "llm" && styles.llmProviderContent,
-        ]}
+        className={cn([
+          "px-4",
+          providerType === "llm" && "flex flex-col gap-3",
+        ])}
       >
         {providerContext}
 
         {isSubscription ? (
-          <div {...stylex.props(styles.subscription)}>
+          <div className="mb-3 flex items-center gap-2">
             {hasStoredConfig ? (
-              <p {...stylex.props(styles.mutedText)}>
+              <p className="text-muted-foreground text-xs">
                 <Trans>Connected with your existing subscription.</Trans>
               </p>
             ) : (
@@ -552,7 +538,7 @@ export function NonAnarlogProviderCard({
         ) : null}
 
         <form
-          {...stylex.props(styles.form)}
+          className="flex flex-col gap-4"
           onSubmit={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -576,17 +562,17 @@ export function NonAnarlogProviderCard({
             </form.Field>
           )}
           {subscriptionProvider && onConnectSubscription ? (
-            <div {...stylex.props(styles.subscriptionConnect)}>
-              <div {...stylex.props(styles.divider)}>
-                <div {...stylex.props(styles.dividerLine)} />
-                <span {...stylex.props(styles.mutedText)}>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-3">
+                <div className="bg-border h-px flex-1" />
+                <span className="text-muted-foreground text-xs">
                   <Trans>or</Trans>
                 </span>
-                <div {...stylex.props(styles.dividerLine)} />
+                <div className="bg-border h-px flex-1" />
               </div>
               {subscriptionReady ? (
-                <div {...stylex.props(styles.subscriptionStatus)}>
-                  <p {...stylex.props(styles.mutedText)}>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-muted-foreground text-xs">
                     {t`Connected with your ${subscriptionProvider.displayName} subscription.`}
                   </p>
                   <Button
@@ -595,11 +581,11 @@ export function NonAnarlogProviderCard({
                     size="sm"
                     onClick={() => void handleResetSubscription()}
                     disabled={clearSubscription.isPending}
-                    sx={[styles.resetButton, styles.nonShrinking]}
+                    className="text-destructive hover:text-destructive/80 h-7 shrink-0 px-0 hover:bg-transparent"
                   >
                     {clearSubscription.isPending ? (
                       <CircleNotch
-                        {...stylex.props(styles.smallSpinner)}
+                        className="size-3 animate-spin"
                         aria-hidden="true"
                       />
                     ) : null}
@@ -612,7 +598,7 @@ export function NonAnarlogProviderCard({
                   variant="outline"
                   size="sm"
                   onClick={onConnectSubscription}
-                  sx={styles.selfStart}
+                  className="self-start"
                 >
                   <ProviderButtonIcon>
                     {subscriptionProvider.icon}
@@ -623,13 +609,13 @@ export function NonAnarlogProviderCard({
             </div>
           ) : null}
           {config.links && (
-            <div {...stylex.props(styles.links)}>
+            <div className="flex items-center gap-4 text-xs">
               {config.links.download && (
                 <a
                   href={config.links.download.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  {...stylex.props(styles.link)}
+                  className="text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 hover:underline"
                 >
                   {config.links.download.label}
                   <ArrowSquareOut size={12} />
@@ -640,7 +626,7 @@ export function NonAnarlogProviderCard({
                   href={config.links.models.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  {...stylex.props(styles.link)}
+                  className="text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 hover:underline"
                 >
                   {config.links.models.label}
                   <ArrowSquareOut size={12} />
@@ -651,7 +637,7 @@ export function NonAnarlogProviderCard({
                   href={config.links.setup.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  {...stylex.props(styles.link)}
+                  className="text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 hover:underline"
                 >
                   {config.links.setup.label}
                   <ArrowSquareOut size={12} />
@@ -661,10 +647,10 @@ export function NonAnarlogProviderCard({
           )}
           {showAdvanced ? (
             <details>
-              <summary {...stylex.props(styles.summary)}>
+              <summary className="text-muted-foreground hover:text-foreground cursor-pointer text-xs hover:underline">
                 <Trans>Advanced</Trans>
               </summary>
-              <div {...stylex.props(styles.advancedFields)}>
+              <div className="mt-2 flex flex-col gap-4">
                 {!showBaseUrl && config.baseUrl && (
                   <form.Field name="base_url">
                     {(field) => <FormField field={field} label={t`Base URL`} />}
@@ -689,13 +675,13 @@ export function NonAnarlogProviderCard({
             resetAction
           )}
           {clearProvider.error && (
-            <p {...stylex.props(styles.errorText)}>
+            <p className="text-destructive text-xs">
               {clearProvider.error.message}
             </p>
           )}
           {providerMutation.error &&
             !isKeychainAccessError(providerMutation.error) && (
-              <p {...stylex.props(styles.errorText)}>
+              <p className="text-destructive text-xs">
                 {providerMutation.error.message}
               </p>
             )}
@@ -709,10 +695,12 @@ function ProviderBadge({ badge }: { badge: string }) {
   const isBatchOnly = badge === "Batch only";
   const badgeNode = (
     <span
-      {...stylex.props(
-        styles.badge,
-        isBatchOnly ? styles.batchBadge : styles.standardBadge,
-      )}
+      className={cn([
+        "text-muted-foreground normal-case",
+        isBatchOnly
+          ? "bg-background/40 cursor-help rounded-md px-1.5 py-0.5 text-[11px] font-medium"
+          : "border-border rounded-full border px-2 text-xs font-light",
+      ])}
     >
       {badge}
     </span>
@@ -725,7 +713,7 @@ function ProviderBadge({ badge }: { badge: string }) {
   return (
     <Tooltip delayDuration={100}>
       <TooltipTrigger asChild>{badgeNode}</TooltipTrigger>
-      <TooltipContent side="top" sx={styles.badgeTooltip}>
+      <TooltipContent side="top" className="max-w-64 text-xs">
         <Trans>
           Runs after the recording finishes, not during the meeting.
         </Trans>
@@ -735,45 +723,39 @@ function ProviderBadge({ badge }: { badge: string }) {
 }
 
 const streamdownComponents = {
-  ...markdownComponents,
   ul: (props: React.HTMLAttributes<HTMLUListElement>) => {
     return (
-      <ul {...stylex.props(styles.unorderedList)}>
+      <ul className="relative mb-1 block list-disc pl-6">
         {props.children as React.ReactNode}
       </ul>
     );
   },
   ol: (props: React.HTMLAttributes<HTMLOListElement>) => {
     return (
-      <ol {...stylex.props(styles.orderedList)}>
+      <ol className="relative mb-1 block list-decimal pl-6">
         {props.children as React.ReactNode}
       </ol>
     );
   },
   li: (props: React.HTMLAttributes<HTMLLIElement>) => {
-    return (
-      <li {...stylex.props(styles.markdownBlock)}>
-        {props.children as React.ReactNode}
-      </li>
-    );
+    return <li className="mb-1">{props.children as React.ReactNode}</li>;
   },
   p: (props: React.HTMLAttributes<HTMLParagraphElement>) => {
-    return (
-      <p {...stylex.props(styles.markdownBlock)}>
-        {props.children as React.ReactNode}
-      </p>
-    );
+    return <p className="mb-1">{props.children as React.ReactNode}</p>;
   },
   a: ({
     children,
     className,
-    style,
     ...props
   }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
     return (
       <a
         {...props}
-        {...mergeStyleXProps(styles.markdownLink, className, style)}
+        className={cn([
+          "text-foreground font-medium underline underline-offset-2",
+          "decoration-foreground/50 hover:decoration-foreground",
+          className,
+        ])}
       >
         {children as React.ReactNode}
       </a>
@@ -783,15 +765,15 @@ const streamdownComponents = {
 
 export function StyledStreamdown({
   children,
-  sx,
+  className,
 }: {
   children: string;
-} & StyleXProps) {
+  className?: string;
+}) {
   return (
     <Streamdown
       components={streamdownComponents}
-      {...stylex.props(styles.streamdown, sx)}
-      controls={false}
+      className={cn(["mt-1 text-sm", className])}
       isAnimating={false}
     >
       {children}
@@ -832,9 +814,9 @@ function FormField({
     : null;
 
   return (
-    <div {...stylex.props(styles.field)}>
-      <label {...stylex.props(styles.fieldLabel)}>{label}</label>
-      <InputGroup sx={styles.inputGroup}>
+    <div className="flex flex-col gap-2">
+      <label className="block text-xs font-medium">{label}</label>
+      <InputGroup className="bg-card">
         <InputGroupInput
           name={field.name}
           type={type}
@@ -845,302 +827,11 @@ function FormField({
         />
       </InputGroup>
       {errorMessage && (
-        <p {...stylex.props(styles.fieldError)}>
-          <WarningCircle
-            {...stylex.props(styles.warningIcon)}
-            aria-hidden="true"
-          />
+        <p className="text-destructive flex items-center gap-1.5 text-xs">
+          <WarningCircle className="size-3.5 shrink-0" aria-hidden="true" />
           <span>{errorMessage}</span>
         </p>
       )}
     </div>
   );
 }
-
-const spin = stylex.keyframes({
-  to: { transform: "rotate(360deg)" },
-});
-
-const styles = stylex.create({
-  advancedFields: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-    marginTop: "0.5rem",
-  },
-  aiIcon: {
-    alignItems: "center",
-    color: colors.foreground,
-    display: "flex",
-    flexShrink: 0,
-    height: "1.25rem",
-    justifyContent: "center",
-    overflow: "hidden",
-    width: "1.25rem",
-  },
-  aiIconArt: {
-    alignItems: "center",
-    display: "flex",
-    height: "100%",
-    justifyContent: "center",
-    overflow: "hidden",
-    width: "100%",
-  },
-  aiIconArtwork: {
-    color: "inherit",
-    display: "block",
-    height: "100%",
-    width: "100%",
-  },
-  badge: {
-    color: colors.mutedForeground,
-    textTransform: "none",
-  },
-  badgeTooltip: {
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-    maxWidth: "16rem",
-  },
-  batchBadge: {
-    backgroundColor: `color-mix(in oklab, ${colors.background} 40%, transparent)`,
-    borderRadius: radii.md,
-    cursor: "help",
-    fontSize: "11px",
-    fontWeight: 500,
-    paddingBlock: "0.125rem",
-    paddingInline: "0.375rem",
-  },
-  buttonIcon: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    height: "0.875rem",
-    justifyContent: "center",
-    overflow: "hidden",
-    width: "0.875rem",
-  },
-  buttonIconArtwork: {
-    display: "block",
-    height: "100%",
-    width: "100%",
-  },
-  divider: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.75rem",
-  },
-  dividerLine: {
-    backgroundColor: colors.border,
-    flex: "1",
-    height: "1px",
-  },
-  errorText: {
-    color: colors.destructive,
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-  },
-  field: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-  },
-  fieldError: {
-    alignItems: "center",
-    color: colors.destructive,
-    display: "flex",
-    fontSize: "0.75rem",
-    gap: "0.375rem",
-    lineHeight: "1rem",
-  },
-  fieldLabel: {
-    display: "block",
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    lineHeight: "1rem",
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  inputGroup: {
-    backgroundColor: colors.card,
-  },
-  link: {
-    alignItems: "center",
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    display: "inline-flex",
-    gap: "0.125rem",
-    textDecorationLine: {
-      default: "none",
-      ":hover": "underline",
-    },
-  },
-  links: {
-    alignItems: "center",
-    display: "flex",
-    fontSize: "0.75rem",
-    gap: "1rem",
-    lineHeight: "1rem",
-  },
-  llmProviderContent: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-  },
-  markdownBlock: {
-    marginBottom: "0.25rem",
-  },
-  markdownLink: {
-    color: colors.foreground,
-    fontWeight: 500,
-    textDecorationColor: {
-      default: `color-mix(in oklab, ${colors.foreground} 50%, transparent)`,
-      ":hover": colors.foreground,
-    },
-    textDecorationLine: "underline",
-    textUnderlineOffset: "2px",
-  },
-  mutedText: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-  },
-  nonShrinking: {
-    flexShrink: 0,
-  },
-  orderedList: {
-    display: "block",
-    listStyleType: "decimal",
-    marginBottom: "0.25rem",
-    paddingLeft: "1.5rem",
-    position: "relative",
-  },
-  providerBrandImage: {
-    filter: "var(--provider-brand-filter)",
-    objectFit: "contain",
-    objectPosition: "center",
-  },
-  providerCard: {
-    backgroundColor: colors.muted,
-    borderRadius: "22px",
-    borderWidth: "2px",
-  },
-  providerCardIncomplete: {
-    borderStyle: "dashed",
-  },
-  providerCardReady: {
-    borderColor: colors.border,
-    borderStyle: "solid",
-  },
-  providerContent: {
-    paddingInline: "1rem",
-  },
-  providerIdentity: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-  },
-  providerLogo: {
-    height: "100%",
-    objectFit: "contain",
-    objectPosition: "center",
-    width: "100%",
-  },
-  providerTrigger: {
-    gap: "0.5rem",
-    paddingInline: "1rem",
-    textDecorationLine: {
-      default: "none",
-      ":hover": "none",
-    },
-    textTransform: "capitalize",
-  },
-  providerTriggerDisabled: {
-    color: colors.mutedForeground,
-    cursor: "not-allowed",
-  },
-  resetButton: {
-    alignSelf: "flex-start",
-    backgroundColor: {
-      default: null,
-      ":hover": "transparent",
-    },
-    color: {
-      default: colors.destructive,
-      ":hover": `color-mix(in oklab, ${colors.destructive} 80%, transparent)`,
-    },
-    height: "1.75rem",
-    paddingInline: 0,
-  },
-  selfStart: {
-    alignSelf: "flex-start",
-  },
-  smallSpinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-    height: "0.75rem",
-    width: "0.75rem",
-  },
-  standardBadge: {
-    borderColor: colors.border,
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    fontSize: "0.75rem",
-    fontWeight: 300,
-    lineHeight: "1rem",
-    paddingInline: "0.5rem",
-  },
-  streamdown: {
-    fontSize: "0.875rem",
-    marginTop: "0.25rem",
-  },
-  subscription: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-    marginBottom: "0.75rem",
-  },
-  subscriptionConnect: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-  },
-  subscriptionStatus: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-    justifyContent: "space-between",
-  },
-  summary: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    cursor: "pointer",
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-    textDecorationLine: {
-      default: "none",
-      ":hover": "underline",
-    },
-  },
-  unorderedList: {
-    display: "block",
-    listStyleType: "disc",
-    marginBottom: "0.25rem",
-    paddingLeft: "1.5rem",
-    position: "relative",
-  },
-  warningIcon: {
-    flexShrink: 0,
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-});

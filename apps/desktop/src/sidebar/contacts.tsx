@@ -1,9 +1,7 @@
-import * as stylex from "@stylexjs/stylex";
 import { Reorder } from "motion/react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { colors } from "@anlg/design-system/tokens.stylex";
 import type { ContactsSelection } from "@anlg/plugin-windows";
 
 import { NewPersonForm } from "~/contacts/new-person-form";
@@ -210,7 +208,7 @@ function ContactsList({
   };
 
   return (
-    <div {...stylex.props(styles.root)}>
+    <div className="flex h-full w-full flex-col">
       <ColumnHeader
         sortOption={sortOption}
         setSortOption={setSortOption}
@@ -219,7 +217,7 @@ function ContactsList({
         onSearchChange={setSearchValue}
         searchInputRef={searchInputRef}
       />
-      <div {...stylex.props(styles.scrollArea)}>
+      <div className="scrollbar-hide flex-1 overflow-y-auto">
         {showNewPerson && (
           <NewPersonForm
             onSave={(humanId) => {
@@ -234,7 +232,7 @@ function ContactsList({
             axis="y"
             values={pinnedItems.map((i) => i.id)}
             onReorder={handleReorderPinned}
-            {...stylex.props(styles.column)}
+            className="flex flex-col"
           >
             {pinnedItems.map((item) => (
               <Reorder.Item key={item.id} value={item.id}>
@@ -260,7 +258,7 @@ function ContactsList({
           </Reorder.Group>
         )}
         {pinnedItems.length > 0 && searchValue.trim() && (
-          <div {...stylex.props(styles.column)}>
+          <div className="flex flex-col">
             {pinnedItems.map((item) =>
               item.kind === "person" ? (
                 <PersonItem
@@ -285,7 +283,7 @@ function ContactsList({
           </div>
         )}
         {pinnedItems.length > 0 && nonPinnedItems.length > 0 && (
-          <div {...stylex.props(styles.separator)} />
+          <div className="bg-accent mx-3 my-1 h-px" />
         )}
         {nonPinnedItems.map((item) =>
           item.kind === "person" ? (
@@ -310,30 +308,3 @@ function ContactsList({
     </div>
   );
 }
-
-const styles = stylex.create({
-  column: {
-    display: "flex",
-    flexDirection: "column",
-  },
-  root: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    width: "100%",
-  },
-  scrollArea: {
-    "::-webkit-scrollbar": {
-      display: "none",
-    },
-    flex: "1",
-    overflowY: "auto",
-    scrollbarWidth: "none",
-  },
-  separator: {
-    backgroundColor: colors.accent,
-    height: "1px",
-    marginBlock: "0.25rem",
-    marginInline: "0.75rem",
-  },
-});

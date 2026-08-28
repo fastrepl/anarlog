@@ -9,16 +9,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@anlg/ui/components/ui/button", () => ({
   Button: ({
     children,
-    size: _size,
-    sx,
-    variant: _variant,
+    className,
     ...props
-  }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
-    size?: string;
-    sx?: unknown;
-    variant?: string;
-  }) => (
-    <button data-stylex={String(Boolean(sx))} type="button" {...props}>
+  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button className={className} type="button" {...props}>
       {children}
     </button>
   ),
@@ -27,12 +21,12 @@ vi.mock("@anlg/ui/components/ui/button", () => ({
 vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
   AppFloatingPanel: ({
     children,
-    sx,
+    className,
   }: {
     children: ReactNode;
-    sx?: unknown;
+    className?: string;
   }) => (
-    <div data-stylex={String(Boolean(sx))} data-testid="chat-history-panel">
+    <div className={className} data-testid="chat-history-panel">
       {children}
     </div>
   ),
@@ -42,24 +36,24 @@ vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
   DropdownMenuContent: ({
     avoidCollisions,
     children,
+    className,
     collisionPadding,
     side,
     sideOffset,
-    sx,
   }: {
     avoidCollisions?: boolean;
     children: ReactNode;
+    className?: string;
     collisionPadding?: number;
     side?: string;
     sideOffset?: number;
-    sx?: unknown;
   }) => (
     <div
+      className={className}
       data-avoid-collisions={String(avoidCollisions)}
       data-collision-padding={collisionPadding}
       data-side={side}
       data-side-offset={sideOffset}
-      data-stylex={String(Boolean(sx))}
       data-testid="chat-history-menu"
     >
       {children}
@@ -82,7 +76,7 @@ describe("ChatToolbarControls", () => {
     mocks.useRecentChatGroups.mockClear();
   });
 
-  it("renders the dark chat history trigger through StyleX", () => {
+  it("renders the dark chat history trigger as a pill button", () => {
     render(
       <ChatToolbarControls
         chatScope="general"
@@ -95,7 +89,11 @@ describe("ChatToolbarControls", () => {
     );
 
     const historyButton = screen.getByRole("button", { name: "Chat history" });
-    expect(historyButton.dataset.stylex).toBe("true");
+    expect(historyButton.className).toContain("rounded-full");
+    expect(historyButton.className).toContain("h-8");
+    expect(historyButton.className).toContain("w-auto");
+    expect(historyButton.className).toContain("gap-1.5");
+    expect(historyButton.className).toContain("hover:bg-primary-foreground/14");
     expect(screen.queryByText("Ask Anarlog AI anything")).toBeNull();
   });
 
@@ -112,11 +110,15 @@ describe("ChatToolbarControls", () => {
     );
 
     const historyButton = screen.getByRole("button", { name: "Chat history" });
-    expect(
-      (container.firstElementChild as HTMLElement | null)?.dataset
-        .chatToolbarLayout,
-    ).toBe("floating");
-    expect(historyButton.dataset.stylex).toBe("true");
+    expect(container.firstElementChild?.className).toContain("px-3");
+    expect(container.firstElementChild?.className).not.toContain("pl-2");
+    expect(container.firstElementChild?.className).not.toContain("pr-2");
+    expect(historyButton.className).toContain("-ml-2");
+    expect(historyButton.className).toContain("h-8");
+    expect(historyButton.className).toContain("w-auto");
+    expect(historyButton.className).toContain("gap-1.5");
+    expect(historyButton.className).toContain("text-muted-foreground");
+    expect(historyButton.className).toContain("hover:bg-muted/80");
     expect(historyButton.textContent).toBe("");
     expect(screen.queryByText("Ask Anarlog AI anything")).toBeNull();
   });
@@ -141,8 +143,15 @@ describe("ChatToolbarControls", () => {
     expect(menu.dataset.sideOffset).toBe("4");
     expect(menu.dataset.avoidCollisions).toBe("true");
     expect(menu.dataset.collisionPadding).toBe("8");
-    expect(menu.dataset.stylex).toBe("true");
-    expect(panel.dataset.stylex).toBe("true");
+    expect(menu.className).toContain("w-72");
+    expect(menu.className).toContain(
+      "max-w-[var(--radix-dropdown-menu-content-available-width)]",
+    );
+    expect(menu.className).toContain(
+      "max-h-[min(20rem,var(--radix-dropdown-menu-content-available-height))]",
+    );
+    expect(menu.className).toContain("overflow-y-auto");
+    expect(panel.className).not.toContain("overflow-y-auto");
   });
 
   it("keeps right-panel chat history below the trigger", () => {
@@ -161,7 +170,7 @@ describe("ChatToolbarControls", () => {
     expect(screen.getByTestId("chat-history-menu").dataset.side).toBe("bottom");
   });
 
-  it("renders dark toolbar action buttons through StyleX without tooltips", () => {
+  it("renders dark toolbar action buttons as circles without tooltips", () => {
     render(
       <ChatToolbarControls
         chatScope="general"
@@ -179,9 +188,15 @@ describe("ChatToolbarControls", () => {
       name: "Open in right panel",
     });
 
-    expect(newChatButton.dataset.stylex).toBe("true");
+    expect(newChatButton.className).toContain("rounded-full");
+    expect(newChatButton.className).toContain(
+      "hover:!bg-primary-foreground/14",
+    );
     expect(newChatButton.getAttribute("title")).toBeNull();
-    expect(rightPanelButton.dataset.stylex).toBe("true");
+    expect(rightPanelButton.className).toContain("rounded-full");
+    expect(rightPanelButton.className).toContain(
+      "hover:!bg-primary-foreground/14",
+    );
     expect(rightPanelButton.getAttribute("title")).toBeNull();
     expect(screen.queryByRole("button", { name: "Close chat" })).toBeNull();
   });
@@ -210,8 +225,9 @@ describe("ChatToolbarControls", () => {
 
     fireEvent.click(rightPanelButton);
 
-    expect(actions).not.toBeNull();
-    expect(rightPanelButton.dataset.stylex).toBe("true");
+    expect(actions?.className).toContain("gap-0");
+    expect(actions?.className).not.toContain("gap-1");
+    expect(rightPanelButton.className).toContain("hover:!bg-muted/80");
     expect(onOpenRightPanel).toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Close chat" })).toBeNull();
@@ -234,24 +250,34 @@ describe("ChatToolbarControls", () => {
     );
 
     const historyButton = screen.getByRole("button", { name: "Chat history" });
-    const toolbar = container.firstElementChild as HTMLElement | null;
+    const toolbar = container.firstElementChild;
 
-    expect(toolbar?.dataset.chatToolbarLayout).toBe("right-panel");
+    expect(toolbar?.className).toContain("pl-3");
+    expect(toolbar?.className).toContain("pr-1");
+    expect(toolbar?.className).not.toContain("px-5");
+    expect(toolbar?.className).not.toContain("px-3");
+    expect(toolbar?.className).not.toContain("pr-0");
     expect(toolbar?.hasAttribute("data-tauri-drag-region")).toBe(true);
     expect(
       toolbar?.firstElementChild?.hasAttribute("data-tauri-drag-region"),
     ).toBe(true);
     const actions = container.querySelector("[data-chat-toolbar-actions]");
     expect(actions?.hasAttribute("data-tauri-drag-region")).toBe(true);
-    expect(historyButton.dataset.stylex).toBe("true");
+    expect(actions?.className).toContain("gap-0");
+    expect(actions?.className).not.toContain("gap-1");
+    expect(historyButton.className).toContain("-ml-2");
+    expect(historyButton.className).toContain("h-7");
+    expect(historyButton.className).toContain("w-auto");
     expect(screen.queryByText("Ask Anarlog AI anything")).toBeNull();
     const floatButton = screen.getByRole("button", { name: "Float chat" });
     const closeButton = screen.getByRole("button", { name: "Close chat" });
     expect(historyButton.getAttribute("data-tauri-drag-region")).toBe("false");
     expect(floatButton.getAttribute("data-tauri-drag-region")).toBe("false");
     expect(closeButton.getAttribute("data-tauri-drag-region")).toBe("false");
-    expect(floatButton.dataset.stylex).toBe("true");
-    expect(closeButton.dataset.stylex).toBe("true");
+    expect(floatButton.className).toContain("hover:!bg-muted/80");
+    expect(floatButton.className).toContain("hover:!text-foreground");
+    expect(floatButton.className).not.toContain("mr-1");
+    expect(closeButton.className).toContain("hover:!bg-muted/80");
     expect(
       screen.queryByRole("button", { name: "Open in right panel" }),
     ).toBeNull();

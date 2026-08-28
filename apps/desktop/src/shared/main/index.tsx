@@ -1,13 +1,10 @@
-import * as stylex from "@stylexjs/stylex";
 import { platform } from "@tauri-apps/plugin-os";
 
-import { colors } from "@anlg/design-system/tokens.stylex";
 import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@anlg/ui/components/ui/resizable";
-
-import { mainSurface } from "./surface.stylex";
+import { cn } from "@anlg/utils";
 
 export { MainShellBodyFrame } from "./body-frame";
 export { MainChatPanels } from "./chat-panels";
@@ -29,9 +26,9 @@ export function StandardContentWrapper({
   noBorder?: boolean;
 }) {
   return (
-    <div {...stylex.props(styles.root)}>
-      <ResizablePanelGroup direction="vertical" sx={styles.panelGroup}>
-        <ResizablePanel defaultSize={100} minSize={35} sx={styles.panel}>
+    <div className="flex h-full flex-col">
+      <ResizablePanelGroup direction="vertical" className="min-h-0 flex-1">
+        <ResizablePanel defaultSize={100} minSize={35} className="min-h-0">
           <MainPanel fill floatingButton={floatingButton} noBorder={noBorder}>
             {children}
           </MainPanel>
@@ -55,14 +52,19 @@ function MainPanel({
   const isMacos = platform() === "macos";
 
   return (
-    <div {...stylex.props(styles.mainPanel, fill && styles.fill)}>
+    <div
+      className={cn([
+        "relative flex min-h-0 flex-1 flex-col",
+        fill && "h-full",
+      ])}
+    >
       <div
         data-chat-floating-anchor
-        {...stylex.props(
-          styles.floatingAnchor,
-          isMacos && styles.floatingAnchorMacos,
-          !noBorder && styles.floatingAnchorBorder,
-        )}
+        className={cn([
+          "bg-card @container relative flex min-h-0 flex-1 flex-col overflow-hidden",
+          isMacos && "rounded-xl",
+          !noBorder && "border-border border",
+        ])}
       >
         {children}
         {floatingButton}
@@ -70,60 +72,3 @@ function MainPanel({
     </div>
   );
 }
-
-const styles = stylex.create({
-  fill: {
-    height: "100%",
-  },
-  floatingAnchor: {
-    backgroundColor: colors.card,
-    containerType: "inline-size",
-    display: "flex",
-    flex: "1",
-    flexDirection: "column",
-    minHeight: 0,
-    overflow: "hidden",
-    position: "relative",
-  },
-  floatingAnchorBorder: {
-    borderBottomColor: colors.border,
-    borderBottomStyle: "solid",
-    borderBottomWidth: mainSurface.borderBottomWidth,
-    borderLeftColor: colors.border,
-    borderLeftStyle: "solid",
-    borderLeftWidth: mainSurface.borderLeftWidth,
-    borderRightColor: colors.border,
-    borderRightStyle: "solid",
-    borderRightWidth: mainSurface.borderRightWidth,
-    borderTopColor: colors.border,
-    borderTopStyle: "solid",
-    borderTopWidth: mainSurface.borderTopWidth,
-  },
-  floatingAnchorMacos: {
-    borderBottomLeftRadius: mainSurface.radiusBottomLeft,
-    borderBottomRightRadius: mainSurface.radiusBottomRight,
-    borderTopLeftRadius: mainSurface.radiusTopLeft,
-    borderTopRightRadius: mainSurface.radiusTopRight,
-  },
-  mainPanel: {
-    display: "flex",
-    flex: "1",
-    flexDirection: "column",
-    minHeight: 0,
-    position: "relative",
-  },
-  panel: {
-    minHeight: 0,
-  },
-  panelGroup: {
-    flex: "1",
-    minHeight: 0,
-  },
-  root: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-  },
-});
-
-export { styles as mainStyles };

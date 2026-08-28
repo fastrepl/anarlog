@@ -1,246 +1,31 @@
-import * as stylex from "@stylexjs/stylex";
+import { cn } from "@anlg/utils";
 
-import { colors, fonts, media, radii } from "@anlg/design-system/tokens.stylex";
+export const authInputClassName = cn([
+  "h-12 w-full rounded-xl border border-[#d9d1c5] bg-white px-4",
+  "text-[#181613] placeholder:text-[#9a9082]",
+  "transition-colors hover:border-[#b9ae9f]",
+  "focus:border-[#181613] focus:ring-2 focus:ring-[#181613]/10 focus:outline-hidden",
+]);
 
-export const authStyles = stylex.create({
-  page: {
-    backgroundColor: colors.card,
-    color: colors.foreground,
-    minHeight: "100vh",
-  },
-  pageContent: {
-    display: "flex",
-    flexDirection: "column",
-    marginInline: "auto",
-    maxWidth: "1180px",
-    minHeight: "100vh",
-    paddingInline: {
-      default: "1.25rem",
-      [media.sm]: "2rem",
-    },
-    width: "100%",
-  },
-  layout: {
-    alignItems: "center",
-    display: "grid",
-    flexBasis: "0%",
-    flexGrow: 1,
-    flexShrink: 1,
-    gap: {
-      default: "3rem",
-      "@media (min-width: 64rem)": "5rem",
-    },
-    gridTemplateColumns: {
-      default: null,
-      [media.md]: "minmax(0, 1fr) minmax(360px, 440px)",
-    },
-    paddingBlock: {
-      default: "2.5rem",
-      "@media (min-width: 64rem)": "4rem",
-    },
-  },
-  pitch: {
-    display: {
-      default: "none",
-      [media.md]: "block",
-    },
-  },
-  pitchEyebrow: {
-    color: colors.mutedForeground,
-    fontFamily: fonts.hand,
-    fontSize: "1.5rem",
-    fontWeight: 600,
-    lineHeight: 1,
-  },
-  pitchHeading: {
-    fontFamily: fonts.hand,
-    fontSize: {
-      default: "3.75rem",
-      "@media (min-width: 64rem)": "4.5rem",
-    },
-    fontWeight: 600,
-    letterSpacing: 0,
-    lineHeight: {
-      default: 0.95,
-      "@media (min-width: 64rem)": 1,
-    },
-    marginTop: "1.25rem",
-    maxWidth: "620px",
-    textWrap: "balance",
-  },
-  pitchMark: {
-    backgroundColor: "oklch(94.8% 0.067 90.6)",
-    color: colors.foreground,
-    paddingInline: ".25rem",
-  },
-  panel: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderRadius: "24px",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: "0 24px 80px rgb(24 22 19 / 0.1)",
-    marginInline: "auto",
-    maxWidth: "440px",
-    overflow: "hidden",
-    width: "100%",
-  },
-  panelHeader: {
-    borderBottomColor: colors.border,
-    borderBottomStyle: "solid",
-    borderBottomWidth: "1px",
-    paddingBlock: {
-      default: "1.75rem",
-      [media.sm]: "2rem",
-    },
-    paddingInline: {
-      default: "1.5rem",
-      [media.sm]: "2rem",
-    },
-  },
-  panelEyebrow: {
-    color: colors.mutedForeground,
-    fontFamily: fonts.hand,
-    fontSize: "1.25rem",
-    fontWeight: 600,
-    lineHeight: 1,
-  },
-  panelTitle: {
-    color: colors.foreground,
-    fontFamily: fonts.hand,
-    fontSize: "2.25rem",
-    fontWeight: 600,
-    lineHeight: 1,
-  },
-  panelTitleWithEyebrow: {
-    marginTop: ".75rem",
-  },
-  panelDescription: {
-    color: colors.mutedForeground,
-    fontSize: ".875rem",
-    lineHeight: "1.5rem",
-    marginTop: ".75rem",
-  },
-  panelBody: {
-    padding: {
-      default: "1.5rem",
-      [media.sm]: "2rem",
-    },
-  },
-  input: {
-    backgroundColor: colors.card,
-    borderColor: {
-      default: colors.border,
-      ":hover": colors.mutedForeground,
-      ":focus": colors.foreground,
-    },
-    borderRadius: radii.xl,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: {
-      default: null,
-      ":focus": `0 0 0 2px color-mix(in oklab, ${colors.foreground} 10%, transparent)`,
-    },
-    color: {
-      default: colors.foreground,
-      "::placeholder": colors.mutedForeground,
-    },
-    height: "3rem",
-    outline: {
-      default: null,
-      ":focus": "none",
-    },
-    paddingInline: "1rem",
-    transitionDuration: "150ms",
-    transitionProperty: "border-color, box-shadow",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "100%",
-  },
-  primaryButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: colors.foreground,
-      ":hover": colors.mutedForeground,
-    },
-    borderRadius: radii.full,
-    boxShadow: {
-      default: null,
-      ":focus-visible": `0 0 0 2px ${colors.foreground}, 0 0 0 4px ${colors.card}`,
-    },
-    color: colors.primaryForeground,
-    cursor: {
-      default: "pointer",
-      ":disabled": "not-allowed",
-    },
-    display: "flex",
-    fontSize: ".875rem",
-    fontWeight: 500,
-    gap: ".75rem",
-    height: "3rem",
-    justifyContent: "center",
-    opacity: {
-      default: 1,
-      ":disabled": 0.5,
-    },
-    outline: {
-      default: null,
-      ":focus-visible": "none",
-    },
-    paddingInline: "1.25rem",
-    transitionDuration: "150ms",
-    transitionProperty: "background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "100%",
-  },
-  secondaryButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: colors.card,
-      ":hover": colors.muted,
-    },
-    borderColor: colors.border,
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: {
-      default: null,
-      ":focus-visible": `0 0 0 2px ${colors.foreground}, 0 0 0 4px ${colors.card}`,
-    },
-    color: colors.foreground,
-    cursor: {
-      default: "pointer",
-      ":disabled": "not-allowed",
-    },
-    display: "flex",
-    fontSize: ".875rem",
-    fontWeight: 500,
-    gap: ".75rem",
-    height: "3rem",
-    justifyContent: "center",
-    opacity: {
-      default: 1,
-      ":disabled": 0.5,
-    },
-    outline: {
-      default: null,
-      ":focus-visible": "none",
-    },
-    paddingInline: "1.25rem",
-    transitionDuration: "150ms",
-    transitionProperty: "background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "100%",
-  },
-  notice: {
-    backgroundColor: colors.muted,
-    borderColor: colors.border,
-    borderRadius: radii.xl,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    padding: "1rem",
-    textAlign: "center",
-  },
-});
+export const authPrimaryButtonClassName = cn([
+  "flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-full px-5",
+  "bg-[#181613] text-sm font-medium text-white",
+  "transition-colors hover:bg-[#4f4940]",
+  "focus-visible:ring-2 focus-visible:ring-[#181613] focus-visible:ring-offset-2 focus-visible:outline-hidden",
+  "disabled:cursor-not-allowed disabled:opacity-50",
+]);
+
+export const authSecondaryButtonClassName = cn([
+  "flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-[#d9d1c5] bg-white px-5",
+  "text-sm font-medium text-[#181613]",
+  "transition-colors hover:bg-[#f7f4ef]",
+  "focus-visible:ring-2 focus-visible:ring-[#181613] focus-visible:ring-offset-2 focus-visible:outline-hidden",
+  "disabled:cursor-not-allowed disabled:opacity-50",
+]);
+
+export const authNoticeClassName =
+  "rounded-xl border border-[#e5ddcf] bg-[#f7f4ef] p-4 text-center";
+
 export function AuthShell({
   title,
   description,
@@ -253,44 +38,44 @@ export function AuthShell({
   children: React.ReactNode;
 }) {
   return (
-    <main {...stylex.props(authStyles.page)}>
-      <div {...stylex.props(authStyles.pageContent)}>
-        <div {...stylex.props(authStyles.layout)}>
-          <section {...stylex.props(authStyles.pitch)}>
-            <p {...stylex.props(authStyles.pitchEyebrow)}>
+    <main className="min-h-screen bg-white text-[#181613]">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1180px] flex-col px-5 sm:px-8">
+        <div className="grid flex-1 items-center gap-12 py-10 md:grid-cols-[minmax(0,1fr)_minmax(360px,440px)] lg:gap-20 lg:py-16">
+          <section className="hidden md:block">
+            <p className="font-hand text-2xl leading-none font-semibold text-[#756b5d]">
               Stay present. Keep the notes.
             </p>
-            <h2 {...stylex.props(authStyles.pitchHeading)}>
+            <h2 className="font-hand mt-5 max-w-[620px] text-6xl leading-[0.95] font-semibold tracking-normal text-balance lg:text-7xl">
               AI notepad for{" "}
-              <mark {...stylex.props(authStyles.pitchMark)}>
+              <mark className="bg-[#fff0b3] px-1 text-[#181613]">
                 private meetings.
               </mark>
             </h2>
           </section>
 
-          <section {...stylex.props(authStyles.panel)}>
-            <header {...stylex.props(authStyles.panelHeader)}>
+          <section className="mx-auto w-full max-w-[440px] overflow-hidden rounded-[24px] border border-[#e5ddcf] bg-white shadow-[0_24px_80px_rgba(24,22,19,0.10)]">
+            <header className="border-b border-[#ede7dc] px-6 py-7 sm:px-8 sm:py-8">
               {showEyebrow && (
-                <p {...stylex.props(authStyles.panelEyebrow)}>
+                <p className="font-hand text-xl leading-none font-semibold text-[#756b5d]">
                   Private by default
                 </p>
               )}
               <h1
-                {...stylex.props(
-                  authStyles.panelTitle,
-                  showEyebrow && authStyles.panelTitleWithEyebrow,
-                )}
+                className={cn([
+                  "font-hand text-4xl leading-none font-semibold text-[#181613]",
+                  showEyebrow && "mt-3",
+                ])}
               >
                 {title}
               </h1>
               {description && (
-                <p {...stylex.props(authStyles.panelDescription)}>
+                <p className="mt-3 text-sm leading-6 text-[#756b5d]">
                   {description}
                 </p>
               )}
             </header>
 
-            <div {...stylex.props(authStyles.panelBody)}>{children}</div>
+            <div className="p-6 sm:p-8">{children}</div>
           </section>
         </div>
       </div>

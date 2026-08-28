@@ -1,11 +1,11 @@
 import { useLingui } from "@lingui/react/macro";
 import { Waveform } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo } from "react";
 
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { cn } from "@anlg/utils";
 
 import { IconHeaderView, copyTextToClipboard } from "./header-shared";
 
@@ -90,19 +90,35 @@ function HeaderViewTranscriptButton({
         live ? (
           <HeaderViewTranscriptLiveIcon live={live} />
         ) : isTranscribing ? (
-          <Spinner size={16} sx={styles.shrinkIcon} />
+          <Spinner size={16} className="shrink-0" />
         ) : (
-          <Waveform {...stylex.props(styles.icon)} />
+          <Waveform className="size-4" />
         )
       }
       onClick={onClick}
       onContextMenu={onContextMenu}
       title={undefined}
-      sx={
-        live && isActive
-          ? [styles.liveActive, live.degraded ? styles.degraded : styles.live]
-          : undefined
-      }
+      className={cn([
+        live
+          ? [
+              "group/transcript-live",
+              isActive
+                ? "w-[98px] min-w-[98px] gap-1.5 px-2 @max-[480px]:w-10 @max-[480px]:min-w-10 @max-[480px]:gap-0"
+                : null,
+              isActive
+                ? live.degraded
+                  ? [
+                      "bg-amber-50 text-amber-500 hover:bg-amber-100 hover:text-amber-600",
+                      "dark:bg-amber-950/50 dark:text-amber-300 dark:hover:bg-amber-950 dark:hover:text-amber-200",
+                    ]
+                  : [
+                      "bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600",
+                      "dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-950 dark:hover:text-red-200",
+                    ]
+                : null,
+            ]
+          : null,
+      ])}
     />
   );
 }
@@ -119,9 +135,9 @@ function HeaderViewTranscriptLiveIcon({
   const color = live.degraded ? "#f59e0b" : "#ef4444";
 
   return (
-    <span {...stylex.props(styles.liveIcon)}>
+    <span className="relative flex size-4 items-center justify-center">
       {live.muted ? (
-        <Waveform {...stylex.props(styles.icon)} />
+        <Waveform className="size-4" />
       ) : (
         <DancingSticks
           amplitude={live.amplitude}
@@ -133,69 +149,6 @@ function HeaderViewTranscriptLiveIcon({
     </span>
   );
 }
-
-const compact = "@container (max-width: 480px)";
-
-const styles = stylex.create({
-  degraded: {
-    backgroundColor: {
-      default: "rgb(255 251 235)",
-      ":hover": "rgb(254 243 199)",
-      ":is(.dark *)": "rgb(69 26 3 / 0.5)",
-      ":is(.dark *):hover": "rgb(69 26 3)",
-    },
-    color: {
-      default: "rgb(245 158 11)",
-      ":hover": "rgb(217 119 6)",
-      ":is(.dark *)": "rgb(252 211 77)",
-      ":is(.dark *):hover": "rgb(253 230 138)",
-    },
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  live: {
-    backgroundColor: {
-      default: "rgb(254 242 242)",
-      ":hover": "rgb(254 226 226)",
-      ":is(.dark *)": "rgb(69 10 10 / 0.5)",
-      ":is(.dark *):hover": "rgb(69 10 10)",
-    },
-    color: {
-      default: "rgb(239 68 68)",
-      ":hover": "rgb(220 38 38)",
-      ":is(.dark *)": "rgb(252 165 165)",
-      ":is(.dark *):hover": "rgb(254 202 202)",
-    },
-  },
-  liveActive: {
-    gap: {
-      default: "0.375rem",
-      [compact]: 0,
-    },
-    minWidth: {
-      default: "98px",
-      [compact]: "2.5rem",
-    },
-    paddingInline: "0.5rem",
-    width: {
-      default: "98px",
-      [compact]: "2.5rem",
-    },
-  },
-  liveIcon: {
-    alignItems: "center",
-    display: "flex",
-    height: "1rem",
-    justifyContent: "center",
-    position: "relative",
-    width: "1rem",
-  },
-  shrinkIcon: {
-    flexShrink: 0,
-  },
-});
 
 function useTranscriptLiveViewState(sessionId: string) {
   const { amplitude, degraded, mode, muted } = useListener((state) => {

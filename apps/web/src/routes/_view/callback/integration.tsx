@@ -1,74 +1,46 @@
 import { Check, Copy } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
-import { AuthShell, authStyles } from "@/components/auth-shell";
+import {
+  AuthShell,
+  authNoticeClassName,
+  authPrimaryButtonClassName,
+  authSecondaryButtonClassName,
+} from "@/components/auth-shell";
 import {
   DEFAULT_DESKTOP_SCHEME,
   flowSearchSchema,
 } from "@/functions/desktop-flow";
-const styles = stylex.create({
-  style1: {
-    display: "flex",
-    flexDirection: "column",
-    gap: ".75rem",
-  },
-  style2: {
-    borderRadius: ".75rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    borderColor: "#e5ddcf",
-    backgroundColor: "#fbfaf7",
-    padding: "1rem",
-    textAlign: "center",
-  },
-  style3: {
-    marginBottom: ".75rem",
-    fontSize: ".875rem",
-    lineHeight: "1.5rem",
-    color: "#756b5d",
-  },
-  style4: {
-    width: "1rem",
-    height: "1rem",
-  },
-  style5: {
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    fontWeight: 500,
-    color: "#4f4940",
-  },
-});
+
 const commonSearch = {
   integration_id: z.string(),
   status: z.string(),
   disconnected_connection_id: z.string().optional(),
   return_to: z.string().optional(),
 };
+
 const validateSearch = flowSearchSchema(commonSearch, {
   defaultFlow: "desktop",
 });
+
 type IntegrationDeeplinkParams = {
   integration_id: string;
   status: string;
   disconnected_connection_id?: string;
   return_to?: string;
 };
+
 export const Route = createFileRoute("/_view/callback/integration")({
   validateSearch,
   component: Component,
   head: () => ({
-    meta: [
-      {
-        name: "robots",
-        content: "noindex, nofollow",
-      },
-    ],
+    meta: [{ name: "robots", content: "noindex, nofollow" }],
   }),
 });
+
 function buildDeeplinkUrl(
   scheme: string,
   search: IntegrationDeeplinkParams,
@@ -85,12 +57,14 @@ function buildDeeplinkUrl(
   }
   return `${scheme}://integration/callback?${params.toString()}`;
 }
+
 function Component() {
   const search = Route.useSearch();
   const scheme = search.scheme ?? DEFAULT_DESKTOP_SCHEME;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
+
   const getDeeplink = () => {
     return buildDeeplinkUrl(scheme, {
       integration_id: search.integration_id,
@@ -99,12 +73,14 @@ function Component() {
       return_to: search.return_to,
     });
   };
+
   const handleDeeplink = () => {
     const deeplink = getDeeplink();
     if (search.flow === "desktop" && deeplink) {
       window.location.href = deeplink;
     }
   };
+
   const handleCopy = async () => {
     const deeplink = getDeeplink();
     if (deeplink) {
@@ -113,6 +89,7 @@ function Component() {
       setTimeout(() => setCopied(false), 2000);
     }
   };
+
   useEffect(() => {
     if (search.flow === "web") {
       void queryClient.invalidateQueries({
@@ -120,12 +97,11 @@ function Component() {
       });
       void navigate({
         to: "/app/account/",
-        search: {
-          tab: "connections",
-        },
+        search: { tab: "connections" },
       } as any);
     }
   }, [search.flow, navigate, queryClient]);
+
   useEffect(() => {
     if (search.flow === "desktop" && search.status === "success") {
       const deeplink = getDeeplink();
@@ -142,7 +118,9 @@ function Component() {
     search.disconnected_connection_id,
     search.return_to,
   ]);
+
   const isSuccess = search.status === "success";
+
   if (search.flow === "desktop") {
     return (
       <AuthShell
@@ -154,30 +132,30 @@ function Component() {
         }
       >
         {isSuccess ? (
-          <div {...stylex.props(styles.style1)}>
+          <div className="flex flex-col gap-3">
             <button
               onClick={handleDeeplink}
-              {...stylex.props(authStyles.primaryButton)}
+              className={authPrimaryButtonClassName}
             >
               Open Anarlog
             </button>
 
-            <div {...stylex.props(styles.style2)}>
-              <p {...stylex.props(styles.style3)}>
+            <div className="rounded-xl border border-[#e5ddcf] bg-[#fbfaf7] p-4 text-center">
+              <p className="mb-3 text-sm leading-6 text-[#756b5d]">
                 Button not working? Copy the link instead
               </p>
               <button
                 onClick={handleCopy}
-                {...stylex.props(authStyles.secondaryButton)}
+                className={authSecondaryButtonClassName}
               >
                 {copied ? (
                   <>
-                    <Check {...stylex.props(styles.style4)} />
+                    <Check className="size-4" />
                     Copied!
                   </>
                 ) : (
                   <>
-                    <Copy {...stylex.props(styles.style4)} />
+                    <Copy className="size-4" />
                     Copy URL
                   </>
                 )}
@@ -185,8 +163,8 @@ function Component() {
             </div>
           </div>
         ) : (
-          <div {...stylex.props(authStyles.notice)}>
-            <p {...stylex.props(styles.style5)}>
+          <div className={authNoticeClassName}>
+            <p className="text-sm font-medium text-[#4f4940]">
               Close this window and try again from Anarlog.
             </p>
           </div>
@@ -194,6 +172,7 @@ function Component() {
       </AuthShell>
     );
   }
+
   if (search.flow === "web") {
     return <div>Redirecting...</div>;
   }

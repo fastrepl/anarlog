@@ -1,0 +1,24 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "rsc": true,
+  "tsx": true,
+  "tailwind": {
+    "config": "tailwind.config.ts",
+    "css": "src/styles/globals.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "iconLibrary": "phosphor",
+  "aliases": {
+    "components": "@anlg/ui/components",
+    "utils": "@anlg/utils",
+    "ui": "@anlg/ui/components/ui",
+    "lib": "@anlg/ui/lib",
+    "hooks": "@anlg/ui/hooks"
+  },
+  "registries": {
+    "@magicui": "https://magicui.design/r/{name}.json"
+  }
+}

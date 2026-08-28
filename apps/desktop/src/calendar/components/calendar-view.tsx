@@ -1,5 +1,4 @@
 import { ArrowsClockwise, CaretLeft, CaretRight } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addDays,
@@ -16,7 +15,6 @@ import {
 } from "date-fns";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   ButtonGroup,
@@ -28,6 +26,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@anlg/ui/components/ui/tooltip";
+import { cn } from "@anlg/utils";
 
 import { useSync } from "./context";
 import { DayCell } from "./day-cell";
@@ -228,58 +227,77 @@ export function CalendarView() {
   const compactContentWidth = `${(days.length / cols) * 100}%`;
 
   return (
-    <div ref={containerRef} {...stylex.props(styles.root)}>
-      <div data-tauri-drag-region {...stylex.props(styles.header)}>
-        <div {...stylex.props(styles.headerTitle)}>
-          <h2 {...stylex.props(styles.title)}>
+    <div ref={containerRef} className="flex h-full flex-col overflow-hidden">
+      <div
+        data-tauri-drag-region
+        className={cn([
+          "flex items-center justify-between",
+          "border-border h-12 border-b py-2 pr-3 pl-3 select-none",
+        ])}
+      >
+        <div className="flex items-center gap-2">
+          <h2 className="text-foreground text-sm font-semibold">
             {isMonthView
               ? format(currentMonth, "MMMM yyyy")
               : format(compactVisibleStart, "MMMM yyyy")}
           </h2>
           <CalendarSyncHeaderControls />
         </div>
-        <ButtonGroup data-tauri-drag-region="false" sx={styles.navigation}>
+        <ButtonGroup
+          data-tauri-drag-region="false"
+          className={cn([
+            "border-border h-7 overflow-hidden rounded-full border",
+            "bg-card",
+          ])}
+        >
           <Button
             variant="ghost"
             size="icon"
-            sx={styles.navigationIconButton}
+            className="hover:bg-accent h-full w-7 rounded-none border-0 bg-transparent shadow-none"
             onClick={goToPrev}
           >
-            <CaretLeft {...stylex.props(styles.navigationIcon)} />
+            <CaretLeft className="size-3.5" />
           </Button>
-          <ButtonGroupSeparator sx={styles.separator} />
+          <ButtonGroupSeparator className="bg-accent" />
           <Button
             variant="ghost"
             size="sm"
-            sx={styles.todayButton}
+            className={cn([
+              "h-full rounded-none border-0",
+              "hover:bg-accent bg-transparent px-2 text-xs shadow-none",
+            ])}
             onClick={goToToday}
           >
             Today
           </Button>
-          <ButtonGroupSeparator sx={styles.separator} />
+          <ButtonGroupSeparator className="bg-accent" />
           <Button
             variant="ghost"
             size="icon"
-            sx={styles.navigationIconButton}
+            className="hover:bg-accent h-full w-7 rounded-none border-0 bg-transparent shadow-none"
             onClick={goToNext}
           >
-            <CaretRight {...stylex.props(styles.navigationIcon)} />
+            <CaretRight className="size-3.5" />
           </Button>
         </ButtonGroup>
       </div>
 
       {isMonthView ? (
         <>
-          <div {...stylex.props(styles.weekdayGrid(cols))}>
+          <div
+            className="border-border grid border-b"
+            style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+          >
             {visibleHeaders.map((day, i) => (
               <div
                 key={`${day}-${i}`}
-                {...stylex.props([
-                  styles.weekdayHeader,
-                  i < visibleHeaders.length - 1 && styles.weekdayDivider,
+                className={cn([
+                  "text-center text-xs font-medium",
+                  "py-2",
+                  i < visibleHeaders.length - 1 && "border-r-border border-r",
                   day === "Sat" || day === "Sun"
-                    ? styles.weekendHeader
-                    : styles.weekdayHeaderColor,
+                    ? "text-muted-foreground"
+                    : "text-foreground",
                 ])}
               >
                 {day}
@@ -287,7 +305,10 @@ export function CalendarView() {
             ))}
           </div>
 
-          <div {...stylex.props(styles.monthGrid(cols))}>
+          <div
+            className="grid flex-1 auto-rows-fr overflow-hidden"
+            style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+          >
             {days.map((day) => (
               <DayCell
                 key={day.toISOString()}
@@ -301,24 +322,30 @@ export function CalendarView() {
       ) : (
         <div
           ref={compactScrollRef}
-          {...stylex.props(styles.compactScroll)}
+          className={cn([
+            "scrollbar-hide min-h-0 flex-1 overflow-x-auto overflow-y-hidden",
+            "snap-x snap-mandatory overscroll-x-contain",
+          ])}
           onScroll={handleCompactScroll}
         >
           <div
-            {...stylex.props(
-              styles.compactGrid(compactContentWidth, days.length),
-            )}
+            className="grid h-full min-w-full grid-rows-[auto_minmax(0,1fr)]"
+            style={{
+              width: compactContentWidth,
+              gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`,
+            }}
           >
             {days.map((day) => {
               const label = format(day, "EEE");
               return (
                 <div
                   key={`header-${day.toISOString()}`}
-                  {...stylex.props([
-                    styles.compactHeader,
+                  className={cn([
+                    "border-r-border border-b-border snap-start border-r border-b",
+                    "py-2 text-center text-xs font-medium",
                     label === "Sat" || label === "Sun"
-                      ? styles.weekendHeader
-                      : styles.weekdayHeaderColor,
+                      ? "text-muted-foreground"
+                      : "text-foreground",
                   ])}
                 >
                   {label}
@@ -405,11 +432,11 @@ function CalendarSyncHeaderControls() {
         : null;
 
   return (
-    <div {...stylex.props(styles.syncControls)}>
+    <div className="flex items-center">
       {showSyncIndicator ? (
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
-            <span {...stylex.props(styles.syncIndicator)}>
+            <span className="text-muted-foreground flex size-6 items-center justify-center">
               <Spinner size={12} />
             </span>
           </TooltipTrigger>
@@ -419,167 +446,13 @@ function CalendarSyncHeaderControls() {
         <Button
           variant="ghost"
           size="icon"
-          sx={styles.syncButton}
+          className="size-6"
           data-tauri-drag-region="false"
           onClick={handleRefresh}
         >
-          <ArrowsClockwise {...stylex.props(styles.navigationIcon)} />
+          <ArrowsClockwise className="size-3.5" />
         </Button>
       )}
     </div>
   );
 }
-
-const styles = stylex.create({
-  compactGrid: (width: string, columns: number) => ({
-    display: "grid",
-    gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-    gridTemplateRows: "auto minmax(0, 1fr)",
-    height: "100%",
-    minWidth: "100%",
-    width,
-  }),
-  compactHeader: {
-    borderBottomColor: colors.border,
-    borderBottomStyle: "solid",
-    borderBottomWidth: "1px",
-    borderRightColor: colors.border,
-    borderRightStyle: "solid",
-    borderRightWidth: "1px",
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    lineHeight: "1rem",
-    paddingBlock: "0.5rem",
-    scrollSnapAlign: "start",
-    textAlign: "center",
-  },
-  compactScroll: {
-    display: {
-      default: null,
-      "::-webkit-scrollbar": "none",
-    },
-    flex: "1",
-    minHeight: 0,
-    overflowX: "auto",
-    overflowY: "hidden",
-    overscrollBehaviorX: "contain",
-    scrollbarWidth: "none",
-    scrollSnapType: "x mandatory",
-  },
-  header: {
-    alignItems: "center",
-    borderBottomColor: colors.border,
-    borderBottomStyle: "solid",
-    borderBottomWidth: "1px",
-    display: "flex",
-    height: "3rem",
-    justifyContent: "space-between",
-    paddingBlock: "0.5rem",
-    paddingInline: "0.75rem",
-    userSelect: "none",
-  },
-  headerTitle: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-  },
-  monthGrid: (columns: number) => ({
-    display: "grid",
-    flex: "1",
-    gridAutoRows: "1fr",
-    gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-    overflow: "hidden",
-  }),
-  navigation: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    height: "1.75rem",
-    overflow: "hidden",
-  },
-  navigationIcon: {
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  navigationIconButton: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    borderRadius: 0,
-    borderWidth: 0,
-    boxShadow: "none",
-    height: "100%",
-    width: "1.75rem",
-  },
-  root: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    overflow: "hidden",
-  },
-  separator: {
-    backgroundColor: colors.accent,
-  },
-  syncButton: {
-    height: "1.5rem",
-    width: "1.5rem",
-  },
-  syncControls: {
-    alignItems: "center",
-    display: "flex",
-  },
-  syncIndicator: {
-    alignItems: "center",
-    color: colors.mutedForeground,
-    display: "flex",
-    height: "1.5rem",
-    justifyContent: "center",
-    width: "1.5rem",
-  },
-  title: {
-    color: colors.foreground,
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    lineHeight: "1.25rem",
-  },
-  todayButton: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    borderRadius: 0,
-    borderWidth: 0,
-    boxShadow: "none",
-    fontSize: "0.75rem",
-    height: "100%",
-    paddingInline: "0.5rem",
-  },
-  weekdayDivider: {
-    borderRightColor: colors.border,
-    borderRightStyle: "solid",
-    borderRightWidth: "1px",
-  },
-  weekdayGrid: (columns: number) => ({
-    borderBottomColor: colors.border,
-    borderBottomStyle: "solid",
-    borderBottomWidth: "1px",
-    display: "grid",
-    gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-  }),
-  weekdayHeader: {
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    lineHeight: "1rem",
-    paddingBlock: "0.5rem",
-    textAlign: "center",
-  },
-  weekdayHeaderColor: {
-    color: colors.foreground,
-  },
-  weekendHeader: {
-    color: colors.mutedForeground,
-  },
-});

@@ -1,5 +1,4 @@
 import { Microphone, MicrophoneSlash } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 
 import { DropdownMenuItem } from "@anlg/ui/components/ui/dropdown-menu";
 
@@ -50,7 +49,7 @@ export function Listening({
 
   return (
     <DropdownMenuItem
-      sx={styles.item}
+      className="cursor-pointer"
       onClick={handleToggleListening}
       disabled={isFinalizing || isBatching}
     >
@@ -65,9 +64,3 @@ export function Listening({
     </DropdownMenuItem>
   );
 }
-
-const styles = stylex.create({
-  item: {
-    cursor: "pointer",
-  },
-});

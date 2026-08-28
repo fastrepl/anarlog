@@ -1,7 +1,5 @@
-import * as stylex from "@stylexjs/stylex";
 import { useForm } from "@tanstack/react-form";
 
-import { colors } from "@anlg/design-system/tokens.stylex";
 import { Input } from "@anlg/ui/components/ui/input";
 
 import { useSetSettingValue } from "~/settings/queries";
@@ -43,19 +41,19 @@ export function TodoFilterField({
   });
 
   return (
-    <div {...stylex.props(styles.row)}>
-      <div {...stylex.props(styles.copy)}>
-        <h3 {...stylex.props(styles.title)}>{label}</h3>
-        <p {...stylex.props(styles.description)}>{description}</p>
+    <div className="flex items-center justify-between gap-4">
+      <div className="flex-1">
+        <h3 className="mb-1 text-sm font-medium">{label}</h3>
+        <p className="text-muted-foreground text-xs">{description}</p>
         {invalidMessage ? (
-          <p {...stylex.props(styles.error)}>{invalidMessage}</p>
+          <p className="mt-2 text-xs text-red-600">{invalidMessage}</p>
         ) : null}
       </div>
 
       <form.Field name="value">
         {(field) => (
           <Input
-            sx={styles.input}
+            className="w-52"
             placeholder={placeholder}
             value={field.state.value}
             onChange={(event) => field.handleChange(event.target.value)}
@@ -65,35 +63,3 @@ export function TodoFilterField({
     </div>
   );
 }
-
-const styles = stylex.create({
-  copy: {
-    flex: "1",
-  },
-  description: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-  },
-  error: {
-    color: "rgb(220 38 38)",
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-    marginTop: "0.5rem",
-  },
-  input: {
-    width: "13rem",
-  },
-  row: {
-    alignItems: "center",
-    display: "flex",
-    gap: "1rem",
-    justifyContent: "space-between",
-  },
-  title: {
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    lineHeight: "1.25rem",
-    marginBottom: "0.25rem",
-  },
-});

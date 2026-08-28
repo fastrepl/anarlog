@@ -1,9 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import * as stylex from "@stylexjs/stylex";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
 
-import { colors, fonts } from "@anlg/design-system/tokens.stylex";
 import {
   Select,
   SelectContent,
@@ -11,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@anlg/ui/components/ui/select";
+import { cn } from "@anlg/utils";
 
 import { useLlmSettings } from "./context";
 import { HealthStatusIndicator, useConnectionHealth } from "./health";
@@ -346,7 +345,7 @@ export function SelectProviderAndModel() {
   };
 
   return (
-    <div {...stylex.props(styles.container)}>
+    <div className="flex flex-col gap-4">
       {defaultSelection && !activePendingSelection ? (
         <PersistAiSelection
           key={`llm:${defaultSelection.provider}:${defaultSelection.model}`}
@@ -362,19 +361,16 @@ export function SelectProviderAndModel() {
         lifecycle="condition-bound"
       />
 
-      <h3 {...stylex.props(styles.title)}>
+      <h3 className="text-md font-sans font-semibold">
         <Trans>Model being used</Trans>
       </h3>
-      <div {...stylex.props(styles.selection)}>
-        <div
-          {...stylex.props(styles.providerControl)}
-          data-llm-provider-selector
-        >
+      <div className="flex flex-row items-center gap-4">
+        <div className="min-w-0 flex-2" data-llm-provider-selector>
           <Select
             value={effectiveSelection.provider}
             onValueChange={handleProviderChange}
           >
-            <SelectTrigger sx={styles.trigger}>
+            <SelectTrigger className="bg-card shadow-none focus:ring-0">
               <SelectValue placeholder={t`Select a provider`} />
             </SelectTrigger>
             <SelectContent>
@@ -392,18 +388,18 @@ export function SelectProviderAndModel() {
                     key={provider.id}
                     value={provider.id}
                     disabled={locked || !configured}
-                    sx={[
-                      styles.providerItem,
-                      !configured && !locked && styles.unconfiguredProvider,
-                    ]}
+                    className={cn([
+                      "data-disabled:text-muted-foreground data-disabled:!opacity-100",
+                      !configured && !locked && "text-muted-foreground",
+                    ])}
                   >
-                    <div {...stylex.props(styles.providerOption)}>
-                      <div {...stylex.props(styles.providerIdentity)}>
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-2">
                         <ProviderIconSlot>{provider.icon}</ProviderIconSlot>
                         <span>{provider.displayName}</span>
                       </div>
                       {locked ? (
-                        <span {...stylex.props(styles.lockedDescription)}>
+                        <span className="text-muted-foreground text-[11px]">
                           <Trans>Upgrade to Pro to use this provider.</Trans>
                         </span>
                       ) : null}
@@ -415,9 +411,9 @@ export function SelectProviderAndModel() {
           </Select>
         </div>
 
-        <span {...stylex.props(styles.separator)}>/</span>
+        <span className="text-muted-foreground">/</span>
 
-        <div {...stylex.props(styles.modelControl)}>
+        <div className="min-w-0 flex-3">
           <ModelCombobox
             providerId={effectiveSelection.provider}
             value={effectiveSelection.model}
@@ -436,70 +432,6 @@ export function SelectProviderAndModel() {
     </div>
   );
 }
-
-const styles = stylex.create({
-  container: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  lockedDescription: {
-    color: colors.mutedForeground,
-    fontSize: "11px",
-  },
-  modelControl: {
-    flex: "3",
-    minWidth: 0,
-  },
-  providerControl: {
-    flex: "2",
-    minWidth: 0,
-  },
-  providerIdentity: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-  },
-  providerItem: {
-    color: {
-      default: null,
-      ":is([data-disabled])": colors.mutedForeground,
-    },
-    opacity: {
-      default: null,
-      ":is([data-disabled])": 1,
-    },
-  },
-  providerOption: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.125rem",
-  },
-  selection: {
-    alignItems: "center",
-    display: "flex",
-    flexDirection: "row",
-    gap: "1rem",
-  },
-  separator: {
-    color: colors.mutedForeground,
-  },
-  title: {
-    fontFamily: fonts.sans,
-    fontSize: "1rem",
-    fontWeight: 600,
-  },
-  trigger: {
-    backgroundColor: colors.card,
-    boxShadow: {
-      default: "none",
-      ":focus": "none",
-    },
-  },
-  unconfiguredProvider: {
-    color: colors.mutedForeground,
-  },
-});
 
 type ProviderStatus = {
   configured: boolean;

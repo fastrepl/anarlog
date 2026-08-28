@@ -1,9 +1,7 @@
-import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import React, { useEffect, useRef } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 
 import { FloatingActionButton } from "./components/floating";
@@ -351,25 +349,21 @@ function TabContentNoteInner({
           )
         }
       >
-        <div {...stylex.props(styles.root)}>
+        <div className="flex h-full min-h-0 flex-col">
           {!lockOverlay ? (
             <PendingProposalsBanner sessionId={sessionId} />
           ) : null}
           {showTopAudioPlayer && !lockOverlay ? (
             <div
               data-session-top-audio-player
-              {...stylex.props(styles.audioPlayerContainer)}
+              className="shrink-0 px-1 pt-1 pb-2"
             >
-              <div {...stylex.props(styles.audioPlayer)}>
-                <AudioPlayer.Timeline
-                  contentClassName={
-                    stylex.props(styles.audioPlayerContent).className
-                  }
-                />
+              <div className="border-border/70 bg-card/80 overflow-hidden rounded-[22px] border">
+                <AudioPlayer.Timeline contentClassName="py-1.5 pr-3 pl-1" />
               </div>
             </div>
           ) : null}
-          <div {...stylex.props(styles.content)}>
+          <div className="min-h-0 flex-1">
             {session ? (
               <NoteInput
                 ref={noteInputRef}
@@ -407,10 +401,10 @@ function blurActiveTranscriptEditor() {
 
 function SessionContentLoading() {
   return (
-    <div {...stylex.props(styles.loading)}>
-      <div {...stylex.props(styles.loadingBar, styles.loadingBarFirst)} />
-      <div {...stylex.props(styles.loadingBar, styles.loadingBarSecond)} />
-      <div {...stylex.props(styles.loadingBar, styles.loadingBarThird)} />
+    <div className="flex h-full flex-col gap-3 px-4 py-5">
+      <div className="bg-muted h-5 w-3/5 animate-pulse rounded-md" />
+      <div className="bg-muted/80 h-4 w-4/5 animate-pulse rounded-md" />
+      <div className="bg-muted/70 h-4 w-2/3 animate-pulse rounded-md" />
     </div>
   );
 }
@@ -452,75 +446,3 @@ function useAutoFocusEditor({
     return () => cancelAnimationFrame(frame);
   }, [enabled, noteInputRef, sessionId, sessionReady]);
 }
-
-const pulse = stylex.keyframes({
-  "0%, 100%": {
-    opacity: 1,
-  },
-  "50%": {
-    opacity: 0.5,
-  },
-});
-
-const styles = stylex.create({
-  audioPlayer: {
-    backgroundColor: `color-mix(in srgb, ${colors.card} 80%, transparent)`,
-    borderColor: `color-mix(in srgb, ${colors.border} 70%, transparent)`,
-    borderRadius: "22px",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    overflow: "hidden",
-  },
-  audioPlayerContainer: {
-    flexShrink: 0,
-    paddingBottom: "0.5rem",
-    paddingInline: "0.25rem",
-    paddingTop: "0.25rem",
-  },
-  audioPlayerContent: {
-    paddingBottom: "0.375rem",
-    paddingLeft: "0.25rem",
-    paddingRight: "0.75rem",
-    paddingTop: "0.375rem",
-  },
-  content: {
-    flex: "1",
-    minHeight: 0,
-  },
-  loading: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-    height: "100%",
-    paddingBlock: "1.25rem",
-    paddingInline: "1rem",
-  },
-  loadingBar: {
-    animationDuration: "2s",
-    animationIterationCount: "infinite",
-    animationName: pulse,
-    animationTimingFunction: "cubic-bezier(0.4, 0, 0.6, 1)",
-    backgroundColor: colors.muted,
-    borderRadius: radii.md,
-  },
-  loadingBarFirst: {
-    height: "1.25rem",
-    width: "60%",
-  },
-  loadingBarSecond: {
-    backgroundColor: `color-mix(in srgb, ${colors.muted} 80%, transparent)`,
-    height: "1rem",
-    width: "80%",
-  },
-  loadingBarThird: {
-    backgroundColor: `color-mix(in srgb, ${colors.muted} 70%, transparent)`,
-    height: "1rem",
-    width: "66.666667%",
-  },
-  root: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    minHeight: 0,
-  },
-});

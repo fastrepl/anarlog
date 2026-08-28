@@ -1,7 +1,4 @@
-import * as stylex from "@stylexjs/stylex";
-
-import { colors } from "@anlg/design-system/tokens.stylex";
-import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
+import { cn } from "@anlg/utils";
 
 import {
   SettingsAccount,
@@ -88,44 +85,19 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
   };
 
   return (
-    <div data-settings-content {...stylex.props(styles.root)}>
-      <div {...stylex.props(styles.viewport)}>
-        <div {...mergeStyleXProps(styles.scroller, "scroll-fade-y")}>
+    <div
+      data-settings-content
+      className="bg-card dark:bg-accent flex w-full flex-1 flex-col overflow-hidden"
+    >
+      <div className="relative w-full flex-1 overflow-hidden">
+        <div
+          className={cn([
+            "scroll-fade-y scrollbar-hide h-full w-full flex-1 overflow-y-auto p-6",
+          ])}
+        >
           {renderContent()}
         </div>
       </div>
     </div>
   );
 }
-
-const styles = stylex.create({
-  root: {
-    backgroundColor: {
-      default: colors.card,
-      ":is(.dark *)": colors.accent,
-    },
-    display: "flex",
-    flex: "1",
-    flexDirection: "column",
-    overflow: "hidden",
-    width: "100%",
-  },
-  scroller: {
-    display: {
-      default: null,
-      "::-webkit-scrollbar": "none",
-    },
-    flex: "1",
-    height: "100%",
-    overflowY: "auto",
-    padding: "1.5rem",
-    scrollbarWidth: "none",
-    width: "100%",
-  },
-  viewport: {
-    flex: "1",
-    overflow: "hidden",
-    position: "relative",
-    width: "100%",
-  },
-});

@@ -1,4 +1,3 @@
-import * as stylex from "@stylexjs/stylex";
 import { useEffect, useState } from "react";
 
 import {
@@ -66,11 +65,11 @@ export function FloatingBarOverlayScreen() {
   }, []);
 
   if (!state) {
-    return <div {...stylex.props(styles.root)} />;
+    return <div className="h-screen w-screen bg-transparent" />;
   }
 
   return (
-    <div {...stylex.props(styles.root)}>
+    <div className="h-screen w-screen bg-transparent">
       <FloatingBarOverlay
         state={state}
         onStop={() => {
@@ -90,11 +89,3 @@ export function FloatingBarOverlayScreen() {
     </div>
   );
 }
-
-const styles = stylex.create({
-  root: {
-    backgroundColor: "transparent",
-    height: "100vh",
-    width: "100vw",
-  },
-});

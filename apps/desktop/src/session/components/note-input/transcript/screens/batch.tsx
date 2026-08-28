@@ -1,6 +1,3 @@
-import * as stylex from "@stylexjs/stylex";
-
-import { colors } from "@anlg/design-system/tokens.stylex";
 import type { DegradedError } from "@anlg/plugin-transcription";
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 
@@ -30,8 +27,11 @@ export function BatchState({
     : "Recording continues. Your transcript will be generated after you stop.";
 
   return (
-    <div role="status" {...stylex.props(styles.root)}>
-      <div {...stylex.props(styles.visualizer)}>
+    <div
+      role="status"
+      className="flex h-full min-h-[400px] flex-col items-center justify-center px-6 text-center"
+    >
+      <div className="mb-5">
         <DancingSticks
           amplitude={Math.min(Math.hypot(amplitude.mic, amplitude.speaker), 1)}
           color="#a3a3a3"
@@ -41,9 +41,11 @@ export function BatchState({
           gap={3}
         />
       </div>
-      <div {...stylex.props(styles.copy)}>
-        <p {...stylex.props(styles.title)}>{title}</p>
-        <p {...stylex.props(styles.description)}>{description}</p>
+      <div className="flex max-w-md flex-col gap-2">
+        <p className="text-base font-medium">{title}</p>
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          {description}
+        </p>
       </div>
     </div>
   );
@@ -71,34 +73,3 @@ function degradedMessage(error: DegradedError): string {
       return "Transcription stream error";
   }
 }
-
-const styles = stylex.create({
-  copy: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-    maxWidth: "28rem",
-  },
-  description: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    lineHeight: 1.625,
-  },
-  root: {
-    alignItems: "center",
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    justifyContent: "center",
-    minHeight: "400px",
-    paddingInline: "1.5rem",
-    textAlign: "center",
-  },
-  title: {
-    fontSize: "1rem",
-    fontWeight: 500,
-  },
-  visualizer: {
-    marginBottom: "1.25rem",
-  },
-});

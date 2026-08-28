@@ -8,10 +8,8 @@
     "./ui": "./src/plan-feature-list.tsx"
   },
   "dependencies": {
-    "@anlg/design-system": "workspace:^",
     "@anlg/ui": "workspace:^",
-    "@anlg/utils": "workspace:^",
-    "@stylexjs/stylex": "^0.19.0"
+    "@anlg/utils": "workspace:^"
   },
   "devDependencies": {
     "@types/react": "^19.2.14"

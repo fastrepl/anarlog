@@ -1,10 +1,9 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { SegmentHeader, segmentHeaderStyles } from "./segment-header";
+import { SegmentHeader } from "./segment-header";
 import { TranscriptSelectionProvider } from "./selection-context";
 
-import { expectStyle } from "~/session/stylex-test";
 import type { Segment } from "~/stt/live-segment";
 
 vi.mock("./speaker-assign", () => ({
@@ -35,9 +34,8 @@ describe("SegmentHeader", () => {
     );
 
     expect(screen.getByRole("button", { name: "Speaker 3" })).toBeTruthy();
-    expectStyle(
-      document.querySelector("[aria-hidden='true']"),
-      segmentHeaderStyles.selection,
+    expect(document.querySelector("[aria-hidden='true']")?.className).toContain(
+      "rounded-full",
     );
   });
   it("keeps the speaker label visible without exposing timestamps", () => {
@@ -65,7 +63,9 @@ describe("SegmentHeader", () => {
     );
 
     const header = view.container.firstElementChild;
-    expectStyle(header, segmentHeaderStyles.root);
+    expect(header?.className).not.toContain("sticky");
+    expect(header?.className).not.toContain("-mx-3");
+    expect(header?.className).not.toContain("z-20");
   });
 
   it("labels remote live segments as the unique other participant", () => {

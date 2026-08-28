@@ -1,9 +1,8 @@
 import { useLingui } from "@lingui/react/macro";
 import { ArrowLeft } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, useCallback } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
+import { cn } from "@anlg/utils";
 
 import { useShell } from "~/contexts/shell";
 import { useWindowControlsGutter } from "~/shared/hooks/useWindowControlsGutter";
@@ -40,14 +39,15 @@ export function CustomSidebarHeader({ children }: { children?: ReactNode }) {
   return (
     <div
       data-tauri-drag-region
-      {...stylex.props(
-        styles.header,
-        showWindowControlsGutter
-          ? styles.headerWithWindowControls
-          : styles.headerDefault,
-      )}
+      className={cn([
+        "flex h-12 shrink-0 items-start py-0 pt-[9px] pr-1",
+        showWindowControlsGutter ? "pl-[76px]" : "pl-2",
+      ])}
     >
-      <div data-tauri-drag-region {...stylex.props(styles.leading)}>
+      <div
+        data-tauri-drag-region
+        className="flex min-w-0 flex-1 items-center gap-1"
+      >
         <CustomSidebarHeaderButton
           label={t`Go home`}
           title={t`Back`}
@@ -57,7 +57,10 @@ export function CustomSidebarHeader({ children }: { children?: ReactNode }) {
         </CustomSidebarHeaderButton>
       </div>
       {children ? (
-        <div data-tauri-drag-region="false" {...stylex.props(styles.trailing)}>
+        <div
+          data-tauri-drag-region="false"
+          className="ml-1 flex shrink-0 items-center"
+        >
           {children}
         </div>
       ) : null}
@@ -85,78 +88,15 @@ function CustomSidebarHeaderButton({
       title={title}
       data-tauri-drag-region="false"
       disabled={disabled}
-      {...stylex.props(styles.button)}
+      className={cn([
+        "relative z-50 flex size-7 shrink-0 items-center justify-center rounded-full",
+        "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
+        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
+        "disabled:text-muted-foreground/70 disabled:hover:text-muted-foreground/70 disabled:hover:bg-transparent",
+      ])}
       onClick={onClick}
     >
       {children}
     </button>
   );
 }
-
-const styles = stylex.create({
-  button: {
-    alignItems: "center",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-      ":disabled:hover": "transparent",
-    },
-    borderRadius: radii.full,
-    boxShadow: {
-      default: null,
-      ":focus-visible": `0 0 0 2px ${colors.ring}`,
-    },
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-      ":disabled": `color-mix(in oklab, ${colors.mutedForeground} 70%, transparent)`,
-      ":disabled:hover": `color-mix(in oklab, ${colors.mutedForeground} 70%, transparent)`,
-    },
-    display: "flex",
-    flexShrink: 0,
-    height: "1.75rem",
-    justifyContent: "center",
-    outline: {
-      default: null,
-      ":focus-visible": "2px solid transparent",
-    },
-    outlineOffset: {
-      default: null,
-      ":focus-visible": "2px",
-    },
-    position: "relative",
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "1.75rem",
-    zIndex: 50,
-  },
-  header: {
-    alignItems: "flex-start",
-    display: "flex",
-    flexShrink: 0,
-    height: "3rem",
-    paddingBottom: 0,
-    paddingRight: "0.25rem",
-    paddingTop: "9px",
-  },
-  headerDefault: {
-    paddingLeft: "0.5rem",
-  },
-  headerWithWindowControls: {
-    paddingLeft: "76px",
-  },
-  leading: {
-    alignItems: "center",
-    display: "flex",
-    flex: "1",
-    gap: "0.25rem",
-    minWidth: 0,
-  },
-  trailing: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    marginLeft: "0.25rem",
-  },
-});

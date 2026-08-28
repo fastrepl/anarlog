@@ -1,11 +1,9 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { CircleNotch, Copy } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 import { readText as readClipboardText } from "@tauri-apps/plugin-clipboard-manager";
 import { useEffect, useRef, useState } from "react";
 
-import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import {
   commands as deeplink2Commands,
@@ -363,7 +361,7 @@ export function ConnectSubscriptionDialog({
 
   return (
     <Dialog open={!!provider} onOpenChange={onOpenChange}>
-      <DialogContent sx={styles.dialog}>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
             {provider ? t`Connect ${provider.displayName}` : t`Connect`}
@@ -386,8 +384,8 @@ export function ConnectSubscriptionDialog({
         completeMutation.isPending ||
         (session?.kind === "code" &&
           (listeningForCallback || providerId === "claude")) ? (
-          <div {...stylex.props(styles.loading)}>
-            <CircleNotch {...stylex.props(styles.spinner)} />
+          <div className="text-muted-foreground flex items-center gap-2 text-sm">
+            <CircleNotch className="size-4 animate-spin" />
             {isStarting ? (
               <Trans>Opening sign-in…</Trans>
             ) : completeMutation.isPending ? (
@@ -402,7 +400,7 @@ export function ConnectSubscriptionDialog({
         !showPasteFallback ? (
           <button
             type="button"
-            {...stylex.props(styles.troubleButton)}
+            className="text-muted-foreground hover:text-foreground self-start text-xs underline"
             onClick={() => setShowPasteFallback(true)}
           >
             <Trans>Having trouble? Paste the redirect URL</Trans>
@@ -421,26 +419,28 @@ export function ConnectSubscriptionDialog({
           />
         ) : null}
         {session?.kind === "device" ? (
-          <div {...stylex.props(styles.device)}>
-            <div {...stylex.props(styles.deviceCode)}>
-              <span {...stylex.props(styles.code)}>{session.userCode}</span>
+          <div className="flex flex-col gap-3">
+            <div className="bg-muted flex items-center justify-between rounded-xl px-3 py-2">
+              <span className="font-mono text-lg tracking-widest">
+                {session.userCode}
+              </span>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => void copyUserCode()}
               >
-                <Copy {...stylex.props(styles.icon)} />
+                <Copy className="size-4" />
                 <Trans>Copy</Trans>
               </Button>
             </div>
-            <p {...stylex.props(styles.message)}>
+            <p className="text-muted-foreground text-xs">
               <Trans>Waiting for authorization in your browser…</Trans>
             </p>
           </div>
         ) : null}
         {session?.kind === "api_key" ? (
-          <div {...stylex.props(styles.apiKey)}>
+          <div className="flex flex-col gap-2">
             <Input
               type="password"
               value={apiKey}
@@ -452,13 +452,13 @@ export function ConnectSubscriptionDialog({
               href={session.docsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              {...stylex.props(styles.docsLink)}
+              className="text-muted-foreground hover:text-foreground text-xs underline"
             >
               <Trans>How to get a Kimi Code key</Trans>
             </a>
           </div>
         ) : null}
-        {error ? <p {...stylex.props(styles.error)}>{error}</p> : null}
+        {error ? <p className="text-destructive text-xs">{error}</p> : null}
         <DialogFooter>
           <Button
             type="button"
@@ -474,7 +474,7 @@ export function ConnectSubscriptionDialog({
               disabled={completeMutation.isPending}
             >
               {completeMutation.isPending ? (
-                <CircleNotch {...stylex.props(styles.spinner)} />
+                <CircleNotch className="size-4 animate-spin" />
               ) : null}
               <Trans>Connect</Trans>
             </Button>
@@ -484,87 +484,3 @@ export function ConnectSubscriptionDialog({
     </Dialog>
   );
 }
-
-const spin = stylex.keyframes({
-  to: { transform: "rotate(360deg)" },
-});
-
-const styles = stylex.create({
-  apiKey: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-  },
-  code: {
-    fontFamily: fonts.mono,
-    fontSize: "1.125rem",
-    letterSpacing: "0.1em",
-    lineHeight: "1.75rem",
-  },
-  device: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-  },
-  deviceCode: {
-    alignItems: "center",
-    backgroundColor: colors.muted,
-    borderRadius: radii.xl,
-    display: "flex",
-    justifyContent: "space-between",
-    paddingBlock: "0.5rem",
-    paddingInline: "0.75rem",
-  },
-  dialog: {
-    maxWidth: "28rem",
-  },
-  docsLink: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-    textDecorationLine: "underline",
-  },
-  error: {
-    color: colors.destructive,
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  loading: {
-    alignItems: "center",
-    color: colors.mutedForeground,
-    display: "flex",
-    fontSize: "0.875rem",
-    gap: "0.5rem",
-    lineHeight: "1.25rem",
-  },
-  message: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-  },
-  spinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-    height: "1rem",
-    width: "1rem",
-  },
-  troubleButton: {
-    alignSelf: "flex-start",
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-    textDecorationLine: "underline",
-  },
-});

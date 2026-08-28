@@ -1,4 +1,3 @@
-import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 import {
   createFileRoute,
@@ -9,53 +8,24 @@ import {
 import { useState } from "react";
 import { z } from "zod";
 
-import { AuthShell, authStyles } from "@/components/auth-shell";
+import {
+  AuthShell,
+  authInputClassName,
+  authPrimaryButtonClassName,
+} from "@/components/auth-shell";
 import { doUpdatePassword, fetchUser } from "@/functions/auth";
 import { flowSearchSchema } from "@/functions/desktop-flow";
 import { toAuthFlowSearch } from "@/lib/auth-flow-context";
-const styles = stylex.create({
-  style1: {
-    display: "flex",
-    flexDirection: "column",
-    gap: ".75rem",
-  },
-  style2: {
-    textAlign: "center",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: "#b91c1c",
-  },
-  style3: {
-    marginTop: "1.25rem",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: ".25rem",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: {
-      default: "#756b5d",
-      ":hover": "#181613",
-    },
-    transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
-    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
-    transitionDuration: ".15s",
-  },
-});
+
 const validateSearch = flowSearchSchema({
   redirect: z.string().optional(),
 });
+
 export const Route = createFileRoute("/update-password")({
   validateSearch,
   component: Component,
   head: () => ({
-    meta: [
-      {
-        name: "robots",
-        content: "noindex, nofollow",
-      },
-    ],
+    meta: [{ name: "robots", content: "noindex, nofollow" }],
   }),
   beforeLoad: async ({ search }) => {
     const user = await fetchUser();
@@ -67,29 +37,21 @@ export const Route = createFileRoute("/update-password")({
     }
   },
 });
+
 function Component() {
   const context = Route.useSearch();
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+
   const updateMutation = useMutation({
     mutationFn: () =>
-      doUpdatePassword({
-        data: {
-          password,
-          flow: context.flow,
-        },
-      }),
+      doUpdatePassword({ data: { password, flow: context.flow } }),
     onSuccess: (result) => {
       if (result && "error" in result && result.error) {
         setErrorMessage(
-          (
-            result as {
-              error: boolean;
-              message: string;
-            }
-          ).message,
+          (result as { error: boolean; message: string }).message,
         );
         return;
       }
@@ -110,6 +72,7 @@ function Component() {
           });
           return;
         }
+
         navigate({
           to: "/auth/",
           search: toAuthFlowSearch(context),
@@ -117,9 +80,11 @@ function Component() {
       }
     },
   });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
+
     if (password !== confirmPassword) {
       setErrorMessage("Passwords do not match");
       return;
@@ -128,21 +93,23 @@ function Component() {
       setErrorMessage("Password must be at least 6 characters");
       return;
     }
+
     updateMutation.mutate();
   };
+
   return (
     <AuthShell
       title="Choose a new password"
       description="Use at least six characters, then you’ll be ready to sign in."
     >
-      <form onSubmit={handleSubmit} {...stylex.props(styles.style1)}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="New password"
           required
-          {...stylex.props(authStyles.input)}
+          className={authInputClassName}
         />
         <input
           type="password"
@@ -150,13 +117,15 @@ function Component() {
           onChange={(e) => setConfirmPassword(e.target.value)}
           placeholder="Confirm new password"
           required
-          {...stylex.props(authStyles.input)}
+          className={authInputClassName}
         />
-        {errorMessage && <p {...stylex.props(styles.style2)}>{errorMessage}</p>}
+        {errorMessage && (
+          <p className="text-center text-sm text-red-700">{errorMessage}</p>
+        )}
         <button
           type="submit"
           disabled={updateMutation.isPending || !password || !confirmPassword}
-          {...stylex.props(authStyles.primaryButton)}
+          className={authPrimaryButtonClassName}
         >
           {updateMutation.isPending ? "Updating..." : "Update password"}
         </button>
@@ -165,7 +134,7 @@ function Component() {
       <Link
         to="/auth/"
         search={toAuthFlowSearch(context)}
-        {...stylex.props(styles.style3)}
+        className="mt-5 flex items-center justify-center gap-1 text-sm text-[#756b5d] transition-colors hover:text-[#181613]"
       >
         Back to sign in
       </Link>

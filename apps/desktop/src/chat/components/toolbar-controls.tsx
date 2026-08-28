@@ -8,10 +8,8 @@ import {
   SidebarSimple,
   X,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 
-import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
@@ -19,8 +17,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
-import type { StyleXProps } from "@anlg/ui/lib/stylex";
-import { formatDistanceToNow } from "@anlg/utils";
+import { cn, formatDistanceToNow } from "@anlg/utils";
 
 import {
   type ChatGroupRecord,
@@ -50,24 +47,24 @@ export function ChatToolbarControls({
   surface?: "light" | "dark";
 }) {
   const { t } = useLingui();
+  const isDark = surface === "dark";
   const isRightPanel = layout === "right-panel";
-  const actionButtonStyle = [
-    toolbarButtonStyles[surface],
-    isRightPanel && styles.compactActionButton,
-  ];
+  const actionButtonClassName = cn([
+    isDark ? darkToolbarButtonClassName : lightToolbarButtonClassName,
+    isRightPanel && "size-7",
+  ]);
 
   return (
     <div
       data-tauri-drag-region={isRightPanel || undefined}
-      data-chat-toolbar-layout={layout}
-      {...stylex.props([
-        styles.toolbar,
-        isRightPanel ? styles.rightPanelToolbar : styles.floatingToolbar,
+      className={cn([
+        "flex h-full w-full min-w-0 items-center gap-2",
+        isRightPanel ? "pr-1 pl-3" : "px-3",
       ])}
     >
       <div
         data-tauri-drag-region={isRightPanel || undefined}
-        {...stylex.props(styles.historySlot)}
+        className="flex min-w-0 flex-1 items-center gap-1"
       >
         <ChatGroups
           chatScope={chatScope}
@@ -80,13 +77,13 @@ export function ChatToolbarControls({
       <div
         data-tauri-drag-region={isRightPanel || undefined}
         data-chat-toolbar-actions
-        {...stylex.props(styles.actions)}
+        className="flex shrink-0 items-center gap-0"
       >
         <ChatActionButton
           icon={<Plus size={16} />}
           label={t`New chat`}
           onClick={onNewChat}
-          sx={actionButtonStyle}
+          className={actionButtonClassName}
         />
         {isRightPanel ? (
           <>
@@ -94,13 +91,13 @@ export function ChatToolbarControls({
               icon={<PictureInPicture size={16} />}
               label={t`Float chat`}
               onClick={onOpenFloating ?? (() => {})}
-              sx={actionButtonStyle}
+              className={actionButtonClassName}
             />
             <ChatActionButton
               icon={<X size={16} />}
               label={t`Close chat`}
               onClick={onClose ?? (() => {})}
-              sx={actionButtonStyle}
+              className={actionButtonClassName}
             />
           </>
         ) : (
@@ -109,7 +106,7 @@ export function ChatToolbarControls({
               icon={<SidebarSimple size={16} />}
               label={t`Open in right panel`}
               onClick={onOpenRightPanel ?? (() => {})}
-              sx={actionButtonStyle}
+              className={actionButtonClassName}
             />
           </>
         )}
@@ -118,16 +115,22 @@ export function ChatToolbarControls({
   );
 }
 
+const darkToolbarButtonClassName =
+  "size-8 bg-transparent text-primary-foreground/60 hover:!bg-primary-foreground/14 hover:!text-primary-foreground focus-visible:!bg-primary-foreground/14 focus-visible:!text-primary-foreground active:!bg-primary-foreground/18";
+
+const lightToolbarButtonClassName =
+  "size-8 bg-transparent text-muted-foreground hover:!bg-muted/80 hover:!text-foreground focus-visible:!bg-muted/80 focus-visible:!text-foreground active:!bg-muted";
+
 function ChatActionButton({
+  className,
   icon,
   label,
   onClick,
-  sx,
 }: {
+  className?: string;
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
-  sx?: StyleXProps["sx"];
 }) {
   return (
     <Button
@@ -136,7 +139,7 @@ function ChatActionButton({
       onClick={onClick}
       size="icon"
       variant="ghost"
-      sx={[styles.actionButton, sx]}
+      className={cn(["text-muted-foreground rounded-full", className])}
     >
       {icon}
     </Button>
@@ -170,23 +173,25 @@ function ChatGroups({
           data-tauri-drag-region="false"
           variant="ghost"
           size="sm"
-          sx={[
-            styles.historyTrigger,
-            layout === "right-panel" && styles.compactHistoryTrigger,
-            isDark ? styles.darkHistoryTrigger : styles.lightHistoryTrigger,
-          ]}
+          className={cn([
+            "group -ml-2 h-8 w-auto shrink-0 gap-1.5 rounded-full px-2.5 py-0 transition-colors",
+            layout === "right-panel" && "h-7",
+            isDark
+              ? "text-primary-foreground/70 hover:bg-primary-foreground/14 hover:text-primary-foreground data-[state=open]:bg-primary-foreground/14 data-[state=open]:text-primary-foreground"
+              : "text-muted-foreground hover:bg-muted/80 hover:text-foreground data-[state=open]:bg-muted/80 data-[state=open]:text-foreground",
+          ])}
         >
           <ClockCounterClockwise
-            {...stylex.props([
-              styles.historyIcon,
-              isDark ? styles.darkHistoryIcon : styles.lightHistoryIcon,
+            className={cn([
+              "h-4 w-4",
+              isDark ? "text-primary-foreground/70" : "text-muted-foreground",
             ])}
           />
           <CaretDown
-            {...stylex.props([
-              styles.historyCaret,
-              isDark ? styles.darkHistoryCaret : styles.lightHistoryIcon,
-              isDropdownOpen && styles.historyCaretOpen,
+            className={cn([
+              "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+              isDark ? "text-primary-foreground/50" : "text-muted-foreground",
+              isDropdownOpen && "rotate-180",
             ])}
           />
         </Button>
@@ -198,14 +203,16 @@ function ChatGroups({
         sideOffset={4}
         avoidCollisions
         collisionPadding={8}
-        sx={styles.historyMenu}
+        className="max-h-[min(20rem,var(--radix-dropdown-menu-content-available-height))] w-72 max-w-[var(--radix-dropdown-menu-content-available-width)] overflow-y-auto"
       >
-        <AppFloatingPanel sx={styles.historyPanel}>
-          <div {...stylex.props(styles.historyHeadingContainer)}>
-            <h4 {...stylex.props(styles.historyHeading)}>Recent Chats</h4>
+        <AppFloatingPanel className="p-1.5">
+          <div className="px-2 py-1.5">
+            <h4 className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
+              Recent Chats
+            </h4>
           </div>
           {recentChatGroups.length > 0 ? (
-            <div {...stylex.props(styles.historyList)}>
+            <div className="flex flex-col gap-0.5">
               {recentChatGroups.map((chatGroup) => (
                 <ChatGroupItem
                   key={chatGroup.id}
@@ -219,9 +226,9 @@ function ChatGroups({
               ))}
             </div>
           ) : (
-            <div {...stylex.props(styles.emptyHistory)}>
-              <ChatCircle {...stylex.props(styles.emptyHistoryIcon)} />
-              <p {...stylex.props(styles.emptyHistoryText)}>
+            <div className="px-3 py-6 text-center">
+              <ChatCircle className="text-muted-foreground/70 mx-auto mb-1.5 h-6 w-6" />
+              <p className="text-muted-foreground text-xs">
                 <Trans>No recent chats</Trans>
               </p>
             </div>
@@ -251,271 +258,38 @@ function ChatGroupItem({
     <Button
       variant="ghost"
       onClick={() => onSelect(chatGroup.id)}
-      sx={[
-        styles.chatGroupItem,
-        isActive ? styles.activeChatGroupItem : styles.inactiveChatGroupItem,
-      ]}
+      className={cn([
+        "group h-auto w-full justify-start px-2.5 py-1.5",
+        isActive
+          ? "bg-muted hover:bg-accent shadow-xs"
+          : "hover:bg-accent active:bg-muted",
+      ])}
     >
-      <div {...stylex.props(styles.chatGroupContent)}>
-        <div {...stylex.props(styles.chatGroupIconSlot)}>
-          <ChatCircle {...stylex.props(styles.chatGroupIcon)} />
-        </div>
-        <div {...stylex.props(styles.chatGroupText)}>
-          <div
-            {...stylex.props([
-              styles.chatGroupTitle,
+      <div className="flex w-full items-center gap-2.5">
+        <div className="shrink-0">
+          <ChatCircle
+            className={cn([
+              "h-3.5 w-3.5 transition-colors",
               isActive
-                ? styles.activeChatGroupTitle
-                : styles.inactiveChatGroupTitle,
+                ? "text-muted-foreground"
+                : "text-muted-foreground group-hover:text-muted-foreground",
+            ])}
+          />
+        </div>
+        <div className="min-w-0 flex-1 text-left">
+          <div
+            className={cn([
+              "truncate text-sm font-medium",
+              isActive ? "text-foreground" : "text-muted-foreground",
             ])}
           >
             {chatGroup.title}
           </div>
-          <div {...stylex.props(styles.chatGroupTime)}>{formattedTime}</div>
+          <div className="text-muted-foreground mt-0.5 text-[11px]">
+            {formattedTime}
+          </div>
         </div>
       </div>
     </Button>
   );
 }
-
-const styles = stylex.create({
-  toolbar: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-    height: "100%",
-    minWidth: 0,
-    width: "100%",
-  },
-  floatingToolbar: {
-    paddingInline: "0.75rem",
-  },
-  rightPanelToolbar: {
-    paddingLeft: "0.75rem",
-    paddingRight: "0.25rem",
-  },
-  historySlot: {
-    alignItems: "center",
-    display: "flex",
-    flex: "1",
-    gap: "0.25rem",
-    minWidth: 0,
-  },
-  actions: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    gap: 0,
-  },
-  actionButton: {
-    backgroundColor: "transparent",
-    borderRadius: radii.full,
-    color: colors.mutedForeground,
-    height: "2rem",
-    width: "2rem",
-  },
-  compactActionButton: {
-    height: "1.75rem",
-    width: "1.75rem",
-  },
-  darkToolbarButton: {
-    backgroundColor: {
-      default: "transparent",
-      ":active": `color-mix(in oklab, ${colors.primaryForeground} 18%, transparent)`,
-      ":focus-visible": `color-mix(in oklab, ${colors.primaryForeground} 14%, transparent)`,
-      ":hover": `color-mix(in oklab, ${colors.primaryForeground} 14%, transparent)`,
-    },
-    color: {
-      default: `color-mix(in oklab, ${colors.primaryForeground} 60%, transparent)`,
-      ":focus-visible": colors.primaryForeground,
-      ":hover": colors.primaryForeground,
-    },
-  },
-  lightToolbarButton: {
-    backgroundColor: {
-      default: "transparent",
-      ":active": colors.muted,
-      ":focus-visible": `color-mix(in oklab, ${colors.muted} 80%, transparent)`,
-      ":hover": `color-mix(in oklab, ${colors.muted} 80%, transparent)`,
-    },
-    color: {
-      default: colors.mutedForeground,
-      ":focus-visible": colors.foreground,
-      ":hover": colors.foreground,
-    },
-  },
-  historyTrigger: {
-    borderRadius: radii.full,
-    flexShrink: 0,
-    gap: "0.375rem",
-    height: "2rem",
-    marginLeft: "-0.5rem",
-    paddingBlock: 0,
-    paddingInline: "0.625rem",
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color, border-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "auto",
-  },
-  compactHistoryTrigger: {
-    height: "1.75rem",
-  },
-  darkHistoryTrigger: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": `color-mix(in oklab, ${colors.primaryForeground} 14%, transparent)`,
-      ':is([data-state="open"])': `color-mix(in oklab, ${colors.primaryForeground} 14%, transparent)`,
-    },
-    color: {
-      default: `color-mix(in oklab, ${colors.primaryForeground} 70%, transparent)`,
-      ":hover": colors.primaryForeground,
-      ':is([data-state="open"])': colors.primaryForeground,
-    },
-  },
-  lightHistoryTrigger: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": `color-mix(in oklab, ${colors.muted} 80%, transparent)`,
-      ':is([data-state="open"])': `color-mix(in oklab, ${colors.muted} 80%, transparent)`,
-    },
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-      ':is([data-state="open"])': colors.foreground,
-    },
-  },
-  historyIcon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  darkHistoryIcon: {
-    color: `color-mix(in oklab, ${colors.primaryForeground} 70%, transparent)`,
-  },
-  lightHistoryIcon: {
-    color: colors.mutedForeground,
-  },
-  historyCaret: {
-    flexShrink: 0,
-    height: "0.875rem",
-    transitionDuration: "200ms",
-    transitionProperty: "transform",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "0.875rem",
-  },
-  darkHistoryCaret: {
-    color: `color-mix(in oklab, ${colors.primaryForeground} 50%, transparent)`,
-  },
-  historyCaretOpen: {
-    transform: "rotate(180deg)",
-  },
-  historyMenu: {
-    maxHeight:
-      "min(20rem, var(--radix-dropdown-menu-content-available-height))",
-    maxWidth: "var(--radix-dropdown-menu-content-available-width)",
-    overflowY: "auto",
-    width: "18rem",
-  },
-  historyPanel: {
-    padding: "0.375rem",
-  },
-  historyHeadingContainer: {
-    paddingBlock: "0.375rem",
-    paddingInline: "0.5rem",
-  },
-  historyHeading: {
-    color: colors.mutedForeground,
-    fontSize: "0.625rem",
-    fontWeight: 600,
-    letterSpacing: "0.05em",
-    textTransform: "uppercase",
-  },
-  historyList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.125rem",
-  },
-  emptyHistory: {
-    paddingBlock: "1.5rem",
-    paddingInline: "0.75rem",
-    textAlign: "center",
-  },
-  emptyHistoryIcon: {
-    color: `color-mix(in oklab, ${colors.mutedForeground} 70%, transparent)`,
-    height: "1.5rem",
-    marginBottom: "0.375rem",
-    marginInline: "auto",
-    width: "1.5rem",
-  },
-  emptyHistoryText: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-  },
-  chatGroupItem: {
-    height: "auto",
-    justifyContent: "flex-start",
-    paddingBlock: "0.375rem",
-    paddingInline: "0.625rem",
-    width: "100%",
-  },
-  activeChatGroupItem: {
-    backgroundColor: {
-      default: colors.muted,
-      ":hover": colors.accent,
-    },
-    boxShadow: shadows.sm,
-  },
-  inactiveChatGroupItem: {
-    backgroundColor: {
-      default: "transparent",
-      ":active": colors.muted,
-      ":hover": colors.accent,
-    },
-  },
-  chatGroupContent: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.625rem",
-    width: "100%",
-  },
-  chatGroupIconSlot: {
-    flexShrink: 0,
-  },
-  chatGroupIcon: {
-    color: colors.mutedForeground,
-    height: "0.875rem",
-    transitionDuration: "150ms",
-    transitionProperty: "color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "0.875rem",
-  },
-  chatGroupText: {
-    flex: "1",
-    minWidth: 0,
-    textAlign: "left",
-  },
-  chatGroupTitle: {
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    lineHeight: "1.25rem",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  activeChatGroupTitle: {
-    color: colors.foreground,
-  },
-  inactiveChatGroupTitle: {
-    color: colors.mutedForeground,
-  },
-  chatGroupTime: {
-    color: colors.mutedForeground,
-    fontSize: "0.6875rem",
-    marginTop: "0.125rem",
-  },
-});
-
-const toolbarButtonStyles = {
-  dark: styles.darkToolbarButton,
-  light: styles.lightToolbarButton,
-};

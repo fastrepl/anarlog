@@ -1,6 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
 import { TextAlignLeft } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMemo } from "react";
 
 import {
@@ -71,26 +70,15 @@ function HeaderViewRawButton({
     <IconHeaderView
       isActive={isActive}
       label={label || t`Memos`}
-      icon={<TextAlignLeft {...stylex.props(styles.icon)} />}
+      icon={<TextAlignLeft className="size-4" />}
       onClick={onClick}
       onContextMenu={onContextMenu}
       size={standalone ? "standalone" : "tray"}
       title={label}
-      sx={standalone ? styles.standalone : undefined}
+      className={standalone ? "border-0 shadow-none" : undefined}
     />
   );
 }
-
-const styles = stylex.create({
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  standalone: {
-    borderWidth: 0,
-    boxShadow: "none",
-  },
-});
 
 function HeaderViewRawActive({
   isActive,

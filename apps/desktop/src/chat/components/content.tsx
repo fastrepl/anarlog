@@ -1,9 +1,6 @@
 import { ArrowElbowDownRight, Trash } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import type { ChatStatus } from "ai";
 import { useCallback, useEffect, useRef, useState } from "react";
-
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 
 import { ChatBody } from "./body";
 import { ContextBar } from "./context-bar";
@@ -209,14 +206,14 @@ export function ChatContent({
 
   return (
     <div
+      className={
+        isFloating
+          ? "flex max-h-full min-h-0 flex-col overflow-hidden"
+          : "flex min-h-0 flex-1 flex-col overflow-hidden"
+      }
       data-chat-content
-      data-chat-layout={layout}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      {...stylex.props([
-        styles.root,
-        isFloating ? styles.floatingRoot : styles.rightPanelRoot,
-      ])}
     >
       {children ?? (
         <ChatBody
@@ -266,23 +263,23 @@ function ChatQueue({
   }
 
   return (
-    <div data-chat-queue {...stylex.props(styles.queue)}>
-      <div {...stylex.props(styles.queueList)}>
+    <div data-chat-queue className="shrink-0 px-3 pb-1.5">
+      <div className="mx-auto flex max-w-full flex-col gap-0.5">
         {messages.map((message) => (
           <div
             key={message.id}
             data-chat-queue-item
-            {...stylex.props(styles.queueItem)}
+            className="group text-muted-foreground hover:bg-muted/55 grid min-h-7 grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-1 text-xs transition-colors"
           >
-            <ArrowElbowDownRight {...stylex.props(styles.queueIcon)} />
-            <span {...stylex.props(styles.truncate)}>{message.content}</span>
+            <ArrowElbowDownRight className="size-3.5" />
+            <span className="truncate">{message.content}</span>
             <button
               type="button"
               aria-label={`Remove queued message: ${message.content}`}
               onClick={() => onRemoveMessage(message.id)}
-              {...stylex.props(styles.removeButton)}
+              className="hover:bg-accent/20 inline-flex size-6 items-center justify-center rounded-md opacity-65 transition-opacity group-hover:opacity-100"
             >
-              <Trash {...stylex.props(styles.queueIcon)} />
+              <Trash className="size-3.5" />
             </button>
           </div>
         ))}
@@ -290,78 +287,3 @@ function ChatQueue({
     </div>
   );
 }
-
-const styles = stylex.create({
-  root: {
-    display: "flex",
-    flexDirection: "column",
-    minHeight: 0,
-    overflow: "hidden",
-  },
-  floatingRoot: {
-    maxHeight: "100%",
-  },
-  rightPanelRoot: {
-    flex: "1",
-  },
-  queue: {
-    flexShrink: 0,
-    paddingBottom: "0.375rem",
-    paddingInline: "0.75rem",
-  },
-  queueList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.125rem",
-    marginInline: "auto",
-    maxWidth: "100%",
-  },
-  queueItem: {
-    alignItems: "center",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": `color-mix(in oklab, ${colors.muted} 55%, transparent)`,
-    },
-    borderRadius: radii.md,
-    color: colors.mutedForeground,
-    display: "grid",
-    fontSize: "0.75rem",
-    gap: "0.5rem",
-    gridTemplateColumns: "1rem minmax(0, 1fr) auto",
-    lineHeight: "1rem",
-    minHeight: "1.75rem",
-    paddingBlock: "0.25rem",
-    paddingInline: "0.5rem",
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color, border-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  queueIcon: {
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  truncate: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  removeButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": `color-mix(in oklab, ${colors.accent} 20%, transparent)`,
-    },
-    borderRadius: radii.md,
-    display: "inline-flex",
-    height: "1.5rem",
-    justifyContent: "center",
-    opacity: {
-      default: 0.65,
-      ":is([data-chat-queue-item]:hover *)": 1,
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "opacity",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "1.5rem",
-  },
-});

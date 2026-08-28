@@ -1,11 +1,9 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Lightning, MagnifyingGlass, Plus, X } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMemo, useState } from "react";
 
-import { colors, radii, spacing } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
-import { formatDistanceToNow } from "@anlg/utils";
+import { cn, formatDistanceToNow } from "@anlg/utils";
 
 import { CustomSidebarHeader } from "./custom-sidebar-header";
 
@@ -95,13 +93,13 @@ export function AutomationsNav() {
     filteredChatAutomations.length === 0;
 
   return (
-    <div {...stylex.props(styles.root)}>
+    <div className="flex h-full flex-col overflow-hidden pb-2">
       <CustomSidebarHeader>
         <Button
           type="button"
           size="icon"
           variant="ghost"
-          sx={styles.newButton}
+          className="text-muted-foreground hover:text-foreground relative z-[60]"
           aria-label={t`New automation`}
           onClick={() => {
             const workflow = createEmptyWorkflow();
@@ -114,9 +112,14 @@ export function AutomationsNav() {
         </Button>
       </CustomSidebarHeader>
 
-      <div {...stylex.props(styles.searchSection)}>
-        <div {...stylex.props(styles.searchContainer)}>
-          <MagnifyingGlass {...stylex.props(styles.searchIcon)} />
+      <div className="pb-2">
+        <div
+          className={cn([
+            "border-border bg-accent/50 flex h-8 w-full shrink-0 items-center gap-2 rounded-lg border px-3",
+            "focus-within:bg-accent transition-colors",
+          ])}
+        >
+          <MagnifyingGlass className="text-muted-foreground h-4 w-4 shrink-0" />
           <input
             type="text"
             value={search}
@@ -127,26 +130,33 @@ export function AutomationsNav() {
               }
             }}
             placeholder={t`Search automations...`}
-            {...stylex.props(styles.searchInput)}
+            className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm placeholder:text-sm focus:outline-hidden"
           />
           {search ? (
             <button
               type="button"
               onClick={() => setSearch("")}
-              {...stylex.props(styles.clearButton)}
+              className={cn([
+                "size-4 shrink-0",
+                "text-muted-foreground hover:text-foreground",
+                "transition-colors",
+              ])}
               aria-label={t`Clear search`}
             >
-              <X {...stylex.props(styles.clearIcon)} />
+              <X className="size-4" />
             </button>
           ) : null}
         </div>
       </div>
 
-      <div {...stylex.props(styles.scrollArea)}>
+      <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto pt-1">
         {isEmpty ? (
-          <div {...stylex.props(styles.empty)}>
-            <Lightning size={32} {...stylex.props(styles.emptyIcon)} />
-            <p {...stylex.props(styles.emptyText)}>
+          <div className="text-muted-foreground px-3 py-8 text-center">
+            <Lightning
+              size={32}
+              className="text-muted-foreground/70 mx-auto mb-2"
+            />
+            <p className="text-sm">
               {search ? (
                 <Trans>No automations found</Trans>
               ) : (
@@ -157,8 +167,8 @@ export function AutomationsNav() {
         ) : (
           <>
             {filteredStarters.length > 0 ? (
-              <div {...stylex.props(styles.section)}>
-                <h3 {...stylex.props(styles.sectionTitle)}>
+              <div className="pb-2">
+                <h3 className="text-muted-foreground px-3 pt-1 pb-1 text-xs font-medium">
                   <Trans>Get started</Trans>
                 </h3>
                 {filteredStarters.map((starter) => (
@@ -179,7 +189,7 @@ export function AutomationsNav() {
             filteredWorkflows.length > 0 ||
             filteredChatAutomations.length > 0 ? (
               <div>
-                <h3 {...stylex.props(styles.sectionTitle)}>
+                <h3 className="text-muted-foreground px-3 pt-1 pb-1 text-xs font-medium">
                   <Trans>My automations</Trans>
                 </h3>
                 {filteredDraftIds.map((draftId) => (
@@ -262,16 +272,18 @@ function StarterListItem({
         onSelect(starter.id);
         void showContextMenu(event);
       }}
-      {...stylex.props(
-        styles.listItem,
-        selected ? styles.listItemSelected : styles.listItemIdle,
-      )}
+      className={cn([
+        "w-full rounded-lg px-3 py-2 text-left text-sm transition-colors select-none",
+        selected ? "bg-accent" : "hover:bg-accent/50",
+      ])}
     >
-      <span {...stylex.props(styles.listItemRow)}>
-        <span {...stylex.props(styles.listItemIconSlot)}>
+      <span className="flex items-center gap-2">
+        <span className="flex size-4 shrink-0 items-center justify-center">
           {starter.renderIcon(16)}
         </span>
-        <span {...stylex.props(styles.listItemTitle)}>{starter.title}</span>
+        <span className="min-w-0 flex-1 truncate font-medium">
+          {starter.title}
+        </span>
       </span>
     </button>
   );
@@ -316,16 +328,16 @@ function DraftListItem({
         selectDraft(draftId);
         void showContextMenu(event);
       }}
-      {...stylex.props(
-        styles.listItem,
-        selected ? styles.listItemSelected : styles.listItemIdle,
-      )}
+      className={cn([
+        "w-full rounded-lg px-3 py-2 text-left text-sm transition-colors select-none",
+        selected ? "bg-accent" : "hover:bg-accent/50",
+      ])}
     >
-      <span {...stylex.props(styles.listItemRow)}>
-        <Lightning {...stylex.props(styles.lightningIcon)} weight="fill" />
-        <span {...stylex.props(styles.listItemText)}>
-          <span {...stylex.props(styles.listItemTitle)}>{title}</span>
-          <span {...stylex.props(styles.listItemMeta)}>
+      <span className="flex items-center gap-2">
+        <Lightning className="size-4 shrink-0 text-violet-500" weight="fill" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-medium">{title}</span>
+          <span className="text-muted-foreground mt-0.5 block truncate text-xs">
             <Trans>Draft</Trans>
           </span>
         </span>
@@ -372,18 +384,18 @@ function WorkflowListItem({
         onSelect(workflow.id, workflow.chatGroupId);
         void showContextMenu(event);
       }}
-      {...stylex.props(
-        styles.listItem,
-        selected ? styles.listItemSelected : styles.listItemIdle,
-      )}
+      className={cn([
+        "w-full rounded-lg px-3 py-2 text-left text-sm transition-colors select-none",
+        selected ? "bg-accent" : "hover:bg-accent/50",
+      ])}
     >
-      <span {...stylex.props(styles.listItemRow)}>
-        <Lightning {...stylex.props(styles.lightningIcon)} weight="fill" />
-        <span {...stylex.props(styles.listItemText)}>
-          <span {...stylex.props(styles.listItemTitle)}>
+      <span className="flex items-center gap-2">
+        <Lightning className="size-4 shrink-0 text-violet-500" weight="fill" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-medium">
             {workflow.title.trim() || t`Untitled automation`}
           </span>
-          <span {...stylex.props(styles.listItemMeta)}>
+          <span className="text-muted-foreground mt-0.5 block truncate text-xs">
             {workflow.enabled ? <Trans>Enabled</Trans> : <Trans>Draft</Trans>}
           </span>
         </span>
@@ -433,200 +445,22 @@ function ChatAutomationListItem({
         onSelect(automation.id);
         void showContextMenu(event);
       }}
-      {...stylex.props(
-        styles.listItem,
-        selected ? styles.listItemSelected : styles.listItemIdle,
-      )}
+      className={cn([
+        "w-full rounded-lg px-3 py-2 text-left text-sm transition-colors select-none",
+        selected ? "bg-accent" : "hover:bg-accent/50",
+      ])}
     >
-      <span {...stylex.props(styles.listItemRow)}>
-        <Lightning {...stylex.props(styles.lightningIcon)} weight="fill" />
-        <span {...stylex.props(styles.listItemText)}>
-          <span {...stylex.props(styles.listItemTitle)}>
-            {automation.title}
-          </span>
+      <span className="flex items-center gap-2">
+        <Lightning className="size-4 shrink-0 text-violet-500" weight="fill" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-medium">{automation.title}</span>
           {createdAt ? (
-            <span {...stylex.props(styles.listItemMeta)}>{createdAt}</span>
+            <span className="text-muted-foreground mt-0.5 block truncate text-xs">
+              {createdAt}
+            </span>
           ) : null}
         </span>
       </span>
     </button>
   );
 }
-
-const styles = stylex.create({
-  clearButton: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    flexShrink: 0,
-    height: "1rem",
-    transitionDuration: "150ms",
-    transitionProperty: "color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "1rem",
-  },
-  clearIcon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  empty: {
-    color: colors.mutedForeground,
-    paddingBlock: spacing.xxl,
-    paddingInline: spacing.md,
-    textAlign: "center",
-  },
-  emptyIcon: {
-    color: `color-mix(in oklab, ${colors.mutedForeground} 70%, transparent)`,
-    marginBottom: spacing.sm,
-    marginInline: "auto",
-  },
-  emptyText: {
-    fontSize: "0.875rem",
-  },
-  lightningIcon: {
-    color: "rgb(139 92 246)",
-    flexShrink: 0,
-    height: "1rem",
-    width: "1rem",
-  },
-  listItem: {
-    borderRadius: radii.lg,
-    fontSize: "0.875rem",
-    paddingBlock: spacing.sm,
-    paddingInline: spacing.md,
-    textAlign: "left",
-    transitionDuration: "150ms",
-    transitionProperty: "background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    userSelect: "none",
-    width: "100%",
-  },
-  listItemIconSlot: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    height: "1rem",
-    justifyContent: "center",
-    width: "1rem",
-  },
-  listItemIdle: {
-    backgroundColor: {
-      default: null,
-      ":hover": `color-mix(in oklab, ${colors.accent} 50%, transparent)`,
-    },
-  },
-  listItemMeta: {
-    color: colors.mutedForeground,
-    display: "block",
-    fontSize: "0.75rem",
-    marginTop: "0.125rem",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  listItemRow: {
-    alignItems: "center",
-    display: "flex",
-    gap: spacing.sm,
-  },
-  listItemSelected: {
-    backgroundColor: colors.accent,
-  },
-  listItemText: {
-    flex: "1",
-    minWidth: 0,
-  },
-  listItemTitle: {
-    display: "block",
-    flex: "1",
-    fontWeight: 500,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  newButton: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    position: "relative",
-    zIndex: 60,
-  },
-  root: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    overflow: "hidden",
-    paddingBottom: spacing.sm,
-  },
-  scrollArea: {
-    "::-webkit-scrollbar": {
-      display: "none",
-    },
-    flex: "1",
-    minHeight: 0,
-    overflowY: "auto",
-    paddingTop: spacing.xs,
-    scrollbarWidth: "none",
-  },
-  searchContainer: {
-    alignItems: "center",
-    backgroundColor: {
-      default: `color-mix(in oklab, ${colors.accent} 50%, transparent)`,
-      ":focus-within": colors.accent,
-    },
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    display: "flex",
-    flexShrink: 0,
-    gap: spacing.sm,
-    height: "2rem",
-    paddingInline: spacing.md,
-    transitionDuration: "150ms",
-    transitionProperty: "background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "100%",
-  },
-  searchIcon: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    height: "1rem",
-    width: "1rem",
-  },
-  searchInput: {
-    "::placeholder": {
-      color: colors.mutedForeground,
-      fontSize: "0.875rem",
-    },
-    backgroundColor: "transparent",
-    flex: "1",
-    fontSize: "0.875rem",
-    minWidth: 0,
-    outline: {
-      default: null,
-      ":focus": "2px solid transparent",
-    },
-    outlineOffset: {
-      default: null,
-      ":focus": "2px",
-    },
-  },
-  searchSection: {
-    paddingBottom: spacing.sm,
-  },
-  section: {
-    paddingBottom: spacing.sm,
-  },
-  sectionTitle: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    paddingBottom: spacing.xs,
-    paddingInline: spacing.md,
-    paddingTop: spacing.xs,
-  },
-});

@@ -1,9 +1,7 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { Buildings, CircleNotch, Globe, LockKey } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import {
   Select,
   SelectContent,
@@ -43,15 +41,12 @@ export function GeneralAccessSelector({
         : Globe;
 
   return (
-    <div {...stylex.props(styles.root)}>
-      <span {...stylex.props(styles.iconContainer)}>
+    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+      <span className="bg-muted flex size-7 shrink-0 items-center justify-center rounded-md">
         {pending ? (
-          <CircleNotch
-            {...stylex.props(styles.icon, styles.spinner)}
-            aria-hidden="true"
-          />
+          <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
         ) : (
-          <AccessIcon {...stylex.props(styles.icon)} aria-hidden="true" />
+          <AccessIcon className="size-4" aria-hidden="true" />
         )}
       </span>
       <Select
@@ -62,7 +57,10 @@ export function GeneralAccessSelector({
           if (target) onValueChange(target);
         }}
       >
-        <SelectTrigger aria-label={t`General access`} sx={styles.trigger}>
+        <SelectTrigger
+          aria-label={t`General access`}
+          className="h-7 w-auto max-w-full min-w-0 justify-start gap-1 rounded-md border-0 bg-transparent px-1.5 text-xs shadow-none"
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent align="end">
@@ -123,56 +121,3 @@ export function generalAccessWorkspaceId(
     ? workspaceId
     : null;
 }
-
-const spin = stylex.keyframes({
-  to: {
-    transform: "rotate(360deg)",
-  },
-});
-
-const styles = stylex.create({
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  iconContainer: {
-    alignItems: "center",
-    backgroundColor: colors.muted,
-    borderRadius: radii.md,
-    display: "flex",
-    flexShrink: 0,
-    height: "1.75rem",
-    justifyContent: "center",
-    width: "1.75rem",
-  },
-  root: {
-    alignItems: "center",
-    display: "flex",
-    flex: "1",
-    gap: "0.375rem",
-    minWidth: 0,
-  },
-  spinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-  },
-  trigger: {
-    backgroundColor: "transparent",
-    borderRadius: radii.md,
-    borderWidth: 0,
-    boxShadow: "none",
-    flexGrow: "0",
-    flexShrink: "1",
-    flexBasis: "auto",
-    fontSize: "0.75rem",
-    gap: "0.25rem",
-    height: "1.75rem",
-    justifyContent: "flex-start",
-    maxWidth: "100%",
-    minWidth: 0,
-    paddingInline: "0.375rem",
-    width: "auto",
-  },
-});

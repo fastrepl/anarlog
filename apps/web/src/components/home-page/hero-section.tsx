@@ -1,12 +1,11 @@
 import { Icon } from "@iconify-icon/react";
 import { ArrowRight, CaretDown } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 
-import { colors, fonts, media, radii } from "@anlg/design-system/tokens.stylex";
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
+import { cn } from "@anlg/utils";
 
 import { AnarlogLogo } from "@/components/anarlog-logo";
 import { useAnalytics } from "@/hooks/use-posthog";
@@ -22,508 +21,21 @@ import { createTrackedTimers } from "@/lib/tracked-timers";
 
 import { CredibilityLogoMarquee } from "./social-proof-sections";
 
-const cursorPulse = stylex.keyframes({
-  "0%, 100%": { opacity: 1 },
-  "50%": { opacity: 0.5 },
-});
-
-const styles = stylex.create({
-  style1: {
-    isolation: "isolate",
-    paddingTop: {
-      default: "2.5rem",
-      "@media (width >= 48rem)": "3rem",
-    },
-    paddingBottom: {
-      default: ".5rem",
-      "@media (width >= 48rem)": "1rem",
-    },
-  },
-  style2: {
-    display: "inline-flex",
-  },
-  style3: {
-    height: {
-      default: "2rem",
-      "@media (width >= 48rem)": "2.25rem",
-    },
-    width: "auto",
-  },
-  style4: {
-    marginInline: "auto",
-    marginTop: {
-      default: "3rem",
-      "@media (width >= 48rem)": "4rem",
-    },
-    fontSize: {
-      default: "3rem",
-      "@media (width >= 48rem)": "4.5rem",
-    },
-    lineHeight: {
-      default: 0.98,
-      "@media (width >= 48rem)": 1,
-    },
-    fontFamily: fonts.hand,
-    fontWeight: 600,
-    letterSpacing: 0,
-    textWrap: "balance",
-    position: {
-      default: null,
-      "@media (width >= 64rem)": "relative",
-    },
-    left: {
-      default: null,
-      "@media (width >= 64rem)": "50%",
-    },
-    width: {
-      default: null,
-      "@media (width >= 64rem)": "max-content",
-    },
-    maxWidth: {
-      default: "48rem",
-      "@media (width >= 64rem)": "none",
-    },
-    transform: {
-      default: null,
-      "@media (width >= 64rem)": "translateX(-50%)",
-    },
-    whiteSpace: {
-      default: null,
-      "@media (width >= 64rem)": "nowrap",
-    },
-  },
-  style5: {
-    display: {
-      default: "block",
-      "@media (width >= 64rem)": "inline",
-    },
-    fontFamily: fonts.hand,
-    letterSpacing: 0,
-  },
-  style6: {
-    marginInline: "auto",
-    marginTop: "1.5rem",
-    maxWidth: "42rem",
-    fontSize: "1.125rem",
-    lineHeight: "2rem",
-    color: "#4f4940",
-  },
-  style7: {
-    marginTop: "2rem",
-    display: "flex",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    columnGap: "1.25rem",
-    rowGap: ".75rem",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-  },
-  style8: {
-    position: "relative",
-    left: "50%",
-    marginTop: "2.5rem",
-    width: "100vw",
-    maxWidth: "500px",
-    transform: "translateX(-50%)",
-    paddingInline: {
-      default: "2rem",
-      "@media (width >= 40rem)": "2.5rem",
-    },
-  },
-  style9: {
-    pointerEvents: "none",
-    position: "absolute",
-    top: "2.5rem",
-    bottom: "6rem",
-    left: {
-      default: "2rem",
-      "@media (width >= 40rem)": "2.5rem",
-    },
-    width: "3rem",
-    borderRadius: radii.full,
-    backgroundColor: "oklab(14.4788% 7.45058e-9 7.45058e-9 / .1)",
-    filter: "blur(40px)",
-  },
-  style10: {
-    pointerEvents: "none",
-    position: "absolute",
-    top: "2.5rem",
-    right: {
-      default: "2rem",
-      "@media (width >= 40rem)": "2.5rem",
-    },
-    bottom: "6rem",
-    width: "3rem",
-    borderRadius: radii.full,
-    backgroundColor: "oklab(14.4788% 7.45058e-9 7.45058e-9 / .1)",
-    filter: "blur(40px)",
-  },
-  style11: {
-    position: "relative",
-    marginInline: "auto",
-    maxWidth: "420px",
-    overflow: "hidden",
-    borderRadius: "1.5rem",
-    borderInlineStyle: "solid",
-    borderInlineWidth: "1px",
-    borderTopStyle: "solid",
-    borderTopWidth: "1px",
-    borderColor: "#e5e5e5",
-    backgroundColor: colors.card,
-    boxShadow: "0 24px 70px rgb(24 22 19 / 0.08)",
-    cornerShape: "squircle",
-    WebkitMaskImage:
-      "linear-gradient(to bottom, black 0%, black calc(100% - 5rem), transparent 100%)",
-    maskImage:
-      "linear-gradient(to bottom, black 0%, black calc(100% - 5rem), transparent 100%)",
-  },
-  style12: {
-    display: "flex",
-    alignItems: "center",
-    gap: ".5rem",
-    paddingInline: "1rem",
-    paddingBlock: ".75rem",
-  },
-  style13: {
-    display: "flex",
-    gap: ".5rem",
-  },
-  style14: {
-    height: ".75rem",
-    width: ".75rem",
-    borderRadius: radii.full,
-    backgroundColor: "#f87171",
-    cornerShape: "round",
-  },
-  style15: {
-    height: ".75rem",
-    width: ".75rem",
-    borderRadius: radii.full,
-    backgroundColor: "#facc15",
-    cornerShape: "round",
-  },
-  style16: {
-    height: ".75rem",
-    width: ".75rem",
-    borderRadius: radii.full,
-    backgroundColor: "#4ade80",
-    cornerShape: "round",
-  },
-  style17: {
-    marginLeft: "auto",
-    display: "flex",
-    height: "1rem",
-    width: "1.5rem",
-    alignItems: "center",
-    justifyContent: "flex-end",
-  },
-  style18: {
-    color: "#737373",
-  },
-  workflowContent: {
-    position: "relative",
-    minHeight: {
-      default: "260px",
-      "@media (width >= 40rem)": "300px",
-    },
-    overflow: "hidden",
-    textAlign: "left",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-  },
-  draftNote: {
-    color: "#404040",
-  },
-  draftNoteSectionStart: {
-    marginTop: ".25rem",
-    color: "#404040",
-  },
-  draftTypedNoteSectionStart: {
-    marginTop: ".25rem",
-    minHeight: "1.25rem",
-    color: "#404040",
-  },
-  draftTypedNote: {
-    minHeight: "1.25rem",
-    color: "#404040",
-  },
-  summarySection: {
-    display: "flex",
-    flexDirection: "column",
-    gap: ".5rem",
-  },
-  summaryList: {
-    listStyleType: "disc",
-    paddingLeft: "1.25rem",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: "#404040",
-  },
-  participantImage: {
-    height: "auto",
-    width: "100%",
-    borderRadius: ".75rem",
-  },
-  workflowBottomFade: {
-    insetInline: 0,
-    pointerEvents: "none",
-    position: "absolute",
-    bottom: 0,
-    height: "7rem",
-    backgroundImage: `linear-gradient(to top, ${colors.card}, transparent)`,
-  },
-  style28: {
-    position: "relative",
-    display: "inline-flex",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    fontWeight: 500,
-  },
-  style29: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: ".375rem",
-    borderTopLeftRadius: radii.full,
-    borderBottomLeftRadius: radii.full,
-    backgroundColor: "#181613",
-    paddingBlock: ".75rem",
-    paddingRight: ".5rem",
-    paddingLeft: {
-      default: "1rem",
-      "@media (width >= 40rem)": "1.25rem",
-    },
-    fontSize: {
-      default: "13px",
-      "@media (width >= 40rem)": ".875rem",
-    },
-    color: "#fff",
-    lineHeight: {
-      default: null,
-      "@media (width >= 40rem)": "1.25rem",
-    },
-  },
-  style30: {
-    display: "inline-flex",
-    height: "100%",
-    cursor: "pointer",
-    alignItems: "center",
-    borderTopRightRadius: radii.full,
-    borderBottomRightRadius: radii.full,
-    backgroundColor: "#181613",
-    paddingBlock: ".75rem",
-    paddingRight: ".75rem",
-    paddingLeft: ".5rem",
-    color: "#fff",
-  },
-  style31: {
-    position: "absolute",
-    top: "calc(100% + .5rem)",
-    left: 0,
-    zIndex: 10,
-    width: "18rem",
-    maxWidth: "calc(100vw - 2.5rem)",
-    borderRadius: "1rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    padding: ".5rem",
-    textAlign: "left",
-    boxShadow: "0 14px 40px rgb(24 22 19 / 0.12)",
-  },
-  style32: {
-    display: "flex",
-    alignItems: "center",
-    gap: ".75rem",
-    borderRadius: ".75rem",
-    paddingInline: ".75rem",
-    paddingBlock: ".625rem",
-    transitionProperty: "color, background-color, border-color",
-    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
-    transitionDuration: ".15s",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.muted,
-    },
-    color: colors.foreground,
-  },
-  style33: {
-    marginLeft: "auto",
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    borderColor: colors.border,
-    paddingInline: ".5rem",
-    paddingBlock: ".125rem",
-    fontSize: "11px",
-    lineHeight: 1,
-    fontWeight: 500,
-    letterSpacing: ".025em",
-    textTransform: "uppercase",
-    color: colors.mutedForeground,
-  },
-  style34: {
-    marginTop: ".25rem",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderRadius: ".75rem",
-    paddingInline: ".75rem",
-    paddingBlock: ".625rem",
-    transitionProperty: "color, background-color, border-color",
-    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
-    transitionDuration: ".15s",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.muted,
-    },
-    color: colors.mutedForeground,
-  },
-  style35: {
-    flexShrink: 0,
-  },
-  draftNotesLayer: {
-    display: "flex",
-    flexDirection: "column",
-    gap: ".75rem",
-    inset: 0,
-    paddingInline: {
-      default: "1.25rem",
-      [media.sm]: "1.5rem",
-    },
-    paddingTop: {
-      default: ".5rem",
-      [media.sm]: ".75rem",
-    },
-    paddingBottom: {
-      default: "1.25rem",
-      [media.sm]: "1.5rem",
-    },
-    position: "absolute",
-    transitionDuration: {
-      default: "500ms",
-      [media.reducedMotion]: "0ms",
-    },
-    transitionProperty: "opacity",
-    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
-  },
-  summaryNotesLayer: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-    inset: 0,
-    overflow: "hidden",
-    paddingInline: {
-      default: "1.25rem",
-      [media.sm]: "1.5rem",
-    },
-    paddingTop: {
-      default: ".5rem",
-      [media.sm]: ".75rem",
-    },
-    paddingBottom: {
-      default: "1.25rem",
-      [media.sm]: "1.5rem",
-    },
-    position: "absolute",
-    textAlign: "left",
-    transitionDuration: {
-      default: "500ms",
-      [media.reducedMotion]: "0ms",
-    },
-    transitionProperty: "opacity",
-    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
-  },
-  contentVisible: {
-    opacity: 1,
-  },
-  contentHidden: {
-    opacity: 0,
-  },
-  typingCursor: {
-    animationDuration: "2s",
-    animationIterationCount: "infinite",
-    animationName: {
-      default: cursorPulse,
-      [media.reducedMotion]: "none",
-    },
-    animationTimingFunction: "cubic-bezier(.4, 0, .6, 1)",
-  },
-  summaryHeading: {
-    color: "#44403c",
-    fontWeight: 600,
-    transitionDuration: {
-      default: "500ms",
-      [media.reducedMotion]: "0ms",
-    },
-    transitionProperty: "opacity",
-    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
-  },
-  summaryListItem: {
-    marginTop: {
-      default: ".5rem",
-      ":first-child": 0,
-    },
-    transitionDuration: {
-      default: "500ms",
-      [media.reducedMotion]: "0ms",
-    },
-    transitionProperty: "opacity",
-    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
-  },
-  participantOverlay: {
-    bottom: {
-      default: "2.25rem",
-      [media.sm]: "3rem",
-    },
-    pointerEvents: "none",
-    position: "absolute",
-    right: {
-      default: ".25rem",
-      [media.sm]: "-.5rem",
-    },
-    transitionDuration: {
-      default: "500ms",
-      [media.reducedMotion]: "0ms",
-    },
-    transitionProperty: "all",
-    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
-    width: {
-      default: "66%",
-      [media.sm]: "68%",
-    },
-    zIndex: 10,
-  },
-  participantOverlayVisible: {
-    opacity: 1,
-    transform: {
-      default: "translateY(0)",
-      [media.reducedMotion]: "none",
-    },
-  },
-  participantOverlayHidden: {
-    opacity: 0,
-    transform: {
-      default: "translateY(.5rem)",
-      [media.reducedMotion]: "none",
-    },
-  },
-});
 export function HeroSection() {
   return (
-    <section {...stylex.props(styles.style1)}>
-      <Link to="/" aria-label="Anarlog home" {...stylex.props(styles.style2)}>
-        <AnarlogLogo sx={styles.style3} />
+    <section className="isolate pt-10 pb-2 md:pt-12 md:pb-4">
+      <Link to="/" aria-label="Anarlog home" className="inline-flex">
+        <AnarlogLogo className="h-8 w-auto md:h-9" />
       </Link>
-      <h1 {...stylex.props(styles.style4)}>
-        <span {...stylex.props(styles.style5)}>The AI notepad for</span>{" "}
-        <span {...stylex.props(styles.style5)}>private meetings.</span>
+      <h1 className="font-hand mx-auto mt-12 max-w-3xl text-5xl leading-[0.98] font-semibold tracking-normal text-balance md:mt-16 md:text-7xl lg:relative lg:left-1/2 lg:w-max lg:max-w-none lg:-translate-x-1/2 lg:whitespace-nowrap">
+        <span className="font-hand block lg:inline">The AI notepad for</span>{" "}
+        <span className="font-hand block lg:inline">private meetings.</span>
       </h1>
-      <p {...stylex.props(styles.style6)}>
+      <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
         Take bot-free, open-source meeting notes while keeping sensitive
         conversations secure and under your control.
       </p>
-      <div {...stylex.props(styles.style7)}>
+      <div className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-3 text-sm">
         <DownloadButton />
       </div>
       <HeroWorkflowDemo />
@@ -531,20 +43,25 @@ export function HeroSection() {
     </section>
   );
 }
+
 function HeroWorkflowDemo() {
   const [typedText1, setTypedText1] = useState("");
   const [typedText2, setTypedText2] = useState("");
   const [enhancedLines, setEnhancedLines] = useState(0);
   const [isTypingActive, setIsTypingActive] = useState(false);
+
   const text1 = "metrisc w/ john";
   const text2 = "stakehlder mtg";
+
   useMountEffect(() => {
     const timers = createTrackedTimers();
+
     const runAnimation = () => {
       setTypedText1("");
       setTypedText2("");
       setEnhancedLines(0);
       setIsTypingActive(false);
+
       let currentIndex1 = 0;
       timers.setTimeout(() => {
         setIsTypingActive(true);
@@ -554,6 +71,7 @@ function HeroWorkflowDemo() {
             currentIndex1++;
           } else {
             timers.clearInterval(interval1);
+
             let currentIndex2 = 0;
             const interval2 = timers.setInterval(() => {
               if (currentIndex2 < text2.length) {
@@ -562,6 +80,7 @@ function HeroWorkflowDemo() {
               } else {
                 timers.clearInterval(interval2);
                 setIsTypingActive(false);
+
                 timers.setTimeout(() => {
                   setEnhancedLines(1);
                   timers.setTimeout(() => {
@@ -587,31 +106,49 @@ function HeroWorkflowDemo() {
         }, 50);
       }, 500);
     };
+
     const cancelIdle = runWhenIdle(runAnimation, {
       timeout: 2000,
       fallbackDelay: 1000,
     });
+
     return () => {
       cancelIdle();
       timers.clear();
     };
   });
+
   const isSummaryPhase = enhancedLines > 0;
   const isGeneratingSummary = enhancedLines > 0 && enhancedLines < 6;
+
   return (
-    <div {...stylex.props(styles.style8)}>
-      <div {...stylex.props(styles.style9)} aria-hidden="true" />
-      <div {...stylex.props(styles.style10)} aria-hidden="true" />
-      <div {...stylex.props(styles.style11)}>
-        <div {...stylex.props(styles.style12)}>
-          <div {...stylex.props(styles.style13)}>
-            <div {...stylex.props(styles.style14)}></div>
-            <div {...stylex.props(styles.style15)}></div>
-            <div {...stylex.props(styles.style16)}></div>
+    <div className="relative left-1/2 mt-10 w-screen max-w-[500px] -translate-x-1/2 px-8 sm:px-10">
+      <div
+        className="pointer-events-none absolute top-10 bottom-24 left-8 w-12 rounded-full bg-neutral-950/10 blur-2xl sm:left-10"
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute top-10 right-8 bottom-24 w-12 rounded-full bg-neutral-950/10 blur-2xl sm:right-10"
+        aria-hidden="true"
+      />
+      <div
+        className="relative mx-auto max-w-[420px] overflow-hidden rounded-3xl border-x border-t border-neutral-200 bg-white shadow-[0_24px_70px_rgba(24,22,19,0.08)] [corner-shape:squircle]"
+        style={{
+          WebkitMaskImage:
+            "linear-gradient(to bottom, black 0%, black calc(100% - 5rem), transparent 100%)",
+          maskImage:
+            "linear-gradient(to bottom, black 0%, black calc(100% - 5rem), transparent 100%)",
+        }}
+      >
+        <div className="flex items-center gap-2 px-4 py-3">
+          <div className="flex gap-2 [&>*]:[corner-shape:round]">
+            <div className="h-3 w-3 rounded-full bg-red-400"></div>
+            <div className="h-3 w-3 rounded-full bg-yellow-400"></div>
+            <div className="h-3 w-3 rounded-full bg-green-400"></div>
           </div>
-          <div {...stylex.props(styles.style17)}>
+          <div className="ml-auto flex h-4 w-6 items-center justify-end">
             {isGeneratingSummary ? (
-              <Spinner size={12} sx={styles.style18} />
+              <Spinner size={12} className="text-neutral-500" />
             ) : !isSummaryPhase ? (
               <DancingSticks
                 amplitude={isTypingActive ? 1 : 0}
@@ -621,93 +158,83 @@ function HeroWorkflowDemo() {
             ) : null}
           </div>
         </div>
-        <div {...stylex.props(styles.workflowContent)}>
+        <div className="relative min-h-[260px] overflow-hidden text-left text-sm sm:min-h-[300px]">
           <div
-            {...stylex.props(
-              styles.draftNotesLayer,
-              isSummaryPhase ? styles.contentHidden : styles.contentVisible,
-            )}
+            className={cn([
+              "absolute inset-0 space-y-3 px-5 pt-2 pb-5 transition-opacity duration-500 sm:px-6 sm:pt-3 sm:pb-6",
+              isSummaryPhase ? "opacity-0" : "opacity-100",
+            ])}
           >
-            <div {...stylex.props(styles.draftNote)}>ui update - moble</div>
-            <div {...stylex.props(styles.draftNote)}>api</div>
-            <div {...stylex.props(styles.draftNoteSectionStart)}>
-              new dash - urgnet
-            </div>
-            <div {...stylex.props(styles.draftNote)}>a/b tst next wk</div>
-            <div {...stylex.props(styles.draftTypedNoteSectionStart)}>
+            <div className="text-neutral-700">ui update - moble</div>
+            <div className="text-neutral-700">api</div>
+            <div className="mt-4 text-neutral-700">new dash - urgnet</div>
+            <div className="text-neutral-700">a/b tst next wk</div>
+            <div className="mt-4 min-h-5 text-neutral-700">
               {typedText1}
               <span
-                {...stylex.props(
+                className={cn([
                   typedText1 && typedText1.length < text1.length
-                    ? styles.typingCursor
-                    : styles.contentHidden,
-                )}
+                    ? "animate-pulse"
+                    : "opacity-0",
+                ])}
               >
                 |
               </span>
             </div>
-            <div {...stylex.props(styles.draftTypedNote)}>
+            <div className="min-h-5 text-neutral-700">
               {typedText2}
               <span
-                {...stylex.props(
+                className={cn([
                   typedText2 && typedText2.length < text2.length
-                    ? styles.typingCursor
-                    : styles.contentHidden,
-                )}
+                    ? "animate-pulse"
+                    : "opacity-0",
+                ])}
               >
                 |
               </span>
             </div>
           </div>
           <div
-            {...stylex.props(
-              styles.summaryNotesLayer,
-              isSummaryPhase ? styles.contentVisible : styles.contentHidden,
-            )}
+            className={cn([
+              "absolute inset-0 space-y-4 overflow-hidden px-5 pt-2 pb-5 text-left transition-opacity duration-500 sm:px-6 sm:pt-3 sm:pb-6",
+              isSummaryPhase ? "opacity-100" : "opacity-0",
+            ])}
           >
-            <div {...stylex.props(styles.summarySection)}>
+            <div className="space-y-2">
               <h4
-                {...stylex.props(
-                  styles.summaryHeading,
-                  enhancedLines >= 1
-                    ? styles.contentVisible
-                    : styles.contentHidden,
-                )}
+                className={cn([
+                  "font-semibold text-stone-700 transition-opacity duration-500",
+                  enhancedLines >= 1 ? "opacity-100" : "opacity-0",
+                ])}
               >
                 Mobile UI Update and API Adjustments
               </h4>
-              <ul {...stylex.props(styles.summaryList)}>
+              <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-700">
                 <li
-                  {...stylex.props(
-                    styles.summaryListItem,
-                    enhancedLines >= 1
-                      ? styles.contentVisible
-                      : styles.contentHidden,
-                  )}
+                  className={cn([
+                    "transition-opacity duration-500",
+                    enhancedLines >= 1 ? "opacity-100" : "opacity-0",
+                  ])}
                 >
                   Sarah presented the new mobile UI update, which includes a
                   streamlined navigation bar and improved button placements for
                   better accessibility.
                 </li>
                 <li
-                  {...stylex.props(
-                    styles.summaryListItem,
-                    enhancedLines >= 2
-                      ? styles.contentVisible
-                      : styles.contentHidden,
-                  )}
+                  className={cn([
+                    "transition-opacity duration-500",
+                    enhancedLines >= 2 ? "opacity-100" : "opacity-0",
+                  ])}
                 >
                   Ben confirmed that API adjustments are needed to support
                   dynamic UI changes, particularly for fetching personalized
                   user data more efficiently.
                 </li>
                 <li
-                  {...stylex.props(
-                    styles.summaryListItem,
-                    enhancedLines >= 3
-                      ? styles.contentVisible
-                      : styles.contentHidden,
-                  )}
+                  className={cn([
+                    "transition-opacity duration-500",
+                    enhancedLines >= 3 ? "opacity-100" : "opacity-0",
+                  ])}
                 >
                   The UI update will be implemented in phases, starting with
                   core navigation improvements. Ben will ensure API
@@ -715,69 +242,57 @@ function HeroWorkflowDemo() {
                 </li>
               </ul>
             </div>
-            <div {...stylex.props(styles.summarySection)}>
+            <div className="space-y-2">
               <h4
-                {...stylex.props(
-                  styles.summaryHeading,
-                  enhancedLines >= 4
-                    ? styles.contentVisible
-                    : styles.contentHidden,
-                )}
+                className={cn([
+                  "font-semibold text-stone-700 transition-opacity duration-500",
+                  enhancedLines >= 4 ? "opacity-100" : "opacity-0",
+                ])}
               >
                 New Dashboard - Urgent Priority
               </h4>
-              <ul {...stylex.props(styles.summaryList)}>
+              <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-700">
                 <li
-                  {...stylex.props(
-                    styles.summaryListItem,
-                    enhancedLines >= 4
-                      ? styles.contentVisible
-                      : styles.contentHidden,
-                  )}
+                  className={cn([
+                    "transition-opacity duration-500",
+                    enhancedLines >= 4 ? "opacity-100" : "opacity-0",
+                  ])}
                 >
                   Alice emphasized that the new analytics dashboard must be
                   prioritized due to increasing stakeholder demand.
                 </li>
                 <li
-                  {...stylex.props(
-                    styles.summaryListItem,
-                    enhancedLines >= 5
-                      ? styles.contentVisible
-                      : styles.contentHidden,
-                  )}
+                  className={cn([
+                    "transition-opacity duration-500",
+                    enhancedLines >= 5 ? "opacity-100" : "opacity-0",
+                  ])}
                 >
                   The new dashboard will feature real-time user engagement
                   metrics and a customizable reporting system.
                 </li>
                 <li
-                  {...stylex.props(
-                    styles.summaryListItem,
-                    enhancedLines >= 5
-                      ? styles.contentVisible
-                      : styles.contentHidden,
-                  )}
+                  className={cn([
+                    "transition-opacity duration-500",
+                    enhancedLines >= 5 ? "opacity-100" : "opacity-0",
+                  ])}
                 >
                   Ben mentioned that backend infrastructure needs optimization
                   to handle real-time data processing.
                 </li>
                 <li
-                  {...stylex.props(
-                    styles.summaryListItem,
-                    enhancedLines >= 5
-                      ? styles.contentVisible
-                      : styles.contentHidden,
-                  )}
+                  className={cn([
+                    "transition-opacity duration-500",
+                    enhancedLines >= 5 ? "opacity-100" : "opacity-0",
+                  ])}
                 >
                   Mark stressed that the dashboard launch should align with
                   marketing efforts to maximize user adoption.
                 </li>
                 <li
-                  {...stylex.props(
-                    styles.summaryListItem,
-                    enhancedLines >= 5
-                      ? styles.contentVisible
-                      : styles.contentHidden,
-                  )}
+                  className={cn([
+                    "transition-opacity duration-500",
+                    enhancedLines >= 5 ? "opacity-100" : "opacity-0",
+                  ])}
                 >
                   Development will start immediately, and a basic prototype must
                   be ready for stakeholder review next week.
@@ -788,12 +303,12 @@ function HeroWorkflowDemo() {
         </div>
       </div>
       <div
-        {...stylex.props(
-          styles.participantOverlay,
+        className={cn([
+          "pointer-events-none absolute right-1 bottom-9 z-10 w-[66%] transition-all duration-500 sm:-right-2 sm:bottom-12 sm:w-[68%]",
           isSummaryPhase
-            ? styles.participantOverlayHidden
-            : styles.participantOverlayVisible,
-        )}
+            ? "translate-y-2 opacity-0"
+            : "translate-y-0 opacity-100",
+        ])}
       >
         <img
           src={getResizedImageUrl("/images/hero-meeting-participants.webp", {
@@ -802,26 +317,25 @@ function HeroWorkflowDemo() {
           srcSet={[300, 600, 900]
             .map(
               (width) =>
-                `${getResizedImageUrl(
-                  "/images/hero-meeting-participants.webp",
-                  {
-                    width,
-                  },
-                )} ${width}w`,
+                `${getResizedImageUrl("/images/hero-meeting-participants.webp", { width })} ${width}w`,
             )
             .join(", ")}
           sizes="(min-width: 640px) 286px, 66vw"
           alt="Four participants in a video meeting"
           width={1200}
           height={215}
-          {...stylex.props(styles.participantImage)}
+          className="h-auto w-full rounded-xl"
           decoding="async"
         />
       </div>
-      <div {...stylex.props(styles.workflowBottomFade)} aria-hidden="true" />
+      <div
+        className="pointer-events-none absolute right-0 bottom-0 left-0 h-28 bg-linear-to-t from-white to-transparent"
+        aria-hidden="true"
+      />
     </div>
   );
 }
+
 function DownloadButton() {
   const { track } = useAnalytics();
   const [open, setOpen] = useState(false);
@@ -835,8 +349,10 @@ function DownloadButton() {
     preferredSection.platform === "macos"
       ? `Download for ${preferredDownload.name}`
       : `Download for ${preferredSection.name}`;
+
   useMountEffect(() => {
     setPreferredPlatform(detectDesktopPlatform(navigator.userAgent));
+
     const onPointerDown = (event: MouseEvent | TouchEvent) => {
       if (
         containerRef.current &&
@@ -848,6 +364,7 @@ function DownloadButton() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
+
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("touchstart", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
@@ -857,8 +374,12 @@ function DownloadButton() {
       document.removeEventListener("keydown", onKeyDown);
     };
   });
+
   return (
-    <div ref={containerRef} {...stylex.props(styles.style28)}>
+    <div
+      ref={containerRef}
+      className="relative inline-flex text-sm font-medium"
+    >
       <a
         href={preferredDownload.url}
         onClick={() =>
@@ -868,7 +389,7 @@ function DownloadButton() {
             source: "homepage",
           })
         }
-        {...stylex.props(styles.style29)}
+        className="inline-flex items-center gap-1.5 rounded-l-full bg-[#181613] py-3 pr-2 pl-4 text-[13px] text-white sm:pl-5 sm:text-sm"
       >
         {getPlatformIcon(preferredSection.platform, 16)}
         <span>{preferredLabel}</span>
@@ -879,18 +400,22 @@ function DownloadButton() {
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((previous) => !previous)}
-        {...stylex.props(styles.style30)}
+        className="inline-flex h-full cursor-pointer items-center rounded-r-full bg-[#181613] py-3 pr-3 pl-2 text-white"
       >
         <CaretDown size={17} weight="bold" aria-hidden="true" />
       </button>
       {open && (
-        <div role="menu" {...stylex.props(styles.style31)}>
+        <div
+          role="menu"
+          className="surface border-color-brand absolute top-[calc(100%+0.5rem)] left-0 z-10 w-72 max-w-[calc(100vw-2.5rem)] rounded-2xl border p-2 text-left shadow-[0_14px_40px_rgba(24,22,19,0.12)]"
+        >
           {orderedSections.map((section) =>
             section.downloads.map((download) => {
               if (!download.showInMenu) return null;
               if (download.url === preferredDownload.url) {
                 return null;
               }
+
               return (
                 <a
                   key={download.url}
@@ -904,14 +429,14 @@ function DownloadButton() {
                     });
                     setOpen(false);
                   }}
-                  {...stylex.props(styles.style32)}
+                  className="text-color hover:surface-subtle flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors"
                 >
                   {getPlatformIcon(section.platform, 20)}
                   <span>
                     {getDownloadOptionLabel(section.platform, download.name)}
                   </span>
                   {section.status && (
-                    <span {...stylex.props(styles.style33)}>
+                    <span className="border-color-subtle text-color-muted ml-auto rounded-full border px-2 py-0.5 text-[11px] leading-none font-medium tracking-wide uppercase">
                       {section.status}
                     </span>
                   )}
@@ -923,7 +448,7 @@ function DownloadButton() {
             to="/download/"
             role="menuitem"
             onClick={() => setOpen(false)}
-            {...stylex.props(styles.style34)}
+            className="text-color-muted hover:surface-subtle mt-1 flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors"
           >
             <span>View all downloads</span>
             <ArrowRight size={15} weight="bold" aria-hidden="true" />
@@ -933,6 +458,7 @@ function DownloadButton() {
     </div>
   );
 }
+
 function getPlatformIcon(platform: DesktopPlatform, size: number) {
   const icon =
     platform === "windows"
@@ -945,11 +471,12 @@ function getPlatformIcon(platform: DesktopPlatform, size: number) {
       icon={icon}
       width={size}
       height={size}
-      {...stylex.props(styles.style35)}
+      className="shrink-0"
       aria-hidden="true"
     />
   );
 }
+
 function getDownloadOptionLabel(
   platform: DesktopPlatform,
   downloadName: string,

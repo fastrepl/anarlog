@@ -1,5 +1,4 @@
 import { t } from "@lingui/core/macro";
-import * as stylex from "@stylexjs/stylex";
 
 import type { ServerStatus } from "@anlg/plugin-local-stt";
 
@@ -135,7 +134,7 @@ export function createToastRegistry({
           <img
             src={ANARLOG_ICON_SRC}
             alt="Anarlog"
-            {...stylex.props(styles.icon)}
+            className="size-5 object-contain object-center"
           />
         ),
         description: t`Sign in to get the most out of Anarlog`,
@@ -338,12 +337,3 @@ export function createDevtoolsToastPreview({
       };
   }
 }
-
-const styles = stylex.create({
-  icon: {
-    height: "1.25rem",
-    objectFit: "contain",
-    objectPosition: "center",
-    width: "1.25rem",
-  },
-});

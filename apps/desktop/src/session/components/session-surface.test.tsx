@@ -7,9 +7,7 @@ vi.mock("~/shared/main", () => ({
   ),
 }));
 
-import { SessionSurface, sessionSurfaceStyles } from "./session-surface";
-
-import { expectStyle } from "~/session/stylex-test";
+import { SessionSurface } from "./session-surface";
 
 describe("SessionSurface", () => {
   afterEach(() => {
@@ -27,6 +25,8 @@ describe("SessionSurface", () => {
     const contentWrapper = screen.getByTestId("content").parentElement;
 
     expect(headerWrapper?.hasAttribute("data-tauri-drag-region")).toBe(true);
-    expectStyle(contentWrapper, sessionSurfaceStyles.content);
+    expect(contentWrapper?.className).not.toContain("mt-2");
+    expect(contentWrapper?.className).toContain("min-h-0");
+    expect(contentWrapper?.className).toContain("flex-1");
   });
 });

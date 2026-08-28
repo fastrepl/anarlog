@@ -26,7 +26,6 @@ import {
   ZAI,
 } from "@lobehub/icons";
 import { Shuffle } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 
 import { env } from "~/env";
@@ -56,15 +55,6 @@ export type Provider = {
     setup?: { label: string; url: string };
   };
 };
-
-const styles = stylex.create({
-  unslothIcon: {
-    height: "100%",
-    objectFit: "contain",
-    objectPosition: "center",
-    width: "100%",
-  },
-});
 
 const _PROVIDERS = [
   {
@@ -218,7 +208,7 @@ const _PROVIDERS = [
       <img
         src="/assets/unsloth-mark.png"
         alt="Unsloth"
-        {...stylex.props(styles.unslothIcon)}
+        className="size-full object-contain object-center"
       />
     ),
     baseUrl: "http://127.0.0.1:8888/v1",

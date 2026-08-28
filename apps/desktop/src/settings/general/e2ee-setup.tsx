@@ -1,12 +1,10 @@
 import { Trans } from "@lingui/react/macro";
 import { CircleNotch, Copy, DownloadSimple, Key } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { downloadDir, join } from "@tauri-apps/api/path";
 import { useRef, useState } from "react";
 
-import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
 import {
   createE2eeIdentity,
   importE2eeIdentity,
@@ -148,23 +146,15 @@ export function E2eeSetupDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent
-        ref={(node) => {
-          const closeButton = node?.querySelector<HTMLElement>(
-            ":scope > button:last-child",
-          );
-          if (closeButton) closeButton.hidden = true;
-        }}
-        sx={styles.dialog}
-      >
-        <DialogHeader sx={styles.header}>
-          <div {...stylex.props(styles.keyIconFrame)}>
-            <Key {...stylex.props(styles.icon)} aria-hidden="true" />
+      <DialogContent className="border-border/45 bg-card/95 w-[calc(100vw-48px)] max-w-[320px] gap-0 overflow-hidden rounded-[26px] p-0 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:rounded-[26px] [&>button:last-child]:hidden">
+        <DialogHeader className="items-center gap-2 px-5 pt-7 text-center sm:text-center">
+          <div className="bg-accent flex size-9 items-center justify-center rounded-full">
+            <Key className="size-4" aria-hidden="true" />
           </div>
-          <DialogTitle sx={styles.title}>
+          <DialogTitle className="text-foreground text-[13px] leading-5 font-semibold tracking-normal">
             <Trans>Protect cloud sync</Trans>
           </DialogTitle>
-          <DialogDescription sx={styles.description}>
+          <DialogDescription className="text-foreground max-w-[260px] text-center text-[13px] leading-[1.36]">
             <Trans>
               Your recovery key encrypts synced notes before they leave this
               device. Anarlog cannot read or recover it.
@@ -172,51 +162,48 @@ export function E2eeSetupDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div {...stylex.props(styles.body)}>
+        <div className="px-4 pt-4">
           {recoveryKey ? (
-            <div {...stylex.props(styles.stack)}>
-              <p {...stylex.props(styles.guidance)}>
+            <div className="space-y-3">
+              <p className="text-muted-foreground text-center text-xs leading-5">
                 <Trans>
                   Save this key in a password manager. New devices can usually
                   be approved from another device; this key is your fallback and
                   will not be shown again.
                 </Trans>
               </p>
-              <code {...stylex.props(styles.recoveryKey)}>{recoveryKey}</code>
+              <code className="bg-muted block max-h-28 overflow-auto rounded-xl p-3 font-mono text-[11px] leading-5 break-all select-all">
+                {recoveryKey}
+              </code>
               <Button
                 variant="outline"
-                sx={styles.fullButton}
+                className="h-8 w-full rounded-full text-xs"
                 onClick={() => copyMutation.mutate(recoveryKey)}
                 disabled={copyMutation.isPending}
               >
-                <Copy {...stylex.props(styles.smallIcon)} aria-hidden="true" />
+                <Copy className="size-3.5" aria-hidden="true" />
                 <Trans>Copy recovery key</Trans>
               </Button>
               <Button
                 variant="outline"
-                sx={styles.fullButton}
+                className="h-8 w-full rounded-full text-xs"
                 onClick={() => downloadMutation.mutate(recoveryKey)}
                 disabled={downloadMutation.isPending}
               >
                 {downloadMutation.isPending ? (
-                  <CircleNotch
-                    {...stylex.props(styles.smallIcon, styles.spinning)}
-                  />
+                  <CircleNotch className="size-3.5 animate-spin" />
                 ) : (
-                  <DownloadSimple
-                    {...stylex.props(styles.smallIcon)}
-                    aria-hidden="true"
-                  />
+                  <DownloadSimple className="size-3.5" aria-hidden="true" />
                 )}
                 <Trans>Download recovery key (.txt)</Trans>
               </Button>
-              <p {...stylex.props(styles.clipboardNote)}>
+              <p className="text-muted-foreground text-center text-[11px] leading-4">
                 Clipboard copies clear after 60 seconds when supported.
               </p>
             </div>
           ) : mode === "import" ? (
-            <div {...stylex.props(styles.stack)}>
-              <p {...stylex.props(styles.importGuidance)}>
+            <div className="space-y-3">
+              <p className="text-muted-foreground text-xs leading-5">
                 <Trans>
                   Enter your saved recovery key when another approved device is
                   unavailable.
@@ -231,28 +218,26 @@ export function E2eeSetupDialog({
                     placeholder="anarlog-e2ee-v1:..."
                     autoComplete="off"
                     spellCheck={false}
-                    sx={styles.recoveryInput}
+                    className="font-mono text-xs"
                   />
                 )}
               </importForm.Field>
             </div>
           ) : (
-            <div {...stylex.props(styles.choiceGrid)}>
+            <div className="grid gap-2">
               <Button
-                sx={styles.choiceButton}
+                className="h-8 rounded-full px-4 text-xs font-medium"
                 onClick={() => createMutation.mutate()}
                 disabled={pending}
               >
                 {createMutation.isPending && (
-                  <CircleNotch
-                    {...stylex.props(styles.smallIcon, styles.spinning)}
-                  />
+                  <CircleNotch className="size-3.5 animate-spin" />
                 )}
                 <Trans>Create a recovery key</Trans>
               </Button>
               <Button
                 variant="outline"
-                sx={styles.choiceButton}
+                className="h-8 rounded-full px-4 text-xs font-medium"
                 onClick={() => setMode("import")}
                 disabled={pending}
               >
@@ -260,7 +245,7 @@ export function E2eeSetupDialog({
               </Button>
               <Button
                 variant="ghost"
-                sx={styles.cancelChoice}
+                className="text-muted-foreground hover:text-foreground h-6 justify-self-center rounded-full px-3 text-[11px] font-normal shadow-none hover:bg-transparent"
                 onClick={() => setOpen(false)}
                 disabled={pending}
               >
@@ -269,14 +254,18 @@ export function E2eeSetupDialog({
             </div>
           )}
 
-          {error && <p {...stylex.props(styles.error)}>{error.message}</p>}
+          {error && (
+            <p className="mt-3 text-center text-xs text-red-500">
+              {error.message}
+            </p>
+          )}
         </div>
 
         {(recoveryKey || mode === "import") && (
-          <DialogFooter sx={styles.footer}>
+          <DialogFooter className="grid grid-cols-2 gap-2 px-4 pt-4 pb-4 sm:grid-cols-2 sm:justify-normal">
             <Button
               variant="ghost"
-              sx={styles.backButton}
+              className="bg-accent/80 h-8 rounded-full px-4 text-xs font-medium shadow-none"
               onClick={() =>
                 mode === "import" && !recoveryKey
                   ? setMode("choose")
@@ -292,14 +281,12 @@ export function E2eeSetupDialog({
             </Button>
             {recoveryKey ? (
               <Button
-                sx={styles.choiceButton}
+                className="h-8 rounded-full px-4 text-xs font-medium"
                 onClick={() => importMutation.mutate(recoveryKey)}
                 disabled={pending}
               >
                 {importMutation.isPending && (
-                  <CircleNotch
-                    {...stylex.props(styles.smallIcon, styles.spinning)}
-                  />
+                  <CircleNotch className="size-3.5 animate-spin" />
                 )}
                 <Trans>I saved it</Trans>
               </Button>
@@ -309,14 +296,12 @@ export function E2eeSetupDialog({
               >
                 {(importedKey) => (
                   <Button
-                    sx={styles.choiceButton}
+                    className="h-8 rounded-full px-4 text-xs font-medium"
                     onClick={() => void importForm.handleSubmit()}
                     disabled={!importedKey.trim() || pending}
                   >
                     {importMutation.isPending && (
-                      <CircleNotch
-                        {...stylex.props(styles.smallIcon, styles.spinning)}
-                      />
+                      <CircleNotch className="size-3.5 animate-spin" />
                     )}
                     <Trans>Unlock sync</Trans>
                   </Button>
@@ -329,172 +314,3 @@ export function E2eeSetupDialog({
     </Dialog>
   );
 }
-
-const spin = stylex.keyframes({
-  to: {
-    transform: "rotate(360deg)",
-  },
-});
-
-const styles = stylex.create({
-  backButton: {
-    backgroundColor: `color-mix(in srgb, ${colors.accent} 80%, transparent)`,
-    borderRadius: radii.full,
-    boxShadow: "none",
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    height: "2rem",
-    paddingInline: "1rem",
-  },
-  body: {
-    paddingInline: "1rem",
-    paddingTop: "1rem",
-  },
-  cancelChoice: {
-    alignSelf: "center",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": "transparent",
-    },
-    borderRadius: radii.full,
-    boxShadow: "none",
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    fontSize: "0.6875rem",
-    fontWeight: 400,
-    height: "1.5rem",
-    justifySelf: "center",
-    paddingInline: "0.75rem",
-  },
-  choiceButton: {
-    borderRadius: radii.full,
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    height: "2rem",
-    paddingInline: "1rem",
-  },
-  choiceGrid: {
-    display: "grid",
-    gap: "0.5rem",
-  },
-  clipboardNote: {
-    color: colors.mutedForeground,
-    fontSize: "0.6875rem",
-    lineHeight: "1rem",
-    textAlign: "center",
-  },
-  description: {
-    color: colors.foreground,
-    fontSize: "0.8125rem",
-    lineHeight: 1.36,
-    maxWidth: "16.25rem",
-    textAlign: "center",
-  },
-  dialog: {
-    backdropFilter: "blur(24px)",
-    backgroundColor: `color-mix(in srgb, ${colors.card} 95%, transparent)`,
-    borderColor: `color-mix(in srgb, ${colors.border} 45%, transparent)`,
-    borderRadius: "26px",
-    boxShadow: "0 24px 70px rgb(0 0 0 / 0.32)",
-    gap: 0,
-    maxWidth: "20rem",
-    overflow: "hidden",
-    padding: 0,
-    width: "calc(100vw - 48px)",
-  },
-  error: {
-    color: "rgb(239 68 68)",
-    fontSize: "0.75rem",
-    marginTop: "0.75rem",
-    textAlign: "center",
-  },
-  footer: {
-    display: "grid",
-    gap: "0.5rem",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    justifyContent: "normal",
-    paddingBottom: "1rem",
-    paddingInline: "1rem",
-    paddingTop: "1rem",
-  },
-  fullButton: {
-    borderRadius: radii.full,
-    fontSize: "0.75rem",
-    height: "2rem",
-    width: "100%",
-  },
-  guidance: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    lineHeight: "1.25rem",
-    textAlign: "center",
-  },
-  header: {
-    alignItems: "center",
-    gap: "0.5rem",
-    paddingInline: "1.25rem",
-    paddingTop: "1.75rem",
-    textAlign: "center",
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  importGuidance: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    lineHeight: "1.25rem",
-  },
-  keyIconFrame: {
-    alignItems: "center",
-    backgroundColor: colors.accent,
-    borderRadius: radii.full,
-    display: "flex",
-    height: "2.25rem",
-    justifyContent: "center",
-    width: "2.25rem",
-  },
-  recoveryInput: {
-    fontFamily: fonts.mono,
-    fontSize: "0.75rem",
-  },
-  recoveryKey: {
-    backgroundColor: colors.muted,
-    borderRadius: radii.xl,
-    display: "block",
-    fontFamily: fonts.mono,
-    fontSize: "0.6875rem",
-    lineHeight: "1.25rem",
-    maxHeight: "7rem",
-    overflow: "auto",
-    overflowWrap: "anywhere",
-    padding: "0.75rem",
-    userSelect: "all",
-  },
-  smallIcon: {
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  spinning: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-  },
-  stack: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-  },
-  title: {
-    color: colors.foreground,
-    fontSize: "0.8125rem",
-    fontWeight: 600,
-    letterSpacing: "normal",
-    lineHeight: "1.25rem",
-  },
-});
-
-export { styles as e2eeSetupStyles };

@@ -7,10 +7,8 @@ import {
   Sparkle,
   X,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
@@ -19,6 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
+import { cn } from "@anlg/utils";
 
 import { type WebTemplate } from "./codec";
 import { getTemplateCopyTitle, type UserTemplate } from "./queries";
@@ -336,18 +335,22 @@ export function TemplatesSidebarContent({
   }, [effectiveSelectedMineId, effectiveSelectedWebIndex]);
 
   return (
-    <div {...stylex.props(styles.root)}>
+    <div className="flex h-full w-full flex-col overflow-hidden">
       <div>
         <CustomSidebarHeader>
           {userTemplates.length > 1 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="icon" variant="ghost" sx={styles.headerButton}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-muted-foreground hover:text-foreground relative z-[60]"
+                >
                   <ArrowsDownUp size={16} />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent variant="app" align="end">
-                <AppFloatingPanel sx={styles.menuPanel}>
+                <AppFloatingPanel className="overflow-hidden p-1">
                   <DropdownMenuItem
                     onClick={() => setSortOption("alphabetical")}
                   >
@@ -366,16 +369,21 @@ export function TemplatesSidebarContent({
           <Button
             size="icon"
             variant="ghost"
-            sx={styles.headerButton}
+            className="text-muted-foreground hover:text-foreground relative z-[60]"
             onClick={createDefaultTemplate}
           >
             <Plus size={16} />
           </Button>
         </CustomSidebarHeader>
 
-        <div {...stylex.props(styles.searchContainer)}>
-          <div {...stylex.props(styles.searchField)}>
-            <MagnifyingGlass {...stylex.props(styles.searchIcon)} />
+        <div className="pb-2">
+          <div
+            className={cn([
+              "border-border bg-accent/50 flex h-8 w-full shrink-0 items-center gap-2 rounded-lg border px-3",
+              "focus-within:bg-accent transition-colors",
+            ])}
+          >
+            <MagnifyingGlass className="text-muted-foreground h-4 w-4 shrink-0" />
             <input
               type="text"
               value={search}
@@ -386,32 +394,42 @@ export function TemplatesSidebarContent({
                 }
               }}
               placeholder={t`Search templates...`}
-              {...stylex.props(styles.searchInput)}
+              className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm placeholder:text-sm focus:outline-hidden"
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
-                {...stylex.props(styles.clearButton)}
+                className={cn([
+                  "h-4 w-4 shrink-0",
+                  "text-muted-foreground hover:text-muted-foreground",
+                  "transition-colors",
+                ])}
                 aria-label={t`Clear search`}
               >
-                <X {...stylex.props(styles.icon)} />
+                <X className="h-4 w-4" />
               </button>
             )}
           </div>
         </div>
       </div>
 
-      <div ref={scrollContainerRef} {...stylex.props(styles.scroller)}>
+      <div
+        ref={scrollContainerRef}
+        className="scrollbar-hide flex-1 overflow-y-auto"
+      >
         {isEmpty ? (
-          <div {...stylex.props(styles.emptyState)}>
-            <BookOpenText size={32} {...stylex.props(styles.emptyIcon)} />
-            <p {...stylex.props(styles.emptyText)}>
+          <div className="text-muted-foreground px-3 py-8 text-center">
+            <BookOpenText
+              size={32}
+              className="text-muted-foreground/70 mx-auto mb-2"
+            />
+            <p className="text-sm">
               {search ? "No templates found" : "No templates yet"}
             </p>
             {!search && (
               <button
                 onClick={createDefaultTemplate}
-                {...stylex.props(styles.createButton)}
+                className="text-muted-foreground hover:text-foreground mt-3 text-sm underline"
               >
                 Create my first template
               </button>
@@ -420,7 +438,7 @@ export function TemplatesSidebarContent({
         ) : (
           <>
             {hasResults && (
-              <div {...stylex.props(styles.listSection)}>
+              <div className="pt-1">
                 {combinedTemplates.map((item) =>
                   item.source === "auto" ? (
                     <button
@@ -428,21 +446,19 @@ export function TemplatesSidebarContent({
                       type="button"
                       onClick={() => setSelectedMineId(AUTO_TEMPLATE_ID)}
                       data-template-selected={item.selected}
-                      {...stylex.props([
-                        styles.listItem,
-                        item.selected
-                          ? styles.selectedListItem
-                          : styles.unselectedListItem,
+                      className={cn([
+                        "w-full rounded-lg px-3 py-2 text-left text-sm transition-colors select-none",
+                        item.selected ? "bg-accent" : "hover:bg-accent/50",
                       ])}
                     >
-                      <div {...stylex.props(styles.itemContent)}>
-                        <Sparkle {...stylex.props(styles.autoIcon)} />
-                        <div {...stylex.props(styles.itemIdentity)}>
-                          <div {...stylex.props(styles.itemTitle)}>
+                      <div className="flex items-center gap-2">
+                        <Sparkle className="size-4 text-violet-500" />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-medium">
                             {item.title}
                           </div>
                           {item.customized ? (
-                            <div {...stylex.props(styles.itemDescription)}>
+                            <div className="text-muted-foreground truncate text-xs">
                               <Trans>Customized</Trans>
                             </div>
                           ) : null}
@@ -464,20 +480,18 @@ export function TemplatesSidebarContent({
                       key={item.key}
                       onClick={() => setSelectedWebIndex(item.index)}
                       data-template-selected={item.selected}
-                      {...stylex.props([
-                        styles.listItem,
-                        item.selected
-                          ? styles.selectedListItem
-                          : styles.unselectedListItem,
+                      className={cn([
+                        "w-full rounded-lg px-3 py-2 text-left text-sm transition-colors select-none",
+                        item.selected ? "bg-accent" : "hover:bg-accent/50",
                       ])}
                     >
-                      <div {...stylex.props(styles.itemContent)}>
+                      <div className="flex items-center gap-2">
                         <TemplateIconGlyph
                           icon={item.template.icon}
-                          sx={styles.templateIcon}
+                          className="size-4 text-sm"
                         />
-                        <div {...stylex.props(styles.itemIdentity)}>
-                          <div {...stylex.props(styles.itemTitle)}>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-medium">
                             {item.title}
                           </div>
                         </div>
@@ -489,12 +503,15 @@ export function TemplatesSidebarContent({
             )}
 
             {isWebLoading && !hasResults && (
-              <div {...stylex.props(styles.listSection)}>
-                <div {...stylex.props(styles.skeletonList)}>
+              <div className="pt-1">
+                <div className="flex flex-col gap-1">
                   {[0, 1, 2, 3].map((index) => (
-                    <div key={index} {...stylex.props(styles.skeleton)}>
-                      <div {...stylex.props(styles.skeletonTitle)} />
-                      <div {...stylex.props(styles.skeletonDescription)} />
+                    <div
+                      key={index}
+                      className="animate-pulse rounded-lg px-3 py-2"
+                    >
+                      <div className="bg-accent h-4 w-3/4 rounded-xs" />
+                      <div className="bg-muted mt-1.5 h-3 w-1/3 rounded-xs" />
                     </div>
                   ))}
                 </div>
@@ -553,15 +570,15 @@ function TemplateListItem({
         void showContextMenu(e);
       }}
       data-template-selected={selected}
-      {...stylex.props([
-        styles.listItem,
-        selected ? styles.selectedListItem : styles.unselectedListItem,
+      className={cn([
+        "w-full rounded-lg px-3 py-2 text-left text-sm transition-colors select-none",
+        selected ? "bg-accent" : "hover:bg-accent/50",
       ])}
     >
-      <div {...stylex.props(styles.itemContent)}>
-        <TemplateIconGlyph icon={template.icon} sx={styles.templateIcon} />
-        <div {...stylex.props(styles.itemIdentity)}>
-          <div {...stylex.props(styles.itemTitle)}>
+      <div className="flex items-center gap-2">
+        <TemplateIconGlyph icon={template.icon} className="size-4 text-sm" />
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-medium">
             {template.title?.trim() || "Untitled"}
           </div>
         </div>
@@ -569,225 +586,3 @@ function TemplateListItem({
     </button>
   );
 }
-
-const pulse = stylex.keyframes({
-  "0%, 100%": {
-    opacity: 1,
-  },
-  "50%": {
-    opacity: 0.5,
-  },
-});
-
-const styles = stylex.create({
-  autoIcon: {
-    color: "rgb(139 92 246)",
-    height: "1rem",
-    width: "1rem",
-  },
-  clearButton: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.mutedForeground,
-    },
-    flexShrink: 0,
-    height: "1rem",
-    transitionDuration: "150ms",
-    transitionProperty: "color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "1rem",
-  },
-  createButton: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-    marginTop: "0.75rem",
-    textDecorationLine: "underline",
-  },
-  emptyIcon: {
-    color: `color-mix(in srgb, ${colors.mutedForeground} 70%, transparent)`,
-    marginBottom: "0.5rem",
-    marginInline: "auto",
-  },
-  emptyState: {
-    color: colors.mutedForeground,
-    paddingBlock: "2rem",
-    paddingInline: "0.75rem",
-    textAlign: "center",
-  },
-  emptyText: {
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-  },
-  headerButton: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    position: "relative",
-    zIndex: 60,
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  itemContent: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-  },
-  itemDescription: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  itemIdentity: {
-    flex: "1",
-    minWidth: 0,
-  },
-  itemTitle: {
-    fontWeight: 500,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  listItem: {
-    borderRadius: radii.lg,
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-    paddingBlock: "0.5rem",
-    paddingInline: "0.75rem",
-    textAlign: "left",
-    transitionDuration: "150ms",
-    transitionProperty: "background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    userSelect: "none",
-    width: "100%",
-  },
-  listSection: {
-    paddingTop: "0.25rem",
-  },
-  menuPanel: {
-    overflow: "hidden",
-    padding: "0.25rem",
-  },
-  root: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    overflow: "hidden",
-    width: "100%",
-  },
-  scroller: {
-    display: {
-      default: null,
-      "::-webkit-scrollbar": "none",
-    },
-    flex: "1",
-    overflowY: "auto",
-    scrollbarWidth: "none",
-  },
-  searchContainer: {
-    paddingBottom: "0.5rem",
-  },
-  searchField: {
-    alignItems: "center",
-    backgroundColor: {
-      default: `color-mix(in srgb, ${colors.accent} 50%, transparent)`,
-      ":focus-within": colors.accent,
-    },
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    display: "flex",
-    flexShrink: 0,
-    gap: "0.5rem",
-    height: "2rem",
-    paddingInline: "0.75rem",
-    transitionDuration: "150ms",
-    transitionProperty: "background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "100%",
-  },
-  searchIcon: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    height: "1rem",
-    width: "1rem",
-  },
-  searchInput: {
-    "::placeholder": {
-      color: colors.mutedForeground,
-      fontSize: "0.875rem",
-    },
-    backgroundColor: "transparent",
-    flex: "1",
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-    minWidth: 0,
-    outlineColor: {
-      default: null,
-      ":focus": "transparent",
-    },
-    outlineOffset: {
-      default: null,
-      ":focus": "2px",
-    },
-    outlineStyle: {
-      default: null,
-      ":focus": "solid",
-    },
-    outlineWidth: {
-      default: null,
-      ":focus": "2px",
-    },
-  },
-  selectedListItem: {
-    backgroundColor: colors.accent,
-  },
-  skeleton: {
-    animationDuration: "2s",
-    animationIterationCount: "infinite",
-    animationName: pulse,
-    animationTimingFunction: "cubic-bezier(0.4, 0, 0.6, 1)",
-    borderRadius: radii.lg,
-    paddingBlock: "0.5rem",
-    paddingInline: "0.75rem",
-  },
-  skeletonDescription: {
-    backgroundColor: colors.muted,
-    borderRadius: "0.125rem",
-    height: "0.75rem",
-    marginTop: "0.375rem",
-    width: "33.333333%",
-  },
-  skeletonList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.25rem",
-  },
-  skeletonTitle: {
-    backgroundColor: colors.accent,
-    borderRadius: "0.125rem",
-    height: "1rem",
-    width: "75%",
-  },
-  templateIcon: {
-    fontSize: "0.875rem",
-    height: "1rem",
-    width: "1rem",
-  },
-  unselectedListItem: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": `color-mix(in srgb, ${colors.accent} 50%, transparent)`,
-    },
-  },
-});

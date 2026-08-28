@@ -1,18 +1,16 @@
 import { Apple } from "@lobehub/icons";
-import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
-import type { StyleXProps } from "@anlg/ui/lib/stylex";
+import { cn } from "@anlg/utils";
 
 import { AiIconSlot, ProviderLobeIcon } from "~/settings/ai/shared";
 
 type ModelIconSpec = {
   title: string;
   label?: string;
-  sx?: StyleXProps["sx"];
+  className?: string;
   imageSrc?: string;
-  imageSx?: StyleXProps["sx"];
+  imageClassName?: string;
   node?: ReactNode;
 };
 
@@ -66,7 +64,7 @@ export function getLocalModelIcon(model: string): ModelIconSpec | null {
       label: "P",
       title: "NVIDIA Parakeet",
       imageSrc: `${MODEL_ICON_ASSET_BASE}/nvidia-logo.svg`,
-      imageSx: styles.parakeetImage,
+      imageClassName: "object-cover object-left",
     };
   }
 
@@ -74,7 +72,7 @@ export function getLocalModelIcon(model: string): ModelIconSpec | null {
     return {
       label: "G",
       title: "GGML",
-      sx: modelIconVariantStyles.ggml,
+      className: "rounded-md border-amber-200 bg-amber-50 text-amber-700",
     };
   }
 
@@ -82,7 +80,7 @@ export function getLocalModelIcon(model: string): ModelIconSpec | null {
     return {
       label: "S",
       title: "Soniqo",
-      sx: modelIconVariantStyles.soniqo,
+      className: "rounded-md border-blue-200 bg-blue-50 text-blue-700",
     };
   }
 
@@ -96,7 +94,7 @@ export function getLocalModelBackendBadge(model: string): ModelIconSpec | null {
     return {
       label: "NV",
       title: "NVIDIA",
-      sx: backendBadgeVariantStyles.nvidia,
+      className: "border-green-200 bg-green-50 text-green-700",
     };
   }
 
@@ -108,7 +106,7 @@ export function getLocalModelBackendBadge(model: string): ModelIconSpec | null {
     return {
       label: "NPU",
       title: "Apple NPU",
-      sx: backendBadgeVariantStyles.npu,
+      className: "border-border bg-muted text-muted-foreground",
     };
   }
 
@@ -116,7 +114,7 @@ export function getLocalModelBackendBadge(model: string): ModelIconSpec | null {
     return {
       label: "GGML",
       title: "GGML runtime",
-      sx: backendBadgeVariantStyles.ggml,
+      className: "border-amber-200 bg-amber-50 text-amber-700",
     };
   }
 
@@ -127,33 +125,42 @@ export function LocalModelLabel({
   model,
   label,
   title,
-  sx,
-  labelSx,
+  className,
+  labelClassName,
 }: {
   model: string;
   label: string;
   title?: string;
-  labelSx?: StyleXProps["sx"];
-} & StyleXProps) {
+  className?: string;
+  labelClassName?: string;
+}) {
   const icon = getLocalModelIcon(model);
 
   return (
-    <div title={title} {...stylex.props(styles.modelLabel, sx)}>
+    <div
+      title={title}
+      className={cn(["flex min-w-0 items-center gap-2", className])}
+    >
       {icon ? (
-        <AiIconSlot title={icon.title} sx={icon.sx}>
+        <AiIconSlot title={icon.title} className={icon.className}>
           {icon.node ??
             (icon.imageSrc ? (
               <img
                 src={icon.imageSrc}
                 alt=""
-                {...stylex.props(styles.modelImage, icon.imageSx)}
+                className={cn([
+                  "object-contain object-center",
+                  icon.imageClassName,
+                ])}
               />
             ) : (
-              <span {...stylex.props(styles.initial)}>{icon.label}</span>
+              <span className="text-[10px] leading-none font-semibold">
+                {icon.label}
+              </span>
             ))}
         </AiIconSlot>
       ) : null}
-      <span {...stylex.props(styles.label, labelSx)}>{label}</span>
+      <span className={cn(["min-w-0 truncate", labelClassName])}>{label}</span>
     </div>
   );
 }
@@ -166,82 +173,14 @@ export function LocalModelBackendBadge({ model }: { model: string }) {
   }
 
   return (
-    <span title={badge.title} {...stylex.props(styles.backendBadge, badge.sx)}>
+    <span
+      title={badge.title}
+      className={cn([
+        "inline-flex shrink-0 items-center rounded-md border px-1.5 py-0.5 text-[10px] leading-none font-medium",
+        badge.className,
+      ])}
+    >
       {badge.label}
     </span>
   );
 }
-
-const styles = stylex.create({
-  backendBadge: {
-    alignItems: "center",
-    borderRadius: radii.md,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    display: "inline-flex",
-    flexShrink: 0,
-    fontSize: "10px",
-    fontWeight: 500,
-    lineHeight: 1,
-    paddingBlock: "0.125rem",
-    paddingInline: "0.375rem",
-  },
-  ggml: {
-    backgroundColor: "rgb(255 251 235)",
-    borderColor: "rgb(253 230 138)",
-    borderRadius: radii.md,
-    color: "rgb(180 83 9)",
-  },
-  initial: {
-    fontSize: "10px",
-    fontWeight: 600,
-    lineHeight: 1,
-  },
-  label: {
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  modelImage: {
-    objectFit: "contain",
-    objectPosition: "center",
-  },
-  modelLabel: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-    minWidth: 0,
-  },
-  npu: {
-    backgroundColor: colors.muted,
-    borderColor: colors.border,
-    color: colors.mutedForeground,
-  },
-  nvidia: {
-    backgroundColor: "rgb(240 253 244)",
-    borderColor: "rgb(187 247 208)",
-    color: "rgb(21 128 61)",
-  },
-  parakeetImage: {
-    objectFit: "cover",
-    objectPosition: "left",
-  },
-  soniqo: {
-    backgroundColor: "rgb(239 246 255)",
-    borderColor: "rgb(191 219 254)",
-    borderRadius: radii.md,
-    color: "rgb(29 78 216)",
-  },
-});
-
-const modelIconVariantStyles = {
-  ggml: styles.ggml,
-  soniqo: styles.soniqo,
-} as const;
-
-const backendBadgeVariantStyles = {
-  ggml: styles.ggml,
-  npu: styles.npu,
-  nvidia: styles.nvidia,
-} as const;

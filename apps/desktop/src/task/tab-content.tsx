@@ -1,8 +1,7 @@
 import { Trans } from "@lingui/react/macro";
-import * as stylex from "@stylexjs/stylex";
 import { useCallback, useRef, useState } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
+import { cn } from "@anlg/utils";
 
 import { ResourceView } from "./resource-view";
 
@@ -56,7 +55,7 @@ export function TabContentTask({ tab }: { tab: TaskTab }) {
   );
 
   const floatingButton = (
-    <div {...stylex.props(styles.floatingButton)}>
+    <div className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2">
       <ChatCTA label={<Trans>Work on this task</Trans>} />
     </div>
   );
@@ -67,18 +66,18 @@ export function TabContentTask({ tab }: { tab: TaskTab }) {
     <StandardContentWrapper floatingButton={floatingButton}>
       <div
         ref={scrollRef}
-        {...stylex.props(styles.scrollContainer)}
+        className="relative h-full overflow-auto"
         onScroll={handleScroll}
       >
-        <div {...stylex.props(styles.contentLayout)}>
-          <div {...stylex.props(styles.resources)}>
+        <div className="flex">
+          <div className="min-w-0 flex-1">
             {tab.resources.map((resource, index) => {
               const key = resourceKey(resource);
               return (
                 <div key={key}>
                   {index > 0 ? (
-                    <div {...stylex.props(styles.dividerContainer)}>
-                      <div {...stylex.props(styles.divider)} />
+                    <div className="max-w-3xl px-6">
+                      <div className="border-border border-t-2" />
                     </div>
                   ) : null}
                   <div ref={(element) => registerRef(key, element)}>
@@ -87,7 +86,7 @@ export function TabContentTask({ tab }: { tab: TaskTab }) {
                 </div>
               );
             })}
-            <div {...stylex.props(styles.bottomSpacer)} />
+            <div className="h-20" />
           </div>
           {showNav ? (
             <ResourceNav
@@ -112,8 +111,8 @@ function ResourceNav({
   onNavClick: (key: string) => void;
 }) {
   return (
-    <div {...stylex.props(styles.navigation)}>
-      <div {...stylex.props(styles.navigationList)}>
+    <div className="sticky top-0 flex w-40 shrink-0 flex-col justify-center self-start px-2 py-6">
+      <div className="space-y-0.5">
         {resources.map((resource) => {
           const key = resourceKey(resource);
           const isActive = activeKey === key;
@@ -122,14 +121,14 @@ function ResourceNav({
               key={key}
               type="button"
               onClick={() => onNavClick(key)}
-              {...stylex.props(
-                styles.navigationButton,
+              className={cn([
+                "w-full rounded-md px-2 py-1.5 text-left text-xs transition-colors",
                 isActive
-                  ? styles.navigationButtonActive
-                  : styles.navigationButtonInactive,
-              )}
+                  ? "text-foreground font-medium"
+                  : "text-muted-foreground hover:text-muted-foreground",
+              ])}
             >
-              <span {...stylex.props(styles.navigationLabel)}>
+              <span className="line-clamp-2">
                 {resource.owner}/{resource.repo} #{resource.number}
               </span>
             </button>
@@ -143,81 +142,3 @@ function ResourceNav({
 function resourceKey(resource: TaskResource): string {
   return `${resource.type}-${resource.owner}-${resource.repo}-${resource.number}`;
 }
-
-const styles = stylex.create({
-  bottomSpacer: {
-    height: "5rem",
-  },
-  contentLayout: {
-    display: "flex",
-  },
-  divider: {
-    borderTopColor: colors.border,
-    borderTopStyle: "solid",
-    borderTopWidth: "2px",
-  },
-  dividerContainer: {
-    maxWidth: "48rem",
-    paddingInline: "1.5rem",
-  },
-  floatingButton: {
-    bottom: "1rem",
-    left: "50%",
-    position: "absolute",
-    transform: "translateX(-50%)",
-    zIndex: 20,
-  },
-  navigation: {
-    alignSelf: "flex-start",
-    display: "flex",
-    flexDirection: "column",
-    flexShrink: 0,
-    justifyContent: "center",
-    paddingBlock: "1.5rem",
-    paddingInline: "0.5rem",
-    position: "sticky",
-    top: 0,
-    width: "10rem",
-  },
-  navigationButton: {
-    borderRadius: radii.md,
-    fontSize: "0.75rem",
-    paddingBlock: "0.375rem",
-    paddingInline: "0.5rem",
-    textAlign: "left",
-    transitionDuration: "150ms",
-    transitionProperty: "color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "100%",
-  },
-  navigationButtonActive: {
-    color: colors.foreground,
-    fontWeight: 500,
-  },
-  navigationButtonInactive: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.mutedForeground,
-    },
-  },
-  navigationLabel: {
-    WebkitBoxOrient: "vertical",
-    WebkitLineClamp: 2,
-    display: "-webkit-box",
-    overflow: "hidden",
-  },
-  navigationList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.125rem",
-  },
-  resources: {
-    flex: "1",
-    minWidth: 0,
-  },
-  scrollContainer: {
-    height: "100%",
-    overflow: "auto",
-    position: "relative",
-  },
-});

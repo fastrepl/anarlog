@@ -25,8 +25,8 @@
 }
 
 /* The inset is `rem`, not `em`: it has to cancel against the scroll
- * container's fixed 0.75rem padding, so it must not scale with the block's
- * own font size. */
+ * container's fixed `px-3`, so it must not scale with the block's own font
+ * size. */
 .note-typography.prosemirror-editor > * {
   transition: background-color 120ms ease;
   margin-inline: -0.75rem;
@@ -364,13 +364,13 @@
 }
 
 .note-typography a {
-  color: #2563eb;
+  color: var(--color-blue-600, #2563eb);
   text-decoration-line: underline;
   text-underline-offset: 2px;
   cursor: text;
 
   &:hover {
-    color: color-mix(in oklab, #2563eb, transparent 20%);
+    color: color-mix(in oklab, var(--color-blue-600, #2563eb), transparent 20%);
     cursor: pointer;
   }
 
@@ -406,24 +406,24 @@
 
 .note-typography mark {
   border-radius: 0.125rem;
-  background-color: #fef08a;
+  background-color: var(--color-yellow-200, #fef08a);
   padding: 0;
   color: inherit;
 }
 .note-typography mark[data-highlight-color="orange"] {
-  background-color: #fed7aa;
+  background-color: var(--color-orange-200, #fed7aa);
 }
 .note-typography mark[data-highlight-color="green"] {
-  background-color: #bbf7d0;
+  background-color: var(--color-green-200, #bbf7d0);
 }
 .note-typography mark[data-highlight-color="blue"] {
-  background-color: #bfdbfe;
+  background-color: var(--color-blue-200, #bfdbfe);
 }
 .note-typography mark[data-highlight-color="purple"] {
-  background-color: #e9d5ff;
+  background-color: var(--color-purple-200, #e9d5ff);
 }
 .note-typography mark[data-highlight-color="pink"] {
-  background-color: #fbcfe8;
+  background-color: var(--color-pink-200, #fbcfe8);
 }
 
 /* Highlight backgrounds stay on the light -200 palette in dark mode, so the

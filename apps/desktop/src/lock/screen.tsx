@@ -1,10 +1,9 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Lock } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { platform } from "@tauri-apps/plugin-os";
 
-import { colors } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
+import { cn } from "@anlg/utils";
 
 export function LockScreen({
   title,
@@ -12,31 +11,34 @@ export function LockScreen({
   action,
   authenticating,
   onUnlock,
-  sx,
+  className,
 }: {
   title: string;
   description?: string;
   action?: string;
   authenticating: boolean;
   onUnlock: () => void;
-  sx?: stylex.StyleXStyles;
+  className?: string;
 }) {
   return (
     <div
       data-lock-screen
       data-tauri-drag-region
-      {...stylex.props([styles.screen, styles.screenBackground, sx])}
+      className={cn([
+        "flex h-full min-h-0 w-full flex-1 flex-col items-center justify-center",
+        className ?? "bg-background",
+      ])}
     >
-      <div {...stylex.props(styles.content)}>
-        <div {...stylex.props(styles.iconContainer)}>
-          <Lock {...stylex.props(styles.icon)} weight="fill" />
+      <div className="flex max-w-sm flex-col items-center px-6 text-center">
+        <div className="bg-muted flex size-14 items-center justify-center rounded-full">
+          <Lock className="text-foreground size-6" weight="fill" />
         </div>
-        <h1 {...stylex.props(styles.title)}>{title}</h1>
+        <h1 className="mt-5 text-lg font-semibold">{title}</h1>
         {description ? (
-          <p {...stylex.props(styles.description)}>{description}</p>
+          <p className="text-muted-foreground mt-2 text-sm">{description}</p>
         ) : null}
         <Button
-          sx={styles.action}
+          className="mt-6"
           disabled={authenticating}
           onClick={onUnlock}
           data-tauri-drag-region="false"
@@ -84,63 +86,7 @@ export function NoteLockScreen({
       action={t`View Note`}
       authenticating={authenticating}
       onUnlock={onUnlock}
-      sx={styles.transparent}
+      className="bg-transparent"
     />
   );
 }
-
-const styles = stylex.create({
-  action: {
-    marginTop: "1.5rem",
-  },
-  content: {
-    alignItems: "center",
-    display: "flex",
-    flexDirection: "column",
-    maxWidth: "24rem",
-    paddingInline: "1.5rem",
-    textAlign: "center",
-  },
-  description: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-    marginTop: "0.5rem",
-  },
-  icon: {
-    color: colors.foreground,
-    height: "1.5rem",
-    width: "1.5rem",
-  },
-  iconContainer: {
-    alignItems: "center",
-    backgroundColor: colors.muted,
-    borderRadius: "9999px",
-    display: "flex",
-    height: "3.5rem",
-    justifyContent: "center",
-    width: "3.5rem",
-  },
-  screen: {
-    alignItems: "center",
-    display: "flex",
-    flex: "1",
-    flexDirection: "column",
-    height: "100%",
-    justifyContent: "center",
-    minHeight: 0,
-    width: "100%",
-  },
-  screenBackground: {
-    backgroundColor: colors.background,
-  },
-  title: {
-    fontSize: "1.125rem",
-    fontWeight: 600,
-    lineHeight: "1.75rem",
-    marginTop: "1.25rem",
-  },
-  transparent: {
-    backgroundColor: "transparent",
-  },
-});

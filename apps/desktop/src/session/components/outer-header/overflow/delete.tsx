@@ -1,10 +1,10 @@
 import { Trans } from "@lingui/react/macro";
 import { CircleNotch, Trash } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useCallback } from "react";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { DropdownMenuItem } from "@anlg/ui/components/ui/dropdown-menu";
+import { cn } from "@anlg/utils";
 
 import { useAudioPlayer } from "~/audio-player";
 import { useDeleteSession } from "~/session/hooks/useDeleteSession";
@@ -28,10 +28,13 @@ export function DeleteRecording({ sessionId }: { sessionId: string }) {
     <DropdownMenuItem
       onClick={handleDeleteRecording}
       disabled={isDisabled}
-      sx={styles.destructiveItem}
+      className={cn([
+        "cursor-pointer text-red-600 dark:text-red-400",
+        "hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/50 dark:hover:text-red-300",
+      ])}
     >
       {isDeletingRecording ? (
-        <CircleNotch {...stylex.props(styles.spinner)} />
+        <CircleNotch className="animate-spin" />
       ) : (
         <Trash />
       )}
@@ -60,7 +63,13 @@ export function DeleteNote({ sessionId }: { sessionId: string }) {
   }, [sessionId, deleteSession, title]);
 
   return (
-    <DropdownMenuItem onClick={handleDeleteNote} sx={styles.destructiveItem}>
+    <DropdownMenuItem
+      onClick={handleDeleteNote}
+      className={cn([
+        "cursor-pointer text-red-600 dark:text-red-400",
+        "hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/50 dark:hover:text-red-300",
+      ])}
+    >
       <Trash />
       <span>
         <Trans>Delete</Trans>
@@ -68,29 +77,3 @@ export function DeleteNote({ sessionId }: { sessionId: string }) {
     </DropdownMenuItem>
   );
 }
-
-const spin = stylex.keyframes({
-  to: {
-    transform: "rotate(360deg)",
-  },
-});
-
-const styles = stylex.create({
-  destructiveItem: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": "#fef2f2",
-    },
-    color: {
-      default: "#dc2626",
-      ":hover": "#b91c1c",
-    },
-    cursor: "pointer",
-  },
-  spinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-  },
-});

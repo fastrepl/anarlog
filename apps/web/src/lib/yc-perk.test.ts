@@ -107,7 +107,7 @@ test("verifies founders and returns their normalized YC email", async () => {
   const requestedUrls: string[] = [];
   const result = await verifyYcFounder({
     verificationUrl: "https://ycombinator.com/verify/founder-token/",
-    fetcher: async (url) => {
+    fetcher: (async (url) => {
       requestedUrls.push(String(url));
       return Response.json({
         verified: true,
@@ -115,7 +115,7 @@ test("verifies founders and returns their normalized YC email", async () => {
         email: "Founder@Example.com",
         companies: [{ name: "Analytical Engines", batch: "S25" }],
       });
-    },
+    }) as typeof fetch,
   });
 
   assert.deepEqual(result, {
@@ -131,7 +131,7 @@ test("verifies founders and returns their normalized YC email", async () => {
 test("rejects inactive verification links", async () => {
   const result = await verifyYcFounder({
     verificationUrl: "https://www.ycombinator.com/verify/founder-token",
-    fetcher: async () => Response.json({ verified: false }),
+    fetcher: (async () => Response.json({ verified: false })) as typeof fetch,
   });
 
   assert.deepEqual(result, { status: "invalid", reason: "not_verified" });
@@ -140,8 +140,8 @@ test("rejects inactive verification links", async () => {
 test("requires the YC verification email", async () => {
   const result = await verifyYcFounder({
     verificationUrl: "https://www.ycombinator.com/verify/founder-token",
-    fetcher: async () =>
-      Response.json({ verified: true, name: "Ada Lovelace" }),
+    fetcher: (async () =>
+      Response.json({ verified: true, name: "Ada Lovelace" })) as typeof fetch,
   });
 
   assert.deepEqual(result, { status: "invalid", reason: "email_missing" });
@@ -151,7 +151,7 @@ test("fails closed on unexpected YC responses", async () => {
   await assert.rejects(
     verifyYcFounder({
       verificationUrl: "https://www.ycombinator.com/verify/founder-token",
-      fetcher: async () => Response.json({ verified: "yes" }),
+      fetcher: (async () => Response.json({ verified: "yes" })) as typeof fetch,
     }),
     /unexpected response/,
   );

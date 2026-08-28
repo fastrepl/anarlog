@@ -1,9 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { BookOpen, LockSimple, MinusCircle, Plus } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useForm } from "@tanstack/react-form";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   InputGroup,
@@ -25,21 +23,21 @@ export function SettingsDictionary() {
   const { isPro, upgradeToPro, isUpgradingToPro } = useBillingAccess();
 
   return (
-    <div {...stylex.props(styles.page)}>
+    <div className="flex flex-col gap-8">
       <SettingsPageTitle title={<Trans>Dictionary</Trans>} />
       {isPro ? (
         <DictionarySettings terms={terms} onSave={setTerms} />
       ) : (
-        <div {...stylex.props(styles.upsell)}>
-          <div {...stylex.props(styles.upsellCopy)}>
-            <div {...stylex.props(styles.lockBadge)}>
-              <LockSimple {...stylex.props(styles.lockIcon)} />
+        <div className="border-border bg-card flex items-start justify-between gap-4 rounded-2xl border p-5">
+          <div className="flex gap-3">
+            <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-full">
+              <LockSimple className="text-muted-foreground size-4" />
             </div>
             <div>
-              <h3 {...stylex.props(styles.heading)}>
+              <h3 className="text-sm font-medium">
                 <Trans>Build a custom dictionary with Anarlog Pro</Trans>
               </h3>
-              <p {...stylex.props(styles.description)}>
+              <p className="text-muted-foreground mt-1 text-xs leading-5">
                 <Trans>
                   Help transcription recognize names, jargon, and product terms.
                 </Trans>
@@ -102,18 +100,18 @@ export function DictionarySettings({
 
   return (
     <form
-      {...stylex.props(styles.form)}
+      className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
         event.stopPropagation();
         void form.handleSubmit();
       }}
     >
-      <InputGroup sx={styles.inputGroup}>
+      <InputGroup className="border-border bg-card has-[[data-slot=input-group-control]:focus-visible]:border-border rounded-full shadow-none has-[[data-slot=input-group-control]:focus-visible]:ring-0">
         <form.Field name="term">
           {(field) => (
             <InputGroupInput
-              sx={styles.input}
+              className="pr-4 pl-4"
               placeholder={t`Add names, jargon, or product terms to prefer`}
               value={field.state.value}
               onChange={(event) => field.handleChange(event.target.value)}
@@ -133,11 +131,11 @@ export function DictionarySettings({
                   type="submit"
                   variant="ghost"
                   size="xs"
-                  sx={styles.addButton}
+                  className="rounded-full bg-black text-white hover:bg-black/90 hover:text-white dark:bg-white dark:text-black dark:hover:bg-white/90 dark:hover:text-black"
                   disabled={!canAdd}
                   aria-label={t`Add`}
                 >
-                  <Plus {...stylex.props(styles.smallIcon)} />
+                  <Plus className="size-3.5" />
                   <Trans>Add</Trans>
                 </InputGroupButton>
               );
@@ -156,12 +154,12 @@ export function DictionarySettings({
 
           if (normalizedTerms.length === 0) {
             return (
-              <div {...stylex.props(styles.empty)}>
-                <BookOpen {...stylex.props(styles.emptyIcon)} />
-                <p {...stylex.props(styles.heading)}>
+              <div className="border-border bg-card flex min-h-40 flex-col items-center justify-center rounded-2xl border px-6 text-center">
+                <BookOpen className="text-muted-foreground mb-3 size-5" />
+                <p className="text-sm font-medium">
                   <Trans>Your dictionary is empty</Trans>
                 </p>
-                <p {...stylex.props(styles.emptyDescription)}>
+                <p className="text-muted-foreground mt-1 max-w-sm text-xs">
                   <Trans>
                     Tip: Add teammate names, acronyms, company jargon, and
                     product terms.
@@ -173,30 +171,29 @@ export function DictionarySettings({
 
           if (visibleTerms.length === 0) {
             return hasSearch ? (
-              <p {...stylex.props(styles.noMatch)}>
+              <p className="text-muted-foreground px-4 text-sm">
                 <Trans>No match</Trans>
               </p>
             ) : null;
           }
 
           return (
-            <div {...stylex.props(styles.terms)}>
+            <div className="border-border bg-card divide-border divide-y overflow-hidden rounded-2xl border">
               {visibleTerms.map((term) => (
                 <div
                   key={term}
-                  data-dictionary-term
-                  {...stylex.props(styles.term)}
+                  className="group flex min-h-12 items-center justify-between gap-3 py-3 pr-3 pl-4"
                 >
-                  <span {...stylex.props(styles.termLabel)}>{term}</span>
+                  <span className="text-sm">{term}</span>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    sx={styles.removeButton}
+                    className="text-muted-foreground hover:text-foreground size-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
                     onClick={() => removeTerm(term)}
                     aria-label={t`Remove ${term}`}
                   >
-                    <MinusCircle {...stylex.props(styles.icon)} />
+                    <MinusCircle className="size-4" />
                   </Button>
                 </div>
               ))}
@@ -225,168 +222,3 @@ function getVisibleDictionaryTerms(terms: string[], value: string): string[] {
     return queries.some((query) => key.includes(query) || query.includes(key));
   });
 }
-
-const styles = stylex.create({
-  addButton: {
-    backgroundColor: {
-      default: "black",
-      ":hover": "rgb(0 0 0 / 0.9)",
-      ":is(.dark *)": "white",
-      ":is(.dark *):hover": "rgb(255 255 255 / 0.9)",
-    },
-    borderRadius: radii.full,
-    color: {
-      default: "white",
-      ":hover": "white",
-      ":is(.dark *)": "black",
-      ":is(.dark *):hover": "black",
-    },
-  },
-  description: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    lineHeight: "1.25rem",
-    marginTop: "0.25rem",
-  },
-  empty: {
-    alignItems: "center",
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderRadius: "1rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    minHeight: "10rem",
-    paddingInline: "1.5rem",
-    textAlign: "center",
-  },
-  emptyDescription: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    marginTop: "0.25rem",
-    maxWidth: "24rem",
-  },
-  emptyIcon: {
-    color: colors.mutedForeground,
-    height: "1.25rem",
-    marginBottom: "0.75rem",
-    width: "1.25rem",
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  heading: {
-    fontSize: "0.875rem",
-    fontWeight: 500,
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  input: {
-    paddingInline: "1rem",
-  },
-  inputGroup: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderRadius: radii.full,
-    boxShadow: "none",
-  },
-  lockBadge: {
-    alignItems: "center",
-    backgroundColor: colors.muted,
-    borderRadius: radii.full,
-    display: "flex",
-    flexShrink: 0,
-    height: "2.25rem",
-    justifyContent: "center",
-    width: "2.25rem",
-  },
-  lockIcon: {
-    color: colors.mutedForeground,
-    height: "1rem",
-    width: "1rem",
-  },
-  noMatch: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    paddingInline: "1rem",
-  },
-  page: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "2rem",
-  },
-  removeButton: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    flexShrink: 0,
-    height: "1.75rem",
-    opacity: {
-      default: 0,
-      ":is([data-dictionary-term]:hover *)": 1,
-      ":focus-visible": 1,
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "opacity",
-    width: "1.75rem",
-  },
-  smallIcon: {
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  term: {
-    alignItems: "center",
-    borderTopColor: colors.border,
-    borderTopStyle: {
-      default: "solid",
-      ":first-child": "none",
-    },
-    borderTopWidth: {
-      default: "1px",
-      ":first-child": 0,
-    },
-    display: "flex",
-    gap: "0.75rem",
-    justifyContent: "space-between",
-    minHeight: "3rem",
-    paddingBlock: "0.75rem",
-    paddingLeft: "1rem",
-    paddingRight: "0.75rem",
-  },
-  termLabel: {
-    fontSize: "0.875rem",
-  },
-  terms: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderRadius: "1rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    overflow: "hidden",
-  },
-  upsell: {
-    alignItems: "flex-start",
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderRadius: "1rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    display: "flex",
-    gap: "1rem",
-    justifyContent: "space-between",
-    padding: "1.25rem",
-  },
-  upsellCopy: {
-    display: "flex",
-    gap: "0.75rem",
-  },
-});
-
-export { styles as dictionarySettingsStyles };

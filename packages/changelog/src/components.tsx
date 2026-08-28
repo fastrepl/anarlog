@@ -1,8 +1,7 @@
-import * as stylex from "@stylexjs/stylex";
 import { isValidElement } from "react";
 import { Streamdown } from "streamdown";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
+import { cn } from "@anlg/utils";
 
 function flattenTextContent(node: React.ReactNode): string {
   if (node == null || typeof node === "boolean") {
@@ -28,52 +27,88 @@ function flattenTextContent(node: React.ReactNode): string {
   return "";
 }
 
+const changelogLinkClassName =
+  "text-blue-600 underline decoration-blue-400/40 underline-offset-2 hover:text-blue-700 dark:text-blue-400 dark:decoration-blue-500/50 dark:hover:text-blue-300";
+
+const changelogHeadingClassName =
+  "mt-4 mb-1 min-h-6 font-semibold text-[#374151] first:mt-0 dark:text-[#e7e5e4]";
+const changelogBodyClassName = "text-foreground";
+
 const baseChangelogComponents = {
   h1: ({ children }: { children?: React.ReactNode }) => (
-    <h1 {...stylex.props(styles.heading, styles.heading1)}>{children}</h1>
+    <h1 className={cn([changelogHeadingClassName, "text-base leading-6"])}>
+      {children}
+    </h1>
   ),
   h2: ({ children }: { children?: React.ReactNode }) => (
-    <h2 {...stylex.props(styles.heading, styles.heading2)}>{children}</h2>
+    <h2 className={cn([changelogHeadingClassName, "text-sm leading-5"])}>
+      {children}
+    </h2>
   ),
   h3: ({ children }: { children?: React.ReactNode }) => (
-    <h3 {...stylex.props(styles.heading, styles.heading2)}>{children}</h3>
+    <h3 className={cn([changelogHeadingClassName, "text-sm leading-5"])}>
+      {children}
+    </h3>
   ),
   h4: ({ children }: { children?: React.ReactNode }) => (
-    <h4 {...stylex.props(styles.heading, styles.heading2)}>{children}</h4>
+    <h4 className={cn([changelogHeadingClassName, "text-sm leading-5"])}>
+      {children}
+    </h4>
   ),
   h5: ({ children }: { children?: React.ReactNode }) => (
-    <h5 {...stylex.props(styles.heading, styles.heading2)}>{children}</h5>
+    <h5 className={cn([changelogHeadingClassName, "text-sm leading-5"])}>
+      {children}
+    </h5>
   ),
   h6: ({ children }: { children?: React.ReactNode }) => (
-    <h6 {...stylex.props(styles.heading, styles.heading6)}>{children}</h6>
+    <h6 className={cn([changelogHeadingClassName, "text-xs leading-4"])}>
+      {children}
+    </h6>
   ),
   p: ({ children }: { children?: React.ReactNode }) => (
-    <p {...stylex.props(styles.body, styles.paragraph)}>{children}</p>
+    <p
+      className={cn([
+        "mb-1 leading-5 [text-wrap:wrap]",
+        changelogBodyClassName,
+      ])}
+    >
+      {children}
+    </p>
   ),
   strong: ({ children }: { children?: React.ReactNode }) => (
-    <strong {...stylex.props(styles.strong)}>{children}</strong>
+    <strong className="font-semibold text-[#374151] dark:text-[#e7e5e4]">
+      {children}
+    </strong>
   ),
   em: ({ children }: { children?: React.ReactNode }) => (
-    <em {...stylex.props(styles.emphasis)}>{children}</em>
+    <em className="italic">{children}</em>
   ),
   code: ({ children }: { children?: React.ReactNode }) => (
-    <code {...stylex.props(styles.code)}>{children}</code>
+    <code className="rounded-[0.4rem] border border-[#e5e5e5] px-[0.3em] py-[0.15em] align-middle font-mono text-[0.85rem] leading-none text-black dark:border-[#57534e] dark:text-[#e7e5e4]">
+      {children}
+    </code>
   ),
   ul: ({ children }: { children?: React.ReactNode }) => (
-    <ul {...stylex.props(styles.body, styles.unorderedList)}>{children}</ul>
+    <ul className={cn(["mb-1 list-disc pl-6", changelogBodyClassName])}>
+      {children}
+    </ul>
   ),
   ol: ({ children }: { children?: React.ReactNode }) => (
-    <ol {...stylex.props(styles.body, styles.orderedList)}>{children}</ol>
+    <ol className={cn(["mb-1 list-decimal pl-6", changelogBodyClassName])}>
+      {children}
+    </ol>
   ),
   li: ({ children }: { children?: React.ReactNode }) => (
-    <li {...stylex.props(styles.listItem)}>{children}</li>
+    <li className="mb-1">{children}</li>
   ),
   blockquote: ({ children }: { children?: React.ReactNode }) => (
-    <blockquote {...stylex.props(styles.blockquote)}>{children}</blockquote>
+    <blockquote className="mb-1 border-l-[3px] border-black pl-2 dark:border-[#a8a29e]">
+      {children}
+    </blockquote>
   ),
   a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
     <a
-      {...stylex.props(styles.link)}
+      className={changelogLinkClassName}
       href={href}
       target="_blank"
       rel="noopener noreferrer"
@@ -82,7 +117,7 @@ const baseChangelogComponents = {
     </a>
   ),
   img: ({ src, alt }: { src?: string; alt?: string }) => (
-    <img src={src} alt={alt} {...stylex.props(styles.image)} />
+    <img src={src} alt={alt} className="border-border my-6 rounded-lg border" />
   ),
 };
 
@@ -100,37 +135,39 @@ export const changelogComponents = {
     <div
       data-changelog-banner
       data-variant={variant ?? "default"}
-      {...stylex.props(
-        styles.banner,
+      className={cn([
+        "mb-2 rounded-xl border px-5 pt-4 pb-4",
         variant === "warning"
-          ? styles.warningBanner
+          ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
           : variant === "info"
-            ? styles.infoBanner
-            : styles.defaultBanner,
-      )}
+            ? "border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100"
+            : "border-border bg-muted text-foreground",
+      ])}
     >
       {title && (
         <div
           data-changelog-banner-title
-          {...stylex.props(
-            styles.bannerTitle,
+          className={cn([
+            "mb-1 text-sm font-semibold",
             variant === "warning"
-              ? styles.warningBannerText
+              ? "text-amber-900 dark:text-amber-100"
               : variant === "info"
-                ? styles.infoBannerText
-                : styles.defaultBannerText,
-          )}
+                ? "text-blue-900 dark:text-blue-100"
+                : "text-foreground",
+          ])}
         >
           {title}
         </div>
       )}
       <div
         data-changelog-banner-content
-        {...stylex.props(styles.body, styles.bannerContent)}
+        className={cn([
+          "text-sm [&_p:last-child]:mb-0 [&_ul:last-child]:mb-0",
+          changelogBodyClassName,
+        ])}
       >
         <Streamdown
           components={baseChangelogComponents}
-          controls={false}
           isAnimating={false}
           linkSafety={{ enabled: false }}
         >
@@ -140,140 +177,3 @@ export const changelogComponents = {
     </div>
   ),
 };
-
-const styles = stylex.create({
-  heading: {
-    color: "light-dark(#374151, #e7e5e4)",
-    fontWeight: 600,
-    marginBottom: "0.25rem",
-    marginTop: {
-      default: "1rem",
-      ":first-child": 0,
-    },
-    minHeight: "1.5rem",
-  },
-  heading1: {
-    fontSize: "1rem",
-    lineHeight: "1.5rem",
-  },
-  heading2: {
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-  },
-  heading6: {
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-  },
-  body: {
-    color: colors.foreground,
-  },
-  paragraph: {
-    lineHeight: "1.25rem",
-    marginBottom: "0.25rem",
-    textWrap: "wrap",
-  },
-  strong: {
-    color: "light-dark(#374151, #e7e5e4)",
-    fontWeight: 600,
-  },
-  emphasis: {
-    fontStyle: "italic",
-  },
-  code: {
-    borderColor: "light-dark(#e5e5e5, #57534e)",
-    borderRadius: "0.4rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    color: "light-dark(#000, #e7e5e4)",
-    fontFamily: "monospace",
-    fontSize: "0.85rem",
-    lineHeight: 1,
-    paddingBlock: "0.15em",
-    paddingInline: "0.3em",
-    verticalAlign: "middle",
-  },
-  unorderedList: {
-    listStyleType: "disc",
-    marginBottom: "0.25rem",
-    paddingLeft: "1.5rem",
-  },
-  orderedList: {
-    listStyleType: "decimal",
-    marginBottom: "0.25rem",
-    paddingLeft: "1.5rem",
-  },
-  listItem: {
-    marginBottom: "0.25rem",
-  },
-  blockquote: {
-    borderColor: "light-dark(#000, #a8a29e)",
-    borderLeftStyle: "solid",
-    borderLeftWidth: "3px",
-    marginBottom: "0.25rem",
-    paddingLeft: "0.5rem",
-  },
-  link: {
-    color: {
-      default: "light-dark(#2563eb, #60a5fa)",
-      ":hover": "light-dark(#1d4ed8, #93c5fd)",
-    },
-    textDecorationColor:
-      "light-dark(rgb(96 165 250 / 0.4), rgb(59 130 246 / 0.5))",
-    textDecorationLine: "underline",
-    textUnderlineOffset: "2px",
-  },
-  image: {
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    marginBlock: "1.5rem",
-  },
-  banner: {
-    borderRadius: radii.xl,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    marginBottom: "0.5rem",
-    paddingBottom: "1rem",
-    paddingInline: "1.25rem",
-    paddingTop: "1rem",
-  },
-  defaultBanner: {
-    backgroundColor: colors.muted,
-    borderColor: colors.border,
-    color: colors.foreground,
-  },
-  warningBanner: {
-    backgroundColor: "light-dark(#fffbeb, rgb(69 26 3 / 0.4))",
-    borderColor: "light-dark(#fcd34d, #92400e)",
-    color: "light-dark(#78350f, #fef3c7)",
-  },
-  infoBanner: {
-    backgroundColor: "light-dark(#eff6ff, rgb(23 37 84 / 0.4))",
-    borderColor: "light-dark(#93c5fd, #1e40af)",
-    color: "light-dark(#1e3a8a, #dbeafe)",
-  },
-  bannerTitle: {
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    lineHeight: "1.25rem",
-    marginBottom: "0.25rem",
-  },
-  defaultBannerText: {
-    color: colors.foreground,
-  },
-  warningBannerText: {
-    color: "light-dark(#78350f, #fef3c7)",
-  },
-  infoBannerText: {
-    color: "light-dark(#1e3a8a, #dbeafe)",
-  },
-  bannerContent: {
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-    marginBottom: {
-      ":is(*) p:last-child": 0,
-      ":is(*) ul:last-child": 0,
-    },
-  },
-});

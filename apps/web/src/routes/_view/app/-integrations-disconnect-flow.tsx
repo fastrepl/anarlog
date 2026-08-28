@@ -1,10 +1,8 @@
-import * as stylex from "@stylexjs/stylex";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { deleteConnection } from "@anlg/api-client";
 import { createClient } from "@anlg/api-client/client";
-import { fonts } from "@anlg/design-system/tokens.stylex";
 
 import { env } from "@/env";
 import { getAccessToken } from "@/functions/access-token";
@@ -14,31 +12,7 @@ import { captureOperationalError } from "@/lib/error-reporting";
 
 import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
 import { getIntegrationDisplay, Route } from "./integration";
-const styles = stylex.create({
-  style1: {
-    display: "flex",
-    flexDirection: "column",
-    gap: ".75rem",
-  },
-  style2: {
-    fontFamily: fonts.sans,
-    fontSize: "1.875rem",
-    lineHeight: "2.25rem",
-    letterSpacing: "-.025em",
-    color: "#44403c",
-  },
-  style3: {
-    color: "#525252",
-  },
-  style4: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  style5: {
-    color: "#dc2626",
-  },
-});
+
 export function DisconnectFlow() {
   const search = Route.useSearch();
   const navigate = useNavigate();
@@ -46,7 +20,9 @@ export function DisconnectFlow() {
   const [status, setStatus] = useState<
     "idle" | "loading" | "success" | "error"
   >("loading");
+
   const display = getIntegrationDisplay(search.integration_id);
+
   const handleDisconnect = async () => {
     if (!search.connection_id) {
       setStatus("error");
@@ -58,14 +34,14 @@ export function DisconnectFlow() {
       });
       return;
     }
+
     setStatus("loading");
+
     try {
       const token = await getAccessToken();
       const client = createClient({
         baseUrl: env.VITE_API_URL,
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
       const { data, error } = await deleteConnection({
         client,
@@ -74,14 +50,13 @@ export function DisconnectFlow() {
           integration_id: search.integration_id,
         },
       });
+
       if (error || !data) {
         captureOperationalError(
           error ?? new Error("Integration was not disconnected"),
           {
             operation: "integration_disconnect",
-            tags: {
-              integration: search.integration_id,
-            },
+            tags: { integration: search.integration_id },
           },
         );
         setStatus("error");
@@ -96,9 +71,7 @@ export function DisconnectFlow() {
     } catch (error) {
       captureOperationalError(error, {
         operation: "integration_disconnect",
-        tags: {
-          integration: search.integration_id,
-        },
+        tags: { integration: search.integration_id },
       });
       setStatus("error");
       track("integration_connection_failed", {
@@ -109,6 +82,7 @@ export function DisconnectFlow() {
       });
       return;
     }
+
     setStatus("success");
     track("integration_disconnected", {
       integration: search.integration_id,
@@ -136,14 +110,18 @@ export function DisconnectFlow() {
       search: callbackSearch,
     });
   };
+
   useMountEffect(() => {
     void handleDisconnect();
   });
+
   return (
     <IntegrationPageLayout>
-      <div {...stylex.props(styles.style1)}>
-        <h1 {...stylex.props(styles.style2)}>Disconnect {display.name}</h1>
-        <p {...stylex.props(styles.style3)}>
+      <div className="flex flex-col gap-3">
+        <h1 className="font-sans text-3xl tracking-tight text-stone-700">
+          Disconnect {display.name}
+        </h1>
+        <p className="text-neutral-600">
           {status === "error"
             ? `Could not disconnect ${display.name}.`
             : `Disconnecting ${display.name}...`}
@@ -151,8 +129,8 @@ export function DisconnectFlow() {
       </div>
 
       {status === "error" && (
-        <div {...stylex.props(styles.style4)}>
-          <p {...stylex.props(styles.style5)}>
+        <div className="flex flex-col gap-4">
+          <p className="text-red-600">
             Could not disconnect this integration. Please try again.
           </p>
           <IntegrationButton variant="danger" onClick={handleDisconnect}>

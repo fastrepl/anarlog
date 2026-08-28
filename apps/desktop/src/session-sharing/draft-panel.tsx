@@ -1,9 +1,7 @@
 import { Trans } from "@lingui/react/macro";
 import { CircleNotch, Copy } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
@@ -84,27 +82,21 @@ export function SessionShareDraftContent({
       sideOffset={8}
       aria-labelledby="session-share-heading"
       aria-describedby="session-share-description"
-      sx={styles.popover}
+      className="w-[440px] max-w-[calc(100vw-16px)] overflow-hidden"
     >
-      <AppFloatingPanel sx={styles.panel}>
-        <h2 id="session-share-heading" {...stylex.props(styles.visuallyHidden)}>
+      <AppFloatingPanel className="flex max-h-[min(530px,calc(100vh-74px))] flex-col overflow-hidden">
+        <h2 id="session-share-heading" className="sr-only">
           <Trans>Share</Trans>
         </h2>
-        <p
-          id="session-share-description"
-          {...stylex.props(styles.visuallyHidden)}
-        >
+        <p id="session-share-description" className="sr-only">
           <Trans>Invite people to this note.</Trans>
         </p>
 
-        <div {...stylex.props(styles.scrollArea)}>
-          <div {...stylex.props(styles.content)}>
+        <div className="scrollbar-soft min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2">
+          <div className="space-y-2">
             {recapMode === "invite" ? (
               <section aria-labelledby="invite-people-heading">
-                <h3
-                  id="invite-people-heading"
-                  {...stylex.props(styles.visuallyHidden)}
-                >
+                <h3 id="invite-people-heading" className="sr-only">
                   <Trans>Invite people</Trans>
                 </h3>
                 <ShareInviteForm
@@ -119,22 +111,24 @@ export function SessionShareDraftContent({
                   disabled={disabled || actionPending}
                 />
 
-                <div {...stylex.props(styles.accessSection)}>
-                  <h4 {...stylex.props(styles.accessHeading)}>
+                <div className="border-border/60 mt-2 border-t pt-2">
+                  <h4 className="text-muted-foreground mb-1 px-1.5 text-[10px] font-medium">
                     <Trans>People with access</Trans>
                   </h4>
-                  <div {...stylex.props(styles.ownerRow)}>
+                  <div className="flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1">
                     <ContactFacehash name={ownerName} size={24} />
-                    <div {...stylex.props(styles.ownerContent)}>
-                      <p {...stylex.props(styles.ownerName)}>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-medium">
                         {ownerName}{" "}
-                        <span {...stylex.props(styles.muted)}>(You)</span>
+                        <span className="text-muted-foreground">(You)</span>
                       </p>
                       {ownerEmail ? (
-                        <p {...stylex.props(styles.ownerEmail)}>{ownerEmail}</p>
+                        <p className="text-muted-foreground truncate text-[10px]">
+                          {ownerEmail}
+                        </p>
                       ) : null}
                     </div>
-                    <span {...stylex.props(styles.accessLabel)}>
+                    <span className="text-muted-foreground shrink-0 text-[11px]">
                       <Trans>Full access</Trans>
                     </span>
                   </div>
@@ -160,7 +154,7 @@ export function SessionShareDraftContent({
           </div>
         </div>
 
-        <footer {...stylex.props(styles.footer)}>
+        <footer className="border-border/60 flex items-center gap-1 border-t px-3 py-2">
           <GeneralAccessSelector
             value={generalAccessValue}
             workspaces={workspaces}
@@ -181,15 +175,12 @@ export function SessionShareDraftContent({
             variant="outline"
             disabled={disabled || actionPending}
             onClick={() => onAction({ type: "copy-link" })}
-            sx={styles.copyButton}
+            className="h-7 shrink-0 rounded-md px-2.5 text-xs"
           >
             {pendingAction?.type === "copy-link" ? (
-              <CircleNotch
-                {...stylex.props(styles.icon, styles.spinner)}
-                aria-hidden="true"
-              />
+              <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
             ) : (
-              <Copy {...stylex.props(styles.icon)} aria-hidden="true" />
+              <Copy className="size-4" aria-hidden="true" />
             )}
             <Trans>Copy link</Trans>
           </Button>
@@ -198,125 +189,3 @@ export function SessionShareDraftContent({
     </PopoverContent>
   );
 }
-
-const spin = stylex.keyframes({
-  to: {
-    transform: "rotate(360deg)",
-  },
-});
-
-const styles = stylex.create({
-  accessHeading: {
-    color: colors.mutedForeground,
-    fontSize: "0.625rem",
-    fontWeight: 500,
-    marginBottom: "0.25rem",
-    paddingInline: "0.375rem",
-  },
-  accessLabel: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    fontSize: "0.6875rem",
-  },
-  accessSection: {
-    borderTopColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
-    borderTopStyle: "solid",
-    borderTopWidth: "1px",
-    marginTop: "0.5rem",
-    paddingTop: "0.5rem",
-  },
-  content: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-  },
-  copyButton: {
-    borderRadius: radii.md,
-    flexShrink: 0,
-    fontSize: "0.75rem",
-    height: "1.75rem",
-    paddingInline: "0.625rem",
-  },
-  footer: {
-    alignItems: "center",
-    borderTopColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
-    borderTopStyle: "solid",
-    borderTopWidth: "1px",
-    display: "flex",
-    gap: "0.25rem",
-    paddingBlock: "0.5rem",
-    paddingInline: "0.75rem",
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  muted: {
-    color: colors.mutedForeground,
-  },
-  ownerContent: {
-    flex: "1",
-    minWidth: 0,
-  },
-  ownerEmail: {
-    color: colors.mutedForeground,
-    fontSize: "0.625rem",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  ownerName: {
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  ownerRow: {
-    alignItems: "center",
-    borderRadius: radii.lg,
-    display: "flex",
-    gap: "0.5rem",
-    minHeight: "2.25rem",
-    paddingBlock: "0.25rem",
-    paddingInline: "0.375rem",
-  },
-  panel: {
-    display: "flex",
-    flexDirection: "column",
-    maxHeight: "min(530px, calc(100vh - 74px))",
-    overflow: "hidden",
-  },
-  popover: {
-    maxWidth: "calc(100vw - 16px)",
-    overflow: "hidden",
-    width: "440px",
-  },
-  scrollArea: {
-    flex: "1",
-    minHeight: 0,
-    overflowY: "auto",
-    overscrollBehavior: "contain",
-    paddingBlock: "0.5rem",
-    paddingInline: "0.75rem",
-    scrollbarColor:
-      "hsl(var(--muted-foreground, 25 5% 45%) / 0.18) transparent",
-  },
-  spinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-  },
-  visuallyHidden: {
-    borderWidth: 0,
-    clipPath: "inset(50%)",
-    height: "1px",
-    margin: "-1px",
-    overflow: "hidden",
-    padding: 0,
-    position: "absolute",
-    whiteSpace: "nowrap",
-    width: "1px",
-  },
-});

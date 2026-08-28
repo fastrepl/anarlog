@@ -1,6 +1,5 @@
 import { t } from "@lingui/core/macro";
 import { ArrowDown, ArrowUp } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import {
   type MouseEvent as ReactMouseEvent,
   type RefObject,
@@ -12,7 +11,7 @@ import {
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
+import { cn } from "@anlg/utils";
 
 import {
   getTranscriptContextSelection,
@@ -375,21 +374,26 @@ export function TranscriptViewer({
       selectedKeys={selectedKeys}
       registerSource={registerSource}
     >
-      <div {...stylex.props(styles.root)}>
+      <div className="relative flex h-full flex-col">
         <div
           ref={handleContainerRef}
           data-transcript-container
           data-transcript-select-mode={selectMode ? "true" : undefined}
           onClickCapture={handleSegmentSelection}
           onContextMenu={handleContextMenu}
-          {...stylex.props(styles.container)}
+          className={cn([
+            "flex min-h-0 min-w-0 flex-1 flex-col gap-8 overflow-x-clip overflow-y-auto",
+            "scrollbar-hide",
+            "scroll-pb-[calc(8rem+env(safe-area-inset-bottom))]",
+            "pb-[calc(4rem+env(safe-area-inset-bottom))]",
+          ])}
         >
           {visibleTranscriptIds.map((transcriptId, index) => {
             const isLastTranscript = index === visibleTranscriptIds.length - 1;
             const isActiveTranscript = currentActive && isLastTranscript;
 
             return (
-              <div key={transcriptId} {...stylex.props(styles.transcript)}>
+              <div key={transcriptId} className="flex flex-col gap-8">
                 <RenderTranscript
                   scrollElement={scrollElement}
                   isLastTranscript={isLastTranscript}
@@ -433,32 +437,40 @@ export function TranscriptViewer({
         {canScroll && (
           <div
             data-transcript-scroll-controls
-            {...stylex.props(styles.scrollControls)}
+            className={cn([
+              "group/scroll-controls absolute top-1/2 right-1 z-40 flex -translate-y-1/2 flex-col overflow-hidden",
+              "text-muted-foreground/45 rounded-full border border-transparent bg-transparent",
+              "transition-[background-color,border-color,color,box-shadow,backdrop-filter] duration-150",
+              "hover:border-border/50 hover:bg-background/65 hover:text-foreground hover:shadow-sm hover:backdrop-blur-md",
+              "focus-within:border-border/50 focus-within:bg-background/65 focus-within:text-foreground focus-within:shadow-sm focus-within:backdrop-blur-md",
+            ])}
           >
             <button
               type="button"
               aria-label={t`Scroll to top`}
               onClick={scrollToTop}
               disabled={isAtTop}
-              {...stylex.props(styles.scrollButton)}
+              className={cn([
+                "flex size-8 items-center justify-center",
+                "hover:bg-muted/55 active:bg-muted/70 focus-visible:bg-muted/55 focus-visible:outline-none",
+                "disabled:pointer-events-none disabled:opacity-30",
+              ])}
             >
-              <ArrowUp
-                aria-hidden="true"
-                {...stylex.props(styles.scrollIcon)}
-              />
+              <ArrowUp aria-hidden="true" className="size-3.5" />
             </button>
-            <div {...stylex.props(styles.scrollDivider)} />
+            <div className="bg-border/20 group-hover/scroll-controls:bg-border/60 group-focus-within/scroll-controls:bg-border/60 h-px w-full transition-colors" />
             <button
               type="button"
               aria-label={t`Scroll to bottom`}
               onClick={scrollToBottom}
               disabled={isAtBottom}
-              {...stylex.props(styles.scrollButton)}
+              className={cn([
+                "flex size-8 items-center justify-center",
+                "hover:bg-muted/55 active:bg-muted/70 focus-visible:bg-muted/55 focus-visible:outline-none",
+                "disabled:pointer-events-none disabled:opacity-30",
+              ])}
             >
-              <ArrowDown
-                aria-hidden="true"
-                {...stylex.props(styles.scrollIcon)}
-              />
+              <ArrowDown aria-hidden="true" className="size-3.5" />
             </button>
           </div>
         )}
@@ -466,116 +478,3 @@ export function TranscriptViewer({
     </TranscriptSelectionProvider>
   );
 }
-
-const styles = stylex.create({
-  container: {
-    display: {
-      default: "flex",
-      "::-webkit-scrollbar": "none",
-    },
-    flex: "1",
-    flexDirection: "column",
-    gap: "2rem",
-    minHeight: 0,
-    minWidth: 0,
-    overflowX: "clip",
-    overflowY: "auto",
-    paddingBottom: "calc(4rem + env(safe-area-inset-bottom))",
-    scrollPaddingBottom: "calc(8rem + env(safe-area-inset-bottom))",
-    scrollbarWidth: "none",
-  },
-  root: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    position: "relative",
-  },
-  scrollButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: null,
-      ":hover": `color-mix(in oklab, ${colors.muted} 55%, transparent)`,
-      ":active": `color-mix(in oklab, ${colors.muted} 70%, transparent)`,
-      ":focus-visible": `color-mix(in oklab, ${colors.muted} 55%, transparent)`,
-    },
-    display: "flex",
-    height: "2rem",
-    justifyContent: "center",
-    opacity: {
-      default: 1,
-      ":disabled": 0.3,
-    },
-    outline: {
-      default: null,
-      ":focus-visible": "none",
-    },
-    pointerEvents: {
-      default: null,
-      ":disabled": "none",
-    },
-    width: "2rem",
-  },
-  scrollControls: {
-    backdropFilter: {
-      default: null,
-      ":hover": "blur(12px)",
-      ":focus-within": "blur(12px)",
-    },
-    backgroundColor: {
-      default: "transparent",
-      ":hover": `color-mix(in oklab, ${colors.background} 65%, transparent)`,
-      ":focus-within": `color-mix(in oklab, ${colors.background} 65%, transparent)`,
-    },
-    borderColor: {
-      default: "transparent",
-      ":hover": `color-mix(in oklab, ${colors.border} 50%, transparent)`,
-      ":focus-within": `color-mix(in oklab, ${colors.border} 50%, transparent)`,
-    },
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: {
-      default: null,
-      ":hover": shadows.sm,
-      ":focus-within": shadows.sm,
-    },
-    color: {
-      default: `color-mix(in oklab, ${colors.mutedForeground} 45%, transparent)`,
-      ":hover": colors.foreground,
-      ":focus-within": colors.foreground,
-    },
-    display: "flex",
-    flexDirection: "column",
-    overflow: "hidden",
-    position: "absolute",
-    right: "0.25rem",
-    top: "50%",
-    transform: "translateY(-50%)",
-    transitionDuration: "150ms",
-    transitionProperty:
-      "background-color, border-color, color, box-shadow, backdrop-filter",
-    zIndex: 40,
-  },
-  scrollDivider: {
-    backgroundColor: {
-      default: `color-mix(in oklab, ${colors.border} 20%, transparent)`,
-      ":is([data-transcript-scroll-controls]:hover *)": `color-mix(in oklab, ${colors.border} 60%, transparent)`,
-      ":is([data-transcript-scroll-controls]:focus-within *)": `color-mix(in oklab, ${colors.border} 60%, transparent)`,
-    },
-    height: "1px",
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color",
-    width: "100%",
-  },
-  scrollIcon: {
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  transcript: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "2rem",
-  },
-});
-
-export { styles as transcriptViewerStyles };

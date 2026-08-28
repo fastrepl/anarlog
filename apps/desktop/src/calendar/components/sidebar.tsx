@@ -5,7 +5,6 @@ import {
   DotsThree,
   Plus,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { platform } from "@tauri-apps/plugin-os";
 import {
   useCallback,
@@ -17,7 +16,6 @@ import {
 } from "react";
 
 import type { ConnectionItem } from "@anlg/api-client";
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import {
   Accordion,
   AccordionContent,
@@ -25,6 +23,7 @@ import {
   AccordionItem,
   AccordionTriggerPrimitive,
 } from "@anlg/ui/components/ui/accordion";
+import { cn } from "@anlg/utils";
 
 import { AppleCalendarSelection } from "./apple/calendar-selection";
 import {
@@ -53,8 +52,12 @@ import {
 import { usePermission } from "~/shared/hooks/usePermissions";
 import { useOpenIntegrationUrl } from "~/shared/integration";
 
-function getProviderBadgeStyle(badge: string) {
-  return badge === "Beta" ? styles.betaBadge : styles.providerBadge;
+function getProviderBadgeClassName(badge: string) {
+  if (badge === "Beta") {
+    return "text-xs font-medium text-muted-foreground";
+  }
+
+  return "rounded-full border border-border px-2 text-xs font-light text-muted-foreground";
 }
 
 function getDefaultOpenProviderIds(
@@ -105,7 +108,11 @@ const CONNECTION_POLL_MS = 45_000;
 const CONNECTION_POLL_INTERVAL_MS = 1_500;
 
 function ProviderIcon({ provider }: { provider: CalendarProvider }) {
-  return <span {...stylex.props(styles.providerIcon)}>{provider.icon}</span>;
+  return (
+    <span className="flex size-5 shrink-0 items-center justify-center">
+      {provider.icon}
+    </span>
+  );
 }
 
 export function CalendarSidebarContent({
@@ -183,13 +190,14 @@ export function CalendarSidebarContent({
     >
       {visibleProviders.map((provider) =>
         provider.disabled ? (
-          <div key={provider.id} {...stylex.props(styles.disabledProvider)}>
+          <div
+            key={provider.id}
+            className="-mx-2 flex items-center gap-2 px-2 py-3 opacity-50"
+          >
             <ProviderIcon provider={provider} />
-            <span {...stylex.props(styles.providerName)}>
-              {provider.displayName}
-            </span>
+            <span className="text-sm font-medium">{provider.displayName}</span>
             {provider.badge && (
-              <span {...stylex.props(getProviderBadgeStyle(provider.badge))}>
+              <span className={getProviderBadgeClassName(provider.badge)}>
                 {provider.badge}
               </span>
             )}
@@ -388,48 +396,39 @@ function ProviderAccordionItem({
   const hasProviderMenuButton = canDisconnectApple;
 
   return (
-    <AccordionItem
-      value={provider.id}
-      data-provider-item
-      sx={styles.accordionItem}
-    >
+    <AccordionItem value={provider.id} className="group/provider border-none">
       <div
-        data-provider-row
         onContextMenu={
           providerMenuItems.length > 0 ? showProviderMenu : undefined
         }
-        {...stylex.props([
-          styles.providerRow,
+        className={cn([
+          "group/row hover:bg-accent relative -mx-2 grid items-center gap-1 rounded-full px-2",
           hasAddAccountButton || hasProviderMenuButton
-            ? styles.providerRowWithActions
-            : styles.providerRowWithoutActions,
+            ? "grid-cols-[minmax(0,1fr)_auto_auto]"
+            : "grid-cols-[minmax(0,1fr)_auto]",
         ])}
       >
         <AccordionHeader
-          {...stylex.props([
-            styles.accordionHeader,
-            requiresPro && styles.proHeader,
-          ])}
+          className={cn(["min-w-0", requiresPro && "opacity-60"])}
         >
           <AccordionTriggerPrimitive
-            {...stylex.props(styles.accordionTrigger)}
+            className="flex w-full min-w-0 items-center py-3 text-left text-sm font-medium transition-all hover:no-underline"
             onClick={handleTriggerClick}
           >
-            <div {...stylex.props(styles.triggerContent)}>
+            <div className="flex min-w-0 items-center gap-2">
               <ProviderIcon provider={provider} />
               <span
-                {...stylex.props([
-                  styles.providerLabel,
-                  requiresPro && styles.proProviderLabel,
+                className={cn([
+                  "flex min-w-0 items-center gap-2 transition-opacity duration-150",
+                  requiresPro &&
+                    "group-focus-within/row:opacity-0 group-hover/row:opacity-0",
                 ])}
               >
-                <span {...stylex.props(styles.providerNameTruncated)}>
+                <span className="truncate text-sm font-medium">
                   {provider.displayName}
                 </span>
                 {provider.badge && (
-                  <span
-                    {...stylex.props(getProviderBadgeStyle(provider.badge))}
-                  >
+                  <span className={getProviderBadgeClassName(provider.badge)}>
                     {provider.badge}
                   </span>
                 )}
@@ -443,14 +442,11 @@ function ProviderAccordionItem({
             type="button"
             onClick={handleUpgradeToPro}
             disabled={isUpgradingToPro}
-            {...stylex.props(styles.upgradeButton)}
+            className="border-primary bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring pointer-events-none absolute top-1/2 right-1 flex shrink-0 translate-x-1 -translate-y-1/2 items-center gap-1 rounded-full border-2 px-3 py-1 text-xs font-medium opacity-0 shadow-[0_4px_14px_rgba(87,83,78,0.18)] transition-all duration-150 group-focus-within/row:pointer-events-auto group-focus-within/row:translate-x-0 group-focus-within/row:opacity-100 group-hover/row:pointer-events-auto group-hover/row:translate-x-0 group-hover/row:opacity-100 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-70"
             aria-label={t`Upgrade to Pro for ${provider.displayName}`}
           >
             {isUpgradingToPro && (
-              <CircleNotch
-                {...stylex.props([styles.smallIcon, styles.spinner])}
-                aria-hidden="true"
-              />
+              <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
             )}
             {t`Upgrade to Pro`}
           </button>
@@ -459,13 +455,13 @@ function ProviderAccordionItem({
             type="button"
             onClick={handleAppleConnect}
             disabled={calendar.isPending}
-            {...stylex.props(styles.circleAction)}
+            className="text-muted-foreground hover:bg-accent hover:text-foreground shrink-0 rounded-full p-1 transition-colors disabled:opacity-50"
             aria-label={t`Connect ${provider.displayName}`}
           >
             {calendar.isPending ? (
-              <CircleNotch {...stylex.props([styles.icon, styles.spinner])} />
+              <CircleNotch className="size-4 animate-spin" />
             ) : (
-              <Plus {...stylex.props(styles.icon)} />
+              <Plus className="size-4" />
             )}
           </button>
         ) : hasAddAccountButton ? (
@@ -473,34 +469,43 @@ function ProviderAccordionItem({
             type="button"
             onClick={handleAddAccount}
             disabled={openingAction !== null}
-            {...stylex.props(styles.circleAction)}
+            className="text-muted-foreground hover:bg-accent hover:text-foreground shrink-0 rounded-full p-1 transition-colors disabled:opacity-50"
             aria-label={t`Add ${provider.displayName} account`}
           >
             {openingAction === "connect" ? (
-              <CircleNotch {...stylex.props([styles.icon, styles.spinner])} />
+              <CircleNotch className="size-4 animate-spin" />
             ) : (
-              <Plus {...stylex.props(styles.icon)} />
+              <Plus className="size-4" />
             )}
           </button>
         ) : hasProviderMenuButton ? (
           <button
             type="button"
             onClick={showProviderMenu}
-            {...stylex.props(styles.providerMenuButton)}
+            className={cn([
+              "text-muted-foreground shrink-0 rounded-full p-1 transition-colors",
+              "pointer-events-none opacity-0 group-hover/row:pointer-events-auto group-hover/row:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100",
+              "hover:bg-accent hover:text-muted-foreground",
+            ])}
             aria-label={t`Open calendar account actions`}
           >
-            <DotsThree {...stylex.props(styles.icon)} />
+            <DotsThree className="size-4" />
           </button>
         ) : null}
 
         {!requiresPro && !appleNeedsPermission && (
-          <CaretRight {...stylex.props(styles.caret)} />
+          <CaretRight
+            className={cn([
+              "text-muted-foreground size-4 shrink-0 transition-transform duration-200",
+              "group-data-[state=open]/provider:rotate-90",
+            ])}
+          />
         )}
       </div>
       {!requiresPro && !appleNeedsPermission && (
-        <AccordionContent sx={styles.accordionContent}>
+        <AccordionContent className="pb-3">
           {provider.id === "apple" && (
-            <div {...stylex.props(styles.appleContent)}>
+            <div className="flex flex-col gap-3">
               <AppleCalendarSelection
                 leftAction={
                   <TroubleShootingLink
@@ -532,254 +537,3 @@ function ProviderAccordionItem({
     </AccordionItem>
   );
 }
-
-const spin = stylex.keyframes({
-  to: {
-    transform: "rotate(360deg)",
-  },
-});
-
-const styles = stylex.create({
-  accordionContent: {
-    paddingBottom: "0.75rem",
-  },
-  accordionHeader: {
-    minWidth: 0,
-  },
-  accordionItem: {
-    borderWidth: 0,
-  },
-  accordionTrigger: {
-    alignItems: "center",
-    display: "flex",
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    lineHeight: "1.25rem",
-    minWidth: 0,
-    paddingBlock: "0.75rem",
-    textAlign: "left",
-    textDecorationLine: {
-      default: "none",
-      ":hover": "none",
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "all",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "100%",
-  },
-  appleContent: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-  },
-  betaBadge: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    lineHeight: "1rem",
-  },
-  caret: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    height: "1rem",
-    transform: {
-      default: "rotate(0deg)",
-      ":is([data-provider-item][data-state='open'] *)": "rotate(90deg)",
-    },
-    transitionDuration: "200ms",
-    transitionProperty: "transform",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "1rem",
-  },
-  circleAction: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    borderRadius: radii.full,
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    flexShrink: 0,
-    opacity: {
-      default: 1,
-      ":disabled": 0.5,
-    },
-    padding: "0.25rem",
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  disabledProvider: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-    marginInline: "-0.5rem",
-    opacity: 0.5,
-    paddingBlock: "0.75rem",
-    paddingInline: "0.5rem",
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  proHeader: {
-    opacity: 0.6,
-  },
-  proProviderLabel: {
-    opacity: {
-      default: 1,
-      ":is([data-provider-row]:hover *)": 0,
-      ":is([data-provider-row]:focus-within *)": 0,
-    },
-  },
-  providerBadge: {
-    borderColor: colors.border,
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    fontWeight: 300,
-    lineHeight: "1rem",
-    paddingInline: "0.5rem",
-  },
-  providerIcon: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    height: "1.25rem",
-    justifyContent: "center",
-    width: "1.25rem",
-  },
-  providerLabel: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-    minWidth: 0,
-    transitionDuration: "150ms",
-    transitionProperty: "opacity",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  providerMenuButton: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    borderRadius: radii.full,
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    opacity: {
-      default: 0,
-      ":is([data-provider-row]:hover *)": 1,
-      ":focus-visible": 1,
-    },
-    padding: "0.25rem",
-    pointerEvents: {
-      default: "none",
-      ":is([data-provider-row]:hover *)": "auto",
-      ":focus-visible": "auto",
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  providerName: {
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    lineHeight: "1.25rem",
-  },
-  providerNameTruncated: {
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    lineHeight: "1.25rem",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  providerRow: {
-    alignItems: "center",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    borderRadius: radii.full,
-    display: "grid",
-    gap: "0.25rem",
-    marginInline: "-0.5rem",
-    paddingInline: "0.5rem",
-    position: "relative",
-  },
-  providerRowWithActions: {
-    gridTemplateColumns: "minmax(0, 1fr) auto auto",
-  },
-  providerRowWithoutActions: {
-    gridTemplateColumns: "minmax(0, 1fr) auto",
-  },
-  smallIcon: {
-    height: "0.75rem",
-    width: "0.75rem",
-  },
-  spinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-  },
-  triggerContent: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-    minWidth: 0,
-  },
-  upgradeButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: colors.primary,
-      ":hover": `color-mix(in oklab, ${colors.primary} 90%, transparent)`,
-    },
-    borderColor: colors.primary,
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "2px",
-    boxShadow: {
-      default: "0 4px 14px rgb(87 83 78 / 0.18)",
-      ":focus-visible": `0 0 0 2px ${colors.ring}, 0 4px 14px rgb(87 83 78 / 0.18)`,
-    },
-    color: colors.primaryForeground,
-    display: "flex",
-    flexShrink: 0,
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    gap: "0.25rem",
-    opacity: {
-      default: 0,
-      ":is([data-provider-row]:hover *)": 1,
-      ":is([data-provider-row]:focus-within *)": 1,
-      ":disabled": 0.7,
-    },
-    outline: {
-      default: null,
-      ":focus-visible": "none",
-    },
-    paddingBlock: "0.25rem",
-    paddingInline: "0.75rem",
-    pointerEvents: {
-      default: "none",
-      ":is([data-provider-row]:hover *)": "auto",
-      ":is([data-provider-row]:focus-within *)": "auto",
-    },
-    position: "absolute",
-    right: "0.25rem",
-    top: "50%",
-    transform: {
-      default: "translate(0.25rem, -50%)",
-      ":is([data-provider-row]:hover *)": "translate(0, -50%)",
-      ":is([data-provider-row]:focus-within *)": "translate(0, -50%)",
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "all",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-});

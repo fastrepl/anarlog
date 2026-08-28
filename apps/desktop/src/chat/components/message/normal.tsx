@@ -5,12 +5,10 @@ import {
   Check,
   Copy,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Streamdown } from "streamdown";
 
-import { colors } from "@anlg/design-system/tokens.stylex";
-import { markdownComponents } from "@anlg/ui/components/markdown";
+import { cn } from "@anlg/utils";
 
 import { Disclosure, MessageBubble, MessageContainer } from "./shared";
 import { Tool } from "./tool";
@@ -72,10 +70,9 @@ export function NormalMessage({
   return (
     <MessageContainer align={isUser ? "end" : "start"}>
       <div
-        data-chat-assistant-message={!isUser || undefined}
-        {...stylex.props([
-          styles.message,
-          isUser ? styles.userMessage : styles.assistantMessage,
+        className={cn([
+          "flex min-w-0 flex-col",
+          isUser ? "max-w-[85%] items-end" : "group w-full",
         ])}
       >
         <MessageBubble variant={isUser ? "user" : "assistant"}>
@@ -84,13 +81,10 @@ export function NormalMessage({
           ))}
         </MessageBubble>
         {!isUser && (
-          <div {...stylex.props(styles.actions)}>
+          <div className="mt-1 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
             <button
               onClick={handleCopy}
-              {...stylex.props([
-                styles.messageAction,
-                copied ? styles.copiedAction : styles.defaultAction,
-              ])}
+              className={`p-1 transition-colors ${copied ? "text-green-500" : "text-muted-foreground hover:text-foreground"}`}
               aria-label={t`Copy message`}
             >
               {copied ? <Check size={14} /> : <Copy size={14} />}
@@ -98,7 +92,7 @@ export function NormalMessage({
             {handleReload && (
               <button
                 onClick={handleReload}
-                {...stylex.props([styles.messageAction, styles.defaultAction])}
+                className="text-muted-foreground hover:text-foreground p-1 transition-colors"
                 aria-label={t`Regenerate message`}
               >
                 <ArrowCounterClockwise size={14} />
@@ -146,64 +140,59 @@ function Reasoning({ part }: { part: Extract<Part, { type: "reasoning" }> }) {
 
   return (
     <Disclosure
-      icon={<Brain {...stylex.props(styles.smallIcon)} />}
+      icon={<Brain className="h-3 w-3" />}
       title={title}
       disabled={streaming}
     >
-      <div {...stylex.props(styles.reasoning)}>{part.text}</div>
+      <div className="text-muted-foreground text-sm whitespace-pre-wrap">
+        {part.text}
+      </div>
     </Disclosure>
   );
 }
 
 const chatComponents = {
-  ...markdownComponents,
   h1: (props: React.HTMLAttributes<HTMLHeadingElement>) => {
     return (
-      <h1 {...stylex.props(styles.headingOne)}>
+      <h1 className="mt-3 mb-1 text-base font-semibold first:mt-0">
         {props.children as React.ReactNode}
       </h1>
     );
   },
   h2: (props: React.HTMLAttributes<HTMLHeadingElement>) => {
     return (
-      <h2 {...stylex.props(styles.headingOne)}>
+      <h2 className="mt-3 mb-1 text-base font-semibold first:mt-0">
         {props.children as React.ReactNode}
       </h2>
     );
   },
   h3: (props: React.HTMLAttributes<HTMLHeadingElement>) => {
     return (
-      <h3 {...stylex.props(styles.headingThree)}>
+      <h3 className="mt-2 mb-1 text-sm font-semibold first:mt-0">
         {props.children as React.ReactNode}
       </h3>
     );
   },
   ul: (props: React.HTMLAttributes<HTMLUListElement>) => {
     return (
-      <ul {...stylex.props([styles.list, styles.unorderedList])}>
+      <ul className="mb-1 list-disc pl-5">
         {props.children as React.ReactNode}
       </ul>
     );
   },
   ol: (props: React.HTMLAttributes<HTMLOListElement>) => {
     return (
-      <ol {...stylex.props([styles.list, styles.orderedList])}>
+      <ol className="mb-1 list-decimal pl-5">
         {props.children as React.ReactNode}
       </ol>
     );
   },
   li: (props: React.HTMLAttributes<HTMLLIElement>) => {
-    return (
-      <li {...stylex.props(styles.listItem)}>
-        {props.children as React.ReactNode}
-      </li>
-    );
+    return <li className="mb-1">{props.children as React.ReactNode}</li>;
   },
   p: (props: React.HTMLAttributes<HTMLParagraphElement>) => {
     return (
-      <p {...stylex.props(styles.paragraph)}>
-        {props.children as React.ReactNode}
-      </p>
+      <p className="mb-1.5 last:mb-0">{props.children as React.ReactNode}</p>
     );
   },
 } as const;
@@ -214,8 +203,8 @@ function Text({ part }: { part: Extract<Part, { type: "text" }> }) {
   return (
     <Streamdown
       components={chatComponents}
-      {...stylex.props(styles.streamdown)}
-      controls={false}
+      className="px-0.5 py-1"
+      caret="block"
       isAnimating={isAnimating}
       linkSafety={{ enabled: false }}
     >
@@ -223,99 +212,3 @@ function Text({ part }: { part: Extract<Part, { type: "text" }> }) {
     </Streamdown>
   );
 }
-
-const styles = stylex.create({
-  message: {
-    display: "flex",
-    flexDirection: "column",
-    minWidth: 0,
-  },
-  userMessage: {
-    alignItems: "flex-end",
-    maxWidth: "85%",
-  },
-  assistantMessage: {
-    width: "100%",
-  },
-  actions: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.25rem",
-    marginTop: "0.25rem",
-    opacity: {
-      default: 0,
-      ":is([data-chat-assistant-message]:hover *)": 1,
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "opacity",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  messageAction: {
-    padding: "0.25rem",
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color, border-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  copiedAction: {
-    color: "oklch(72.3% 0.219 149.579)",
-  },
-  defaultAction: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-  },
-  smallIcon: {
-    height: "0.75rem",
-    width: "0.75rem",
-  },
-  reasoning: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-    whiteSpace: "pre-wrap",
-  },
-  headingOne: {
-    fontSize: "1rem",
-    fontWeight: 600,
-    lineHeight: "1.5rem",
-    marginBottom: "0.25rem",
-    marginTop: {
-      default: "0.75rem",
-      ":first-child": 0,
-    },
-  },
-  headingThree: {
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    lineHeight: "1.25rem",
-    marginBottom: "0.25rem",
-    marginTop: {
-      default: "0.5rem",
-      ":first-child": 0,
-    },
-  },
-  list: {
-    marginBottom: "0.25rem",
-    paddingLeft: "1.25rem",
-  },
-  unorderedList: {
-    listStyleType: "disc",
-  },
-  orderedList: {
-    listStyleType: "decimal",
-  },
-  listItem: {
-    marginBottom: "0.25rem",
-  },
-  paragraph: {
-    marginBottom: {
-      default: "0.375rem",
-      ":last-child": 0,
-    },
-  },
-  streamdown: {
-    paddingBlock: "0.25rem",
-    paddingInline: "0.125rem",
-  },
-});

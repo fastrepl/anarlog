@@ -1,10 +1,8 @@
 import { useLingui } from "@lingui/react/macro";
 import { Check, Pencil, X } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
@@ -33,15 +31,15 @@ export function DateEditor({ sessionId }: { sessionId: string }) {
 
   if (!isEditing) {
     return (
-      <div {...stylex.props(styles.readonlyRow)}>
-        <div {...stylex.props(styles.dateContainer)}>
-          <div {...stylex.props(styles.date)}>{noteDate}</div>
+      <div className="flex h-7 items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-muted-foreground text-sm">{noteDate}</div>
         </div>
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          sx={styles.editButton}
+          className="text-muted-foreground hover:bg-accent hover:text-foreground size-7 rounded-full"
           onClick={() => setIsEditing(true)}
           aria-label={t`Edit date`}
         >
@@ -123,14 +121,14 @@ function EditableDateForm({
   });
 
   return (
-    <div {...stylex.props(styles.form)}>
+    <div className="flex flex-col gap-2">
       <form.Field name="createdAt">
         {(field) => (
-          <div {...stylex.props(styles.editRow)}>
+          <div className="flex h-7 items-center gap-0">
             <Input
               autoFocus
               type="datetime-local"
-              sx={styles.input}
+              className="h-7 flex-1 border-0 px-0 py-0 shadow-none focus-visible:ring-0"
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               onKeyDown={(e) => {
@@ -151,7 +149,7 @@ function EditableDateForm({
                 type="button"
                 variant="ghost"
                 size="icon"
-                sx={[styles.iconButton, styles.cancelButton]}
+                className="text-muted-foreground size-7 shrink-0 rounded-full hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/50 dark:hover:text-red-300"
                 onClick={onCancel}
                 aria-label={t`Cancel date edit`}
               >
@@ -165,7 +163,7 @@ function EditableDateForm({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  sx={[styles.iconButton, styles.saveButton]}
+                  className="text-muted-foreground size-7 shrink-0 rounded-full hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-950/50 dark:hover:text-green-300"
                   onClick={() => void form.handleSubmit()}
                   disabled={!canSubmit}
                   aria-label={t`Save date`}
@@ -181,7 +179,7 @@ function EditableDateForm({
       <form.Field name="createdAt">
         {(field) =>
           field.state.meta.errors[0] ? (
-            <div {...stylex.props(styles.error)}>
+            <div className="text-xs text-red-600">
               {field.state.meta.errors[0]}
             </div>
           ) : null
@@ -204,87 +202,3 @@ function toIsoString(value: string): string | null {
   const parsed = safeParseDate(value);
   return parsed?.toISOString() ?? null;
 }
-
-const styles = stylex.create({
-  cancelButton: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": "#fef2f2",
-    },
-    color: {
-      default: colors.mutedForeground,
-      ":hover": "#dc2626",
-    },
-  },
-  date: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-  },
-  dateContainer: {
-    flex: "1",
-    minWidth: 0,
-  },
-  editButton: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    borderRadius: radii.full,
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    height: "1.75rem",
-    width: "1.75rem",
-  },
-  editRow: {
-    alignItems: "center",
-    display: "flex",
-    gap: 0,
-    height: "1.75rem",
-  },
-  error: {
-    color: "#dc2626",
-    fontSize: "0.75rem",
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-  },
-  iconButton: {
-    borderRadius: radii.full,
-    flexShrink: 0,
-    height: "1.75rem",
-    width: "1.75rem",
-  },
-  input: {
-    borderWidth: 0,
-    boxShadow: {
-      default: "none",
-      ":focus-visible": "none",
-    },
-    flex: "1",
-    height: "1.75rem",
-    padding: 0,
-  },
-  readonlyRow: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.75rem",
-    height: "1.75rem",
-    justifyContent: "space-between",
-  },
-  saveButton: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": "#f0fdf4",
-    },
-    color: {
-      default: colors.mutedForeground,
-      ":hover": "#16a34a",
-    },
-  },
-});
-
-export { styles as dateEditorStyles };

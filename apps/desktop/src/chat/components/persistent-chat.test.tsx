@@ -122,12 +122,16 @@ describe("PersistentChatPanel", () => {
 
     await waitFor(() => {
       expect(floatingOverlay?.parentElement).toBe(document.body);
-      expect(floatingOverlay?.hasAttribute("data-chat-floating-overlay")).toBe(
-        true,
-      );
+      expect(floatingOverlay?.className).not.toContain("z-");
+      expect(floatingFrame?.className).toContain("items-end");
+      expect(floatingFrame?.className).toContain("justify-center");
+      expect(floatingFrame?.className).toContain("px-3");
+      expect(floatingFrame?.className).toContain("pb-2");
       expect((floatingFrame as HTMLElement | null)?.style.paddingTop).toBe(
         "46px",
       );
+      expect(floatingFrame?.className).not.toContain("pt-4");
+      expect(floatingFrame?.className).not.toContain("pb-3");
       expect(panel?.style.width).toBe("100%");
       expect(panel?.style.minWidth).toBe("min(476px, 100%)");
       expect(panel?.style.maxWidth).toBe("648px");
@@ -136,6 +140,7 @@ describe("PersistentChatPanel", () => {
       expect(panel?.style.transformOrigin).toBe("bottom center");
       expect(panel?.style.willChange).toBe("transform");
       expect(panel?.style.clipPath).toBe("");
+      expect(panel?.className).toContain("rounded-[24px]");
       expect(panel?.dataset.chatPanelReveal).toBe("lift");
     });
   });

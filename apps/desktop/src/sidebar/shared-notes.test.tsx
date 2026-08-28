@@ -93,7 +93,7 @@ describe("SharedNotesNav", () => {
       '[aria-label="Shared note"]',
     );
 
-    expect(sharedPlanButton?.className).toBeTruthy();
+    expect(sharedPlanButton?.className).toContain("rounded-lg");
     expect(sharedIcon).toBe(
       sharedPlanButton?.firstElementChild?.nextElementSibling,
     );

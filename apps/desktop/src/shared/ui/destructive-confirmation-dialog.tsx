@@ -1,13 +1,6 @@
 import { Trans } from "@lingui/react/macro";
-import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 
-import {
-  colors,
-  media,
-  radii,
-  shadows,
-} from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Dialog,
@@ -41,13 +34,15 @@ export function DestructiveConfirmationDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <GlassDialogContent>
-        <DialogHeader sx={styles.header}>
-          <DialogTitle sx={styles.title}>{title}</DialogTitle>
-          <DialogDescription sx={styles.description}>
+        <DialogHeader className="items-center gap-2 text-center sm:text-center">
+          <DialogTitle className="text-foreground text-[13px] leading-5 font-semibold tracking-normal">
+            {title}
+          </DialogTitle>
+          <DialogDescription className="text-foreground w-full text-center text-[13px] leading-[1.36]">
             {description}
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter sx={styles.footer}>
+        <DialogFooter className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:justify-normal">
           <GlassDialogCancelButton
             disabled={isPending}
             onClick={() => onOpenChange(false)}
@@ -56,7 +51,7 @@ export function DestructiveConfirmationDialog({
           </GlassDialogCancelButton>
           <Button
             variant="destructive"
-            sx={styles.confirmButton}
+            className="h-8 rounded-full px-4 text-xs font-medium shadow-sm"
             disabled={isPending}
             onClick={onConfirm}
           >
@@ -67,45 +62,3 @@ export function DestructiveConfirmationDialog({
     </Dialog>
   );
 }
-
-const styles = stylex.create({
-  confirmButton: {
-    borderRadius: radii.full,
-    boxShadow: shadows.sm,
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    height: "2rem",
-    paddingInline: "1rem",
-  },
-  description: {
-    color: colors.foreground,
-    fontSize: "13px",
-    lineHeight: 1.36,
-    textAlign: "center",
-    width: "100%",
-  },
-  footer: {
-    display: "grid",
-    gap: "0.5rem",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    justifyContent: {
-      default: null,
-      [media.sm]: "normal",
-    },
-  },
-  header: {
-    alignItems: "center",
-    gap: "0.5rem",
-    textAlign: {
-      default: "center",
-      [media.sm]: "center",
-    },
-  },
-  title: {
-    color: colors.foreground,
-    fontSize: "13px",
-    fontWeight: 600,
-    letterSpacing: "normal",
-    lineHeight: "1.25rem",
-  },
-});

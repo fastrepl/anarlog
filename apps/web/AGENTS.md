@@ -8,59 +8,56 @@ infisical export \
   --path="/anarlog/web"
 ```
 
-## Design system
+## Design System
 
-Component styles use `@stylexjs/stylex`. Reuse constants from
-`@anlg/design-system/tokens.stylex` and the web CSS variables in
-`src/styles.css`; do not introduce utility-class styling or new hardcoded
-colors.
+All visual tokens live in `src/styles.css` inside the `@theme` block. Never use hardcoded hex values in components — always reference a token.
 
 ### Color tokens
 
 The palette is built on an oklch grey scale. Key semantic tokens:
 
-| Token                    | Value                       | Use for                       |
-| ------------------------ | --------------------------- | ----------------------------- |
-| `--color-page`           | `#f2f1ef`                   | Page/canvas background        |
-| `--color-surface`        | `#ffffff`                   | Card, panel, modal background |
-| `--color-surface-subtle` | `var(--grey-100)`           | Muted surfaces                |
-| `--color-fg`             | `var(--grey-900)`           | Primary text                  |
-| `--color-fg-muted`       | `var(--grey-500)`           | Secondary text                |
-| `--color-fg-secondary`   | `var(--grey-600)`           | Supporting text               |
-| `--color-border`         | `var(--grey-500)`           | Default borders               |
-| `--color-border-subtle`  | `var(--grey-300)`           | Hairlines                     |
-| `--color-border-bright`  | `oklch(0.5959 0.0333 78.6)` | Accent borders                |
-| `--color-brand-dark`     | `#57534e`                   | Checked states and emphasis   |
-| `--brand-yellow`         | `oklch(0.9484 0.0672 90.6)` | Hero/footer warm wash         |
+| Token                    | Value                       | Use for                                              |
+| ------------------------ | --------------------------- | ---------------------------------------------------- |
+| `--color-page`           | `#f2f1ef`                   | Page/canvas background (`bg-page`)                   |
+| `--color-surface`        | `#ffffff`                   | Card, panel, modal backgrounds (`.surface`)          |
+| `--color-surface-subtle` | `var(--grey-100)`           | Muted surface variants (`.surface-subtle`)           |
+| `--color-fg`             | `var(--grey-900)`           | Primary text (`.text-color`)                         |
+| `--color-fg-muted`       | `#57534e`                   | Secondary/body text (`.text-color-muted`)            |
+| `--color-fg-subtle`      | `var(--color-border)`       | Placeholder, disabled, icons                         |
+| `--color-border`         | `var(--grey-500)`           | Default borders (`.border-color-brand`)              |
+| `--color-border-subtle`  | `var(--grey-300)`           | Hairline/structural borders (`.border-color-subtle`) |
+| `--color-border-bright`  | `oklch(0.5959 0.0333 78.6)` | Accent borders (`.border-color-bright`)              |
+| `--color-brand-dark`     | `#57534e`                   | Checked states, emphasis (`bg-brand-dark`)           |
+| `--brand-yellow`         | `oklch(0.9484 0.0672 90.6)` | Hero/footer warm wash (`.brand-yellow`)              |
 
-There is no `--color-brand` token.
+Note: there is no `--color-brand` token. CTAs use `from-stone-600 to-stone-500`.
 
 ### Shadow tokens
 
-| Token                | Use for                    |
-| -------------------- | -------------------------- |
-| `--shadow-ring`      | 1px outline border effect |
-| `--shadow-ring-left` | Left-edge 1px outline      |
+| Token                | Use for                                                                           |
+| -------------------- | --------------------------------------------------------------------------------- |
+| `--shadow-ring`      | 1px outline border effect (`.border-around`) — prefer over `border` when stacking |
+| `--shadow-ring-left` | Left-edge only 1px outline                                                        |
 
 ### Typography
 
-- Body and UI: `fonts.sans`
-- Code and compact technical labels: `fonts.mono`
-- Handwritten editorial headings: `fonts.hand`
+- **Body / UI text**: `font-sans` (Geist) — all body copy, labels, nav links
+- **Headings / buttons**: `font-mono` (Geist Mono) — h1/h2, button labels, code
+- **Editorial**: `font-serif` (Fraunces) — editorial emphasis, decorative moments
+- **Italic accent**: `font-serif2` (Instrument Serif) — italic editorial accents
 
 ### CTA button pattern
 
-Primary CTAs use StyleX with a stone gradient, a full radius token, and explicit
-interaction styles:
+Primary CTA uses Tailwind's stone gradient (not a custom token):
 
 ```tsx
-const styles = stylex.create({
-  primaryCta: {
-    backgroundImage: "linear-gradient(to top, #57534e, #78716c)",
-    borderRadius: radii.full,
-    color: colors.primaryForeground,
-  },
-});
+"bg-linear-to-t from-stone-600 to-stone-500 rounded-full text-white";
+```
+
+Secondary / ghost uses surface + border:
+
+```tsx
+"border border-neutral-200 bg-white rounded-lg text-neutral-700";
 ```
 
 ## Component structure

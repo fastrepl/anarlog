@@ -7,11 +7,9 @@ import {
   Copy,
   Warning,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 import { type MutableRefObject, useState } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
@@ -358,35 +356,26 @@ export function SessionSharePopoverContent({
       sideOffset={8}
       aria-labelledby="session-share-heading"
       aria-describedby="session-share-description"
-      sx={styles.popover}
+      className="w-[440px] max-w-[calc(100vw-16px)] overflow-hidden"
     >
-      <AppFloatingPanel sx={styles.panel}>
-        <div ref={operationLifecycleRef} {...stylex.props(styles.contents)}>
-          <h2
-            id="session-share-heading"
-            {...stylex.props(styles.visuallyHidden)}
-          >
+      <AppFloatingPanel className="flex max-h-[min(530px,calc(100vh-74px))] flex-col overflow-hidden">
+        <div ref={operationLifecycleRef} className="contents">
+          <h2 id="session-share-heading" className="sr-only">
             <Trans>Share</Trans>
           </h2>
-          <p
-            id="session-share-description"
-            {...stylex.props(styles.visuallyHidden)}
-          >
+          <p id="session-share-description" className="sr-only">
             <Trans>Invite people to this note.</Trans>
           </p>
 
-          <div {...stylex.props(styles.scrollArea)}>
-            <div {...stylex.props(styles.content)}>
+          <div className="scrollbar-soft min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2">
+            <div className="space-y-2">
               {error && !data ? (
-                <div {...stylex.props(styles.loadError)}>
-                  <p {...stylex.props(styles.loadErrorText)}>
+                <div className="border-destructive/30 bg-destructive/5 flex items-center justify-between gap-2 rounded-lg border px-2.5 py-2">
+                  <p className="text-muted-foreground text-xs">
                     <Trans>Access settings could not be loaded.</Trans>
                   </p>
                   <Button size="sm" variant="outline" onClick={onRetry}>
-                    <ArrowsClockwise
-                      {...stylex.props(styles.icon)}
-                      aria-hidden="true"
-                    />
+                    <ArrowsClockwise className="size-4" aria-hidden="true" />
                     <Trans>Try again</Trans>
                   </Button>
                 </div>
@@ -394,27 +383,27 @@ export function SessionSharePopoverContent({
               {hasConflict ? (
                 <section
                   aria-labelledby="sharing-conflict-heading"
-                  {...stylex.props(styles.conflict)}
+                  className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-2.5 py-2"
                 >
-                  <div {...stylex.props(styles.conflictRow)}>
+                  <div className="flex items-start gap-2.5">
                     <Warning
-                      {...stylex.props(styles.warningIcon)}
+                      className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400"
                       aria-hidden="true"
                     />
-                    <div {...stylex.props(styles.conflictContent)}>
+                    <div className="min-w-0 flex-1">
                       <h3
                         id="sharing-conflict-heading"
-                        {...stylex.props(styles.conflictHeading)}
+                        className="text-xs font-medium"
                       >
                         <Trans>Sharing paused to protect your edits</Trans>
                       </h3>
-                      <p {...stylex.props(styles.conflictDescription)}>
+                      <p className="text-muted-foreground mt-0.5 text-[11px] leading-4">
                         <Trans>
                           Resolve the web and desktop edits before inviting
                           anyone.
                         </Trans>
                       </p>
-                      <div {...stylex.props(styles.conflictActions)}>
+                      <div className="mt-2.5 flex flex-wrap gap-2">
                         <Button
                           type="button"
                           size="sm"
@@ -424,12 +413,12 @@ export function SessionSharePopoverContent({
                         >
                           {openWebCopyMutation.isPending ? (
                             <CircleNotch
-                              {...stylex.props(styles.spinner)}
+                              className="size-4 animate-spin"
                               aria-hidden="true"
                             />
                           ) : (
                             <ArrowSquareOut
-                              {...stylex.props(styles.icon)}
+                              className="size-4"
                               aria-hidden="true"
                             />
                           )}
@@ -443,7 +432,7 @@ export function SessionSharePopoverContent({
                         >
                           {keepDesktopMutation.isPending ? (
                             <CircleNotch
-                              {...stylex.props(styles.spinner)}
+                              className="size-4 animate-spin"
                               aria-hidden="true"
                             />
                           ) : null}
@@ -457,10 +446,7 @@ export function SessionSharePopoverContent({
 
               {recapMode === "invite" ? (
                 <section aria-labelledby="invite-people-heading">
-                  <h3
-                    id="invite-people-heading"
-                    {...stylex.props(styles.visuallyHidden)}
-                  >
+                  <h3 id="invite-people-heading" className="sr-only">
                     <Trans>Invite people</Trans>
                   </h3>
                   <ShareInviteForm
@@ -488,24 +474,24 @@ export function SessionSharePopoverContent({
                     disabled={!canPublish || inviteMutation.isPending}
                   />
 
-                  <div {...stylex.props(styles.accessSection)}>
-                    <h4 {...stylex.props(styles.accessHeading)}>
+                  <div className="border-border/60 mt-2 border-t pt-2">
+                    <h4 className="text-muted-foreground mb-1 px-1.5 text-[10px] font-medium">
                       <Trans>People with access</Trans>
                     </h4>
-                    <div {...stylex.props(styles.ownerRow)}>
+                    <div className="flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1">
                       <ContactFacehash name={ownerName} size={24} />
-                      <div {...stylex.props(styles.ownerContent)}>
-                        <p {...stylex.props(styles.ownerName)}>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-medium">
                           {ownerName}{" "}
-                          <span {...stylex.props(styles.muted)}>(You)</span>
+                          <span className="text-muted-foreground">(You)</span>
                         </p>
                         {ownerEmail ? (
-                          <p {...stylex.props(styles.ownerEmail)}>
+                          <p className="text-muted-foreground truncate text-[10px]">
                             {ownerEmail}
                           </p>
                         ) : null}
                       </div>
-                      <span {...stylex.props(styles.accessLabel)}>
+                      <span className="text-muted-foreground shrink-0 text-[11px]">
                         <Trans>Full access</Trans>
                       </span>
                     </div>
@@ -589,7 +575,7 @@ export function SessionSharePopoverContent({
             </div>
           </div>
 
-          <footer {...stylex.props(styles.footer)}>
+          <footer className="border-border/60 flex items-center gap-1 border-t px-3 py-2">
             <GeneralAccessSelector
               value={shownScopeValue}
               workspaces={workspaces}
@@ -615,15 +601,15 @@ export function SessionSharePopoverContent({
               onClick={() => {
                 generalCopyMutation.mutate();
               }}
-              sx={styles.copyButton}
+              className="h-7 shrink-0 rounded-md px-2.5 text-xs"
             >
               {generalCopyMutation.isPending || scopeMutation.isPending ? (
                 <CircleNotch
-                  {...stylex.props(styles.spinner)}
+                  className="size-4 animate-spin"
                   aria-hidden="true"
                 />
               ) : (
-                <Copy {...stylex.props(styles.icon)} aria-hidden="true" />
+                <Copy className="size-4" aria-hidden="true" />
               )}
               <Trans>Copy link</Trans>
             </Button>
@@ -633,193 +619,3 @@ export function SessionSharePopoverContent({
     </PopoverContent>
   );
 }
-
-const spin = stylex.keyframes({
-  to: {
-    transform: "rotate(360deg)",
-  },
-});
-
-const styles = stylex.create({
-  accessHeading: {
-    color: colors.mutedForeground,
-    fontSize: "0.625rem",
-    fontWeight: 500,
-    marginBottom: "0.25rem",
-    paddingInline: "0.375rem",
-  },
-  accessLabel: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    fontSize: "0.6875rem",
-  },
-  accessSection: {
-    borderTopColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
-    borderTopStyle: "solid",
-    borderTopWidth: "1px",
-    marginTop: "0.5rem",
-    paddingTop: "0.5rem",
-  },
-  conflict: {
-    backgroundColor: "rgb(245 158 11 / 0.1)",
-    borderColor: "rgb(245 158 11 / 0.35)",
-    borderRadius: radii.lg,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    paddingBlock: "0.5rem",
-    paddingInline: "0.625rem",
-  },
-  conflictActions: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "0.5rem",
-    marginTop: "0.625rem",
-  },
-  conflictContent: {
-    flex: "1",
-    minWidth: 0,
-  },
-  conflictDescription: {
-    color: colors.mutedForeground,
-    fontSize: "0.6875rem",
-    lineHeight: "1rem",
-    marginTop: "0.125rem",
-  },
-  conflictHeading: {
-    fontSize: "0.75rem",
-    fontWeight: 500,
-  },
-  conflictRow: {
-    alignItems: "flex-start",
-    display: "flex",
-    gap: "0.625rem",
-  },
-  content: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-  },
-  contents: {
-    display: "contents",
-  },
-  copyButton: {
-    borderRadius: radii.md,
-    flexShrink: 0,
-    fontSize: "0.75rem",
-    height: "1.75rem",
-    paddingInline: "0.625rem",
-  },
-  footer: {
-    alignItems: "center",
-    borderTopColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
-    borderTopStyle: "solid",
-    borderTopWidth: "1px",
-    display: "flex",
-    gap: "0.25rem",
-    paddingBlock: "0.5rem",
-    paddingInline: "0.75rem",
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  loadError: {
-    alignItems: "center",
-    backgroundColor: `color-mix(in srgb, ${colors.destructive} 5%, transparent)`,
-    borderColor: `color-mix(in srgb, ${colors.destructive} 30%, transparent)`,
-    borderRadius: radii.lg,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    display: "flex",
-    gap: "0.5rem",
-    justifyContent: "space-between",
-    paddingBlock: "0.5rem",
-    paddingInline: "0.625rem",
-  },
-  loadErrorText: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-  },
-  muted: {
-    color: colors.mutedForeground,
-  },
-  ownerContent: {
-    flex: "1",
-    minWidth: 0,
-  },
-  ownerEmail: {
-    color: colors.mutedForeground,
-    fontSize: "0.625rem",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  ownerName: {
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  ownerRow: {
-    alignItems: "center",
-    borderRadius: radii.lg,
-    display: "flex",
-    gap: "0.5rem",
-    minHeight: "2.25rem",
-    paddingBlock: "0.25rem",
-    paddingInline: "0.375rem",
-  },
-  panel: {
-    display: "flex",
-    flexDirection: "column",
-    maxHeight: "min(530px, calc(100vh - 74px))",
-    overflow: "hidden",
-  },
-  popover: {
-    maxWidth: "calc(100vw - 16px)",
-    overflow: "hidden",
-    width: "440px",
-  },
-  scrollArea: {
-    flex: "1",
-    minHeight: 0,
-    overflowY: "auto",
-    overscrollBehavior: "contain",
-    paddingBlock: "0.5rem",
-    paddingInline: "0.75rem",
-    scrollbarColor:
-      "hsl(var(--muted-foreground, 25 5% 45%) / 0.18) transparent",
-  },
-  spinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-    height: "1rem",
-    width: "1rem",
-  },
-  visuallyHidden: {
-    borderWidth: 0,
-    clipPath: "inset(50%)",
-    height: "1px",
-    margin: "-1px",
-    overflow: "hidden",
-    padding: 0,
-    position: "absolute",
-    whiteSpace: "nowrap",
-    width: "1px",
-  },
-  warningIcon: {
-    color: {
-      default: "#d97706",
-      "@media (prefers-color-scheme: dark)": "#fbbf24",
-    },
-    flexShrink: 0,
-    height: "1rem",
-    marginTop: "0.125rem",
-    width: "1rem",
-  },
-});
-
-export { styles as sessionShareManagementStyles };

@@ -1,13 +1,7 @@
 import { Pause, Play } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  colors,
-  fonts,
-  radii,
-  shadows,
-} from "@anlg/design-system/tokens.stylex";
+import { cn } from "@anlg/utils";
 
 import { useAudioPlayer, useAudioTime } from "./provider";
 import { TimelineMeta, TimelineShell } from "./timeline-shell";
@@ -106,11 +100,20 @@ export function Timeline({
       contentClassName={contentClassName}
       onContextMenu={showContextMenu}
       leading={
-        <button onClick={handleClick} {...stylex.props(styles.playButton)}>
+        <button
+          onClick={handleClick}
+          className={cn([
+            "flex items-center justify-center",
+            "h-7 w-7 rounded-full",
+            "border-border bg-card border",
+            "hover:bg-accent transition-all hover:scale-110",
+            "shrink-0 shadow-xs select-none",
+          ])}
+        >
           {state === "playing" ? (
-            <Pause {...stylex.props(styles.playIcon)} weight="fill" />
+            <Pause className="text-foreground h-3.5 w-3.5" weight="fill" />
           ) : (
-            <Play {...stylex.props(styles.playIcon)} weight="fill" />
+            <Play className="text-foreground h-3.5 w-3.5" weight="fill" />
           )}
         </button>
       }
@@ -122,15 +125,28 @@ export function Timeline({
           </TimelineMeta>
 
           {isPro ? (
-            <div {...stylex.props(styles.rateMenuAnchor)} ref={rateMenuRef}>
+            <div className="relative shrink-0" ref={rateMenuRef}>
               <button
                 onClick={() => setShowRateMenu((prev) => !prev)}
-                {...stylex.props(styles.rateButton)}
+                className={cn([
+                  "flex items-center justify-center",
+                  "h-6 rounded-md px-1.5",
+                  "border-border bg-card border",
+                  "hover:bg-accent transition-colors",
+                  "text-muted-foreground font-mono text-xs select-none",
+                  "shadow-xs",
+                ])}
               >
                 {playbackRate}x
               </button>
               {showRateMenu && (
-                <div {...stylex.props(styles.rateMenu)}>
+                <div
+                  className={cn([
+                    "absolute right-0 bottom-full mb-1",
+                    "border-border bg-card rounded-lg border shadow-md",
+                    "py-1",
+                  ])}
+                >
                   {PLAYBACK_RATES.map((rate) => (
                     <button
                       key={rate}
@@ -138,12 +154,13 @@ export function Timeline({
                         setPlaybackRate(rate);
                         setShowRateMenu(false);
                       }}
-                      {...stylex.props(
-                        styles.rateOption,
+                      className={cn([
+                        "block w-full px-3 py-1 text-left font-mono text-xs select-none",
+                        "hover:bg-accent transition-colors",
                         rate === playbackRate
-                          ? styles.rateOptionSelected
-                          : styles.rateOptionIdle,
-                      )}
+                          ? "text-foreground font-semibold"
+                          : "text-muted-foreground",
+                      ])}
                     >
                       {rate}x
                     </button>
@@ -154,7 +171,13 @@ export function Timeline({
           ) : null}
         </>
       }
-      main={<div ref={registerContainer} {...stylex.props(styles.timeline)} />}
+      main={
+        <div
+          ref={registerContainer}
+          className="h-6 min-w-0 flex-1"
+          style={{ width: "100%" }}
+        />
+      }
     />
   );
 }
@@ -164,109 +187,3 @@ function formatTime(seconds: number): string {
   const secs = Math.floor(seconds % 60);
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 }
-
-const styles = stylex.create({
-  playButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: colors.card,
-      ":hover": colors.accent,
-    },
-    borderColor: colors.border,
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: shadows.sm,
-    display: "flex",
-    flexShrink: 0,
-    height: "1.75rem",
-    justifyContent: "center",
-    transform: {
-      default: null,
-      ":hover": "scale(1.1)",
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "all",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    userSelect: "none",
-    width: "1.75rem",
-  },
-  playIcon: {
-    color: colors.foreground,
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  rateButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: colors.card,
-      ":hover": colors.accent,
-    },
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: shadows.sm,
-    color: colors.mutedForeground,
-    display: "flex",
-    fontFamily: fonts.mono,
-    fontSize: "0.75rem",
-    height: "1.5rem",
-    justifyContent: "center",
-    paddingInline: "0.375rem",
-    transitionDuration: "150ms",
-    transitionProperty:
-      "color, background-color, border-color, text-decoration-color, fill, stroke",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    userSelect: "none",
-  },
-  rateMenu: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    bottom: "100%",
-    boxShadow:
-      "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
-    marginBottom: "0.25rem",
-    paddingBlock: "0.25rem",
-    position: "absolute",
-    right: 0,
-  },
-  rateMenuAnchor: {
-    flexShrink: 0,
-    position: "relative",
-  },
-  rateOption: {
-    backgroundColor: {
-      default: null,
-      ":hover": colors.accent,
-    },
-    display: "block",
-    fontFamily: fonts.mono,
-    fontSize: "0.75rem",
-    paddingBlock: "0.25rem",
-    paddingInline: "0.75rem",
-    textAlign: "left",
-    transitionDuration: "150ms",
-    transitionProperty:
-      "color, background-color, border-color, text-decoration-color, fill, stroke",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    userSelect: "none",
-    width: "100%",
-  },
-  rateOptionIdle: {
-    color: colors.mutedForeground,
-  },
-  rateOptionSelected: {
-    color: colors.foreground,
-    fontWeight: 600,
-  },
-  timeline: {
-    flex: "1",
-    height: "1.5rem",
-    minWidth: 0,
-    width: "100%",
-  },
-});

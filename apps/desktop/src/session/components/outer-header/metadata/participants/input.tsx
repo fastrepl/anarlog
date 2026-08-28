@@ -8,11 +8,9 @@ import {
   useFloating,
 } from "@floating-ui/react";
 import { CircleNotch } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useMemo, useRef, useState } from "react";
 
-import { colors } from "@anlg/design-system/tokens.stylex";
 import { Badge } from "@anlg/ui/components/ui/badge";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
@@ -118,9 +116,9 @@ export function ParticipantInput({ sessionId }: { sessionId: string }) {
   };
 
   return (
-    <div {...stylex.props(styles.root)} ref={setContainerRef}>
+    <div className="relative" ref={setContainerRef}>
       <div
-        {...stylex.props(styles.inputRow)}
+        className="flex min-h-[38px] w-full cursor-text flex-wrap items-center gap-2"
         onClick={() => inputRef.current?.focus()}
       >
         {mappingIds.map((mappingId) => (
@@ -135,16 +133,20 @@ export function ParticipantInput({ sessionId }: { sessionId: string }) {
         ))}
 
         {pendingParticipants.map((pending) => (
-          <Badge key={pending.key} variant="secondary" sx={styles.pendingBadge}>
+          <Badge
+            key={pending.key}
+            variant="secondary"
+            className="bg-foreground/10 flex items-center gap-1 px-2 py-0.5 text-xs opacity-60"
+          >
             <span>{pending.name}</span>
-            <CircleNotch {...stylex.props(styles.spinner)} aria-hidden="true" />
+            <CircleNotch className="size-2.5 animate-spin" aria-hidden="true" />
           </Badge>
         ))}
 
         <input
           ref={inputRef}
           type="text"
-          {...stylex.props(styles.input)}
+          className="placeholder:text-muted-foreground min-w-[120px] flex-1 bg-transparent text-sm outline-hidden"
           placeholder={placeholder}
           value={inputValue}
           onChange={(e) => handleInputChange(e.target.value)}
@@ -496,52 +498,3 @@ function useEventContactEnhancement(sessionId: string) {
     showEnhancementButtons,
   };
 }
-
-const spin = stylex.keyframes({
-  to: {
-    transform: "rotate(360deg)",
-  },
-});
-
-const styles = stylex.create({
-  input: {
-    "::placeholder": {
-      color: colors.mutedForeground,
-    },
-    backgroundColor: "transparent",
-    flex: "1",
-    fontSize: "0.875rem",
-    minWidth: "120px",
-    outline: "none",
-  },
-  inputRow: {
-    alignItems: "center",
-    cursor: "text",
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "0.5rem",
-    minHeight: "38px",
-    width: "100%",
-  },
-  pendingBadge: {
-    alignItems: "center",
-    backgroundColor: `color-mix(in srgb, ${colors.foreground} 10%, transparent)`,
-    display: "flex",
-    fontSize: "0.75rem",
-    gap: "0.25rem",
-    opacity: 0.6,
-    paddingBlock: "0.125rem",
-    paddingInline: "0.5rem",
-  },
-  root: {
-    position: "relative",
-  },
-  spinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-    height: "0.625rem",
-    width: "0.625rem",
-  },
-});

@@ -11,7 +11,6 @@ import {
 } from "@anlg/ui/components/ui/dialog";
 
 import { TrialDialogIcon } from "./trial-dialog-icon";
-import { trialDialogStyles } from "./trial-dialog-styles";
 
 import { GlassDialogContent } from "~/shared/ui/glass-dialog";
 
@@ -33,20 +32,20 @@ export function TrialStartedDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <GlassDialogContent>
-        <DialogHeader sx={trialDialogStyles.header}>
+        <DialogHeader className="items-center gap-2 text-center sm:text-center">
           <TrialDialogIcon state="started" />
-          <DialogTitle sx={trialDialogStyles.title}>
+          <DialogTitle className="text-foreground text-[13px] leading-5 font-semibold tracking-normal">
             {t`Your Pro trial just started`}
           </DialogTitle>
-          <DialogDescription sx={trialDialogStyles.description}>
+          <DialogDescription className="text-foreground w-full text-center text-[13px] leading-[1.36]">
             {hasPaymentMethod
               ? t`Your ${days}-day Pro trial starts now. Pro will continue automatically when it ends.`
               : t`Your ${days}-day Pro trial starts now. Add a payment method before it ends to keep Pro.`}
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter sx={trialDialogStyles.footerCentered}>
+        <DialogFooter className="sm:justify-center">
           <Button
-            sx={[trialDialogStyles.action, trialDialogStyles.wideAction]}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 h-8 w-full rounded-full px-4 text-xs font-medium shadow-sm dark:bg-white dark:text-black dark:hover:bg-white/90"
             onClick={() => onOpenChange(false)}
           >
             {t`Got it`}

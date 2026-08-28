@@ -1,9 +1,7 @@
 import { Trans } from "@lingui/react/macro";
 import { CaretDown } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { platform } from "@tauri-apps/plugin-os";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import {
   Accordion,
   AccordionContent,
@@ -11,6 +9,7 @@ import {
   AccordionItem,
   AccordionTriggerPrimitive,
 } from "@anlg/ui/components/ui/accordion";
+import { cn } from "@anlg/utils";
 
 import { TodoProviderContent } from "./provider-content";
 import { TODO_PROVIDERS } from "./shared";
@@ -25,25 +24,31 @@ export function SettingsTodo() {
   );
 
   return (
-    <div {...stylex.props(styles.page)}>
+    <div className="flex flex-col gap-6">
       <SettingsPageTitle title={<Trans>Ticket</Trans>} />
       <Accordion type="multiple">
         {visibleProviders.map((provider) => (
-          <AccordionItem key={provider.id} value={provider.id} sx={styles.item}>
-            <div {...stylex.props(styles.providerRow, stylex.defaultMarker())}>
-              <AccordionHeader {...stylex.props(styles.header)}>
-                <AccordionTriggerPrimitive {...stylex.props(styles.trigger)}>
+          <AccordionItem
+            key={provider.id}
+            value={provider.id}
+            className="group/provider border-border border-b last:border-none"
+          >
+            <div className="group hover:bg-accent grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded-full">
+              <AccordionHeader className="min-w-0">
+                <AccordionTriggerPrimitive className="flex w-full min-w-0 items-center gap-2 py-3 text-left text-sm font-medium transition-all hover:no-underline">
                   {provider.icon}
                   <span>{provider.displayName}</span>
                 </AccordionTriggerPrimitive>
               </AccordionHeader>
               <CaretDown
-                data-todo-provider-caret
-                {...stylex.props(styles.caret)}
+                className={cn([
+                  "text-muted-foreground size-4 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100 focus-within:opacity-100",
+                  "group-data-[state=open]/provider:rotate-180",
+                ])}
               />
             </div>
-            <AccordionContent sx={styles.content}>
-              <div {...stylex.props(styles.contentInner)}>
+            <AccordionContent className="pb-3">
+              <div className="flex flex-col gap-3">
                 <TodoProviderContent config={provider} />
               </div>
             </AccordionContent>
@@ -53,81 +58,3 @@ export function SettingsTodo() {
     </div>
   );
 }
-
-const styles = stylex.create({
-  caret: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    height: "1rem",
-    opacity: {
-      default: 0,
-      [stylex.when.ancestor(":focus-within")]: 1,
-      [stylex.when.ancestor(":hover")]: 1,
-    },
-    transitionDuration: "200ms",
-    transitionProperty: "all",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "1rem",
-  },
-  content: {
-    paddingBottom: "0.75rem",
-  },
-  contentInner: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-  },
-  header: {
-    minWidth: 0,
-  },
-  item: {
-    borderBottomColor: colors.border,
-    borderBottomStyle: {
-      default: "solid",
-      ":last-child": "none",
-    },
-    borderBottomWidth: {
-      default: "1px",
-      ":last-child": 0,
-    },
-    transform: {
-      default: null,
-      ':is([data-state="open"]) [data-todo-provider-caret]': "rotate(180deg)",
-    },
-  },
-  page: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1.5rem",
-  },
-  providerRow: {
-    alignItems: "center",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    borderRadius: radii.full,
-    display: "grid",
-    gap: "0.25rem",
-    gridTemplateColumns: "minmax(0, 1fr) auto",
-  },
-  trigger: {
-    alignItems: "center",
-    display: "flex",
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    gap: "0.5rem",
-    lineHeight: "1.25rem",
-    minWidth: 0,
-    paddingBlock: "0.75rem",
-    textAlign: "left",
-    textDecorationLine: {
-      default: "none",
-      ":hover": "none",
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "all",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "100%",
-  },
-});

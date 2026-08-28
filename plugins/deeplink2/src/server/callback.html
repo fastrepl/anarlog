@@ -4,96 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Anarlog</title>
+  <script src="https://cdn.twind.style" crossorigin></script>
   <style>
-    .callback-page,
-    .callback-page *,
-    .callback-page *::before,
-    .callback-page *::after {
-      box-sizing: border-box;
-      corner-shape: squircle;
-    }
-
-    .callback-page {
-      min-height: 100vh;
-      margin: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 1.5rem;
-      background: linear-gradient(to bottom, #fff, #fafaf9, #fff);
-      color: #525252;
-      font-family:
-        ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-        sans-serif;
-    }
-
-    .callback-card {
-      width: 100%;
-      max-width: 28rem;
-      display: flex;
-      flex-direction: column;
-      gap: 2rem;
-      text-align: center;
-    }
-
-    .callback-copy {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
-    .callback-title,
-    .callback-description {
-      margin: 0;
-    }
-
-    .callback-title {
-      color: #44403c;
-      font-size: 1.875rem;
-      font-weight: 400;
-      letter-spacing: -0.025em;
-      line-height: 2.25rem;
-    }
-
-    .callback-description {
-      line-height: 1.5rem;
-    }
-
-    .callback-button {
-      width: 100%;
-      height: 3rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 9999px;
-      background: linear-gradient(to top, #57534e, #78716c);
-      box-shadow:
-        0 4px 6px -1px rgb(0 0 0 / 0.1),
-        0 2px 4px -2px rgb(0 0 0 / 0.1);
-      color: #fff;
-      cursor: pointer;
-      font-size: 1rem;
-      font-weight: 500;
-      line-height: 1.5rem;
-      text-decoration: none;
-      transition: box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .callback-button:hover {
-      box-shadow:
-        0 10px 15px -3px rgb(0 0 0 / 0.1),
-        0 4px 6px -4px rgb(0 0 0 / 0.1);
-    }
+    *, ::before, ::after { corner-shape: squircle; }
   </style>
 </head>
-<body class="callback-page">
-  <div class="callback-card">
-    <div class="callback-copy">
-      <h1 class="callback-title">{{ title }}</h1>
-      <p class="callback-description">{{ description }}</p>
+<body class="min-h-screen bg-gradient-to-b from-white via-stone-50 to-white flex items-center justify-center p-6">
+  <div class="max-w-md w-full text-center flex flex-col gap-8">
+    <div class="flex flex-col gap-3">
+      <h1 class="text-3xl font-sans tracking-tight text-stone-700">{{ title }}</h1>
+      <p class="text-neutral-600">{{ description }}</p>
     </div>
     {% if is_success %}
-    <a id="open-app" href="{{ deeplink_url }}" class="callback-button">
+    <a id="open-app" href="{{ deeplink_url }}" class="w-full h-12 flex items-center justify-center text-base font-medium transition-all bg-gradient-to-t from-stone-600 to-stone-500 text-white rounded-full shadow-md hover:shadow-lg cursor-pointer">
       Open Anarlog
     </a>
     <script>

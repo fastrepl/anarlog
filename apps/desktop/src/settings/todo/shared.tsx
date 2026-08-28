@@ -1,4 +1,3 @@
-import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 
 export type TodoProvider = {
@@ -12,30 +11,11 @@ export type TodoProvider = {
   platform?: "macos" | "all";
 };
 
-const styles = stylex.create({
-  icon: {
-    height: "1.25rem",
-    width: "1.25rem",
-  },
-  remindersIcon: {
-    borderRadius: "4px",
-    height: "1.25rem",
-    objectFit: "cover",
-    width: "1.25rem",
-  },
-});
-
 export const TODO_PROVIDERS: TodoProvider[] = [
   {
     id: "github",
     displayName: "GitHub",
-    icon: (
-      <img
-        src="/assets/github-icon.svg"
-        alt="GitHub"
-        {...stylex.props(styles.icon)}
-      />
-    ),
+    icon: <img src="/assets/github-icon.svg" alt="GitHub" className="size-5" />,
     nangoIntegrationId: "github",
     filterLabel: "Repository",
     filterPlaceholder: "e.g. owner/repo",
@@ -48,7 +28,7 @@ export const TODO_PROVIDERS: TodoProvider[] = [
       <img
         src="/assets/apple-reminders.png"
         alt="Apple Reminders"
-        {...stylex.props(styles.remindersIcon)}
+        className="size-5 rounded-[4px] object-cover"
       />
     ),
     permission: "reminders",

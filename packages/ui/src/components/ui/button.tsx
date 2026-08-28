@@ -1,218 +1,58 @@
 import { Slot } from "@radix-ui/react-slot";
-import * as stylex from "@stylexjs/stylex";
+import { cva, type VariantProps } from "class-variance-authority";
 import * as React from "react";
 
-import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
-import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
 import { cn } from "@anlg/utils";
 
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>, StyleXProps {
-  asChild?: boolean;
-  size?: "default" | "sm" | "lg" | "icon" | null;
-  variant?:
-    | "default"
-    | "destructive"
-    | "outline"
-    | "secondary"
-    | "ghost"
-    | "link"
-    | null;
-}
+const buttonVariants = cva(
+  "focus-visible:ring-ring inline-flex cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-medium whitespace-nowrap transition-all focus-visible:ring-1 focus-visible:outline-hidden disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  {
+    variants: {
+      variant: {
+        default:
+          "bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs",
+        destructive:
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-xs",
+        outline:
+          "border-input bg-background hover:bg-accent hover:text-accent-foreground border shadow-xs",
+        secondary:
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-xs",
+        ghost: "hover:bg-accent hover:text-accent-foreground",
+        link: "text-primary underline-offset-4 hover:underline",
+      },
+      size: {
+        default: "h-9 px-4 py-2",
+        sm: "h-7 px-2 text-xs",
+        lg: "h-10 px-8",
+        icon: "size-7",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
+  },
+);
 
-function buttonVariants({
-  variant,
-  size,
-  className,
-  class: classValue,
-}: Pick<ButtonProps, "variant" | "size"> & {
-  class?: Parameters<typeof cn>[number];
-  className?: Parameters<typeof cn>[number];
-} = {}) {
-  return cn([
-    stylex.props([
-      styles.root,
-      buttonVariantStyles[variant ?? "default"],
-      buttonSizeStyles[size ?? "default"],
-    ]).className,
-    classValue,
-    className,
-  ]);
+export interface ButtonProps
+  extends
+    React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
+  asChild?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, style, sx, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
-    const resolvedStyle = mergeStyleXProps(
-      [
-        styles.root,
-        buttonVariantStyles[variant ?? "default"],
-        buttonSizeStyles[size ?? "default"],
-        sx,
-      ],
-      className,
-      style,
-    );
-
     return (
       <Comp
-        {...props}
+        className={cn([buttonVariants({ variant, size, className })])}
         ref={ref}
-        className={resolvedStyle.className}
-        style={resolvedStyle.style}
+        {...props}
       />
     );
   },
 );
 Button.displayName = "Button";
-
-const styles = stylex.create({
-  root: {
-    alignItems: "center",
-    borderRadius: radii.full,
-    boxShadow: {
-      default: null,
-      ":focus-visible": `0 0 0 1px ${colors.ring}`,
-    },
-    cursor: {
-      default: "pointer",
-      ":disabled": "not-allowed",
-    },
-    display: "inline-flex",
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    flexShrink: {
-      default: null,
-      ":is(*) svg": 0,
-    },
-    gap: "0.5rem",
-    justifyContent: "center",
-    lineHeight: "1.25rem",
-    opacity: {
-      default: 1,
-      ":disabled": 0.5,
-    },
-    outline: {
-      default: null,
-      ":focus-visible": "2px solid transparent",
-    },
-    outlineOffset: {
-      default: null,
-      ":focus-visible": "2px",
-    },
-    pointerEvents: {
-      default: "auto",
-      ":disabled": "none",
-      ":is(*) svg": "none",
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "all",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    whiteSpace: "nowrap",
-  },
-  variantDefault: {
-    backgroundColor: {
-      default: colors.primary,
-      ":hover": `color-mix(in oklab, ${colors.primary} 90%, transparent)`,
-    },
-    boxShadow: {
-      default: shadows.sm,
-      ":focus-visible": `0 0 0 1px ${colors.ring}, ${shadows.sm}`,
-    },
-    color: colors.primaryForeground,
-  },
-  variantDestructive: {
-    backgroundColor: {
-      default: colors.destructive,
-      ":hover": `color-mix(in oklab, ${colors.destructive} 90%, transparent)`,
-    },
-    boxShadow: {
-      default: shadows.sm,
-      ":focus-visible": `0 0 0 1px ${colors.ring}, ${shadows.sm}`,
-    },
-    color: colors.destructiveForeground,
-  },
-  variantOutline: {
-    backgroundColor: {
-      default: colors.background,
-      ":hover": colors.accent,
-    },
-    borderColor: colors.input,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: {
-      default: shadows.sm,
-      ":focus-visible": `0 0 0 1px ${colors.ring}, ${shadows.sm}`,
-    },
-    color: {
-      default: null,
-      ":hover": colors.accentForeground,
-    },
-  },
-  variantSecondary: {
-    backgroundColor: {
-      default: colors.secondary,
-      ":hover": `color-mix(in oklab, ${colors.secondary} 80%, transparent)`,
-    },
-    boxShadow: {
-      default: shadows.sm,
-      ":focus-visible": `0 0 0 1px ${colors.ring}, ${shadows.sm}`,
-    },
-    color: colors.secondaryForeground,
-  },
-  variantGhost: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    color: {
-      default: null,
-      ":hover": colors.accentForeground,
-    },
-  },
-  variantLink: {
-    color: colors.primary,
-    textDecorationLine: {
-      default: "none",
-      ":hover": "underline",
-    },
-    textUnderlineOffset: "4px",
-  },
-  sizeDefault: {
-    height: "2.25rem",
-    paddingBlock: "0.5rem",
-    paddingInline: "1rem",
-  },
-  sizeSm: {
-    fontSize: "0.75rem",
-    height: "1.75rem",
-    lineHeight: "1rem",
-    paddingInline: "0.5rem",
-  },
-  sizeLg: {
-    height: "2.5rem",
-    paddingInline: "2rem",
-  },
-  sizeIcon: {
-    height: "1.75rem",
-    width: "1.75rem",
-  },
-});
-
-const buttonVariantStyles = {
-  default: styles.variantDefault,
-  destructive: styles.variantDestructive,
-  ghost: styles.variantGhost,
-  link: styles.variantLink,
-  outline: styles.variantOutline,
-  secondary: styles.variantSecondary,
-};
-
-const buttonSizeStyles = {
-  default: styles.sizeDefault,
-  icon: styles.sizeIcon,
-  lg: styles.sizeLg,
-  sm: styles.sizeSm,
-};
 
 export { Button, buttonVariants };

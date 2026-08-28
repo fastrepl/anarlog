@@ -5,9 +5,7 @@ import {
   WarningCircle,
   Waveform,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 
-import { colors } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
 
@@ -34,15 +32,23 @@ export function TranscriptEmptyState({
 }) {
   if (error) {
     return (
-      <div role="alert" {...stylex.props(styles.root)}>
-        <WarningCircle aria-hidden {...stylex.props(styles.stateIcon)} />
-        <div {...stylex.props(styles.copy, styles.copyWithActions)}>
-          <p {...stylex.props(styles.title)}>{t`Transcription failed`}</p>
-          <p {...stylex.props(styles.description)}>{error}</p>
+      <div
+        role="alert"
+        className="flex h-full min-h-[400px] flex-col items-center justify-center px-6 text-center"
+      >
+        <WarningCircle
+          aria-hidden
+          className="text-muted-foreground mb-5 size-9 stroke-[1.5]"
+        />
+        <div className="mb-6 flex max-w-md flex-col gap-2">
+          <p className="text-base font-medium">{t`Transcription failed`}</p>
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            {error}
+          </p>
         </div>
         {onRetranscribe && (
-          <Button size="sm" sx={styles.button} onClick={onRetranscribe}>
-            <ArrowsClockwise {...stylex.props(styles.buttonIcon)} />
+          <Button size="sm" className="gap-2" onClick={onRetranscribe}>
+            <ArrowsClockwise className="size-4" />
             {t`Re-transcribe`}
           </Button>
         )}
@@ -54,18 +60,21 @@ export function TranscriptEmptyState({
     const hasProgress = typeof percentage === "number" && percentage > 0;
 
     return (
-      <div role="status" {...stylex.props(styles.root)}>
-        <div {...stylex.props(styles.spinner)}>
+      <div
+        role="status"
+        className="flex h-full min-h-[400px] flex-col items-center justify-center px-6 text-center"
+      >
+        <div className="text-muted-foreground mb-5">
           <Spinner size={36} />
         </div>
-        <div {...stylex.props(onStopTranscription && styles.copyWithActions)}>
-          <p {...stylex.props(styles.title)}>
+        <div className={onStopTranscription ? "mb-6" : undefined}>
+          <p className="text-base font-medium">
             {phase === "importing"
               ? t`Importing audio...`
               : t`Generating transcript...`}
           </p>
           {hasProgress && (
-            <p {...stylex.props(styles.progress)}>
+            <p className="text-muted-foreground mt-2 text-sm leading-relaxed tabular-nums">
               {t`${Math.round((percentage ?? 0) * 100)}% complete`}
             </p>
           )}
@@ -74,10 +83,10 @@ export function TranscriptEmptyState({
           <Button
             variant="outline"
             size="sm"
-            sx={styles.button}
+            className="gap-2"
             onClick={onStopTranscription}
           >
-            <Square {...stylex.props(styles.stopIcon)} weight="fill" />
+            <Square className="size-3" weight="fill" />
             {t`Stop transcription`}
           </Button>
         )}
@@ -86,23 +95,26 @@ export function TranscriptEmptyState({
   }
 
   return (
-    <div {...stylex.props(styles.root)}>
-      <Waveform aria-hidden {...stylex.props(styles.stateIcon)} />
-      <div {...stylex.props(styles.copy, styles.copyWithActions)}>
-        <p {...stylex.props(styles.title)}>
+    <div className="flex h-full min-h-[400px] flex-col items-center justify-center px-6 text-center">
+      <Waveform
+        aria-hidden
+        className="text-muted-foreground mb-5 size-9 stroke-[1.5]"
+      />
+      <div className="mb-6 flex max-w-md flex-col gap-2">
+        <p className="text-base font-medium">
           {hasAudio ? t`Audio available` : t`No transcript available`}
         </p>
-        <p {...stylex.props(styles.description)}>
+        <p className="text-muted-foreground text-sm leading-relaxed">
           {hasAudio
             ? t`Re-transcribe this audio, or upload a transcript file.`
             : t`Upload audio or a transcript file to populate this note.`}
         </p>
       </div>
       {(onRetranscribe || onUploadAudio || onUploadTranscript) && (
-        <div {...stylex.props(styles.actions)}>
+        <div className="flex items-center gap-2">
           {hasAudio && onRetranscribe && (
-            <Button size="sm" sx={styles.button} onClick={onRetranscribe}>
-              <ArrowsClockwise {...stylex.props(styles.buttonIcon)} />
+            <Button size="sm" className="gap-2" onClick={onRetranscribe}>
+              <ArrowsClockwise className="size-4" />
               {t`Re-transcribe`}
             </Button>
           )}
@@ -121,70 +133,3 @@ export function TranscriptEmptyState({
     </div>
   );
 }
-
-const styles = stylex.create({
-  actions: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-  },
-  button: {
-    gap: "0.5rem",
-  },
-  buttonIcon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  copy: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-    maxWidth: "28rem",
-  },
-  copyWithActions: {
-    marginBottom: "1.5rem",
-  },
-  description: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    lineHeight: 1.625,
-  },
-  progress: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    fontVariantNumeric: "tabular-nums",
-    lineHeight: 1.625,
-    marginTop: "0.5rem",
-  },
-  root: {
-    alignItems: "center",
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    justifyContent: "center",
-    minHeight: "400px",
-    paddingInline: "1.5rem",
-    textAlign: "center",
-  },
-  spinner: {
-    color: colors.mutedForeground,
-    marginBottom: "1.25rem",
-  },
-  stateIcon: {
-    color: colors.mutedForeground,
-    height: "2.25rem",
-    marginBottom: "1.25rem",
-    strokeWidth: 1.5,
-    width: "2.25rem",
-  },
-  stopIcon: {
-    height: "0.75rem",
-    width: "0.75rem",
-  },
-  title: {
-    fontSize: "1rem",
-    fontWeight: 500,
-  },
-});
-
-export { styles as transcriptEmptyStateStyles };

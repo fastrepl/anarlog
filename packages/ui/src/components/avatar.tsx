@@ -1,7 +1,5 @@
-import * as stylex from "@stylexjs/stylex";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 
-import { radii } from "@anlg/design-system/tokens.stylex";
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import {
   AVATAR_RASTER_SIZE,
@@ -12,22 +10,19 @@ import {
   type AvatarRecipe,
   type AvatarRenderStyle,
 } from "@anlg/ui/lib/avatar";
-import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
 
 export type { AvatarRenderStyle } from "@anlg/ui/lib/avatar";
 
-export type AvatarProps = Readonly<
-  {
-    seed: string;
-    label?: string;
-    size?: number;
-    colorCount?: number;
-    sphereCount?: number;
-    dither?: number;
-    renderStyle?: AvatarRenderStyle;
-    className?: string;
-  } & StyleXProps
->;
+export type AvatarProps = Readonly<{
+  seed: string;
+  label?: string;
+  size?: number;
+  colorCount?: number;
+  sphereCount?: number;
+  dither?: number;
+  renderStyle?: AvatarRenderStyle;
+  className?: string;
+}>;
 
 const imageCache = new Map<string, string>();
 const MAX_CACHE_ENTRIES = 512;
@@ -41,7 +36,6 @@ export function Avatar({
   dither = 0.3,
   renderStyle = "dithered",
   className,
-  sx,
 }: AvatarProps) {
   const recipe = { seed, colorCount, sphereCount, dither, renderStyle };
   const cacheKey = avatarRecipeKey(recipe);
@@ -54,7 +48,6 @@ export function Avatar({
       label={label}
       recipe={recipe}
       size={size}
-      sx={sx}
     />
   );
 }
@@ -65,18 +58,43 @@ function AvatarImage({
   label,
   recipe,
   size,
-  sx,
 }: {
   cacheKey: string;
   className?: string;
   label: string;
   recipe: AvatarRecipe;
   size: number;
-} & StyleXProps) {
+}) {
   const [src, setSrc] = useState<string | undefined>(() =>
     imageCache.get(cacheKey),
   );
   const dimension = Math.max(1, size);
+  const containerStyle = {
+    width: dimension,
+    height: dimension,
+    display: "inline-flex",
+    position: "relative",
+    flexShrink: 0,
+    overflow: "hidden",
+    boxSizing: "border-box",
+    border: "1px solid rgb(0 0 0 / 0.1)",
+    borderRadius: "9999px",
+    background: avatarFallbackGradient(recipe.seed),
+    boxShadow: "0 1px 2px rgb(0 0 0 / 0.08)",
+  } satisfies CSSProperties;
+  const initialsStyle = {
+    position: "absolute",
+    inset: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "white",
+    fontSize: Math.max(7, dimension * 0.38),
+    fontWeight: 600,
+    lineHeight: 1,
+    letterSpacing: "-0.04em",
+    mixBlendMode: "overlay",
+  } satisfies CSSProperties;
 
   useMountEffect(() => {
     const cached = imageCache.get(cacheKey);
@@ -95,82 +113,27 @@ function AvatarImage({
   });
 
   return (
-    <span
-      aria-hidden="true"
-      {...mergeStyleXProps(
-        [
-          styles.container,
-          styles.containerDynamic(
-            dimension,
-            avatarFallbackGradient(recipe.seed),
-          ),
-          sx,
-        ],
-        className,
-      )}
-    >
+    <span aria-hidden="true" className={className} style={containerStyle}>
       {src ? (
         <img
-          {...stylex.props(styles.image)}
           alt=""
           draggable={false}
           src={src}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+          }}
         />
       ) : null}
-      <span
-        aria-hidden="true"
-        {...stylex.props([
-          styles.initials,
-          styles.initialsDynamic(Math.max(7, dimension * 0.38)),
-        ])}
-      >
+      <span aria-hidden="true" style={initialsStyle}>
         {avatarInitials(label)}
       </span>
     </span>
   );
 }
-
-const styles = stylex.create({
-  container: {
-    borderColor: "rgb(0 0 0 / 0.1)",
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: "0 1px 2px rgb(0 0 0 / 0.08)",
-    boxSizing: "border-box",
-    display: "inline-flex",
-    flexShrink: 0,
-    overflow: "hidden",
-    position: "relative",
-  },
-  containerDynamic: (dimension: number, backgroundImage: string) => ({
-    backgroundImage,
-    height: dimension,
-    width: dimension,
-  }),
-  image: {
-    height: "100%",
-    inset: 0,
-    objectFit: "cover",
-    position: "absolute",
-    width: "100%",
-  },
-  initials: {
-    alignItems: "center",
-    color: "white",
-    display: "flex",
-    fontWeight: 600,
-    inset: 0,
-    justifyContent: "center",
-    letterSpacing: "-0.04em",
-    lineHeight: 1,
-    mixBlendMode: "overlay",
-    position: "absolute",
-  },
-  initialsDynamic: (fontSize: number) => ({
-    fontSize,
-  }),
-});
 
 function renderAvatarPng(recipe: AvatarRecipe): string | undefined {
   const key = avatarRecipeKey(recipe);

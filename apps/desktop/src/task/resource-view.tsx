@@ -7,14 +7,12 @@ import {
   RadioButton,
   XCircle,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { defaultRehypePlugins, Streamdown } from "streamdown";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { commands as todoCommands } from "@anlg/plugin-todo";
-import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
+import { cn } from "@anlg/utils";
 
 import { streamdownComponents } from "~/session/components/streamdown";
 import { type TaskResource } from "~/store/zustand/tabs";
@@ -77,14 +75,14 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
   const isClosed = issue?.state === "closed";
 
   return (
-    <div {...stylex.props(styles.root)}>
+    <div className="w-full max-w-3xl px-6 py-6">
       {isLoading ? (
-        <div {...stylex.props(styles.centerMessage)}>
+        <div className="text-muted-foreground flex items-center justify-center py-12">
           <Trans>Loading...</Trans>
         </div>
       ) : null}
       {error ? (
-        <div {...stylex.props(styles.centerMessage)}>
+        <div className="text-muted-foreground flex items-center justify-center py-12">
           {isPR ? (
             <Trans>Failed to load pull request</Trans>
           ) : (
@@ -94,24 +92,24 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
       ) : null}
       {issue ? (
         <>
-          <div {...stylex.props(styles.header)}>
-            <div {...stylex.props(styles.headerRow)}>
-              <h1 {...stylex.props(styles.title)}>
+          <div className="mb-4">
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="text-foreground text-xl leading-snug font-semibold">
                 {issue.title}
-                <span {...stylex.props(styles.issueNumber)}>
+                <span className="text-muted-foreground ml-2 font-normal">
                   #{issue.number}
                 </span>
               </h1>
               <button
                 type="button"
-                {...stylex.props(styles.openButton)}
+                className="text-muted-foreground hover:bg-accent hover:text-muted-foreground shrink-0 rounded-md p-1.5 transition-colors"
                 onClick={() => openerCommands.openUrl(url, null)}
                 title={t`Open on GitHub`}
               >
-                <ArrowSquareOut {...stylex.props(styles.icon)} />
+                <ArrowSquareOut className="size-4" />
               </button>
             </div>
-            <div {...stylex.props(styles.metadata)}>
+            <div className="text-muted-foreground mt-2 flex items-center gap-2 text-sm">
               <StateBadge isPR={isPR} isMerged={isMerged} isClosed={isClosed} />
               <span>
                 <Trans>{issue.user?.login} opened on</Trans>{" "}
@@ -131,11 +129,12 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
           </div>
 
           {issue.labels && issue.labels.length > 0 ? (
-            <div {...stylex.props(styles.labels)}>
+            <div className="mb-4 flex flex-wrap gap-1.5">
               {issue.labels.map((label) => (
                 <span
                   key={label.id}
-                  {...mergeStyleXProps(styles.label, undefined, {
+                  className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+                  style={{
                     backgroundColor: label.color
                       ? `#${label.color}20`
                       : "#e5e5e5",
@@ -143,7 +142,7 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
                     border: `1px solid ${
                       label.color ? `#${label.color}40` : "#d4d4d4"
                     }`,
-                  })}
+                  }}
                 >
                   {label.name}
                 </span>
@@ -152,17 +151,17 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
           ) : null}
 
           {issue.assignees && issue.assignees.length > 0 ? (
-            <div {...stylex.props(styles.assignees)}>
-              <span {...stylex.props(styles.mediumText)}>
+            <div className="text-muted-foreground mb-4 flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground font-medium">
                 <Trans>Assignees:</Trans>
               </span>
               {issue.assignees.map((assignee) => (
-                <span key={assignee.id} {...stylex.props(styles.assignee)}>
+                <span key={assignee.id} className="flex items-center gap-1">
                   {assignee.avatar_url ? (
                     <img
                       src={assignee.avatar_url}
                       alt={assignee.login}
-                      {...stylex.props(styles.avatar)}
+                      className="size-5 rounded-full"
                     />
                   ) : null}
                   {assignee.login}
@@ -172,11 +171,10 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
           ) : null}
 
           {issue.body ? (
-            <div {...stylex.props(styles.borderedSection)}>
+            <div className="border-border border-t pt-4">
               <Streamdown
-                {...mergeStyleXProps(styles.markdown, "note-typography")}
+                className="note-typography text-muted-foreground mt-1 [--note-editor-font-size:0.875rem]"
                 components={streamdownComponents}
-                controls={false}
                 isAnimating={false}
                 rehypePlugins={rehypePlugins}
               >
@@ -184,39 +182,38 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
               </Streamdown>
             </div>
           ) : (
-            <div
-              {...stylex.props(styles.borderedSection, styles.emptyDescription)}
-            >
+            <div className="border-border text-muted-foreground border-t pt-4 text-sm italic">
               <Trans>No description provided.</Trans>
             </div>
           )}
 
           {comments && comments.length > 0 ? (
-            <div
-              {...stylex.props(styles.borderedSection, styles.commentsSection)}
-            >
-              <div {...stylex.props(styles.commentsHeading)}>
-                <Chat {...stylex.props(styles.icon)} />
+            <div className="border-border mt-6 border-t pt-4">
+              <div className="text-muted-foreground mb-4 flex items-center gap-2 text-sm font-medium">
+                <Chat className="size-4" />
                 <span>
                   {comments.length}{" "}
                   {comments.length === 1 ? t`comment` : t`comments`}
                 </span>
               </div>
-              <div {...stylex.props(styles.commentList)}>
+              <div className="space-y-4">
                 {comments.map((comment) => (
-                  <div key={comment.id} {...stylex.props(styles.comment)}>
-                    <div {...stylex.props(styles.commentHeader)}>
+                  <div
+                    key={comment.id}
+                    className="border-border bg-muted/50 rounded-lg border"
+                  >
+                    <div className="border-border flex items-center gap-2 border-b px-4 py-2.5 text-sm">
                       {comment.user?.avatar_url ? (
                         <img
                           src={comment.user.avatar_url}
                           alt={comment.user.login}
-                          {...stylex.props(styles.avatar)}
+                          className="size-5 rounded-full"
                         />
                       ) : null}
-                      <span {...stylex.props(styles.mediumText)}>
+                      <span className="text-muted-foreground font-medium">
                         {comment.user?.login}
                       </span>
-                      <span {...stylex.props(styles.mutedText)}>
+                      <span className="text-muted-foreground">
                         <Trans>commented on</Trans>{" "}
                         {new Date(comment.created_at).toLocaleDateString(
                           undefined,
@@ -228,22 +225,18 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
                         )}
                       </span>
                     </div>
-                    <div {...stylex.props(styles.commentBody)}>
+                    <div className="px-4 py-3">
                       {comment.body ? (
                         <Streamdown
-                          {...mergeStyleXProps(
-                            styles.markdown,
-                            "note-typography",
-                          )}
+                          className="note-typography text-muted-foreground mt-1 [--note-editor-font-size:0.875rem]"
                           components={streamdownComponents}
-                          controls={false}
                           isAnimating={false}
                           rehypePlugins={rehypePlugins}
                         >
                           {comment.body}
                         </Streamdown>
                       ) : (
-                        <span {...stylex.props(styles.emptyDescription)}>
+                        <span className="text-muted-foreground text-sm italic">
                           <Trans>No content.</Trans>
                         </span>
                       )}
@@ -270,211 +263,34 @@ function StateBadge({
 }) {
   const { t } = useLingui();
   let label: string;
-  let colorStyle: stylex.StyleXStyles;
+  let colorClass: string;
   let Icon: typeof RadioButton;
 
   if (isPR && isMerged) {
     label = t`Merged`;
-    colorStyle = styles.statePurple;
+    colorClass = "bg-purple-100 text-purple-700";
     Icon = GitMerge;
   } else if (isClosed) {
     label = t`Closed`;
-    colorStyle = isPR ? styles.stateRed : styles.statePurple;
+    colorClass = isPR
+      ? "bg-red-100 text-red-700"
+      : "bg-purple-100 text-purple-700";
     Icon = XCircle;
   } else {
     label = t`Open`;
-    colorStyle = styles.stateGreen;
+    colorClass = "bg-green-100 text-green-700";
     Icon = isPR ? GitPullRequest : RadioButton;
   }
 
   return (
-    <span {...stylex.props(styles.stateBadge, colorStyle)}>
-      <Icon {...stylex.props(styles.stateIcon)} />
+    <span
+      className={cn([
+        "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium",
+        colorClass,
+      ])}
+    >
+      <Icon className="size-3.5" />
       {label}
     </span>
   );
 }
-
-const styles = stylex.create({
-  assignee: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.25rem",
-  },
-  assignees: {
-    alignItems: "center",
-    color: colors.mutedForeground,
-    display: "flex",
-    fontSize: "0.875rem",
-    gap: "0.5rem",
-    marginBottom: "1rem",
-  },
-  avatar: {
-    borderRadius: radii.full,
-    height: "1.25rem",
-    width: "1.25rem",
-  },
-  borderedSection: {
-    borderTopColor: colors.border,
-    borderTopStyle: "solid",
-    borderTopWidth: "1px",
-    paddingTop: "1rem",
-  },
-  centerMessage: {
-    alignItems: "center",
-    color: colors.mutedForeground,
-    display: "flex",
-    justifyContent: "center",
-    paddingBlock: "3rem",
-  },
-  comment: {
-    backgroundColor: `color-mix(in srgb, ${colors.muted} 50%, transparent)`,
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    borderStyle: "solid",
-    borderWidth: "1px",
-  },
-  commentBody: {
-    paddingBlock: "0.75rem",
-    paddingInline: "1rem",
-  },
-  commentHeader: {
-    alignItems: "center",
-    borderBottomColor: colors.border,
-    borderBottomStyle: "solid",
-    borderBottomWidth: "1px",
-    display: "flex",
-    fontSize: "0.875rem",
-    gap: "0.5rem",
-    paddingBlock: "0.625rem",
-    paddingInline: "1rem",
-  },
-  commentList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  commentsHeading: {
-    alignItems: "center",
-    color: colors.mutedForeground,
-    display: "flex",
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    gap: "0.5rem",
-    marginBottom: "1rem",
-  },
-  commentsSection: {
-    marginTop: "1.5rem",
-  },
-  emptyDescription: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    fontStyle: "italic",
-  },
-  header: {
-    marginBottom: "1rem",
-  },
-  headerRow: {
-    alignItems: "flex-start",
-    display: "flex",
-    gap: "0.75rem",
-    justifyContent: "space-between",
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  issueNumber: {
-    color: colors.mutedForeground,
-    fontWeight: 400,
-    marginLeft: "0.5rem",
-  },
-  label: {
-    alignItems: "center",
-    borderRadius: radii.full,
-    display: "inline-flex",
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    paddingBlock: "0.125rem",
-    paddingInline: "0.625rem",
-  },
-  labels: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "0.375rem",
-    marginBottom: "1rem",
-  },
-  markdown: {
-    "--note-editor-font-size": "0.875rem",
-    color: colors.mutedForeground,
-    marginTop: "0.25rem",
-  },
-  mediumText: {
-    color: colors.mutedForeground,
-    fontWeight: 500,
-  },
-  metadata: {
-    alignItems: "center",
-    color: colors.mutedForeground,
-    display: "flex",
-    fontSize: "0.875rem",
-    gap: "0.5rem",
-    marginTop: "0.5rem",
-  },
-  mutedText: {
-    color: colors.mutedForeground,
-  },
-  openButton: {
-    borderRadius: radii.md,
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.mutedForeground,
-    },
-    flexShrink: 0,
-    padding: "0.375rem",
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-  },
-  root: {
-    maxWidth: "48rem",
-    padding: "1.5rem",
-    width: "100%",
-  },
-  stateBadge: {
-    alignItems: "center",
-    borderRadius: radii.full,
-    display: "inline-flex",
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    gap: "0.25rem",
-    paddingBlock: "0.125rem",
-    paddingInline: "0.625rem",
-  },
-  stateGreen: {
-    backgroundColor: "#dcfce7",
-    color: "#15803d",
-  },
-  stateIcon: {
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  statePurple: {
-    backgroundColor: "#f3e8ff",
-    color: "#7e22ce",
-  },
-  stateRed: {
-    backgroundColor: "#fee2e2",
-    color: "#b91c1c",
-  },
-  title: {
-    color: colors.foreground,
-    fontSize: "1.25rem",
-    fontWeight: 600,
-    lineHeight: 1.375,
-  },
-});

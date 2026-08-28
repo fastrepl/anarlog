@@ -122,9 +122,7 @@ vi.mock("@lingui/react/macro", () => ({
   }),
 }));
 
-import { SettingsSync, settingsSyncStyles } from ".";
-
-import { expectStyle } from "~/session/stylex-test";
+import { SettingsSync } from ".";
 
 function syncedStatus() {
   return {
@@ -310,12 +308,14 @@ describe("SettingsSync", () => {
 
     expect(await screen.findByText("Johns-M4-Max.local")).toBeTruthy();
     const thisDevice = screen.getByText("This device");
-    expectStyle(thisDevice, settingsSyncStyles.noShrink);
+    expect(thisDevice.className).toContain("rounded-full");
     expect(screen.queryByText(/· This device/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Remove device" })).toBeNull();
 
     const disconnect = screen.getByRole("button", { name: "Disconnect" });
-    expectStyle(disconnect, settingsSyncStyles.disconnectButton);
+    expect(disconnect.className).toContain("text-destructive");
+    expect(disconnect.className).toContain("hover:!bg-destructive/10");
+    expect(disconnect.className).toContain("hover:!text-destructive");
     expect(
       document.querySelectorAll("[data-device-kind='desktop']"),
     ).toHaveLength(2);

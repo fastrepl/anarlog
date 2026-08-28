@@ -7,7 +7,6 @@ import {
   reactKeys,
   useEditorEffect,
 } from "@handlewithcare/react-prosemirror";
-import * as stylex from "@stylexjs/stylex";
 import {
   chainCommands,
   createParagraphNear,
@@ -77,7 +76,6 @@ export interface ChatEditorHandle {
 
 interface ChatEditorProps {
   className?: string;
-  sx?: stylex.StyleXStyles;
   initialContent?: JSONContent;
   mentionConfig?: MentionConfig;
   placeholder?: PlaceholderFunction;
@@ -232,7 +230,6 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
   function ChatEditor(props, ref) {
     const {
       className,
-      sx,
       initialContent,
       mentionConfig,
       placeholder,
@@ -412,7 +409,6 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
       }
       return EditorState.create({ doc, plugins });
     }, []);
-    const resolvedStyles = stylex.props(sx);
 
     return (
       <EditorErrorBoundary>
@@ -425,11 +421,7 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
             autoCorrect: "off",
             autoCapitalize: "off",
             role: "textbox",
-            class: cn([
-              "prosemirror-editor",
-              resolvedStyles.className,
-              className,
-            ]),
+            class: cn(className, "prosemirror-editor"),
           }}
         >
           <ProseMirrorDoc />

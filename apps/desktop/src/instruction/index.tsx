@@ -1,15 +1,14 @@
 import { Icon } from "@iconify-icon/react";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowSquareOut, CaretLeft, GithubLogo } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
-import { colors, fonts, media, radii } from "@anlg/design-system/tokens.stylex";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { OutlookIcon } from "@anlg/ui/components/icons/outlook";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
+import { cn } from "@anlg/utils";
 
 import { useAuth } from "~/auth";
 
@@ -45,42 +44,54 @@ function InstructionShell({
   children?: ReactNode;
 }) {
   return (
-    <div {...stylex.props(styles.shell)}>
-      <div {...stylex.props(styles.topGlow)} />
+    <div className="from-background via-card to-card relative flex h-full flex-col overflow-hidden bg-linear-to-b select-none">
+      <div className="from-muted/40 pointer-events-none absolute inset-x-0 top-0 h-32 bg-linear-to-b to-transparent" />
 
-      <div data-tauri-drag-region {...stylex.props(styles.header)}>
+      <div
+        data-tauri-drag-region
+        className="relative z-10 flex shrink-0 items-center px-3 pt-12"
+      >
         <button
           type="button"
           onClick={onBack}
-          {...stylex.props(styles.backButton)}
+          className={cn([
+            "text-muted-foreground hover:bg-muted/70 hover:text-muted-foreground flex h-9 items-center gap-1.5 rounded-full px-3 transition-colors",
+          ])}
         >
-          <CaretLeft {...stylex.props(styles.backIcon)} />
-          <span {...stylex.props(styles.backLabel)}>
+          <CaretLeft className="h-4 w-4" />
+          <span className="text-xs font-medium">
             <Trans>Back</Trans>
           </span>
         </button>
       </div>
 
-      <div data-tauri-drag-region {...stylex.props(styles.main)}>
-        <div {...stylex.props(styles.content)}>
+      <div
+        data-tauri-drag-region
+        className="relative z-10 flex flex-1 items-center justify-center p-6"
+      >
+        <div className="flex w-full max-w-sm flex-col items-center gap-6 px-10 pb-10 text-center">
           {icon ?? (
             <img
               src="/assets/anarlog-icon.png"
               alt=""
-              {...stylex.props(styles.defaultIcon)}
+              className="h-14 w-14 object-contain object-center"
             />
           )}
 
-          <div {...stylex.props(styles.copy)}>
-            <h2 {...stylex.props(styles.title)}>{title}</h2>
-            <p {...stylex.props(styles.description)}>{description}</p>
+          <div className="flex max-w-full flex-col gap-3">
+            <h2 className="text-foreground font-sans text-[22px] leading-[1.15] font-semibold break-words sm:text-[28px]">
+              {title}
+            </h2>
+            <p className="text-muted-foreground text-sm leading-6">
+              {description}
+            </p>
           </div>
 
-          {action ? (
-            <div {...stylex.props(styles.fullWidth)}>{action}</div>
-          ) : null}
+          {action ? <div className="w-full">{action}</div> : null}
           {children ? (
-            <div {...stylex.props(styles.children)}>{children}</div>
+            <div className="flex w-full flex-col items-center gap-3">
+              {children}
+            </div>
           ) : null}
         </div>
       </div>
@@ -113,11 +124,13 @@ function ExternalInstruction({
         url ? (
           <Button
             variant="outline"
-            sx={styles.externalAction}
+            className={cn([
+              "bg-card text-muted-foreground hover:bg-background border-border h-10 w-full",
+            ])}
             onClick={() => void openerCommands.openUrl(url, null)}
           >
             {actionLabel}
-            <ArrowSquareOut {...stylex.props(styles.smallIcon)} />
+            <ArrowSquareOut className="size-3.5" />
           </Button>
         ) : undefined
       }
@@ -195,9 +208,7 @@ function getIntegrationInstruction(integrationId?: string):
     case "github":
       return {
         displayName: "GitHub",
-        icon: (
-          <GithubLogo {...stylex.props(styles.githubIcon)} weight="light" />
-        ),
+        icon: <GithubLogo className="text-foreground size-14" weight="light" />,
       };
     case "slack":
       return {
@@ -231,23 +242,23 @@ function SignInInstruction({ onBack }: { onBack: () => void }) {
     >
       {showCallbackInput ? (
         <>
-          <div {...stylex.props(styles.callbackForm)}>
+          <div className="flex w-full flex-col gap-2">
             <Input
               type="text"
-              sx={styles.callbackInput}
+              className="h-10 font-mono text-xs"
               placeholder="anarlog://auth/callback?access_token=..."
               value={callbackUrl}
               onChange={(e) => setCallbackUrl(e.target.value)}
             />
             <Button
-              sx={styles.tallControl}
+              className="h-10"
               onClick={() => void auth.handleAuthCallback(callbackUrl)}
               disabled={!callbackUrl}
             >
               <Trans>Submit callback URL</Trans>
             </Button>
           </div>
-          <p {...stylex.props(styles.callbackHint)}>
+          <p className="text-muted-foreground text-xs leading-5">
             <Trans>
               Paste the browser URL here if the browser button did not reopen
               Anarlog.
@@ -258,7 +269,9 @@ function SignInInstruction({ onBack }: { onBack: () => void }) {
         <button
           type="button"
           onClick={() => setShowCallbackInput(true)}
-          {...stylex.props(styles.handoffButton)}
+          className={cn([
+            "text-muted-foreground hover:text-muted-foreground text-xs font-medium underline underline-offset-4 transition-colors",
+          ])}
         >
           <Trans>
             Browser handoff not working? Paste the callback link instead
@@ -268,166 +281,3 @@ function SignInInstruction({ onBack }: { onBack: () => void }) {
     </InstructionShell>
   );
 }
-
-const styles = stylex.create({
-  backButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": `color-mix(in srgb, ${colors.muted} 70%, transparent)`,
-    },
-    borderRadius: radii.full,
-    color: colors.mutedForeground,
-    display: "flex",
-    gap: "0.375rem",
-    height: "2.25rem",
-    paddingInline: "0.75rem",
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  backIcon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  backLabel: {
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    lineHeight: "1rem",
-  },
-  callbackForm: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-    width: "100%",
-  },
-  callbackHint: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    lineHeight: "1.25rem",
-  },
-  callbackInput: {
-    fontFamily: fonts.mono,
-    fontSize: "0.75rem",
-    height: "2.5rem",
-    lineHeight: "1rem",
-  },
-  children: {
-    alignItems: "center",
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-    width: "100%",
-  },
-  content: {
-    alignItems: "center",
-    display: "flex",
-    flexDirection: "column",
-    gap: "1.5rem",
-    maxWidth: "24rem",
-    paddingBottom: "2.5rem",
-    paddingInline: "2.5rem",
-    textAlign: "center",
-    width: "100%",
-  },
-  copy: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-    maxWidth: "100%",
-  },
-  defaultIcon: {
-    height: "3.5rem",
-    objectFit: "contain",
-    objectPosition: "center",
-    width: "3.5rem",
-  },
-  description: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    lineHeight: "1.5rem",
-  },
-  externalAction: {
-    backgroundColor: {
-      default: colors.card,
-      ":hover": colors.background,
-    },
-    borderColor: colors.border,
-    color: colors.mutedForeground,
-    height: "2.5rem",
-    width: "100%",
-  },
-  fullWidth: {
-    width: "100%",
-  },
-  githubIcon: {
-    color: colors.foreground,
-    height: "3.5rem",
-    width: "3.5rem",
-  },
-  handoffButton: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    lineHeight: "1rem",
-    textDecorationLine: "underline",
-    textUnderlineOffset: "4px",
-    transitionDuration: "150ms",
-    transitionProperty: "color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  header: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    paddingInline: "0.75rem",
-    paddingTop: "3rem",
-    position: "relative",
-    zIndex: 10,
-  },
-  main: {
-    alignItems: "center",
-    display: "flex",
-    flex: "1",
-    justifyContent: "center",
-    padding: "1.5rem",
-    position: "relative",
-    zIndex: 10,
-  },
-  shell: {
-    backgroundImage: `linear-gradient(to bottom, ${colors.background}, ${colors.card}, ${colors.card})`,
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    overflow: "hidden",
-    position: "relative",
-    userSelect: "none",
-  },
-  smallIcon: {
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  tallControl: {
-    height: "2.5rem",
-  },
-  title: {
-    color: colors.foreground,
-    fontFamily: fonts.sans,
-    fontSize: {
-      default: "1.375rem",
-      [media.sm]: "1.75rem",
-    },
-    fontWeight: 600,
-    lineHeight: 1.15,
-    overflowWrap: "break-word",
-  },
-  topGlow: {
-    backgroundImage: `linear-gradient(to bottom, color-mix(in srgb, ${colors.muted} 40%, transparent), transparent)`,
-    height: "8rem",
-    left: 0,
-    pointerEvents: "none",
-    position: "absolute",
-    right: 0,
-    top: 0,
-  },
-});

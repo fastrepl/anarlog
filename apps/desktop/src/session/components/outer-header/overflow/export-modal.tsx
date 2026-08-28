@@ -1,10 +1,8 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 import { downloadDir, join } from "@tauri-apps/api/path";
 import { useMemo, useState } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { json2md } from "@anlg/editor/markdown";
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import {
@@ -20,6 +18,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@anlg/ui/components/ui/dialog";
+import { cn } from "@anlg/utils";
 
 import { formatDate, formatDuration } from "./export-utils";
 
@@ -400,31 +399,46 @@ export function ExportModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent overlaySx={styles.overlay} sx={styles.dialog}>
-        <div {...stylex.props(styles.panel)}>
-          <div {...stylex.props(styles.heading)}>
-            <DialogTitle sx={styles.title}>
+      <DialogContent
+        overlayClassName="bg-black/20 backdrop-blur-xs"
+        className={cn([
+          "w-full max-w-xs gap-0 border-0 bg-transparent p-4 shadow-none sm:rounded-none",
+          "[&>button:last-child]:hidden",
+        ])}
+      >
+        <div
+          className={cn([
+            "border-border/80 bg-background rounded-xl border",
+            "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
+            "flex flex-col gap-4 p-5 text-center",
+          ])}
+        >
+          <div className="flex flex-col gap-1">
+            <DialogTitle className="text-base leading-normal font-semibold">
               <Trans>Export</Trans>
             </DialogTitle>
-            <DialogDescription sx={styles.description}>
+            <DialogDescription className="text-muted-foreground text-sm">
               <Trans>Choose a file format and what to include.</Trans>
             </DialogDescription>
           </div>
 
-          <div {...stylex.props(styles.options)}>
-            <div {...stylex.props(styles.optionGroup)}>
-              <span {...stylex.props(styles.optionLabel)}>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium">
                 <Trans>File format</Trans>
               </span>
-              <div {...stylex.props(styles.choices)}>
+              <div className="flex justify-center gap-4">
                 {(["pdf", "txt", "md", "org"] as const).map((f) => (
-                  <label key={f} {...stylex.props(styles.choice)}>
+                  <label
+                    key={f}
+                    className="flex cursor-pointer items-center gap-1.5 text-sm"
+                  >
                     <input
                       type="radio"
                       name="export-format"
                       checked={format === f}
                       onChange={() => setFormat(f)}
-                      {...stylex.props(styles.input)}
+                      className="accent-primary"
                     />
                     {f === "md"
                       ? "Markdown"
@@ -436,11 +450,11 @@ export function ExportModal({
               </div>
             </div>
 
-            <div {...stylex.props(styles.optionGroup)}>
-              <span {...stylex.props(styles.optionLabel)}>
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium">
                 <Trans>Include</Trans>
               </span>
-              <div {...stylex.props(styles.choices)}>
+              <div className="flex justify-center gap-4">
                 {(
                   [
                     ["memo", <Trans>Memo</Trans>, includeMemo, setIncludeMemo],
@@ -458,12 +472,15 @@ export function ExportModal({
                     ],
                   ] as const
                 ).map(([id, label, checked, setter]) => (
-                  <label key={id} {...stylex.props(styles.choice)}>
+                  <label
+                    key={id}
+                    className="flex cursor-pointer items-center gap-1.5 text-sm"
+                  >
                     <input
                       type="checkbox"
                       checked={checked}
                       onChange={(e) => setter(e.target.checked)}
-                      {...stylex.props(styles.input)}
+                      className="accent-primary"
                     />
                     {label}
                   </label>
@@ -477,7 +494,7 @@ export function ExportModal({
             disabled={
               isPending || isTranscriptPending || !hasAnyContentSelected
             }
-            {...stylex.props(styles.exportButton)}
+            className="border-primary bg-primary text-primary-foreground hover:bg-primary/90 h-10 w-full rounded-full border-2 text-sm font-medium shadow-[0_4px_14px_rgba(87,83,78,0.4)] transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isPending
               ? t`Exporting...`
@@ -490,106 +507,3 @@ export function ExportModal({
     </Dialog>
   );
 }
-
-const styles = stylex.create({
-  choice: {
-    alignItems: "center",
-    cursor: "pointer",
-    display: "flex",
-    fontSize: "0.875rem",
-    gap: "0.375rem",
-  },
-  choices: {
-    display: "flex",
-    gap: "1rem",
-    justifyContent: "center",
-  },
-  description: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-  },
-  dialog: {
-    backgroundColor: "transparent",
-    borderWidth: 0,
-    boxShadow: "none",
-    display: {
-      default: "grid",
-      ":is(*) > button:last-child": "none",
-    },
-    gap: 0,
-    maxWidth: "20rem",
-    padding: "1rem",
-    width: "100%",
-  },
-  exportButton: {
-    backgroundColor: {
-      default: colors.primary,
-      ":hover": `color-mix(in srgb, ${colors.primary} 90%, transparent)`,
-    },
-    borderColor: colors.primary,
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "2px",
-    boxShadow: "0 4px 14px rgb(87 83 78 / 0.4)",
-    color: colors.primaryForeground,
-    cursor: {
-      default: "pointer",
-      ":disabled": "not-allowed",
-    },
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    height: "2.5rem",
-    opacity: {
-      default: 1,
-      ":disabled": 0.5,
-    },
-    transitionDuration: "200ms",
-    transitionProperty: "all",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "100%",
-  },
-  heading: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.25rem",
-  },
-  input: {
-    accentColor: colors.primary,
-  },
-  optionGroup: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-  },
-  optionLabel: {
-    fontSize: "0.875rem",
-    fontWeight: 500,
-  },
-  options: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  overlay: {
-    backdropFilter: "blur(4px)",
-    backgroundColor: "rgb(0 0 0 / 0.2)",
-  },
-  panel: {
-    backgroundColor: colors.background,
-    borderColor: `color-mix(in srgb, ${colors.border} 80%, transparent)`,
-    borderRadius: radii.xl,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: "0 25px 50px -12px rgb(0 0 0 / 0.25)",
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-    padding: "1.25rem",
-    textAlign: "center",
-  },
-  title: {
-    fontSize: "1rem",
-    fontWeight: 600,
-    lineHeight: "normal",
-  },
-});

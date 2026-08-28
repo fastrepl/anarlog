@@ -1,10 +1,8 @@
-import * as stylex from "@stylexjs/stylex";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { FloatingActionButton, floatingActionButtonStyles } from "./index";
+import { FloatingActionButton } from "./index";
 
-import { expectStyle } from "~/session/stylex-test";
 import type { Tab } from "~/store/zustand/tabs";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 
@@ -91,9 +89,14 @@ describe("FloatingActionButton", () => {
     const slot = document.querySelector("[data-session-fab-selection]");
     const stack = slot?.parentElement;
 
-    expectStyle(stack, floatingActionButtonStyles.root);
-    expectStyle(slot?.previousElementSibling, stylex.defaultMarker());
-    expectStyle(slot, floatingActionButtonStyles.selection);
+    expect(stack?.className).toContain("flex-col-reverse");
+    expect(stack?.className).toContain("bottom-3");
+    expect(slot?.className).toContain("mb-2");
+    expect(slot?.className).toContain("translate-y-8");
+    expect(slot?.className).toContain("peer-hover/session-fab:translate-y-0");
+    expect(slot?.className).toContain(
+      "peer-focus-within/session-fab:translate-y-0",
+    );
   });
 
   it("opens chat from the FAB", () => {

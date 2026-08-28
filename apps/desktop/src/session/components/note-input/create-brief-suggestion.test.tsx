@@ -7,12 +7,7 @@ vi.mock("@lingui/react/macro", () => ({
   useLingui: () => ({ t: (strings: TemplateStringsArray) => strings[0] }),
 }));
 
-import {
-  CreateBriefSuggestion,
-  createBriefSuggestionStyles,
-} from "./create-brief-suggestion";
-
-import { expectStyle } from "~/session/stylex-test";
+import { CreateBriefSuggestion } from "./create-brief-suggestion";
 
 describe("CreateBriefSuggestion", () => {
   afterEach(cleanup);
@@ -26,7 +21,10 @@ describe("CreateBriefSuggestion", () => {
     const button = screen.getByRole("button", {
       name: "Create a brief to prepare this meeting",
     });
-    expectStyle(button, createBriefSuggestionStyles.button);
+    expect(button.className).toContain("-ml-2");
+    expect(button.className).toContain("h-8");
+    expect(button.className).toContain("mb-6");
+    expect(button.className).toContain("text-muted-foreground");
     fireEvent.click(button);
 
     expect(onCreate).toHaveBeenCalledOnce();

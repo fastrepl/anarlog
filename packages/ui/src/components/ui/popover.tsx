@@ -1,14 +1,11 @@
 import * as PopoverPrimitive from "@radix-ui/react-popover";
-import * as stylex from "@stylexjs/stylex";
 import * as React from "react";
 
-import { colors } from "@anlg/design-system/tokens.stylex";
-import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
+import { cn } from "@anlg/utils";
 
 import {
   AppFloatingPanel,
-  appFloatingContentStyle,
-  floatingContentStyle,
+  appFloatingContentClassName,
   type FloatingContentVariant,
 } from "./floating-content";
 
@@ -20,7 +17,7 @@ const PopoverContent = React.forwardRef<
   React.ComponentRef<typeof PopoverPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content> & {
     variant?: FloatingContentVariant;
-  } & StyleXProps
+  }
 >(
   (
     {
@@ -29,8 +26,6 @@ const PopoverContent = React.forwardRef<
       sideOffset = 4,
       collisionPadding = 8,
       variant = "default",
-      style,
-      sx,
       ...props
     },
     ref,
@@ -41,56 +36,19 @@ const PopoverContent = React.forwardRef<
         align={align}
         sideOffset={sideOffset}
         collisionPadding={collisionPadding}
-        {...props}
-        {...mergeStyleXProps(
-          [
-            floatingContentStyle,
-            styles.content,
-            variant === "app" ? appFloatingContentStyle : styles.defaultContent,
-            sx,
-          ],
+        className={cn([
+          "text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-72 origin-(--radix-popover-content-transform-origin) outline-hidden",
+          variant === "app"
+            ? appFloatingContentClassName
+            : "bg-popover rounded-[18px] border p-4 shadow-md",
           className,
-          style,
-        )}
+        ])}
+        {...props}
       />
     </PopoverPrimitive.Portal>
   ),
 );
 PopoverContent.displayName = PopoverPrimitive.Content.displayName;
-
-const styles = stylex.create({
-  content: {
-    outlineColor: {
-      default: null,
-      "@media (forced-colors: active)": "transparent",
-    },
-    outlineOffset: {
-      default: null,
-      "@media (forced-colors: active)": "2px",
-    },
-    outlineStyle: {
-      default: "none",
-      "@media (forced-colors: active)": "solid",
-    },
-    outlineWidth: {
-      default: null,
-      "@media (forced-colors: active)": "2px",
-    },
-    transformOrigin: "var(--radix-popover-content-transform-origin)",
-    width: "18rem",
-    zIndex: 50,
-  },
-  defaultContent: {
-    backgroundColor: colors.popover,
-    borderColor: colors.border,
-    borderRadius: "18px",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow:
-      "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
-    padding: "1rem",
-  },
-});
 
 export {
   AppFloatingPanel,

@@ -20,11 +20,9 @@ import {
   getAssignmentAnchorWordId,
   getAssignmentWordIds,
   SpeakerAssignPopover,
-  speakerAssignStyles,
   type SpeakerParticipantOption,
 } from "./speaker-assign";
 
-import { expectNotStyle, expectStyle } from "~/session/stylex-test";
 import type { Segment } from "~/stt/live-segment";
 
 const {
@@ -200,26 +198,32 @@ describe("SpeakerAssignPopover", () => {
     );
 
     const trigger = screen.getByRole("button", { name: "Speaker 2" });
-    expectStyle(trigger, speakerAssignStyles.trigger);
-    expectNotStyle(trigger, speakerAssignStyles.underlined);
+    expect(trigger.className).toContain("rounded-full");
+    expect(trigger.className).toContain("pr-2");
+    expect(trigger.className).toContain("hover:underline");
+    expect(trigger.className).toContain("focus-visible:underline");
+    expect(trigger.className).not.toContain("hover:bg-accent");
+    expect(trigger.className.split(/\s+/)).not.toContain("underline");
+    expect(trigger.className).not.toContain("px-2");
+    expect(trigger.className).not.toContain("-ml-2");
 
     fireEvent.click(trigger);
-    expectStyle(trigger, speakerAssignStyles.underlined);
+    expect(trigger.className.split(/\s+/)).toContain("underline");
     expect(
       screen.getByRole("button", { name: "Create new speaker" }),
     ).toBeTruthy();
     const searchInput = screen.getByPlaceholderText(
       "Select or type to add speaker",
     );
-    expectStyle(searchInput.parentElement, speakerAssignStyles.searchRow);
-    expectStyle(
-      searchInput.parentElement?.parentElement,
-      speakerAssignStyles.searchFrame,
+    expect(searchInput.parentElement?.className).toContain("h-8");
+    expect(searchInput.parentElement?.parentElement?.className).toContain(
+      "py-1",
     );
     const footer = screen.getByRole("button", {
       name: "Confirm",
     }).parentElement;
-    expectStyle(footer, speakerAssignStyles.footer);
+    expect(footer?.className).toContain("py-1");
+    expect(footer?.className).not.toContain("pb-3");
     const aliceOption = screen.getByRole("button", { name: "Alice" });
     expect(aliceOption.querySelector("img")?.getAttribute("src")).toBe(
       "data:image/jpeg;base64,alice",

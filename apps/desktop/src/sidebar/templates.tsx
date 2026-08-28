@@ -1,5 +1,3 @@
-import * as stylex from "@stylexjs/stylex";
-
 import { useTabs } from "~/store/zustand/tabs";
 import { TemplatesSidebarContent } from "~/templates";
 
@@ -11,18 +9,8 @@ export function TemplatesNav() {
   }
 
   return (
-    <div {...stylex.props(styles.root)}>
+    <div className="flex h-full flex-col overflow-hidden pb-2">
       <TemplatesSidebarContent tab={currentTab} />
     </div>
   );
 }
-
-const styles = stylex.create({
-  root: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    overflow: "hidden",
-    paddingBottom: "0.5rem",
-  },
-});

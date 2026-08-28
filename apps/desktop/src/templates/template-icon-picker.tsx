@@ -1,18 +1,16 @@
 import emojiData, { type Emoji, type EmojiMartData } from "@emoji-mart/data";
 import { useLingui } from "@lingui/react/macro";
 import { Check, MagnifyingGlass, X } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMemo, useState } from "react";
 import { HexColorInput, HexColorPicker } from "react-colorful";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import {
   AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
-import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
+import { cn } from "@anlg/utils";
 
 import {
   DEFAULT_TEMPLATE_ICON,
@@ -147,23 +145,23 @@ function SearchField({
 }) {
   const { t } = useLingui();
   return (
-    <div {...stylex.props(styles.searchField)}>
-      <MagnifyingGlass {...stylex.props(styles.searchIcon)} />
+    <div className="border-border flex h-12 items-center gap-2 border-b px-4">
+      <MagnifyingGlass className="text-muted-foreground size-4 shrink-0" />
       <input
         type="text"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        {...stylex.props(styles.searchInput)}
+        className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm outline-hidden"
       />
       {value ? (
         <button
           type="button"
           onClick={() => onChange("")}
-          {...stylex.props(styles.clearButton)}
+          className="hover:bg-accent rounded-sm p-1"
           aria-label={t`Clear search`}
         >
-          <X {...stylex.props(styles.clearIcon)} />
+          <X className="text-muted-foreground size-3.5" />
         </button>
       ) : null}
     </div>
@@ -262,22 +260,24 @@ export function TemplateIconPicker({
       <PopoverTrigger asChild>
         <button
           type="button"
-          {...stylex.props([
-            styles.trigger,
-            size === "sm" ? styles.smallTrigger : styles.defaultTrigger,
+          className={cn([
+            "relative flex shrink-0 items-center justify-center overflow-hidden rounded-md transition-colors",
+            size === "sm"
+              ? "hover:bg-accent size-7"
+              : "border-border bg-muted/60 hover:bg-accent after:border-t-background size-9 border after:absolute after:top-0 after:right-0 after:size-0 after:border-t-[8px] after:border-l-[8px] after:border-l-transparent",
           ])}
           aria-label={t`Choose template icon`}
         >
           <TemplateIconGlyph
             icon={selected}
-            sx={
+            className={
               selected.type === "emoji"
                 ? size === "sm"
-                  ? styles.smallEmoji
-                  : styles.defaultEmoji
+                  ? "text-sm"
+                  : "text-lg"
                 : size === "sm"
-                  ? styles.smallIcon
-                  : styles.defaultIcon
+                  ? "size-4"
+                  : "size-[18px]"
             }
           />
         </button>
@@ -286,10 +286,10 @@ export function TemplateIconPicker({
         variant="app"
         align="start"
         sideOffset={6}
-        sx={styles.popover}
+        className="w-[420px] max-w-[calc(100vw-24px)]"
       >
-        <AppFloatingPanel sx={styles.panel}>
-          <div {...stylex.props(styles.tabs)}>
+        <AppFloatingPanel className="overflow-hidden">
+          <div className="border-border flex h-12 items-end gap-6 border-b px-4">
             {(["icons", "emojis"] as const).map((nextTab) => (
               <button
                 key={nextTab}
@@ -297,9 +297,11 @@ export function TemplateIconPicker({
                 role="tab"
                 aria-selected={tab === nextTab}
                 onClick={() => setTab(nextTab)}
-                {...stylex.props([
-                  styles.tab,
-                  tab === nextTab ? styles.activeTab : styles.inactiveTab,
+                className={cn([
+                  "relative h-full pt-1 text-sm font-medium capitalize",
+                  tab === nextTab
+                    ? "text-foreground after:bg-primary after:absolute after:right-0 after:bottom-0 after:left-0 after:h-0.5"
+                    : "text-muted-foreground hover:text-foreground",
                 ])}
               >
                 {nextTab === "icons" ? t`Icons` : t`Emojis`}
@@ -309,16 +311,14 @@ export function TemplateIconPicker({
 
           {tab === "icons" ? (
             <div>
-              <div {...stylex.props(styles.colorSection)}>
-                <div {...stylex.props(styles.colorRow)}>
+              <div className="border-border border-b px-4 py-3">
+                <div className="flex items-center justify-between">
                   {ICON_COLORS.map((color) => (
                     <button
                       key={color}
                       type="button"
-                      {...stylex.props([
-                        styles.colorButton,
-                        styles.dynamicBackground(color),
-                      ])}
+                      className="relative flex size-7 items-center justify-center rounded-full"
+                      style={{ backgroundColor: color }}
                       onClick={() => {
                         setCustomColorOpen(false);
                         selectColor(color);
@@ -326,16 +326,16 @@ export function TemplateIconPicker({
                       aria-label={`Use ${color}`}
                     >
                       {iconColor.toLowerCase() === color.toLowerCase() ? (
-                        <Check {...stylex.props(styles.checkIcon)} />
+                        <Check className="size-4 text-white" />
                       ) : null}
                     </button>
                   ))}
-                  <div {...stylex.props(styles.colorDivider)} />
+                  <div className="bg-border h-7 w-px" />
                   <button
                     type="button"
-                    {...stylex.props([
-                      styles.customColorButton,
-                      customColorOpen && styles.openCustomColorButton,
+                    className={cn([
+                      "size-7 rounded-full bg-[conic-gradient(from_180deg,red,#ff0,#0f0,#0ff,#00f,#f0f,red)]",
+                      customColorOpen && "ring-primary ring-2 ring-offset-2",
                     ])}
                     onClick={() => setCustomColorOpen((current) => !current)}
                     aria-label={t`Choose custom color`}
@@ -343,26 +343,26 @@ export function TemplateIconPicker({
                 </div>
 
                 {customColorOpen ? (
-                  <div {...stylex.props(styles.customColor)}>
-                    <div {...stylex.props(styles.customColorHeader)}>
+                  <div className="mt-3">
+                    <div className="mb-2 flex items-center gap-2">
                       <span
-                        {...stylex.props([
-                          styles.colorPreview,
-                          styles.dynamicBackground(iconColor),
-                        ])}
+                        className="size-6 rounded-full"
+                        style={{ backgroundColor: iconColor }}
                       />
-                      <span {...stylex.props(styles.hexLabel)}>HEX</span>
+                      <span className="text-muted-foreground text-xs font-medium">
+                        HEX
+                      </span>
                       <HexColorInput
                         color={iconColor}
                         onChange={selectColor}
                         prefixed
-                        {...stylex.props(styles.hexInput)}
+                        className="min-w-0 flex-1 bg-transparent text-sm uppercase outline-hidden"
                       />
                     </div>
                     <HexColorPicker
                       color={iconColor}
                       onChange={selectColor}
-                      {...stylex.props(styles.colorPicker)}
+                      className="template-color-picker! h-36! w-full!"
                     />
                   </div>
                 ) : null}
@@ -373,33 +373,31 @@ export function TemplateIconPicker({
                 onChange={setIconSearch}
                 placeholder={t`Search icons...`}
               />
-              <div {...mergeStyleXProps(styles.iconScroll, "scroll-fade-y")}>
-                <div {...stylex.props(styles.grid)}>
+              <div className="scroll-fade-y max-h-[360px] overflow-y-auto p-3">
+                <div className="grid grid-cols-12 gap-1">
                   {filteredIcons.map((icon) => (
                     <button
                       key={icon.value}
                       type="button"
                       onClick={() => selectIcon(icon.value)}
-                      {...stylex.props([
-                        styles.gridButton,
+                      className={cn([
+                        "hover:bg-accent flex size-7 items-center justify-center rounded-md transition-colors",
                         selected.type === "icon" &&
                           selected.value === icon.value &&
-                          styles.selectedGridButton,
+                          "bg-accent",
                       ])}
                       title={icon.search}
                       aria-label={icon.search}
                     >
                       <icon.component
-                        {...stylex.props([
-                          styles.defaultIcon,
-                          styles.dynamicColor(iconColor),
-                        ])}
+                        className="size-[18px]"
+                        style={{ color: iconColor }}
                       />
                     </button>
                   ))}
                 </div>
                 {filteredIcons.length === 0 ? (
-                  <p {...stylex.props(styles.emptyState)}>
+                  <p className="text-muted-foreground py-8 text-center text-sm">
                     {t`No icons found`}
                   </p>
                 ) : null}
@@ -412,7 +410,7 @@ export function TemplateIconPicker({
                 onChange={setEmojiSearch}
                 placeholder={t`Search emoji...`}
               />
-              <div {...mergeStyleXProps(styles.emojiScroll, "scroll-fade-y")}>
+              <div className="scroll-fade-y max-h-[480px] overflow-y-auto px-4 py-3">
                 {!emojiSearch.trim() ? (
                   <EmojiSection
                     title={t`Frequently used`}
@@ -429,7 +427,7 @@ export function TemplateIconPicker({
                   />
                 ))}
                 {filteredEmojiCategories.length === 0 ? (
-                  <p {...stylex.props(styles.emptyState)}>
+                  <p className="text-muted-foreground py-8 text-center text-sm">
                     {t`No emoji found`}
                   </p>
                 ) : null}
@@ -452,15 +450,17 @@ function EmojiSection({
   onSelect: (emoji: EmojiItem) => void;
 }) {
   return (
-    <section {...stylex.props(styles.emojiSection)}>
-      <h3 {...stylex.props(styles.emojiHeading)}>{title}</h3>
-      <div {...stylex.props(styles.grid)}>
+    <section className="mb-4 last:mb-0">
+      <h3 className="text-muted-foreground mb-1.5 text-sm font-medium">
+        {title}
+      </h3>
+      <div className="grid grid-cols-12 gap-1">
         {emojis.map((emoji) => (
           <button
             key={emoji.id}
             type="button"
             onClick={() => onSelect(emoji)}
-            {...stylex.props([styles.gridButton, styles.emojiButton])}
+            className="hover:bg-accent flex size-7 items-center justify-center rounded-md text-lg transition-colors"
             title={emoji.name}
             aria-label={emoji.name}
           >
@@ -471,295 +471,3 @@ function EmojiSection({
     </section>
   );
 }
-
-const styles = stylex.create({
-  activeTab: {
-    "::after": {
-      backgroundColor: colors.primary,
-      bottom: 0,
-      content: '""',
-      height: "0.125rem",
-      left: 0,
-      position: "absolute",
-      right: 0,
-    },
-    color: colors.foreground,
-  },
-  checkIcon: {
-    color: "white",
-    height: "1rem",
-    width: "1rem",
-  },
-  clearButton: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    borderRadius: radii.sm,
-    padding: "0.25rem",
-  },
-  clearIcon: {
-    color: colors.mutedForeground,
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  colorButton: {
-    alignItems: "center",
-    borderRadius: radii.full,
-    display: "flex",
-    height: "1.75rem",
-    justifyContent: "center",
-    position: "relative",
-    width: "1.75rem",
-  },
-  colorDivider: {
-    backgroundColor: colors.border,
-    height: "1.75rem",
-    width: "1px",
-  },
-  colorPicker: {
-    height: "9rem",
-    width: "100%",
-  },
-  colorPreview: {
-    borderRadius: radii.full,
-    height: "1.5rem",
-    width: "1.5rem",
-  },
-  colorRow: {
-    alignItems: "center",
-    display: "flex",
-    justifyContent: "space-between",
-  },
-  colorSection: {
-    borderBottomColor: colors.border,
-    borderBottomStyle: "solid",
-    borderBottomWidth: "1px",
-    paddingBlock: "0.75rem",
-    paddingInline: "1rem",
-  },
-  customColor: {
-    marginTop: "0.75rem",
-  },
-  customColorButton: {
-    backgroundImage:
-      "conic-gradient(from 180deg, red, #ff0, #0f0, #0ff, #00f, #f0f, red)",
-    borderRadius: radii.full,
-    height: "1.75rem",
-    width: "1.75rem",
-  },
-  customColorHeader: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-    marginBottom: "0.5rem",
-  },
-  defaultEmoji: {
-    fontSize: "1.125rem",
-    lineHeight: "1.75rem",
-  },
-  defaultIcon: {
-    height: "1.125rem",
-    width: "1.125rem",
-  },
-  defaultTrigger: {
-    "::after": {
-      borderLeftColor: "transparent",
-      borderLeftStyle: "solid",
-      borderLeftWidth: "8px",
-      borderTopColor: colors.background,
-      borderTopStyle: "solid",
-      borderTopWidth: "8px",
-      content: '""',
-      height: 0,
-      position: "absolute",
-      right: 0,
-      top: 0,
-      width: 0,
-    },
-    backgroundColor: {
-      default: `color-mix(in srgb, ${colors.muted} 60%, transparent)`,
-      ":hover": colors.accent,
-    },
-    borderColor: colors.border,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    height: "2.25rem",
-    width: "2.25rem",
-  },
-  dynamicBackground: (color: string) => ({
-    backgroundColor: color,
-  }),
-  dynamicColor: (color: string) => ({
-    color,
-  }),
-  emojiButton: {
-    fontSize: "1.125rem",
-    lineHeight: "1.75rem",
-  },
-  emojiHeading: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    lineHeight: "1.25rem",
-    marginBottom: "0.375rem",
-  },
-  emojiScroll: {
-    maxHeight: "480px",
-    overflowY: "auto",
-    paddingBlock: "0.75rem",
-    paddingInline: "1rem",
-  },
-  emojiSection: {
-    marginBottom: {
-      default: "1rem",
-      ":last-child": 0,
-    },
-  },
-  emptyState: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-    paddingBlock: "2rem",
-    textAlign: "center",
-  },
-  grid: {
-    display: "grid",
-    gap: "0.25rem",
-    gridTemplateColumns: "repeat(12, minmax(0, 1fr))",
-  },
-  gridButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    borderRadius: radii.md,
-    display: "flex",
-    height: "1.75rem",
-    justifyContent: "center",
-    transitionDuration: "150ms",
-    transitionProperty: "background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "1.75rem",
-  },
-  hexInput: {
-    backgroundColor: "transparent",
-    flex: "1",
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-    minWidth: 0,
-    outlineColor: "transparent",
-    outlineOffset: "2px",
-    outlineStyle: "solid",
-    outlineWidth: "2px",
-    textTransform: "uppercase",
-  },
-  hexLabel: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    lineHeight: "1rem",
-  },
-  iconScroll: {
-    maxHeight: "360px",
-    overflowY: "auto",
-    padding: "0.75rem",
-  },
-  inactiveTab: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-  },
-  openCustomColorButton: {
-    boxShadow: `0 0 0 2px ${colors.background}, 0 0 0 4px ${colors.primary}`,
-  },
-  panel: {
-    overflow: "hidden",
-  },
-  popover: {
-    maxWidth: "calc(100vw - 24px)",
-    width: "420px",
-  },
-  searchField: {
-    alignItems: "center",
-    borderBottomColor: colors.border,
-    borderBottomStyle: "solid",
-    borderBottomWidth: "1px",
-    display: "flex",
-    gap: "0.5rem",
-    height: "3rem",
-    paddingInline: "1rem",
-  },
-  searchIcon: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    height: "1rem",
-    width: "1rem",
-  },
-  searchInput: {
-    "::placeholder": {
-      color: colors.mutedForeground,
-    },
-    backgroundColor: "transparent",
-    flex: "1",
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-    minWidth: 0,
-    outlineColor: "transparent",
-    outlineOffset: "2px",
-    outlineStyle: "solid",
-    outlineWidth: "2px",
-  },
-  selectedGridButton: {
-    backgroundColor: colors.accent,
-  },
-  smallEmoji: {
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-  },
-  smallIcon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  smallTrigger: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    height: "1.75rem",
-    width: "1.75rem",
-  },
-  tab: {
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    height: "100%",
-    lineHeight: "1.25rem",
-    paddingTop: "0.25rem",
-    position: "relative",
-    textTransform: "capitalize",
-  },
-  tabs: {
-    alignItems: "flex-end",
-    borderBottomColor: colors.border,
-    borderBottomStyle: "solid",
-    borderBottomWidth: "1px",
-    display: "flex",
-    gap: "1.5rem",
-    height: "3rem",
-    paddingInline: "1rem",
-  },
-  trigger: {
-    alignItems: "center",
-    borderRadius: radii.md,
-    display: "flex",
-    flexShrink: 0,
-    justifyContent: "center",
-    overflow: "hidden",
-    position: "relative",
-    transitionDuration: "150ms",
-    transitionProperty: "background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-});

@@ -1,8 +1,7 @@
 import { Camera } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { type ChangeEvent, type ReactNode, useRef } from "react";
 
-import { radii } from "@anlg/design-system/tokens.stylex";
+import { cn } from "@anlg/utils";
 
 import { updateContactAvatar } from "./queries";
 
@@ -21,18 +20,23 @@ const AVATAR_RASTER_SIZE = 70;
 export function ContactImage({
   src,
   size,
-  sx,
+  className,
 }: {
   src: string;
   size: number;
-  sx?: stylex.StyleXStyles;
+  className?: string;
 }) {
   return (
     <img
       src={src}
       alt=""
       draggable={false}
-      {...stylex.props([styles.image, styles.imageSize(size), sx])}
+      style={{ width: size, height: size }}
+      className={cn([
+        "shrink-0 rounded-full object-cover",
+        "border border-black/10 shadow-xs",
+        className,
+      ])}
     />
   );
 }
@@ -61,74 +65,31 @@ export function AvatarUploadButton({
 
   return (
     <button
-      data-avatar-upload
       type="button"
       onClick={() => inputRef.current?.click()}
       aria-label={label}
       title={label}
-      {...stylex.props(styles.uploadButton)}
+      className="group relative block shrink-0 cursor-pointer rounded-full"
     >
       {children}
-      <span {...stylex.props(styles.uploadOverlay)}>
-        <Camera {...stylex.props(styles.cameraIcon)} />
+      <span
+        className={cn([
+          "absolute inset-0 flex items-center justify-center rounded-full",
+          "bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100",
+        ])}
+      >
+        <Camera className="size-5" />
       </span>
       <input
         ref={inputRef}
         type="file"
         accept="image/*"
-        {...stylex.props(styles.fileInput)}
+        className="hidden"
         onChange={(event) => void handleFileChange(event)}
       />
     </button>
   );
 }
-
-const styles = stylex.create({
-  cameraIcon: {
-    height: "1.25rem",
-    width: "1.25rem",
-  },
-  fileInput: {
-    display: "none",
-  },
-  image: {
-    borderColor: "rgb(0 0 0 / 0.1)",
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: "0 1px 2px rgb(0 0 0 / 0.05)",
-    flexShrink: 0,
-    objectFit: "cover",
-  },
-  imageSize: (size: number) => ({
-    height: size,
-    width: size,
-  }),
-  uploadButton: {
-    borderRadius: radii.full,
-    cursor: "pointer",
-    display: "block",
-    flexShrink: 0,
-    position: "relative",
-  },
-  uploadOverlay: {
-    alignItems: "center",
-    backgroundColor: "rgb(0 0 0 / 0.4)",
-    borderRadius: radii.full,
-    color: "white",
-    display: "flex",
-    inset: 0,
-    justifyContent: "center",
-    opacity: {
-      default: 0,
-      ":is([data-avatar-upload]:hover *)": 1,
-    },
-    position: "absolute",
-    transitionDuration: "150ms",
-    transitionProperty: "opacity",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-});
 
 async function compressAvatarImage(file: File): Promise<string> {
   const url = URL.createObjectURL(file);

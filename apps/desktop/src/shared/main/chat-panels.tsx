@@ -1,8 +1,6 @@
-import * as stylex from "@stylexjs/stylex";
 import { isTauri } from "@tauri-apps/api/core";
 import { useCallback, useLayoutEffect, useRef } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { commands as windowsCommands } from "@anlg/plugin-windows";
 import {
   ResizableHandle,
@@ -68,33 +66,33 @@ export function MainChatPanels({
             autoSaveId={autoSaveId}
             data-main-chat-panel-group
             direction="horizontal"
-            sx={styles.panelGroup}
+            className="flex min-h-0 flex-1 overflow-hidden"
           >
             <ResizablePanel
-              sx={styles.bodyPanel}
+              className="min-h-0 flex-1 overflow-hidden"
               style={{ minWidth: bodyMinWidth }}
             >
               <div
                 ref={bodyPanelContainerRef}
                 data-main-body-panel-container
-                {...stylex.props(styles.body)}
+                className="h-full min-h-0 min-w-0 flex-1 overflow-hidden"
               >
                 {children}
               </div>
             </ResizablePanel>
             {isRightPanelOpen ? (
               <>
-                <ResizableHandle sx={styles.resizeHandle} />
+                <ResizableHandle className="w-0" />
                 <ResizablePanel
                   defaultSize={30}
                   minSize={20}
                   maxSize={50}
-                  sx={styles.rightPanel}
+                  className="min-h-0 overflow-hidden"
                   style={{ minWidth: RIGHT_CHAT_PANEL_MIN_WIDTH_PX }}
                 >
                   <div
                     data-chat-right-panel
-                    {...stylex.props(styles.rightPanelContent)}
+                    className="border-border bg-card -mb-1 h-[calc(100%+0.25rem)] min-h-0 overflow-hidden rounded-tr-xl border-x"
                   >
                     <ChatPanelFrame
                       layout="right-panel"
@@ -118,50 +116,6 @@ export function MainChatPanels({
     </ChatSessionHost>
   );
 }
-
-const styles = stylex.create({
-  body: {
-    flex: "1",
-    height: "100%",
-    minHeight: 0,
-    minWidth: 0,
-    overflow: "hidden",
-  },
-  bodyPanel: {
-    flex: "1",
-    minHeight: 0,
-    overflow: "hidden",
-  },
-  panelGroup: {
-    display: "flex",
-    flex: "1",
-    minHeight: 0,
-    overflow: "hidden",
-  },
-  resizeHandle: {
-    width: 0,
-  },
-  rightPanel: {
-    minHeight: 0,
-    overflow: "hidden",
-  },
-  rightPanelContent: {
-    backgroundColor: colors.card,
-    borderLeftColor: colors.border,
-    borderLeftStyle: "solid",
-    borderLeftWidth: "1px",
-    borderRightColor: colors.border,
-    borderRightStyle: "solid",
-    borderRightWidth: "1px",
-    borderTopRightRadius: radii.xl,
-    height: "calc(100% + 0.25rem)",
-    marginBottom: "-0.25rem",
-    minHeight: 0,
-    overflow: "hidden",
-  },
-});
-
-export { styles as chatPanelStyles };
 
 function getMainBodyMinWidth({
   currentTab,

@@ -1,12 +1,11 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { CheckCircle, CircleNotch, Copy } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { colors, fonts, media, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { cn } from "@anlg/utils";
 
 import { SkillsRow } from "./skills";
 
@@ -125,23 +124,23 @@ function CliSection({
   const isInstalled = status?.state === "installed";
 
   return (
-    <section {...stylex.props(styles.section)}>
-      <h2 {...stylex.props(styles.heading)}>{t`CLI & MCP`}</h2>
-      <div {...stylex.props(styles.content)}>
-        <div {...stylex.props(styles.row)}>
-          <div {...stylex.props(styles.identity)}>
-            <h3 {...stylex.props(styles.title)}>
+    <section className="flex flex-col gap-4">
+      <h2 className="font-sans text-lg font-semibold">{t`CLI & MCP`}</h2>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h3 className="flex items-center gap-1.5 text-sm font-medium">
               <Trans>Anarlog CLI</Trans>
               {isInstalled && (
                 <CheckCircle
                   aria-label={t`Installed`}
-                  {...stylex.props(styles.installedIcon)}
+                  className="size-3.5 text-emerald-600"
                 />
               )}
             </h3>
             <CliStatus status={status} isLoading={isLoading} error={error} />
           </div>
-          <div {...stylex.props(styles.actions)}>
+          <div className="flex shrink-0 gap-2">
             <Button
               type="button"
               size="sm"
@@ -149,7 +148,7 @@ function CliSection({
               onClick={onInstall}
             >
               {isInstalling ? (
-                <CircleNotch {...stylex.props(styles.icon, styles.spinner)} />
+                <CircleNotch className="size-3.5 animate-spin" />
               ) : isInstalled ? (
                 t`Reinstall`
               ) : (
@@ -176,8 +175,8 @@ function CliStatus({
 }) {
   if (isLoading) {
     return (
-      <span {...stylex.props(styles.loading)}>
-        <CircleNotch {...stylex.props(styles.smallIcon, styles.spinner)} />
+      <span className="text-muted-foreground mt-1 flex items-center gap-1.5 text-xs">
+        <CircleNotch className="size-3 animate-spin" />
         {t`Checking…`}
       </span>
     );
@@ -185,7 +184,7 @@ function CliStatus({
 
   if (error) {
     return (
-      <p {...stylex.props(styles.error)}>
+      <p className="text-destructive mt-1 text-xs">
         {t`Could not check the CLI: ${error.message}`}
       </p>
     );
@@ -204,16 +203,16 @@ function CliStatus({
   );
 
   return (
-    <div {...stylex.props(styles.status)}>
+    <div className="mt-1 flex items-start gap-1.5 text-xs">
       <span
-        {...stylex.props(
-          styles.statusDot,
+        className={cn([
+          "mt-1 size-2 shrink-0 rounded-full",
           status.state === "conflict"
-            ? styles.conflictDot
-            : styles.unavailableDot,
-        )}
+            ? "bg-amber-500"
+            : "bg-muted-foreground/50",
+        ])}
       />
-      <span {...stylex.props(styles.statusText)}>
+      <span className="text-muted-foreground break-all">
         {showDetails ? (status.details ?? t`Unavailable`) : t`Not installed`}
       </span>
     </div>
@@ -228,11 +227,11 @@ function McpRow({ status }: { status: EmbeddedCliStatus | undefined }) {
   );
 
   return (
-    <div {...stylex.props(styles.row)}>
-      <div {...stylex.props(styles.identity)}>
-        <h3 {...stylex.props(styles.subtitle)}>{t`MCP server`}</h3>
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <h3 className="text-sm font-medium">{t`MCP server`}</h3>
       </div>
-      <div {...stylex.props(styles.actions)}>
+      <div className="flex shrink-0 gap-2">
         <Button
           type="button"
           variant="outline"
@@ -246,129 +245,10 @@ function McpRow({ status }: { status: EmbeddedCliStatus | undefined }) {
             )
           }
         >
-          <Copy {...stylex.props(styles.icon)} />
+          <Copy className="size-3.5" />
           {t`Copy config`}
         </Button>
       </div>
     </div>
   );
 }
-
-const spin = stylex.keyframes({
-  to: { transform: "rotate(360deg)" },
-});
-
-const styles = stylex.create({
-  actions: {
-    display: "flex",
-    flexShrink: 0,
-    gap: "0.5rem",
-  },
-  conflictDot: {
-    backgroundColor: "#f59e0b",
-  },
-  content: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  error: {
-    color: colors.destructive,
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-    marginTop: "0.25rem",
-  },
-  heading: {
-    fontFamily: fonts.sans,
-    fontSize: "1.125rem",
-    fontWeight: 600,
-    lineHeight: "1.75rem",
-  },
-  icon: {
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  identity: {
-    minWidth: 0,
-  },
-  installedIcon: {
-    color: "#059669",
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  loading: {
-    alignItems: "center",
-    color: colors.mutedForeground,
-    display: "flex",
-    fontSize: "0.75rem",
-    gap: "0.375rem",
-    lineHeight: "1rem",
-    marginTop: "0.25rem",
-  },
-  row: {
-    alignItems: {
-      default: null,
-      [media.sm]: "center",
-    },
-    display: "flex",
-    flexDirection: {
-      default: "column",
-      [media.sm]: "row",
-    },
-    gap: "1rem",
-    justifyContent: {
-      default: null,
-      [media.sm]: "space-between",
-    },
-  },
-  section: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  smallIcon: {
-    height: "0.75rem",
-    width: "0.75rem",
-  },
-  spinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-  },
-  status: {
-    alignItems: "flex-start",
-    display: "flex",
-    fontSize: "0.75rem",
-    gap: "0.375rem",
-    lineHeight: "1rem",
-    marginTop: "0.25rem",
-  },
-  statusDot: {
-    borderRadius: radii.full,
-    flexShrink: 0,
-    height: "0.5rem",
-    marginTop: "0.25rem",
-    width: "0.5rem",
-  },
-  statusText: {
-    overflowWrap: "anywhere",
-    color: colors.mutedForeground,
-  },
-  subtitle: {
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    lineHeight: "1.25rem",
-  },
-  title: {
-    alignItems: "center",
-    display: "flex",
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    gap: "0.375rem",
-    lineHeight: "1.25rem",
-  },
-  unavailableDot: {
-    backgroundColor: `color-mix(in srgb, ${colors.mutedForeground} 50%, transparent)`,
-  },
-});

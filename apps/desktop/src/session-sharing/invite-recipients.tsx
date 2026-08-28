@@ -1,11 +1,10 @@
 import { Trans } from "@lingui/react/macro";
 import { CircleNotch, X } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
-import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
+import { cn } from "@anlg/utils";
 
 import { isInviteEmail } from "./invitation-management";
 
@@ -151,7 +150,7 @@ export function ShareInviteForm({
   return (
     <>
       <form
-        {...stylex.props(styles.form)}
+        className="flex items-start gap-2"
         onSubmit={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -161,10 +160,10 @@ export function ShareInviteForm({
         }}
       >
         <div
-          {...stylex.props(
-            styles.inputShell,
-            disabled && styles.inputShellDisabled,
-          )}
+          className={cn([
+            "border-input focus-within:ring-ring flex h-8 min-w-0 flex-1 items-center rounded-full border bg-transparent px-3 shadow-xs focus-within:ring-1",
+            disabled && "opacity-50",
+          ])}
         >
           <input
             type="text"
@@ -180,17 +179,17 @@ export function ShareInviteForm({
               }
             }}
             placeholder={placeholder}
-            {...stylex.props(styles.input)}
+            className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-xs outline-hidden disabled:cursor-not-allowed"
           />
         </div>
         <Button
           type="submit"
           size="sm"
           disabled={disabled || !invite.canSubmit}
-          sx={styles.submitButton}
+          className="h-8 shrink-0 rounded-full px-3"
         >
           {pending ? (
-            <CircleNotch {...stylex.props(styles.spinner)} aria-hidden="true" />
+            <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
           ) : null}
           {actionLabel ?? <Trans>Invite</Trans>}
           {invite.emails.length ? (
@@ -200,23 +199,23 @@ export function ShareInviteForm({
       </form>
 
       {suggestions.length ? (
-        <div {...stylex.props(styles.suggestions)}>
+        <div className="mt-1 space-y-0.5 rounded-lg border p-1">
           {suggestions.map((contact) => (
             <button
               key={contact.id}
               type="button"
-              {...stylex.props(styles.suggestionButton)}
+              className="hover:bg-accent flex w-full items-center gap-2 rounded-md px-2 py-1 text-left"
               onClick={() =>
                 invite.add({ email: contact.email, name: contact.name })
               }
             >
               <ContactFacehash name={contact.name || contact.email} size={22} />
-              <span {...stylex.props(styles.recipientContent)}>
-                <span {...stylex.props(styles.recipientName)}>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-medium">
                   {contact.name || contact.email}
                 </span>
                 {contact.name ? (
-                  <span {...stylex.props(styles.recipientEmail)}>
+                  <span className="text-muted-foreground block truncate text-[10px]">
                     {contact.email}
                   </span>
                 ) : null}
@@ -239,11 +238,11 @@ export function ShareInviteSuggestions({
   if (!invite.recipients.length) return null;
 
   return (
-    <div {...stylex.props(styles.suggestionSection)}>
-      <h4 {...stylex.props(styles.sectionHeading)}>
+    <div className="mt-2">
+      <h4 className="text-muted-foreground px-1.5 text-[10px] font-medium">
         <Trans>Suggested attendees</Trans>
       </h4>
-      <div {...stylex.props(styles.recipientList)}>
+      <div className="mt-1 space-y-0.5">
         <ShareInviteRecipientRows
           invite={invite}
           disabled={disabled}
@@ -268,193 +267,32 @@ export function ShareInviteRecipientRows({
     return (
       <div
         key={recipient.email.toLowerCase()}
-        {...stylex.props(styles.recipientRow)}
+        className="hover:bg-accent/50 flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1"
       >
         <ContactFacehash name={label} size={24} />
-        <div {...stylex.props(styles.recipientContent)}>
-          <p {...stylex.props(styles.recipientName)}>{label}</p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-medium">{label}</p>
           {recipient.name ? (
-            <p {...stylex.props(styles.recipientEmail)}>{recipient.email}</p>
+            <p className="text-muted-foreground truncate text-[10px]">
+              {recipient.email}
+            </p>
           ) : null}
         </div>
-        {status ? <span {...stylex.props(styles.status)}>{status}</span> : null}
+        {status ? (
+          <span className="text-muted-foreground shrink-0 text-[11px]">
+            {status}
+          </span>
+        ) : null}
         <button
           type="button"
           aria-label={`Remove ${label}`}
           disabled={disabled}
           onClick={() => invite.remove(recipient.email)}
-          {...stylex.props(styles.removeButton)}
+          className="text-muted-foreground hover:bg-accent hover:text-foreground flex size-7 shrink-0 items-center justify-center rounded-md disabled:cursor-not-allowed"
         >
-          <X {...stylex.props(styles.icon)} aria-hidden="true" />
+          <X className="size-4" aria-hidden="true" />
         </button>
       </div>
     );
   });
 }
-
-const spin = stylex.keyframes({
-  to: {
-    transform: "rotate(360deg)",
-  },
-});
-
-const styles = stylex.create({
-  form: {
-    alignItems: "flex-start",
-    display: "flex",
-    gap: "0.5rem",
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  input: {
-    "::placeholder": {
-      color: colors.mutedForeground,
-    },
-    backgroundColor: "transparent",
-    cursor: {
-      default: "text",
-      ":disabled": "not-allowed",
-    },
-    flex: "1",
-    fontSize: "0.75rem",
-    minWidth: 0,
-    outline: "none",
-  },
-  inputShell: {
-    alignItems: "center",
-    backgroundColor: "transparent",
-    borderColor: colors.input,
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: {
-      default: shadows.sm,
-      ":focus-within": `0 0 0 1px ${colors.ring}`,
-    },
-    display: "flex",
-    flex: "1",
-    height: "2rem",
-    minWidth: 0,
-    paddingInline: "0.75rem",
-  },
-  inputShellDisabled: {
-    opacity: 0.5,
-  },
-  recipientContent: {
-    flex: "1",
-    minWidth: 0,
-  },
-  recipientEmail: {
-    color: colors.mutedForeground,
-    display: "block",
-    fontSize: "0.625rem",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  recipientList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.125rem",
-    marginTop: "0.25rem",
-  },
-  recipientName: {
-    display: "block",
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  recipientRow: {
-    alignItems: "center",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": `color-mix(in srgb, ${colors.accent} 50%, transparent)`,
-    },
-    borderRadius: radii.lg,
-    display: "flex",
-    gap: "0.5rem",
-    minHeight: "2.25rem",
-    paddingBlock: "0.25rem",
-    paddingInline: "0.375rem",
-  },
-  removeButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    borderRadius: radii.md,
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    cursor: {
-      default: "pointer",
-      ":disabled": "not-allowed",
-    },
-    display: "flex",
-    flexShrink: 0,
-    height: "1.75rem",
-    justifyContent: "center",
-    width: "1.75rem",
-  },
-  sectionHeading: {
-    color: colors.mutedForeground,
-    fontSize: "0.625rem",
-    fontWeight: 500,
-    paddingInline: "0.375rem",
-  },
-  spinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-    height: "1rem",
-    width: "1rem",
-  },
-  status: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    fontSize: "0.6875rem",
-  },
-  submitButton: {
-    borderRadius: radii.full,
-    flexShrink: 0,
-    height: "2rem",
-    paddingInline: "0.75rem",
-  },
-  suggestionButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    borderRadius: radii.md,
-    display: "flex",
-    gap: "0.5rem",
-    paddingBlock: "0.25rem",
-    paddingInline: "0.5rem",
-    textAlign: "left",
-    width: "100%",
-  },
-  suggestionSection: {
-    marginTop: "0.5rem",
-  },
-  suggestions: {
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.125rem",
-    marginTop: "0.25rem",
-    padding: "0.25rem",
-  },
-});
-
-export { styles as shareInviteStyles };

@@ -1,14 +1,12 @@
 import { Trans } from "@lingui/react/macro";
 import { SpeakerHigh, SpeakerX } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { platform } from "@tauri-apps/plugin-os";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
 import { commands as sfxCommands } from "@anlg/plugin-sfx";
-import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
+import { cn } from "@anlg/utils";
 
 import { LoginSection } from "./account";
 import { CalendarSection } from "./calendar";
@@ -51,7 +49,13 @@ function OnboardingScreen({
 }: {
   onFinish: (sessionId: string) => void;
 }) {
-  return <OnboardingScreenContent onFinish={onFinish} headerDragRegion />;
+  return (
+    <OnboardingScreenContent
+      onFinish={onFinish}
+      headerClassName="px-12 pt-4 pb-8"
+      headerDragRegion
+    />
+  );
 }
 
 export function StandaloneOnboardingScreen({
@@ -61,16 +65,22 @@ export function StandaloneOnboardingScreen({
 }) {
   return (
     <StandaloneWindowShell>
-      <OnboardingScreenContent onFinish={onFinish} headerDragRegion />
+      <OnboardingScreenContent
+        onFinish={onFinish}
+        headerClassName="px-12 pt-4 pb-8"
+        headerDragRegion
+      />
     </StandaloneWindowShell>
   );
 }
 
 function OnboardingScreenContent({
   onFinish,
+  headerClassName,
   headerDragRegion = false,
 }: {
   onFinish: (sessionId: string) => void;
+  headerClassName: string;
   headerDragRegion?: boolean;
 }) {
   const queryClient = useQueryClient();
@@ -146,17 +156,17 @@ function OnboardingScreenContent({
   );
 
   return (
-    <div {...stylex.props(styles.root)}>
-      <div {...stylex.props(styles.backdrop)}>
+    <div className="bg-card relative flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <motion.div
-          {...stylex.props(styles.videoLayer)}
+          className="absolute inset-0"
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 2, ease: [0.22, 1, 0.36, 1], delay: 0.4 }}
         >
           <video
             ref={onboardingVideoRef}
-            {...stylex.props(styles.video)}
+            className="absolute inset-0 h-full w-full object-cover object-bottom opacity-28"
             autoPlay
             loop
             muted
@@ -166,13 +176,13 @@ function OnboardingScreenContent({
           >
             <source src="/assets/onboarding-video.mp4" type="video/mp4" />
           </video>
-          <div {...stylex.props(styles.videoScrim)} />
+          <div className="from-background/8 via-background/18 absolute inset-0 bg-linear-to-t to-transparent" />
         </motion.div>
-        <div {...stylex.props(styles.strongBlur)} />
-        <div {...stylex.props(styles.softBlur)} />
-        <div {...stylex.props(styles.backgroundFade)} />
+        <div className="absolute inset-x-0 top-0 h-[80%] [mask-image:linear-gradient(to_bottom,black,black_18%,rgba(0,0,0,0.9)_36%,rgba(0,0,0,0.6)_58%,transparent)] backdrop-blur-[32px]" />
+        <div className="absolute inset-x-0 top-0 h-[92%] [mask-image:linear-gradient(to_bottom,black,rgba(0,0,0,0.8)_34%,rgba(0,0,0,0.35)_62%,transparent)] backdrop-blur-[12px]" />
+        <div className="from-background via-background/82 via-background/97 to-background/0 absolute inset-x-0 top-0 h-[84%] bg-linear-to-b via-18% via-42%" />
         <motion.div
-          {...stylex.props(styles.introCover)}
+          className="bg-background absolute inset-0"
           initial={{ opacity: 1 }}
           animate={{ opacity: 0 }}
           transition={{ duration: 1.0, ease: "easeOut", delay: 0.1 }}
@@ -181,33 +191,36 @@ function OnboardingScreenContent({
 
       <div
         data-tauri-drag-region={headerDragRegion || undefined}
-        {...stylex.props(styles.controlsHeader)}
+        className="relative z-30 flex h-12 shrink-0 items-center justify-end pr-3 pl-12"
       >
         <button
           onClick={() => setIsMuted((prev) => !prev)}
           data-tauri-drag-region="false"
-          {...stylex.props(styles.muteButton)}
+          className="hover:bg-accent rounded-full p-1.5 transition-colors"
           aria-label={isMuted ? "Unmute" : "Mute"}
         >
           {isMuted ? (
-            <SpeakerX size={16} {...stylex.props(styles.muteIcon)} />
+            <SpeakerX size={16} className="text-muted-foreground" />
           ) : (
-            <SpeakerHigh size={16} {...stylex.props(styles.muteIcon)} />
+            <SpeakerHigh size={16} className="text-muted-foreground" />
           )}
         </button>
       </div>
 
       <div
         data-tauri-drag-region={headerDragRegion || undefined}
-        {...stylex.props(styles.titleHeader)}
+        className={cn([
+          "relative z-10 flex shrink-0 items-center",
+          headerClassName,
+        ])}
       >
-        <h1 {...stylex.props(styles.heading)}>
+        <h1 className="font-hand text-foreground text-4xl leading-none font-semibold tracking-normal">
           <Trans>Welcome to Anarlog</Trans>
         </h1>
       </div>
 
-      <div {...mergeStyleXProps(styles.scroll, "scroll-fade-y")}>
-        <div {...stylex.props(styles.sections)}>
+      <div className="scroll-fade-y relative z-10 flex-1 overflow-y-auto">
+        <div className="flex flex-col gap-4 px-12 pb-16">
           <OnboardingSection
             title={<Trans>Start with permissions</Trans>}
             completedTitle={<Trans>Permissions granted</Trans>}
@@ -335,128 +348,3 @@ function OnboardingScreenContent({
     </div>
   );
 }
-
-const styles = stylex.create({
-  backdrop: {
-    inset: 0,
-    overflow: "hidden",
-    pointerEvents: "none",
-    position: "absolute",
-  },
-  backgroundFade: {
-    backgroundImage: `linear-gradient(to bottom, ${colors.background} 0%, color-mix(in srgb, ${colors.background} 82%, transparent) 18%, color-mix(in srgb, ${colors.background} 97%, transparent) 42%, transparent 100%)`,
-    height: "84%",
-    left: 0,
-    position: "absolute",
-    right: 0,
-    top: 0,
-  },
-  controlsHeader: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    height: "3rem",
-    justifyContent: "flex-end",
-    paddingLeft: "3rem",
-    paddingRight: "0.75rem",
-    position: "relative",
-    zIndex: 30,
-  },
-  heading: {
-    color: colors.foreground,
-    fontFamily: fonts.hand,
-    fontSize: "2.25rem",
-    fontWeight: 600,
-    letterSpacing: "normal",
-    lineHeight: 1,
-  },
-  introCover: {
-    backgroundColor: colors.background,
-    inset: 0,
-    position: "absolute",
-  },
-  muteButton: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    borderRadius: radii.full,
-    padding: "0.375rem",
-    transitionDuration: "150ms",
-    transitionProperty: "background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  muteIcon: {
-    color: colors.mutedForeground,
-  },
-  root: {
-    backgroundColor: colors.card,
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    minHeight: 0,
-    overflow: "hidden",
-    position: "relative",
-  },
-  scroll: {
-    flex: "1",
-    overflowY: "auto",
-    position: "relative",
-    zIndex: 10,
-  },
-  sections: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-    paddingBottom: "4rem",
-    paddingInline: "3rem",
-  },
-  softBlur: {
-    backdropFilter: "blur(12px)",
-    height: "92%",
-    left: 0,
-    maskImage:
-      "linear-gradient(to bottom, black, rgb(0 0 0 / 0.8) 34%, rgb(0 0 0 / 0.35) 62%, transparent)",
-    position: "absolute",
-    right: 0,
-    top: 0,
-  },
-  strongBlur: {
-    backdropFilter: "blur(32px)",
-    height: "80%",
-    left: 0,
-    maskImage:
-      "linear-gradient(to bottom, black, black 18%, rgb(0 0 0 / 0.9) 36%, rgb(0 0 0 / 0.6) 58%, transparent)",
-    position: "absolute",
-    right: 0,
-    top: 0,
-  },
-  titleHeader: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    paddingBottom: "2rem",
-    paddingInline: "3rem",
-    paddingTop: "1rem",
-    position: "relative",
-    zIndex: 10,
-  },
-  video: {
-    height: "100%",
-    inset: 0,
-    objectFit: "cover",
-    objectPosition: "bottom",
-    opacity: 0.28,
-    position: "absolute",
-    width: "100%",
-  },
-  videoLayer: {
-    inset: 0,
-    position: "absolute",
-  },
-  videoScrim: {
-    backgroundImage: `linear-gradient(to top, color-mix(in srgb, ${colors.background} 8%, transparent), color-mix(in srgb, ${colors.background} 18%, transparent), transparent)`,
-    inset: 0,
-    position: "absolute",
-  },
-});

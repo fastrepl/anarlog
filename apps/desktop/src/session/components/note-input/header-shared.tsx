@@ -1,8 +1,6 @@
-import * as stylex from "@stylexjs/stylex";
-
-import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
 import { json2md, parseJsonContent } from "@anlg/editor/markdown";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { cn } from "@anlg/utils";
 
 export function getStoredNoteMarkdown(content: string | undefined) {
   const trimmed = content?.trim() ?? "";
@@ -31,7 +29,7 @@ export function IconHeaderView({
   onContextMenu,
   title,
   size = "tray",
-  sx,
+  className,
 }: {
   isActive: boolean;
   label: string;
@@ -41,7 +39,7 @@ export function IconHeaderView({
   onContextMenu?: React.MouseEventHandler<HTMLButtonElement>;
   title?: string;
   size?: "tray" | "standalone";
-  sx?: stylex.StyleXStyles;
+  className?: string;
 }) {
   return (
     <button
@@ -54,42 +52,58 @@ export function IconHeaderView({
       onContextMenu={onContextMenu}
       title={title}
       data-hover-label={hoverLabel}
-      data-header-view
-      {...stylex.props(
-        getIconHeaderViewStyles(isActive, size, sx),
-        styles.horizontalPadding,
-        isActive && styles.activeContent,
+      className={iconHeaderViewClassName(
+        isActive,
+        size,
+        cn([
+          "px-2",
+          isActive
+            ? "max-w-40 min-w-10 gap-1.5 @max-[480px]:max-w-10 @max-[480px]:gap-0"
+            : null,
+          hoverLabel
+            ? "after:hidden after:min-w-0 after:truncate after:text-xs after:font-medium after:content-[attr(data-hover-label)] hover:after:block"
+            : null,
+          className,
+        ]),
       )}
     >
-      <span {...stylex.props(styles.iconSlot)}>{icon}</span>
+      {icon}
       {isActive && (
         <span
-          {...stylex.props(
-            styles.label,
-            Boolean(hoverLabel) && styles.hideLabelOnHover,
-          )}
+          className={cn([
+            "min-w-0 truncate text-xs font-medium @max-[480px]:sr-only",
+            hoverLabel ? "group-hover/header-view:hidden" : null,
+          ])}
         >
           {label}
         </span>
       )}
-      {hoverLabel ? (
-        <span {...stylex.props(styles.hoverLabel)}>{hoverLabel}</span>
-      ) : null}
     </button>
   );
 }
 
-export function getIconHeaderViewStyles(
+export function iconHeaderViewClassName(
   isActive: boolean,
   size: "tray" | "standalone" = "tray",
-  sx?: stylex.StyleXStyles,
+  className?: string,
 ) {
-  return [
-    styles.headerView,
-    isActive ? styles.active : styles.inactive,
-    size === "tray" ? styles.tray : styles.standalone,
-    sx,
-  ];
+  const heightClassName = size === "tray" ? "h-[26px]" : "h-7";
+
+  return cn([
+    "group/header-view flex shrink-0 items-center justify-center rounded-full transition-colors select-none [corner-shape:round] [&>svg]:shrink-0",
+    isActive
+      ? [
+          "text-foreground bg-white shadow-xs",
+          "dark:bg-accent dark:text-foreground dark:shadow-none",
+        ]
+      : [
+          "text-muted-foreground/70",
+          "hover:bg-background/60 hover:text-foreground",
+          "dark:hover:bg-accent/80 dark:hover:text-foreground",
+        ],
+    heightClassName,
+    className,
+  ]);
 }
 
 export function getEnhancedNoteTitle({
@@ -162,118 +176,3 @@ export async function copyTextToClipboard(
     return false;
   }
 }
-
-const compact = "@container (max-width: 480px)";
-
-const styles = stylex.create({
-  active: {
-    backgroundColor: {
-      default: "white",
-      ":is(.dark *)": colors.accent,
-    },
-    boxShadow: {
-      default: shadows.sm,
-      ":is(.dark *)": "none",
-    },
-    color: colors.foreground,
-  },
-  activeContent: {
-    gap: {
-      default: "0.375rem",
-      [compact]: 0,
-    },
-    maxWidth: {
-      default: "10rem",
-      [compact]: "2.5rem",
-    },
-    minWidth: "2.5rem",
-  },
-  headerView: {
-    alignItems: "center",
-    borderRadius: radii.full,
-    display: "flex",
-    flexShrink: 0,
-    justifyContent: "center",
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color, border-color",
-    userSelect: "none",
-  },
-  hideLabelOnHover: {
-    display: {
-      default: null,
-      ":is([data-header-view]:hover *)": "none",
-    },
-  },
-  horizontalPadding: {
-    paddingInline: "0.5rem",
-  },
-  hoverLabel: {
-    display: {
-      default: "none",
-      ":is([data-header-view]:hover *)": "block",
-    },
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  iconSlot: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    justifyContent: "center",
-  },
-  inactive: {
-    backgroundColor: {
-      default: null,
-      ":hover": `color-mix(in oklab, ${colors.background} 60%, transparent)`,
-      ":is(.dark *):hover": `color-mix(in oklab, ${colors.accent} 80%, transparent)`,
-    },
-    color: {
-      default: `color-mix(in oklab, ${colors.mutedForeground} 70%, transparent)`,
-      ":hover": colors.foreground,
-    },
-  },
-  label: {
-    clip: {
-      default: null,
-      [compact]: "rect(0, 0, 0, 0)",
-    },
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    height: {
-      default: null,
-      [compact]: "1px",
-    },
-    margin: {
-      default: null,
-      [compact]: "-1px",
-    },
-    minWidth: 0,
-    overflow: "hidden",
-    padding: {
-      default: null,
-      [compact]: 0,
-    },
-    position: {
-      default: null,
-      [compact]: "absolute",
-    },
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    width: {
-      default: null,
-      [compact]: "1px",
-    },
-  },
-  standalone: {
-    height: "1.75rem",
-  },
-  tray: {
-    height: "26px",
-  },
-});
-
-export { styles as headerViewStyles };

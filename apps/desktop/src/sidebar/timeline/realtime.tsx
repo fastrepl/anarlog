@@ -1,8 +1,5 @@
-import * as stylex from "@stylexjs/stylex";
 import { forwardRef, useEffect, useMemo, useState } from "react";
 
-import { fonts, radii, shadows } from "@anlg/design-system/tokens.stylex";
-import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 import { TZDate, format, safeParseDate } from "@anlg/utils";
 
 import type { TimelineEventsTable, TimelineSessionsTable } from "./utils";
@@ -33,20 +30,23 @@ export const CurrentTimeIndicator = forwardRef<
     <div
       ref={ref}
       aria-hidden
-      {...mergeStyleXProps(
-        [
-          styles.root,
-          variant === "inside" ? styles.rootInside : styles.rootSeam,
-          stylex.defaultMarker(),
-        ],
-        undefined,
-        variant === "inside" ? { top: insideOffset } : undefined,
-      )}
+      className={
+        variant === "inside"
+          ? "group absolute inset-x-0 z-30 h-px"
+          : "group relative z-30 h-px"
+      }
+      style={variant === "inside" ? { top: insideOffset } : undefined}
     >
-      <div {...stylex.props(styles.lineContainer)}>
-        <div data-sidebar-current-time-line {...stylex.props(styles.line)} />
-        <div {...stylex.props(styles.labelContainer)}>
-          <div data-sidebar-current-time-label {...stylex.props(styles.label)}>
+      <div className="absolute inset-x-0 top-0 -translate-y-1/2">
+        <div
+          data-sidebar-current-time-line
+          className="absolute top-1/2 right-0 left-0 h-px -translate-y-1/2 bg-red-500/85 dark:bg-red-400/70"
+        />
+        <div className="relative flex h-5 items-center justify-center">
+          <div
+            data-sidebar-current-time-label
+            className="rounded-full border border-red-500 bg-red-500 px-2 py-0.5 font-mono text-[11px] font-semibold text-white opacity-0 shadow-xs transition-opacity group-hover:opacity-100 dark:border-red-500 dark:bg-red-500 dark:text-white"
+          >
             {label}
           </div>
         </div>
@@ -115,68 +115,6 @@ function getCurrentTimeTickDelay(
     maxTickDelayMs,
   );
 }
-
-const styles = stylex.create({
-  label: {
-    backgroundColor: "rgb(239 68 68)",
-    borderColor: "rgb(239 68 68)",
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: shadows.sm,
-    color: "white",
-    fontFamily: fonts.mono,
-    fontSize: "11px",
-    fontWeight: 600,
-    opacity: {
-      default: 0,
-      [stylex.when.ancestor(":hover")]: 1,
-    },
-    paddingBlock: "0.125rem",
-    paddingInline: "0.5rem",
-    transitionDuration: "150ms",
-    transitionProperty: "opacity",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  labelContainer: {
-    alignItems: "center",
-    display: "flex",
-    height: "1.25rem",
-    justifyContent: "center",
-    position: "relative",
-  },
-  line: {
-    backgroundColor: {
-      default: "rgb(239 68 68 / 0.85)",
-      ":is(.dark *)": "rgb(248 113 113 / 0.7)",
-    },
-    height: "1px",
-    left: 0,
-    position: "absolute",
-    right: 0,
-    top: "50%",
-    transform: "translateY(-50%)",
-  },
-  lineContainer: {
-    left: 0,
-    position: "absolute",
-    right: 0,
-    top: 0,
-    transform: "translateY(-50%)",
-  },
-  root: {
-    height: "1px",
-    zIndex: 30,
-  },
-  rootInside: {
-    left: 0,
-    position: "absolute",
-    right: 0,
-  },
-  rootSeam: {
-    position: "relative",
-  },
-});
 
 export function useSmartCurrentTime(
   eventsTable: TimelineEventsTable,

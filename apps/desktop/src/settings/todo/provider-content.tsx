@@ -1,9 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { CircleNotch } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo } from "react";
 
-import { colors } from "@anlg/design-system/tokens.stylex";
 import {
   Tooltip,
   TooltipContent,
@@ -68,10 +66,13 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
 
   if (!auth.session) {
     return (
-      <div {...stylex.props(styles.contentPadding)}>
+      <div className="pt-1 pb-2">
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
-            <span tabIndex={0} {...stylex.props(styles.disabledConnect)}>
+            <span
+              tabIndex={0}
+              className="text-muted-foreground cursor-not-allowed text-xs opacity-50"
+            >
               <Trans>Connect {config.displayName}</Trans>
             </span>
           </TooltipTrigger>
@@ -85,15 +86,15 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
 
   if (!isPaid) {
     return (
-      <div {...stylex.props(styles.contentPadding)}>
+      <div className="pt-1 pb-2">
         <button
           type="button"
           onClick={upgradeToPro}
           disabled={isUpgradingToPro}
-          {...stylex.props(styles.linkButton)}
+          className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors disabled:opacity-50"
         >
           {isUpgradingToPro && (
-            <CircleNotch {...stylex.props(styles.spinner)} aria-hidden="true" />
+            <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
           )}
           <Trans>Upgrade to connect</Trans>
         </button>
@@ -103,8 +104,8 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
 
   if (isError) {
     return (
-      <div {...stylex.props(styles.contentPadding)}>
-        <span {...stylex.props(styles.error)}>
+      <div className="pt-1 pb-2">
+        <span className="text-xs text-red-600">
           <Trans>Failed to load integration status</Trans>
         </span>
       </div>
@@ -113,15 +114,15 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
 
   if (providerConnections.length === 0) {
     return (
-      <div {...stylex.props(styles.contentPadding)}>
+      <div className="pt-1 pb-2">
         <button
           type="button"
           onClick={handleConnect}
           disabled={openingAction !== null}
-          {...stylex.props(styles.linkButton)}
+          className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors disabled:opacity-50"
         >
           {openingAction === "connect" && (
-            <CircleNotch {...stylex.props(styles.spinner)} aria-hidden="true" />
+            <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
           )}
           <Trans>Connect {config.displayName}</Trans>
         </button>
@@ -135,7 +136,7 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
     ];
 
   return (
-    <div {...stylex.props(styles.connected)}>
+    <div className="flex flex-col gap-3">
       <ConnectionActions
         config={config}
         providerConnections={providerConnections}
@@ -173,7 +174,7 @@ function ConnectionActions({
 
   if (reconnectRequiredConnection) {
     return (
-      <div {...stylex.props(styles.actions)}>
+      <div className="flex items-center gap-2 pb-1">
         <button
           type="button"
           onClick={() =>
@@ -185,14 +186,14 @@ function ConnectionActions({
             })
           }
           disabled={openingAction !== null}
-          {...stylex.props(styles.linkButton, styles.reconnectButton)}
+          className="inline-flex cursor-pointer items-center gap-1 text-xs text-amber-700 underline transition-colors hover:text-amber-900 disabled:opacity-50"
         >
           {openingAction === "reconnect" && (
-            <CircleNotch {...stylex.props(styles.spinner)} aria-hidden="true" />
+            <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
           )}
           <Trans>Reconnect required</Trans>
         </button>
-        <span {...stylex.props(styles.or)}>
+        <span className="text-muted-foreground text-xs">
           <Trans>or</Trans>
         </span>
         <button
@@ -206,10 +207,10 @@ function ConnectionActions({
             })
           }
           disabled={openingAction !== null}
-          {...stylex.props(styles.linkButton, styles.disconnectButton)}
+          className="inline-flex cursor-pointer items-center gap-1 text-xs text-red-500 underline transition-colors hover:text-red-700 disabled:opacity-50"
         >
           {openingAction === "disconnect" && (
-            <CircleNotch {...stylex.props(styles.spinner)} aria-hidden="true" />
+            <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
           )}
           <Trans>Disconnect</Trans>
         </button>
@@ -218,7 +219,7 @@ function ConnectionActions({
   }
 
   return (
-    <div {...stylex.props(styles.actions)}>
+    <div className="flex items-center gap-2 pb-1">
       <button
         type="button"
         onClick={() =>
@@ -230,10 +231,10 @@ function ConnectionActions({
           })
         }
         disabled={openingAction !== null}
-        {...stylex.props(styles.linkButton, styles.mutedButton)}
+        className="text-muted-foreground hover:text-muted-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors disabled:opacity-50"
       >
         {openingAction === "disconnect" && (
-          <CircleNotch {...stylex.props(styles.spinner)} aria-hidden="true" />
+          <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
         )}
         <Trans>Disconnect</Trans>
       </button>
@@ -267,88 +268,3 @@ function AppleRemindersProviderContent() {
     />
   );
 }
-
-const spin = stylex.keyframes({
-  to: { transform: "rotate(360deg)" },
-});
-
-const styles = stylex.create({
-  actions: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-    paddingBottom: "0.25rem",
-  },
-  connected: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-  },
-  contentPadding: {
-    paddingBottom: "0.5rem",
-    paddingTop: "0.25rem",
-  },
-  disabledConnect: {
-    color: colors.mutedForeground,
-    cursor: "not-allowed",
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-    opacity: 0.5,
-  },
-  disconnectButton: {
-    color: {
-      default: "#ef4444",
-      ":hover": "#b91c1c",
-    },
-  },
-  error: {
-    color: "#dc2626",
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-  },
-  linkButton: {
-    alignItems: "center",
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    cursor: "pointer",
-    display: "inline-flex",
-    fontSize: "0.75rem",
-    gap: "0.25rem",
-    lineHeight: "1rem",
-    opacity: {
-      default: 1,
-      ":disabled": 0.5,
-    },
-    textDecorationLine: "underline",
-    transitionDuration: "150ms",
-    transitionProperty: "color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  mutedButton: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.mutedForeground,
-    },
-  },
-  or: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-  },
-  reconnectButton: {
-    color: {
-      default: "#b45309",
-      ":hover": "#78350f",
-    },
-  },
-  spinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-    height: "0.75rem",
-    width: "0.75rem",
-  },
-});

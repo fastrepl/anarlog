@@ -1,9 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { MagnifyingGlass, Plus } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo, useRef, useState } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import type { EventParticipant } from "@anlg/store";
 import { Checkbox } from "@anlg/ui/components/ui/checkbox";
 import {
@@ -12,7 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
-import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
+import { cn } from "@anlg/utils";
 
 import { preserveScrollPosition } from "./viewport-hooks";
 
@@ -96,11 +94,13 @@ export function SpeakerAssignPopover({
           ref={triggerRef}
           type="button"
           data-transcript-speaker-assign
-          {...mergeStyleXProps(
-            [styles.trigger, open && styles.underlined],
+          className={cn([
+            "-my-0.5 cursor-pointer rounded-full py-0.5 pr-2",
+            "underline-offset-2 hover:underline focus-visible:underline",
+            open ? "underline" : null,
             className,
-            { color },
-          )}
+          ])}
+          style={{ color }}
         >
           {label}
         </button>
@@ -111,7 +111,7 @@ export function SpeakerAssignPopover({
         align="start"
         sideOffset={8}
         collisionPadding={16}
-        sx={styles.popover}
+        className="max-h-[min(var(--radix-popover-content-available-height),28rem)] w-80"
       >
         <SpeakerParticipantPicker
           sessionId={sessionId}
@@ -478,16 +478,19 @@ export function SpeakerParticipantPicker({
   ]);
 
   return (
-    <div {...stylex.props(styles.picker)}>
-      <AppFloatingPanel sx={styles.panel}>
-        <div {...stylex.props(styles.searchFrame)}>
-          <div {...stylex.props(styles.searchRow)}>
-            <MagnifyingGlass size={16} {...stylex.props(styles.searchIcon)} />
+    <div className="flex max-h-[min(var(--radix-popover-content-available-height,calc(100vh-1rem)),28rem)] flex-col gap-1 overflow-hidden">
+      <AppFloatingPanel className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="border-border border-b py-1">
+          <div className="flex h-8 items-center gap-2 px-3">
+            <MagnifyingGlass
+              size={16}
+              className="text-muted-foreground shrink-0"
+            />
             <input
               ref={searchInputRef}
               autoFocus
               type="search"
-              {...stylex.props(styles.searchInput)}
+              className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm outline-hidden"
               placeholder={t`Select or type to add speaker`}
               value={query}
               onChange={(e) => {
@@ -497,10 +500,10 @@ export function SpeakerParticipantPicker({
             />
           </div>
         </div>
-        <div {...stylex.props(styles.options)}>
+        <div className="min-h-0 flex-1 overflow-auto py-1">
           {groups.map((group) => (
             <div key={group.title}>
-              <div {...stylex.props(styles.groupHeading)}>
+              <div className="text-muted-foreground px-3 pt-2 pb-1 text-[11px] font-medium uppercase">
                 {group.title === "Participants" ? (
                   <Trans>Participants</Trans>
                 ) : (
@@ -521,7 +524,7 @@ export function SpeakerParticipantPicker({
           {createOption && (
             <div>
               {!hasPeopleGroup && (
-                <div {...stylex.props(styles.groupHeading)}>
+                <div className="text-muted-foreground px-3 pt-2 pb-1 text-[11px] font-medium uppercase">
                   <Trans>People</Trans>
                 </div>
               )}
@@ -534,7 +537,7 @@ export function SpeakerParticipantPicker({
           )}
 
           {!createOption && groups.length === 0 && (
-            <p {...stylex.props(styles.empty)}>
+            <p className="text-muted-foreground px-3 py-2 text-xs">
               {query.trim() ? (
                 <Trans>No matching people</Trans>
               ) : (
@@ -546,30 +549,34 @@ export function SpeakerParticipantPicker({
           {!query.trim() && (
             <button
               type="button"
-              {...stylex.props(styles.createButton)}
+              className="hover:bg-accent flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm"
               onClick={() => searchInputRef.current?.focus()}
             >
-              <Plus {...stylex.props(styles.icon)} />
+              <Plus className="size-4" />
               <Trans>Create new speaker</Trans>
             </button>
           )}
         </div>
       </AppFloatingPanel>
-      <div {...stylex.props(styles.footer)}>
+      <div className="flex items-center justify-end gap-3 py-1 pl-2">
         {showAssignmentScope && (
-          <label {...stylex.props(styles.scopeLabel)}>
+          <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
             <Checkbox
               checked={applyToAllMatching}
               onCheckedChange={(value) => setApplyToAllMatching(value === true)}
             />
-            <span {...stylex.props(styles.scopeText)}>
+            <span className="text-muted-foreground text-sm whitespace-nowrap">
               <Trans>Apply to all</Trans>
             </span>
           </label>
         )}
         <button
           type="button"
-          {...stylex.props(styles.confirmButton)}
+          className={cn([
+            "bg-primary text-primary-foreground h-8 rounded-full px-3 text-xs font-medium",
+            "hover:bg-primary/90",
+            "disabled:pointer-events-none disabled:opacity-50",
+          ])}
           disabled={!selectedOption || assigning}
           onClick={handleConfirm}
         >
@@ -603,15 +610,15 @@ function ParticipantOptionButton({
     <button
       type="button"
       aria-pressed={selected}
-      {...stylex.props(
-        styles.optionButton,
-        selected ? styles.optionSelected : styles.optionIdle,
-      )}
+      className={cn([
+        "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm",
+        selected ? "bg-accent text-accent-foreground" : "hover:bg-accent",
+      ])}
       onClick={() => onSelect(option)}
     >
       {option.isCreateOption ? (
-        <span {...stylex.props(styles.createAvatar)}>
-          <Plus {...stylex.props(styles.smallIcon)} aria-hidden="true" />
+        <span className="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full border">
+          <Plus className="size-3.5" aria-hidden="true" />
         </span>
       ) : option.avatarDataUrl ? (
         <ContactImage src={option.avatarDataUrl} size={28} />
@@ -621,222 +628,16 @@ function ParticipantOptionButton({
           size={28}
         />
       )}
-      <span {...stylex.props(styles.optionText)}>
-        <span {...stylex.props(styles.optionName)}>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium">
           {option.isCreateOption ? t`Add "${option.name}"` : option.name}
         </span>
         {option.email && (
-          <span {...stylex.props(styles.optionEmail)}>{option.email}</span>
+          <span className="text-muted-foreground block truncate text-xs">
+            {option.email}
+          </span>
         )}
       </span>
     </button>
   );
 }
-
-const styles = stylex.create({
-  confirmButton: {
-    backgroundColor: {
-      default: colors.primary,
-      ":hover": `color-mix(in srgb, ${colors.primary} 90%, transparent)`,
-    },
-    borderRadius: radii.full,
-    color: colors.primaryForeground,
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    height: "2rem",
-    opacity: {
-      default: 1,
-      ":disabled": 0.5,
-    },
-    paddingInline: "0.75rem",
-    pointerEvents: {
-      default: "auto",
-      ":disabled": "none",
-    },
-  },
-  createAvatar: {
-    alignItems: "center",
-    backgroundColor: colors.muted,
-    borderColor: colors.border,
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    color: colors.mutedForeground,
-    display: "flex",
-    flexShrink: 0,
-    height: "1.75rem",
-    justifyContent: "center",
-    width: "1.75rem",
-  },
-  createButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    display: "flex",
-    fontSize: "0.875rem",
-    gap: "0.5rem",
-    paddingBlock: "0.375rem",
-    paddingInline: "0.75rem",
-    textAlign: "left",
-    width: "100%",
-  },
-  empty: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    paddingBlock: "0.5rem",
-    paddingInline: "0.75rem",
-  },
-  footer: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.75rem",
-    justifyContent: "flex-end",
-    paddingBottom: "0.25rem",
-    paddingLeft: "0.5rem",
-    paddingTop: "0.25rem",
-  },
-  groupHeading: {
-    color: colors.mutedForeground,
-    fontSize: "0.6875rem",
-    fontWeight: 500,
-    paddingBottom: "0.25rem",
-    paddingLeft: "0.75rem",
-    paddingRight: "0.75rem",
-    paddingTop: "0.5rem",
-    textTransform: "uppercase",
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  optionButton: {
-    alignItems: "center",
-    display: "flex",
-    fontSize: "0.875rem",
-    gap: "0.5rem",
-    paddingBlock: "0.375rem",
-    paddingInline: "0.75rem",
-    textAlign: "left",
-    width: "100%",
-  },
-  optionEmail: {
-    color: colors.mutedForeground,
-    display: "block",
-    fontSize: "0.75rem",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  optionIdle: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-  },
-  optionName: {
-    display: "block",
-    fontWeight: 500,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  optionSelected: {
-    backgroundColor: colors.accent,
-    color: colors.accentForeground,
-  },
-  options: {
-    flex: "1",
-    minHeight: 0,
-    overflow: "auto",
-    paddingBlock: "0.25rem",
-  },
-  optionText: {
-    flex: "1",
-    minWidth: 0,
-  },
-  panel: {
-    display: "flex",
-    flex: "1",
-    flexDirection: "column",
-    minHeight: 0,
-    overflow: "hidden",
-  },
-  picker: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.25rem",
-    maxHeight:
-      "min(var(--radix-popover-content-available-height, calc(100vh - 1rem)), 28rem)",
-    overflow: "hidden",
-  },
-  popover: {
-    maxHeight: "min(var(--radix-popover-content-available-height), 28rem)",
-    width: "20rem",
-  },
-  scopeLabel: {
-    alignItems: "center",
-    cursor: "pointer",
-    display: "flex",
-    flex: "1",
-    gap: "0.5rem",
-    minWidth: 0,
-  },
-  scopeText: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    whiteSpace: "nowrap",
-  },
-  searchFrame: {
-    borderBottomColor: colors.border,
-    borderBottomStyle: "solid",
-    borderBottomWidth: "1px",
-    paddingBlock: "0.25rem",
-  },
-  searchIcon: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-  },
-  searchInput: {
-    backgroundColor: "transparent",
-    color: {
-      default: null,
-      "::placeholder": colors.mutedForeground,
-    },
-    flex: "1",
-    fontSize: "0.875rem",
-    minWidth: 0,
-    outline: "none",
-  },
-  searchRow: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.5rem",
-    height: "2rem",
-    paddingInline: "0.75rem",
-  },
-  smallIcon: {
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  trigger: {
-    borderRadius: radii.full,
-    cursor: "pointer",
-    marginBlock: "-0.125rem",
-    paddingBottom: "0.125rem",
-    paddingRight: "0.5rem",
-    paddingTop: "0.125rem",
-    textDecorationLine: {
-      default: "none",
-      ":focus-visible": "underline",
-      ":hover": "underline",
-    },
-    textUnderlineOffset: "2px",
-  },
-  underlined: {
-    textDecorationLine: "underline",
-  },
-});
-
-export { styles as speakerAssignStyles };

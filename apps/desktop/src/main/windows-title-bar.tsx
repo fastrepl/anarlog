@@ -1,10 +1,8 @@
 import { t } from "@lingui/core/macro";
 import { Sidebar, SidebarSimple } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useRef, useState } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import {
   DropdownMenu,
@@ -14,6 +12,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
+import { cn } from "@anlg/utils";
 
 import { LeftSurfaceChromeButton } from "./sidebar-timeline-chrome";
 
@@ -104,9 +103,12 @@ export function WindowsTitleBar() {
     <header
       data-tauri-drag-region
       data-testid="windows-title-bar"
-      {...stylex.props(styles.header)}
+      className="border-border/60 bg-background flex h-10 shrink-0 items-stretch border-b"
     >
-      <div data-tauri-drag-region {...stylex.props(styles.leading)}>
+      <div
+        data-tauri-drag-region
+        className="flex min-w-0 flex-1 items-center pl-2"
+      >
         <LeftSurfaceChromeButton
           ariaLabel={leftsidebar.expanded ? t`Hide sidebar` : t`Show sidebar`}
           badge={showUpcomingMeetingBadge ? "upcomingMeeting" : null}
@@ -120,7 +122,7 @@ export function WindowsTitleBar() {
         </LeftSurfaceChromeButton>
         <nav
           aria-label={t`Application menu`}
-          {...stylex.props(styles.menu)}
+          className="ml-2 flex h-full items-center"
           role="menubar"
         >
           <TitleBarMenu label={t`File`} onPointerDown={rememberEditTarget}>
@@ -204,17 +206,14 @@ export function WindowsTitleBar() {
             </DropdownMenuItem>
           </TitleBarMenu>
         </nav>
-        <div data-tauri-drag-region {...stylex.props(styles.dragSpacer)} />
+        <div data-tauri-drag-region className="min-w-4 flex-1" />
       </div>
-      <div
-        {...stylex.props(styles.windowControls)}
-        data-tauri-drag-region="false"
-      >
+      <div className="flex shrink-0" data-tauri-drag-region="false">
         <WindowControlButton
           ariaLabel={t`Minimize`}
           onClick={() => void appWindow.minimize()}
         >
-          <span {...stylex.props(styles.minimizeIcon)} />
+          <span className="h-px w-2.5 bg-current" />
         </WindowControlButton>
         <WindowControlButton
           ariaLabel={isMaximized ? t`Restore` : t`Maximize`}
@@ -227,13 +226,9 @@ export function WindowsTitleBar() {
           close
           onClick={() => void appWindow.close()}
         >
-          <span {...stylex.props(styles.closeIcon)}>
-            <span
-              {...stylex.props(styles.closeLine, styles.closeLineForward)}
-            />
-            <span
-              {...stylex.props(styles.closeLine, styles.closeLineBackward)}
-            />
+          <span className="relative size-3">
+            <span className="absolute top-[5.5px] left-0 h-px w-3 rotate-45 bg-current" />
+            <span className="absolute top-[5.5px] left-0 h-px w-3 -rotate-45 bg-current" />
           </span>
         </WindowControlButton>
       </div>
@@ -257,13 +252,21 @@ function TitleBarMenu({
           type="button"
           data-tauri-drag-region="false"
           role="menuitem"
-          {...stylex.props(styles.titleBarMenu)}
+          className={cn([
+            "text-muted-foreground h-7 rounded-md px-2.5 text-sm",
+            "hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground",
+            "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
+          ])}
           onPointerDown={onPointerDown}
         >
           {label}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={1} sx={styles.menuContent}>
+      <DropdownMenuContent
+        align="start"
+        sideOffset={1}
+        className="w-56 rounded-lg"
+      >
         {children}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -286,10 +289,13 @@ function WindowControlButton({
       type="button"
       aria-label={ariaLabel}
       data-tauri-drag-region="false"
-      {...stylex.props(
-        styles.windowControlButton,
-        close ? styles.closeButton : styles.standardButton,
-      )}
+      className={cn([
+        "text-foreground flex h-10 w-[46px] items-center justify-center transition-colors",
+        close
+          ? "hover:bg-[#c42b1c] hover:text-white"
+          : "hover:bg-foreground/10",
+        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden focus-visible:ring-inset",
+      ])}
       onClick={onClick}
     >
       {children}
@@ -298,175 +304,14 @@ function WindowControlButton({
 }
 
 function MaximizeIcon() {
-  return <span {...stylex.props(styles.maximizeIcon)} />;
+  return <span className="size-2.5 border border-current" />;
 }
 
 function RestoreIcon() {
   return (
-    <span {...stylex.props(styles.restoreIcon)}>
-      <span {...stylex.props(styles.restoreBack)} />
-      <span {...stylex.props(styles.restoreFront)} />
+    <span className="relative size-3">
+      <span className="absolute top-0.5 right-0 size-2 border border-current" />
+      <span className="bg-background absolute bottom-0.5 left-0 size-2 border border-current" />
     </span>
   );
 }
-
-const styles = stylex.create({
-  closeButton: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": "#c42b1c",
-    },
-    color: {
-      default: colors.foreground,
-      ":hover": "white",
-    },
-  },
-  closeIcon: {
-    height: "0.75rem",
-    position: "relative",
-    width: "0.75rem",
-  },
-  closeLine: {
-    backgroundColor: "currentColor",
-    height: "1px",
-    left: 0,
-    position: "absolute",
-    top: "5.5px",
-    width: "0.75rem",
-  },
-  closeLineBackward: {
-    transform: "rotate(-45deg)",
-  },
-  closeLineForward: {
-    transform: "rotate(45deg)",
-  },
-  dragSpacer: {
-    flex: "1",
-    minWidth: "1rem",
-  },
-  header: {
-    alignItems: "stretch",
-    backgroundColor: colors.background,
-    borderBottomColor: `color-mix(in oklab, ${colors.border} 60%, transparent)`,
-    borderBottomStyle: "solid",
-    borderBottomWidth: "1px",
-    display: "flex",
-    flexShrink: 0,
-    height: "2.5rem",
-  },
-  leading: {
-    alignItems: "center",
-    display: "flex",
-    flex: "1",
-    minWidth: 0,
-    paddingLeft: "0.5rem",
-  },
-  maximizeIcon: {
-    borderColor: "currentColor",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    height: "0.625rem",
-    width: "0.625rem",
-  },
-  menu: {
-    alignItems: "center",
-    display: "flex",
-    height: "100%",
-    marginLeft: "0.5rem",
-  },
-  menuContent: {
-    borderRadius: radii.lg,
-    width: "14rem",
-  },
-  minimizeIcon: {
-    backgroundColor: "currentColor",
-    height: "1px",
-    width: "0.625rem",
-  },
-  restoreBack: {
-    borderColor: "currentColor",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    height: "0.5rem",
-    position: "absolute",
-    right: 0,
-    top: "0.125rem",
-    width: "0.5rem",
-  },
-  restoreFront: {
-    backgroundColor: colors.background,
-    borderColor: "currentColor",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    bottom: "0.125rem",
-    height: "0.5rem",
-    left: 0,
-    position: "absolute",
-    width: "0.5rem",
-  },
-  restoreIcon: {
-    height: "0.75rem",
-    position: "relative",
-    width: "0.75rem",
-  },
-  standardButton: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": `color-mix(in oklab, ${colors.foreground} 10%, transparent)`,
-    },
-  },
-  titleBarMenu: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-      ':is([data-state="open"])': colors.accent,
-    },
-    borderRadius: radii.md,
-    boxShadow: {
-      default: null,
-      ":focus-visible": `0 0 0 2px ${colors.ring}`,
-    },
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-      ':is([data-state="open"])': colors.foreground,
-    },
-    fontSize: "0.875rem",
-    height: "1.75rem",
-    outline: {
-      default: null,
-      ":focus-visible": "2px solid transparent",
-    },
-    outlineOffset: {
-      default: null,
-      ":focus-visible": "2px",
-    },
-    paddingInline: "0.625rem",
-  },
-  windowControlButton: {
-    alignItems: "center",
-    boxShadow: {
-      default: null,
-      ":focus-visible": `inset 0 0 0 2px ${colors.ring}`,
-    },
-    display: "flex",
-    height: "2.5rem",
-    justifyContent: "center",
-    outline: {
-      default: null,
-      ":focus-visible": "2px solid transparent",
-    },
-    outlineOffset: {
-      default: null,
-      ":focus-visible": "2px",
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "46px",
-  },
-  windowControls: {
-    display: "flex",
-    flexShrink: 0,
-  },
-});

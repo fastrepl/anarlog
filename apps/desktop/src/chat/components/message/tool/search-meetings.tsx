@@ -1,8 +1,6 @@
 import { MagnifyingGlass } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo } from "react";
 
-import { colors, media } from "@anlg/design-system/tokens.stylex";
 import { Card, CardContent } from "@anlg/ui/components/ui/card";
 import {
   Carousel,
@@ -137,7 +135,7 @@ export const ToolSearchMeetings: Renderer = ({ part }) => {
 
   return (
     <Disclosure
-      icon={<MagnifyingGlass {...stylex.props(styles.smallIcon)} />}
+      icon={<MagnifyingGlass className="h-3 w-3" />}
       title={getTitle(part)}
       disabled={disabled}
     >
@@ -172,43 +170,48 @@ function RenderContent({ part }: { part: Part }) {
 
     if (!results || results.length === 0) {
       return (
-        <div {...stylex.props(styles.content)}>
+        <div className="flex flex-col gap-2">
           {details.length > 0 && (
-            <div {...stylex.props(styles.details)}>
+            <div className="text-muted-foreground flex flex-col gap-0.5 text-[11px]">
               {details.map((detail) => (
                 <div key={detail}>{detail}</div>
               ))}
             </div>
           )}
-          <div {...stylex.props(styles.emptyResults)}>No results found</div>
+          <div className="text-muted-foreground flex items-center justify-center py-2 text-xs">
+            No results found
+          </div>
         </div>
       );
     }
 
     return (
-      <div {...stylex.props(styles.content)}>
+      <div className="flex flex-col gap-2">
         {details.length > 0 && (
-          <div {...stylex.props(styles.details)}>
+          <div className="text-muted-foreground flex flex-col gap-0.5 text-[11px]">
             {details.map((detail) => (
               <div key={detail}>{detail}</div>
             ))}
           </div>
         )}
-        <div {...stylex.props(styles.carouselContainer)}>
-          <Carousel sx={styles.carousel} opts={{ align: "start" }}>
-            <CarouselContent sx={styles.carouselContent}>
+        <div className="relative -mx-1">
+          <Carousel className="w-full" opts={{ align: "start" }}>
+            <CarouselContent className="-ml-2">
               {results.map((result, index: number) => (
-                <CarouselItem key={result.id || index} sx={styles.carouselItem}>
-                  <Card sx={styles.resultCard}>
-                    <CardContent sx={styles.resultCardContent}>
+                <CarouselItem
+                  key={result.id || index}
+                  className="basis-full pl-1 sm:basis-1/2 lg:basis-1/3"
+                >
+                  <Card className="bg-muted h-full">
+                    <CardContent className="px-2 py-0.5">
                       <RenderMeeting result={result} />
                     </CardContent>
                   </Card>
                 </CarouselItem>
               ))}
             </CarouselContent>
-            <CarouselPrevious sx={[styles.carouselButton, styles.previous]} />
-            <CarouselNext sx={[styles.carouselButton, styles.next]} />
+            <CarouselPrevious className="bg-muted hover:bg-accent -left-4 h-6 w-6" />
+            <CarouselNext className="bg-muted hover:bg-accent -right-4 h-6 w-6" />
           </Carousel>
         </div>
       </div>
@@ -216,11 +219,11 @@ function RenderContent({ part }: { part: Part }) {
   }
 
   if (part.state === "output-error") {
-    return <div {...stylex.props(styles.error)}>Error: {part.errorText}</div>;
+    return <div className="text-sm text-red-500">Error: {part.errorText}</div>;
   }
 
   return details.length > 0 ? (
-    <div {...stylex.props(styles.details)}>
+    <div className="text-muted-foreground flex flex-col gap-0.5 text-[11px]">
       {details.map((detail) => (
         <div key={detail}>{detail}</div>
       ))}
@@ -249,118 +252,17 @@ function RenderMeeting({ result }: { result: MeetingSearchResult }) {
     <button
       type="button"
       onClick={handleClick}
-      {...stylex.props(styles.result)}
+      className="flex w-full flex-col gap-1 text-left text-xs"
     >
-      <span {...stylex.props(styles.resultTitle)}>
-        {result.title || "Untitled"}
-      </span>
+      <span className="truncate font-medium">{result.title || "Untitled"}</span>
       {dateLabel && (
-        <span {...stylex.props(styles.resultDate)}>{dateLabel}</span>
+        <span className="text-muted-foreground text-[11px] tabular-nums">
+          {dateLabel}
+        </span>
       )}
-      <span {...stylex.props(styles.resultExcerpt)}>
+      <span className="text-muted-foreground line-clamp-3 break-words">
         {result.excerpt || "No excerpt available"}
       </span>
     </button>
   );
 }
-
-const styles = stylex.create({
-  smallIcon: {
-    height: "0.75rem",
-    width: "0.75rem",
-  },
-  content: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-  },
-  details: {
-    color: colors.mutedForeground,
-    display: "flex",
-    flexDirection: "column",
-    fontSize: "0.6875rem",
-    gap: "0.125rem",
-  },
-  emptyResults: {
-    alignItems: "center",
-    color: colors.mutedForeground,
-    display: "flex",
-    fontSize: "0.75rem",
-    justifyContent: "center",
-    lineHeight: "1rem",
-    paddingBlock: "0.5rem",
-  },
-  carouselContainer: {
-    marginInline: "-0.25rem",
-    position: "relative",
-  },
-  carousel: {
-    width: "100%",
-  },
-  carouselContent: {
-    marginLeft: "-0.5rem",
-  },
-  carouselItem: {
-    flexBasis: {
-      default: "100%",
-      [media.sm]: "50%",
-      [media.md]: "33.333333%",
-    },
-    paddingLeft: "0.25rem",
-  },
-  resultCard: {
-    backgroundColor: colors.muted,
-    height: "100%",
-  },
-  resultCardContent: {
-    paddingBlock: "0.125rem",
-    paddingInline: "0.5rem",
-  },
-  carouselButton: {
-    backgroundColor: {
-      default: colors.muted,
-      ":hover": colors.accent,
-    },
-    height: "1.5rem",
-    width: "1.5rem",
-  },
-  previous: {
-    left: "-1rem",
-  },
-  next: {
-    right: "-1rem",
-  },
-  error: {
-    color: "oklch(63.7% 0.237 25.331)",
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-  },
-  result: {
-    display: "flex",
-    flexDirection: "column",
-    fontSize: "0.75rem",
-    gap: "0.25rem",
-    lineHeight: "1rem",
-    textAlign: "left",
-    width: "100%",
-  },
-  resultTitle: {
-    fontWeight: 500,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  resultDate: {
-    color: colors.mutedForeground,
-    fontSize: "0.6875rem",
-    fontVariantNumeric: "tabular-nums",
-  },
-  resultExcerpt: {
-    WebkitBoxOrient: "vertical",
-    WebkitLineClamp: 3,
-    color: colors.mutedForeground,
-    display: "-webkit-box",
-    overflow: "hidden",
-    overflowWrap: "break-word",
-  },
-});

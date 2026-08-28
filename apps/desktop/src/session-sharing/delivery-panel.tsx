@@ -7,11 +7,9 @@ import {
   EnvelopeSimple,
   LockSimple,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
@@ -68,25 +66,25 @@ export function ShareRecapOverflowMenu({
           size="icon"
           variant="ghost"
           aria-label={t`More options`}
-          sx={styles.mutedButton}
+          className="text-muted-foreground hover:text-foreground"
         >
-          <DotsThree {...stylex.props(styles.icon)} />
+          <DotsThree className="size-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent variant="app" align="end" sx={styles.menu}>
-        <AppFloatingPanel sx={styles.menuPanel}>
+      <DropdownMenuContent variant="app" align="end" className="w-44">
+        <AppFloatingPanel className="overflow-hidden p-1">
           <DropdownMenuItem
             onSelect={() => onValueChange("email")}
-            sx={styles.menuItem}
+            className="cursor-pointer"
           >
             <EnvelopeSimple aria-hidden="true" />
             <Trans>Email</Trans>
           </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={() => onValueChange("slack")}
-            sx={styles.menuItem}
+            className="cursor-pointer"
           >
-            <span {...stylex.props(styles.iconContainer)}>
+            <span className="flex size-4 items-center justify-center">
               <SlackBrandIcon size={16} />
             </span>
             <Trans>Slack</Trans>
@@ -109,18 +107,18 @@ function ShareRecapFormHeading({
   const { t } = useLingui();
 
   return (
-    <div {...stylex.props(styles.heading)}>
+    <div className="flex items-center gap-1">
       {onBack ? (
         <button
           type="button"
           onClick={onBack}
           aria-label={t`Back`}
-          {...stylex.props(styles.backButton)}
+          className="text-muted-foreground hover:text-foreground flex size-6 shrink-0 items-center justify-center rounded-md"
         >
-          <CaretLeft {...stylex.props(styles.icon)} aria-hidden="true" />
+          <CaretLeft className="size-4" aria-hidden="true" />
         </button>
       ) : null}
-      <h3 id={id} {...stylex.props(styles.headingText)}>
+      <h3 id={id} className="text-xs font-medium">
         {children}
       </h3>
     </div>
@@ -150,15 +148,12 @@ export function EmailRecapForm({
   });
 
   return (
-    <section
-      aria-labelledby="email-recap-heading"
-      {...stylex.props(styles.form)}
-    >
+    <section aria-labelledby="email-recap-heading" className="space-y-2">
       <div>
         <ShareRecapFormHeading id="email-recap-heading" onBack={onBack}>
           <Trans>Email meeting notes</Trans>
         </ShareRecapFormHeading>
-        <p {...stylex.props(styles.description)}>
+        <p className="text-muted-foreground mt-0.5 text-[11px] leading-4">
           <Trans>
             Send the summary in the email. Replies go directly to you.
           </Trans>
@@ -220,15 +215,12 @@ export function SlackRecapForm({
   if (!slackConnection || slackConnection.status === "reconnect_required") {
     const reconnect = slackConnection?.status === "reconnect_required";
     return (
-      <section
-        aria-labelledby="slack-recap-heading"
-        {...stylex.props(styles.form)}
-      >
+      <section aria-labelledby="slack-recap-heading" className="space-y-2">
         <div>
           <ShareRecapFormHeading id="slack-recap-heading" onBack={onBack}>
             <Trans>Send to Slack</Trans>
           </ShareRecapFormHeading>
-          <p {...stylex.props(styles.description)}>
+          <p className="text-muted-foreground mt-0.5 text-[11px] leading-4">
             <Trans>Connect Slack to choose a channel for this recap.</Trans>
           </p>
         </div>
@@ -244,10 +236,10 @@ export function SlackRecapForm({
               action: reconnect ? "reconnect" : "connect",
             })
           }
-          sx={styles.tallButton}
+          className="h-8"
         >
           {openingAction ? (
-            <CircleNotch {...stylex.props(styles.spinner)} aria-hidden="true" />
+            <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
           ) : (
             <SlackBrandIcon size={16} />
           )}
@@ -262,25 +254,22 @@ export function SlackRecapForm({
   }
 
   return (
-    <section
-      aria-labelledby="slack-recap-heading"
-      {...stylex.props(styles.form)}
-    >
+    <section aria-labelledby="slack-recap-heading" className="space-y-2">
       <div>
         <ShareRecapFormHeading id="slack-recap-heading" onBack={onBack}>
           <Trans>Send to Slack</Trans>
         </ShareRecapFormHeading>
-        <p {...stylex.props(styles.description)}>
+        <p className="text-muted-foreground mt-0.5 text-[11px] leading-4">
           <Trans>Post the meeting summary to a channel you can access.</Trans>
         </p>
       </div>
-      <div {...stylex.props(styles.channelActions)}>
+      <div className="flex gap-2">
         <Select
           value={channelId}
           onValueChange={setChannelId}
           disabled={disabled || pending || channels.isLoading}
         >
-          <SelectTrigger sx={styles.channelTrigger}>
+          <SelectTrigger className="h-8 min-w-0 flex-1 text-xs">
             <SelectValue
               placeholder={
                 channels.isLoading ? t`Loading channels…` : t`Choose a channel`
@@ -290,12 +279,9 @@ export function SlackRecapForm({
           <SelectContent>
             {channels.data?.map((channel) => (
               <SelectItem key={channel.id} value={channel.id}>
-                <span {...stylex.props(styles.channelOption)}>
+                <span className="flex items-center gap-1.5">
                   {channel.isPrivate ? (
-                    <LockSimple
-                      {...stylex.props(styles.privateIcon)}
-                      aria-hidden="true"
-                    />
+                    <LockSimple className="size-3" aria-hidden="true" />
                   ) : (
                     <span aria-hidden="true">#</span>
                   )}
@@ -312,16 +298,16 @@ export function SlackRecapForm({
           onClick={() => {
             if (selectedChannel) onSubmit(selectedChannel);
           }}
-          sx={styles.sendButton}
+          className="h-8 shrink-0"
         >
           {pending ? (
-            <CircleNotch {...stylex.props(styles.spinner)} aria-hidden="true" />
+            <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
           ) : null}
           <Trans>Send</Trans>
         </Button>
       </div>
       {channels.isError ? (
-        <p {...stylex.props(styles.error)}>
+        <p className="text-destructive text-[11px]">
           <Trans>
             Could not load Slack channels. Reconnect Slack and try again.
           </Trans>
@@ -330,110 +316,3 @@ export function SlackRecapForm({
     </section>
   );
 }
-
-const spin = stylex.keyframes({
-  to: {
-    transform: "rotate(360deg)",
-  },
-});
-
-const styles = stylex.create({
-  backButton: {
-    alignItems: "center",
-    borderRadius: radii.md,
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    display: "flex",
-    flexShrink: 0,
-    height: "1.5rem",
-    justifyContent: "center",
-    width: "1.5rem",
-  },
-  channelActions: {
-    display: "flex",
-    gap: "0.5rem",
-  },
-  channelOption: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.375rem",
-  },
-  channelTrigger: {
-    flex: "1",
-    fontSize: "0.75rem",
-    height: "2rem",
-    minWidth: 0,
-  },
-  description: {
-    color: colors.mutedForeground,
-    fontSize: "0.6875rem",
-    lineHeight: "1rem",
-    marginTop: "0.125rem",
-  },
-  error: {
-    color: colors.destructive,
-    fontSize: "0.6875rem",
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-  },
-  heading: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.25rem",
-  },
-  headingText: {
-    fontSize: "0.75rem",
-    fontWeight: 500,
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  iconContainer: {
-    alignItems: "center",
-    display: "flex",
-    height: "1rem",
-    justifyContent: "center",
-    width: "1rem",
-  },
-  menu: {
-    width: "11rem",
-  },
-  menuItem: {
-    cursor: "pointer",
-  },
-  menuPanel: {
-    overflow: "hidden",
-    padding: "0.25rem",
-  },
-  mutedButton: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-  },
-  privateIcon: {
-    height: "0.75rem",
-    width: "0.75rem",
-  },
-  sendButton: {
-    flexShrink: 0,
-    height: "2rem",
-  },
-  spinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-    height: "1rem",
-    width: "1rem",
-  },
-  tallButton: {
-    height: "2rem",
-  },
-});

@@ -1,10 +1,8 @@
 import { DotsThree } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { fonts } from "@anlg/design-system/tokens.stylex";
 import {
   AppFloatingPanel,
   DropdownMenu,
@@ -13,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
+import { cn } from "@anlg/utils";
 
 import {
   deleteMyShare,
@@ -21,115 +20,25 @@ import {
   restrictMyShare,
 } from "@/functions/account-shares";
 
-import { accountStyles } from "./-account-ui";
-const styles = stylex.create({
-  style1: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "1rem",
-  },
-  style2: {
-    fontFamily: fonts.hand,
-    fontSize: "1.875rem",
-    lineHeight: 1,
-    fontWeight: 600,
-    color: "#756b5d",
-  },
-  style3: {
-    padding: {
-      default: "1.5rem",
-      "@media (width >= 40rem)": "2rem",
-    },
-    fontSize: ".875rem",
-    lineHeight: "1.5rem",
-    color: "#756b5d",
-  },
-  style4: {
-    borderBottomColor: {
-      ":is(*) > :not(:last-child)": "#ede7dc",
-    },
-    borderBottomStyle: {
-      ":is(*) > :not(:last-child)": "solid",
-    },
-    borderBottomWidth: {
-      ":is(*) > :not(:last-child)": "1px",
-    },
-  },
-  style5: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: ".75rem",
-    paddingInline: {
-      default: "1.5rem",
-      "@media (width >= 40rem)": "2rem",
-    },
-    paddingBlock: "1.5rem",
-  },
-  style6: {
-    minWidth: 0,
-  },
-  style7: {
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    fontSize: "1rem",
-    lineHeight: "1.5rem",
-    fontWeight: 500,
-    color: "#181613",
-  },
-  style8: {
-    marginTop: ".25rem",
-    fontSize: ".875rem",
-    lineHeight: "1.5rem",
-    color: "#756b5d",
-  },
-  style9: {
-    paddingInline: {
-      default: "1.5rem",
-      "@media (width >= 40rem)": "2rem",
-    },
-    paddingBottom: "1.5rem",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: "#dc2626",
-  },
-  style10: {
-    width: "11rem",
-  },
-  style11: {
-    overflow: "hidden",
-    padding: ".25rem",
-  },
-  style12: {
-    cursor: "pointer",
-  },
-  style13: {
-    cursor: "pointer",
-    color: {
-      default: "#b91c1c",
-      ":focus": "#991b1b",
-    },
-    backgroundColor: {
-      default: null,
-      ":focus": "#fef2f2",
-    },
-  },
-  cardSpacing: {
-    marginTop: "1.5rem",
-  },
-});
+import {
+  accountCardClassName,
+  accountMenuTriggerClassName,
+  accountPillDangerClassName,
+} from "./-account-ui";
+
 const SCOPE_LABELS = {
   public: "Public",
   link: "Anyone with the link",
   workspace: "Workspace",
   restricted: "Invited people only",
 } as const;
+
 const sharesQueryKey = ["account-managed-shares"];
+
 export function SharedNotesSection() {
   const queryClient = useQueryClient();
   const [confirmingAll, setConfirmingAll] = useState(false);
+
   const sharesQuery = useQuery({
     queryKey: sharesQueryKey,
     // Skip the SSR fetch: this data is session-scoped and better fetched
@@ -143,47 +52,34 @@ export function SharedNotesSection() {
       return result.shares;
     },
   });
+
   const restrict = useMutation({
     mutationFn: async (shareId: string) => {
-      const result = await restrictMyShare({
-        data: {
-          shareId,
-        },
-      });
+      const result = await restrictMyShare({ data: { shareId } });
       if (!result.success) {
         throw new Error(result.message);
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: sharesQueryKey,
-      });
+      queryClient.invalidateQueries({ queryKey: sharesQueryKey });
     },
   });
+
   const stopSharing = useMutation({
     mutationFn: async (shareId: string) => {
-      const result = await deleteMyShare({
-        data: {
-          shareId,
-        },
-      });
+      const result = await deleteMyShare({ data: { shareId } });
       if (!result.success) {
         throw new Error(result.message);
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: sharesQueryKey,
-      });
+      queryClient.invalidateQueries({ queryKey: sharesQueryKey });
     },
   });
+
   const stopSharingAll = useMutation({
     mutationFn: async (shareIds: string[]) => {
-      const result = await deleteMyShares({
-        data: {
-          shareIds,
-        },
-      });
+      const result = await deleteMyShares({ data: { shareIds } });
       if (!result.success) {
         throw new Error(result.message);
       }
@@ -192,18 +88,20 @@ export function SharedNotesSection() {
       setConfirmingAll(false);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({
-        queryKey: sharesQueryKey,
-      });
+      queryClient.invalidateQueries({ queryKey: sharesQueryKey });
     },
   });
+
   const shares = sharesQuery.data ?? [];
   const actionsDisabled =
     restrict.isPending || stopSharing.isPending || stopSharingAll.isPending;
+
   return (
     <>
-      <div {...stylex.props(styles.style1)}>
-        <h2 {...stylex.props(styles.style2)}>Shared notes</h2>
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+          Shared notes
+        </h2>
         {!sharesQuery.isPending &&
           !sharesQuery.isError &&
           shares.length > 0 && (
@@ -217,7 +115,7 @@ export function SharedNotesSection() {
                 }
               }}
               disabled={actionsDisabled}
-              {...stylex.props([accountStyles.pill, accountStyles.pillDanger])}
+              className={accountPillDangerClassName}
             >
               {stopSharingAll.isPending
                 ? "Stopping..."
@@ -227,27 +125,32 @@ export function SharedNotesSection() {
             </button>
           )}
       </div>
-      <div {...stylex.props(accountStyles.card, styles.cardSpacing)}>
+      <div className={cn([accountCardClassName, "mt-6"])}>
         {sharesQuery.isPending ? (
-          <p {...stylex.props(styles.style3)}>Checking your shared notes...</p>
+          <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
+            Checking your shared notes...
+          </p>
         ) : sharesQuery.isError ? (
-          <p {...stylex.props(styles.style3)}>
+          <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
             Couldn't load your shared notes. Refresh to try again.
           </p>
         ) : shares.length === 0 ? (
-          <p {...stylex.props(styles.style3)}>
+          <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
             You haven't shared any notes yet. Notes you share from the desktop
             app show up here.
           </p>
         ) : (
-          <ul {...stylex.props(styles.style4)}>
+          <ul className="divide-y divide-[#ede7dc]">
             {shares.map((share) => (
-              <li key={share.shareId} {...stylex.props(styles.style5)}>
-                <div {...stylex.props(styles.style6)}>
-                  <p {...stylex.props(styles.style7)}>
+              <li
+                key={share.shareId}
+                className="flex items-center justify-between gap-3 p-6 sm:px-8"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-base font-medium text-[#181613]">
                     {share.title || "Untitled note"}
                   </p>
-                  <p {...stylex.props(styles.style8)}>
+                  <p className="mt-1 text-sm leading-6 text-[#756b5d]">
                     {SCOPE_LABELS[share.scope]} · updated{" "}
                     {new Date(share.updatedAt).toLocaleDateString("en-US", {
                       month: "long",
@@ -276,17 +179,17 @@ export function SharedNotesSection() {
           </ul>
         )}
         {restrict.isError && (
-          <p {...stylex.props(styles.style9)}>
+          <p className="px-6 pb-6 text-sm text-red-600 sm:px-8">
             {restrict.error?.message || "Failed to restrict shared note"}
           </p>
         )}
         {stopSharing.isError && (
-          <p {...stylex.props(styles.style9)}>
+          <p className="px-6 pb-6 text-sm text-red-600 sm:px-8">
             {stopSharing.error?.message || "Failed to stop sharing this note"}
           </p>
         )}
         {stopSharingAll.isError && (
-          <p {...stylex.props(styles.style9)}>
+          <p className="px-6 pb-6 text-sm text-red-600 sm:px-8">
             {stopSharingAll.error?.message ||
               "Failed to stop sharing your notes"}
           </p>
@@ -295,6 +198,7 @@ export function SharedNotesSection() {
     </>
   );
 }
+
 function ShareRowMenu({
   shareId,
   title,
@@ -329,29 +233,25 @@ function ShareRowMenu({
           type="button"
           disabled={disabled}
           aria-label={`Actions for ${title}`}
-          {...stylex.props(accountStyles.menuTrigger)}
+          className={accountMenuTriggerClassName}
         >
           <DotsThree size={16} aria-hidden="true" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent variant="app" align="end" sx={styles.style10}>
-        <AppFloatingPanel sx={styles.style11}>
-          <DropdownMenuItem asChild sx={styles.style12}>
+      <DropdownMenuContent variant="app" align="end" className="w-44">
+        <AppFloatingPanel className="overflow-hidden p-1">
+          <DropdownMenuItem asChild className="cursor-pointer">
             <Link
               to="/share/$shareId/"
-              params={{
-                shareId,
-              }}
-              search={{
-                scheme: "anarlog",
-              }}
+              params={{ shareId }}
+              search={{ scheme: "anarlog" }}
             >
               Open
             </Link>
           </DropdownMenuItem>
           {canRestrict && (
             <DropdownMenuItem
-              sx={styles.style12}
+              className="cursor-pointer"
               disabled={restricting}
               onSelect={onRestrict}
             >
@@ -360,7 +260,7 @@ function ShareRowMenu({
           )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            sx={styles.style13}
+            className="cursor-pointer text-red-700 focus:bg-red-50 focus:text-red-800"
             disabled={stopping}
             onSelect={onStopSharing}
           >

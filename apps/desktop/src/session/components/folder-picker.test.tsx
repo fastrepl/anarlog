@@ -1,9 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { FolderPicker, folderPickerStyles } from "./folder-picker";
-
-import { closestWithStyle, expectStyle } from "~/session/stylex-test";
+import { FolderPicker } from "./folder-picker";
 
 const mocks = vi.hoisted(() => ({
   folderId: "",
@@ -41,9 +39,9 @@ describe("FolderPicker", () => {
     const icons = trigger.querySelectorAll("svg");
 
     expect(trigger.textContent).toBe("");
-    expectStyle(trigger, folderPickerStyles.triggerEmpty);
+    expect(trigger.className).toContain("w-7");
     expect(icons).toHaveLength(1);
-    expectStyle(icons[0], folderPickerStyles.icon);
+    expect(icons[0]?.getAttribute("class")).toContain("size-4");
   });
 
   it("shows the selected folder name without a chevron", () => {
@@ -64,11 +62,12 @@ describe("FolderPicker", () => {
 
     const input = screen.getByPlaceholderText("Search or create folder");
     const content = input.closest("[data-radix-popper-content-wrapper] > *");
-    expectStyle(content, folderPickerStyles.popover);
-    expectStyle(
-      closestWithStyle(input, folderPickerStyles.content),
-      folderPickerStyles.content,
-    );
+    const classes = content?.className.split(/\s+/) ?? [];
+
+    expect(classes).toContain("w-85");
+    expect(classes).toContain("p-0.5");
+    expect(classes).not.toContain("p-0");
+    expect(input.closest(".p-4")).not.toBeNull();
   });
 
   it("lets the user select an existing folder for the current note", async () => {

@@ -1,147 +1,31 @@
-import * as stylex from "@stylexjs/stylex";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 
-import { radii } from "@anlg/design-system/tokens.stylex";
+import { cn } from "@anlg/utils";
 
-import { authStyles } from "@/components/auth-shell";
+import { authInputClassName } from "@/components/auth-shell";
 import { getAccountSubscription } from "@/functions/billing";
 import { applyYcPerk } from "@/functions/yc-perk";
 import { getAccountPlanCopy } from "@/lib/account-plan";
 import { validateYcPerkApplyValue } from "@/lib/yc-perk";
 
 import { useAccountSession } from "./-account-session";
-import { accountStyles } from "./-account-ui";
-const styles = stylex.create({
-  style1: {
-    display: "flex",
-    flexDirection: {
-      default: "column",
-      "@media (width >= 40rem)": "row",
-    },
-    gap: "1rem",
-    padding: {
-      default: "1.5rem",
-      "@media (width >= 40rem)": "2rem",
-    },
-    alignItems: {
-      default: null,
-      "@media (width >= 40rem)": "center",
-    },
-    justifyContent: {
-      default: null,
-      "@media (width >= 40rem)": "space-between",
-    },
-  },
-  style2: {
-    fontSize: ".875rem",
-    lineHeight: "1.5rem",
-    color: "#756b5d",
-  },
-  style3: {
-    fontSize: "1rem",
-    lineHeight: "1.5rem",
-    fontWeight: 500,
-    color: "#181613",
-  },
-  style4: {
-    backgroundColor: "#fff0b3",
-    paddingInline: ".25rem",
-    fontWeight: 600,
-  },
-  style5: {
-    marginTop: ".25rem",
-    fontSize: ".875rem",
-    lineHeight: "1.5rem",
-    color: "#756b5d",
-  },
-  style6: {
-    borderTopStyle: "solid",
-    borderTopWidth: "1px",
-    borderColor: "#ede7dc",
-    paddingInline: {
-      default: "1.5rem",
-      "@media (width >= 40rem)": "2rem",
-    },
-    paddingBlock: "1.25rem",
-  },
-  style7: {
-    marginTop: ".75rem",
-    display: "flex",
-    flexDirection: {
-      default: "column",
-      "@media (width >= 40rem)": "row",
-    },
-    gap: ".75rem",
-    alignItems: {
-      default: null,
-      "@media (width >= 40rem)": "center",
-    },
-  },
-  style8: {
-    minWidth: 0,
-    flexGrow: 1,
-  },
-  style9: {
-    clipPath: "inset(50%)",
-    whiteSpace: "nowrap",
-    borderWidth: 0,
-    width: "1px",
-    height: "1px",
-    margin: "-1px",
-    padding: 0,
-    position: "absolute",
-    overflow: "hidden",
-  },
-  style10: {
-    marginTop: ".5rem",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: "#b91c1c",
-  },
-  style11: {
-    marginTop: ".5rem",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: "#918a80",
-  },
-  style12: {
-    textDecorationLine: "underline",
-    textDecorationColor: "#b8afa4",
-    textUnderlineOffset: "4px",
-    transitionProperty: "color, text-decoration-color",
-    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
-    transitionDuration: ".15s",
-    color: {
-      default: null,
-      ":hover": "#181613",
-    },
-  },
-  style13: {
-    marginTop: ".375rem",
-    paddingInline: ".25rem",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    color: "#b91c1c",
-  },
-  perkInput: {
-    borderRadius: radii.full,
-    fontSize: ".875rem",
-    height: "2.25rem",
-    paddingInline: "1rem",
-  },
-  invalidPerkInput: {
-    borderColor: "#ef4444",
-  },
-});
+import {
+  accountCardClassName,
+  accountPillPrimaryClassName,
+  accountPillSecondaryClassName,
+} from "./-account-ui";
+
 export const accountSubscriptionQueryKey = ["account-subscription"];
+
 const ycPerkApplyErrorMessages = {
   claimed: "This perk has already been claimed.",
   invalid: "This YC code is not valid.",
   not_verified: "This YC link is no longer active.",
   email_missing: "Update your YC link to include your email.",
 };
+
 export function PlanSection({
   perk,
 }: {
@@ -158,6 +42,7 @@ export function PlanSection({
         billing?.isPaused === true),
     queryFn: () => getAccountSubscription(),
   });
+
   const cancelAtPeriodEnd =
     subscriptionQuery.data?.cancelAtPeriodEnd ??
     billing?.cancelAtPeriodEnd ??
@@ -168,6 +53,7 @@ export function PlanSection({
       : (billing?.currentPeriodEnd ?? null);
   const hasYcPerk =
     subscriptionQuery.data?.hasYcPerk === true || perk === "applied";
+
   const { planLabel, planDetail } = getAccountPlanCopy({
     isTrialing: billing?.isTrialing === true,
     isPaused: billing?.isPaused === true,
@@ -180,33 +66,35 @@ export function PlanSection({
     currentPeriodEnd,
     hasYcPerk,
   });
+
   const isCheckingPlan =
     isPending ||
     (billing?.isPaid === true &&
       billing.isTrialing !== true &&
       subscriptionQuery.isPending);
+
   return (
-    <div {...stylex.props(accountStyles.card)}>
-      <div {...stylex.props(styles.style1)}>
+    <div className={accountCardClassName}>
+      <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
         {isCheckingPlan ? (
-          <p {...stylex.props(styles.style2)}>Checking your plan...</p>
+          <p className="text-sm leading-6 text-[#756b5d]">
+            Checking your plan...
+          </p>
         ) : (
           <>
             <div>
-              <p {...stylex.props(styles.style3)}>
+              <p className="text-base font-medium text-[#181613]">
                 You're on{" "}
-                <mark {...stylex.props(styles.style4)}>{planLabel}</mark>
+                <mark className="bg-[#fff0b3] px-1 font-semibold">
+                  {planLabel}
+                </mark>
               </p>
-              <p {...stylex.props(styles.style5)}>{planDetail}</p>
+              <p className="mt-1 text-sm leading-6 text-[#756b5d]">
+                {planDetail}
+              </p>
             </div>
             {billing?.isPaid || billing?.isTrialing ? (
-              <Link
-                to="/app/portal/"
-                {...stylex.props([
-                  accountStyles.pill,
-                  accountStyles.pillSecondary,
-                ])}
-              >
+              <Link to="/app/portal/" className={accountPillSecondaryClassName}>
                 Manage billing
               </Link>
             ) : (
@@ -217,10 +105,7 @@ export function PlanSection({
                   trial: "false",
                   source: "settings",
                 }}
-                {...stylex.props([
-                  accountStyles.pill,
-                  accountStyles.pillPrimary,
-                ])}
+                className={accountPillPrimaryClassName}
               >
                 {billing?.isPaused ? "Resume Pro" : "Upgrade to Pro"}
               </Link>
@@ -232,6 +117,7 @@ export function PlanSection({
     </div>
   );
 }
+
 function YcPerkApplyForm({
   perk,
 }: {
@@ -240,12 +126,7 @@ function YcPerkApplyForm({
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const applyMutation = useMutation({
-    mutationFn: (value: string) =>
-      applyYcPerk({
-        data: {
-          value,
-        },
-      }),
+    mutationFn: (value: string) => applyYcPerk({ data: { value } }),
     onSuccess: (result) => {
       if (result.status === "needs_checkout" && result.code) {
         void navigate({
@@ -267,9 +148,7 @@ function YcPerkApplyForm({
     },
   });
   const form = useForm({
-    defaultValues: {
-      value: "",
-    },
+    defaultValues: { value: "" },
     onSubmit: ({ value }) => applyMutation.mutate(value.value),
   });
   const applied =
@@ -292,20 +171,24 @@ function YcPerkApplyForm({
                 : perk === "invalid"
                   ? ycPerkApplyErrorMessages.invalid
                   : undefined;
+
   if (applied) {
     return (
-      <div {...stylex.props(styles.style6)}>
-        <p {...stylex.props(styles.style2)}>YC founder year is applied.</p>
+      <div className="border-t border-[#ede7dc] px-6 py-5 sm:px-8">
+        <p className="text-sm leading-6 text-[#756b5d]">
+          YC founder year is applied.
+        </p>
       </div>
     );
   }
+
   return (
-    <div {...stylex.props(styles.style6)}>
-      <p {...stylex.props(styles.style2)}>
+    <div className="border-t border-[#ede7dc] px-6 py-5 sm:px-8">
+      <p className="text-sm leading-6 text-[#756b5d]">
         YC founder? Paste your verification link or Pro code.
       </p>
       <form
-        {...stylex.props(styles.style7)}
+        className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center"
         onSubmit={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -321,8 +204,8 @@ function YcPerkApplyForm({
           }}
         >
           {(field) => (
-            <div {...stylex.props(styles.style8)}>
-              <label htmlFor={field.name} {...stylex.props(styles.style9)}>
+            <div className="min-w-0 flex-1">
+              <label htmlFor={field.name} className="sr-only">
                 YC verification link or promotion code
               </label>
               <input
@@ -334,10 +217,12 @@ function YcPerkApplyForm({
                 value={field.state.value}
                 onBlur={field.handleBlur}
                 onChange={(event) => field.handleChange(event.target.value)}
-                {...stylex.props([
-                  authStyles.input,
-                  styles.perkInput,
-                  field.state.meta.errors.length > 0 && styles.invalidPerkInput,
+                className={cn([
+                  authInputClassName,
+                  "h-9 rounded-full px-4 text-sm",
+                  field.state.meta.errors.length > 0
+                    ? "border-red-500"
+                    : undefined,
                 ])}
                 aria-invalid={field.state.meta.errors.length > 0}
               />
@@ -348,34 +233,38 @@ function YcPerkApplyForm({
         <button
           type="submit"
           disabled={applyMutation.isPending}
-          {...stylex.props([accountStyles.pill, accountStyles.pillPrimary])}
+          className={accountPillPrimaryClassName}
         >
           {applyMutation.isPending ? "Applying..." : "Apply perk"}
         </button>
       </form>
       {errorMessage ? (
-        <p {...stylex.props(styles.style10)} role="alert">
+        <p className="mt-2 text-sm text-red-700" role="alert">
           {errorMessage}
         </p>
       ) : null}
-      <p {...stylex.props(styles.style11)}>
+      <p className="mt-2 text-sm text-[#918a80]">
         Need a verification link?{" "}
         <a
           href="https://www.ycombinator.com/verify"
           target="_blank"
           rel="noreferrer"
-          {...stylex.props(styles.style12)}
+          className="underline decoration-[#b8afa4] underline-offset-4 transition hover:text-[#181613]"
         >
           Get one from YC
         </a>
         {" · "}
-        <Link to="/yc/" {...stylex.props(styles.style12)}>
+        <Link
+          to="/yc/"
+          className="underline decoration-[#b8afa4] underline-offset-4 transition hover:text-[#181613]"
+        >
           Learn more
         </Link>
       </p>
     </div>
   );
 }
+
 function FieldError({ errors }: { errors: Array<unknown> }) {
   const firstError = errors[0];
   const message =
@@ -384,8 +273,9 @@ function FieldError({ errors }: { errors: Array<unknown> }) {
       : firstError && typeof firstError === "object" && "message" in firstError
         ? String(firstError.message)
         : undefined;
+
   return message ? (
-    <p {...stylex.props(styles.style13)} role="alert">
+    <p className="mt-1.5 px-1 text-sm text-red-700" role="alert">
       {message}
     </p>
   ) : null;

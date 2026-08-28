@@ -2,11 +2,9 @@ import {
   type NodeViewComponentProps,
   useEditorEventCallback,
 } from "@handlewithcare/react-prosemirror";
-import * as stylex from "@stylexjs/stylex";
 import { format } from "date-fns";
 import { forwardRef, type ReactNode, useCallback, useMemo } from "react";
 
-import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
 import { getSafeNodePos, TaskCheckbox } from "@anlg/editor/node-views";
 import { useLinkedItemOpenBehavior } from "@anlg/editor/note";
 import {
@@ -15,7 +13,7 @@ import {
   getOptionalTaskStatus,
   normalizeTaskStatus,
 } from "@anlg/editor/tasks";
-import { safeParseDate } from "@anlg/utils";
+import { cn, safeParseDate } from "@anlg/utils";
 
 import { toTz, useTimezone } from "~/calendar/hooks";
 import { useSession } from "~/session/queries";
@@ -117,31 +115,39 @@ export const SessionNodeView = forwardRef<
         data-session-row
         onMouseDown={handleRowMouseDown}
         onClick={handleRowClick}
-        {...stylex.props(styles.row)}
+        className={cn([
+          "group flex items-start rounded-md px-2 py-1 transition-colors",
+          "focus-within:bg-muted hover:bg-accent -mx-2",
+          "cursor-pointer",
+        ])}
       >
         {isRecording ? (
           <div
-            {...stylex.props(styles.recordingContainer)}
+            className="flex size-[18px] shrink-0 items-center justify-center"
             contentEditable={false}
           >
-            <div {...stylex.props(styles.recordingIndicator)} />
+            <div className="size-2.5 animate-pulse rounded-full bg-red-500" />
           </div>
         ) : (
           <TaskCheckbox status={status} isInteractive onToggle={handleToggle} />
         )}
-        <div {...stylex.props(styles.content)}>
+        <div className="flex min-w-0 flex-1 items-baseline gap-2">
           <div
             ref={nodeProps.contentDOMRef}
             data-session-title
-            {...stylex.props(
-              styles.title,
-              status === "done" && styles.completedTitle,
-            )}
+            className={cn([
+              "text-foreground min-w-0 text-sm",
+              "[&>p]:m-0 [&>p]:min-w-0 [&>p]:truncate",
+              status === "done" && "[&>p]:line-through [&>p]:opacity-60",
+            ])}
           >
             {children}
           </div>
           {displayTime && (
-            <span {...stylex.props(styles.time)} contentEditable={false}>
+            <span
+              className="text-muted-foreground shrink-0 font-mono text-xs"
+              contentEditable={false}
+            >
               {displayTime}
             </span>
           )}
@@ -149,98 +155,4 @@ export const SessionNodeView = forwardRef<
       </div>
     </div>
   );
-});
-
-const recordingPulse = stylex.keyframes({
-  "0%, 100%": {
-    opacity: 1,
-  },
-  "50%": {
-    opacity: 0.5,
-  },
-});
-
-const styles = stylex.create({
-  completedTitle: {
-    opacity: {
-      default: null,
-      ":is(*) > p": 0.6,
-    },
-    textDecorationLine: {
-      default: null,
-      ":is(*) > p": "line-through",
-    },
-  },
-  content: {
-    alignItems: "baseline",
-    display: "flex",
-    flex: "1",
-    gap: "0.5rem",
-    minWidth: {
-      default: 0,
-      ":is(*) > p": 0,
-    },
-  },
-  recordingContainer: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    height: "1.125rem",
-    justifyContent: "center",
-    width: "1.125rem",
-  },
-  recordingIndicator: {
-    animationDuration: "2s",
-    animationIterationCount: "infinite",
-    animationName: recordingPulse,
-    animationTimingFunction: "cubic-bezier(0.4, 0, 0.6, 1)",
-    backgroundColor: "#ef4444",
-    borderRadius: radii.full,
-    height: "0.625rem",
-    width: "0.625rem",
-  },
-  row: {
-    alignItems: "flex-start",
-    backgroundColor: {
-      default: "transparent",
-      ":focus-within": colors.muted,
-      ":hover": colors.accent,
-    },
-    borderRadius: radii.md,
-    cursor: "pointer",
-    display: "flex",
-    marginInline: "-0.5rem",
-    paddingBlock: "0.25rem",
-    paddingInline: "0.5rem",
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  time: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    fontFamily: fonts.mono,
-    fontSize: "0.75rem",
-  },
-  title: {
-    color: colors.foreground,
-    fontSize: "0.875rem",
-    margin: {
-      default: null,
-      ":is(*) > p": 0,
-    },
-    minWidth: 0,
-    overflow: {
-      default: null,
-      ":is(*) > p": "hidden",
-    },
-    textOverflow: {
-      default: null,
-      ":is(*) > p": "ellipsis",
-    },
-    whiteSpace: {
-      default: null,
-      ":is(*) > p": "nowrap",
-    },
-  },
 });

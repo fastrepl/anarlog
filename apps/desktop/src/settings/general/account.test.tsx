@@ -66,9 +66,6 @@ vi.mock("~/shared/utils", () => ({
 
 import { SettingsAccount } from "./account";
 
-import { expectStyle } from "~/session/stylex-test";
-import { glassDialogStyles } from "~/shared/ui/glass-dialog";
-
 const renderAccount = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -115,7 +112,7 @@ describe("SettingsAccount", () => {
     expect(
       screen.getByRole("heading", { name: "Sign out of Anarlog?" }),
     ).toBeTruthy();
-    expectStyle(screen.getByRole("dialog"), glassDialogStyles.content);
+    expect(screen.getByRole("dialog").className).toContain("max-w-[320px]");
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 

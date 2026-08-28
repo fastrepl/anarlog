@@ -1,4 +1,3 @@
-import * as stylex from "@stylexjs/stylex";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   act,
@@ -10,8 +9,6 @@ import {
 } from "@testing-library/react";
 import { cloneElement, StrictMode, type ReactElement, type Ref } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 const mocks = vi.hoisted(() => ({
   auth: {
@@ -199,16 +196,11 @@ vi.mock("@anlg/ui/components/ui/popover", () => ({
   AppFloatingPanel: ({
     children,
     className,
-    sx,
   }: {
     children: React.ReactNode;
     className?: string;
-    sx?: stylex.StyleXStyles;
   }) => (
-    <div
-      data-testid="share-floating-panel"
-      {...mergeStyleXProps(sx ?? [], className)}
-    >
+    <div data-testid="share-floating-panel" className={className}>
       {children}
     </div>
   ),
@@ -231,13 +223,11 @@ vi.mock("@anlg/ui/components/ui/popover", () => ({
   PopoverContent: ({
     children,
     className,
-    sx,
   }: {
     children: React.ReactNode;
     className?: string;
-    sx?: stylex.StyleXStyles;
   }) => (
-    <div data-testid="share-popover" {...mergeStyleXProps(sx ?? [], className)}>
+    <div data-testid="share-popover" className={className}>
       {children}
     </div>
   ),
@@ -317,14 +307,6 @@ vi.mock("@anlg/ui/components/ui/toast", () => ({
 }));
 
 import { SessionShareButton } from "./index";
-import { shareInviteStyles } from "./invite-recipients";
-import { sessionShareManagementStyles } from "./management-panel";
-
-import {
-  closestWithStyle,
-  expectNotStyle,
-  expectStyle,
-} from "~/session/stylex-test";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const OTHER_USER_ID = "77777777-7777-4777-8777-777777777777";
@@ -639,28 +621,27 @@ describe("SessionShareButton", () => {
     expect(trigger.textContent).toBe("");
     expect(trigger.querySelectorAll("svg")).toHaveLength(1);
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(trigger.className).not.toContain("mr-1");
 
     await openSharePopover();
 
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
-    expectStyle(
-      screen.getByRole("heading", { name: "Share" }),
-      sessionShareManagementStyles.visuallyHidden,
+    expect(screen.getByRole("heading", { name: "Share" }).className).toContain(
+      "sr-only",
     );
-    expectStyle(
-      screen.getByTestId("share-floating-panel"),
-      sessionShareManagementStyles.panel,
+    expect(screen.getByTestId("share-floating-panel").className).not.toContain(
+      "min-h-",
     );
-    expectStyle(
-      closestWithStyle(
-        screen.getByRole("textbox", { name: "Invitee email" }),
-        sessionShareManagementStyles.scrollArea,
-      ),
-      sessionShareManagementStyles.scrollArea,
+    expect(screen.getByTestId("share-floating-panel").className).toContain(
+      "max-h-[min(530px,calc(100vh-74px))]",
     );
-    expectStyle(
-      screen.getByTestId("share-popover"),
-      sessionShareManagementStyles.popover,
+    expect(
+      screen
+        .getByTestId("share-floating-panel")
+        .querySelector('[class*="overflow-y-auto"]'),
+    ).not.toBeNull();
+    expect(screen.getByTestId("share-popover").className).toContain(
+      "w-[440px]",
     );
     expect(
       screen.queryByRole("button", { name: "Update shared copy" }),
@@ -748,14 +729,12 @@ describe("SessionShareButton", () => {
     await waitFor(() =>
       expect(mocks.loadSessionShareSource).toHaveBeenCalledOnce(),
     );
-    expectStyle(
-      screen.getByRole("button", { name: "Copy link" }).querySelector("svg"),
-      sessionShareManagementStyles.spinner,
-    );
-    expectNotStyle(
-      trigger.querySelector("svg"),
-      sessionShareManagementStyles.spinner,
-    );
+    expect(
+      screen
+        .getByRole("button", { name: "Copy link" })
+        .querySelector(".animate-spin"),
+    ).not.toBeNull();
+    expect(trigger.querySelector(".animate-spin")).toBeNull();
     expect(screen.queryByText("Loading access…")).toBeNull();
 
     fireEvent.keyDown(screen.getByTestId("share-popover-root"), {
@@ -1697,9 +1676,8 @@ describe("SessionShareButton", () => {
     mocks.sendSessionAccessInvitationEmail.mockClear();
 
     const participantName = screen.getByText("Sungbin Jo");
-    expectStyle(
-      participantName.parentElement?.parentElement,
-      shareInviteStyles.recipientRow,
+    expect(participantName.parentElement?.parentElement?.className).toContain(
+      "min-h-9",
     );
     expect(screen.getByText("sungbin@e.com")).not.toBeNull();
     expect(screen.getByText("yujong@e.com")).not.toBeNull();

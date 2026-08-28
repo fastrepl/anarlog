@@ -1,38 +1,7 @@
-import * as stylex from "@stylexjs/stylex";
-
-import { radii } from "@anlg/design-system/tokens.stylex";
+import { cn } from "@anlg/utils";
 
 import { ACCOUNT_TABS, type AccountTabId } from "@/lib/account-tabs";
-const styles = stylex.create({
-  tabList: {
-    display: "flex",
-    gap: ".25rem",
-    overflowX: "auto",
-  },
-  tab: {
-    borderRadius: radii.full,
-    flexShrink: 0,
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    paddingBlock: ".375rem",
-    paddingInline: ".75rem",
-    transitionDuration: ".15s",
-    transitionProperty: "color, background-color",
-    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
-    whiteSpace: "nowrap",
-  },
-  activeTab: {
-    backgroundColor: "#fff0b3",
-    color: "#181613",
-    fontWeight: 500,
-  },
-  inactiveTab: {
-    color: {
-      default: "#756b5d",
-      ":hover": "#181613",
-    },
-  },
-});
+
 export function AccountTabs({
   activeId,
   onSelect,
@@ -44,9 +13,10 @@ export function AccountTabs({
 }) {
   return (
     <nav aria-label="Account sections">
-      <div role="tablist" {...stylex.props(styles.tabList)}>
+      <div role="tablist" className="flex gap-1 overflow-x-auto">
         {ACCOUNT_TABS.map((tab) => {
           const isActive = tab.id === activeId;
+
           return (
             <button
               key={tab.id}
@@ -58,9 +28,11 @@ export function AccountTabs({
               onPointerEnter={() => onPreload?.(tab.id)}
               onFocus={() => onPreload?.(tab.id)}
               onClick={() => onSelect(tab.id)}
-              {...stylex.props([
-                styles.tab,
-                isActive ? styles.activeTab : styles.inactiveTab,
+              className={cn([
+                "shrink-0 rounded-full px-3 py-1.5 text-sm whitespace-nowrap transition-colors",
+                isActive
+                  ? "bg-[#fff0b3] font-medium text-[#181613]"
+                  : "text-[#756b5d] hover:text-[#181613]",
               ])}
             >
               {tab.label}

@@ -20,7 +20,6 @@ import {
   TextStrikethrough,
   TextUnderline,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { toggleMark } from "prosemirror-commands";
 import type { MarkType } from "prosemirror-model";
 import type { EditorState } from "prosemirror-state";
@@ -28,7 +27,7 @@ import type { EditorView } from "prosemirror-view";
 import { useRef } from "react";
 import { createPortal } from "react-dom";
 
-import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
+import { cn } from "@anlg/utils";
 
 import { schema } from "../note/schema";
 
@@ -183,7 +182,11 @@ export function FormatToolbar({
       ref={toolbarRef}
       role="toolbar"
       aria-label="Format selection"
-      {...stylex.props(styles.toolbar)}
+      className={cn([
+        "bg-popover ring-border fixed z-50 flex items-center gap-0.5 rounded-xl p-1 ring-1",
+        "shadow-lg",
+      ])}
+      style={{ top: 0, left: 0 }}
       onMouseDown={(e) => e.preventDefault()}
     >
       {canFormatSelection &&
@@ -193,82 +196,36 @@ export function FormatToolbar({
             <button
               key={button.id}
               aria-pressed={active}
-              {...stylex.props(
-                styles.button,
-                active ? styles.activeButton : styles.inactiveButton,
-              )}
+              className={cn([
+                "flex size-7 items-center justify-center rounded-md",
+                "cursor-pointer border-none transition-colors",
+                active
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground bg-transparent",
+              ])}
               onClick={() => toggle(button.markType)}
             >
-              <button.icon className={stylex.props(styles.icon).className} />
+              <button.icon className="size-4" />
             </button>
           );
         })}
       {canFormatSelection && onComment && (
-        <span {...stylex.props(styles.separator)} aria-hidden="true" />
+        <span className="bg-border mx-0.5 h-4 w-px" aria-hidden="true" />
       )}
       {onComment && (
         <button
           type="button"
           aria-label="Comment"
-          {...stylex.props(styles.button, styles.inactiveButton)}
+          className={cn([
+            "text-muted-foreground flex size-7 items-center justify-center rounded-md",
+            "hover:bg-accent hover:text-accent-foreground cursor-pointer border-none bg-transparent transition-colors",
+          ])}
           onClick={onComment}
         >
-          <ChatCenteredDots {...stylex.props(styles.icon)} />
+          <ChatCenteredDots className="size-4" />
         </button>
       )}
     </div>,
     document.body,
   );
 }
-
-const styles = stylex.create({
-  toolbar: {
-    alignItems: "center",
-    backgroundColor: colors.popover,
-    borderRadius: radii.xl,
-    boxShadow: shadows.lg,
-    display: "flex",
-    gap: "0.125rem",
-    left: 0,
-    padding: "0.25rem",
-    position: "fixed",
-    top: 0,
-    zIndex: 50,
-  },
-  button: {
-    alignItems: "center",
-    borderRadius: radii.md,
-    borderStyle: "none",
-    cursor: "pointer",
-    display: "flex",
-    height: "1.75rem",
-    justifyContent: "center",
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color",
-    width: "1.75rem",
-  },
-  activeButton: {
-    backgroundColor: colors.primary,
-    color: colors.primaryForeground,
-  },
-  inactiveButton: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": colors.accent,
-    },
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.accentForeground,
-    },
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  separator: {
-    backgroundColor: colors.border,
-    height: "1rem",
-    marginInline: "0.125rem",
-    width: "1px",
-  },
-});

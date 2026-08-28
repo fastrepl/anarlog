@@ -141,7 +141,11 @@ vi.mock("~/contexts/shell", () => ({
 vi.mock("~/chat/hooks/use-chat-appearance", () => ({
   useChatAppearance: () => ({
     isDarkAppearance: true,
-    elevatedSurfaceStyle: undefined,
+    elevatedSurfaceClassName: "bg-card text-card-foreground border-border",
+    inputEditorClassName: "chat-input-editor text-card-foreground",
+    sendButtonDisabledClassName:
+      "cursor-default border-border text-muted-foreground/60",
+    sendButtonShortcutDisabledClassName: "text-muted-foreground/60",
   }),
 }));
 
@@ -410,7 +414,7 @@ describe("ChatMessageInput", () => {
     vi.unstubAllGlobals();
   });
 
-  it("disables the send control before the draft has content", () => {
+  it("marks the send control for disabled surface styling before the draft has content", () => {
     shellState.mode = "RightPanelOpen";
 
     render(
@@ -426,11 +430,15 @@ describe("ChatMessageInput", () => {
     });
 
     expect(sendButton.disabled).toBe(true);
+    expect(sendButton.className).toContain("chat-input-send");
+    expect(sendButton.className).not.toContain("bg-primary");
+    expect(sendButton.className).toContain("rounded-full");
+    expect(sendButton.className).toContain("size-7");
     expect(sendButton.textContent).toBe("");
     expect(sendButton.querySelector("svg")).not.toBeNull();
   });
 
-  it("wires the floating editor into its input surface", () => {
+  it("uses a growable white input surface while floating", () => {
     render(
       <ChatMessageInput draftKey="chat-input-test" onSendMessage={vi.fn()} />,
     );
@@ -440,18 +448,39 @@ describe("ChatMessageInput", () => {
     const surface = messageInput?.parentElement;
 
     expect(editor.className).toContain("chat-input-editor");
+    expect(editor.className).toContain("max-h-36");
+    expect(editor.className).toContain("min-h-5");
+    expect(editor.className).toContain("overflow-y-auto");
     expect(editor.dataset.placeholder).toBe("Ask anything");
-    expect((messageInput as HTMLElement | null)?.dataset.chatLayout).toBe(
-      "floating",
-    );
-    expect((messageInput as HTMLElement | null)?.dataset.chatVoiceState).toBe(
-      "idle",
-    );
+    expect(messageInput?.className).toContain("min-h-[30px]");
+    expect(messageInput?.className).toContain("items-center");
+    expect(messageInput?.className).not.toContain("items-end");
+    expect(messageInput?.className).not.toContain("min-h-10");
     expect(screen.queryByRole("button", { name: /send/i })).toBeNull();
     expect(
       screen.getByRole("button", { name: "Start voice input" }),
     ).not.toBeNull();
     expect(surface?.getAttribute("data-chat-input-surface")).toBe("floating");
+    expect(surface?.className).toContain("min-h-[38px]");
+    expect(surface?.className).toContain("max-h-40");
+    expect(surface?.className).toContain("items-center");
+    expect(surface?.className).not.toContain("items-end");
+    expect(surface?.className).toContain("pr-[6px]");
+    expect(surface?.className).toContain("pl-4");
+    expect(surface?.className).not.toContain("px-4");
+    expect(surface?.className).toContain("rounded-[19px]");
+    expect(surface?.className).toContain("py-[3px]");
+    expect(surface?.className).toContain("bg-white");
+    expect(surface?.className).toContain("text-card-foreground");
+    expect(surface?.className).toContain("dark:bg-card");
+    expect(surface?.className).toContain("dark:text-card-foreground");
+    expect(surface?.className).toContain("border-border/70");
+    expect(surface?.className).toContain("shadow-none");
+    expect(surface?.className).not.toContain("shadow-[");
+    expect(surface?.className).not.toContain("inset_0_0_0_1px");
+    expect(surface?.className).not.toContain("h-10");
+    expect(surface?.className).not.toContain("max-h-10");
+    expect(surface?.className).not.toContain("max-h-28");
   });
 
   it("anchors the floating send control to the bottom edge", () => {
@@ -480,14 +509,17 @@ describe("ChatMessageInput", () => {
       .getByTestId("chat-editor")
       .closest("[data-chat-message-input]");
 
-    expect(sendControl?.hasAttribute("data-chat-input-actions")).toBe(true);
-    expect((sendControl as HTMLElement | null)?.dataset.chatLayout).toBe(
-      "floating",
-    );
-    expect(messageInput?.contains(sendControl ?? null)).toBe(true);
+    expect(sendControl?.className).toContain("absolute");
+    expect(sendControl?.className).toContain("right-0");
+    expect(sendControl?.className).toContain("bottom-0.5");
+    expect(sendControl?.className).not.toContain("self-end");
+    expect(sendControl?.className).not.toContain("ml-3");
+    expect(messageInput?.className).toContain("items-center");
+    expect(messageInput?.className).toContain("relative");
+    expect(messageInput?.className).not.toContain("items-end");
   });
 
-  it("wires the right-panel editor into its input surface", () => {
+  it("uses the light card input surface in the right panel", () => {
     shellState.mode = "RightPanelOpen";
 
     render(
@@ -502,14 +534,14 @@ describe("ChatMessageInput", () => {
     const surface = editor.closest("[data-chat-message-input]")?.parentElement;
 
     expect(editor.className).toContain("chat-input-editor");
-    expect(
-      (editor.closest("[data-chat-message-input]") as HTMLElement | null)
-        ?.dataset.chatLayout,
-    ).toBe("right-panel");
+    expect(editor.className).toContain("max-h-[40vh]");
     expect(surface?.getAttribute("data-chat-input-surface")).toBe("elevated");
+    expect(surface?.className).toContain("bg-card");
+    expect(surface?.className).toContain("text-card-foreground");
+    expect(surface?.className).toContain("rounded-xl");
   });
 
-  it("marks the floating input container", () => {
+  it("keeps the floating input inset from the clipped shell corners", () => {
     render(
       <ChatMessageInput draftKey="chat-input-test" onSendMessage={vi.fn()} />,
     );
@@ -519,15 +551,14 @@ describe("ChatMessageInput", () => {
       .closest("[data-chat-message-input]");
     const outerContainer = messageInput?.parentElement?.parentElement;
 
-    expect(outerContainer?.hasAttribute("data-chat-input-container")).toBe(
-      true,
-    );
-    expect((outerContainer as HTMLElement | null)?.dataset.chatLayout).toBe(
-      "floating",
-    );
+    expect(outerContainer?.className).toContain("px-1");
+    expect(outerContainer?.className).toContain("pb-1");
+    expect(outerContainer?.className).not.toContain("px-3");
+    expect(outerContainer?.className).not.toContain("px-2.5");
+    expect(outerContainer?.className).not.toContain("pr-0");
   });
 
-  it("marks the right-panel input container", () => {
+  it("uses balanced outer padding in the right panel", () => {
     shellState.mode = "RightPanelOpen";
 
     render(
@@ -543,12 +574,11 @@ describe("ChatMessageInput", () => {
       .closest("[data-chat-message-input]");
     const outerContainer = messageInput?.parentElement?.parentElement;
 
-    expect(outerContainer?.hasAttribute("data-chat-input-container")).toBe(
-      true,
-    );
-    expect((outerContainer as HTMLElement | null)?.dataset.chatLayout).toBe(
-      "right-panel",
-    );
+    expect(outerContainer?.className).toContain("px-2");
+    expect(outerContainer?.className).toContain("pb-3");
+    expect(outerContainer?.className).not.toContain("px-5");
+    expect(outerContainer?.className).not.toContain("px-3");
+    expect(outerContainer?.className).not.toContain("pr-0");
   });
 
   it("walks sent messages with arrow navigation and restores the pending draft", () => {
@@ -680,7 +710,7 @@ describe("ChatMessageInput", () => {
     expect(editorState.initialContent).toEqual(docWithText("In progress"));
   });
 
-  it("applies StyleX alongside the editor integration hook", () => {
+  it("caps the editor height in the right panel separately", () => {
     shellState.mode = "RightPanelOpen";
 
     render(
@@ -693,7 +723,7 @@ describe("ChatMessageInput", () => {
 
     const editor = screen.getByTestId("chat-editor");
 
-    expect(editor.className).toContain("chat-input-editor");
-    expect(editor.className.split(/\s+/u).length).toBeGreaterThan(1);
+    expect(editor.className).toContain("max-h-[40vh]");
+    expect(editor.className).not.toContain("max-h-48");
   });
 });

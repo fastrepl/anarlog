@@ -5,7 +5,6 @@ import {
   MagnifyingGlass,
   Warning,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import {
   type ErrorRouteComponent,
   NotFoundRouteComponent,
@@ -14,7 +13,6 @@ import {
 import { relaunch } from "@tauri-apps/plugin-process";
 import { motion } from "motion/react";
 
-import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 
 import { captureOperationalError } from "~/error-reporting";
@@ -56,20 +54,23 @@ const ReportedErrorComponent = ({ error }: { error: Error }) => {
   };
 
   return (
-    <div {...stylex.props(styles.root)}>
-      <div data-tauri-drag-region {...stylex.props(styles.dragRegion)} />
+    <div className="flex h-full flex-col">
+      <div
+        data-tauri-drag-region
+        className="fixed inset-x-0 top-0 z-50 h-10 bg-transparent"
+      />
 
-      <div {...stylex.props(styles.center)}>
+      <div className="flex h-full min-h-[300px] items-center justify-center p-6">
         <motion.div
-          {...stylex.props(styles.motion)}
+          className="w-full max-w-sm"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: "easeOut" }}
         >
-          <div {...stylex.props(styles.card)}>
-            <div {...stylex.props(styles.content)}>
+          <div className="border-border bg-card rounded-xl border p-6 shadow-xs">
+            <div className="flex flex-col items-center gap-4 text-center">
               <motion.div
-                {...stylex.props(styles.iconCircle, styles.errorIconCircle)}
+                className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50"
                 initial={{ scale: 0.8 }}
                 animate={{ scale: 1 }}
                 transition={{
@@ -78,21 +79,21 @@ const ReportedErrorComponent = ({ error }: { error: Error }) => {
                   stiffness: 200,
                 }}
               >
-                <Warning {...stylex.props(styles.icon, styles.errorIcon)} />
+                <Warning className="h-6 w-6 text-red-500" />
               </motion.div>
 
-              <div {...stylex.props(styles.copy)}>
-                <h2 {...stylex.props(styles.title)}>
+              <div className="flex flex-col gap-1.5">
+                <h2 className="text-foreground text-base font-semibold">
                   {t`Something went wrong`}
                 </h2>
-                <p {...stylex.props(styles.errorDescription)}>
+                <p className="text-muted-foreground max-w-[260px] text-sm leading-relaxed">
                   {error.message || t`An unexpected error occurred.`}
                 </p>
               </div>
 
-              <div {...stylex.props(styles.action)}>
+              <div className="pt-2">
                 <Button size="sm" onClick={handleRestart}>
-                  <ArrowClockwise {...stylex.props(styles.buttonIcon)} />
+                  <ArrowClockwise className="mr-1.5 h-3.5 w-3.5" />
                   {t`Restart App`}
                 </Button>
               </div>
@@ -112,20 +113,23 @@ export const NotFoundComponent: NotFoundRouteComponent = () => {
   const navigate = useNavigate();
 
   return (
-    <div {...stylex.props(styles.root)}>
-      <div data-tauri-drag-region {...stylex.props(styles.dragRegion)} />
+    <div className="flex h-full flex-col">
+      <div
+        data-tauri-drag-region
+        className="fixed inset-x-0 top-0 z-50 h-10 bg-transparent"
+      />
 
-      <div {...stylex.props(styles.center)}>
+      <div className="flex h-full min-h-[300px] items-center justify-center p-6">
         <motion.div
-          {...stylex.props(styles.motion)}
+          className="w-full max-w-sm"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: "easeOut" }}
         >
-          <div {...stylex.props(styles.card)}>
-            <div {...stylex.props(styles.content)}>
+          <div className="border-border bg-card rounded-xl border p-6 shadow-xs">
+            <div className="flex flex-col items-center gap-4 text-center">
               <motion.div
-                {...stylex.props(styles.iconCircle, styles.notFoundIconCircle)}
+                className="bg-muted flex h-12 w-12 items-center justify-center rounded-full"
                 initial={{ scale: 0.8 }}
                 animate={{ scale: 1 }}
                 transition={{
@@ -134,14 +138,12 @@ export const NotFoundComponent: NotFoundRouteComponent = () => {
                   stiffness: 200,
                 }}
               >
-                <MagnifyingGlass
-                  {...stylex.props(styles.icon, styles.notFoundIcon)}
-                />
+                <MagnifyingGlass className="text-muted-foreground h-6 w-6" />
               </motion.div>
 
-              <div {...stylex.props(styles.copy)}>
+              <div className="flex flex-col gap-1.5">
                 <motion.span
-                  {...stylex.props(styles.statusCode)}
+                  className="text-muted-foreground/70 block text-4xl font-bold"
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{
@@ -152,15 +154,17 @@ export const NotFoundComponent: NotFoundRouteComponent = () => {
                 >
                   404
                 </motion.span>
-                <h2 {...stylex.props(styles.title)}>{t`Page not found`}</h2>
-                <p {...stylex.props(styles.description)}>
+                <h2 className="text-foreground text-base font-semibold">
+                  {t`Page not found`}
+                </h2>
+                <p className="text-muted-foreground text-sm">
                   {t`The page you're looking for doesn't exist.`}
                 </p>
               </div>
 
-              <div {...stylex.props(styles.action)}>
+              <div className="pt-2">
                 <Button size="sm" onClick={() => navigate({ to: "/app" })}>
-                  <House {...stylex.props(styles.buttonIcon)} />
+                  <House className="mr-1.5 h-3.5 w-3.5" />
                   {t`Go to Home`}
                 </Button>
               </div>
@@ -171,107 +175,3 @@ export const NotFoundComponent: NotFoundRouteComponent = () => {
     </div>
   );
 };
-
-const styles = stylex.create({
-  action: {
-    paddingTop: "0.5rem",
-  },
-  buttonIcon: {
-    height: "0.875rem",
-    marginRight: "0.375rem",
-    width: "0.875rem",
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderRadius: radii.xl,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: shadows.sm,
-    padding: "1.5rem",
-  },
-  center: {
-    alignItems: "center",
-    display: "flex",
-    height: "100%",
-    justifyContent: "center",
-    minHeight: "300px",
-    padding: "1.5rem",
-  },
-  content: {
-    alignItems: "center",
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-    textAlign: "center",
-  },
-  copy: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.375rem",
-  },
-  description: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-  },
-  dragRegion: {
-    backgroundColor: "transparent",
-    height: "2.5rem",
-    left: 0,
-    position: "fixed",
-    right: 0,
-    top: 0,
-    zIndex: 50,
-  },
-  errorDescription: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    lineHeight: 1.625,
-    maxWidth: "260px",
-  },
-  errorIcon: {
-    color: "rgb(239 68 68)",
-  },
-  errorIconCircle: {
-    backgroundColor: "rgb(254 242 242)",
-  },
-  icon: {
-    height: "1.5rem",
-    width: "1.5rem",
-  },
-  iconCircle: {
-    alignItems: "center",
-    borderRadius: radii.full,
-    display: "flex",
-    height: "3rem",
-    justifyContent: "center",
-    width: "3rem",
-  },
-  motion: {
-    maxWidth: "24rem",
-    width: "100%",
-  },
-  notFoundIcon: {
-    color: colors.mutedForeground,
-  },
-  notFoundIconCircle: {
-    backgroundColor: colors.muted,
-  },
-  root: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-  },
-  statusCode: {
-    color: `color-mix(in oklab, ${colors.mutedForeground} 70%, transparent)`,
-    display: "block",
-    fontSize: "2.25rem",
-    fontWeight: 700,
-    lineHeight: "2.5rem",
-  },
-  title: {
-    color: colors.foreground,
-    fontSize: "1rem",
-    fontWeight: 600,
-  },
-});

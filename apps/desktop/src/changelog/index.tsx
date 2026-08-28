@@ -1,12 +1,10 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { X } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 
 import { ChangelogContent } from "@anlg/changelog";
-import { colors } from "@anlg/design-system/tokens.stylex";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { Button } from "@anlg/ui/components/ui/button";
-import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
+import { cn } from "@anlg/utils";
 
 import { useChangelogContent } from "./data";
 
@@ -39,8 +37,8 @@ export function TabContentChangelog({
 
   return (
     <StandardContentWrapper>
-      <div {...stylex.props(styles.root)}>
-        <div data-tauri-drag-region {...stylex.props(styles.headerFrame)}>
+      <div className="flex h-full flex-col">
+        <div data-tauri-drag-region className="shrink-0 pr-1 pl-3">
           <ChangelogHeader
             version={current}
             showSidebarTimelineHeaderGutter={showSidebarTimelineHeaderGutter}
@@ -51,8 +49,8 @@ export function TabContentChangelog({
           />
         </div>
 
-        <div {...stylex.props(styles.bodyFrame)}>
-          <div {...mergeStyleXProps(styles.scroll, "scroll-fade-y")}>
+        <div className="relative mt-2 min-h-0 flex-1 overflow-hidden">
+          <div className="scroll-fade-y h-full overflow-y-auto px-3 pb-4">
             <ChangelogBody content={content} loading={loading} />
           </div>
         </div>
@@ -70,7 +68,7 @@ function ExternalLink({
 }) {
   return (
     <a
-      {...stylex.props(styles.externalLink)}
+      className="text-blue-600 underline decoration-blue-400/40 underline-offset-2 hover:text-blue-700 dark:text-blue-400 dark:decoration-blue-500/50 dark:hover:text-blue-300"
       href={href}
       onClick={(e) => {
         e.preventDefault();
@@ -91,7 +89,7 @@ function ChangelogBody({
 }) {
   if (loading) {
     return (
-      <p {...stylex.props(styles.muted)}>
+      <p className="text-muted-foreground">
         <Trans>Loading...</Trans>
       </p>
     );
@@ -120,7 +118,7 @@ function ChangelogBody({
   }
 
   return (
-    <p {...stylex.props(styles.muted)}>
+    <p className="text-muted-foreground">
       <Trans>No changelog available for this version.</Trans>
     </p>
   );
@@ -142,48 +140,44 @@ function ChangelogHeader({
   return (
     <div
       data-tauri-drag-region
-      {...stylex.props(
-        styles.header,
+      className={cn([
+        "relative flex h-12 w-full items-center",
         showSidebarTimelineHeaderGutter &&
-          (showWindowControlsGutter
-            ? styles.headerMacosGutter
-            : styles.headerGutter),
-      )}
+          (showWindowControlsGutter ? "pl-[156px]" : "pl-[80px]"),
+      ])}
     >
       <div
         data-tauri-drag-region
-        {...stylex.props(
-          styles.titleSlot,
+        className={cn([
+          "pointer-events-none absolute inset-y-0 flex items-center",
           showExpandedSidebarTimelineHeader
-            ? styles.titleSlotExpanded
+            ? "right-[70px] left-0 justify-start"
             : showSidebarTimelineHeaderGutter
-              ? [
-                  styles.titleSlotGutter,
-                  showWindowControlsGutter
-                    ? styles.titleSlotMacos
-                    : styles.titleSlotStandard,
-                ]
-              : styles.titleSlotCentered,
-        )}
+              ? cn([
+                  "right-[70px] justify-start",
+                  showWindowControlsGutter ? "left-[104px]" : "left-[28px]",
+                ])
+              : "left-1/2 w-[min(640px,calc(100%_-_160px))] -translate-x-1/2 justify-center",
+        ])}
       >
         <h1
-          {...stylex.props(
-            styles.title,
+          className={cn([
+            "text-foreground truncate text-xl font-semibold",
             showExpandedSidebarTimelineHeader || showSidebarTimelineHeaderGutter
-              ? styles.titleLeft
-              : styles.titleCentered,
-          )}
+              ? "text-left"
+              : "text-center",
+          ])}
         >
           <Trans>What's new in {version}?</Trans>
         </h1>
       </div>
 
-      <div {...stylex.props(styles.actions)}>
+      <div className="relative z-10 ml-auto flex shrink-0 items-center gap-0 pr-1">
         <Button
           size="icon"
           variant="ghost"
           data-tauri-drag-region="false"
-          sx={styles.close}
+          className="text-muted-foreground hover:text-foreground"
           aria-label={t`Close changelog`}
           title={t`Close`}
           onClick={onClose}
@@ -194,121 +188,3 @@ function ChangelogHeader({
     </div>
   );
 }
-
-const styles = stylex.create({
-  actions: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    gap: 0,
-    marginLeft: "auto",
-    paddingRight: "0.25rem",
-    position: "relative",
-    zIndex: 10,
-  },
-  bodyFrame: {
-    flex: "1",
-    marginTop: "0.5rem",
-    minHeight: 0,
-    overflow: "hidden",
-    position: "relative",
-  },
-  close: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-  },
-  externalLink: {
-    color: {
-      default: "rgb(37 99 235)",
-      ":hover": "rgb(29 78 216)",
-      ":is(.dark *)": "rgb(96 165 250)",
-      ":is(.dark *):hover": "rgb(147 197 253)",
-    },
-    textDecorationColor: {
-      default: "rgb(96 165 250 / 0.4)",
-      ":is(.dark *)": "rgb(59 130 246 / 0.5)",
-    },
-    textDecorationLine: "underline",
-    textUnderlineOffset: "2px",
-  },
-  header: {
-    alignItems: "center",
-    display: "flex",
-    height: "3rem",
-    position: "relative",
-    width: "100%",
-  },
-  headerFrame: {
-    flexShrink: 0,
-    paddingLeft: "0.75rem",
-    paddingRight: "0.25rem",
-  },
-  headerGutter: {
-    paddingLeft: "80px",
-  },
-  headerMacosGutter: {
-    paddingLeft: "156px",
-  },
-  muted: {
-    color: colors.mutedForeground,
-  },
-  root: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-  },
-  scroll: {
-    height: "100%",
-    overflowY: "auto",
-    paddingBottom: "1rem",
-    paddingInline: "0.75rem",
-  },
-  title: {
-    color: colors.foreground,
-    fontSize: "1.25rem",
-    fontWeight: 600,
-    lineHeight: "1.75rem",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  titleCentered: {
-    textAlign: "center",
-  },
-  titleLeft: {
-    textAlign: "left",
-  },
-  titleSlot: {
-    alignItems: "center",
-    bottom: 0,
-    display: "flex",
-    pointerEvents: "none",
-    position: "absolute",
-    top: 0,
-  },
-  titleSlotCentered: {
-    justifyContent: "center",
-    left: "50%",
-    transform: "translateX(-50%)",
-    width: "min(640px, calc(100% - 160px))",
-  },
-  titleSlotExpanded: {
-    justifyContent: "flex-start",
-    left: 0,
-    right: "70px",
-  },
-  titleSlotGutter: {
-    justifyContent: "flex-start",
-    right: "70px",
-  },
-  titleSlotMacos: {
-    left: "104px",
-  },
-  titleSlotStandard: {
-    left: "28px",
-  },
-});
-
-export { styles as changelogStyles };

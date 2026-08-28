@@ -3,11 +3,9 @@ import {
   useEditorEventCallback,
   useIsNodeSelected,
 } from "@handlewithcare/react-prosemirror";
-import * as stylex from "@stylexjs/stylex";
 import type { NodeSpec } from "prosemirror-model";
 import { forwardRef, useCallback, useRef, useState } from "react";
 
-import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
 import { cn } from "@anlg/utils";
 
 import {
@@ -247,20 +245,17 @@ export const ResizableImageView = forwardRef<
   const editorWidth = clampImageWidth(node.attrs.editorWidth);
   const imageWidth =
     draftWidth !== null ? `${draftWidth}px` : `${editorWidth}%`;
-  const imageStyles = stylex.props(
-    styles.image,
-    isSelected
-      ? styles.selectedImage
-      : isHovered
-        ? styles.hoveredImage
-        : undefined,
-  );
 
   return (
-    <div ref={ref} {...htmlAttrs} {...stylex.props(styles.root)}>
+    <div
+      ref={ref}
+      {...htmlAttrs}
+      className="relative overflow-visible select-none [&_*::selection]:bg-transparent [&::selection]:bg-transparent"
+    >
       <div
         ref={attachContainer}
-        {...stylex.props(styles.container, styles.imageWidth(imageWidth))}
+        className="relative inline-block w-fit max-w-full overflow-visible"
+        style={imageWidth ? { width: imageWidth } : undefined}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
@@ -269,116 +264,47 @@ export const ResizableImageView = forwardRef<
           src={resolvedAttachment?.src ?? node.attrs.src}
           alt={node.attrs.alt || ""}
           title={parseImageMetadata(node.attrs.title).title ?? undefined}
-          {...imageStyles}
-          className={cn(["prosemirror-image", imageStyles.className])}
+          className={cn([
+            "prosemirror-image bg-card max-w-full rounded-md transition-[box-shadow,border-color] select-none",
+            isSelected
+              ? "ring-foreground/55 ring-offset-card ring-1 ring-offset-2"
+              : "",
+            isHovered && !isSelected
+              ? "ring-border ring-offset-card ring-1 ring-offset-2"
+              : "",
+            "w-full",
+          ])}
           draggable={false}
         />
         {showControls && (
           <>
             <div
               aria-hidden="true"
-              {...stylex.props(styles.rightHoverTarget)}
+              className="absolute top-0 right-0 h-full w-6"
             />
-            <div aria-hidden="true" {...stylex.props(styles.leftHoverTarget)} />
+            <div
+              aria-hidden="true"
+              className="absolute top-0 left-0 h-full w-6"
+            />
             <button
               type="button"
               aria-label="Resize image from left"
               onPointerDown={(event) => handleResizeStart("left", event)}
-              {...stylex.props(styles.resizeHandle, styles.leftHandle)}
+              className="border-border bg-card/95 absolute top-1/2 left-1 flex h-14 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border shadow-sm backdrop-blur-sm"
             >
-              <span {...stylex.props(styles.handleGrip)} />
+              <span className="bg-muted-foreground h-8 w-1 rounded-full" />
             </button>
             <button
               type="button"
               aria-label="Resize image from right"
               onPointerDown={(event) => handleResizeStart("right", event)}
-              {...stylex.props(styles.resizeHandle, styles.rightHandle)}
+              className="border-border bg-card/95 absolute top-1/2 right-1 flex h-14 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border shadow-sm backdrop-blur-sm"
             >
-              <span {...stylex.props(styles.handleGrip)} />
+              <span className="bg-muted-foreground h-8 w-1 rounded-full" />
             </button>
           </>
         )}
       </div>
     </div>
   );
-});
-
-const styles = stylex.create({
-  root: {
-    "::selection": {
-      backgroundColor: "transparent",
-    },
-    overflow: "visible",
-    position: "relative",
-    userSelect: "none",
-  },
-  container: {
-    display: "inline-block",
-    maxWidth: "100%",
-    overflow: "visible",
-    position: "relative",
-    width: "fit-content",
-  },
-  imageWidth: (width: string) => ({
-    width,
-  }),
-  image: {
-    backgroundColor: colors.card,
-    borderRadius: radii.md,
-    maxWidth: "100%",
-    transitionDuration: "150ms",
-    transitionProperty: "box-shadow, border-color",
-    userSelect: "none",
-    width: "100%",
-  },
-  selectedImage: {
-    boxShadow: `0 0 0 2px ${colors.card}, 0 0 0 3px color-mix(in oklab, ${colors.foreground} 55%, transparent)`,
-  },
-  hoveredImage: {
-    boxShadow: `0 0 0 2px ${colors.card}, 0 0 0 3px ${colors.border}`,
-  },
-  rightHoverTarget: {
-    height: "100%",
-    position: "absolute",
-    right: 0,
-    top: 0,
-    width: "1.5rem",
-  },
-  leftHoverTarget: {
-    height: "100%",
-    left: 0,
-    position: "absolute",
-    top: 0,
-    width: "1.5rem",
-  },
-  resizeHandle: {
-    alignItems: "center",
-    backdropFilter: "blur(4px)",
-    backgroundColor: `color-mix(in oklab, ${colors.card} 95%, transparent)`,
-    borderColor: colors.border,
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    cursor: "ew-resize",
-    display: "flex",
-    height: "3.5rem",
-    justifyContent: "center",
-    position: "absolute",
-    top: "50%",
-    transform: "translateY(-50%)",
-    width: "1rem",
-    boxShadow: shadows.sm,
-  },
-  leftHandle: {
-    left: "0.25rem",
-  },
-  rightHandle: {
-    right: "0.25rem",
-  },
-  handleGrip: {
-    backgroundColor: colors.mutedForeground,
-    borderRadius: radii.full,
-    height: "2rem",
-    width: "0.25rem",
-  },
 });

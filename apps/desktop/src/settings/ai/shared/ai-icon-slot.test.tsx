@@ -1,4 +1,3 @@
-import * as stylex from "@stylexjs/stylex";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
@@ -12,23 +11,18 @@ describe("provider icon slot", () => {
       </ProviderIconSlot>,
     );
 
-    expect(markup).toContain('data-slot="ai-icon"');
-    expect(markup).toContain('data-slot="ai-icon-art"');
+    expect(markup).not.toContain("bg-muted");
+    expect(markup).not.toContain("rounded-md");
+    expect(markup).toContain("size-5");
+    expect(markup).toContain("size-full");
   });
 
   test("keeps letter-badge backgrounds when provided", () => {
-    const defaultMarkup = renderToStaticMarkup(<AiIconSlot>G</AiIconSlot>);
     const markup = renderToStaticMarkup(
-      <AiIconSlot sx={styles.letterBadge}>G</AiIconSlot>,
+      <AiIconSlot className="rounded-md bg-amber-50">G</AiIconSlot>,
     );
 
-    expect(markup).not.toBe(defaultMarkup);
+    expect(markup).toContain("bg-amber-50");
+    expect(markup).toContain("rounded-md");
   });
-});
-
-const styles = stylex.create({
-  letterBadge: {
-    backgroundColor: "rgb(255 251 235)",
-    borderRadius: "0.375rem",
-  },
 });

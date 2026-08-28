@@ -1,8 +1,7 @@
 import { CaretRight, CircleNotch } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { type ReactNode } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
+import { cn } from "@anlg/utils";
 
 import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
 
@@ -15,9 +14,9 @@ export function MessageContainer({
 }) {
   return (
     <div
-      {...stylex.props([
-        styles.messageContainer,
-        align === "end" ? styles.alignEnd : styles.alignStart,
+      className={cn([
+        "flex py-2",
+        align === "end" ? "justify-end" : "justify-start",
       ])}
     >
       {children}
@@ -38,17 +37,21 @@ export function MessageBubble({
 
   return (
     <div
-      data-chat-action-parent={withActionButton || undefined}
-      data-chat-message-appearance={isDarkAppearance ? "dark" : "light"}
-      data-chat-message-variant={variant}
-      {...stylex.props([
-        styles.messageBubble,
-        messageBubbleVariantStyles[variant],
-        isDarkAppearance &&
-          variant === "assistant" &&
-          styles.darkAssistantBubble,
-        isDarkAppearance && variant === "loading" && styles.darkLoadingBubble,
-        withActionButton && styles.actionParent,
+      className={cn([
+        "select-text-deep text-sm",
+        variant === "user" &&
+          "w-fit max-w-full rounded-2xl bg-blue-100 px-3 py-1 text-neutral-800 [&_p]:[text-wrap:wrap]",
+        variant === "assistant" &&
+          (isDarkAppearance
+            ? "bg-accent text-accent-foreground rounded-2xl px-3 py-1"
+            : "text-foreground"),
+        variant === "loading" &&
+          (isDarkAppearance
+            ? "bg-accent text-accent-foreground w-fit rounded-2xl px-3 py-1"
+            : "text-foreground"),
+        variant === "error" &&
+          "rounded-2xl border border-red-200 bg-red-50 px-3 py-1 text-red-600",
+        withActionButton && "group relative",
       ])}
     >
       {children}
@@ -64,22 +67,29 @@ export function ActionButton({
 }: {
   onClick: () => void;
   variant?: "default" | "error";
-  icon: React.ComponentType<{
-    className?: string;
-    style?: React.CSSProperties;
-  }>;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
 }) {
   return (
     <button
       aria-label={label}
       onClick={onClick}
-      {...stylex.props([
-        styles.actionButton,
-        actionButtonVariantStyles[variant],
+      className={cn([
+        "absolute -top-1 -right-1",
+        "opacity-0 group-hover:opacity-100",
+        "transition-opacity",
+        "rounded-full p-1",
+        variant === "default" && [
+          "bg-accent hover:bg-accent",
+          "text-muted-foreground hover:text-foreground",
+        ],
+        variant === "error" && [
+          "bg-red-100 hover:bg-red-200",
+          "text-red-600 hover:text-red-800",
+        ],
       ])}
     >
-      <Icon {...stylex.props(styles.smallIcon)} />
+      <Icon className="h-3 w-3" />
     </button>
   );
 }
@@ -96,215 +106,34 @@ export function Disclosure({
   disabled?: boolean;
 }) {
   return (
-    <details data-chat-disclosure {...stylex.props(styles.disclosure)}>
+    <details
+      className={cn([
+        "group my-2 rounded-md border px-2 py-1 transition-colors",
+        "border-border hover:border-border cursor-pointer",
+      ])}
+    >
       <summary
         onClick={(event) => {
           if (disabled) {
             event.preventDefault();
           }
         }}
-        {...stylex.props([styles.summary, disabled && styles.disabledSummary])}
+        className={cn([
+          "w-full",
+          "text-muted-foreground text-xs",
+          "list-none select-none marker:hidden",
+          "flex items-center gap-2",
+          disabled && "cursor-default",
+        ])}
       >
-        {disabled ? (
-          <CircleNotch {...stylex.props([styles.smallIcon, styles.spinner])} />
-        ) : null}
-        {!disabled && icon && (
-          <span {...stylex.props(styles.iconSlot)}>{icon}</span>
-        )}
-        <span {...stylex.props(styles.summaryTitle)}>{title}</span>
-        <CaretRight {...stylex.props(styles.disclosureCaret)} />
+        {disabled ? <CircleNotch className="h-3 w-3 animate-spin" /> : null}
+        {!disabled && icon && <span className="shrink-0">{icon}</span>}
+        <span className={cn(["flex-1 truncate", "group-open:font-medium"])}>
+          {title}
+        </span>
+        <CaretRight className="h-3 w-3 shrink-0 transition-transform group-open:rotate-90" />
       </summary>
-      <div {...stylex.props(styles.disclosureContent)}>{children}</div>
+      <div className="border-border mt-1 border-t px-1 pt-2">{children}</div>
     </details>
   );
 }
-
-const spin = stylex.keyframes({
-  to: {
-    transform: "rotate(360deg)",
-  },
-});
-
-const styles = stylex.create({
-  messageContainer: {
-    display: "flex",
-    paddingBlock: "0.5rem",
-  },
-  alignStart: {
-    justifyContent: "flex-start",
-  },
-  alignEnd: {
-    justifyContent: "flex-end",
-  },
-  messageBubble: {
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-    userSelect: {
-      default: "text",
-      ":is(*) *": "text",
-    },
-  },
-  userBubble: {
-    backgroundColor: "oklch(93.2% 0.032 255.585)",
-    borderRadius: "1rem",
-    color: "oklch(26.9% 0 0)",
-    maxWidth: "100%",
-    paddingBlock: "0.25rem",
-    paddingInline: "0.75rem",
-    textWrap: "wrap",
-    width: "fit-content",
-  },
-  assistantBubble: {
-    color: colors.foreground,
-  },
-  loadingBubble: {
-    color: colors.foreground,
-  },
-  darkAssistantBubble: {
-    backgroundColor: colors.accent,
-    borderRadius: "1rem",
-    color: colors.accentForeground,
-    paddingBlock: "0.25rem",
-    paddingInline: "0.75rem",
-  },
-  darkLoadingBubble: {
-    backgroundColor: colors.accent,
-    borderRadius: "1rem",
-    color: colors.accentForeground,
-    paddingBlock: "0.25rem",
-    paddingInline: "0.75rem",
-    width: "fit-content",
-  },
-  errorBubble: {
-    backgroundColor: colors.alert,
-    borderColor: colors.alertBorder,
-    borderRadius: "1rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    color: colors.alertForeground,
-    paddingBlock: "0.25rem",
-    paddingInline: "0.75rem",
-  },
-  actionParent: {
-    position: "relative",
-  },
-  actionButton: {
-    borderRadius: radii.full,
-    opacity: {
-      default: 0,
-      ":is([data-chat-action-parent]:hover *)": 1,
-    },
-    padding: "0.25rem",
-    position: "absolute",
-    right: "-0.25rem",
-    top: "-0.25rem",
-    transitionDuration: "150ms",
-    transitionProperty: "opacity",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  defaultActionButton: {
-    backgroundColor: {
-      default: colors.accent,
-      ":hover": colors.accent,
-    },
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-  },
-  errorActionButton: {
-    backgroundColor: {
-      default: "oklch(93.6% 0.032 17.717)",
-      ":hover": "oklch(88.5% 0.062 18.334)",
-    },
-    color: {
-      default: "oklch(57.7% 0.245 27.325)",
-      ":hover": "oklch(44.4% 0.177 26.899)",
-    },
-  },
-  smallIcon: {
-    height: "0.75rem",
-    width: "0.75rem",
-  },
-  disclosure: {
-    borderColor: {
-      default: colors.border,
-      ":hover": colors.border,
-    },
-    borderRadius: radii.md,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    cursor: "pointer",
-    marginBlock: "0.5rem",
-    paddingBlock: "0.25rem",
-    paddingInline: "0.5rem",
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color, border-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  summary: {
-    alignItems: "center",
-    color: colors.mutedForeground,
-    display: "flex",
-    fontSize: "0.75rem",
-    gap: "0.5rem",
-    lineHeight: "1rem",
-    listStyle: "none",
-    userSelect: "none",
-    width: "100%",
-  },
-  disabledSummary: {
-    cursor: "default",
-  },
-  spinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-  },
-  iconSlot: {
-    flexShrink: 0,
-  },
-  summaryTitle: {
-    flex: "1",
-    fontWeight: {
-      default: 400,
-      ":is([data-chat-disclosure][open] *)": 500,
-    },
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  disclosureCaret: {
-    flexShrink: 0,
-    height: "0.75rem",
-    transform: {
-      default: "rotate(0deg)",
-      ":is([data-chat-disclosure][open] *)": "rotate(90deg)",
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "transform",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "0.75rem",
-  },
-  disclosureContent: {
-    borderColor: colors.border,
-    borderTopStyle: "solid",
-    borderTopWidth: "1px",
-    marginTop: "0.25rem",
-    paddingInline: "0.25rem",
-    paddingTop: "0.5rem",
-  },
-});
-
-const messageBubbleVariantStyles = {
-  assistant: styles.assistantBubble,
-  error: styles.errorBubble,
-  loading: styles.loadingBubble,
-  user: styles.userBubble,
-};
-
-const actionButtonVariantStyles = {
-  default: styles.defaultActionButton,
-  error: styles.errorActionButton,
-};

@@ -1,5 +1,4 @@
 import { CircleNotch, File, Image } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -15,7 +14,6 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { colors, fonts } from "@anlg/design-system/tokens.stylex";
 import {
   captureCommentAnchor,
   type CommentAnchor,
@@ -32,7 +30,7 @@ import {
   setCommentAnchors,
 } from "@anlg/editor/note";
 import { Avatar } from "@anlg/ui/components/avatar";
-import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
+import { cn } from "@anlg/utils";
 
 import {
   DRAFT_COMMENT_ID,
@@ -53,7 +51,10 @@ import {
   type SelectionRect,
   SharedNoteSelectionComment,
 } from "@/components/shared-note-selection-comment";
-import { sharedButtonStyles } from "@/components/shared-note-viewer";
+import {
+  sharedPrimaryButtonClassName,
+  sharedSecondaryButtonClassName,
+} from "@/components/shared-note-viewer";
 import {
   hasSharedNoteCollaborationAccess,
   MAX_SHARED_NOTE_COMMENT_BYTES,
@@ -77,244 +78,26 @@ import {
   withoutDuplicateLeadingTitle,
 } from "@/lib/shared-notes";
 
-const spin = stylex.keyframes({
-  to: { transform: "rotate(360deg)" },
-});
-
-const styles = stylex.create({
-  style1: {
-    position: "relative",
-  },
-  style2: {
-    outlineStyle: "none",
-    outlineOffset: {
-      default: null,
-      "@media (forced-colors: active)": "2px",
-    },
-    outline: {
-      default: null,
-      "@media (forced-colors: active)": "2px solid #0000",
-    },
-  },
-  style3: {
-    marginTop: "2.5rem",
-    borderColor: colors.border,
-    borderTopStyle: "solid",
-    borderTopWidth: "1px",
-    paddingTop: "1.5rem",
-  },
-  style4: {
-    marginBottom: ".75rem",
-    fontFamily: fonts.mono,
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    fontWeight: 500,
-  },
-  style5: {
-    position: "absolute",
-    insetBlock: 0,
-    left: "100%",
-    marginLeft: "1.5rem",
-    display: {
-      default: "none",
-      "@media (width >= 80rem)": "block",
-    },
-    width: "284px",
-  },
-  style6: {
-    position: "fixed",
-    insetInline: "1rem",
-    bottom: "6rem",
-    zIndex: 40,
-    marginInline: "auto",
-    width: "auto",
-    display: {
-      default: null,
-      "@media (width >= 80rem)": "none",
-    },
-  },
-  style7: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderRadius: "1rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    padding: "1rem",
-    boxShadow: "0 4px 6px -1px #0000001a, 0 2px 4px -2px #0000001a",
-  },
-  style8: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: ".625rem",
-  },
-  style9: {
-    marginTop: ".25rem",
-  },
-  style10: {
-    marginTop: ".5rem",
-    fontSize: ".75rem",
-    lineHeight: "1rem",
-    color: "#b91c1c",
-  },
-  style11: {
-    marginTop: ".75rem",
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: ".5rem",
-  },
-  style12: {
-    marginRight: ".375rem",
-    width: ".875rem",
-    height: ".875rem",
-    animationDuration: "1s",
-    animationTimingFunction: "linear",
-    animationIterationCount: "infinite",
-    animationName: spin,
-  },
-  style13: {
-    marginBlock: "1.5rem",
-  },
-  style14: {
-    maxHeight: "70vh",
-    maxWidth: "100%",
-    borderColor: colors.border,
-    borderRadius: ".75rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    objectFit: "contain",
-  },
-  style15: {
-    marginBlock: "1rem",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "1rem",
-    backgroundColor: colors.muted,
-    borderColor: colors.border,
-    borderRadius: ".75rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    paddingInline: "1rem",
-    paddingBlock: ".75rem",
-    color: colors.foreground,
-    textDecorationLine: "none",
-  },
-  style16: {
-    minWidth: 0,
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    fontWeight: 500,
-  },
-  style17: {
-    flexShrink: 0,
-    fontSize: ".75rem",
-    lineHeight: "1rem",
-    color: colors.mutedForeground,
-  },
-  style18: {
-    marginBlock: ".75rem",
-    display: "flex",
-    alignItems: "center",
-    gap: ".75rem",
-    backgroundColor: colors.muted,
-    borderColor: colors.border,
-    borderRadius: ".75rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    paddingInline: "1rem",
-    paddingBlock: ".75rem",
-  },
-  style19: {
-    display: "flex",
-    width: "2.5rem",
-    height: "2.5rem",
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.card,
-    borderRadius: ".5rem",
-  },
-  style20: {
-    color: colors.mutedForeground,
-    width: "1.25rem",
-    height: "1.25rem",
-  },
-  style21: {
-    minWidth: 0,
-    flexGrow: 1,
-  },
-  style22: {
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    fontSize: ".875rem",
-    lineHeight: "1.25rem",
-    fontWeight: 500,
-    color: colors.foreground,
-  },
-  style23: {
-    marginTop: ".125rem",
-    fontSize: ".75rem",
-    lineHeight: "1rem",
-    color: colors.mutedForeground,
-  },
-  commentTextarea: {
-    backgroundColor: colors.muted,
-    borderColor: {
-      default: colors.border,
-      ":focus": "#a8a29e",
-    },
-    borderRadius: ".75rem",
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: {
-      default: null,
-      ":focus": "0 0 0 2px #d6d3d1",
-    },
-    color: colors.foreground,
-    flexGrow: 1,
-    fontSize: ".875rem",
-    lineHeight: "1.5rem",
-    minHeight: "5rem",
-    minWidth: 0,
-    outline: {
-      default: null,
-      ":focus": "none",
-    },
-    paddingBlock: ".5rem",
-    paddingInline: ".75rem",
-    resize: "vertical",
-    "::placeholder": {
-      color: colors.mutedForeground,
-    },
-  },
-  compactCommentButton: {
-    fontSize: ".75rem",
-    minHeight: "2.25rem",
-    paddingInline: ".75rem",
-  },
-});
 type EditorView = NonNullable<NoteEditorRef["view"]>;
 type EditorNodeView = NonNullable<NoteEditorProps["extraNodeViews"]>[string];
 type EditorNodeViewProps = ComponentProps<EditorNodeView>;
+
 const SharedReadAttachmentsContext = createContext<{
   attachments: ReadonlyMap<string, SharedNoteAttachment>;
   excluded: ReadonlySet<string>;
   resolve: SharedAttachmentResolver | null;
-}>({
-  attachments: new Map(),
-  excluded: new Set(),
-  resolve: null,
-});
+}>({ attachments: new Map(), excluded: new Set(), resolve: null });
 
-// Keep JS visibility in lockstep with the comment rail layout breakpoint.
+// Tailwind's xl breakpoint — the width from which the comment rail (and its
+// draft composer) is visible.
 const RAIL_MEDIA_QUERY = "(min-width: 80rem)";
+
 function subscribeRailMedia(onChange: () => void) {
   const media = window.matchMedia(RAIL_MEDIA_QUERY);
   media.addEventListener("change", onChange);
   return () => media.removeEventListener("change", onChange);
 }
+
 function useCommentRailVisible() {
   return useSyncExternalStore(
     subscribeRailMedia,
@@ -322,6 +105,7 @@ function useCommentRailVisible() {
     () => false,
   );
 }
+
 export function SharedNoteReadSurface({
   canCompose,
   excludedAttachmentIds = [],
@@ -359,18 +143,14 @@ export function SharedNoteReadSurface({
   const [anchoredComments, setAnchoredComments] = useState<
     AnchoredSharedNoteComment[]
   >([]);
+
   const railVisible = useCommentRailVisible();
-  const commentsQuery = useSharedNoteComments({
-    enabled: signedIn,
-    shareId,
-  });
+  const commentsQuery = useSharedNoteComments({ enabled: signedIn, shareId });
   const createMutation = useCreateSharedNoteComment({
     shareId,
     snapshotRevision: snapshot.contentRevision,
   });
-  const deleteMutation = useDeleteSharedNoteComment({
-    shareId,
-  });
+  const deleteMutation = useDeleteSharedNoteComment({ shareId });
   const comments = useMemo(
     () => collectSharedNoteComments(commentsQuery.data),
     [commentsQuery.data],
@@ -391,6 +171,7 @@ export function SharedNoteReadSurface({
     : null;
   const activeComment = activeThread?.comments[0] ?? null;
   const railHasContent = signedIn && (draft !== null || railItems.length > 0);
+
   const body = useMemo(
     () => withoutDuplicateLeadingTitle(snapshot.body, snapshot.title),
     [snapshot],
@@ -430,6 +211,7 @@ export function SharedNoteReadSurface({
         !excludedAttachmentIds.includes(attachment.id),
     );
   }, [body, excludedAttachmentIds, snapshot.attachments]);
+
   const scheduleLayoutMeasure = useCallback(() => {
     if (frameRef.current !== null) return;
     frameRef.current = requestAnimationFrame(() => {
@@ -453,6 +235,7 @@ export function SharedNoteReadSurface({
       });
     });
   }, []);
+
   const attachContainer = useCallback(
     (element: HTMLDivElement | null) => {
       if (!element) return;
@@ -484,22 +267,18 @@ export function SharedNoteReadSurface({
     setCommentAnchors(view, [
       ...getSharedNoteCommentThreadAnchors(anchored),
       ...(draft
-        ? [
-            {
-              commentId: DRAFT_COMMENT_ID,
-              from: draft.from,
-              to: draft.to,
-            },
-          ]
+        ? [{ commentId: DRAFT_COMMENT_ID, from: draft.from, to: draft.to }]
         : []),
     ]);
     scheduleLayoutMeasure();
   }, [view, comments, draft, snapshot.contentRevision, scheduleLayoutMeasure]);
+
   const activateComment = (commentId: string | null) => {
     setActiveCommentId(commentId);
     const currentView = viewRef.current;
     if (currentView) setActiveCommentAnchor(currentView, commentId);
   };
+
   const handleAnchorsEvent = (event: CommentAnchorsEvent) => {
     const currentView = viewRef.current;
     if (!currentView) return;
@@ -531,6 +310,7 @@ export function SharedNoteReadSurface({
     }
     scheduleLayoutMeasure();
   };
+
   const startDraft = () => {
     const currentView = viewRef.current;
     const container = containerRef.current;
@@ -551,21 +331,14 @@ export function SharedNoteReadSurface({
     setSelectionRect(null);
     setActiveCommentId(null);
     setActiveCommentAnchor(currentView, null);
-    setDraft({
-      anchor: captured,
-      from,
-      to,
-      top,
-    });
+    setDraft({ anchor: captured, from, to, top });
   };
+
   const submitDraft = (commentBody: string) => {
     if (!draft) return;
     const submitted = draft;
     createMutation.mutate(
-      {
-        anchor: fromCaptured(submitted.anchor),
-        body: commentBody,
-      },
+      { anchor: fromCaptured(submitted.anchor), body: commentBody },
       {
         // Only clear the draft this submit belongs to; a draft opened after
         // a resize-triggered cleanup must survive the earlier completion.
@@ -574,6 +347,7 @@ export function SharedNoteReadSurface({
       },
     );
   };
+
   if (!editorBodyIsValid) {
     return (
       <SharedNoteDocument
@@ -584,15 +358,16 @@ export function SharedNoteReadSurface({
       />
     );
   }
+
   return (
     <div
       ref={attachContainer}
-      {...stylex.props(styles.style1)}
+      className="relative"
       data-comment-rail={railHasContent ? "" : undefined}
     >
       <SharedReadAttachmentsContext.Provider value={attachmentContext}>
         <NoteEditor
-          {...mergeStyleXProps(styles.style2, "session-note-editor")}
+          className="session-note-editor outline-hidden"
           commentAnchorsEnabled
           enforceTitleHeading={false}
           extraNodeViews={readAttachmentNodeViews}
@@ -612,8 +387,8 @@ export function SharedNoteReadSurface({
         />
       </SharedReadAttachmentsContext.Provider>
       {unreferencedAttachments.length > 0 && (
-        <section {...stylex.props(styles.style3)}>
-          <h2 {...stylex.props(styles.style4)}>Attachments</h2>
+        <section className="border-color-subtle mt-10 border-t pt-6">
+          <h2 className="mb-3 font-mono text-sm font-medium">Attachments</h2>
           {unreferencedAttachments.map((attachment) => (
             <SharedReadAttachment
               key={attachment.id}
@@ -629,15 +404,13 @@ export function SharedNoteReadSurface({
         rect={selectionRect}
         visible={composeEnabled && !draft}
       />
-      <div {...stylex.props(styles.style5)}>
+      <div className="absolute inset-y-0 left-full ml-6 hidden w-[284px] xl:block">
         <SharedNoteCommentRail
           activeCommentId={activeCommentId}
           canDelete={(comment) => comment.isAuthor || manageAccess}
           composer={
             railVisible && draft
-              ? {
-                  top: screenTops.get(DRAFT_COMMENT_ID) ?? draft.top,
-                }
+              ? { top: screenTops.get(DRAFT_COMMENT_ID) ?? draft.top }
               : null
           }
           composerNode={
@@ -671,7 +444,7 @@ export function SharedNoteReadSurface({
         />
       </div>
       {!railVisible && (draft || activeComment) && (
-        <div {...stylex.props(styles.style6)}>
+        <div className="fixed inset-x-4 bottom-24 z-40 mx-auto w-auto max-w-sm xl:hidden">
           {draft ? (
             <DraftComposer
               error={createMutation.isError}
@@ -708,6 +481,7 @@ export function SharedNoteReadSurface({
     </div>
   );
 }
+
 function DraftComposer({
   error,
   onCancel,
@@ -720,18 +494,17 @@ function DraftComposer({
   pending: boolean;
 }) {
   const form = useForm({
-    defaultValues: {
-      body: "",
-    },
+    defaultValues: { body: "" },
     onSubmit: ({ value }) => {
       const comment = validateSharedNoteCommentBody(value.body);
       if (!comment.valid) return;
       onSubmit(comment.body);
     },
   });
+
   return (
     <form
-      {...stylex.props(styles.style7)}
+      className="surface border-color-subtle rounded-2xl border p-4 shadow-md"
       onSubmit={(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -744,17 +517,20 @@ function DraftComposer({
           const tooLong = comment.byteLength > MAX_SHARED_NOTE_COMMENT_BYTES;
           return (
             <>
-              <div {...stylex.props(styles.style8)}>
+              <div className="flex items-start gap-2.5">
                 <Avatar
                   seed="shared-note:you"
                   label="You"
                   size={28}
-                  sx={styles.style9}
+                  className="mt-1"
                 />
                 <textarea
                   autoFocus
                   aria-label="Comment on selected text"
-                  {...stylex.props(styles.commentTextarea)}
+                  className={cn([
+                    "surface-subtle border-color-subtle text-color min-h-20 min-w-0 flex-1 resize-y rounded-xl border px-3 py-2",
+                    "placeholder:text-color-muted text-sm leading-6 focus:border-stone-400 focus:ring-2 focus:ring-stone-300 focus:outline-hidden",
+                  ])}
                   aria-invalid={tooLong}
                   placeholder="Comment on the selected text…"
                   value={field.state.value}
@@ -763,24 +539,23 @@ function DraftComposer({
                 />
               </div>
               {tooLong && (
-                <p {...stylex.props(styles.style10)} role="alert">
+                <p className="mt-2 text-xs text-red-700" role="alert">
                   Comment is too long ({comment.byteLength.toLocaleString()}/
                   {MAX_SHARED_NOTE_COMMENT_BYTES.toLocaleString()} bytes).
                 </p>
               )}
               {error && (
-                <p {...stylex.props(styles.style10)} role="status">
+                <p className="mt-2 text-xs text-red-700" role="status">
                   Your comment couldn’t be added. Try again.
                 </p>
               )}
-              <div {...stylex.props(styles.style11)}>
+              <div className="mt-3 flex justify-end gap-2">
                 <button
                   type="button"
-                  {...stylex.props(
-                    sharedButtonStyles.base,
-                    sharedButtonStyles.secondary,
-                    styles.compactCommentButton,
-                  )}
+                  className={cn([
+                    sharedSecondaryButtonClassName,
+                    "min-h-9 px-3 text-xs",
+                  ])}
                   disabled={pending}
                   onClick={onCancel}
                 >
@@ -788,16 +563,15 @@ function DraftComposer({
                 </button>
                 <button
                   type="submit"
-                  {...stylex.props(
-                    sharedButtonStyles.base,
-                    sharedButtonStyles.primary,
-                    styles.compactCommentButton,
-                  )}
+                  className={cn([
+                    sharedPrimaryButtonClassName,
+                    "min-h-9 px-3 text-xs",
+                  ])}
                   disabled={pending || !comment.valid}
                 >
                   {pending && (
                     <CircleNotch
-                      {...stylex.props(styles.style12)}
+                      className="mr-1.5 size-3.5 animate-spin"
                       aria-hidden="true"
                     />
                   )}
@@ -811,6 +585,7 @@ function DraftComposer({
     </form>
   );
 }
+
 const SharedReadAttachmentView = forwardRef<
   HTMLDivElement,
   EditorNodeViewProps
@@ -823,6 +598,7 @@ const SharedReadAttachmentView = forwardRef<
     typeof sharedAttachmentId === "string"
       ? attachments.get(sharedAttachmentId)
       : undefined;
+
   return (
     <div
       ref={ref}
@@ -840,11 +616,13 @@ const SharedReadAttachmentView = forwardRef<
     </div>
   );
 });
+
 const readAttachmentNodeViews = {
   clip: SharedReadAttachmentView,
   fileAttachment: SharedReadAttachmentView,
   image: SharedReadAttachmentView,
 };
+
 function SharedReadAttachment({
   attachment,
   isImage,
@@ -869,6 +647,7 @@ function SharedReadAttachment({
     isMatchingSharedNoteAttachmentDownload(attachment, downloadQuery.data)
       ? downloadQuery.data
       : null;
+
   if (
     attachment &&
     download &&
@@ -876,17 +655,18 @@ function SharedReadAttachment({
     isInlineImage(attachment.contentType)
   ) {
     return (
-      <figure {...stylex.props(styles.style13)}>
+      <figure className="my-6">
         <img
           src={download.signedUrl}
           alt={attachment.filename}
           loading="lazy"
           referrerPolicy="no-referrer"
-          {...stylex.props(styles.style14)}
+          className="border-color-subtle max-h-[70vh] max-w-full rounded-xl border object-contain"
         />
       </figure>
     );
   }
+
   if (attachment && download && !isImage) {
     return (
       <a
@@ -895,26 +675,29 @@ function SharedReadAttachment({
         target="_blank"
         rel="ugc noopener noreferrer"
         referrerPolicy="no-referrer"
-        {...stylex.props(styles.style15)}
+        className="surface-subtle border-color-subtle text-color my-4 flex items-center justify-between gap-4 rounded-xl border px-4 py-3 no-underline"
       >
-        <span {...stylex.props(styles.style16)}>{attachment.filename}</span>
-        <span {...stylex.props(styles.style17)}>
+        <span className="min-w-0 truncate font-medium">
+          {attachment.filename}
+        </span>
+        <span className="text-color-muted shrink-0 text-xs">
           {formatFileSize(attachment.sizeBytes)}
         </span>
       </a>
     );
   }
+
   const Icon = isImage ? Image : File;
   return (
-    <div {...stylex.props(styles.style18)}>
-      <div {...stylex.props(styles.style19)}>
-        <Icon {...stylex.props(styles.style20)} aria-hidden="true" />
+    <div className="border-color-subtle bg-surface-subtle my-3 flex items-center gap-3 rounded-xl border px-4 py-3">
+      <div className="bg-surface flex size-10 shrink-0 items-center justify-center rounded-lg">
+        <Icon className="text-color-muted size-5" aria-hidden="true" />
       </div>
-      <div {...stylex.props(styles.style21)}>
-        <p {...stylex.props(styles.style22)}>
+      <div className="min-w-0 flex-1">
+        <p className="text-color truncate text-sm font-medium">
           {attachment?.filename ?? "Attachment unavailable"}
         </p>
-        <p {...stylex.props(styles.style23)}>
+        <p className="text-color-muted mt-0.5 text-xs">
           {attachment
             ? `${formatFileSize(attachment.sizeBytes)} · Included with shared note`
             : "Included attachment"}
@@ -923,6 +706,7 @@ function SharedReadAttachment({
     </div>
   );
 }
+
 function isInlineImage(contentType: string) {
   return [
     "image/avif",
@@ -932,6 +716,7 @@ function isInlineImage(contentType: string) {
     "image/webp",
   ].includes(contentType);
 }
+
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;

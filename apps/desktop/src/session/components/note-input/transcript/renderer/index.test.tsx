@@ -2,9 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createRef } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { TranscriptViewer, transcriptViewerStyles } from "./index";
-
-import { expectStyle } from "~/session/stylex-test";
+import { TranscriptViewer } from "./index";
 
 const mocks = vi.hoisted(() => ({
   scrollToBottom: vi.fn(),
@@ -160,7 +158,8 @@ describe("TranscriptViewer", () => {
     );
 
     const container = document.querySelector("[data-transcript-container]");
-    expectStyle(container, transcriptViewerStyles.container);
+    expect(container?.className).toContain("overflow-x-clip");
+    expect(container?.className).toContain("min-w-0");
   });
 
   it("keeps active transcript sessions pinned to the bottom", () => {
@@ -367,7 +366,13 @@ describe("TranscriptViewer", () => {
     topButton.click();
     bottomButton.click();
 
-    expectStyle(controls, transcriptViewerStyles.scrollControls);
+    expect(controls?.className).toContain("right-1");
+    expect(controls?.className).toContain("top-1/2");
+    expect(controls?.className).toContain("bg-transparent");
+    expect(controls?.className).toContain("border-transparent");
+    expect(controls?.className).toContain("hover:bg-background/65");
+    expect(controls?.className).toContain("hover:backdrop-blur-md");
+    expect(controls?.className).toContain("focus-within:backdrop-blur-md");
     expect((topButton as HTMLButtonElement).disabled).toBe(false);
     expect((bottomButton as HTMLButtonElement).disabled).toBe(false);
     expect(topButton.firstElementChild?.tagName.toLowerCase()).toBe("svg");

@@ -1,10 +1,8 @@
 import { Icon } from "@iconify-icon/react";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Buildings, Envelope } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 
-import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
@@ -41,7 +39,7 @@ export function OrganizationDetailsColumn({
     : [];
 
   return (
-    <div {...stylex.props(styles.root)}>
+    <div className="flex h-full flex-1 flex-col">
       {organization ? (
         <>
           <ContactPageHeader
@@ -50,8 +48,8 @@ export function OrganizationDetailsColumn({
               organization.avatarDataUrl ? (
                 <ContactImage src={organization.avatarDataUrl} size={24} />
               ) : (
-                <div {...stylex.props(styles.compactAvatar)}>
-                  <Buildings {...stylex.props(styles.compactAvatarIcon)} />
+                <div className="bg-muted flex size-6 shrink-0 items-center justify-center rounded-full">
+                  <Buildings className="text-muted-foreground size-3" />
                 </div>
               )
             }
@@ -77,12 +75,12 @@ export function OrganizationDetailsColumn({
           />
 
           <div
-            {...stylex.props(styles.scroller)}
+            className="flex-1 overflow-y-auto"
             onScroll={(event) => {
               setShowCompactIdentity(event.currentTarget.scrollTop > 0);
             }}
           >
-            <div {...stylex.props(styles.avatarSection)}>
+            <div className="border-border flex items-center justify-center border-b py-6">
               <AvatarUploadButton
                 label={t`Change photo`}
                 onUpload={(dataUrl) =>
@@ -92,19 +90,19 @@ export function OrganizationDetailsColumn({
                 {organization.avatarDataUrl ? (
                   <ContactImage src={organization.avatarDataUrl} size={64} />
                 ) : (
-                  <div {...stylex.props(styles.largeAvatar)}>
-                    <Buildings {...stylex.props(styles.largeAvatarIcon)} />
+                  <div className="bg-accent flex h-16 w-16 items-center justify-center rounded-full">
+                    <Buildings className="text-muted-foreground h-8 w-8" />
                   </div>
                 )}
               </AvatarUploadButton>
             </div>
 
             <div>
-              <div {...stylex.props(styles.fieldRow)}>
-                <div {...stylex.props(styles.fieldLabel)}>
+              <div className="border-border flex items-center border-b px-4 py-3">
+                <div className="text-muted-foreground w-28 text-sm">
                   <Trans>Name</Trans>
                 </div>
-                <div {...stylex.props(styles.fieldControl)}>
+                <div className="flex-1">
                   <EditableOrganizationNameField
                     key={organization.id}
                     organization={organization}
@@ -113,10 +111,10 @@ export function OrganizationDetailsColumn({
               </div>
             </div>
 
-            <div {...stylex.props(styles.peopleSection)}>
-              <h3 {...stylex.props(styles.peopleHeading)}>
+            <div className="p-6">
+              <h3 className="text-muted-foreground mb-4 text-sm font-medium">
                 <Trans>People</Trans>
-                <span {...stylex.props(styles.peopleCount)}>
+                <span className="text-muted-foreground font-normal">
                   {" "}
                   &middot; {peopleInOrg.length}{" "}
                   {peopleInOrg.length === 1 ? t`member` : t`members`}
@@ -124,15 +122,15 @@ export function OrganizationDetailsColumn({
               </h3>
               <div>
                 {peopleInOrg.length > 0 ? (
-                  <div {...stylex.props(styles.peopleGrid)}>
+                  <div className="grid grid-cols-3 gap-4">
                     {peopleInOrg.map((human) => {
                       return (
                         <div
                           key={human.id}
-                          {...stylex.props(styles.personCard)}
+                          className="border-border bg-card cursor-pointer rounded-lg border p-4 transition-all hover:shadow-xs"
                           onClick={() => onPersonClick?.(human.id)}
                         >
-                          <div {...stylex.props(styles.personCardContent)}>
+                          <div className="flex flex-col items-center gap-3 text-center">
                             {human.avatarDataUrl ? (
                               <ContactImage
                                 src={human.avatarDataUrl}
@@ -146,17 +144,17 @@ export function OrganizationDetailsColumn({
                                 size={48}
                               />
                             )}
-                            <div {...stylex.props(styles.personCopy)}>
-                              <div {...stylex.props(styles.personName)}>
+                            <div className="w-full">
+                              <div className="truncate text-sm font-semibold">
                                 {human.name || human.email || t`Unnamed`}
                               </div>
                               {human.jobTitle && (
-                                <div {...stylex.props(styles.jobTitle)}>
+                                <div className="text-muted-foreground mt-1 truncate text-xs">
                                   {human.jobTitle}
                                 </div>
                               )}
                             </div>
-                            <div {...stylex.props(styles.personActions)}>
+                            <div className="mt-1 flex gap-2">
                               {human.email && (
                                 <Button
                                   variant="ghost"
@@ -170,9 +168,7 @@ export function OrganizationDetailsColumn({
                                   }}
                                   title={t`Send email`}
                                 >
-                                  <Envelope
-                                    {...stylex.props(styles.actionIcon)}
-                                  />
+                                  <Envelope className="size-4" />
                                 </Button>
                               )}
                               {human.linkedinUsername && (
@@ -199,19 +195,19 @@ export function OrganizationDetailsColumn({
                     })}
                   </div>
                 ) : (
-                  <p {...stylex.props(styles.emptyText)}>
+                  <p className="text-muted-foreground text-sm">
                     <Trans>No people in this organization</Trans>
                   </p>
                 )}
               </div>
             </div>
 
-            <div {...stylex.props(styles.scrollSpacer)} />
+            <div className="pb-96" />
           </div>
         </>
       ) : (
-        <div {...stylex.props(styles.emptyState)}>
-          <p {...stylex.props(styles.emptyText)}>
+        <div className="flex flex-1 items-center justify-center">
+          <p className="text-muted-foreground text-sm">
             <Trans>Select an organization to view details</Trans>
           </p>
         </div>
@@ -238,171 +234,7 @@ function EditableOrganizationNameField({
         });
       }}
       placeholder={t`Organization name`}
-      sx={styles.nameInput}
+      className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
     />
   );
 }
-
-const styles = stylex.create({
-  actionIcon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  avatarSection: {
-    alignItems: "center",
-    borderBottomColor: colors.border,
-    borderBottomStyle: "solid",
-    borderBottomWidth: "1px",
-    display: "flex",
-    justifyContent: "center",
-    paddingBlock: "1.5rem",
-  },
-  compactAvatar: {
-    alignItems: "center",
-    backgroundColor: colors.muted,
-    borderRadius: radii.full,
-    display: "flex",
-    flexShrink: 0,
-    height: "1.5rem",
-    justifyContent: "center",
-    width: "1.5rem",
-  },
-  compactAvatarIcon: {
-    color: colors.mutedForeground,
-    height: "0.75rem",
-    width: "0.75rem",
-  },
-  emptyState: {
-    alignItems: "center",
-    display: "flex",
-    flex: "1",
-    justifyContent: "center",
-  },
-  emptyText: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-  },
-  fieldControl: {
-    flex: "1",
-  },
-  fieldLabel: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-    width: "7rem",
-  },
-  fieldRow: {
-    alignItems: "center",
-    borderBottomColor: colors.border,
-    borderBottomStyle: "solid",
-    borderBottomWidth: "1px",
-    display: "flex",
-    paddingBlock: "0.75rem",
-    paddingInline: "1rem",
-  },
-  jobTitle: {
-    color: colors.mutedForeground,
-    fontSize: "0.75rem",
-    lineHeight: "1rem",
-    marginTop: "0.25rem",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  largeAvatar: {
-    alignItems: "center",
-    backgroundColor: colors.accent,
-    borderRadius: radii.full,
-    display: "flex",
-    height: "4rem",
-    justifyContent: "center",
-    width: "4rem",
-  },
-  largeAvatarIcon: {
-    color: colors.mutedForeground,
-    height: "2rem",
-    width: "2rem",
-  },
-  nameInput: {
-    borderWidth: 0,
-    boxShadow: {
-      default: "none",
-      ":focus-visible": "none",
-    },
-    fontSize: "1rem",
-    height: "1.75rem",
-    padding: 0,
-  },
-  peopleCount: {
-    color: colors.mutedForeground,
-    fontWeight: 400,
-  },
-  peopleGrid: {
-    display: "grid",
-    gap: "1rem",
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  },
-  peopleHeading: {
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    lineHeight: "1.25rem",
-    marginBottom: "1rem",
-  },
-  peopleSection: {
-    padding: "1.5rem",
-  },
-  personActions: {
-    display: "flex",
-    gap: "0.5rem",
-    marginTop: "0.25rem",
-  },
-  personCard: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    boxShadow: {
-      default: "none",
-      ":hover": shadows.sm,
-    },
-    cursor: "pointer",
-    padding: "1rem",
-    transitionDuration: "150ms",
-    transitionProperty: "all",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  personCardContent: {
-    alignItems: "center",
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-    textAlign: "center",
-  },
-  personCopy: {
-    width: "100%",
-  },
-  personName: {
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    lineHeight: "1.25rem",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  root: {
-    display: "flex",
-    flex: "1",
-    flexDirection: "column",
-    height: "100%",
-  },
-  scrollSpacer: {
-    paddingBottom: "24rem",
-  },
-  scroller: {
-    flex: "1",
-    overflowY: "auto",
-  },
-});

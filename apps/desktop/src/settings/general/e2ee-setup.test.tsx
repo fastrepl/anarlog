@@ -40,9 +40,7 @@ vi.mock("@anlg/plugin-opener2", () => ({
   commands: { revealItemInDir: mocks.revealItemInDir },
 }));
 
-import { E2eeSetupDialog, e2eeSetupStyles } from "./e2ee-setup";
-
-import { expectStyle } from "~/session/stylex-test";
+import { E2eeSetupDialog } from "./e2ee-setup";
 
 const originalClipboard = Object.getOwnPropertyDescriptor(
   navigator,
@@ -121,7 +119,7 @@ describe("E2eeSetupDialog", () => {
     ).toBeTruthy();
 
     const cancel = screen.getByRole("button", { name: "Cancel" });
-    expectStyle(cancel, e2eeSetupStyles.cancelChoice);
+    expect(cancel.className).toContain("text-muted-foreground");
     fireEvent.click(cancel);
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });

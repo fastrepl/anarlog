@@ -1,6 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { CalendarDots } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import {
   memo,
   type RefCallback,
@@ -12,7 +11,7 @@ import {
   useState,
 } from "react";
 
-import { colors, radii, spacing } from "@anlg/design-system/tokens.stylex";
+import { cn } from "@anlg/utils";
 
 import { useAnchor, useAutoScrollToAnchor } from "./anchor";
 import { TimelineBuckets } from "./buckets";
@@ -220,23 +219,23 @@ export const TimelineView = memo(function TimelineView({
     Boolean(upcomingMeetingStatus) && !isUpcomingMeetingVisible;
   const showTopNowChip =
     !showUpcomingMeetingChip && !isTodayVisible && isScrolledPastToday;
-  const topSpacerSx = topChromeInset
+  const topSpacerClassName = topChromeInset
     ? reserveOpenCalendarChipSpace
-      ? styles.topSpacerTall
-      : styles.topSpacerChrome
+      ? "h-14"
+      : "h-12"
     : topChipsOverlapHeader
-      ? styles.topSpacerOverlap
-      : styles.topSpacerDefault;
-  const bucketHeaderTopSx = topChromeInset
+      ? "h-9"
+      : "h-8";
+  const bucketHeaderTopClassName = topChromeInset
     ? showOpenCalendarChip
-      ? styles.bucketHeaderTall
-      : styles.bucketHeaderChrome
-    : styles.bucketHeaderDefault;
-  const topChipStackTopSx = topChromeInset
-    ? styles.topChipStackChrome
+      ? "top-14"
+      : "top-12"
+    : "top-0";
+  const topChipStackTopClassName = topChromeInset
+    ? "top-4"
     : topChipsOverlapHeader
-      ? styles.topChipStackOverlap
-      : styles.topChipStackDefault;
+      ? "top-1"
+      : "top-2";
   const selectedSessionScrollFrameRef = useRef<number | null>(null);
   const scrollSelectedSessionIntoView = useCallback<
     RefCallback<HTMLDivElement>
@@ -484,24 +483,27 @@ export const TimelineView = memo(function TimelineView({
       />
       <div
         data-sidebar-timeline-root
-        {...stylex.props(styles.root)}
+        className="relative h-full"
         onWheelCapture={handleWheelCapture}
       >
         <div
           ref={containerRef}
           data-sidebar-timeline-scroll
           onContextMenu={showContextMenu}
-          {...stylex.props(styles.scrollArea)}
+          className={cn([
+            "scrollbar-hide flex h-full flex-col overflow-y-auto",
+            "rounded-xl",
+          ])}
         >
           {(topChromeInset || hasMoreFutureItems) && (
             <div
               aria-hidden
               data-sidebar-timeline-top-spacer
-              {...stylex.props(styles.topSpacer, topSpacerSx)}
+              className={cn([topSpacerClassName, "shrink-0"])}
             />
           )}
           <TimelineBuckets
-            bucketHeaderTopSx={bucketHeaderTopSx}
+            bucketHeaderTopClassName={bucketHeaderTopClassName}
             buckets={buckets}
             emptyTodayLabel={<Trans>No items today</Trans>}
             getFlatItemKeys={getFlatItemKeys}
@@ -522,7 +524,7 @@ export const TimelineView = memo(function TimelineView({
           <div
             aria-hidden
             data-sidebar-timeline-bottom-fade
-            {...stylex.props(styles.bottomFade)}
+            className="from-background/0 to-background pointer-events-none absolute inset-x-0 bottom-0 z-30 h-7 bg-linear-to-b"
           />
         )}
 
@@ -530,7 +532,7 @@ export const TimelineView = memo(function TimelineView({
           <div
             aria-hidden
             data-sidebar-timeline-top-occluder
-            {...stylex.props(styles.topOccluder)}
+            className="bg-background pointer-events-none absolute inset-x-0 top-0 z-10 h-12"
           />
         )}
 
@@ -539,7 +541,10 @@ export const TimelineView = memo(function TimelineView({
           showTopNowChip) && (
           <div
             data-sidebar-timeline-top-chip-stack
-            {...stylex.props(styles.topChipStack, topChipStackTopSx)}
+            className={cn([
+              "absolute left-1/2 z-20 flex -translate-x-1/2 transform flex-col items-center gap-2",
+              topChipStackTopClassName,
+            ])}
           >
             {showOpenCalendarChip && (
               <TimelineTopChip
@@ -578,7 +583,10 @@ export const TimelineView = memo(function TimelineView({
               ariaLabel={t`Go back to now`}
               onClick={scrollToToday}
               direction="down"
-              sx={styles.bottomNowChip}
+              className={cn([
+                "absolute bottom-2 left-1/2 -translate-x-1/2 transform",
+                "z-40",
+              ])}
             >
               <Trans>Now</Trans>
             </TimelineNowChip>
@@ -587,93 +595,3 @@ export const TimelineView = memo(function TimelineView({
     </ManagedSharedSessionIdsContext.Provider>
   );
 });
-
-const styles = stylex.create({
-  bottomFade: {
-    backgroundImage: `linear-gradient(to bottom, transparent, ${colors.background})`,
-    bottom: 0,
-    height: "1.75rem",
-    left: 0,
-    pointerEvents: "none",
-    position: "absolute",
-    right: 0,
-    zIndex: 30,
-  },
-  bottomNowChip: {
-    bottom: spacing.sm,
-    left: "50%",
-    position: "absolute",
-    transform: "translateX(-50%)",
-    zIndex: 40,
-  },
-  bucketHeaderChrome: {
-    top: "3rem",
-  },
-  bucketHeaderDefault: {
-    top: 0,
-  },
-  bucketHeaderTall: {
-    top: "3.5rem",
-  },
-  root: {
-    height: "100%",
-    position: "relative",
-  },
-  scrollArea: {
-    "::-webkit-scrollbar": {
-      display: "none",
-    },
-    borderRadius: radii.xl,
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    overflowY: "auto",
-    scrollbarWidth: "none",
-  },
-  topChipStack: {
-    alignItems: "center",
-    display: "flex",
-    flexDirection: "column",
-    gap: spacing.sm,
-    left: "50%",
-    position: "absolute",
-    transform: "translateX(-50%)",
-    zIndex: 20,
-  },
-  topChipStackChrome: {
-    top: "1rem",
-  },
-  topChipStackDefault: {
-    top: spacing.sm,
-  },
-  topChipStackOverlap: {
-    top: spacing.xs,
-  },
-  topOccluder: {
-    backgroundColor: colors.background,
-    height: "3rem",
-    left: 0,
-    pointerEvents: "none",
-    position: "absolute",
-    right: 0,
-    top: 0,
-    zIndex: 10,
-  },
-  topSpacer: {
-    flexShrink: 0,
-  },
-  topSpacerChrome: {
-    height: "3rem",
-  },
-  topSpacerDefault: {
-    height: "2rem",
-  },
-  topSpacerOverlap: {
-    height: "2.25rem",
-  },
-  topSpacerTall: {
-    height: "3.5rem",
-  },
-});
-
-export { styles as timelineStyles };

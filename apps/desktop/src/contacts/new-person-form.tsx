@@ -1,9 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
 import { ArrowElbowDownLeft } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import React, { useState } from "react";
-
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 
 import { createHuman } from "~/contacts/queries";
 
@@ -47,25 +44,25 @@ export function NewPersonForm({
   };
 
   return (
-    <div {...stylex.props(styles.root)}>
+    <div className="px-2 py-2">
       <form onSubmit={handleSubmit}>
-        <div {...stylex.props(styles.field)}>
+        <div className="border-border bg-accent/50 focus-within:bg-accent flex h-8 w-full items-center gap-2 rounded-lg border px-3 transition-colors">
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={t`Add person`}
-            {...stylex.props(styles.input)}
+            className="placeholder:text-muted-foreground w-full bg-transparent text-sm focus:outline-hidden"
             autoFocus
           />
           {name.trim() && (
             <button
               type="submit"
-              {...stylex.props(styles.submit)}
+              className="text-muted-foreground hover:text-muted-foreground shrink-0 transition-colors"
               aria-label={t`Add person`}
             >
-              <ArrowElbowDownLeft {...stylex.props(styles.icon)} />
+              <ArrowElbowDownLeft className="size-4" />
             </button>
           )}
         </div>
@@ -73,52 +70,3 @@ export function NewPersonForm({
     </div>
   );
 }
-
-const styles = stylex.create({
-  field: {
-    alignItems: "center",
-    backgroundColor: {
-      default: `color-mix(in srgb, ${colors.accent} 50%, transparent)`,
-      ":focus-within": colors.accent,
-    },
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    display: "flex",
-    gap: "0.5rem",
-    height: "2rem",
-    paddingInline: "0.75rem",
-    transitionDuration: "150ms",
-    transitionProperty: "background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "100%",
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  input: {
-    "::placeholder": {
-      color: colors.mutedForeground,
-    },
-    backgroundColor: "transparent",
-    fontSize: "0.875rem",
-    lineHeight: "1.25rem",
-    outline: {
-      default: null,
-      ":focus": "none",
-    },
-    width: "100%",
-  },
-  root: {
-    padding: "0.5rem",
-  },
-  submit: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    transitionDuration: "150ms",
-    transitionProperty: "color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-});

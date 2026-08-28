@@ -23,10 +23,9 @@ import {
   VideoCamera,
   X,
 } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useCallback, useState } from "react";
 
-import { colors, radii, spacing } from "@anlg/design-system/tokens.stylex";
+import { cn } from "@anlg/utils";
 
 import { CustomSidebarHeader } from "./custom-sidebar-header";
 
@@ -180,11 +179,16 @@ export function SettingsNav() {
     : groups;
 
   return (
-    <div {...stylex.props(styles.root)}>
+    <div className="flex h-full w-full flex-col overflow-hidden">
       <CustomSidebarHeader />
-      <div {...stylex.props(styles.searchSection)}>
-        <div {...stylex.props(styles.searchContainer)}>
-          <MagnifyingGlass {...stylex.props(styles.searchIcon)} />
+      <div className="pb-2">
+        <div
+          className={cn([
+            "border-border bg-accent/50 flex h-8 w-full shrink-0 items-center gap-2 rounded-lg border px-3",
+            "focus-within:bg-accent transition-colors",
+          ])}
+        >
+          <MagnifyingGlass className="text-muted-foreground h-4 w-4 shrink-0" />
           <input
             type="text"
             value={search}
@@ -195,41 +199,47 @@ export function SettingsNav() {
               }
             }}
             placeholder={t`Search settings...`}
-            {...stylex.props(styles.searchInput)}
+            className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm placeholder:text-sm focus:outline-hidden"
           />
           {search ? (
             <button
               type="button"
               onClick={() => setSearch("")}
-              {...stylex.props(styles.clearButton)}
+              className={cn([
+                "size-4 shrink-0",
+                "text-muted-foreground hover:text-foreground",
+                "transition-colors",
+              ])}
               aria-label={t`Clear search`}
             >
-              <X {...stylex.props(styles.clearIcon)} />
+              <X className="size-4" />
             </button>
           ) : null}
         </div>
       </div>
-      <div {...stylex.props(styles.scrollArea)}>
-        <div {...stylex.props(styles.groups)}>
+      <div className="scrollbar-hide flex-1 overflow-y-auto">
+        <div className="flex flex-col gap-5 pb-2">
           {visibleGroups.length === 0 ? (
-            <div {...stylex.props(styles.empty)}>
-              <MagnifyingGlass size={32} {...stylex.props(styles.emptyIcon)} />
-              <p {...stylex.props(styles.emptyText)}>
+            <div className="text-muted-foreground px-3 py-8 text-center">
+              <MagnifyingGlass
+                size={32}
+                className="text-muted-foreground/70 mx-auto mb-2"
+              />
+              <p className="text-sm">
                 <Trans>No results found.</Trans>
               </p>
             </div>
           ) : null}
           {visibleGroups.map((group) => (
-            <div key={group.label} {...stylex.props(styles.group)}>
-              <span {...stylex.props(styles.groupLabel)}>{group.label}</span>
+            <div key={group.label} className="flex flex-col gap-0.5">
+              <span className="text-muted-foreground/60 px-3 pb-1 text-[11px] font-medium tracking-wider uppercase">
+                {group.label}
+              </span>
               {group.items.map((item) => {
                 const requiresPro = Boolean(item.requiresPro && !isPro);
 
                 return (
-                  <div
-                    key={item.id}
-                    {...stylex.props(styles.navRow, stylex.defaultMarker())}
-                  >
+                  <div key={item.id} className="group/row relative">
                     <button
                       type="button"
                       aria-disabled={requiresPro}
@@ -243,37 +253,36 @@ export function SettingsNav() {
 
                         setActiveTab(item.id);
                       }}
-                      {...stylex.props(
-                        styles.navButton,
+                      className={cn([
+                        "flex w-full items-center gap-2 rounded-full px-3 py-2 text-left text-sm",
+                        "transition-colors",
                         activeTab === item.id
-                          ? styles.navButtonActive
-                          : styles.navButtonIdle,
-                        requiresPro && styles.navButtonLocked,
-                      )}
+                          ? "bg-sidebar-accent text-foreground font-medium"
+                          : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground",
+                        requiresPro && "opacity-60",
+                      ])}
                     >
                       <item.icon
                         size={15}
-                        {...stylex.props(styles.navIcon)}
+                        className="shrink-0"
                         data-testid={`settings-nav-icon-${item.id}`}
                       />
                       <span
-                        {...stylex.props(
-                          styles.navContent,
-                          requiresPro && styles.navContentLocked,
-                        )}
+                        className={cn([
+                          "flex min-w-0 flex-1 items-center gap-2 transition-opacity duration-150",
+                          requiresPro &&
+                            "group-focus-within/row:opacity-0 group-hover/row:opacity-0",
+                        ])}
                       >
-                        <span {...stylex.props(styles.navLabel)}>
+                        <span className="min-w-0 flex-1 truncate">
                           {item.label}
                         </span>
                         {requiresPro ? (
-                          <Lock
-                            aria-hidden
-                            {...stylex.props(styles.lockIcon)}
-                          />
+                          <Lock aria-hidden className="size-3.5 shrink-0" />
                         ) : "destination" in item ? (
                           <ArrowUpRight
                             aria-hidden
-                            {...stylex.props(styles.destinationIcon)}
+                            className="text-muted-foreground/70 size-3.5 shrink-0"
                             data-testid={`settings-nav-destination-icon-${item.id}`}
                           />
                         ) : null}
@@ -284,12 +293,12 @@ export function SettingsNav() {
                         type="button"
                         onClick={upgradeToPro}
                         disabled={isUpgradingToPro}
-                        {...stylex.props(styles.upgradeButton)}
+                        className="border-primary bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring pointer-events-none absolute top-1/2 right-1 flex translate-x-1 -translate-y-1/2 items-center gap-1 rounded-full border-2 px-3 py-1 text-xs font-medium opacity-0 shadow-[0_4px_14px_rgba(87,83,78,0.18)] transition-all duration-150 group-focus-within/row:pointer-events-auto group-focus-within/row:translate-x-0 group-focus-within/row:opacity-100 group-hover/row:pointer-events-auto group-hover/row:translate-x-0 group-hover/row:opacity-100 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-70"
                         aria-label={t`Upgrade to Pro for ${item.label}`}
                       >
                         {isUpgradingToPro ? (
                           <CircleNotch
-                            {...stylex.props(styles.upgradeSpinner)}
+                            className="size-3 animate-spin"
                             aria-hidden
                           />
                         ) : null}
@@ -306,252 +315,3 @@ export function SettingsNav() {
     </div>
   );
 }
-
-const spin = stylex.keyframes({
-  to: {
-    transform: "rotate(360deg)",
-  },
-});
-
-const styles = stylex.create({
-  clearButton: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-    flexShrink: 0,
-    height: "1rem",
-    transitionDuration: "150ms",
-    transitionProperty: "color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "1rem",
-  },
-  clearIcon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  destinationIcon: {
-    color: `color-mix(in oklab, ${colors.mutedForeground} 70%, transparent)`,
-    flexShrink: 0,
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  empty: {
-    color: colors.mutedForeground,
-    paddingBlock: spacing.xxl,
-    paddingInline: spacing.md,
-    textAlign: "center",
-  },
-  emptyIcon: {
-    color: `color-mix(in oklab, ${colors.mutedForeground} 70%, transparent)`,
-    marginBottom: spacing.sm,
-    marginInline: "auto",
-  },
-  emptyText: {
-    fontSize: "0.875rem",
-  },
-  group: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.125rem",
-  },
-  groupLabel: {
-    color: `color-mix(in oklab, ${colors.mutedForeground} 60%, transparent)`,
-    fontSize: "11px",
-    fontWeight: 500,
-    letterSpacing: "0.05em",
-    paddingBottom: spacing.xs,
-    paddingInline: spacing.md,
-    textTransform: "uppercase",
-  },
-  groups: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1.25rem",
-    paddingBottom: spacing.sm,
-  },
-  lockIcon: {
-    flexShrink: 0,
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  navButton: {
-    alignItems: "center",
-    borderRadius: radii.full,
-    display: "flex",
-    fontSize: "0.875rem",
-    gap: spacing.sm,
-    paddingBlock: spacing.sm,
-    paddingInline: spacing.md,
-    textAlign: "left",
-    transitionDuration: "150ms",
-    transitionProperty: "color, background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "100%",
-  },
-  navButtonActive: {
-    backgroundColor: colors.sidebarAccent,
-    color: colors.foreground,
-    fontWeight: 500,
-  },
-  navButtonIdle: {
-    backgroundColor: {
-      default: null,
-      ":hover": `color-mix(in oklab, ${colors.sidebarAccent} 50%, transparent)`,
-    },
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-  },
-  navButtonLocked: {
-    opacity: 0.6,
-  },
-  navContent: {
-    alignItems: "center",
-    display: "flex",
-    flex: "1",
-    gap: spacing.sm,
-    minWidth: 0,
-    transitionDuration: "150ms",
-    transitionProperty: "opacity",
-  },
-  navContentLocked: {
-    opacity: {
-      default: 1,
-      [stylex.when.ancestor(":focus-within")]: 0,
-      [stylex.when.ancestor(":hover")]: 0,
-    },
-  },
-  navIcon: {
-    flexShrink: 0,
-  },
-  navLabel: {
-    flex: "1",
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  navRow: {
-    position: "relative",
-  },
-  root: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    overflow: "hidden",
-    width: "100%",
-  },
-  scrollArea: {
-    "::-webkit-scrollbar": {
-      display: "none",
-    },
-    flex: "1",
-    overflowY: "auto",
-    scrollbarWidth: "none",
-  },
-  searchContainer: {
-    alignItems: "center",
-    backgroundColor: {
-      default: `color-mix(in oklab, ${colors.accent} 50%, transparent)`,
-      ":focus-within": colors.accent,
-    },
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    borderStyle: "solid",
-    borderWidth: "1px",
-    display: "flex",
-    flexShrink: 0,
-    gap: spacing.sm,
-    height: "2rem",
-    paddingInline: spacing.md,
-    transitionDuration: "150ms",
-    transitionProperty: "background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-    width: "100%",
-  },
-  searchIcon: {
-    color: colors.mutedForeground,
-    flexShrink: 0,
-    height: "1rem",
-    width: "1rem",
-  },
-  searchInput: {
-    backgroundColor: "transparent",
-    flex: "1",
-    fontSize: "0.875rem",
-    minWidth: 0,
-    outline: {
-      default: null,
-      ":focus": "2px solid transparent",
-    },
-    outlineOffset: {
-      default: null,
-      ":focus": "2px",
-    },
-    "::placeholder": {
-      color: colors.mutedForeground,
-      fontSize: "0.875rem",
-    },
-  },
-  searchSection: {
-    paddingBottom: spacing.sm,
-  },
-  upgradeButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: colors.primary,
-      ":hover": `color-mix(in oklab, ${colors.primary} 90%, transparent)`,
-    },
-    borderColor: colors.primary,
-    borderRadius: radii.full,
-    borderStyle: "solid",
-    borderWidth: "2px",
-    boxShadow: {
-      default: "0 4px 14px rgba(87, 83, 78, 0.18)",
-      ":focus-visible": `0 0 0 2px ${colors.ring}, 0 4px 14px rgba(87, 83, 78, 0.18)`,
-    },
-    color: colors.primaryForeground,
-    display: "flex",
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    gap: spacing.xs,
-    opacity: {
-      default: 0,
-      ":disabled": 0.7,
-      [stylex.when.ancestor(":focus-within")]: 1,
-      [stylex.when.ancestor(":hover")]: 1,
-    },
-    outline: {
-      default: "none",
-      ":focus-visible": "2px solid transparent",
-    },
-    paddingBlock: spacing.xs,
-    paddingInline: spacing.md,
-    pointerEvents: {
-      default: "none",
-      [stylex.when.ancestor(":focus-within")]: "auto",
-      [stylex.when.ancestor(":hover")]: "auto",
-    },
-    position: "absolute",
-    right: spacing.xs,
-    top: "50%",
-    transform: {
-      default: "translate(0.25rem, -50%)",
-      [stylex.when.ancestor(":focus-within")]: "translate(0, -50%)",
-      [stylex.when.ancestor(":hover")]: "translate(0, -50%)",
-    },
-    transitionDuration: "150ms",
-    transitionProperty: "all",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  upgradeSpinner: {
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationName: spin,
-    animationTimingFunction: "linear",
-    height: spacing.md,
-    width: spacing.md,
-  },
-});

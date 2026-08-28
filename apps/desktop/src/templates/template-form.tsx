@@ -1,10 +1,8 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Check, DotsThree, Heart, Plus, X } from "@phosphor-icons/react";
-import * as stylex from "@stylexjs/stylex";
 import { useForm } from "@tanstack/react-form";
 import { useRef, useState } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
@@ -16,7 +14,7 @@ import {
 } from "@anlg/ui/components/ui/dropdown-menu";
 import { Input } from "@anlg/ui/components/ui/input";
 import { Textarea } from "@anlg/ui/components/ui/textarea";
-import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
+import { cn } from "@anlg/utils";
 
 import {
   type UserTemplate,
@@ -62,7 +60,7 @@ function TemplateTargetsInput({
 
   return (
     <div
-      {...stylex.props(styles.targets)}
+      className="mt-2 flex min-h-6 w-full cursor-text flex-wrap items-center gap-1.5"
       onClick={() => {
         if (!isAddingTag) {
           setIsAddingTag(true);
@@ -76,14 +74,14 @@ function TemplateTargetsInput({
         <Badge
           key={`${target}-${index}`}
           variant="secondary"
-          sx={styles.targetBadge}
+          className="bg-muted flex h-6 items-center gap-1 rounded-md px-2 py-0.5 text-xs font-normal"
         >
           {target}
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            sx={styles.removeTargetButton}
+            className="ml-0.5 h-3 w-3 p-0 hover:bg-transparent"
             onClick={(e) => {
               e.stopPropagation();
               onChange(
@@ -91,7 +89,7 @@ function TemplateTargetsInput({
               );
             }}
           >
-            <X {...stylex.props(styles.removeTargetIcon)} />
+            <X className="h-2.5 w-2.5" />
           </Button>
         </Badge>
       ))}
@@ -99,10 +97,10 @@ function TemplateTargetsInput({
       {!isAddingTag ? (
         <button
           type="button"
-          {...stylex.props(styles.addTargetButton)}
+          className="bg-muted text-muted-foreground hover:bg-muted/80 inline-flex h-6 items-center gap-1 rounded-md px-2 py-0.5 text-xs transition-colors"
           onClick={() => setIsAddingTag(true)}
         >
-          <Plus {...stylex.props(styles.smallIcon)} />
+          <Plus className="h-3 w-3" />
           Add tag
         </button>
       ) : (
@@ -111,7 +109,7 @@ function TemplateTargetsInput({
           type="text"
           autoFocus
           value={inputValue}
-          {...stylex.props(styles.targetInput)}
+          className="text-muted-foreground min-w-[84px] flex-1 bg-transparent py-0 text-xs leading-none outline-hidden"
           onChange={(e) => setInputValue(e.target.value)}
           onBlur={submitTargets}
           onKeyDown={(e) => {
@@ -195,9 +193,9 @@ export function TemplateForm({
   });
 
   return (
-    <div {...stylex.props(styles.root)}>
-      <div {...stylex.props(styles.header)}>
-        <div {...stylex.props(styles.headerIdentity)}>
+    <div className="flex h-full flex-1 flex-col">
+      <div className="flex h-12 items-center justify-between gap-3 pr-1 pl-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <form.Field name="icon">
             {(field) => (
               <TemplateIconPicker
@@ -209,21 +207,24 @@ export function TemplateForm({
           </form.Field>
           <form.Field name="title">
             {(field) => (
-              <div {...stylex.props(styles.titleField)}>
-                <span aria-hidden="true" {...stylex.props(styles.titleMeasure)}>
+              <div className="relative max-w-full min-w-0">
+                <span
+                  aria-hidden="true"
+                  className="invisible block px-0 py-0 text-sm font-semibold whitespace-pre"
+                >
                   {(field.state.value || t`Enter template title`) + " "}
                 </span>
                 <Input
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
                   placeholder={t`Enter template title`}
-                  sx={styles.titleInput}
+                  className="absolute inset-0 h-auto w-full max-w-full min-w-0 border-0 px-0 py-0 text-sm font-semibold shadow-none focus-visible:ring-0 md:text-sm"
                 />
               </div>
             )}
           </form.Field>
         </div>
-        <div {...stylex.props(styles.headerActions)}>
+        <div className="flex items-center gap-0">
           <Button
             type="button"
             size="sm"
@@ -231,14 +232,16 @@ export function TemplateForm({
             onClick={setSelectedTemplateId}
             aria-pressed={isDefault}
             title={isDefault ? "Remove as default" : "Set as default"}
-            sx={[
-              styles.defaultButton,
-              isDefault && styles.currentDefaultButton,
-            ]}
+            className={cn([
+              "text-muted-foreground shrink-0 hover:text-black",
+              isDefault
+                ? "text-emerald-600 hover:bg-transparent hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+                : null,
+            ])}
           >
             {isDefault ? (
               <>
-                <Check {...stylex.props(styles.mediumIcon)} weight="bold" />
+                <Check className="size-3.5" weight="bold" />
                 Current default
               </>
             ) : (
@@ -250,7 +253,10 @@ export function TemplateForm({
             size="icon"
             variant="ghost"
             onClick={() => toggleTemplateFavorite(id)}
-            sx={[styles.iconButton, template.pinned && styles.favoriteButton]}
+            className={cn([
+              "text-muted-foreground hover:text-foreground",
+              template.pinned && "text-rose-500 hover:text-rose-600",
+            ])}
             title={
               template.pinned ? "Unfavorite template" : "Favorite template"
             }
@@ -259,7 +265,7 @@ export function TemplateForm({
             }
           >
             <Heart
-              {...stylex.props(styles.icon)}
+              className="size-4"
               weight={template.pinned ? "fill" : "regular"}
             />
           </Button>
@@ -269,23 +275,26 @@ export function TemplateForm({
                 type="button"
                 size="icon"
                 variant="ghost"
-                sx={[styles.iconButton, actionsOpen && styles.openActionButton]}
+                className={cn([
+                  "text-muted-foreground hover:text-foreground",
+                  actionsOpen && "bg-muted text-foreground hover:bg-accent",
+                ])}
                 aria-label={t`Template actions`}
               >
-                <DotsThree {...stylex.props(styles.icon)} />
+                <DotsThree className="size-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent variant="app" align="end">
-              <AppFloatingPanel sx={styles.menuPanel}>
+              <AppFloatingPanel className="overflow-hidden p-1">
                 <DropdownMenuItem
                   onClick={() => handleDuplicateTemplate(id)}
-                  sx={styles.menuItem}
+                  className="cursor-pointer"
                 >
                   <Trans>Duplicate</Trans>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => handleDeleteTemplate(id)}
-                  sx={[styles.menuItem, styles.deleteItem]}
+                  className="cursor-pointer text-red-600 focus:text-red-600"
                 >
                   <Trans>Delete</Trans>
                 </DropdownMenuItem>
@@ -295,16 +304,16 @@ export function TemplateForm({
         </div>
       </div>
 
-      <div {...stylex.props(styles.body)}>
-        <div {...mergeStyleXProps(styles.scroll, "scroll-fade-y")}>
-          <div {...stylex.props(styles.metadata)}>
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        <div className="scroll-fade-y h-full overflow-y-auto px-6 pt-3 pb-6">
+          <div className="min-w-0">
             <form.Field name="description">
               {(field) => (
                 <Textarea
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
                   placeholder={t`Describe the template purpose...`}
-                  sx={styles.descriptionInput}
+                  className="text-muted-foreground min-h-[24px] resize-none border-0 px-0 py-0 text-sm shadow-none focus-visible:ring-0"
                   rows={1}
                 />
               )}
@@ -321,7 +330,7 @@ export function TemplateForm({
 
           <form.Field name="sections">
             {(field) => (
-              <div {...stylex.props(styles.sections)}>
+              <div className="mt-6">
                 <SectionsList
                   disabled={false}
                   items={field.state.value}
@@ -335,222 +344,3 @@ export function TemplateForm({
     </div>
   );
 }
-
-const styles = stylex.create({
-  addTargetButton: {
-    alignItems: "center",
-    backgroundColor: {
-      default: colors.muted,
-      ":hover": `color-mix(in srgb, ${colors.muted} 80%, transparent)`,
-    },
-    borderRadius: radii.md,
-    color: colors.mutedForeground,
-    display: "inline-flex",
-    fontSize: "0.75rem",
-    gap: "0.25rem",
-    height: "1.5rem",
-    lineHeight: "1rem",
-    paddingBlock: "0.125rem",
-    paddingInline: "0.5rem",
-    transitionDuration: "150ms",
-    transitionProperty: "background-color",
-    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-  },
-  body: {
-    flex: "1",
-    minHeight: 0,
-    overflow: "hidden",
-    position: "relative",
-  },
-  currentDefaultButton: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": "transparent",
-    },
-    color: {
-      default: "rgb(5 150 105)",
-      ":hover": "rgb(4 120 87)",
-      ":is(.dark *)": "rgb(52 211 153)",
-      ":is(.dark *):hover": "rgb(110 231 183)",
-    },
-  },
-  defaultButton: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": "black",
-    },
-    flexShrink: 0,
-  },
-  deleteItem: {
-    color: {
-      default: "rgb(220 38 38)",
-      ":focus": "rgb(220 38 38)",
-    },
-  },
-  descriptionInput: {
-    borderWidth: 0,
-    boxShadow: {
-      default: "none",
-      ":focus-visible": "none",
-    },
-    color: colors.mutedForeground,
-    fontSize: "0.875rem",
-    minHeight: "24px",
-    padding: 0,
-    resize: "none",
-  },
-  favoriteButton: {
-    color: {
-      default: "rgb(244 63 94)",
-      ":hover": "rgb(225 29 72)",
-    },
-  },
-  header: {
-    alignItems: "center",
-    display: "flex",
-    gap: "0.75rem",
-    height: "3rem",
-    justifyContent: "space-between",
-    paddingLeft: "0.75rem",
-    paddingRight: "0.25rem",
-  },
-  headerActions: {
-    alignItems: "center",
-    display: "flex",
-    gap: 0,
-  },
-  headerIdentity: {
-    alignItems: "center",
-    display: "flex",
-    flex: "1",
-    gap: "0.5rem",
-    minWidth: 0,
-  },
-  icon: {
-    height: "1rem",
-    width: "1rem",
-  },
-  iconButton: {
-    color: {
-      default: colors.mutedForeground,
-      ":hover": colors.foreground,
-    },
-  },
-  mediumIcon: {
-    height: "0.875rem",
-    width: "0.875rem",
-  },
-  menuItem: {
-    cursor: "pointer",
-  },
-  menuPanel: {
-    overflow: "hidden",
-    padding: "0.25rem",
-  },
-  metadata: {
-    minWidth: 0,
-  },
-  openActionButton: {
-    backgroundColor: {
-      default: colors.muted,
-      ":hover": colors.accent,
-    },
-    color: colors.foreground,
-  },
-  removeTargetButton: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": "transparent",
-    },
-    height: "0.75rem",
-    marginLeft: "0.125rem",
-    padding: 0,
-    width: "0.75rem",
-  },
-  removeTargetIcon: {
-    height: "0.625rem",
-    width: "0.625rem",
-  },
-  root: {
-    display: "flex",
-    flex: "1",
-    flexDirection: "column",
-    height: "100%",
-  },
-  scroll: {
-    height: "100%",
-    overflowY: "auto",
-    paddingBottom: "1.5rem",
-    paddingInline: "1.5rem",
-    paddingTop: "0.75rem",
-  },
-  sections: {
-    marginTop: "1.5rem",
-  },
-  smallIcon: {
-    height: "0.75rem",
-    width: "0.75rem",
-  },
-  targetBadge: {
-    alignItems: "center",
-    backgroundColor: colors.muted,
-    borderRadius: radii.md,
-    display: "flex",
-    fontSize: "0.75rem",
-    fontWeight: 400,
-    gap: "0.25rem",
-    height: "1.5rem",
-    lineHeight: "1rem",
-    paddingBlock: "0.125rem",
-    paddingInline: "0.5rem",
-  },
-  targetInput: {
-    backgroundColor: "transparent",
-    color: colors.mutedForeground,
-    flex: "1",
-    fontSize: "0.75rem",
-    lineHeight: 1,
-    minWidth: "84px",
-    outline: "none",
-    paddingBlock: 0,
-  },
-  targets: {
-    alignItems: "center",
-    cursor: "text",
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "0.375rem",
-    marginTop: "0.5rem",
-    minHeight: "1.5rem",
-    width: "100%",
-  },
-  titleField: {
-    maxWidth: "100%",
-    minWidth: 0,
-    position: "relative",
-  },
-  titleInput: {
-    borderWidth: 0,
-    boxShadow: {
-      default: "none",
-      ":focus-visible": "none",
-    },
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    height: "auto",
-    inset: 0,
-    maxWidth: "100%",
-    minWidth: 0,
-    padding: 0,
-    position: "absolute",
-    width: "100%",
-  },
-  titleMeasure: {
-    display: "block",
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    padding: 0,
-    visibility: "hidden",
-    whiteSpace: "pre",
-  },
-});
