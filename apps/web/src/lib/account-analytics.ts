@@ -7,6 +7,8 @@ export type AccountAnalyticsEvent = {
   historical: boolean;
 };
 
+type Fetcher = (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
+
 const ACCOUNT_GROUP_TYPE = "account";
 
 export function groupAccountAnalyticsEvents(events: AccountAnalyticsEvent[]) {
@@ -25,7 +27,7 @@ export async function sendPostHogBatch({
   events: AccountAnalyticsEvent[];
   projectToken: string;
   host: string;
-  fetcher?: typeof fetch;
+  fetcher?: Fetcher;
 }) {
   if (events.length === 0) {
     return;

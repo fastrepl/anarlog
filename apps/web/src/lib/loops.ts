@@ -1,6 +1,8 @@
 const LOOPS_API_URL = "https://app.loops.so/api/v1";
 const MAX_RATE_LIMIT_RETRIES = 3;
 
+type Fetcher = (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
+
 function getRetryDelayMs(response: Response) {
   const retryAfterSeconds = Number(response.headers.get("Retry-After") ?? "1");
   if (!Number.isFinite(retryAfterSeconds) || retryAfterSeconds < 0) {
@@ -20,7 +22,7 @@ async function sendLoopsRequest({
   apiKey: string;
   idempotencyKey: string;
   body: Record<string, unknown>;
-  fetcher: typeof fetch;
+  fetcher: Fetcher;
 }) {
   const request = {
     method: "POST",
@@ -66,7 +68,7 @@ export function sendLoopsEvent({
   firstName?: string;
   eventProperties?: Record<string, string | number | boolean>;
   idempotencyKey: string;
-  fetcher?: typeof fetch;
+  fetcher?: Fetcher;
 }) {
   return sendLoopsRequest({
     path: "/events/send",
@@ -96,7 +98,7 @@ export function sendLoopsTransactional({
   email: string;
   dataVariables: Record<string, string | number>;
   idempotencyKey: string;
-  fetcher?: typeof fetch;
+  fetcher?: Fetcher;
 }) {
   return sendLoopsRequest({
     path: "/transactional",

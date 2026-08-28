@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+type Fetcher = (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
+
 const YC_VERIFICATION_HOSTS = new Set([
   "www.ycombinator.com",
   "ycombinator.com",
@@ -145,7 +147,7 @@ export async function verifyYcFounder({
   signal = AbortSignal.timeout(5_000),
 }: {
   verificationUrl: string;
-  fetcher?: typeof fetch;
+  fetcher?: Fetcher;
   signal?: AbortSignal;
 }): Promise<YcFounderVerificationResult> {
   const response = await fetcher(getYcVerificationApiUrl(verificationUrl), {
