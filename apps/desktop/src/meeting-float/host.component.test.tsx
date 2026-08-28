@@ -138,17 +138,35 @@ describe("FloatingMeetingWindowHost", () => {
     expect(mocks.floatingBarHide).not.toHaveBeenCalled();
   });
 
-  it("shows the floating bar on Windows and Linux", async () => {
-    mocks.platform.mockReturnValue("linux");
+  it.each(["windows", "linux"] as const)(
+    "uses the floating bar on %s like macOS, without the old caption overlay",
+    async (currentPlatform) => {
+      mocks.platform.mockReturnValue(currentPlatform);
 
-    render(<FloatingMeetingWindowHost />);
+      const view = render(<FloatingMeetingWindowHost />);
 
-    await waitFor(() => {
-      expect(mocks.floatingBarShow).toHaveBeenCalledOnce();
-      expect(mocks.floatingBarUpdate).toHaveBeenCalled();
-    });
-    expect(mocks.liveCaptionHide).toHaveBeenCalled();
-    expect(mocks.liveCaptionShow).not.toHaveBeenCalled();
-    expect(mocks.liveCaptionUpdate).not.toHaveBeenCalled();
-  });
+      await waitFor(() => {
+        expect(mocks.floatingBarShow).toHaveBeenCalledOnce();
+        expect(mocks.floatingBarUpdate).toHaveBeenLastCalledWith(
+          expect.objectContaining({ liveCaptionMinimized: true }),
+        );
+      });
+
+      mocks.settings.current = {
+        ...mocks.settings.current,
+        live_caption_minimized: false,
+      };
+      view.rerender(<FloatingMeetingWindowHost />);
+
+      await waitFor(() => {
+        expect(mocks.floatingBarUpdate).toHaveBeenLastCalledWith(
+          expect.objectContaining({ liveCaptionMinimized: false }),
+        );
+      });
+      expect(mocks.liveCaptionHide).toHaveBeenCalled();
+      expect(mocks.liveCaptionShow).not.toHaveBeenCalled();
+      expect(mocks.liveCaptionUpdate).not.toHaveBeenCalled();
+      expect(mocks.floatingBarHide).not.toHaveBeenCalled();
+    },
+  );
 });
