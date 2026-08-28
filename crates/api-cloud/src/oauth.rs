@@ -99,7 +99,7 @@ async fn protected_resource_metadata(
         authorization_servers: [oauth.authorization_server().to_string()],
         scopes_supported: OAUTH_SCOPES,
         bearer_methods_supported: ["header"],
-        resource_documentation: "https://docs.anarlog.so/reference/api-cloud#oauth",
+        resource_documentation: "https://docs.anarlog.so/reference/api-cloud#remote-mcp",
     })
 }
 

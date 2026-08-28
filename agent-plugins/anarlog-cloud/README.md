@@ -70,12 +70,9 @@ This package makes the hosted connector installable from the Fastrepl source. Pu
 
 ## Hosted OAuth activation for maintainers
 
-The repository contains the protected-resource metadata, token validation, OAuth consent route, resource audience binding, and plugin configuration. Activating the hosted flow still requires these Supabase project settings:
+The repository contains the protected-resource metadata, token validation, OAuth consent route, resource audience binding, and plugin configuration. Production already has an asymmetric JWT (ES256 JWKS), the OAuth 2.1 server, PKCE S256, refresh tokens, and dynamic client registration at `https://ijoptyyjrfqwaqhyxkxj.supabase.co/auth/v1`. Confirm these dashboard settings still hold, then deploy:
 
-1. Use an asymmetric JWT signing key.
-2. Enable the Supabase OAuth 2.1 server.
-3. Keep the Supabase Site URL on `https://anarlog.so` and set the authorization path to `/oauth/consent`.
-4. Enable dynamic client registration.
-5. Deploy the API, web app, and database migration together, then verify discovery, PKCE, refresh, and disconnect end to end.
+1. Site URL `https://anarlog.so` and authorization path `/oauth/consent`.
+2. Deploy the API, web app, and database migrations together, then verify discovery, PKCE, refresh, and disconnect end to end.
 
-Supabase provides DCR and PKCE for this flow, so no predefined client registration is required per host. These are deployment and external-control-plane changes; installing this package does not perform them. Follow the current [MCP authorization spec](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization), [OpenAI MCP authentication requirements](https://developers.openai.com/plugins/build/auth), and [Supabase OAuth server setup](https://supabase.com/docs/guides/auth/oauth-server/getting-started) before activation.
+Poke does not complete MCP OAuth. Keep it on per-user `anl_` keys; never put a shared key in a public recipe.
