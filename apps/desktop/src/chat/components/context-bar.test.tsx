@@ -67,7 +67,7 @@ describe("ContextBar", () => {
     expect(screen.queryByText(/artem@example.com/)).toBeNull();
   });
 
-  it("keeps the squircle chip strip above the input surface", () => {
+  it("renders the context bar and chip strip hierarchy", () => {
     const { container } = render(
       <ContextBar
         entities={[
@@ -89,12 +89,9 @@ describe("ContextBar", () => {
     const chipRow = chipList?.parentElement;
     const chip = container.querySelector("[data-chat-context-chip]");
 
-    expect(outer?.className).toContain("px-3");
-    expect(outer?.className).toContain("pb-1.5");
-    expect(outer?.className).not.toContain("border");
-    expect(outer?.className).not.toContain("rounded-t-xl");
-    expect(chipRow?.className).toContain("justify-center");
-    expect(chip?.className).toContain("rounded-[10px]");
+    expect(outer?.contains(chipRow ?? null)).toBe(true);
+    expect(chipRow?.contains(chipList ?? null)).toBe(true);
+    expect(chipList?.contains(chip ?? null)).toBe(true);
   });
 
   it("shows four chips and expands hidden chips from the overflow control", () => {
@@ -160,30 +157,26 @@ describe("ContextBar", () => {
     );
 
     const chipList = container.querySelector("[data-chat-context-chip-list]");
-    const chipStrip = container.querySelector("[data-chat-context-chip-strip]");
+    const overflowButton = screen.getByRole("button", {
+      name: "+2 more",
+    });
 
-    expect(chipList?.className).toContain("overflow-x-auto");
-    expect(chipList?.className).not.toContain("overflow-hidden");
-    expect(chipList?.className).not.toContain("flex-1");
+    expect(chipList).not.toBeNull();
+    expect(overflowButton.getAttribute("aria-expanded")).toBe("false");
     expect(container.querySelectorAll("[data-chat-context-chip]")).toHaveLength(
       4,
     );
     expect(screen.queryByText("Fifth Note")).toBeNull();
     expect(screen.queryByText("Sixth Note")).toBeNull();
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "+2 more",
-      }),
-    );
+    fireEvent.click(overflowButton);
 
     expect(screen.getAllByText("Fifth Note").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Sixth Note").length).toBeGreaterThan(0);
     expect(container.querySelectorAll("[data-chat-context-chip]")).toHaveLength(
       6,
     );
-    expect(chipStrip?.className).toContain("flex-wrap");
-    expect(chipList?.className).not.toContain("overflow-x-auto");
+    expect(overflowButton.getAttribute("aria-expanded")).toBe("true");
     expect(screen.queryByText("+2 more")).toBeNull();
 
     fireEvent.click(
@@ -196,7 +189,6 @@ describe("ContextBar", () => {
       4,
     );
     expect(screen.getByText("+2 more")).not.toBeNull();
-    expect(chipList?.className).toContain("overflow-x-auto");
   });
 
   it("scrolls four-or-fewer chips horizontally instead of clipping them", () => {
@@ -245,13 +237,11 @@ describe("ContextBar", () => {
 
     const chipList = container.querySelector("[data-chat-context-chip-list]");
     const chipStrip = container.querySelector("[data-chat-context-chip-strip]");
-    const chip = container.querySelector("[data-chat-context-chip]");
 
-    expect(chipList?.className).toContain("overflow-x-auto");
-    expect(chipList?.className).not.toContain("overflow-hidden");
-    expect(chipStrip?.className).toContain("w-max");
-    expect(chipStrip?.className).toContain("min-w-full");
-    expect(chip?.className).toContain("shrink-0");
+    expect(chipList?.contains(chipStrip)).toBe(true);
+    expect(container.querySelectorAll("[data-chat-context-chip]")).toHaveLength(
+      4,
+    );
     expect(screen.queryByRole("button", { name: /more/ })).toBeNull();
   });
 
@@ -438,12 +428,9 @@ describe("ContextBar", () => {
     });
     const removeIcon = removeButton.querySelector("svg");
 
-    expect(iconSlot?.className).toContain("size-4");
     expect(iconSlot?.contains(removeButton)).toBe(true);
-    expect(contextIcon?.className.baseVal).toContain("group-hover:opacity-0");
-    expect(removeIcon?.className.baseVal).toContain("size-3.5");
-    expect(removeButton.className).toContain("group-hover:opacity-100");
-    expect(removeButton.className).toContain("group-hover:pointer-events-auto");
+    expect(contextIcon).not.toBeNull();
+    expect(removeIcon).not.toBeNull();
 
     fireEvent.click(removeButton);
 

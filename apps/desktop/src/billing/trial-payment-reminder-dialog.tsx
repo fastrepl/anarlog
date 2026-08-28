@@ -10,6 +10,7 @@ import {
 } from "@anlg/ui/components/ui/dialog";
 
 import { TrialDialogIcon } from "./trial-dialog-icon";
+import { trialDialogStyles } from "./trial-dialog-styles";
 
 import {
   GlassDialogCancelButton,
@@ -35,21 +36,19 @@ export function TrialPaymentReminderDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <GlassDialogContent>
-        <DialogHeader className="items-center gap-2 text-center sm:text-center">
+        <DialogHeader sx={trialDialogStyles.header}>
           <TrialDialogIcon state="started" />
-          <DialogTitle className="text-foreground text-[13px] leading-5 font-semibold tracking-normal">
-            {title}
-          </DialogTitle>
-          <DialogDescription className="text-foreground w-full text-center text-[13px] leading-[1.36]">
+          <DialogTitle sx={trialDialogStyles.title}>{title}</DialogTitle>
+          <DialogDescription sx={trialDialogStyles.description}>
             {t`Add a payment method before it ends to keep using Pro without an interruption.`}
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:justify-normal">
+        <DialogFooter sx={trialDialogStyles.footer}>
           <GlassDialogCancelButton onClick={() => onOpenChange(false)}>
             {t`Not now`}
           </GlassDialogCancelButton>
           <Button
-            className="bg-primary text-primary-foreground hover:bg-primary/90 h-8 rounded-full px-4 text-xs font-medium shadow-sm dark:bg-white dark:text-black dark:hover:bg-white/90"
+            sx={trialDialogStyles.action}
             onClick={() => {
               onAddPaymentMethod();
               onOpenChange(false);

@@ -1,7 +1,9 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { CircleNotch, Sparkle, X } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useCallback, useState } from "react";
 
+import { colors } from "@anlg/design-system/tokens.stylex";
 import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
@@ -9,7 +11,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@anlg/ui/components/ui/tooltip";
-import { cn } from "@anlg/utils";
 
 import {
   removeSessionParticipant,
@@ -65,19 +66,13 @@ export function ParticipantChip({
   return (
     <Badge
       variant="secondary"
-      className={cn([
-        "bg-foreground/10 hover:bg-foreground/15 relative flex cursor-pointer items-center gap-1 overflow-hidden px-2 py-0.5 text-xs",
-        isEnhancing && "ring-ring/20 ring-1",
-      ])}
+      sx={[styles.badge, isEnhancing && styles.enhancingBadge]}
       onClick={handleClick}
     >
       {isEnhancing && (
-        <span
-          aria-hidden="true"
-          className="animate-shimmer pointer-events-none absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/60 to-transparent"
-        />
+        <span aria-hidden="true" {...stylex.props(styles.shimmer)} />
       )}
-      <span className="relative">{displayName}</span>
+      <span {...stylex.props(styles.label)}>{displayName}</span>
       {canEnhance && (
         <EnhanceContactButton
           isEnhancing={isEnhancing}
@@ -94,13 +89,13 @@ export function ParticipantChip({
         type="button"
         variant="ghost"
         size="sm"
-        className="relative ml-0.5 h-3 w-3 p-0 hover:bg-transparent"
+        sx={styles.removeButton}
         onClick={(e) => {
           e.stopPropagation();
           handleRemove();
         }}
       >
-        <X className="h-2.5 w-2.5" />
+        <X {...stylex.props(styles.smallIcon)} />
       </Button>
     </Badge>
   );
@@ -126,7 +121,7 @@ function EnhanceContactButton({
           variant="ghost"
           size="sm"
           aria-label={t`Enhance contact ${label}`}
-          className="text-muted-foreground hover:text-foreground relative ml-0.5 h-3.5 w-3.5 p-0 hover:bg-transparent"
+          sx={styles.enhanceButton}
           disabled={isDisabled}
           onClick={(e) => {
             e.stopPropagation();
@@ -134,9 +129,9 @@ function EnhanceContactButton({
           }}
         >
           {isEnhancing ? (
-            <CircleNotch className="h-2.5 w-2.5 animate-spin" />
+            <CircleNotch {...stylex.props(styles.smallIcon, styles.spinner)} />
           ) : (
-            <Sparkle className="h-2.5 w-2.5" />
+            <Sparkle {...stylex.props(styles.smallIcon)} />
           )}
         </Button>
       </TooltipTrigger>
@@ -194,3 +189,90 @@ function useRemoveParticipant({
 
   return { remove, isRemoving };
 }
+
+const shimmer = stylex.keyframes({
+  from: {
+    transform: "translateX(-100%)",
+  },
+  to: {
+    transform: "translateX(100%)",
+  },
+});
+
+const spin = stylex.keyframes({
+  to: {
+    transform: "rotate(360deg)",
+  },
+});
+
+const styles = stylex.create({
+  badge: {
+    alignItems: "center",
+    backgroundColor: {
+      default: `color-mix(in srgb, ${colors.foreground} 10%, transparent)`,
+      ":hover": `color-mix(in srgb, ${colors.foreground} 15%, transparent)`,
+    },
+    cursor: "pointer",
+    display: "flex",
+    fontSize: "0.75rem",
+    gap: "0.25rem",
+    overflow: "hidden",
+    paddingBlock: "0.125rem",
+    paddingInline: "0.5rem",
+    position: "relative",
+  },
+  enhanceButton: {
+    backgroundColor: {
+      default: "transparent",
+      ":hover": "transparent",
+    },
+    color: {
+      default: colors.mutedForeground,
+      ":hover": colors.foreground,
+    },
+    height: "0.875rem",
+    marginLeft: "0.125rem",
+    padding: 0,
+    position: "relative",
+    width: "0.875rem",
+  },
+  enhancingBadge: {
+    boxShadow: `0 0 0 1px color-mix(in srgb, ${colors.ring} 20%, transparent)`,
+  },
+  label: {
+    position: "relative",
+  },
+  removeButton: {
+    backgroundColor: {
+      default: "transparent",
+      ":hover": "transparent",
+    },
+    height: "0.75rem",
+    marginLeft: "0.125rem",
+    padding: 0,
+    position: "relative",
+    width: "0.75rem",
+  },
+  shimmer: {
+    animationDuration: "2s",
+    animationIterationCount: "infinite",
+    animationName: shimmer,
+    animationTimingFunction: "linear",
+    backgroundImage:
+      "linear-gradient(to right, transparent, rgb(255 255 255 / 0.6), transparent)",
+    inset: 0,
+    pointerEvents: "none",
+    position: "absolute",
+    transform: "translateX(-100%)",
+  },
+  smallIcon: {
+    height: "0.625rem",
+    width: "0.625rem",
+  },
+  spinner: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+  },
+});

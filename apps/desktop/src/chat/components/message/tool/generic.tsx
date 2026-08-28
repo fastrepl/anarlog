@@ -1,4 +1,7 @@
 import { Wrench } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
+
+import { colors } from "@anlg/design-system/tokens.stylex";
 
 import { useToolState } from "./shared";
 
@@ -56,24 +59,22 @@ export function ToolGeneric({ part }: { part: Record<string, unknown> }) {
 
     return (
       <Disclosure
-        icon={<Wrench className="h-3 w-3" />}
+        icon={<Wrench {...stylex.props(styles.icon)} />}
         title={
           failed
             ? `${formatToolName(toolName)} failed`
             : formatToolName(toolName)
         }
       >
-        <div className="flex flex-col gap-2">
+        <div {...stylex.props(styles.content)}>
           <InputDisplay input={part.input} />
           {failed ? (
-            <p className="text-xs text-red-500">
+            <p {...stylex.props(styles.error)}>
               {String(part.errorText ?? "Unknown error")}
             </p>
           ) : null}
           {outputText ? (
-            <p className="text-muted-foreground text-xs whitespace-pre-wrap">
-              {outputText}
-            </p>
+            <p {...stylex.props(styles.output)}>{outputText}</p>
           ) : null}
         </div>
       </Disclosure>
@@ -82,7 +83,7 @@ export function ToolGeneric({ part }: { part: Record<string, unknown> }) {
 
   return (
     <Disclosure
-      icon={<Wrench className="h-3 w-3" />}
+      icon={<Wrench {...stylex.props(styles.icon)} />}
       title={`Running ${formatToolName(toolName)}…`}
       disabled
     >
@@ -97,11 +98,11 @@ function InputDisplay({ input }: { input: unknown }) {
   if (entries.length === 0) return null;
 
   return (
-    <dl className="text-muted-foreground flex flex-col gap-1 text-xs">
+    <dl {...stylex.props(styles.input)}>
       {entries.map(([key, value]) => (
         <div key={key}>
-          <dt className="text-muted-foreground inline font-medium">{key}: </dt>
-          <dd className="inline wrap-break-word whitespace-pre-wrap">
+          <dt {...stylex.props(styles.inputTerm)}>{key}: </dt>
+          <dd {...stylex.props(styles.inputDescription)}>
             {typeof value === "string" ? value : JSON.stringify(value)}
           </dd>
         </div>
@@ -109,3 +110,44 @@ function InputDisplay({ input }: { input: unknown }) {
     </dl>
   );
 }
+
+const styles = stylex.create({
+  icon: {
+    height: "0.75rem",
+    width: "0.75rem",
+  },
+  content: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.5rem",
+  },
+  error: {
+    color: "oklch(63.7% 0.237 25.331)",
+    fontSize: "0.75rem",
+    lineHeight: "1rem",
+  },
+  output: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    lineHeight: "1rem",
+    whiteSpace: "pre-wrap",
+  },
+  input: {
+    color: colors.mutedForeground,
+    display: "flex",
+    flexDirection: "column",
+    fontSize: "0.75rem",
+    gap: "0.25rem",
+    lineHeight: "1rem",
+  },
+  inputTerm: {
+    color: colors.mutedForeground,
+    display: "inline",
+    fontWeight: 500,
+  },
+  inputDescription: {
+    display: "inline",
+    overflowWrap: "break-word",
+    whiteSpace: "pre-wrap",
+  },
+});

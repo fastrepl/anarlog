@@ -1,4 +1,5 @@
 import { Trans } from "@lingui/react/macro";
+import * as stylex from "@stylexjs/stylex";
 import { platform } from "@tauri-apps/plugin-os";
 
 import { DefaultMeetingShareAccessSelector } from "./default-share-access";
@@ -31,7 +32,7 @@ export function MeetingSettingsView({
   const supportsMicDetection = currentPlatform !== "windows";
 
   return (
-    <div className="flex flex-col gap-4">
+    <div {...stylex.props(styles.settings)}>
       <DefaultMeetingShareAccessSelector />
       <SettingSwitchRow
         title={<Trans>Start when meeting begins</Trans>}
@@ -94,3 +95,11 @@ export function MeetingSettingsView({
     </div>
   );
 }
+
+const styles = stylex.create({
+  settings: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
+  },
+});

@@ -1,14 +1,15 @@
+import * as stylex from "@stylexjs/stylex";
 import { AnimatePresence, motion } from "motion/react";
 import { useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { cn } from "@anlg/utils";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 import { ChatPanelFrame } from "./chat-panel";
 
 import type { ChatSessionRenderProps } from "~/chat/components/session-provider";
-import { chatFloatingPanelShellClassNames } from "~/chat/surface";
+import { chatFloatingPanelShellStyle } from "~/chat/surface";
 import { useShell } from "~/contexts/shell";
 
 const FLOATING_CHAT_INPUT_MAX_WIDTH = 640;
@@ -126,8 +127,10 @@ export function PersistentChatPanel({
     <AnimatePresence initial={false}>
       {isVisible && (
         <motion.div
-          className="pointer-events-none fixed"
-          style={
+          data-chat-floating-overlay
+          {...mergeStyleXProps(
+            styles.overlay,
+            undefined,
             containerRect
               ? {
                   top: containerRect.top,
@@ -136,8 +139,8 @@ export function PersistentChatPanel({
                   height: containerRect.height,
                   willChange: "opacity",
                 }
-              : { display: "none" }
-          }
+              : { display: "none" },
+          )}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -145,13 +148,9 @@ export function PersistentChatPanel({
         >
           <div
             data-chat-floating-frame
-            className={cn([
-              "pointer-events-auto relative flex h-full min-h-0",
-              "items-end justify-center px-3 pb-2",
-            ])}
-            style={{
+            {...mergeStyleXProps(styles.frame, undefined, {
               paddingTop: FLOATING_PANEL_TOP_CLEARANCE,
-            }}
+            })}
             onClick={(event) => {
               if (event.target === event.currentTarget) {
                 if (draftHasContent) {
@@ -166,11 +165,11 @@ export function PersistentChatPanel({
               data-chat-panel
               data-chat-panel-reveal="lift"
               data-chat-size="floating"
-              className={cn([
-                "relative flex min-h-0 flex-col overflow-hidden",
-                chatFloatingPanelShellClassNames(),
-              ])}
-              style={panelStyle}
+              {...mergeStyleXProps(
+                [styles.panel, chatFloatingPanelShellStyle],
+                undefined,
+                panelStyle,
+              )}
               initial={panelMotion.initial}
               animate={panelMotion.animate}
               exit={panelMotion.exit}
@@ -192,6 +191,31 @@ export function PersistentChatPanel({
     document.body,
   );
 }
+
+const styles = stylex.create({
+  overlay: {
+    pointerEvents: "none",
+    position: "fixed",
+  },
+  frame: {
+    alignItems: "flex-end",
+    display: "flex",
+    height: "100%",
+    justifyContent: "center",
+    minHeight: 0,
+    paddingBottom: "0.5rem",
+    paddingInline: "0.75rem",
+    pointerEvents: "auto",
+    position: "relative",
+  },
+  panel: {
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 0,
+    overflow: "hidden",
+    position: "relative",
+  },
+});
 
 function toFloatingContainerRect(rect: DOMRect): FloatingContainerRect {
   return {

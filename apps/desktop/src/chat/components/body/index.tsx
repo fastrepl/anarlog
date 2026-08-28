@@ -1,16 +1,16 @@
 import { Trans } from "@lingui/react/macro";
 import { CaretDown } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import type { ChatStatus } from "ai";
 
 import { Button } from "@anlg/ui/components/ui/button";
-import { cn } from "@anlg/utils";
 
 import { ChatBodyEmpty } from "./empty";
 import { ChatBodyNonEmpty } from "./non-empty";
 import { useChatAutoScroll } from "./use-chat-auto-scroll";
 
 import type { ContextRef } from "~/chat/context/entities";
-import { chatFloatingControlClassNames } from "~/chat/surface";
+import { chatFloatingControlStyle } from "~/chat/surface";
 import type { AnlgUIMessage } from "~/chat/types";
 import { useShell } from "~/contexts/shell";
 
@@ -53,32 +53,36 @@ export function ChatBody({
 
   return (
     <div
-      className={cn([
-        "relative flex min-h-0 flex-col",
-        isRightPanel ? "flex-1" : "flex-auto",
+      data-chat-body-layout={isRightPanel ? "right-panel" : "floating"}
+      {...stylex.props([
+        styles.root,
+        isRightPanel ? styles.rightPanelRoot : styles.floatingRoot,
       ])}
     >
       <div
+        data-chat-scroll-area
         ref={scrollRef}
         onKeyDown={handleKeyDown}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onScroll={updateAutoScrollState}
         onWheel={handleWheel}
-        className={cn([
-          "flex min-h-0 flex-col overflow-y-auto",
-          isRightPanel ? "flex-1" : "max-h-[min(36rem,70vh)] flex-auto",
+        {...stylex.props([
+          styles.scrollArea,
+          isRightPanel
+            ? styles.rightPanelScrollArea
+            : styles.floatingScrollArea,
         ])}
       >
         <div
+          data-chat-body-content
           ref={contentRef}
-          className={cn([
-            "flex flex-col",
-            isRightPanel && "min-h-full flex-1",
-            isRightPanel ? "px-3 py-5" : "px-3 py-3",
+          {...stylex.props([
+            styles.content,
+            isRightPanel ? styles.rightPanelContent : styles.floatingContent,
           ])}
         >
-          {!isFloating && <div className="flex-1" />}
+          {!isFloating && <div {...stylex.props(styles.spacer)} />}
           {messages.length === 0 ? (
             <ChatBodyEmpty
               isModelConfigured={isModelConfigured}
@@ -99,14 +103,11 @@ export function ChatBody({
         <Button
           onClick={scrollToBottom}
           size="sm"
-          className={cn([
-            "absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 transform items-center gap-1 rounded-full border shadow-xs",
-            chatFloatingControlClassNames(),
-          ])}
+          sx={[styles.goToRecent, chatFloatingControlStyle]}
           variant="outline"
         >
           <CaretDown size={12} />
-          <span className="text-xs">
+          <span {...stylex.props(styles.goToRecentText)}>
             <Trans>Go to recent</Trans>
           </span>
         </Button>
@@ -114,3 +115,66 @@ export function ChatBody({
     </div>
   );
 }
+
+const styles = stylex.create({
+  root: {
+    display: "flex",
+    flexDirection: "column",
+    isolation: "isolate",
+    minHeight: 0,
+    position: "relative",
+  },
+  floatingRoot: {
+    flex: "1 1 auto",
+  },
+  rightPanelRoot: {
+    flex: 1,
+  },
+  scrollArea: {
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 0,
+    overflowY: "auto",
+  },
+  floatingScrollArea: {
+    flex: "1 1 auto",
+    maxHeight: "min(36rem, 70vh)",
+  },
+  rightPanelScrollArea: {
+    flex: 1,
+  },
+  content: {
+    display: "flex",
+    flexDirection: "column",
+    paddingInline: "0.75rem",
+  },
+  floatingContent: {
+    paddingBlock: "0.75rem",
+  },
+  rightPanelContent: {
+    flex: 1,
+    minHeight: "100%",
+    paddingBlock: "1.25rem",
+  },
+  spacer: {
+    flex: 1,
+  },
+  goToRecent: {
+    alignItems: "center",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    borderRadius: "9999px",
+    bottom: "0.75rem",
+    boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+    display: "flex",
+    gap: "0.25rem",
+    left: "50%",
+    position: "absolute",
+    transform: "translateX(-50%)",
+    zIndex: 1,
+  },
+  goToRecentText: {
+    fontSize: "0.75rem",
+    lineHeight: "1rem",
+  },
+});

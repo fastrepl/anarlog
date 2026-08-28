@@ -49,38 +49,29 @@ describe("ChatBody", () => {
     shellState.mode = "FloatingOpen";
   });
 
-  it("keeps horizontal content padding", () => {
+  it("renders the floating body layout", () => {
     render(<ChatBody messages={[]} status="ready" />);
 
     const content = screen.getByTestId("chat-body-empty").parentElement;
     const scrollArea = content?.parentElement;
-    const root = scrollArea?.parentElement;
+    const root = scrollArea?.parentElement as HTMLElement | null;
 
-    expect(content?.className).toContain("px-3");
-    expect(content?.className).not.toContain("min-h-full");
-    expect(scrollArea?.className).toContain("max-h-[min(36rem,70vh)]");
-    expect(scrollArea?.className).toContain("flex-auto");
-    expect(root?.className).toContain("flex-auto");
-    expect(root?.className).not.toContain("shrink-0");
-    expect(content?.className).not.toContain("px-2");
-    expect(content?.className).not.toContain("pr-0");
+    expect(content?.hasAttribute("data-chat-body-content")).toBe(true);
+    expect(scrollArea?.hasAttribute("data-chat-scroll-area")).toBe(true);
+    expect(root?.dataset.chatBodyLayout).toBe("floating");
   });
 
-  it("uses balanced content padding in the right panel", () => {
+  it("renders the right-panel body layout", () => {
     shellState.mode = "RightPanelOpen";
 
     render(<ChatBody messages={[]} status="ready" />);
 
     const content = screen.getByTestId("chat-body-empty").parentElement;
     const scrollArea = content?.parentElement;
-    const root = scrollArea?.parentElement;
+    const root = scrollArea?.parentElement as HTMLElement | null;
 
-    expect(content?.className).toContain("px-3");
-    expect(content?.className).toContain("py-5");
-    expect(content?.className).toContain("min-h-full");
-    expect(scrollArea?.className).toContain("flex-1");
-    expect(root?.className).toContain("flex-1");
-    expect(content?.className).not.toContain("px-5");
-    expect(content?.className).not.toContain("px-2");
+    expect(content?.hasAttribute("data-chat-body-content")).toBe(true);
+    expect(scrollArea?.hasAttribute("data-chat-scroll-area")).toBe(true);
+    expect(root?.dataset.chatBodyLayout).toBe("right-panel");
   });
 });

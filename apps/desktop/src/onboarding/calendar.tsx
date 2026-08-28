@@ -1,12 +1,14 @@
 import { Trans } from "@lingui/react/macro";
 import { CircleNotch } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { platform } from "@tauri-apps/plugin-os";
 import { motion } from "motion/react";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 
 import type { ConnectionItem } from "@anlg/api-client";
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 
-import { OnboardingButton } from "./shared";
+import { OnboardingButton, onboardingSharedStyles } from "./shared";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
@@ -72,7 +74,7 @@ function AppleCalendarList() {
       onRefresh={handleRefresh}
       isLoading={isLoading}
       disableHoverTone
-      className="border-border/45 bg-card/28 rounded-xl border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_-20px_rgba(87,83,78,0.35)] backdrop-blur-md backdrop-saturate-150"
+      sx={styles.calendarSelection}
     />
   );
 }
@@ -93,12 +95,12 @@ function AppleCalendarProvider({
   return (
     <>
       {isAuthorized && (
-        <div className="order-1 w-full basis-full">
+        <div {...stylex.props(styles.connectedCalendar)}>
           <AppleCalendarList />
         </div>
       )}
 
-      <div className="order-2 flex min-w-56 flex-1">
+      <div {...stylex.props(styles.providerActionContainer)}>
         <OnboardingButton
           onClick={() => {
             if (isAuthorized) {
@@ -110,13 +112,13 @@ function AppleCalendarProvider({
             onRequest();
           }}
           disabled={isPending}
-          className="border-border bg-card text-foreground hover:bg-accent flex h-full w-full items-center justify-center gap-3 border px-6 shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] transition-all duration-150"
+          sx={styles.connectedProviderButton}
         >
           <img
             src="/assets/apple-calendar.png"
             alt=""
             aria-hidden="true"
-            className="size-6 rounded-[4px] object-cover"
+            {...stylex.props(styles.providerIcon)}
           />
           <Trans>Connect calendar</Trans>
         </OnboardingButton>
@@ -163,10 +165,10 @@ function GoogleCalendarConnectedContent({
   });
 
   return (
-    <div className="flex flex-col gap-3">
+    <div {...stylex.props(styles.connectedContent)}>
       {reconnectRequiredConnections.length > 0 && (
-        <div className="flex items-start gap-2 text-sm text-amber-700">
-          <span className="pt-1">
+        <div {...stylex.props(styles.warning)}>
+          <span {...stylex.props(styles.warningIndicator)}>
             <ReconnectRequiredIndicator />
           </span>
           <p>
@@ -183,7 +185,7 @@ function GoogleCalendarConnectedContent({
         onRefresh={handleRefresh}
         isLoading={isLoading}
         disableHoverTone
-        className="border-border/45 bg-card/28 rounded-xl border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_-20px_rgba(87,83,78,0.35)] backdrop-blur-md backdrop-saturate-150"
+        sx={styles.calendarSelection}
       />
     </div>
   );
@@ -279,10 +281,10 @@ function OutlookCalendarConnectedContent({
   });
 
   return (
-    <div className="flex flex-col gap-3">
+    <div {...stylex.props(styles.connectedContent)}>
       {reconnectRequiredConnections.length > 0 && (
-        <div className="flex items-start gap-2 text-sm text-amber-700">
-          <span className="pt-1">
+        <div {...stylex.props(styles.warning)}>
+          <span {...stylex.props(styles.warningIndicator)}>
             <ReconnectRequiredIndicator />
           </span>
           <p>
@@ -299,7 +301,7 @@ function OutlookCalendarConnectedContent({
         onRefresh={handleRefresh}
         isLoading={isLoading}
         disableHoverTone
-        className="border-border/45 bg-card/28 rounded-xl border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_-20px_rgba(87,83,78,0.35)] backdrop-blur-md backdrop-saturate-150"
+        sx={styles.calendarSelection}
       />
     </div>
   );
@@ -329,7 +331,7 @@ function OAuthCalendarProviderAction({
   onHoverChange: (hovered: boolean) => void;
 }) {
   return (
-    <div className="order-2 flex min-w-56 flex-1">
+    <div {...stylex.props(styles.providerActionContainer)}>
       <OnboardingButton
         onClick={onConnect}
         onMouseEnter={() => onHoverChange(true)}
@@ -337,31 +339,34 @@ function OAuthCalendarProviderAction({
         onFocus={() => onHoverChange(true)}
         onBlur={() => onHoverChange(false)}
         disabled={isOpening || (isSignedIn && (isPending || !isReady))}
-        className={
+        sx={[
+          styles.providerButton,
           isSignedIn
-            ? "border-border bg-card text-foreground hover:bg-accent disabled:hover:bg-card flex h-full w-full items-center justify-center gap-3 border shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
-            : "border-border bg-muted text-foreground hover:border-primary hover:bg-primary hover:text-primary-foreground focus-visible:border-primary focus-visible:bg-primary focus-visible:text-primary-foreground h-full w-full border-1 shadow-[0_2px_6px_rgba(87,83,78,0.01),0_10px_18px_-10px_rgba(87,83,78,0.1)] transition-all duration-150"
-        }
+            ? styles.signedInProviderButton
+            : styles.signedOutProviderButton,
+        ]}
       >
         {!isSignedIn ? (
-          <span className="grid items-center overflow-hidden">
-            <span className="invisible col-start-1 row-start-1 flex items-center justify-center gap-3">
+          <span {...stylex.props(styles.slidingLabel)}>
+            <span
+              {...stylex.props([styles.slidingLabelItem, styles.measureLabel])}
+            >
               <Trans>Sign in to connect</Trans>
             </span>
 
             <motion.span
-              className="col-start-1 row-start-1 flex items-center justify-center gap-3"
+              {...stylex.props(styles.slidingLabelItem)}
               animate={{ y: isHovered ? "100%" : "0%" }}
               transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
             >
               {provider.icon}
-              <span className="text-md text-foreground font-normal">
+              <span {...stylex.props(styles.providerName)}>
                 {provider.displayName}
               </span>
             </motion.span>
 
             <motion.span
-              className="col-start-1 row-start-1 flex items-center justify-center gap-3"
+              {...stylex.props(styles.slidingLabelItem)}
               animate={{ y: isHovered ? "0%" : "-140%" }}
               transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
             >
@@ -372,7 +377,10 @@ function OAuthCalendarProviderAction({
           <>
             {isOpening ? (
               <CircleNotch
-                className="size-4 shrink-0 animate-spin"
+                {...stylex.props([
+                  styles.loadingIcon,
+                  onboardingSharedStyles.spin,
+                ])}
                 aria-hidden="true"
               />
             ) : (
@@ -437,7 +445,7 @@ function OutlookCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
 
   if (isError) {
     return (
-      <p className="order-2 min-w-56 flex-1 text-sm text-red-600">
+      <p {...stylex.props(styles.providerError)}>
         <Trans>Failed to load Outlook Calendar</Trans>
       </p>
     );
@@ -449,7 +457,7 @@ function OutlookCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
   return (
     <>
       {isConnected && (
-        <div className="order-1 w-full basis-full">
+        <div {...stylex.props(styles.connectedCalendar)}>
           <OutlookCalendarConnectedContent
             providerConnections={providerConnections}
           />
@@ -523,7 +531,7 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
 
   if (isError) {
     return (
-      <p className="order-2 min-w-56 flex-1 text-sm text-red-600">
+      <p {...stylex.props(styles.providerError)}>
         <Trans>Failed to load Google Calendar</Trans>
       </p>
     );
@@ -535,7 +543,7 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
   return (
     <>
       {isConnected && (
-        <div className="order-1 w-full basis-full">
+        <div {...stylex.props(styles.connectedCalendar)}>
           <GoogleCalendarConnectedContent
             providerConnections={providerConnections}
           />
@@ -573,8 +581,8 @@ function CalendarSectionContent({
   const hasConnectedCalendar = enabledCalendars.length > 0;
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-stretch gap-3">
+    <div {...stylex.props(styles.section)}>
+      <div {...stylex.props(styles.providers)}>
         {isMacos && (
           <AppleCalendarProvider
             isAuthorized={isAuthorized}
@@ -601,7 +609,7 @@ function CalendarSectionContent({
           onReset={calendar.reset}
           onOpen={calendar.open}
           isPending={calendar.isPending}
-          className="text-muted-foreground text-sm"
+          sx={styles.troubleshooting}
         />
       )}
     </div>
@@ -621,3 +629,172 @@ export function CalendarSection({
     </SyncProvider>
   );
 }
+
+const styles = stylex.create({
+  calendarSelection: {
+    backdropFilter: "blur(12px) saturate(1.5)",
+    backgroundColor: `color-mix(in srgb, ${colors.card} 28%, transparent)`,
+    borderColor: `color-mix(in srgb, ${colors.border} 45%, transparent)`,
+    borderRadius: radii.xl,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow:
+      "inset 0 1px 0 rgb(255 255 255 / 0.4), 0 8px 24px -20px rgb(87 83 78 / 0.35)",
+    padding: "1rem",
+  },
+  connectedCalendar: {
+    flexBasis: "100%",
+    order: 1,
+    width: "100%",
+  },
+  connectedContent: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.75rem",
+  },
+  connectedProviderButton: {
+    alignItems: "center",
+    backgroundColor: {
+      default: colors.card,
+      ":hover": colors.accent,
+    },
+    borderColor: colors.border,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow:
+      "0 2px 6px rgb(87 83 78 / 0.08), 0 10px 18px -10px rgb(87 83 78 / 0.22)",
+    color: colors.foreground,
+    display: "flex",
+    gap: "0.75rem",
+    height: "100%",
+    justifyContent: "center",
+    paddingInline: "1.5rem",
+    transitionDuration: "150ms",
+    transitionProperty: "all",
+    width: "100%",
+  },
+  loadingIcon: {
+    flexShrink: 0,
+    height: "1rem",
+    width: "1rem",
+  },
+  measureLabel: {
+    visibility: "hidden",
+  },
+  providerActionContainer: {
+    display: "flex",
+    flex: 1,
+    minWidth: "14rem",
+    order: 2,
+  },
+  providerButton: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    display: "flex",
+    gap: "0.75rem",
+    height: "100%",
+    justifyContent: "center",
+    width: "100%",
+  },
+  providerError: {
+    color: "rgb(220 38 38)",
+    flex: 1,
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    minWidth: "14rem",
+    order: 2,
+  },
+  providerIcon: {
+    borderRadius: "4px",
+    height: "1.5rem",
+    objectFit: "cover",
+    width: "1.5rem",
+  },
+  providerName: {
+    color: colors.foreground,
+    fontSize: "1rem",
+    fontWeight: 400,
+    lineHeight: "1.5rem",
+  },
+  providers: {
+    alignItems: "stretch",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "0.75rem",
+  },
+  section: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
+  },
+  signedInProviderButton: {
+    backgroundColor: {
+      default: colors.card,
+      ":hover": colors.accent,
+      ":disabled:hover": colors.card,
+    },
+    boxShadow:
+      "0 2px 6px rgb(87 83 78 / 0.08), 0 10px 18px -10px rgb(87 83 78 / 0.22)",
+    color: colors.foreground,
+    cursor: {
+      default: "pointer",
+      ":disabled": "not-allowed",
+    },
+    opacity: {
+      default: 1,
+      ":disabled": 0.6,
+    },
+  },
+  signedOutProviderButton: {
+    backgroundColor: {
+      default: colors.muted,
+      ":hover": colors.primary,
+      ":focus-visible": colors.primary,
+    },
+    borderColor: {
+      default: colors.border,
+      ":hover": colors.primary,
+      ":focus-visible": colors.primary,
+    },
+    boxShadow:
+      "0 2px 6px rgb(87 83 78 / 0.01), 0 10px 18px -10px rgb(87 83 78 / 0.1)",
+    color: {
+      default: colors.foreground,
+      ":hover": colors.primaryForeground,
+      ":focus-visible": colors.primaryForeground,
+    },
+    transitionDuration: "150ms",
+    transitionProperty: "all",
+  },
+  slidingLabel: {
+    alignItems: "center",
+    display: "grid",
+    overflow: "hidden",
+  },
+  slidingLabelItem: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.75rem",
+    gridColumnStart: 1,
+    gridRowStart: 1,
+    justifyContent: "center",
+  },
+  troubleshooting: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+  },
+  warning: {
+    alignItems: "flex-start",
+    color: "rgb(180 83 9)",
+    display: "flex",
+    fontSize: "0.875rem",
+    gap: "0.5rem",
+    lineHeight: "1.25rem",
+  },
+  warningIndicator: {
+    paddingTop: "0.25rem",
+  },
+});

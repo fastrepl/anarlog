@@ -1,9 +1,25 @@
+import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
+
+import { colors } from "@anlg/design-system/tokens.stylex";
 
 export function ResourceDetailEmpty({ message }: { message: ReactNode }) {
   return (
-    <div className="flex h-full items-center justify-center">
-      <p className="text-muted-foreground text-sm">{message}</p>
+    <div {...stylex.props(styles.root)}>
+      <p {...stylex.props(styles.message)}>{message}</p>
     </div>
   );
 }
+
+const styles = stylex.create({
+  message: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+  },
+  root: {
+    alignItems: "center",
+    display: "flex",
+    height: "100%",
+    justifyContent: "center",
+  },
+});

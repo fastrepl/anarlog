@@ -1,6 +1,7 @@
 import { Check } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 
-import { cn } from "@anlg/utils";
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 
 import { useTranscriptSelectionState } from "./selection-context";
 import { SpeakerAssignPopover } from "./speaker-assign";
@@ -23,36 +24,64 @@ export function SegmentHeader({
 }) {
   const { selectMode } = useTranscriptSelectionState();
   const colorVars = useSegmentColorVars(segment.key);
-  const headerClassName = cn([
-    "relative py-1",
-    "text-xs font-light",
-    "flex items-center gap-2",
-    "[--segment-color:var(--segment-color-light)]",
-    "dark:[--segment-color:var(--segment-color-dark)]",
-  ]);
 
   return (
-    <div className={headerClassName} style={colorVars}>
+    <div {...stylex.props(styles.root)} style={colorVars}>
       {selectMode ? (
         <span
           aria-hidden="true"
-          className={cn([
-            "flex size-4 shrink-0 items-center justify-center rounded-full border",
-            selected
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-muted-foreground/40",
-          ])}
+          {...stylex.props(
+            styles.selection,
+            selected ? styles.selectionActive : styles.selectionInactive,
+          )}
         >
-          {selected ? <Check className="size-2.5" weight="bold" /> : null}
+          {selected ? (
+            <Check {...stylex.props(styles.check)} weight="bold" />
+          ) : null}
         </span>
       ) : null}
       <SpeakerAssignPopover
         segment={segment}
         transcriptId={transcriptId}
         sessionId={sessionId}
-        color="var(--segment-color)"
+        color="light-dark(var(--segment-color-light), var(--segment-color-dark))"
         label={label}
       />
     </div>
   );
 }
+
+const styles = stylex.create({
+  check: {
+    height: "0.625rem",
+    width: "0.625rem",
+  },
+  root: {
+    alignItems: "center",
+    display: "flex",
+    fontSize: "0.75rem",
+    fontWeight: 300,
+    gap: "0.5rem",
+    paddingBlock: "0.25rem",
+    position: "relative",
+  },
+  selection: {
+    alignItems: "center",
+    borderRadius: radii.full,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    display: "flex",
+    flexShrink: 0,
+    height: "1rem",
+    justifyContent: "center",
+    width: "1rem",
+  },
+  selectionActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    color: colors.primaryForeground,
+  },
+  selectionInactive: {
+    borderColor: `color-mix(in srgb, ${colors.mutedForeground} 40%, transparent)`,
+  },
+});

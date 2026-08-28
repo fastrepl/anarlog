@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import { useCallback } from "react";
 
 import { TemplateDetailsColumn } from "./details";
@@ -90,7 +91,7 @@ export function TemplateView({
     userTemplates.find((template) => template.id === selectedMineId) ?? null;
 
   return (
-    <div className="h-full">
+    <div {...stylex.props(styles.root)}>
       <TemplateDetailsColumn
         isAutoSelected={!isWebMode && selectedMineId === AUTO_TEMPLATE_ID}
         isWebMode={isWebMode}
@@ -106,3 +107,9 @@ export function TemplateView({
     </div>
   );
 }
+
+const styles = stylex.create({
+  root: {
+    height: "100%",
+  },
+});

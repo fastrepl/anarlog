@@ -1,4 +1,7 @@
 import { Trans } from "@lingui/react/macro";
+import * as stylex from "@stylexjs/stylex";
+
+import { fonts } from "@anlg/design-system/tokens.stylex";
 
 import {
   LegacyMigrationCleanupRow,
@@ -11,12 +14,27 @@ export function StorageSettingsView() {
 
   return (
     <div>
-      <h2 className="mb-4 font-sans text-lg font-semibold">
+      <h2 {...stylex.props(styles.title)}>
         <Trans>Storage</Trans>
       </h2>
-      <div className="flex flex-col gap-3">
+      <div {...stylex.props(styles.content)}>
         <LegacyMigrationCleanupRow />
       </div>
     </div>
   );
 }
+
+const styles = stylex.create({
+  content: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.75rem",
+  },
+  title: {
+    fontFamily: fonts.sans,
+    fontSize: "1.125rem",
+    fontWeight: 600,
+    lineHeight: "1.75rem",
+    marginBottom: "1rem",
+  },
+});

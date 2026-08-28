@@ -1,4 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 
 import {
@@ -10,7 +11,7 @@ import {
 } from "@anlg/ui/components/ui/select";
 
 import {
-  SETTING_CONTROL_CLASS,
+  settingControlStyles,
   SettingRow,
   SettingSwitchRow,
 } from "~/settings/setting-row";
@@ -41,7 +42,7 @@ export function AudioSettingsView({
   };
 }) {
   return (
-    <div className="flex flex-col gap-4">
+    <div {...stylex.props(styles.settings)}>
       <AudioDeviceRow
         title={<Trans>Microphone</Trans>}
         description={
@@ -116,10 +117,10 @@ function AudioDeviceRow({
             onChange(device === SYSTEM_DEFAULT_DEVICE ? "" : device)
           }
         >
-          <SelectTrigger {...labelProps} className={SETTING_CONTROL_CLASS}>
+          <SelectTrigger {...labelProps} sx={settingControlStyles.control}>
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="max-h-64">
+          <SelectContent sx={styles.menu}>
             <SelectItem value={SYSTEM_DEFAULT_DEVICE}>
               <Trans>Current default</Trans>
             </SelectItem>
@@ -176,7 +177,7 @@ function AudioRetentionRow({
     >
       {(labelProps) => (
         <Select value={value} onValueChange={onChange}>
-          <SelectTrigger {...labelProps} className={SETTING_CONTROL_CLASS}>
+          <SelectTrigger {...labelProps} sx={settingControlStyles.control}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -191,3 +192,14 @@ function AudioRetentionRow({
     </SettingRow>
   );
 }
+
+const styles = stylex.create({
+  menu: {
+    maxHeight: "16rem",
+  },
+  settings: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
+  },
+});

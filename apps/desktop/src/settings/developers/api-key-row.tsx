@@ -1,5 +1,7 @@
 import { t } from "@lingui/core/macro";
+import * as stylex from "@stylexjs/stylex";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 
 export function ApiKeyRow({
@@ -15,15 +17,13 @@ export function ApiKeyRow({
   onRevoke: () => void;
 }) {
   return (
-    <li className="flex items-center justify-between gap-3 text-sm">
-      <div className="flex min-w-0 items-center gap-2">
-        <code className="bg-muted shrink-0 rounded-md px-1.5 py-0.5 text-xs">
-          {apiKey.key_prefix}…
-        </code>
-        <span className="truncate">{apiKey.name}</span>
+    <li {...stylex.props(styles.row)}>
+      <div {...stylex.props(styles.identity)}>
+        <code {...stylex.props(styles.prefix)}>{apiKey.key_prefix}…</code>
+        <span {...stylex.props(styles.name)}>{apiKey.name}</span>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <span className="text-muted-foreground text-xs">
+      <div {...stylex.props(styles.actions)}>
+        <span {...stylex.props(styles.date)}>
           {apiKey.last_used_at
             ? t`Last used ${apiKey.last_used_at.slice(0, 10)}`
             : t`Created ${apiKey.created_at.slice(0, 10)}`}
@@ -32,7 +32,7 @@ export function ApiKeyRow({
           type="button"
           variant="ghost"
           size="sm"
-          className="text-destructive h-7"
+          sx={styles.revoke}
           onClick={onRevoke}
         >
           {t`Revoke`}
@@ -41,3 +41,49 @@ export function ApiKeyRow({
     </li>
   );
 }
+
+const styles = stylex.create({
+  actions: {
+    alignItems: "center",
+    display: "flex",
+    flexShrink: 0,
+    gap: "0.5rem",
+  },
+  date: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    lineHeight: "1rem",
+  },
+  identity: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+    minWidth: 0,
+  },
+  name: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  prefix: {
+    backgroundColor: colors.muted,
+    borderRadius: radii.md,
+    flexShrink: 0,
+    fontSize: "0.75rem",
+    lineHeight: "1rem",
+    paddingBlock: "0.125rem",
+    paddingInline: "0.375rem",
+  },
+  revoke: {
+    color: colors.destructive,
+    height: "1.75rem",
+  },
+  row: {
+    alignItems: "center",
+    display: "flex",
+    fontSize: "0.875rem",
+    gap: "0.75rem",
+    justifyContent: "space-between",
+    lineHeight: "1.25rem",
+  },
+});

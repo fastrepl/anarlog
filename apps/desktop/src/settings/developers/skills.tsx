@@ -1,8 +1,10 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { CaretDown, Check, CircleNotch } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { colors, media } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
@@ -66,18 +68,18 @@ export function SkillsRow() {
   const detected = agents.filter((agent) => agent.detected);
 
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0">
-        <h3 className="text-sm font-medium">
+    <div {...stylex.props(styles.row)}>
+      <div {...stylex.props(styles.copy)}>
+        <h3 {...stylex.props(styles.title)}>
           <Trans>Agent skills</Trans>
         </h3>
-        <p className="text-muted-foreground mt-1 text-xs">
+        <p {...stylex.props(styles.description)}>
           <Trans>
             Teach coding agents when and how to use the Anarlog CLI and MCP
           </Trans>
         </p>
       </div>
-      <div className="flex shrink-0 gap-2">
+      <div {...stylex.props(styles.actions)}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -87,17 +89,17 @@ export function SkillsRow() {
               disabled={agents.length === 0 || installMutation.isPending}
             >
               {installMutation.isPending ? (
-                <CircleNotch className="size-3.5 animate-spin" />
+                <CircleNotch {...stylex.props(styles.spinner)} />
               ) : (
                 <>
                   <Trans>Add skill to…</Trans>
-                  <CaretDown className="size-3.5" />
+                  <CaretDown {...stylex.props(styles.icon)} />
                 </>
               )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent variant="app" align="end" className="w-52">
-            <AppFloatingPanel className="p-1">
+          <DropdownMenuContent variant="app" align="end" sx={styles.menu}>
+            <AppFloatingPanel sx={styles.menuPanel}>
               <DropdownMenuItem
                 disabled={detected.length === 0}
                 onClick={() =>
@@ -117,7 +119,7 @@ export function SkillsRow() {
                   {agent.installed && (
                     <Check
                       aria-label={t`Skill installed`}
-                      className="ml-auto size-3.5"
+                      {...stylex.props(styles.check)}
                     />
                   )}
                 </DropdownMenuItem>
@@ -129,3 +131,68 @@ export function SkillsRow() {
     </div>
   );
 }
+
+const spin = stylex.keyframes({
+  to: { transform: "rotate(360deg)" },
+});
+
+const styles = stylex.create({
+  actions: {
+    display: "flex",
+    flexShrink: 0,
+    gap: "0.5rem",
+  },
+  check: {
+    height: "0.875rem",
+    marginLeft: "auto",
+    width: "0.875rem",
+  },
+  copy: {
+    minWidth: 0,
+  },
+  description: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    lineHeight: "1rem",
+    marginTop: "0.25rem",
+  },
+  icon: {
+    height: "0.875rem",
+    width: "0.875rem",
+  },
+  menu: {
+    width: "13rem",
+  },
+  menuPanel: {
+    padding: "0.25rem",
+  },
+  row: {
+    alignItems: {
+      default: "stretch",
+      [media.sm]: "center",
+    },
+    display: "flex",
+    flexDirection: {
+      default: "column",
+      [media.sm]: "row",
+    },
+    gap: "1rem",
+    justifyContent: {
+      default: "flex-start",
+      [media.sm]: "space-between",
+    },
+  },
+  spinner: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+    height: "0.875rem",
+    width: "0.875rem",
+  },
+  title: {
+    fontSize: "0.875rem",
+    fontWeight: 500,
+    lineHeight: "1.25rem",
+  },
+});

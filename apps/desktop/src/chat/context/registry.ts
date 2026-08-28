@@ -12,7 +12,10 @@ import type { TabInput } from "~/store/zustand/tabs";
 
 export type ContextChipProps = {
   key: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{
+    className?: string;
+    style?: React.CSSProperties;
+  }>;
   label: string;
   removable?: boolean;
   tab?: TabInput;

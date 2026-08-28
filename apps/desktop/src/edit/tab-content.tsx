@@ -1,8 +1,10 @@
 import { Trans } from "@lingui/react/macro";
 import { MultiFileDiff } from "@pierre/diffs/react";
+import * as stylex from "@stylexjs/stylex";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 
+import { colors } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 
 import { useStrictModeUnmount } from "./hooks";
@@ -119,7 +121,7 @@ export function TabContentEdit({ tab }: { tab: EditTab }) {
   if (!edit && !storeEdit && isLoading) {
     return (
       <StandardContentWrapper>
-        <div className="text-muted-foreground flex h-full items-center justify-center">
+        <div {...stylex.props(styles.centerMessage)}>
           <Trans>Loading edit…</Trans>
         </div>
       </StandardContentWrapper>
@@ -129,7 +131,7 @@ export function TabContentEdit({ tab }: { tab: EditTab }) {
   if (!edit) {
     return (
       <StandardContentWrapper>
-        <div className="text-muted-foreground flex h-full items-center justify-center">
+        <div {...stylex.props(styles.centerMessage)}>
           <Trans>This edit is no longer pending.</Trans>
         </div>
       </StandardContentWrapper>
@@ -138,13 +140,13 @@ export function TabContentEdit({ tab }: { tab: EditTab }) {
 
   return (
     <StandardContentWrapper>
-      <div className="flex h-full flex-col">
-        <div className="border-border flex items-start justify-between gap-3 border-b px-4 py-3">
-          <div className="min-w-0 flex-1">
-            <div className="text-foreground text-[13px] font-medium">
+      <div {...stylex.props(styles.root)}>
+        <div {...stylex.props(styles.header)}>
+          <div {...stylex.props(styles.headerContent)}>
+            <div {...stylex.props(styles.sessionTitle)}>
               {sessionTitle ?? <Trans>Untitled session</Trans>}
             </div>
-            <div className="text-muted-foreground text-[12px]">
+            <div {...stylex.props(styles.summaryTitle)}>
               {isMemo ? (
                 <Trans>Memo</Trans>
               ) : (
@@ -152,7 +154,7 @@ export function TabContentEdit({ tab }: { tab: EditTab }) {
               )}
             </div>
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div {...stylex.props(styles.actions)}>
             <Button
               type="button"
               size="sm"
@@ -176,12 +178,8 @@ export function TabContentEdit({ tab }: { tab: EditTab }) {
             </Button>
           </div>
         </div>
-        {error ? (
-          <div className="border-red-200 bg-red-50 px-4 py-2 text-[13px] text-red-600">
-            {error}
-          </div>
-        ) : null}
-        <div className="flex-1 overflow-auto">
+        {error ? <div {...stylex.props(styles.error)}>{error}</div> : null}
+        <div {...stylex.props(styles.diff)}>
           <MultiFileDiff
             oldFile={oldFile!}
             newFile={newFile!}
@@ -192,3 +190,58 @@ export function TabContentEdit({ tab }: { tab: EditTab }) {
     </StandardContentWrapper>
   );
 }
+
+const styles = stylex.create({
+  actions: {
+    display: "flex",
+    flexShrink: 0,
+    gap: "0.5rem",
+  },
+  centerMessage: {
+    alignItems: "center",
+    color: colors.mutedForeground,
+    display: "flex",
+    height: "100%",
+    justifyContent: "center",
+  },
+  diff: {
+    flex: 1,
+    overflow: "auto",
+  },
+  error: {
+    backgroundColor: "#fef2f2",
+    color: "#dc2626",
+    fontSize: "0.8125rem",
+    paddingBlock: "0.5rem",
+    paddingInline: "1rem",
+  },
+  header: {
+    alignItems: "flex-start",
+    borderBottomColor: colors.border,
+    borderBottomStyle: "solid",
+    borderBottomWidth: "1px",
+    display: "flex",
+    gap: "0.75rem",
+    justifyContent: "space-between",
+    paddingBlock: "0.75rem",
+    paddingInline: "1rem",
+  },
+  headerContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+  root: {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+  },
+  sessionTitle: {
+    color: colors.foreground,
+    fontSize: "0.8125rem",
+    fontWeight: 500,
+  },
+  summaryTitle: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+  },
+});

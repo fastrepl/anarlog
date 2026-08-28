@@ -1,6 +1,6 @@
 import { Trans } from "@lingui/react/macro";
 
-import { OnboardingButton } from "./shared";
+import { OnboardingButton, onboardingSharedStyles } from "./shared";
 
 import { MeetingImportScreen } from "~/imports/screen";
 
@@ -20,7 +20,7 @@ export function ImportSection({
         <OnboardingButton
           variant="secondary"
           onClick={onSkip}
-          className="px-6 py-2"
+          sx={onboardingSharedStyles.compactButton}
         >
           <Trans>Skip for now</Trans>
         </OnboardingButton>

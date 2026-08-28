@@ -1,6 +1,5 @@
+import * as stylex from "@stylexjs/stylex";
 import { type ReactNode } from "react";
-
-import { cn } from "@anlg/utils";
 
 import { AutomationsNav } from "./automations";
 import { CalendarNav } from "./calendar";
@@ -46,15 +45,15 @@ export function LeftSidebar({
     isSpecialMode && !hasOwnSidebarHeaderTab(currentTab);
   return (
     <div
-      className={cn([
-        "flex h-full w-full shrink-0 flex-col gap-1 overflow-hidden",
-        needsChromeRowGutter ? "pt-11" : "pt-0",
-        !isTimelineSidebarLayout && "pr-1",
-      ])}
+      {...stylex.props(
+        styles.root,
+        needsChromeRowGutter ? styles.chromeGutter : styles.noChromeGutter,
+        !isTimelineSidebarLayout && styles.specialMode,
+      )}
     >
-      <div className="flex flex-1 flex-col gap-1 overflow-hidden">
+      <div {...stylex.props(styles.content)}>
         {isTimelineSidebarLayout ? timelineHeader : null}
-        <div className="relative min-h-0 flex-1 overflow-hidden">
+        <div {...stylex.props(styles.nav)}>
           {isSettingsMode ? (
             <SettingsNav />
           ) : isCalendarMode ? (
@@ -66,9 +65,9 @@ export function LeftSidebar({
           ) : isAutomationsMode ? (
             <AutomationsNav />
           ) : (
-            <div className="flex h-full min-h-0 flex-col">
+            <div {...stylex.props(styles.timeline)}>
               {noteFilter === "mine" ? (
-                <div className="relative min-h-0 flex-1">
+                <div {...stylex.props(styles.timelineContent)}>
                   <TimelineView
                     showIgnoredEvents={showIgnoredTimelineEvents}
                     onShowIgnoredEventsChange={
@@ -90,3 +89,48 @@ export function LeftSidebar({
     </div>
   );
 }
+
+const styles = stylex.create({
+  chromeGutter: {
+    paddingTop: "2.75rem",
+  },
+  content: {
+    display: "flex",
+    flex: 1,
+    flexDirection: "column",
+    gap: "0.25rem",
+    overflow: "hidden",
+  },
+  nav: {
+    flex: 1,
+    minHeight: 0,
+    overflow: "hidden",
+    position: "relative",
+  },
+  noChromeGutter: {
+    paddingTop: 0,
+  },
+  root: {
+    display: "flex",
+    flexDirection: "column",
+    flexShrink: 0,
+    gap: "0.25rem",
+    height: "100%",
+    overflow: "hidden",
+    width: "100%",
+  },
+  specialMode: {
+    paddingRight: "0.25rem",
+  },
+  timeline: {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    minHeight: 0,
+  },
+  timelineContent: {
+    flex: 1,
+    minHeight: 0,
+    position: "relative",
+  },
+});

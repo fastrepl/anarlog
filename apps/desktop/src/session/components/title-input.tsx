@@ -1,5 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { usePrevious } from "@uidotdev/usehooks";
+import * as stylex from "@stylexjs/stylex";
 import {
   type CSSProperties,
   forwardRef,
@@ -13,7 +14,7 @@ import {
 } from "react";
 import { useResizeObserver } from "usehooks-ts";
 
-import { cn } from "@anlg/utils";
+import { colors } from "@anlg/design-system/tokens.stylex";
 
 import { useTitleGenerating } from "~/ai/hooks";
 import { useSession, useUpdateSession } from "~/session/queries";
@@ -76,18 +77,20 @@ export const TitleInput = forwardRef<
       return (
         <div
           data-tauri-drag-region="false"
-          className={cn([
-            "flex w-full items-center justify-start",
-            variant === "breadcrumb" ? "h-5" : "h-8",
-          ])}
+          {...stylex.props(
+            styles.state,
+            variant === "breadcrumb"
+              ? styles.breadcrumbHeight
+              : styles.titleHeight,
+          )}
         >
           <span
-            className={cn([
-              "text-muted-foreground animate-pulse",
+            {...stylex.props(
+              styles.generating,
               variant === "breadcrumb"
-                ? "text-sm leading-5"
-                : "text-xl font-semibold",
-            ])}
+                ? styles.breadcrumbText
+                : styles.titleText,
+            )}
           >
             <Trans>Generating title...</Trans>
           </span>
@@ -99,18 +102,21 @@ export const TitleInput = forwardRef<
       return (
         <div
           data-tauri-drag-region="false"
-          className={cn([
-            "flex w-full items-center justify-start overflow-hidden",
-            variant === "breadcrumb" ? "h-5" : "h-8",
-          ])}
+          {...stylex.props(
+            styles.state,
+            styles.stateClipped,
+            variant === "breadcrumb"
+              ? styles.breadcrumbHeight
+              : styles.titleHeight,
+          )}
         >
           <span
-            className={cn([
-              "animate-reveal-left whitespace-nowrap",
+            {...stylex.props(
+              styles.reveal,
               variant === "breadcrumb"
-                ? "text-sm leading-5"
-                : "text-xl font-semibold",
-            ])}
+                ? styles.breadcrumbText
+                : styles.titleText,
+            )}
           >
             {generatedTitle}
           </span>
@@ -400,12 +406,12 @@ const TitleInputInner = memo(
         <div
           data-tauri-drag-region="false"
           style={titleShellStyle}
-          className={cn([
-            "group/title-input relative flex max-w-full items-center overflow-hidden",
+          {...stylex.props(
+            styles.shell,
             variant === "breadcrumb"
-              ? "h-5 text-sm leading-5"
-              : "h-8 text-xl font-semibold",
-          ])}
+              ? [styles.breadcrumbHeight, styles.breadcrumbText]
+              : [styles.titleHeight, styles.titleText],
+          )}
         >
           <input
             data-tauri-drag-region="false"
@@ -440,33 +446,34 @@ const TitleInputInner = memo(
             onSelect={(e) => updateOverflowState(e.currentTarget)}
             value={title}
             size={visibleTitleLength}
-            className={cn([
-              "w-full min-w-0 transition-opacity duration-200",
-              "border-none bg-transparent focus:outline-hidden",
-              "placeholder:text-muted-foreground text-left",
+            {...stylex.props(
+              styles.input,
               variant === "breadcrumb"
-                ? "h-5 appearance-none p-0 text-sm leading-5 text-neutral-700 focus:underline dark:text-white"
-                : "text-xl font-semibold",
-              variant === "breadcrumb" &&
-                (isTitleFocused
-                  ? "overflow-x-auto whitespace-nowrap"
-                  : "truncate"),
-              showHoverReveal && "text-transparent caret-transparent",
-            ])}
+                ? [
+                    styles.breadcrumbHeight,
+                    styles.breadcrumbText,
+                    styles.breadcrumbInput,
+                    isTitleFocused
+                      ? styles.breadcrumbInputFocused
+                      : styles.breadcrumbInputTruncated,
+                  ]
+                : styles.titleText,
+              showHoverReveal && styles.concealedInput,
+            )}
           />
           {showHoverReveal ? (
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 flex items-center justify-start overflow-hidden"
+              {...stylex.props(styles.hoverOverlay)}
             >
               <span
                 style={titleHoverScrollStyle}
-                className={cn([
-                  "group-hover/title-input:animate-title-hover-scroll whitespace-nowrap group-hover/title-input:will-change-transform",
+                {...stylex.props(
+                  styles.hoverTitle,
                   variant === "breadcrumb"
-                    ? "text-sm leading-5"
-                    : "text-xl font-semibold",
-                ])}
+                    ? styles.breadcrumbText
+                    : styles.titleText,
+                )}
               >
                 {title}
               </span>
@@ -503,3 +510,149 @@ function getTitleFadeMask({
 
   return "linear-gradient(to right, black 0, black calc(100% - 28px), transparent 100%)";
 }
+
+const pulse = stylex.keyframes({
+  "0%, 100%": {
+    opacity: 1,
+  },
+  "50%": {
+    opacity: 0.5,
+  },
+});
+
+const revealLeft = stylex.keyframes({
+  "0%": {
+    clipPath: "inset(0 100% 0 0)",
+  },
+  "100%": {
+    clipPath: "inset(0 0 0 0)",
+  },
+});
+
+const titleHoverScroll = stylex.keyframes({
+  "0%, 16%": {
+    transform: "translateX(0)",
+  },
+  "84%, 100%": {
+    transform: "translateX(var(--title-hover-scroll-distance, 0px))",
+  },
+});
+
+const styles = stylex.create({
+  breadcrumbHeight: {
+    height: "1.25rem",
+  },
+  breadcrumbInput: {
+    appearance: "none",
+    color: colors.foreground,
+    padding: 0,
+    textDecorationLine: {
+      default: null,
+      ":focus": "underline",
+    },
+  },
+  breadcrumbInputFocused: {
+    overflowX: "auto",
+    whiteSpace: "nowrap",
+  },
+  breadcrumbInputTruncated: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  breadcrumbText: {
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+  },
+  concealedInput: {
+    caretColor: "transparent",
+    color: "transparent",
+  },
+  generating: {
+    animationDuration: "2s",
+    animationIterationCount: "infinite",
+    animationName: pulse,
+    animationTimingFunction: "cubic-bezier(0.4, 0, 0.6, 1)",
+    color: colors.mutedForeground,
+  },
+  hoverOverlay: {
+    alignItems: "center",
+    display: "flex",
+    inset: 0,
+    justifyContent: "flex-start",
+    overflow: "hidden",
+    pointerEvents: "none",
+    position: "absolute",
+  },
+  hoverTitle: {
+    animationDuration: {
+      default: null,
+      [stylex.when.ancestor(":hover")]:
+        "var(--title-hover-scroll-duration, 4s)",
+    },
+    animationFillMode: {
+      default: null,
+      [stylex.when.ancestor(":hover")]: "forwards",
+    },
+    animationName: {
+      default: null,
+      [stylex.when.ancestor(":hover")]: titleHoverScroll,
+    },
+    animationTimingFunction: {
+      default: null,
+      [stylex.when.ancestor(":hover")]: "ease-in-out",
+    },
+    whiteSpace: "nowrap",
+    willChange: {
+      default: null,
+      [stylex.when.ancestor(":hover")]: "transform",
+    },
+  },
+  input: {
+    "::placeholder": {
+      color: colors.mutedForeground,
+    },
+    backgroundColor: "transparent",
+    borderStyle: "none",
+    minWidth: 0,
+    outlineStyle: {
+      default: null,
+      ":focus": "none",
+    },
+    textAlign: "left",
+    transitionDuration: "200ms",
+    transitionProperty: "opacity",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+    width: "100%",
+  },
+  reveal: {
+    animationDuration: "500ms",
+    animationFillMode: "forwards",
+    animationName: revealLeft,
+    animationTimingFunction: "ease-out",
+    whiteSpace: "nowrap",
+  },
+  shell: {
+    alignItems: "center",
+    display: "flex",
+    maxWidth: "100%",
+    overflow: "hidden",
+    position: "relative",
+  },
+  state: {
+    alignItems: "center",
+    display: "flex",
+    justifyContent: "flex-start",
+    width: "100%",
+  },
+  stateClipped: {
+    overflow: "hidden",
+  },
+  titleHeight: {
+    height: "2rem",
+  },
+  titleText: {
+    fontSize: "1.25rem",
+    fontWeight: 600,
+  },
+});

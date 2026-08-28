@@ -1,4 +1,5 @@
 import { Trans } from "@lingui/react/macro";
+import * as stylex from "@stylexjs/stylex";
 
 import { ConfigureProviders } from "./configure";
 import { SttSettingsProvider } from "./context";
@@ -9,7 +10,7 @@ import { SettingsPageTitle } from "~/settings/page-title";
 export function STT() {
   return (
     <SttSettingsProvider>
-      <div className="flex flex-col gap-6">
+      <div {...stylex.props(styles.page)}>
         <SettingsPageTitle title={<Trans>Transcription</Trans>} />
         <SelectProviderAndModel />
         <ConfigureProviders />
@@ -17,3 +18,11 @@ export function STT() {
     </SttSettingsProvider>
   );
 }
+
+const styles = stylex.create({
+  page: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1.5rem",
+  },
+});

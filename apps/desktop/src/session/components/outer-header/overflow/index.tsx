@@ -8,8 +8,10 @@ import {
   PictureInPicture,
   Waveform,
 } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
@@ -123,17 +125,14 @@ export function OverflowButton({
             size="icon"
             variant="ghost"
             data-tauri-drag-region="false"
-            className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-full"
+            sx={styles.trigger}
           >
-            <DotsThree className="size-4" />
+            <DotsThree {...stylex.props(styles.icon)} />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent variant="app" align="end" className="w-56">
-          <AppFloatingPanel className="overflow-hidden p-1">
-            <DropdownMenuItem
-              onClick={openExportModal}
-              className="cursor-pointer"
-            >
+        <DropdownMenuContent variant="app" align="end" sx={styles.menu}>
+          <AppFloatingPanel sx={styles.panel}>
+            <DropdownMenuItem onClick={openExportModal} sx={styles.item}>
               <FileArrowDown />
               <span>
                 <Trans>Export</Trans>
@@ -147,20 +146,14 @@ export function OverflowButton({
               />
             )}
             {showRetranscribeAction && (
-              <DropdownMenuItem
-                onClick={handleRetranscribe}
-                className="cursor-pointer"
-              >
+              <DropdownMenuItem onClick={handleRetranscribe} sx={styles.item}>
                 <ArrowsClockwise />
                 <span>Re-transcribe</span>
               </DropdownMenuItem>
             )}
             {showUploadActions && (
               <>
-                <DropdownMenuItem
-                  onClick={handleUploadAudio}
-                  className="cursor-pointer"
-                >
+                <DropdownMenuItem onClick={handleUploadAudio} sx={styles.item}>
                   <Waveform />
                   <span>
                     <Trans>Upload audio</Trans>
@@ -168,7 +161,7 @@ export function OverflowButton({
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={handleUploadTranscript}
-                  className="cursor-pointer"
+                  sx={styles.item}
                 >
                   <FileText />
                   <span>
@@ -180,7 +173,7 @@ export function OverflowButton({
             {canOpenFloatingPanel && (
               <DropdownMenuItem
                 onClick={handleOpenFloatingPanel}
-                className="cursor-pointer"
+                sx={styles.item}
               >
                 <PictureInPicture />
                 <span>
@@ -192,7 +185,7 @@ export function OverflowButton({
             {!standaloneWindow && (
               <DropdownMenuItem
                 onClick={handleOpenStandaloneWindow}
-                className="cursor-pointer"
+                sx={styles.item}
               >
                 <AppWindow />
                 <span>
@@ -217,3 +210,31 @@ export function OverflowButton({
     </>
   );
 }
+
+const styles = stylex.create({
+  icon: {
+    height: "1rem",
+    width: "1rem",
+  },
+  item: {
+    cursor: "pointer",
+  },
+  menu: {
+    width: "14rem",
+  },
+  panel: {
+    overflow: "hidden",
+    padding: "0.25rem",
+  },
+  trigger: {
+    backgroundColor: {
+      default: "transparent",
+      ":hover": colors.accent,
+    },
+    borderRadius: radii.full,
+    color: {
+      default: colors.mutedForeground,
+      ":hover": colors.foreground,
+    },
+  },
+});

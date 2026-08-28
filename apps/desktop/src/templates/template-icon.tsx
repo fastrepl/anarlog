@@ -79,8 +79,9 @@ import {
   WarningCircle,
   Wrench,
 } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 
-import { cn } from "@anlg/utils";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 export type TemplateIcon =
   | { type: "icon"; value: string; color: string }
@@ -223,20 +224,16 @@ export function normalizeTemplateIcon(value: unknown): TemplateIcon {
 export function TemplateIconGlyph({
   icon,
   className,
+  sx,
 }: {
   icon: TemplateIcon | unknown;
   className?: string;
+  sx?: stylex.StyleXStyles;
 }) {
   const normalized = normalizeTemplateIcon(icon);
   if (normalized.type === "emoji") {
     return (
-      <span
-        aria-hidden
-        className={cn([
-          "inline-flex shrink-0 items-center justify-center",
-          className,
-        ])}
-      >
+      <span aria-hidden {...mergeStyleXProps([styles.emoji, sx], className)}>
         {normalized.value}
       </span>
     );
@@ -246,8 +243,25 @@ export function TemplateIconGlyph({
   return (
     <Icon
       aria-hidden
-      className={cn(["shrink-0", className])}
-      style={{ color: normalized.color }}
+      {...mergeStyleXProps(
+        [styles.icon, styles.iconColor(normalized.color), sx],
+        className,
+      )}
     />
   );
 }
+
+const styles = stylex.create({
+  emoji: {
+    alignItems: "center",
+    display: "inline-flex",
+    flexShrink: 0,
+    justifyContent: "center",
+  },
+  icon: {
+    flexShrink: 0,
+  },
+  iconColor: (color: string) => ({
+    color,
+  }),
+});

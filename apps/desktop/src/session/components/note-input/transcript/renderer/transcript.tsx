@@ -6,9 +6,9 @@ import {
   useMemo,
   useRef,
 } from "react";
+import * as stylex from "@stylexjs/stylex";
 
 import type { RenderTranscriptRequest } from "@anlg/plugin-transcription";
-import { cn } from "@anlg/utils";
 
 import { useSearch } from "../../search/context";
 import {
@@ -343,7 +343,7 @@ const SegmentsList = memo(
       <div
         ref={virtual.listRef}
         data-transcript-virtual-total={segments.length}
-        className="relative w-full min-w-0 overflow-x-clip"
+        {...stylex.props(styles.list)}
         style={{ height: virtual.totalHeight }}
       >
         {virtual.virtualItems.map(({ index, key, top }) => {
@@ -358,7 +358,7 @@ const SegmentsList = memo(
               onFocus={virtual.handleRowFocus}
               onBlur={virtual.handleRowBlur}
             >
-              <div className={cn([index > 0 && "pt-4"])}>
+              <div {...stylex.props(index > 0 && styles.segmentSpacing)}>
                 <SegmentRenderer
                   segment={segment}
                   offsetMs={offsetMs}
@@ -436,3 +436,15 @@ function useRegisterTranscriptSegments(
     return registerSource(transcriptId, () => getEntriesRef.current());
   }, [registerSource, transcriptId]);
 }
+
+const styles = stylex.create({
+  list: {
+    minWidth: 0,
+    overflowX: "clip",
+    position: "relative",
+    width: "100%",
+  },
+  segmentSpacing: {
+    paddingTop: "1rem",
+  },
+});

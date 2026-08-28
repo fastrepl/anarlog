@@ -1,9 +1,16 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { CircleNotch, Copy, Key, LockSimple } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import {
+  colors,
+  fonts,
+  media,
+  radii,
+} from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
 import { Switch } from "@anlg/ui/components/ui/switch";
@@ -75,11 +82,11 @@ export function CloudApiSection() {
 
   if (!billing.isReady) {
     return (
-      <section className="flex items-start justify-between gap-4">
+      <section {...stylex.props(styles.header)}>
         <CloudApiHeading />
         <CircleNotch
           aria-label={t`Loading Cloud API access`}
-          className="text-muted-foreground mt-1 size-4 animate-spin"
+          {...stylex.props(styles.loadingIcon, styles.spinner)}
         />
       </section>
     );
@@ -87,14 +94,14 @@ export function CloudApiSection() {
 
   if (!billing.isPro) {
     return (
-      <section className="flex items-start justify-between gap-6">
-        <div className="flex gap-3">
-          <LockSimple className="text-muted-foreground mt-1 size-4 shrink-0" />
+      <section {...stylex.props(styles.lockedSection)}>
+        <div {...stylex.props(styles.lockedCopy)}>
+          <LockSimple {...stylex.props(styles.loadingIcon)} />
           <div>
-            <h2 className="font-sans text-lg font-semibold">
+            <h2 {...stylex.props(styles.heading)}>
               <Trans>Cloud API & Connectors</Trans>
             </h2>
-            <p className="text-muted-foreground mt-1 text-xs leading-5">
+            <p {...stylex.props(styles.description)}>
               <Trans>
                 Access meetings remotely through the REST API and MCP connectors
                 with Anarlog Pro.
@@ -109,7 +116,7 @@ export function CloudApiSection() {
           disabled={billing.isUpgradingToPro}
         >
           {billing.isUpgradingToPro ? (
-            <CircleNotch className="size-4 animate-spin" />
+            <CircleNotch {...stylex.props(styles.mediumIcon, styles.spinner)} />
           ) : null}
           <Trans>Upgrade to Pro</Trans>
         </Button>
@@ -118,8 +125,8 @@ export function CloudApiSection() {
   }
 
   return (
-    <section className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-4">
+    <section {...stylex.props(styles.section)}>
+      <div {...stylex.props(styles.header)}>
         <CloudApiHeading error={settingsQuery.error?.message} />
         <Switch
           checked={enabled}
@@ -135,7 +142,7 @@ export function CloudApiSection() {
 
       {enabled && (
         <>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div {...stylex.props(styles.endpointGrid)}>
             <CloudEndpoint
               label={t`REST API`}
               value={CLOUD_API_BASE_URL}
@@ -156,16 +163,16 @@ export function CloudApiSection() {
 
 function CloudApiHeading({ error }: { error?: string }) {
   return (
-    <div className="min-w-0">
-      <h2 className="font-sans text-lg font-semibold">
+    <div {...stylex.props(styles.headingContainer)}>
+      <h2 {...stylex.props(styles.heading)}>
         <Trans>Cloud API & Connectors</Trans>
       </h2>
-      <p className="text-muted-foreground mt-1 text-xs">
+      <p {...stylex.props(styles.mutedText)}>
         <Trans>
           Uploads meeting content for remote access while Anarlog is closed.
         </Trans>
       </p>
-      {error ? <p className="text-destructive mt-2 text-xs">{error}</p> : null}
+      {error ? <p {...stylex.props(styles.error)}>{error}</p> : null}
     </div>
   );
 }
@@ -180,21 +187,21 @@ function CloudEndpoint({
   copyMessage: string;
 }) {
   return (
-    <div className="min-w-0">
-      <p className="text-muted-foreground text-xs font-medium">{label}</p>
-      <div className="mt-1 flex items-center gap-1">
-        <code className="bg-muted scrollbar-hide min-w-0 overflow-x-auto rounded-md px-1.5 py-0.5 text-xs">
+    <div {...stylex.props(styles.headingContainer)}>
+      <p {...stylex.props(styles.endpointLabel)}>{label}</p>
+      <div {...stylex.props(styles.endpointRow)}>
+        <code {...stylex.props(styles.code)}>
           {value}
         </code>
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          className="size-7 shrink-0 p-0"
+          sx={styles.copyButton}
           aria-label={t`Copy ${label} URL`}
           onClick={() => void copyText(value, copyMessage)}
         >
-          <Copy className="size-3.5" />
+          <Copy {...stylex.props(styles.smallIcon)} />
         </Button>
       </div>
     </div>
@@ -231,14 +238,14 @@ function CloudApiKeys() {
 
   return (
     <div>
-      <div className="mb-3 flex items-center gap-2">
-        <Key className="text-muted-foreground size-4" />
-        <h4 className="text-sm font-medium">
+      <div {...stylex.props(styles.keysHeader)}>
+        <Key {...stylex.props(styles.mutedIcon)} />
+        <h4 {...stylex.props(styles.subheading)}>
           <Trans>Cloud API keys</Trans>
         </h4>
       </div>
       <form
-        className="flex gap-2"
+        {...stylex.props(styles.form)}
         onSubmit={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -248,7 +255,7 @@ function CloudApiKeys() {
         <form.Field name="name">
           {(field) => (
             <Input
-              className="h-8 max-w-64 text-sm"
+              sx={styles.keyInput}
               placeholder={t`Key name (e.g. Claude Code)`}
               value={field.state.value}
               onChange={(event) => field.handleChange(event.target.value)}
@@ -266,26 +273,26 @@ function CloudApiKeys() {
       </form>
 
       {createdKey && (
-        <div className="border-border bg-muted/30 mt-3 rounded-xl border p-3">
-          <p className="text-muted-foreground text-xs">
+        <div {...stylex.props(styles.createdCard)}>
+          <p {...stylex.props(styles.createdDescription)}>
             <Trans>Copy this key now — it is only shown once.</Trans>
           </p>
-          <div className="mt-2 flex items-center gap-2">
-            <code className="bg-muted scrollbar-hide overflow-x-auto rounded-md px-1.5 py-0.5 text-xs">
+          <div {...stylex.props(styles.secretRow)}>
+            <code {...stylex.props(styles.code)}>
               {createdKey.key}
             </code>
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="h-7 shrink-0"
+              sx={styles.copyKeyButton}
               onClick={async () => {
                 if (await copyText(createdKey.key, t`Cloud API key copied`)) {
                   createMutation.reset();
                 }
               }}
             >
-              <Copy className="size-3.5" />
+              <Copy {...stylex.props(styles.smallIcon)} />
               <Trans>Copy</Trans>
             </Button>
           </div>
@@ -293,7 +300,7 @@ function CloudApiKeys() {
       )}
 
       {keys.length > 0 && (
-        <ul className="mt-3 flex flex-col gap-1.5">
+        <ul {...stylex.props(styles.keysList)}>
           {keys.map((key) => (
             <CloudApiKeyRow
               key={key.id}
@@ -316,3 +323,177 @@ function CloudApiKeyRow({
 }) {
   return <ApiKeyRow apiKey={apiKey} onRevoke={onRevoke} />;
 }
+
+const spin = stylex.keyframes({
+  to: { transform: "rotate(360deg)" },
+});
+
+const styles = stylex.create({
+  code: {
+    backgroundColor: colors.muted,
+    borderRadius: radii.md,
+    display: {
+      default: null,
+      "::-webkit-scrollbar": "none",
+    },
+    fontSize: "0.75rem",
+    lineHeight: "1rem",
+    minWidth: 0,
+    msOverflowStyle: "none",
+    overflowX: "auto",
+    paddingBlock: "0.125rem",
+    paddingInline: "0.375rem",
+    scrollbarWidth: "none",
+  },
+  copyButton: {
+    flexShrink: 0,
+    height: "1.75rem",
+    padding: 0,
+    width: "1.75rem",
+  },
+  copyKeyButton: {
+    flexShrink: 0,
+    height: "1.75rem",
+  },
+  createdCard: {
+    backgroundColor: `color-mix(in srgb, ${colors.muted} 30%, transparent)`,
+    borderColor: colors.border,
+    borderRadius: radii.xl,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    marginTop: "0.75rem",
+    padding: "0.75rem",
+  },
+  createdDescription: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    lineHeight: "1rem",
+  },
+  description: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    lineHeight: "1.25rem",
+    marginTop: "0.25rem",
+  },
+  endpointGrid: {
+    display: "grid",
+    gap: "0.75rem",
+    gridTemplateColumns: {
+      default: null,
+      [media.sm]: "repeat(2, minmax(0, 1fr))",
+    },
+  },
+  endpointLabel: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    fontWeight: 500,
+    lineHeight: "1rem",
+  },
+  endpointRow: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.25rem",
+    marginTop: "0.25rem",
+  },
+  error: {
+    color: colors.destructive,
+    fontSize: "0.75rem",
+    lineHeight: "1rem",
+    marginTop: "0.5rem",
+  },
+  form: {
+    display: "flex",
+    gap: "0.5rem",
+  },
+  header: {
+    alignItems: "flex-start",
+    display: "flex",
+    gap: "1rem",
+    justifyContent: "space-between",
+  },
+  heading: {
+    fontFamily: fonts.sans,
+    fontSize: "1.125rem",
+    fontWeight: 600,
+    lineHeight: "1.75rem",
+  },
+  headingContainer: {
+    minWidth: 0,
+  },
+  keyInput: {
+    fontSize: "0.875rem",
+    height: "2rem",
+    lineHeight: "1.25rem",
+    maxWidth: "16rem",
+  },
+  keysHeader: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+    marginBottom: "0.75rem",
+  },
+  keysList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.375rem",
+    marginTop: "0.75rem",
+  },
+  loadingIcon: {
+    color: colors.mutedForeground,
+    flexShrink: 0,
+    height: "1rem",
+    marginTop: "0.25rem",
+    width: "1rem",
+  },
+  lockedCopy: {
+    display: "flex",
+    gap: "0.75rem",
+  },
+  lockedSection: {
+    alignItems: "flex-start",
+    display: "flex",
+    gap: "1.5rem",
+    justifyContent: "space-between",
+  },
+  mediumIcon: {
+    height: "1rem",
+    width: "1rem",
+  },
+  mutedIcon: {
+    color: colors.mutedForeground,
+    height: "1rem",
+    width: "1rem",
+  },
+  mutedText: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    lineHeight: "1rem",
+    marginTop: "0.25rem",
+  },
+  section: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
+  },
+  secretRow: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+    marginTop: "0.5rem",
+  },
+  smallIcon: {
+    height: "0.875rem",
+    width: "0.875rem",
+  },
+  spinner: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+  },
+  subheading: {
+    fontSize: "0.875rem",
+    fontWeight: 500,
+    lineHeight: "1.25rem",
+  },
+});

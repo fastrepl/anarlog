@@ -1,4 +1,5 @@
 import { CircleNotch, FolderOpen } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 import { platform } from "@tauri-apps/plugin-os";
 
@@ -25,10 +26,10 @@ export function ShowInFolder({ sessionId }: { sessionId: string }) {
         mutate();
       }}
       disabled={isPending}
-      className="cursor-pointer"
+      sx={styles.item}
     >
       {isPending ? (
-        <CircleNotch className="animate-spin" />
+        <CircleNotch {...stylex.props(styles.spinner)} />
       ) : (
         <FolderOpen data-testid="show-in-folder-icon" />
       )}
@@ -36,3 +37,21 @@ export function ShowInFolder({ sessionId }: { sessionId: string }) {
     </DropdownMenuItem>
   );
 }
+
+const spin = stylex.keyframes({
+  to: {
+    transform: "rotate(360deg)",
+  },
+});
+
+const styles = stylex.create({
+  item: {
+    cursor: "pointer",
+  },
+  spinner: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+  },
+});

@@ -7,10 +7,11 @@ import {
   CircleNotch,
   XCircle,
 } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { AnimatePresence, motion } from "motion/react";
 import { type ReactNode, useEffect, useRef } from "react";
 
-import { cn } from "@anlg/utils";
+import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
 
 const SCROLL_DELAY_MS = 350;
 
@@ -59,35 +60,33 @@ export function OnboardingSection({
   return (
     <section ref={sectionRef}>
       <div
-        className={cn([
-          "flex items-center gap-2 transition-all duration-300",
-          isActive && "mb-3 pt-4",
+        {...stylex.props([
+          styles.sectionHeader,
+          isActive && styles.activeHeader,
         ])}
       >
         {isCompleted && (
-          <Check className="size-4 shrink-0 text-green-600" weight="bold" />
+          <Check {...stylex.props(styles.completedIcon)} weight="bold" />
         )}
-        <div className="flex min-w-0 flex-col gap-3">
-          <div className="flex items-center gap-2">
+        <div {...stylex.props(styles.sectionCopy)}>
+          <div {...stylex.props(styles.titleRow)}>
             <h2
-              className={cn([
-                "transition-all duration-300",
-                isCompleted
-                  ? "text-muted-foreground/70 text-xs font-normal"
-                  : "text-foreground font-sans text-xl font-semibold",
+              {...stylex.props([
+                styles.sectionTitle,
+                isCompleted ? styles.completedTitle : styles.activeTitle,
               ])}
             >
               {isCompleted ? (completedTitle ?? title) : title}
             </h2>
             {isActive && (
-              <div className="flex items-center gap-2">
+              <div {...stylex.props(styles.navigation)}>
                 {import.meta.env.DEV && onBack && (
                   <button
                     onClick={onBack}
                     aria-label={t`Go to previous section`}
-                    className="text-muted-foreground hover:text-muted-foreground rounded p-0.5 transition-colors"
+                    {...stylex.props(styles.navigationButton)}
                   >
-                    <CaretLeft className="size-3" />
+                    <CaretLeft {...stylex.props(styles.navigationIcon)} />
                   </button>
                 )}
                 {onNext &&
@@ -100,25 +99,27 @@ export function OnboardingSection({
                           onNext?.();
                         }
                       }}
-                      className="text-muted-foreground hover:text-muted-foreground flex items-center gap-1 text-sm transition-colors"
+                      {...stylex.props(styles.skipButton)}
                     >
                       <Trans>Skip</Trans>
-                      <CaretRight className="size-3" />
+                      <CaretRight {...stylex.props(styles.navigationIcon)} />
                     </button>
                   ) : import.meta.env.DEV ? (
                     <button
                       onClick={onNext}
                       aria-label={t`Go to next section`}
-                      className="text-muted-foreground hover:text-muted-foreground rounded p-0.5 transition-colors"
+                      {...stylex.props(styles.navigationButton)}
                     >
-                      <CaretRight className="size-3" />
+                      <CaretRight {...stylex.props(styles.navigationIcon)} />
                     </button>
                   ) : null)}
               </div>
             )}
           </div>
           {isActive && description && (
-            <div className="text-muted-foreground text-sm">{description}</div>
+            <div {...stylex.props(styles.sectionDescription)}>
+              {description}
+            </div>
           )}
         </div>
       </div>
@@ -131,7 +132,7 @@ export function OnboardingSection({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="-mx-5 -mb-5 overflow-hidden px-5 pt-3 pb-5"
+            {...stylex.props(styles.sectionContent)}
           >
             {children}
           </motion.div>
@@ -143,23 +144,19 @@ export function OnboardingSection({
 
 export function OnboardingButton({
   variant = "primary",
-  className,
+  sx,
   ...props
 }: {
   variant?: "primary" | "secondary" | "ghost";
-} & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  sx?: stylex.StyleXStyles;
+} & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "className">) {
   return (
     <button
       {...props}
-      className={cn([
-        "w-fit rounded-full px-6 py-2.5 text-sm font-medium transition-all duration-200",
-        variant === "primary" &&
-          "border-primary bg-primary text-primary-foreground hover:bg-primary/90 border-2 shadow-[0_2px_6px_rgba(87,83,78,0.22),0_10px_18px_-10px_rgba(87,83,78,0.65)]",
-        variant === "secondary" &&
-          "border-border/60 bg-card/55 text-muted-foreground hover:bg-card/75 hover:text-foreground border shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] backdrop-blur-sm disabled:opacity-50",
-        variant === "ghost" &&
-          "text-muted-foreground hover:text-muted-foreground",
-        className,
+      {...stylex.props([
+        styles.onboardingButton,
+        onboardingButtonVariants[variant],
+        sx,
       ])}
     />
   );
@@ -173,19 +170,215 @@ export function StepRow({
   label: ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2 text-sm">
-      {status === "done" && <CheckCircle className="size-4 text-emerald-600" />}
+    <div {...stylex.props(styles.stepRow)}>
+      {status === "done" && <CheckCircle {...stylex.props(styles.doneIcon)} />}
       {status === "active" && (
-        <CircleNotch className="text-muted-foreground size-4 animate-spin" />
+        <CircleNotch {...stylex.props([styles.stepIcon, styles.spin])} />
       )}
-      {status === "failed" && <XCircle className="size-4 text-red-400" />}
+      {status === "failed" && <XCircle {...stylex.props(styles.failedIcon)} />}
       <span
-        className={
-          status === "failed" ? "text-red-500" : "text-muted-foreground"
-        }
+        {...stylex.props(
+          status === "failed" ? styles.failedLabel : styles.stepLabel,
+        )}
       >
         {label}
       </span>
     </div>
   );
 }
+
+const spin = stylex.keyframes({
+  to: {
+    transform: "rotate(360deg)",
+  },
+});
+
+export const onboardingSharedStyles = stylex.create({
+  compactButton: {
+    paddingBlock: "0.5rem",
+    paddingInline: "1.5rem",
+  },
+  spin: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+  },
+});
+
+const styles = stylex.create({
+  activeHeader: {
+    marginBottom: "0.75rem",
+    paddingTop: "1rem",
+  },
+  activeTitle: {
+    color: colors.foreground,
+    fontFamily: fonts.sans,
+    fontSize: "1.25rem",
+    fontWeight: 600,
+    lineHeight: "1.75rem",
+  },
+  completedIcon: {
+    color: "rgb(22 163 74)",
+    flexShrink: 0,
+    height: "1rem",
+    width: "1rem",
+  },
+  completedTitle: {
+    color: `color-mix(in srgb, ${colors.mutedForeground} 70%, transparent)`,
+    fontSize: "0.75rem",
+    fontWeight: 400,
+    lineHeight: "1rem",
+  },
+  doneIcon: {
+    color: "rgb(5 150 105)",
+    height: "1rem",
+    width: "1rem",
+  },
+  failedIcon: {
+    color: "rgb(248 113 113)",
+    height: "1rem",
+    width: "1rem",
+  },
+  failedLabel: {
+    color: "rgb(239 68 68)",
+  },
+  ghostButton: {
+    color: colors.mutedForeground,
+  },
+  navigation: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+  },
+  navigationButton: {
+    borderRadius: "0.25rem",
+    color: colors.mutedForeground,
+    padding: "0.125rem",
+    transitionDuration: "150ms",
+    transitionProperty: "color",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+  },
+  navigationIcon: {
+    height: "0.75rem",
+    width: "0.75rem",
+  },
+  onboardingButton: {
+    borderRadius: radii.full,
+    fontSize: "0.875rem",
+    fontWeight: 500,
+    lineHeight: "1.25rem",
+    paddingBlock: "0.625rem",
+    paddingInline: "1.5rem",
+    transitionDuration: "200ms",
+    transitionProperty: "all",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+    width: "fit-content",
+  },
+  primaryButton: {
+    backgroundColor: {
+      default: colors.primary,
+      ":hover": `color-mix(in oklab, ${colors.primary} 90%, transparent)`,
+    },
+    borderColor: colors.primary,
+    borderStyle: "solid",
+    borderWidth: "2px",
+    boxShadow:
+      "0 2px 6px rgb(87 83 78 / 0.22), 0 10px 18px -10px rgb(87 83 78 / 0.65)",
+    color: colors.primaryForeground,
+  },
+  secondaryButton: {
+    backdropFilter: "blur(4px)",
+    backgroundColor: {
+      default: `color-mix(in srgb, ${colors.card} 55%, transparent)`,
+      ":hover": `color-mix(in srgb, ${colors.card} 75%, transparent)`,
+    },
+    borderColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow: "inset 0 1px 0 rgb(255 255 255 / 0.55)",
+    color: {
+      default: colors.mutedForeground,
+      ":hover": colors.foreground,
+    },
+    opacity: {
+      default: 1,
+      ":disabled": 0.5,
+    },
+  },
+  sectionContent: {
+    marginBottom: "-1.25rem",
+    marginInline: "-1.25rem",
+    overflow: "hidden",
+    paddingBottom: "1.25rem",
+    paddingInline: "1.25rem",
+    paddingTop: "0.75rem",
+  },
+  sectionCopy: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.75rem",
+    minWidth: 0,
+  },
+  sectionDescription: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+  },
+  sectionHeader: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+    transitionDuration: "300ms",
+    transitionProperty: "all",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+  },
+  sectionTitle: {
+    transitionDuration: "300ms",
+    transitionProperty: "all",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+  },
+  skipButton: {
+    alignItems: "center",
+    color: colors.mutedForeground,
+    display: "flex",
+    fontSize: "0.875rem",
+    gap: "0.25rem",
+    lineHeight: "1.25rem",
+    transitionDuration: "150ms",
+    transitionProperty: "color",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+  },
+  spin: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+  },
+  stepIcon: {
+    color: colors.mutedForeground,
+    height: "1rem",
+    width: "1rem",
+  },
+  stepLabel: {
+    color: colors.mutedForeground,
+  },
+  stepRow: {
+    alignItems: "center",
+    display: "flex",
+    fontSize: "0.875rem",
+    gap: "0.5rem",
+    lineHeight: "1.25rem",
+  },
+  titleRow: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+  },
+});
+
+const onboardingButtonVariants = {
+  ghost: styles.ghostButton,
+  primary: styles.primaryButton,
+  secondary: styles.secondaryButton,
+};

@@ -1,8 +1,9 @@
 import { Trans } from "@lingui/react/macro";
 import { CircleNotch } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 
-import { OnboardingButton } from "../shared";
+import { OnboardingButton, onboardingSharedStyles } from "../shared";
 
 import { useAuth } from "~/auth";
 
@@ -17,15 +18,18 @@ export function BeforeLogin({ onContinue: _ }: { onContinue: () => void }) {
   };
 
   return (
-    <div className="flex flex-col items-start">
-      <div className="flex flex-row items-center gap-4">
+    <div {...stylex.props(styles.root)}>
+      <div {...stylex.props(styles.actions)}>
         <OnboardingButton
           onClick={handleSignIn}
           disabled={isOpening}
-          className="flex items-center gap-2 px-6 py-2 text-sm disabled:opacity-70"
+          sx={[onboardingSharedStyles.compactButton, styles.primaryAction]}
         >
           {isOpening ? (
-            <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
+            <CircleNotch
+              {...stylex.props([styles.spinner, onboardingSharedStyles.spin])}
+              aria-hidden="true"
+            />
           ) : null}
           <Trans>Get started</Trans>
         </OnboardingButton>
@@ -34,7 +38,7 @@ export function BeforeLogin({ onContinue: _ }: { onContinue: () => void }) {
           variant="secondary"
           onClick={handleSignIn}
           disabled={isOpening}
-          className="px-6 py-2"
+          sx={onboardingSharedStyles.compactButton}
         >
           <Trans>Login</Trans>
         </OnboardingButton>
@@ -42,3 +46,31 @@ export function BeforeLogin({ onContinue: _ }: { onContinue: () => void }) {
     </div>
   );
 }
+
+const styles = stylex.create({
+  actions: {
+    alignItems: "center",
+    display: "flex",
+    flexDirection: "row",
+    gap: "1rem",
+  },
+  primaryAction: {
+    alignItems: "center",
+    display: "flex",
+    fontSize: "0.875rem",
+    gap: "0.5rem",
+    opacity: {
+      default: 1,
+      ":disabled": 0.7,
+    },
+  },
+  root: {
+    alignItems: "flex-start",
+    display: "flex",
+    flexDirection: "column",
+  },
+  spinner: {
+    height: "0.875rem",
+    width: "0.875rem",
+  },
+});

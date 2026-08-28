@@ -1,5 +1,6 @@
 import { msg } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
+import * as stylex from "@stylexjs/stylex";
 import { platform } from "@tauri-apps/plugin-os";
 
 import { SettingSwitchRow } from "~/settings/setting-row";
@@ -35,9 +36,9 @@ export function AppSettingsView({
   const isMacos = currentPlatform === "macos";
 
   return (
-    <div className="flex flex-col gap-8">
+    <div {...stylex.props(styles.page)}>
       <section>
-        <div className="flex flex-col gap-4">
+        <div {...stylex.props(styles.settings)}>
           {!appStoreBuild && (
             <>
               <SettingSwitchRow
@@ -86,3 +87,16 @@ export function AppSettingsView({
     </div>
   );
 }
+
+const styles = stylex.create({
+  page: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2rem",
+  },
+  settings: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
+  },
+});

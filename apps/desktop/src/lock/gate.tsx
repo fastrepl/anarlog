@@ -1,4 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
+import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import {
@@ -104,17 +105,17 @@ export function AppLockGate({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="relative h-full min-h-0 w-full">
+    <div {...stylex.props(styles.root)}>
       {sessionStarted ? (
         <div
-          className="h-full min-h-0 w-full"
+          {...stylex.props(styles.content)}
           {...(locked ? { inert: true } : {})}
         >
           {children}
         </div>
       ) : null}
       {locked ? (
-        <div className="absolute inset-0">
+        <div {...stylex.props(styles.lockOverlay)}>
           <LockScreen
             title={t`Anarlog is Locked`}
             description={hint}
@@ -130,3 +131,21 @@ export function AppLockGate({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+const styles = stylex.create({
+  content: {
+    height: "100%",
+    minHeight: 0,
+    width: "100%",
+  },
+  lockOverlay: {
+    inset: 0,
+    position: "absolute",
+  },
+  root: {
+    height: "100%",
+    minHeight: 0,
+    position: "relative",
+    width: "100%",
+  },
+});

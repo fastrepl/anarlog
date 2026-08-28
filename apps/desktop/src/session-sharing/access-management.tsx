@@ -1,8 +1,10 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { CircleNotch } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Select,
@@ -316,11 +318,11 @@ export function AccessEntryRow({
   };
 
   return (
-    <div className="hover:bg-accent/50 flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1">
+    <div {...stylex.props(styles.row)}>
       <ContactFacehash name={label} size={24} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-medium">{label}</p>
-        <p className="text-muted-foreground truncate text-[10px]">
+      <div {...stylex.props(styles.content)}>
+        <p {...stylex.props(styles.name)}>{label}</p>
+        <p {...stylex.props(styles.description)}>
           {contactName && entry.userEmail
             ? entry.userEmail
             : entry.entryType === "grant"
@@ -332,11 +334,11 @@ export function AccessEntryRow({
       </div>
       {pending ? (
         <CircleNotch
-          className="text-muted-foreground size-4 animate-spin"
+          {...stylex.props(styles.spinner)}
           aria-label={t`Updating access`}
         />
       ) : entry.entryType === "request" ? (
-        <div className="flex items-center gap-1">
+        <div {...stylex.props(styles.requestActions)}>
           <Button
             type="button"
             size="sm"
@@ -425,10 +427,7 @@ function CapabilitySelect({
         onChange(next as SessionAccessCapability);
       }}
     >
-      <SelectTrigger
-        aria-label={ariaLabel}
-        className="text-muted-foreground h-7 w-auto min-w-[84px] shrink-0 gap-1 rounded-md border-0 bg-transparent px-1.5 text-[11px] shadow-none"
-      >
+      <SelectTrigger aria-label={ariaLabel} sx={styles.capabilityTrigger}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -455,7 +454,7 @@ function CapabilitySelect({
           <SelectItem value="resend">{t`Resend invite`}</SelectItem>
         ) : null}
         {onRemove ? (
-          <SelectItem value="remove" className="text-destructive">
+          <SelectItem value="remove" sx={styles.removeItem}>
             {t`Remove`}
           </SelectItem>
         ) : null}
@@ -463,3 +462,74 @@ function CapabilitySelect({
     </Select>
   );
 }
+
+const spin = stylex.keyframes({
+  to: {
+    transform: "rotate(360deg)",
+  },
+});
+
+const styles = stylex.create({
+  capabilityTrigger: {
+    backgroundColor: "transparent",
+    borderRadius: radii.md,
+    borderWidth: 0,
+    boxShadow: "none",
+    color: colors.mutedForeground,
+    flexShrink: 0,
+    fontSize: "0.6875rem",
+    gap: "0.25rem",
+    height: "1.75rem",
+    minWidth: "5.25rem",
+    paddingInline: "0.375rem",
+    width: "auto",
+  },
+  content: {
+    flex: 1,
+    minWidth: 0,
+  },
+  description: {
+    color: colors.mutedForeground,
+    fontSize: "0.625rem",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  name: {
+    fontSize: "0.75rem",
+    fontWeight: 500,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  removeItem: {
+    color: colors.destructive,
+  },
+  requestActions: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.25rem",
+  },
+  row: {
+    alignItems: "center",
+    backgroundColor: {
+      default: "transparent",
+      ":hover": `color-mix(in srgb, ${colors.accent} 50%, transparent)`,
+    },
+    borderRadius: radii.lg,
+    display: "flex",
+    gap: "0.5rem",
+    minHeight: "2.25rem",
+    paddingBlock: "0.25rem",
+    paddingInline: "0.375rem",
+  },
+  spinner: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+    color: colors.mutedForeground,
+    height: "1rem",
+    width: "1rem",
+  },
+});

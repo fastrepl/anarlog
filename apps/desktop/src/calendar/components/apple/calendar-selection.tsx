@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo } from "react";
 
 import { useSync } from "../context";
@@ -13,9 +14,12 @@ import { useMountEffect } from "~/shared/hooks/useMountEffect";
 const SUBSCRIBED_SOURCE_NAME = "Subscribed Calendars";
 
 export function AppleCalendarSelection({
-  calendarClassName,
+  calendarSx,
   leftAction,
-}: { calendarClassName?: string; leftAction?: React.ReactNode } = {}) {
+}: {
+  calendarSx?: stylex.StyleXStyles;
+  leftAction?: React.ReactNode;
+} = {}) {
   const { groups, handleRefresh, handleToggle, scheduleSync } =
     useAppleCalendarSelection();
 
@@ -26,18 +30,26 @@ export function AppleCalendarSelection({
   });
 
   return (
-    <div className="flex flex-col gap-2">
+    <div {...stylex.props(styles.root)}>
       {leftAction && groups.length === 0 ? <div>{leftAction}</div> : null}
 
       <CalendarSelection
         groups={groups}
         onToggle={handleToggle}
         onRefresh={handleRefresh}
-        className={calendarClassName}
+        sx={calendarSx}
       />
     </div>
   );
 }
+
+const styles = stylex.create({
+  root: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.5rem",
+  },
+});
 
 export function useAppleCalendarSelection() {
   const { cancelDebouncedSync, status, scheduleDebouncedSync, scheduleSync } =

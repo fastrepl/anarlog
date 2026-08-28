@@ -1,8 +1,10 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Check, CircleNotch, FolderOpen, X } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { open as selectFile } from "@tauri-apps/plugin-dialog";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { commands as localSttCommands } from "@anlg/plugin-local-stt";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
@@ -86,24 +88,24 @@ export function LocalFileModel({
   const isPending = chooseModel.isPending || clearModel.isPending;
 
   return (
-    <div className="border-input bg-card flex h-9 min-w-0 items-center gap-2 rounded-full border px-3 text-left shadow-none">
+    <div {...stylex.props(styles.control)}>
       <button
         type="button"
-        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        {...stylex.props(styles.chooseButton)}
         title={modelPath || undefined}
         disabled={isPending}
         onClick={() => chooseModel.mutate()}
       >
         {chooseModel.isPending ? (
-          <CircleNotch className="size-4 shrink-0 animate-spin" />
+          <CircleNotch {...stylex.props(styles.spinner)} />
         ) : (
-          <FolderOpen className="size-4 shrink-0" />
+          <FolderOpen {...stylex.props(styles.icon)} />
         )}
-        <span className="min-w-0 flex-1 truncate text-sm">
+        <span {...stylex.props(styles.filename)}>
           {filename || <Trans>Choose model file</Trans>}
         </span>
         {modelInfo.data ? (
-          <span className="text-muted-foreground shrink-0 text-[11px]">
+          <span {...stylex.props(styles.metadata)}>
             {formatModelSize(modelInfo.data.sizeBytes)} · GGML ·{" "}
             <Trans>After recording</Trans>
           </span>
@@ -114,18 +116,18 @@ export function LocalFileModel({
         <button
           type="button"
           aria-label={t`Clear selected model`}
-          className="text-muted-foreground hover:text-foreground flex size-6 shrink-0 items-center justify-center rounded-full"
+          {...stylex.props(styles.clearButton)}
           onClick={() => clearModel.mutate()}
         >
-          <X className="size-3.5" />
+          <X {...stylex.props(styles.clearIcon)} />
         </button>
       ) : null}
 
       {modelPath && healthStatus === "pending" ? (
-        <CircleNotch className="text-muted-foreground size-4 shrink-0 animate-spin" />
+        <CircleNotch {...stylex.props(styles.statusSpinner)} />
       ) : null}
       {modelPath && healthStatus === "success" ? (
-        <Check className="size-4 shrink-0 text-green-600" />
+        <Check {...stylex.props(styles.success)} />
       ) : null}
     </div>
   );
@@ -139,3 +141,94 @@ function formatModelSize(sizeBytes: number) {
     maximumFractionDigits: value >= 10 ? 0 : 1,
   })} ${unit}`;
 }
+
+const spin = stylex.keyframes({
+  to: { transform: "rotate(360deg)" },
+});
+
+const styles = stylex.create({
+  chooseButton: {
+    alignItems: "center",
+    display: "flex",
+    flex: 1,
+    gap: "0.5rem",
+    minWidth: 0,
+    textAlign: "left",
+  },
+  clearButton: {
+    alignItems: "center",
+    borderRadius: radii.full,
+    color: {
+      default: colors.mutedForeground,
+      ":hover": colors.foreground,
+    },
+    display: "flex",
+    flexShrink: 0,
+    height: "1.5rem",
+    justifyContent: "center",
+    width: "1.5rem",
+  },
+  clearIcon: {
+    height: "0.875rem",
+    width: "0.875rem",
+  },
+  control: {
+    alignItems: "center",
+    backgroundColor: colors.card,
+    borderColor: colors.input,
+    borderRadius: radii.full,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow: "none",
+    display: "flex",
+    gap: "0.5rem",
+    height: "2.25rem",
+    minWidth: 0,
+    paddingInline: "0.75rem",
+    textAlign: "left",
+  },
+  filename: {
+    flex: 1,
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  icon: {
+    flexShrink: 0,
+    height: "1rem",
+    width: "1rem",
+  },
+  metadata: {
+    color: colors.mutedForeground,
+    flexShrink: 0,
+    fontSize: "11px",
+  },
+  spinner: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+    flexShrink: 0,
+    height: "1rem",
+    width: "1rem",
+  },
+  statusSpinner: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+    color: colors.mutedForeground,
+    flexShrink: 0,
+    height: "1rem",
+    width: "1rem",
+  },
+  success: {
+    color: "rgb(22 163 74)",
+    flexShrink: 0,
+    height: "1rem",
+    width: "1rem",
+  },
+});

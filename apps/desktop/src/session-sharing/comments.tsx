@@ -1,10 +1,12 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { CircleNotch, Trash } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { EditorView } from "prosemirror-view";
 import { useCallback, useRef, useState } from "react";
 
+import { colors } from "@anlg/design-system/tokens.stylex";
 import {
   captureCommentAnchor,
   type CommentAnchor,
@@ -402,7 +404,7 @@ export function SessionCommentsLayer({
 
   return (
     <>
-      <span ref={controller.anchorSyncRef} className="hidden" />
+      <span ref={controller.anchorSyncRef} {...stylex.props(styles.hidden)} />
       {controller.draft && (
         <Popover
           open
@@ -411,7 +413,11 @@ export function SessionCommentsLayer({
           }}
         >
           <CommentPopoverAnchor position={controller.draft} />
-          <PopoverContent align="start" side="bottom" className="w-80 p-3">
+          <PopoverContent
+            align="start"
+            side="bottom"
+            sx={styles.composerPopover}
+          >
             <CommentComposer
               error={controller.createError}
               pending={controller.createPending}
@@ -432,7 +438,7 @@ export function SessionCommentsLayer({
           <PopoverContent
             align="start"
             side="bottom"
-            className="max-h-80 w-80 overflow-y-auto p-0"
+            sx={styles.commentsPopover}
           >
             {openComments.map((comment) => (
               <SessionCommentItem
@@ -459,7 +465,7 @@ function CommentPopoverAnchor({ position }: { position: CommentPosition }) {
     <PopoverAnchor asChild>
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute size-0"
+        {...stylex.props(styles.anchor)}
         style={{ left: position.left, top: position.top }}
       />
     </PopoverAnchor>
@@ -500,18 +506,18 @@ function CommentComposer({
           const comment = validateComment(field.state.value);
           return (
             <>
-              <div className="flex items-start gap-2">
+              <div {...stylex.props(styles.composerRow)}>
                 <Avatar
                   seed="shared-note:you"
                   label={t`You`}
                   size={28}
-                  className="mt-1"
+                  sx={styles.composerAvatar}
                 />
                 <Textarea
                   autoFocus
                   aria-label={t`Comment on selected text`}
                   aria-invalid={comment.tooLong}
-                  className="min-h-20 min-w-0 flex-1 resize-none"
+                  sx={styles.textarea}
                   placeholder={t`Comment on the selected text…`}
                   value={field.state.value}
                   onBlur={field.handleBlur}
@@ -532,16 +538,16 @@ function CommentComposer({
                 />
               </div>
               {comment.tooLong && (
-                <p className="text-destructive mt-2 text-xs" role="alert">
+                <p {...stylex.props(styles.error)} role="alert">
                   <Trans>Comment is too long.</Trans>
                 </p>
               )}
               {error && (
-                <p className="text-destructive mt-2 text-xs" role="status">
+                <p {...stylex.props(styles.error)} role="status">
                   <Trans>Your comment couldn’t be added. Try again.</Trans>
                 </p>
               )}
-              <div className="mt-3 flex justify-end gap-2">
+              <div {...stylex.props(styles.composerActions)}>
                 <Button
                   type="button"
                   variant="ghost"
@@ -558,7 +564,7 @@ function CommentComposer({
                 >
                   {pending && (
                     <CircleNotch
-                      className="size-3.5 animate-spin"
+                      {...stylex.props(styles.spinner)}
                       aria-hidden="true"
                     />
                   )}
@@ -589,9 +595,9 @@ function SessionCommentItem({
   const { t } = useLingui();
 
   return (
-    <div className="border-border/60 border-b px-4 py-3 last:border-b-0">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
+    <div {...stylex.props(styles.comment)}>
+      <div {...stylex.props(styles.commentHeader)}>
+        <div {...stylex.props(styles.author)}>
           <Avatar
             seed={
               comment.isAuthor ? "shared-note:you" : "shared-note:collaborator"
@@ -599,7 +605,7 @@ function SessionCommentItem({
             label={comment.isAuthor ? t`You` : t`Collaborator`}
             size={24}
           />
-          <span className="truncate text-sm font-medium">
+          <span {...stylex.props(styles.authorName)}>
             {comment.isAuthor ? (
               <Trans>You</Trans>
             ) : (
@@ -612,23 +618,23 @@ function SessionCommentItem({
             type="button"
             variant="ghost"
             size="icon"
-            className="text-muted-foreground size-6"
+            sx={styles.deleteButton}
             aria-label={t`Delete comment`}
             disabled={deleteDisabled}
             onClick={onDelete}
           >
             {deleting ? (
               <CircleNotch
-                className="size-3.5 animate-spin"
+                {...stylex.props(styles.spinner)}
                 aria-hidden="true"
               />
             ) : (
-              <Trash className="size-3.5" aria-hidden="true" />
+              <Trash {...stylex.props(styles.smallIcon)} aria-hidden="true" />
             )}
           </Button>
         )}
       </div>
-      <p className="mt-1.5 text-sm whitespace-pre-wrap">{comment.body}</p>
+      <p {...stylex.props(styles.commentBody)}>{comment.body}</p>
     </div>
   );
 }
@@ -652,3 +658,110 @@ function reposition<T extends CommentPosition>(
     ? current
     : { ...current, ...next };
 }
+
+const spin = stylex.keyframes({
+  to: {
+    transform: "rotate(360deg)",
+  },
+});
+
+const styles = stylex.create({
+  anchor: {
+    height: 0,
+    pointerEvents: "none",
+    position: "absolute",
+    width: 0,
+  },
+  author: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+    minWidth: 0,
+  },
+  authorName: {
+    fontSize: "0.875rem",
+    fontWeight: 500,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  comment: {
+    borderBottomColor: {
+      default: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
+      ":last-child": "transparent",
+    },
+    borderBottomStyle: "solid",
+    borderBottomWidth: {
+      default: "1px",
+      ":last-child": 0,
+    },
+    paddingBlock: "0.75rem",
+    paddingInline: "1rem",
+  },
+  commentBody: {
+    fontSize: "0.875rem",
+    marginTop: "0.375rem",
+    whiteSpace: "pre-wrap",
+  },
+  commentHeader: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+    justifyContent: "space-between",
+  },
+  commentsPopover: {
+    maxHeight: "20rem",
+    overflowY: "auto",
+    padding: 0,
+    width: "20rem",
+  },
+  composerActions: {
+    display: "flex",
+    gap: "0.5rem",
+    justifyContent: "flex-end",
+    marginTop: "0.75rem",
+  },
+  composerAvatar: {
+    marginTop: "0.25rem",
+  },
+  composerPopover: {
+    padding: "0.75rem",
+    width: "20rem",
+  },
+  composerRow: {
+    alignItems: "flex-start",
+    display: "flex",
+    gap: "0.5rem",
+  },
+  deleteButton: {
+    color: colors.mutedForeground,
+    height: "1.5rem",
+    width: "1.5rem",
+  },
+  error: {
+    color: colors.destructive,
+    fontSize: "0.75rem",
+    marginTop: "0.5rem",
+  },
+  hidden: {
+    display: "none",
+  },
+  smallIcon: {
+    height: "0.875rem",
+    width: "0.875rem",
+  },
+  spinner: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+    height: "0.875rem",
+    width: "0.875rem",
+  },
+  textarea: {
+    flex: 1,
+    minHeight: "5rem",
+    minWidth: 0,
+    resize: "none",
+  },
+});

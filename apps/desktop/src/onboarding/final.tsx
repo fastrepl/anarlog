@@ -6,13 +6,15 @@ import {
   GithubLogo,
   XLogo,
 } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useRef, useState } from "react";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { commands as sfxCommands } from "@anlg/plugin-sfx";
 
-import { OnboardingButton } from "./shared";
+import { OnboardingButton, onboardingSharedStyles } from "./shared";
 import {
   getOrCreateWelcomeSession,
   setPendingWelcomeSession,
@@ -45,11 +47,11 @@ const SOCIAL_ICON_SIZE = 18;
 
 export function FinalDescription() {
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+    <div {...stylex.props(styles.description)}>
       <span>
         <Trans>Join our community and stay updated:</Trans>
       </span>
-      <div className="flex items-center gap-2">
+      <div {...stylex.props(styles.socials)}>
         {SOCIALS.map((social) => {
           const iconSize = "size" in social ? social.size : SOCIAL_ICON_SIZE;
           const SocialIcon = social.icon;
@@ -58,7 +60,7 @@ export function FinalDescription() {
             <button
               key={social.label}
               onClick={() => void openerCommands.openUrl(social.url, null)}
-              className="text-muted-foreground hover:text-muted-foreground inline-flex size-5 items-center justify-center rounded-md transition-colors duration-150"
+              {...stylex.props(styles.socialButton)}
               aria-label={social.label}
             >
               <SocialIcon size={iconSize} />
@@ -98,15 +100,20 @@ export function FinalSection({
   };
 
   return (
-    <div className="flex flex-col items-start gap-2">
+    <div {...stylex.props(styles.root)}>
       <OnboardingButton
-        className="px-6 py-2 text-sm disabled:cursor-wait disabled:opacity-70"
+        sx={[onboardingSharedStyles.compactButton, styles.continueButton]}
         disabled={status === "loading"}
         onClick={() => void handleContinue()}
       >
         {status === "loading" ? (
-          <span className="flex items-center gap-2">
-            <CircleNotch className="size-4 animate-spin" />
+          <span {...stylex.props(styles.loadingLabel)}>
+            <CircleNotch
+              {...stylex.props([
+                styles.loadingIcon,
+                onboardingSharedStyles.spin,
+              ])}
+            />
             <Trans>Open Anarlog</Trans>
           </span>
         ) : (
@@ -114,7 +121,7 @@ export function FinalSection({
         )}
       </OnboardingButton>
       {status === "error" && (
-        <p className="text-sm text-red-500" role="alert">
+        <p {...stylex.props(styles.error)} role="alert">
           {translate({
             id: "onboarding.finish-error",
             message: "Couldn't open Anarlog. Please try again.",
@@ -155,3 +162,61 @@ export async function finishOnboarding(
   setPendingWelcomeSession(null);
   onContinue?.(welcomeSessionId);
 }
+
+const styles = stylex.create({
+  continueButton: {
+    cursor: {
+      default: "pointer",
+      ":disabled": "wait",
+    },
+    fontSize: "0.875rem",
+    opacity: {
+      default: 1,
+      ":disabled": 0.7,
+    },
+  },
+  description: {
+    alignItems: "center",
+    columnGap: "0.75rem",
+    display: "flex",
+    flexWrap: "wrap",
+    rowGap: "0.5rem",
+  },
+  error: {
+    color: "rgb(239 68 68)",
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+  },
+  loadingIcon: {
+    height: "1rem",
+    width: "1rem",
+  },
+  loadingLabel: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+  },
+  root: {
+    alignItems: "flex-start",
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.5rem",
+  },
+  socialButton: {
+    alignItems: "center",
+    borderRadius: radii.md,
+    color: colors.mutedForeground,
+    display: "inline-flex",
+    height: "1.25rem",
+    justifyContent: "center",
+    transitionDuration: "150ms",
+    transitionProperty: "color",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+    width: "1.25rem",
+  },
+  socials: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+  },
+});

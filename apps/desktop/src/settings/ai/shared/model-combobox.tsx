@@ -7,8 +7,10 @@ import {
   EyeSlash,
   PlusCircle,
 } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo, useState } from "react";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Command,
@@ -29,7 +31,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@anlg/ui/components/ui/tooltip";
-import { cn } from "@anlg/utils";
 
 import type { ListModelsResult, ModelIgnoreReason } from "./list-common";
 import { displayLlmModelId } from "./model-display";
@@ -149,26 +150,23 @@ export function ModelCombobox({
           role="combobox"
           disabled={disabled || isLoadingModels}
           aria-expanded={open}
-          className={cn([
-            "bg-card w-full justify-between font-normal shadow-none focus-visible:ring-0",
-            "rounded-full px-3",
-          ])}
+          sx={styles.trigger}
         >
-          <span className="flex w-full min-w-0 items-center justify-between gap-2">
+          <span {...stylex.props(styles.triggerContent)}>
             {value && value.length > 0 ? (
-              <span className="flex min-w-0 items-center gap-2">
+              <span {...stylex.props(styles.selectedModel)}>
                 <span
-                  className={cn([
-                    "truncate",
-                    isSelectedDeprecated && "text-muted-foreground",
-                  ])}
+                  {...stylex.props(
+                    styles.truncated,
+                    isSelectedDeprecated && styles.deprecatedModel,
+                  )}
                 >
                   {getDisplayName(providerId, value)}
                 </span>
                 {isSelectedDeprecated ? <DeprecatedBadge /> : null}
               </span>
             ) : (
-              <span className="text-muted-foreground truncate">
+              <span {...stylex.props(styles.placeholder)}>
                 {isLoadingModels
                   ? t`Loading models...`
                   : (placeholder ?? t`Select a model`)}
@@ -177,21 +175,15 @@ export function ModelCombobox({
             {suffix}
           </span>
           {isConfigured ? (
-            <Check className="-mr-1 h-4 w-4 shrink-0 text-green-600" />
+            <Check {...stylex.props(styles.configuredIcon)} />
           ) : (
-            <CaretDown className="-mr-1 h-4 w-4 shrink-0 opacity-50" />
+            <CaretDown {...stylex.props(styles.caret)} />
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent
-        variant="app"
-        style={{ width: "var(--radix-popover-trigger-width)" }}
-      >
-        <AppFloatingPanel className="overflow-hidden">
-          <Command
-            filter={filterFunction}
-            className="rounded-[inherit] border-0 bg-transparent"
-          >
+      <PopoverContent variant="app" sx={styles.popover}>
+        <AppFloatingPanel sx={styles.floatingPanel}>
+          <Command filter={filterFunction} sx={styles.command}>
             <CommandInput
               placeholder={t`Search or create new`}
               value={query}
@@ -203,7 +195,7 @@ export function ModelCombobox({
               }}
             />
             <CommandEmpty>
-              <div className="text-muted-foreground px-2 py-1.5 text-sm">
+              <div {...stylex.props(styles.empty)}>
                 {trimmedQuery.length > 0 ? (
                   <p>
                     <Trans>No results found.</Trans>
@@ -221,7 +213,7 @@ export function ModelCombobox({
             </CommandEmpty>
 
             <CommandList>
-              <CommandGroup className="overflow-y-auto">
+              <CommandGroup sx={styles.group}>
                 {options.map((option) => (
                   <CommandItem
                     key={option}
@@ -236,12 +228,9 @@ export function ModelCombobox({
                         handleSelect(option);
                       }
                     }}
-                    className={cn([
-                      "cursor-pointer",
-                      "hover:bg-accent! focus:bg-accent! aria-selected:bg-transparent",
-                    ])}
+                    sx={styles.item}
                   >
-                    <span className="truncate">
+                    <span {...stylex.props(styles.truncated)}>
                       {getDisplayName(providerId, option)}
                     </span>
                   </CommandItem>
@@ -264,15 +253,12 @@ export function ModelCombobox({
                           handleSelect(option.id);
                         }
                       }}
-                      className={cn([
-                        "cursor-pointer opacity-50",
-                        "hover:bg-accent! focus:bg-accent! aria-selected:bg-transparent",
-                      ])}
+                      sx={[styles.item, styles.ignoredItem]}
                     >
                       <Tooltip delayDuration={10}>
                         <TooltipTrigger asChild>
-                          <span className="flex w-full min-w-0 items-center gap-2">
-                            <span className="truncate">
+                          <span {...stylex.props(styles.ignoredContent)}>
+                            <span {...stylex.props(styles.truncated)}>
                               {getDisplayName(providerId, option.id)}
                             </span>
                             {option.reasons.includes("old_model") ? (
@@ -280,8 +266,8 @@ export function ModelCombobox({
                             ) : null}
                           </span>
                         </TooltipTrigger>
-                        <TooltipContent side="right" className="text-xs">
-                          <div className="flex flex-col gap-0.5">
+                        <TooltipContent side="right" sx={styles.tooltip}>
+                          <div {...stylex.props(styles.reasons)}>
                             {option.reasons.map((reason) => (
                               <div key={reason}>
                                 • {formatIgnoreReason(reason)}
@@ -307,28 +293,27 @@ export function ModelCombobox({
                         handleSelect(trimmedQuery);
                       }
                     }}
-                    className={cn([
-                      "cursor-pointer",
-                      "hover:bg-accent! focus:bg-accent! aria-selected:bg-transparent",
-                    ])}
+                    sx={styles.item}
                   >
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    <span className="truncate">Select "{trimmedQuery}"</span>
+                    <PlusCircle {...stylex.props(styles.plusIcon)} />
+                    <span {...stylex.props(styles.truncated)}>
+                      Select "{trimmedQuery}"
+                    </span>
                   </CommandItem>
                 )}
               </CommandGroup>
             </CommandList>
 
-            <div className="text-muted-foreground flex items-center justify-between border-t px-2 py-1.5 text-xs">
+            <div {...stylex.props(styles.footer)}>
               <button
                 type="button"
                 onClick={toggleShowIgnored}
-                className="hover:text-foreground mr-1 flex items-center gap-1 text-xs transition-colors"
+                {...stylex.props(styles.footerButton, styles.ignoredToggle)}
               >
                 {showIgnored ? (
-                  <EyeSlash className="h-3 w-3" />
+                  <EyeSlash {...stylex.props(styles.footerIcon)} />
                 ) : (
-                  <Eye className="h-3 w-3" />
+                  <Eye {...stylex.props(styles.footerIcon)} />
                 )}
               </button>
 
@@ -344,10 +329,13 @@ export function ModelCombobox({
                 type="button"
                 onClick={() => refetch()}
                 disabled={isFetching}
-                className="hover:text-foreground ml-auto flex items-center gap-1 text-xs transition-colors disabled:opacity-50"
+                {...stylex.props(styles.footerButton, styles.refreshButton)}
               >
                 <ArrowsCounterClockwise
-                  className={cn(["h-3 w-3", isFetching && "animate-spin"])}
+                  {...stylex.props(
+                    styles.footerIcon,
+                    isFetching && styles.spinning,
+                  )}
                 />
               </button>
             </div>
@@ -360,13 +348,179 @@ export function ModelCombobox({
 
 function DeprecatedBadge() {
   return (
-    <span
-      className={cn([
-        "shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium",
-        "bg-amber-50 text-amber-800",
-      ])}
-    >
+    <span {...stylex.props(styles.deprecatedBadge)}>
       <Trans>Deprecated</Trans>
     </span>
   );
 }
+
+const spin = stylex.keyframes({
+  to: { transform: "rotate(360deg)" },
+});
+
+const styles = stylex.create({
+  caret: {
+    flexShrink: 0,
+    height: "1rem",
+    marginRight: "-0.25rem",
+    opacity: 0.5,
+    width: "1rem",
+  },
+  command: {
+    backgroundColor: "transparent",
+    borderRadius: "inherit",
+    borderWidth: 0,
+  },
+  configuredIcon: {
+    color: "rgb(22 163 74)",
+    flexShrink: 0,
+    height: "1rem",
+    marginRight: "-0.25rem",
+    width: "1rem",
+  },
+  deprecatedBadge: {
+    backgroundColor: "rgb(255 251 235)",
+    borderRadius: radii.md,
+    color: "rgb(146 64 14)",
+    flexShrink: 0,
+    fontSize: "11px",
+    fontWeight: 500,
+    paddingBlock: "0.125rem",
+    paddingInline: "0.375rem",
+  },
+  deprecatedModel: {
+    color: colors.mutedForeground,
+  },
+  empty: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    paddingBlock: "0.375rem",
+    paddingInline: "0.5rem",
+  },
+  floatingPanel: {
+    overflow: "hidden",
+  },
+  footer: {
+    alignItems: "center",
+    borderTopColor: colors.border,
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+    color: colors.mutedForeground,
+    display: "flex",
+    fontSize: "0.75rem",
+    justifyContent: "space-between",
+    lineHeight: "1rem",
+    paddingBlock: "0.375rem",
+    paddingInline: "0.5rem",
+  },
+  footerButton: {
+    alignItems: "center",
+    color: {
+      default: "inherit",
+      ":hover": colors.foreground,
+    },
+    display: "flex",
+    fontSize: "0.75rem",
+    gap: "0.25rem",
+    lineHeight: "1rem",
+    opacity: {
+      default: 1,
+      ":disabled": 0.5,
+    },
+    transitionDuration: "150ms",
+    transitionProperty: "color",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+  },
+  footerIcon: {
+    height: "0.75rem",
+    width: "0.75rem",
+  },
+  group: {
+    overflowY: "auto",
+  },
+  ignoredContent: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+    minWidth: 0,
+    width: "100%",
+  },
+  ignoredItem: {
+    opacity: 0.5,
+  },
+  ignoredToggle: {
+    marginRight: "0.25rem",
+  },
+  item: {
+    backgroundColor: {
+      default: "transparent",
+      ":focus": colors.accent,
+      ":hover": colors.accent,
+    },
+    cursor: "pointer",
+  },
+  placeholder: {
+    color: colors.mutedForeground,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  plusIcon: {
+    height: "1rem",
+    marginRight: "0.5rem",
+    width: "1rem",
+  },
+  popover: {
+    width: "var(--radix-popover-trigger-width)",
+  },
+  reasons: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.125rem",
+  },
+  refreshButton: {
+    marginLeft: "auto",
+  },
+  selectedModel: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+    minWidth: 0,
+  },
+  spinning: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+  },
+  tooltip: {
+    fontSize: "0.75rem",
+    lineHeight: "1rem",
+  },
+  trigger: {
+    backgroundColor: colors.card,
+    borderRadius: radii.full,
+    boxShadow: {
+      default: "none",
+      ":focus-visible": "none",
+    },
+    fontWeight: 400,
+    justifyContent: "space-between",
+    paddingInline: "0.75rem",
+    width: "100%",
+  },
+  triggerContent: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+    justifyContent: "space-between",
+    minWidth: 0,
+    width: "100%",
+  },
+  truncated: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+});

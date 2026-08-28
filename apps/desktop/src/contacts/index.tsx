@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import { useCallback } from "react";
 
 import type { ContactsSelection } from "@anlg/plugin-windows";
@@ -82,7 +83,7 @@ function ContactView({ tab }: { tab: Extract<Tab, { type: "contacts" }> }) {
         : null);
 
   return (
-    <div className="h-full">
+    <div {...stylex.props(styles.root)}>
       {effectiveSelection?.type === "organization" ? (
         <OrganizationDetailsColumn
           key={effectiveSelection.id}
@@ -115,3 +116,9 @@ function ContactView({ tab }: { tab: Extract<Tab, { type: "contacts" }> }) {
     </div>
   );
 }
+
+const styles = stylex.create({
+  root: {
+    height: "100%",
+  },
+});

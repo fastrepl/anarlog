@@ -1,4 +1,7 @@
 import { MagicWand } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
+
+import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
 
 import { defineTool } from "./define-tool";
 import { ToolCardBody, ToolCardFooterError, ToolCardFooters } from "./shared";
@@ -30,9 +33,7 @@ export const ToolUpdatePromptTemplate = defineTool({
   renderBody: (input) =>
     typeof input?.content === "string" ? (
       <ToolCardBody>
-        <pre className="border-border bg-muted text-muted-foreground max-h-48 overflow-auto rounded-md border p-3 font-mono text-[11px] whitespace-pre-wrap">
-          {input.content}
-        </pre>
+        <pre {...stylex.props(styles.content)}>{input.content}</pre>
       </ToolCardBody>
     ) : null,
   renderFooter: ({ failed, errorText, parsed }) => (
@@ -40,8 +41,30 @@ export const ToolUpdatePromptTemplate = defineTool({
       {parsed?.status === "error" ? (
         <ToolCardFooterError text={parsed.message ?? "Unknown error"} />
       ) : parsed?.message ? (
-        <p className="text-muted-foreground text-xs">{parsed.message}</p>
+        <p {...stylex.props(styles.message)}>{parsed.message}</p>
       ) : null}
     </ToolCardFooters>
   ),
+});
+
+const styles = stylex.create({
+  content: {
+    backgroundColor: colors.muted,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    color: colors.mutedForeground,
+    fontFamily: fonts.mono,
+    fontSize: "0.6875rem",
+    maxHeight: "12rem",
+    overflow: "auto",
+    padding: "0.75rem",
+    whiteSpace: "pre-wrap",
+  },
+  message: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    lineHeight: "1rem",
+  },
 });

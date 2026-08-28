@@ -1,6 +1,8 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { FunnelSimple } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import {
   AppFloatingPanel,
   DropdownMenu,
@@ -9,7 +11,6 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
-import { cn } from "@anlg/utils";
 
 import type { SidebarNoteFilter } from "./note-filter";
 
@@ -30,12 +31,10 @@ export function SidebarNoteFilterMenu({
           aria-label={t`Filter notes`}
           title={t`Filter notes`}
           data-tauri-drag-region="false"
-          className={cn([
-            "pointer-events-auto relative flex size-7 items-center justify-center rounded-full",
-            "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
-            "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
-            value !== "mine" && "bg-accent text-foreground",
-          ])}
+          {...stylex.props(
+            styles.trigger,
+            value !== "mine" && styles.triggerActive,
+          )}
         >
           <FunnelSimple
             size={15}
@@ -43,8 +42,8 @@ export function SidebarNoteFilterMenu({
           />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent variant="app" align="start" className="w-52">
-        <AppFloatingPanel className="overflow-hidden p-1">
+      <DropdownMenuContent variant="app" align="start" sx={styles.content}>
+        <AppFloatingPanel sx={styles.panel}>
           <DropdownMenuRadioGroup
             value={value}
             onValueChange={(nextValue) =>
@@ -63,3 +62,50 @@ export function SidebarNoteFilterMenu({
     </DropdownMenu>
   );
 }
+
+const styles = stylex.create({
+  content: {
+    width: "13rem",
+  },
+  panel: {
+    overflow: "hidden",
+    padding: "0.25rem",
+  },
+  trigger: {
+    alignItems: "center",
+    backgroundColor: {
+      default: "transparent",
+      ":hover": colors.accent,
+    },
+    borderRadius: radii.full,
+    boxShadow: {
+      default: null,
+      ":focus-visible": `0 0 0 2px ${colors.ring}`,
+    },
+    color: {
+      default: colors.mutedForeground,
+      ":hover": colors.foreground,
+    },
+    display: "flex",
+    height: "1.75rem",
+    justifyContent: "center",
+    outline: {
+      default: null,
+      ":focus-visible": "2px solid transparent",
+    },
+    outlineOffset: {
+      default: null,
+      ":focus-visible": "2px",
+    },
+    pointerEvents: "auto",
+    position: "relative",
+    transitionDuration: "150ms",
+    transitionProperty: "color, background-color",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+    width: "1.75rem",
+  },
+  triggerActive: {
+    backgroundColor: colors.accent,
+    color: colors.foreground,
+  },
+});

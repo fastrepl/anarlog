@@ -1,8 +1,3 @@
-[data-chat-input-surface="elevated"] {
-  background-color: hsl(var(--card));
-  color: hsl(var(--card-foreground));
-}
-
 [data-chat-input-surface="floating"] .chat-input-editor.prosemirror-editor,
 [data-chat-input-surface="floating"] .chat-input-editor.prosemirror-editor p {
   caret-color: hsl(var(--card-foreground));
@@ -26,21 +21,6 @@
 [data-chat-input-surface="floating"]
   .chat-input-editor.chat-input-editor-voice-active.prosemirror-editor {
   padding-right: 0 !important;
-}
-
-@keyframes chat-input-waveform {
-  0%,
-  100% {
-    transform: scaleY(0.45);
-  }
-  50% {
-    transform: scaleY(1);
-  }
-}
-
-.chat-input-waveform-bar {
-  animation: chat-input-waveform 700ms ease-in-out infinite;
-  transform-origin: center;
 }
 
 [data-chat-input-surface="floating"]
@@ -98,16 +78,4 @@
   .chat-input-editor.prosemirror-editor
   .is-empty::before {
   color: hsl(var(--muted-foreground)) !important;
-}
-
-[data-chat-input-surface="elevated"] .chat-input-send:disabled {
-  border-color: hsl(var(--border)) !important;
-  color: hsl(var(--muted-foreground) / 0.6) !important;
-  cursor: default;
-}
-
-[data-chat-input-surface="elevated"]
-  .chat-input-send:disabled
-  .chat-input-send-shortcut {
-  color: hsl(var(--muted-foreground) / 0.6) !important;
 }

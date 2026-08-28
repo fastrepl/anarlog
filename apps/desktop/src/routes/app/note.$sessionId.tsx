@@ -1,6 +1,9 @@
+import * as stylex from "@stylexjs/stylex";
 import { createFileRoute } from "@tanstack/react-router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useLayoutEffect, useMemo } from "react";
+
+import { colors } from "@anlg/design-system/tokens.stylex";
 
 import { useShell } from "~/contexts/shell";
 import { ClassicMainLayout } from "~/main/layout";
@@ -37,7 +40,7 @@ function StandaloneNoteContent({ sessionId }: { sessionId: string }) {
 
   return (
     <StandaloneWindowShell topDragRegion={false}>
-      <div className="bg-background flex h-screen w-screen">
+      <div {...stylex.props(styles.root)}>
         <MainChatPanels
           autoSaveId="standalone-note-chat"
           leftSidebarAvailable={false}
@@ -49,6 +52,15 @@ function StandaloneNoteContent({ sessionId }: { sessionId: string }) {
     </StandaloneWindowShell>
   );
 }
+
+const styles = stylex.create({
+  root: {
+    backgroundColor: colors.background,
+    display: "flex",
+    height: "100vh",
+    width: "100vw",
+  },
+});
 
 export function useAttachStandaloneNoteToLiveSession(sessionId: string) {
   const attachLiveSession = useListener((state) => state.attachLiveSession);

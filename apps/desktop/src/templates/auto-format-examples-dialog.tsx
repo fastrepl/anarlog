@@ -6,9 +6,15 @@ import {
   Trash,
   UploadSimple,
 } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 
+import {
+  colors,
+  fonts,
+  radii,
+} from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Dialog,
@@ -118,8 +124,8 @@ export function AutoFormatExamplesDialog({
         if (!open && !inferenceMutation.isPending) onClose();
       }}
     >
-      <DialogContent className="max-h-[85vh] max-w-2xl gap-0 overflow-hidden p-0">
-        <DialogHeader className="border-border border-b px-6 py-5 pr-12">
+      <DialogContent sx={styles.content}>
+        <DialogHeader sx={styles.header}>
           <DialogTitle>
             <Trans>Improve summary format</Trans>
           </DialogTitle>
@@ -131,9 +137,9 @@ export function AutoFormatExamplesDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex max-h-[60vh] flex-col gap-4 overflow-y-auto px-6 py-5">
-          <div className="bg-muted/50 text-muted-foreground flex items-start gap-2 rounded-lg px-3 py-2.5 text-xs">
-            <FileText className="mt-0.5 size-4 shrink-0" />
+        <div {...stylex.props(styles.body)}>
+          <div {...stylex.props(styles.notice)}>
+            <FileText {...stylex.props(styles.noticeIcon)} />
             <Trans>
               Examples are used only to improve this format. They are not saved
               or reused for future meetings.
@@ -141,11 +147,11 @@ export function AutoFormatExamplesDialog({
           </div>
 
           {examples.map((example, index) => (
-            <div key={index} className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-2">
+            <div key={index} {...stylex.props(styles.example)}>
+              <div {...stylex.props(styles.exampleHeader)}>
                 <label
                   htmlFor={`auto-format-example-${index}`}
-                  className="text-sm font-medium"
+                  {...stylex.props(styles.label)}
                 >
                   <Trans>Example summary</Trans> {index + 1}
                 </label>
@@ -153,12 +159,12 @@ export function AutoFormatExamplesDialog({
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className="text-muted-foreground size-7"
+                  sx={styles.removeButton}
                   aria-label={t`Remove example ${index + 1}`}
                   onClick={() => removeExample(index)}
                   disabled={inferenceMutation.isPending}
                 >
-                  <Trash className="size-4" />
+                  <Trash {...stylex.props(styles.icon)} />
                 </Button>
               </div>
               <Textarea
@@ -167,13 +173,13 @@ export function AutoFormatExamplesDialog({
                 maxLength={MAX_FORMAT_EXAMPLE_LENGTH}
                 onChange={(event) => updateExample(index, event.target.value)}
                 placeholder={t`Paste a past summary you like...`}
-                className="min-h-36 resize-y font-mono text-sm leading-5"
+                sx={styles.textarea}
                 disabled={inferenceMutation.isPending}
               />
             </div>
           ))}
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div {...stylex.props(styles.actions)}>
             <Button
               type="button"
               size="sm"
@@ -184,7 +190,7 @@ export function AutoFormatExamplesDialog({
                 inferenceMutation.isPending
               }
             >
-              <Plus className="size-4" />
+              <Plus {...stylex.props(styles.icon)} />
               <Trans>Add example</Trans>
             </Button>
             <Button
@@ -197,10 +203,10 @@ export function AutoFormatExamplesDialog({
                 inferenceMutation.isPending
               }
             >
-              <UploadSimple className="size-4" />
+              <UploadSimple {...stylex.props(styles.icon)} />
               <Trans>Attach Markdown or text</Trans>
             </Button>
-            <span className="text-muted-foreground ml-auto text-xs">
+            <span {...stylex.props(styles.count)}>
               {populatedExamples.length} / {MAX_FORMAT_EXAMPLES}
             </span>
             <input
@@ -208,7 +214,7 @@ export function AutoFormatExamplesDialog({
               type="file"
               accept=".md,.markdown,.txt,text/markdown,text/plain"
               multiple
-              className="hidden"
+              {...stylex.props(styles.hidden)}
               onChange={(event) => {
                 void uploadExamples(event.currentTarget.files).catch((error) =>
                   sonnerToast.error(error.message),
@@ -219,7 +225,7 @@ export function AutoFormatExamplesDialog({
           </div>
         </div>
 
-        <DialogFooter className="border-border border-t px-6 py-4">
+        <DialogFooter sx={styles.footer}>
           <Button
             type="button"
             variant="ghost"
@@ -236,7 +242,7 @@ export function AutoFormatExamplesDialog({
             }
           >
             {inferenceMutation.isPending ? (
-              <CircleNotch className="size-4 animate-spin" />
+              <CircleNotch {...stylex.props(styles.spinner)} />
             ) : null}
             <Trans>Improve format</Trans>
           </Button>
@@ -245,6 +251,119 @@ export function AutoFormatExamplesDialog({
     </Dialog>
   );
 }
+
+const spin = stylex.keyframes({
+  to: {
+    transform: "rotate(360deg)",
+  },
+});
+
+const styles = stylex.create({
+  actions: {
+    alignItems: "center",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "0.5rem",
+  },
+  body: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
+    maxHeight: "60vh",
+    overflowY: "auto",
+    paddingBlock: "1.25rem",
+    paddingInline: "1.5rem",
+  },
+  content: {
+    gap: 0,
+    maxHeight: "85vh",
+    maxWidth: "42rem",
+    overflow: "hidden",
+    padding: 0,
+  },
+  count: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    lineHeight: "1rem",
+    marginLeft: "auto",
+  },
+  example: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.5rem",
+  },
+  exampleHeader: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+    justifyContent: "space-between",
+  },
+  footer: {
+    borderTopColor: colors.border,
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+    paddingBlock: "1rem",
+    paddingInline: "1.5rem",
+  },
+  header: {
+    borderBottomColor: colors.border,
+    borderBottomStyle: "solid",
+    borderBottomWidth: "1px",
+    paddingBlock: "1.25rem",
+    paddingLeft: "1.5rem",
+    paddingRight: "3rem",
+  },
+  hidden: {
+    display: "none",
+  },
+  icon: {
+    height: "1rem",
+    width: "1rem",
+  },
+  label: {
+    fontSize: "0.875rem",
+    fontWeight: 500,
+    lineHeight: "1.25rem",
+  },
+  notice: {
+    alignItems: "flex-start",
+    backgroundColor: `color-mix(in srgb, ${colors.muted} 50%, transparent)`,
+    borderRadius: radii.lg,
+    color: colors.mutedForeground,
+    display: "flex",
+    fontSize: "0.75rem",
+    gap: "0.5rem",
+    lineHeight: "1rem",
+    paddingBlock: "0.625rem",
+    paddingInline: "0.75rem",
+  },
+  noticeIcon: {
+    flexShrink: 0,
+    height: "1rem",
+    marginTop: "0.125rem",
+    width: "1rem",
+  },
+  removeButton: {
+    color: colors.mutedForeground,
+    height: "1.75rem",
+    width: "1.75rem",
+  },
+  spinner: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+    height: "1rem",
+    width: "1rem",
+  },
+  textarea: {
+    fontFamily: fonts.mono,
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    minHeight: "9rem",
+    resize: "vertical",
+  },
+});
 
 function isTextExample(file: File): boolean {
   const extension = file.name.split(".").pop()?.toLowerCase();

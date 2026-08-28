@@ -1,5 +1,6 @@
 import { Icon } from "@iconify-icon/react";
 import { useLingui } from "@lingui/react/macro";
+import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 
 export const STARTER_AUTOMATIONS = {
@@ -151,8 +152,7 @@ export function useStarterAutomations(): StarterAutomation[] {
         <img
           src="/assets/markdown-mark.svg"
           alt=""
-          style={{ height: size }}
-          className="w-auto dark:invert"
+          {...stylex.props(styles.markdownIcon(size))}
         />
       ),
       steps: [
@@ -176,3 +176,14 @@ export function useStarterAutomations(): StarterAutomation[] {
     },
   ];
 }
+
+const styles = stylex.create({
+  markdownIcon: (size: number) => ({
+    filter: {
+      default: null,
+      ":is(.dark *)": "invert(100%)",
+    },
+    height: size,
+    width: "auto",
+  }),
+});

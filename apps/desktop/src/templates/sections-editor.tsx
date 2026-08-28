@@ -1,8 +1,10 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { DotsSixVertical, DotsThree, Plus } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { Reorder, useDragControls } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import type { TemplateSection } from "@anlg/store";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
@@ -13,7 +15,6 @@ import {
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
 import { Input } from "@anlg/ui/components/ui/input";
-import { cn } from "@anlg/utils";
 
 type SectionDraft = TemplateSection & { key: string };
 
@@ -150,9 +151,9 @@ export function SectionsList({
   });
 
   return (
-    <div className="flex flex-col gap-3">
+    <div {...stylex.props(styles.root)}>
       <Reorder.Group values={drafts} onReorder={reorderSections}>
-        <div className="flex flex-col gap-2">
+        <div {...stylex.props(styles.list)}>
           {drafts.map((draft, index) => (
             <Reorder.Item key={draft.key} value={draft}>
               <SectionItem
@@ -176,11 +177,11 @@ export function SectionsList({
         <Button
           variant="outline"
           size="sm"
-          className="border-border bg-card text-foreground hover:bg-background h-auto w-fit rounded-full px-4 py-2.5 text-sm shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)]"
+          sx={styles.addButton}
           onClick={addSection}
           disabled={disabled}
         >
-          <Plus className="mr-2 h-4 w-4" />
+          <Plus {...stylex.props(styles.addIcon)} />
           Add Section
         </Button>
       )}
@@ -215,63 +216,63 @@ function SectionItem({
   const [isFocused, setIsFocused] = useState(false);
 
   return (
-    <div className="group bg-card relative">
+    <div data-section-item {...stylex.props(styles.item)}>
       {!disabled && (
         <button
           type="button"
-          className="absolute top-2.5 -left-5 cursor-move opacity-0 transition-opacity group-hover:opacity-30 hover:opacity-60"
+          {...stylex.props(styles.dragHandle)}
           onPointerDown={(event) => dragControls.start(event)}
           disabled={disabled}
         >
-          <DotsSixVertical className="text-muted-foreground h-4 w-4" />
+          <DotsSixVertical {...stylex.props(styles.dragIcon)} />
         </button>
       )}
 
       {!disabled && (
-        <div className="absolute top-2 right-2 opacity-0 transition-all group-hover:opacity-100">
+        <div {...stylex.props(styles.itemActions)}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 type="button"
                 size="icon"
                 variant="ghost"
-                className="text-muted-foreground hover:text-muted-foreground h-7 w-7"
+                sx={styles.actionButton}
                 aria-label={t`Section actions`}
               >
-                <DotsThree className="size-4" />
+                <DotsThree {...stylex.props(styles.icon)} />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent variant="app" align="end">
-              <AppFloatingPanel className="overflow-hidden p-1">
+              <AppFloatingPanel sx={styles.menuPanel}>
                 <DropdownMenuItem
                   onClick={() => onInsertAbove(index)}
-                  className="cursor-pointer"
+                  sx={styles.menuItem}
                 >
                   <Trans>Insert above</Trans>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => onInsertBelow(index + 1)}
-                  className="cursor-pointer"
+                  sx={styles.menuItem}
                 >
                   <Trans>Insert below</Trans>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => onMove(item.key, -1)}
                   disabled={index === 0}
-                  className="cursor-pointer"
+                  sx={styles.menuItem}
                 >
                   <Trans>Move up</Trans>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => onMove(item.key, 1)}
                   disabled={index === total - 1}
-                  className="cursor-pointer"
+                  sx={styles.menuItem}
                 >
                   <Trans>Move down</Trans>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => onDelete(item.key)}
-                  className="cursor-pointer text-red-600 focus:text-red-600"
+                  sx={[styles.menuItem, styles.deleteItem]}
                 >
                   <Trans>Delete</Trans>
                 </DropdownMenuItem>
@@ -281,13 +282,13 @@ function SectionItem({
         </div>
       )}
 
-      <div className="flex flex-col gap-1 pr-9">
+      <div {...stylex.props(styles.fields)}>
         <Input
           disabled={disabled}
           value={item.title}
           onChange={(e) => onChange({ ...item, title: e.target.value })}
           placeholder={t`Untitled`}
-          className="placeholder:text-muted-foreground/60 border-0 bg-transparent p-0 font-medium shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+          sx={styles.titleInput}
         />
 
         <textarea
@@ -297,17 +298,154 @@ function SectionItem({
           placeholder={t`Template content with Jinja2: {{ variable }}, {% if condition %}`}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          className={cn([
-            "min-h-[100px] w-full resize-y rounded-xl border p-3 text-sm transition-colors",
-            "focus-visible:outline-hidden",
+          {...stylex.props([
+            styles.descriptionInput,
             disabled
-              ? "bg-muted"
+              ? styles.disabledDescription
               : isFocused
-                ? "ring-primary/20 border-blue-500 ring-2"
-                : "border-input",
+                ? styles.focusedDescription
+                : styles.idleDescription,
           ])}
         />
       </div>
     </div>
   );
 }
+
+const styles = stylex.create({
+  actionButton: {
+    color: colors.mutedForeground,
+    height: "1.75rem",
+    width: "1.75rem",
+  },
+  addButton: {
+    backgroundColor: {
+      default: colors.card,
+      ":hover": colors.background,
+    },
+    borderColor: colors.border,
+    borderRadius: radii.full,
+    boxShadow:
+      "0 2px 6px rgb(87 83 78 / 0.08), 0 10px 18px -10px rgb(87 83 78 / 0.22)",
+    color: colors.foreground,
+    fontSize: "0.875rem",
+    height: "auto",
+    paddingBlock: "0.625rem",
+    paddingInline: "1rem",
+    width: "fit-content",
+  },
+  addIcon: {
+    height: "1rem",
+    marginRight: "0.5rem",
+    width: "1rem",
+  },
+  deleteItem: {
+    color: {
+      default: "rgb(220 38 38)",
+      ":focus": "rgb(220 38 38)",
+    },
+  },
+  descriptionInput: {
+    borderRadius: radii.xl,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    minHeight: "100px",
+    outline: {
+      default: null,
+      ":focus-visible": "none",
+    },
+    padding: "0.75rem",
+    resize: "vertical",
+    transitionDuration: "150ms",
+    transitionProperty: "color, background-color, border-color",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+    width: "100%",
+  },
+  disabledDescription: {
+    backgroundColor: colors.muted,
+  },
+  dragHandle: {
+    cursor: "move",
+    left: "-1.25rem",
+    opacity: {
+      default: 0,
+      ":is([data-section-item]:hover *)": 0.3,
+      ":hover": 0.6,
+    },
+    position: "absolute",
+    top: "0.625rem",
+    transitionDuration: "150ms",
+    transitionProperty: "opacity",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+  },
+  dragIcon: {
+    color: colors.mutedForeground,
+    height: "1rem",
+    width: "1rem",
+  },
+  fields: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.25rem",
+    paddingRight: "2.25rem",
+  },
+  focusedDescription: {
+    borderColor: "rgb(59 130 246)",
+    boxShadow: `0 0 0 2px color-mix(in srgb, ${colors.primary} 20%, transparent)`,
+  },
+  icon: {
+    height: "1rem",
+    width: "1rem",
+  },
+  idleDescription: {
+    borderColor: colors.input,
+  },
+  item: {
+    backgroundColor: colors.card,
+    position: "relative",
+  },
+  itemActions: {
+    opacity: {
+      default: 0,
+      ":is([data-section-item]:hover *)": 1,
+    },
+    position: "absolute",
+    right: "0.5rem",
+    top: "0.5rem",
+    transitionDuration: "150ms",
+    transitionProperty: "all",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+  },
+  list: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.5rem",
+  },
+  menuItem: {
+    cursor: "pointer",
+  },
+  menuPanel: {
+    overflow: "hidden",
+    padding: "0.25rem",
+  },
+  root: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.75rem",
+  },
+  titleInput: {
+    "::placeholder": {
+      color: `color-mix(in srgb, ${colors.mutedForeground} 60%, transparent)`,
+    },
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    boxShadow: {
+      default: "none",
+      ":focus-visible": "none",
+    },
+    fontWeight: 500,
+    padding: 0,
+  },
+});

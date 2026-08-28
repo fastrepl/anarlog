@@ -1,4 +1,7 @@
+import * as stylex from "@stylexjs/stylex";
 import { memo } from "react";
+
+import { colors } from "@anlg/design-system/tokens.stylex";
 
 import { ClassicMainBody } from "./body";
 import { resolveMainSurfaceChrome } from "./main-surface-chrome";
@@ -50,9 +53,9 @@ export function ClassicMainShellFrame() {
   }
 
   return (
-    <div className="bg-background flex h-full min-h-0 flex-col">
+    <div {...stylex.props(styles.root)}>
       <WindowsTitleBar />
-      <div className="min-h-0 flex-1">{shell}</div>
+      <div {...stylex.props(styles.content)}>{shell}</div>
     </div>
   );
 }
@@ -67,4 +70,18 @@ const ClassicMainBodyHost = memo(function ClassicMainBodyHost({
       <ClassicMainBody showSyncStatus={showSyncStatus} />
     </MainShellBodyFrame>
   );
+});
+
+const styles = stylex.create({
+  content: {
+    flex: 1,
+    minHeight: 0,
+  },
+  root: {
+    backgroundColor: colors.background,
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    minHeight: 0,
+  },
 });

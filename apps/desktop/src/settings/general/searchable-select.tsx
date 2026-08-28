@@ -1,7 +1,9 @@
 import { useLingui } from "@lingui/react/macro";
 import { CaretDown, Check } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo, useState } from "react";
 
+import { colors, fonts } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Command,
@@ -17,7 +19,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
-import { cn } from "@anlg/utils";
+import type { StyleXProps } from "@anlg/ui/lib/stylex";
 
 export interface SearchableSelectOption {
   value: string;
@@ -25,15 +27,14 @@ export interface SearchableSelectOption {
   detail?: string;
 }
 
-interface SearchableSelectProps {
+interface SearchableSelectProps extends StyleXProps {
   value: string;
   onChange: (value: string) => void;
   options: SearchableSelectOption[];
   placeholder?: string;
   searchPlaceholder?: string;
   emptyMessage?: string;
-  className?: string;
-  dropdownClassName?: string;
+  dropdownSx?: StyleXProps["sx"];
   "aria-labelledby"?: string;
   "aria-describedby"?: string;
 }
@@ -54,8 +55,8 @@ export function SearchableSelect({
   placeholder,
   searchPlaceholder,
   emptyMessage,
-  className,
-  dropdownClassName,
+  sx,
+  dropdownSx,
   "aria-labelledby": ariaLabelledBy,
   "aria-describedby": ariaDescribedBy,
 }: SearchableSelectProps) {
@@ -87,49 +88,37 @@ export function SearchableSelect({
           aria-expanded={open}
           aria-labelledby={ariaLabelledBy}
           aria-describedby={ariaDescribedBy}
-          className={cn([
-            "bg-card justify-between font-normal shadow-none focus-visible:ring-0",
-            "rounded-full px-3",
-            className,
-          ])}
+          sx={[styles.trigger, sx]}
         >
-          <span className="truncate">
+          <span {...stylex.props(styles.selectedValue)}>
             {selectedOption
               ? selectedOption.detail
                 ? `${selectedOption.label} (${selectedOption.detail})`
                 : selectedOption.label
               : (placeholder ?? t`Select...`)}
           </span>
-          <CaretDown className="-mr-1 h-4 w-4 shrink-0 opacity-50" />
+          <CaretDown {...stylex.props(styles.caret)} />
         </Button>
       </PopoverTrigger>
       <PopoverContent
         variant="app"
         align="start"
-        className={dropdownClassName}
-        style={{
-          width: dropdownClassName
-            ? undefined
-            : "var(--radix-popover-trigger-width)",
-        }}
+        sx={[styles.popover, dropdownSx]}
       >
-        <AppFloatingPanel className="overflow-hidden">
-          <Command
-            filter={filterFunction}
-            className="rounded-[inherit] border-0 bg-transparent"
-          >
+        <AppFloatingPanel sx={styles.floatingPanel}>
+          <Command filter={filterFunction} sx={styles.command}>
             <CommandInput
               placeholder={searchPlaceholder ?? t`Search...`}
               value={query}
               onValueChange={setQuery}
             />
             <CommandEmpty>
-              <div className="text-muted-foreground px-2 py-1.5 text-sm">
+              <div {...stylex.props(styles.empty)}>
                 {emptyMessage ?? t`No results found.`}
               </div>
             </CommandEmpty>
             <CommandList>
-              <CommandGroup className="max-h-[250px] overflow-y-auto">
+              <CommandGroup sx={styles.group}>
                 {options.map((option) => (
                   <CommandItem
                     key={option.value}
@@ -139,19 +128,18 @@ export function SearchableSelect({
                         : option.label
                     }
                     onSelect={() => handleSelect(option.value)}
-                    className={cn([
-                      "cursor-pointer",
-                      "hover:bg-accent! focus:bg-accent! aria-selected:bg-transparent",
-                    ])}
+                    sx={styles.item}
                   >
-                    <span className="flex-1 truncate">{option.label}</span>
+                    <span {...stylex.props(styles.optionLabel)}>
+                      {option.label}
+                    </span>
                     {option.detail && (
-                      <span className="text-muted-foreground shrink-0 font-mono text-[10px]">
+                      <span {...stylex.props(styles.optionDetail)}>
                         {option.detail}
                       </span>
                     )}
                     {value === option.value && (
-                      <Check className="h-4 w-4 shrink-0" />
+                      <Check {...stylex.props(styles.check)} />
                     )}
                   </CommandItem>
                 ))}
@@ -163,3 +151,76 @@ export function SearchableSelect({
     </Popover>
   );
 }
+
+const styles = stylex.create({
+  caret: {
+    flexShrink: 0,
+    height: "1rem",
+    marginRight: "-0.25rem",
+    opacity: 0.5,
+    width: "1rem",
+  },
+  check: {
+    flexShrink: 0,
+    height: "1rem",
+    width: "1rem",
+  },
+  command: {
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    borderRadius: "inherit",
+  },
+  empty: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    paddingBlock: "0.375rem",
+    paddingInline: "0.5rem",
+  },
+  floatingPanel: {
+    overflow: "hidden",
+  },
+  group: {
+    maxHeight: "250px",
+    overflowY: "auto",
+  },
+  item: {
+    backgroundColor: {
+      default: "transparent",
+      ":focus": colors.accent,
+      ":hover": colors.accent,
+    },
+    cursor: "pointer",
+  },
+  optionDetail: {
+    color: colors.mutedForeground,
+    flexShrink: 0,
+    fontFamily: fonts.mono,
+    fontSize: "10px",
+  },
+  optionLabel: {
+    flex: 1,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  popover: {
+    width: "var(--radix-popover-trigger-width)",
+  },
+  selectedValue: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  trigger: {
+    backgroundColor: colors.card,
+    borderRadius: "9999px",
+    boxShadow: {
+      default: "none",
+      ":focus-visible": "none",
+    },
+    fontWeight: 400,
+    justifyContent: "space-between",
+    paddingInline: "0.75rem",
+  },
+});

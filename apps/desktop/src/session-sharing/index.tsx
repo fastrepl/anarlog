@@ -1,9 +1,11 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { ShareNetwork, Users } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
@@ -12,7 +14,6 @@ import {
   PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
-import { cn } from "@anlg/utils";
 
 import {
   createOrReuseSessionShare,
@@ -616,12 +617,9 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           aria-expanded={sharePopoverOpen}
           title={t`Share note`}
           onClick={handleShare}
-          className={cn([
-            "text-muted-foreground hover:text-foreground rounded-full",
-            sharePopoverOpen && "bg-accent text-foreground",
-          ])}
+          sx={[styles.shareButton, sharePopoverOpen && styles.shareButtonOpen]}
         >
-          <ShareNetwork className="size-4" aria-hidden="true" />
+          <ShareNetwork {...stylex.props(styles.icon)} aria-hidden="true" />
         </Button>
       </PopoverTrigger>
       {showUpgradePrompt ? (
@@ -693,30 +691,91 @@ function SessionShareUpgradeContent({ onUpgrade }: { onUpgrade: () => void }) {
       sideOffset={8}
       aria-labelledby="session-share-upgrade-heading"
       aria-describedby="session-share-upgrade-description"
-      className="w-[440px] max-w-[calc(100vw-16px)] overflow-hidden"
+      sx={styles.upgradePopover}
     >
-      <AppFloatingPanel className="flex max-h-[min(530px,calc(100vh-74px))] flex-col items-center overflow-y-auto px-6 py-7 text-center">
-        <div className="bg-accent flex size-10 items-center justify-center rounded-full">
-          <Users className="size-4" aria-hidden="true" />
+      <AppFloatingPanel sx={styles.upgradePanel}>
+        <div {...stylex.props(styles.upgradeIconContainer)}>
+          <Users {...stylex.props(styles.icon)} aria-hidden="true" />
         </div>
         <h2
           id="session-share-upgrade-heading"
-          className="mt-3 text-sm font-semibold"
+          {...stylex.props(styles.upgradeHeading)}
         >
           <Trans>Share notes with others</Trans>
         </h2>
         <p
           id="session-share-upgrade-description"
-          className="text-muted-foreground mt-1 text-xs leading-5"
+          {...stylex.props(styles.upgradeDescription)}
         >
           <Trans>
             Upgrade to Pro to invite people and share this note with them.
           </Trans>
         </p>
-        <Button type="button" size="sm" onClick={onUpgrade} className="mt-4">
+        <Button
+          type="button"
+          size="sm"
+          onClick={onUpgrade}
+          sx={styles.upgradeButton}
+        >
           <Trans>Upgrade to Pro</Trans>
         </Button>
       </AppFloatingPanel>
     </PopoverContent>
   );
 }
+
+const styles = stylex.create({
+  icon: {
+    height: "1rem",
+    width: "1rem",
+  },
+  shareButton: {
+    borderRadius: radii.full,
+    color: {
+      default: colors.mutedForeground,
+      ":hover": colors.foreground,
+    },
+  },
+  shareButtonOpen: {
+    backgroundColor: colors.accent,
+    color: colors.foreground,
+  },
+  upgradeButton: {
+    marginTop: "1rem",
+  },
+  upgradeDescription: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    lineHeight: "1.25rem",
+    marginTop: "0.25rem",
+  },
+  upgradeHeading: {
+    fontSize: "0.875rem",
+    fontWeight: 600,
+    marginTop: "0.75rem",
+  },
+  upgradeIconContainer: {
+    alignItems: "center",
+    backgroundColor: colors.accent,
+    borderRadius: radii.full,
+    display: "flex",
+    height: "2.5rem",
+    justifyContent: "center",
+    width: "2.5rem",
+  },
+  upgradePanel: {
+    alignItems: "center",
+    display: "flex",
+    flexDirection: "column",
+    maxHeight: "min(530px, calc(100vh - 74px))",
+    overflowY: "auto",
+    paddingBlock: "1.75rem",
+    paddingInline: "1.5rem",
+    textAlign: "center",
+  },
+  upgradePopover: {
+    maxWidth: "calc(100vw - 16px)",
+    overflow: "hidden",
+    width: "440px",
+  },
+});

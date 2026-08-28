@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import type { ChatStatus } from "ai";
 
 import { ErrorMessage } from "~/chat/components/message/error";
@@ -55,7 +56,7 @@ export function ChatBodyNonEmpty({
   }
 
   return (
-    <div className="flex flex-col">
+    <div {...stylex.props(styles.root)}>
       {messages.map((message, index) => (
         <NormalMessage
           key={message.id}
@@ -74,3 +75,10 @@ export function ChatBodyNonEmpty({
     </div>
   );
 }
+
+const styles = stylex.create({
+  root: {
+    display: "flex",
+    flexDirection: "column",
+  },
+});

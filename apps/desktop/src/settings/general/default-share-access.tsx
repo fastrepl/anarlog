@@ -16,7 +16,7 @@ import {
 } from "~/session-sharing/default-access";
 import { useAvailableShareWorkspaces } from "~/session-sharing/source";
 import { useSetSettingValue } from "~/settings/queries";
-import { SETTING_CONTROL_CLASS, SettingRow } from "~/settings/setting-row";
+import { settingControlStyles, SettingRow } from "~/settings/setting-row";
 import { useConfigValue } from "~/shared/config";
 
 export function DefaultMeetingShareAccessSelector() {
@@ -42,7 +42,7 @@ export function DefaultMeetingShareAccessSelector() {
     >
       {(labelProps) => (
         <Select value={value} onValueChange={handleChange}>
-          <SelectTrigger {...labelProps} className={SETTING_CONTROL_CLASS}>
+          <SelectTrigger {...labelProps} sx={settingControlStyles.control}>
             <SelectValue placeholder={t`Select default sharing`} />
           </SelectTrigger>
           <SelectContent>

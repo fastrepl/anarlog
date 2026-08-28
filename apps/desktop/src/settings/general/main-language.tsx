@@ -1,4 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import * as stylex from "@stylexjs/stylex";
 import { useMemo } from "react";
 
 import { getBaseLanguageDisplayName, parseLocale } from "./language";
@@ -61,9 +62,15 @@ export function MainLanguageView({
           placeholder={t`Select language`}
           searchPlaceholder={t`Search language...`}
           emptyMessage={t`No matching languages found`}
-          className="w-full"
+          sx={styles.control}
         />
       )}
     </SettingRow>
   );
 }
+
+const styles = stylex.create({
+  control: {
+    width: "100%",
+  },
+});

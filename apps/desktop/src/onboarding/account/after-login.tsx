@@ -1,5 +1,6 @@
 import { Trans } from "@lingui/react/macro";
 import { CheckCircle } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 
 import { PRO_TRIAL_DAYS } from "@anlg/pricing";
 
@@ -10,7 +11,7 @@ function TrialStatusDisplay({ trialPhase }: { trialPhase: TrialPhase }) {
   const trialDays = PRO_TRIAL_DAYS;
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div {...stylex.props(styles.trialStatus)}>
       <StepRow status="done" label={<Trans>Signed in</Trans>} />
 
       {trialPhase === "checking" && (
@@ -85,11 +86,31 @@ export function AfterLogin({ onContinue }: { onContinue: () => void }) {
   }
 
   return (
-    <div className="flex items-center gap-2 text-sm text-emerald-600">
-      <CheckCircle className="size-4" />
+    <div {...stylex.props(styles.signedIn)}>
+      <CheckCircle {...stylex.props(styles.icon)} />
       <span>
         <Trans>Signed in</Trans>
       </span>
     </div>
   );
 }
+
+const styles = stylex.create({
+  icon: {
+    height: "1rem",
+    width: "1rem",
+  },
+  signedIn: {
+    alignItems: "center",
+    color: "rgb(5 150 105)",
+    display: "flex",
+    fontSize: "0.875rem",
+    gap: "0.5rem",
+    lineHeight: "1.25rem",
+  },
+  trialStatus: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.375rem",
+  },
+});

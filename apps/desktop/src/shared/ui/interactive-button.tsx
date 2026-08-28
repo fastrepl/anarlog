@@ -5,12 +5,14 @@ import {
   useCallback,
 } from "react";
 
+import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
+
 import {
   type MenuItemDef,
   useNativeContextMenu,
 } from "~/shared/hooks/useNativeContextMenu";
 
-interface InteractiveButtonProps {
+interface InteractiveButtonProps extends StyleXProps {
   children: ReactNode;
   onClick?: () => void;
   onDoubleClick?: () => void;
@@ -20,6 +22,7 @@ interface InteractiveButtonProps {
   onDragStart?: (e: DragEvent<HTMLElement>) => void;
   contextMenu?: MenuItemDef[];
   className?: string;
+  style?: React.CSSProperties;
   disabled?: boolean;
   draggable?: boolean;
   asChild?: boolean;
@@ -35,6 +38,8 @@ export function InteractiveButton({
   onDragStart,
   contextMenu,
   className,
+  style,
+  sx,
   disabled,
   draggable,
   asChild = false,
@@ -101,7 +106,7 @@ export function InteractiveButton({
       onDragStart={onDragStart ? handleDragStart : undefined}
       onMouseDown={onMouseDown}
       onContextMenu={contextMenu ? handleContextMenu : undefined}
-      className={className}
+      {...mergeStyleXProps(sx, className, style)}
       disabled={!asChild ? disabled : undefined}
       draggable={draggable}
     >

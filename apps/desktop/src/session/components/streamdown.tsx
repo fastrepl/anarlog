@@ -1,5 +1,7 @@
 import { parseImageMetadata } from "@anlg/editor/node-views";
-import { cn } from "@anlg/utils";
+import * as stylex from "@stylexjs/stylex";
+
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 // Typography comes from the shared `.note-typography` scope (see
 // packages/editor styles) so the streaming view matches the editor exactly;
@@ -14,14 +16,14 @@ export const streamdownComponents = {
   // above, -mb cancels the li's bottom pad below) restores the 0.25em rhythm
   // without stretching the sublist's guide rail. `!` because note-typography's
   // `ul { margin-block: 0 }` reset is unlayered and outranks plain utilities.
-  li: ({ className, ...props }: React.LiHTMLAttributes<HTMLLIElement>) => (
+  li: ({
+    className,
+    style,
+    ...props
+  }: React.LiHTMLAttributes<HTMLLIElement>) => (
     <li
       {...props}
-      className={cn([
-        "py-[0.125em] [&>p]:inline",
-        "[&>:is(ul,ol)]:mt-[0.125em]! [&>:is(ul,ol)]:-mb-[0.125em]!",
-        className,
-      ])}
+      {...mergeStyleXProps(styles.listItem, className, style)}
     />
   ),
   img: (props: React.ImgHTMLAttributes<HTMLImageElement>) => {
@@ -31,12 +33,32 @@ export const streamdownComponents = {
       <img
         {...props}
         title={title}
-        className={cn(["max-w-full", props.className])}
-        style={{
+        {...mergeStyleXProps(styles.image, props.className, {
           ...(editorWidth ? { width: `${editorWidth}%` } : {}),
           ...(props.style || {}),
-        }}
+        })}
       />
     );
   },
 } as const;
+
+const styles = stylex.create({
+  image: {
+    maxWidth: "100%",
+  },
+  listItem: {
+    display: {
+      default: null,
+      ":is(*) > p": "inline",
+    },
+    marginBottom: {
+      default: null,
+      ":is(*) > :is(ul, ol)": "-0.125em !important",
+    },
+    marginTop: {
+      default: null,
+      ":is(*) > :is(ul, ol)": "0.125em !important",
+    },
+    paddingBlock: "0.125em",
+  },
+});

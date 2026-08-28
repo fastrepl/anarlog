@@ -5,9 +5,10 @@ import {
   MagnifyingGlass,
   Sparkle,
 } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useCallback } from "react";
 
-import { cn } from "@anlg/utils";
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 
 import type { ContextRef } from "~/chat/context/entities";
 import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
@@ -59,15 +60,13 @@ export function ChatBodyEmpty({
 
   if (!isModelConfigured) {
     return (
-      <div className="flex justify-start py-2 pb-1">
-        <div className="flex w-full flex-col">
-          <div className="mb-2 flex items-center gap-2">
+      <div {...stylex.props(styles.unconfiguredRoot)}>
+        <div {...stylex.props(styles.column)}>
+          <div {...stylex.props(styles.headingRow)}>
             <span
-              className={cn([
-                "text-sm font-medium",
-                isDarkAppearance
-                  ? "text-primary-foreground"
-                  : "text-foreground",
+              {...stylex.props([
+                styles.heading,
+                isDarkAppearance ? styles.darkHeading : styles.lightHeading,
               ])}
             >
               Anarlog AI
@@ -75,21 +74,18 @@ export function ChatBodyEmpty({
             <BetaChip isDarkAppearance={isDarkAppearance} />
           </div>
           <p
-            className={cn([
-              "mb-2 text-sm",
+            {...stylex.props([
+              styles.description,
               isDarkAppearance
-                ? "text-primary-foreground/80"
-                : "text-muted-foreground",
+                ? styles.darkDescription
+                : styles.lightDescription,
             ])}
           >
             {t`Hi, I'm Anarlog AI. Set up a language model and I'll be ready to help.`}
           </p>
           <button
             onClick={handleGoToSettings}
-            className={cn([
-              "border-primary bg-primary text-primary-foreground inline-flex w-fit items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium",
-              "hover:bg-primary/90 shadow-[0_4px_14px_rgba(87,83,78,0.18)] transition-colors",
-            ])}
+            {...stylex.props(styles.settingsButton)}
           >
             <Sparkle size={12} />
             {t`Open AI Settings`}
@@ -100,34 +96,34 @@ export function ChatBodyEmpty({
   }
 
   return (
-    <div className="flex justify-start pb-1">
-      <div className="flex w-full flex-col">
+    <div {...stylex.props(styles.configuredRoot)}>
+      <div {...stylex.props(styles.column)}>
         {hasContext && (
-          <div className="flex flex-col gap-0.5">
+          <div {...stylex.props(styles.suggestionList)}>
             {suggestions.map(({ label, icon: Icon, prompt }) => (
               <button
                 key={label}
+                data-chat-suggestion
                 onClick={() => handleSuggestionClick(prompt)}
-                className={cn([
-                  "group grid w-full grid-cols-[1.5rem_minmax(0,1fr)] items-center gap-x-1.5 rounded-lg py-2 pr-3 pl-0 text-left text-sm",
+                {...stylex.props([
+                  styles.suggestion,
                   isDarkAppearance
-                    ? "text-primary-foreground/85 hover:bg-primary-foreground/10"
-                    : "text-muted-foreground hover:bg-muted/55",
-                  "transition-colors",
+                    ? styles.darkSuggestion
+                    : styles.lightSuggestion,
                 ])}
               >
-                <span className="flex size-6 items-center justify-center">
+                <span {...stylex.props(styles.suggestionIconSlot)}>
                   <Icon
                     size={16}
-                    className={cn([
-                      "shrink-0 transition-colors",
+                    {...stylex.props([
+                      styles.suggestionIcon,
                       isDarkAppearance
-                        ? "text-primary-foreground/55 group-hover:text-primary-foreground/80"
-                        : "text-muted-foreground/75 group-hover:text-foreground",
+                        ? styles.darkSuggestionIcon
+                        : styles.lightSuggestionIcon,
                     ])}
                   />
                 </span>
-                <span className="min-w-0 truncate">{label}</span>
+                <span {...stylex.props(styles.suggestionLabel)}>{label}</span>
               </button>
             ))}
           </div>
@@ -140,14 +136,170 @@ export function ChatBodyEmpty({
 function BetaChip({ isDarkAppearance }: { isDarkAppearance: boolean }) {
   return (
     <span
-      className={cn([
-        "rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
-        isDarkAppearance
-          ? "border-border bg-accent text-accent-foreground"
-          : "border-sky-200 bg-sky-100 text-sky-900",
+      {...stylex.props([
+        styles.betaChip,
+        isDarkAppearance ? styles.darkBetaChip : styles.lightBetaChip,
       ])}
     >
       {t`Beta`}
     </span>
   );
 }
+
+const styles = stylex.create({
+  unconfiguredRoot: {
+    display: "flex",
+    justifyContent: "flex-start",
+    paddingBottom: "0.25rem",
+    paddingTop: "0.5rem",
+  },
+  configuredRoot: {
+    display: "flex",
+    justifyContent: "flex-start",
+    paddingBottom: "0.25rem",
+  },
+  column: {
+    display: "flex",
+    flexDirection: "column",
+    width: "100%",
+  },
+  headingRow: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+    marginBottom: "0.5rem",
+  },
+  heading: {
+    fontSize: "0.875rem",
+    fontWeight: 500,
+    lineHeight: "1.25rem",
+  },
+  darkHeading: {
+    color: colors.primaryForeground,
+  },
+  lightHeading: {
+    color: colors.foreground,
+  },
+  description: {
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    marginBottom: "0.5rem",
+  },
+  darkDescription: {
+    color: `color-mix(in oklab, ${colors.primaryForeground} 80%, transparent)`,
+  },
+  lightDescription: {
+    color: colors.mutedForeground,
+  },
+  settingsButton: {
+    alignItems: "center",
+    backgroundColor: {
+      default: colors.primary,
+      ":hover": `color-mix(in oklab, ${colors.primary} 90%, transparent)`,
+    },
+    borderColor: colors.primary,
+    borderRadius: radii.full,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow: "0 4px 14px rgb(87 83 78 / 0.18)",
+    color: colors.primaryForeground,
+    display: "inline-flex",
+    fontSize: "0.75rem",
+    fontWeight: 500,
+    gap: "0.375rem",
+    lineHeight: "1rem",
+    paddingBlock: "0.375rem",
+    paddingInline: "0.75rem",
+    transitionDuration: "150ms",
+    transitionProperty: "color, background-color, border-color",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+    width: "fit-content",
+  },
+  suggestionList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.125rem",
+  },
+  suggestion: {
+    alignItems: "center",
+    borderRadius: radii.lg,
+    columnGap: "0.375rem",
+    display: "grid",
+    fontSize: "0.875rem",
+    gridTemplateColumns: "1.5rem minmax(0, 1fr)",
+    lineHeight: "1.25rem",
+    paddingBottom: "0.5rem",
+    paddingLeft: 0,
+    paddingRight: "0.75rem",
+    paddingTop: "0.5rem",
+    textAlign: "left",
+    transitionDuration: "150ms",
+    transitionProperty: "color, background-color, border-color",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+    width: "100%",
+  },
+  darkSuggestion: {
+    backgroundColor: {
+      default: "transparent",
+      ":hover": `color-mix(in oklab, ${colors.primaryForeground} 10%, transparent)`,
+    },
+    color: `color-mix(in oklab, ${colors.primaryForeground} 85%, transparent)`,
+  },
+  lightSuggestion: {
+    backgroundColor: {
+      default: "transparent",
+      ":hover": `color-mix(in oklab, ${colors.muted} 55%, transparent)`,
+    },
+    color: colors.mutedForeground,
+  },
+  suggestionIconSlot: {
+    alignItems: "center",
+    display: "flex",
+    height: "1.5rem",
+    justifyContent: "center",
+    width: "1.5rem",
+  },
+  suggestionIcon: {
+    flexShrink: 0,
+    transitionDuration: "150ms",
+    transitionProperty: "color",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+  },
+  darkSuggestionIcon: {
+    color: {
+      default: `color-mix(in oklab, ${colors.primaryForeground} 55%, transparent)`,
+      ":is([data-chat-suggestion]:hover *)": `color-mix(in oklab, ${colors.primaryForeground} 80%, transparent)`,
+    },
+  },
+  lightSuggestionIcon: {
+    color: {
+      default: `color-mix(in oklab, ${colors.mutedForeground} 75%, transparent)`,
+      ":is([data-chat-suggestion]:hover *)": colors.foreground,
+    },
+  },
+  suggestionLabel: {
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  betaChip: {
+    borderRadius: radii.full,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    fontSize: "0.625rem",
+    fontWeight: 500,
+    paddingBlock: "0.125rem",
+    paddingInline: "0.375rem",
+  },
+  darkBetaChip: {
+    backgroundColor: colors.accent,
+    borderColor: colors.border,
+    color: colors.accentForeground,
+  },
+  lightBetaChip: {
+    backgroundColor: "oklch(95.1% 0.026 236.824)",
+    borderColor: "oklch(90.1% 0.058 230.902)",
+    color: "oklch(39.1% 0.09 240.876)",
+  },
+});

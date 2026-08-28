@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import {
   type CSSProperties,
   type WheelEvent as ReactWheelEvent,
@@ -13,7 +14,6 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@anlg/ui/components/ui/resizable";
-import { cn } from "@anlg/utils";
 
 import {
   createFixedLeftSidebarPanelConstraints,
@@ -399,10 +399,12 @@ export function ClassicMainBody({
     <div
       data-tauri-drag-region
       data-sidebar-timeline-header
-      className={cn([
-        "flex h-9 shrink-0 items-start pt-[9px] pr-1",
-        showWindowControlsGutter ? "pl-[76px]" : "pl-2",
-      ])}
+      {...stylex.props(
+        styles.timelineHeader,
+        showWindowControlsGutter
+          ? styles.windowControlsGutter
+          : styles.defaultGutter,
+      )}
       onWheelCapture={handleSidebarTimelineHeaderWheel}
     >
       {showSidebarTimeline ? (
@@ -425,7 +427,7 @@ export function ClassicMainBody({
     <div
       ref={bodyRootRef}
       style={leftSidebarSizeStyle}
-      className="relative flex h-full min-w-0 flex-1 flex-col"
+      {...stylex.props(styles.root)}
     >
       {isOnboarding ||
       showSidebarTimeline ? null : showCollapsedSidebarTimelineChrome ? (
@@ -433,17 +435,16 @@ export function ClassicMainBody({
           data-tauri-drag-region
           data-left-sidebar-chrome
           style={leftSidebarChromeStyle}
-          className={cn([
-            "absolute top-0 z-40 h-12",
-            "pointer-events-none left-1",
-          ])}
+          {...stylex.props(styles.collapsedSidebarChrome)}
         >
           <div
             data-tauri-drag-region
-            className={cn([
-              "flex h-full min-w-0 items-start pt-[9px] pr-1",
-              showWindowControlsGutter ? "pl-[76px]" : "pl-2",
-            ])}
+            {...stylex.props(
+              styles.collapsedSidebarChromeContent,
+              showWindowControlsGutter
+                ? styles.windowControlsGutter
+                : styles.defaultGutter,
+            )}
           >
             <SidebarTimelineChromeWithUpcomingMeeting
               currentSessionId={currentSessionId}
@@ -463,19 +464,21 @@ export function ClassicMainBody({
           data-tauri-drag-region
           data-left-sidebar-chrome
           style={leftSidebarChromeStyle}
-          className={cn([
-            "absolute top-0 left-0 z-40 h-10",
-            sidebarOwnsChromeRow && "pointer-events-none",
-          ])}
+          {...stylex.props(
+            styles.customSidebarChrome,
+            sidebarOwnsChromeRow && styles.pointerEventsNone,
+          )}
         />
       ) : (
-        <div data-tauri-drag-region className="relative h-10 shrink-0">
+        <div data-tauri-drag-region {...stylex.props(styles.dragHeader)}>
           <div
             data-tauri-drag-region
-            className={cn([
-              "flex h-full min-w-0 items-start pt-1",
-              showWindowControlsGutter ? "pl-[76px]" : "pl-2",
-            ])}
+            {...stylex.props(
+              styles.dragHeaderContent,
+              showWindowControlsGutter
+                ? styles.windowControlsGutter
+                : styles.defaultGutter,
+            )}
           />
         </div>
       )}
@@ -487,7 +490,7 @@ export function ClassicMainBody({
         }
         dir="ltr"
         direction="horizontal"
-        className="min-h-0 flex-1 overflow-hidden"
+        sx={styles.panelGroup}
         onLayout={handlePanelLayout}
       >
         {mountLeftSidebarPanel ? (
@@ -502,22 +505,22 @@ export function ClassicMainBody({
               minSize={leftSidebarPanelRenderConstraints.minSize}
               maxSize={leftSidebarPanelRenderConstraints.maxSize}
               onCollapse={handleLeftSidebarPanelCollapse}
-              className={cn([
-                "min-h-0 overflow-hidden",
-                !leftsidebar.expanded && "pointer-events-none",
-              ])}
+              sx={[
+                styles.panel,
+                !leftsidebar.expanded && styles.pointerEventsNone,
+              ]}
               style={leftSidebarPanelStyle}
             >
               <div
                 data-left-sidebar-panel-content
                 aria-hidden={!leftsidebar.expanded}
                 inert={!leftsidebar.expanded ? true : undefined}
-                className={cn([
-                  "h-full w-full transition-[opacity,transform] duration-200 ease-out",
+                {...stylex.props(
+                  styles.sidebarContent,
                   leftsidebar.expanded
-                    ? "translate-x-0 opacity-100"
-                    : "-translate-x-3 opacity-0",
-                ])}
+                    ? styles.sidebarContentExpanded
+                    : styles.sidebarContentCollapsed,
+                )}
               >
                 <ClassicMainSidebar
                   noteFilter={noteFilter}
@@ -530,12 +533,12 @@ export function ClassicMainBody({
               </div>
             </ResizablePanel>
             <ResizableHandle
-              className={cn([
-                "z-10 !bg-transparent after:w-2",
+              sx={[
+                styles.resizeHandle,
                 showLeftSidebarPanel && canResizeLeftSidebarPanel
-                  ? "w-1"
-                  : "pointer-events-none w-0 after:w-0",
-              ])}
+                  ? styles.resizeHandleEnabled
+                  : styles.resizeHandleDisabled,
+              ]}
               onDragging={
                 canResizeLeftSidebarPanel
                   ? handleLeftSidebarResizeDragging
@@ -547,12 +550,12 @@ export function ClassicMainBody({
         <ResizablePanel
           id="classic-main-content"
           order={2}
-          className="min-h-0 flex-1 overflow-hidden"
+          sx={styles.mainPanel}
           style={{ minWidth: mainContentMinWidth }}
         >
           <div
             data-main-content-panel
-            className="relative h-full min-h-0 min-w-0 flex-1 overflow-auto"
+            {...stylex.props(styles.mainContent)}
             onClickCapture={mainAreaTopDrag.onClickCapture}
             onDoubleClickCapture={mainAreaTopDrag.onDoubleClickCapture}
             onPointerCancel={mainAreaTopDrag.onPointerEnd}
@@ -573,3 +576,120 @@ export function ClassicMainBody({
     </div>
   );
 }
+
+const styles = stylex.create({
+  collapsedSidebarChrome: {
+    height: "3rem",
+    left: "0.25rem",
+    pointerEvents: "none",
+    position: "absolute",
+    top: 0,
+    zIndex: 40,
+  },
+  collapsedSidebarChromeContent: {
+    alignItems: "flex-start",
+    display: "flex",
+    height: "100%",
+    minWidth: 0,
+    paddingRight: "0.25rem",
+    paddingTop: "9px",
+  },
+  customSidebarChrome: {
+    height: "2.5rem",
+    left: 0,
+    position: "absolute",
+    top: 0,
+    zIndex: 40,
+  },
+  defaultGutter: {
+    paddingLeft: "0.5rem",
+  },
+  dragHeader: {
+    flexShrink: 0,
+    height: "2.5rem",
+    position: "relative",
+  },
+  dragHeaderContent: {
+    alignItems: "flex-start",
+    display: "flex",
+    height: "100%",
+    minWidth: 0,
+    paddingTop: "0.25rem",
+  },
+  mainContent: {
+    flex: 1,
+    height: "100%",
+    minHeight: 0,
+    minWidth: 0,
+    overflow: "auto",
+    position: "relative",
+  },
+  mainPanel: {
+    flex: 1,
+    minHeight: 0,
+    overflow: "hidden",
+  },
+  panel: {
+    minHeight: 0,
+    overflow: "hidden",
+  },
+  panelGroup: {
+    flex: 1,
+    minHeight: 0,
+    overflow: "hidden",
+  },
+  pointerEventsNone: {
+    pointerEvents: "none",
+  },
+  resizeHandle: {
+    "::after": {
+      width: "0.5rem",
+    },
+    backgroundColor: "transparent",
+    zIndex: 10,
+  },
+  resizeHandleDisabled: {
+    "::after": {
+      width: 0,
+    },
+    pointerEvents: "none",
+    width: 0,
+  },
+  resizeHandleEnabled: {
+    width: "0.25rem",
+  },
+  root: {
+    display: "flex",
+    flex: 1,
+    flexDirection: "column",
+    height: "100%",
+    minWidth: 0,
+    position: "relative",
+  },
+  sidebarContent: {
+    height: "100%",
+    transitionDuration: "200ms",
+    transitionProperty: "opacity, transform",
+    transitionTimingFunction: "cubic-bezier(0, 0, 0.2, 1)",
+    width: "100%",
+  },
+  sidebarContentCollapsed: {
+    opacity: 0,
+    transform: "translateX(-0.75rem)",
+  },
+  sidebarContentExpanded: {
+    opacity: 1,
+    transform: "translateX(0)",
+  },
+  timelineHeader: {
+    alignItems: "flex-start",
+    display: "flex",
+    flexShrink: 0,
+    height: "2.25rem",
+    paddingRight: "0.25rem",
+    paddingTop: "9px",
+  },
+  windowControlsGutter: {
+    paddingLeft: "76px",
+  },
+});

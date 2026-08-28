@@ -1,5 +1,7 @@
+import * as stylex from "@stylexjs/stylex";
 import { useMemo } from "react";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 
 import { computeCurrentNoteTab } from "./compute-note-tab";
@@ -115,9 +117,9 @@ export function getCanShowTranscript({
 
 export function RecordingIcon() {
   return (
-    <span className="relative flex size-3 items-center justify-center">
-      <span className="absolute size-2.5 animate-ping rounded-full bg-red-500/40" />
-      <span className="relative size-2 rounded-full bg-red-500" />
+    <span {...stylex.props(styles.recordingIcon)}>
+      <span {...stylex.props(styles.recordingPulse)} />
+      <span {...stylex.props(styles.recordingDot)} />
     </span>
   );
 }
@@ -165,13 +167,13 @@ export function ActionableTooltipContent({
   };
 }) {
   return (
-    <div className="flex flex-row items-center gap-3">
-      <p className="text-xs">{message}</p>
+    <div {...stylex.props(styles.tooltip)}>
+      <p {...stylex.props(styles.tooltipMessage)}>{message}</p>
       {action && (
         <Button
           size="sm"
           variant="outline"
-          className="text-foreground rounded-md"
+          sx={styles.tooltipAction}
           onClick={action.handleClick}
         >
           {action.label}
@@ -180,3 +182,52 @@ export function ActionableTooltipContent({
     </div>
   );
 }
+
+const ping = stylex.keyframes({
+  "75%, 100%": {
+    opacity: 0,
+    transform: "scale(2)",
+  },
+});
+
+const styles = stylex.create({
+  recordingDot: {
+    backgroundColor: "#ef4444",
+    borderRadius: radii.full,
+    height: "0.5rem",
+    position: "relative",
+    width: "0.5rem",
+  },
+  recordingIcon: {
+    alignItems: "center",
+    display: "flex",
+    height: "0.75rem",
+    justifyContent: "center",
+    position: "relative",
+    width: "0.75rem",
+  },
+  recordingPulse: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: ping,
+    animationTimingFunction: "cubic-bezier(0, 0, 0.2, 1)",
+    backgroundColor: "rgb(239 68 68 / 0.4)",
+    borderRadius: radii.full,
+    height: "0.625rem",
+    position: "absolute",
+    width: "0.625rem",
+  },
+  tooltip: {
+    alignItems: "center",
+    display: "flex",
+    flexDirection: "row",
+    gap: "0.75rem",
+  },
+  tooltipAction: {
+    borderRadius: radii.md,
+    color: colors.foreground,
+  },
+  tooltipMessage: {
+    fontSize: "0.75rem",
+  },
+});

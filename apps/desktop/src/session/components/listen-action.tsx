@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import { useCallback } from "react";
 
 import { Spinner } from "@anlg/ui/components/ui/spinner";
@@ -106,7 +107,7 @@ function StartListeningButton({
         <FloatingButton
           onClick={handleStart}
           disabled={isDisabled}
-          className="w-[148px] justify-start gap-2 pr-7 pl-3"
+          sx={styles.startButton}
           tooltip={
             warningMessage
               ? {
@@ -128,7 +129,7 @@ function StartListeningButton({
               : undefined
           }
         >
-          <span className="flex items-center gap-1.5">
+          <span {...stylex.props(styles.startLabel)}>
             <RecordingIcon /> Start listening
           </span>
         </FloatingButton>
@@ -136,3 +137,18 @@ function StartListeningButton({
     </div>
   );
 }
+
+const styles = stylex.create({
+  startButton: {
+    gap: "0.5rem",
+    justifyContent: "flex-start",
+    paddingLeft: "0.75rem",
+    paddingRight: "1.75rem",
+    width: "148px",
+  },
+  startLabel: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.375rem",
+  },
+});

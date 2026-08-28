@@ -1,5 +1,7 @@
 import { Pencil } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 
 import { defineTool } from "./define-tool";
@@ -48,7 +50,7 @@ function EditActions({
   }
 
   return (
-    <div className="border-border/80 flex justify-end gap-2 border-t px-3.5 py-2.5">
+    <div {...stylex.props(styles.editActions)}>
       <Button
         type="button"
         size="sm"
@@ -89,10 +91,10 @@ export const ToolEditSummary = defineTool({
     <>
       <ToolCardFooters failed={failed} errorText={errorText} rawText={null}>
         {parsed?.status === "error" ? (
-          <div className="space-y-2">
+          <div {...stylex.props(styles.errorContent)}>
             <ToolCardFooterError text={parsed.message ?? "Unknown error"} />
             {parsed.candidates && parsed.candidates.length > 0 ? (
-              <div className="border-border bg-muted text-muted-foreground space-y-1 rounded-md border p-2 text-[12px]">
+              <div {...stylex.props(styles.candidates)}>
                 {parsed.candidates.map((candidate) => (
                   <div key={candidate.enhancedNoteId}>
                     {candidate.title} ({candidate.enhancedNoteId})
@@ -106,6 +108,37 @@ export const ToolEditSummary = defineTool({
       <EditActions toolCallId={toolCallId} target="summary" />
     </>
   ),
+});
+
+const styles = stylex.create({
+  editActions: {
+    borderColor: `color-mix(in oklab, ${colors.border} 80%, transparent)`,
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+    display: "flex",
+    gap: "0.5rem",
+    justifyContent: "flex-end",
+    paddingBlock: "0.625rem",
+    paddingInline: "0.875rem",
+  },
+  errorContent: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.5rem",
+  },
+  candidates: {
+    backgroundColor: colors.muted,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    color: colors.mutedForeground,
+    display: "flex",
+    flexDirection: "column",
+    fontSize: "0.75rem",
+    gap: "0.25rem",
+    padding: "0.5rem",
+  },
 });
 
 export const ToolEditMemo = defineTool({

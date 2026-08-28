@@ -1,6 +1,5 @@
+import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, useCallback } from "react";
-
-import { cn } from "@anlg/utils";
 
 import { ChatBody } from "./body";
 import { ChatContent } from "./content";
@@ -11,7 +10,7 @@ import { useSessionTab } from "./use-session-tab";
 import { useLanguageModel } from "~/ai/hooks";
 import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
 import { useChatActions } from "~/chat/store/use-chat-actions";
-import { chatFloatingPanelClassNames } from "~/chat/surface";
+import { chatFloatingPanelStyle } from "~/chat/surface";
 import { useShell } from "~/contexts/shell";
 import { useSessionHasTranscript } from "~/session/queries";
 import { useOwnerUserId } from "~/shared/owner-user";
@@ -99,7 +98,7 @@ export function ChatPanelFrame({
 }) {
   const { chat } = useShell();
   const { groupId, setGroupId, rollbackFailedGroup } = chat;
-  const { panelClassName, toolbarSurface } = useChatAppearance();
+  const { panelStyle, toolbarSurface } = useChatAppearance();
   const isFloating = layout === "floating";
   const model = useLanguageModel("chat");
 
@@ -126,18 +125,20 @@ export function ChatPanelFrame({
 
   return (
     <div
-      className={cn([
-        "flex min-h-0 flex-col overflow-hidden",
-        isFloating ? "max-h-full" : "h-full",
-        isFloating ? chatFloatingPanelClassNames() : panelClassName,
+      data-chat-layout={layout}
+      {...stylex.props([
+        styles.root,
+        isFloating ? styles.floatingRoot : styles.rightPanelRoot,
+        isFloating ? chatFloatingPanelStyle : panelStyle,
       ])}
     >
       {chat.scope === "automations" ? null : (
         <div
+          data-chat-toolbar-frame
           data-tauri-drag-region={!isFloating || undefined}
-          className={cn([
-            "flex shrink-0 pr-0 pl-0",
-            isFloating ? "h-11 items-center" : "h-9 items-start pt-[9px]",
+          {...stylex.props([
+            styles.toolbar,
+            isFloating ? styles.floatingToolbar : styles.rightPanelToolbar,
           ])}
         >
           <ChatToolbarControls
@@ -182,3 +183,33 @@ export function ChatPanelFrame({
     </div>
   );
 }
+
+const styles = stylex.create({
+  root: {
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 0,
+    overflow: "hidden",
+  },
+  floatingRoot: {
+    maxHeight: "100%",
+  },
+  rightPanelRoot: {
+    height: "100%",
+  },
+  toolbar: {
+    display: "flex",
+    flexShrink: 0,
+    paddingLeft: 0,
+    paddingRight: 0,
+  },
+  floatingToolbar: {
+    alignItems: "center",
+    height: "2.75rem",
+  },
+  rightPanelToolbar: {
+    alignItems: "flex-start",
+    height: "2.25rem",
+    paddingTop: "9px",
+  },
+});

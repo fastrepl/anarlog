@@ -1,7 +1,9 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { DotsThree, Heart, Plus } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 
+import { colors } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
@@ -10,7 +12,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
-import { cn } from "@anlg/utils";
 
 import { AutoTemplateDetails } from "./auto-form";
 import { type WebTemplate } from "./codec";
@@ -85,8 +86,8 @@ export function TemplateDetailsColumn({
 
 function TemplateDetailEmpty({ onCreate }: { onCreate: () => void }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3">
-      <p className="text-muted-foreground text-sm">
+    <div {...stylex.props(styles.empty)}>
+      <p {...stylex.props(styles.emptyText)}>
         <Trans>No templates yet</Trans>
       </p>
       <Button
@@ -94,9 +95,9 @@ function TemplateDetailEmpty({ onCreate }: { onCreate: () => void }) {
         size="sm"
         variant="outline"
         onClick={onCreate}
-        className="gap-2"
+        sx={styles.createButton}
       >
-        <Plus className="size-4" />
+        <Plus {...stylex.props(styles.icon)} />
         <Trans>Create template</Trans>
       </Button>
     </div>
@@ -126,16 +127,16 @@ function WebTemplatePreview({
   const [actionsOpen, setActionsOpen] = useState(false);
 
   return (
-    <div className="flex h-full flex-1 flex-col">
+    <div {...stylex.props(styles.root)}>
       <ResourcePreviewHeader
         icon={
-          <TemplateIconGlyph icon={template.icon} className="size-4 text-sm" />
+          <TemplateIconGlyph icon={template.icon} sx={styles.templateIcon} />
         }
         title={template.title || t`Untitled`}
         description={template.description}
         targets={template.targets}
         titleMeta={
-          <span className="text-muted-foreground shrink-0 text-xs font-normal whitespace-nowrap">
+          <span {...stylex.props(styles.creator)}>
             {getTemplateCreatorLabel({
               isUserTemplate: false,
               format: "short",
@@ -150,7 +151,7 @@ function WebTemplatePreview({
               size="sm"
               variant="ghost"
               onClick={() => onSetDefault(nextTemplate)}
-              className="text-muted-foreground shrink-0 hover:text-black"
+              sx={styles.setDefaultButton}
             >
               <Trans>Set as default</Trans>
             </Button>
@@ -159,11 +160,11 @@ function WebTemplatePreview({
               size="icon"
               variant="ghost"
               onClick={() => onFavorite(nextTemplate)}
-              className="text-muted-foreground hover:text-foreground"
+              sx={styles.actionButton}
               title={t`Favorite template`}
               aria-label={t`Favorite template`}
             >
-              <Heart className="size-4" />
+              <Heart {...stylex.props(styles.icon)} />
             </Button>
             <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>
               <DropdownMenuTrigger asChild>
@@ -171,20 +172,20 @@ function WebTemplatePreview({
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className={cn([
-                    "text-muted-foreground hover:text-foreground",
-                    actionsOpen && "bg-muted text-foreground hover:bg-accent",
-                  ])}
+                  sx={[
+                    styles.actionButton,
+                    actionsOpen && styles.openActionButton,
+                  ]}
                   aria-label={t`Template actions`}
                 >
-                  <DotsThree className="size-4" />
+                  <DotsThree {...stylex.props(styles.icon)} />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent variant="app" align="end">
-                <AppFloatingPanel className="overflow-hidden p-1">
+                <AppFloatingPanel sx={styles.menuPanel}>
                   <DropdownMenuItem
                     onClick={() => onClone(nextTemplate)}
-                    className="cursor-pointer"
+                    sx={styles.menuItem}
                   >
                     <Trans>Duplicate</Trans>
                   </DropdownMenuItem>
@@ -194,7 +195,7 @@ function WebTemplatePreview({
           </>
         }
       >
-        <div className="mt-6">
+        <div {...stylex.props(styles.sections)}>
           <SectionsList
             disabled={true}
             items={template.sections ?? []}
@@ -205,3 +206,75 @@ function WebTemplatePreview({
     </div>
   );
 }
+
+const styles = stylex.create({
+  actionButton: {
+    color: {
+      default: colors.mutedForeground,
+      ":hover": colors.foreground,
+    },
+  },
+  createButton: {
+    gap: "0.5rem",
+  },
+  creator: {
+    color: colors.mutedForeground,
+    flexShrink: 0,
+    fontSize: "0.75rem",
+    fontWeight: 400,
+    lineHeight: "1rem",
+    whiteSpace: "nowrap",
+  },
+  empty: {
+    alignItems: "center",
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.75rem",
+    height: "100%",
+    justifyContent: "center",
+  },
+  emptyText: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+  },
+  icon: {
+    height: "1rem",
+    width: "1rem",
+  },
+  menuItem: {
+    cursor: "pointer",
+  },
+  menuPanel: {
+    overflow: "hidden",
+    padding: "0.25rem",
+  },
+  openActionButton: {
+    backgroundColor: {
+      default: colors.muted,
+      ":hover": colors.accent,
+    },
+    color: colors.foreground,
+  },
+  root: {
+    display: "flex",
+    flex: 1,
+    flexDirection: "column",
+    height: "100%",
+  },
+  sections: {
+    marginTop: "1.5rem",
+  },
+  setDefaultButton: {
+    color: {
+      default: colors.mutedForeground,
+      ":hover": "black",
+    },
+    flexShrink: 0,
+  },
+  templateIcon: {
+    fontSize: "0.875rem",
+    height: "1rem",
+    width: "1rem",
+  },
+});

@@ -6,8 +6,10 @@ import {
   MinusCircle,
   Plus,
 } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import React, { useCallback, useState } from "react";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
 import {
@@ -17,7 +19,6 @@ import {
   PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
 import { Textarea } from "@anlg/ui/components/ui/textarea";
-import { cn } from "@anlg/utils";
 
 import {
   AvatarUploadButton,
@@ -37,6 +38,8 @@ import {
 } from "./queries";
 import { RelatedNotesSection } from "./related-notes";
 import { ContactFacehash } from "./shared";
+
+const SUMMARY_SKELETON_WIDTHS = ["80%", "66.666667%", "60%"];
 
 export function DetailsColumn({
   human,
@@ -87,7 +90,7 @@ export function DetailsColumn({
   const facehashName = String(human?.name || human?.email || human?.id || "");
 
   return (
-    <div className="flex h-full flex-1 flex-col">
+    <div {...stylex.props(styles.root)}>
       {human ? (
         <>
           <ContactPageHeader
@@ -115,12 +118,12 @@ export function DetailsColumn({
           />
 
           <div
-            className="flex-1 overflow-y-auto"
+            {...stylex.props(styles.scroller)}
             onScroll={(event) => {
               setShowCompactIdentity(event.currentTarget.scrollTop > 0);
             }}
           >
-            <div className="border-border flex items-center justify-center border-b py-6">
+            <div {...stylex.props(styles.avatarSection)}>
               <AvatarUploadButton
                 label={t`Change photo`}
                 onUpload={(dataUrl) =>
@@ -136,12 +139,12 @@ export function DetailsColumn({
             </div>
 
             {duplicatesWithData.length > 0 && (
-              <div className="border-border border-b bg-red-50 px-6 py-4">
-                <h4 className="mb-1 text-sm font-semibold text-red-900">
+              <div {...stylex.props(styles.duplicateAlert)}>
+                <h4 {...stylex.props(styles.duplicateTitle)}>
                   Duplicate Contact
                   {duplicatesWithData.length > 1 ? "s" : ""} Found
                 </h4>
-                <p className="mb-3 text-sm text-red-800">
+                <p {...stylex.props(styles.duplicateDescription)}>
                   {duplicatesWithData.length > 1
                     ? `${duplicatesWithData.length} contacts`
                     : "Another contact"}{" "}
@@ -149,13 +152,10 @@ export function DetailsColumn({
                   {duplicatesWithData.length > 1 ? "exist" : "exists"}. Merge to
                   consolidate all related notes and information.
                 </p>
-                <div className="flex flex-col gap-2">
+                <div {...stylex.props(styles.duplicateList)}>
                   {duplicatesWithData.map((dup) => (
-                    <div
-                      key={dup.id}
-                      className="border-border bg-muted flex items-center justify-between rounded-md border p-2"
-                    >
-                      <div className="flex items-center gap-2">
+                    <div key={dup.id} {...stylex.props(styles.duplicate)}>
+                      <div {...stylex.props(styles.duplicateIdentity)}>
                         {dup.avatarDataUrl ? (
                           <ContactImage src={dup.avatarDataUrl} size={32} />
                         ) : (
@@ -165,10 +165,10 @@ export function DetailsColumn({
                           />
                         )}
                         <div>
-                          <div className="text-foreground text-sm font-medium">
+                          <div {...stylex.props(styles.duplicateName)}>
                             {dup.name || "Unnamed Contact"}
                           </div>
-                          <div className="text-muted-foreground text-xs">
+                          <div {...stylex.props(styles.duplicateEmail)}>
                             {dup.email}
                           </div>
                         </div>
@@ -187,11 +187,11 @@ export function DetailsColumn({
             )}
 
             <div>
-              <div className="border-border flex items-center border-b px-4 py-3">
-                <div className="text-muted-foreground w-28 text-sm">
+              <div {...stylex.props(styles.fieldRow)}>
+                <div {...stylex.props(styles.fieldLabel)}>
                   <Trans>Name</Trans>
                 </div>
-                <div className="flex-1">
+                <div {...stylex.props(styles.fieldControl)}>
                   <EditablePersonNameField
                     key={`${human.id}:name`}
                     personId={human.id}
@@ -205,11 +205,11 @@ export function DetailsColumn({
                 value={human.jobTitle}
               />
 
-              <div className="border-border flex items-center border-b px-4 py-3">
-                <div className="text-muted-foreground w-28 text-sm">
+              <div {...stylex.props(styles.fieldRow)}>
+                <div {...stylex.props(styles.fieldLabel)}>
                   <Trans>Company</Trans>
                 </div>
-                <div className="flex-1">
+                <div {...stylex.props(styles.fieldControl)}>
                   <EditPersonOrganizationSelector
                     personId={human.id}
                     organization={
@@ -254,12 +254,12 @@ export function DetailsColumn({
               onSessionClick={handleSessionClick}
             />
 
-            <div className="pb-96" />
+            <div {...stylex.props(styles.scrollSpacer)} />
           </div>
         </>
       ) : (
-        <div className="flex flex-1 items-center justify-center">
-          <p className="text-muted-foreground text-sm">
+        <div {...stylex.props(styles.emptyState)}>
+          <p {...stylex.props(styles.mutedText)}>
             <Trans>Select a person to view details</Trans>
           </p>
         </div>
@@ -276,52 +276,54 @@ function ContactSummarySection({
   const hasFacts = summary.facts.length > 0;
 
   return (
-    <div className="border-border border-b p-6">
-      <div className="mb-3 flex items-center gap-2">
-        <h3 className="text-muted-foreground text-sm font-medium">
+    <div {...stylex.props(styles.summarySection)}>
+      <div {...stylex.props(styles.summaryHeader)}>
+        <h3 {...stylex.props(styles.summaryHeading)}>
           <Trans>Summary</Trans>
         </h3>
         {summary.isGenerating && (
           <>
             <CircleNotch
               aria-hidden="true"
-              className="text-muted-foreground h-3.5 w-3.5 animate-spin"
+              {...stylex.props(styles.summarySpinner)}
             />
-            <span className="sr-only">
+            <span {...stylex.props(styles.visuallyHidden)}>
               <Trans>Loading...</Trans>
             </span>
           </>
         )}
       </div>
 
-      <div className="border-border bg-muted rounded-lg border p-4">
+      <div {...stylex.props(styles.summaryCard)}>
         {hasFacts ? (
-          <ul className="text-foreground list-disc space-y-2 pl-5 text-sm leading-relaxed">
+          <ul {...stylex.props(styles.facts)}>
             {summary.facts.map((fact) => (
               <li key={fact}>{fact}</li>
             ))}
           </ul>
         ) : summary.isGenerating ? (
-          <div aria-hidden="true" className="space-y-2.5 py-1">
-            {["w-4/5", "w-2/3", "w-3/5"].map((width, index) => (
-              <div key={width} className="flex items-center gap-2.5">
+          <div aria-hidden="true" {...stylex.props(styles.skeleton)}>
+            {SUMMARY_SKELETON_WIDTHS.map((width, index) => (
+              <div key={width} {...stylex.props(styles.skeletonRow)}>
                 <div
-                  className="bg-muted-foreground/20 size-1 shrink-0 animate-pulse rounded-full"
-                  style={{ animationDelay: `${index * 150}ms` }}
+                  {...stylex.props([
+                    styles.skeletonBullet,
+                    styles.animationDelay(index * 150),
+                  ])}
                 />
                 <div
-                  className={cn([
-                    "bg-muted-foreground/10 h-3 animate-pulse rounded-full",
-                    width,
+                  {...stylex.props([
+                    styles.skeletonLine,
+                    styles.skeletonWidth(width),
+                    styles.animationDelay(index * 150),
                   ])}
-                  style={{ animationDelay: `${index * 150}ms` }}
                 />
               </div>
             ))}
           </div>
         ) : summary.error ? (
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-muted-foreground text-sm">
+          <div {...stylex.props(styles.summaryError)}>
+            <p {...stylex.props(styles.mutedText)}>
               <Trans>Summary generation failed</Trans>
             </p>
             <Button
@@ -333,7 +335,7 @@ function ContactSummarySection({
             </Button>
           </div>
         ) : (
-          <p className="text-muted-foreground text-sm leading-relaxed">
+          <p {...stylex.props([styles.mutedText, styles.relaxedText])}>
             <Trans>
               AI-generated summary of all interactions and notes with this
               contact will appear here. This will synthesize key discussion
@@ -344,8 +346,8 @@ function ContactSummarySection({
         )}
 
         {hasFacts && summary.error && (
-          <div className="border-border mt-3 flex items-center justify-between gap-3 border-t pt-3">
-            <p className="text-muted-foreground text-xs">
+          <div {...stylex.props(styles.partialSummaryError)}>
+            <p {...stylex.props(styles.caption)}>
               <Trans>Summary generation failed</Trans>
             </p>
             <Button
@@ -378,7 +380,7 @@ function EditablePersonNameField({
         persistHumanUpdate(personId, { name: event.target.value })
       }
       placeholder={t`Name`}
-      className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+      sx={styles.fieldInput}
     />
   );
 }
@@ -393,18 +395,18 @@ function EditablePersonJobTitleField({
   const { t } = useLingui();
 
   return (
-    <div className="border-border flex items-center border-b px-4 py-3">
-      <div className="text-muted-foreground w-28 text-sm">
+    <div {...stylex.props(styles.fieldRow)}>
+      <div {...stylex.props(styles.fieldLabel)}>
         <Trans>Job Title</Trans>
       </div>
-      <div className="flex-1">
+      <div {...stylex.props(styles.fieldControl)}>
         <Input
           defaultValue={value}
           onChange={(event) =>
             persistHumanUpdate(personId, { jobTitle: event.target.value })
           }
           placeholder={t`Software Engineer`}
-          className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+          sx={styles.fieldInput}
         />
       </div>
     </div>
@@ -419,11 +421,11 @@ function EditablePersonEmailField({
   value: string;
 }) {
   return (
-    <div className="border-border flex items-center border-b px-4 py-3">
-      <div className="text-muted-foreground w-28 text-sm">
+    <div {...stylex.props(styles.fieldRow)}>
+      <div {...stylex.props(styles.fieldLabel)}>
         <Trans>Email</Trans>
       </div>
-      <div className="flex-1">
+      <div {...stylex.props(styles.fieldControl)}>
         <Input
           type="email"
           defaultValue={value}
@@ -431,7 +433,7 @@ function EditablePersonEmailField({
             persistHumanUpdate(personId, { email: event.target.value })
           }
           placeholder="john@example.com"
-          className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+          sx={styles.fieldInput}
         />
       </div>
     </div>
@@ -446,11 +448,11 @@ function EditablePersonPhoneField({
   value: string;
 }) {
   return (
-    <div className="border-border flex items-center border-b px-4 py-3">
-      <div className="text-muted-foreground w-28 text-sm">
+    <div {...stylex.props(styles.fieldRow)}>
+      <div {...stylex.props(styles.fieldLabel)}>
         <Trans>Phone</Trans>
       </div>
-      <div className="flex-1">
+      <div {...stylex.props(styles.fieldControl)}>
         <Input
           type="tel"
           defaultValue={value}
@@ -458,7 +460,7 @@ function EditablePersonPhoneField({
             persistHumanUpdate(personId, { phone: event.target.value })
           }
           placeholder="+1 (555) 123-4567"
-          className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+          sx={styles.fieldInput}
         />
       </div>
     </div>
@@ -473,11 +475,11 @@ function EditablePersonLinkedInField({
   value: string;
 }) {
   return (
-    <div className="border-border flex items-center border-b px-4 py-3">
-      <div className="text-muted-foreground w-28 text-sm">
+    <div {...stylex.props(styles.fieldRow)}>
+      <div {...stylex.props(styles.fieldLabel)}>
         <Trans>LinkedIn</Trans>
       </div>
-      <div className="flex-1">
+      <div {...stylex.props(styles.fieldControl)}>
         <Input
           defaultValue={value}
           onChange={(event) =>
@@ -486,7 +488,7 @@ function EditablePersonLinkedInField({
             })
           }
           placeholder="https://www.linkedin.com/in/johntopia/"
-          className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+          sx={styles.fieldInput}
         />
       </div>
     </div>
@@ -503,18 +505,18 @@ function EditablePersonMemoField({
   const { t } = useLingui();
 
   return (
-    <div className="border-border flex border-b px-4 py-3">
-      <div className="text-muted-foreground w-28 pt-2 text-sm">
+    <div {...stylex.props([styles.fieldRow, styles.memoRow])}>
+      <div {...stylex.props([styles.fieldLabel, styles.memoLabel])}>
         <Trans>Notes</Trans>
       </div>
-      <div className="flex-1">
+      <div {...stylex.props(styles.fieldControl)}>
         <Textarea
           defaultValue={value}
           onChange={(event) =>
             persistHumanUpdate(personId, { memo: event.target.value })
           }
           placeholder={t`Add notes about this contact...`}
-          className="min-h-[80px] resize-none border-none px-0 py-2 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+          sx={styles.memoInput}
           rows={3}
         />
       </div>
@@ -545,13 +547,15 @@ function EditPersonOrganizationSelector({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <div className="hover:bg-accent -mx-2 inline-flex cursor-pointer items-center rounded-lg px-2 py-1 transition-colors">
+        <div {...stylex.props(styles.organizationTrigger)}>
           {organization?.name ? (
-            <div className="flex items-center">
-              <span className="text-base">{organization.name}</span>
-              <span className="group text-muted-foreground ml-2">
+            <div {...stylex.props(styles.selectedOrganization)}>
+              <span {...stylex.props(styles.organizationName)}>
+                {organization.name}
+              </span>
+              <span {...stylex.props(styles.removeOrganizationContainer)}>
                 <MinusCircle
-                  className="text-muted-foreground size-4 cursor-pointer hover:text-red-600"
+                  {...stylex.props(styles.removeOrganization)}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleRemoveOrganization();
@@ -560,8 +564,8 @@ function EditPersonOrganizationSelector({
               </span>
             </div>
           ) : (
-            <span className="text-muted-foreground flex items-center gap-1 text-base">
-              <Plus className="size-4" />
+            <span {...stylex.props(styles.addOrganization)}>
+              <Plus {...stylex.props(styles.icon)} />
               <Trans>Add organization</Trans>
             </span>
           )}
@@ -569,7 +573,7 @@ function EditPersonOrganizationSelector({
       </PopoverTrigger>
 
       <PopoverContent variant="app" align="start" side="bottom">
-        <AppFloatingPanel className="p-3">
+        <AppFloatingPanel sx={styles.organizationPanel}>
           <OrganizationControl
             organizations={organizations}
             onChange={handleChange}
@@ -641,17 +645,19 @@ function OrganizationControl({
     closePopover();
   };
 
+  const scrollListProps = stylex.props(styles.organizationListScrollable);
+
   return (
-    <div className="flex max-w-[450px] flex-col gap-3">
-      <div className="text-muted-foreground text-sm font-medium">
+    <div {...stylex.props(styles.organizationControl)}>
+      <div {...stylex.props(styles.organizationHeading)}>
         <Trans>Organization</Trans>
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div className="flex flex-col gap-2">
-          <div className="border-border bg-muted flex w-full items-center gap-2 rounded-xs border px-2 py-1.5">
-            <span className="text-muted-foreground shrink-0">
-              <MagnifyingGlass className="size-4" />
+        <div {...stylex.props(styles.organizationForm)}>
+          <div {...stylex.props(styles.organizationSearch)}>
+            <span {...stylex.props(styles.organizationSearchIcon)}>
+              <MagnifyingGlass {...stylex.props(styles.icon)} />
             </span>
             <input
               type="text"
@@ -662,48 +668,57 @@ function OrganizationControl({
               }}
               onKeyDown={handleKeyDown}
               placeholder={t`Search or add company`}
-              className="placeholder:text-muted-foreground w-full bg-transparent text-sm focus:outline-hidden focus-visible:ring-0 focus-visible:ring-offset-0"
+              {...stylex.props(styles.organizationSearchInput)}
             />
           </div>
 
           {searchTerm.trim() && (
-            <div className="border-border flex w-full flex-col overflow-hidden rounded-xs border">
+            <div {...stylex.props(styles.organizationList)}>
               {organizations.map((org, index) => (
                 <button
                   key={org.id}
                   type="button"
-                  className={[
-                    "flex items-center px-3 py-2 text-sm text-left transition-colors w-full",
-                    highlightedIndex === index ? "bg-muted" : "hover:bg-accent",
-                  ].join(" ")}
+                  {...stylex.props([
+                    styles.organizationOption,
+                    highlightedIndex === index
+                      ? styles.highlightedOption
+                      : styles.unhighlightedOption,
+                  ])}
                   onClick={() => selectOrganization(org.id)}
                   onMouseEnter={() => setHighlightedIndex(index)}
                 >
-                  <span className="bg-muted mr-2 flex size-5 shrink-0 items-center justify-center rounded-full">
-                    <Buildings className="size-3" />
+                  <span {...stylex.props(styles.organizationOptionIcon)}>
+                    <Buildings {...stylex.props(styles.smallIcon)} />
                   </span>
-                  <span className="truncate font-medium">{org.name}</span>
+                  <span {...stylex.props(styles.organizationOptionName)}>
+                    {org.name}
+                  </span>
                 </button>
               ))}
 
               {showCreateOption && (
                 <button
                   type="button"
-                  className={[
-                    "flex items-center px-3 py-2 text-sm text-left transition-colors w-full",
+                  {...stylex.props([
+                    styles.organizationOption,
                     highlightedIndex === organizations.length
-                      ? "bg-muted"
-                      : "hover:bg-accent",
-                  ].join(" ")}
+                      ? styles.highlightedOption
+                      : styles.unhighlightedOption,
+                  ])}
                   onClick={() => void handleCreateOrganization()}
                   onMouseEnter={() => setHighlightedIndex(organizations.length)}
                 >
-                  <span className="bg-accent mr-2 flex size-5 shrink-0 items-center justify-center rounded-full">
-                    <span className="text-xs">+</span>
+                  <span
+                    {...stylex.props([
+                      styles.organizationOptionIcon,
+                      styles.createOptionIcon,
+                    ])}
+                  >
+                    <span {...stylex.props(styles.caption)}>+</span>
                   </span>
-                  <span className="text-muted-foreground flex items-center gap-1 font-medium">
+                  <span {...stylex.props(styles.createOptionLabel)}>
                     Create
-                    <span className="text-foreground max-w-[140px] truncate">
+                    <span {...stylex.props(styles.createOptionName)}>
                       &quot;{searchTerm.trim()}&quot;
                     </span>
                   </span>
@@ -713,22 +728,29 @@ function OrganizationControl({
           )}
 
           {!searchTerm.trim() && organizations.length > 0 && (
-            <div className="custom-scrollbar border-border flex max-h-[40vh] w-full flex-col overflow-hidden overflow-y-auto rounded-xs border">
+            <div
+              {...scrollListProps}
+              className={`custom-scrollbar ${scrollListProps.className ?? ""}`}
+            >
               {organizations.map((org, index) => (
                 <button
                   key={org.id}
                   type="button"
-                  className={[
-                    "flex items-center px-3 py-2 text-sm text-left transition-colors w-full",
-                    highlightedIndex === index ? "bg-muted" : "hover:bg-accent",
-                  ].join(" ")}
+                  {...stylex.props([
+                    styles.organizationOption,
+                    highlightedIndex === index
+                      ? styles.highlightedOption
+                      : styles.unhighlightedOption,
+                  ])}
                   onClick={() => selectOrganization(org.id)}
                   onMouseEnter={() => setHighlightedIndex(index)}
                 >
-                  <span className="bg-muted mr-2 flex size-5 shrink-0 items-center justify-center rounded-full">
-                    <Buildings className="size-3" />
+                  <span {...stylex.props(styles.organizationOptionIcon)}>
+                    <Buildings {...stylex.props(styles.smallIcon)} />
                   </span>
-                  <span className="truncate font-medium">{org.name}</span>
+                  <span {...stylex.props(styles.organizationOptionName)}>
+                    {org.name}
+                  </span>
                 </button>
               ))}
             </div>
@@ -747,3 +769,453 @@ function persistHumanUpdate(
     console.error("[contacts] failed to update contact", error);
   });
 }
+
+const spin = stylex.keyframes({
+  to: {
+    transform: "rotate(360deg)",
+  },
+});
+
+const pulse = stylex.keyframes({
+  "0%, 100%": {
+    opacity: 1,
+  },
+  "50%": {
+    opacity: 0.5,
+  },
+});
+
+const styles = stylex.create({
+  addOrganization: {
+    alignItems: "center",
+    color: colors.mutedForeground,
+    display: "flex",
+    fontSize: "1rem",
+    gap: "0.25rem",
+    lineHeight: "1.5rem",
+  },
+  animationDelay: (delay: number) => ({
+    animationDelay: `${delay}ms`,
+  }),
+  avatarSection: {
+    alignItems: "center",
+    borderBottomColor: colors.border,
+    borderBottomStyle: "solid",
+    borderBottomWidth: "1px",
+    display: "flex",
+    justifyContent: "center",
+    paddingBlock: "1.5rem",
+  },
+  caption: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    lineHeight: "1rem",
+  },
+  createOptionIcon: {
+    backgroundColor: colors.accent,
+  },
+  createOptionLabel: {
+    alignItems: "center",
+    color: colors.mutedForeground,
+    display: "flex",
+    fontWeight: 500,
+    gap: "0.25rem",
+  },
+  createOptionName: {
+    color: colors.foreground,
+    maxWidth: "140px",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  duplicate: {
+    alignItems: "center",
+    backgroundColor: colors.muted,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    display: "flex",
+    justifyContent: "space-between",
+    padding: "0.5rem",
+  },
+  duplicateAlert: {
+    backgroundColor: "rgb(254 242 242)",
+    borderBottomColor: colors.border,
+    borderBottomStyle: "solid",
+    borderBottomWidth: "1px",
+    paddingBlock: "1rem",
+    paddingInline: "1.5rem",
+  },
+  duplicateDescription: {
+    color: "rgb(153 27 27)",
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    marginBottom: "0.75rem",
+  },
+  duplicateEmail: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    lineHeight: "1rem",
+  },
+  duplicateIdentity: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+  },
+  duplicateList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.5rem",
+  },
+  duplicateName: {
+    color: colors.foreground,
+    fontSize: "0.875rem",
+    fontWeight: 500,
+    lineHeight: "1.25rem",
+  },
+  duplicateTitle: {
+    color: "rgb(127 29 29)",
+    fontSize: "0.875rem",
+    fontWeight: 600,
+    lineHeight: "1.25rem",
+    marginBottom: "0.25rem",
+  },
+  emptyState: {
+    alignItems: "center",
+    display: "flex",
+    flex: 1,
+    justifyContent: "center",
+  },
+  facts: {
+    color: colors.foreground,
+    display: "flex",
+    flexDirection: "column",
+    fontSize: "0.875rem",
+    gap: "0.5rem",
+    lineHeight: 1.625,
+    listStyleType: "disc",
+    paddingLeft: "1.25rem",
+  },
+  fieldControl: {
+    flex: 1,
+  },
+  fieldInput: {
+    borderWidth: 0,
+    boxShadow: {
+      default: "none",
+      ":focus-visible": "none",
+    },
+    fontSize: "1rem",
+    height: "1.75rem",
+    padding: 0,
+  },
+  fieldLabel: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    width: "7rem",
+  },
+  fieldRow: {
+    alignItems: "center",
+    borderBottomColor: colors.border,
+    borderBottomStyle: "solid",
+    borderBottomWidth: "1px",
+    display: "flex",
+    paddingBlock: "0.75rem",
+    paddingInline: "1rem",
+  },
+  highlightedOption: {
+    backgroundColor: colors.muted,
+  },
+  icon: {
+    height: "1rem",
+    width: "1rem",
+  },
+  memoInput: {
+    borderWidth: 0,
+    boxShadow: {
+      default: "none",
+      ":focus-visible": "none",
+    },
+    fontSize: "1rem",
+    minHeight: "80px",
+    paddingBlock: "0.5rem",
+    paddingInline: 0,
+    resize: "none",
+  },
+  memoLabel: {
+    paddingTop: "0.5rem",
+  },
+  memoRow: {
+    alignItems: "stretch",
+  },
+  mutedText: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+  },
+  organizationControl: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.75rem",
+    maxWidth: "450px",
+  },
+  organizationForm: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.5rem",
+  },
+  organizationHeading: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    fontWeight: 500,
+    lineHeight: "1.25rem",
+  },
+  organizationList: {
+    borderColor: colors.border,
+    borderRadius: radii.sm,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+    width: "100%",
+  },
+  organizationListScrollable: {
+    borderColor: colors.border,
+    borderRadius: radii.sm,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    display: "flex",
+    flexDirection: "column",
+    maxHeight: "40vh",
+    overflowX: "hidden",
+    overflowY: "auto",
+    width: "100%",
+  },
+  organizationName: {
+    fontSize: "1rem",
+    lineHeight: "1.5rem",
+  },
+  organizationOption: {
+    alignItems: "center",
+    display: "flex",
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    paddingBlock: "0.5rem",
+    paddingInline: "0.75rem",
+    textAlign: "left",
+    transitionDuration: "150ms",
+    transitionProperty: "background-color",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+    width: "100%",
+  },
+  organizationOptionIcon: {
+    alignItems: "center",
+    backgroundColor: colors.muted,
+    borderRadius: radii.full,
+    display: "flex",
+    flexShrink: 0,
+    height: "1.25rem",
+    justifyContent: "center",
+    marginRight: "0.5rem",
+    width: "1.25rem",
+  },
+  organizationOptionName: {
+    fontWeight: 500,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  organizationPanel: {
+    padding: "0.75rem",
+  },
+  organizationSearch: {
+    alignItems: "center",
+    backgroundColor: colors.muted,
+    borderColor: colors.border,
+    borderRadius: radii.sm,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    display: "flex",
+    gap: "0.5rem",
+    paddingBlock: "0.375rem",
+    paddingInline: "0.5rem",
+    width: "100%",
+  },
+  organizationSearchIcon: {
+    color: colors.mutedForeground,
+    flexShrink: 0,
+  },
+  organizationSearchInput: {
+    "::placeholder": {
+      color: colors.mutedForeground,
+    },
+    backgroundColor: "transparent",
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    outline: {
+      default: null,
+      ":focus": "none",
+      ":focus-visible": "none",
+    },
+    width: "100%",
+  },
+  organizationTrigger: {
+    alignItems: "center",
+    backgroundColor: {
+      default: "transparent",
+      ":hover": colors.accent,
+    },
+    borderRadius: radii.lg,
+    cursor: "pointer",
+    display: "inline-flex",
+    marginInline: "-0.5rem",
+    paddingBlock: "0.25rem",
+    paddingInline: "0.5rem",
+    transitionDuration: "150ms",
+    transitionProperty: "background-color",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+  },
+  partialSummaryError: {
+    alignItems: "center",
+    borderTopColor: colors.border,
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+    display: "flex",
+    gap: "0.75rem",
+    justifyContent: "space-between",
+    marginTop: "0.75rem",
+    paddingTop: "0.75rem",
+  },
+  relaxedText: {
+    lineHeight: 1.625,
+  },
+  removeOrganization: {
+    color: {
+      default: colors.mutedForeground,
+      ":hover": "rgb(220 38 38)",
+    },
+    cursor: "pointer",
+    height: "1rem",
+    width: "1rem",
+  },
+  removeOrganizationContainer: {
+    color: colors.mutedForeground,
+    marginLeft: "0.5rem",
+  },
+  root: {
+    display: "flex",
+    flex: 1,
+    flexDirection: "column",
+    height: "100%",
+  },
+  scrollSpacer: {
+    paddingBottom: "24rem",
+  },
+  scroller: {
+    flex: 1,
+    overflowY: "auto",
+  },
+  selectedOrganization: {
+    alignItems: "center",
+    display: "flex",
+  },
+  skeleton: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.625rem",
+    paddingBlock: "0.25rem",
+  },
+  skeletonBullet: {
+    animationDuration: "2s",
+    animationIterationCount: "infinite",
+    animationName: pulse,
+    animationTimingFunction: "cubic-bezier(0.4, 0, 0.6, 1)",
+    backgroundColor: `color-mix(in srgb, ${colors.mutedForeground} 20%, transparent)`,
+    borderRadius: radii.full,
+    flexShrink: 0,
+    height: "0.25rem",
+    width: "0.25rem",
+  },
+  skeletonLine: {
+    animationDuration: "2s",
+    animationIterationCount: "infinite",
+    animationName: pulse,
+    animationTimingFunction: "cubic-bezier(0.4, 0, 0.6, 1)",
+    backgroundColor: `color-mix(in srgb, ${colors.mutedForeground} 10%, transparent)`,
+    borderRadius: radii.full,
+    height: "0.75rem",
+  },
+  skeletonRow: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.625rem",
+  },
+  skeletonWidth: (width: string) => ({
+    width,
+  }),
+  smallIcon: {
+    height: "0.75rem",
+    width: "0.75rem",
+  },
+  summaryCard: {
+    backgroundColor: colors.muted,
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    padding: "1rem",
+  },
+  summaryError: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.75rem",
+    justifyContent: "space-between",
+  },
+  summaryHeader: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+    marginBottom: "0.75rem",
+  },
+  summaryHeading: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    fontWeight: 500,
+    lineHeight: "1.25rem",
+  },
+  summarySection: {
+    borderBottomColor: colors.border,
+    borderBottomStyle: "solid",
+    borderBottomWidth: "1px",
+    padding: "1.5rem",
+  },
+  summarySpinner: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+    color: colors.mutedForeground,
+    height: "0.875rem",
+    width: "0.875rem",
+  },
+  unhighlightedOption: {
+    backgroundColor: {
+      default: "transparent",
+      ":hover": colors.accent,
+    },
+  },
+  visuallyHidden: {
+    borderWidth: 0,
+    clipPath: "inset(50%)",
+    height: "1px",
+    margin: "-1px",
+    overflow: "hidden",
+    padding: 0,
+    position: "absolute",
+    whiteSpace: "nowrap",
+    width: "1px",
+  },
+});

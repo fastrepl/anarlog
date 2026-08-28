@@ -1,6 +1,8 @@
+import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 
+import { colors } from "@anlg/design-system/tokens.stylex";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
 
 import { useConfigValues } from "~/shared/config";
@@ -20,7 +22,7 @@ export function HealthStatusIndicator() {
   const health = useConnectionHealth();
 
   if (health.status === "pending") {
-    return <Spinner size={14} className="text-muted-foreground shrink-0" />;
+    return <Spinner size={14} sx={styles.spinner} />;
   }
 
   return null;
@@ -139,3 +141,10 @@ export function useConnectionHealth(): HealthStatus {
 
   return { status: "success" };
 }
+
+const styles = stylex.create({
+  spinner: {
+    color: colors.mutedForeground,
+    flexShrink: 0,
+  },
+});

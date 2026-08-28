@@ -1,4 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import * as stylex from "@stylexjs/stylex";
 import { useMemo } from "react";
 
 import {
@@ -65,10 +66,19 @@ export function TimezoneSelector() {
           options={options}
           placeholder={t`Select timezone`}
           searchPlaceholder={t`Search timezone...`}
-          className="w-full"
-          dropdownClassName="w-72"
+          sx={styles.control}
+          dropdownSx={styles.dropdown}
         />
       )}
     </SettingRow>
   );
 }
+
+const styles = stylex.create({
+  control: {
+    width: "100%",
+  },
+  dropdown: {
+    width: "18rem",
+  },
+});

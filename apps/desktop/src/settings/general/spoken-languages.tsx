@@ -1,10 +1,11 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { MagnifyingGlass, X } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useMemo, useState } from "react";
 
+import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
 import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
-import { cn } from "@anlg/utils";
 
 import {
   getAdditionalSpokenLanguages,
@@ -112,45 +113,38 @@ export function SpokenLanguagesView({
 
   return (
     <div>
-      <h3 className="mb-1 text-sm font-medium">
+      <h3 {...stylex.props(styles.heading)}>
         <Trans>Additional spoken languages</Trans>
       </h3>
-      <p className="text-muted-foreground mb-3 text-xs">
+      <p {...stylex.props(styles.description)}>
         <Trans>Transcribe meetings that use more than one language.</Trans>
       </p>
-      <div className="relative">
+      <div {...stylex.props(styles.controlWrapper)}>
         <div
-          className={cn([
-            "border-border bg-card focus-within:border-border flex min-h-[38px] w-full flex-wrap items-center gap-1.5 rounded-2xl border px-2 py-1.5",
-            languageInputFocused && "border-border",
-          ])}
+          {...stylex.props(styles.control)}
           onClick={() =>
             document.getElementById("language-search-input")?.focus()
           }
         >
           {selectedLanguageCodes.map((code) => (
-            <Badge
-              key={code}
-              variant="secondary"
-              className="bg-muted flex items-center gap-1 px-2 py-0.5 text-xs"
-            >
+            <Badge key={code} variant="secondary" sx={styles.badge}>
               {getBaseLanguageDisplayName(code, i18n.locale)}
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="ml-0.5 h-3 w-3 p-0 hover:bg-transparent"
+                sx={styles.removeButton}
                 onClick={(e) => {
                   e.stopPropagation();
                   onChange(selectedLanguageCodes.filter((c) => c !== code));
                 }}
               >
-                <X className="h-2.5 w-2.5" />
+                <X {...stylex.props(styles.removeIcon)} />
               </Button>
             </Badge>
           ))}
           {selectedLanguageCodes.length === 0 && (
-            <MagnifyingGlass className="text-muted-foreground size-4 shrink-0" />
+            <MagnifyingGlass {...stylex.props(styles.searchIcon)} />
           )}
           <input
             id="language-search-input"
@@ -176,7 +170,7 @@ export function SpokenLanguagesView({
             placeholder={
               selectedLanguageCodes.length === 0 ? t`Add language` : ""
             }
-            className="placeholder:text-muted-foreground min-w-[120px] flex-1 bg-transparent text-sm focus:outline-hidden"
+            {...stylex.props(styles.input)}
           />
         </div>
 
@@ -184,7 +178,7 @@ export function SpokenLanguagesView({
           <div
             id="language-options"
             role="listbox"
-            className="border-border bg-card absolute top-full right-0 left-0 mt-1 flex max-h-60 w-full flex-col overflow-hidden overflow-y-auto rounded-2xl border shadow-md"
+            {...stylex.props(styles.options)}
           >
             {filteredLanguages.length > 0 ? (
               filteredLanguages.map((langCode, index) => (
@@ -201,20 +195,18 @@ export function SpokenLanguagesView({
                   }}
                   onMouseDown={(e) => e.preventDefault()}
                   onMouseEnter={() => setLanguageSelectedIndex(index)}
-                  className={cn([
-                    "flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors",
-                    languageSelectedIndex === index
-                      ? "bg-accent"
-                      : "hover:bg-accent",
-                  ])}
+                  {...stylex.props(
+                    styles.option,
+                    languageSelectedIndex === index && styles.selectedOption,
+                  )}
                 >
-                  <span className="truncate font-medium">
+                  <span {...stylex.props(styles.optionLabel)}>
                     {getBaseLanguageDisplayName(langCode, i18n.locale)}
                   </span>
                 </button>
               ))
             ) : (
-              <div className="text-muted-foreground px-3 py-2 text-center text-sm">
+              <div {...stylex.props(styles.empty)}>
                 <Trans>No matching languages found</Trans>
               </div>
             )}
@@ -224,3 +216,139 @@ export function SpokenLanguagesView({
     </div>
   );
 }
+
+const styles = stylex.create({
+  badge: {
+    alignItems: "center",
+    backgroundColor: colors.muted,
+    display: "flex",
+    fontSize: "0.75rem",
+    gap: "0.25rem",
+    lineHeight: "1rem",
+    paddingBlock: "0.125rem",
+    paddingInline: "0.5rem",
+  },
+  control: {
+    alignItems: "center",
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderRadius: "1rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "0.375rem",
+    minHeight: "38px",
+    paddingBlock: "0.375rem",
+    paddingInline: "0.5rem",
+    width: "100%",
+  },
+  controlWrapper: {
+    position: "relative",
+  },
+  description: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    lineHeight: "1rem",
+    marginBottom: "0.75rem",
+  },
+  empty: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    paddingBlock: "0.5rem",
+    paddingInline: "0.75rem",
+    textAlign: "center",
+  },
+  heading: {
+    fontSize: "0.875rem",
+    fontWeight: 500,
+    lineHeight: "1.25rem",
+    marginBottom: "0.25rem",
+  },
+  input: {
+    "::placeholder": {
+      color: colors.mutedForeground,
+    },
+    backgroundColor: "transparent",
+    flex: 1,
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    minWidth: "120px",
+    outline: {
+      default: null,
+      ":focus": "2px solid transparent",
+    },
+    outlineOffset: {
+      default: null,
+      ":focus": "2px",
+    },
+  },
+  option: {
+    alignItems: "center",
+    backgroundColor: {
+      default: "transparent",
+      ":hover": colors.accent,
+    },
+    display: "flex",
+    fontSize: "0.875rem",
+    justifyContent: "space-between",
+    lineHeight: "1.25rem",
+    paddingBlock: "0.5rem",
+    paddingInline: "0.75rem",
+    textAlign: "left",
+    transitionDuration: "150ms",
+    transitionProperty:
+      "color, background-color, border-color, text-decoration-color, fill, stroke",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+    width: "100%",
+  },
+  optionLabel: {
+    fontWeight: 500,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  options: {
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderRadius: "1rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow:
+      "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+    display: "flex",
+    flexDirection: "column",
+    left: 0,
+    marginTop: "0.25rem",
+    maxHeight: "15rem",
+    overflow: "hidden auto",
+    position: "absolute",
+    right: 0,
+    top: "100%",
+    width: "100%",
+  },
+  removeButton: {
+    backgroundColor: {
+      default: null,
+      ":hover": "transparent",
+    },
+    height: "0.75rem",
+    marginLeft: "0.125rem",
+    padding: 0,
+    width: "0.75rem",
+  },
+  removeIcon: {
+    height: "0.625rem",
+    width: "0.625rem",
+  },
+  searchIcon: {
+    color: colors.mutedForeground,
+    flexShrink: 0,
+    height: "1rem",
+    width: "1rem",
+  },
+  selectedOption: {
+    backgroundColor: colors.accent,
+  },
+});

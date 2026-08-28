@@ -1,7 +1,9 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowsDownUp, MagnifyingGlass, X } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
@@ -31,9 +33,9 @@ export function RelatedNotesSection({
   );
 
   return (
-    <div className="p-6">
-      <div className="mb-3 flex items-center gap-1">
-        <h3 className="text-muted-foreground text-sm font-medium">
+    <div {...stylex.props(styles.root)}>
+      <div {...stylex.props(styles.header)}>
+        <h3 {...stylex.props(styles.heading)}>
           <Trans>Related Notes</Trans>
         </h3>
         {sessions.length > 1 && (
@@ -42,14 +44,14 @@ export function RelatedNotesSection({
               <Button
                 size="icon"
                 variant="ghost"
-                className="text-muted-foreground hover:text-foreground size-7"
+                sx={styles.sortButton}
                 aria-label={t`Sort options`}
               >
                 <ArrowsDownUp size={15} />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent variant="app" align="start">
-              <AppFloatingPanel className="overflow-hidden p-1">
+              <AppFloatingPanel sx={styles.menuPanel}>
                 <DropdownMenuRadioGroup
                   value={sortOrder}
                   onValueChange={(value) =>
@@ -68,8 +70,8 @@ export function RelatedNotesSection({
           </DropdownMenu>
         )}
 
-        <div className="border-border bg-muted/50 focus-within:bg-accent ml-auto flex h-8 w-52 max-w-[48%] items-center gap-2 rounded-lg border px-2.5 transition-colors">
-          <MagnifyingGlass className="text-muted-foreground size-3.5 shrink-0" />
+        <div {...stylex.props(styles.searchField)}>
+          <MagnifyingGlass {...stylex.props(styles.searchIcon)} />
           <input
             type="text"
             value={search}
@@ -78,16 +80,16 @@ export function RelatedNotesSection({
               if (event.key === "Escape") setSearch("");
             }}
             placeholder={t`Search...`}
-            className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm focus:outline-hidden"
+            {...stylex.props(styles.searchInput)}
           />
           {search && (
             <button
               type="button"
               onClick={() => setSearch("")}
-              className="text-muted-foreground hover:text-foreground shrink-0 transition-colors"
+              {...stylex.props(styles.clearButton)}
               aria-label={t`Clear search`}
             >
-              <X className="size-3.5" />
+              <X {...stylex.props(styles.smallIcon)} />
             </button>
           )}
         </div>
@@ -100,14 +102,14 @@ export function RelatedNotesSection({
               <button
                 type="button"
                 onClick={() => onSessionClick(session.id)}
-                className="hover:bg-accent flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors"
+                {...stylex.props(styles.noteButton)}
               >
-                <span className="bg-muted-foreground size-1.5 shrink-0 rounded-full" />
-                <span className="min-w-0 flex-1 truncate text-sm">
+                <span {...stylex.props(styles.bullet)} />
+                <span {...stylex.props(styles.noteTitle)}>
                   {session.title || t`Untitled Note`}
                 </span>
                 {session.createdAt && (
-                  <time className="text-muted-foreground shrink-0 text-xs">
+                  <time {...stylex.props(styles.noteDate)}>
                     {new Date(session.createdAt).toLocaleDateString()}
                   </time>
                 )}
@@ -116,7 +118,7 @@ export function RelatedNotesSection({
           ))}
         </ul>
       ) : (
-        <p className="text-muted-foreground px-2 py-2 text-sm">
+        <p {...stylex.props(styles.empty)}>
           {sessions.length > 0 ? (
             <Trans>No results found.</Trans>
           ) : (
@@ -156,3 +158,134 @@ function getSessionTimestamp(value: string): number {
   const timestamp = Date.parse(value);
   return Number.isNaN(timestamp) ? 0 : timestamp;
 }
+
+const styles = stylex.create({
+  bullet: {
+    backgroundColor: colors.mutedForeground,
+    borderRadius: radii.full,
+    flexShrink: 0,
+    height: "0.375rem",
+    width: "0.375rem",
+  },
+  clearButton: {
+    color: {
+      default: colors.mutedForeground,
+      ":hover": colors.foreground,
+    },
+    flexShrink: 0,
+    transitionDuration: "150ms",
+    transitionProperty: "color",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+  },
+  empty: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    paddingBlock: "0.5rem",
+    paddingInline: "0.5rem",
+  },
+  header: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.25rem",
+    marginBottom: "0.75rem",
+  },
+  heading: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    fontWeight: 500,
+    lineHeight: "1.25rem",
+  },
+  menuPanel: {
+    overflow: "hidden",
+    padding: "0.25rem",
+  },
+  noteButton: {
+    alignItems: "center",
+    backgroundColor: {
+      default: "transparent",
+      ":hover": colors.accent,
+    },
+    borderRadius: radii.md,
+    display: "flex",
+    gap: "0.75rem",
+    paddingBlock: "0.5rem",
+    paddingInline: "0.5rem",
+    textAlign: "left",
+    transitionDuration: "150ms",
+    transitionProperty: "background-color",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+    width: "100%",
+  },
+  noteDate: {
+    color: colors.mutedForeground,
+    flexShrink: 0,
+    fontSize: "0.75rem",
+    lineHeight: "1rem",
+  },
+  noteTitle: {
+    flex: 1,
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  root: {
+    padding: "1.5rem",
+  },
+  searchField: {
+    alignItems: "center",
+    backgroundColor: {
+      default: `color-mix(in srgb, ${colors.muted} 50%, transparent)`,
+      ":focus-within": colors.accent,
+    },
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    display: "flex",
+    gap: "0.5rem",
+    height: "2rem",
+    marginLeft: "auto",
+    maxWidth: "48%",
+    paddingInline: "0.625rem",
+    transitionDuration: "150ms",
+    transitionProperty: "background-color",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+    width: "13rem",
+  },
+  searchIcon: {
+    color: colors.mutedForeground,
+    flexShrink: 0,
+    height: "0.875rem",
+    width: "0.875rem",
+  },
+  searchInput: {
+    "::placeholder": {
+      color: colors.mutedForeground,
+    },
+    backgroundColor: "transparent",
+    flex: 1,
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    minWidth: 0,
+    outline: {
+      default: null,
+      ":focus": "none",
+    },
+  },
+  smallIcon: {
+    height: "0.875rem",
+    width: "0.875rem",
+  },
+  sortButton: {
+    color: {
+      default: colors.mutedForeground,
+      ":hover": colors.foreground,
+    },
+    height: "1.75rem",
+    width: "1.75rem",
+  },
+});

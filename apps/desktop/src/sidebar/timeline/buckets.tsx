@@ -1,6 +1,8 @@
+import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, type RefCallback, useMemo } from "react";
 
-import { cn } from "@anlg/utils";
+import { colors, spacing } from "@anlg/design-system/tokens.stylex";
+import type { StyleXProps } from "@anlg/ui/lib/stylex";
 
 import { TimelineItemComponent } from "./item";
 import { CurrentTimeIndicator, useCurrentTimeMs } from "./realtime";
@@ -15,7 +17,7 @@ import {
 } from "./utils";
 
 export function TimelineBuckets({
-  bucketHeaderTopClassName,
+  bucketHeaderTopSx,
   buckets,
   emptyTodayLabel,
   getFlatItemKeys,
@@ -30,7 +32,7 @@ export function TimelineBuckets({
   upcomingMeetingStatus,
   upcomingNodeRef,
 }: {
-  bucketHeaderTopClassName: string;
+  bucketHeaderTopSx: StyleXProps["sx"];
   buckets: TimelineBucket[];
   emptyTodayLabel: ReactNode;
   getFlatItemKeys: () => string[];
@@ -58,9 +60,15 @@ export function TimelineBuckets({
         const isTopIndicator = shouldRenderIndicatorBefore && index === 0;
 
         return (
-          <div key={bucket.label} className={cn([isTopIndicator && "pt-3"])}>
+          <div
+            key={bucket.label}
+            {...stylex.props(isTopIndicator && styles.topIndicatorBucket)}
+          >
             {shouldRenderIndicatorBefore && (
-              <div data-sidebar-current-time-header-gap className="py-3">
+              <div
+                data-sidebar-current-time-header-gap
+                {...stylex.props(styles.indicatorHeaderGap)}
+              >
                 <CurrentTimeIndicator
                   ref={registerIndicator}
                   timezone={timezone}
@@ -72,15 +80,9 @@ export function TimelineBuckets({
             )}
             <div
               data-sidebar-timeline-bucket-header
-              className={cn([
-                "sticky z-20",
-                bucketHeaderTopClassName,
-                "bg-background pt-0 pr-1 pb-1 pl-3",
-              ])}
+              {...stylex.props(styles.bucketHeader, bucketHeaderTopSx)}
             >
-              <div className="text-foreground text-base font-bold">
-                {bucket.label}
-              </div>
+              <div {...stylex.props(styles.bucketLabel)}>{bucket.label}</div>
             </div>
             {isToday ? (
               <TodayBucket
@@ -162,12 +164,10 @@ function CurrentTimeAnchor({
       ref={registerIndicator}
       aria-hidden
       data-sidebar-current-time-anchor
-      className={cn([
-        "pointer-events-none opacity-0",
-        variant === "inside"
-          ? "absolute inset-x-0 z-20 h-px"
-          : "relative z-20 h-px",
-      ])}
+      {...stylex.props(
+        styles.anchor,
+        variant === "inside" ? styles.anchorInside : styles.anchorSeam,
+      )}
       style={
         variant === "inside" ? { top: `${(1 - progress) * 100}%` } : undefined
       }
@@ -233,9 +233,7 @@ function TodayBucket({
           ) : (
             <CurrentTimeIndicator ref={registerIndicator} timezone={timezone} />
           )}
-          <div className="text-muted-foreground px-3 py-4 text-center text-sm">
-            {emptyLabel}
-          </div>
+          <div {...stylex.props(styles.empty)}>{emptyLabel}</div>
         </>
       );
     }
@@ -295,7 +293,7 @@ function TodayBucket({
         index === indicatorPlacement.index
       ) {
         nodes.push(
-          <div key={`${itemKey}-wrapper`} className="relative">
+          <div key={`${itemKey}-wrapper`} {...stylex.props(styles.itemWrapper)}>
             {suppressCurrentTimeIndicator ? (
               <CurrentTimeAnchor
                 registerIndicator={registerIndicator}
@@ -358,3 +356,50 @@ function TodayBucket({
 
   return renderedEntries;
 }
+
+const styles = stylex.create({
+  anchor: {
+    height: "1px",
+    opacity: 0,
+    pointerEvents: "none",
+    zIndex: 20,
+  },
+  anchorInside: {
+    left: 0,
+    position: "absolute",
+    right: 0,
+  },
+  anchorSeam: {
+    position: "relative",
+  },
+  bucketHeader: {
+    backgroundColor: colors.background,
+    paddingBottom: spacing.xs,
+    paddingLeft: spacing.md,
+    paddingRight: spacing.xs,
+    paddingTop: 0,
+    position: "sticky",
+    zIndex: 20,
+  },
+  bucketLabel: {
+    color: colors.foreground,
+    fontSize: "1rem",
+    fontWeight: 700,
+  },
+  empty: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    paddingBlock: "1rem",
+    paddingInline: spacing.md,
+    textAlign: "center",
+  },
+  indicatorHeaderGap: {
+    paddingBlock: spacing.md,
+  },
+  itemWrapper: {
+    position: "relative",
+  },
+  topIndicatorBucket: {
+    paddingTop: spacing.md,
+  },
+});

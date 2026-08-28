@@ -1,4 +1,6 @@
-import { cn } from "@anlg/utils";
+import * as stylex from "@stylexjs/stylex";
+
+import { colors } from "@anlg/design-system/tokens.stylex";
 
 import {
   SettingsAccount,
@@ -85,19 +87,58 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
   };
 
   return (
-    <div
-      data-settings-content
-      className="bg-card dark:bg-accent flex w-full flex-1 flex-col overflow-hidden"
-    >
-      <div className="relative w-full flex-1 overflow-hidden">
-        <div
-          className={cn([
-            "scroll-fade-y scrollbar-hide h-full w-full flex-1 overflow-y-auto p-6",
-          ])}
-        >
-          {renderContent()}
-        </div>
+    <div data-settings-content {...stylex.props(styles.root)}>
+      <div {...stylex.props(styles.viewport)}>
+        <div {...stylex.props(styles.scroller)}>{renderContent()}</div>
       </div>
     </div>
   );
 }
+
+const styles = stylex.create({
+  root: {
+    backgroundColor: {
+      default: colors.card,
+      ":is(.dark *)": colors.accent,
+    },
+    display: "flex",
+    flex: 1,
+    flexDirection: "column",
+    overflow: "hidden",
+    width: "100%",
+  },
+  scroller: {
+    animationDuration: "1ms, 1ms",
+    animationFillMode: "both, both",
+    animationName: "scroll-fade-y-top, scroll-fade-y-bottom",
+    animationRange: "0 24px, calc(100% - 24px) 100%",
+    animationTimeline: "scroll(self block), scroll(self block)",
+    display: {
+      default: null,
+      "::-webkit-scrollbar": "none",
+    },
+    flex: 1,
+    height: "100%",
+    maskImage:
+      "linear-gradient(to bottom, transparent var(--scroll-fade-top-start), #000 var(--scroll-fade-top-end), #000 var(--scroll-fade-bottom-start), transparent var(--scroll-fade-bottom-end))",
+    maskPosition: "center",
+    maskRepeat: "no-repeat",
+    maskSize: "100% 100%",
+    msOverflowStyle: "none",
+    overflowY: "auto",
+    padding: "1.5rem",
+    scrollbarWidth: "none",
+    WebkitMaskImage:
+      "linear-gradient(to bottom, transparent var(--scroll-fade-top-start), #000 var(--scroll-fade-top-end), #000 var(--scroll-fade-bottom-start), transparent var(--scroll-fade-bottom-end))",
+    WebkitMaskPosition: "center",
+    WebkitMaskRepeat: "no-repeat",
+    WebkitMaskSize: "100% 100%",
+    width: "100%",
+  },
+  viewport: {
+    flex: 1,
+    overflow: "hidden",
+    position: "relative",
+    width: "100%",
+  },
+});

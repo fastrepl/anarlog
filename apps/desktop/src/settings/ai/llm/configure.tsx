@@ -1,6 +1,8 @@
 import { Trans } from "@lingui/react/macro";
+import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 
+import { colors, fonts } from "@anlg/design-system/tokens.stylex";
 import { Accordion } from "@anlg/ui/components/ui/accordion";
 
 import { useLlmSettings } from "./context";
@@ -35,9 +37,9 @@ export function ConfigureProviders() {
   );
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <h3 className="text-md font-sans font-semibold">
+    <div {...stylex.props(styles.container)}>
+      <div {...stylex.props(styles.header)}>
+        <h3 {...stylex.props(styles.title)}>
           <Trans>Configure Providers</Trans>
         </h3>
         <ProviderSearch value={search} onChange={setSearch} />
@@ -45,7 +47,7 @@ export function ConfigureProviders() {
       <Accordion
         type="single"
         collapsible
-        className="flex flex-col gap-3"
+        sx={styles.providers}
         value={accordionValue}
         onValueChange={setAccordionValue}
       >
@@ -76,7 +78,7 @@ export function ConfigureProviders() {
         })}
       </Accordion>
       {providers.length === 0 && search.trim() ? (
-        <p className="text-muted-foreground py-8 text-center text-sm">
+        <p {...stylex.props(styles.empty)}>
           <Trans>No providers found.</Trans>
         </p>
       ) : null}
@@ -95,6 +97,36 @@ export function ConfigureProviders() {
     </div>
   );
 }
+
+const styles = stylex.create({
+  container: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.75rem",
+  },
+  empty: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    paddingBlock: "2rem",
+    textAlign: "center",
+  },
+  header: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.75rem",
+  },
+  providers: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.75rem",
+  },
+  title: {
+    fontFamily: fonts.sans,
+    fontSize: "1rem",
+    fontWeight: 600,
+  },
+});
 
 function ProviderContext({ providerId }: { providerId: ProviderId }) {
   const content =

@@ -1,10 +1,11 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { CircleNotch, LockSimple } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { getIdentifier } from "@tauri-apps/api/app";
 import { platform } from "@tauri-apps/plugin-os";
 
-import { cn } from "@anlg/utils";
+import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
 
 import { useBillingAccess } from "~/auth/billing-context";
 import { useSetSettingValue } from "~/settings/queries";
@@ -30,9 +31,6 @@ const APP_ICON_OPTIONS = [
   "typewriter-key",
   "walnut",
 ] as const satisfies readonly AppIconPreference[];
-
-const PREVIEW_CLASS =
-  "size-16 scale-[1.16] transition-transform duration-150 select-none group-hover:scale-[1.21]";
 
 export function AppIconSelector() {
   const { t } = useLingui();
@@ -70,19 +68,19 @@ export function AppIconSelector() {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section {...stylex.props(styles.section)}>
       <div>
-        <h3 className="text-lg font-semibold">
+        <h3 {...stylex.props(styles.heading)}>
           <Trans>App icon</Trans>
         </h3>
-        <p className="text-muted-foreground mt-1 text-sm">
+        <p {...stylex.props(styles.description)}>
           <Trans>Choose how Anarlog appears in the Dock.</Trans>
         </p>
       </div>
       <div
         role="radiogroup"
         aria-label={t`App icon`}
-        className="flex flex-wrap gap-3"
+        {...stylex.props(styles.options)}
       >
         {options.map((option) => {
           const selected =
@@ -101,12 +99,10 @@ export function AppIconSelector() {
               aria-label={labels[option]}
               title={labels[option]}
               disabled={locked && billing.isUpgradingToPro}
-              className={cn([
-                "group text-foreground focus-visible:ring-ring focus-visible:ring-offset-background relative flex cursor-pointer items-center justify-center rounded-[22px] border bg-transparent p-0.5 transition-[border-color,scale] duration-150 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98] disabled:cursor-wait",
-                selected
-                  ? "border-transparent"
-                  : "border-border hover:border-foreground/30",
-              ])}
+              {...stylex.props(
+                styles.option,
+                selected ? styles.selectedOption : styles.unselectedOption,
+              )}
               onClick={() => {
                 if (locked) {
                   billing.upgradeToPro();
@@ -119,19 +115,16 @@ export function AppIconSelector() {
             >
               <span
                 aria-hidden
-                className={cn([
-                  "pointer-events-none absolute inset-x-2.5 bottom-0 h-2 rounded-full",
-                  "bg-black/35 blur-[6px] dark:bg-white/25",
-                  "transition-opacity duration-150",
-                  selected ? "opacity-100" : "opacity-0",
-                ])}
+                {...stylex.props(
+                  styles.selectedShadow,
+                  selected ? styles.visible : styles.hidden,
+                )}
               />
               <span
-                className={cn([
-                  "flex size-16 overflow-hidden rounded-[18px]",
-                  "transition-transform duration-150",
-                  selected && "-translate-y-1",
-                ])}
+                {...stylex.props(
+                  styles.iconFrame,
+                  selected && styles.selectedIconFrame,
+                )}
               >
                 {theme === "system" && hasDarkVariant ? (
                   <picture>
@@ -143,7 +136,7 @@ export function AppIconSelector() {
                       src={`/assets/app-icons/${previewName}-light.png`}
                       alt=""
                       draggable={false}
-                      className={PREVIEW_CLASS}
+                      {...stylex.props(styles.preview)}
                     />
                   </picture>
                 ) : (
@@ -153,16 +146,22 @@ export function AppIconSelector() {
                     }.png`}
                     alt=""
                     draggable={false}
-                    className={PREVIEW_CLASS}
+                    {...stylex.props(styles.preview)}
                   />
                 )}
               </span>
               {locked ? (
-                <span className="bg-background border-border text-muted-foreground pointer-events-none absolute right-0.5 bottom-0.5 flex size-5 items-center justify-center rounded-full border shadow-sm">
+                <span {...stylex.props(styles.lockBadge)}>
                   {billing.isUpgradingToPro ? (
-                    <CircleNotch className="size-3 animate-spin" aria-hidden />
+                    <CircleNotch
+                      {...stylex.props(styles.spinner)}
+                      aria-hidden
+                    />
                   ) : (
-                    <LockSimple className="size-3" aria-hidden />
+                    <LockSimple
+                      {...stylex.props(styles.lockIcon)}
+                      aria-hidden
+                    />
                   )}
                 </span>
               ) : null}
@@ -173,3 +172,151 @@ export function AppIconSelector() {
     </section>
   );
 }
+
+const previewVars = stylex.defineVars({
+  scale: "scale(1.16)",
+});
+
+const spin = stylex.keyframes({
+  to: { transform: "rotate(360deg)" },
+});
+
+const styles = stylex.create({
+  description: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    marginTop: "0.25rem",
+  },
+  heading: {
+    fontSize: "1.125rem",
+    fontWeight: 600,
+    lineHeight: "1.75rem",
+  },
+  hidden: {
+    opacity: 0,
+  },
+  iconFrame: {
+    borderRadius: "18px",
+    display: "flex",
+    height: "4rem",
+    overflow: "hidden",
+    transform: "translateY(0)",
+    transitionDuration: "150ms",
+    transitionProperty: "transform",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+    width: "4rem",
+  },
+  lockBadge: {
+    alignItems: "center",
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: radii.full,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    bottom: "0.125rem",
+    boxShadow: shadows.sm,
+    color: colors.mutedForeground,
+    display: "flex",
+    height: "1.25rem",
+    justifyContent: "center",
+    pointerEvents: "none",
+    position: "absolute",
+    right: "0.125rem",
+    width: "1.25rem",
+  },
+  lockIcon: {
+    height: "0.75rem",
+    width: "0.75rem",
+  },
+  option: {
+    [previewVars.scale]: {
+      default: "scale(1.16)",
+      ":hover": "scale(1.21)",
+    },
+    alignItems: "center",
+    backgroundColor: "transparent",
+    borderRadius: "22px",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow: {
+      default: null,
+      ":focus-visible": `0 0 0 2px ${colors.background}, 0 0 0 4px ${colors.ring}`,
+    },
+    color: colors.foreground,
+    cursor: {
+      default: "pointer",
+      ":disabled": "wait",
+    },
+    display: "flex",
+    justifyContent: "center",
+    padding: "0.125rem",
+    position: "relative",
+    transform: {
+      default: "scale(1)",
+      ":active": "scale(0.98)",
+    },
+    transitionDuration: "150ms",
+    transitionProperty: "border-color, scale",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+  },
+  options: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "0.75rem",
+  },
+  preview: {
+    height: "4rem",
+    transform: previewVars.scale,
+    transitionDuration: "150ms",
+    transitionProperty: "transform",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+    userSelect: "none",
+    width: "4rem",
+  },
+  section: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
+  },
+  selectedIconFrame: {
+    transform: "translateY(-0.25rem)",
+  },
+  selectedOption: {
+    borderColor: "transparent",
+  },
+  selectedShadow: {
+    backgroundColor: {
+      default: "rgb(0 0 0 / 0.35)",
+      ":is(.dark *)": "rgb(255 255 255 / 0.25)",
+    },
+    borderRadius: radii.full,
+    bottom: 0,
+    filter: "blur(6px)",
+    height: "0.5rem",
+    left: "0.625rem",
+    pointerEvents: "none",
+    position: "absolute",
+    right: "0.625rem",
+    transitionDuration: "150ms",
+    transitionProperty: "opacity",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+  },
+  spinner: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+    height: "0.75rem",
+    width: "0.75rem",
+  },
+  unselectedOption: {
+    borderColor: {
+      default: colors.border,
+      ":hover": `color-mix(in oklab, ${colors.foreground} 30%, transparent)`,
+    },
+  },
+  visible: {
+    opacity: 1,
+  },
+});

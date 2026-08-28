@@ -1,15 +1,16 @@
 import { ArrowClockwise } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { useEffect, useState, type ReactNode } from "react";
 
+import { colors } from "@anlg/design-system/tokens.stylex";
 import {
   getStartupStatus,
   waitUntilReady,
   type StartupStatus,
 } from "@anlg/plugin-db";
 import { Button } from "@anlg/ui/components/ui/button";
-import { cn } from "@anlg/utils";
 
 import { BrandLoadingView } from "./brand-loading-view";
 
@@ -119,24 +120,19 @@ function StartupErrorView({ error }: { error: Error }) {
   };
 
   return (
-    <div
-      data-tauri-drag-region
-      className={cn([
-        "bg-background flex h-screen w-screen items-center justify-center p-6",
-      ])}
-    >
-      <div className="flex max-w-sm flex-col items-center gap-4 text-center">
-        <h1 className="text-foreground text-base font-semibold">
+    <div data-tauri-drag-region {...stylex.props(styles.errorRoot)}>
+      <div {...stylex.props(styles.errorContent)}>
+        <h1 {...stylex.props(styles.errorTitle)}>
           {needsUpdate ? "Anarlog needs an update" : "Anarlog could not start"}
         </h1>
-        <p className="text-muted-foreground text-sm leading-relaxed">
+        <p {...stylex.props(styles.errorDescription)}>
           {needsUpdate
             ? "Your data was created by a newer version of Anarlog, and this older version cannot open it. Your existing data was left unchanged. Please install the latest version of Anarlog."
             : "Your existing data was left unchanged. Please restart the app. If the problem continues, contact support."}
         </p>
         {needsUpdate ? null : (
           <Button size="sm" onClick={() => void handleRestart()}>
-            <ArrowClockwise className="mr-1.5 h-3.5 w-3.5" />
+            <ArrowClockwise {...stylex.props(styles.buttonIcon)} />
             Restart App
           </Button>
         )}
@@ -144,3 +140,38 @@ function StartupErrorView({ error }: { error: Error }) {
     </div>
   );
 }
+
+const styles = stylex.create({
+  buttonIcon: {
+    height: "0.875rem",
+    marginRight: "0.375rem",
+    width: "0.875rem",
+  },
+  errorContent: {
+    alignItems: "center",
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
+    maxWidth: "24rem",
+    textAlign: "center",
+  },
+  errorDescription: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    lineHeight: 1.625,
+  },
+  errorRoot: {
+    alignItems: "center",
+    backgroundColor: colors.background,
+    display: "flex",
+    height: "100vh",
+    justifyContent: "center",
+    padding: "1.5rem",
+    width: "100vw",
+  },
+  errorTitle: {
+    color: colors.foreground,
+    fontSize: "1rem",
+    fontWeight: 600,
+  },
+});

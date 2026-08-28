@@ -1,4 +1,6 @@
-import { cn } from "@anlg/utils";
+import * as stylex from "@stylexjs/stylex";
+
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 
 import { displayPath } from "./path-utils";
 
@@ -18,34 +20,87 @@ export function ObsidianVaultList({
   if (vaults.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <p className="text-muted-foreground text-xs font-medium">
-        Detected Obsidian vaults
-      </p>
+    <div {...stylex.props(styles.list)}>
+      <p {...stylex.props(styles.heading)}>Detected Obsidian vaults</p>
       {vaults.map((vault) => (
         <button
           key={vault.path}
           disabled={disabled}
           onClick={() => onSelect(vault.path)}
-          className={cn([
-            "border-border bg-muted text-muted-foreground hover:border-border hover:bg-accent flex items-center gap-2 rounded-full border px-3 py-2 text-left text-sm transition-colors disabled:opacity-50",
-          ])}
+          {...stylex.props(styles.vault)}
         >
           <img
             src="/assets/obsidian-icon.svg"
-            className="size-4 shrink-0"
+            {...stylex.props(styles.icon)}
             aria-hidden="true"
           />
-          <span className="min-w-0 flex-1 truncate">
+          <span {...stylex.props(styles.path)}>
             {displayPath(vault.path, home)}
           </span>
           {actionLabel && (
-            <span className="text-muted-foreground shrink-0 text-xs">
-              {actionLabel}
-            </span>
+            <span {...stylex.props(styles.action)}>{actionLabel}</span>
           )}
         </button>
       ))}
     </div>
   );
 }
+
+const styles = stylex.create({
+  action: {
+    color: colors.mutedForeground,
+    flexShrink: 0,
+    fontSize: "0.75rem",
+    lineHeight: "1rem",
+  },
+  heading: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    fontWeight: 500,
+    lineHeight: "1rem",
+  },
+  icon: {
+    flexShrink: 0,
+    height: "1rem",
+    width: "1rem",
+  },
+  list: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.375rem",
+  },
+  path: {
+    flex: 1,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  vault: {
+    alignItems: "center",
+    backgroundColor: {
+      default: colors.muted,
+      ":hover": colors.accent,
+    },
+    borderColor: colors.border,
+    borderRadius: radii.full,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    color: colors.mutedForeground,
+    display: "flex",
+    fontSize: "0.875rem",
+    gap: "0.5rem",
+    lineHeight: "1.25rem",
+    opacity: {
+      default: 1,
+      ":disabled": 0.5,
+    },
+    paddingBlock: "0.5rem",
+    paddingInline: "0.75rem",
+    textAlign: "left",
+    transitionDuration: "150ms",
+    transitionProperty:
+      "color, background-color, border-color, text-decoration-color, fill, stroke",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+  },
+});

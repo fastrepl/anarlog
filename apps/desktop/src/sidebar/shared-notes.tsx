@@ -1,8 +1,9 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Users } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useMemo } from "react";
 
-import { cn } from "@anlg/utils";
+import { colors, radii, spacing } from "@anlg/design-system/tokens.stylex";
 
 import { useAuth } from "~/auth";
 import { useSessionSummaries } from "~/session/queries";
@@ -24,10 +25,10 @@ export function SharedNotesNav() {
   const openCurrent = useTabs((state) => state.openCurrent);
 
   return (
-    <div className="h-full overflow-y-auto pt-2">
+    <div {...stylex.props(styles.root)}>
       <div>
         {notes.length === 0 ? (
-          <div className="text-muted-foreground px-2 py-6 text-center text-sm">
+          <div {...stylex.props(styles.empty)}>
             <Trans>No shared notes</Trans>
           </div>
         ) : null}
@@ -46,19 +47,17 @@ export function SharedNotesNav() {
                   id: note.shareId,
                 })
               }
-              className={cn([
-                "flex w-full min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-left text-sm",
-                selected
-                  ? "bg-accent text-accent-foreground"
-                  : "hover:bg-accent/50",
-              ])}
+              {...stylex.props(
+                styles.note,
+                selected ? styles.noteSelected : styles.noteIdle,
+              )}
             >
-              <span className="min-w-0 flex-1 truncate">
+              <span {...stylex.props(styles.title)}>
                 {note.title || t`Untitled`}
               </span>
               <Users
                 aria-label={t`Shared note`}
-                className="text-muted-foreground size-3.5 shrink-0"
+                {...stylex.props(styles.icon)}
               />
             </button>
           );
@@ -67,3 +66,53 @@ export function SharedNotesNav() {
     </div>
   );
 }
+
+const styles = stylex.create({
+  empty: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    paddingBlock: spacing.xl,
+    paddingInline: spacing.sm,
+    textAlign: "center",
+  },
+  icon: {
+    color: colors.mutedForeground,
+    flexShrink: 0,
+    height: "0.875rem",
+    width: "0.875rem",
+  },
+  note: {
+    alignItems: "center",
+    borderRadius: radii.lg,
+    display: "flex",
+    fontSize: "0.875rem",
+    gap: spacing.sm,
+    minWidth: 0,
+    paddingBlock: spacing.sm,
+    paddingInline: spacing.md,
+    textAlign: "left",
+    width: "100%",
+  },
+  noteIdle: {
+    backgroundColor: {
+      default: null,
+      ":hover": `color-mix(in oklab, ${colors.accent} 50%, transparent)`,
+    },
+  },
+  noteSelected: {
+    backgroundColor: colors.accent,
+    color: colors.accentForeground,
+  },
+  root: {
+    height: "100%",
+    overflowY: "auto",
+    paddingTop: spacing.sm,
+  },
+  title: {
+    flex: 1,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+});

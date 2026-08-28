@@ -1,7 +1,9 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { DotsThree, MinusCircle, PushPin, Trash } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { type ReactNode } from "react";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
@@ -11,7 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
-import { cn } from "@anlg/utils";
 
 export function ContactPageHeader({
   title,
@@ -33,46 +34,34 @@ export function ContactPageHeader({
   const { t } = useLingui();
 
   return (
-    <div
-      data-tauri-drag-region
-      className="flex h-12 shrink-0 items-center justify-between gap-3 pr-1 pl-3"
-    >
-      <div className="flex min-w-0 flex-1 items-center gap-2">
+    <div data-tauri-drag-region {...stylex.props(styles.header)}>
+      <div {...stylex.props(styles.identity)}>
         {showCompactIdentity && compactIdentity}
-        <h2 className="min-w-0 truncate text-sm font-semibold">{title}</h2>
+        <h2 {...stylex.props(styles.title)}>{title}</h2>
       </div>
-      <div
-        data-tauri-drag-region="false"
-        className="flex shrink-0 items-center"
-      >
+      <div data-tauri-drag-region="false" {...stylex.props(styles.actions)}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               size="icon"
               variant="ghost"
               data-tauri-drag-region="false"
-              className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-full"
+              sx={styles.optionsButton}
               aria-label={t`Contact options`}
             >
               <DotsThree size={16} />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent variant="app" align="end" className="w-48">
-            <AppFloatingPanel className="overflow-hidden p-1">
-              <DropdownMenuItem
-                onClick={onTogglePin}
-                className="cursor-pointer"
-              >
+          <DropdownMenuContent variant="app" align="end" sx={styles.menu}>
+            <AppFloatingPanel sx={styles.menuPanel}>
+              <DropdownMenuItem onClick={onTogglePin} sx={styles.menuItem}>
                 <PushPin weight={pinned ? "fill" : "regular"} />
                 <span>
                   {pinned ? <Trans>Unpin</Trans> : <Trans>Pin</Trans>}
                 </span>
               </DropdownMenuItem>
               {onRemoveAvatar && (
-                <DropdownMenuItem
-                  onClick={onRemoveAvatar}
-                  className="cursor-pointer"
-                >
+                <DropdownMenuItem onClick={onRemoveAvatar} sx={styles.menuItem}>
                   <MinusCircle />
                   <span>
                     <Trans>Remove photo</Trans>
@@ -82,10 +71,7 @@ export function ContactPageHeader({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={onDelete}
-                className={cn([
-                  "cursor-pointer text-red-600 dark:text-red-400",
-                  "hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/50 dark:hover:text-red-300",
-                ])}
+                sx={[styles.menuItem, styles.deleteItem]}
               >
                 <Trash />
                 <span>
@@ -99,3 +85,71 @@ export function ContactPageHeader({
     </div>
   );
 }
+
+const styles = stylex.create({
+  actions: {
+    alignItems: "center",
+    display: "flex",
+    flexShrink: 0,
+  },
+  deleteItem: {
+    backgroundColor: {
+      default: "transparent",
+      ":hover": "rgb(254 242 242)",
+      ":is(.dark *):hover": "rgb(69 10 10 / 0.5)",
+    },
+    color: {
+      default: "rgb(220 38 38)",
+      ":hover": "rgb(185 28 28)",
+      ":is(.dark *)": "rgb(248 113 113)",
+      ":is(.dark *):hover": "rgb(252 165 165)",
+    },
+  },
+  header: {
+    alignItems: "center",
+    display: "flex",
+    flexShrink: 0,
+    gap: "0.75rem",
+    height: "3rem",
+    justifyContent: "space-between",
+    paddingLeft: "0.75rem",
+    paddingRight: "0.25rem",
+  },
+  identity: {
+    alignItems: "center",
+    display: "flex",
+    flex: 1,
+    gap: "0.5rem",
+    minWidth: 0,
+  },
+  menu: {
+    width: "12rem",
+  },
+  menuItem: {
+    cursor: "pointer",
+  },
+  menuPanel: {
+    overflow: "hidden",
+    padding: "0.25rem",
+  },
+  optionsButton: {
+    backgroundColor: {
+      default: "transparent",
+      ":hover": colors.accent,
+    },
+    borderRadius: radii.full,
+    color: {
+      default: colors.mutedForeground,
+      ":hover": colors.foreground,
+    },
+  },
+  title: {
+    fontSize: "0.875rem",
+    fontWeight: 600,
+    lineHeight: "1.25rem",
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+});
