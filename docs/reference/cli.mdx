@@ -17,7 +17,7 @@ anarlog [--base DIR] [--db-path FILE] [--json] <command>
 
 `--db-path` takes precedence over `--base`. Without either option, the CLI uses Anarlog's platform application-data directory and recognized legacy locations.
 
-The Linux desktop package exposes the bundled command as `anarlog-cli`. Substitute `anarlog-cli` for `anarlog` in the examples below when using that package.
+On Flatpak, the host command is `anarlog-cli`. On DEB, AppImage, macOS, Windows, and Settings-installed builds, the command is `anarlog`. Substitute `anarlog-cli` only when that is the command on your PATH.
 
 ## Account commands
 
@@ -29,7 +29,9 @@ anarlog auth logout
 
 `auth login` prints a URL that can be opened in any browser, including one on another device. Sign in, choose **Copy URL** on the completion page, then paste the `anarlog://auth/callback` link into the hidden CLI prompt. The CLI verifies the session with Anarlog before saving it in the same local auth store as the desktop app.
 
-On Linux, the CLI uses Secret Service when it is available. Headless systems without Secret Service fall back to `auth.cli.json` in Anarlog's local application-data directory with permissions limited to the current user. The desktop app reconciles that file into Secret Service when it becomes available. `auth logout` removes the local session; it does not delete the Anarlog account.
+With `--json`, the login URL and instructions are printed to stderr. The callback URL is read from stdin. JSON appears on stdout only after login completes.
+
+On Linux, the CLI uses Secret Service when it is available. Headless systems without Secret Service fall back to `auth.cli.json` in Anarlog's local application-data directory with permissions limited to the current user. The desktop app reconciles that file into Secret Service when it becomes available. On Windows, the CLI stores sessions with DPAPI in the desktop app's secure auth file. `auth logout` removes the local session; it does not delete the Anarlog account.
 
 `auth status` reports the signed-in account and whether the current access token has expired. The stored refresh token lets the desktop app refresh an expired access token when it starts.
 
@@ -82,7 +84,7 @@ Checks the resolved database path, read-only access, and required schema without
 anarlog mcp
 ```
 
-Starts the read-only MCP server over stdio. Do not write other output to the server's stdout.
+Starts the local MCP server over stdio. Meeting reads are idempotent. Proposal tools stage or decline pending edits without applying them to the meeting. Do not write other output to the server's stdout.
 
 ## Help and version
 

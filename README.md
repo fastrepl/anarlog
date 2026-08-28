@@ -71,8 +71,8 @@ anarlog keeps audio transcription separate from the language model used for summ
 
 | Stage | App setting | Anarlog Cloud | Local or bring your own |
 | --- | --- | --- | --- |
-| Audio → transcript | **Transcription** | A managed route chooses by language and live or batch mode. Current primary paths include Deepgram Nova and Soniox 5. | Soniqo or Apple Speech when available, or your selected transcription provider and model |
-| Transcript + memo → summary, title, or chat | **Intelligence** | Auto currently uses the latest Claude Sonnet alias through OpenRouter. | Your selected API, subscription, OpenAI-compatible server, or eligible Apple Intelligence |
+| Audio → transcript | **Transcription** | Managed **Pro (Cloud)** chooses by language and live or batch mode. Current primary paths include Deepgram Nova, Soniox 5, and AssemblyAI Universal 3.5. | Soniqo or Apple Speech when available, or your selected transcription provider and model |
+| Transcript + memo → summary, title, or chat | **Intelligence** | Managed **Auto** (also shown as Pro (Cloud)) currently uses the latest Claude Sonnet alias through OpenRouter. | Your selected API, subscription, OpenAI-compatible server, or eligible Apple Intelligence |
 
 The active provider and model are always visible under **Settings → Transcription** and **Settings → Intelligence**. Read [Models and providers](https://docs.anarlog.so/models-and-providers) for the current routes, local model list, and privacy boundaries.
 

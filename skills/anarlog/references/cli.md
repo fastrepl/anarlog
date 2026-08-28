@@ -2,7 +2,7 @@
 
 Use `--json` for agent-readable output.
 
-Linux desktop packages install this command as `anarlog-cli`; use that name instead of `anarlog` in the examples when necessary.
+Linux Flatpak installs this command as `anarlog-cli`; use that name instead of `anarlog` in the examples when that is the command on PATH.
 
 Account authentication works on headless systems:
 
@@ -14,7 +14,7 @@ anarlog auth logout
 
 For `auth login`, give the printed URL to the user. They may open it on another device, sign in, choose **Copy URL**, and paste the resulting `anarlog://auth/callback` link into the hidden prompt. Never ask the user to paste that callback link into chat or expose it in command arguments because it contains account tokens.
 
-On Linux, sessions use Secret Service when available and otherwise use the desktop-compatible local auth file with mode `0600`.
+On Linux, sessions use Secret Service when available and otherwise use the desktop-compatible local auth file with mode `0600`. With `--json`, `auth login` prints the URL to stderr and reads the callback from stdin.
 
 ```bash
 anarlog --json doctor

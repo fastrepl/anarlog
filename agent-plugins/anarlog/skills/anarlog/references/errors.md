@@ -18,6 +18,6 @@ Choose a new path. Pass `--force` only when the user explicitly approves replaci
 
 ## MCP server exits
 
-Run `anarlog --json meetings list` to distinguish database access from client configuration. Confirm the MCP command is `anarlog` and its only required argument is `mcp`.
+Run `anarlog --json meetings list` to distinguish database access from client configuration. Confirm the MCP command is `anarlog` and its only required argument is `mcp`. Missing meetings and proposals are invalid parameters. Validation and conflict failures, including declining a non-pending proposal, are internal MCP errors.
 
 With `--json`, errors contain `schema_version` and an `error` object with `code`, `message`, and `exit_code`. CLI exit codes are `1` for an operation failure, `2` for missing data, `3` for a missing database, and `4` for an existing export target. Invalid CLI arguments use Clap's exit code and the `invalid_arguments` error code.

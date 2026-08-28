@@ -32,9 +32,10 @@ Use `meetings get` when participants or action items matter. Use `meetings note`
 anarlog --json proposals create --meeting MEETING_ID --kind summary --content "Replacement markdown"
 anarlog --json proposals list --meeting MEETING_ID
 anarlog --json proposals show PROPOSAL_ID
+anarlog --json proposals decline PROPOSAL_ID
 ```
 
-The create command returns a pending proposal. Do not claim the meeting changed. Open the meeting in the desktop app to apply or decline it.
+The create command returns a pending proposal. Do not claim the meeting changed. Open the meeting in the desktop app to apply it, or decline it from the CLI or desktop app. Only pending proposals can be declined.
 
 ## Transcripts
 

@@ -15,6 +15,6 @@ Without `--json`, CLI errors are written to standard error as human-readable tex
 
 Invalid arguments use the `invalid_arguments` error code with Clap's nonzero exit code.
 
-MCP reports missing meetings as invalid parameters. Database and serialization failures are internal MCP errors.
+MCP maps missing meetings and proposals to invalid parameters. Validation and conflict failures—such as empty proposal content, multiple summaries without `target_id`, or declining a non-pending proposal—are reported as internal MCP errors. Database and serialization failures are also internal errors.
 
 Do not recover by creating tables, running migrations, or issuing SQL. The desktop app owns schema initialization and migrations.

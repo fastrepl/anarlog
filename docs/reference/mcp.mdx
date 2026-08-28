@@ -32,7 +32,7 @@ The result includes `meeting_id`, `text`, `words`, and a `pagination` object. Pa
 
 ### `get_recurring_meeting_history`
 
-Accepts required string `meeting_id` plus optional integer `limit` and `offset`. The limit defaults to 20 and is clamped to `1..200`; the offset defaults to 0.
+Accepts required string `meeting_id` plus optional integer `limit` and `offset`. The limit defaults to 20 and is clamped to `1..200`; the offset defaults to 0. Results are newest first. When the meeting has no recurring series, `meetings` is empty.
 
 ### `propose_summary_edit`
 
@@ -51,7 +51,7 @@ The result is a pending proposal. It does not change the meeting until a human a
 | `meeting_id` | string | required | A returned Anarlog meeting ID. |
 | `content` | string | required | Complete replacement memo in markdown. |
 
-The result is a pending proposal. It does not change the meeting until a human applies it in the desktop app.
+The result is a pending proposal. It does not change the meeting until a human applies it in the desktop app. `content` replaces the canonical meeting memo.
 
 ### `list_proposals`
 
@@ -68,14 +68,14 @@ Accepts required string `proposal_id`. Returns metadata and a unified `diff`.
 
 ### `decline_proposal`
 
-Accepts required string `proposal_id`. Marks a pending proposal declined without changing the meeting.
+Accepts required string `proposal_id`. Marks a pending proposal declined without changing the meeting. Applied or already-declined proposals cannot be declined.
 
 ## Resources
 
 | URI | MIME type | Content |
 | --- | --- | --- |
 | `anarlog://meetings/{meeting_id}` | `text/markdown` | Meeting detail without transcript text. |
-| `anarlog://meetings/{meeting_id}/transcript{?offset,limit}` | `text/plain` | A bounded transcript page. |
+| `anarlog://meetings/{meeting_id}/transcript{?offset,limit}` | `text/plain` | A bounded transcript page. `offset` defaults to 0 and `limit` defaults to 200 (clamped to 500 words). Returns plain text only; use `get_meeting_transcript` for structured `words`. |
 | `anarlog://series/{series_id}` | `text/markdown` | Up to 100 meetings in a recurring series. |
 
 Resource listing returns recent meeting resources in pages of 20. Its cursor is a numeric result offset.

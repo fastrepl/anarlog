@@ -11,6 +11,8 @@ Open **Settings → Meetings** and enable **Start when meeting begins**.
 
 When a calendar-backed note reaches its scheduled start time, Anarlog starts listening. This setting does not apply to ordinary notes without a calendar event.
 
+Enable **Join scheduled meetings** on the same page to open the meeting link when listening starts. That toggle stays disabled until **Start when meeting begins** is on.
+
 Keep Anarlog running and make sure microphone and system-audio access are allowed. See [Connect a calendar](/calendar) if your events are not visible.
 
 ## Detect unscheduled calls
@@ -19,13 +21,22 @@ Open **Settings → Notifications** and enable **Microphone detection**. Anarlog
 
 Microphone detection is a reminder; it does not start recording by itself. Choose a detection delay from 5 seconds to 2 minutes, and exclude apps that should not trigger a meeting prompt.
 
-Accessibility permission is required to detect meeting apps and synchronize mute state. You can manage it under **Settings → Permissions**.
+Microphone detection is available on macOS and Linux. On macOS, Accessibility permission is required to detect meeting apps and synchronize mute state; manage it under **Settings → Permissions**. On Linux, enable the meeting toggles under **Settings → Meetings** and allow assistive-technology access for the desktop session when prompted.
 
 ## Stop when the call ends
 
 Under **Settings → Meetings**, enable **Stop when meeting ends**. Anarlog stops listening when the meeting app releases the microphone.
 
-If you switch audio devices or use an app with unusual microphone behavior, check that the recording is still active before closing the meeting.
+This control is available on macOS and Linux. If you switch audio devices or use an app with unusual microphone behavior, check that the recording is still active before closing the meeting.
+
+## Capture meeting chat
+
+On macOS and Linux, **Settings → Meetings** also includes:
+
+- **Post recording disclosure in meeting chat**, which tells participants when listening starts. This does not confirm consent.
+- **Capture meeting chat in Memos**, which saves visible chat from supported meetings. On macOS this uses Accessibility; on Linux it uses assistive-technology access.
+
+These features are not available on Windows.
 
 ## Keep controls nearby
 

@@ -13,13 +13,26 @@ The `anarlog` executable includes both the CLI and the local MCP server.
 
 ## Install from the desktop app
 
-On macOS, open **Settings → Developers** and select **Install**. Anarlog copies its bundled CLI to `~/.local/bin/anarlog`.
+Open **Settings → Developers** and select **Install** (or **Reinstall**). Direct-download desktop builds copy the bundled CLI onto your PATH.
 
-If your shell cannot find `anarlog`, add `~/.local/bin` to `PATH`:
+| Platform | Installed command | Path |
+| --- | --- | --- |
+| macOS | `anarlog` | `~/.local/bin/anarlog` |
+| Linux (DEB / AppImage) | `anarlog` | `~/.local/bin/anarlog` |
+| Linux (Flatpak) | `anarlog-cli` | Preinstalled host wrapper; Settings install is optional |
+| Windows | `anarlog` | `%LOCALAPPDATA%\Anarlog\bin\anarlog.exe` (added to your user PATH) |
+
+On macOS and Linux, add `~/.local/bin` to `PATH` if your shell cannot find `anarlog`:
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 ```
+
+On Windows, open a new terminal after installing so the PATH update applies.
+
+<Note>
+  The Mac App Store build does not include bundled CLI installation. Use [build from source](#build-from-source) instead.
+</Note>
 
 ## Build from source
 

@@ -8,7 +8,7 @@ Anarlog does not hide one model behind the whole app. It keeps two independent s
 - **Transcription** turns meeting audio into text.
 - **Intelligence** turns text into summaries, titles, and chat responses.
 
-Open **Settings → Transcription** and **Settings → Intelligence** to see the selection active on your computer. Changing one selection does not change the other. For managed **Cloud** and **Auto** selections, this page explains the current upstream route.
+Open **Settings → Transcription** and **Settings → Intelligence** to see the selection active on your computer. Changing one selection does not change the other. For managed **Pro (Cloud)** and **Auto** selections, this page explains the current upstream route.
 
 ## How a meeting moves through AI
 
@@ -22,7 +22,7 @@ Recording, editing, and local storage do not require an AI model. A hosted Trans
 
 ## Anarlog Cloud
 
-Anarlog Cloud uses managed routes. The **Cloud** and **Auto** labels let Anarlog choose a suitable upstream model and retry a compatible provider when needed.
+Anarlog Cloud uses managed routes. Settings displays the managed selection as **Pro (Cloud)**. Transcription uses that Cloud route. Intelligence uses **Auto**, which Settings also displays as Pro (Cloud). Either selection lets Anarlog choose a suitable upstream model and retry a compatible provider when needed.
 
 <Note>
   The routes below describe the current implementation, not a permanently pinned model contract. Anarlog may update a managed route to improve quality, language coverage, latency, or availability. Select your own provider and model when you need a fixed model ID.
@@ -34,8 +34,9 @@ The managed Transcription route chooses a provider from the meeting's languages 
 
 - Deepgram currently resolves the route to **Nova 3** or **Nova 2**, depending on language support.
 - Soniox currently resolves it to **Soniox 5**: `stt-rt-v5` for live transcription and `stt-async-v5` after recording.
+- AssemblyAI currently resolves it to **Universal 3.5 Pro** (`universal-3-5-pro`) for live and after-recording transcription.
 - After-recording transcription prefers Soniox when it supports the selected languages.
-- The eligible fallback pool also includes configured routes for AssemblyAI, Gladia, ElevenLabs, Fireworks, OpenAI, Mistral, and Alibaba Cloud Model Studio.
+- The eligible fallback pool also includes configured routes for Gladia (currently **Solaria 1**), ElevenLabs, Fireworks, OpenAI, Mistral, and Alibaba Cloud Model Studio.
 
 Only configured providers that support the requested mode and languages enter the route. If one returns a retryable error, Anarlog can try the next eligible provider.
 
@@ -61,7 +62,7 @@ Anarlog currently offers two built-in on-device Transcription providers. Setting
 | --- | --- | --- | --- |
 | Soniqo | Parakeet Streaming | During the meeting | Apple Silicon; live transcription for 25 European languages |
 | Soniqo | Parakeet Batch | After recording | Apple Silicon; speaker-labeled transcription for 25 European languages |
-| Apple Speech | Apple Speech | During the meeting | macOS 26 with a supported language added in System Settings |
+| Apple Speech | Apple Speech | During the meeting | macOS 26 with a supported language added in System Settings. Live transcription uses one language at a time from German, English, Spanish, French, Italian, Japanese, Korean, Portuguese, Cantonese, or Chinese. |
 
 <Note>
   Compatibility code still recognizes some older local model IDs, but they are not offered as new choices. The table above is the current user-facing model list.
@@ -95,6 +96,15 @@ When you configure a provider with your own API key:
 - The provider's pricing, retention, and training policies apply.
 
 Anarlog supports dedicated provider integrations and OpenAI-compatible endpoints. Intelligence model lists are loaded from the provider when its API supports discovery, so **Settings → Intelligence** is the current source of truth for available model IDs.
+
+You can also connect a subscription for Intelligence instead of an API key: **Claude**, **ChatGPT**, **Grok**, **GitHub Copilot**, or **Kimi Code**. Open **Settings → Intelligence → Configure Providers** and use **Connect**.
+
+Recent bring-your-own Transcription models in Settings include:
+
+- **Google Gemini 3.5 Transcribe** (`gemini-3.5-transcribe-live` during the meeting, `gemini-3.5-transcribe` after recording)
+- **AssemblyAI Universal 3.5 Pro** (`universal-3-5-pro-realtime` during the meeting, `universal-3-5-pro` after recording)
+
+Settings may still show older model IDs for compatibility. Prefer the current Gemini 3.5, Universal 3.5, Soniox 5, and GPT Transcribe models when you configure a provider yourself.
 
 ## Choose a setup
 

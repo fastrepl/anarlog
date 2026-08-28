@@ -22,7 +22,7 @@ Use this generic MCP configuration:
 }
 ```
 
-If `anarlog` is not on the client's `PATH`, use the executable's absolute path as `command`. Restart the client after changing its configuration.
+If `anarlog` is not on the client's `PATH`, use the executable's absolute path as `command`. On Flatpak, substitute `anarlog-cli` for `anarlog`. Restart the client after changing its configuration.
 
 For a custom database path:
 
@@ -45,7 +45,9 @@ Transcript pages default to 200 words and cap at 500. Follow `pagination.next_of
 
 Use `get_recurring_meeting_history` with a known meeting ID when a task depends on earlier meetings in the same series.
 
-To persist an edit, call `propose_summary_edit` or `propose_memo_edit`. The tool returns a pending proposal. Do not claim the meeting changed. Use `list_proposals` and `get_proposal` to inspect staged work. `decline_proposal` discards a pending proposal.
+To persist an edit, call `propose_summary_edit` or `propose_memo_edit`. The tool returns a pending proposal. Do not claim the meeting changed. Use `list_proposals` and `get_proposal` to inspect staged work. `decline_proposal` discards a pending proposal; applied or already-declined proposals cannot be declined.
+
+The server also exposes MCP resources (`anarlog://meetings/...`) for Markdown or plain-text context when the client prefers resources over tools.
 
 See the [MCP reference](/reference/mcp) for exact parameters and resources.
 
