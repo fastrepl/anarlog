@@ -1,7 +1,7 @@
 -- Keep the existing subscription hook intact and add the MCP audience in a
 -- narrow wrapper so normal Anarlog sessions retain their current audience.
 -- Idempotent so environments that already applied the later repair migrations
--- can still record this original version.
+-- can still record this version.
 DO $$
 BEGIN
   IF to_regprocedure('public.custom_access_token_hook_base(jsonb)') IS NULL THEN
