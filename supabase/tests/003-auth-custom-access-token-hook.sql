@@ -1,5 +1,5 @@
 begin;
-select plan(20);
+select plan(22);
 
 select tests.create_supabase_user('pro', 'pro@example.com');
 select tests.create_supabase_user('free', 'free@example.com');
@@ -77,6 +77,36 @@ select results_eq(
   $$,
   array['[]'::jsonb],
   'custom_access_token_hook sets entitlements=[] when no customer id'
+);
+
+select results_eq(
+  $$
+  select (
+    public.custom_access_token_hook(
+      jsonb_build_object(
+        'user_id', tests.get_supabase_uid('free')::text,
+        'claims', '{"aud":"authenticated"}'::jsonb
+      )
+    ) -> 'claims' -> 'aud'
+  )::jsonb
+  $$,
+  array['"authenticated"'::jsonb],
+  'custom_access_token_hook preserves the audience for normal user sessions'
+);
+
+select results_eq(
+  $$
+  select (
+    public.custom_access_token_hook(
+      jsonb_build_object(
+        'user_id', tests.get_supabase_uid('free')::text,
+        'claims', '{"aud":"authenticated","client_id":"oauth-client"}'::jsonb
+      )
+    ) -> 'claims' -> 'aud'
+  )::jsonb
+  $$,
+  array['["https://api.anarlog.so/mcp"]'::jsonb],
+  'custom_access_token_hook binds OAuth access tokens only to the hosted MCP resource'
 );
 
 select tests.create_supabase_user('other_entitlement', 'other@example.com');

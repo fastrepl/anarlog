@@ -11,8 +11,13 @@ on:
       - .github/workflows/api_cd.yaml
       - .github/workflows/api_ci.yaml
       - apps/api/**
+      - crates/agent-access/**
+      - crates/api-auth/**
+      - crates/api-cloud/**
       - crates/api-sync/**
       - crates/llm-proxy/**
+      - crates/mcp/**
+      - crates/supabase-auth/**
       - crates/transcribe-proxy/**
   pull_request:
     paths:
@@ -23,8 +28,13 @@ on:
       - .github/workflows/api_cd.yaml
       - .github/workflows/api_ci.yaml
       - apps/api/**
+      - crates/agent-access/**
+      - crates/api-auth/**
+      - crates/api-cloud/**
       - crates/api-sync/**
       - crates/llm-proxy/**
+      - crates/mcp/**
+      - crates/supabase-auth/**
       - crates/transcribe-proxy/**
 
 concurrency:
@@ -40,6 +50,10 @@ jobs:
         with:
           platform: linux
       - run: cargo check -p api
+      - run: cargo test -p api-cloud
+      - run: cargo test -p api-auth
+      - run: cargo test -p mcp
+      - run: cargo test -p supabase-auth --features server
       - run: cargo test -p api-sync
       - run: cargo test -p transcribe-proxy --lib
       - run: cargo test -p api drain_status_reports_live_streams_without_failing_health

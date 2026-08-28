@@ -1,5 +1,5 @@
 begin;
-select plan(15);
+select plan(18);
 
 select tests.create_supabase_user(
   'cloud_api_owner',
@@ -40,7 +40,7 @@ select ok(
 
 select ok(
   (
-    select count(*) = 10
+      select count(*) = 11
       and bool_and(has_function_privilege('service_role', proc.oid, 'EXECUTE'))
       and bool_and(
         not has_function_privilege('authenticated', proc.oid, 'EXECUTE')
@@ -60,7 +60,8 @@ select ok(
         'create_cloud_api_key',
         'list_cloud_api_keys',
         'revoke_cloud_api_key',
-        'verify_cloud_api_key'
+        'verify_cloud_api_key',
+        'verify_cloud_api_user'
       )
   ),
   'Only service code can execute Cloud API RPCs'
@@ -202,6 +203,18 @@ select results_eq(
   'An active Pro key verifies successfully'
 );
 
+select results_eq(
+  format(
+    $$
+      select status
+      from public.verify_cloud_api_user(%L::uuid)
+    $$,
+    tests.get_supabase_uid('cloud_api_owner')
+  ),
+  array['ok'::text],
+  'An opted-in Pro user verifies successfully for OAuth access'
+);
+
 select tests.clear_authentication();
 reset role;
 
@@ -217,6 +230,18 @@ select results_eq(
   $$,
   array['subscription_required'::text],
   'An expired Pro key returns subscription_required'
+);
+
+select results_eq(
+  format(
+    $$
+      select status
+      from public.verify_cloud_api_user(%L::uuid)
+    $$,
+    tests.get_supabase_uid('cloud_api_owner')
+  ),
+  array['subscription_required'::text],
+  'An expired Pro user returns subscription_required for OAuth access'
 );
 
 select results_eq(
@@ -266,6 +291,18 @@ select results_eq(
   $$,
   array['cloud_api_not_enabled'::text],
   'A valid key reports cloud_api_not_enabled after opt-out'
+);
+
+select results_eq(
+  format(
+    $$
+      select status
+      from public.verify_cloud_api_user(%L::uuid)
+    $$,
+    tests.get_supabase_uid('cloud_api_owner')
+  ),
+  array['cloud_api_not_enabled'::text],
+  'An opted-out user reports cloud_api_not_enabled for OAuth access'
 );
 
 select * from finish();

@@ -585,18 +585,51 @@ fn map_store_error(error: StoreError) -> CloudApiError {
 
 #[cfg(test)]
 mod tests {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
     use super::*;
     use axum::{
         body::{Body, to_bytes},
         http::Request,
         middleware,
     };
+    use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
     use sha2::{Digest, Sha256};
     use tower::ServiceExt;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
         matchers::{body_json, method, path},
     };
+
+    const TEST_KEY_ID: &str = "cloud-oauth-test";
+    const TEST_PRIVATE_KEY: &str = "-----BEGIN PRIVATE KEY-----\n\
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgWTFfCGljY6aw3Hrt\n\
+kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
+950IxEzvw/x5BMEINRMrXLBJhqzO9Bm+d6JbqA21YQmd1Kt4RzLJR1W+\n\
+-----END PRIVATE KEY-----";
+
+    fn oauth_token(issuer: &str, scope: &str) -> String {
+        let mut header = Header::new(Algorithm::ES256);
+        header.kid = Some(TEST_KEY_ID.to_string());
+        let expires_at = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            + 3_600;
+        encode(
+            &header,
+            &serde_json::json!({
+                "sub": "00000000-0000-0000-0000-000000000001",
+                "iss": issuer,
+                "aud": ["https://api.anarlog.so/mcp"],
+                "exp": expires_at,
+                "client_id": "chatgpt-client",
+                "scope": scope,
+            }),
+            &EncodingKey::from_ec_pem(TEST_PRIVATE_KEY.as_bytes()).unwrap(),
+        )
+        .unwrap()
+    }
 
     fn export() -> access::MeetingExport {
         access::MeetingExport {
@@ -645,26 +678,96 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn mcp_supports_stateless_tool_discovery_on_the_public_api_host() {
+        let server = MockServer::start().await;
+        let key = format!("anl_{}", "a".repeat(64));
+        let key_hash = Sha256::digest(key.as_bytes())
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/verify_cloud_api_key"))
+            .and(body_json(serde_json::json!({ "p_key_hash": key_hash })))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!([{
+                    "user_id": "00000000-0000-0000-0000-000000000001",
+                    "status": "ok",
+                }])),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+        let state =
+            AppState::new(crate::CloudApiConfig::new(server.uri(), "service-role-key").unwrap());
+        let app = connector_router(state.clone()).route_layer(middleware::from_fn_with_state(
+            state,
+            crate::require_cloud_connector_auth,
+        ));
+
+        let response = app
+            .oneshot(
+                Request::post("/mcp")
+                    .header("host", "api.anarlog.so")
+                    .header("authorization", format!("Bearer {key}"))
+                    .header("content-type", "application/json")
+                    .header("accept", "application/json, text/event-stream")
+                    .header("mcp-protocol-version", "2025-06-18")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "jsonrpc": "2.0",
+                            "id": 1,
+                            "method": "tools/list",
+                            "params": {},
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get("content-type").unwrap(),
+            "application/json"
+        );
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = serde_json::from_slice::<serde_json::Value>(&body).unwrap();
+        assert_eq!(body["result"]["tools"].as_array().unwrap().len(), 4);
+        assert!(
+            body["result"]["tools"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|tool| tool["name"] == "list_meetings")
+        );
+    }
+
+    #[tokio::test]
     async fn connector_routes_require_and_verify_cloud_api_keys() {
         let server = MockServer::start().await;
         let state =
             AppState::new(crate::CloudApiConfig::new(server.uri(), "service-role-key").unwrap());
         let app = connector_router(state.clone()).route_layer(middleware::from_fn_with_state(
             state.clone(),
-            crate::require_cloud_api_key,
+            crate::require_cloud_connector_auth,
         ));
 
         let unauthorized = app
             .clone()
-            .oneshot(
-                Request::builder()
-                    .uri("/v1/meetings")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
+            .oneshot(Request::builder().uri("/mcp").body(Body::empty()).unwrap())
             .await
             .unwrap();
         assert_eq!(unauthorized.status(), StatusCode::UNAUTHORIZED);
+        assert_eq!(
+            unauthorized
+                .headers()
+                .get("www-authenticate")
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "Bearer resource_metadata=\"https://api.anarlog.so/.well-known/oauth-protected-resource/mcp\", scope=\"openid email\""
+        );
         let body = to_bytes(unauthorized.into_body(), usize::MAX)
             .await
             .unwrap();
@@ -757,5 +860,113 @@ mod tests {
         let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(body["meetings"][0]["id"], "meeting-1");
         assert_eq!(body["pagination"]["returned"], 1);
+    }
+
+    #[tokio::test]
+    async fn connector_routes_validate_oauth_tokens_and_live_account_status() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/auth/v1/.well-known/jwks.json"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "keys": [{
+                    "kty": "EC",
+                    "use": "sig",
+                    "crv": "P-256",
+                    "kid": TEST_KEY_ID,
+                    "x": "w7JAoU_gJbZJvV-zCOvU9yFJq0FNC_edCMRM78P8eQQ",
+                    "y": "wQg1EytcsEmGrM70Gb53oluoDbVhCZ3Uq3hHMslHVb4",
+                    "alg": "ES256"
+                }]
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/verify_cloud_api_user"))
+            .and(body_json(serde_json::json!({
+                "p_user_id": "00000000-0000-0000-0000-000000000001"
+            })))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!([{ "status": "ok" }])),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/list_cloud_api_snapshots"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!([{
+                    "content_json": export(),
+                }])),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+        let state =
+            AppState::new(crate::CloudApiConfig::new(server.uri(), "service-role-key").unwrap());
+        let app = connector_router(state.clone()).route_layer(middleware::from_fn_with_state(
+            state,
+            crate::require_cloud_connector_auth,
+        ));
+        let issuer = format!("{}/auth/v1", server.uri());
+
+        let invalid = app
+            .clone()
+            .oneshot(
+                Request::get("/v1/meetings")
+                    .header("authorization", "Bearer invalid")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(invalid.status(), StatusCode::UNAUTHORIZED);
+        assert!(
+            invalid
+                .headers()
+                .get("www-authenticate")
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .contains("error=\"invalid_token\"")
+        );
+
+        let insufficient = app
+            .clone()
+            .oneshot(
+                Request::get("/v1/meetings")
+                    .header(
+                        "authorization",
+                        format!("Bearer {}", oauth_token(&issuer, "openid")),
+                    )
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(insufficient.status(), StatusCode::FORBIDDEN);
+        assert!(
+            insufficient
+                .headers()
+                .get("www-authenticate")
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .contains("error=\"insufficient_scope\"")
+        );
+
+        let response = app
+            .oneshot(
+                Request::get("/v1/meetings")
+                    .header(
+                        "authorization",
+                        format!("Bearer {}", oauth_token(&issuer, "openid email")),
+                    )
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
     }
 }

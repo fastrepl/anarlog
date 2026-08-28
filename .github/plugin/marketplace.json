@@ -23,6 +23,21 @@
       "repository": "https://github.com/fastrepl/anarlog/tree/main/agent-plugins/anarlog",
       "license": "MIT",
       "keywords": ["meetings", "notes", "transcripts", "productivity", "mcp"]
+    },
+    {
+      "name": "anarlog-cloud",
+      "source": "./agent-plugins/anarlog-cloud",
+      "description": "Connect Copilot to your Anarlog meeting data through OAuth.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Fastrepl",
+        "email": "founders@anarlog.so",
+        "url": "https://anarlog.so"
+      },
+      "homepage": "https://docs.anarlog.so/reference/api-cloud",
+      "repository": "https://github.com/fastrepl/anarlog/tree/main/agent-plugins/anarlog-cloud",
+      "license": "MIT",
+      "keywords": ["meetings", "notes", "transcripts", "productivity", "mcp", "oauth"]
     }
   ]
 }

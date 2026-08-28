@@ -1,6 +1,6 @@
 ---
 title: "MCP for agents"
-description: "Connect an MCP client to local Anarlog meeting context over stdio."
+description: "Connect an MCP client to Anarlog meeting context over stdio or hosted OAuth."
 ---
 
 The local MCP server runs inside the `anarlog` executable and communicates over standard input and output. It opens no port and sends no meeting data to Anarlog's servers.
@@ -48,3 +48,7 @@ Use `get_recurring_meeting_history` with a known meeting ID when a task depends 
 To persist an edit, call `propose_summary_edit` or `propose_memo_edit`. The tool returns a pending proposal. Do not claim the meeting changed. Use `list_proposals` and `get_proposal` to inspect staged work. `decline_proposal` discards a pending proposal.
 
 See the [MCP reference](/reference/mcp) for exact parameters and resources.
+
+## Remote MCP
+
+For a remote agent, enable **Cloud API & Connectors** and connect `https://api.anarlog.so/mcp` with OAuth. Claude, Cursor, ChatGPT, Codex, and Copilot can install the separate **Anarlog Cloud** plugin. See [Cloud API and connectors](/reference/api-cloud#remote-mcp).

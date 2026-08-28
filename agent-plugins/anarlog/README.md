@@ -21,6 +21,7 @@ The bundled MCP configuration starts `anarlog mcp`. If the client cannot find th
 ```bash
 claude plugin marketplace add fastrepl/anarlog
 claude plugin install anarlog@fastrepl
+claude plugin install anarlog-cloud@fastrepl
 ```
 
 ### GitHub Copilot CLI
@@ -28,6 +29,7 @@ claude plugin install anarlog@fastrepl
 ```bash
 copilot plugin marketplace add fastrepl/anarlog
 copilot plugin install anarlog@fastrepl
+copilot plugin install anarlog-cloud@fastrepl
 ```
 
 ### ChatGPT and Codex
@@ -35,14 +37,15 @@ copilot plugin install anarlog@fastrepl
 ```bash
 codex plugin marketplace add fastrepl/anarlog \
   --sparse .agents/plugins \
-  --sparse agent-plugins/anarlog
+  --sparse agent-plugins/anarlog \
+  --sparse agent-plugins/anarlog-cloud
 ```
 
-Restart the ChatGPT desktop app, open the Plugins Directory, select the Fastrepl source, and install Anarlog.
+Restart the ChatGPT desktop app, open the Plugins Directory, select the Fastrepl source, and install **Anarlog** for the local CLI and bundled skill, or **Anarlog Cloud** for hosted OAuth access.
 
 ### Cursor
 
-Import `https://github.com/fastrepl/anarlog` as a team marketplace, or load `agent-plugins/anarlog` as a local plugin while testing.
+Import `https://github.com/fastrepl/anarlog` as a team marketplace, then install **Anarlog** or **Anarlog Cloud**. You can also load `agent-plugins/anarlog` or `agent-plugins/anarlog-cloud` as a local plugin while testing.
 
 ## Configure MCP directly
 
@@ -59,7 +62,7 @@ Clients that do not install plugins can start the local stdio server with:
 }
 ```
 
-For a remote agent, enable **Cloud API & Connectors** in Anarlog and follow the [remote MCP setup](https://docs.anarlog.so/reference/api-cloud#remote-mcp). Hosted access requires Anarlog Pro, explicit opt-in, and a cloud API key.
+For hosted OAuth access, install the sibling **Anarlog Cloud** plugin from the same marketplace. Static remote clients that cannot complete MCP OAuth can enable **Cloud API & Connectors** in Anarlog and follow the [remote MCP setup](https://docs.anarlog.so/reference/api-cloud#remote-mcp) with a cloud API key.
 
 ## Data access
 

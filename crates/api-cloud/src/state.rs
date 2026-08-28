@@ -2,7 +2,10 @@ use anlg_agent_access::MeetingExport;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-use crate::routes::{ApiKeyInfo, CloudApiSettings, SnapshotReceipt};
+use crate::{
+    oauth::OAuthResourceConfig,
+    routes::{ApiKeyInfo, CloudApiSettings, SnapshotReceipt},
+};
 
 const MAX_RPC_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
 const MAX_RPC_ERROR_BYTES: usize = 64 * 1024;
@@ -11,6 +14,7 @@ const MAX_RPC_ERROR_BYTES: usize = 64 * 1024;
 pub struct CloudApiConfig {
     supabase_url: String,
     supabase_service_role_key: String,
+    oauth: OAuthResourceConfig,
 }
 
 impl CloudApiConfig {
@@ -26,9 +30,11 @@ impl CloudApiConfig {
         if supabase_service_role_key.trim().is_empty() {
             return Err("Supabase service role key is required".to_string());
         }
+        let oauth = OAuthResourceConfig::new(crate::oauth::MCP_RESOURCE, &supabase_url)?;
         Ok(Self {
             supabase_url,
             supabase_service_role_key,
+            oauth,
         })
     }
 }
@@ -36,6 +42,7 @@ impl CloudApiConfig {
 #[derive(Clone)]
 pub struct AppState {
     client: reqwest::Client,
+    auth: anlg_api_auth::AuthState,
     config: CloudApiConfig,
 }
 
@@ -62,12 +69,32 @@ pub(crate) struct VerifiedKey {
     pub status: String,
 }
 
+#[derive(Deserialize)]
+pub(crate) struct VerifiedUser {
+    pub status: String,
+}
+
 impl AppState {
     pub fn new(config: CloudApiConfig) -> Self {
+        let auth = anlg_api_auth::AuthState::new(&config.supabase_url);
         Self {
             client: reqwest::Client::new(),
+            auth,
             config,
         }
+    }
+
+    pub(crate) fn oauth(&self) -> &OAuthResourceConfig {
+        &self.config.oauth
+    }
+
+    pub(crate) async fn verify_oauth_token(
+        &self,
+        token: &str,
+    ) -> Result<anlg_api_auth::Claims, anlg_api_auth::OAuthTokenError> {
+        self.auth
+            .verify_oauth_token(token, self.oauth().resource(), crate::oauth::OAUTH_SCOPES)
+            .await
     }
 
     async fn rpc<T: DeserializeOwned>(
@@ -272,6 +299,20 @@ impl AppState {
             )
             .await?;
         Ok(rows.pop())
+    }
+
+    pub(crate) async fn verify_user(&self, user_id: &str) -> Result<VerifiedUser, StoreError> {
+        let mut rows: Vec<VerifiedUser> = self
+            .rpc(
+                "verify_cloud_api_user",
+                serde_json::json!({ "p_user_id": user_id }),
+            )
+            .await?;
+        rows.pop().ok_or_else(|| {
+            StoreError::InvalidResponse(serde_json::Error::io(std::io::Error::other(
+                "cloud API user verification row missing",
+            )))
+        })
     }
 }
 

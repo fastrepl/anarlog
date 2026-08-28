@@ -21,13 +21,16 @@ The published file is self-contained. The repository package adds references for
 
 ## Install the plugin
 
-The agent plugin bundles the complete skill and a local MCP configuration. [Install the Anarlog CLI](/installation) before enabling the plugin.
+The `Anarlog` plugin bundles the complete skill and a local MCP configuration. [Install the Anarlog CLI](/installation) before enabling it.
+
+`Anarlog Cloud` is a separate MCP-only plugin for hosted OAuth access. It connects Claude, Cursor, ChatGPT, Codex, and Copilot to `https://api.anarlog.so/mcp` and does not run the local CLI or bundle the skill.
 
 For Claude Code:
 
 ```bash
 claude plugin marketplace add fastrepl/anarlog
 claude plugin install anarlog@fastrepl
+claude plugin install anarlog-cloud@fastrepl
 ```
 
 For GitHub Copilot CLI:
@@ -35,17 +38,21 @@ For GitHub Copilot CLI:
 ```bash
 copilot plugin marketplace add fastrepl/anarlog
 copilot plugin install anarlog@fastrepl
+copilot plugin install anarlog-cloud@fastrepl
 ```
 
-For ChatGPT and Codex, add the repository source, restart the ChatGPT desktop app, then select Anarlog from the Fastrepl source in the Plugins Directory:
+For ChatGPT and Codex, add the repository source, restart the ChatGPT desktop app, then select a plugin from the Fastrepl source in the Plugins Directory:
 
 ```bash
 codex plugin marketplace add fastrepl/anarlog \
   --sparse .agents/plugins \
-  --sparse agent-plugins/anarlog
+  --sparse agent-plugins/anarlog \
+  --sparse agent-plugins/anarlog-cloud
 ```
 
-Cursor Teams and Enterprise administrators can import `https://github.com/fastrepl/anarlog` as a team marketplace.
+Choose **Anarlog** for local CLI and skill workflows. Choose **Anarlog Cloud** for hosted access, then enable **Settings → Developers → Cloud API & Connectors** in Anarlog. The first cloud tool use opens Anarlog's OAuth sign-in and consent flow; no cloud API key or local CLI is required.
+
+Cursor Teams and Enterprise administrators can import `https://github.com/fastrepl/anarlog` as a team marketplace, then install **Anarlog** or **Anarlog Cloud**.
 
 ## Install in an agent
 

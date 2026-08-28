@@ -45,6 +45,27 @@ impl AuthState {
     pub async fn verify_token(&self, token: &str) -> Result<Claims, AuthError> {
         self.inner.verify_token(token).await.map_err(AuthError)
     }
+
+    pub async fn verify_oauth_token(
+        &self,
+        token: &str,
+        resource: &str,
+        required_scopes: &[&str],
+    ) -> Result<Claims, OAuthTokenError> {
+        self.inner
+            .verify_oauth_token(token, resource, required_scopes)
+            .await
+            .map_err(|error| match error {
+                SupabaseAuthError::MissingScope(_) => OAuthTokenError::InsufficientScope,
+                _ => OAuthTokenError::Invalid,
+            })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OAuthTokenError {
+    Invalid,
+    InsufficientScope,
 }
 
 pub struct AuthError(SupabaseAuthError);
@@ -68,6 +89,8 @@ impl IntoResponse for AuthError {
                 (StatusCode::INTERNAL_SERVER_ERROR, "jwks_fetch_failed")
             }
             SupabaseAuthError::InvalidToken => (StatusCode::UNAUTHORIZED, "invalid_token"),
+            SupabaseAuthError::MissingOAuthClient => (StatusCode::UNAUTHORIZED, "invalid_token"),
+            SupabaseAuthError::MissingScope(_) => (StatusCode::FORBIDDEN, "insufficient_scope"),
             SupabaseAuthError::MissingEntitlement(_) => {
                 (StatusCode::FORBIDDEN, "subscription_required")
             }

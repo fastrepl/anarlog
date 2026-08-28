@@ -21,7 +21,10 @@ pub(crate) struct CloudMcpServer {
 #[tool_router]
 impl CloudMcpServer {
     #[tool(
+        title = "List meetings",
         description = "List Anarlog meetings with optional title/id search, recurring series filter, and pagination.",
+        output_schema = rmcp::handler::server::tool::schema_for_type::<access::MeetingPage>(),
+        meta = oauth_security_meta(),
         annotations(
             read_only_hint = true,
             destructive_hint = false,
@@ -34,7 +37,9 @@ impl CloudMcpServer {
         McpAuth(auth): McpAuth,
         Parameters(input): Parameters<access::ListMeetingsInput>,
     ) -> Result<CallToolResult, McpError> {
-        let user_id = user_id(auth)?;
+        let Some(user_id) = user_id(auth) else {
+            return Ok(authentication_required(&self.state));
+        };
         let page = list_meetings_for_user(
             &self.state,
             &user_id,
@@ -51,7 +56,10 @@ impl CloudMcpServer {
     }
 
     #[tool(
+        title = "Get meeting",
         description = "Get notes, summaries, participants, and action items for an Anarlog meeting.",
+        output_schema = rmcp::handler::server::tool::schema_for_type::<access::Meeting>(),
+        meta = oauth_security_meta(),
         annotations(
             read_only_hint = true,
             destructive_hint = false,
@@ -64,7 +72,9 @@ impl CloudMcpServer {
         McpAuth(auth): McpAuth,
         Parameters(input): Parameters<access::GetMeetingInput>,
     ) -> Result<CallToolResult, McpError> {
-        let user_id = user_id(auth)?;
+        let Some(user_id) = user_id(auth) else {
+            return Ok(authentication_required(&self.state));
+        };
         let export = read_export(&self.state, &user_id, &input.meeting_id)
             .await
             .map_err(command_error)?;
@@ -72,7 +82,10 @@ impl CloudMcpServer {
     }
 
     #[tool(
+        title = "Get meeting transcript",
         description = "Get a bounded page of transcript words and readable text for an Anarlog meeting. Pass pagination.next_offset as offset to continue.",
+        output_schema = rmcp::handler::server::tool::schema_for_type::<access::TranscriptPage>(),
+        meta = oauth_security_meta(),
         annotations(
             read_only_hint = true,
             destructive_hint = false,
@@ -85,7 +98,9 @@ impl CloudMcpServer {
         McpAuth(auth): McpAuth,
         Parameters(input): Parameters<access::GetMeetingTranscriptInput>,
     ) -> Result<CallToolResult, McpError> {
-        let user_id = user_id(auth)?;
+        let Some(user_id) = user_id(auth) else {
+            return Ok(authentication_required(&self.state));
+        };
         let export = read_export(&self.state, &user_id, &input.meeting_id)
             .await
             .map_err(command_error)?;
@@ -98,7 +113,10 @@ impl CloudMcpServer {
     }
 
     #[tool(
+        title = "Get recurring meeting history",
         description = "List meetings in the same recurring series as the supplied meeting, newest first, with pagination metadata.",
+        output_schema = rmcp::handler::server::tool::schema_for_type::<access::MeetingPage>(),
+        meta = oauth_security_meta(),
         annotations(
             read_only_hint = true,
             destructive_hint = false,
@@ -111,7 +129,9 @@ impl CloudMcpServer {
         McpAuth(auth): McpAuth,
         Parameters(input): Parameters<access::GetRecurringMeetingHistoryInput>,
     ) -> Result<CallToolResult, McpError> {
-        let user_id = user_id(auth)?;
+        let Some(user_id) = user_id(auth) else {
+            return Ok(authentication_required(&self.state));
+        };
         let page = history_for_user(
             &self.state,
             &user_id,
@@ -148,16 +168,42 @@ pub(crate) fn mcp_service(
     CloudMcpServer,
     rmcp::transport::streamable_http_server::session::local::LocalSessionManager,
 > {
-    anlg_mcp::create_service(move || {
+    anlg_mcp::create_stateless_service(move || {
         Ok(CloudMcpServer {
             state: state.clone(),
         })
     })
 }
 
-fn user_id(auth: Option<anlg_api_auth::AuthContext>) -> Result<String, McpError> {
+fn user_id(auth: Option<anlg_api_auth::AuthContext>) -> Option<String> {
     auth.map(|auth| auth.claims.sub)
-        .ok_or_else(|| McpError::invalid_request("Provide a valid Anarlog cloud API key", None))
+}
+
+fn oauth_security_meta() -> Meta {
+    let mut meta = Meta::new();
+    meta.insert(
+        "securitySchemes".to_string(),
+        serde_json::json!([{
+            "type": "oauth2",
+            "scopes": crate::oauth::OAUTH_SCOPES,
+        }]),
+    );
+    meta
+}
+
+fn authentication_required(state: &AppState) -> CallToolResult {
+    let mut meta = Meta::new();
+    meta.insert(
+        "mcp/www_authenticate".to_string(),
+        serde_json::json!([state.oauth().challenge(Some((
+            "invalid_token",
+            "Connect your Anarlog account to use this tool",
+        )))]),
+    );
+    CallToolResult::error(vec![Content::text(
+        "Connect your Anarlog account to use this tool.",
+    )])
+    .with_meta(Some(meta))
 }
 
 fn structured(value: &impl Serialize) -> Result<CallToolResult, McpError> {
@@ -172,5 +218,51 @@ fn command_error(error: crate::CloudApiError) -> McpError {
             McpError::invalid_params(message, None)
         }
         other => McpError::internal_error(other.to_string(), None),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::CloudApiConfig;
+
+    #[test]
+    fn every_hosted_tool_declares_oauth_security() {
+        for tool in [
+            CloudMcpServer::list_meetings_tool_attr(),
+            CloudMcpServer::get_meeting_tool_attr(),
+            CloudMcpServer::get_meeting_transcript_tool_attr(),
+            CloudMcpServer::get_recurring_meeting_history_tool_attr(),
+        ] {
+            assert_eq!(
+                tool.meta.unwrap().get("securitySchemes"),
+                Some(&serde_json::json!([{
+                    "type": "oauth2",
+                    "scopes": ["openid", "email"],
+                }]))
+            );
+            assert_eq!(tool.output_schema.unwrap().get("type").unwrap(), "object");
+        }
+    }
+
+    #[test]
+    fn unauthenticated_tool_result_requests_account_connection() {
+        let state = AppState::new(
+            CloudApiConfig::new("https://auth.example.com", "service-role-key").unwrap(),
+        );
+
+        let result = authentication_required(&state);
+
+        assert_eq!(result.is_error, Some(true));
+        assert!(
+            result
+                .meta
+                .unwrap()
+                .get("mcp/www_authenticate")
+                .unwrap()[0]
+                .as_str()
+                .unwrap()
+                .contains("resource_metadata=\"https://api.anarlog.so/.well-known/oauth-protected-resource/mcp\"")
+        );
     }
 }

@@ -629,6 +629,7 @@ dependencies = [
  "agent-access",
  "api-auth",
  "axum",
+ "jsonwebtoken",
  "mcp",
  "reqwest 0.13.2",
  "rmcp",
