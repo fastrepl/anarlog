@@ -148,12 +148,13 @@ fn transcript_response(transcription: LiveTranscription, is_final: bool) -> Vec<
         return Vec::new();
     }
 
+    let from_finalize = is_final && transcription.finished.unwrap_or(false);
     vec![StreamResponse::TranscriptResponse {
         start: 0.0,
         duration: 0.0,
         is_final,
-        speech_final: is_final || transcription.finished.unwrap_or(false),
-        from_finalize: is_final,
+        speech_final: is_final,
+        from_finalize,
         channel: Channel {
             alternatives: vec![Alternatives {
                 transcript,
@@ -300,13 +301,16 @@ mod tests {
         let adapter = GoogleGenerativeAiAdapter;
         let interim = adapter
             .parse_response(r#"{"serverContent":{"interimInputTranscription":{"text":"hel"}}}"#);
-        let final_response = adapter.parse_response(
-            r#"{"serverContent":{"inputTranscription":{"text":"hello","finished":true}}}"#,
+        let committed =
+            adapter.parse_response(r#"{"serverContent":{"inputTranscription":{"text":"hello"}}}"#);
+        let finalize_flush = adapter.parse_response(
+            r#"{"serverContent":{"inputTranscription":{"text":"hello world","finished":true}}}"#,
         );
 
         let StreamResponse::TranscriptResponse {
             is_final,
             speech_final,
+            from_finalize,
             channel,
             ..
         } = &interim[0]
@@ -315,20 +319,38 @@ mod tests {
         };
         assert!(!*is_final);
         assert!(!*speech_final);
+        assert!(!*from_finalize);
         assert_eq!(channel.alternatives[0].transcript, "hel");
 
         let StreamResponse::TranscriptResponse {
             is_final,
             speech_final,
+            from_finalize,
             channel,
             ..
-        } = &final_response[0]
+        } = &committed[0]
         else {
-            panic!("expected final transcript");
+            panic!("expected committed transcript");
         };
         assert!(*is_final);
         assert!(*speech_final);
+        assert!(!*from_finalize);
         assert_eq!(channel.alternatives[0].transcript, "hello");
+
+        let StreamResponse::TranscriptResponse {
+            is_final,
+            speech_final,
+            from_finalize,
+            channel,
+            ..
+        } = &finalize_flush[0]
+        else {
+            panic!("expected finalize flush");
+        };
+        assert!(*is_final);
+        assert!(*speech_final);
+        assert!(*from_finalize);
+        assert_eq!(channel.alternatives[0].transcript, "hello world");
     }
 
     #[test]
