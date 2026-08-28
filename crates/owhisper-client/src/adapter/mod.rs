@@ -423,6 +423,10 @@ pub fn append_provider_param(base_url: &str, provider: &str) -> String {
 }
 
 const OPENAI_COMPATIBLE_MAX_UPLOAD_BYTES: u64 = 25 * 1024 * 1024;
+const OPENAI_COMPATIBLE_MAX_DURATION: Duration = Duration::from_secs(25 * 60);
+/// `gpt-4o-transcribe-diarize` rejects audio longer than 1400s. Stay 10s under
+/// so MP3 re-encode padding cannot push a segment over the API cap.
+const OPENAI_DIARIZE_MAX_DURATION: Duration = Duration::from_secs(1390);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BatchUploadLimit {
@@ -533,7 +537,7 @@ impl AdapterKind {
     /// Providers that reject oversized multipart uploads or time out on long
     /// audio. Recordings past either bound are split into one request per segment
     /// instead of failing at the provider.
-    pub fn batch_upload_limit(&self) -> Option<BatchUploadLimit> {
+    pub fn batch_upload_limit(&self, model: Option<&str>) -> Option<BatchUploadLimit> {
         let (max_bytes, max_duration) = match self {
             // OpenRouter's upstream providers time out after 60s per request, so
             // its segments stay well below the size cap.
@@ -541,9 +545,13 @@ impl AdapterKind {
                 OPENAI_COMPATIBLE_MAX_UPLOAD_BYTES,
                 Duration::from_secs(10 * 60),
             ),
-            Self::OpenAI | Self::Groq | Self::Together | Self::Xai => (
+            Self::OpenAI => (
                 OPENAI_COMPATIBLE_MAX_UPLOAD_BYTES,
-                Duration::from_secs(25 * 60),
+                openai_batch_max_duration(model),
+            ),
+            Self::Groq | Self::Together | Self::Xai => (
+                OPENAI_COMPATIBLE_MAX_UPLOAD_BYTES,
+                OPENAI_COMPATIBLE_MAX_DURATION,
             ),
             Self::Zai => (OPENAI_COMPATIBLE_MAX_UPLOAD_BYTES, Duration::from_secs(25)),
             Self::SiliconFlow => (50 * 1024 * 1024, Duration::from_secs(50 * 60)),
@@ -725,6 +733,15 @@ impl From<crate::providers::Provider> for AdapterKind {
             Provider::Together => Self::Together,
             Provider::Xai => Self::Xai,
         }
+    }
+}
+
+fn openai_batch_max_duration(model: Option<&str>) -> Duration {
+    match openai::OpenAIAdapter::resolve_batch_model(model) {
+        openai_transcription::batch::AudioModel::Gpt4oTranscribeDiarize => {
+            OPENAI_DIARIZE_MAX_DURATION
+        }
+        _ => OPENAI_COMPATIBLE_MAX_DURATION,
     }
 }
 

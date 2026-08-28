@@ -170,7 +170,13 @@ async fn spawn_openai_batch_task(
 
     let rx_task = tokio::spawn(
         async move {
-            let plan = match plan_openai_segments(&args.file_path, &args.provider_label).await {
+            let plan = match plan_openai_segments(
+                &args.file_path,
+                &args.provider_label,
+                args.listen_params.model.as_deref(),
+            )
+            .await
+            {
                 Ok(plan) => plan,
                 Err(error) => {
                     report_start_failure(

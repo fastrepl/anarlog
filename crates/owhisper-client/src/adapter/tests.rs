@@ -535,3 +535,28 @@ fn test_append_provider_param_no_existing_provider() {
     assert!(url.contains("provider=anarlog"));
     assert_eq!(url.matches("provider=").count(), 1);
 }
+
+#[test]
+fn openai_diarize_batch_limit_stays_under_api_duration_cap() {
+    let diarize = AdapterKind::OpenAI
+        .batch_upload_limit(Some("gpt-4o-transcribe-diarize"))
+        .expect("openai has a batch upload limit");
+    let transcribe = AdapterKind::OpenAI
+        .batch_upload_limit(Some("gpt-4o-transcribe"))
+        .expect("openai has a batch upload limit");
+
+    assert_eq!(diarize.max_duration, Duration::from_secs(1390));
+    assert!(diarize.max_duration < Duration::from_secs(1400));
+    assert_eq!(transcribe.max_duration, Duration::from_secs(25 * 60));
+    assert_eq!(diarize.max_bytes, transcribe.max_bytes);
+}
+
+#[test]
+fn openai_compatible_providers_keep_shared_duration_cap() {
+    for kind in [AdapterKind::Groq, AdapterKind::Together, AdapterKind::Xai] {
+        let limit = kind
+            .batch_upload_limit(None)
+            .expect("openai-compatible providers have a batch upload limit");
+        assert_eq!(limit.max_duration, Duration::from_secs(25 * 60));
+    }
+}
