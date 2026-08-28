@@ -17,7 +17,10 @@ export default defineConfig(
     files: [
       "apps/web/**/*.{ts,tsx}",
       "apps/desktop/**/*.{ts,tsx}",
+      "packages/changelog/**/*.{ts,tsx}",
       "packages/design-system/**/*.{ts,tsx}",
+      "packages/editor/**/*.{ts,tsx}",
+      "packages/pricing/**/*.{ts,tsx}",
       "packages/ui/**/*.{ts,tsx}",
     ],
     extends: [
