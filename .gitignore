@@ -25,6 +25,9 @@ internal
 # Local Netlify folder
 .netlify
 
+# Generated Mac App Store asset catalog
+apps/desktop/src-tauri/resources/app-store/Assets.car
+
 # TypeScript incremental build cache
 *.tsbuildinfo
 
