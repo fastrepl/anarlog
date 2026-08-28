@@ -76,9 +76,7 @@ It exposes the same four read-only tools as the local MCP server:
 - `get_meeting_transcript`
 - `get_recurring_meeting_history`
 
-## OAuth
-
-ChatGPT and Codex connect your Anarlog account with OAuth 2.1. Add the **Anarlog Cloud** plugin, open it, and select **Connect**. The host discovers Anarlog's authorization server from the MCP endpoint, opens the Anarlog sign-in and consent flow, and stores the resulting connection. You do not need to create or paste a cloud API key.
+Hosts that support MCP OAuth 2.1 connect your Anarlog account without a cloud API key. The host discovers Anarlog's authorization server from the MCP endpoint, opens the Anarlog sign-in and consent flow, and stores the resulting connection.
 
 The connection requests the `openid` and `email` scopes. Meeting access remains limited to the server-readable snapshots you explicitly opted in to upload. Every MCP tool is read-only, and every access token is checked for its signature, issuer, expiry, MCP resource audience, OAuth client identifier, and required scopes.
 
@@ -94,15 +92,64 @@ The metadata points the host to Anarlog's existing Supabase authorization server
   OAuth does not bypass Anarlog's product controls. The account must have an active Pro subscription and **Cloud API & Connectors** must remain enabled. Disabling the feature deletes the uploaded snapshots and makes existing connector tokens unusable for meeting access.
 </Note>
 
-### Source install versus publication
+### Claude Code
 
-The separate `Anarlog Cloud` plugin can be installed from the Fastrepl source and connects to the hosted MCP endpoint. The existing `Anarlog` plugin continues to use the local CLI and bundled skill. Appearing in the universal OpenAI Plugins Directory is a separate review and publication step; installing the source package does not submit or publish it.
+Install the **Anarlog Cloud** plugin:
+
+```bash
+claude plugin marketplace add fastrepl/anarlog
+claude plugin install anarlog-cloud@fastrepl
+```
+
+Or add the remote server directly. Claude discovers OAuth from the MCP endpoint:
+
+```bash
+claude mcp add --transport http anarlog-cloud https://api.anarlog.so/mcp
+```
+
+### Cursor
+
+Import `https://github.com/fastrepl/anarlog` as a team marketplace and install **Anarlog Cloud**, or add this MCP server:
+
+```json
+{
+  "mcpServers": {
+    "anarlog-cloud": {
+      "url": "https://api.anarlog.so/mcp"
+    }
+  }
+}
+```
+
+### GitHub Copilot CLI
+
+```bash
+copilot plugin marketplace add fastrepl/anarlog
+copilot plugin install anarlog-cloud@fastrepl
+```
+
+### ChatGPT and Codex
+
+Add the Fastrepl source, restart the ChatGPT desktop app, then install **Anarlog Cloud**:
+
+```bash
+codex plugin marketplace add fastrepl/anarlog \
+  --sparse .agents/plugins \
+  --sparse agent-plugins/anarlog \
+  --sparse agent-plugins/anarlog-cloud
+```
+
+Public listing in a host's plugin directory is a separate review step. Installing from the Fastrepl source does not submit or publish the connector.
+
+### Other OAuth MCP clients
+
+Choose Streamable HTTP and use `https://api.anarlog.so/mcp` as the server URL. Do not paste an API key. The client must follow MCP OAuth 2.1 protected-resource discovery.
 
 ## API-key clients
 
-### Claude Code
+Use a static bearer header only when the host cannot complete MCP OAuth. Create the key under **Settings → Developers → Cloud API & Connectors**.
 
-Add the server with the cloud key in the authorization header:
+### Claude Code
 
 ```bash
 claude mcp add --transport http anarlog https://api.anarlog.so/mcp \
@@ -138,8 +185,6 @@ Choose Streamable HTTP, use `https://api.anarlog.so/mcp` as the server URL, and 
 ```text
 Authorization: Bearer anl_...
 ```
-
-Use OAuth account connection when the host supports MCP OAuth 2.1. Use the static bearer header only for clients that do not.
 
 ## Disable cloud access
 

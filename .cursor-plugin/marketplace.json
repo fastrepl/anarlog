@@ -16,6 +16,14 @@
       "version": "1.0.0",
       "category": "Productivity",
       "tags": ["meetings", "notes", "transcripts", "mcp"]
+    },
+    {
+      "name": "anarlog-cloud",
+      "source": "./agent-plugins/anarlog-cloud",
+      "description": "Connect Cursor to your Anarlog meeting data through OAuth.",
+      "version": "1.0.0",
+      "category": "Productivity",
+      "tags": ["meetings", "notes", "transcripts", "mcp", "oauth"]
     }
   ]
 }

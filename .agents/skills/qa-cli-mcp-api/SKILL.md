@@ -213,20 +213,27 @@ Begin with **Cloud API & Connectors** disabled.
 
 ## Remote MCP
 
-Connect a real Streamable HTTP MCP client to the deployed `/mcp` endpoint with
-the short-lived cloud key.
+Connect a real Streamable HTTP MCP client to the deployed `/mcp` endpoint.
 
 1. Initialize a session, list tools, and require the same four-tool contract as
-   local MCP.
+   local MCP. Hosts that only support stateless JSON discovery must still list
+   the four tools without establishing a session first.
 2. Call every tool and traverse at least two transcript/history pages.
 3. Compare its structured results with the hosted REST responses.
-4. Repeat initialization or a tool call with no key, a malformed key, a
-   revoked key, an expired account, and after opt-out. Require the same
-   documented auth and entitlement semantics as REST.
-5. Connect at least one supported agent client using the documented setup and
+4. Repeat initialization or a tool call with no credential, a malformed key, a
+   revoked key, an expired account, and after opt-out. Unauthenticated MCP
+   requests must return `WWW-Authenticate` pointing at
+   `https://api.anarlog.so/.well-known/oauth-protected-resource/mcp`.
+5. When OAuth is affected, complete MCP OAuth 2.1 discovery and consent from at
+   least one documented host (Claude Code, Cursor, ChatGPT/Codex, or Copilot).
+   Confirm the consent screen is Anarlog's `/oauth/consent` route, the issued
+   token is bound to `https://api.anarlog.so/mcp`, and a tool call then reads
+   the marked meeting. Repeat with a static `anl_` key for hosts that cannot
+   complete OAuth.
+6. Connect at least one supported agent client using the documented setup and
    ask it to identify the marked meeting, summarize it, and cite a transcript
    detail. Verify the answer against the fixture.
-6. Close the client and confirm the server releases the session cleanly.
+7. Close the client and confirm the server releases the session cleanly.
 
 ## Cross-surface parity
 

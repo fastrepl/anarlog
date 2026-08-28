@@ -1,9 +1,17 @@
 -- Keep the existing subscription hook intact and add the MCP audience in a
 -- narrow wrapper so normal Anarlog sessions retain their current audience.
-ALTER FUNCTION public.custom_access_token_hook(jsonb)
-  RENAME TO custom_access_token_hook_base;
+-- Idempotent so environments that already applied the later repair migrations
+-- can still record this original version.
+DO $$
+BEGIN
+  IF to_regprocedure('public.custom_access_token_hook_base(jsonb)') IS NULL THEN
+    ALTER FUNCTION public.custom_access_token_hook(jsonb)
+      RENAME TO custom_access_token_hook_base;
+  END IF;
+END;
+$$;
 
-CREATE FUNCTION public.custom_access_token_hook(event jsonb)
+CREATE OR REPLACE FUNCTION public.custom_access_token_hook(event jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
 STABLE
@@ -33,7 +41,7 @@ GRANT EXECUTE ON FUNCTION public.custom_access_token_hook(jsonb)
 REVOKE EXECUTE ON FUNCTION public.custom_access_token_hook(jsonb)
   FROM authenticated, anon, public;
 
-CREATE FUNCTION public.verify_cloud_api_user(p_user_id uuid)
+CREATE OR REPLACE FUNCTION public.verify_cloud_api_user(p_user_id uuid)
 RETURNS TABLE (status text)
 LANGUAGE plpgsql
 STABLE
