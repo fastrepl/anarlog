@@ -10,10 +10,7 @@ export function ConfigError() {
   const openNew = useTabs((state) => state.openNew);
 
   return (
-    <div
-      role="alert"
-      {...stylex.props(styles.root)}
-    >
+    <div role="alert" {...stylex.props(styles.root)}>
       <div {...stylex.props(styles.copy)}>
         <p {...stylex.props(styles.title)}>
           <Trans>Set up AI summaries</Trans>

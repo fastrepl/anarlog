@@ -1,5 +1,5 @@
-import type { EditorView } from "prosemirror-view";
 import * as stylex from "@stylexjs/stylex";
+import type { EditorView } from "prosemirror-view";
 import { forwardRef, memo, useCallback, useMemo } from "react";
 
 import { parseJsonContent } from "@anlg/editor/markdown";

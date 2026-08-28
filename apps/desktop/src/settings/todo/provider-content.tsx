@@ -93,10 +93,7 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
           {...stylex.props(styles.linkButton)}
         >
           {isUpgradingToPro && (
-            <CircleNotch
-              {...stylex.props(styles.spinner)}
-              aria-hidden="true"
-            />
+            <CircleNotch {...stylex.props(styles.spinner)} aria-hidden="true" />
           )}
           <Trans>Upgrade to connect</Trans>
         </button>
@@ -124,10 +121,7 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
           {...stylex.props(styles.linkButton)}
         >
           {openingAction === "connect" && (
-            <CircleNotch
-              {...stylex.props(styles.spinner)}
-              aria-hidden="true"
-            />
+            <CircleNotch {...stylex.props(styles.spinner)} aria-hidden="true" />
           )}
           <Trans>Connect {config.displayName}</Trans>
         </button>
@@ -194,10 +188,7 @@ function ConnectionActions({
           {...stylex.props(styles.linkButton, styles.reconnectButton)}
         >
           {openingAction === "reconnect" && (
-            <CircleNotch
-              {...stylex.props(styles.spinner)}
-              aria-hidden="true"
-            />
+            <CircleNotch {...stylex.props(styles.spinner)} aria-hidden="true" />
           )}
           <Trans>Reconnect required</Trans>
         </button>
@@ -218,10 +209,7 @@ function ConnectionActions({
           {...stylex.props(styles.linkButton, styles.disconnectButton)}
         >
           {openingAction === "disconnect" && (
-            <CircleNotch
-              {...stylex.props(styles.spinner)}
-              aria-hidden="true"
-            />
+            <CircleNotch {...stylex.props(styles.spinner)} aria-hidden="true" />
           )}
           <Trans>Disconnect</Trans>
         </button>
@@ -245,10 +233,7 @@ function ConnectionActions({
         {...stylex.props(styles.linkButton, styles.mutedButton)}
       >
         {openingAction === "disconnect" && (
-          <CircleNotch
-            {...stylex.props(styles.spinner)}
-            aria-hidden="true"
-          />
+          <CircleNotch {...stylex.props(styles.spinner)} aria-hidden="true" />
         )}
         <Trans>Disconnect</Trans>
       </button>

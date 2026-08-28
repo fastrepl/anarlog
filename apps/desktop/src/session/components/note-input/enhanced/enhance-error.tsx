@@ -41,14 +41,8 @@ export function EnhanceError({
   };
 
   return (
-    <div
-      role="alert"
-      {...stylex.props(styles.root)}
-    >
-      <WarningCircle
-        aria-hidden
-        {...stylex.props(styles.icon)}
-      />
+    <div role="alert" {...stylex.props(styles.root)}>
+      <WarningCircle aria-hidden {...stylex.props(styles.icon)} />
       <div {...stylex.props(styles.copy)}>
         <p {...stylex.props(styles.title)}>
           {isUnauthenticated ? (

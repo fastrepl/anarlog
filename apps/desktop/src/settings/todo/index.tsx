@@ -29,11 +29,7 @@ export function SettingsTodo() {
       <SettingsPageTitle title={<Trans>Ticket</Trans>} />
       <Accordion type="multiple">
         {visibleProviders.map((provider) => (
-          <AccordionItem
-            key={provider.id}
-            value={provider.id}
-            sx={styles.item}
-          >
+          <AccordionItem key={provider.id} value={provider.id} sx={styles.item}>
             <div {...stylex.props(styles.providerRow)}>
               <AccordionHeader {...stylex.props(styles.header)}>
                 <AccordionTriggerPrimitive {...stylex.props(styles.trigger)}>

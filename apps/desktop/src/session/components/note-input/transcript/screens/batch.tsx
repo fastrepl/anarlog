@@ -1,8 +1,8 @@
-import type { DegradedError } from "@anlg/plugin-transcription";
-import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 import * as stylex from "@stylexjs/stylex";
 
 import { colors } from "@anlg/design-system/tokens.stylex";
+import type { DegradedError } from "@anlg/plugin-transcription";
+import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 
 import { useListener } from "~/stt/contexts";
 
@@ -30,10 +30,7 @@ export function BatchState({
     : "Recording continues. Your transcript will be generated after you stop.";
 
   return (
-    <div
-      role="status"
-      {...stylex.props(styles.root)}
-    >
+    <div role="status" {...stylex.props(styles.root)}>
       <div {...stylex.props(styles.visualizer)}>
         <DancingSticks
           amplitude={Math.min(Math.hypot(amplitude.mic, amplitude.speaker), 1)}
@@ -46,9 +43,7 @@ export function BatchState({
       </div>
       <div {...stylex.props(styles.copy)}>
         <p {...stylex.props(styles.title)}>{title}</p>
-        <p {...stylex.props(styles.description)}>
-          {description}
-        </p>
+        <p {...stylex.props(styles.description)}>{description}</p>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
-import { Fragment, memo, useMemo } from "react";
 import * as stylex from "@stylexjs/stylex";
+import { Fragment, memo, useMemo } from "react";
 
 import { colors } from "@anlg/design-system/tokens.stylex";
 

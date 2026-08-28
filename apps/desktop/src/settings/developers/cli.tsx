@@ -4,12 +4,7 @@ import { CheckCircle, CircleNotch, Copy } from "@phosphor-icons/react";
 import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import {
-  colors,
-  fonts,
-  media,
-  radii,
-} from "@anlg/design-system/tokens.stylex";
+import { colors, fonts, media, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
