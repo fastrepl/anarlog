@@ -59,11 +59,11 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
     height: {
       default: "1.25rem",
-      ":is(*) svg:not([class*='size-'])": "0.75rem",
+      ":is(*) svg": "0.75rem",
     },
     width: {
       default: "fit-content",
-      ":is(*) svg:not([class*='size-'])": "0.75rem",
+      ":is(*) svg": "0.75rem",
     },
   },
   group: {

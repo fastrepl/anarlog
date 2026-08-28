@@ -249,7 +249,7 @@ function Component() {
                     params={{
                       version: entry.version,
                     }}
-                    {...stylex.props(styles.style10)}
+                    {...stylex.props(styles.style10, stylex.defaultMarker())}
                   >
                     <header>
                       <div {...stylex.props(styles.style11)}>

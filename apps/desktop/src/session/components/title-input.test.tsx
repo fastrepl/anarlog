@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import {
   act,
   cleanup,
@@ -328,6 +329,7 @@ describe("TitleInput", () => {
     expect(input.parentElement?.style.maskImage).toBe(
       "linear-gradient(to right, black 0, black calc(100% - 28px), transparent 100%)",
     );
+    expectStyle(input.parentElement, stylex.defaultMarker());
     expectStyle(overlay, titleInputStyles.hoverOverlay);
     expectStyle(hoverTitle, titleInputStyles.hoverTitle);
     expect(

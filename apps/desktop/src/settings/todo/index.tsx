@@ -30,7 +30,7 @@ export function SettingsTodo() {
       <Accordion type="multiple">
         {visibleProviders.map((provider) => (
           <AccordionItem key={provider.id} value={provider.id} sx={styles.item}>
-            <div {...stylex.props(styles.providerRow)}>
+            <div {...stylex.props(styles.providerRow, stylex.defaultMarker())}>
               <AccordionHeader {...stylex.props(styles.header)}>
                 <AccordionTriggerPrimitive {...stylex.props(styles.trigger)}>
                   {provider.icon}

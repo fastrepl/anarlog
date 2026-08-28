@@ -170,7 +170,7 @@ function Component() {
                 params={{
                   slug: article.slug,
                 }}
-                {...stylex.props(styles.style9)}
+                {...stylex.props(styles.style9, stylex.defaultMarker())}
               >
                 <article {...stylex.props(styles.style10)}>
                   <h2 {...stylex.props(styles.style11)}>{article.title}</h2>

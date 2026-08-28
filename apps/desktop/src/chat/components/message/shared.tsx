@@ -139,7 +139,10 @@ const styles = stylex.create({
   messageBubble: {
     fontSize: "0.875rem",
     lineHeight: "1.25rem",
-    userSelect: "text",
+    userSelect: {
+      default: "text",
+      ":is(*) *": "text",
+    },
   },
   userBubble: {
     backgroundColor: "oklch(93.2% 0.032 255.585)",

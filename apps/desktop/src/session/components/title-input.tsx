@@ -409,6 +409,7 @@ const TitleInputInner = memo(
           {...mergeStyleXProps(
             [
               styles.shell,
+              stylex.defaultMarker(),
               variant === "breadcrumb"
                 ? [styles.breadcrumbHeight, styles.breadcrumbText]
                 : [styles.titleHeight, styles.titleText],

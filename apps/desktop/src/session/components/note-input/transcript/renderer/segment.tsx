@@ -334,7 +334,10 @@ const styles = stylex.create({
     marginTop: "0.375rem",
     outline: "none",
     overflowWrap: "anywhere",
-    userSelect: "text",
+    userSelect: {
+      default: "text",
+      ":is(*) *": "text",
+    },
     wordBreak: "break-word",
   },
   line: {
@@ -372,7 +375,10 @@ const styles = stylex.create({
     cursor: "pointer",
   },
   selectableText: {
-    userSelect: "text",
+    userSelect: {
+      default: "text",
+      ":is(*) *": "text",
+    },
   },
   unselectable: {
     userSelect: "none",

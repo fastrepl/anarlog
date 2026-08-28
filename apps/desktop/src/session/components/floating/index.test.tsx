@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -91,6 +92,7 @@ describe("FloatingActionButton", () => {
     const stack = slot?.parentElement;
 
     expectStyle(stack, floatingActionButtonStyles.root);
+    expectStyle(slot?.previousElementSibling, stylex.defaultMarker());
     expectStyle(slot, floatingActionButtonStyles.selection);
   });
 

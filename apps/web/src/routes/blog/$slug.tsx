@@ -613,7 +613,7 @@ function RelatedArticles({ articles }: { articles: ArticleSummary[] }) {
               params={{
                 slug: relatedArticle.slug,
               }}
-              {...stylex.props(styles.style16)}
+              {...stylex.props(styles.style16, stylex.defaultMarker())}
             >
               <p {...stylex.props(styles.style17)}>{relatedArticle.title}</p>
               <time

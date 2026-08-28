@@ -15,7 +15,7 @@ export function FloatingActionButton(_props: {
 }) {
   return (
     <div {...stylex.props(styles.root)}>
-      <div {...stylex.props(styles.fab)}>
+      <div {...stylex.props(styles.fab, stylex.defaultMarker())}>
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key="chat"
