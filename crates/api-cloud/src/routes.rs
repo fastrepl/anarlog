@@ -621,7 +621,7 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
             &serde_json::json!({
                 "sub": "00000000-0000-0000-0000-000000000001",
                 "iss": issuer,
-                "aud": ["authenticated", "https://api.anarlog.so/mcp"],
+                "aud": ["https://api.anarlog.so/mcp"],
                 "exp": expires_at,
                 "client_id": "chatgpt-client",
                 "scope": scope,

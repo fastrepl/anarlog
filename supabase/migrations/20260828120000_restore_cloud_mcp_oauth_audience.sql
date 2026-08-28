@@ -1,6 +1,6 @@
 -- The required-SSO migration replaced custom_access_token_hook and dropped the
 -- OAuth audience wrapper. Restore the wrapper around the current hook body so
--- OAuth access tokens are bound to the hosted MCP resource again.
+-- OAuth access tokens are bound only to the hosted MCP resource.
 DO $$
 DECLARE
   live_def text;
@@ -37,7 +37,7 @@ BEGIN
     claims := jsonb_set(
       claims,
       '{aud}',
-      '["authenticated", "https://api.anarlog.so/mcp"]'::jsonb
+      '["https://api.anarlog.so/mcp"]'::jsonb
     );
     event := jsonb_set(event, '{claims}', claims);
   END IF;

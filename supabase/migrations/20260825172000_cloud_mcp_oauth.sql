@@ -1,5 +1,5 @@
--- Keep the existing subscription hook intact and add the MCP audience in a
--- narrow wrapper so normal Anarlog sessions retain their current audience.
+-- Keep the existing subscription hook intact and bind OAuth access tokens to
+-- the MCP resource only so they cannot be used as ordinary Anarlog sessions.
 -- Idempotent so environments that already applied the later repair migrations
 -- can still record this version.
 DO $$
@@ -27,7 +27,7 @@ BEGIN
     claims := jsonb_set(
       claims,
       '{aud}',
-      '["authenticated", "https://api.anarlog.so/mcp"]'::jsonb
+      '["https://api.anarlog.so/mcp"]'::jsonb
     );
     event := jsonb_set(event, '{claims}', claims);
   END IF;

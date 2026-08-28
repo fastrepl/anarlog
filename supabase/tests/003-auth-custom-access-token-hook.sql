@@ -105,8 +105,8 @@ select results_eq(
     ) -> 'claims' -> 'aud'
   )::jsonb
   $$,
-  array['["authenticated", "https://api.anarlog.so/mcp"]'::jsonb],
-  'custom_access_token_hook binds OAuth access tokens to the hosted MCP resource'
+  array['["https://api.anarlog.so/mcp"]'::jsonb],
+  'custom_access_token_hook binds OAuth access tokens only to the hosted MCP resource'
 );
 
 select tests.create_supabase_user('other_entitlement', 'other@example.com');

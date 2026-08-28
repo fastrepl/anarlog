@@ -48,10 +48,15 @@ impl SupabaseAuth {
         validation.validate_exp = true;
         validation.set_audience(&["authenticated"]);
 
-        let token_data = jsonwebtoken::decode::<crate::Claims>(token, &decoding_key, &validation)
+        let token_data = jsonwebtoken::decode::<OAuthClaims>(token, &decoding_key, &validation)
             .map_err(|_| Error::InvalidToken)?;
+        // Connector tokens must not authenticate app sessions, even if an older
+        // hook also minted the `authenticated` audience.
+        if !token_data.claims.client_id.trim().is_empty() {
+            return Err(Error::InvalidToken);
+        }
 
-        Ok(token_data.claims)
+        Ok(token_data.claims.claims)
     }
 
     pub async fn verify_oauth_token(
@@ -180,27 +185,34 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
         (server, auth)
     }
 
-    fn oauth_token(issuer: &str, audience: &str, scope: &str, client_id: &str) -> String {
+    fn signed_token(claims: serde_json::Value) -> String {
         let mut header = Header::new(Algorithm::ES256);
         header.kid = Some(TEST_KEY_ID.to_string());
-        let expires_at = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
-            + 3_600;
         encode(
             &header,
-            &json!({
-                "sub": "oauth-user",
-                "iss": issuer,
-                "aud": ["authenticated", audience],
-                "exp": expires_at,
-                "client_id": client_id,
-                "scope": scope,
-            }),
+            &claims,
             &EncodingKey::from_ec_pem(TEST_PRIVATE_KEY.as_bytes()).unwrap(),
         )
         .unwrap()
+    }
+
+    fn expires_at() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            + 3_600
+    }
+
+    fn oauth_token(issuer: &str, audience: &str, scope: &str, client_id: &str) -> String {
+        signed_token(json!({
+            "sub": "oauth-user",
+            "iss": issuer,
+            "aud": [audience],
+            "exp": expires_at(),
+            "client_id": client_id,
+            "scope": scope,
+        }))
     }
 
     #[test]
@@ -257,5 +269,40 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
             .verify_oauth_token(&token, "https://api.anarlog.so/other", &["openid"])
             .await;
         assert!(matches!(wrong_resource, Err(Error::InvalidToken)));
+    }
+
+    #[tokio::test]
+    async fn oauth_tokens_are_rejected_as_session_tokens() {
+        let (server, auth) = oauth_auth().await;
+        let resource = "https://api.anarlog.so/mcp";
+        let issuer = format!("{}/auth/v1", server.uri());
+        let mcp_token = oauth_token(&issuer, resource, "openid email", "chatgpt-client");
+        let dual_audience_token = signed_token(json!({
+            "sub": "oauth-user",
+            "iss": issuer,
+            "aud": ["authenticated", resource],
+            "exp": expires_at(),
+            "client_id": "chatgpt-client",
+            "scope": "openid email",
+        }));
+        let session_token = signed_token(json!({
+            "sub": "session-user",
+            "iss": issuer,
+            "aud": "authenticated",
+            "exp": expires_at(),
+        }));
+
+        assert!(matches!(
+            auth.verify_token(&mcp_token).await,
+            Err(Error::InvalidToken)
+        ));
+        assert!(matches!(
+            auth.verify_token(&dual_audience_token).await,
+            Err(Error::InvalidToken)
+        ));
+        assert_eq!(
+            auth.verify_token(&session_token).await.unwrap().sub,
+            "session-user"
+        );
     }
 }
