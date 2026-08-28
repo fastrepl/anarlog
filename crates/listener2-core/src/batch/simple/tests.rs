@@ -201,6 +201,39 @@ fn segments_only_when_a_provider_limit_is_exceeded() {
 }
 
 #[test]
+fn openai_diarize_splits_below_the_shared_openai_duration_cap() {
+    let source = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
+    write_test_wav_samples(source.path(), TARGET_SAMPLE_RATE as usize);
+    let path = source.path().to_str().unwrap();
+    let size = std::fs::metadata(source.path()).unwrap().len();
+    let diarize = owhisper_client::AdapterKind::OpenAI
+        .batch_upload_limit(Some("gpt-4o-transcribe-diarize"))
+        .unwrap();
+    let transcribe = owhisper_client::AdapterKind::OpenAI
+        .batch_upload_limit(Some("gpt-4o-transcribe"))
+        .unwrap();
+    let meeting = Some(Duration::from_secs_f64(1500.012));
+
+    assert!(
+        size < transcribe.max_bytes,
+        "fixture must be size-eligible so duration is the trigger"
+    );
+    assert_eq!(
+        segment_plan(path, Some(Duration::from_secs(1450)), Some(transcribe)),
+        None
+    );
+    assert_eq!(
+        segment_plan(path, Some(Duration::from_secs(1450)), Some(diarize)),
+        Some(diarize.max_duration)
+    );
+    assert_eq!(
+        segment_plan(path, meeting, Some(diarize)),
+        Some(diarize.max_duration)
+    );
+    assert!(diarize.max_duration < Duration::from_secs(1400));
+}
+
+#[test]
 fn merges_segment_transcripts_onto_a_single_timeline() {
     let segment = |transcript: &str, start: f64| Response {
         metadata: serde_json::json!({ "provider": "openrouter" }),

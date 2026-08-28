@@ -51,6 +51,9 @@ pub enum BatchProvider {
     #[serde(rename = "google_cloud")]
     #[strum(serialize = "google_cloud")]
     GoogleCloud,
+    #[serde(rename = "google_generative_ai")]
+    #[strum(serialize = "google_generative_ai")]
+    GoogleGenerativeAi,
     Groq,
     RevAi,
     Speechmatics,
@@ -81,6 +84,7 @@ impl BatchProvider {
             Self::AwsTranscribe => Some(AdapterKind::AwsTranscribe),
             Self::AzureSpeech => Some(AdapterKind::AzureSpeech),
             Self::GoogleCloud => Some(AdapterKind::GoogleCloud),
+            Self::GoogleGenerativeAi => Some(AdapterKind::GoogleGenerativeAi),
             Self::Groq => Some(AdapterKind::Groq),
             Self::RevAi => Some(AdapterKind::RevAi),
             Self::Speechmatics => Some(AdapterKind::Speechmatics),
@@ -332,6 +336,7 @@ pub(super) fn format_user_friendly_error(error: &str) -> String {
         || error_lower.contains("payload too large")
         || error_lower.contains("file too large")
         || error_lower.contains("upload limit")
+        || error_lower.contains("audio duration")
     {
         return "This recording is too large for the selected transcription provider. Try another provider or split the recording.".to_string();
     }
@@ -478,6 +483,15 @@ mod tests {
     fn provider_upload_limit_errors_are_explained() {
         let message = format_user_friendly_error(
             r#"UnexpectedStatus { status: 400, body: "Audio file exceeds the 25 MB multipart upload limit." }"#,
+        );
+
+        assert!(message.starts_with("This recording is too large"));
+    }
+
+    #[test]
+    fn provider_duration_limit_errors_are_explained() {
+        let message = format_user_friendly_error(
+            r#"UnexpectedStatus { status: 400, body: "{\"error\":{\"message\":\"audio duration 1500.012 seconds is longer than 1400 seconds which is the maximum for this model\"}}" }"#,
         );
 
         assert!(message.starts_with("This recording is too large"));

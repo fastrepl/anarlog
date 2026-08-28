@@ -26,11 +26,12 @@ pub use adapter::{
     AwsTranscribeAdapter, AzureSpeechAdapter, BatchSttAdapter, BatchUploadLimit, CallbackResult,
     CallbackSttAdapter, CartesiaAdapter, CohereAdapter, DashScopeAdapter, DeepgramAdapter,
     DeepgramFluxAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, GoogleCloudAdapter,
-    GroqAdapter, LanguageQuality, LanguageSupport, MistralAdapter, OpenAIAdapter,
-    OpenRouterAdapter, PyannoteAdapter, RealtimeSttAdapter, RevAiAdapter, SiliconFlowAdapter,
-    SmallestAIAdapter, SonioxAdapter, SpeechmaticsAdapter, TogetherAdapter, WhisperCppAdapter,
-    XaiAdapter, ZaiAdapter, append_provider_param, documented_language_codes_batch,
-    documented_language_codes_live, is_anarlog_proxy, is_local_host, normalize_languages,
+    GoogleGenerativeAiAdapter, GroqAdapter, LanguageQuality, LanguageSupport, MistralAdapter,
+    OpenAIAdapter, OpenRouterAdapter, PyannoteAdapter, RealtimeSttAdapter, RevAiAdapter,
+    SiliconFlowAdapter, SmallestAIAdapter, SonioxAdapter, SpeechmaticsAdapter, TogetherAdapter,
+    WhisperCppAdapter, XaiAdapter, ZaiAdapter, append_provider_param,
+    documented_language_codes_batch, documented_language_codes_live, is_anarlog_proxy,
+    is_local_host, normalize_languages,
 };
 pub use adapter::{StreamingBatchEvent, StreamingBatchStream};
 

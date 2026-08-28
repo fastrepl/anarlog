@@ -16,6 +16,7 @@ pub(crate) mod elevenlabs;
 mod fireworks;
 mod gladia;
 mod google_cloud;
+pub(crate) mod google_generative_ai;
 mod groq;
 pub mod http;
 mod language;
@@ -49,6 +50,7 @@ pub use elevenlabs::*;
 pub use fireworks::*;
 pub use gladia::*;
 pub use google_cloud::*;
+pub use google_generative_ai::*;
 pub use groq::*;
 pub use language::{LanguageQuality, LanguageSupport};
 pub use mistral::*;
@@ -126,6 +128,7 @@ pub fn documented_language_codes_live() -> Vec<String> {
     codes.extend(assemblyai::documented_language_codes_live().iter().copied());
     codes.extend(elevenlabs::documented_language_codes());
     codes.extend(argmax::PARAKEET_V3_LANGS.iter().copied());
+    codes.extend(google_generative_ai::GoogleGenerativeAiAdapter::documented_language_codes());
 
     simple_documented_language_codes(codes)
 }
@@ -146,6 +149,7 @@ pub fn documented_language_codes_batch() -> Vec<String> {
     codes.extend(argmax::PARAKEET_V3_LANGS.iter().copied());
     codes.extend(pyannote::documented_language_codes());
     codes.extend(cohere::documented_language_codes().iter().copied());
+    codes.extend(google_generative_ai::GoogleGenerativeAiAdapter::documented_language_codes());
 
     simple_documented_language_codes(codes)
 }
@@ -423,6 +427,10 @@ pub fn append_provider_param(base_url: &str, provider: &str) -> String {
 }
 
 const OPENAI_COMPATIBLE_MAX_UPLOAD_BYTES: u64 = 25 * 1024 * 1024;
+const OPENAI_COMPATIBLE_MAX_DURATION: Duration = Duration::from_secs(25 * 60);
+/// `gpt-4o-transcribe-diarize` rejects audio longer than 1400s. Stay 10s under
+/// so MP3 re-encode padding cannot push a segment over the API cap.
+const OPENAI_DIARIZE_MAX_DURATION: Duration = Duration::from_secs(1390);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BatchUploadLimit {
@@ -476,6 +484,8 @@ pub enum AdapterKind {
     AzureSpeech,
     #[strum(serialize = "google_cloud")]
     GoogleCloud,
+    #[strum(serialize = "google_generative_ai")]
+    GoogleGenerativeAi,
     #[strum(serialize = "groq")]
     Groq,
     #[strum(serialize = "revai")]
@@ -525,6 +535,13 @@ impl AdapterKind {
             return Self::Zai;
         }
 
+        if host_matches(base_url, |host| {
+            host == "generativelanguage.googleapis.com"
+                || host.ends_with(".generativelanguage.googleapis.com")
+        }) {
+            return Self::GoogleGenerativeAi;
+        }
+
         Provider::from_url(base_url)
             .map(Self::from)
             .unwrap_or(Self::Deepgram)
@@ -533,7 +550,7 @@ impl AdapterKind {
     /// Providers that reject oversized multipart uploads or time out on long
     /// audio. Recordings past either bound are split into one request per segment
     /// instead of failing at the provider.
-    pub fn batch_upload_limit(&self) -> Option<BatchUploadLimit> {
+    pub fn batch_upload_limit(&self, model: Option<&str>) -> Option<BatchUploadLimit> {
         let (max_bytes, max_duration) = match self {
             // OpenRouter's upstream providers time out after 60s per request, so
             // its segments stay well below the size cap.
@@ -541,10 +558,15 @@ impl AdapterKind {
                 OPENAI_COMPATIBLE_MAX_UPLOAD_BYTES,
                 Duration::from_secs(10 * 60),
             ),
-            Self::OpenAI | Self::Groq | Self::Together | Self::Xai => (
+            Self::OpenAI => (
                 OPENAI_COMPATIBLE_MAX_UPLOAD_BYTES,
-                Duration::from_secs(25 * 60),
+                openai_batch_max_duration(model),
             ),
+            Self::Groq | Self::Together | Self::Xai => (
+                OPENAI_COMPATIBLE_MAX_UPLOAD_BYTES,
+                OPENAI_COMPATIBLE_MAX_DURATION,
+            ),
+            Self::GoogleGenerativeAi => (20 * 1024 * 1024, Duration::from_secs(15 * 60)),
             Self::Zai => (OPENAI_COMPATIBLE_MAX_UPLOAD_BYTES, Duration::from_secs(25)),
             Self::SiliconFlow => (50 * 1024 * 1024, Duration::from_secs(50 * 60)),
             _ => return None,
@@ -583,6 +605,7 @@ impl AdapterKind {
             | Self::DashScope
             | Self::Mistral
             | Self::Xai
+            | Self::GoogleGenerativeAi
             | Self::Anarlog => true,
         }
     }
@@ -620,6 +643,7 @@ impl AdapterKind {
             | Self::Speechmatics
             | Self::Together => LanguageSupport::NotSupported,
             Self::Xai => XaiAdapter::language_support_live(languages),
+            Self::GoogleGenerativeAi => GoogleGenerativeAiAdapter::language_support_live(languages),
             Self::Anarlog => AnarlogAdapter::language_support_live(languages, model),
         }
     }
@@ -658,6 +682,9 @@ impl AdapterKind {
             Self::Speechmatics => SpeechmaticsAdapter::language_support_batch(languages),
             Self::Together => TogetherAdapter::language_support_batch(languages),
             Self::Xai => XaiAdapter::language_support_batch(languages),
+            Self::GoogleGenerativeAi => {
+                GoogleGenerativeAiAdapter::language_support_batch(languages)
+            }
             Self::Anarlog => AnarlogAdapter::language_support_batch(languages, model),
         }
     }
@@ -719,12 +746,22 @@ impl From<crate::providers::Provider> for AdapterKind {
             Provider::AwsTranscribe => Self::AwsTranscribe,
             Provider::AzureSpeech => Self::AzureSpeech,
             Provider::GoogleCloud => Self::GoogleCloud,
+            Provider::GoogleGenerativeAi => Self::GoogleGenerativeAi,
             Provider::Groq => Self::Groq,
             Provider::RevAi => Self::RevAi,
             Provider::Speechmatics => Self::Speechmatics,
             Provider::Together => Self::Together,
             Provider::Xai => Self::Xai,
         }
+    }
+}
+
+fn openai_batch_max_duration(model: Option<&str>) -> Duration {
+    match openai::OpenAIAdapter::resolve_batch_model(model) {
+        openai_transcription::batch::AudioModel::Gpt4oTranscribeDiarize => {
+            OPENAI_DIARIZE_MAX_DURATION
+        }
+        _ => OPENAI_COMPATIBLE_MAX_DURATION,
     }
 }
 

@@ -88,6 +88,7 @@ const DIRECT_BATCH_PROVIDERS: Set<TranscriptionParams["provider"]> = new Set([
   "aws_transcribe",
   "azure_speech",
   "google_cloud",
+  "google_generative_ai",
   "groq",
   "revai",
   "speechmatics",
