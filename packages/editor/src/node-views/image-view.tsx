@@ -260,8 +260,7 @@ export const ResizableImageView = forwardRef<
     <div ref={ref} {...htmlAttrs} {...stylex.props(styles.root)}>
       <div
         ref={attachContainer}
-        {...stylex.props(styles.container)}
-        style={imageWidth ? { width: imageWidth } : undefined}
+        {...stylex.props(styles.container, styles.imageWidth(imageWidth))}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
@@ -320,6 +319,9 @@ const styles = stylex.create({
     position: "relative",
     width: "fit-content",
   },
+  imageWidth: (width: string) => ({
+    width,
+  }),
   image: {
     backgroundColor: colors.card,
     borderRadius: radii.md,

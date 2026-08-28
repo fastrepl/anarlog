@@ -358,7 +358,6 @@ export function SlashCommandMenu() {
       ref={popupRef}
       data-editor-escape-consumer
       {...stylex.props(styles.popup)}
-      style={{ top: 0, left: 0 }}
     >
       <div {...stylex.props(styles.heading)}>Commands</div>
       <div {...stylex.props(styles.list)}>
@@ -395,7 +394,9 @@ const styles = stylex.create({
     maxHeight: "16rem",
     overflowY: "auto",
     padding: "0.25rem",
+    left: 0,
     position: "absolute",
+    top: 0,
     width: "224px",
     zIndex: 50,
   },

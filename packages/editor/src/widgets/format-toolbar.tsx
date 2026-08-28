@@ -184,7 +184,6 @@ export function FormatToolbar({
       role="toolbar"
       aria-label="Format selection"
       {...stylex.props(styles.toolbar)}
-      style={{ top: 0, left: 0 }}
       onMouseDown={(e) => e.preventDefault()}
     >
       {canFormatSelection &&
@@ -230,8 +229,10 @@ const styles = stylex.create({
     boxShadow: shadows.lg,
     display: "flex",
     gap: "0.125rem",
+    left: 0,
     padding: "0.25rem",
     position: "fixed",
+    top: 0,
     zIndex: 50,
   },
   button: {
