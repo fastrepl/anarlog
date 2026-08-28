@@ -195,6 +195,15 @@ export function getSttModelTranscriptionMode(
     return "batch";
   }
 
+  if (provider === "google_generative_ai") {
+    if (model?.includes("transcribe-live")) {
+      return "live";
+    }
+    if (model) {
+      return "batch";
+    }
+  }
+
   if (provider === "openai") {
     if (model === "gpt-live-transcribe") return "live";
     if (

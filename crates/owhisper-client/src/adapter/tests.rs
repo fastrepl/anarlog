@@ -240,6 +240,7 @@ fn test_has_live_mode() {
         AdapterKind::DashScope,
         AdapterKind::Mistral,
         AdapterKind::Xai,
+        AdapterKind::GoogleGenerativeAi,
         AdapterKind::Anarlog,
     ];
     for kind in live {
@@ -486,6 +487,14 @@ fn test_direct_provider_urls_not_affected() {
     assert_eq!(
         AdapterKind::from_url_and_languages("https://api.x.ai/v1", &en, None),
         AdapterKind::Xai,
+    );
+    assert_eq!(
+        AdapterKind::from_url_and_languages(
+            "https://generativelanguage.googleapis.com/v1beta",
+            &en,
+            None,
+        ),
+        AdapterKind::GoogleGenerativeAi,
     );
     assert_eq!(
         AdapterKind::from_url_and_languages("http://localhost:50060/v1", &en, None),

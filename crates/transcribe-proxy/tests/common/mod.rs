@@ -125,7 +125,8 @@ pub fn env_with_provider(provider: Provider, api_key: String) -> transcribe_prox
         | Provider::RevAi
         | Provider::Speechmatics
         | Provider::Together
-        | Provider::Xai => panic!("{provider} is not configured in the Pro proxy"),
+        | Provider::Xai
+        | Provider::GoogleGenerativeAi => panic!("{provider} is not configured in the Pro proxy"),
     }
     env
 }

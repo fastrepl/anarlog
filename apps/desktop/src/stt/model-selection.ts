@@ -30,6 +30,7 @@ const DEFAULT_EXTERNAL_STT_MODELS: Record<string, string> = {
   speechmatics: "enhanced",
   azure_speech: "fast-transcription",
   google_cloud: "latest_long",
+  google_generative_ai: "gemini-3.5-transcribe-live",
   aws_transcribe: "amazon-transcribe",
   revai: "machine",
 };

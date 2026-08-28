@@ -5,9 +5,9 @@ use owhisper_client::{
     AdapterKind, AnarlogAdapter, AquaVoiceAdapter, ArgmaxAdapter, AssemblyAIAdapter,
     AwsTranscribeAdapter, AzureSpeechAdapter, BatchSttAdapter, BatchUploadLimit, CartesiaAdapter,
     CohereAdapter, DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter,
-    GoogleCloudAdapter, GroqAdapter, MistralAdapter, OpenAIAdapter, OpenRouterAdapter,
-    PyannoteAdapter, RevAiAdapter, SiliconFlowAdapter, SonioxAdapter, SpeechmaticsAdapter,
-    TogetherAdapter, XaiAdapter, ZaiAdapter,
+    GoogleCloudAdapter, GoogleGenerativeAiAdapter, GroqAdapter, MistralAdapter, OpenAIAdapter,
+    OpenRouterAdapter, PyannoteAdapter, RevAiAdapter, SiliconFlowAdapter, SonioxAdapter,
+    SpeechmaticsAdapter, TogetherAdapter, XaiAdapter, ZaiAdapter,
 };
 use owhisper_interface::batch::{Alternatives, Channel, Response, Results};
 use tracing::Instrument;
@@ -90,6 +90,7 @@ pub(in crate::batch) async fn run_direct_batch_for_adapter_kind(
         AwsTranscribe => AwsTranscribeAdapter,
         AzureSpeech => AzureSpeechAdapter,
         GoogleCloud => GoogleCloudAdapter,
+        GoogleGenerativeAi => GoogleGenerativeAiAdapter,
         Groq => GroqAdapter,
         RevAi => RevAiAdapter,
         Speechmatics => SpeechmaticsAdapter,

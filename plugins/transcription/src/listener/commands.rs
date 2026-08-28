@@ -148,6 +148,7 @@ pub async fn suggest_providers_for_languages_live<R: tauri::Runtime>(
         AdapterKind::DashScope,
         AdapterKind::Mistral,
         AdapterKind::Xai,
+        AdapterKind::GoogleGenerativeAi,
     ];
 
     let mut with_support: Vec<_> = all_providers

@@ -468,6 +468,26 @@ mod tests {
     }
 
     #[test]
+    fn defaults_gemini_live_capture_to_live_mode() {
+        let params = capture_params(
+            "https://generativelanguage.googleapis.com/v1beta",
+            "gemini-3.5-transcribe-live",
+        );
+
+        assert_eq!(resolved(&params), TranscriptionMode::Live);
+    }
+
+    #[test]
+    fn defaults_gemini_file_capture_to_batch_mode() {
+        let params = capture_params(
+            "https://generativelanguage.googleapis.com/v1beta",
+            "gemini-3.5-transcribe",
+        );
+
+        assert_eq!(resolved(&params), TranscriptionMode::Batch);
+    }
+
+    #[test]
     fn defaults_pyannote_capture_to_batch_mode() {
         let params = capture_params("https://api.pyannote.ai", "parakeet-tdt-0.6b-v3");
 

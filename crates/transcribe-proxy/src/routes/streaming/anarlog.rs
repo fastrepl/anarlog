@@ -70,7 +70,10 @@ fn build_upstream_url_with_adapter(
         | Provider::RevAi
         | Provider::Speechmatics
         | Provider::Together
-        | Provider::Xai => unreachable!("direct BYOK provider is not configured in the proxy"),
+        | Provider::Xai
+        | Provider::GoogleGenerativeAi => {
+            unreachable!("direct BYOK provider is not configured in the proxy")
+        }
     }
 }
 
@@ -109,7 +112,10 @@ fn build_initial_message_with_adapter(
         | Provider::RevAi
         | Provider::Speechmatics
         | Provider::Together
-        | Provider::Xai => unreachable!("direct BYOK provider is not configured in the proxy"),
+        | Provider::Xai
+        | Provider::GoogleGenerativeAi => {
+            unreachable!("direct BYOK provider is not configured in the proxy")
+        }
     };
 
     msg.and_then(|m| match m {
@@ -151,7 +157,10 @@ fn build_response_transformer(
             | Provider::RevAi
             | Provider::Speechmatics
             | Provider::Together
-            | Provider::Xai => unreachable!("direct BYOK provider is not configured in the proxy"),
+            | Provider::Xai
+            | Provider::GoogleGenerativeAi => {
+                unreachable!("direct BYOK provider is not configured in the proxy")
+            }
         };
 
         if provider == Provider::Soniox && proxy_debug_enabled() {

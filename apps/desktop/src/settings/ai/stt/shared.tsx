@@ -9,6 +9,7 @@ import {
   ElevenLabs,
   Fireworks,
   GoogleCloud,
+  Gemini,
   Groq,
   Mistral,
   OpenAI,
@@ -213,6 +214,20 @@ export const displayModelId = (model: string): string => {
 
   if (model === "xai-stt") {
     return "xAI Speech to Text";
+  }
+
+  if (
+    model === "gemini-3.5-transcribe-live" ||
+    model === "gemini-3.5-transcribe-live-preview"
+  ) {
+    return "3.5 Transcribe Live";
+  }
+
+  if (
+    model === "gemini-3.5-transcribe" ||
+    model === "gemini-3.5-transcribe-preview"
+  ) {
+    return "3.5 Transcribe";
   }
 
   if (model === "enhanced") {
@@ -669,6 +684,26 @@ const _PROVIDERS = [
   },
   {
     disabled: false,
+    id: "google_generative_ai",
+    displayName: "Google Gemini",
+    badge: null,
+    icon: <ProviderLobeIcon icon={Gemini} />,
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+    models: ["gemini-3.5-transcribe-live", "gemini-3.5-transcribe"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Available models",
+        url: "https://ai.google.dev/gemini-api/docs/models",
+      },
+      setup: {
+        label: "API setup",
+        url: "https://aistudio.google.com/api-keys",
+      },
+    },
+  },
+  {
+    disabled: false,
     id: "aws_transcribe",
     displayName: "Amazon Transcribe",
     badge: "Gateway",
@@ -953,6 +988,7 @@ const PROVIDER_ORDER = [
   "dashscope",
   "zai",
   "siliconflow",
+  "google_generative_ai",
   "google_cloud",
   "aws_transcribe",
   "azure_speech",

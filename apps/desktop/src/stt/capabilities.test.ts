@@ -106,6 +106,18 @@ describe("getSttModelTranscriptionMode", () => {
     );
     expect(getSttModelTranscriptionMode("gladia", "solaria-3")).toBe("batch");
     expect(
+      getSttModelTranscriptionMode(
+        "google_generative_ai",
+        "gemini-3.5-transcribe-live",
+      ),
+    ).toBe("live");
+    expect(
+      getSttModelTranscriptionMode(
+        "google_generative_ai",
+        "gemini-3.5-transcribe",
+      ),
+    ).toBe("batch");
+    expect(
       getSttModelTranscriptionMode("cohere", "cohere-transcribe-03-2026"),
     ).toBe("batch");
     for (const [provider, model] of [

@@ -22,6 +22,9 @@ describe("getDefaultSttModel", () => {
     expect(getDefaultSttModel("speechmatics")).toBe("enhanced");
     expect(getDefaultSttModel("azure_speech")).toBe("fast-transcription");
     expect(getDefaultSttModel("google_cloud")).toBe("latest_long");
+    expect(getDefaultSttModel("google_generative_ai")).toBe(
+      "gemini-3.5-transcribe-live",
+    );
     expect(getDefaultSttModel("aws_transcribe")).toBe("amazon-transcribe");
     expect(getDefaultSttModel("revai")).toBe("machine");
     expect(getDefaultSttModel("fireworks")).toBe("whisper-v3-turbo");
