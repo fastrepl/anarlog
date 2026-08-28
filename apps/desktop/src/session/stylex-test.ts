@@ -25,7 +25,12 @@ export function getStyleClassNames(sx: stylex.StyleXStyles) {
 
     for (const [key, className] of Object.entries(compiledStyle)) {
       if (key !== "$$css" && typeof className === "string") {
-        classNames.add(className);
+        className
+          .split(" ")
+          .filter(Boolean)
+          .forEach((name) => {
+            classNames.add(name);
+          });
       }
     }
   };
