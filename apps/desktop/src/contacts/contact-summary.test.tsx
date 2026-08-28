@@ -318,6 +318,7 @@ function makeSnapshot({
     title,
     createdAt,
     event: null,
+    sourceApps: [],
     eventId: null,
     rawNoteId: null,
     rawTemplateId: "",

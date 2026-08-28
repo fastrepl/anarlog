@@ -34,6 +34,7 @@ import {
 } from "~/onboarding/welcome-note.constants";
 import { SessionShareButton } from "~/session-sharing";
 import { useEventCountdown } from "~/session/hooks/useEventCountdown";
+import { useMeetingAccessibilityActive } from "~/session/hooks/useMeetingAccessibilityActive";
 import {
   getRemoteMeeting,
   type RemoteMeeting,
@@ -244,6 +245,9 @@ function HeaderMeetingActionPill({
   const canJoinFromHeader = Boolean(
     meetingLink && (remote !== null || isWelcomeDemo),
   );
+  const meetingAccessibilityActive = useMeetingAccessibilityActive(
+    canJoinFromHeader && !isWelcomeDemo && sessionMode === "inactive",
+  );
   const canResume = audioExists || hasTranscript;
   const { t } = useLingui();
   const joiningMeetingRef = useRef(false);
@@ -324,7 +328,7 @@ function HeaderMeetingActionPill({
       };
     }
 
-    if (canJoinFromHeader) {
+    if (canJoinFromHeader && !meetingAccessibilityActive) {
       return {
         label: t`Join & record`,
         title: t`Join meeting and record`,

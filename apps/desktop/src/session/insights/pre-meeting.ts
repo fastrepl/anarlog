@@ -5,6 +5,7 @@ import {
   commands as templateCommands,
   type JsonValue,
 } from "@anlg/plugin-template";
+import { parseEventInstant } from "@anlg/utils";
 
 import systemPromptTemplate from "./pre-meeting-brief.system.md.jinja?raw";
 import userPromptTemplate from "./pre-meeting-brief.user.md.jinja?raw";
@@ -57,18 +58,19 @@ export function shouldShowPreMeetingBrief(
     return false;
   }
 
-  const startMs = Date.parse(event.started_at ?? "");
-  if (!Number.isFinite(startMs)) {
+  const startMs = parseEventInstant(event.started_at)?.getTime();
+  if (startMs == null) {
     return false;
   }
   if (startMs > nowMs) {
     return true;
   }
 
-  const endMs = Date.parse(event.ended_at ?? "");
-  const hideAfterMs = Number.isFinite(endMs)
-    ? Math.max(endMs, startMs + AFTER_START_GRACE_MS)
-    : startMs + AFTER_START_GRACE_MS;
+  const endMs = parseEventInstant(event.ended_at)?.getTime();
+  const hideAfterMs =
+    endMs == null
+      ? startMs + AFTER_START_GRACE_MS
+      : Math.max(endMs, startMs + AFTER_START_GRACE_MS);
   return hideAfterMs > nowMs;
 }
 

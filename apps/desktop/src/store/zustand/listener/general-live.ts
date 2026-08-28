@@ -50,6 +50,7 @@ import { syncCloudApiSnapshotBestEffort } from "~/cloud-api/client";
 import { getSessionResourcePath } from "~/session/resource-path";
 import { isAppStoreBuild } from "~/shared/app-store";
 import { fromResult } from "~/stt/fromResult";
+import { recordDetectedMeetingApps } from "~/stt/meeting-source-apps";
 
 type EventListeners = {
   lifecycle: (payload: CaptureLifecycleEvent) => void;
@@ -474,17 +475,16 @@ export const startLiveSession = <T extends LiveStore>(
           }),
           detectCommands
             .listMicUsingApplications()
-            .then((r) =>
-              r.status === "ok" ? r.data.map((app) => app.id) : null,
-            ),
+            .then((r) => (r.status === "ok" ? r.data : null)),
           getIdentifier().catch(() => "com.anarlog.stable"),
         ]),
       catch: (error) => error,
     });
 
     const sessionPath = getSessionResourcePath(dataDirPath, targetSessionId);
-    const app_meeting = micUsingApps?.[0] ?? null;
-    const triggerAppIds = getAutoStopTriggerAppIds(micUsingApps, bundleId);
+    const micUsingAppIds = micUsingApps?.map((app) => app.id) ?? null;
+    const app_meeting = micUsingAppIds?.[0] ?? null;
+    const triggerAppIds = getAutoStopTriggerAppIds(micUsingAppIds, bundleId);
 
     if (triggerAppIds.length > 0) {
       setLiveState(set, (live) => {
@@ -518,6 +518,8 @@ export const startLiveSession = <T extends LiveStore>(
     setLiveState(set, (live) => {
       markLiveCaptureStarted(live, targetSessionId);
     });
+
+    return micUsingApps;
   });
 
   return Effect.runPromiseExit(program).then((exit) =>
@@ -536,7 +538,18 @@ export const startLiveSession = <T extends LiveStore>(
         });
         return false;
       },
-      onSuccess: () => true,
+      onSuccess: (micUsingApps) => {
+        if (micUsingApps?.length) {
+          void recordDetectedMeetingApps(targetSessionId, micUsingApps).catch(
+            (error) =>
+              console.warn(
+                "[listener] failed to persist detected meeting apps",
+                error,
+              ),
+          );
+        }
+        return true;
+      },
     }),
   );
 };

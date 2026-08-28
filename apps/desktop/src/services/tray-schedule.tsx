@@ -5,7 +5,7 @@ import {
   type TrayScheduleEvent,
 } from "@anlg/plugin-tray";
 import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
-import { addDays, safeParseDate, startOfDay, TZDate } from "@anlg/utils";
+import { addDays, parseEventInstant, startOfDay, TZDate } from "@anlg/utils";
 
 import { useIgnoredEvents } from "~/calendar/ignored-events";
 import { useTimelineEventsTable } from "~/calendar/queries";
@@ -42,7 +42,7 @@ export function buildTrayScheduleEvents(
         return [];
       }
 
-      const start = safeParseDate(row.started_at);
+      const start = parseEventInstant(row.started_at);
       if (!start) {
         return [];
       }
@@ -52,7 +52,7 @@ export function buildTrayScheduleEvents(
         return [];
       }
 
-      const parsedEnd = safeParseDate(row.ended_at);
+      const parsedEnd = parseEventInstant(row.ended_at);
       const endsAtMs =
         parsedEnd && parsedEnd.getTime() > startsAtMs
           ? parsedEnd.getTime()

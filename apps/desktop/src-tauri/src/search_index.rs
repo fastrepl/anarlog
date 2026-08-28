@@ -10,7 +10,7 @@ use tauri_plugin_tantivy::{
 };
 
 // Increment when the SQLite-to-Tantivy document shape changes so existing indexes are rebuilt.
-const PROJECTION_VERSION: i64 = 3;
+const PROJECTION_VERSION: i64 = 4;
 const BATCH_SIZE: i64 = 64;
 const DIRTY_DEBOUNCE: Duration = Duration::from_millis(250);
 const RETRY_INTERVAL: Duration = Duration::from_secs(5);
@@ -326,7 +326,7 @@ async fn build_session_document(
     id: &str,
 ) -> WorkerResult<IndexAction> {
     let Some(session) = sqlx::query(
-        "SELECT title, created_at, event_json, locked
+        "SELECT title, created_at, event_json, source_apps_json, locked
          FROM sessions
          WHERE id = ? AND deleted_at IS NULL",
     )
@@ -397,8 +397,10 @@ async fn build_session_document(
     .fetch_all(&mut *connection)
     .await?;
 
+    let source_apps_json: String = session.get("source_apps_json");
+
     let mut content_parts = Vec::with_capacity(
-        1 + enhanced_bodies.len() + meeting_chat_messages.len() + transcripts.len(),
+        2 + enhanced_bodies.len() + meeting_chat_messages.len() + transcripts.len(),
     );
     if let Some(raw_body) = raw_body {
         content_parts.push(extract_plain_text(&raw_body));
@@ -414,6 +416,7 @@ async fn build_session_document(
             .iter()
             .map(|transcript| flatten_transcript(transcript)),
     );
+    content_parts.push(flatten_source_apps(&source_apps_json));
 
     let title: String = session.get("title");
     let created_at: String = session.get("created_at");
@@ -635,6 +638,23 @@ fn flatten_meeting_chat(value: &str) -> String {
     );
 
     merge_content(parts.iter().map(String::as_str))
+}
+
+fn flatten_source_apps(value: &str) -> String {
+    let Ok(Value::Array(source_apps)) = serde_json::from_str::<Value>(value) else {
+        return String::new();
+    };
+
+    let parts = source_apps
+        .iter()
+        .filter_map(Value::as_object)
+        .flat_map(|source| {
+            ["app", "name", "platform"]
+                .into_iter()
+                .filter_map(|key| source.get(key).and_then(Value::as_str))
+        })
+        .collect::<Vec<_>>();
+    merge_content(parts)
 }
 
 fn flatten_transcript_value(value: &Value) -> String {
@@ -863,6 +883,35 @@ mod tests {
         assert!(!document.content.contains("deleted message"));
     }
 
+    #[tokio::test]
+    async fn session_projection_includes_raw_and_normalized_meeting_apps() {
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
+        sqlx::query(
+            r#"INSERT INTO sessions (id, title, source_apps_json)
+               VALUES (
+                 'session-1',
+                 'Planning',
+                 '[{"app":"com.google.Chrome","name":"Google Chrome","platform":"Google Meet"}]'
+               )"#,
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let mut connection = db.pool().acquire().await.unwrap();
+        let IndexAction::Upsert(document) = build_session_document(&mut connection, "session-1")
+            .await
+            .unwrap()
+        else {
+            panic!("expected the session to be indexed");
+        };
+
+        assert!(document.content.contains("com.google.Chrome"));
+        assert!(document.content.contains("Google Chrome"));
+        assert!(document.content.contains("Google Meet"));
+    }
+
     #[test]
     fn extracts_text_only_from_valid_tiptap_documents() {
         assert_eq!(
@@ -897,6 +946,17 @@ mod tests {
             "zoom Ada 10:42 AM Here is the doc https://example.com/spec"
         );
         assert_eq!(flatten_meeting_chat("plain chat"), "plain chat");
+    }
+
+    #[test]
+    fn flattens_source_app_metadata() {
+        assert_eq!(
+            flatten_source_apps(
+                r#"[{"app":"slack","name":"Slack.exe","platform":"Slack"},{"app":"legacy"}]"#,
+            ),
+            "slack Slack.exe Slack legacy"
+        );
+        assert_eq!(flatten_source_apps("not json"), "");
     }
 
     #[test]

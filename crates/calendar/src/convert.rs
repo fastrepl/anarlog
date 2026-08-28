@@ -12,9 +12,13 @@ use anlg_google_calendar::{
     EventStatus as GoogleEventStatus,
 };
 use anlg_outlook_calendar::{
-    Attendee as OutlookAttendee, AttendeeType, Calendar as OutlookCalendar, Event as OutlookEvent,
-    EventShowAs, ResponseType as OutlookResponseType,
+    Attendee as OutlookAttendee, AttendeeType, Calendar as OutlookCalendar,
+    DateTimeTimeZone as OutlookDateTimeTimeZone, Event as OutlookEvent, EventShowAs,
+    ResponseType as OutlookResponseType,
 };
+use chrono::{DateTime, MappedLocalTime, NaiveDateTime, Utc};
+
+use crate::windows_tz::windows_tz_to_iana;
 
 pub fn convert_google_calendars(calendars: Vec<GoogleCalendar>) -> Vec<CalendarListItem> {
     calendars
@@ -193,16 +197,17 @@ fn convert_google_event(event: GoogleEvent, calendar_id: &str) -> CalendarEvent 
 
 fn convert_outlook_event(event: OutlookEvent, calendar_id: &str) -> CalendarEvent {
     let raw = serde_json::to_string(&event).unwrap_or_default();
+    let is_all_day = event.is_all_day.unwrap_or(false);
 
     let started_at = event
         .start
         .as_ref()
-        .map(|start| start.date_time.clone())
+        .map(|start| outlook_datetime_to_iso(start, is_all_day))
         .unwrap_or_default();
     let ended_at = event
         .end
         .as_ref()
-        .map(|end| end.date_time.clone())
+        .map(|end| outlook_datetime_to_iso(end, is_all_day))
         .unwrap_or_default();
     let timezone = event
         .start
@@ -255,7 +260,7 @@ fn convert_outlook_event(event: OutlookEvent, calendar_id: &str) -> CalendarEven
         started_at,
         ended_at,
         timezone,
-        is_all_day: event.is_all_day.unwrap_or(false),
+        is_all_day,
         status: convert_outlook_status(event.is_cancelled, event.show_as),
         organizer,
         attendees,
@@ -315,6 +320,93 @@ fn convert_apple_event(event: AppleEvent) -> CalendarEvent {
         recurring_event_id,
         raw,
     }
+}
+
+// Graph stores timed start/end as a timezone-naive `{date}T{time}` plus a
+// separate timeZone field (Windows IDs or IANA). Persisting that string as-is
+// makes JS `Date` treat UTC wall-clock values as local, so CEST notifications
+// fire two hours early. All-day values are calendar dates (midnight on that
+// date), not instants — converting those through UTC shifts the day west of UTC.
+fn outlook_datetime_to_iso(value: &OutlookDateTimeTimeZone, is_all_day: bool) -> String {
+    if is_all_day {
+        return outlook_all_day_to_iso(value);
+    }
+
+    let raw = value.date_time.trim();
+    if raw.is_empty() {
+        return String::new();
+    }
+
+    if let Ok(dt) = DateTime::parse_from_rfc3339(raw) {
+        return dt.with_timezone(&Utc).to_rfc3339();
+    }
+
+    let Some(naive) = parse_outlook_naive(raw) else {
+        return value.date_time.clone();
+    };
+
+    naive_in_timezone(naive, value.time_zone.as_deref()).to_rfc3339()
+}
+
+fn outlook_all_day_to_iso(value: &OutlookDateTimeTimeZone) -> String {
+    let raw = value.date_time.trim();
+    if let Some(date) = raw.get(..10).filter(|date| {
+        date.as_bytes().get(4) == Some(&b'-')
+            && date.as_bytes().get(7) == Some(&b'-')
+            && date
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || byte == b'-')
+    }) {
+        return format!("{date}T00:00:00");
+    }
+
+    value.date_time.clone()
+}
+
+fn parse_outlook_naive(value: &str) -> Option<NaiveDateTime> {
+    const FORMATS: [&str; 4] = [
+        "%Y-%m-%dT%H:%M:%S%.f",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d %H:%M:%S%.f",
+        "%Y-%m-%d %H:%M:%S",
+    ];
+
+    FORMATS
+        .iter()
+        .find_map(|format| NaiveDateTime::parse_from_str(value, format).ok())
+}
+
+fn naive_in_timezone(naive: NaiveDateTime, time_zone: Option<&str>) -> DateTime<Utc> {
+    let tz_name = time_zone.map(str::trim).filter(|name| !name.is_empty());
+    let Some(tz_name) = tz_name else {
+        return naive.and_utc();
+    };
+
+    if is_utc_timezone(tz_name) {
+        return naive.and_utc();
+    }
+
+    let iana = windows_tz_to_iana(tz_name).unwrap_or(tz_name);
+    let Ok(tz) = iana.parse::<chrono_tz::Tz>() else {
+        return naive.and_utc();
+    };
+
+    match naive.and_local_timezone(tz) {
+        MappedLocalTime::Single(dt) => dt.with_timezone(&Utc),
+        MappedLocalTime::Ambiguous(earliest, _) => earliest.with_timezone(&Utc),
+        MappedLocalTime::None => naive.and_utc(),
+    }
+}
+
+fn is_utc_timezone(name: &str) -> bool {
+    name.eq_ignore_ascii_case("UTC")
+        || name.eq_ignore_ascii_case("GMT")
+        || name.eq_ignore_ascii_case("Etc/UTC")
+        || name.eq_ignore_ascii_case("Etc/GMT")
+        || name
+            .rsplit('/')
+            .next()
+            .is_some_and(|part| part.eq_ignore_ascii_case("UTC"))
 }
 
 fn event_datetime_to_iso(edt: &EventDateTime) -> Option<String> {
@@ -585,5 +677,138 @@ mod meeting_link_tests {
 
         let converted = convert_outlook_events(vec![event], "cal-2");
         assert_eq!(converted[0].meeting_link.as_deref(), Some(CAL_LINK));
+    }
+
+    fn outlook_event_with_start(
+        date_time: &str,
+        time_zone: Option<&str>,
+        is_all_day: bool,
+    ) -> OutlookEvent {
+        serde_json::from_value(serde_json::json!({
+            "id": "evt-tz",
+            "subject": "Timezone check",
+            "isAllDay": is_all_day,
+            "start": { "dateTime": date_time, "timeZone": time_zone },
+            "end": { "dateTime": date_time, "timeZone": time_zone },
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn outlook_naive_utc_datetimes_become_rfc3339_utc() {
+        let converted = convert_outlook_events(
+            vec![outlook_event_with_start(
+                "2026-08-27T12:00:00.0000000",
+                Some("UTC"),
+                false,
+            )],
+            "cal-2",
+        );
+
+        assert_eq!(converted[0].started_at, "2026-08-27T12:00:00+00:00");
+        assert_eq!(converted[0].ended_at, "2026-08-27T12:00:00+00:00");
+    }
+
+    #[test]
+    fn outlook_cest_windows_timezone_converts_to_utc_instant() {
+        let converted = convert_outlook_events(
+            vec![outlook_event_with_start(
+                "2026-08-27T14:00:00.0000000",
+                Some("W. Europe Standard Time"),
+                false,
+            )],
+            "cal-2",
+        );
+
+        assert_eq!(converted[0].started_at, "2026-08-27T12:00:00+00:00");
+    }
+
+    #[test]
+    fn outlook_iana_timezone_converts_to_utc_instant() {
+        let converted = convert_outlook_events(
+            vec![outlook_event_with_start(
+                "2026-08-27T14:00:00",
+                Some("Europe/Paris"),
+                false,
+            )],
+            "cal-2",
+        );
+
+        assert_eq!(converted[0].started_at, "2026-08-27T12:00:00+00:00");
+    }
+
+    #[test]
+    fn outlook_rfc3339_offset_is_normalized_to_utc() {
+        let converted = convert_outlook_events(
+            vec![outlook_event_with_start(
+                "2026-08-27T14:00:00+02:00",
+                Some("UTC"),
+                false,
+            )],
+            "cal-2",
+        );
+
+        assert_eq!(converted[0].started_at, "2026-08-27T12:00:00+00:00");
+    }
+
+    #[test]
+    fn outlook_all_day_keeps_the_calendar_date() {
+        let converted = convert_outlook_events(
+            vec![outlook_event_with_start(
+                "2026-08-27T00:00:00.0000000",
+                Some("UTC"),
+                true,
+            )],
+            "cal-2",
+        );
+
+        assert_eq!(converted[0].started_at, "2026-08-27T00:00:00");
+        assert!(converted[0].is_all_day);
+    }
+
+    #[test]
+    fn outlook_all_day_keeps_the_calendar_date_in_named_zones() {
+        let converted = convert_outlook_events(
+            vec![outlook_event_with_start(
+                "2026-08-27T00:00:00.0000000",
+                Some("Pacific Standard Time"),
+                true,
+            )],
+            "cal-2",
+        );
+
+        assert_eq!(converted[0].started_at, "2026-08-27T00:00:00");
+    }
+
+    #[test]
+    fn outlook_unmapped_common_windows_zones_convert() {
+        for (windows_tz, date_time, expected) in [
+            (
+                "Turkey Standard Time",
+                "2026-08-27T15:00:00.0000000",
+                "2026-08-27T12:00:00+00:00",
+            ),
+            (
+                "Taipei Standard Time",
+                "2026-08-27T20:00:00.0000000",
+                "2026-08-27T12:00:00+00:00",
+            ),
+            (
+                "W. Australia Standard Time",
+                "2026-08-27T20:00:00.0000000",
+                "2026-08-27T12:00:00+00:00",
+            ),
+            (
+                "Central Standard Time (Mexico)",
+                "2026-08-27T06:00:00.0000000",
+                "2026-08-27T12:00:00+00:00",
+            ),
+        ] {
+            let converted = convert_outlook_events(
+                vec![outlook_event_with_start(date_time, Some(windows_tz), false)],
+                "cal-2",
+            );
+            assert_eq!(converted[0].started_at, expected, "{windows_tz}");
+        }
     }
 }

@@ -12,6 +12,7 @@ import {
 } from "~/stt/meeting-consent";
 import { persistParticipantConsent } from "~/stt/meeting-consent-store";
 import { MEETING_DISCLOSURE_MESSAGE } from "~/stt/meeting-disclosure";
+import { recordCapturedMeetingPlatform } from "~/stt/meeting-source-apps";
 
 const MEETING_CHAT_CAPTURE_INTERVAL_MS = 5_000;
 const MAX_CAPTURED_CHAT_WINDOW = 1_000;
@@ -36,6 +37,7 @@ export function startMeetingChatCapture({
   let pendingPersistence: Promise<void> | null = null;
   let timeout: ReturnType<typeof setTimeout> | null = null;
   let lastWarning = "";
+  let lastRecordedSource = "";
   const captureIsEnabled =
     isEnabled ??
     (async () =>
@@ -68,6 +70,23 @@ export function startMeetingChatCapture({
       const bundleId = result.data.app?.id;
       if (!bundleId || !contextId) {
         return;
+      }
+
+      const sourceSignature = `${bundleId}\n${result.data.platform}`;
+      if (sourceSignature !== lastRecordedSource && result.data.app) {
+        try {
+          await recordCapturedMeetingPlatform(
+            sessionId,
+            result.data.app,
+            result.data.platform,
+          );
+          lastRecordedSource = sourceSignature;
+        } catch (error) {
+          console.warn(
+            "[listener] failed to persist captured meeting platform",
+            error,
+          );
+        }
       }
 
       const messages = result.data.messages

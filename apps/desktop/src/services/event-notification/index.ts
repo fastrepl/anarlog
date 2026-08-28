@@ -1,6 +1,7 @@
 import { t } from "@lingui/core/macro";
 
 import { commands as notificationCommands } from "@anlg/plugin-notification";
+import { parseEventInstant } from "@anlg/utils";
 
 import { getIgnoredEventSets } from "~/calendar/ignored-events";
 import { liveQueryClient } from "~/db";
@@ -54,7 +55,10 @@ export async function checkEventNotifications(
       continue;
     }
 
-    const startTime = new Date(event.started_at);
+    const startTime = parseEventInstant(event.started_at);
+    if (!startTime) {
+      continue;
+    }
     const timeUntilStart = startTime.getTime() - now;
     const notificationKey = `event-${event.id}-${startTime.getTime()}`;
 

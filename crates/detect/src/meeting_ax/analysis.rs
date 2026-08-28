@@ -1,104 +1,11 @@
+#![cfg_attr(target_os = "windows", allow(dead_code))]
+
 use std::collections::HashMap;
 
 use super::{
     AxNode, MeetingCapturedChatMessage, MeetingChatDirection, MeetingChatTarget, MeetingPlatform,
     MeetingSurface, node_labels, path_is_ancestor, validated_chat_capture_scope,
 };
-
-pub(super) fn is_zoom_meeting_evidence(node: &AxNode) -> bool {
-    zoom_meeting_evidence_label(node).is_some()
-}
-
-fn zoom_meeting_evidence_label(node: &AxNode) -> Option<&str> {
-    let role = node.role.as_deref()?;
-    let labels = node_labels(node).collect::<Vec<_>>();
-    let has_audio_state = labels.iter().any(|label| {
-        let label = label.to_ascii_lowercase();
-        label.contains("computer audio") || label.contains("no audio connected")
-    });
-
-    if matches!(role, "AXGroup" | "AXCell" | "AXTabGroup")
-        && has_audio_state
-        && let Some(label) = labels.iter().copied().find(|label| {
-            let label = label.trim();
-            let lower = label.to_ascii_lowercase();
-            let is_video_render = lower
-                .strip_prefix("video render ")
-                .and_then(|rest| rest.split_once(','))
-                .is_some_and(|(name, state)| {
-                    !name.trim().is_empty()
-                        && (state.contains("computer audio")
-                            || state.contains("no audio connected"))
-                });
-            is_video_render || lower == "video tile" || zoom_audio_state_label_has_name(label)
-        })
-    {
-        return Some(label);
-    }
-
-    if matches!(role, "AXStaticText" | "AXCell" | "AXRow" | "AXGroup") {
-        return labels.into_iter().find(|label| {
-            let lower = label.to_ascii_lowercase();
-            lower.contains("participant id:")
-                && (lower.contains("computer audio")
-                    || lower.contains("no audio connected")
-                    || lower.contains("(host")
-                    || lower.contains("(me"))
-        });
-    }
-
-    None
-}
-fn zoom_audio_state_label_has_name(label: &str) -> bool {
-    let lower = label.to_ascii_lowercase();
-    [", computer audio", ", no audio connected"]
-        .into_iter()
-        .find_map(|marker| lower.find(marker).map(|index| label[..index].trim()))
-        .is_some_and(is_plausible_zoom_scope_name)
-}
-
-fn is_plausible_zoom_scope_name(name: &str) -> bool {
-    let name = name.trim();
-    if name.is_empty()
-        || name.chars().count() > 80
-        || name
-            .chars()
-            .any(|character| matches!(character, '\n' | '\r' | '?' | '!'))
-    {
-        return false;
-    }
-
-    let words = name
-        .split_whitespace()
-        .map(|word| {
-            word.trim_matches(|character: char| !character.is_alphanumeric())
-                .to_ascii_lowercase()
-        })
-        .filter(|word| !word.is_empty())
-        .collect::<Vec<_>>();
-    const GENERIC_SUBJECTS: &[&str] = &[
-        "anybody",
-        "anyone",
-        "everybody",
-        "everyone",
-        "nobody",
-        "participant",
-        "participants",
-        "person",
-        "somebody",
-        "someone",
-        "speaker",
-        "speakers",
-        "what",
-        "who",
-    ];
-
-    !words.is_empty()
-        && words.len() <= 6
-        && !words
-            .iter()
-            .any(|word| GENERIC_SUBJECTS.contains(&word.as_str()))
-}
 
 pub(super) fn is_zoom_meeting_scope_node(node: &AxNode) -> bool {
     if node.role.as_deref() != Some("AXWindow") {
@@ -1067,11 +974,11 @@ fn parse_zoom_chat_message(raw_text: &str) -> Option<ParsedChatMessage> {
 
     let mut timestamp = None;
     let mut message_start = 1;
-    if let Some(line) = lines.get(1) {
-        if looks_like_time(line) {
-            timestamp = Some(line.clone());
-            message_start = 2;
-        }
+    if let Some(line) = lines.get(1)
+        && looks_like_time(line)
+    {
+        timestamp = Some(line.clone());
+        message_start = 2;
     }
 
     let text = lines[message_start..].join("\n").trim().to_string();

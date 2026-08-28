@@ -1,6 +1,10 @@
 import { json2md } from "@anlg/editor/markdown";
 
 import { liveQueryClient } from "~/db";
+import {
+  parseSessionSourceApps,
+  type SessionSourceApp,
+} from "~/session/source-apps";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 
 type SessionContentSqlRow = {
@@ -10,6 +14,7 @@ type SessionContentSqlRow = {
   title: string;
   created_at: string;
   event_json: string;
+  source_apps_json: string;
   event_id: string;
   raw_note_id: string;
   raw_template_id: string;
@@ -52,6 +57,7 @@ export type SessionContentSnapshot = {
   title: string;
   createdAt: string;
   event: unknown;
+  sourceApps: SessionSourceApp[];
   eventId: string | null;
   rawNoteId: string | null;
   rawTemplateId: string;
@@ -98,6 +104,7 @@ const SESSION_CONTENT_SQL = `
     session.title,
     session.created_at,
     session.event_json,
+    session.source_apps_json,
     COALESCE(NULLIF(session.event_id, ''), NULLIF(session.external_event_id, ''), '') AS event_id,
     COALESCE(note.id, '') AS raw_note_id,
     COALESCE(note.template_id, '') AS raw_template_id,
@@ -267,6 +274,7 @@ function mapSessionContentRow(
     title: row.title,
     createdAt: row.created_at,
     event: parseJson(row.event_json),
+    sourceApps: parseSessionSourceApps(row.source_apps_json),
     eventId: row.event_id || null,
     rawNoteId: row.raw_note_id || null,
     rawTemplateId: row.raw_template_id,

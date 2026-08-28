@@ -438,7 +438,7 @@ msgid "Anarlog needs access to your microphone and system audio to record and tr
 msgstr ""
 
 #: src/onboarding/index.tsx
-msgid "Anarlog needs microphone and system audio to transcribe your meetings, plus Accessibility to read meeting controls, visible chat, and participant status."
+msgid "Anarlog needs microphone and system audio to transcribe your meetings, plus Accessibility to read meeting controls, visible chat."
 msgstr ""
 
 #: src/main/sync-status.tsx
@@ -3429,12 +3429,12 @@ msgstr ""
 msgid "Re-transcription failed"
 msgstr ""
 
-#: src/settings/general/permissions.tsx
-msgid "Read meeting controls, chat, and participant status."
+#: src/onboarding/permissions.tsx
+msgid "Read meeting controls and visible chat"
 msgstr ""
 
-#: src/onboarding/permissions.tsx
-msgid "Read meeting controls, visible chat, and participant status"
+#: src/settings/general/permissions.tsx
+msgid "Read meeting controls and visible chat."
 msgstr ""
 
 #: src/onboarding/index.tsx

@@ -85,6 +85,14 @@ describe("selectDueMeetings", () => {
     expect(select(rows)).toEqual(["good"]);
   });
 
+  test("treats timezone-naive Graph timestamps as UTC", () => {
+    expect(
+      select([
+        meeting("naive", 0, { started_at: "2026-05-15T12:00:00.0000000" }),
+      ]),
+    ).toEqual(["naive"]);
+  });
+
   test("returns nothing when no meeting is due", () => {
     expect(select([])).toEqual([]);
   });

@@ -50,6 +50,7 @@ function createSnapshot() {
     title: "Weekly Review",
     createdAt: "2026-07-10T00:00:00.000Z",
     event: null,
+    sourceApps: [],
     eventId: null,
     rawNoteId: "session-1",
     rawTemplateId: "",
@@ -119,6 +120,29 @@ describe("enhanceTransform.transformArgs", () => {
     expect(result.participants).toEqual([
       { name: "Alice", jobTitle: "Engineer" },
     ]);
+  });
+
+  it("includes the detected meeting platform in generated context", async () => {
+    mocks.loadSessionContentSnapshot.mockResolvedValue({
+      ...createSnapshot(),
+      sourceApps: [
+        {
+          app: "chrome",
+          name: "Google Chrome",
+          platform: "Google Meet",
+        },
+      ],
+    });
+
+    const result = await enhanceTransform.transformArgs(
+      {
+        sessionId: "session-1",
+        enhancedNoteId: "note-1",
+      },
+      settingsValues,
+    );
+
+    expect(result.postMeetingMemo).toContain("Meeting platform: Google Meet");
   });
 
   it("uses the edited memo headings for its applied template", async () => {

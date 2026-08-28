@@ -1,3 +1,5 @@
+#![cfg_attr(target_os = "windows", allow(dead_code))]
+
 #[cfg(target_os = "macos")]
 use super::analysis::meeting_chat_surface_is_visible;
 use super::analysis::{candidate_chat_target, is_explicit_chat_input, is_zoom_chat_scope_node};
@@ -404,7 +406,7 @@ fn browser_meeting_identity(root: &BrowserMeetingRoot) -> Option<String> {
         return Some(format!("https://meet.google.com/{code}"));
     }
 
-    #[cfg(any(test, target_os = "linux"))]
+    #[cfg(any(test, target_os = "linux", target_os = "windows"))]
     {
         let title = root.window_title.as_deref()?;
         let title_platforms = super::browser_title_platform_signals(title);
