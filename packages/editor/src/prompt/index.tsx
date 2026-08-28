@@ -7,6 +7,7 @@ import {
   reactKeys,
   useEditorEffect,
 } from "@handlewithcare/react-prosemirror";
+import * as stylex from "@stylexjs/stylex";
 import { baseKeymap } from "prosemirror-commands";
 import { history, redo, undo } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
@@ -171,6 +172,7 @@ export function PromptEditor({
   ref,
   ariaLabel,
   className,
+  sx,
   initialValue,
   maxLength,
   onBlur,
@@ -182,6 +184,7 @@ export function PromptEditor({
   ref?: Ref<PromptEditorHandle>;
   ariaLabel: string;
   className?: string;
+  sx?: stylex.StyleXStyles;
   initialValue: string;
   maxLength?: number;
   onBlur?: () => void;
@@ -283,6 +286,7 @@ export function PromptEditor({
     .map(({ name, label }) => `${name}:${label}`)
     .join(",");
   const editorKey = `${maxLength ?? ""}:${placeholder ?? ""}:${tokenKey}`;
+  const resolvedStyles = stylex.props(sx);
 
   return (
     <EditorErrorBoundary>
@@ -296,7 +300,11 @@ export function PromptEditor({
           autoCapitalize: "sentences",
           autoComplete: "off",
           autoCorrect: "on",
-          class: cn(["prosemirror-editor prompt-editor", className]),
+          class: cn([
+            "prosemirror-editor prompt-editor",
+            resolvedStyles.className,
+            className,
+          ]),
           role: "textbox",
           spellCheck: "true",
         }}

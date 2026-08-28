@@ -1,10 +1,9 @@
 import { type NodeViewComponentProps } from "@handlewithcare/react-prosemirror";
 import { Buildings, Note, User } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { Facehash, stringHash } from "facehash";
 import type { NodeSpec } from "prosemirror-model";
 import { forwardRef, useCallback } from "react";
-
-import { cn } from "@anlg/utils";
 
 export const mentionNodeSpec: NodeSpec = {
   group: "inline",
@@ -46,22 +45,22 @@ export const mentionNodeSpec: NodeSpec = {
 
 const GLOBAL_NAVIGATE_FUNCTION = "__ANARLOG_NAVIGATE__";
 
-const FACEHASH_BG_CLASSES = [
-  "bg-amber-50 dark:bg-amber-950",
-  "bg-rose-50 dark:bg-rose-950",
-  "bg-violet-50 dark:bg-violet-950",
-  "bg-blue-50 dark:bg-blue-950",
-  "bg-teal-50 dark:bg-teal-950",
-  "bg-green-50 dark:bg-green-950",
-  "bg-cyan-50 dark:bg-cyan-950",
-  "bg-fuchsia-50 dark:bg-fuchsia-950",
-  "bg-indigo-50 dark:bg-indigo-950",
-  "bg-yellow-50 dark:bg-yellow-950",
+const FACEHASH_COLORS = [
+  "light-dark(#fffbeb, #451a03)",
+  "light-dark(#fff1f2, #4c0519)",
+  "light-dark(#f5f3ff, #2e1065)",
+  "light-dark(#eff6ff, #172554)",
+  "light-dark(#f0fdfa, #042f2e)",
+  "light-dark(#f0fdf4, #052e16)",
+  "light-dark(#ecfeff, #083344)",
+  "light-dark(#fdf4ff, #4a044e)",
+  "light-dark(#eef2ff, #1e1b4b)",
+  "light-dark(#fefce8, #422006)",
 ];
 
-function getMentionFacehashBgClass(name: string) {
+function getMentionFacehashColor(name: string) {
   const hash = stringHash(name);
-  return FACEHASH_BG_CLASSES[hash % FACEHASH_BG_CLASSES.length];
+  return FACEHASH_COLORS[hash % FACEHASH_COLORS.length];
 }
 
 function MentionAvatar({
@@ -75,16 +74,16 @@ function MentionAvatar({
 }) {
   if (type === "human") {
     const facehashName = label || id || "?";
-    const bgClass = getMentionFacehashBgClass(facehashName);
+    const backgroundColor = getMentionFacehashColor(facehashName);
     return (
-      <span className={cn(["mention-avatar", bgClass])}>
+      <span className="mention-avatar">
         <Facehash
           name={facehashName}
           size={16}
           showInitial={true}
           interactive={false}
-          className="text-stone-950"
-          colorClasses={[bgClass]}
+          colors={[backgroundColor]}
+          {...stylex.props(styles.facehash)}
         />
       </span>
     );
@@ -145,3 +144,9 @@ export const MentionNodeView = forwardRef<HTMLElement, NodeViewComponentProps>(
     );
   },
 );
+
+const styles = stylex.create({
+  facehash: {
+    color: "#0c0a09",
+  },
+});

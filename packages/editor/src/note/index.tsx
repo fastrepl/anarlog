@@ -8,6 +8,7 @@ import {
   reactKeys,
   useEditorEffect,
 } from "@handlewithcare/react-prosemirror";
+import * as stylex from "@stylexjs/stylex";
 import { dropCursor } from "prosemirror-dropcursor";
 import { gapCursor } from "prosemirror-gapcursor";
 import { history } from "prosemirror-history";
@@ -173,6 +174,7 @@ type NodeViewComponents = NonNullable<
 
 export interface NoteEditorProps {
   className?: string;
+  sx?: stylex.StyleXStyles;
   handleChange?: (content: JSONContent) => void;
   onDocumentChange?: (content: JSONContent) => void;
   initialContent?: JSONContent;
@@ -591,6 +593,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       handleChange,
       onDocumentChange,
       className,
+      sx,
       initialContent,
       resolveAttachment,
       mentionConfig,
@@ -798,6 +801,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       () => ({ ...baseNodeViews, ...wrapNodeViewComponents(extraNodeViews) }),
       [extraNodeViews],
     );
+    const resolvedStyles = stylex.props(sx);
 
     const defaultState = useMemo(() => {
       let doc: PMNode;
@@ -965,6 +969,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
                     "prosemirror-editor",
                     "note-typography",
                     enforceTitleHeading && "note-title-editor",
+                    resolvedStyles.className,
                     className,
                   ]),
                 }}

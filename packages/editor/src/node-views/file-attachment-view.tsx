@@ -10,11 +10,12 @@ import {
   Image,
   X,
 } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import type { NodeSpec } from "prosemirror-model";
-import { forwardRef } from "react";
+import { forwardRef, useState } from "react";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
-import { cn } from "@anlg/utils";
 
 import {
   useAttachmentEditingEnabled,
@@ -102,6 +103,7 @@ export const FileAttachmentView = forwardRef<
   const { node, getPos } = nodeProps;
   const resolveAttachment = useAttachmentResolver();
   const attachmentEditingEnabled = useAttachmentEditingEnabled();
+  const [isHovered, setIsHovered] = useState(false);
   const attachmentId =
     typeof node.attrs.sharedAttachmentId === "string"
       ? node.attrs.sharedAttachmentId
@@ -143,34 +145,28 @@ export const FileAttachmentView = forwardRef<
       <div
         contentEditable={false}
         suppressContentEditableWarning
-        className={cn([
-          "group border-border bg-muted my-1 flex items-center gap-3 rounded-lg border px-3 py-2.5",
-          "hover:border-border hover:bg-accent",
-          "transition-colors",
-        ])}
+        {...stylex.props(styles.attachment)}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
         {isImage && src ? (
-          <img
-            src={src}
-            alt={name}
-            className="h-10 w-10 shrink-0 rounded object-cover"
-          />
+          <img src={src} alt={name} {...stylex.props(styles.preview)} />
         ) : (
-          <div className="bg-accent/60 flex h-10 w-10 shrink-0 items-center justify-center rounded">
-            <Icon size={20} className="text-muted-foreground" />
+          <div {...stylex.props(styles.iconContainer)}>
+            <Icon size={20} {...stylex.props(styles.mutedIcon)} />
           </div>
         )}
 
-        <div className="min-w-0 flex-1">
-          <div className="text-muted-foreground truncate text-sm font-medium">
-            {displayName}
-          </div>
+        <div {...stylex.props(styles.content)}>
+          <div {...stylex.props(styles.fileName)}>{displayName}</div>
           {sizeLabel && (
-            <div className="text-muted-foreground text-xs">{sizeLabel}</div>
+            <div {...stylex.props(styles.fileSize)}>{sizeLabel}</div>
           )}
         </div>
 
-        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <div
+          {...stylex.props(styles.actions, isHovered && styles.visibleActions)}
+        >
           {src && (
             <button
               type="button"
@@ -179,10 +175,10 @@ export const FileAttachmentView = forwardRef<
                 e.stopPropagation();
                 handleOpen();
               }}
-              className="hover:bg-accent rounded p-1"
+              {...stylex.props(styles.action)}
               title="Open file"
             >
-              <ArrowSquareOut size={14} className="text-muted-foreground" />
+              <ArrowSquareOut size={14} {...stylex.props(styles.mutedIcon)} />
             </button>
           )}
           {attachmentEditingEnabled ? (
@@ -193,14 +189,94 @@ export const FileAttachmentView = forwardRef<
                 e.stopPropagation();
                 handleRemove();
               }}
-              className="hover:bg-accent rounded p-1"
+              {...stylex.props(styles.action)}
               title="Remove attachment"
             >
-              <X size={14} className="text-muted-foreground" />
+              <X size={14} {...stylex.props(styles.mutedIcon)} />
             </button>
           ) : null}
         </div>
       </div>
     </div>
   );
+});
+
+const styles = stylex.create({
+  attachment: {
+    alignItems: "center",
+    backgroundColor: {
+      default: colors.muted,
+      ":hover": colors.accent,
+    },
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    display: "flex",
+    gap: "0.75rem",
+    marginBlock: "0.25rem",
+    paddingBlock: "0.625rem",
+    paddingInline: "0.75rem",
+    transitionDuration: "150ms",
+    transitionProperty: "color, background-color, border-color",
+  },
+  preview: {
+    borderRadius: "0.25rem",
+    flexShrink: 0,
+    height: "2.5rem",
+    objectFit: "cover",
+    width: "2.5rem",
+  },
+  iconContainer: {
+    alignItems: "center",
+    backgroundColor: `color-mix(in oklab, ${colors.accent} 60%, transparent)`,
+    borderRadius: "0.25rem",
+    display: "flex",
+    flexShrink: 0,
+    height: "2.5rem",
+    justifyContent: "center",
+    width: "2.5rem",
+  },
+  mutedIcon: {
+    color: colors.mutedForeground,
+  },
+  content: {
+    flexGrow: 1,
+    minWidth: 0,
+  },
+  fileName: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    fontWeight: 500,
+    lineHeight: "1.25rem",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  fileSize: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    lineHeight: "1rem",
+  },
+  actions: {
+    alignItems: "center",
+    display: "flex",
+    flexShrink: 0,
+    gap: "0.25rem",
+    opacity: 0,
+    transitionDuration: "150ms",
+    transitionProperty: "opacity",
+  },
+  visibleActions: {
+    opacity: 1,
+  },
+  action: {
+    backgroundColor: {
+      default: "transparent",
+      ":hover": colors.accent,
+    },
+    borderRadius: "0.25rem",
+    borderStyle: "none",
+    padding: "0.25rem",
+  },
 });

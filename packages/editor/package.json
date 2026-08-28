@@ -22,13 +22,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@floating-ui/dom": "^1.7.6",
-    "@handlewithcare/react-prosemirror": "^3.2.6",
+    "@anlg/design-system": "workspace:^",
     "@anlg/plugin-opener2": "workspace:*",
     "@anlg/store": "workspace:*",
     "@anlg/utils": "workspace:^",
-    "facehash": "^0.0.7",
+    "@floating-ui/dom": "^1.7.6",
+    "@handlewithcare/react-prosemirror": "^3.2.6",
     "@phosphor-icons/react": "^2.1.10",
+    "@stylexjs/stylex": "^0.19.0",
+    "facehash": "^0.0.7",
     "markdown-it": "^14.2.0",
     "prosemirror-commands": "^1.7.1",
     "prosemirror-dropcursor": "^1.8.2",

@@ -1056,9 +1056,15 @@ importers:
 
   packages/changelog:
     dependencies:
+      '@anlg/design-system':
+        specifier: workspace:^
+        version: link:../design-system
       '@anlg/utils':
         specifier: workspace:^
         version: link:../utils
+      '@stylexjs/stylex':
+        specifier: ^0.19.0
+        version: 0.19.0
       react:
         specifier: ^19.2.3
         version: 19.2.5
@@ -1184,6 +1190,9 @@ importers:
 
   packages/editor:
     dependencies:
+      '@anlg/design-system':
+        specifier: workspace:^
+        version: link:../design-system
       '@anlg/plugin-opener2':
         specifier: workspace:*
         version: link:../../plugins/opener2
@@ -1202,6 +1211,9 @@ importers:
       '@phosphor-icons/react':
         specifier: ^2.1.10
         version: 2.1.10(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      '@stylexjs/stylex':
+        specifier: ^0.19.0
+        version: 0.19.0
       facehash:
         specifier: ^0.0.7
         version: 0.0.7(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -1319,6 +1331,9 @@ importers:
 
   packages/pricing:
     dependencies:
+      '@anlg/design-system':
+        specifier: workspace:^
+        version: link:../design-system
       '@anlg/ui':
         specifier: workspace:^
         version: link:../ui
@@ -1328,6 +1343,9 @@ importers:
       '@phosphor-icons/react':
         specifier: '>=2.1.0'
         version: 2.1.10(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      '@stylexjs/stylex':
+        specifier: ^0.19.0
+        version: 0.19.0
       react:
         specifier: ^19.0.0
         version: 19.2.5

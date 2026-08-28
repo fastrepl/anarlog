@@ -1,4 +1,7 @@
+import * as stylex from "@stylexjs/stylex";
 import { Component, Fragment, type ErrorInfo, type ReactNode } from "react";
+
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 
 type EditorErrorBoundaryProps = {
   children: ReactNode;
@@ -61,17 +64,14 @@ export class EditorErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div
-          role="alert"
-          className="border-border bg-muted text-muted-foreground flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
-        >
+        <div role="alert" {...stylex.props(styles.fallback)}>
           <span>
             The editor failed to render. Your recording is still running.
           </span>
           <button
             type="button"
             onClick={this.retry}
-            className="border-border bg-card text-muted-foreground hover:bg-accent shrink-0 rounded-md border px-2 py-1 text-xs font-medium"
+            {...stylex.props(styles.retry)}
           >
             Reload editor
           </button>
@@ -84,3 +84,39 @@ export class EditorErrorBoundary extends Component<
     );
   }
 }
+
+const styles = stylex.create({
+  fallback: {
+    alignItems: "center",
+    backgroundColor: colors.muted,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    color: colors.mutedForeground,
+    display: "flex",
+    fontSize: "0.875rem",
+    gap: "0.75rem",
+    justifyContent: "space-between",
+    lineHeight: "1.25rem",
+    paddingBlock: "0.5rem",
+    paddingInline: "0.75rem",
+  },
+  retry: {
+    backgroundColor: {
+      default: colors.card,
+      ":hover": colors.accent,
+    },
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    color: colors.mutedForeground,
+    flexShrink: 0,
+    fontSize: "0.75rem",
+    fontWeight: 500,
+    lineHeight: "1rem",
+    paddingBlock: "0.25rem",
+    paddingInline: "0.5rem",
+  },
+});
