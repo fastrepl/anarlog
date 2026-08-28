@@ -3,29 +3,30 @@ title: "Agent overview"
 description: "Give an agent useful Anarlog context without exposing storage internals or unbounded transcripts."
 ---
 
-Anarlog gives agents three ways to access meeting context. Local CLI and MCP reads are bounded; both can also stage proposals for human review. Hosted Cloud API and remote MCP are read-only. Choose based on where the agent runs.
+Anarlog gives agents three ways to access meeting context. The Anarlog plugin uses hosted Cloud MCP. Use the local CLI when Cloud is missing a meeting. Local CLI and MCP reads are bounded; both can also stage proposals for human review. Hosted Cloud API and remote MCP are read-only.
 
 | Transport | Choose it when | Output |
 | --- | --- | --- |
-| Local MCP | The agent supports a stdio MCP server on your computer | Structured tool results and contextual resources |
-| CLI | The agent can run local shell commands | JSON with `--json`, or Markdown for people |
-| Cloud API or remote MCP | A remote agent needs access while your computer is offline | Hosted REST or MCP responses; requires Anarlog Pro and explicit opt-in |
+| Cloud MCP | The default Anarlog plugin, or any remote agent with OAuth | Hosted snapshots; requires Anarlog Pro and explicit opt-in |
+| CLI | Cloud has no snapshot, or the agent only has shell access | JSON with `--json`, or Markdown for people |
+| Local MCP | A fully local agent that should not use Cloud | Structured tool results and contextual resources |
 
 ## Recommended agent flow
 
-1. List recent meetings or search by a short title fragment.
-2. Use a returned meeting ID. Never infer or invent one.
-3. Fetch the meeting detail before requesting transcript text.
-4. Fetch recurring history only when earlier meetings are relevant.
-5. Read transcript pages only until the task has enough evidence.
+1. List recent meetings on Cloud MCP, or search by a short title fragment.
+2. If Cloud has no match, search again with the local CLI.
+3. Use a returned meeting ID. Never infer or invent one.
+4. Fetch the meeting detail before requesting transcript text.
+5. Fetch recurring history only when earlier meetings are relevant.
+6. Read transcript pages only until the task has enough evidence.
 
-Prefer MCP when it is connected because each tool carries its input schema. Use the CLI when the agent only has shell access. Both support the same bounded transcript workflow.
+Prefer connected Cloud MCP because each tool carries its input schema. Fill gaps with the CLI. Optional local MCP is for agents that stay fully on-device.
 
 ## Safety boundary
 
 Agents should use an Anarlog interface, not SQLite. The supported interfaces apply Anarlog's rules for canonical notes, generated summaries, excluded participants, recurring meetings, and transcript text.
 
-Meeting reads stay local and bounded. An agent cannot apply a note or summary change. It can stage a proposal with CLI `proposals` commands or the local MCP `propose_*` tools. A human reviews the unified diff in the desktop app and applies or declines it. Hosted Cloud API and remote MCP stay read-only. CLI export can create a separate file; replacing a file requires `--force`.
+Meeting reads stay bounded. An agent cannot apply a note or summary change. It can stage a proposal with CLI `proposals` commands or the local MCP `propose_*` tools. A human reviews the unified diff in the desktop app and applies or declines it. Hosted Cloud API and Cloud MCP stay read-only. CLI export can create a separate file; replacing a file requires `--force`.
 
 Local CLI and MCP access stays on your computer. Cloud access uploads a separate server-readable copy of your meeting data. Review the [Cloud API disclosure](/reference/api-cloud) before enabling it.
 
@@ -34,7 +35,7 @@ Local CLI and MCP access stays on your computer. Cloud access uploads a separate
     Use JSON output and resolve meeting IDs deliberately.
   </Card>
   <Card title="MCP for agents" icon="plug" href="/agents/mcp">
-    Configure the stdio server and use bounded transcript pages.
+    Connect Cloud MCP through the Anarlog plugin, or run local stdio as an option.
   </Card>
   <Card title="Cloud API and remote MCP" icon="cloud" href="/reference/api-cloud">
     Enable hosted access and connect with OAuth or a connector key.

@@ -259,7 +259,7 @@ impl ServerHandler for AnarlogMcpServer {
             env!("CARGO_PKG_VERSION"),
         ))
         .with_instructions(
-            "Local access to Anarlog meeting data. Start with list_meetings to resolve a meeting_id, then call get_meeting for notes, summaries, participants, and action items. Request transcript pages with get_meeting_transcript and continue with pagination.next_offset; each page is capped at 500 words. Use get_recurring_meeting_history for series context. To persist an edit, call propose_summary_edit or propose_memo_edit; the result stays pending until a human applies it in the desktop app. List or inspect staged work with list_proposals and get_proposal. decline_proposal discards a pending proposal without changing the meeting. Never invent meeting ids, access SQLite directly, or claim a proposal was applied. Documentation: https://docs.anarlog.so",
+            "Local access to Anarlog meeting data. Start with list_meetings to resolve a meeting_id, then call get_meeting for notes, summaries, participants, and action items. Request transcript pages with get_meeting_transcript and continue with pagination.next_offset; each page is capped at 500 words. Use get_recurring_meeting_history for series context. To persist an edit, call propose_summary_edit or propose_memo_edit; the result stays pending until a human applies it in the desktop app. List or inspect staged work with list_proposals and get_proposal. decline_proposal discards a pending proposal without changing the meeting. Never invent meeting titles, dates, or ids. If list_meetings returns no meetings, say so. Never access SQLite directly, or claim a proposal was applied. Documentation: https://docs.anarlog.so",
         )
     }
 
@@ -536,6 +536,7 @@ mod tests {
         assert!(instructions.contains("https://docs.anarlog.so"));
         assert!(instructions.contains("propose_summary_edit"));
         assert!(instructions.contains("claim a proposal was applied"));
+        assert!(instructions.contains("Never invent meeting titles"));
     }
 
     #[tokio::test]

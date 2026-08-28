@@ -153,11 +153,11 @@ impl ServerHandler for CloudMcpServer {
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
             .with_protocol_version(ProtocolVersion::LATEST)
             .with_server_info(Implementation::new(
-                "anarlog-cloud",
+                "anarlog",
                 env!("CARGO_PKG_VERSION"),
             ))
             .with_instructions(
-                "Read-only hosted access to the user's opted-in Anarlog meeting data. Start with list_meetings, then use get_meeting, get_meeting_transcript, and get_recurring_meeting_history. Every tool is idempotent and performs no writes.",
+                "Read-only hosted access to the user's opted-in Anarlog meeting data. Start with list_meetings, then use get_meeting, get_meeting_transcript, and get_recurring_meeting_history. Every tool is idempotent and performs no writes. Report only meetings these tools return. If list_meetings is empty, say there are no opted-in Cloud snapshots. Never invent titles, dates, or ids.",
             )
     }
 }

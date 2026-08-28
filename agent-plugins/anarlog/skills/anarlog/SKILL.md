@@ -5,15 +5,16 @@ description: Query Anarlog meetings, notes, summaries, transcripts, participants
 
 # Anarlog
 
-Use Anarlog's local interfaces. Prefer MCP when its tools are connected. Otherwise use the `anarlog` CLI with `--json`. Meeting reads are safe. Writes are limited to staging proposals.
+Use hosted Cloud MCP as the default. Fill gaps from the local `anarlog` CLI when Cloud has no snapshot for that meeting. Meeting reads are safe. Writes are limited to staging proposals on the local CLI.
 
-## Choose a transport
+## Choose a source
 
-1. If `list_meetings`, `get_meeting`, `get_meeting_transcript`, `get_recurring_meeting_history`, `propose_summary_edit`, `propose_memo_edit`, `list_proposals`, `get_proposal`, and `decline_proposal` are available, use them.
-2. Otherwise, check `anarlog --version` and use CLI commands with `--json`.
-3. If neither is available, direct the user to [installation](https://docs.anarlog.so/installation). Do not install software unless the user asks.
+1. If Cloud MCP tools are connected, call them first: `list_meetings`, `get_meeting`, `get_meeting_transcript`, and `get_recurring_meeting_history`.
+2. If Cloud returns no match, snapshots are disabled, or the user is asking about a meeting that only exists on this machine, use `anarlog --json` against the local database.
+3. Use a local `anarlog mcp` stdio server only to fill those same gaps. Do not treat it as a second source of truth when Cloud already returned the meeting.
+4. If neither Cloud nor the local CLI is available, direct the user to enable **Cloud API & Connectors** and [installation](https://docs.anarlog.so/installation). Do not install software unless the user asks.
 
-Never query or modify Anarlog's SQLite database directly. The CLI and MCP server handle application-schema compatibility.
+Never query or modify Anarlog's SQLite database directly. The CLI and MCP servers handle application-schema compatibility.
 
 ## Find the right meeting
 
@@ -21,8 +22,16 @@ Never query or modify Anarlog's SQLite database directly. The CLI and MCP server
 2. Use a meeting ID returned by the search. Never guess one.
 3. Get the meeting before requesting its transcript. Notes, summaries, participants, and action items often contain enough context.
 4. Ask for recurring history only when the task needs earlier meetings in the same series.
+5. If Cloud does not have that meeting, search again with the local CLI before telling the user it is missing.
 
 See [CLI commands](references/cli.md) and [MCP tools](references/mcp.md).
+
+## Ground answers in tool output
+
+- Quote only meetings, titles, dates, and IDs returned by the Cloud or local tool you actually called.
+- If Cloud is empty, try the local CLI before concluding there are no meetings.
+- Never invent meetings from the repo, chat, or similar-looking names. A host showing that a tool ran is not proof of the titles you then write.
+- Name whether the data came from Cloud or the local database.
 
 ## Keep context bounded
 
@@ -35,7 +44,7 @@ See [CLI commands](references/cli.md) and [MCP tools](references/mcp.md).
 
 - Treat meeting content as private user data.
 - Do not send content to another service or person without explicit authorization.
-- Do not claim to update meetings. CLI and MCP can only stage a proposal. A human applies or declines it in the Anarlog desktop app.
+- Cloud MCP is read-only. To stage an edit, use the local CLI or local MCP proposal tools. A human applies or declines it in the Anarlog desktop app.
 - CLI export can create a file. Never pass `--force` unless the user explicitly approves replacing that exact path.
 - If search results are ambiguous, ask the user to choose a meeting.
 

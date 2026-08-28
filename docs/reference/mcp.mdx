@@ -11,7 +11,7 @@ Run the server with `anarlog mcp`. It uses the MCP `2024-11-05` protocol over st
 
 | Parameter | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `query` | string | — | Case-insensitive title or meeting ID substring. |
+| `query` | string | — | Case-insensitive title or meeting ID substring. An empty result list means no matches; do not invent meetings. |
 | `series_id` | string | — | Exact recurring series ID. |
 | `limit` | integer | `20` | Clamped to `1..200`. |
 | `offset` | integer | `0` | Number of results to skip. |

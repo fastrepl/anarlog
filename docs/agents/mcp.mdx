@@ -1,15 +1,33 @@
 ---
 title: "MCP for agents"
-description: "Connect an MCP client to Anarlog meeting context over stdio or hosted OAuth."
+description: "Connect an MCP client to Anarlog meeting context over hosted OAuth or local stdio."
 ---
 
-The local MCP server runs inside the `anarlog` executable and communicates over standard input and output. It opens no port and sends no meeting data to Anarlog's servers.
+The Anarlog plugin connects to hosted Cloud MCP at `https://api.anarlog.so/mcp` with OAuth. That is the default for Claude, Cursor, ChatGPT, Codex, and Copilot.
+
+Cloud only has opted-in snapshots. If a meeting is missing there, use the local `anarlog` CLI. For a fully local agent that should not use Cloud, start the stdio server in the `anarlog` executable.
+
+## Configure the plugin
+
+Enable **Cloud API & Connectors**, then install the **Anarlog** plugin. The host discovers OAuth from the MCP endpoint. See [Cloud API and connectors](/reference/api-cloud#remote-mcp).
+
+Clients that do not install plugins can add:
+
+```json
+{
+  "mcpServers": {
+    "anarlog": {
+      "url": "https://api.anarlog.so/mcp"
+    }
+  }
+}
+```
+
+## Optional local MCP
+
+The local server communicates over standard input and output. It opens no port and sends no meeting data to Anarlog's servers.
 
 Open the desktop app once so it can create the database. The app does not need to stay open after that.
-
-## Configure a client
-
-Use this generic MCP configuration:
 
 ```json
 {
@@ -37,20 +55,18 @@ For a custom database path:
 }
 ```
 
+Do not run local stdio and Cloud MCP as two `list_meetings` servers in the same client. Use Cloud first and the local CLI or local MCP only to fill gaps.
+
 ## Use tools deliberately
 
-Start with `list_meetings`, then pass a returned `id` to `get_meeting`. Call `get_meeting_transcript` only when the notes and summaries do not answer the question.
+Start with `list_meetings`, then pass a returned `id` to `get_meeting`. Call `get_meeting_transcript` only when the notes and summaries do not answer the question. Report only meetings the tools return. If Cloud `list_meetings` is empty, search the local CLI before concluding there are no meetings. Do not invent titles.
 
 Transcript pages default to 200 words and cap at 500. Follow `pagination.next_offset` only when you need more context.
 
 Use `get_recurring_meeting_history` with a known meeting ID when a task depends on earlier meetings in the same series.
 
-To persist an edit, call `propose_summary_edit` or `propose_memo_edit`. The tool returns a pending proposal. Do not claim the meeting changed. Use `list_proposals` and `get_proposal` to inspect staged work. `decline_proposal` discards a pending proposal; applied or already-declined proposals cannot be declined.
+Cloud MCP is read-only. To persist an edit, use the local CLI or local MCP `propose_summary_edit` or `propose_memo_edit`. The tool returns a pending proposal. Do not claim the meeting changed. Use `list_proposals` and `get_proposal` to inspect staged work. `decline_proposal` discards a pending proposal; applied or already-declined proposals cannot be declined.
 
 The server also exposes MCP resources (`anarlog://meetings/...`) for Markdown or plain-text context when the client prefers resources over tools.
 
 See the [MCP reference](/reference/mcp) for exact parameters and resources.
-
-## Remote MCP
-
-For a remote agent, enable **Cloud API & Connectors** and connect `https://api.anarlog.so/mcp` with OAuth. Claude, Cursor, ChatGPT, Codex, and Copilot can install the separate **Anarlog Cloud** plugin. See [Cloud API and connectors](/reference/api-cloud#remote-mcp).

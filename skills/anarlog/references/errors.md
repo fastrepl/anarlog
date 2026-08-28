@@ -4,6 +4,10 @@
 
 List or search meetings again and use the returned ID. Do not retry a guessed ID.
 
+## No meetings returned
+
+If Cloud `list_meetings` returns an empty list, search again with `anarlog --json meetings list` when the local CLI is available. An empty Cloud list usually means snapshots are off or that meeting has not uploaded. Tell the user none were found only after the sources you can reach are empty. Do not invent meetings.
+
 ## Database not found
 
 Run `anarlog --json doctor`. Ask the user to open Anarlog once if the database does not exist. If they keep data in a custom location, use `--db-path FILE` or `ANARLOG_DB_PATH` after they provide the path.

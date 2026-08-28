@@ -94,27 +94,27 @@ The metadata points the host to Anarlog's existing Supabase authorization server
 
 ### Claude Code
 
-Install the **Anarlog Cloud** plugin:
+Install the **Anarlog** plugin:
 
 ```bash
 claude plugin marketplace add fastrepl/anarlog
-claude plugin install anarlog-cloud@fastrepl
+claude plugin install anarlog@fastrepl
 ```
 
 Or add the remote server directly. Claude discovers OAuth from the MCP endpoint:
 
 ```bash
-claude mcp add --transport http anarlog-cloud https://api.anarlog.so/mcp
+claude mcp add --transport http anarlog https://api.anarlog.so/mcp
 ```
 
 ### Cursor
 
-Import `https://github.com/fastrepl/anarlog` as a team marketplace and install **Anarlog Cloud**, or add this MCP server:
+Import `https://github.com/fastrepl/anarlog` as a team marketplace and install **Anarlog**, or add this MCP server:
 
 ```json
 {
   "mcpServers": {
-    "anarlog-cloud": {
+    "anarlog": {
       "url": "https://api.anarlog.so/mcp"
     }
   }
@@ -125,18 +125,17 @@ Import `https://github.com/fastrepl/anarlog` as a team marketplace and install *
 
 ```bash
 copilot plugin marketplace add fastrepl/anarlog
-copilot plugin install anarlog-cloud@fastrepl
+copilot plugin install anarlog@fastrepl
 ```
 
 ### ChatGPT and Codex
 
-Add the Fastrepl source, restart the ChatGPT desktop app, then install **Anarlog Cloud**:
+Add the Fastrepl source, restart the ChatGPT desktop app, then install **Anarlog**:
 
 ```bash
 codex plugin marketplace add fastrepl/anarlog \
   --sparse .agents/plugins \
-  --sparse agent-plugins/anarlog \
-  --sparse agent-plugins/anarlog-cloud
+  --sparse agent-plugins/anarlog
 ```
 
 Public listing in a host's plugin directory is a separate review step. Installing from the Fastrepl source does not submit or publish the connector.

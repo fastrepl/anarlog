@@ -2,7 +2,7 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "anarlog",
   "version": "1.0.0",
-  "description": "Query Anarlog meeting notes, summaries, transcripts, participants, action items, and recurring history.",
+  "description": "Query Anarlog meetings through Cloud MCP, and fill gaps from the local CLI.",
   "author": {
     "name": "Fastrepl",
     "email": "founders@anarlog.so",
@@ -11,5 +11,5 @@
   "homepage": "https://docs.anarlog.so/agents/overview",
   "repository": "https://github.com/fastrepl/anarlog/tree/main/agent-plugins/anarlog",
   "license": "MIT",
-  "keywords": ["meetings", "notes", "transcripts", "productivity", "mcp"]
+  "keywords": ["meetings", "notes", "transcripts", "productivity", "mcp", "oauth"]
 }

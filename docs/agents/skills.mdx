@@ -3,10 +3,10 @@ title: "Anarlog skill"
 description: "Teach a compatible agent when and how to use Anarlog's MCP and CLI surfaces."
 ---
 
-The public Anarlog skill teaches agents a single workflow across MCP and CLI:
+The public Anarlog skill teaches agents a single workflow across Cloud MCP and the local CLI:
 
-1. Prefer connected Anarlog MCP tools.
-2. Fall back to `anarlog --json` when MCP is unavailable.
+1. Call connected Cloud MCP tools first.
+2. Fill gaps with `anarlog --json` when Cloud has no snapshot.
 3. Resolve meeting IDs from search results.
 4. Fetch meeting detail before transcript text.
 5. Keep transcript reads bounded and never access SQLite directly.
@@ -21,16 +21,15 @@ The published file is self-contained. The repository package adds references for
 
 ## Install the plugin
 
-The `Anarlog` plugin bundles the complete skill and a local MCP configuration. [Install the Anarlog CLI](/installation) before enabling it.
+The `Anarlog` plugin connects to hosted Cloud MCP and bundles the skill. Enable **Settings → Developers → Cloud API & Connectors** first. [Install the Anarlog CLI](/installation) when the skill needs to fill a meeting that is not in Cloud.
 
-`Anarlog Cloud` is a separate MCP-only plugin for hosted OAuth access. It connects Claude, Cursor, ChatGPT, Codex, and Copilot to `https://api.anarlog.so/mcp` and does not run the local CLI or bundle the skill.
+If you previously installed **Anarlog Cloud**, replace it with **Anarlog**.
 
 For Claude Code:
 
 ```bash
 claude plugin marketplace add fastrepl/anarlog
 claude plugin install anarlog@fastrepl
-claude plugin install anarlog-cloud@fastrepl
 ```
 
 For GitHub Copilot CLI:
@@ -38,21 +37,19 @@ For GitHub Copilot CLI:
 ```bash
 copilot plugin marketplace add fastrepl/anarlog
 copilot plugin install anarlog@fastrepl
-copilot plugin install anarlog-cloud@fastrepl
 ```
 
-For ChatGPT and Codex, add the repository source, restart the ChatGPT desktop app, then select a plugin from the Fastrepl source in the Plugins Directory:
+For ChatGPT and Codex, add the repository source, restart the ChatGPT desktop app, then install **Anarlog** from the Fastrepl source in the Plugins Directory:
 
 ```bash
 codex plugin marketplace add fastrepl/anarlog \
   --sparse .agents/plugins \
-  --sparse agent-plugins/anarlog \
-  --sparse agent-plugins/anarlog-cloud
+  --sparse agent-plugins/anarlog
 ```
 
-Choose **Anarlog** for local CLI and skill workflows. Choose **Anarlog Cloud** for hosted access, then enable **Settings → Developers → Cloud API & Connectors** in Anarlog. The first cloud tool use opens Anarlog's OAuth sign-in and consent flow; no cloud API key or local CLI is required.
+The first cloud tool use opens Anarlog's OAuth sign-in and consent flow; no cloud API key is required for Cloud reads.
 
-Cursor Teams and Enterprise administrators can import `https://github.com/fastrepl/anarlog` as a team marketplace, then install **Anarlog** or **Anarlog Cloud**.
+Cursor Teams and Enterprise administrators can import `https://github.com/fastrepl/anarlog` as a team marketplace, then install **Anarlog**.
 
 ## Install in an agent
 

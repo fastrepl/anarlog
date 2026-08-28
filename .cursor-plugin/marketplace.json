@@ -12,15 +12,7 @@
     {
       "name": "anarlog",
       "source": "./agent-plugins/anarlog",
-      "description": "Query Anarlog meeting notes, summaries, transcripts, participants, action items, and recurring history.",
-      "version": "1.0.0",
-      "category": "Productivity",
-      "tags": ["meetings", "notes", "transcripts", "mcp"]
-    },
-    {
-      "name": "anarlog-cloud",
-      "source": "./agent-plugins/anarlog-cloud",
-      "description": "Connect Cursor to your Anarlog meeting data through OAuth.",
+      "description": "Query Anarlog meetings through Cloud MCP, and fill gaps from the local CLI.",
       "version": "1.0.0",
       "category": "Productivity",
       "tags": ["meetings", "notes", "transcripts", "mcp", "oauth"]
