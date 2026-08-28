@@ -22,8 +22,6 @@ function buttonGroupVariants({
       styles.group,
       buttonGroupOrientationStyles[resolvedOrientation],
     ]).className,
-    buttonGroupSelectorClassName,
-    buttonGroupOrientationSelectorClassNames[resolvedOrientation],
     classValue,
     className,
   ]);
@@ -49,11 +47,7 @@ function ButtonGroup({
       {...props}
       {...mergeStyleXProps(
         [styles.group, buttonGroupOrientationStyles[resolvedOrientation], sx],
-        cn([
-          buttonGroupSelectorClassName,
-          buttonGroupOrientationSelectorClassNames[resolvedOrientation],
-          className,
-        ]),
+        className,
         style,
       )}
     />
@@ -70,11 +64,7 @@ function ButtonGroupText({
   asChild?: boolean;
 } & StyleXProps) {
   const Comp = asChild ? Slot : "div";
-  const resolvedStyle = mergeStyleXProps(
-    [styles.text, sx],
-    cn([buttonGroupTextSelectorClassName, className]),
-    style,
-  );
+  const resolvedStyle = mergeStyleXProps([styles.text, sx], className, style);
 
   return (
     <Comp
@@ -108,29 +98,93 @@ function ButtonGroupSeparator({
   );
 }
 
-const buttonGroupSelectorClassName =
-  "focus-visible:*:relative focus-visible:*:z-10 has-[>[data-slot=button-group]]:gap-2 [&>[data-slot=select-trigger]:last-of-type]:has-[select[aria-hidden=true]:last-child]:rounded-r-full [&>[data-slot=select-trigger]:not([class*='w-'])]:w-fit [&>input]:flex-1";
-
-const buttonGroupOrientationSelectorClassNames = {
-  horizontal:
-    "[&>*:not(:first-child)]:rounded-l-none [&>*:not(:first-child)]:border-l-0 [&>*:not(:last-child)]:rounded-r-none",
-  vertical:
-    "[&>*:not(:first-child)]:rounded-t-none [&>*:not(:first-child)]:border-t-0 [&>*:not(:last-child)]:rounded-b-none",
-};
-
-const buttonGroupTextSelectorClassName =
-  "[&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4";
-
 const styles = stylex.create({
   group: {
     alignItems: "stretch",
+    borderTopRightRadius: {
+      default: null,
+      ":is(*) > [data-slot='select-trigger']:last-of-type:has(select[aria-hidden='true']:last-child)":
+        radii.full,
+    },
+    borderBottomRightRadius: {
+      default: null,
+      ":is(*) > [data-slot='select-trigger']:last-of-type:has(select[aria-hidden='true']:last-child)":
+        radii.full,
+    },
     display: "flex",
-    width: "fit-content",
+    flexBasis: {
+      default: null,
+      ":is(*) > input": "0%",
+    },
+    flexGrow: {
+      default: null,
+      ":is(*) > input": 1,
+    },
+    flexShrink: {
+      default: null,
+      ":is(*) > input": 1,
+    },
+    gap: {
+      default: 0,
+      ":is(:has(> [data-slot='button-group']))": "0.5rem",
+    },
+    position: {
+      default: null,
+      ":is(*) > *:focus-visible": "relative",
+    },
+    width: {
+      default: "fit-content",
+      ":is(*) > [data-slot='select-trigger']": "fit-content",
+    },
+    zIndex: {
+      default: null,
+      ":is(*) > *:focus-visible": 10,
+    },
   },
   groupHorizontal: {
+    borderBottomLeftRadius: {
+      default: null,
+      ":is(*) > *:not(:first-child)": 0,
+    },
+    borderBottomRightRadius: {
+      default: null,
+      ":is(*) > *:not(:last-child)": 0,
+    },
+    borderLeftWidth: {
+      default: null,
+      ":is(*) > *:not(:first-child)": 0,
+    },
+    borderTopLeftRadius: {
+      default: null,
+      ":is(*) > *:not(:first-child)": 0,
+    },
+    borderTopRightRadius: {
+      default: null,
+      ":is(*) > *:not(:last-child)": 0,
+    },
     flexDirection: "row",
   },
   groupVertical: {
+    borderBottomLeftRadius: {
+      default: null,
+      ":is(*) > *:not(:last-child)": 0,
+    },
+    borderBottomRightRadius: {
+      default: null,
+      ":is(*) > *:not(:last-child)": 0,
+    },
+    borderTopLeftRadius: {
+      default: null,
+      ":is(*) > *:not(:first-child)": 0,
+    },
+    borderTopRightRadius: {
+      default: null,
+      ":is(*) > *:not(:first-child)": 0,
+    },
+    borderTopWidth: {
+      default: null,
+      ":is(*) > *:not(:first-child)": 0,
+    },
     flexDirection: "column",
   },
   text: {
@@ -145,8 +199,20 @@ const styles = stylex.create({
     fontSize: "0.875rem",
     fontWeight: 500,
     gap: "0.5rem",
+    height: {
+      default: null,
+      ":is(*) svg": "1rem",
+    },
     lineHeight: "1.25rem",
     paddingInline: "1rem",
+    pointerEvents: {
+      default: null,
+      ":is(*) svg": "none",
+    },
+    width: {
+      default: null,
+      ":is(*) svg": "1rem",
+    },
   },
   separator: {
     alignSelf: "stretch",

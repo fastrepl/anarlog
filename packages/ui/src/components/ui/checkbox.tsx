@@ -5,7 +5,6 @@ import * as React from "react";
 
 import { colors, shadows } from "@anlg/design-system/tokens.stylex";
 import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
-import { cn } from "@anlg/utils";
 
 const Checkbox = React.forwardRef<
   React.ComponentRef<typeof CheckboxPrimitive.Root>,
@@ -13,11 +12,7 @@ const Checkbox = React.forwardRef<
 >(({ className, style, sx, ...props }, ref) => (
   <CheckboxPrimitive.Root
     {...props}
-    {...mergeStyleXProps(
-      [styles.root, sx],
-      cn([peerClassName, className]),
-      style,
-    )}
+    {...mergeStyleXProps([styles.root, sx], className, style)}
     ref={ref}
   >
     <CheckboxPrimitive.Indicator {...stylex.props(styles.indicator)}>
@@ -26,8 +21,6 @@ const Checkbox = React.forwardRef<
   </CheckboxPrimitive.Root>
 ));
 Checkbox.displayName = CheckboxPrimitive.Root.displayName;
-
-const peerClassName = "peer";
 
 const styles = stylex.create({
   root: {

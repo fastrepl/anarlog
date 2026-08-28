@@ -32,11 +32,7 @@ const AccordionTrigger = React.forwardRef<
     StyleXProps
 >(({ className, style, sx, children, ...props }, ref) => {
   const headerStyle = mergeStyleXProps(styles.header);
-  const triggerStyle = mergeStyleXProps(
-    [styles.trigger, sx],
-    [accordionTriggerSelectorClassName, className].filter(Boolean).join(" "),
-    style,
-  );
+  const triggerStyle = mergeStyleXProps([styles.trigger, sx], className, style);
   const iconStyle = mergeStyleXProps(styles.triggerIcon);
 
   return (
@@ -63,11 +59,7 @@ const AccordionContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Content> &
     StyleXProps
 >(({ className, style, sx, children, ...props }, ref) => {
-  const contentStyle = mergeStyleXProps(
-    styles.content,
-    accordionContentStateClassName,
-    style,
-  );
+  const contentStyle = mergeStyleXProps(styles.content, undefined, style);
   const innerStyle = mergeStyleXProps([styles.contentInner, sx], className);
 
   return (
@@ -87,10 +79,15 @@ AccordionContent.displayName = AccordionPrimitive.Content.displayName;
 
 const AccordionTriggerPrimitive = AccordionPrimitive.Trigger;
 
-const accordionTriggerSelectorClassName = "[&[data-state=open]>svg]:rotate-180";
+const accordionDown = stylex.keyframes({
+  from: { height: 0 },
+  to: { height: "var(--radix-accordion-content-height)" },
+});
 
-const accordionContentStateClassName =
-  "data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down";
+const accordionUp = stylex.keyframes({
+  from: { height: "var(--radix-accordion-content-height)" },
+  to: { height: 0 },
+});
 
 const styles = stylex.create({
   item: {
@@ -117,6 +114,10 @@ const styles = stylex.create({
       default: "none",
       ":hover": "underline",
     },
+    transform: {
+      default: null,
+      ':is([data-state="open"]) > svg': "rotate(180deg)",
+    },
     transitionDuration: "150ms",
     transitionProperty: "all",
     transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
@@ -131,6 +132,13 @@ const styles = stylex.create({
     width: "1rem",
   },
   content: {
+    animationDuration: "200ms",
+    animationName: {
+      default: null,
+      ':is([data-state="closed"])': accordionUp,
+      ':is([data-state="open"])': accordionDown,
+    },
+    animationTimingFunction: "ease-out",
     fontSize: "0.875rem",
     lineHeight: "1.25rem",
     overflow: "hidden",

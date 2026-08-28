@@ -5,15 +5,12 @@ import * as React from "react";
 
 import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
 import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
-import { cn } from "@anlg/utils";
 
 import { floatingContentStyle } from "./floating-content";
 
 const Select = SelectPrimitive.Root;
 const SelectGroup = SelectPrimitive.Group;
 const SelectValue = SelectPrimitive.Value;
-
-const directValueClassName = "[&>span]:line-clamp-1";
 
 const SelectTrigger = React.forwardRef<
   React.ComponentRef<typeof SelectPrimitive.Trigger>,
@@ -22,8 +19,8 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     {...props}
     {...mergeStyleXProps(
-      [styles.trigger, styles.focusOutlineHidden, sx],
-      cn([directValueClassName, className]),
+      [styles.trigger, styles.directValue, styles.focusOutlineHidden, sx],
+      className,
       style,
     )}
     ref={ref}
@@ -122,7 +119,7 @@ const SelectItem = React.forwardRef<
     {...props}
     {...mergeStyleXProps(
       [styles.item, styles.outlineHidden, sx],
-      cn(["select-none", className]),
+      className,
       style,
     )}
     ref={ref}
@@ -165,6 +162,20 @@ const styles = stylex.create({
     position: "relative",
     transformOrigin: "var(--radix-select-content-transform-origin)",
     zIndex: 50,
+  },
+  directValue: {
+    WebkitBoxOrient: {
+      ":is(*) > span": "vertical",
+    },
+    WebkitLineClamp: {
+      ":is(*) > span": 1,
+    },
+    display: {
+      ":is(*) > span": "-webkit-box",
+    },
+    overflow: {
+      ":is(*) > span": "hidden",
+    },
   },
   focusOutlineHidden: {
     outlineColor: {
@@ -229,6 +240,7 @@ const styles = stylex.create({
       ":is([data-disabled])": "none",
     },
     position: "relative",
+    userSelect: "none",
     width: "100%",
   },
   outlineHidden: {

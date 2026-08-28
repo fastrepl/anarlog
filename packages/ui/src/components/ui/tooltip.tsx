@@ -7,7 +7,6 @@ import * as React from "react";
 
 import { radii, shadows } from "@anlg/design-system/tokens.stylex";
 import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
-import { cn } from "@anlg/utils";
 
 const TooltipProvider = TooltipPrimitive.Provider;
 
@@ -58,11 +57,7 @@ const TooltipContent = React.forwardRef<
               duration: 0.2,
               ease: [0.16, 1, 0.3, 1],
             }}
-            {...mergeStyleXProps(
-              [styles.content, sx],
-              cn(["backdrop-blur-sm", className]),
-              style,
-            )}
+            {...mergeStyleXProps([styles.content, sx], className, style)}
           >
             {children}
           </motion.div>
@@ -75,6 +70,7 @@ TooltipContent.displayName = TooltipPrimitive.Content.displayName;
 
 const styles = stylex.create({
   content: {
+    backdropFilter: "blur(4px)",
     backgroundColor: "rgb(255 255 255 / 0.8)",
     borderColor: "rgb(229 229 229 / 0.5)",
     borderRadius: radii.md,

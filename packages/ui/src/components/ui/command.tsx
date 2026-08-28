@@ -7,7 +7,6 @@ import * as React from "react";
 import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Dialog, DialogContent } from "@anlg/ui/components/ui/dialog";
 import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
-import { cn } from "@anlg/utils";
 
 const Command = React.forwardRef<
   React.ComponentRef<typeof CommandPrimitive>,
@@ -38,7 +37,7 @@ const CommandDialog = ({
   return (
     <Dialog {...props}>
       <DialogContent sx={[styles.dialogContent, sx]}>
-        <Command className={commandDialogSelectorClassName}>{children}</Command>
+        <Command sx={styles.dialogCommand}>{children}</Command>
       </DialogContent>
     </Dialog>
   );
@@ -114,11 +113,7 @@ const CommandGroup = React.forwardRef<
   React.ComponentRef<typeof CommandPrimitive.Group>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Group> & StyleXProps
 >(({ className, style, sx, ...props }, ref) => {
-  const resolvedStyle = mergeStyleXProps(
-    [styles.group, sx],
-    cn([commandGroupSelectorClassName, className]),
-    style,
-  );
+  const resolvedStyle = mergeStyleXProps([styles.group, sx], className, style);
 
   return (
     <CommandPrimitive.Group
@@ -158,11 +153,7 @@ const CommandItem = React.forwardRef<
   React.ComponentRef<typeof CommandPrimitive.Item>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Item> & StyleXProps
 >(({ className, style, sx, ...props }, ref) => {
-  const resolvedStyle = mergeStyleXProps(
-    [styles.item, sx],
-    cn([commandItemSelectorClassName, className]),
-    style,
-  );
+  const resolvedStyle = mergeStyleXProps([styles.item, sx], className, style);
 
   return (
     <CommandPrimitive.Item
@@ -191,15 +182,6 @@ const CommandShortcut = ({
 };
 CommandShortcut.displayName = "CommandShortcut";
 
-const commandDialogSelectorClassName =
-  "**:[[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5 **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group]]:px-2 **:[[cmdk-input]]:h-12 **:[[cmdk-item]]:px-2 **:[[cmdk-item]]:py-3";
-
-const commandGroupSelectorClassName =
-  "**:[[cmdk-group-heading]]:text-muted-foreground **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium";
-
-const commandItemSelectorClassName =
-  "data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0";
-
 const styles = stylex.create({
   command: {
     backgroundColor: colors.popover,
@@ -214,6 +196,41 @@ const styles = stylex.create({
   dialogContent: {
     overflow: "hidden",
     padding: 0,
+  },
+  dialogCommand: {
+    color: {
+      default: null,
+      ":is(*) [cmdk-group-heading]": colors.mutedForeground,
+    },
+    fontWeight: {
+      default: null,
+      ":is(*) [cmdk-group-heading]": 500,
+    },
+    height: {
+      default: null,
+      ":is(*) [cmdk-input]": "3rem",
+      ":is(*) [cmdk-input-wrapper] svg": "1.25rem",
+      ":is(*) [cmdk-item] svg": "1.25rem",
+    },
+    paddingBlock: {
+      default: null,
+      ":is(*) [cmdk-item]": "0.75rem",
+    },
+    paddingInline: {
+      default: null,
+      ":is(*) [cmdk-group]": "0.5rem",
+      ":is(*) [cmdk-group-heading]": "0.5rem",
+      ":is(*) [cmdk-item]": "0.5rem",
+    },
+    paddingTop: {
+      default: null,
+      ":is(*) [cmdk-group]:not([hidden]) ~ [cmdk-group]": 0,
+    },
+    width: {
+      default: null,
+      ":is(*) [cmdk-input-wrapper] svg": "1.25rem",
+      ":is(*) [cmdk-item] svg": "1.25rem",
+    },
   },
   inputWrapper: {
     alignItems: "center",
@@ -268,8 +285,23 @@ const styles = stylex.create({
   },
   group: {
     color: colors.foreground,
+    fontSize: {
+      default: null,
+      ":is(*) [cmdk-group-heading]": "0.75rem",
+    },
+    fontWeight: {
+      default: null,
+      ":is(*) [cmdk-group-heading]": 500,
+    },
     overflow: "hidden",
-    padding: "0.25rem",
+    paddingBlock: {
+      default: "0.25rem",
+      ":is(*) [cmdk-group-heading]": "0.375rem",
+    },
+    paddingInline: {
+      default: "0.25rem",
+      ":is(*) [cmdk-group-heading]": "0.5rem",
+    },
   },
   separator: {
     backgroundColor: colors.border,
@@ -278,20 +310,49 @@ const styles = stylex.create({
   },
   item: {
     alignItems: "center",
+    backgroundColor: {
+      default: null,
+      ':is([data-selected="true"])': colors.accent,
+    },
     borderRadius: radii.full,
     cursor: "default",
     display: "flex",
     fontSize: "0.875rem",
+    flexShrink: {
+      default: null,
+      ":is(*) svg": 0,
+    },
     gap: "0.5rem",
+    height: {
+      default: null,
+      ":is(*) svg": "1rem",
+    },
     lineHeight: "1.25rem",
+    opacity: {
+      default: 1,
+      ':is([data-disabled="true"])': 0.5,
+    },
     outlineColor: "transparent",
     outlineOffset: "2px",
     outlineStyle: "solid",
     outlineWidth: "2px",
     paddingBlock: "0.375rem",
     paddingInline: "0.5rem",
+    pointerEvents: {
+      default: null,
+      ':is([data-disabled="true"])': "none",
+      ":is(*) svg": "none",
+    },
     position: "relative",
     userSelect: "none",
+    width: {
+      default: null,
+      ":is(*) svg": "1rem",
+    },
+    color: {
+      default: null,
+      ':is([data-selected="true"])': colors.accentForeground,
+    },
   },
   shortcut: {
     color: colors.mutedForeground,

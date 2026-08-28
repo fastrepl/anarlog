@@ -5,7 +5,6 @@ import * as React from "react";
 
 import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
 import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
-import { cn } from "@anlg/utils";
 
 import {
   AppFloatingPanel,
@@ -21,9 +20,6 @@ const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
 const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
-const descendantIconClassName =
-  "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0";
-
 const DropdownMenuSubTrigger = React.forwardRef<
   React.ComponentRef<typeof DropdownMenuPrimitive.SubTrigger>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubTrigger> & {
@@ -33,8 +29,14 @@ const DropdownMenuSubTrigger = React.forwardRef<
   <DropdownMenuPrimitive.SubTrigger
     {...props}
     {...mergeStyleXProps(
-      [styles.subTrigger, styles.outlineHidden, inset && styles.inset, sx],
-      cn([descendantIconClassName, className]),
+      [
+        styles.subTrigger,
+        styles.descendantIcons,
+        styles.outlineHidden,
+        inset && styles.inset,
+        sx,
+      ],
+      className,
       style,
     )}
     ref={ref}
@@ -110,8 +112,14 @@ const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     {...props}
     {...mergeStyleXProps(
-      [styles.item, styles.outlineHidden, inset && styles.inset, sx],
-      cn([descendantIconClassName, className]),
+      [
+        styles.item,
+        styles.descendantIcons,
+        styles.outlineHidden,
+        inset && styles.inset,
+        sx,
+      ],
+      className,
       style,
     )}
     ref={ref}
@@ -245,7 +253,7 @@ const styles = stylex.create({
     position: "relative",
     transitionDuration: "150ms",
     transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
     transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
   },
   content: {
@@ -271,6 +279,24 @@ const styles = stylex.create({
     borderWidth: "1px",
     boxShadow: shadows.lg,
     padding: "0.25rem",
+  },
+  descendantIcons: {
+    flexShrink: {
+      default: null,
+      ":is(*) svg": 0,
+    },
+    height: {
+      default: null,
+      ":is(*) svg": "1rem",
+    },
+    pointerEvents: {
+      default: null,
+      ":is(*) svg": "none",
+    },
+    width: {
+      default: null,
+      ":is(*) svg": "1rem",
+    },
   },
   icon: {
     height: "1rem",
@@ -309,7 +335,7 @@ const styles = stylex.create({
     position: "relative",
     transitionDuration: "150ms",
     transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
     transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
   },
   outlineHidden: {

@@ -3,7 +3,6 @@ import * as React from "react";
 
 import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
-import { cn } from "@anlg/utils";
 
 import { Button } from "./button";
 import { Input } from "./input";
@@ -20,11 +19,7 @@ function InputGroup({
       data-slot="input-group"
       role="group"
       {...props}
-      {...mergeStyleXProps(
-        [styles.group, sx],
-        cn([inputGroupSelectorClassName, className]),
-        style,
-      )}
+      {...mergeStyleXProps([styles.group, sx], className, style)}
     />
   );
 }
@@ -55,11 +50,7 @@ function InputGroupAddon({
       {...props}
       {...mergeStyleXProps(
         [styles.addon, inputGroupAddonAlignStyles[resolvedAlign], sx],
-        cn([
-          inputGroupAddonSelectorClassName,
-          inputGroupAddonAlignSelectorClassNames[resolvedAlign],
-          className,
-        ]),
+        className,
         style,
       )}
     />
@@ -85,10 +76,7 @@ function InputGroupButton({
       data-size={size}
       variant={variant}
       {...props}
-      className={cn([
-        inputGroupButtonSizeSelectorClassNames[resolvedSize],
-        className,
-      ])}
+      className={className}
       style={style}
       sx={[styles.button, inputGroupButtonSizeStyles[resolvedSize], sx]}
     />
@@ -104,11 +92,7 @@ function InputGroupText({
   return (
     <span
       {...props}
-      {...mergeStyleXProps(
-        [styles.text, sx],
-        cn([inputGroupTextSelectorClassName, className]),
-        style,
-      )}
+      {...mergeStyleXProps([styles.text, sx], className, style)}
     />
   );
 }
@@ -147,69 +131,107 @@ function InputGroupTextarea({
   );
 }
 
-const inputGroupSelectorClassName =
-  "group/input-group dark:bg-input/30 has-[>textarea]:h-auto [&>input]:has-[>[data-align=inline-start]]:pl-2 [&>input]:has-[>[data-align=inline-end]]:pr-2 has-[>[data-align=block-start]]:h-auto has-[>[data-align=block-start]]:flex-col [&>input]:has-[>[data-align=block-start]]:pb-3 has-[>[data-align=block-end]]:h-auto has-[>[data-align=block-end]]:flex-col [&>input]:has-[>[data-align=block-end]]:pt-3 has-[[data-slot=input-group-control]:focus-visible]:ring-ring has-[[data-slot=input-group-control]:focus-visible]:ring-1 has-[[data-slot][aria-invalid=true]]:ring-destructive/20 has-[[data-slot][aria-invalid=true]]:border-destructive dark:has-[[data-slot][aria-invalid=true]]:ring-destructive/40";
-
-const inputGroupAddonSelectorClassName =
-  "group-data-[disabled=true]/input-group:opacity-50 [&>kbd]:rounded-[calc(var(--radius)-5px)] [&>svg:not([class*='size-'])]:size-4";
-
-const inputGroupAddonAlignSelectorClassNames = {
-  "block-end": "group-has-[>input]/input-group:pb-2.5 [.border-t]:pt-3",
-  "block-start": "group-has-[>input]/input-group:pt-2.5 [.border-b]:pb-3",
-  "inline-end": "has-[>button]:mr-[-0.4rem] has-[>kbd]:mr-[-0.35rem]",
-  "inline-start": "has-[>button]:ml-[-0.45rem] has-[>kbd]:ml-[-0.35rem]",
-};
-
-const inputGroupButtonSizeSelectorClassNames = {
-  "icon-sm": undefined,
-  "icon-xs": undefined,
-  sm: undefined,
-  xs: "[&>svg:not([class*='size-'])]:size-3.5",
-};
-
-const inputGroupTextSelectorClassName =
-  "[&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4";
-
 const styles = stylex.create({
   group: {
     alignItems: "center",
-    borderColor: colors.input,
+    backgroundColor: `light-dark(transparent, color-mix(in oklab, ${colors.input} 30%, transparent))`,
+    borderColor: {
+      default: colors.input,
+      ":is(:has([data-slot][aria-invalid='true']))": colors.destructive,
+    },
     borderRadius: radii.md,
     borderStyle: "solid",
     borderWidth: "1px",
-    boxShadow: "0 1px rgb(0 0 0 / 0.05)",
+    boxShadow: {
+      default: "0 1px rgb(0 0 0 / 0.05)",
+      ":is(:has([data-slot='input-group-control']:focus-visible))": `0 0 0 1px ${colors.ring}`,
+      ":is(:has([data-slot][aria-invalid='true']))": `0 0 0 1px light-dark(color-mix(in oklab, ${colors.destructive} 20%, transparent), color-mix(in oklab, ${colors.destructive} 40%, transparent))`,
+    },
     display: "flex",
-    height: "2.25rem",
+    flexDirection: {
+      default: "row",
+      ":is(:has(> [data-align='block-start']))": "column",
+      ":is(:has(> [data-align='block-end']))": "column",
+    },
+    height: {
+      default: "2.25rem",
+      ":is(:has(> textarea))": "auto",
+      ":is(:has(> [data-align='block-start']))": "auto",
+      ":is(:has(> [data-align='block-end']))": "auto",
+    },
+    opacity: {
+      default: 1,
+      ":is([data-disabled='true']) > [data-slot='input-group-addon']": 0.5,
+    },
     outlineColor: "transparent",
     outlineOffset: "2px",
     outlineStyle: "solid",
     outlineWidth: "2px",
+    paddingBottom: {
+      default: null,
+      ":is(:has(> [data-align='block-start'])) > input": "0.75rem",
+      ":is(:has(> input)) > [data-align='block-end']": "0.625rem",
+    },
+    paddingLeft: {
+      default: null,
+      ":is(:has(> [data-align='inline-start'])) > input": "0.5rem",
+    },
+    paddingRight: {
+      default: null,
+      ":is(:has(> [data-align='inline-end'])) > input": "0.5rem",
+    },
+    paddingTop: {
+      default: null,
+      ":is(:has(> [data-align='block-end'])) > input": "0.75rem",
+      ":is(:has(> input)) > [data-align='block-start']": "0.625rem",
+    },
     position: "relative",
     transitionDuration: "150ms",
-    transitionProperty: "color, box-shadow",
+    transitionProperty: "color, border-color, box-shadow",
     transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
     width: "100%",
   },
   addon: {
     alignItems: "center",
+    borderRadius: {
+      default: null,
+      ":is(*) > kbd": "calc(var(--radius, 0.5rem) - 5px)",
+    },
     color: colors.mutedForeground,
     cursor: "text",
     display: "flex",
     fontSize: "0.875rem",
     fontWeight: 500,
     gap: "0.5rem",
-    height: "auto",
+    height: {
+      default: "auto",
+      ":is(*) > svg": "1rem",
+    },
     justifyContent: "center",
     lineHeight: "1.25rem",
     paddingBottom: "0.375rem",
     paddingTop: "0.375rem",
     userSelect: "none",
+    width: {
+      default: null,
+      ":is(*) > svg": "1rem",
+    },
   },
   addonInlineStart: {
+    marginLeft: {
+      default: 0,
+      ":is(:has(> button))": "-0.45rem",
+      ":is(:has(> kbd))": "-0.35rem",
+    },
     order: -9999,
     paddingLeft: "0.75rem",
   },
   addonInlineEnd: {
+    marginRight: {
+      default: 0,
+      ":is(:has(> button))": "-0.4rem",
+      ":is(:has(> kbd))": "-0.35rem",
+    },
     order: 9999,
     paddingRight: "0.75rem",
   },
@@ -241,8 +263,15 @@ const styles = stylex.create({
   buttonXs: {
     borderRadius: "calc(var(--radius, 0.5rem) - 5px)",
     gap: "0.25rem",
-    height: "1.5rem",
     paddingInline: "0.5rem",
+    height: {
+      default: "1.5rem",
+      ":is(*) > svg": "0.875rem",
+    },
+    width: {
+      default: null,
+      ":is(*) > svg": "0.875rem",
+    },
   },
   buttonSm: {
     borderRadius: radii.md,
@@ -269,7 +298,19 @@ const styles = stylex.create({
     display: "flex",
     fontSize: "0.875rem",
     gap: "0.5rem",
+    height: {
+      default: null,
+      ":is(*) svg": "1rem",
+    },
     lineHeight: "1.25rem",
+    pointerEvents: {
+      default: null,
+      ":is(*) svg": "none",
+    },
+    width: {
+      default: null,
+      ":is(*) svg": "1rem",
+    },
   },
   control: {
     backgroundColor: "transparent",

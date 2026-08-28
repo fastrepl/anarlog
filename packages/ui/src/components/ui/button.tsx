@@ -35,7 +35,6 @@ function buttonVariants({
       buttonVariantStyles[variant ?? "default"],
       buttonSizeStyles[size ?? "default"],
     ]).className,
-    buttonSelectorClassName,
     classValue,
     className,
   ]);
@@ -51,7 +50,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         buttonSizeStyles[size ?? "default"],
         sx,
       ],
-      cn([buttonSelectorClassName, className]),
+      className,
       style,
     );
 
@@ -66,8 +65,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   },
 );
 Button.displayName = "Button";
-
-const buttonSelectorClassName = "[&_svg]:pointer-events-none [&_svg]:shrink-0";
 
 const styles = stylex.create({
   root: {
@@ -84,6 +81,10 @@ const styles = stylex.create({
     display: "inline-flex",
     fontSize: "0.875rem",
     fontWeight: 500,
+    flexShrink: {
+      default: null,
+      ":is(*) svg": 0,
+    },
     gap: "0.5rem",
     justifyContent: "center",
     lineHeight: "1.25rem",
@@ -102,6 +103,7 @@ const styles = stylex.create({
     pointerEvents: {
       default: "auto",
       ":disabled": "none",
+      ":is(*) svg": "none",
     },
     transitionDuration: "150ms",
     transitionProperty: "all",

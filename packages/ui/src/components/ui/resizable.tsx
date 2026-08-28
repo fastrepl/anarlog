@@ -4,7 +4,6 @@ import * as ResizablePrimitive from "react-resizable-panels";
 
 import { colors } from "@anlg/design-system/tokens.stylex";
 import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
-import { cn } from "@anlg/utils";
 
 const ResizablePanelGroup = ({
   className,
@@ -60,11 +59,7 @@ const ResizableHandle = ({
 }: React.ComponentProps<typeof ResizablePrimitive.PanelResizeHandle> & {
   withHandle?: boolean;
 } & StyleXProps) => {
-  const handleStyle = mergeStyleXProps(
-    [styles.handle, sx],
-    cn([resizableHandleSelectorClassName, className]),
-    style,
-  );
+  const handleStyle = mergeStyleXProps([styles.handle, sx], className, style);
   const gripStyle = mergeStyleXProps(styles.grip);
   const iconStyle = mergeStyleXProps(styles.gripIcon);
 
@@ -86,9 +81,6 @@ const ResizableHandle = ({
   );
 };
 
-const resizableHandleSelectorClassName =
-  "data-[panel-group-direction=vertical]:h-px data-[panel-group-direction=vertical]:w-full data-[panel-group-direction=vertical]:cursor-row-resize data-[panel-group-direction=vertical]:after:left-0 data-[panel-group-direction=vertical]:after:h-1 data-[panel-group-direction=vertical]:after:w-full data-[panel-group-direction=vertical]:after:translate-x-0 data-[panel-group-direction=vertical]:after:-translate-y-1/2 [&[data-panel-group-direction=vertical]>div]:rotate-90";
-
 const styles = stylex.create({
   panelGroup: {
     display: "flex",
@@ -105,24 +97,37 @@ const styles = stylex.create({
     minWidth: 0,
   },
   handle: {
-    "::after": {
-      bottom: 0,
-      content: "''",
-      left: "50%",
-      position: "absolute",
-      top: 0,
-      transform: "translateX(-50%)",
-      width: "0.25rem",
-    },
     alignItems: "center",
     backgroundColor: colors.border,
+    bottom: {
+      default: null,
+      ":is(*)::after": 0,
+      ":is([data-panel-group-direction='vertical'])::after": "auto",
+    },
     boxShadow: {
       default: null,
       ":focus-visible": `0 0 0 1px ${colors.background}, 0 0 0 2px ${colors.ring}`,
     },
-    cursor: "col-resize",
+    content: {
+      default: null,
+      ":is(*)::after": "''",
+    },
+    cursor: {
+      default: "col-resize",
+      ":is([data-panel-group-direction='vertical'])": "row-resize",
+    },
     display: "flex",
+    height: {
+      default: null,
+      ":is([data-panel-group-direction='vertical'])": "1px",
+      ":is([data-panel-group-direction='vertical'])::after": "0.25rem",
+    },
     justifyContent: "center",
+    left: {
+      default: null,
+      ":is(*)::after": "50%",
+      ":is([data-panel-group-direction='vertical'])::after": 0,
+    },
     outlineColor: {
       default: null,
       ":focus-visible": "transparent",
@@ -139,9 +144,28 @@ const styles = stylex.create({
       default: null,
       ":focus-visible": "2px",
     },
-    position: "relative",
+    position: {
+      default: "relative",
+      ":is(*)::after": "absolute",
+    },
     touchAction: "none",
-    width: "1px",
+    top: {
+      default: null,
+      ":is(*)::after": 0,
+      ":is([data-panel-group-direction='vertical'])::after": "50%",
+    },
+    transform: {
+      default: null,
+      ":is(*)::after": "translateX(-50%)",
+      ":is([data-panel-group-direction='vertical'])::after": "translateY(-50%)",
+      ":is([data-panel-group-direction='vertical']) > div": "rotate(90deg)",
+    },
+    width: {
+      default: "1px",
+      ":is(*)::after": "0.25rem",
+      ":is([data-panel-group-direction='vertical'])": "100%",
+      ":is([data-panel-group-direction='vertical'])::after": "100%",
+    },
   },
   grip: {
     alignItems: "center",

@@ -4,7 +4,6 @@ import * as React from "react";
 
 import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
 import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
-import { cn } from "@anlg/utils";
 
 const Switch = React.forwardRef<
   React.ComponentRef<typeof SwitchPrimitives.Root>,
@@ -26,7 +25,7 @@ const Switch = React.forwardRef<
           resolvedSize === "lg" && styles.rootLg,
           sx,
         ],
-        cn([peerClassName, className]),
+        className,
         style,
       )}
       ref={ref}
@@ -43,8 +42,6 @@ const Switch = React.forwardRef<
   );
 });
 Switch.displayName = SwitchPrimitives.Root.displayName;
-
-const peerClassName = "peer";
 
 const styles = stylex.create({
   root: {
