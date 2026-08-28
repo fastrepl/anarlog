@@ -26,6 +26,7 @@ const DEFAULT_EXTERNAL_STT_MODELS: Record<string, string> = {
   fireworks: "whisper-v3-turbo",
   groq: "whisper-large-v3-turbo",
   xai: "xai-stt",
+  google_generative_ai: "gemini-3.5-transcribe-live",
   together: "openai/whisper-large-v3",
   speechmatics: "enhanced",
   azure_speech: "fast-transcription",

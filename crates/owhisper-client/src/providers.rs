@@ -99,6 +99,8 @@ pub enum Provider {
     AzureSpeech,
     #[strum(serialize = "google_cloud")]
     GoogleCloud,
+    #[strum(serialize = "google_generative_ai")]
+    GoogleGenerativeAi,
     #[strum(serialize = "groq")]
     Groq,
     #[strum(serialize = "revai")]
@@ -112,7 +114,7 @@ pub enum Provider {
 }
 
 impl Provider {
-    const ALL: [Provider; 21] = [
+    const ALL: [Provider; 22] = [
         Self::AquaVoice,
         Self::Cartesia,
         Self::Deepgram,
@@ -129,6 +131,7 @@ impl Provider {
         Self::AwsTranscribe,
         Self::AzureSpeech,
         Self::GoogleCloud,
+        Self::GoogleGenerativeAi,
         Self::Groq,
         Self::RevAi,
         Self::Speechmatics,
@@ -196,6 +199,10 @@ impl Provider {
                 name: "Ocp-Apim-Subscription-Key",
                 prefix: None,
             },
+            Self::GoogleGenerativeAi => Auth::Header {
+                name: "x-goog-api-key",
+                prefix: None,
+            },
             Self::AwsTranscribe
             | Self::GoogleCloud
             | Self::Groq
@@ -235,6 +242,7 @@ impl Provider {
             Self::AwsTranscribe => "transcribe.us-east-1.amazonaws.com",
             Self::AzureSpeech => "api.cognitive.microsoft.com",
             Self::GoogleCloud => "speech.googleapis.com",
+            Self::GoogleGenerativeAi => "generativelanguage.googleapis.com",
             Self::Groq => "api.groq.com",
             Self::RevAi => "api.rev.ai",
             Self::Speechmatics => "eu1.asr.api.speechmatics.com",
@@ -261,6 +269,7 @@ impl Provider {
             Self::AwsTranscribe => "transcribestreaming.us-east-1.amazonaws.com",
             Self::AzureSpeech => "api.cognitive.microsoft.com",
             Self::GoogleCloud => "speech.googleapis.com",
+            Self::GoogleGenerativeAi => "generativelanguage.googleapis.com",
             Self::Groq => "api.groq.com",
             Self::RevAi => "api.rev.ai",
             Self::Speechmatics => "eu2.rt.speechmatics.com",
@@ -285,6 +294,9 @@ impl Provider {
             Self::Pyannote => "/v1/diarize",
             Self::Cohere => "",
             Self::Xai => "/v1/stt",
+            Self::GoogleGenerativeAi => {
+                "/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
+            }
             Self::AwsTranscribe
             | Self::AzureSpeech
             | Self::GoogleCloud
@@ -313,6 +325,7 @@ impl Provider {
             Self::AwsTranscribe
             | Self::AzureSpeech
             | Self::GoogleCloud
+            | Self::GoogleGenerativeAi
             | Self::Groq
             | Self::RevAi
             | Self::Speechmatics
@@ -339,6 +352,7 @@ impl Provider {
             Self::AwsTranscribe => "https://transcribe.us-east-1.amazonaws.com",
             Self::AzureSpeech => "https://api.cognitive.microsoft.com",
             Self::GoogleCloud => "https://speech.googleapis.com/v1",
+            Self::GoogleGenerativeAi => "https://generativelanguage.googleapis.com/v1beta",
             Self::Groq => "https://api.groq.com/openai/v1",
             Self::RevAi => "https://api.rev.ai/speechtotext/v1",
             Self::Speechmatics => "https://eu1.asr.api.speechmatics.com/v2",
@@ -364,7 +378,8 @@ impl Provider {
             Self::Cohere => "cohere.com",
             Self::AwsTranscribe => "amazonaws.com",
             Self::AzureSpeech => "cognitive.microsoft.com",
-            Self::GoogleCloud => "googleapis.com",
+            Self::GoogleCloud => "speech.googleapis.com",
+            Self::GoogleGenerativeAi => "generativelanguage.googleapis.com",
             Self::Groq => "groq.com",
             Self::RevAi => "rev.ai",
             Self::Speechmatics => "speechmatics.com",
@@ -415,6 +430,7 @@ impl Provider {
             Self::AwsTranscribe => "AWS_TRANSCRIBE_API_KEY",
             Self::AzureSpeech => "AZURE_SPEECH_API_KEY",
             Self::GoogleCloud => "GOOGLE_CLOUD_ACCESS_TOKEN",
+            Self::GoogleGenerativeAi => "GEMINI_API_KEY",
             Self::Groq => "GROQ_API_KEY",
             Self::RevAi => "REVAI_ACCESS_TOKEN",
             Self::Speechmatics => "SPEECHMATICS_API_KEY",
@@ -441,6 +457,7 @@ impl Provider {
             Self::AwsTranscribe => "amazon-transcribe",
             Self::AzureSpeech => "fast-transcription",
             Self::GoogleCloud => "latest_long",
+            Self::GoogleGenerativeAi => "gemini-3.5-transcribe-live",
             Self::Groq => "whisper-large-v3-turbo",
             Self::RevAi => "machine",
             Self::Speechmatics => "enhanced",
@@ -488,6 +505,7 @@ impl Provider {
             Self::AwsTranscribe => "amazon-transcribe",
             Self::AzureSpeech => "fast-transcription",
             Self::GoogleCloud => "latest_long",
+            Self::GoogleGenerativeAi => "gemini-3.5-transcribe",
             Self::Groq => "whisper-large-v3-turbo",
             Self::RevAi => "machine",
             Self::Speechmatics => "enhanced",
@@ -534,6 +552,7 @@ impl Provider {
             | Self::AwsTranscribe
             | Self::AzureSpeech
             | Self::GoogleCloud
+            | Self::GoogleGenerativeAi
             | Self::Groq
             | Self::RevAi
             | Self::Speechmatics
@@ -563,6 +582,7 @@ impl Provider {
             | Self::AwsTranscribe
             | Self::AzureSpeech
             | Self::GoogleCloud
+            | Self::GoogleGenerativeAi
             | Self::Groq
             | Self::RevAi
             | Self::Speechmatics
@@ -641,6 +661,9 @@ impl Provider {
             Self::Pyannote => None,
             Self::Cohere => None,
             Self::Xai => from_adapter(&crate::adapter::XaiAdapter::default(), msg),
+            Self::GoogleGenerativeAi => {
+                from_adapter(&crate::adapter::GoogleGenerativeAiAdapter, msg)
+            }
             Self::AwsTranscribe
             | Self::AzureSpeech
             | Self::GoogleCloud
@@ -669,6 +692,7 @@ impl Provider {
             | Self::AwsTranscribe
             | Self::AzureSpeech
             | Self::GoogleCloud
+            | Self::GoogleGenerativeAi
             | Self::Groq
             | Self::RevAi
             | Self::Speechmatics

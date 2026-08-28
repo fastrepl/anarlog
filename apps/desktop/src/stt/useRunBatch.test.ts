@@ -202,6 +202,7 @@ describe("getBatchProvider", () => {
     ["aws_transcribe", "amazon-transcribe"],
     ["azure_speech", "fast-transcription"],
     ["google_cloud", "latest_long"],
+    ["google_generative_ai", "gemini-3.5-transcribe"],
     ["groq", "whisper-large-v3-turbo"],
     ["openrouter", "openai/gpt-4o-mini-transcribe"],
     ["siliconflow", "FunAudioLLM/SenseVoiceSmall"],

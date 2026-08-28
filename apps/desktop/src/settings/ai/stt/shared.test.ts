@@ -22,6 +22,7 @@ describe("STT providers", () => {
       "dashscope",
       "zai",
       "siliconflow",
+      "google_generative_ai",
       "google_cloud",
       "aws_transcribe",
       "azure_speech",
@@ -81,6 +82,12 @@ describe("STT model display labels", () => {
       "Whisper Large V3 Turbo",
     );
     expect(displayModelLabel("xai-stt")).toBe("xAI Speech to Text");
+    expect(displayModelLabel("gemini-3.5-transcribe-live")).toBe(
+      "Gemini 3.5 Transcribe Live",
+    );
+    expect(displayModelLabel("gemini-3.5-transcribe")).toBe(
+      "Gemini 3.5 Transcribe",
+    );
     expect(displayModelLabel("local-file")).toBe("Local model file");
     expect(displayModelLabel("fast-transcription")).toBe("Fast Transcription");
     expect(displayModelLabel("openai/gpt-4o-mini-transcribe")).toBe(
@@ -106,6 +113,11 @@ describe("STT model display labels", () => {
     expect(providers.fireworks.disabled).toBe(false);
     expect(providers.fireworks.models).toEqual(["whisper-v3-turbo"]);
     expect(providers.xai.badge).toBeNull();
+    expect(providers.google_generative_ai.badge).toBeNull();
+    expect(providers.google_generative_ai.models).toEqual([
+      "gemini-3.5-transcribe-live",
+      "gemini-3.5-transcribe",
+    ]);
     for (const provider of [
       "groq",
       "openrouter",

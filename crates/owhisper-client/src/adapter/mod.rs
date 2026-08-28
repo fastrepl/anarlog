@@ -16,6 +16,7 @@ pub(crate) mod elevenlabs;
 mod fireworks;
 mod gladia;
 mod google_cloud;
+mod google_generative_ai;
 mod groq;
 pub mod http;
 mod language;
@@ -49,6 +50,7 @@ pub use elevenlabs::*;
 pub use fireworks::*;
 pub use gladia::*;
 pub use google_cloud::*;
+pub use google_generative_ai::*;
 pub use groq::*;
 pub use language::{LanguageQuality, LanguageSupport};
 pub use mistral::*;
@@ -476,6 +478,8 @@ pub enum AdapterKind {
     AzureSpeech,
     #[strum(serialize = "google_cloud")]
     GoogleCloud,
+    #[strum(serialize = "google_generative_ai")]
+    GoogleGenerativeAi,
     #[strum(serialize = "groq")]
     Groq,
     #[strum(serialize = "revai")]
@@ -541,6 +545,7 @@ impl AdapterKind {
                 OPENAI_COMPATIBLE_MAX_UPLOAD_BYTES,
                 Duration::from_secs(10 * 60),
             ),
+            Self::GoogleGenerativeAi => (20 * 1024 * 1024, Duration::from_secs(15 * 60)),
             Self::OpenAI | Self::Groq | Self::Together | Self::Xai => (
                 OPENAI_COMPATIBLE_MAX_UPLOAD_BYTES,
                 Duration::from_secs(25 * 60),
@@ -583,6 +588,7 @@ impl AdapterKind {
             | Self::DashScope
             | Self::Mistral
             | Self::Xai
+            | Self::GoogleGenerativeAi
             | Self::Anarlog => true,
         }
     }
@@ -620,6 +626,7 @@ impl AdapterKind {
             | Self::Speechmatics
             | Self::Together => LanguageSupport::NotSupported,
             Self::Xai => XaiAdapter::language_support_live(languages),
+            Self::GoogleGenerativeAi => GoogleGenerativeAiAdapter::language_support_live(languages),
             Self::Anarlog => AnarlogAdapter::language_support_live(languages, model),
         }
     }
@@ -658,6 +665,9 @@ impl AdapterKind {
             Self::Speechmatics => SpeechmaticsAdapter::language_support_batch(languages),
             Self::Together => TogetherAdapter::language_support_batch(languages),
             Self::Xai => XaiAdapter::language_support_batch(languages),
+            Self::GoogleGenerativeAi => {
+                GoogleGenerativeAiAdapter::language_support_batch(languages)
+            }
             Self::Anarlog => AnarlogAdapter::language_support_batch(languages, model),
         }
     }
@@ -719,6 +729,7 @@ impl From<crate::providers::Provider> for AdapterKind {
             Provider::AwsTranscribe => Self::AwsTranscribe,
             Provider::AzureSpeech => Self::AzureSpeech,
             Provider::GoogleCloud => Self::GoogleCloud,
+            Provider::GoogleGenerativeAi => Self::GoogleGenerativeAi,
             Provider::Groq => Self::Groq,
             Provider::RevAi => Self::RevAi,
             Provider::Speechmatics => Self::Speechmatics,

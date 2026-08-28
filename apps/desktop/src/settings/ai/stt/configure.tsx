@@ -91,8 +91,10 @@ function ProviderContext({ providerId }: { providerId: ProviderId }) {
                               ? `Use [Mistral](https://mistral.ai) for transcriptions. Keep the Base URL as \`https://api.mistral.ai/v1\` (Reset under Advanced if you pasted a transcriptions endpoint). **Voxtral Mini Transcribe 2** transcribes after recording; the realtime model is for live captions.`
                               : providerId === "cohere"
                                 ? `Use [Cohere Transcribe](https://docs.cohere.com/docs/transcribe) for batch transcription. Files must be 25 MB or smaller and use one selected language. Cohere does not return timestamps or speaker labels, so Anarlog estimates word timing.`
-                                : providerId === "google_cloud"
-                                  ? `Use [Google Cloud Speech-to-Text](https://cloud.google.com/speech-to-text) synchronous recognition for recordings up to one minute and 10 MB. Paste an OAuth access token in the API key field; refresh it when it expires.`
+                                : providerId === "google_generative_ai"
+                                  ? `Use [Google Gemini 3.5 Transcribe](https://ai.google.dev/gemini-api/docs/audio) for live captions, then the same API key for post-recording transcription with speaker labels and word timestamps. Paste an AI Studio API key; this is separate from Google Cloud Speech-to-Text.`
+                                  : providerId === "google_cloud"
+                                    ? `Use [Google Cloud Speech-to-Text](https://cloud.google.com/speech-to-text) synchronous recognition for recordings up to one minute and 10 MB. Paste an OAuth access token in the API key field; refresh it when it expires.`
                                   : providerId === "azure_speech"
                                     ? `Use [Azure AI Speech](https://learn.microsoft.com/azure/ai-services/speech-service/rest-speech-to-text) fast transcription. Enter the regional Speech resource endpoint as the Base URL and its subscription key as the API key.`
                                     : providerId === "aws_transcribe"

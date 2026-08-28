@@ -80,6 +80,18 @@ describe("getSttModelTranscriptionMode", () => {
     expect(
       getSttModelTranscriptionMode("openai", "gpt-4o-transcribe-diarize"),
     ).toBe("batch");
+    expect(
+      getSttModelTranscriptionMode(
+        "google_generative_ai",
+        "gemini-3.5-transcribe-live",
+      ),
+    ).toBe("live");
+    expect(
+      getSttModelTranscriptionMode(
+        "google_generative_ai",
+        "gemini-3.5-transcribe",
+      ),
+    ).toBe("batch");
     expect(getSttModelTranscriptionMode("elevenlabs", "scribe_v2")).toBe(
       "batch",
     );

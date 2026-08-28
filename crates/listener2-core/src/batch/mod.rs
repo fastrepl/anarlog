@@ -51,6 +51,9 @@ pub enum BatchProvider {
     #[serde(rename = "google_cloud")]
     #[strum(serialize = "google_cloud")]
     GoogleCloud,
+    #[serde(rename = "google_generative_ai")]
+    #[strum(serialize = "google_generative_ai")]
+    GoogleGenerativeAi,
     Groq,
     RevAi,
     Speechmatics,
@@ -81,6 +84,7 @@ impl BatchProvider {
             Self::AwsTranscribe => Some(AdapterKind::AwsTranscribe),
             Self::AzureSpeech => Some(AdapterKind::AzureSpeech),
             Self::GoogleCloud => Some(AdapterKind::GoogleCloud),
+            Self::GoogleGenerativeAi => Some(AdapterKind::GoogleGenerativeAi),
             Self::Groq => Some(AdapterKind::Groq),
             Self::RevAi => Some(AdapterKind::RevAi),
             Self::Speechmatics => Some(AdapterKind::Speechmatics),
