@@ -259,7 +259,7 @@ fn transcription_response(
         duration: (end - start).max(0.0),
         is_final,
         speech_final: is_final,
-        from_finalize: is_final,
+        from_finalize: false,
         channel: Channel {
             alternatives: vec![Alternatives {
                 transcript: text.to_string(),
@@ -347,6 +347,22 @@ mod tests {
     }
 
     #[test]
+    fn initial_message_omits_languages_when_unset() {
+        let Message::Text(payload) = GoogleGenerativeAiAdapter
+            .initial_message(None, &ListenParams::default(), 1)
+            .expect("setup message")
+        else {
+            panic!("expected text setup message");
+        };
+        let json: serde_json::Value = serde_json::from_str(&payload).unwrap();
+        assert!(
+            json["setup"]["inputAudioTranscription"]
+                .get("languageCodes")
+                .is_none()
+        );
+    }
+
+    #[test]
     fn parses_interim_and_final_transcriptions() {
         let adapter = GoogleGenerativeAiAdapter;
         let interim = adapter
@@ -358,6 +374,7 @@ mod tests {
         let StreamResponse::TranscriptResponse {
             is_final,
             speech_final,
+            from_finalize,
             channel,
             ..
         } = &interim[0]
@@ -366,11 +383,13 @@ mod tests {
         };
         assert!(!*is_final);
         assert!(!*speech_final);
+        assert!(!*from_finalize);
         assert_eq!(channel.alternatives[0].transcript, "hel");
 
         let StreamResponse::TranscriptResponse {
             is_final,
             speech_final,
+            from_finalize,
             channel,
             start,
             duration,
@@ -381,6 +400,7 @@ mod tests {
         };
         assert!(*is_final);
         assert!(*speech_final);
+        assert!(!*from_finalize);
         assert_eq!(channel.alternatives[0].transcript, "hello there");
         assert_eq!(channel.alternatives[0].words[0].speaker, Some(2));
         assert_eq!(*start, 0.1);

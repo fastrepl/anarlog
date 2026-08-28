@@ -60,31 +60,6 @@ async fn do_transcribe_file(
         .await
         .map_err(|error| Error::AudioProcessing(error.to_string()))?;
     let model = GoogleGenerativeAiAdapter::resolve_batch_model(params.model.as_deref());
-    let language_codes = GoogleGenerativeAiAdapter::language_codes(params);
-    let language_hints = if language_codes.is_empty() {
-        vec!["auto".to_string()]
-    } else {
-        language_codes.clone()
-    };
-
-    // Word timestamps require verbatim mode. Google rejects custom vocabulary
-    // when timestamp_granularities is set, so keywords stay on the live path.
-    let mut transcription_config = serde_json::json!({
-        "language_hints": language_hints,
-        "mode": {
-            "type": "verbatim",
-            "diarization_mode": "speaker",
-            "timestamp_granularities": ["word"],
-        }
-    });
-    if !language_codes.is_empty() {
-        transcription_config["language_codes"] = serde_json::Value::Array(
-            language_codes
-                .into_iter()
-                .map(serde_json::Value::String)
-                .collect(),
-        );
-    }
 
     let request = serde_json::json!({
         "model": model,
@@ -94,7 +69,7 @@ async fn do_transcribe_file(
             "mime_type": mime_type_from_extension(&file_path),
         }],
         "generation_config": {
-            "transcription_config": transcription_config,
+            "transcription_config": transcription_config(params),
         }
     });
 
@@ -108,6 +83,30 @@ async fn do_transcribe_file(
     let payload: serde_json::Value = ensure_success(response).await?.json().await?;
 
     Ok(convert_response(&payload))
+}
+
+fn transcription_config(params: &ListenParams) -> serde_json::Value {
+    // Word timestamps require verbatim mode. Google rejects custom vocabulary
+    // when timestamp_granularities is set, so keywords stay on the live path.
+    let mut config = serde_json::json!({
+        "mode": {
+            "type": "verbatim",
+            "diarization_mode": "speaker",
+            "timestamp_granularities": ["word"],
+        }
+    });
+    let language_codes = GoogleGenerativeAiAdapter::language_codes(params);
+    if !language_codes.is_empty() {
+        let codes = serde_json::Value::Array(
+            language_codes
+                .into_iter()
+                .map(serde_json::Value::String)
+                .collect(),
+        );
+        config["language_hints"] = codes.clone();
+        config["language_codes"] = codes;
+    }
+    config
 }
 
 fn interactions_url(api_base: &str) -> Result<String, Error> {
@@ -255,6 +254,24 @@ fn content_blocks(payload: &serde_json::Value) -> Vec<serde_json::Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn omits_language_hints_when_none_are_selected() {
+        let config = transcription_config(&ListenParams::default());
+        assert!(config.get("language_hints").is_none());
+        assert!(config.get("language_codes").is_none());
+        assert_eq!(config["mode"]["type"], "verbatim");
+    }
+
+    #[test]
+    fn includes_language_hints_when_selected() {
+        let config = transcription_config(&ListenParams {
+            languages: vec!["en-US".parse().unwrap()],
+            ..Default::default()
+        });
+        assert_eq!(config["language_hints"][0], "en-US");
+        assert_eq!(config["language_codes"][0], "en-US");
+    }
 
     #[test]
     fn builds_interactions_url() {
