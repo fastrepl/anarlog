@@ -91,6 +91,12 @@ pub fn resolve_transcription_mode(
         return TranscriptionMode::Batch;
     }
 
+    if adapter_kind == AdapterKind::GoogleGenerativeAi
+        && !owhisper_client::GoogleGenerativeAiAdapter::is_live_model(model)
+    {
+        return TranscriptionMode::Batch;
+    }
+
     if !adapter_kind.has_live_mode() {
         return TranscriptionMode::Batch;
     }
@@ -237,6 +243,34 @@ mod tests {
         let params = session_params(
             "https://api.openai.com/v1",
             "whisper-1",
+            TranscriptionMode::Live,
+        );
+
+        assert_eq!(
+            params.effective_transcription_mode(),
+            TranscriptionMode::Batch
+        );
+    }
+
+    #[test]
+    fn effective_mode_uses_live_for_gemini_transcribe_live() {
+        let params = session_params(
+            "https://generativelanguage.googleapis.com/v1beta",
+            "gemini-3.5-transcribe-live",
+            TranscriptionMode::Live,
+        );
+
+        assert_eq!(
+            params.effective_transcription_mode(),
+            TranscriptionMode::Live
+        );
+    }
+
+    #[test]
+    fn effective_mode_forces_gemini_file_model_to_batch() {
+        let params = session_params(
+            "https://generativelanguage.googleapis.com/v1beta",
+            "gemini-3.5-transcribe",
             TranscriptionMode::Live,
         );
 

@@ -229,7 +229,7 @@ function OnboardingScreenContent({
                 <Trans>
                   Anarlog needs microphone and system audio to transcribe your
                   meetings, plus Accessibility to read meeting controls, visible
-                  chat, and participant status.
+                  chat.
                 </Trans>
               ) : (
                 <Trans>

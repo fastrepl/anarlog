@@ -27,6 +27,7 @@ import {
   getNotificationIconForDetectedApps,
   getNotificationIconForDisplayApp,
 } from "./meeting-apps";
+import { recordDetectedMeetingApps } from "./meeting-source-apps";
 
 import {
   getNearbyCalendarEvents,
@@ -111,18 +112,29 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
         (live.status === "inactive" && live.loading && !!live.sessionId)
       );
     };
-    const captureTriggerAppIds = (appIds: string[]) => {
+    const captureTriggerApps = (apps: { id: string; name: string }[]) => {
+      const appIds = apps.map((app) => app.id);
       if (appIds.length === 0) {
         return;
       }
 
-      const currentTrigger = store.getState().live.triggerAppIds ?? [];
+      const currentLive = store.getState().live;
+      const currentTrigger = currentLive.triggerAppIds ?? [];
       if (appIds.some((id) => currentTrigger.includes(id))) {
         clearPendingAutoStop();
       }
       store
         .getState()
         .setTriggerAppIds([...new Set([...currentTrigger, ...appIds])]);
+      if (currentLive.sessionId) {
+        void recordDetectedMeetingApps(currentLive.sessionId, apps).catch(
+          (error) =>
+            console.warn(
+              "[listener] failed to persist detected meeting apps",
+              error,
+            ),
+        );
+      }
     };
 
     function scheduleAutoStop(
@@ -288,7 +300,7 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
           const appIds = ignorableApps.map((app) => app.id);
 
           if (shouldCaptureMicDetectedTriggerApps()) {
-            captureTriggerAppIds(appIds);
+            captureTriggerApps(ignorableApps);
             return;
           }
 
@@ -341,7 +353,7 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
                   : null;
 
               if (shouldCaptureMicDetectedTriggerApps()) {
-                captureTriggerAppIds(appIds);
+                captureTriggerApps(ignorableApps);
                 return;
               }
 

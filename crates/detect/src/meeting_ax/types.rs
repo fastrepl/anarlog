@@ -43,7 +43,7 @@ pub struct MeetingApp {
     pub name: String,
 }
 
-#[cfg(any(test, target_os = "macos", target_os = "linux"))]
+#[cfg(any(test, target_os = "macos", target_os = "linux", target_os = "windows"))]
 #[derive(Debug, Clone)]
 pub(super) struct MeetingChatTarget {
     pub(super) kind: String,
@@ -103,7 +103,7 @@ pub struct MeetingChatCaptureResult {
     pub warnings: Vec<String>,
 }
 
-#[cfg(any(test, target_os = "macos", target_os = "linux"))]
+#[cfg(any(test, target_os = "macos", target_os = "linux", target_os = "windows"))]
 #[derive(Debug, Clone)]
 pub(super) struct AxNode {
     pub(super) index: usize,
@@ -131,7 +131,8 @@ pub(super) struct AxChatElement {
     pub(super) element: arc::R<ax::UiElement>,
 }
 
-#[cfg(any(test, target_os = "macos", target_os = "linux"))]
+#[cfg(any(test, target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[cfg_attr(target_os = "windows", allow(dead_code))]
 #[derive(Debug, Clone)]
 pub(super) struct AxAncestor {
     pub(super) path: Vec<usize>,
@@ -146,7 +147,7 @@ pub(super) struct SlackHuddleRoot {
     pub(super) element: arc::R<ax::UiElement>,
 }
 
-#[cfg(any(test, target_os = "macos", target_os = "linux"))]
+#[cfg(any(test, target_os = "macos", target_os = "linux", target_os = "windows"))]
 #[derive(Debug)]
 pub(super) struct BrowserMeetingRoot {
     pub(super) platform: MeetingPlatform,
@@ -156,13 +157,15 @@ pub(super) struct BrowserMeetingRoot {
     pub(super) nodes: Vec<AxNode>,
 }
 
-#[cfg(any(test, target_os = "macos", target_os = "linux"))]
+#[cfg(any(test, target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[cfg_attr(target_os = "windows", allow(dead_code))]
 pub(super) struct NativeMeetingRoot {
     pub(super) window_title: Option<String>,
     pub(super) nodes: Vec<AxNode>,
 }
 
-#[cfg(any(test, target_os = "macos", target_os = "linux"))]
+#[cfg(any(test, target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[cfg_attr(target_os = "windows", allow(dead_code))]
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum UniqueMatch {
     Missing,

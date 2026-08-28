@@ -1,5 +1,6 @@
 use super::InstalledApp;
 
+#[cfg(any(test, target_os = "macos"))]
 const MACOS_COMPETITOR_BUNDLE_IDS: &[(&str, &str)] = &[
     ("com.granola.app", "Granola"),
     ("com.getgranola.app", "Granola"),

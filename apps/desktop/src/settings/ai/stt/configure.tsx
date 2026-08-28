@@ -92,7 +92,7 @@ function ProviderContext({ providerId }: { providerId: ProviderId }) {
                               : providerId === "cohere"
                                 ? `Use [Cohere Transcribe](https://docs.cohere.com/docs/transcribe) for batch transcription. Files must be 25 MB or smaller and use one selected language. Cohere does not return timestamps or speaker labels, so Anarlog estimates word timing.`
                                 : providerId === "google_generative_ai"
-                                  ? `Use [Google Gemini 3.5 Transcribe](https://ai.google.dev/gemini-api/docs/audio) for live captions, then the same API key for post-recording transcription with speaker labels and word timestamps. Paste an AI Studio API key; this is separate from Google Cloud Speech-to-Text.`
+                                  ? `Use [Gemini 3.5 Transcribe](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-5-transcribe/) with a Google AI Studio API key. **3.5 Transcribe Live** captions during recording (preview sessions last up to 10 minutes). **3.5 Transcribe** runs after recording with speaker labels and word timestamps; Anarlog splits files past 15 minutes.`
                                   : providerId === "google_cloud"
                                     ? `Use [Google Cloud Speech-to-Text](https://cloud.google.com/speech-to-text) synchronous recognition for recordings up to one minute and 10 MB. Paste an OAuth access token in the API key field; refresh it when it expires.`
                                     : providerId === "azure_speech"

@@ -16,6 +16,7 @@ export const BROWSER_AUTO_STOP_APP_IDS = new Set([
   "com.brave.Browser.nightly",
   "com.duckduckgo.macos.browser",
   "chrome",
+  "comet",
   "chromium",
   "chromium-browser",
   "com.google.Chrome",
@@ -26,6 +27,7 @@ export const BROWSER_AUTO_STOP_APP_IDS = new Set([
   "google-chrome-stable",
   "microsoft-edge",
   "msedge",
+  "helium",
   "com.kagi.kagimacOS",
   "com.kagi.kagimacOS.RC",
   "com.microsoft.edgemac",
@@ -36,9 +38,11 @@ export const BROWSER_AUTO_STOP_APP_IDS = new Set([
   "com.operasoftware.OperaDeveloper",
   "com.operasoftware.OperaGX",
   "com.operasoftware.OperaNext",
+  "opera",
   "com.nousresearch.hermes",
   "com.sigmaos.sigmaos.macos",
   "com.vivaldi.Vivaldi",
+  "vivaldi",
   "company.thebrowser.Browser",
   "company.thebrowser.dia",
   "net.imput.helium",
@@ -50,6 +54,7 @@ export const BROWSER_AUTO_STOP_APP_IDS = new Set([
   "org.mozilla.librewolf",
   "org.mozilla.nightly",
   "org.torproject.torbrowser",
+  "zen",
 ]);
 
 export type MicApp = { id: string; name: string };
@@ -305,6 +310,12 @@ function getMicAppNotificationOverride(app: MicApp) {
       override.names.has(normalizedName),
     ) ??
     MIC_APP_NOTIFICATION_OVERRIDES.find((override) => override.ids.has(app.id))
+  );
+}
+
+export function getMeetingPlatformNameForMicApp(app: MicApp): string | null {
+  return (
+    getMicAppNotificationOverride(app)?.meetingPlatform?.displayName ?? null
   );
 }
 

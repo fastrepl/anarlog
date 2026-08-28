@@ -245,7 +245,7 @@ function PermissionsSectionContent({
             enableBody={
               accessibilityGuidance
                 ? t`Opens System Settings and guides you to add Anarlog to the ${accessibilityGuidance.paneTitle ?? "Privacy"} list`
-                : t`Read meeting controls, visible chat, and participant status`
+                : t`Read meeting controls and visible chat`
             }
             Icon={Cursor}
             permissionName={t`Accessibility`}

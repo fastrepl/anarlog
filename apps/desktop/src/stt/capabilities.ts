@@ -196,17 +196,11 @@ export function getSttModelTranscriptionMode(
   }
 
   if (provider === "google_generative_ai") {
-    if (
-      model === "gemini-3.5-transcribe" ||
-      model === "gemini-3.5-transcribe-preview"
-    ) {
-      return "batch";
-    }
-    if (
-      model === "gemini-3.5-transcribe-live" ||
-      model === "gemini-3.5-transcribe-live-preview"
-    ) {
+    if (model?.includes("transcribe-live")) {
       return "live";
+    }
+    if (model) {
+      return "batch";
     }
   }
 

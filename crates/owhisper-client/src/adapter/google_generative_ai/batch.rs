@@ -4,12 +4,12 @@ use base64::Engine;
 use owhisper_interface::ListenParams;
 use owhisper_interface::batch::{Alternatives, Channel, Response, Results, Word};
 
+use super::{GoogleGenerativeAiAdapter, parse_duration_secs};
 use crate::adapter::http::{ensure_success, mime_type_from_extension};
+use crate::adapter::parsing::parse_speaker_id;
 use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware};
 use crate::error::Error;
 use crate::providers::Provider;
-
-use super::GoogleGenerativeAiAdapter;
 
 const INLINE_AUDIO_LIMIT_BYTES: u64 = 20 * 1024 * 1024;
 
@@ -51,7 +51,8 @@ async fn do_transcribe_file(
         .map_err(|error| Error::AudioProcessing(error.to_string()))?;
     if metadata.len() > INLINE_AUDIO_LIMIT_BYTES {
         return Err(Error::AudioProcessing(
-            "Gemini 3.5 Transcribe accepts inline audio up to 20 MB".to_string(),
+            "Gemini 3.5 Transcribe accepts inline audio up to 20 MB; longer recordings are split automatically"
+                .to_string(),
         ));
     }
 
@@ -59,44 +60,56 @@ async fn do_transcribe_file(
         .await
         .map_err(|error| Error::AudioProcessing(error.to_string()))?;
     let model = GoogleGenerativeAiAdapter::resolve_batch_model(params.model.as_deref());
-    let language_codes = GoogleGenerativeAiAdapter::language_codes(&params.languages);
-    let mut audio_transcription_config = serde_json::json!({
-        "wordTimestamp": true,
-        "diarization": true,
-    });
-    if !language_codes.is_empty() {
-        audio_transcription_config["languageCodes"] = serde_json::json!(language_codes);
-    }
-    if !params.keywords.is_empty() {
-        audio_transcription_config["customVocabulary"] = serde_json::json!(params.keywords);
-    }
 
     let request = serde_json::json!({
-        "contents": [{
-            "parts": [{
-                "inlineData": {
-                    "mimeType": mime_type_from_extension(&file_path),
-                    "data": base64::engine::general_purpose::STANDARD.encode(audio),
-                }
-            }]
+        "model": model,
+        "input": [{
+            "type": "audio",
+            "data": base64::engine::general_purpose::STANDARD.encode(audio),
+            "mime_type": mime_type_from_extension(&file_path),
         }],
-        "generationConfig": {
-            "audioTranscriptionConfig": audio_transcription_config
+        "generation_config": {
+            "transcription_config": transcription_config(params),
         }
     });
 
-    let url = batch_url(api_base, model)?;
+    let url = interactions_url(api_base)?;
     let response = client
-        .post(url.to_string())
+        .post(url)
         .header("x-goog-api-key", api_key)
         .json(&request)
         .send()
         .await?;
-    let payload: GenerateContentResponse = ensure_success(response).await?.json().await?;
-    Ok(convert_response(payload))
+    let payload: serde_json::Value = ensure_success(response).await?.json().await?;
+
+    Ok(convert_response(&payload))
 }
 
-fn batch_url(api_base: &str, model: &str) -> Result<url::Url, Error> {
+fn transcription_config(params: &ListenParams) -> serde_json::Value {
+    // Word timestamps require verbatim mode. Google rejects custom vocabulary
+    // when timestamp_granularities is set, so keywords stay on the live path.
+    let mut config = serde_json::json!({
+        "mode": {
+            "type": "verbatim",
+            "diarization_mode": "speaker",
+            "timestamp_granularities": ["word"],
+        }
+    });
+    let language_codes = GoogleGenerativeAiAdapter::language_codes(params);
+    if !language_codes.is_empty() {
+        let codes = serde_json::Value::Array(
+            language_codes
+                .into_iter()
+                .map(serde_json::Value::String)
+                .collect(),
+        );
+        config["language_hints"] = codes.clone();
+        config["language_codes"] = codes;
+    }
+    config
+}
+
+fn interactions_url(api_base: &str) -> Result<String, Error> {
     let mut url: url::Url = if api_base.is_empty() {
         Provider::GoogleGenerativeAi
             .default_api_base()
@@ -107,121 +120,95 @@ fn batch_url(api_base: &str, model: &str) -> Result<url::Url, Error> {
             Error::AudioProcessing(format!("invalid api_base: {error}"))
         })?
     };
-
-    let path = url.path().trim_end_matches('/');
-    if !path.contains(":generateContent") {
-        url.set_path(&format!("{path}/models/{model}:generateContent"));
+    let path = url.path().trim_end_matches('/').to_string();
+    if !path.ends_with("/interactions") {
+        url.set_path(&format!("{path}/interactions"));
     }
-    Ok(url)
+    url.set_query(None);
+    Ok(url.to_string())
 }
 
-#[derive(serde::Deserialize)]
-struct GenerateContentResponse {
-    #[serde(default)]
-    candidates: Vec<Candidate>,
-}
-
-#[derive(serde::Deserialize)]
-struct Candidate {
-    #[serde(default)]
-    content: Option<Content>,
-}
-
-#[derive(serde::Deserialize)]
-struct Content {
-    #[serde(default)]
-    parts: Vec<Part>,
-}
-
-#[derive(serde::Deserialize)]
-struct Part {
-    #[serde(default)]
-    text: Option<String>,
-    #[serde(default, rename = "audioTranscription")]
-    audio_transcription: Option<AudioTranscription>,
-}
-
-#[derive(serde::Deserialize)]
-struct AudioTranscription {
-    #[serde(default)]
-    text: Option<String>,
-    #[serde(default, rename = "speakerLabel")]
-    speaker_label: Option<String>,
-    #[serde(default)]
-    words: Vec<AudioWord>,
-}
-
-#[derive(serde::Deserialize)]
-struct AudioWord {
-    #[serde(default)]
-    text: Option<String>,
-    #[serde(default)]
-    word: Option<String>,
-    #[serde(default, rename = "startOffset")]
-    start_offset: Option<String>,
-    #[serde(default, rename = "endOffset")]
-    end_offset: Option<String>,
-    #[serde(default, rename = "speakerLabel")]
-    speaker_label: Option<String>,
-}
-
-fn convert_response(payload: GenerateContentResponse) -> Response {
-    let parts = payload
-        .candidates
-        .into_iter()
-        .next()
-        .and_then(|candidate| candidate.content)
-        .map(|content| content.parts)
-        .unwrap_or_default();
-
-    let mut transcripts = Vec::new();
+fn convert_response(payload: &serde_json::Value) -> Response {
+    let mut transcript_parts = Vec::new();
     let mut words = Vec::new();
 
-    for part in parts {
-        let speaker = part.audio_transcription.as_ref().and_then(|transcription| {
-            GoogleGenerativeAiAdapter::parse_speaker_label(transcription.speaker_label.as_deref())
-        });
-        let transcript = part
-            .text
-            .as_deref()
-            .or(part
-                .audio_transcription
-                .as_ref()
-                .and_then(|transcription| transcription.text.as_deref()))
-            .unwrap_or("")
+    for content in content_blocks(payload) {
+        let text = content
+            .get("text")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
             .trim();
-        if !transcript.is_empty() {
-            transcripts.push(transcript.to_string());
+        if !text.is_empty() {
+            transcript_parts.push(text.to_string());
         }
 
-        if let Some(transcription) = part.audio_transcription {
-            words.extend(transcription.words.into_iter().filter_map(|word| {
-                let text = word
-                    .word
-                    .or(word.text)
-                    .map(|text| text.trim().to_string())
-                    .filter(|text| !text.is_empty())?;
-                Some(Word {
-                    punctuated_word: Some(text.clone()),
-                    word: text,
-                    start: word
-                        .start_offset
-                        .as_deref()
-                        .map(GoogleGenerativeAiAdapter::parse_duration_secs)
-                        .unwrap_or_default(),
-                    end: word
-                        .end_offset
-                        .as_deref()
-                        .map(GoogleGenerativeAiAdapter::parse_duration_secs)
-                        .unwrap_or_default(),
-                    confidence: 1.0,
-                    channel: 0,
-                    speaker: GoogleGenerativeAiAdapter::parse_speaker_label(
-                        word.speaker_label.as_deref(),
-                    )
-                    .or(speaker),
+        let annotations = content
+            .get("annotations")
+            .and_then(serde_json::Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        let mut found_words = false;
+        for annotation in annotations {
+            if annotation.get("type").and_then(serde_json::Value::as_str) != Some("word_info") {
+                continue;
+            }
+            let token = annotation
+                .get("text")
+                .or_else(|| annotation.get("word"))
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            if token.is_empty() {
+                continue;
+            }
+            found_words = true;
+            let speaker = annotation
+                .get("speaker")
+                .or_else(|| annotation.get("speakerLabel"))
+                .or_else(|| annotation.get("speaker_label"))
+                .and_then(serde_json::Value::as_str)
+                .and_then(parse_speaker_id);
+            let start = annotation
+                .get("start_offset")
+                .or_else(|| annotation.get("startOffset"))
+                .map(parse_duration_secs)
+                .unwrap_or_default();
+            let end = annotation
+                .get("end_offset")
+                .or_else(|| annotation.get("endOffset"))
+                .map(parse_duration_secs)
+                .unwrap_or(start);
+            words.push(Word {
+                punctuated_word: Some(token.clone()),
+                word: token,
+                start,
+                end,
+                confidence: 1.0,
+                channel: 0,
+                speaker,
+            });
+        }
+
+        if !found_words && !text.is_empty() {
+            let speaker = content
+                .get("audioTranscription")
+                .or_else(|| content.get("audio_transcription"))
+                .and_then(|value| {
+                    value
+                        .get("speakerLabel")
+                        .or_else(|| value.get("speaker_label"))
                 })
-            }));
+                .and_then(serde_json::Value::as_str)
+                .and_then(parse_speaker_id);
+            words.push(Word {
+                punctuated_word: Some(text.to_string()),
+                word: text.to_string(),
+                start: 0.0,
+                end: 0.0,
+                confidence: 1.0,
+                channel: 0,
+                speaker,
+            });
         }
     }
 
@@ -230,7 +217,7 @@ fn convert_response(payload: GenerateContentResponse) -> Response {
         results: Results {
             channels: vec![Channel {
                 alternatives: vec![Alternatives {
-                    transcript: transcripts.join(" "),
+                    transcript: transcript_parts.join(" "),
                     confidence: 1.0,
                     words,
                 }],
@@ -239,59 +226,107 @@ fn convert_response(payload: GenerateContentResponse) -> Response {
     }
 }
 
+fn content_blocks(payload: &serde_json::Value) -> Vec<serde_json::Value> {
+    let mut blocks = Vec::new();
+    for key in ["steps", "outputs"] {
+        let Some(items) = payload.get(key).and_then(serde_json::Value::as_array) else {
+            continue;
+        };
+        for item in items {
+            if let Some(content) = item.get("content").and_then(serde_json::Value::as_array) {
+                blocks.extend(content.iter().cloned());
+            } else if item.get("text").is_some() || item.get("type").is_some() {
+                blocks.push(item.clone());
+            }
+        }
+    }
+    if blocks.is_empty() {
+        if let Some(parts) = payload
+            .pointer("/candidates/0/content/parts")
+            .and_then(serde_json::Value::as_array)
+        {
+            blocks.extend(parts.iter().cloned());
+        }
+    }
+    blocks
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn builds_generate_content_url() {
-        let url = batch_url(
-            "https://generativelanguage.googleapis.com/v1beta",
-            "gemini-3.5-transcribe",
-        )
-        .unwrap();
+    fn omits_language_hints_when_none_are_selected() {
+        let config = transcription_config(&ListenParams::default());
+        assert!(config.get("language_hints").is_none());
+        assert!(config.get("language_codes").is_none());
+        assert_eq!(config["mode"]["type"], "verbatim");
+    }
+
+    #[test]
+    fn includes_language_hints_when_selected() {
+        let config = transcription_config(&ListenParams {
+            languages: vec!["en-US".parse().unwrap()],
+            ..Default::default()
+        });
+        assert_eq!(config["language_hints"][0], "en-US");
+        assert_eq!(config["language_codes"][0], "en-US");
+    }
+
+    #[test]
+    fn builds_interactions_url() {
         assert_eq!(
-            url.as_str(),
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-transcribe:generateContent"
+            interactions_url("https://generativelanguage.googleapis.com/v1beta").unwrap(),
+            "https://generativelanguage.googleapis.com/v1beta/interactions"
+        );
+        assert_eq!(
+            interactions_url("https://generativelanguage.googleapis.com/v1beta/interactions")
+                .unwrap(),
+            "https://generativelanguage.googleapis.com/v1beta/interactions"
         );
     }
 
     #[test]
-    fn converts_diarized_words_and_text() {
-        let payload: GenerateContentResponse = serde_json::from_value(serde_json::json!({
-            "candidates": [{
-                "content": {
-                    "parts": [{
-                        "text": "Hello there.",
-                        "audioTranscription": {
-                            "text": "Hello there.",
-                            "speakerLabel": "Speaker 2",
-                            "words": [
-                                {
-                                    "word": "Hello",
-                                    "startOffset": "0.100s",
-                                    "endOffset": "0.500s",
-                                    "speakerLabel": "Speaker 2"
-                                },
-                                {
-                                    "text": "there.",
-                                    "startOffset": "0.500s",
-                                    "endOffset": "1.000s"
-                                }
-                            ]
+    fn converts_word_info_annotations() {
+        let payload = serde_json::json!({
+            "steps": [{
+                "content": [{
+                    "type": "text",
+                    "text": "Hello there. Hi.",
+                    "annotations": [
+                        {
+                            "type": "word_info",
+                            "text": "Hello",
+                            "speaker": "spk_2",
+                            "start_offset": "0.10s",
+                            "end_offset": "0.40s"
+                        },
+                        {
+                            "type": "word_info",
+                            "text": "there.",
+                            "speaker": "spk_2",
+                            "start_offset": "0.40s",
+                            "end_offset": "0.90s"
+                        },
+                        {
+                            "type": "word_info",
+                            "text": "Hi.",
+                            "speaker": "spk_1",
+                            "start_offset": "1.00s",
+                            "end_offset": "1.20s"
                         }
-                    }]
-                }
+                    ]
+                }]
             }]
-        }))
-        .unwrap();
+        });
 
-        let response = convert_response(payload);
+        let response = convert_response(&payload);
         let alternative = &response.results.channels[0].alternatives[0];
-        assert_eq!(alternative.transcript, "Hello there.");
-        assert_eq!(alternative.words[0].start, 0.1);
+
+        assert_eq!(alternative.transcript, "Hello there. Hi.");
         assert_eq!(alternative.words[0].speaker, Some(2));
-        assert_eq!(alternative.words[1].speaker, Some(2));
+        assert_eq!(alternative.words[0].start, 0.1);
+        assert_eq!(alternative.words[2].speaker, Some(1));
         assert_eq!(response.metadata["provider"], "google_generative_ai");
     }
 }

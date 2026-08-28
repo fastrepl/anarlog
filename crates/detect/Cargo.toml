@@ -54,3 +54,5 @@ zbus = { version = "5", default-features = false, features = ["tokio"] }
 
 [target."cfg(target_os = \"windows\")".dependencies]
 winreg = "0.55"
+wasapi = { workspace = true }
+windows = { workspace = true, features = ["Win32_Foundation", "Win32_System_Com", "Win32_UI_Accessibility", "Win32_UI_WindowsAndMessaging"] }

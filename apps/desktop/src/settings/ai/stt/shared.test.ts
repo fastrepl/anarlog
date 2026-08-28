@@ -83,11 +83,9 @@ describe("STT model display labels", () => {
     );
     expect(displayModelLabel("xai-stt")).toBe("xAI Speech to Text");
     expect(displayModelLabel("gemini-3.5-transcribe-live")).toBe(
-      "Gemini 3.5 Transcribe Live",
+      "3.5 Transcribe Live",
     );
-    expect(displayModelLabel("gemini-3.5-transcribe")).toBe(
-      "Gemini 3.5 Transcribe",
-    );
+    expect(displayModelLabel("gemini-3.5-transcribe")).toBe("3.5 Transcribe");
     expect(displayModelLabel("local-file")).toBe("Local model file");
     expect(displayModelLabel("fast-transcription")).toBe("Fast Transcription");
     expect(displayModelLabel("openai/gpt-4o-mini-transcribe")).toBe(

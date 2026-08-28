@@ -149,7 +149,6 @@ pub(crate) async fn list_default_ignored_bundle_ids<R: tauri::Runtime>(
     Ok(app.detect().list_default_ignored_bundle_ids())
 }
 
-#[cfg(target_os = "macos")]
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn inspect_meeting_accessibility<R: tauri::Runtime>(
@@ -195,15 +194,6 @@ pub(crate) async fn capture_meeting_chat_messages<R: tauri::Runtime>(
     Ok(anlg_detect::capture_meeting_chat_messages(
         verified_bundle_ids,
     ))
-}
-
-#[cfg(not(target_os = "macos"))]
-#[tauri::command]
-#[specta::specta]
-pub(crate) async fn inspect_meeting_accessibility<R: tauri::Runtime>(
-    _app: tauri::AppHandle<R>,
-) -> Result<Vec<anlg_detect::MeetingAccessibilityInspection>, String> {
-    Ok(Vec::new())
 }
 
 #[tauri::command]

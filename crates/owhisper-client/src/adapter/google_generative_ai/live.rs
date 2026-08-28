@@ -1,12 +1,13 @@
 use anlg_ws_client::client::Message;
-use base64::Engine;
 use owhisper_interface::ListenParams;
 use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse};
 
-use crate::adapter::{RealtimeSttAdapter, is_anarlog_proxy};
+use super::{GoogleGenerativeAiAdapter, WS_PATH, parse_duration_secs};
+use crate::adapter::parsing::{WordBuilder, parse_speaker_id};
+use crate::adapter::{
+    RealtimeSttAdapter, build_proxy_ws_url, build_url_with_scheme, is_anarlog_proxy,
+};
 use crate::providers::Provider;
-
-use super::GoogleGenerativeAiAdapter;
 
 impl RealtimeSttAdapter for GoogleGenerativeAiAdapter {
     fn provider_name(&self) -> &'static str {
@@ -25,27 +26,18 @@ impl RealtimeSttAdapter for GoogleGenerativeAiAdapter {
         false
     }
 
-    fn build_ws_url(&self, api_base: &str, _params: &ListenParams, _channels: u8) -> url::Url {
-        let (mut url, existing_params) = Self::build_ws_url_from_base(api_base);
-        if !existing_params.is_empty() {
-            url.query_pairs_mut().extend_pairs(&existing_params);
-        }
-        url
+    fn build_ws_url(&self, api_base: &str, params: &ListenParams, _channels: u8) -> url::Url {
+        self.build_ws_url_inner(api_base, params, None)
     }
 
     fn build_ws_url_with_api_key(
         &self,
         api_base: &str,
         params: &ListenParams,
-        channels: u8,
+        _channels: u8,
         api_key: Option<&str>,
     ) -> impl std::future::Future<Output = Option<url::Url>> + Send {
-        let mut url = self.build_ws_url(api_base, params, channels);
-        if !is_anarlog_proxy(api_base)
-            && let Some(api_key) = api_key.filter(|key| !key.is_empty())
-        {
-            url.query_pairs_mut().append_pair("key", api_key);
-        }
+        let url = self.build_ws_url_inner(api_base, params, api_key);
         async move { Some(url) }
     }
 
@@ -57,12 +49,9 @@ impl RealtimeSttAdapter for GoogleGenerativeAiAdapter {
         None
     }
 
-    fn finalize_message(&self) -> Message {
-        Message::Text(r#"{"realtimeInput":{"audioStreamEnd":true}}"#.into())
-    }
-
     fn audio_to_message(&self, audio: bytes::Bytes) -> Message {
-        let payload = serde_json::json!({
+        use base64::Engine;
+        let event = serde_json::json!({
             "realtimeInput": {
                 "audio": {
                     "mimeType": "audio/pcm;rate=16000",
@@ -70,7 +59,7 @@ impl RealtimeSttAdapter for GoogleGenerativeAiAdapter {
                 }
             }
         });
-        Message::Text(payload.to_string().into())
+        Message::Text(event.to_string().into())
     }
 
     fn initial_message(
@@ -79,31 +68,51 @@ impl RealtimeSttAdapter for GoogleGenerativeAiAdapter {
         params: &ListenParams,
         _channels: u8,
     ) -> Option<Message> {
-        let model = Self::model_resource(Self::resolve_live_model(params.model.as_deref()));
-        let language_codes = Self::language_codes(&params.languages);
-        let mut input_audio_transcription = serde_json::json!({ "mode": "smart" });
+        let model = Self::setup_model_name(&Self::resolve_live_model(params.model.as_deref()));
+        let language_codes = Self::language_codes(params);
+        let mut input_audio_transcription = serde_json::Map::new();
         if !language_codes.is_empty() {
-            input_audio_transcription["languageCodes"] = serde_json::json!(language_codes);
+            input_audio_transcription.insert(
+                "languageCodes".to_string(),
+                serde_json::Value::Array(
+                    language_codes
+                        .into_iter()
+                        .map(serde_json::Value::String)
+                        .collect(),
+                ),
+            );
         }
         if !params.keywords.is_empty() {
-            input_audio_transcription["customVocabulary"] = serde_json::json!(params.keywords);
+            input_audio_transcription.insert(
+                "customVocabulary".to_string(),
+                serde_json::Value::Array(
+                    params
+                        .keywords
+                        .iter()
+                        .cloned()
+                        .map(serde_json::Value::String)
+                        .collect(),
+                ),
+            );
         }
 
-        let payload = serde_json::json!({
+        // Omitting generationConfig.responseModalities: on the current Live
+        // endpoint that field suppresses final inputTranscription segments.
+        let setup = serde_json::json!({
             "setup": {
                 "model": model,
-                "generationConfig": {
-                    "responseModalities": ["TEXT"],
-                    "speechConfig": { "voiceConfig": {} }
-                },
-                "inputAudioTranscription": input_audio_transcription
+                "inputAudioTranscription": input_audio_transcription,
             }
         });
-        Some(Message::Text(payload.to_string().into()))
+        Some(Message::Text(setup.to_string().into()))
+    }
+
+    fn finalize_message(&self) -> Message {
+        Message::Text(r#"{"realtimeInput":{"audioStreamEnd":true}}"#.into())
     }
 
     fn parse_response(&self, raw: &str) -> Vec<StreamResponse> {
-        let event: LiveEvent = match serde_json::from_str(raw) {
+        let event: serde_json::Value = match serde_json::from_str(raw) {
             Ok(event) => event,
             Err(error) => {
                 tracing::warn!(
@@ -115,125 +124,194 @@ impl RealtimeSttAdapter for GoogleGenerativeAiAdapter {
             }
         };
 
-        if let Some(error) = event.error {
-            let message = error
-                .message
-                .filter(|message| !message.is_empty())
-                .unwrap_or_else(|| "Gemini transcription error".to_string());
+        if let Some(message) = event
+            .pointer("/error/message")
+            .and_then(serde_json::Value::as_str)
+        {
             return vec![StreamResponse::ErrorResponse {
-                error_code: error.code,
-                error_message: message,
+                error_code: event
+                    .pointer("/error/code")
+                    .and_then(|value| value.as_i64().and_then(|code| i32::try_from(code).ok())),
+                error_message: message.to_string(),
                 provider: "google_generative_ai".to_string(),
             }];
         }
 
-        let Some(server_content) = event.server_content else {
+        let server_content = event
+            .get("serverContent")
+            .or_else(|| event.get("server_content"));
+        let Some(server_content) = server_content else {
             return Vec::new();
         };
 
-        if let Some(transcription) = server_content.input_transcription {
-            return transcript_response(transcription, true);
+        if let Some(response) = transcription_response(
+            server_content
+                .get("inputTranscription")
+                .or_else(|| server_content.get("input_transcription")),
+            true,
+        ) {
+            return vec![response];
         }
-        if let Some(transcription) = server_content.interim_input_transcription {
-            return transcript_response(transcription, false);
+
+        if let Some(response) = transcription_response(
+            server_content
+                .get("interimInputTranscription")
+                .or_else(|| server_content.get("interim_input_transcription")),
+            false,
+        ) {
+            return vec![response];
         }
 
         Vec::new()
     }
 }
 
-fn transcript_response(transcription: LiveTranscription, is_final: bool) -> Vec<StreamResponse> {
-    let transcript = transcription.text.trim().to_string();
-    if transcript.is_empty() {
-        return Vec::new();
+impl GoogleGenerativeAiAdapter {
+    fn build_ws_url_inner(
+        &self,
+        api_base: &str,
+        _params: &ListenParams,
+        api_key: Option<&str>,
+    ) -> url::Url {
+        let (mut url, existing_params) = if let Some(result) = build_proxy_ws_url(api_base) {
+            result
+        } else {
+            let parsed: url::Url = if api_base.is_empty() {
+                Provider::GoogleGenerativeAi
+                    .default_api_base()
+                    .parse()
+                    .expect("invalid_default_google_generative_ai_api_base")
+            } else {
+                api_base.parse().unwrap_or_else(|_| {
+                    Provider::GoogleGenerativeAi
+                        .default_api_base()
+                        .parse()
+                        .expect("invalid_default_google_generative_ai_api_base")
+                })
+            };
+            (
+                build_url_with_scheme(
+                    &parsed,
+                    Provider::GoogleGenerativeAi.default_ws_host(),
+                    WS_PATH,
+                    true,
+                ),
+                Vec::new(),
+            )
+        };
+
+        {
+            let mut query = url.query_pairs_mut();
+            if is_anarlog_proxy(api_base) {
+                query.extend_pairs(&existing_params);
+            } else if let Some(api_key) = api_key.filter(|key| !key.is_empty()) {
+                query.append_pair("key", api_key);
+            }
+        }
+
+        url
+    }
+}
+
+fn transcription_response(
+    value: Option<&serde_json::Value>,
+    is_final: bool,
+) -> Option<StreamResponse> {
+    let value = value?;
+    let text = value
+        .get("text")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default()
+        .trim();
+    if text.is_empty() {
+        return None;
     }
 
-    let from_finalize = is_final && transcription.finished.unwrap_or(false);
-    vec![StreamResponse::TranscriptResponse {
-        start: 0.0,
-        duration: 0.0,
+    let speaker = value
+        .get("speakerLabel")
+        .or_else(|| value.get("speaker_label"))
+        .and_then(serde_json::Value::as_str)
+        .and_then(parse_speaker_id)
+        .and_then(|speaker| i32::try_from(speaker).ok());
+    let start = value
+        .get("startOffset")
+        .or_else(|| value.get("start_offset"))
+        .map(parse_duration_secs)
+        .unwrap_or_default();
+    let end = value
+        .get("endOffset")
+        .or_else(|| value.get("end_offset"))
+        .map(parse_duration_secs)
+        .unwrap_or(start);
+    let words = text
+        .split_whitespace()
+        .map(|word| {
+            WordBuilder::new(word)
+                .start(start)
+                .end(end)
+                .speaker(speaker)
+                .build()
+        })
+        .collect();
+
+    let from_finalize = is_final
+        && value
+            .get("finished")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false);
+
+    Some(StreamResponse::TranscriptResponse {
+        start,
+        duration: (end - start).max(0.0),
         is_final,
         speech_final: is_final,
         from_finalize,
         channel: Channel {
             alternatives: vec![Alternatives {
-                transcript,
-                words: Vec::new(),
+                transcript: text.to_string(),
+                words,
                 confidence: 1.0,
                 languages: Vec::new(),
             }],
         },
         metadata: Metadata::default(),
         channel_index: vec![0, 1],
-    }]
-}
-
-#[derive(serde::Deserialize)]
-struct LiveEvent {
-    #[serde(default, rename = "serverContent")]
-    server_content: Option<ServerContent>,
-    #[serde(default)]
-    error: Option<LiveError>,
-}
-
-#[derive(serde::Deserialize)]
-struct ServerContent {
-    #[serde(default, rename = "inputTranscription")]
-    input_transcription: Option<LiveTranscription>,
-    #[serde(default, rename = "interimInputTranscription")]
-    interim_input_transcription: Option<LiveTranscription>,
-}
-
-#[derive(serde::Deserialize)]
-struct LiveTranscription {
-    #[serde(default)]
-    text: String,
-    #[serde(default)]
-    finished: Option<bool>,
-}
-
-#[derive(serde::Deserialize)]
-struct LiveError {
-    #[serde(default)]
-    code: Option<i32>,
-    #[serde(default)]
-    message: Option<String>,
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn params() -> ListenParams {
-        ListenParams {
-            sample_rate: 16_000,
-            languages: vec!["en-US".parse().unwrap()],
-            keywords: vec!["Anarlog".to_string()],
-            model: Some("gemini-3.5-transcribe-live".to_string()),
-            ..Default::default()
-        }
-    }
-
     #[test]
     fn builds_direct_and_proxy_urls() {
+        let params = ListenParams {
+            sample_rate: 16_000,
+            languages: vec![anlg_language::ISO639::En.into()],
+            ..Default::default()
+        };
         let adapter = GoogleGenerativeAiAdapter;
+
         let direct = adapter.build_ws_url(
             "https://generativelanguage.googleapis.com/v1beta",
-            &params(),
+            &params,
             1,
+        );
+        let keyed = adapter.build_ws_url_inner(
+            "https://generativelanguage.googleapis.com/v1beta",
+            &params,
+            Some("test-key"),
         );
         let proxy = adapter.build_ws_url(
             "https://api.anarlog.so/stt?provider=google_generative_ai",
-            &params(),
+            &params,
             1,
         );
 
         assert_eq!(direct.scheme(), "wss");
         assert_eq!(direct.host_str(), Some("generativelanguage.googleapis.com"));
-        assert_eq!(
-            direct.path(),
-            "/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
-        );
+        assert_eq!(direct.path(), WS_PATH);
+        assert!(keyed.query().unwrap().contains("key=test-key"));
         assert_eq!(
             proxy.as_str().split('?').next().unwrap(),
             "wss://api.anarlog.so/stt/listen"
@@ -246,65 +324,57 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn appends_api_key_only_for_direct_urls() {
-        let adapter = GoogleGenerativeAiAdapter;
-        let direct = adapter
-            .build_ws_url_with_api_key(
-                "https://generativelanguage.googleapis.com/v1beta",
-                &params(),
-                1,
-                Some("secret-key"),
-            )
-            .await
-            .unwrap();
-        let proxy = adapter
-            .build_ws_url_with_api_key(
-                "https://api.anarlog.so/stt?provider=google_generative_ai",
-                &params(),
-                1,
-                Some("secret-key"),
-            )
-            .await
-            .unwrap();
-
-        assert!(direct.query().unwrap().contains("key=secret-key"));
-        assert!(!proxy.query().unwrap().contains("key=secret-key"));
-    }
-
     #[test]
-    fn setup_message_includes_smart_mode_and_hints() {
-        let message = GoogleGenerativeAiAdapter
-            .initial_message(None, &params(), 1)
-            .expect("setup message");
-        let Message::Text(text) = message else {
-            panic!("expected text setup");
+    fn initial_message_includes_languages_and_keywords() {
+        let params = ListenParams {
+            languages: vec!["en-US".parse().unwrap()],
+            keywords: vec!["Anarlog".to_string()],
+            model: Some("gemini-3.5-transcribe-live".to_string()),
+            ..Default::default()
         };
-        let payload: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let Message::Text(payload) = GoogleGenerativeAiAdapter
+            .initial_message(None, &params, 1)
+            .expect("setup message")
+        else {
+            panic!("expected text setup message");
+        };
+        let json: serde_json::Value = serde_json::from_str(&payload).unwrap();
+
+        assert_eq!(json["setup"]["model"], "models/gemini-3.5-transcribe-live");
+        assert!(json["setup"].get("generationConfig").is_none());
         assert_eq!(
-            payload["setup"]["model"],
-            "models/gemini-3.5-transcribe-live"
-        );
-        assert_eq!(payload["setup"]["inputAudioTranscription"]["mode"], "smart");
-        assert_eq!(
-            payload["setup"]["inputAudioTranscription"]["languageCodes"][0],
+            json["setup"]["inputAudioTranscription"]["languageCodes"][0],
             "en-US"
         );
         assert_eq!(
-            payload["setup"]["inputAudioTranscription"]["customVocabulary"][0],
+            json["setup"]["inputAudioTranscription"]["customVocabulary"][0],
             "Anarlog"
         );
     }
 
     #[test]
-    fn parses_interim_and_final_transcripts() {
+    fn initial_message_omits_languages_when_unset() {
+        let Message::Text(payload) = GoogleGenerativeAiAdapter
+            .initial_message(None, &ListenParams::default(), 1)
+            .expect("setup message")
+        else {
+            panic!("expected text setup message");
+        };
+        let json: serde_json::Value = serde_json::from_str(&payload).unwrap();
+        assert!(
+            json["setup"]["inputAudioTranscription"]
+                .get("languageCodes")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn parses_interim_and_final_transcriptions() {
         let adapter = GoogleGenerativeAiAdapter;
         let interim = adapter
             .parse_response(r#"{"serverContent":{"interimInputTranscription":{"text":"hel"}}}"#);
-        let committed =
-            adapter.parse_response(r#"{"serverContent":{"inputTranscription":{"text":"hello"}}}"#);
-        let finalize_flush = adapter.parse_response(
-            r#"{"serverContent":{"inputTranscription":{"text":"hello world","finished":true}}}"#,
+        let final_event = adapter.parse_response(
+            r#"{"serverContent":{"inputTranscription":{"text":"hello there","speakerLabel":"Speaker 2","startOffset":"0.10s","endOffset":"0.80s"}}}"#,
         );
 
         let StreamResponse::TranscriptResponse {
@@ -327,46 +397,43 @@ mod tests {
             speech_final,
             from_finalize,
             channel,
+            start,
+            duration,
             ..
-        } = &committed[0]
+        } = &final_event[0]
         else {
-            panic!("expected committed transcript");
+            panic!("expected final transcript");
         };
         assert!(*is_final);
         assert!(*speech_final);
         assert!(!*from_finalize);
-        assert_eq!(channel.alternatives[0].transcript, "hello");
+        assert_eq!(channel.alternatives[0].transcript, "hello there");
+        assert_eq!(channel.alternatives[0].words[0].speaker, Some(2));
+        assert_eq!(*start, 0.1);
+        assert!((*duration - 0.7).abs() < f64::EPSILON);
 
-        let StreamResponse::TranscriptResponse {
-            is_final,
-            speech_final,
-            from_finalize,
-            channel,
-            ..
-        } = &finalize_flush[0]
-        else {
+        let finalize_flush = adapter.parse_response(
+            r#"{"serverContent":{"inputTranscription":{"text":"hello there","finished":true}}}"#,
+        );
+        let StreamResponse::TranscriptResponse { from_finalize, .. } = &finalize_flush[0] else {
             panic!("expected finalize flush");
         };
-        assert!(*is_final);
-        assert!(*speech_final);
         assert!(*from_finalize);
-        assert_eq!(channel.alternatives[0].transcript, "hello world");
     }
 
     #[test]
-    fn reports_upstream_errors() {
+    fn reports_provider_errors() {
         let responses = GoogleGenerativeAiAdapter
-            .parse_response(r#"{"error":{"code":400,"message":"invalid api key"}}"#);
+            .parse_response(r#"{"error":{"code":13,"message":"quota exceeded"}}"#);
         let StreamResponse::ErrorResponse {
-            error_code,
             error_message,
             provider,
+            ..
         } = &responses[0]
         else {
             panic!("expected error response");
         };
-        assert_eq!(*error_code, Some(400));
-        assert_eq!(error_message, "invalid api key");
+        assert_eq!(error_message, "quota exceeded");
         assert_eq!(provider, "google_generative_ai");
     }
 }

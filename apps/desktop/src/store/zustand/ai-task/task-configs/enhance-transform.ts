@@ -21,6 +21,7 @@ import {
   loadSessionContentSnapshot,
   type SessionContentSnapshot,
 } from "~/session/content-queries";
+import { formatSessionSourceAppsContext } from "~/session/source-apps";
 import { modelSupportsImageInput } from "~/settings/ai/shared/model-capabilities";
 import type { SettingValues } from "~/settings/schema";
 import { parseDictionaryTermsJson } from "~/stt/keywords";
@@ -235,10 +236,17 @@ function getSessionContext(
     memoMd: transcript.memo,
   }));
 
+  const meetingSourceContext = formatSessionSourceAppsContext(
+    snapshot.sourceApps,
+  );
+  const supplementalContext = [meetingSourceContext, meetingChatContext]
+    .filter((value) => value.trim())
+    .join("\n\n");
+
   return {
     preMeetingMemo: transcriptsMeta[0]?.memoMd ?? "",
-    postMeetingMemo: meetingChatContext
-      ? [snapshot.rawMarkdown, meetingChatContext]
+    postMeetingMemo: supplementalContext
+      ? [snapshot.rawMarkdown, supplementalContext]
           .filter((value) => value.trim())
           .join("\n\n")
       : snapshot.rawMarkdown,

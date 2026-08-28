@@ -199,12 +199,15 @@ impl Provider {
                 name: "Ocp-Apim-Subscription-Key",
                 prefix: None,
             },
+            Self::GoogleCloud => Auth::Header {
+                name: "Authorization",
+                prefix: Some("Bearer "),
+            },
             Self::GoogleGenerativeAi => Auth::Header {
                 name: "x-goog-api-key",
                 prefix: None,
             },
             Self::AwsTranscribe
-            | Self::GoogleCloud
             | Self::Groq
             | Self::RevAi
             | Self::Speechmatics
@@ -294,9 +297,7 @@ impl Provider {
             Self::Pyannote => "/v1/diarize",
             Self::Cohere => "",
             Self::Xai => "/v1/stt",
-            Self::GoogleGenerativeAi => {
-                "/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
-            }
+            Self::GoogleGenerativeAi => crate::adapter::google_generative_ai::WS_PATH,
             Self::AwsTranscribe
             | Self::AzureSpeech
             | Self::GoogleCloud

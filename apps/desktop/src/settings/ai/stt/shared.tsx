@@ -220,14 +220,14 @@ export const displayModelId = (model: string): string => {
     model === "gemini-3.5-transcribe-live" ||
     model === "gemini-3.5-transcribe-live-preview"
   ) {
-    return "Gemini 3.5 Transcribe Live";
+    return "3.5 Transcribe Live";
   }
 
   if (
     model === "gemini-3.5-transcribe" ||
     model === "gemini-3.5-transcribe-preview"
   ) {
-    return "Gemini 3.5 Transcribe";
+    return "3.5 Transcribe";
   }
 
   if (model === "enhanced") {
@@ -597,26 +597,6 @@ const _PROVIDERS = [
   },
   {
     disabled: false,
-    id: "google_generative_ai",
-    displayName: "Google Gemini",
-    badge: null,
-    icon: <ProviderLobeIcon icon={Gemini} />,
-    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-    models: ["gemini-3.5-transcribe-live", "gemini-3.5-transcribe"],
-    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
-    links: {
-      models: {
-        label: "Available models",
-        url: "https://ai.google.dev/gemini-api/docs/models",
-      },
-      setup: {
-        label: "API setup",
-        url: "https://aistudio.google.com/app/apikey",
-      },
-    },
-  },
-  {
-    disabled: false,
     id: "together",
     displayName: "Together AI",
     badge: "Batch only",
@@ -699,6 +679,26 @@ const _PROVIDERS = [
       setup: {
         label: "API setup",
         url: "https://cloud.google.com/speech-to-text/docs/authentication",
+      },
+    },
+  },
+  {
+    disabled: false,
+    id: "google_generative_ai",
+    displayName: "Google Gemini",
+    badge: null,
+    icon: <ProviderLobeIcon icon={Gemini} />,
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+    models: ["gemini-3.5-transcribe-live", "gemini-3.5-transcribe"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Available models",
+        url: "https://ai.google.dev/gemini-api/docs/models",
+      },
+      setup: {
+        label: "API setup",
+        url: "https://aistudio.google.com/api-keys",
       },
     },
   },
