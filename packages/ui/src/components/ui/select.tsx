@@ -10,7 +10,18 @@ import { floatingContentStyle } from "./floating-content";
 
 const Select = SelectPrimitive.Root;
 const SelectGroup = SelectPrimitive.Group;
-const SelectValue = SelectPrimitive.Value;
+
+const SelectValue = React.forwardRef<
+  React.ComponentRef<typeof SelectPrimitive.Value>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Value> & StyleXProps
+>(({ className, style, sx, ...props }, ref) => (
+  <SelectPrimitive.Value
+    {...props}
+    {...mergeStyleXProps([styles.value, sx], className, style)}
+    ref={ref}
+  />
+));
+SelectValue.displayName = SelectPrimitive.Value.displayName;
 
 const SelectTrigger = React.forwardRef<
   React.ComponentRef<typeof SelectPrimitive.Trigger>,
@@ -19,7 +30,7 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     {...props}
     {...mergeStyleXProps(
-      [styles.trigger, styles.directValue, styles.focusOutlineHidden, sx],
+      [styles.trigger, styles.focusOutlineHidden, sx],
       className,
       style,
     )}
@@ -162,20 +173,6 @@ const styles = stylex.create({
     position: "relative",
     transformOrigin: "var(--radix-select-content-transform-origin)",
     zIndex: 50,
-  },
-  directValue: {
-    WebkitBoxOrient: {
-      ":is(*) > span": "vertical",
-    },
-    WebkitLineClamp: {
-      ":is(*) > span": 1,
-    },
-    display: {
-      ":is(*) > span": "-webkit-box",
-    },
-    overflow: {
-      ":is(*) > span": "hidden",
-    },
   },
   focusOutlineHidden: {
     outlineColor: {
@@ -343,6 +340,12 @@ const styles = stylex.create({
     marginRight: "-0.25rem",
     opacity: 0.5,
     width: "1rem",
+  },
+  value: {
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 1,
+    display: "-webkit-box",
+    overflow: "hidden",
   },
   viewport: {
     padding: "0.25rem",
