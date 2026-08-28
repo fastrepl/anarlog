@@ -4,8 +4,6 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 
-import { cn } from "@anlg/utils";
-
 import { AnarlogLogo } from "@/components/anarlog-logo";
 import { SiteFooter } from "@/components/site-footer";
 import { fetchUser } from "@/functions/auth";
@@ -258,6 +256,35 @@ const styles = stylex.create({
     lineHeight: "1.25rem",
     color: "#b91c1c",
   },
+  verificationInput: {
+    backgroundColor: "#fff",
+    borderColor: {
+      default: "#d8d3cc",
+      ":focus": "#756b5d",
+    },
+    borderRadius: "9999px",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow: {
+      default: "0 1px 2px rgb(0 0 0 / 0.05)",
+      ":focus": "0 0 0 3px rgb(216 211 204 / 0.4)",
+    },
+    color: "#181613",
+    fontSize: "1rem",
+    minHeight: "3.25rem",
+    outline: "none",
+    paddingInline: "1.25rem",
+    transitionDuration: ".15s",
+    transitionProperty: "border-color, box-shadow",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+    width: "100%",
+    "::placeholder": {
+      color: "#918a80",
+    },
+  },
+  invalidVerificationInput: {
+    borderColor: "#ef4444",
+  },
 });
 const title = "YC founder perk · Anarlog";
 const description =
@@ -464,11 +491,9 @@ function YcPerkPage() {
                           field.handleChange(event.target.value)
                         }
                         {...stylex.props([
-                          "min-h-13 w-full rounded-full border bg-white px-5 text-base text-[#181613] shadow-sm transition outline-none",
-                          "placeholder:text-[#918a80] focus:border-[#756b5d] focus:ring-3 focus:ring-[#d8d3cc]/40",
-                          field.state.meta.errors.length > 0
-                            ? "border-red-500"
-                            : "border-[#d8d3cc]",
+                          styles.verificationInput,
+                          field.state.meta.errors.length > 0 &&
+                            styles.invalidVerificationInput,
                         ])}
                         aria-invalid={field.state.meta.errors.length > 0}
                       />

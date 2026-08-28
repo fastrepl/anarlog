@@ -2,8 +2,6 @@ import { BellRinging, CheckCircle, HardDrives } from "@phosphor-icons/react";
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
-import { cn } from "@anlg/utils";
-
 import { AnarlogLogo } from "@/components/anarlog-logo";
 import {
   LocalFilesVisual,
@@ -377,6 +375,32 @@ const styles = stylex.create({
       ":active": ".98",
     },
   },
+  pillarRow: {
+    alignItems: {
+      default: null,
+      "@media (width >= 48rem)": "flex-start",
+    },
+    display: {
+      default: "grid",
+      "@media (width >= 48rem)": "flex",
+    },
+    gap: {
+      default: "1rem",
+      "@media (width >= 48rem)": 0,
+    },
+  },
+  threePillarRow: {
+    justifyContent: {
+      default: null,
+      "@media (width >= 48rem)": "space-between",
+    },
+  },
+  twoPillarRow: {
+    justifyContent: {
+      default: null,
+      "@media (width >= 48rem)": "space-evenly",
+    },
+  },
 });
 const title = "Enterprise · Anarlog";
 const description =
@@ -493,10 +517,10 @@ function EnterprisePage() {
                   <div
                     key={row[0].title}
                     {...stylex.props([
-                      "grid gap-4 md:flex md:items-start md:gap-0",
+                      styles.pillarRow,
                       row.length === 3
-                        ? "md:justify-between"
-                        : "md:justify-evenly",
+                        ? styles.threePillarRow
+                        : styles.twoPillarRow,
                     ])}
                   >
                     {row.map((pillar) => (

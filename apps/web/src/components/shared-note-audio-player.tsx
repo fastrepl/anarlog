@@ -3,7 +3,12 @@ import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
 
-import { cn } from "@anlg/utils";
+import {
+  colors,
+  fonts,
+  radii,
+  shadows,
+} from "@anlg/design-system/tokens.stylex";
 
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
 import {
@@ -16,12 +21,19 @@ import {
   type SharedNoteAttachment,
   type SharedNoteAttachmentDownload,
 } from "@/lib/shared-notes";
+
+const spin = stylex.keyframes({
+  to: {
+    transform: "rotate(360deg)",
+  },
+});
+
 const styles = stylex.create({
   style1: {
     width: ".875rem",
     height: ".875rem",
     flexShrink: "0",
-    color: "#a8a29e",
+    color: colors.mutedForeground,
   },
   style2: {
     minWidth: "0",
@@ -36,9 +48,12 @@ const styles = stylex.create({
     display: "none",
   },
   style4: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
     width: ".875rem",
     height: ".875rem",
-    animation: "1s linear infinite spin",
   },
   style5: {
     width: ".875rem",
@@ -53,11 +68,9 @@ const styles = stylex.create({
     display: "flex",
     flexShrink: "0",
     gap: ".25rem",
-    fontFamily:
-      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    fontFamily: fonts.mono,
     fontSize: "10px",
-    "--tw-numeric-spacing": "tabular-nums",
-    fontVariantNumeric: "   tabular-nums ",
+    fontVariantNumeric: "tabular-nums",
   },
   style8: {
     position: "relative",
@@ -76,6 +89,114 @@ const styles = stylex.create({
     height: "100%",
     cursor: "pointer",
     opacity: "0",
+  },
+  playerShell: {
+    alignItems: "center",
+    backgroundColor: `color-mix(in srgb, ${colors.card} 80%, transparent)`,
+    borderColor: colors.border,
+    borderRadius: "22px",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    color: colors.mutedForeground,
+    display: "flex",
+    marginBottom: "1.5rem",
+    minWidth: 0,
+  },
+  unavailablePlayerShell: {
+    gap: ".75rem",
+    paddingBlock: ".5rem",
+    paddingInline: ".75rem",
+  },
+  readyPlayerShell: {
+    gap: ".5rem",
+    paddingBlock: ".375rem",
+    paddingLeft: ".375rem",
+    paddingRight: ".5rem",
+  },
+  retryButton: {
+    backgroundColor: {
+      default: colors.card,
+      ":hover": colors.background,
+    },
+    borderColor: colors.appFloatingBorder,
+    borderRadius: radii.full,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow: {
+      default: shadows.sm,
+      ":focus-visible": `0 0 0 2px ${colors.card}, 0 0 0 4px ${colors.ring}, ${shadows.sm}`,
+    },
+    color: colors.cardForeground,
+    flexShrink: 0,
+    fontSize: ".75rem",
+    fontWeight: 500,
+    lineHeight: "1rem",
+    outline: {
+      default: null,
+      ":focus-visible": "2px solid transparent",
+    },
+    outlineOffset: {
+      default: null,
+      ":focus-visible": "2px",
+    },
+    paddingBlock: ".25rem",
+    paddingInline: ".75rem",
+  },
+  playbackButton: {
+    backgroundColor: {
+      default: colors.card,
+      ":hover": colors.background,
+    },
+    borderColor: colors.appFloatingBorder,
+    borderRadius: radii.full,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow: {
+      default: shadows.sm,
+      ":focus-visible": `0 0 0 2px ${colors.card}, 0 0 0 4px ${colors.ring}, ${shadows.sm}`,
+    },
+    color: colors.primary,
+    cursor: {
+      default: null,
+      ":disabled": "default",
+    },
+    display: "grid",
+    flexShrink: 0,
+    height: "1.75rem",
+    opacity: {
+      default: 1,
+      ":disabled": 0.5,
+    },
+    outline: {
+      default: null,
+      ":focus-visible": "2px solid transparent",
+    },
+    outlineOffset: {
+      default: null,
+      ":focus-visible": "2px",
+    },
+    placeItems: "center",
+    transform: {
+      default: "scale(1)",
+      ":hover": "scale(1.05)",
+    },
+    transitionDuration: "150ms",
+    transitionProperty: "transform",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+    width: "1.75rem",
+  },
+  waveformBar: (height: number) => ({
+    borderRadius: radii.full,
+    flex: 1,
+    height: `${height}%`,
+    minHeight: ".125rem",
+    minWidth: "1px",
+  }),
+  waveformPlayed: {
+    backgroundColor: colors.mutedForeground,
+  },
+  waveformRemaining: {
+    backgroundColor: colors.appFloatingBorder,
   },
 });
 export function SharedNoteAudioPlayer({
@@ -170,20 +291,13 @@ export function SharedNoteAudioPlayer({
     return (
       <section
         aria-label={`Audio recording: ${attachment.filename}`}
-        {...stylex.props([
-          "mb-6 flex min-w-0 items-center gap-3 rounded-[22px] border border-stone-200 bg-white/80 px-3 py-2",
-          "text-stone-600",
-        ])}
+        {...stylex.props(styles.playerShell, styles.unavailablePlayerShell)}
       >
         <SpeakerHigh {...stylex.props(styles.style1)} aria-hidden="true" />
         <span {...stylex.props(styles.style2)}>Attachment unavailable</span>
         <button
           type="button"
-          {...stylex.props([
-            "shrink-0 rounded-full border border-stone-300 bg-white px-3 py-1 text-xs font-medium text-stone-700 shadow-xs",
-            "hover:bg-stone-50",
-            "focus-visible:ring-2 focus-visible:ring-stone-900 focus-visible:ring-offset-2 focus-visible:outline-hidden",
-          ])}
+          {...stylex.props(styles.retryButton)}
           disabled={downloadQuery.isFetching}
           onClick={() => void downloadQuery.refetch()}
         >
@@ -195,10 +309,7 @@ export function SharedNoteAudioPlayer({
   return (
     <section
       aria-label={`Audio recording: ${attachment.filename}`}
-      {...stylex.props([
-        "mb-6 flex min-w-0 items-center gap-2 rounded-[22px] border border-stone-200 bg-white/80 p-1.5 pr-2",
-        "text-stone-600",
-      ])}
+      {...stylex.props(styles.playerShell, styles.readyPlayerShell)}
     >
       {activeDownload ? (
         <audio
@@ -255,12 +366,7 @@ export function SharedNoteAudioPlayer({
       <button
         type="button"
         aria-label={playing ? "Pause recording" : "Play recording"}
-        {...stylex.props([
-          "grid size-7 shrink-0 place-items-center rounded-full border border-stone-300 bg-white text-stone-800 shadow-xs",
-          "transition-transform hover:scale-105 hover:bg-stone-50",
-          "focus-visible:ring-2 focus-visible:ring-stone-900 focus-visible:ring-offset-2 focus-visible:outline-hidden",
-          "disabled:cursor-default disabled:opacity-50",
-        ])}
+        {...stylex.props(styles.playbackButton)}
         disabled={!activeDownload}
         onClick={() => void togglePlayback()}
       >
@@ -290,15 +396,12 @@ export function SharedNoteAudioPlayer({
           <span
             key={index}
             aria-hidden="true"
-            {...stylex.props([
-              "min-h-0.5 min-w-px flex-1 rounded-full",
+            {...stylex.props(
+              styles.waveformBar(height),
               index / waveform.length <= progress
-                ? "bg-stone-600"
-                : "bg-stone-300",
-            ])}
-            style={{
-              height: `${height}%`,
-            }}
+                ? styles.waveformPlayed
+                : styles.waveformRemaining,
+            )}
           />
         ))}
         <input

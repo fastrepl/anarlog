@@ -6,8 +6,6 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useRef, useState, type ReactNode } from "react";
 import { z } from "zod";
 
-import { cn } from "@anlg/utils";
-
 import { AuthShell, authStyles } from "@/components/auth-shell";
 import {
   createDesktopSession,
@@ -51,7 +49,6 @@ const styles = stylex.create({
   style4: {
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
     fontWeight: "500",
     color: "#4f4940",
   },
@@ -62,7 +59,6 @@ const styles = stylex.create({
     marginBottom: ".25rem",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
     fontWeight: "500",
     color: "#4f4940",
   },
@@ -76,7 +72,6 @@ const styles = stylex.create({
     textAlign: "center",
     fontSize: ".75rem",
     lineHeight: "1.25rem",
-    "--tw-leading": "1.25rem",
     color: "#8b8174",
   },
   style9: {
@@ -105,8 +100,7 @@ const styles = stylex.create({
       default: "#756b5d",
       ":hover": "#181613",
     },
-    transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+    transitionProperty: "color",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
   },
@@ -127,7 +121,6 @@ const styles = stylex.create({
     color: "#b91c1c",
   },
   style15: {
-    "--tw-font-weight": "500",
     fontWeight: "500",
     color: "#4f4940",
   },
@@ -157,8 +150,7 @@ const styles = stylex.create({
       default: "#756b5d",
       ":hover": "#181613",
     },
-    transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+    transitionProperty: "color, text-decoration-color",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
     textDecorationLine: {
@@ -173,8 +165,7 @@ const styles = stylex.create({
       default: "#756b5d",
       ":hover": "#181613",
     },
-    transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+    transitionProperty: "color, text-decoration-color",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
     textDecorationLine: {
@@ -197,6 +188,29 @@ const styles = stylex.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
+  },
+  modeTab: {
+    borderRadius: "9999px",
+    cursor: "pointer",
+    flexGrow: 1,
+    fontSize: ".875rem",
+    fontWeight: 500,
+    lineHeight: "1.25rem",
+    paddingBlock: ".5rem",
+    transitionDuration: ".15s",
+    transitionProperty: "background-color, box-shadow, color",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+  },
+  activeModeTab: {
+    backgroundColor: "#fff",
+    boxShadow: "0 1px 2px rgb(0 0 0 / 0.05)",
+    color: "#181613",
+  },
+  inactiveModeTab: {
+    color: {
+      default: "#756b5d",
+      ":hover": "#181613",
+    },
   },
 });
 const commonSearch = {
@@ -484,10 +498,8 @@ function EmailAuthView({
         <button
           onClick={() => setMode("password")}
           {...stylex.props([
-            "flex-1 cursor-pointer rounded-full py-2 text-sm font-medium transition-colors",
-            mode === "password"
-              ? "bg-white text-[#181613] shadow-sm"
-              : "text-[#756b5d] hover:text-[#181613]",
+            styles.modeTab,
+            mode === "password" ? styles.activeModeTab : styles.inactiveModeTab,
           ])}
         >
           Password
@@ -495,10 +507,10 @@ function EmailAuthView({
         <button
           onClick={() => setMode("magic-link")}
           {...stylex.props([
-            "flex-1 cursor-pointer rounded-full py-2 text-sm font-medium transition-colors",
+            styles.modeTab,
             mode === "magic-link"
-              ? "bg-white text-[#181613] shadow-sm"
-              : "text-[#756b5d] hover:text-[#181613]",
+              ? styles.activeModeTab
+              : styles.inactiveModeTab,
           ])}
         >
           Magic link

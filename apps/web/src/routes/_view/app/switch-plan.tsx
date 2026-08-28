@@ -2,8 +2,6 @@ import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { z } from "zod";
 
-import { cn } from "@anlg/utils";
-
 import { createPlanSwitchSession } from "@/functions/billing";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import { captureOperationalError } from "@/lib/error-reporting";
@@ -13,18 +11,8 @@ const styles = stylex.create({
     minHeight: "100vh",
     alignItems: "center",
     justifyContent: "center",
-    "--tw-gradient-position": {
-      default: "to bottom",
-      "@supports (background-image: linear-gradient(in lab, red, red))":
-        "to bottom in oklab",
-    },
-    backgroundImage: "linear-gradient(var(--tw-gradient-stops))",
-    "--tw-gradient-from": "#fff",
-    "--tw-gradient-stops": "var(--tw-gradient-position, #0000 0%, #fff 100%)",
-    "--tw-gradient-via": "oklab(98.4825% -.000373036 .00126523 / .2)",
-    "--tw-gradient-via-stops":
-      "var(--tw-gradient-position), #0000 0%, oklab(98.4825% -.000373036 .00126523 / .2) 50%, #0000 100%",
-    "--tw-gradient-to": "#fff",
+    backgroundImage:
+      "linear-gradient(to bottom, #fff, rgb(250 250 249 / 0.2), #fff)",
     padding: "1.5rem",
   },
   style2: {
@@ -48,6 +36,32 @@ const styles = stylex.create({
   },
   style5: {
     color: "#525252",
+  },
+  manageBillingLink: {
+    alignItems: "center",
+    backgroundImage: "linear-gradient(to top, #57534e, #78716c)",
+    borderRadius: "9999px",
+    boxShadow: {
+      default:
+        "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+      ":hover":
+        "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+    },
+    color: "#fff",
+    display: "flex",
+    fontSize: "1rem",
+    fontWeight: 500,
+    height: "3rem",
+    justifyContent: "center",
+    transform: {
+      default: "scale(1)",
+      ":hover": "scale(1.02)",
+      ":active": "scale(.98)",
+    },
+    transitionDuration: ".15s",
+    transitionProperty: "box-shadow, transform",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+    width: "100%",
   },
 });
 const validateSearch = z.object({
@@ -106,10 +120,7 @@ function Component() {
 
         <a
           href={scheme ? `/app/portal?scheme=${scheme}` : "/app/portal"}
-          {...stylex.props([
-            "flex h-12 w-full items-center justify-center text-base font-medium transition-all",
-            "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
-          ])}
+          {...stylex.props(styles.manageBillingLink)}
         >
           Manage billing
         </a>

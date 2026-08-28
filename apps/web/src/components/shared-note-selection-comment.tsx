@@ -10,11 +10,52 @@ import * as stylex from "@stylexjs/stylex";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { cn } from "@anlg/utils";
+import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
+
 const styles = stylex.create({
   style1: {
     width: "1rem",
     height: "1rem",
+  },
+  commentButton: {
+    alignItems: "center",
+    backgroundColor: {
+      default: colors.card,
+      ":hover": colors.muted,
+    },
+    borderColor: colors.border,
+    borderRadius: radii.full,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow: {
+      default: `0 4px 6px -1px color-mix(in srgb, ${colors.foreground} 10%, transparent), 0 2px 4px -2px color-mix(in srgb, ${colors.foreground} 10%, transparent)`,
+      ":focus-visible": `0 0 0 2px ${colors.card}, 0 0 0 4px ${colors.mutedForeground}, 0 4px 6px -1px color-mix(in srgb, ${colors.foreground} 10%, transparent), 0 2px 4px -2px color-mix(in srgb, ${colors.foreground} 10%, transparent)`,
+    },
+    color: colors.foreground,
+    display: "inline-flex",
+    fontFamily: fonts.mono,
+    fontSize: ".75rem",
+    fontWeight: 500,
+    gap: ".375rem",
+    left: 0,
+    lineHeight: "1rem",
+    outline: {
+      default: null,
+      ":focus-visible": "2px solid transparent",
+    },
+    outlineOffset: {
+      default: null,
+      ":focus-visible": "2px",
+    },
+    paddingBlock: ".375rem",
+    paddingInline: ".75rem",
+    position: "fixed",
+    top: 0,
+    transitionDuration: "150ms",
+    transitionProperty: "background-color, border-color, color",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+    visibility: "hidden",
+    zIndex: 50,
   },
 });
 export type SelectionRect = {
@@ -82,19 +123,7 @@ export function SharedNoteSelectionComment({
     <button
       ref={setPill}
       type="button"
-      style={{
-        left: 0,
-        position: "fixed",
-        top: 0,
-        visibility: "hidden",
-      }}
-      {...stylex.props([
-        "z-50 inline-flex items-center gap-1.5",
-        "surface border-color-subtle rounded-full border px-3 py-1.5 shadow-md",
-        "text-color font-mono text-xs font-medium",
-        "hover:bg-surface-subtle transition-colors",
-        "focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:outline-hidden",
-      ])}
+      {...stylex.props(styles.commentButton)}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onStart}
     >

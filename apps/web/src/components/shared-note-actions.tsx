@@ -1,6 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 
+import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
+
 import { sharedButtonStyles } from "@/components/shared-note-viewer";
 import { getShareRouteToken } from "@/lib/share-route-privacy";
 import {
@@ -34,6 +36,36 @@ const styles = stylex.create({
     textAlign: "right",
     fontSize: ".75rem",
     lineHeight: "1rem",
+  },
+  tooltip: {
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow: shadows.lg,
+    color: colors.mutedForeground,
+    fontSize: ".75rem",
+    marginTop: ".5rem",
+    opacity: {
+      default: 0,
+      [stylex.when.ancestor(":focus-within")]: 1,
+      [stylex.when.ancestor(":hover")]: 1,
+    },
+    paddingBlock: ".375rem",
+    paddingInline: ".625rem",
+    pointerEvents: "none",
+    position: "absolute",
+    right: 0,
+    top: "100%",
+    transform: {
+      default: "translateY(-2px)",
+      [stylex.when.ancestor(":focus-within")]: "translateY(0)",
+      [stylex.when.ancestor(":hover")]: "translateY(0)",
+    },
+    transitionDuration: "150ms",
+    transitionProperty: "opacity, transform",
+    whiteSpace: "nowrap",
   },
 });
 export function AccountSharedNoteActions({
@@ -194,10 +226,7 @@ function SharedNoteActionButtons({
           <span
             id="open-in-anarlog-tooltip"
             role="tooltip"
-            {...stylex.props([
-              "surface border-color-subtle text-color-muted pointer-events-none absolute top-full right-0 mt-2 w-max rounded-lg border px-2.5 py-1.5 text-xs shadow-lg",
-              "translate-y-[-2px] opacity-0 transition-[opacity,transform] group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:translate-y-0 group-hover:opacity-100",
-            ])}
+            {...stylex.props(styles.tooltip)}
           >
             Open in Anarlog to edit
           </span>

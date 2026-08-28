@@ -31,7 +31,6 @@ import {
   setCommentAnchors,
 } from "@anlg/editor/note";
 import { Avatar } from "@anlg/ui/components/avatar";
-import { cn } from "@anlg/utils";
 
 import {
   DRAFT_COMMENT_ID,
@@ -227,7 +226,7 @@ const styles = stylex.create({
   },
   style21: {
     minWidth: "0",
-    flex: "1",
+    flexGrow: 1,
   },
   style22: {
     textOverflow: "ellipsis",
@@ -243,6 +242,41 @@ const styles = stylex.create({
     fontSize: ".75rem",
     lineHeight: "1rem",
   },
+  commentTextarea: {
+    backgroundColor: "var(--color-surface-subtle)",
+    borderColor: {
+      default: "var(--color-border-subtle)",
+      ":focus": "#a8a29e",
+    },
+    borderRadius: ".75rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow: {
+      default: null,
+      ":focus": "0 0 0 2px #d6d3d1",
+    },
+    color: "var(--color-fg)",
+    flexGrow: 1,
+    fontSize: ".875rem",
+    lineHeight: "1.5rem",
+    minHeight: "5rem",
+    minWidth: 0,
+    outline: {
+      default: null,
+      ":focus": "none",
+    },
+    paddingBlock: ".5rem",
+    paddingInline: ".75rem",
+    resize: "vertical",
+    "::placeholder": {
+      color: "var(--color-fg-muted)",
+    },
+  },
+  compactCommentButton: {
+    fontSize: ".75rem",
+    minHeight: "2.25rem",
+    paddingInline: ".75rem",
+  },
 });
 type EditorView = NonNullable<NoteEditorRef["view"]>;
 type EditorNodeView = NonNullable<NoteEditorProps["extraNodeViews"]>[string];
@@ -257,8 +291,7 @@ const SharedReadAttachmentsContext = createContext<{
   resolve: null,
 });
 
-// Tailwind's xl breakpoint — the width from which the comment rail (and its
-// draft composer) is visible.
+// Keep JS visibility in lockstep with the comment rail layout breakpoint.
 const RAIL_MEDIA_QUERY = "(min-width: 80rem)";
 function subscribeRailMedia(onChange: () => void) {
   const media = window.matchMedia(RAIL_MEDIA_QUERY);
@@ -704,10 +737,7 @@ function DraftComposer({
                 <textarea
                   autoFocus
                   aria-label="Comment on selected text"
-                  {...stylex.props([
-                    "surface-subtle border-color-subtle text-color min-h-20 min-w-0 flex-1 resize-y rounded-xl border px-3 py-2",
-                    "placeholder:text-color-muted text-sm leading-6 focus:border-stone-400 focus:ring-2 focus:ring-stone-300 focus:outline-hidden",
-                  ])}
+                  {...stylex.props(styles.commentTextarea)}
                   aria-invalid={tooLong}
                   placeholder="Comment on the selected text…"
                   value={field.state.value}
@@ -729,10 +759,11 @@ function DraftComposer({
               <div {...stylex.props(styles.style11)}>
                 <button
                   type="button"
-                  {...stylex.props([
-                    [sharedButtonStyles.base, sharedButtonStyles.secondary],
-                    "min-h-9 px-3 text-xs",
-                  ])}
+                  {...stylex.props(
+                    sharedButtonStyles.base,
+                    sharedButtonStyles.secondary,
+                    styles.compactCommentButton,
+                  )}
                   disabled={pending}
                   onClick={onCancel}
                 >
@@ -740,10 +771,11 @@ function DraftComposer({
                 </button>
                 <button
                   type="submit"
-                  {...stylex.props([
-                    [sharedButtonStyles.base, sharedButtonStyles.primary],
-                    "min-h-9 px-3 text-xs",
-                  ])}
+                  {...stylex.props(
+                    sharedButtonStyles.base,
+                    sharedButtonStyles.primary,
+                    styles.compactCommentButton,
+                  )}
                   disabled={pending || !comment.valid}
                 >
                   {pending && (

@@ -2,8 +2,6 @@ import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { cn } from "@anlg/utils";
-
 import { authStyles } from "@/components/auth-shell";
 import { updateUserEmail } from "@/functions/auth";
 import { getSupabaseBrowserClient } from "@/functions/supabase";
@@ -19,7 +17,6 @@ const styles = stylex.create({
   style2: {
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
     fontWeight: "500",
     color: "#756b5d",
   },
@@ -60,7 +57,6 @@ const styles = stylex.create({
   style8: {
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
     fontWeight: "500",
     color: "#4f4940",
   },
@@ -136,6 +132,42 @@ const styles = stylex.create({
     justifyContent: {
       default: null,
       "@media (width >= 48rem)": "space-between",
+    },
+  },
+  cardPadding: {
+    padding: {
+      default: "1.5rem",
+      "@media (width >= 40rem)": "2rem",
+    },
+  },
+  emailRow: {
+    display: "flex",
+    flexDirection: {
+      default: "column",
+      "@media (width >= 48rem)": "row",
+    },
+    gap: ".75rem",
+    justifyContent: {
+      default: null,
+      "@media (width >= 48rem)": "space-between",
+    },
+  },
+  emailRowEditing: {
+    alignItems: {
+      default: null,
+      "@media (width >= 48rem)": "flex-start",
+    },
+  },
+  emailRowIdle: {
+    alignItems: {
+      default: null,
+      "@media (width >= 48rem)": "center",
+    },
+  },
+  detailsInput: {
+    maxWidth: {
+      default: null,
+      "@media (width >= 48rem)": "420px",
     },
   },
 });
@@ -222,12 +254,12 @@ export function ProfileInfoSection({ email }: { email?: string }) {
     updateEmailMutation.reset();
   };
   return (
-    <div {...stylex.props([accountStyles.card, "p-6 sm:p-8"])}>
+    <div {...stylex.props(accountStyles.card, styles.cardPadding)}>
       <div {...stylex.props(styles.style1)}>
         <div
           {...stylex.props([
-            "flex flex-col gap-3 md:flex-row md:justify-between",
-            isEditing ? "md:items-start" : "md:items-center",
+            styles.emailRow,
+            isEditing ? styles.emailRowEditing : styles.emailRowIdle,
           ])}
         >
           <span {...stylex.props(styles.style2)}>Email</span>
@@ -443,7 +475,7 @@ function DetailsField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        {...stylex.props([authStyles.input, "md:max-w-[420px]"])}
+        {...stylex.props(authStyles.input, styles.detailsInput)}
       />
     </label>
   );

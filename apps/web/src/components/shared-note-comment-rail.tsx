@@ -2,8 +2,8 @@ import { ArrowUp, CircleNotch, DotsThree } from "@phosphor-icons/react";
 import * as stylex from "@stylexjs/stylex";
 import { useRef, useState } from "react";
 
+import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
 import { Avatar } from "@anlg/ui/components/avatar";
-import { cn } from "@anlg/utils";
 
 import {
   MAX_SHARED_NOTE_COMMENT_BYTES,
@@ -13,6 +13,13 @@ import type { AnchoredSharedNoteComment } from "@/lib/shared-note-comment-anchor
 import { layoutRailCards } from "@/lib/shared-note-comment-rail-layout";
 import { groupSharedNoteCommentThreads } from "@/lib/shared-note-comment-threads";
 import { formatSharedNoteRelativeTime } from "@/lib/shared-note-presentation";
+
+const spin = stylex.keyframes({
+  to: {
+    transform: "rotate(360deg)",
+  },
+});
+
 const styles = stylex.create({
   style1: {
     position: "relative",
@@ -24,7 +31,6 @@ const styles = stylex.create({
     transitionProperty: "top",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".2s",
-    "--tw-duration": ".2s",
   },
   style3: {
     padding: ".875rem",
@@ -33,14 +39,13 @@ const styles = stylex.create({
     marginTop: ".75rem",
     fontSize: ".875rem",
     lineHeight: "1.5",
-    "--tw-leading": "1.5",
     whiteSpace: "pre-wrap",
-    color: "#292524",
+    color: colors.primary,
   },
   style5: {
     borderTopStyle: "solid",
     borderTopWidth: "1px",
-    borderColor: "#e7e5e4",
+    borderColor: colors.border,
   },
   style6: {
     display: "flex",
@@ -53,7 +58,7 @@ const styles = stylex.create({
       default: "1px",
       ":last-child": "0",
     },
-    borderColor: "#f5f5f4",
+    borderColor: colors.muted,
     paddingInline: ".875rem",
     paddingBlock: ".75rem",
   },
@@ -73,22 +78,19 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
     overflow: "hidden",
     fontSize: "11px",
-    "--tw-font-weight": "600",
     fontWeight: "600",
-    color: "#44403c",
+    color: colors.cardForeground,
   },
   style10: {
-    "--tw-font-weight": "400",
     fontWeight: "400",
-    color: "#78716c",
+    color: colors.mutedForeground,
   },
   style11: {
     marginTop: ".25rem",
     fontSize: ".75rem",
     lineHeight: "1.45",
-    "--tw-leading": "1.45",
     whiteSpace: "pre-wrap",
-    color: "#44403c",
+    color: colors.cardForeground,
   },
   style12: {
     display: "flex",
@@ -109,9 +111,8 @@ const styles = stylex.create({
     overflow: "hidden",
     fontSize: ".75rem",
     lineHeight: "1rem",
-    "--tw-font-weight": "600",
     fontWeight: "600",
-    color: "#292524",
+    color: colors.primary,
   },
   style15: {
     position: "relative",
@@ -124,53 +125,33 @@ const styles = stylex.create({
     placeItems: "center",
     borderRadius: ".375rem",
     color: {
-      default: "#78716c",
-      ":hover": "#44403c",
+      default: colors.mutedForeground,
+      ":hover": colors.cardForeground,
     },
     backgroundColor: {
       default: null,
-      ":hover": "#f5f5f4",
-    },
-    "--tw-ring-shadow": {
-      default: null,
-      ":focus-visible": " 0 0 0 calc(2px + 0) currentcolor",
+      ":hover": colors.muted,
     },
     boxShadow: {
       default: null,
-      ":focus-visible":
-        "0 0 #0000, 0 0 #0000, 0 0 #0000, var(--tw-ring-inset, ) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor), 0 0 #0000",
-    },
-    "--tw-ring-color": {
-      default: null,
-      ":focus-visible": "#1c1917",
-    },
-    "--tw-outline-style": {
-      default: null,
-      ":focus-visible": "none",
-    },
-    outlineStyle: {
-      default: null,
-      ":focus-visible": "none",
-    },
-    outlineOffset: {
-      default: null,
-      "@media (forced-colors: active)": {
-        default: null,
-        ":focus-visible": "2px",
-      },
+      ":focus-visible": `0 0 0 2px ${colors.ring}`,
     },
     outline: {
       default: null,
-      "@media (forced-colors: active)": {
-        default: null,
-        ":focus-visible": "2px solid #0000",
-      },
+      ":focus-visible": "2px solid transparent",
+    },
+    outlineOffset: {
+      default: null,
+      ":focus-visible": "2px",
     },
   },
   style17: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
     width: ".875rem",
     height: ".875rem",
-    animation: "1s linear infinite spin",
   },
   style18: {
     width: "1rem",
@@ -182,15 +163,13 @@ const styles = stylex.create({
     right: "0",
     zIndex: "20",
     width: "7rem",
-    borderRadius: ".5rem",
+    borderRadius: radii.lg,
     borderStyle: "solid",
     borderWidth: "1px",
-    borderColor: "#e7e5e4",
-    backgroundColor: "#fff",
+    borderColor: colors.border,
+    backgroundColor: colors.card,
     padding: ".25rem",
-    "--tw-shadow": "0 10px 15px -3px #0000001a, 0 4px 6px -4px #0000001a",
-    boxShadow:
-      "0 0 #0000, 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 10px 15px -3px var(--tw-shadow-color, #0000001a), 0 4px 6px -4px var(--tw-shadow-color, #0000001a)",
+    boxShadow: shadows.lg,
   },
   style20: {
     width: "100%",
@@ -200,16 +179,16 @@ const styles = stylex.create({
     textAlign: "left",
     fontSize: ".75rem",
     lineHeight: "1rem",
-    color: "#44403c",
+    color: colors.cardForeground,
     backgroundColor: {
       default: null,
-      ":hover": "#f5f5f4",
+      ":hover": colors.muted,
     },
   },
   style21: {
     borderTopStyle: "solid",
     borderTopWidth: "1px",
-    borderColor: "#e7e5e4",
+    borderColor: colors.border,
     paddingInline: ".75rem",
     paddingBlock: ".625rem",
   },
@@ -221,24 +200,15 @@ const styles = stylex.create({
     borderStyle: "solid",
     borderWidth: "1px",
     borderColor: {
-      default: "#d6d3d1",
-      ":focus-within": "#a8a29e",
+      default: colors.appFloatingBorder,
+      ":focus-within": colors.mutedForeground,
     },
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     padding: ".375rem",
     paddingLeft: ".5rem",
-    "--tw-ring-shadow": {
-      default: null,
-      ":focus-within": " 0 0 0 calc(2px + 0) currentcolor",
-    },
     boxShadow: {
       default: null,
-      ":focus-within":
-        "0 0 #0000, 0 0 #0000, 0 0 #0000, var(--tw-ring-inset, ) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor), 0 0 #0000",
-    },
-    "--tw-ring-color": {
-      default: null,
-      ":focus-within": "#e7e5e4",
+      ":focus-within": `0 0 0 2px ${colors.border}`,
     },
   },
   style23: {
@@ -247,37 +217,21 @@ const styles = stylex.create({
     minWidth: "0",
     flex: "1",
     resize: "none",
-    backgroundColor: "#0000",
+    backgroundColor: "transparent",
     paddingBlock: ".125rem",
     fontSize: ".75rem",
     lineHeight: "18px",
-    "--tw-leading": "18px",
-    color: "#292524",
+    color: colors.primary,
     "::placeholder": {
-      default: null,
-      color: "#a8a29e",
-    },
-    "--tw-outline-style": {
-      default: null,
-      ":focus": "none",
-    },
-    outlineStyle: {
-      default: null,
-      ":focus": "none",
-    },
-    outlineOffset: {
-      default: null,
-      "@media (forced-colors: active)": {
-        default: null,
-        ":focus": "2px",
-      },
+      color: colors.mutedForeground,
     },
     outline: {
       default: null,
-      "@media (forced-colors: active)": {
-        default: null,
-        ":focus": "2px solid #0000",
-      },
+      ":focus": "2px solid transparent",
+    },
+    outlineOffset: {
+      default: null,
+      ":focus": "2px",
     },
   },
   style24: {
@@ -286,14 +240,14 @@ const styles = stylex.create({
     height: "1.5rem",
     flexShrink: "0",
     placeItems: "center",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     backgroundColor: {
-      default: "#1c1917",
-      ":disabled": "#e7e5e4",
+      default: colors.foreground,
+      ":disabled": colors.border,
     },
     color: {
-      default: "#fff",
-      ":disabled": "#a8a29e",
+      default: colors.primaryForeground,
+      ":disabled": colors.mutedForeground,
     },
   },
   style25: {
@@ -303,7 +257,28 @@ const styles = stylex.create({
   style26: {
     marginTop: ".375rem",
     fontSize: "11px",
-    color: "#b91c1c",
+    color: colors.alertForeground,
+  },
+  commentCard: {
+    backgroundColor: colors.card,
+    borderColor: colors.input,
+    borderRadius: "22px",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow:
+      `0 7px 22px color-mix(in srgb, ${colors.foreground} 8%, transparent)`,
+    overflow: "hidden",
+    textAlign: "left",
+    transitionDuration: "150ms",
+    transitionProperty: "border-color, box-shadow",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+  },
+  commentCardActive: {
+    borderColor: colors.mutedForeground,
+    boxShadow: shadows.lg,
+  },
+  commentCardInteractive: {
+    cursor: "pointer",
   },
 });
 export const DRAFT_COMMENT_ID = "draft";
@@ -497,12 +472,11 @@ export function SharedNoteCommentCard({
             }
           : undefined
       }
-      {...stylex.props([
-        "overflow-hidden rounded-[22px] border bg-white text-left shadow-[0_7px_22px_rgba(0,0,0,0.08)]",
-        "transition-[border-color,box-shadow]",
-        active ? "border-stone-400 shadow-lg" : "border-stone-300",
-        onActivate && "cursor-pointer",
-      ])}
+      {...stylex.props(
+        styles.commentCard,
+        active && styles.commentCardActive,
+        onActivate && styles.commentCardInteractive,
+      )}
     >
       <div {...stylex.props(styles.style3)}>
         <CommentHeader

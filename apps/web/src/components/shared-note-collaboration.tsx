@@ -16,7 +16,6 @@ import {
 } from "@tanstack/react-query";
 
 import { Avatar } from "@anlg/ui/components/avatar";
-import { cn } from "@anlg/utils";
 
 import {
   useDeleteSharedNoteComment,
@@ -386,6 +385,22 @@ const styles = stylex.create({
     height: "1rem",
     animation: "1s linear infinite spin",
   },
+  loadEarlierComments: {
+    marginTop: "1.5rem",
+  },
+  signInButton: {
+    marginTop: {
+      default: "1rem",
+      "@media (width >= 40rem)": 0,
+    },
+  },
+  compactButton: {
+    minHeight: "2.25rem",
+    paddingInline: ".75rem",
+  },
+  loadEarlierRequests: {
+    marginTop: ".75rem",
+  },
 });
 const accessRequestQueryKey = (shareId: string) => [
   "shared-note-access-request",
@@ -699,10 +714,11 @@ function CommentList({
       {hasEarlier && (
         <button
           type="button"
-          {...stylex.props([
-            [sharedButtonStyles.base, sharedButtonStyles.secondary],
-            "mt-6",
-          ])}
+          {...stylex.props(
+            sharedButtonStyles.base,
+            sharedButtonStyles.secondary,
+            styles.loadEarlierComments,
+          )}
           disabled={loadingEarlier}
           onClick={onLoadEarlier}
         >
@@ -803,10 +819,11 @@ function SignInToCollaborate({ returnPath }: { returnPath: string }) {
       </div>
       <a
         href={`/auth/?${search.toString()}`}
-        {...stylex.props([
-          [sharedButtonStyles.base, sharedButtonStyles.primary],
-          "mt-4 sm:mt-0",
-        ])}
+        {...stylex.props(
+          sharedButtonStyles.base,
+          sharedButtonStyles.primary,
+          styles.signInButton,
+        )}
       >
         <SignIn {...stylex.props(styles.style25)} aria-hidden="true" />
         Sign in
@@ -960,10 +977,11 @@ function ManagerRequests({
                 <div {...stylex.props(styles.style35)}>
                   <button
                     type="button"
-                    {...stylex.props([
-                      [sharedButtonStyles.base, sharedButtonStyles.secondary],
-                      "min-h-9 px-3",
-                    ])}
+                    {...stylex.props(
+                      sharedButtonStyles.base,
+                      sharedButtonStyles.secondary,
+                      styles.compactButton,
+                    )}
                     disabled={pendingRequestId !== null}
                     onClick={() =>
                       onReview(request.entryId, "denied", request.capability)
@@ -974,10 +992,11 @@ function ManagerRequests({
                   </button>
                   <button
                     type="button"
-                    {...stylex.props([
-                      [sharedButtonStyles.base, sharedButtonStyles.primary],
-                      "min-h-9 px-3",
-                    ])}
+                    {...stylex.props(
+                      sharedButtonStyles.base,
+                      sharedButtonStyles.primary,
+                      styles.compactButton,
+                    )}
                     disabled={pendingRequestId !== null}
                     onClick={() =>
                       onReview(request.entryId, "approved", request.capability)
@@ -1005,10 +1024,11 @@ function ManagerRequests({
       {hasEarlierRequests && (
         <button
           type="button"
-          {...stylex.props([
-            [sharedButtonStyles.base, sharedButtonStyles.secondary],
-            "mt-3",
-          ])}
+          {...stylex.props(
+            sharedButtonStyles.base,
+            sharedButtonStyles.secondary,
+            styles.loadEarlierRequests,
+          )}
           disabled={loadingEarlier}
           onClick={onLoadEarlier}
         >

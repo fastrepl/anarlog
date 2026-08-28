@@ -12,7 +12,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
-import { cn } from "@anlg/utils";
 
 import {
   deleteMyShare,
@@ -32,8 +31,6 @@ const styles = stylex.create({
   style2: {
     fontSize: "1.875rem",
     lineHeight: "1",
-    "--tw-leading": "1",
-    "--tw-font-weight": "600",
     fontWeight: "600",
     color: "#756b5d",
   },
@@ -44,7 +41,6 @@ const styles = stylex.create({
     },
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#756b5d",
   },
   style4: {},
@@ -53,11 +49,11 @@ const styles = stylex.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: ".75rem",
-    padding: "1.5rem",
     paddingInline: {
-      default: null,
+      default: "1.5rem",
       "@media (width >= 40rem)": "2rem",
     },
+    paddingBlock: "1.5rem",
   },
   style6: {
     minWidth: "0",
@@ -68,7 +64,6 @@ const styles = stylex.create({
     overflow: "hidden",
     fontSize: "1rem",
     lineHeight: "1.5rem",
-    "--tw-font-weight": "500",
     fontWeight: "500",
     color: "#181613",
   },
@@ -76,7 +71,6 @@ const styles = stylex.create({
     marginTop: ".25rem",
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#756b5d",
   },
   style9: {
@@ -109,6 +103,9 @@ const styles = stylex.create({
       default: null,
       ":focus": "#fef2f2",
     },
+  },
+  cardSpacing: {
+    marginTop: "1.5rem",
   },
 });
 const SCOPE_LABELS = {
@@ -218,7 +215,7 @@ export function SharedNotesSection() {
             </button>
           )}
       </div>
-      <div {...stylex.props([accountStyles.card, "mt-6"])}>
+      <div {...stylex.props(accountStyles.card, styles.cardSpacing)}>
         {sharesQuery.isPending ? (
           <p {...stylex.props(styles.style3)}>Checking your shared notes...</p>
         ) : sharesQuery.isError ? (

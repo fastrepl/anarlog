@@ -4,8 +4,6 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
-import { cn } from "@anlg/utils";
-
 import {
   DEFAULT_DESKTOP_SCHEME,
   desktopSchemeSchema,
@@ -21,18 +19,8 @@ const styles = stylex.create({
     minHeight: "100vh",
     alignItems: "center",
     justifyContent: "center",
-    "--tw-gradient-position": {
-      default: "to bottom",
-      "@supports (background-image: linear-gradient(in lab, red, red))":
-        "to bottom in oklab",
-    },
-    backgroundImage: "linear-gradient(var(--tw-gradient-stops))",
-    "--tw-gradient-from": "#fff",
-    "--tw-gradient-stops": "var(--tw-gradient-position, #0000 0%, #fff 100%)",
-    "--tw-gradient-via": "oklab(98.4825% -.000373036 .00126523 / .2)",
-    "--tw-gradient-via-stops":
-      "var(--tw-gradient-position), #0000 0%, oklab(98.4825% -.000373036 .00126523 / .2) 50%, #0000 100%",
-    "--tw-gradient-to": "#fff",
+    backgroundImage:
+      "linear-gradient(to bottom, #fff, rgb(250 250 249 / 0.2), #fff)",
     padding: "1.5rem",
   },
   style2: {
@@ -70,6 +58,72 @@ const styles = stylex.create({
   style8: {
     width: "1rem",
     height: "1rem",
+  },
+  primaryButton: {
+    alignItems: "center",
+    backgroundImage: "linear-gradient(to top, #57534e, #78716c)",
+    borderRadius: "9999px",
+    boxShadow: {
+      default:
+        "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+      ":hover":
+        "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+    },
+    color: "#fff",
+    cursor: "pointer",
+    display: "flex",
+    fontSize: "1rem",
+    fontWeight: 500,
+    height: "3rem",
+    justifyContent: "center",
+    transform: {
+      default: "scale(1)",
+      ":hover": "scale(1.02)",
+      ":active": "scale(.98)",
+    },
+    transitionDuration: ".15s",
+    transitionProperty: "box-shadow, transform",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+    width: "100%",
+  },
+  copyCard: {
+    alignItems: "center",
+    backgroundColor: {
+      default: "#fafafa",
+      ":hover": "#f5f5f5",
+    },
+    borderColor: "#f5f5f4",
+    borderRadius: ".5rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    cursor: "pointer",
+    display: "flex",
+    flexDirection: "column",
+    gap: ".75rem",
+    padding: "1rem",
+    textAlign: "left",
+    transform: {
+      default: "scale(1)",
+      ":active": "scale(.99)",
+    },
+    transitionDuration: ".15s",
+    transitionProperty: "background-color, transform",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+    width: "100%",
+  },
+  copyPill: {
+    alignItems: "center",
+    backgroundImage: "linear-gradient(to top, #e5e5e5, #f5f5f5)",
+    borderRadius: "9999px",
+    boxShadow: "0 1px 2px rgb(0 0 0 / 0.05)",
+    color: "#171717",
+    display: "flex",
+    fontSize: ".875rem",
+    fontWeight: 500,
+    gap: ".5rem",
+    height: "2.5rem",
+    justifyContent: "center",
+    width: "100%",
   },
 });
 const validateSearch = z.object({
@@ -145,30 +199,16 @@ function Component() {
         <div {...stylex.props(styles.style6)}>
           <button
             onClick={handleDeeplink}
-            {...stylex.props([
-              "flex h-12 w-full cursor-pointer items-center justify-center text-base font-medium transition-all",
-              "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
-            ])}
+            {...stylex.props(styles.primaryButton)}
           >
             Open Anarlog
           </button>
 
-          <button
-            onClick={handleCopy}
-            {...stylex.props([
-              "flex w-full cursor-pointer flex-col items-center gap-3 p-4 text-left transition-all",
-              "rounded-lg border border-stone-100 bg-stone-50 hover:bg-stone-100 active:scale-[99%]",
-            ])}
-          >
+          <button onClick={handleCopy} {...stylex.props(styles.copyCard)}>
             <p {...stylex.props(styles.style7)}>
               Button not working? Copy the link instead
             </p>
-            <span
-              {...stylex.props([
-                "flex h-10 w-full items-center justify-center gap-2 text-sm font-medium",
-                "rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs",
-              ])}
-            >
+            <span {...stylex.props(styles.copyPill)}>
               {copied ? (
                 <>
                   <Check {...stylex.props(styles.style8)} />

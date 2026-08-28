@@ -3,8 +3,6 @@ import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { cn } from "@anlg/utils";
-
 import { deleteAccount } from "@/functions/billing";
 import { captureOperationalError } from "@/lib/error-reporting";
 
@@ -13,7 +11,6 @@ const styles = stylex.create({
   style1: {
     fontSize: "1rem",
     lineHeight: "1.5rem",
-    "--tw-font-weight": "500",
     fontWeight: "500",
     color: "#7f1d1d",
   },
@@ -21,7 +18,6 @@ const styles = stylex.create({
     marginTop: ".75rem",
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#7f1d1d",
   },
   style3: {
@@ -59,17 +55,31 @@ const styles = stylex.create({
     paddingInline: "1rem",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
     fontWeight: "500",
     color: "#fff",
-    transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+    transitionProperty: "color, background-color",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
     opacity: {
       default: null,
       ":disabled": ".5",
     },
+  },
+  dangerCard: {
+    backgroundColor: "#fef2f2",
+    borderColor: "#fecaca",
+    borderRadius: "24px",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow: "0 18px 50px rgb(24 22 19 / 0.08)",
+    overflow: "hidden",
+    padding: {
+      default: "1.5rem",
+      "@media (width >= 40rem)": "2rem",
+    },
+  },
+  continueButton: {
+    marginTop: "1rem",
   },
 });
 export function DangerAreaSection() {
@@ -89,13 +99,7 @@ export function DangerAreaSection() {
     },
   });
   return (
-    <div
-      {...stylex.props([
-        "overflow-hidden rounded-[24px] border border-red-200 bg-red-50",
-        "shadow-[0_18px_50px_rgba(24,22,19,0.08)]",
-        "p-6 sm:p-8",
-      ])}
-    >
+    <div {...stylex.props(styles.dangerCard)}>
       <p {...stylex.props(styles.style1)}>Delete account</p>
       <p {...stylex.props(styles.style2)}>
         Anarlog is a local-first app. Your notes, transcripts, and meeting data
@@ -141,10 +145,11 @@ export function DangerAreaSection() {
       ) : (
         <button
           onClick={() => setShowDeleteConfirm(true)}
-          {...stylex.props([
-            [accountStyles.pill, accountStyles.pillDanger],
-            "mt-4",
-          ])}
+          {...stylex.props(
+            accountStyles.pill,
+            accountStyles.pillDanger,
+            styles.continueButton,
+          )}
         >
           Continue
         </button>

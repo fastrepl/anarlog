@@ -4,9 +4,9 @@ import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 
+import { colors, media, radii } from "@anlg/design-system/tokens.stylex";
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
-import { cn } from "@anlg/utils";
 
 import { AnarlogLogo } from "@/components/anarlog-logo";
 import { useAnalytics } from "@/hooks/use-posthog";
@@ -21,6 +21,12 @@ import { runWhenIdle } from "@/lib/run-when-idle";
 import { createTrackedTimers } from "@/lib/tracked-timers";
 
 import { CredibilityLogoMarquee } from "./social-proof-sections";
+
+const cursorPulse = stylex.keyframes({
+  "0%, 100%": { opacity: 1 },
+  "50%": { opacity: 0.5 },
+});
+
 const styles = stylex.create({
   style1: {
     isolation: "isolate",
@@ -57,8 +63,6 @@ const styles = stylex.create({
       default: ".98",
       "@media (width >= 48rem)": "1",
     },
-    "--tw-leading": ".98",
-    "--tw-font-weight": "600",
     fontWeight: "600",
     textWrap: "balance",
     position: {
@@ -77,13 +81,9 @@ const styles = stylex.create({
       default: null,
       "@media (width >= 64rem)": "none",
     },
-    "--tw-translate-x": {
+    transform: {
       default: null,
-      "@media (width >= 64rem)": "calc(calc(1 / 2 * 100%) * -1)",
-    },
-    translate: {
-      default: null,
-      "@media (width >= 64rem)": "calc(calc(1 / 2 * 100%) * -1) 0",
+      "@media (width >= 64rem)": "translateX(-50%)",
     },
     whiteSpace: {
       default: null,
@@ -101,7 +101,6 @@ const styles = stylex.create({
     marginTop: "1.5rem",
     fontSize: "1.125rem",
     lineHeight: "2rem",
-    "--tw-leading": "2rem",
     color: "#4f4940",
   },
   style7: {
@@ -120,8 +119,7 @@ const styles = stylex.create({
     marginTop: "2.5rem",
     width: "100vw",
     maxWidth: "500px",
-    "--tw-translate-x": "calc(calc(1 / 2 * 100%) * -1)",
-    translate: "calc(calc(1 / 2 * 100%) * -1) 0",
+    transform: "translateX(-50%)",
     paddingInline: {
       default: "2rem",
       "@media (width >= 40rem)": "2.5rem",
@@ -137,10 +135,9 @@ const styles = stylex.create({
       "@media (width >= 40rem)": "2.5rem",
     },
     width: "3rem",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     backgroundColor: "oklab(14.4788% 7.45058e-9 7.45058e-9 / .1)",
-    "--tw-blur": "blur(40px)",
-    filter: "blur(40px)        ",
+    filter: "blur(40px)",
   },
   style10: {
     pointerEvents: "none",
@@ -152,10 +149,9 @@ const styles = stylex.create({
     },
     bottom: "6rem",
     width: "3rem",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     backgroundColor: "oklab(14.4788% 7.45058e-9 7.45058e-9 / .1)",
-    "--tw-blur": "blur(40px)",
-    filter: "blur(40px)        ",
+    filter: "blur(40px)",
   },
   style11: {
     position: "relative",
@@ -168,11 +164,13 @@ const styles = stylex.create({
     borderTopStyle: "solid",
     borderTopWidth: "1px",
     borderColor: "#e5e5e5",
-    backgroundColor: "#fff",
-    "--tw-shadow": "0 24px 70px #18161314",
-    boxShadow:
-      "0 0 #0000, 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 24px 70px var(--tw-shadow-color, #18161314)",
+    backgroundColor: colors.card,
+    boxShadow: "0 24px 70px rgb(24 22 19 / 0.08)",
     cornerShape: "squircle",
+    WebkitMaskImage:
+      "linear-gradient(to bottom, black 0%, black calc(100% - 5rem), transparent 100%)",
+    maskImage:
+      "linear-gradient(to bottom, black 0%, black calc(100% - 5rem), transparent 100%)",
   },
   style12: {
     display: "flex",
@@ -188,19 +186,19 @@ const styles = stylex.create({
   style14: {
     height: ".75rem",
     width: ".75rem",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     backgroundColor: "#f87171",
   },
   style15: {
     height: ".75rem",
     width: ".75rem",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     backgroundColor: "#facc15",
   },
   style16: {
     height: ".75rem",
     width: ".75rem",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     backgroundColor: "#4ade80",
   },
   style17: {
@@ -214,7 +212,7 @@ const styles = stylex.create({
   style18: {
     color: "#737373",
   },
-  style19: {
+  workflowContent: {
     position: "relative",
     minHeight: {
       default: "260px",
@@ -225,66 +223,60 @@ const styles = stylex.create({
     fontSize: ".875rem",
     lineHeight: "1.25rem",
   },
-  style20: {
+  draftNote: {
     color: "#404040",
   },
-  style21: {
-    marginTop: "1rem",
+  draftNoteSectionStart: {
+    marginTop: ".25rem",
     color: "#404040",
   },
-  style22: {
-    marginTop: "1rem",
+  draftTypedNoteSectionStart: {
+    marginTop: ".25rem",
     minHeight: "1.25rem",
     color: "#404040",
   },
-  style23: {
+  draftTypedNote: {
     minHeight: "1.25rem",
     color: "#404040",
   },
-  style24: {},
-  style25: {
+  summarySection: {
+    display: "flex",
+    flexDirection: "column",
+    gap: ".5rem",
+  },
+  summaryList: {
     listStyleType: "disc",
     paddingLeft: "1.25rem",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
     color: "#404040",
   },
-  style26: {
+  participantImage: {
     height: "auto",
     width: "100%",
     borderRadius: ".75rem",
   },
-  style27: {
+  workflowBottomFade: {
     insetInline: "0",
     pointerEvents: "none",
     position: "absolute",
     bottom: "0",
     height: "7rem",
-    "--tw-gradient-position": {
-      default: "to top",
-      "@supports (background-image: linear-gradient(in lab, red, red))":
-        "to top in oklab",
-    },
-    backgroundImage: "linear-gradient(var(--tw-gradient-stops))",
-    "--tw-gradient-from": "#fff",
-    "--tw-gradient-stops":
-      "var(--tw-gradient-position, #0000 0%, transparent 100%)",
-    "--tw-gradient-to": "transparent",
+    backgroundImage: `linear-gradient(to top, ${colors.card}, transparent)`,
   },
   style28: {
     position: "relative",
     display: "inline-flex",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
     fontWeight: "500",
   },
   style29: {
     display: "inline-flex",
     alignItems: "center",
     gap: ".375rem",
-    borderTopLeftRadius: "3.40282e38px",
-    borderBottomLeftRadius: "3.40282e38px",
+    borderTopLeftRadius: radii.full,
+    borderBottomLeftRadius: radii.full,
     backgroundColor: "#181613",
     paddingBlock: ".75rem",
     paddingRight: ".5rem",
@@ -307,8 +299,8 @@ const styles = stylex.create({
     height: "100%",
     cursor: "pointer",
     alignItems: "center",
-    borderTopRightRadius: "3.40282e38px",
-    borderBottomRightRadius: "3.40282e38px",
+    borderTopRightRadius: radii.full,
+    borderBottomRightRadius: radii.full,
     backgroundColor: "#181613",
     paddingBlock: ".75rem",
     paddingRight: ".75rem",
@@ -327,9 +319,7 @@ const styles = stylex.create({
     borderWidth: "1px",
     padding: ".5rem",
     textAlign: "left",
-    "--tw-shadow": "0 14px 40px #1816131f",
-    boxShadow:
-      "0 0 #0000, 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 14px 40px var(--tw-shadow-color, #1816131f)",
+    boxShadow: "0 14px 40px rgb(24 22 19 / 0.12)",
   },
   style32: {
     display: "flex",
@@ -338,22 +328,19 @@ const styles = stylex.create({
     borderRadius: ".75rem",
     paddingInline: ".75rem",
     paddingBlock: ".625rem",
-    transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+    transitionProperty: "color, background-color, border-color",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
   },
   style33: {
     marginLeft: "auto",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     borderStyle: "solid",
     borderWidth: "1px",
     paddingInline: ".5rem",
     paddingBlock: ".125rem",
     fontSize: "11px",
-    "--tw-leading": "1",
     lineHeight: "1",
-    "--tw-font-weight": "500",
     fontWeight: "500",
     textTransform: "uppercase",
   },
@@ -365,13 +352,138 @@ const styles = stylex.create({
     borderRadius: ".75rem",
     paddingInline: ".75rem",
     paddingBlock: ".625rem",
-    transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+    transitionProperty: "color, background-color, border-color",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
   },
   style35: {
     flexShrink: "0",
+  },
+  draftNotesLayer: {
+    display: "flex",
+    flexDirection: "column",
+    gap: ".75rem",
+    inset: 0,
+    paddingInline: {
+      default: "1.25rem",
+      [media.sm]: "1.5rem",
+    },
+    paddingTop: {
+      default: ".5rem",
+      [media.sm]: ".75rem",
+    },
+    paddingBottom: {
+      default: "1.25rem",
+      [media.sm]: "1.5rem",
+    },
+    position: "absolute",
+    transitionDuration: {
+      default: "500ms",
+      [media.reducedMotion]: "0ms",
+    },
+    transitionProperty: "opacity",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+  },
+  summaryNotesLayer: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
+    inset: 0,
+    overflow: "hidden",
+    paddingInline: {
+      default: "1.25rem",
+      [media.sm]: "1.5rem",
+    },
+    paddingTop: {
+      default: ".5rem",
+      [media.sm]: ".75rem",
+    },
+    paddingBottom: {
+      default: "1.25rem",
+      [media.sm]: "1.5rem",
+    },
+    position: "absolute",
+    textAlign: "left",
+    transitionDuration: {
+      default: "500ms",
+      [media.reducedMotion]: "0ms",
+    },
+    transitionProperty: "opacity",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+  },
+  contentVisible: {
+    opacity: 1,
+  },
+  contentHidden: {
+    opacity: 0,
+  },
+  typingCursor: {
+    animationDuration: "2s",
+    animationIterationCount: "infinite",
+    animationName: {
+      default: cursorPulse,
+      [media.reducedMotion]: "none",
+    },
+    animationTimingFunction: "cubic-bezier(.4, 0, .6, 1)",
+  },
+  summaryHeading: {
+    color: "#44403c",
+    fontWeight: 600,
+    transitionDuration: {
+      default: "500ms",
+      [media.reducedMotion]: "0ms",
+    },
+    transitionProperty: "opacity",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+  },
+  summaryListItem: {
+    marginTop: {
+      default: ".5rem",
+      ":first-child": 0,
+    },
+    transitionDuration: {
+      default: "500ms",
+      [media.reducedMotion]: "0ms",
+    },
+    transitionProperty: "opacity",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+  },
+  participantOverlay: {
+    bottom: {
+      default: "2.25rem",
+      [media.sm]: "3rem",
+    },
+    pointerEvents: "none",
+    position: "absolute",
+    right: {
+      default: ".25rem",
+      [media.sm]: "-.5rem",
+    },
+    transitionDuration: {
+      default: "500ms",
+      [media.reducedMotion]: "0ms",
+    },
+    transitionProperty: "all",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+    width: {
+      default: "66%",
+      [media.sm]: "68%",
+    },
+    zIndex: 10,
+  },
+  participantOverlayVisible: {
+    opacity: 1,
+    transform: {
+      default: "translateY(0)",
+      [media.reducedMotion]: "none",
+    },
+  },
+  participantOverlayHidden: {
+    opacity: 0,
+    transform: {
+      default: "translateY(.5rem)",
+      [media.reducedMotion]: "none",
+    },
   },
 });
 export function HeroSection() {
@@ -467,15 +579,7 @@ function HeroWorkflowDemo() {
     <div {...stylex.props(styles.style8)}>
       <div {...stylex.props(styles.style9)} aria-hidden="true" />
       <div {...stylex.props(styles.style10)} aria-hidden="true" />
-      <div
-        {...stylex.props(styles.style11)}
-        style={{
-          WebkitMaskImage:
-            "linear-gradient(to bottom, black 0%, black calc(100% - 5rem), transparent 100%)",
-          maskImage:
-            "linear-gradient(to bottom, black 0%, black calc(100% - 5rem), transparent 100%)",
-        }}
-      >
+      <div {...stylex.props(styles.style11)}>
         <div {...stylex.props(styles.style12)}>
           <div {...stylex.props(styles.style13)}>
             <div {...stylex.props(styles.style14)}></div>
@@ -484,7 +588,7 @@ function HeroWorkflowDemo() {
           </div>
           <div {...stylex.props(styles.style17)}>
             {isGeneratingSummary ? (
-              <Spinner size={12} {...stylex.props(styles.style18)} />
+              <Spinner size={12} sx={styles.style18} />
             ) : !isSummaryPhase ? (
               <DancingSticks
                 amplitude={isTypingActive ? 1 : 0}
@@ -494,83 +598,93 @@ function HeroWorkflowDemo() {
             ) : null}
           </div>
         </div>
-        <div {...stylex.props(styles.style19)}>
+        <div {...stylex.props(styles.workflowContent)}>
           <div
-            {...stylex.props([
-              "absolute inset-0 space-y-3 px-5 pt-2 pb-5 transition-opacity duration-500 sm:px-6 sm:pt-3 sm:pb-6",
-              isSummaryPhase ? "opacity-0" : "opacity-100",
-            ])}
+            {...stylex.props(
+              styles.draftNotesLayer,
+              isSummaryPhase ? styles.contentHidden : styles.contentVisible,
+            )}
           >
-            <div {...stylex.props(styles.style20)}>ui update - moble</div>
-            <div {...stylex.props(styles.style20)}>api</div>
-            <div {...stylex.props(styles.style21)}>new dash - urgnet</div>
-            <div {...stylex.props(styles.style20)}>a/b tst next wk</div>
-            <div {...stylex.props(styles.style22)}>
+            <div {...stylex.props(styles.draftNote)}>ui update - moble</div>
+            <div {...stylex.props(styles.draftNote)}>api</div>
+            <div {...stylex.props(styles.draftNoteSectionStart)}>
+              new dash - urgnet
+            </div>
+            <div {...stylex.props(styles.draftNote)}>a/b tst next wk</div>
+            <div {...stylex.props(styles.draftTypedNoteSectionStart)}>
               {typedText1}
               <span
-                {...stylex.props([
+                {...stylex.props(
                   typedText1 && typedText1.length < text1.length
-                    ? "animate-pulse"
-                    : "opacity-0",
-                ])}
+                    ? styles.typingCursor
+                    : styles.contentHidden,
+                )}
               >
                 |
               </span>
             </div>
-            <div {...stylex.props(styles.style23)}>
+            <div {...stylex.props(styles.draftTypedNote)}>
               {typedText2}
               <span
-                {...stylex.props([
+                {...stylex.props(
                   typedText2 && typedText2.length < text2.length
-                    ? "animate-pulse"
-                    : "opacity-0",
-                ])}
+                    ? styles.typingCursor
+                    : styles.contentHidden,
+                )}
               >
                 |
               </span>
             </div>
           </div>
           <div
-            {...stylex.props([
-              "absolute inset-0 space-y-4 overflow-hidden px-5 pt-2 pb-5 text-left transition-opacity duration-500 sm:px-6 sm:pt-3 sm:pb-6",
-              isSummaryPhase ? "opacity-100" : "opacity-0",
-            ])}
+            {...stylex.props(
+              styles.summaryNotesLayer,
+              isSummaryPhase ? styles.contentVisible : styles.contentHidden,
+            )}
           >
-            <div {...stylex.props(styles.style24)}>
+            <div {...stylex.props(styles.summarySection)}>
               <h4
-                {...stylex.props([
-                  "font-semibold text-stone-700 transition-opacity duration-500",
-                  enhancedLines >= 1 ? "opacity-100" : "opacity-0",
-                ])}
+                {...stylex.props(
+                  styles.summaryHeading,
+                  enhancedLines >= 1
+                    ? styles.contentVisible
+                    : styles.contentHidden,
+                )}
               >
                 Mobile UI Update and API Adjustments
               </h4>
-              <ul {...stylex.props(styles.style25)}>
+              <ul {...stylex.props(styles.summaryList)}>
                 <li
-                  {...stylex.props([
-                    "transition-opacity duration-500",
-                    enhancedLines >= 1 ? "opacity-100" : "opacity-0",
-                  ])}
+                  {...stylex.props(
+                    styles.summaryListItem,
+                    enhancedLines >= 1
+                      ? styles.contentVisible
+                      : styles.contentHidden,
+                  )}
                 >
                   Sarah presented the new mobile UI update, which includes a
                   streamlined navigation bar and improved button placements for
                   better accessibility.
                 </li>
                 <li
-                  {...stylex.props([
-                    "transition-opacity duration-500",
-                    enhancedLines >= 2 ? "opacity-100" : "opacity-0",
-                  ])}
+                  {...stylex.props(
+                    styles.summaryListItem,
+                    enhancedLines >= 2
+                      ? styles.contentVisible
+                      : styles.contentHidden,
+                  )}
                 >
                   Ben confirmed that API adjustments are needed to support
                   dynamic UI changes, particularly for fetching personalized
                   user data more efficiently.
                 </li>
                 <li
-                  {...stylex.props([
-                    "transition-opacity duration-500",
-                    enhancedLines >= 3 ? "opacity-100" : "opacity-0",
-                  ])}
+                  {...stylex.props(
+                    styles.summaryListItem,
+                    enhancedLines >= 3
+                      ? styles.contentVisible
+                      : styles.contentHidden,
+                  )}
                 >
                   The UI update will be implemented in phases, starting with
                   core navigation improvements. Ben will ensure API
@@ -578,57 +692,69 @@ function HeroWorkflowDemo() {
                 </li>
               </ul>
             </div>
-            <div {...stylex.props(styles.style24)}>
+            <div {...stylex.props(styles.summarySection)}>
               <h4
-                {...stylex.props([
-                  "font-semibold text-stone-700 transition-opacity duration-500",
-                  enhancedLines >= 4 ? "opacity-100" : "opacity-0",
-                ])}
+                {...stylex.props(
+                  styles.summaryHeading,
+                  enhancedLines >= 4
+                    ? styles.contentVisible
+                    : styles.contentHidden,
+                )}
               >
                 New Dashboard - Urgent Priority
               </h4>
-              <ul {...stylex.props(styles.style25)}>
+              <ul {...stylex.props(styles.summaryList)}>
                 <li
-                  {...stylex.props([
-                    "transition-opacity duration-500",
-                    enhancedLines >= 4 ? "opacity-100" : "opacity-0",
-                  ])}
+                  {...stylex.props(
+                    styles.summaryListItem,
+                    enhancedLines >= 4
+                      ? styles.contentVisible
+                      : styles.contentHidden,
+                  )}
                 >
                   Alice emphasized that the new analytics dashboard must be
                   prioritized due to increasing stakeholder demand.
                 </li>
                 <li
-                  {...stylex.props([
-                    "transition-opacity duration-500",
-                    enhancedLines >= 5 ? "opacity-100" : "opacity-0",
-                  ])}
+                  {...stylex.props(
+                    styles.summaryListItem,
+                    enhancedLines >= 5
+                      ? styles.contentVisible
+                      : styles.contentHidden,
+                  )}
                 >
                   The new dashboard will feature real-time user engagement
                   metrics and a customizable reporting system.
                 </li>
                 <li
-                  {...stylex.props([
-                    "transition-opacity duration-500",
-                    enhancedLines >= 5 ? "opacity-100" : "opacity-0",
-                  ])}
+                  {...stylex.props(
+                    styles.summaryListItem,
+                    enhancedLines >= 5
+                      ? styles.contentVisible
+                      : styles.contentHidden,
+                  )}
                 >
                   Ben mentioned that backend infrastructure needs optimization
                   to handle real-time data processing.
                 </li>
                 <li
-                  {...stylex.props([
-                    "transition-opacity duration-500",
-                    enhancedLines >= 5 ? "opacity-100" : "opacity-0",
-                  ])}
+                  {...stylex.props(
+                    styles.summaryListItem,
+                    enhancedLines >= 5
+                      ? styles.contentVisible
+                      : styles.contentHidden,
+                  )}
                 >
                   Mark stressed that the dashboard launch should align with
                   marketing efforts to maximize user adoption.
                 </li>
                 <li
-                  {...stylex.props([
-                    "transition-opacity duration-500",
-                    enhancedLines >= 5 ? "opacity-100" : "opacity-0",
-                  ])}
+                  {...stylex.props(
+                    styles.summaryListItem,
+                    enhancedLines >= 5
+                      ? styles.contentVisible
+                      : styles.contentHidden,
+                  )}
                 >
                   Development will start immediately, and a basic prototype must
                   be ready for stakeholder review next week.
@@ -639,12 +765,12 @@ function HeroWorkflowDemo() {
         </div>
       </div>
       <div
-        {...stylex.props([
-          "pointer-events-none absolute right-1 bottom-9 z-10 w-[66%] transition-all duration-500 sm:-right-2 sm:bottom-12 sm:w-[68%]",
+        {...stylex.props(
+          styles.participantOverlay,
           isSummaryPhase
-            ? "translate-y-2 opacity-0"
-            : "translate-y-0 opacity-100",
-        ])}
+            ? styles.participantOverlayHidden
+            : styles.participantOverlayVisible,
+        )}
       >
         <img
           src={getResizedImageUrl("/images/hero-meeting-participants.webp", {
@@ -665,11 +791,11 @@ function HeroWorkflowDemo() {
           alt="Four participants in a video meeting"
           width={1200}
           height={215}
-          {...stylex.props(styles.style26)}
+          {...stylex.props(styles.participantImage)}
           decoding="async"
         />
       </div>
-      <div {...stylex.props(styles.style27)} aria-hidden="true" />
+      <div {...stylex.props(styles.workflowBottomFade)} aria-hidden="true" />
     </div>
   );
 }

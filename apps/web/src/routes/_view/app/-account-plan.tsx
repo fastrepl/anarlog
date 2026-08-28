@@ -3,8 +3,6 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 
-import { cn } from "@anlg/utils";
-
 import { authStyles } from "@/components/auth-shell";
 import { getAccountSubscription } from "@/functions/billing";
 import { applyYcPerk } from "@/functions/yc-perk";
@@ -37,27 +35,23 @@ const styles = stylex.create({
   style2: {
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#756b5d",
   },
   style3: {
     fontSize: "1rem",
     lineHeight: "1.5rem",
-    "--tw-font-weight": "500",
     fontWeight: "500",
     color: "#181613",
   },
   style4: {
     backgroundColor: "#fff0b3",
     paddingInline: ".25rem",
-    "--tw-font-weight": "600",
     fontWeight: "600",
   },
   style5: {
     marginTop: ".25rem",
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#756b5d",
   },
   style6: {
@@ -85,7 +79,7 @@ const styles = stylex.create({
   },
   style8: {
     minWidth: "0",
-    flex: "1",
+    flexGrow: 1,
   },
   style9: {
     clipPath: "inset(50%)",
@@ -114,8 +108,7 @@ const styles = stylex.create({
     textDecorationLine: "underline",
     textDecorationColor: "#b8afa4",
     textUnderlineOffset: "4px",
-    transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to, opacity, box-shadow, transform, translate, scale, rotate, filter, -webkit-backdrop-filter, backdrop-filter, display, content-visibility, overlay, pointer-events",
+    transitionProperty: "color, text-decoration-color",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
     color: {
@@ -129,6 +122,15 @@ const styles = stylex.create({
     fontSize: ".875rem",
     lineHeight: "1.25rem",
     color: "#b91c1c",
+  },
+  perkInput: {
+    borderRadius: "9999px",
+    fontSize: ".875rem",
+    height: "2.25rem",
+    paddingInline: "1rem",
+  },
+  invalidPerkInput: {
+    borderColor: "#ef4444",
   },
 });
 export const accountSubscriptionQueryKey = ["account-subscription"];
@@ -332,10 +334,8 @@ function YcPerkApplyForm({
                 onChange={(event) => field.handleChange(event.target.value)}
                 {...stylex.props([
                   authStyles.input,
-                  "h-9 rounded-full px-4 text-sm",
-                  field.state.meta.errors.length > 0
-                    ? "border-red-500"
-                    : undefined,
+                  styles.perkInput,
+                  field.state.meta.errors.length > 0 && styles.invalidPerkInput,
                 ])}
                 aria-invalid={field.state.meta.errors.length > 0}
               />
