@@ -9,6 +9,11 @@ const footerGroups = [
     links: [
       { label: "Download", to: "/download/" },
       { label: "Enterprise", to: "/enterprise/" },
+    ],
+  },
+  {
+    title: "Resources",
+    links: [
       { label: "Blog", to: "/blog/" },
       { label: "Changelog", to: "/changelog/" },
       { label: "Docs", href: "https://docs.anarlog.so" },
@@ -71,7 +76,7 @@ export function SiteFooter() {
           </Link>
         )}
       </div>
-      <nav className="grid grid-cols-2 gap-x-12 gap-y-8 sm:grid-cols-3 sm:gap-x-16">
+      <nav className="grid grid-cols-2 gap-x-12 gap-y-8 sm:grid-cols-4 sm:gap-x-12">
         {footerGroups.map((group) => (
           <div key={group.title} className="flex flex-col gap-2.5">
             <span className="tracking-[0.04em] text-[#756b5d]">
