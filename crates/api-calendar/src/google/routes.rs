@@ -57,7 +57,8 @@ pub async fn list_calendars(
             GoogleCalendar::ID,
             &req.connection_id,
         )
-        .await?;
+        .await?
+        .with_retries(0);
 
     let client = GoogleCalendarClient::new(http);
 
@@ -102,7 +103,8 @@ pub async fn list_events(
             GoogleCalendar::ID,
             &req.connection_id,
         )
-        .await?;
+        .await?
+        .with_retries(0);
 
     let client = GoogleCalendarClient::new(http);
 

@@ -71,6 +71,11 @@ impl OwnedNangoHttpClient {
         Self { proxy }
     }
 
+    pub fn with_retries(mut self, retries: u32) -> Self {
+        self.proxy = self.proxy.retries(retries);
+        self
+    }
+
     pub fn with_base_url_override(mut self, base_url: impl Into<String>) -> Self {
         self.proxy = self.proxy.base_url_override(base_url);
         self

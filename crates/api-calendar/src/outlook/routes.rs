@@ -52,6 +52,7 @@ pub async fn list_calendars(
             &req.connection_id,
         )
         .await?
+        .with_retries(0)
         .with_base_url_override("https://graph.microsoft.com/v1.0");
 
     let client = OutlookCalendarClient::new(http);
@@ -92,6 +93,7 @@ pub async fn list_events(
             &req.connection_id,
         )
         .await?
+        .with_retries(0)
         .with_base_url_override("https://graph.microsoft.com/v1.0");
 
     let client = OutlookCalendarClient::new(http);

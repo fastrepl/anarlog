@@ -149,6 +149,11 @@ impl OwnedNangoProxy {
         }
     }
 
+    pub fn retries(mut self, retries: u32) -> Self {
+        self.retries = Some(retries);
+        self
+    }
+
     pub fn base_url_override(mut self, base_url: impl Into<String>) -> Self {
         self.base_url_override = Some(base_url.into());
         self
