@@ -153,6 +153,7 @@ describe("session SQLite operations", () => {
   it("creates a session with its initial event and note content atomically", async () => {
     await createSession("Welcome", "user-1", {
       event_json: '{"tracking_id":"welcome"}',
+      folder_id: "CS 101",
       raw_md: '{"type":"doc"}',
     });
 
@@ -161,10 +162,12 @@ describe("session SQLite operations", () => {
       params: unknown[];
     }>;
     expect(statements[0].sql).toContain("event_json");
+    expect(statements[0].sql).toContain("folder_path");
     expect(statements[0].sql).toContain("cloudsync_workspace_binding");
     expect(statements[0].sql).toContain("NULLIF((");
     expect(statements[0].sql).not.toContain("COALESCE((");
     expect(statements[0].params).toContain('{"tracking_id":"welcome"}');
+    expect(statements[0].params).toContain("CS 101");
     expect(statements[1].sql).toContain("session_documents");
     expect(statements[1].sql).toContain("workspace_id");
     expect(statements[1].sql).toContain("FROM sessions");

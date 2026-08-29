@@ -15,11 +15,13 @@ import { hasOwnSidebarHeaderTab } from "./use-custom-sidebar";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function LeftSidebar({
+  folderFilter = null,
   noteFilter = "mine",
   timelineHeader,
   showIgnoredTimelineEvents,
   onShowIgnoredTimelineEventsChange,
 }: {
+  folderFilter?: string | null;
   noteFilter?: SidebarNoteFilter;
   timelineHeader?: ReactNode;
   showIgnoredTimelineEvents?: boolean;
@@ -70,6 +72,7 @@ export function LeftSidebar({
               {noteFilter === "mine" ? (
                 <div className="relative min-h-0 flex-1">
                   <TimelineView
+                    folderFilter={folderFilter}
                     showIgnoredEvents={showIgnoredTimelineEvents}
                     onShowIgnoredEventsChange={
                       onShowIgnoredTimelineEventsChange

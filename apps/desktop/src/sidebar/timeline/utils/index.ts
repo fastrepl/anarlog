@@ -10,6 +10,7 @@ import {
   TZDate,
 } from "@anlg/utils";
 
+import { folderDisplayName } from "~/session/folders";
 import { getSessionEvent } from "~/session/utils";
 
 function toTZ(date: Date, timezone?: string): Date {
@@ -291,6 +292,47 @@ function isAfterTomorrow(date: Date | null, timezone?: string): boolean {
   }
 
   return date.getTime() >= getTomorrowUpperBound(timezone);
+}
+
+export function sessionMatchesFolderFilter(
+  folderId: string | null | undefined,
+  folderFilter: string | null,
+): boolean {
+  if (folderFilter === null) {
+    return true;
+  }
+
+  return folderDisplayName(folderId) === folderFilter;
+}
+
+export function filterTimelineTablesByFolder({
+  timelineEventsTable,
+  timelineSessionsTable,
+  folderFilter,
+}: {
+  timelineEventsTable: TimelineEventsTable;
+  timelineSessionsTable: TimelineSessionsTable;
+  folderFilter: string | null;
+}): {
+  timelineEventsTable: TimelineEventsTable;
+  timelineSessionsTable: TimelineSessionsTable;
+} {
+  if (folderFilter === null) {
+    return { timelineEventsTable, timelineSessionsTable };
+  }
+
+  const filteredSessions = timelineSessionsTable
+    ? Object.fromEntries(
+        Object.entries(timelineSessionsTable).filter(([, row]) =>
+          sessionMatchesFolderFilter(row.folder_id, folderFilter),
+        ),
+      )
+    : timelineSessionsTable;
+
+  return {
+    timelineEventsTable: {},
+    timelineSessionsTable: filteredSessions,
+  };
 }
 
 export function filterTimelineTablesUpToTomorrow({

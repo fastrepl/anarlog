@@ -15,6 +15,7 @@ import { useSidebarUpcomingMeetingStatus } from "~/sidebar/timeline/upcoming-mee
 export const SidebarTimelineChromeWithUpcomingMeeting = memo(
   function SidebarTimelineChromeWithUpcomingMeeting({
     currentSessionId,
+    folderFilter = null,
     noteFilter,
     onNewNote,
     onNoteFilterChange,
@@ -25,9 +26,13 @@ export const SidebarTimelineChromeWithUpcomingMeeting = memo(
     showIgnoredTimelineEvents,
   }: {
     currentSessionId?: string;
+    folderFilter?: string | null;
     noteFilter: SidebarNoteFilter;
     onNewNote: () => void;
-    onNoteFilterChange: (filter: SidebarNoteFilter) => void;
+    onNoteFilterChange: (
+      filter: SidebarNoteFilter,
+      folderFilter?: string | null,
+    ) => void;
     onSearch: () => void;
     onToggleSidebar: () => void;
     sidebarExpanded: boolean;
@@ -44,6 +49,7 @@ export const SidebarTimelineChromeWithUpcomingMeeting = memo(
 
     return (
       <SidebarTimelineChrome
+        folderFilter={folderFilter}
         hasUpcomingMeeting={hasUpcomingMeeting}
         noteFilter={noteFilter}
         onNewNote={onNewNote}
@@ -58,6 +64,7 @@ export const SidebarTimelineChromeWithUpcomingMeeting = memo(
 );
 
 function SidebarTimelineChrome({
+  folderFilter,
   hasUpcomingMeeting,
   noteFilter,
   onNewNote,
@@ -67,10 +74,14 @@ function SidebarTimelineChrome({
   sidebarExpanded,
   showSidebarToggle,
 }: {
+  folderFilter: string | null;
   hasUpcomingMeeting: boolean;
   noteFilter: SidebarNoteFilter;
   onNewNote: () => void;
-  onNoteFilterChange: (filter: SidebarNoteFilter) => void;
+  onNoteFilterChange: (
+    filter: SidebarNoteFilter,
+    folderFilter?: string | null,
+  ) => void;
   onSearch: () => void;
   onToggleSidebar: () => void;
   sidebarExpanded: boolean;
@@ -113,6 +124,7 @@ function SidebarTimelineChrome({
               <NotePencil size={15} />
             </LeftSurfaceChromeButton>
             <SidebarNoteFilterMenu
+              folderFilter={folderFilter}
               value={noteFilter}
               onValueChange={onNoteFilterChange}
             />

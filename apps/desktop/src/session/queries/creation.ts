@@ -8,6 +8,7 @@ import {
 import type { SessionChanges } from "./types";
 
 import { executeTransaction, liveQueryClient } from "~/db";
+import { normalizeFolderPath } from "~/session/folders";
 import { DEFAULT_USER_ID, id } from "~/shared/utils";
 
 type EventSqlRow = {
@@ -33,18 +34,19 @@ type SessionIdentitySqlRow = { id: string };
 export async function createSession(
   title = "",
   userId = DEFAULT_USER_ID,
-  initial?: Pick<SessionChanges, "event_json" | "raw_md">,
+  initial?: Pick<SessionChanges, "event_json" | "folder_id" | "raw_md">,
 ): Promise<string> {
   const sessionId = id();
   const participantId = id();
   const now = new Date().toISOString();
+  const folderPath = normalizeFolderPath(initial?.folder_id ?? "") ?? "";
 
   await executeTransaction([
     {
       sql: `
         INSERT INTO sessions (
-          id, workspace_id, owner_user_id, title, event_json, created_at,
-          updated_at, deleted_at
+          id, workspace_id, owner_user_id, title, event_json, folder_path,
+          created_at, updated_at, deleted_at
         ) VALUES (
           ?, NULLIF((
             SELECT json_extract(value_json, '$.workspace_id')
@@ -57,10 +59,18 @@ export async function createSession(
               FROM app_settings
               WHERE id = 'cloudsync_workspace_binding'
             ), '')
-          ), ?, ?, ?, ?, NULL
+          ), ?, ?, ?, ?, ?, NULL
         )
       `,
-      params: [sessionId, userId, title, initial?.event_json ?? "", now, now],
+      params: [
+        sessionId,
+        userId,
+        title,
+        initial?.event_json ?? "",
+        folderPath,
+        now,
+        now,
+      ],
     },
     createEmptyNoteStatement(sessionId, now, initial?.raw_md ?? ""),
     {

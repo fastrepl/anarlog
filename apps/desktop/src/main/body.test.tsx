@@ -9,6 +9,8 @@ import {
 import { forwardRef, useImperativeHandle, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { resetSidebarNotes } from "~/sidebar/note-filter";
+
 const mocks = vi.hoisted(() => ({
   runtimePlatform: null as "windows" | "linux" | null,
   currentTab: {
@@ -241,6 +243,7 @@ function rectWithWidth(width: number) {
 describe("ClassicMainBody", () => {
   beforeEach(() => {
     cleanup();
+    resetSidebarNotes();
     mocks.runtimePlatform = null;
     Object.defineProperty(window, "innerWidth", {
       configurable: true,

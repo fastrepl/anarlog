@@ -4,6 +4,7 @@ import { useSmartCurrentTime } from "./realtime";
 import {
   buildTimelineBuckets,
   deriveTimelineWindowData,
+  filterTimelineTablesByFolder,
   getItemTimestamp,
   type TimelineBucket,
   type TimelineEventsTable,
@@ -49,12 +50,14 @@ function isFutureBucketLabel(label: string) {
 }
 
 export function useTimelineData({
+  folderFilter = null,
   isEventIgnored,
   showIgnored,
   timelineEventsTable,
   timelineSessionsTable,
   timezone,
 }: {
+  folderFilter?: string | null;
   isEventIgnored: (
     trackingId: string | null | undefined,
     recurrenceSeriesId: string | null | undefined,
@@ -67,22 +70,25 @@ export function useTimelineData({
   buckets: TimelineBucket[];
   hasMoreFutureItems: boolean;
 } {
+  const folderScopedTables = useMemo(
+    () =>
+      filterTimelineTablesByFolder({
+        folderFilter,
+        timelineEventsTable,
+        timelineSessionsTable,
+      }),
+    [folderFilter, timelineEventsTable, timelineSessionsTable],
+  );
   const windowData = useMemo(
     () =>
       deriveTimelineWindowData({
         isEventIgnored,
         showIgnored,
-        timelineEventsTable,
-        timelineSessionsTable,
+        timelineEventsTable: folderScopedTables.timelineEventsTable,
+        timelineSessionsTable: folderScopedTables.timelineSessionsTable,
         timezone,
       }),
-    [
-      isEventIgnored,
-      showIgnored,
-      timelineEventsTable,
-      timelineSessionsTable,
-      timezone,
-    ],
+    [folderScopedTables, isEventIgnored, showIgnored, timezone],
   );
   const currentTimeMs = useSmartCurrentTime(
     windowData.timelineEventsTable,

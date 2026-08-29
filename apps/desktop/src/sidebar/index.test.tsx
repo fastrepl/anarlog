@@ -13,16 +13,19 @@ vi.mock("~/store/zustand/tabs", () => ({
 
 vi.mock("~/sidebar/timeline", () => ({
   TimelineView: ({
+    folderFilter = null,
     showOpenCalendarButton = true,
     topChipsOverlapHeader = false,
     topChromeInset = false,
   }: {
+    folderFilter?: string | null;
     showOpenCalendarButton?: boolean;
     topChipsOverlapHeader?: boolean;
     topChromeInset?: boolean;
   }) => (
     <div
       data-testid="timeline-view"
+      data-folder-filter={folderFilter ?? ""}
       data-show-open-calendar-button={String(showOpenCalendarButton)}
       data-top-chips-overlap-header={String(topChipsOverlapHeader)}
       data-top-chrome-inset={String(topChromeInset)}
@@ -111,6 +114,16 @@ describe("LeftSidebar", () => {
 
     expect(screen.queryByTestId("timeline-view")).toBeNull();
     expect(screen.getByTestId("shared-notes-nav")).toBeTruthy();
+  });
+
+  it("keeps the personal timeline when filtering to a folder", () => {
+    render(<LeftSidebar folderFilter="CS 101" />);
+
+    expect(screen.getByTestId("timeline-view")).toBeTruthy();
+    expect(
+      screen.getByTestId("timeline-view").getAttribute("data-folder-filter"),
+    ).toBe("CS 101");
+    expect(screen.queryByTestId("shared-notes-nav")).toBeNull();
   });
 
   it.each([

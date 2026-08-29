@@ -31,10 +31,12 @@ vi.mock("~/stt/pending-upload", () => ({
 
 import {
   openSessionAndListen,
+  useNewNote,
   useNewNoteAndListen,
   useNewNoteAndUpload,
 } from "./useNewNote";
 
+import { resetSidebarNotes, useSidebarNotes } from "~/sidebar/note-filter";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
 import { resetTabsStore } from "~/store/zustand/tabs/test-utils";
@@ -42,7 +44,22 @@ import { resetTabsStore } from "~/store/zustand/tabs/test-utils";
 beforeEach(() => {
   vi.clearAllMocks();
   resetTabsStore();
+  resetSidebarNotes();
   listenerStore.setState(listenerStore.getInitialState(), true);
+});
+
+it("creates a note in the active sidebar folder", async () => {
+  mocks.createSession.mockResolvedValueOnce("folder-session");
+  useSidebarNotes.getState().setView("mine", "CS 101");
+  const { result } = renderHook(() => useNewNote());
+
+  act(() => result.current());
+
+  await vi.waitFor(() => {
+    expect(mocks.createSession).toHaveBeenCalledWith("", undefined, {
+      folder_id: "CS 101",
+    });
+  });
 });
 
 it("can open a listening note without a listener provider", async () => {

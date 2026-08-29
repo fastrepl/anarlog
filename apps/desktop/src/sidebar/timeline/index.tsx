@@ -49,12 +49,14 @@ import { useTimelineSelection } from "~/store/zustand/timeline-selection";
 import { useListener } from "~/stt/contexts";
 
 export const TimelineView = memo(function TimelineView({
+  folderFilter = null,
   showOpenCalendarButton = true,
   showIgnoredEvents,
   onShowIgnoredEventsChange,
   topChipsOverlapHeader = false,
   topChromeInset = false,
 }: {
+  folderFilter?: string | null;
   showOpenCalendarButton?: boolean;
   showIgnoredEvents?: boolean;
   onShowIgnoredEventsChange?: (showIgnored: boolean) => void;
@@ -73,6 +75,7 @@ export const TimelineView = memo(function TimelineView({
 
   const { isIgnored } = useIgnoredEvents();
   const { buckets, hasMoreFutureItems } = useTimelineData({
+    folderFilter,
     isEventIgnored: isIgnored,
     showIgnored,
     timelineEventsTable,

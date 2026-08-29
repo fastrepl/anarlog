@@ -4,6 +4,7 @@ import {
   buildTimelineBuckets,
   calculateTodayIndicatorPlacement,
   deriveTimelineWindowData,
+  filterTimelineTablesByFolder,
   filterTimelineTablesUpToTomorrow,
   getBucketInfo,
   hasTimelineItemsAfterTomorrow,
@@ -635,6 +636,70 @@ describe("timeline utils", () => {
       "next month",
       "in 4 weeks",
       "in 2 weeks",
+    ]);
+  });
+
+  test("filterTimelineTablesByFolder keeps matching sessions and hides calendar events", () => {
+    const filtered = filterTimelineTablesByFolder({
+      folderFilter: "CS 101",
+      timelineEventsTable: {
+        "event-1": {
+          title: "Office hours",
+          started_at: "2024-01-16T09:00:00.000Z",
+          has_recurrence_rules: false,
+        },
+      },
+      timelineSessionsTable: {
+        "session-class": {
+          title: "Lecture 3",
+          created_at: "2024-01-15T11:00:00.000Z",
+          folder_id: "CS 101",
+        },
+        "session-nested": {
+          title: "Lab",
+          created_at: "2024-01-15T12:00:00.000Z",
+          folder_id: "CS 101/week-3",
+        },
+        "session-other": {
+          title: "Standup",
+          created_at: "2024-01-15T13:00:00.000Z",
+          folder_id: "work",
+        },
+        "session-unfiled": {
+          title: "Scratch",
+          created_at: "2024-01-15T14:00:00.000Z",
+          folder_id: "",
+        },
+      },
+    });
+
+    expect(Object.keys(filtered.timelineSessionsTable ?? {})).toEqual([
+      "session-class",
+      "session-nested",
+    ]);
+    expect(filtered.timelineEventsTable).toEqual({});
+  });
+
+  test("filterTimelineTablesByFolder can isolate unfiled notes", () => {
+    const filtered = filterTimelineTablesByFolder({
+      folderFilter: "",
+      timelineEventsTable: {},
+      timelineSessionsTable: {
+        "session-class": {
+          title: "Lecture 3",
+          created_at: "2024-01-15T11:00:00.000Z",
+          folder_id: "CS 101",
+        },
+        "session-unfiled": {
+          title: "Scratch",
+          created_at: "2024-01-15T14:00:00.000Z",
+          folder_id: "",
+        },
+      },
+    });
+
+    expect(Object.keys(filtered.timelineSessionsTable ?? {})).toEqual([
+      "session-unfiled",
     ]);
   });
 });

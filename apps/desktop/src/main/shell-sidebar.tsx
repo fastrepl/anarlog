@@ -10,11 +10,13 @@ import {
 import { useTabs } from "~/store/zustand/tabs";
 
 export function ClassicMainSidebar({
+  folderFilter = null,
   noteFilter = "mine",
   timelineHeader,
   showIgnoredTimelineEvents,
   onShowIgnoredTimelineEventsChange,
 }: {
+  folderFilter?: string | null;
   noteFilter?: SidebarNoteFilter;
   timelineHeader?: ReactNode;
   showIgnoredTimelineEvents?: boolean;
@@ -34,6 +36,7 @@ export function ClassicMainSidebar({
 
   return (
     <LeftSidebar
+      folderFilter={folderFilter}
       noteFilter={noteFilter}
       timelineHeader={timelineHeader}
       showIgnoredTimelineEvents={showIgnoredTimelineEvents}

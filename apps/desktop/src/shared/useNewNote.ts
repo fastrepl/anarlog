@@ -7,9 +7,18 @@ import { useShallow } from "zustand/shallow";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import { createSession } from "~/session/queries";
+import { folderIdForNewNote, useSidebarNotes } from "~/sidebar/note-filter";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
 import { reservePendingUpload } from "~/stt/pending-upload";
+
+function createNoteSession() {
+  const { noteFilter, folderFilter } = useSidebarNotes.getState();
+  const folderId = folderIdForNewNote(noteFilter, folderFilter);
+  return folderId === undefined
+    ? createSession()
+    : createSession("", undefined, { folder_id: folderId });
+}
 
 export function useNewNote({
   behavior = "new",
@@ -25,7 +34,7 @@ export function useNewNote({
 
   const handler = useCallback(() => {
     const ff = behavior === "new" ? openNew : openCurrent;
-    void createSession()
+    void createNoteSession()
       .then((sessionId) => {
         ff({ type: "sessions", id: sessionId });
       })
@@ -64,7 +73,7 @@ export function openNewNoteAndListen({
     return;
   }
 
-  void createSession()
+  void createNoteSession()
     .then((sessionId) => {
       openSessionAndListen(sessionId, { behavior });
     })
@@ -130,7 +139,7 @@ export function useNewNoteAndUpload() {
       }
 
       try {
-        const sessionId = await createSession();
+        const sessionId = await createNoteSession();
         if (!reservation.commit(sessionId)) {
           sonnerToast.error(
             t`Could not prepare this upload. Please try again.`,
