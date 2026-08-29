@@ -42,7 +42,8 @@
           "models-and-providers",
           "ai-setup",
           "offline",
-          "data-and-privacy"
+          "data-and-privacy",
+          "security"
         ]
       },
       {

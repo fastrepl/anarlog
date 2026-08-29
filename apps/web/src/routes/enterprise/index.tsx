@@ -4,17 +4,24 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { cn } from "@anlg/utils";
 
 import { AnarlogLogo } from "@/components/anarlog-logo";
+import { BookFounderCall } from "@/components/book-founder-call";
+import { EnterpriseCtaLink } from "@/components/enterprise-cta-link";
 import {
   LocalFilesVisual,
   MeetingCaptureVisual,
 } from "@/components/home-page/privacy-section";
+import { PilotPath } from "@/components/pilot-path";
+import { SecurityReviewList } from "@/components/security-review-list";
 import { SiteFooter } from "@/components/site-footer";
-import { BOOK_CALL_URL } from "@/lib/enterprise";
+import { useAnalytics } from "@/hooks/use-posthog";
+import { useMountEffect } from "@/hooks/useMountEffect";
+import { ENTERPRISE_EVENTS } from "@/lib/enterprise";
 import { getCanonicalUrl } from "@/lib/seo";
+import { proofStatus, shipsToday, shipsWithPartners } from "@/lib/trust-center";
 
 const title = "Enterprise · Anarlog";
 const description =
-  "Anarlog for teams and enterprises: end-to-end encrypted meeting notes with no meeting bots, workspace admin controls, and a self-hostable server. Book a call with the founder.";
+  "Anarlog for teams: local-first, bot-free meeting notes with end-to-end encrypted sync. Encryption, retention, training, and subprocessors — written so IT, security, and legal can review without a founder call.";
 
 export const Route = createFileRoute("/enterprise/")({
   component: EnterprisePage,
@@ -66,6 +73,12 @@ const pillarRows = [
 ];
 
 function EnterprisePage() {
+  const { track } = useAnalytics();
+
+  useMountEffect(() => {
+    track(ENTERPRISE_EVENTS.pageViewed, { page: "enterprise" });
+  });
+
   return (
     <main className="min-h-screen bg-white text-[#181613]">
       <div className="mx-auto w-full max-w-[700px] px-5 pt-4 pb-8 md:px-8 md:pt-4 md:pb-12">
@@ -78,12 +91,21 @@ function EnterprisePage() {
               Meeting memory your company owns
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
-              Bring Anarlog to your whole team without handing your
-              conversations to another cloud. Notes stay on your machines, sync
-              is end-to-end encrypted, and no bot ever joins a call.
+              Bring Anarlog to your team without handing conversations to
+              another cloud. Notes stay on employee machines, Cloud Sync is
+              end-to-end encrypted, and no bot joins the call. This page is
+              written so you can forward it to IT, security, and legal.
             </p>
-            <div className="mt-8">
-              <BookCallButton />
+            <div className="mt-8 flex flex-col items-center gap-3">
+              <BookFounderCall location="hero" page="enterprise" />
+              <EnterpriseCtaLink
+                to="/security/"
+                cta="trust_center"
+                location="hero"
+                page="enterprise"
+              >
+                Open the trust center
+              </EnterpriseCtaLink>
             </div>
             <p className="mt-3 text-xs text-[#756b5d]">
               30 minutes, directly with the founder. No SDR queue.
@@ -126,6 +148,47 @@ function EnterprisePage() {
             </div>
           </section>
 
+          <section className="pt-12 pb-4 md:pt-16 md:pb-6">
+            <h2 className="font-hand text-3xl leading-none font-semibold text-[#181613]">
+              For IT, security, and legal
+            </h2>
+            <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-[#4f4940]">
+              The answers below are the same facts we use on questionnaires. The{" "}
+              <EnterpriseCtaLink
+                to="/security/"
+                cta="trust_center"
+                location="security_review"
+                page="enterprise"
+                className="text-base text-[#4f4940]"
+              >
+                trust center
+              </EnterpriseCtaLink>{" "}
+              has architecture, processors, retention, and the procurement
+              packet.
+            </p>
+            <SecurityReviewList />
+            <div className="mt-8 flex flex-col gap-3 text-left text-sm leading-6 text-[#4f4940] md:flex-row md:gap-8">
+              <div className="flex-1">
+                <h3 className="font-medium text-[#181613]">Ships today</h3>
+                <ul className="mt-2 list-disc space-y-1.5 pl-5">
+                  {shipsToday.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-medium text-[#181613]">
+                  With early partners
+                </h3>
+                <ul className="mt-2 list-disc space-y-1.5 pl-5">
+                  {shipsWithPartners.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
+
           <section className="pt-12 pb-4 md:pt-14 md:pb-6">
             <div
               className="flex items-center justify-center pb-4 select-none"
@@ -145,14 +208,12 @@ function EnterprisePage() {
               </span>
             </div>
             <h2 className="font-hand text-3xl leading-none font-semibold text-[#181613]">
-              Built with early partners
+              How an evaluation works
             </h2>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-[#4f4940]">
-              Team workspaces with admin controls, SSO and SCIM, and the
-              self-hosted server are in active development. Early enterprise
-              partners work directly with the founding team and shape what ships
-              first.
+              {proofStatus.body}
             </p>
+            <PilotPath />
           </section>
 
           <section className="pt-8 pb-20 md:pt-10 md:pb-24">
@@ -160,17 +221,20 @@ function EnterprisePage() {
               Talk to us
             </h2>
             <p className="mx-auto mt-5 max-w-lg text-base leading-7 text-[#4f4940]">
-              Tell us about your team and your compliance needs — we'll show you
-              what works today and what lands next.
+              Tell us about the team, the data boundary you need, and who on
+              security has to sign off. We'll show what works today and what
+              lands next.
             </p>
             <div className="mt-8 flex flex-col items-center gap-4">
-              <BookCallButton />
-              <Link
+              <BookFounderCall location="talk" page="enterprise" />
+              <EnterpriseCtaLink
                 to="/pricing/"
-                className="text-sm text-[#756b5d] underline decoration-[#d9cdb8] underline-offset-4 transition-colors hover:text-[#181613]"
+                cta="pricing"
+                location="talk"
+                page="enterprise"
               >
                 Compare plans and pricing
-              </Link>
+              </EnterpriseCtaLink>
             </div>
           </section>
         </div>
@@ -294,18 +358,5 @@ function SelfHostVisual() {
         />
       </div>
     </div>
-  );
-}
-
-function BookCallButton() {
-  return (
-    <a
-      href={BOOK_CALL_URL}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex h-11 items-center justify-center rounded-full bg-[#181613] px-6 text-sm font-medium text-white transition-all hover:scale-[102%] hover:bg-[#4f4940] active:scale-[98%]"
-    >
-      Book a call with the founder
-    </a>
   );
 }

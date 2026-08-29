@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 
 const heading = "Rolling Anarlog out to a team?";
 const body =
-  "Workspace admin, SSO, and a self-hosted server for regulated environments — shaped with early partners.";
+  "Forward the enterprise page to IT: encryption, retention, training, and subprocessors, then a founder-led pilot.";
 const ctaClassName =
   "inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-[#181613] px-6 text-sm font-medium text-white transition-all hover:scale-[102%] hover:bg-[#4f4940] active:scale-[98%]";
 

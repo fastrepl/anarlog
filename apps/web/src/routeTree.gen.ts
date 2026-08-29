@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UpdatePasswordRouteImport } from './routes/update-password'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as SecurityRouteImport } from './routes/security'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as DiscordRouteImport } from './routes/discord'
@@ -83,6 +84,11 @@ const UpdatePasswordRoute = UpdatePasswordRouteImport.update({
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SecurityRoute = SecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -414,6 +420,7 @@ export interface FileRoutesByFullPath {
   '/discord': typeof DiscordRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/security': typeof SecurityRoute
   '/terms': typeof TermsRoute
   '/update-password': typeof UpdatePasswordRoute
   '/app': typeof ViewAppRouteRouteWithChildren
@@ -480,6 +487,7 @@ export interface FileRoutesByTo {
   '/discord': typeof DiscordRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/security': typeof SecurityRoute
   '/terms': typeof TermsRoute
   '/update-password': typeof UpdatePasswordRoute
   '/api/shortcuts': typeof ApiShortcutsRoute
@@ -547,6 +555,7 @@ export interface FileRoutesById {
   '/discord': typeof DiscordRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/security': typeof SecurityRoute
   '/terms': typeof TermsRoute
   '/update-password': typeof UpdatePasswordRoute
   '/_view/app': typeof ViewAppRouteRouteWithChildren
@@ -615,6 +624,7 @@ export interface FileRouteTypes {
     | '/discord'
     | '/privacy'
     | '/reset-password'
+    | '/security'
     | '/terms'
     | '/update-password'
     | '/app'
@@ -681,6 +691,7 @@ export interface FileRouteTypes {
     | '/discord'
     | '/privacy'
     | '/reset-password'
+    | '/security'
     | '/terms'
     | '/update-password'
     | '/api/shortcuts'
@@ -747,6 +758,7 @@ export interface FileRouteTypes {
     | '/discord'
     | '/privacy'
     | '/reset-password'
+    | '/security'
     | '/terms'
     | '/update-password'
     | '/_view/app'
@@ -815,6 +827,7 @@ export interface RootRouteChildren {
   DiscordRoute: typeof DiscordRoute
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  SecurityRoute: typeof SecurityRoute
   TermsRoute: typeof TermsRoute
   UpdatePasswordRoute: typeof UpdatePasswordRoute
   ApiShortcutsRoute: typeof ApiShortcutsRoute
@@ -874,6 +887,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/security': {
+      id: '/security'
+      path: '/security'
+      fullPath: '/security'
+      preLoaderRoute: typeof SecurityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -1378,6 +1398,7 @@ const rootRouteChildren: RootRouteChildren = {
   DiscordRoute: DiscordRoute,
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  SecurityRoute: SecurityRoute,
   TermsRoute: TermsRoute,
   UpdatePasswordRoute: UpdatePasswordRoute,
   ApiShortcutsRoute: ApiShortcutsRoute,
