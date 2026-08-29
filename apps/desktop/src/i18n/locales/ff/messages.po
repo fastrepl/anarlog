@@ -2904,6 +2904,7 @@ msgid "No emoji found"
 msgstr ""
 
 #: src/session/components/folder-picker.tsx
+#: src/sidebar/note-filter-menu.tsx
 msgid "No folder"
 msgstr ""
 
