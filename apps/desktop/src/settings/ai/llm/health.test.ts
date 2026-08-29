@@ -21,6 +21,15 @@ describe("llmHealthErrorMessage", () => {
     ).toBe("invalid_model");
   });
 
+  test("reads Codex FastAPI detail payloads", () => {
+    expect(
+      llmHealthErrorMessage({
+        message: "Bad Request",
+        data: { detail: "Unsupported parameter: max_output_tokens" },
+      }),
+    ).toBe("Unsupported parameter: max_output_tokens");
+  });
+
   test("falls back to the first useful error line", () => {
     expect(
       llmHealthErrorMessage({

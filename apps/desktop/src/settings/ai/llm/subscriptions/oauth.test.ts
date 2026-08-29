@@ -14,6 +14,7 @@ import {
   looksLikeAuthorizationInput,
   parseAuthorizationInput,
   parseChatgptAccountId,
+  parseChatgptResidency,
   subscriptionAuthFromCallback,
   usesSubscriptionFetch,
 } from "./oauth";
@@ -196,7 +197,29 @@ describe("subscription OAuth helpers", () => {
       "https://api.openai.com/auth": { chatgpt_account_id: "acct_workspace" },
     });
     expect(parseChatgptAccountId(token)).toBe("acct_workspace");
+    expect(
+      parseChatgptAccountId(chatgptJwt({ organizations: [{ id: "org_1" }] })),
+    ).toBe("org_1");
     expect(parseChatgptAccountId("sk-not-a-jwt")).toBeUndefined();
+  });
+
+  test("reads ChatGPT compute residency from token claims", () => {
+    expect(
+      parseChatgptResidency(
+        chatgptJwt({
+          "https://api.openai.com/auth": { chatgpt_compute_residency: "us" },
+        }),
+      ),
+    ).toBe("us");
+    expect(
+      parseChatgptResidency(
+        chatgptJwt({
+          "https://api.openai.com/auth": {
+            chatgpt_compute_residency: "no_constraint",
+          },
+        }),
+      ),
+    ).toBeUndefined();
   });
 
   test("rewrites platform OpenAI URLs onto the Codex backend", () => {
@@ -211,13 +234,18 @@ describe("subscription OAuth helpers", () => {
     ).toBe("https://chatgpt.com/backend-api/codex/responses");
   });
 
-  test("forces store=false on Codex Responses bodies", () => {
+  test("rewrites Codex Responses bodies to the ChatGPT backend contract", () => {
     expect(chatgptResponsesBody('{"model":"gpt-5.4","store":true}')).toBe(
-      '{"model":"gpt-5.4","store":false}',
+      '{"model":"gpt-5.4","store":false,"stream":true}',
     );
     expect(chatgptResponsesBody('{"model":"gpt-5.4"}')).toBe(
-      '{"model":"gpt-5.4","store":false}',
+      '{"model":"gpt-5.4","store":false,"stream":true}',
     );
+    expect(
+      chatgptResponsesBody(
+        '{"model":"gpt-5.4","store":false,"max_output_tokens":8192}',
+      ),
+    ).toBe('{"model":"gpt-5.4","store":false,"stream":true}');
   });
 });
 

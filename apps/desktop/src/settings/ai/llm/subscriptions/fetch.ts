@@ -9,6 +9,7 @@ import {
   claudeMessagesUrl,
   COPILOT_REQUEST_HEADERS,
   parseChatgptAccountId,
+  parseChatgptResidency,
 } from "./oauth";
 
 export function createSubscriptionFetch(
@@ -48,6 +49,13 @@ export function createSubscriptionFetch(
       const accountId = credential?.accountId ?? parseChatgptAccountId(token);
       if (accountId) {
         headers.set("ChatGPT-Account-ID", accountId);
+      }
+      const residency = parseChatgptResidency(token);
+      if (residency) {
+        headers.set("x-openai-internal-codex-residency", residency);
+      }
+      if (!headers.has("session_id") && !headers.has("session-id")) {
+        headers.set("session_id", crypto.randomUUID());
       }
       const url = chatgptCodexUrl(requestUrl(input));
       const body = url.includes("/responses")

@@ -626,7 +626,51 @@ export function parseChatgptAccountId(jwt?: string): string | undefined {
   }
 
   const direct = payload.chatgpt_account_id;
-  return typeof direct === "string" && direct.length > 0 ? direct : undefined;
+  if (typeof direct === "string" && direct.length > 0) {
+    return direct;
+  }
+
+  const organizations = payload.organizations;
+  if (Array.isArray(organizations)) {
+    const first = organizations[0];
+    if (first && typeof first === "object") {
+      const id = (first as Record<string, unknown>).id;
+      if (typeof id === "string" && id.length > 0) {
+        return id;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+export function parseChatgptResidency(jwt?: string): string | undefined {
+  if (!jwt) {
+    return undefined;
+  }
+
+  const payload = decodeJwtPayload(jwt);
+  if (!payload) {
+    return undefined;
+  }
+
+  const auth = payload["https://api.openai.com/auth"];
+  const nested =
+    auth && typeof auth === "object"
+      ? (auth as Record<string, unknown>).chatgpt_compute_residency
+      : undefined;
+  const residency =
+    (typeof nested === "string" && nested.length > 0 ? nested : undefined) ??
+    (typeof payload.chatgpt_compute_residency === "string" &&
+    payload.chatgpt_compute_residency.length > 0
+      ? payload.chatgpt_compute_residency
+      : undefined);
+
+  if (!residency || residency === "no_constraint") {
+    return undefined;
+  }
+
+  return residency;
 }
 
 function decodeJwtPayload(jwt: string): Record<string, unknown> | null {
@@ -665,10 +709,10 @@ export function chatgptResponsesBody(body: BodyInit | null | undefined) {
 
   try {
     const parsed = JSON.parse(body) as Record<string, unknown>;
-    if (parsed.store === false) {
-      return body;
-    }
-    return JSON.stringify({ ...parsed, store: false });
+    const { max_output_tokens: _omitted, ...rest } = parsed;
+    // Codex rejects platform Responses defaults: store must be false, stream
+    // must be true, and max_output_tokens is unsupported.
+    return JSON.stringify({ ...rest, store: false, stream: true });
   } catch {
     return body;
   }

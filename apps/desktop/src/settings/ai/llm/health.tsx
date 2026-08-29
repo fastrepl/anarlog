@@ -96,6 +96,9 @@ function apiErrorFromUnknown(value: unknown): string | undefined {
   if (typeof record.message === "string" && record.message.trim()) {
     return firstUsefulLine(record.message);
   }
+  if (typeof record.detail === "string" && record.detail.trim()) {
+    return firstUsefulLine(record.detail);
+  }
 
   const nested = record.error;
   if (typeof nested === "string" && nested.trim()) {
