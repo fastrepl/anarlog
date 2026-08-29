@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { sonnerToast, TOAST_DURATIONS } from "@anlg/ui/components/ui/toast";
 
@@ -273,14 +273,10 @@ export function ToastNotifications() {
     return null;
   }
 
-  const descriptionKey =
-    typeof displayToast.description === "string"
-      ? displayToast.description
-      : displayToast.id;
   const previewKey =
     devtoolsPreview && devtoolsToast
       ? `${devtoolsToast.id}:${devtoolsPreview.key}`
-      : `${displayToast.id}:${descriptionKey}`;
+      : displayToast.id;
 
   return (
     <SonnerNotification
@@ -293,6 +289,58 @@ export function ToastNotifications() {
   );
 }
 
+function toastPresentation(toast: ToastType) {
+  const description =
+    typeof toast.description === "string" ? toast.description : toast.id;
+  return [
+    toast.id,
+    description,
+    toast.variant ?? "default",
+    toast.loading ? "loading" : "idle",
+    toast.primaryAction?.label ?? "",
+  ].join(":");
+}
+
+function showSonnerNotification(
+  toast: ToastType,
+  toastRef: { current: ToastType },
+  onDismissRef: { current?: () => void },
+  dismissal: { persist: boolean },
+) {
+  const dismissible = toast.lifecycle.type === "persistent";
+  const options = {
+    id: toast.id,
+    duration: toast.variant === "error" ? TOAST_DURATIONS.error : Infinity,
+    closeButton: dismissible,
+    dismissible,
+    icon: toast.icon,
+    action: toast.primaryAction
+      ? {
+          label: toast.primaryAction.label,
+          onClick: () => {
+            dismissal.persist = false;
+            void toastRef.current.primaryAction?.onClick();
+          },
+        }
+      : undefined,
+    onDismiss: () => {
+      if (dismissal.persist) {
+        onDismissRef.current?.();
+      }
+    },
+  };
+
+  if (toast.loading) {
+    sonnerToast.loading(toast.description, options);
+  } else if (toast.variant === "error") {
+    sonnerToast.error(toast.description, options);
+  } else if (toast.variant === "warning") {
+    sonnerToast.warning(toast.description, options);
+  } else {
+    sonnerToast.message(toast.description, options);
+  }
+}
+
 function SonnerNotification({
   toast,
   onDismiss,
@@ -302,44 +350,25 @@ function SonnerNotification({
 }) {
   const toastRef = useLatestRef(toast);
   const onDismissRef = useLatestRef(onDismiss);
+  const dismissalRef = useRef({ persist: true });
+  const shownPresentationRef = useRef<string | null>(null);
+  const presentation = toastPresentation(toast);
+
+  if (
+    shownPresentationRef.current !== null &&
+    shownPresentationRef.current !== presentation
+  ) {
+    shownPresentationRef.current = presentation;
+    showSonnerNotification(toast, toastRef, onDismissRef, dismissalRef.current);
+  }
 
   useMountEffect(() => {
-    let shouldPersistDismissal = true;
-    const dismissible = toast.lifecycle.type === "persistent";
-    const options = {
-      id: toast.id,
-      duration: toast.variant === "error" ? TOAST_DURATIONS.error : Infinity,
-      closeButton: dismissible,
-      dismissible,
-      icon: toast.icon,
-      action: toast.primaryAction
-        ? {
-            label: toast.primaryAction.label,
-            onClick: () => {
-              shouldPersistDismissal = false;
-              void toastRef.current.primaryAction?.onClick();
-            },
-          }
-        : undefined,
-      onDismiss: () => {
-        if (shouldPersistDismissal) {
-          onDismissRef.current?.();
-        }
-      },
-    };
-
-    if (toast.loading) {
-      sonnerToast.loading(toast.description, options);
-    } else if (toast.variant === "error") {
-      sonnerToast.error(toast.description, options);
-    } else if (toast.variant === "warning") {
-      sonnerToast.warning(toast.description, options);
-    } else {
-      sonnerToast.message(toast.description, options);
-    }
+    dismissalRef.current.persist = true;
+    shownPresentationRef.current = toastPresentation(toast);
+    showSonnerNotification(toast, toastRef, onDismissRef, dismissalRef.current);
 
     return () => {
-      shouldPersistDismissal = false;
+      dismissalRef.current.persist = false;
       sonnerToast.dismiss(toast.id);
     };
   });

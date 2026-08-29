@@ -290,6 +290,36 @@ describe("ToastNotifications", () => {
     );
   });
 
+  it("updates download progress without dismissing the toast", () => {
+    mocks.update.status = "downloading";
+    mocks.update.version = "1.0.34";
+    mocks.update.progress = 0.1;
+
+    const view = render(<ToastNotifications />);
+    act(() => vi.advanceTimersByTime(500));
+
+    expect(mocks.loading).toHaveBeenCalledWith(
+      "Downloading Anarlog 1.0.34 (10%)",
+      expect.objectContaining({
+        id: "desktop-update:1.0.34:downloading",
+        duration: Infinity,
+      }),
+    );
+
+    mocks.loading.mockClear();
+    mocks.dismiss.mockClear();
+    mocks.update.progress = 0.58;
+    view.rerender(<ToastNotifications />);
+
+    expect(mocks.dismiss).not.toHaveBeenCalled();
+    expect(mocks.loading).toHaveBeenCalledWith(
+      "Downloading Anarlog 1.0.34 (58%)",
+      expect.objectContaining({
+        id: "desktop-update:1.0.34:downloading",
+      }),
+    );
+  });
+
   it("uses the latest registry action while a toast remains visible", () => {
     mocks.dismissedToastIds.add("auth-promotion");
     mocks.config.current_llm_provider = null;
