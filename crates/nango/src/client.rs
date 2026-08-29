@@ -74,6 +74,17 @@ pub(crate) async fn check_response(
     }
 }
 
+pub(crate) async fn response_bytes(response: reqwest::Response) -> Result<Vec<u8>, crate::Error> {
+    let status = response.status();
+    let bytes = response.bytes().await?;
+    if status.is_success() {
+        Ok(bytes.to_vec())
+    } else {
+        let body = String::from_utf8_lossy(&bytes).into_owned();
+        Err(crate::Error::Api(status.as_u16(), body))
+    }
+}
+
 pub(crate) async fn parse_response<T: DeserializeOwned>(
     response: reqwest::Response,
 ) -> Result<T, crate::Error> {

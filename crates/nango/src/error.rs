@@ -26,3 +26,21 @@ impl Serialize for Error {
         serializer.serialize_str(self.to_string().as_ref())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Error;
+
+    #[test]
+    fn api_error_keeps_status_and_body() {
+        let err = Error::Api(
+            500,
+            r#"{"error":{"code":"InvalidAuthenticationToken","message":"the token is expired."}}"#
+                .to_string(),
+        );
+        let message = err.to_string();
+        assert!(message.contains("status 500"));
+        assert!(message.contains("InvalidAuthenticationToken"));
+        assert!(message.contains("the token is expired"));
+    }
+}

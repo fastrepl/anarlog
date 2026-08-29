@@ -273,10 +273,14 @@ impl std::error::Error for NangoConnectionError {}
 pub fn is_provider_auth_failure(message: &str) -> bool {
     let lower = message.to_lowercase();
     lower.contains("(401")
+        || lower.contains("status 401")
         || lower.contains("invalidauthenticationtoken")
+        || lower.contains("invalid_credentials")
         || lower.contains("token is expired")
         || lower.contains("lifetime validation failed")
         || lower.contains("invalid_grant")
+        || lower.contains("could not refresh")
+        || lower.contains("refresh access token")
 }
 
 impl<S: Send + Sync, I: NangoIntegrationId> FromRequestParts<S> for NangoConnection<I> {
@@ -323,8 +327,17 @@ mod tests {
             r#"{"error":{"code":"InvalidAuthenticationToken","message":"Lifetime validation failed, the token is expired."}}"#
         ));
         assert!(is_provider_auth_failure("invalid_grant"));
+        assert!(is_provider_auth_failure(
+            r#"API error (status 500): {"error":{"code":"InvalidAuthenticationToken","message":"Lifetime validation failed, the token is expired."}}"#
+        ));
+        assert!(is_provider_auth_failure(
+            r#"API error (status 500): {"error":{"code":"invalid_credentials","message":"Could not refresh access token for connection"}}"#
+        ));
         assert!(!is_provider_auth_failure(
             "HTTP status server error (500 Internal Server Error) for url (https://api.nango.dev/proxy/me/calendars)"
+        ));
+        assert!(!is_provider_auth_failure(
+            "API error (status 500): Internal Server Error"
         ));
         assert!(!is_provider_auth_failure(
             "HTTP status client error (403 Forbidden) for url (https://api.nango.dev/proxy/me/calendars/AAMk)"
