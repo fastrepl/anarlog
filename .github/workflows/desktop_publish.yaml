@@ -573,28 +573,12 @@ jobs:
     with:
       version: ${{ needs.parse.outputs.version }}
       candidate_sha: ${{ needs.parse.outputs.candidate_sha }}
-      include_macos: false
       include_windows: true
       submit_to_stores: true
     secrets:
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
-      APPSTORE_API_PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
-      APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
       AZURE_AD_APPLICATION_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
       CN_API_KEY: ${{ secrets.CN_API_KEY }}
-      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-      MAC_APP_STORE_APPLICATION_CERTIFICATE: ${{ secrets.MAC_APP_STORE_APPLICATION_CERTIFICATE }}
-      MAC_APP_STORE_APPLICATION_CERTIFICATE_PASSWORD: ${{ secrets.MAC_APP_STORE_APPLICATION_CERTIFICATE_PASSWORD }}
-      MAC_APP_STORE_INSTALLER_CERTIFICATE: ${{ secrets.MAC_APP_STORE_INSTALLER_CERTIFICATE }}
-      MAC_APP_STORE_INSTALLER_CERTIFICATE_PASSWORD: ${{ secrets.MAC_APP_STORE_INSTALLER_CERTIFICATE_PASSWORD }}
-      MAC_APP_STORE_PROVISIONING_PROFILE: ${{ secrets.MAC_APP_STORE_PROVISIONING_PROFILE }}
-      POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
       SELLER_ID: ${{ secrets.SELLER_ID }}
-      SENTRY_DSN_HYPRNOTE_2: ${{ secrets.SENTRY_DSN_HYPRNOTE_2 }}
-      VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
-      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
 
   linux-package-bump:
     needs: [parse, gh-release]

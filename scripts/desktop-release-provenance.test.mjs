@@ -294,35 +294,18 @@ test("stable desktop releases submit only the Microsoft Store package", async ()
     storePublishJob,
     /uses: \.\/\.github\/workflows\/desktop_store_publish\.yaml/,
   );
-  assert.match(storePublishJob, /include_macos: false/);
+  assert.doesNotMatch(storePublishJob, /include_macos/);
   assert.match(storePublishJob, /include_windows: true/);
   assert.match(storePublishJob, /submit_to_stores: true/);
   assert.doesNotMatch(storePublishJob, /secrets: inherit/);
-  assert.match(
-    storeWorkflow,
-    /node workflow-source\/scripts\/app-store-connect-submit\.mjs/,
-  );
-  assert.match(storeWorkflow, /Submitted to App Review/);
+  assert.doesNotMatch(storeWorkflow, /\n  mac-app-store:\n/);
+  assert.doesNotMatch(storeWorkflow, /app-store-connect-submit/);
+  assert.doesNotMatch(storeWorkflow, /Submitted to App Review/);
 
   const expectedSecrets = [
-    "APPLE_TEAM_ID",
-    "APPSTORE_API_KEY_ID",
-    "APPSTORE_API_PRIVATE_KEY",
-    "APPSTORE_ISSUER_ID",
     "AZURE_AD_APPLICATION_SECRET",
     "CN_API_KEY",
-    "KEYCHAIN_PASSWORD",
-    "MAC_APP_STORE_APPLICATION_CERTIFICATE",
-    "MAC_APP_STORE_APPLICATION_CERTIFICATE_PASSWORD",
-    "MAC_APP_STORE_INSTALLER_CERTIFICATE",
-    "MAC_APP_STORE_INSTALLER_CERTIFICATE_PASSWORD",
-    "MAC_APP_STORE_PROVISIONING_PROFILE",
-    "POSTHOG_API_KEY",
     "SELLER_ID",
-    "SENTRY_DSN_HYPRNOTE_2",
-    "VITE_PRO_PRODUCT_ID",
-    "VITE_SUPABASE_ANON_KEY",
-    "VITE_SUPABASE_URL",
   ];
   const declaredSecrets = [
     ...storeWorkflow.matchAll(
@@ -342,80 +325,20 @@ test("stable desktop releases submit only the Microsoft Store package", async ()
   assert.deepEqual(forwardedSecrets, expectedSecrets);
 });
 
-test("Mac App Store builds include a compiled app icon catalog", async () => {
-  const [storeWorkflow, appStoreConfig, stableConfig] = await Promise.all([
+test("desktop release workflows do not submit to the Mac App Store", async () => {
+  const [desktopCi, storeWorkflow] = await Promise.all([
+    readFile(".github/workflows/desktop_ci.yaml", "utf8"),
     readFile(".github/workflows/desktop_store_publish.yaml", "utf8"),
-    readFile("apps/desktop/src-tauri/tauri.conf.app-store.json", "utf8").then(
-      JSON.parse,
-    ),
-    readFile("apps/desktop/src-tauri/tauri.conf.stable.json", "utf8").then(
-      JSON.parse,
-    ),
   ]);
 
-  assert.match(storeWorkflow, /name: Compile Mac App Store asset catalog/);
-  assert.match(storeWorkflow, /xcrun actool/);
-  assert.match(storeWorkflow, /icons\/stable\/icon\.icns/);
-  assert.match(storeWorkflow, /AppIcon\.appiconset/);
-  assert.match(storeWorkflow, /icon_512x512@2x\.png/);
-  assert.doesNotMatch(storeWorkflow, /icons\/src\/stable\.icon/);
-  assert.match(storeWorkflow, /Contents\/Resources\/Assets\.car/);
-  assert.match(
-    storeWorkflow,
-    /security find-identity -v "\$RUNNER_TEMP\/mac-app-store\.keychain-db"/,
-  );
-  assert.doesNotMatch(
-    storeWorkflow,
-    /APPLICATION_CERT_SHA1:.*application-cert-sha1/,
-  );
-  assert.doesNotMatch(storeWorkflow, /application_cert_sha1\^\^/);
-  assert.match(
-    storeWorkflow,
-    /\.bundle\.macOS\.files\["Resources\/Assets\.car"\]/,
-  );
-  assert.equal(
-    appStoreConfig.bundle.macOS.files["Resources/Assets.car"],
-    "./resources/app-store/Assets.car",
-  );
-  assert.equal(
-    stableConfig.bundle.macOS.files["Resources/Assets.car"],
-    undefined,
-  );
-});
-
-test("desktop CI does not build Mac App Store candidates", async () => {
-  const desktopCi = await readFile(".github/workflows/desktop_ci.yaml", "utf8");
   assert.doesNotMatch(desktopCi, /Build unsigned Mac App Store candidate/);
   assert.doesNotMatch(desktopCi, /tauri.conf.app-store.json/);
   assert.doesNotMatch(desktopCi, /anarlog-mac-app-store-unsigned/);
-});
-
-test("keeps Mac App Store privacy metadata and replacement builds reviewable", async () => {
-  const [entitlements, infoPlist, storeWorkflow, submitScript] =
-    await Promise.all([
-      readFile("apps/desktop/src-tauri/Entitlements.app-store.plist", "utf8"),
-      readFile("apps/desktop/src-tauri/Info.plist", "utf8"),
-      readFile(".github/workflows/desktop_store_publish.yaml", "utf8"),
-      readFile("scripts/app-store-connect-submit.mjs", "utf8"),
-    ]);
-
-  assert.doesNotMatch(entitlements, /com\.apple\.security\.network\.server/);
-  assert.match(infoPlist, /NSContactsUsageDescription/);
-  assert.match(
-    infoPlist,
-    /match calendar attendees with names and email addresses saved on your Mac/,
-  );
-  assert.match(storeWorkflow, /build_number:/);
-  assert.match(storeWorkflow, /git merge-base --is-ancestor/);
-  assert.match(storeWorkflow, /compare\/\$candidate_sha\.\.\.main/);
-  assert.match(storeWorkflow, /comparison_status.*identical/);
-  assert.match(storeWorkflow, /bundleVersion = \$build/);
-  assert.match(storeWorkflow, /--build-version "\$BUILD_NUMBER"/);
-  assert.match(submitScript, /"filter\[version\]": buildVersion/);
-  assert.match(
-    submitScript,
-    /"filter\[state\]": "READY_FOR_REVIEW,UNRESOLVED_ISSUES"/,
-  );
+  assert.doesNotMatch(storeWorkflow, /\n  mac-app-store:\n/);
+  assert.doesNotMatch(storeWorkflow, /include_macos/);
+  assert.doesNotMatch(storeWorkflow, /app-store-connect-submit/);
+  assert.doesNotMatch(storeWorkflow, /MAC_APP_STORE_/);
+  assert.doesNotMatch(storeWorkflow, /APPSTORE_/);
 });
 
 test("binds every release asset to a candidate run and detects replacement", async () => {

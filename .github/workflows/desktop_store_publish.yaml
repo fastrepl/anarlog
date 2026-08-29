@@ -11,59 +11,20 @@ on:
         description: "Exact 40-character commit tagged for the stable release"
         required: true
         type: string
-      build_number:
-        description: "Optional macOS CFBundleVersion for a replacement build"
-        required: false
-        type: string
-        default: ""
-      include_macos:
-        description: "Build the signed Mac App Store package"
-        type: boolean
-        default: false
       include_windows:
         description: "Prepare the Microsoft Store package update"
         type: boolean
         default: true
       submit_to_stores:
-        description: "Upload to App Store Connect and submit the Microsoft Store update"
+        description: "Submit the Microsoft Store update"
         type: boolean
         default: false
     secrets:
-      APPLE_TEAM_ID:
-        required: false
-      APPSTORE_API_KEY_ID:
-        required: false
-      APPSTORE_API_PRIVATE_KEY:
-        required: false
-      APPSTORE_ISSUER_ID:
-        required: false
       AZURE_AD_APPLICATION_SECRET:
         required: false
       CN_API_KEY:
         required: false
-      KEYCHAIN_PASSWORD:
-        required: false
-      MAC_APP_STORE_APPLICATION_CERTIFICATE:
-        required: false
-      MAC_APP_STORE_APPLICATION_CERTIFICATE_PASSWORD:
-        required: false
-      MAC_APP_STORE_INSTALLER_CERTIFICATE:
-        required: false
-      MAC_APP_STORE_INSTALLER_CERTIFICATE_PASSWORD:
-        required: false
-      MAC_APP_STORE_PROVISIONING_PROFILE:
-        required: false
-      POSTHOG_API_KEY:
-        required: false
       SELLER_ID:
-        required: false
-      SENTRY_DSN_HYPRNOTE_2:
-        required: false
-      VITE_PRO_PRODUCT_ID:
-        required: false
-      VITE_SUPABASE_ANON_KEY:
-        required: false
-      VITE_SUPABASE_URL:
         required: false
   workflow_dispatch:
     inputs:
@@ -75,21 +36,12 @@ on:
         description: "Exact 40-character commit tagged for the stable release"
         required: true
         type: string
-      build_number:
-        description: "Optional macOS CFBundleVersion for a replacement build"
-        required: false
-        type: string
-        default: ""
-      include_macos:
-        description: "Build the signed Mac App Store package"
-        type: boolean
-        default: false
       include_windows:
         description: "Prepare the Microsoft Store package update"
         type: boolean
         default: true
       submit_to_stores:
-        description: "Upload to App Store Connect and submit the Microsoft Store update"
+        description: "Submit the Microsoft Store update"
         type: boolean
         default: false
 
@@ -115,11 +67,9 @@ jobs:
           persist-credentials: false
       - id: validate
         env:
-          BUILD_NUMBER: ${{ inputs.build_number }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           EXECUTION_REF: ${{ github.ref }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          INCLUDE_MACOS: ${{ inputs.include_macos }}
           INCLUDE_WINDOWS: ${{ inputs.include_windows }}
           VERSION: ${{ inputs.version }}
         run: |
@@ -133,8 +83,8 @@ jobs:
             echo "::error::Candidate SHA must be a full 40-character commit SHA"
             exit 1
           fi
-          if [[ "$INCLUDE_MACOS" != "true" && "$INCLUDE_WINDOWS" != "true" ]]; then
-            echo "::error::Select at least one store"
+          if [[ "$INCLUDE_WINDOWS" != "true" ]]; then
+            echo "::error::Microsoft Store publication requires include_windows"
             exit 1
           fi
           if [[ "$EXECUTION_REF" != "refs/heads/main" ]]; then
@@ -151,22 +101,7 @@ jobs:
             echo "::error::Checked out $checked_out_sha instead of candidate $candidate_sha"
             exit 1
           fi
-          if [[ -n "$BUILD_NUMBER" ]]; then
-            if [[ ! "$BUILD_NUMBER" =~ ^[0-9]{1,4}(\.[0-9]{1,2}){0,2}$ ]]; then
-              echo "::error::macOS build number must contain one to three numeric components"
-              exit 1
-            fi
-            if ! git merge-base --is-ancestor "$tag_sha" "$candidate_sha"; then
-              echo "::error::Replacement candidate $candidate_sha does not include release tag $tag"
-              exit 1
-            fi
-            comparison=$(gh api "repos/$GITHUB_REPOSITORY/compare/$candidate_sha...main")
-            comparison_status=$(jq -r '.status' <<< "$comparison")
-            if [[ "$comparison_status" != "identical" && "$comparison_status" != "ahead" ]]; then
-              echo "::error::Replacement candidate $candidate_sha is not on main"
-              exit 1
-            fi
-          elif [[ "$tag_sha" != "$candidate_sha" ]]; then
+          if [[ "$tag_sha" != "$candidate_sha" ]]; then
             echo "::error::Tag $tag points to $tag_sha instead of candidate $candidate_sha"
             exit 1
           fi
@@ -184,449 +119,6 @@ jobs:
 
           echo "candidate_sha=$candidate_sha" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-  mac-app-store:
-    if: ${{ inputs.include_macos }}
-    needs: validate
-    runs-on: depot-macos-26
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          ref: ${{ needs.validate.outputs.candidate_sha }}
-          lfs: true
-          fetch-depth: 0
-          fetch-tags: true
-          persist-credentials: false
-          submodules: recursive
-      - name: Set release and build versions
-        env:
-          BUILD_NUMBER: ${{ inputs.build_number || needs.validate.outputs.version }}
-          VERSION: ${{ needs.validate.outputs.version }}
-        run: |
-          set -euo pipefail
-          ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "$VERSION"
-          if [[ ! "$BUILD_NUMBER" =~ ^[0-9]{1,4}(\.[0-9]{1,2}){0,2}$ ]]; then
-            echo "::error::macOS build number must contain one to three numeric components"
-            exit 1
-          fi
-          jq --arg build "$BUILD_NUMBER" '
-            .bundle.macOS.bundleVersion = $build
-          ' apps/desktop/src-tauri/tauri.conf.app-store.json > "$RUNNER_TEMP/tauri.conf.app-store.json"
-          mv "$RUNNER_TEMP/tauri.conf.app-store.json" apps/desktop/src-tauri/tauri.conf.app-store.json
-      - name: Verify Mac App Store configuration
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLICATION_CERTIFICATE: ${{ secrets.MAC_APP_STORE_APPLICATION_CERTIFICATE }}
-          APPLICATION_CERTIFICATE_PASSWORD: ${{ secrets.MAC_APP_STORE_APPLICATION_CERTIFICATE_PASSWORD }}
-          INSTALLER_CERTIFICATE: ${{ secrets.MAC_APP_STORE_INSTALLER_CERTIFICATE }}
-          INSTALLER_CERTIFICATE_PASSWORD: ${{ secrets.MAC_APP_STORE_INSTALLER_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-          PROVISIONING_PROFILE: ${{ secrets.MAC_APP_STORE_PROVISIONING_PROFILE }}
-        run: |
-          set -euo pipefail
-
-          required=(
-            APPLE_TEAM_ID
-            APPLICATION_CERTIFICATE
-            APPLICATION_CERTIFICATE_PASSWORD
-            INSTALLER_CERTIFICATE
-            INSTALLER_CERTIFICATE_PASSWORD
-            KEYCHAIN_PASSWORD
-            PROVISIONING_PROFILE
-          )
-          missing=()
-          for name in "${required[@]}"; do
-            [[ -n "${!name}" ]] || missing+=("$name")
-          done
-          if [[ ${#missing[@]} -gt 0 ]]; then
-            echo "::error::Missing Mac App Store configuration: ${missing[*]}"
-            exit 1
-          fi
-      - uses: ./.github/actions/install_desktop_deps
-        with:
-          target: macos
-      - uses: ./.github/actions/rust_install
-        with:
-          platform: macos
-      - run: echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
-      - uses: ./.github/actions/pnpm_install
-      - run: pnpm -F ui build
-      - uses: ./.github/actions/apple_store_cert
-        id: apple-store-cert
-        with:
-          application-certificate: ${{ secrets.MAC_APP_STORE_APPLICATION_CERTIFICATE }}
-          application-certificate-password: ${{ secrets.MAC_APP_STORE_APPLICATION_CERTIFICATE_PASSWORD }}
-          installer-certificate: ${{ secrets.MAC_APP_STORE_INSTALLER_CERTIFICATE }}
-          installer-certificate-password: ${{ secrets.MAC_APP_STORE_INSTALLER_CERTIFICATE_PASSWORD }}
-          keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
-      - name: Install and verify provisioning profile
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLICATION_CERT_ID: ${{ steps.apple-store-cert.outputs.application-cert-id }}
-          INSTALLER_CERT_ID: ${{ steps.apple-store-cert.outputs.installer-cert-id }}
-          PROVISIONING_PROFILE: ${{ secrets.MAC_APP_STORE_PROVISIONING_PROFILE }}
-        run: |
-          set -euo pipefail
-
-          profile_path="apps/desktop/src-tauri/embedded.provisionprofile"
-          profile_plist="$RUNNER_TEMP/mac-app-store-profile.plist"
-          printf '%s' "$PROVISIONING_PROFILE" | base64 --decode > "$profile_path"
-          security cms -D -i "$profile_path" > "$profile_plist"
-
-          profile_app_id=$(
-            /usr/libexec/PlistBuddy \
-              -c 'Print :Entitlements:com.apple.application-identifier' \
-              "$profile_plist" 2>/dev/null || \
-            /usr/libexec/PlistBuddy \
-              -c 'Print :Entitlements:application-identifier' \
-              "$profile_plist"
-          )
-          profile_team_id=$(
-            /usr/libexec/PlistBuddy \
-              -c 'Print :Entitlements:com.apple.developer.team-identifier' \
-              "$profile_plist" 2>/dev/null || \
-            /usr/libexec/PlistBuddy \
-              -c 'Print :TeamIdentifier:0' \
-              "$profile_plist"
-          )
-          profile_certificate_sha1s=$(
-            python3 - "$profile_plist" <<'PY'
-          import hashlib
-          import plistlib
-          import sys
-
-          with open(sys.argv[1], "rb") as profile_file:
-              profile = plistlib.load(profile_file)
-          for certificate in profile.get("DeveloperCertificates", []):
-              print(hashlib.sha1(certificate).hexdigest().upper())
-          PY
-          )
-          application_cert_sha1=$(
-            security find-identity -v "$RUNNER_TEMP/mac-app-store.keychain-db" |
-              awk -v identity="\"$APPLICATION_CERT_ID\"" \
-                'index($0, identity) { print $2; exit }'
-          )
-          if [[ ! "$application_cert_sha1" =~ ^[0-9A-Fa-f]{40}$ ]]; then
-            echo "::error::Could not read the imported Mac App Distribution certificate fingerprint"
-            exit 1
-          fi
-          application_cert_sha1=$(printf '%s' "$application_cert_sha1" | tr '[:lower:]' '[:upper:]')
-
-          profile_app_prefix="${profile_app_id%.com.hyprnote.desktop}"
-          if [[ -z "$profile_app_prefix" || "$profile_app_prefix" == "$profile_app_id" ]]; then
-            echo "::error::Provisioning profile is for $profile_app_id, expected com.hyprnote.desktop"
-            exit 1
-          fi
-          if [[ "$profile_team_id" != "$APPLE_TEAM_ID" ]]; then
-            echo "::error::Provisioning profile team is $profile_team_id, expected $APPLE_TEAM_ID"
-            exit 1
-          fi
-          if [[ "$APPLICATION_CERT_ID" != *"($APPLE_TEAM_ID)"* ]]; then
-            echo "::error::Mac App Distribution certificate is not for Apple team $APPLE_TEAM_ID"
-            exit 1
-          fi
-          if ! grep -Fxq "$application_cert_sha1" <<< "$profile_certificate_sha1s"; then
-            echo "::error::Provisioning profile does not contain the imported Mac App Distribution certificate"
-            exit 1
-          fi
-          if [[ "$INSTALLER_CERT_ID" != *"($APPLE_TEAM_ID)"* ]]; then
-            echo "::error::Mac Installer Distribution certificate is not for Apple team $APPLE_TEAM_ID"
-            exit 1
-          fi
-
-          entitlements="apps/desktop/src-tauri/Entitlements.app-store.plist"
-          /usr/libexec/PlistBuddy \
-            -c 'Delete :com.apple.application-identifier' \
-            "$entitlements" 2>/dev/null || true
-          /usr/libexec/PlistBuddy \
-            -c "Add :com.apple.application-identifier string $profile_app_id" \
-            "$entitlements"
-          /usr/libexec/PlistBuddy \
-            -c 'Delete :com.apple.developer.team-identifier' \
-            "$entitlements" 2>/dev/null || true
-          /usr/libexec/PlistBuddy \
-            -c "Add :com.apple.developer.team-identifier string $APPLE_TEAM_ID" \
-            "$entitlements"
-      - name: Sign embedded cloudsync library
-        env:
-          APPLICATION_CERT_ID: ${{ steps.apple-store-cert.outputs.application-cert-id }}
-        run: |
-          set -euo pipefail
-
-          cloudsync_dylib="../../crates/cloudsync/vendor/cloudsync/macos/aarch64/cloudsync.dylib"
-          codesign \
-            --force \
-            --sign "$APPLICATION_CERT_ID" \
-            --timestamp \
-            "$cloudsync_dylib"
-          codesign --verify --strict --verbose=2 "$cloudsync_dylib"
-        working-directory: ./apps/desktop
-      - name: Compile Mac App Store asset catalog
-        run: |
-          set -euo pipefail
-
-          asset_output="$RUNNER_TEMP/mac-app-store-assets"
-          asset_source="$RUNNER_TEMP/AnarlogAssets.xcassets"
-          extracted_iconset="$RUNNER_TEMP/AppIcon.iconset"
-          iconset="$asset_source/AppIcon.appiconset"
-          asset_catalog="apps/desktop/src-tauri/resources/app-store/Assets.car"
-          app_store_config="apps/desktop/src-tauri/tauri.conf.app-store.json"
-          mkdir -p "$asset_output" "$asset_source" "$(dirname "$asset_catalog")"
-          iconutil \
-            --convert iconset \
-            --output "$extracted_iconset" \
-            apps/desktop/src-tauri/icons/stable/icon.icns
-          mv "$extracted_iconset" "$iconset"
-          cat > "$iconset/Contents.json" <<'JSON'
-          {
-            "images": [
-              { "filename": "icon_16x16.png", "idiom": "mac", "scale": "1x", "size": "16x16" },
-              { "filename": "icon_16x16@2x.png", "idiom": "mac", "scale": "2x", "size": "16x16" },
-              { "filename": "icon_32x32.png", "idiom": "mac", "scale": "1x", "size": "32x32" },
-              { "filename": "icon_32x32@2x.png", "idiom": "mac", "scale": "2x", "size": "32x32" },
-              { "filename": "icon_128x128.png", "idiom": "mac", "scale": "1x", "size": "128x128" },
-              { "filename": "icon_128x128@2x.png", "idiom": "mac", "scale": "2x", "size": "128x128" },
-              { "filename": "icon_256x256.png", "idiom": "mac", "scale": "1x", "size": "256x256" },
-              { "filename": "icon_256x256@2x.png", "idiom": "mac", "scale": "2x", "size": "256x256" },
-              { "filename": "icon_512x512.png", "idiom": "mac", "scale": "1x", "size": "512x512" },
-              { "filename": "icon_512x512@2x.png", "idiom": "mac", "scale": "2x", "size": "512x512" }
-            ],
-            "info": { "author": "xcode", "version": 1 }
-          }
-          JSON
-          xcrun actool \
-            "$asset_source" \
-            --compile "$asset_output" \
-            --output-format human-readable-text \
-            --notices \
-            --warnings \
-            --errors \
-            --output-partial-info-plist "$asset_output/assetcatalog_generated_info.plist" \
-            --app-icon AppIcon \
-            --include-all-app-icons \
-            --enable-on-demand-resources NO \
-            --target-device mac \
-            --minimum-deployment-target 10.13 \
-            --platform macosx
-          if [[ ! -s "$asset_output/Assets.car" ]]; then
-            echo "::error::actool did not produce the Mac App Store asset catalog"
-            exit 1
-          fi
-          cp "$asset_output/Assets.car" "$asset_catalog"
-          jq \
-            '.bundle.macOS.files["Resources/Assets.car"] = "./resources/app-store/Assets.car"' \
-            "$app_store_config" > "$RUNNER_TEMP/tauri.conf.app-store.json"
-          mv "$RUNNER_TEMP/tauri.conf.app-store.json" "$app_store_config"
-      - name: Build signed Mac App Store application
-        env:
-          APPLE_SIGNING_IDENTITY: ${{ steps.apple-store-cert.outputs.application-cert-id }}
-          APP_VERSION: ${{ needs.validate.outputs.version }}
-          CI: false
-          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN_HYPRNOTE_2 }}
-          VITE_API_URL: https://api.anarlog.so
-          VITE_APP_URL: https://anarlog.so
-          VITE_APP_VERSION: ${{ needs.validate.outputs.version }}
-          VITE_POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
-          VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-        run: |
-          pnpm -F desktop tauri build \
-            --ci \
-            --bundles app \
-            --target aarch64-apple-darwin \
-            --config ./src-tauri/tauri.conf.stable.json \
-            --config ./src-tauri/tauri.conf.app-store.json \
-            --config ./src-tauri/tauri.conf.app-store-signing.json \
-            --verbose
-      - id: package
-        name: Verify and package Mac App Store application
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          BUILD_NUMBER: ${{ inputs.build_number || needs.validate.outputs.version }}
-          INSTALLER_CERT_ID: ${{ steps.apple-store-cert.outputs.installer-cert-id }}
-          VERSION: ${{ needs.validate.outputs.version }}
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-
-          app_dir="apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos"
-          apps=("$app_dir"/*.app)
-          if [[ ${#apps[@]} -ne 1 ]]; then
-            echo "::error::Expected one signed Mac App Store application, found ${#apps[@]}"
-            exit 1
-          fi
-
-          app="${apps[0]}"
-          app_identifier=$(
-            /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist"
-          )
-          app_version=$(
-            /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist"
-          )
-          app_build_number=$(
-            /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents/Info.plist"
-          )
-          if [[ "$app_identifier" != "com.hyprnote.desktop" ]]; then
-            echo "::error::Mac App Store application has bundle ID $app_identifier"
-            exit 1
-          fi
-          if [[ "$app_version" != "$VERSION" ]]; then
-            echo "::error::Mac App Store application has version $app_version, expected $VERSION"
-            exit 1
-          fi
-          if [[ "$app_build_number" != "$BUILD_NUMBER" ]]; then
-            echo "::error::Mac App Store application has build number $app_build_number, expected $BUILD_NUMBER"
-            exit 1
-          fi
-          if [[ ! -f "$app/Contents/embedded.provisionprofile" ]]; then
-            echo "::error::Mac App Store application is missing its embedded provisioning profile"
-            exit 1
-          fi
-          if [[ ! -s "$app/Contents/Resources/Assets.car" ]]; then
-            echo "::error::Mac App Store application is missing its compiled asset catalog"
-            exit 1
-          fi
-          app_icon_name=$(
-            /usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' "$app/Contents/Info.plist"
-          )
-          if [[ "$app_icon_name" != "AppIcon" ]]; then
-            echo "::error::Mac App Store application has icon catalog name $app_icon_name"
-            exit 1
-          fi
-
-          codesign --verify --deep --strict --verbose=2 "$app"
-          signed_entitlements="$RUNNER_TEMP/signed-entitlements.plist"
-          embedded_profile_plist="$RUNNER_TEMP/embedded-profile.plist"
-          security cms \
-            -D \
-            -i "$app/Contents/embedded.provisionprofile" \
-            > "$embedded_profile_plist"
-          profile_app_id=$(
-            /usr/libexec/PlistBuddy \
-              -c 'Print :Entitlements:com.apple.application-identifier' \
-              "$embedded_profile_plist" 2>/dev/null || \
-            /usr/libexec/PlistBuddy \
-              -c 'Print :Entitlements:application-identifier' \
-              "$embedded_profile_plist"
-          )
-          codesign -d --entitlements :- "$app" > "$signed_entitlements" 2>/dev/null
-          for entitlement in \
-            com.apple.security.app-sandbox \
-            com.apple.security.cs.allow-jit \
-            com.apple.security.cs.allow-unsigned-executable-memory; do
-            if [[ "$(/usr/libexec/PlistBuddy -c "Print :$entitlement" "$signed_entitlements")" != "true" ]]; then
-              echo "::error::Signed application does not enable $entitlement"
-              exit 1
-            fi
-          done
-          if [[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.application-identifier' "$signed_entitlements")" != "$profile_app_id" ]]; then
-            echo "::error::Signed application has the wrong application identifier entitlement"
-            exit 1
-          fi
-          if [[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.team-identifier' "$signed_entitlements")" != "$APPLE_TEAM_ID" ]]; then
-            echo "::error::Signed application has the wrong team identifier entitlement"
-            exit 1
-          fi
-
-          if rg --text --files-with-matches \
-            'PrivateFrameworks|TCCAccessPreflight|TCCAccessReset' \
-            "$app"; then
-            echo "::error::Mac App Store application references private Apple frameworks or TCC APIs"
-            exit 1
-          fi
-          if find "$app" -type f \( \
-            -name '*check-permissions*' -o \
-            -name '*anarlog-cli*' -o \
-            -name '*chrome-native-host*' \
-          \) | grep -q .; then
-            echo "::error::Mac App Store application contains a direct-distribution sidecar"
-            exit 1
-          fi
-
-          pkg="$RUNNER_TEMP/Anarlog-$VERSION.pkg"
-          xcrun productbuild \
-            --sign "$INSTALLER_CERT_ID" \
-            --component "$app" /Applications \
-            "$pkg"
-          pkgutil --check-signature "$pkg"
-
-          echo "path=$pkg" >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: anarlog-mac-app-store-${{ needs.validate.outputs.version }}
-          path: ${{ steps.package.outputs.path }}
-          if-no-files-found: error
-          retention-days: 14
-      - if: ${{ inputs.submit_to_stores }}
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          ref: ${{ github.workflow_sha }}
-          path: workflow-source
-          persist-credentials: false
-          sparse-checkout: scripts/app-store-connect-submit.mjs
-          sparse-checkout-cone-mode: false
-      - if: ${{ inputs.submit_to_stores }}
-        name: Upload and submit to App Review
-        env:
-          APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
-          APPSTORE_API_PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
-          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
-          BUILD_NUMBER: ${{ inputs.build_number || needs.validate.outputs.version }}
-          PKG_PATH: ${{ steps.package.outputs.path }}
-          VERSION: ${{ needs.validate.outputs.version }}
-        run: |
-          set -euo pipefail
-
-          required=(
-            APPSTORE_API_KEY_ID
-            APPSTORE_API_PRIVATE_KEY
-            APPSTORE_ISSUER_ID
-          )
-          missing=()
-          for name in "${required[@]}"; do
-            [[ -n "${!name}" ]] || missing+=("$name")
-          done
-          if [[ ${#missing[@]} -gt 0 ]]; then
-            echo "::error::Missing App Store Connect configuration: ${missing[*]}"
-            exit 1
-          fi
-
-          key_dir="$PWD/private_keys"
-          key_path="$key_dir/AuthKey_${APPSTORE_API_KEY_ID}.p8"
-          mkdir -p "$key_dir"
-          if [[ "$APPSTORE_API_PRIVATE_KEY" == *"BEGIN PRIVATE KEY"* ]]; then
-            printf '%s\n' "$APPSTORE_API_PRIVATE_KEY" > "$key_path"
-          else
-            printf '%s' "$APPSTORE_API_PRIVATE_KEY" | base64 --decode > "$key_path"
-          fi
-          chmod 600 "$key_path"
-
-          node workflow-source/scripts/app-store-connect-submit.mjs \
-            --build-version "$BUILD_NUMBER" \
-            --bundle-id com.hyprnote.desktop \
-            --issuer-id "$APPSTORE_ISSUER_ID" \
-            --key-id "$APPSTORE_API_KEY_ID" \
-            --package "$PKG_PATH" \
-            --private-key "$key_path" \
-            --version "$VERSION"
-      - name: Summarize Mac App Store release
-        env:
-          BUILD_NUMBER: ${{ inputs.build_number || needs.validate.outputs.version }}
-          SUBMITTED: ${{ inputs.submit_to_stores }}
-          VERSION: ${{ needs.validate.outputs.version }}
-        run: |
-          {
-            echo "## Mac App Store"
-            echo "- Version: \`$VERSION\`"
-            echo "- Build: \`$BUILD_NUMBER\`"
-            echo "- Architecture: Apple Silicon"
-            echo "- Submitted to App Review: \`$SUBMITTED\`"
-          } >> "$GITHUB_STEP_SUMMARY"
 
   microsoft-store:
     if: ${{ inputs.include_windows }}

@@ -15,7 +15,6 @@ jobs:
       - run: >-
           node --test
           .agents/skills/qa-critical-ux/scripts/launch-native-dev-qa.test.mjs
-          scripts/app-store-connect-submit.test.mjs
           scripts/desktop-release-provenance.test.mjs
           scripts/publish-anarlog-skill.test.mjs
           scripts/repack-linux-appimage.test.mjs
