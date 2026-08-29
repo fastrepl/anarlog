@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 
 import {
@@ -50,6 +50,13 @@ type UpdateCheckState = {
   ready: boolean;
 } | null;
 
+function isFinishedUpdate(event: UpdateEvent | null, version: string) {
+  return (
+    event?.version === version &&
+    (event.kind === "ready" || event.kind === "failed")
+  );
+}
+
 export function resolveUpdateState(
   event: UpdateEvent | null,
   check: UpdateCheckState,
@@ -59,7 +66,7 @@ export function resolveUpdateState(
 
   if (event) {
     if (
-      event.kind === "available" &&
+      (event.kind === "available" || event.kind === "downloading") &&
       checked?.version === event.version &&
       checked.ready
     ) {
@@ -92,6 +99,7 @@ const DISABLED_UPDATE_CONTROL: DesktopUpdateControl = {
 
 export function useDesktopUpdateControl(): DesktopUpdateControl {
   const updaterEnabled = !isAppStoreBuild();
+  const queryClient = useQueryClient();
   const [eventState, setEventState] = useState<UpdateEvent | null>(null);
   const [acknowledgedVersion, setAcknowledgedVersion] = useState<string | null>(
     null,
@@ -129,15 +137,23 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
           );
         }),
         updaterEvents.updateDownloadingEvent.listen(({ payload }) => {
-          setEventState({
-            kind: "downloading",
-            version: payload.version,
-            downloadedBytes: 0,
-            contentLength: null,
-          });
+          setEventState((current) =>
+            isFinishedUpdate(current, payload.version)
+              ? current
+              : {
+                  kind: "downloading",
+                  version: payload.version,
+                  downloadedBytes: 0,
+                  contentLength: null,
+                },
+          );
         }),
         updaterEvents.updateDownloadProgressEvent.listen(({ payload }) => {
           setEventState((current) => {
+            if (isFinishedUpdate(current, payload.version)) {
+              return current;
+            }
+
             const downloadedBytes =
               current?.kind === "downloading" &&
               current.version === payload.version
@@ -249,6 +265,13 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
     onSuccess: (_data, version) => {
       setEventState((current) =>
         current?.kind === "ready" ? current : { kind: "ready", version },
+      );
+      queryClient.setQueryData<UpdateCheckState>(
+        UPDATE_CHECK_QUERY_KEY,
+        (current) =>
+          !current || current.version === version
+            ? { version, ready: true }
+            : current,
       );
     },
   });

@@ -222,7 +222,7 @@ export function createDesktopUpdateToast(
       // this update was downloading.
       id: `${id}:ready`,
       description: t`Anarlog ${update.version} is ready to install`,
-      primaryAction: busy
+      primaryAction: update.installing
         ? undefined
         : { label: t`Restart`, onClick: update.installUpdate },
       lifecycle: { type: "persistent", dismissal: "session" },

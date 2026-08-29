@@ -306,6 +306,32 @@ describe("sidebar toast registry", () => {
     expect(toast?.loading).toBeUndefined();
   });
 
+  it("keeps Restart available after the download finishes even if the mutation is still settling", () => {
+    const installUpdate = vi.fn();
+    const toast = getToastToShow(
+      createToastRegistry({
+        ...baseParams,
+        update: {
+          ...baseParams.update,
+          status: "ready",
+          version: "1.0.34",
+          downloadStarting: true,
+          installUpdate,
+        },
+      }),
+      () => false,
+    );
+
+    expect(toast).toMatchObject({
+      id: "desktop-update:1.0.34:ready",
+      description: "Anarlog 1.0.34 is ready to install",
+      primaryAction: { label: "Restart" },
+    });
+
+    toast?.primaryAction?.onClick();
+    expect(installUpdate).toHaveBeenCalledOnce();
+  });
+
   it("creates devtools previews with app toast content", () => {
     const languageModelToast = createDevtoolsToastPreview({
       preview: "language-model",

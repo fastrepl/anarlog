@@ -264,6 +264,38 @@ describe("useDesktopUpdateControl", () => {
     expect(screen.getByTestId("status").textContent).toBe("ready");
   });
 
+  it("keeps ready after late download events for the same version", async () => {
+    renderUpdateControl();
+
+    await waitFor(() =>
+      expect(eventHandlers.updateReady).toBeTypeOf("function"),
+    );
+
+    act(() => {
+      eventHandlers.updateReady?.({ payload: { version: "1.0.34" } });
+    });
+
+    expect(screen.getByTestId("status").textContent).toBe("ready");
+
+    act(() => {
+      eventHandlers.updateDownloading?.({ payload: { version: "1.0.34" } });
+      eventHandlers.updateDownloadProgress?.({
+        payload: {
+          version: "1.0.34",
+          chunk_length: 10,
+          content_length: 100,
+        },
+      });
+    });
+
+    expect(screen.getByTestId("status").textContent).toBe("ready");
+    fireEvent.click(screen.getByRole("button", { name: "install" }));
+
+    await waitFor(() => {
+      expect(installAndRelaunchMock).toHaveBeenCalledWith("1.0.34");
+    });
+  });
+
   it("tracks download progress from updater events", async () => {
     renderUpdateControl();
 
@@ -442,6 +474,21 @@ describe("resolveUpdateState", () => {
         null,
       ),
     ).toEqual({ kind: "available", version: "1.0.34" });
+  });
+
+  it("upgrades a finished download to ready when the check says downloaded", () => {
+    expect(
+      resolveUpdateState(
+        {
+          kind: "downloading",
+          version: "1.0.34",
+          downloadedBytes: 100,
+          contentLength: 100,
+        },
+        { version: "1.0.34", ready: true },
+        null,
+      ),
+    ).toEqual({ kind: "ready", version: "1.0.34" });
   });
 
   it("keeps event precedence over the check for active and failed states", () => {

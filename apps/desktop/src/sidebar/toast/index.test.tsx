@@ -290,6 +290,37 @@ describe("ToastNotifications", () => {
     );
   });
 
+  it("offers Restart after the download finishes", () => {
+    mocks.update.status = "downloading";
+    mocks.update.version = "1.0.34";
+    mocks.update.progress = 1;
+    mocks.update.downloadStarting = true;
+
+    const view = render(<ToastNotifications />);
+    act(() => vi.advanceTimersByTime(500));
+
+    mocks.loading.mockClear();
+    mocks.dismiss.mockClear();
+    mocks.message.mockClear();
+    mocks.update.status = "ready";
+    mocks.update.progress = null;
+    mocks.update.downloadStarting = true;
+    view.rerender(<ToastNotifications />);
+
+    expect(mocks.message).toHaveBeenCalledWith(
+      "Anarlog 1.0.34 is ready to install",
+      expect.objectContaining({
+        id: "desktop-update:1.0.34:ready",
+        action: expect.objectContaining({ label: "Restart" }),
+      }),
+    );
+
+    const options =
+      mocks.message.mock.calls[mocks.message.mock.calls.length - 1][1];
+    options.action.onClick();
+    expect(mocks.update.installUpdate).toHaveBeenCalledOnce();
+  });
+
   it("updates download progress without dismissing the toast", () => {
     mocks.update.status = "downloading";
     mocks.update.version = "1.0.34";
