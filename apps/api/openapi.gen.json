@@ -39,6 +39,9 @@
           "401": {
             "description": "Unauthorized"
           },
+          "424": {
+            "description": "Calendar connection requires reconnect"
+          },
           "500": {
             "description": "Internal server error"
           }
@@ -79,6 +82,9 @@
           },
           "401": {
             "description": "Unauthorized"
+          },
+          "424": {
+            "description": "Calendar connection requires reconnect"
           },
           "500": {
             "description": "Internal server error"
@@ -121,6 +127,9 @@
           "401": {
             "description": "Unauthorized"
           },
+          "424": {
+            "description": "Calendar connection requires reconnect"
+          },
           "500": {
             "description": "Internal server error"
           }
@@ -161,6 +170,9 @@
           },
           "401": {
             "description": "Unauthorized"
+          },
+          "424": {
+            "description": "Calendar connection requires reconnect"
           },
           "500": {
             "description": "Internal server error"

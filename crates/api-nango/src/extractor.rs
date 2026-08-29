@@ -9,6 +9,7 @@ use axum::{
 };
 
 use crate::integrations::NangoIntegrationId;
+use crate::supabase::SupabaseClient;
 
 #[derive(Clone)]
 pub struct NangoConnectionState {
@@ -16,6 +17,7 @@ pub struct NangoConnectionState {
     http_client: reqwest::Client,
     supabase_url: String,
     supabase_anon_key: String,
+    supabase: SupabaseClient,
 }
 
 impl NangoConnectionState {
@@ -24,18 +26,56 @@ impl NangoConnectionState {
         supabase_url: impl Into<String>,
         supabase_anon_key: impl Into<String>,
     ) -> Self {
-        Self {
-            nango,
-            http_client: reqwest::Client::new(),
-            supabase_url: supabase_url.into().trim_end_matches('/').to_string(),
-            supabase_anon_key: supabase_anon_key.into(),
-        }
+        Self::with_service_role(nango, supabase_url, supabase_anon_key, None)
     }
 
     pub fn from_config(config: &crate::config::NangoConfig) -> Self {
         let nango = crate::config::build_nango_client(config).expect("failed to build NangoClient");
 
-        Self::new(nango, &config.supabase_url, &config.supabase_anon_key)
+        Self::with_service_role(
+            nango,
+            &config.supabase_url,
+            &config.supabase_anon_key,
+            config.supabase_service_role_key.clone(),
+        )
+    }
+
+    fn with_service_role(
+        nango: NangoClient,
+        supabase_url: impl Into<String>,
+        supabase_anon_key: impl Into<String>,
+        supabase_service_role_key: Option<String>,
+    ) -> Self {
+        let supabase_url = supabase_url.into();
+        let supabase_anon_key = supabase_anon_key.into();
+        Self {
+            nango,
+            http_client: reqwest::Client::new(),
+            supabase_url: supabase_url.trim_end_matches('/').to_string(),
+            supabase_anon_key: supabase_anon_key.clone(),
+            supabase: SupabaseClient::new(
+                supabase_url,
+                supabase_anon_key,
+                supabase_service_role_key,
+            ),
+        }
+    }
+
+    pub async fn mark_reconnect_required(
+        &self,
+        integration_id: &str,
+        connection_id: &str,
+        error_description: &str,
+    ) -> Result<(), NangoConnectionError> {
+        self.supabase
+            .mark_connection_refresh_failed(
+                integration_id,
+                connection_id,
+                Some("provider_auth"),
+                Some(error_description),
+            )
+            .await
+            .map_err(|e| NangoConnectionError::Database(e.to_string()))
     }
 
     pub async fn build_http_client(
@@ -230,6 +270,15 @@ impl std::fmt::Display for NangoConnectionError {
 
 impl std::error::Error for NangoConnectionError {}
 
+pub fn is_provider_auth_failure(message: &str) -> bool {
+    let lower = message.to_lowercase();
+    lower.contains("(401")
+        || lower.contains("invalidauthenticationtoken")
+        || lower.contains("token is expired")
+        || lower.contains("lifetime validation failed")
+        || lower.contains("invalid_grant")
+}
+
 impl<S: Send + Sync, I: NangoIntegrationId> FromRequestParts<S> for NangoConnection<I> {
     type Rejection = NangoConnectionError;
 
@@ -255,5 +304,54 @@ impl<S: Send + Sync, I: NangoIntegrationId> FromRequestParts<S> for NangoConnect
             http,
             _marker: PhantomData,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::NangoConfig;
+    use wiremock::matchers::{method, path_regex, query_param};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    #[test]
+    fn detects_graph_expired_token() {
+        assert!(is_provider_auth_failure(
+            "HTTP status client error (401 Unauthorized) for url (https://api.nango.dev/proxy/me/calendars)"
+        ));
+        assert!(is_provider_auth_failure(
+            r#"{"error":{"code":"InvalidAuthenticationToken","message":"Lifetime validation failed, the token is expired."}}"#
+        ));
+        assert!(is_provider_auth_failure("invalid_grant"));
+        assert!(!is_provider_auth_failure(
+            "HTTP status server error (500 Internal Server Error) for url (https://api.nango.dev/proxy/me/calendars)"
+        ));
+        assert!(!is_provider_auth_failure(
+            "HTTP status client error (403 Forbidden) for url (https://api.nango.dev/proxy/me/calendars/AAMk)"
+        ));
+    }
+
+    #[tokio::test]
+    async fn mark_reconnect_required_patches_connection() {
+        let nango_mock = MockServer::start().await;
+        let supabase_mock = MockServer::start().await;
+        let config = NangoConfig::for_test(&nango_mock.uri(), &supabase_mock.uri());
+        let state = NangoConnectionState::from_config(&config);
+
+        Mock::given(method("PATCH"))
+            .and(path_regex("/rest/v1/nango_connections"))
+            .and(query_param("integration_id", "eq.outlook"))
+            .and(query_param("connection_id", "eq.conn-123"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&supabase_mock)
+            .await;
+
+        state
+            .mark_reconnect_required("outlook", "conn-123", "token is expired")
+            .await
+            .unwrap();
+
+        supabase_mock.verify().await;
     }
 }

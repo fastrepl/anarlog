@@ -1,3 +1,4 @@
+use anlg_api_nango::{NangoConnectionError, NangoConnectionState, is_provider_auth_failure};
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -5,6 +6,34 @@ use axum::{
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, CalendarError>;
+
+pub async fn map_provider_error(
+    nango_state: &NangoConnectionState,
+    integration_id: &str,
+    connection_id: &str,
+    err: impl std::fmt::Display,
+) -> CalendarError {
+    let message = err.to_string();
+    if !is_provider_auth_failure(&message) {
+        return CalendarError::Internal(message);
+    }
+
+    if let Err(mark_err) = nango_state
+        .mark_reconnect_required(integration_id, connection_id, &message)
+        .await
+    {
+        tracing::warn!(
+            error = %mark_err,
+            integration_id,
+            connection_id,
+            "failed to persist calendar reconnect_required"
+        );
+    }
+
+    CalendarError::NangoConnection(NangoConnectionError::ReconnectRequired(
+        integration_id.to_string(),
+    ))
+}
 
 #[derive(Debug, Error)]
 pub enum CalendarError {

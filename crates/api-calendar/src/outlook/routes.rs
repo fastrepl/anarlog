@@ -5,7 +5,7 @@ use axum::{Extension, Json};
 use serde::Deserialize;
 use utoipa::ToSchema;
 
-use crate::error::{CalendarError, Result};
+use crate::error::{CalendarError, Result, map_provider_error};
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct OutlookListCalendarsRequest {
@@ -34,6 +34,7 @@ pub struct OutlookListEventsRequest {
     responses(
         (status = 200, description = "Outlook calendars fetched", body = ListCalendarsResponse),
         (status = 401, description = "Unauthorized"),
+        (status = 424, description = "Calendar connection requires reconnect"),
         (status = 500, description = "Internal server error"),
     ),
     tag = "calendar",
@@ -55,10 +56,12 @@ pub async fn list_calendars(
 
     let client = OutlookCalendarClient::new(http);
 
-    let response = client
-        .list_calendars()
-        .await
-        .map_err(|e| CalendarError::Internal(e.to_string()))?;
+    let response = match client.list_calendars().await {
+        Ok(response) => response,
+        Err(e) => {
+            return Err(map_provider_error(&nango_state, Outlook::ID, &req.connection_id, e).await);
+        }
+    };
 
     Ok(Json(response))
 }
@@ -71,6 +74,7 @@ pub async fn list_calendars(
     responses(
         (status = 200, description = "Outlook events fetched", body = ListEventsResponse),
         (status = 401, description = "Unauthorized"),
+        (status = 424, description = "Calendar connection requires reconnect"),
         (status = 500, description = "Internal server error"),
     ),
     tag = "calendar",
@@ -127,10 +131,12 @@ pub async fn list_events(
         ..Default::default()
     };
 
-    let response = client
-        .list_events(outlook_req)
-        .await
-        .map_err(|e| CalendarError::Internal(e.to_string()))?;
+    let response = match client.list_events(outlook_req).await {
+        Ok(response) => response,
+        Err(e) => {
+            return Err(map_provider_error(&nango_state, Outlook::ID, &req.connection_id, e).await);
+        }
+    };
 
     Ok(Json(response))
 }

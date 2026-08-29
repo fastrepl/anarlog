@@ -8,7 +8,9 @@ mod state;
 mod supabase;
 
 pub use config::NangoConfig;
-pub use extractor::{NangoConnection, NangoConnectionError, NangoConnectionState};
+pub use extractor::{
+    NangoConnection, NangoConnectionError, NangoConnectionState, is_provider_auth_failure,
+};
 pub use integrations::{
     Discord, Fathom, GitHub, GoogleCalendar, GoogleDrive, GoogleMail, GoogleMeet, Linear,
     MicrosoftTeams, NangoIntegrationId, Notion, Outlook, Slack, Webex, Zoom,

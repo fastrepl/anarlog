@@ -171,6 +171,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(scopes, OUTLOOK_OAUTH_SCOPES);
+        assert!(scopes.contains("offline_access"));
         assert!(scopes.contains("Calendars.Read"));
         assert!(!scopes.contains("Calendars.ReadWrite"));
     }
