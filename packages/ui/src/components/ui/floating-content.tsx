@@ -12,7 +12,7 @@ export function AppFloatingPanel({
   return (
     <div
       className={cn([
-        "bg-app-floating-panel text-popover-foreground border-app-floating-border rounded-[18px] border",
+        "bg-app-floating-panel text-popover-foreground border-app-floating-border rounded-[20px] border",
         className,
       ])}
       {...props}
