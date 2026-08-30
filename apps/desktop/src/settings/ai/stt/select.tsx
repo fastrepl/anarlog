@@ -284,7 +284,7 @@ export function SelectProviderAndModel() {
                         <span className="text-muted-foreground text-[11px]">
                           <Trans>Upgrade to Pro to use this provider.</Trans>
                         </span>
-                      ) : provider.description ? (
+                      ) : "description" in provider && provider.description ? (
                         <span className="text-muted-foreground text-[11px]">
                           {provider.description}
                         </span>
