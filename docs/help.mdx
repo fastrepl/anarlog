@@ -1,6 +1,6 @@
 ---
 title: "Frequently asked questions"
-description: "Answers about recording, transcription cost, local models, privacy, sharing, sync, and developer tools."
+description: "Answers about recording, transcription cost, languages, local models, privacy, sharing, sync, and developer tools."
 ---
 
 Browse a topic, then expand the question. If something is not working, go to [Troubleshooting](/troubleshooting). For a question not covered here, email [founders@anarlog.so](mailto:founders@anarlog.so) or [join Discord](https://anarlog.so/discord).
@@ -87,6 +87,23 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
 <AccordionGroup>
   <Accordion title="Can I use Anarlog offline?" id="can-i-use-anarlog-offline">
     Yes, if you prepare local models before disconnecting. Soniqo, Apple Speech, and Local file transcription require a supported Apple Silicon Mac; Apple Speech also needs macOS 26 to report compatible system assets. LM Studio, Ollama, Unsloth, and eligible Apple Intelligence can provide local Intelligence models. See [Use Anarlog offline](/offline).
+  </Accordion>
+
+  <Accordion title="What languages does Anarlog support?" id="supported-languages">
+    **Settings → General → Language & Region** lets you choose a main language and additional spoken languages from this list:
+
+    Arabic, Belarusian, Bulgarian, Bangla, Bosnian, Catalan, Czech, Danish, German, Greek, English, Spanish, Estonian, Persian, Finnish, French, Hebrew, Hindi, Croatian, Hungarian, Indonesian, Italian, Japanese, Kannada, Korean, Lithuanian, Latvian, Macedonian, Marathi, Malay, Dutch, Norwegian, Polish, Portuguese, Romanian, Russian, Slovak, Slovenian, Serbian, Swedish, Tamil, Telugu, Thai, Filipino, Turkish, Ukrainian, Urdu, Vietnamese, and Chinese.
+
+    The selected Transcription model must support those languages. Coverage today:
+
+    | Selection | Languages |
+    | --- | --- |
+    | Anarlog Cloud | Routes to a provider that supports the languages you selected. The Settings list is the Cloud picker. |
+    | Soniqo | Bulgarian, Czech, Danish, German, Greek, English, Spanish, Estonian, Finnish, French, Croatian, Hungarian, Italian, Lithuanian, Latvian, Maltese, Dutch, Polish, Portuguese, Romanian, Russian, Slovak, Slovenian, Swedish, and Ukrainian |
+    | Apple Speech | German, English, Spanish, French, Italian, Japanese, Korean, Portuguese, Cantonese, or Chinese — one language at a time |
+    | Your API key | The provider and model you configure. Check that model's language list before a multilingual meeting. |
+
+    Summaries and chat use the main language. See [Use multiple languages](/languages).
   </Accordion>
 
   <Accordion title="Which AI models does Anarlog use?" id="which-ai-models-does-anarlog-use">
