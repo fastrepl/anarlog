@@ -74,7 +74,7 @@ describe("Metadata controls", () => {
       .getByRole("button", { name: "Edit date" })
       .closest("[data-radix-popper-content-wrapper] > *");
 
-    expect(content?.className.split(/\s+/) ?? []).toContain("w-56");
+    expect(content?.className.split(/\s+/) ?? []).toContain("w-72");
   });
 
   it("renders the metadata calendar trigger as a circle", () => {
@@ -117,9 +117,11 @@ describe("Metadata controls", () => {
     }).parentElement;
 
     expect(input).not.toBeNull();
+    expect(input?.className).toContain("w-full");
     expect(input?.className).toContain("min-w-0");
-    expect(input?.className).toContain("basis-32");
     expect(actions?.className).toContain("shrink-0");
+    expect(actions?.className).toContain("justify-end");
+    expect(actions?.parentElement?.className).toContain("flex-col");
     expect(
       screen.getByRole("button", { name: "Cancel date edit" }),
     ).not.toBeNull();

@@ -124,11 +124,11 @@ function EditableDateForm({
     <div className="flex flex-col gap-2">
       <form.Field name="createdAt">
         {(field) => (
-          <div className="flex min-w-0 flex-wrap items-center gap-1">
+          <div className="flex min-w-0 flex-col gap-1">
             <Input
               autoFocus
               type="datetime-local"
-              className="h-7 min-w-0 flex-1 basis-32 border-0 px-0 py-0 shadow-none focus-visible:ring-0"
+              className="h-7 w-full min-w-0 border-0 px-0 py-0 shadow-none focus-visible:ring-0"
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               onKeyDown={(e) => {
@@ -144,7 +144,7 @@ function EditableDateForm({
               }}
             />
 
-            <div className="ml-auto flex shrink-0 items-center">
+            <div className="flex shrink-0 items-center justify-end">
               {onCancel && (
                 <Button
                   type="button"
