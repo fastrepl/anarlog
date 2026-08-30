@@ -1,6 +1,7 @@
+import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { BillingInfo } from "@/auth/billing";
@@ -24,25 +25,31 @@ export function SignInScreen({
 }) {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.body}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>Anarlog</Text>
-          <View style={styles.accentDot} />
-        </View>
-        <Text style={styles.subtitle}>Meetings, remembered.</Text>
-        <Text style={styles.copy}>
-          Sign in to use the mobile companion with your Pro account.
+      <ScrollView
+        alwaysBounceVertical={false}
+        contentContainerStyle={styles.signInContent}
+        contentInsetAdjustmentBehavior="automatic"
+      >
+        <Image
+          accessible
+          accessibilityLabel="Anarlog"
+          contentFit="contain"
+          source={require("../../assets/images/anarlog-wordmark.png")}
+          style={styles.wordmark}
+        />
+        <Text accessibilityRole="header" style={styles.signInHeadline}>
+          The AI notepad for{"\n"}private meetings.
         </Text>
-      </View>
 
-      <Button
-        label="Sign in"
-        onPress={onSignIn}
-        disabled={busy}
-        loading={busy}
-        size="large"
-        style={styles.cta}
-      />
+        <Button
+          label="Sign in"
+          onPress={onSignIn}
+          disabled={busy}
+          loading={busy}
+          size="large"
+          style={styles.signInCta}
+        />
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -186,14 +193,32 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
   },
+  signInContent: {
+    flexGrow: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xl,
+    paddingVertical: Spacing.xl,
+  },
+  wordmark: {
+    width: 168,
+    height: 47,
+  },
+  signInHeadline: {
+    maxWidth: 320,
+    fontFamily: "Caveat-SemiBold",
+    fontSize: 48,
+    lineHeight: 47,
+    textAlign: "center",
+    color: Colors.ink,
+  },
+  signInCta: {
+    width: 200,
+  },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-  },
-  title: {
-    ...Typography.largeTitle,
-    color: Colors.ink,
   },
   paywallTitle: {
     flexShrink: 1,
@@ -206,11 +231,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.accent,
-  },
-  subtitle: {
-    marginTop: Spacing.sm,
-    ...Typography.section,
-    color: Colors.ink,
   },
   copy: {
     marginTop: Spacing.md,
