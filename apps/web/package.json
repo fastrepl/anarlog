@@ -85,7 +85,7 @@
     "unpic": "^4.2.2",
     "usehooks-ts": "^3.1.1",
     "vaul": "^1.1.2",
-    "zod": "^4.3.6"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@anlg/plugin-auth": "workspace:*",
