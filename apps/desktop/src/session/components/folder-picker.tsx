@@ -17,6 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
+import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 import { cn } from "@anlg/utils";
 
 import { createNamedFolder } from "~/session/folder-catalog";
@@ -41,6 +42,7 @@ export function FolderPicker({
   align?: "start" | "end";
 }) {
   const { t } = useLingui();
+  const triggerRef = useSquircleRef<HTMLButtonElement>();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const folderId = useSession(sessionId)?.folder_id ?? "";
@@ -97,6 +99,7 @@ export function FolderPicker({
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
+          ref={triggerRef}
           type="button"
           data-tauri-drag-region="false"
           role="combobox"

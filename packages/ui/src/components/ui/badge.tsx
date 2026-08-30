@@ -1,6 +1,7 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import * as React from "react";
 
+import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 import { cn } from "@anlg/utils";
 
 const badgeVariants = cva(
@@ -52,8 +53,10 @@ function Badge({
   children,
   ...props
 }: BadgeProps) {
+  const squircleRef = useSquircleRef<HTMLDivElement>();
   return (
     <div
+      ref={squircleRef}
       className={cn([badgeVariants({ variant, size, disabled }), className])}
       aria-label={label}
       role="status"
