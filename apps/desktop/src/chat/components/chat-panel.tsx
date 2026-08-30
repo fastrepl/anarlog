@@ -15,6 +15,7 @@ import { chatFloatingPanelClassNames } from "~/chat/surface";
 import { useShell } from "~/contexts/shell";
 import { useSessionHasTranscript } from "~/session/queries";
 import { useOwnerUserId } from "~/shared/owner-user";
+import { folderIdForNewNote, useSidebarNotes } from "~/sidebar/note-filter";
 import { isBatchTranscriptionPending } from "~/store/zustand/listener/general-shared";
 import { useListener } from "~/stt/contexts";
 
@@ -49,8 +50,14 @@ export function ChatSessionHost({
   const { chat } = useShell();
   const { groupId, sessionId } = chat;
   const { currentSessionId } = useSessionTab();
+  const noteFilter = useSidebarNotes((state) => state.noteFilter);
+  const folderFilter = useSidebarNotes((state) => state.folderFilter);
   const contextSessionId =
     chat.scope === "automations" ? undefined : currentSessionId;
+  const folderId =
+    chat.scope === "automations"
+      ? undefined
+      : folderIdForNewNote(noteFilter, folderFilter);
   const ownerUserId = useOwnerUserId();
   const hasAvailableTranscript = useSessionHasTranscript(
     contextSessionId ?? "",
@@ -75,6 +82,7 @@ export function ChatSessionHost({
       sessionId={sessionId}
       chatGroupId={groupId}
       currentSessionId={contextSessionId}
+      folderId={folderId}
       hasAvailableTranscript={hasAvailableTranscript}
       isBatchTranscriptionPending={batchTranscriptionPending}
       unstyled

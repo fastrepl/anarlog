@@ -75,6 +75,7 @@ interface ChatSessionProps {
   sessionId: string;
   chatGroupId?: string;
   currentSessionId?: string;
+  folderId?: string;
   hasAvailableTranscript?: boolean;
   isBatchTranscriptionPending?: boolean;
   modelOverride?: LanguageModel;
@@ -109,6 +110,7 @@ function ChatSessionLifecycle({
   sessionId,
   chatGroupId,
   currentSessionId,
+  folderId,
   hasAvailableTranscript = false,
   isBatchTranscriptionPending = false,
   modelOverride,
@@ -733,6 +735,7 @@ function ChatSessionLifecycle({
   const { contextEntities, pendingRefs } = useChatContextPipeline({
     messages,
     currentSessionId,
+    folderId,
     pendingManualRefs: pendingMessageRefs,
   });
 

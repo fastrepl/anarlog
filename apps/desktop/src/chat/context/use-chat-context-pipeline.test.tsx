@@ -99,6 +99,34 @@ describe("chat context display pipeline", () => {
     expect(queryMocks.organizationIds).toHaveBeenCalledWith(["organization-1"]);
   });
 
+  it("attaches the active folder as pending context", () => {
+    const { result } = renderHook(() =>
+      useChatContextPipeline({
+        messages: [],
+        folderId: "CS 101",
+        pendingManualRefs: [],
+      }),
+    );
+
+    expect(result.current.pendingRefs).toEqual([
+      {
+        kind: "folder",
+        key: "folder:auto:CS 101",
+        source: "auto-current",
+        folderId: "CS 101",
+      },
+    ]);
+    expect(result.current.contextEntities).toEqual([
+      expect.objectContaining({
+        kind: "folder",
+        title: "CS 101",
+        removable: false,
+        pending: true,
+      }),
+    ]);
+    expect(queryMocks.sessionIds).toHaveBeenCalledWith([]);
+  });
+
   it("does not request unreferenced context catalogs", () => {
     const { result } = renderHook(() =>
       useChatContextPipeline({

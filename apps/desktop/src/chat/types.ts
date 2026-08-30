@@ -30,6 +30,12 @@ const messageMetadataSchema = z.object({
           source: z.enum(CONTEXT_ENTITY_SOURCES).optional(),
           organizationId: z.string(),
         }),
+        z.object({
+          kind: z.literal("folder"),
+          key: z.string(),
+          source: z.enum(CONTEXT_ENTITY_SOURCES).optional(),
+          folderId: z.string(),
+        }),
       ]),
     )
     .optional(),

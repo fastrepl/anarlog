@@ -1,6 +1,7 @@
 import {
   Buildings,
   CalendarBlank,
+  FolderSimple,
   MagnifyingGlass,
   Monitor,
   User,
@@ -76,6 +77,17 @@ const renderers: RendererMap = {
             selected: { type: "organization", id: entity.organizationId },
           },
         },
+      };
+    },
+  },
+
+  folder: {
+    toChip: (entity) => {
+      return {
+        key: entity.key,
+        icon: FolderSimple,
+        label: entity.title || "No folder",
+        removable: entity.removable,
       };
     },
   },

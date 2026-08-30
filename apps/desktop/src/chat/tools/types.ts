@@ -51,6 +51,7 @@ export interface ToolDependencies {
     limit: number,
   ) => Promise<CalendarEventSearchResult[]>;
   getSessionId: () => string | undefined;
+  getFolderFilter?: () => string | null;
   getEnhancedNoteId: () => string | undefined;
   openEditTab: (requestId: string) => void;
   getAuthHeaders: () => Record<string, string> | null | undefined;

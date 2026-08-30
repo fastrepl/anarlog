@@ -45,6 +45,26 @@ describe("ContextBar", () => {
     expect(screen.queryByText("Search sessions...")).toBeNull();
   });
 
+  it("renders a folder chip from the active folder filter", () => {
+    render(
+      <ContextBar
+        entities={[
+          {
+            kind: "folder",
+            key: "folder:auto:CS 101",
+            source: "auto-current",
+            folderId: "CS 101",
+            title: "CS 101",
+            pending: true,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("CS 101")).toBeTruthy();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
   it("does not render chip tooltips", () => {
     render(
       <ContextBar

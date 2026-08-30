@@ -13,6 +13,7 @@ describe("chat transport prompt guidance", () => {
     expect(prompt).toContain("use get_meeting");
     expect(prompt).toContain("Use get_meeting_transcript");
     expect(prompt).toContain("Use get_recurring_meeting_history");
+    expect(prompt).toContain("When folder context is attached");
     expect(prompt).toContain("Use typed meeting tools");
     expect(prompt).toContain("Do not ask the user to open or share a meeting");
     expect(prompt).toContain("call edit_memo");

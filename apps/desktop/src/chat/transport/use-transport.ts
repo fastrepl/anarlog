@@ -8,6 +8,7 @@ import type { ResolvedChatContext } from "./index";
 
 import { useLanguageModel } from "~/ai/hooks";
 import type { ContextRef } from "~/chat/context/entities";
+import { renderFolderContext } from "~/chat/context/folder-context";
 import { hydrateSessionContext } from "~/chat/context/session-context-hydrator";
 import { loadHuman, loadOrganization } from "~/contacts/queries";
 import { useToolRegistry } from "~/contexts/tool";
@@ -20,6 +21,7 @@ Context and local meeting tool guidance:
 - After resolving an ID, use get_meeting for the canonical note, summaries, participants, and action items. Use get_meeting_transcript separately for bounded transcript pages, following pagination.next_offset only when more context is needed.
 - Use get_recurring_meeting_history for meetings in the same recurring series. Use find_related_meetings only for broader relationships such as shared participants or nearby dates.
 - When the user refers to the current meeting, prefer the attached meeting context. Do not fetch it again unless the task needs newer structured data.
+- When folder context is attached, prefer the notes listed in that folder. Search and content tools stay scoped to that folder.
 - When the user asks to prepare for a meeting, create an agenda, organize talking points, or add drafted content before or during a meeting, call edit_memo with the complete replacement markdown so they can review and apply it. Preserve relevant existing memo content. Use edit_memo even when the memo is empty; do not use edit_summary for meeting preparation.
 - When the user asks to rewrite, revise, refocus, shorten, or restructure an existing summary, call edit_summary with the complete replacement markdown so they can review and apply it. Do not return the rewrite only as a fenced markdown block.
 - Use edit_summary only for existing generated post-meeting summaries. Use apply_session_correction for narrow exact old-to-new corrections and edit_summary for broader summary rewrites. Only return a draft without calling edit_memo or edit_summary when the user explicitly asks not to change the meeting content or no target session can be resolved.
@@ -176,6 +178,13 @@ export function useTransport(
 
         if (ref.kind === "human") {
           const text = await renderHumanContext(ref.humanId);
+          return text
+            ? ({ kind: "text", text } satisfies ResolvedChatContext)
+            : null;
+        }
+
+        if (ref.kind === "folder") {
+          const text = await renderFolderContext(ref.folderId);
           return text
             ? ({ kind: "text", text } satisfies ResolvedChatContext)
             : null;

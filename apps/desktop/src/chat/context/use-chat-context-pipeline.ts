@@ -82,6 +82,14 @@ function toDisplayEntity(
     };
   }
 
+  if (ref.kind === "folder") {
+    return {
+      ...ref,
+      title: ref.folderId || null,
+      removable,
+    };
+  }
+
   return {
     ...ref,
     ...getOrganizationDisplayData(organizations, ref.organizationId),
@@ -92,6 +100,7 @@ function toDisplayEntity(
 type UseChatContextPipelineParams = {
   messages: AnlgUIMessage[];
   currentSessionId?: string;
+  folderId?: string;
   pendingManualRefs: ContextRef[];
 };
 
@@ -100,6 +109,7 @@ export type DisplayEntity = ContextEntity & { pending: boolean };
 export function useChatContextPipeline({
   messages,
   currentSessionId,
+  folderId,
   pendingManualRefs,
 }: UseChatContextPipelineParams): {
   contextEntities: DisplayEntity[];
@@ -126,9 +136,17 @@ export function useChatContextPipeline({
         sessionId: currentSessionId,
       });
     }
+    if (folderId !== undefined) {
+      refs.push({
+        kind: "folder",
+        key: `folder:auto:${folderId}`,
+        source: "auto-current",
+        folderId,
+      });
+    }
     refs.push(...pendingManualRefs);
     return refs;
-  }, [currentSessionId, pendingManualRefs]);
+  }, [currentSessionId, folderId, pendingManualRefs]);
 
   const referencedIds = useMemo(() => {
     const sessionIds = new Set<string>();
@@ -140,7 +158,7 @@ export function useChatContextPipeline({
         sessionIds.add(ref.sessionId);
       } else if (ref.kind === "human") {
         humanIds.add(ref.humanId);
-      } else {
+      } else if (ref.kind === "organization") {
         organizationIds.add(ref.organizationId);
       }
     }

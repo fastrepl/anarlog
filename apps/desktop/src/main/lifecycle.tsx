@@ -20,6 +20,7 @@ import { SharedNotePreviewAuthLifecycle } from "~/shared-notes/preview";
 import { DurableSharedNoteCacheSync } from "~/shared-notes/sync";
 import { useConfigValue } from "~/shared/config";
 import { useDesktopTabLifecycle } from "~/shared/desktop-tab-lifecycle";
+import { folderIdForNewNote, useSidebarNotes } from "~/sidebar/note-filter";
 import { useTabs } from "~/store/zustand/tabs";
 import { LiveCaptureRecovery } from "~/stt/live-capture-recovery";
 import { ScheduledMeetingAutoStart } from "~/stt/scheduled-auto-start";
@@ -74,6 +75,10 @@ function ToolRegistration() {
   const getCalendarEventSearchResults = searchCalendarEvents;
 
   const { getSessionId, getEnhancedNoteId } = useSessionTab();
+  const getFolderFilter = useCallback(() => {
+    const { noteFilter, folderFilter } = useSidebarNotes.getState();
+    return folderIdForNewNote(noteFilter, folderFilter) ?? null;
+  }, []);
   const getAuthHeaders = useCallback(() => auth?.getHeaders(), [auth]);
   const openEditTab = useCallback((requestId: string) => {
     useTabs.getState().openNew({ type: "edit", requestId });
@@ -87,6 +92,7 @@ function ToolRegistration() {
         getContactSearchResults,
         getCalendarEventSearchResults,
         getSessionId,
+        getFolderFilter,
         getEnhancedNoteId,
         openEditTab,
         getAuthHeaders,
@@ -96,6 +102,7 @@ function ToolRegistration() {
       getContactSearchResults,
       getCalendarEventSearchResults,
       getSessionId,
+      getFolderFilter,
       getEnhancedNoteId,
       openEditTab,
       getAuthHeaders,

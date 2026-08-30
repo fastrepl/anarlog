@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
     startNewChat: vi.fn(),
     selectChat: vi.fn(),
   },
+  noteFilter: "mine",
+  folderFilter: null as string | null,
 }));
 
 vi.mock("./toolbar-controls", () => ({
@@ -67,6 +69,21 @@ vi.mock("./use-session-tab", () => ({
   useSessionTab: () => ({ currentSessionId: "session-1" }),
 }));
 
+vi.mock("~/sidebar/note-filter", () => ({
+  folderIdForNewNote: (noteFilter: string, folderFilter: string | null) =>
+    noteFilter === "mine" && folderFilter !== null ? folderFilter : undefined,
+  useSidebarNotes: (
+    selector: (state: {
+      noteFilter: string;
+      folderFilter: string | null;
+    }) => unknown,
+  ) =>
+    selector({
+      noteFilter: mocks.noteFilter,
+      folderFilter: mocks.folderFilter,
+    }),
+}));
+
 vi.mock("~/contexts/shell", () => ({
   useShell: () => ({ chat: mocks.chat }),
 }));
@@ -99,6 +116,8 @@ describe("ChatView", () => {
     cleanup();
     mocks.chatSession.mockClear();
     mocks.chat.scope = "general";
+    mocks.noteFilter = "mine";
+    mocks.folderFilter = null;
     mocks.hasAvailableTranscript = false;
     mocks.sessionMode = "inactive";
     mocks.requestedLiveTranscription = null;
@@ -137,8 +156,21 @@ describe("ChatView", () => {
     );
   });
 
+  it("passes the active folder into the chat session", () => {
+    mocks.folderFilter = "CS 101";
+
+    render(<ChatView />);
+
+    expect(mocks.chatSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        folderId: "CS 101",
+      }),
+    );
+  });
+
   it("does not inherit note context in the automations scope", () => {
     mocks.chat.scope = "automations";
+    mocks.folderFilter = "CS 101";
     mocks.hasAvailableTranscript = true;
     mocks.sessionMode = "active";
 
@@ -147,6 +179,7 @@ describe("ChatView", () => {
     expect(mocks.chatSession).toHaveBeenCalledWith(
       expect.objectContaining({
         currentSessionId: undefined,
+        folderId: undefined,
         hasAvailableTranscript: false,
         isBatchTranscriptionPending: false,
       }),

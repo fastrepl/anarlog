@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { ToolDependencies } from "./types";
 
 import type { SearchFilters } from "~/search/contexts/engine/types";
+import { loadSessionSummariesByFolder } from "~/session/queries";
 
 const gteSchema = z
   .number()
@@ -148,7 +149,21 @@ Returns relevant meetings with matching content excerpts.
         : null;
 
       const hits = await deps.search(query, effectiveFilters);
-      const meetingHits = hits.filter((hit) => hit.document.type === "session");
+      const folderFilter = deps.getFolderFilter?.() ?? null;
+      const folderSessionIds =
+        folderFilter === null
+          ? null
+          : new Set(
+              (await loadSessionSummariesByFolder(folderFilter)).map(
+                (session) => session.id,
+              ),
+            );
+      const meetingHits = hits.filter((hit) => {
+        if (hit.document.type !== "session") {
+          return false;
+        }
+        return folderSessionIds ? folderSessionIds.has(hit.document.id) : true;
+      });
       const limit = params.limit ?? 5;
       const results = meetingHits.slice(0, limit).map((hit) => ({
         id: hit.document.id,

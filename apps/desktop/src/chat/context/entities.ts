@@ -34,10 +34,16 @@ export type OrganizationContextRef = BaseContextRef & {
   organizationId: string;
 };
 
+export type FolderContextRef = BaseContextRef & {
+  kind: "folder";
+  folderId: string;
+};
+
 export type ContextRef =
   | SessionContextRef
   | HumanContextRef
-  | OrganizationContextRef;
+  | OrganizationContextRef
+  | FolderContextRef;
 
 export type CalendarEventContextRef = BaseContextRef & {
   kind: "calendar_event";
@@ -59,6 +65,10 @@ export type ContextEntity =
     })
   | (OrganizationContextRef & {
       name?: string | null;
+      removable?: boolean;
+    })
+  | (FolderContextRef & {
+      title?: string | null;
       removable?: boolean;
     })
   | (CalendarEventContextRef & {

@@ -32,6 +32,10 @@ function isContextRef(value: unknown): value is ContextRef {
     return typeof value.organizationId === "string";
   }
 
+  if (value.kind === "folder") {
+    return typeof value.folderId === "string";
+  }
+
   return false;
 }
 
