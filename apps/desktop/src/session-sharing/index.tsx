@@ -140,6 +140,9 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
   const sharePanelIdentityRef = useRef<SharePanelIdentity | null>(null);
   const [sharePreparationIdentity, setSharePreparationIdentity] =
     useState<SharePreparationIdentity | null>(null);
+  const [signedOutPreviewSessionId, setSignedOutPreviewSessionId] = useState<
+    string | null
+  >(null);
   const sharePanelPendingRef = useRef(false);
   const clearAbandonedSharePreparation = (
     identity: SharePreparationIdentity,
@@ -508,8 +511,13 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     billing.isReady &&
     !billing.isPaid,
   );
+  const isSignedOut = !auth.session || auth.session.user.is_anonymous === true;
+  const signedOutPreviewOpen =
+    signedOutPreviewSessionId === sessionId && isSignedOut;
   const sharePopoverOpen = Boolean(
-    activeSharePanelIdentity || activeSharePreparationIdentity,
+    activeSharePanelIdentity ||
+    activeSharePreparationIdentity ||
+    signedOutPreviewOpen,
   );
   const durableNoteQuery = useDurableSharedNote(
     accountUserId,
@@ -547,6 +555,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     cancelSharePreparation();
     setSharePanelIdentity(null);
     setSharePreparationIdentity(null);
+    setSignedOutPreviewSessionId(null);
     activationMutation.reset();
   };
 
@@ -586,10 +595,10 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
       closeSharePopover();
       return;
     }
-    if (!auth.session || auth.session.user.is_anonymous === true) {
-      void auth.signIn().catch(() => {
-        sonnerToast.error(t`Could not start sign-in.`);
-      });
+    if (isSignedOut || !auth.session) {
+      cancelSharePreparation();
+      activationMutation.reset();
+      setSignedOutPreviewSessionId(sessionId);
       return;
     }
     openSharePopover({
@@ -659,6 +668,19 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
             ])
           }
         />
+      ) : signedOutPreviewOpen ? (
+        <SessionShareDraftContent
+          sessionId={sessionId}
+          disabled
+          pendingAction={null}
+          workspaces={[]}
+          onAction={() => {}}
+          gate={{
+            title: <Trans>Sign in to share</Trans>,
+            description: <Trans>Sign in to share this note with others.</Trans>,
+            action: <SessionShareSignInAction />,
+          }}
+        />
       ) : activeSharePreparationIdentity ? (
         <SessionShareDraftContent
           sessionId={activeSharePreparationIdentity.sessionId}
@@ -675,6 +697,31 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
         />
       ) : null}
     </Popover>
+  );
+}
+
+function SessionShareSignInAction() {
+  const auth = useAuth();
+  const signInMutation = useMutation({
+    mutationFn: () => auth.signIn(),
+    onError: () => {
+      sonnerToast.error(t`Could not start sign-in.`);
+    },
+  });
+
+  return (
+    <Button
+      type="button"
+      size="sm"
+      disabled={signInMutation.isPending}
+      onClick={() => signInMutation.mutate()}
+    >
+      {signInMutation.isPending ? (
+        <Trans>Opening…</Trans>
+      ) : (
+        <Trans>Sign in</Trans>
+      )}
+    </Button>
   );
 }
 

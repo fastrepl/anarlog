@@ -3262,6 +3262,7 @@ msgid "Opening sign-in…"
 msgstr ""
 
 #: src/imports/screen.tsx
+#: src/session-sharing/index.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 #: src/shared-notes/index.tsx
 msgid "Opening…"
@@ -4272,6 +4273,7 @@ msgstr ""
 msgid "Show tray icon"
 msgstr ""
 
+#: src/session-sharing/index.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 #: src/settings/general/account.tsx
 #: src/settings/sync/index.tsx
@@ -4328,6 +4330,14 @@ msgstr ""
 
 #: src/sidebar/toast/registry.tsx
 msgid "Sign in to get the most out of Anarlog"
+msgstr ""
+
+#: src/session-sharing/index.tsx
+msgid "Sign in to share"
+msgstr ""
+
+#: src/session-sharing/index.tsx
+msgid "Sign in to share this note with others."
 msgstr ""
 
 #: src/onboarding/index.tsx

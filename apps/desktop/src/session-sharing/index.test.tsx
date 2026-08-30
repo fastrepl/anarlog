@@ -534,14 +534,48 @@ describe("SessionShareButton", () => {
     vi.restoreAllMocks();
   });
 
-  it("starts sign-in before attempting to share for a signed-out user", () => {
+  it("shows a locked share preview instead of starting sign-in for a signed-out user", async () => {
     mocks.auth.session = null;
     mocks.billing.isReady = false;
     renderShareButton();
 
     fireEvent.click(screen.getByRole("button", { name: "Share note" }));
 
-    expect(mocks.auth.signIn).toHaveBeenCalledOnce();
+    expect(mocks.auth.signIn).not.toHaveBeenCalled();
+    expect(mocks.loadSessionShareSource).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("heading", { name: "Sign in to share" }),
+    ).not.toBeNull();
+    expect(
+      screen.getByText("Sign in to share this note with others."),
+    ).not.toBeNull();
+    expect(
+      screen.getByTestId("share-popover").querySelector("[class*='blur-']"),
+    ).not.toBeNull();
+    expect(
+      (screen.getByText("Copy link").closest("button") as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await waitFor(() => expect(mocks.auth.signIn).toHaveBeenCalledOnce());
+    expect(mocks.loadSessionShareSource).not.toHaveBeenCalled();
+  });
+
+  it("closes the signed-out share preview when the account changes", () => {
+    mocks.auth.session = null;
+    const view = renderShareButtonView();
+
+    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
+    expect(
+      screen.getByRole("heading", { name: "Sign in to share" }),
+    ).not.toBeNull();
+
+    mocks.auth.session = createSession();
+    view.rerender();
+
+    expect(screen.queryByTestId("share-popover")).toBeNull();
     expect(mocks.loadSessionShareSource).not.toHaveBeenCalled();
   });
 
