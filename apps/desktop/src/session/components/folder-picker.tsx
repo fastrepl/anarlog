@@ -126,7 +126,7 @@ export function FolderPicker({
       <PopoverContent
         variant="app"
         align={align}
-        className="w-80 overflow-hidden"
+        className="w-56 overflow-hidden"
       >
         <AppFloatingPanel className="overflow-hidden">
           <Command
