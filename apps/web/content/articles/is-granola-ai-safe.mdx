@@ -11,9 +11,11 @@ Granola's pitch is the quiet one. No bot. No "Granola is recording" banner the o
 
 That is the feature. It is also the lawsuit.
 
-On July 30, 2026, *Chamberlain v. Granola, Inc.*, No. 3:26-cv-07926-EMC, landed in the Northern District of California. The complaint says Granola captures other people's voices without telling them, markets that invisibility ("other people in the meeting won't know"), and ships notification and watermark **off** by default. We are not the court. The complaint is public. The product behavior it describes matches Granola's own help center.
+On July 30, 2026, [*Chamberlain v. Granola, Inc.*, No. 3:26-cv-07926-EMC](https://storage.courtlistener.com/recap/gov.uscourts.cand.475308/gov.uscourts.cand.475308.1.0.pdf), landed in the Northern District of California. The complaint says Granola captures other people's voices without telling them, markets that invisibility ("other people in the meeting won't know"), and ships notification and watermark **off** by default. We are not the court. The complaint is public. The product behavior it describes matches Granola's own help center.
 
 This is not a "delete Granola tonight" post. It is the due-diligence version of [why people complain about Granola](/blog/granola-ai-complaints): what the app does with consent, training, audio, and compliance badges, in Granola's words and in the docket's.
+
+**Disclosure:** I co-founded Anarlog, an open-source Granola alternative. Our bias is toward local ownership and a choice of AI providers. The claims below link to Granola's documentation and the filed complaint so you can check them.
 
 The general legal frame (US all-party states, GDPR, privilege) is in [Is AI note-taking legal?](/blog/is-ai-notetaking-legal). The Otter and Fireflies versions of this article are [Is Otter.ai safe?](/blog/is-otter-ai-safe) and [Is Fireflies.ai safe?](/blog/is-fireflies-ai-safe). Same questions. Different capture model.
 
@@ -33,6 +35,10 @@ The general legal frame (US all-party states, GDPR, privilege) is in [Is AI note
 ## The capture model is the product
 
 Granola does not send a bot. It records **system audio on your machine** (and the mic, depending on setup). Other participants see a person taking notes, not a notetaker in the roster.
+
+![Granola meeting notepad with the user's notes and an enhanced summary](/images/blog/library/products/granola/notepad/2026-07-19-meeting-note.jpg)
+
+*Granola captures from the user's device and turns typed notes plus the transcript into an enhanced note. Source: [Granola](https://www.granola.ai/).*
 
 Granola's help center tells you to disclose. It also ships the tools that would disclose (in-meeting notification, watermark) **off** unless you turn them on. The Chamberlain complaint quotes Granola marketing that the other people will not know.
 
@@ -112,7 +118,11 @@ Skip it, or isolate it, if:
 - You need a BAA.
 - You need the files on hardware you control.
 
-Anarlog's answer to the last point is boring on purpose. Notes live in a local SQLite database. Models are ones you configure. There is no silent cloud default and no 30-day lock on your own text. That does not erase consent law. You still have to tell the room. It does erase "the vendor has the corpus and the training toggle was on."
+Anarlog's answer to the last point is boring on purpose. Notes live in a local SQLite database. Models are ones you configure. The app is MIT-licensed, so the capture and storage path is auditable. There is no silent cloud default and no 30-day lock on your own text. That does not erase consent law. You still have to tell the room. It does erase "the vendor has the corpus and the training toggle was on."
+
+![Anarlog desktop app with a local meeting note and recording controls](/images/blog/library/products/anarlog/desktop/2026-08-27-new-note.png)
+
+*Anarlog stores the meeting note in local SQLite and lets you choose the speech and AI providers.*
 
 ## Related
 
