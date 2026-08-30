@@ -919,6 +919,10 @@ msgstr "Choose custom color"
 msgid "Choose export folder"
 msgstr "Choose export folder"
 
+#: src/settings/appearance/sidebar-item-fields.tsx
+msgid "Choose extra fields to show above each note title."
+msgstr "Choose extra fields to show above each note title."
+
 #: src/imports/screen.tsx
 msgid "Choose files"
 msgstr "Choose files"
@@ -2082,6 +2086,7 @@ msgstr "Flags"
 msgid "Float chat"
 msgstr "Float chat"
 
+#: src/settings/appearance/sidebar-item-fields.tsx
 #: src/sidebar/note-filter-menu.tsx
 msgid "Folder"
 msgstr "Folder"
@@ -3104,6 +3109,10 @@ msgstr "notes"
 #: src/contacts/details.tsx
 msgid "Notes"
 msgstr "Notes"
+
+#: src/settings/appearance/sidebar-item-fields.tsx
+msgid "Notes list"
+msgstr "Notes list"
 
 #: src/sidebar/folder-materials.tsx
 msgid "Notes stay in All notes. Materials and subfolders will be deleted."
@@ -4247,6 +4256,14 @@ msgstr "Show sidebar"
 msgid "Show Sidebar"
 msgstr "Show Sidebar"
 
+#: src/settings/appearance/sidebar-item-fields.tsx
+msgid "Show tags above the title."
+msgstr "Show tags above the title."
+
+#: src/settings/appearance/sidebar-item-fields.tsx
+msgid "Show the folder above the title."
+msgstr "Show the folder above the title."
+
 #: src/settings/general/timezone.tsx
 msgid "Show the timeline in your preferred timezone."
 msgstr "Show the timeline in your preferred timezone."
@@ -4692,6 +4709,10 @@ msgstr "System audio"
 #: src/onboarding/permissions.tsx
 msgid "System audio enabled"
 msgstr "System audio enabled"
+
+#: src/settings/appearance/sidebar-item-fields.tsx
+msgid "Tags"
+msgstr "Tags"
 
 #: src/automations/starters.tsx
 msgid "Take the enhanced note with decisions and action items."

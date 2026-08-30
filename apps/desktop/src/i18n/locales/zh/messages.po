@@ -919,6 +919,10 @@ msgstr ""
 msgid "Choose export folder"
 msgstr ""
 
+#: src/settings/appearance/sidebar-item-fields.tsx
+msgid "Choose extra fields to show above each note title."
+msgstr ""
+
 #: src/imports/screen.tsx
 msgid "Choose files"
 msgstr ""
@@ -2082,6 +2086,7 @@ msgstr ""
 msgid "Float chat"
 msgstr ""
 
+#: src/settings/appearance/sidebar-item-fields.tsx
 #: src/sidebar/note-filter-menu.tsx
 msgid "Folder"
 msgstr ""
@@ -3103,6 +3108,10 @@ msgstr ""
 
 #: src/contacts/details.tsx
 msgid "Notes"
+msgstr ""
+
+#: src/settings/appearance/sidebar-item-fields.tsx
+msgid "Notes list"
 msgstr ""
 
 #: src/sidebar/folder-materials.tsx
@@ -4247,6 +4256,14 @@ msgstr ""
 msgid "Show Sidebar"
 msgstr ""
 
+#: src/settings/appearance/sidebar-item-fields.tsx
+msgid "Show tags above the title."
+msgstr ""
+
+#: src/settings/appearance/sidebar-item-fields.tsx
+msgid "Show the folder above the title."
+msgstr ""
+
 #: src/settings/general/timezone.tsx
 msgid "Show the timeline in your preferred timezone."
 msgstr ""
@@ -4691,6 +4708,10 @@ msgstr ""
 
 #: src/onboarding/permissions.tsx
 msgid "System audio enabled"
+msgstr ""
+
+#: src/settings/appearance/sidebar-item-fields.tsx
+msgid "Tags"
 msgstr ""
 
 #: src/automations/starters.tsx

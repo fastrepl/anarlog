@@ -40,8 +40,14 @@ import {
 } from "~/session/queries";
 import { getSessionEvent } from "~/session/utils";
 import { openStandaloneNoteWindow } from "~/session/window";
+import { useConfigValue } from "~/shared/config";
 import type { MenuItemDef } from "~/shared/hooks/useNativeContextMenu";
 import { InteractiveButton } from "~/shared/ui/interactive-button";
+import {
+  formatSidebarItemMetaLine,
+  resolveSidebarItemMeta,
+} from "~/sidebar/item-fields";
+import { useSidebarNotes } from "~/sidebar/note-filter";
 import { useSessionTitle } from "~/store/zustand/live-title";
 import { useTabs } from "~/store/zustand/tabs";
 import { useTimelineSelection } from "~/store/zustand/timeline-selection";
@@ -57,6 +63,8 @@ export const ManagedSharedSessionIdsContext = createContext<
 type ItemBaseProps = {
   title: string;
   displayTime: string;
+  folder?: string;
+  tags?: string[];
   isLive?: boolean;
   amplitude?: number;
   showSpinner?: boolean;
@@ -149,6 +157,8 @@ export const TimelineItemComponent = memo(
 const ItemBase = memo(function ItemBase({
   title,
   displayTime,
+  folder,
+  tags,
   isLive,
   amplitude,
   showSpinner,
@@ -187,6 +197,7 @@ const ItemBase = memo(function ItemBase({
       ? Math.round(Math.max(0, Math.min(upcomingProgress, 1)) * 100)
       : 0;
   const showTrailingStatus = showLiveStop || showSpinner;
+  const metaLine = formatSidebarItemMetaLine(folder ?? "", tags ?? []);
   const setItemRef = useCallback(
     (node: HTMLDivElement | null) => {
       selectedNodeRef?.(node);
@@ -201,7 +212,12 @@ const ItemBase = memo(function ItemBase({
       data-sidebar-timeline-session-id={timelineSessionId}
       onFocus={onPreload}
       onPointerDown={onPreload}
-      className="group/sidebar-live-item relative [contain-intrinsic-size:auto_56px] [content-visibility:auto]"
+      className={cn([
+        "group/sidebar-live-item relative [content-visibility:auto]",
+        metaLine
+          ? "[contain-intrinsic-size:auto_72px]"
+          : "[contain-intrinsic-size:auto_56px]",
+      ])}
     >
       <InteractiveButton
         onClick={ignored ? undefined : onClick}
@@ -234,6 +250,18 @@ const ItemBase = memo(function ItemBase({
       >
         <div className="flex items-center gap-2">
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            {metaLine ? (
+              <div
+                className={cn([
+                  "pointer-events-none min-w-0 truncate text-[11px] leading-4",
+                  isLive
+                    ? "text-destructive-foreground/65"
+                    : "text-muted-foreground",
+                ])}
+              >
+                {metaLine}
+              </div>
+            ) : null}
             <div
               className={cn(
                 "pointer-events-none min-w-0 truncate text-sm font-normal",
@@ -343,6 +371,8 @@ function itemBasePropsAreEqual(prev: ItemBaseProps, next: ItemBaseProps) {
   return (
     prev.title === next.title &&
     prev.displayTime === next.displayTime &&
+    prev.folder === next.folder &&
+    (prev.tags ?? []).join("\u001f") === (next.tags ?? []).join("\u001f") &&
     prev.isLive === next.isLive &&
     prev.amplitude === next.amplitude &&
     prev.showSpinner === next.showSpinner &&
@@ -567,6 +597,16 @@ const SessionItem = memo(
 
     const sessionId = item.id;
     const title = useSessionTitle(sessionId, item.data.title ?? undefined);
+    const groupBy = useSidebarNotes((state) => state.groupBy);
+    const showFolder = useConfigValue("sidebar_show_folder");
+    const showTags = useConfigValue("sidebar_show_tags");
+    const { folder, tags } = resolveSidebarItemMeta({
+      folderId: item.data.folder_id,
+      tags: item.data.tags,
+      showFolder,
+      showTags,
+      groupBy,
+    });
     const noteLocked = isLockedFlag(item.data.locked);
     const noteRevealed = useAppLock((state) =>
       Boolean(state.revealedNoteIds[sessionId]),
@@ -723,6 +763,8 @@ const SessionItem = memo(
       <ItemBase
         title={title}
         displayTime={displayTime}
+        folder={folder}
+        tags={tags}
         isLive={isLive}
         amplitude={Math.max(
           0.25,

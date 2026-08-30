@@ -53,6 +53,7 @@ describe("calendar SQLite queries", () => {
           created_at: "2026-07-10T09:00:00.000Z",
           event_json: "",
           folder_id: "sessions/2026-07-10/session-1",
+          tag_names: "launch,prep",
         },
       ]),
     ).toEqual({
@@ -61,6 +62,7 @@ describe("calendar SQLite queries", () => {
         created_at: "2026-07-10T09:00:00.000Z",
         event_json: "",
         folder_id: "sessions/2026-07-10/session-1",
+        tags: ["launch", "prep"],
       },
     });
   });

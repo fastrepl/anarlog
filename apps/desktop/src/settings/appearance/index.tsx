@@ -1,6 +1,7 @@
 import { Trans } from "@lingui/react/macro";
 
 import { AppIconSelector } from "./app-icon";
+import { SidebarItemFieldsSettings } from "./sidebar-item-fields";
 import { ThemeSelector } from "./theme";
 
 import { SettingsPageTitle } from "~/settings/page-title";
@@ -11,6 +12,7 @@ export function SettingsAppearance() {
       <SettingsPageTitle title={<Trans>Appearance</Trans>} />
       <ThemeSelector />
       <AppIconSelector />
+      <SidebarItemFieldsSettings />
     </div>
   );
 }

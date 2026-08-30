@@ -36,6 +36,8 @@ const mocks = vi.hoisted(() => ({
     selectRange: vi.fn(),
     toggleSelect: vi.fn(),
   },
+  showFolder: true,
+  showTags: false,
   windowShow: vi.fn(() => Promise.resolve({ status: "ok", data: null })),
   authAvailable: false as boolean | null,
   revealedNoteIds: {} as Record<string, true>,
@@ -130,6 +132,18 @@ vi.mock("~/calendar/ignored-events", () => ({
   }),
 }));
 
+vi.mock("~/shared/config", () => ({
+  useConfigValue: (key: string) => {
+    if (key === "sidebar_show_folder") {
+      return mocks.showFolder;
+    }
+    if (key === "sidebar_show_tags") {
+      return mocks.showTags;
+    }
+    return undefined;
+  },
+}));
+
 vi.mock("~/store/zustand/live-title", () => ({
   useSessionTitle: () => mocks.storeTitle,
 }));
@@ -182,6 +196,8 @@ vi.mock("~/stt/contexts", () => ({
 
 import { ManagedSharedSessionIdsContext, TimelineItemComponent } from "./item";
 
+import { resetSidebarNotes, useSidebarNotes } from "~/sidebar/note-filter";
+
 describe("TimelineItemComponent", () => {
   beforeEach(() => {
     cleanup();
@@ -202,6 +218,9 @@ describe("TimelineItemComponent", () => {
     mocks.timelineSelection.setAnchor.mockClear();
     mocks.timelineSelection.selectRange.mockClear();
     mocks.timelineSelection.toggleSelect.mockClear();
+    mocks.showFolder = true;
+    mocks.showTags = false;
+    resetSidebarNotes();
   });
 
   it("marks the active session row red in the sidebar timeline", () => {
@@ -276,6 +295,115 @@ describe("TimelineItemComponent", () => {
     expect(selectedNodeRef.mock.calls.some(([node]) => node === row)).toBe(
       true,
     );
+  });
+
+  it("shows the folder above the title", () => {
+    render(
+      <TimelineItemComponent
+        item={{
+          type: "session",
+          id: "session-work",
+          data: {
+            title: "Live Note",
+            created_at: "2024-01-15T10:30:00.000Z",
+            folder_id: "CS 101/week-3",
+          },
+        }}
+        precision="time"
+        selected={false}
+        timezone="UTC"
+        multiSelected={false}
+        flatItemKeys={["session-session-work"]}
+      />,
+    );
+
+    const title = screen.getByText("Live Note");
+    const folder = screen.getByText("CS 101/week-3");
+
+    expect(title.compareDocumentPosition(folder)).toBe(
+      Node.DOCUMENT_POSITION_PRECEDING,
+    );
+  });
+
+  it("hides the folder when notes are grouped by folder", () => {
+    useSidebarNotes.getState().setGroupBy("folder");
+
+    render(
+      <TimelineItemComponent
+        item={{
+          type: "session",
+          id: "session-work",
+          data: {
+            title: "Live Note",
+            created_at: "2024-01-15T10:30:00.000Z",
+            folder_id: "work",
+          },
+        }}
+        precision="time"
+        selected={false}
+        timezone="UTC"
+        multiSelected={false}
+        flatItemKeys={["session-session-work"]}
+      />,
+    );
+
+    expect(screen.queryByText("work")).toBeNull();
+    expect(screen.getByText("Live Note")).toBeTruthy();
+  });
+
+  it("shows tags above the title when enabled", () => {
+    mocks.showTags = true;
+
+    render(
+      <TimelineItemComponent
+        item={{
+          type: "session",
+          id: "session-work",
+          data: {
+            title: "Live Note",
+            created_at: "2024-01-15T10:30:00.000Z",
+            folder_id: "work",
+            tags: ["launch", "prep"],
+          },
+        }}
+        precision="time"
+        selected={false}
+        timezone="UTC"
+        multiSelected={false}
+        flatItemKeys={["session-session-work"]}
+      />,
+    );
+
+    expect(screen.getByText("work · #launch #prep")).toBeTruthy();
+  });
+
+  it("hides folder and tags when those fields are turned off", () => {
+    mocks.showFolder = false;
+    mocks.showTags = false;
+
+    render(
+      <TimelineItemComponent
+        item={{
+          type: "session",
+          id: "session-work",
+          data: {
+            title: "Live Note",
+            created_at: "2024-01-15T10:30:00.000Z",
+            folder_id: "work",
+            tags: ["launch"],
+          },
+        }}
+        precision="time"
+        selected={false}
+        timezone="UTC"
+        multiSelected={false}
+        flatItemKeys={["session-session-work"]}
+      />,
+    );
+
+    expect(screen.queryByText("work")).toBeNull();
+    expect(screen.queryByText("#launch")).toBeNull();
+    expect(screen.getByText("Live Note")).toBeTruthy();
   });
 
   it("highlights an upcoming meeting row", () => {
