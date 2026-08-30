@@ -104,4 +104,24 @@ describe("Metadata controls", () => {
       screen.getByRole("button", { name: "Save date" }).className,
     ).toContain("rounded-full");
   });
+
+  it("keeps date edit actions available in the narrow panel", () => {
+    render(<MetadataButton sessionId="session-1" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open note metadata" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit date" }));
+
+    const input = document.querySelector('input[type="datetime-local"]');
+    const actions = screen.getByRole("button", {
+      name: "Save date",
+    }).parentElement;
+
+    expect(input).not.toBeNull();
+    expect(input?.className).toContain("min-w-0");
+    expect(input?.className).toContain("basis-32");
+    expect(actions?.className).toContain("shrink-0");
+    expect(
+      screen.getByRole("button", { name: "Cancel date edit" }),
+    ).not.toBeNull();
+  });
 });

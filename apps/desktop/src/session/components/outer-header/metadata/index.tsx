@@ -81,7 +81,7 @@ function ContentInner({ sessionId }: { sessionId: string }) {
     : null;
 
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <div className="flex min-w-0 flex-col gap-4 p-4">
       {!eventDisplayData && <DateEditor sessionId={sessionId} />}
       {eventDisplayData && (
         <EventDisplay event={eventDisplayData}>
