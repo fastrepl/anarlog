@@ -30,16 +30,18 @@ export function SignInScreen({
         contentContainerStyle={styles.signInContent}
         contentInsetAdjustmentBehavior="automatic"
       >
-        <Image
-          accessible
-          accessibilityLabel="Anarlog"
-          contentFit="contain"
-          source={require("../../assets/images/anarlog-wordmark.png")}
-          style={styles.wordmark}
-        />
-        <Text accessibilityRole="header" style={styles.signInHeadline}>
-          The AI notepad for{"\n"}private meetings.
-        </Text>
+        <View style={styles.signInBrand}>
+          <Image
+            accessible
+            accessibilityLabel="Anarlog"
+            contentFit="contain"
+            source={require("../../assets/images/anarlog-wordmark.png")}
+            style={styles.wordmark}
+          />
+          <Text accessibilityRole="header" style={styles.signInHeadline}>
+            The AI notepad for{"\n"}private meetings.
+          </Text>
+        </View>
 
         <Button
           label="Sign in"
@@ -195,10 +197,17 @@ const styles = StyleSheet.create({
   },
   signInContent: {
     flexGrow: 1,
+    position: "relative",
+  },
+  signInBrand: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.xl,
-    paddingVertical: Spacing.xl,
   },
   wordmark: {
     width: 168,
@@ -213,7 +222,10 @@ const styles = StyleSheet.create({
     color: Colors.ink,
   },
   signInCta: {
-    width: 200,
+    position: "absolute",
+    right: 0,
+    bottom: Spacing.lg,
+    left: 0,
   },
   titleRow: {
     flexDirection: "row",
