@@ -6,6 +6,7 @@ import type { ToolDependencies } from "./types";
 
 import type { SearchFilters } from "~/search/contexts/engine/types";
 import { loadSessionSummariesByFolder } from "~/session/queries";
+import { sessionSearchTimestamp } from "~/session/utils";
 
 const gteSchema = z
   .number()
@@ -78,15 +79,14 @@ type AbsoluteCreatedAtFilter = z.infer<typeof absoluteCreatedAtFilterSchema>;
 type SearchMeetingsFiltersInput = z.infer<typeof searchMeetingsFiltersSchema>;
 
 function sessionMatchesCreatedAt(
-  createdAt: string,
+  timestamp: number,
   filter: SearchFilters["created_at"],
 ): boolean {
   if (!filter) {
     return true;
   }
 
-  const timestamp = Date.parse(createdAt);
-  if (Number.isNaN(timestamp)) {
+  if (!Number.isFinite(timestamp) || timestamp <= 0) {
     return false;
   }
 
@@ -128,9 +128,12 @@ async function searchFolderMeetings({
     created_at: number;
   }>;
 }> {
-  const sessions = (await loadSessionSummariesByFolder(folderFilter)).filter(
-    (session) => sessionMatchesCreatedAt(session.created_at, createdAt),
-  );
+  const sessions = (await loadSessionSummariesByFolder(folderFilter))
+    .map((session) => ({
+      ...session,
+      searchAt: sessionSearchTimestamp(session.event_json, session.created_at),
+    }))
+    .filter((session) => sessionMatchesCreatedAt(session.searchAt, createdAt));
 
   if (sessions.length === 0) {
     return { results: [] };
@@ -143,7 +146,7 @@ async function searchFolderMeetings({
         title: session.title,
         excerpt: "",
         score: 0,
-        created_at: Date.parse(session.created_at) || 0,
+        created_at: session.searchAt,
       })),
     };
   }
@@ -154,10 +157,7 @@ async function searchFolderMeetings({
     limit,
   });
   const createdAtById = new Map(
-    sessions.map((session) => [
-      session.id,
-      Date.parse(session.created_at) || 0,
-    ]),
+    sessions.map((session) => [session.id, session.searchAt]),
   );
 
   return {

@@ -85,6 +85,7 @@ describe("search meetings chat tool", () => {
         id: "cs-101",
         title: "CS 101 lecture",
         created_at: "2026-08-01T00:00:00.000Z",
+        event_json: "",
       },
     ]);
     vi.mocked(searchMeetingContent).mockResolvedValue({
@@ -120,6 +121,78 @@ describe("search meetings chat tool", () => {
         created_at: Date.parse("2026-08-01T00:00:00.000Z"),
       },
     ]);
+  });
+
+  it("filters folder meetings by event started_at, not session created_at", async () => {
+    const search = vi.fn();
+    const meetingSearchTool = buildSearchMeetingsTool({
+      search,
+      getFolderFilter: () => "CS 101",
+    } as any);
+    const startedAt = "2026-08-15T10:00:00.000Z";
+    const createdAt = "2025-01-01T00:00:00.000Z";
+
+    vi.mocked(loadSessionSummariesByFolder).mockResolvedValue([
+      {
+        id: "cs-101",
+        title: "CS 101 lecture",
+        created_at: createdAt,
+        event_json: JSON.stringify({ started_at: startedAt }),
+      },
+    ]);
+
+    const result = await (meetingSearchTool as any).execute({
+      query: "",
+      filters: {
+        created_at: {
+          kind: "absolute",
+          gte: Date.parse("2026-08-14T00:00:00.000Z"),
+          lte: Date.parse("2026-08-16T00:00:00.000Z"),
+        },
+      },
+    });
+
+    expect(search).not.toHaveBeenCalled();
+    expect(result.results).toEqual([
+      {
+        id: "cs-101",
+        title: "CS 101 lecture",
+        excerpt: "",
+        score: 0,
+        created_at: Date.parse(startedAt),
+      },
+    ]);
+  });
+
+  it("drops folder meetings whose event start is outside the date filter", async () => {
+    const meetingSearchTool = buildSearchMeetingsTool({
+      search: vi.fn(),
+      getFolderFilter: () => "CS 101",
+    } as any);
+
+    vi.mocked(loadSessionSummariesByFolder).mockResolvedValue([
+      {
+        id: "cs-101",
+        title: "Old lecture",
+        created_at: "2026-08-15T10:00:00.000Z",
+        event_json: JSON.stringify({
+          started_at: "2025-01-01T00:00:00.000Z",
+        }),
+      },
+    ]);
+
+    const result = await (meetingSearchTool as any).execute({
+      query: "",
+      filters: {
+        created_at: {
+          kind: "absolute",
+          gte: Date.parse("2026-08-14T00:00:00.000Z"),
+          lte: Date.parse("2026-08-16T00:00:00.000Z"),
+        },
+      },
+    });
+
+    expect(result).toEqual({ results: [] });
   });
 
   it("returns no meetings when the active folder is empty", async () => {
