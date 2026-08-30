@@ -44,6 +44,21 @@ describe("calendar SQLite queries", () => {
     });
   });
 
+  it("preserves commas inside tag names from JSON aggregation", () => {
+    expect(
+      mapTimelineSessionRows([
+        {
+          id: "session-1",
+          title: "Imported meeting",
+          created_at: "2026-07-10T09:00:00.000Z",
+          event_json: "",
+          folder_id: "sessions/2026-07-10/session-1",
+          tags_json: JSON.stringify(["launch, prep"]),
+        },
+      ])["session-1"]?.tags,
+    ).toEqual(["launch, prep"]);
+  });
+
   it("keys SQLite sessions by ID without dropping timeline fields", () => {
     expect(
       mapTimelineSessionRows([
@@ -53,7 +68,7 @@ describe("calendar SQLite queries", () => {
           created_at: "2026-07-10T09:00:00.000Z",
           event_json: "",
           folder_id: "sessions/2026-07-10/session-1",
-          tag_names: "launch,prep",
+          tags_json: JSON.stringify(["launch", "prep"]),
         },
       ]),
     ).toEqual({

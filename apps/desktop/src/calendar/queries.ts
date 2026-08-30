@@ -24,7 +24,7 @@ type TimelineEventSqlRow = Omit<
 
 type TimelineSessionSqlRow = Omit<TimelineSessionRow, "tags"> & {
   id: string;
-  tag_names?: string | null;
+  tags_json?: string | null;
 };
 
 type CalendarSqlRow = {
@@ -167,15 +167,15 @@ export function useTimelineSessionsTable(): TimelineSessionsTable {
         event_json,
         folder_path AS folder_id,
         locked,
-        (
-          SELECT GROUP_CONCAT(tags.name)
+        COALESCE((
+          SELECT json_group_array(tags.name)
           FROM session_tags
           INNER JOIN tags
             ON tags.id = session_tags.tag_id
             AND tags.deleted_at IS NULL
           WHERE session_tags.session_id = sessions.id
             AND session_tags.deleted_at IS NULL
-        ) AS tag_names
+        ), '[]') AS tags_json
       FROM sessions
       WHERE deleted_at IS NULL
       ORDER BY created_at, id
@@ -533,11 +533,11 @@ export function mapTimelineSessionRows(
   rows: TimelineSessionSqlRow[],
 ): Record<string, TimelineSessionRow> {
   return Object.fromEntries(
-    rows.map(({ id, tag_names, ...row }) => [
+    rows.map(({ id, tags_json, ...row }) => [
       id,
       {
         ...row,
-        tags: parseSessionTagNames(tag_names),
+        tags: parseSessionTagNames(tags_json),
       },
     ]),
   );
