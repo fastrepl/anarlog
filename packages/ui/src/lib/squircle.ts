@@ -11,3 +11,6 @@ export const panelSquircle = {
   radius: DesignRadius.panel,
   smoothing: APPLE_SMOOTHING,
 } satisfies SmoothCornerOptions;
+
+export const squircleFocusVisibleClassName =
+  "focus-visible:outline-ring focus-visible:outline-2 focus-visible:outline-offset-2";

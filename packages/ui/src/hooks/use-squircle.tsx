@@ -18,7 +18,8 @@ export function useSquircleRef<T extends HTMLElement>(
     // CSS radius intersects clip-path and squares the curve; Lisse clears this
     // after the clip-path lands and restores it on teardown.
     fallbackBorderRadius: fallbackRadius,
-    skipShadowHandle: true,
+    // Omit skipShadowHandle so extracted box-shadows (shadow-xs) paint on
+    // the parent overlay instead of being clipped on the host.
   });
 
   return useCallback(
