@@ -11,7 +11,7 @@ use super::alarm::transform_alarm;
 use super::enums::{transform_event_availability, transform_event_status};
 use super::location::transform_structured_location;
 use super::participant::transform_participant;
-use super::utils::get_url_string;
+use super::utils::{get_url_string, objc_title};
 
 pub fn transform_event(
     event: &EKEvent,
@@ -84,7 +84,7 @@ fn extract_event_calendar_ref(event: &EKEvent) -> CalendarRef {
     let calendar = unsafe { event.calendar() }.unwrap();
     CalendarRef {
         id: unsafe { calendar.calendarIdentifier() }.to_string(),
-        title: unsafe { calendar.title() }.to_string(),
+        title: objc_title(&*calendar),
     }
 }
 
@@ -100,7 +100,7 @@ struct EventBasicInfo {
 
 fn extract_event_basic_info(event: &EKEvent) -> EventBasicInfo {
     EventBasicInfo {
-        title: unsafe { event.title() }.to_string(),
+        title: objc_title(event),
         location: unsafe { event.location() }.map(|s| s.to_string()),
         url: get_url_string(event, "URL"),
         notes: unsafe { event.notes() }.map(|s| s.to_string()),

@@ -5,11 +5,12 @@ use crate::types::{AppleCalendar, CalendarSource, CalendarType};
 use super::enums::{transform_calendar_type, transform_source_type};
 use super::utils::{
     extract_allowed_entity_types, extract_color_components, extract_supported_availabilities,
+    objc_source_identifier, objc_title,
 };
 
 pub fn transform_calendar(calendar: &EKCalendar) -> AppleCalendar {
     let id = unsafe { calendar.calendarIdentifier() }.to_string();
-    let title = unsafe { calendar.title() }.to_string();
+    let title = objc_title(calendar);
     let calendar_type = transform_calendar_type(unsafe { calendar.r#type() });
     let color = unsafe { calendar.CGColor() }.map(|cg_color| extract_color_components(&cg_color));
 
@@ -48,8 +49,8 @@ pub fn extract_calendar_properties(calendar: &EKCalendar) -> AppleCalendar {
 
 pub fn extract_calendar_source(calendar: &EKCalendar) -> CalendarSource {
     if let Some(src) = unsafe { calendar.source() } {
-        let source_identifier = unsafe { src.sourceIdentifier() }.to_string();
-        let source_title = unsafe { src.title() }.to_string();
+        let source_identifier = objc_source_identifier(&*src);
+        let source_title = objc_title(&*src);
         let source_type = transform_source_type(unsafe { src.sourceType() });
         CalendarSource {
             identifier: source_identifier,

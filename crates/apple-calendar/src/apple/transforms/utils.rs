@@ -1,7 +1,7 @@
 use objc2::{msg_send, rc::Retained};
 use objc2_core_graphics::CGColor;
 use objc2_event_kit::EKCalendar;
-use objc2_foundation::{NSInteger, NSURL};
+use objc2_foundation::{NSInteger, NSString, NSURL};
 
 use crate::types::{CalendarColor, CalendarEntityType, EventAvailability};
 
@@ -91,5 +91,25 @@ where
     unsafe {
         let url_obj: Option<Retained<NSURL>> = msg_send![obj, URL];
         url_obj.and_then(|u| u.absoluteString().map(|s| s.to_string()))
+    }
+}
+
+pub fn objc_title<T>(obj: &T) -> String
+where
+    T: objc2::Message + ?Sized,
+{
+    unsafe {
+        let title: Option<Retained<NSString>> = msg_send![obj, title];
+        title.map(|s| s.to_string()).unwrap_or_default()
+    }
+}
+
+pub fn objc_source_identifier<T>(obj: &T) -> String
+where
+    T: objc2::Message + ?Sized,
+{
+    unsafe {
+        let identifier: Option<Retained<NSString>> = msg_send![obj, sourceIdentifier];
+        identifier.map(|s| s.to_string()).unwrap_or_default()
     }
 }

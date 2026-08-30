@@ -25,4 +25,4 @@ objc2 = { workspace = true, features = ["exception"] }
 objc2-core-location = { workspace = true }
 objc2-core-graphics = { workspace = true }
 objc2-event-kit = { workspace = true, features = ["EKEventStore", "EKCalendarItem", "EKCalendar", "EKObject", "EKReminder", "EKSource", "EKTypes", "EKRecurrenceRule", "EKRecurrenceEnd", "EKAlarm", "EKStructuredLocation", "EKRecurrenceDayOfWeek", "objc2-core-graphics", "objc2-core-location"] }
-objc2-foundation = { workspace = true, features = ["NSDate", "NSEnumerator", "NSPredicate", "NSError", "NSNotification", "NSCalendar", "NSTimeZone"] }
+objc2-foundation = { workspace = true, features = ["NSDate", "NSEnumerator", "NSPredicate", "NSError", "NSNotification", "NSCalendar", "NSTimeZone", "NSString"] }

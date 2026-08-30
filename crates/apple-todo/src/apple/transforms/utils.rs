@@ -1,6 +1,28 @@
+use objc2::{msg_send, rc::Retained};
 use objc2_core_graphics::CGColor;
+use objc2_foundation::NSString;
 
 use crate::types::CalendarColor;
+
+pub fn objc_title<T>(obj: &T) -> String
+where
+    T: objc2::Message + ?Sized,
+{
+    unsafe {
+        let title: Option<Retained<NSString>> = msg_send![obj, title];
+        title.map(|s| s.to_string()).unwrap_or_default()
+    }
+}
+
+pub fn objc_source_identifier<T>(obj: &T) -> String
+where
+    T: objc2::Message + ?Sized,
+{
+    unsafe {
+        let identifier: Option<Retained<NSString>> = msg_send![obj, sourceIdentifier];
+        identifier.map(|s| s.to_string()).unwrap_or_default()
+    }
+}
 
 pub fn extract_color_components(cg_color: &CGColor) -> CalendarColor {
     let num_components = CGColor::number_of_components(Some(cg_color));

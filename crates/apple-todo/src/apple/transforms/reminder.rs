@@ -7,6 +7,7 @@ use crate::types::{DateComponents, Reminder, ReminderListRef, ReminderPriority};
 
 use super::super::recurrence::{offset_date_time_from, parse_recurrence_rules};
 use super::alarm::transform_alarm;
+use super::utils::objc_title;
 
 pub fn transform_reminder(reminder: &EKReminder) -> Result<Reminder> {
     let calendar_item_identifier = unsafe { reminder.calendarItemIdentifier() }.to_string();
@@ -18,14 +19,11 @@ pub fn transform_reminder(reminder: &EKReminder) -> Result<Reminder> {
     let list = unsafe { reminder.calendar() }
         .map(|cal| ReminderListRef {
             id: unsafe { cal.calendarIdentifier() }.to_string(),
-            title: unsafe { cal.title() }.to_string(),
+            title: objc_title(&*cal),
         })
         .ok_or_else(|| Error::TransformError("reminder has no calendar".into()))?;
 
-    let title = unsafe {
-        let t: Option<Retained<objc2_foundation::NSString>> = msg_send![reminder, title];
-        t.map(|s| s.to_string()).unwrap_or_default()
-    };
+    let title = objc_title(reminder);
 
     let notes = unsafe { reminder.notes() }.map(|s| s.to_string());
 
