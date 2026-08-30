@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { Check, FolderSimple, Plus } from "@phosphor-icons/react";
+import { Check, Folder, FolderSimple, Plus } from "@phosphor-icons/react";
 import { useCallback, useMemo, useState } from "react";
 
 import {
@@ -106,7 +106,7 @@ export function FolderPicker({
           }
           title={currentPath ? currentPath : t`Select folder`}
           className={cn([
-            "flex h-7 items-center rounded-full",
+            "flex h-7 items-center rounded-full [&_svg]:size-4",
             currentPath
               ? "max-w-full min-w-0 gap-1 px-1.5"
               : "w-7 justify-center",
@@ -115,7 +115,7 @@ export function FolderPicker({
             open && "bg-accent text-foreground",
           ])}
         >
-          <FolderSimple className="size-4 shrink-0" aria-hidden="true" />
+          <Folder className="size-4 shrink-0" aria-hidden="true" />
           {currentPath ? (
             <span className="min-w-0 truncate text-xs text-neutral-600 dark:text-neutral-300">
               {currentPath}

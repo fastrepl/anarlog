@@ -74,6 +74,10 @@ describe("Metadata controls", () => {
 
     expect(metadataButton.className).toContain("size-7");
     expect(metadataButton.className).toContain("rounded-full");
+    expect(metadataButton.className).toContain("[&_svg]:size-4");
+    expect(
+      metadataButton.querySelector("svg")?.getAttribute("class"),
+    ).toContain("size-4");
   });
 
   it("renders date edit action buttons as circles", () => {

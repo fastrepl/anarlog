@@ -620,6 +620,10 @@ describe("SessionShareButton", () => {
     const trigger = screen.getByRole("button", { name: "Share note" });
     expect(trigger.textContent).toBe("");
     expect(trigger.querySelectorAll("svg")).toHaveLength(1);
+    expect(trigger.className).toContain("[&_svg]:size-4");
+    expect(trigger.querySelector("svg")?.getAttribute("class")).toContain(
+      "size-4",
+    );
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     expect(trigger.className).not.toContain("mr-1");
 

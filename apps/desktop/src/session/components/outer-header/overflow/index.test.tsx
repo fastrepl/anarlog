@@ -321,6 +321,10 @@ describe("OverflowButton", () => {
     );
 
     expect(trigger).not.toBeNull();
+    expect(trigger?.className).toContain("[&_svg]:size-4");
+    expect(trigger?.querySelector("svg")?.getAttribute("class")).toContain(
+      "size-4",
+    );
   });
 
   it("mounts the export modal only after export is selected", () => {

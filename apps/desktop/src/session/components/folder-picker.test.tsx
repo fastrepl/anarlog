@@ -53,6 +53,7 @@ describe("FolderPicker", () => {
 
     expect(trigger.textContent).toBe("");
     expect(trigger.className).toContain("w-7");
+    expect(trigger.className).toContain("[&_svg]:size-4");
     expect(icons).toHaveLength(1);
     expect(icons[0]?.getAttribute("class")).toContain("size-4");
   });
