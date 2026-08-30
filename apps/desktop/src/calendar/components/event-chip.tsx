@@ -121,10 +121,11 @@ export function EventChip({
       <PopoverContent
         variant="app"
         align="start"
-        className="flex max-h-[80vh] w-[280px] flex-col"
+        collisionPadding={16}
+        className="flex max-h-[min(80vh,36rem)] w-[min(320px,calc(100vw-32px))] min-w-0 flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <AppFloatingPanel>
+        <AppFloatingPanel className="min-h-0 overflow-x-hidden overflow-y-auto">
           <EventPopoverContent eventId={eventId} event={event} />
         </AppFloatingPanel>
       </PopoverContent>

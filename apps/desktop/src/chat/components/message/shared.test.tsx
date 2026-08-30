@@ -56,4 +56,18 @@ describe("MessageBubble", () => {
     expect(bubble.className).toContain("text-neutral-800");
     expect(bubble.className).not.toContain("text-foreground");
   });
+
+  it("lets long chat tokens wrap instead of clipping", () => {
+    const { container } = render(
+      <MessageBubble variant="assistant">
+        get_recurring_meeting_history
+      </MessageBubble>,
+    );
+
+    const bubble = container.firstChild as HTMLElement;
+
+    expect(bubble.className).toContain("min-w-0");
+    expect(bubble.className).toContain("max-w-full");
+    expect(bubble.className).toContain("overflow-wrap-anywhere");
+  });
 });

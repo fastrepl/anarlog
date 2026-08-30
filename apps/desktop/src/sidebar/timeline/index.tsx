@@ -16,7 +16,13 @@ import { cn } from "@anlg/utils";
 import { useAnchor, useAutoScrollToAnchor } from "./anchor";
 import { TimelineBuckets } from "./buckets";
 import { TimelineNowChip, TimelineTopChip, UpcomingMeetingChip } from "./chips";
-import { getFallbackIndicatorIndex, useTimelineData } from "./data";
+import {
+  applyTimelineOrder,
+  getFallbackIndicatorIndex,
+  remapTimelineIndicatorIndex,
+  resolveTimelineOrder,
+  useTimelineData,
+} from "./data";
 import {
   hasSidebarNoteSelectionContext,
   isDeleteSelectionShortcut,
@@ -65,6 +71,7 @@ export const TimelineView = memo(function TimelineView({
 } = {}) {
   const { t } = useLingui();
   const timezone = useConfigValue("timezone") || undefined;
+  const timelineOrder = resolveTimelineOrder(useConfigValue("timeline_order"));
   const { session } = useAuth();
   const managedSharedSessionIds = useActivatedSessionShareIds(session?.user.id);
   const { timelineEventsTable, timelineSessionsTable } = useTimelineTables();
@@ -74,7 +81,7 @@ export const TimelineView = memo(function TimelineView({
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
 
   const { isIgnored } = useIgnoredEvents();
-  const { buckets, hasMoreFutureItems } = useTimelineData({
+  const { buckets: sourceBuckets, hasMoreFutureItems } = useTimelineData({
     folderFilter,
     isEventIgnored: isIgnored,
     showIgnored,
@@ -82,6 +89,10 @@ export const TimelineView = memo(function TimelineView({
     timelineSessionsTable,
     timezone,
   });
+  const buckets = useMemo(
+    () => applyTimelineOrder(sourceBuckets, timelineOrder),
+    [sourceBuckets, timelineOrder],
+  );
   const openNew = useTabs((state) => state.openNew);
 
   const showOpenCalendarChip =
@@ -398,8 +409,12 @@ export const TimelineView = memo(function TimelineView({
     if (hasToday) {
       return -1;
     }
-    return getFallbackIndicatorIndex(buckets, Date.now());
-  }, [buckets, hasToday, indicatorTimeMs]);
+    return remapTimelineIndicatorIndex(
+      getFallbackIndicatorIndex(sourceBuckets, Date.now()),
+      buckets.length,
+      timelineOrder,
+    );
+  }, [buckets.length, hasToday, indicatorTimeMs, sourceBuckets, timelineOrder]);
 
   const toggleShowIgnored = useCallback(() => {
     const nextShowIgnored = !showIgnored;

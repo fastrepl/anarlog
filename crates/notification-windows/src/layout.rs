@@ -2,17 +2,17 @@
 
 use anlg_notification_interface::{Notification, PrimaryAction};
 
-pub const NOTIFICATION_WIDTH: i32 = 344;
+pub const NOTIFICATION_WIDTH: i32 = 360;
 pub const COMPACT_HEIGHT: i32 = 64;
 pub const COMPACT_FOOTER_HEIGHT: i32 = 28;
 pub const EXPANDED_HEIGHT: i32 = 380;
-pub const RIGHT_MARGIN: i32 = 15;
+pub const RIGHT_MARGIN: i32 = 24;
 pub const TOP_MARGIN: i32 = 15;
 pub const NOTIFICATION_SPACING: i32 = 10;
 pub const MAX_NOTIFICATIONS: usize = 5;
 pub const CLOSE_BUTTON_SIZE: i32 = 22;
 pub const ICON_SIZE: i32 = 28;
-pub const ACTION_BUTTON_WIDTH: i32 = 108;
+pub const ACTION_BUTTON_WIDTH: i32 = 120;
 pub const ACTION_BUTTON_HEIGHT: i32 = 28;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -291,7 +291,7 @@ mod tests {
 
     #[test]
     fn stacks_notifications_from_the_work_area_top_right() {
-        assert_eq!(stacked_origin(0, 0, 1920, 0), (1561, 15));
-        assert_eq!(stacked_origin(0, 0, 1920, 74), (1561, 89));
+        assert_eq!(stacked_origin(0, 0, 1920, 0), (1536, 15));
+        assert_eq!(stacked_origin(0, 0, 1920, 74), (1536, 89));
     }
 }

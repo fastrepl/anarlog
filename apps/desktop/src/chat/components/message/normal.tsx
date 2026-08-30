@@ -175,20 +175,24 @@ const chatComponents = {
   },
   ul: (props: React.HTMLAttributes<HTMLUListElement>) => {
     return (
-      <ul className="mb-1 list-disc pl-5">
+      <ul className="overflow-wrap-anywhere mb-1 list-disc pl-5">
         {props.children as React.ReactNode}
       </ul>
     );
   },
   ol: (props: React.HTMLAttributes<HTMLOListElement>) => {
     return (
-      <ol className="mb-1 list-decimal pl-5">
+      <ol className="overflow-wrap-anywhere mb-1 list-decimal pl-5">
         {props.children as React.ReactNode}
       </ol>
     );
   },
   li: (props: React.HTMLAttributes<HTMLLIElement>) => {
-    return <li className="mb-1">{props.children as React.ReactNode}</li>;
+    return (
+      <li className="overflow-wrap-anywhere mb-1 min-w-0">
+        {props.children as React.ReactNode}
+      </li>
+    );
   },
   p: (props: React.HTMLAttributes<HTMLParagraphElement>) => {
     return (
@@ -203,7 +207,7 @@ function Text({ part }: { part: Extract<Part, { type: "text" }> }) {
   return (
     <Streamdown
       components={chatComponents}
-      className="px-0.5 py-1"
+      className="overflow-wrap-anywhere min-w-0 px-0.5 py-1"
       caret="block"
       isAnimating={isAnimating}
       linkSafety={{ enabled: false }}

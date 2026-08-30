@@ -21,6 +21,7 @@ import { Permissions } from "./permissions";
 import { SpokenLanguagesView } from "./spoken-languages";
 import { StorageSettingsView } from "./storage";
 import { SummaryLengthSelector } from "./summary-length";
+import { TimelineOrderSelector } from "./timeline-order";
 import { TimezoneSelector } from "./timezone";
 import { WeekStartSelector } from "./week-start";
 
@@ -277,6 +278,7 @@ function SettingsSectionContent({
               </form.Field>
               <TimezoneSelector />
               <WeekStartSelector />
+              <TimelineOrderSelector />
               <form.Field name="spoken_languages">
                 {(field) => (
                   <SpokenLanguagesView

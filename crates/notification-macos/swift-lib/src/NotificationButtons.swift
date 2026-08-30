@@ -202,10 +202,14 @@ class NotificationButton: NSButton {
   }
 
   override var intrinsicContentSize: NSSize {
-    var s = super.intrinsicContentSize
-    s.width += 18
-    s.height = max(28, s.height + 4)
-    return s
+    let font = self.font ?? NSFont.systemFont(ofSize: Fonts.buttonSize, weight: Fonts.buttonWeight)
+    let textWidth = (title as NSString).size(withAttributes: [.font: font]).width
+    let imageWidth: CGFloat = image == nil ? 0 : 12
+    let imageGap: CGFloat = imageWidth > 0 ? 4 : 0
+    return NSSize(
+      width: ceil(textWidth + imageWidth + imageGap + 24),
+      height: 28
+    )
   }
 
   override func layout() {

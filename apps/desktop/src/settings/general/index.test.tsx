@@ -68,6 +68,7 @@ vi.mock("./summary-length", () => ({
 }));
 vi.mock("./timezone", () => ({ TimezoneSelector: () => null }));
 vi.mock("./week-start", () => ({ WeekStartSelector: () => null }));
+vi.mock("./timeline-order", () => ({ TimelineOrderSelector: () => null }));
 
 import { SettingsApp, SettingsMeetings } from "./index";
 

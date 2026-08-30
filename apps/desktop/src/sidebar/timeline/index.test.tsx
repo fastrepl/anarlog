@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
     | { type: "sessions"; id: string },
   deleteSession: vi.fn(),
   configValue: undefined as string | undefined,
+  timelineOrder: "upcoming_first" as string,
   currentTimeMs: undefined as number | undefined,
   isAnchorVisible: true,
   isScrolledPastAnchor: false,
@@ -109,7 +110,8 @@ vi.mock("@lingui/react", () => ({
 }));
 
 vi.mock("~/shared/config", () => ({
-  useConfigValue: () => mocks.configValue,
+  useConfigValue: (key: string) =>
+    key === "timeline_order" ? mocks.timelineOrder : mocks.configValue,
 }));
 
 vi.mock("~/auth", () => ({
@@ -244,6 +246,7 @@ describe("TimelineView", () => {
     vi.clearAllMocks();
     mocks.anchorNode = null;
     mocks.configValue = undefined;
+    mocks.timelineOrder = "upcoming_first";
     mocks.currentTimeMs = undefined;
     mocks.isAnchorVisible = true;
     mocks.isScrolledPastAnchor = false;
@@ -1241,6 +1244,42 @@ describe("TimelineView", () => {
     expect(
       indicator.closest("[data-sidebar-current-time-header-gap]")?.className,
     ).toContain("py-3");
+  });
+
+  it("lists older notes first when the timeline order is chronological", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T15:54:00.000Z"));
+
+    mocks.configValue = "Asia/Seoul";
+    mocks.timelineOrder = "chronological";
+    mocks.timelineSessionsTable = {
+      tomorrow: {
+        title: "Sprint retro & planning",
+        created_at: "2024-01-15T00:00:00.000Z",
+        event_json: JSON.stringify({
+          started_at: "2024-01-17T08:30:00.000Z",
+        }),
+      },
+      yesterday: {
+        title: "Design sync",
+        created_at: "2024-01-15T12:00:00.000Z",
+      },
+      "two-days-ago": {
+        title: "Product Discovery Pace",
+        created_at: "2024-01-14T12:00:00.000Z",
+      },
+    };
+
+    render(<TimelineView />);
+
+    const twoDaysAgoHeading = screen.getByText("2 days ago");
+    const yesterdayHeading = screen.getByText("Yesterday");
+    const tomorrowHeading = screen.getByText("Tomorrow");
+    const indicator = screen.getByTestId("current-time-indicator");
+
+    expect(isBefore(twoDaysAgoHeading, yesterdayHeading)).toBe(true);
+    expect(isBefore(yesterdayHeading, indicator)).toBe(true);
+    expect(isBefore(indicator, tomorrowHeading)).toBe(true);
   });
 
   it("does not auto-scroll to the fallback now indicator without a today bucket", () => {

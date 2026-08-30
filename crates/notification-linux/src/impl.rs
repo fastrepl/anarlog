@@ -17,11 +17,11 @@ use anlg_notification_interface::{
 use crate::callbacks;
 use crate::icon;
 
-const NOTIFICATION_WIDTH: i32 = 344;
+const NOTIFICATION_WIDTH: i32 = 360;
 const COMPACT_HEIGHT: i32 = 64;
 const COMPACT_FOOTER_HEIGHT: i32 = 28;
 const EXPANDED_HEIGHT: i32 = 380;
-const RIGHT_MARGIN: i32 = 15;
+const RIGHT_MARGIN: i32 = 24;
 const TOP_MARGIN: i32 = 15;
 const NOTIFICATION_SPACING: i32 = 10;
 const MAX_NOTIFICATIONS: usize = 5;

@@ -75,7 +75,7 @@ export function ChatBody({
           className={cn([
             "flex flex-col",
             isRightPanel && "min-h-full flex-1",
-            isRightPanel ? "px-3 py-5" : "px-3 py-3",
+            isRightPanel ? "px-3 py-5" : "px-5 py-3",
           ])}
         >
           {!isFloating && <div className="flex-1" />}

@@ -25,13 +25,13 @@
 }
 
 /* The inset is `rem`, not `em`: it has to cancel against the scroll
- * container's fixed `px-3`, so it must not scale with the block's own font
+ * container's fixed `px-6`, so it must not scale with the block's own font
  * size. */
 .note-typography.prosemirror-editor > * {
   transition: background-color 120ms ease;
-  margin-inline: -0.75rem;
+  margin-inline: -1.5rem;
   border-radius: 0.5rem;
-  padding-inline: 0.75rem;
+  padding-inline: 1.5rem;
 }
 
 /* font-size is explicit, not inherited: web's `@layer base` sets `p` to

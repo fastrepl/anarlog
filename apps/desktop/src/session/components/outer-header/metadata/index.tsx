@@ -173,7 +173,7 @@ export function EventDisplay({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="text-foreground text-base font-medium">
+      <div className="text-foreground min-w-0 text-base font-medium break-words">
         {event.title || "Untitled Event"}
       </div>
 
@@ -183,7 +183,7 @@ export function EventDisplay({
         <>
           <div className="text-muted-foreground flex items-center gap-2 text-sm">
             <MapPin size={16} className="text-muted-foreground shrink-0" />
-            <span>{event.location}</span>
+            <span className="min-w-0 break-words">{event.location}</span>
           </div>
         </>
       )}

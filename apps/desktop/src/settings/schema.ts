@@ -247,6 +247,12 @@ export const SETTING_DEFINITIONS = {
     path: ["general", "week_start"],
     synced: true,
   },
+  timeline_order: {
+    type: "string",
+    path: ["general", "timeline_order"],
+    default: "upcoming_first" as string,
+    synced: true,
+  },
   selected_template_id: {
     type: "string",
     path: ["general", "selected_template_id"],

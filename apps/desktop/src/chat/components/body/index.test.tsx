@@ -56,7 +56,7 @@ describe("ChatBody", () => {
     const scrollArea = content?.parentElement;
     const root = scrollArea?.parentElement;
 
-    expect(content?.className).toContain("px-3");
+    expect(content?.className).toContain("px-5");
     expect(content?.className).not.toContain("min-h-full");
     expect(scrollArea?.className).toContain("max-h-[min(36rem,70vh)]");
     expect(scrollArea?.className).toContain("flex-auto");

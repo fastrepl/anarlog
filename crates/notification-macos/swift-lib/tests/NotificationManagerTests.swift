@@ -75,6 +75,19 @@ final class NotificationManagerTests: XCTestCase {
     XCTAssertNil(manager.hoverStates[original.key])
   }
 
+  func testActionButtonKeepsTitleWidth() {
+    let button = CompactActionButton()
+    button.title = "Open Anarlog"
+    button.font = NSFont.systemFont(ofSize: Fonts.buttonSize, weight: Fonts.buttonWeight)
+
+    let textWidth = ("Open Anarlog" as NSString).size(
+      withAttributes: [.font: button.font!]
+    ).width
+
+    XCTAssertGreaterThanOrEqual(button.intrinsicContentSize.width, ceil(textWidth + 24))
+    XCTAssertEqual(button.intrinsicContentSize.height, 28)
+  }
+
   func testStartedNotificationsLingerFiveMinutesAfterStart() {
     let start = Date(timeIntervalSince1970: 1_700_000_000)
 

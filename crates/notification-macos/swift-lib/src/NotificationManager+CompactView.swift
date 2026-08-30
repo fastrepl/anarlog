@@ -121,6 +121,7 @@ extension NotificationManager {
       notification.compactActionButton = compactActionButton
     }
     primaryButton.setContentHuggingPriority(.required, for: .horizontal)
+    primaryButton.setContentCompressionResistancePriority(.required, for: .horizontal)
     topRow.addArrangedSubview(primaryButton)
 
     root.addSubview(topRow)
@@ -177,6 +178,7 @@ extension NotificationManager {
         footerActionButton.notification = notification
       }
       footerButton.setContentHuggingPriority(.required, for: .horizontal)
+      footerButton.setContentCompressionResistancePriority(.required, for: .horizontal)
 
       footerRow.addArrangedSubview(footerTextStack)
       footerRow.addArrangedSubview(footerButton)

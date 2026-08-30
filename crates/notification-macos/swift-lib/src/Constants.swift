@@ -1,13 +1,13 @@
 import Cocoa
 
 enum Layout {
-  static let notificationWidth: CGFloat = 344
+  static let notificationWidth: CGFloat = 360
   static let notificationHeight: CGFloat = 64
   static let compactFooterHeight: CGFloat = 28
   static let compactIconContainerSize: CGFloat = 36
   static let compactIconSize: CGFloat = 28
   static let expandedNotificationHeight: CGFloat = 380
-  static let rightMargin: CGFloat = 15
+  static let rightMargin: CGFloat = 24
   static let topMargin: CGFloat = 15
   static let slideInOffset: CGFloat = 10
   static let buttonOverhang: CGFloat = 8
