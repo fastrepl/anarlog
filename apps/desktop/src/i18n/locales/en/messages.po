@@ -120,6 +120,10 @@ msgstr "3 days"
 msgid "A dated Notion update with the meeting summary."
 msgstr "A dated Notion update with the meeting summary."
 
+#: src/sidebar/folder-name-dialog.tsx
+msgid "A folder with this name already exists."
+msgstr "A folder with this name already exists."
+
 #: src/automations/starters.tsx
 msgid "A Markdown file with the note, summary, and transcript."
 msgstr "A Markdown file with the note, summary, and transcript."
@@ -771,6 +775,7 @@ msgstr "Can view"
 #: src/settings/sync/index.tsx
 #: src/settings/todo/github.tsx
 #: src/shared/ui/destructive-confirmation-dialog.tsx
+#: src/sidebar/folder-name-dialog.tsx
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Cancel"
 msgstr "Cancel"
@@ -1447,6 +1452,10 @@ msgstr "Could not save the automation draft"
 msgid "Could not save the automation setting"
 msgstr "Could not save the automation setting"
 
+#: src/sidebar/folder-name-dialog.tsx
+msgid "Could not save the folder."
+msgstr "Could not save the folder."
+
 #: src/session-sharing/delivery-management.ts
 msgid "Could not send the meeting notes to Slack."
 msgstr "Could not send the meeting notes to Slack."
@@ -1501,6 +1510,7 @@ msgid "Could not use the selected model"
 msgstr "Could not use the selected model"
 
 #: src/settings/team/index.tsx
+#: src/sidebar/note-filter-menu.tsx
 msgid "Create"
 msgstr "Create"
 
@@ -1905,6 +1915,7 @@ msgid "Enter a valid date and time"
 msgstr "Enter a valid date and time"
 
 #: src/session/components/folder-picker.tsx
+#: src/sidebar/folder-name-dialog.tsx
 msgid "Enter a valid folder name."
 msgstr "Enter a valid folder name."
 
@@ -2066,6 +2077,10 @@ msgstr "Flags"
 #: src/chat/components/toolbar-controls.tsx
 msgid "Float chat"
 msgstr "Float chat"
+
+#: src/sidebar/folder-name-dialog.tsx
+msgid "Folder name"
+msgstr "Folder name"
 
 #: src/session/components/folder-picker.tsx
 msgid "Folder: {currentPath}"
@@ -2836,6 +2851,10 @@ msgstr "New automation"
 msgid "New chat"
 msgstr "New chat"
 
+#: src/sidebar/note-filter-menu.tsx
+msgid "New folder"
+msgstr "New folder"
+
 #: src/main/empty.tsx
 #: src/main/windows-title-bar.tsx
 msgid "New Note"
@@ -3594,9 +3613,17 @@ msgstr "Remove photo"
 msgid "Remove repository"
 msgstr "Remove repository"
 
+#: src/sidebar/folder-materials.tsx
+msgid "Rename"
+msgstr "Rename"
+
 #: src/settings/sync/index.tsx
 msgid "Rename device"
 msgstr "Rename device"
+
+#: src/sidebar/folder-materials.tsx
+msgid "Rename folder"
+msgstr "Rename folder"
 
 #: src/settings/sync/index.tsx
 msgid "Rename this device"

@@ -1,10 +1,21 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  createNamedFolder: vi.fn(),
   folderPaths: [] as string[],
   onValueChange: vi.fn(),
+}));
+
+vi.mock("~/session/folder-catalog", () => ({
+  createNamedFolder: mocks.createNamedFolder,
 }));
 
 vi.mock("~/session/queries", () => ({
@@ -78,7 +89,9 @@ describe("SidebarNoteFilterMenu", () => {
     expect(mocks.onValueChange).toHaveBeenCalledWith("mine", "work");
   });
 
-  it("hides folder options until a folder exists", () => {
+  it("lets the user create a folder before any notes exist", async () => {
+    mocks.createNamedFolder.mockResolvedValue("CS 101");
+
     render(
       <SidebarNoteFilterMenu
         value="mine"
@@ -91,7 +104,18 @@ describe("SidebarNoteFilterMenu", () => {
     fireEvent.click(trigger);
 
     expect(
-      screen.queryByRole("menuitemradio", { name: "No folder" }),
-    ).toBeNull();
+      screen.getByRole("menuitemradio", { name: "No folder" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("menuitem", { name: "New folder" }));
+
+    fireEvent.change(screen.getByLabelText("Folder name"), {
+      target: { value: "CS 101" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() => {
+      expect(mocks.createNamedFolder).toHaveBeenCalledWith("CS 101");
+      expect(mocks.onValueChange).toHaveBeenCalledWith("mine", "CS 101");
+    });
   });
 });

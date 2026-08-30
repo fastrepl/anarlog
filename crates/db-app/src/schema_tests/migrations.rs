@@ -112,6 +112,7 @@ async fn migrations_apply_cleanly() {
             "entity_mentions",
             "events",
             "folder_attachments",
+            "folders",
             "humans",
             "migration_import_items",
             "migration_import_runs",

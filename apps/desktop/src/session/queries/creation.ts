@@ -8,6 +8,7 @@ import {
 import type { SessionChanges } from "./types";
 
 import { executeTransaction, liveQueryClient } from "~/db";
+import { ensureFolderCatalog } from "~/session/folder-catalog";
 import { normalizeFolderPath } from "~/session/folders";
 import { DEFAULT_USER_ID, id } from "~/shared/utils";
 
@@ -102,6 +103,10 @@ export async function createSession(
       params: [participantId, now, now, sessionId],
     },
   ]);
+
+  if (folderPath) {
+    await ensureFolderCatalog(folderPath);
+  }
 
   trackNoteCreated(false);
   return sessionId;

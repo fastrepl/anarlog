@@ -17,6 +17,7 @@ export {
   getOrCreateSessionForEventId,
 } from "./queries/creation";
 export {
+  FOLDER_PATHS_SQL,
   loadSessionSummariesByFolder,
   useFolderPaths,
 } from "./queries/folders";

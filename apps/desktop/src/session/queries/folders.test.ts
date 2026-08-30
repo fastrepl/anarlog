@@ -9,7 +9,16 @@ vi.mock("~/db", () => ({
   useLiveQuery: () => ({ data: [] }),
 }));
 
-import { loadSessionSummariesByFolder } from "./folders";
+import { FOLDER_PATHS_SQL, loadSessionSummariesByFolder } from "./folders";
+
+describe("folder path listing", () => {
+  it("keeps folders that have notes, materials, or a catalog row", () => {
+    expect(FOLDER_PATHS_SQL).toContain("FROM sessions");
+    expect(FOLDER_PATHS_SQL).toContain("FROM folder_attachments");
+    expect(FOLDER_PATHS_SQL).toContain("FROM folders");
+    expect(FOLDER_PATHS_SQL).toContain("UNION");
+  });
+});
 
 describe("folder session queries", () => {
   beforeEach(() => {

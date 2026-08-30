@@ -1,6 +1,12 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   deleteLocalFolderMaterial: vi.fn(),
@@ -11,6 +17,8 @@ const mocks = vi.hoisted(() => ({
     sizeBytes: number;
     relativePath: string;
   }>,
+  renameNamedFolder: vi.fn(),
+  setView: vi.fn(),
   upload: vi.fn(),
 }));
 
@@ -24,6 +32,16 @@ vi.mock("@lingui/react/macro", () => ({
         "",
       ),
   }),
+}));
+
+vi.mock("~/session/folder-catalog", () => ({
+  renameNamedFolder: mocks.renameNamedFolder,
+}));
+
+vi.mock("./note-filter", () => ({
+  useSidebarNotes: (
+    selector: (state: { setView: typeof mocks.setView }) => unknown,
+  ) => selector({ setView: mocks.setView }),
 }));
 
 vi.mock("~/session/folder-attachments", () => ({
@@ -44,13 +62,20 @@ import { FolderMaterialsPanel } from "./folder-materials";
 describe("FolderMaterialsPanel", () => {
   beforeEach(() => {
     mocks.deleteLocalFolderMaterial.mockReset();
+    mocks.renameNamedFolder.mockReset();
+    mocks.setView.mockReset();
     mocks.upload.mockReset();
     mocks.materials = [];
+    mocks.renameNamedFolder.mockResolvedValue("Algorithms");
     mocks.upload.mockResolvedValue({
       path: "/vault/sessions/CS 101/materials/syllabus.txt",
       attachmentId: "syllabus.txt",
     });
     mocks.deleteLocalFolderMaterial.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   it("uploads a selected file to the active folder", async () => {
@@ -87,6 +112,24 @@ describe("FolderMaterialsPanel", () => {
         folderPath: "CS 101",
         attachmentId: "syllabus.txt",
       });
+    });
+  });
+
+  it("renames the active folder and keeps the sidebar on it", async () => {
+    render(<FolderMaterialsPanel folderPath="CS 101" />);
+
+    fireEvent.click(screen.getByLabelText("Rename folder"));
+    fireEvent.change(screen.getByLabelText("Folder name"), {
+      target: { value: "Algorithms" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+
+    await waitFor(() => {
+      expect(mocks.renameNamedFolder).toHaveBeenCalledWith(
+        "CS 101",
+        "Algorithms",
+      );
+      expect(mocks.setView).toHaveBeenCalledWith("mine", "Algorithms");
     });
   });
 });

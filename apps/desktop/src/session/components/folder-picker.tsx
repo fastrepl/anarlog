@@ -19,6 +19,7 @@ import {
 } from "@anlg/ui/components/ui/popover";
 import { cn } from "@anlg/utils";
 
+import { createNamedFolder } from "~/session/folder-catalog";
 import { folderDisplayName, normalizeFolderPath } from "~/session/folders";
 import {
   useFolderPaths,
@@ -78,11 +79,18 @@ export function FolderPicker({
         return;
       }
 
-      void updateSession({ folder_id: normalized }).catch((error) => {
-        console.error("[folder-picker] failed to update folder", error);
-      });
+      void (async () => {
+        try {
+          if (normalized && !folderPaths.includes(normalized)) {
+            await createNamedFolder(normalized);
+          }
+          await updateSession({ folder_id: normalized });
+        } catch (error) {
+          console.error("[folder-picker] failed to update folder", error);
+        }
+      })();
     },
-    [folderId, updateSession],
+    [folderId, folderPaths, updateSession],
   );
 
   return (

@@ -9,18 +9,32 @@ type FolderPathSqlRow = {
 
 const EMPTY_FOLDER_PATHS: string[] = [];
 
+export const FOLDER_PATHS_SQL = `
+  SELECT folder_path
+  FROM (
+    SELECT folder_path
+    FROM sessions
+    WHERE deleted_at IS NULL
+      AND folder_path != ''
+    UNION
+    SELECT folder_path
+    FROM folder_attachments
+    WHERE deleted_at IS NULL
+      AND folder_path != ''
+    UNION
+    SELECT path AS folder_path
+    FROM folders
+    WHERE deleted_at IS NULL
+      AND path != ''
+  )
+`;
+
 export function useFolderPaths(): string[] {
   const { data = EMPTY_FOLDER_PATHS } = useLiveQuery<
     FolderPathSqlRow,
     string[]
   >({
-    sql: `
-      SELECT DISTINCT folder_path
-      FROM sessions
-      WHERE deleted_at IS NULL
-        AND folder_path != ''
-      ORDER BY folder_path
-    `,
+    sql: FOLDER_PATHS_SQL,
     mapRows: (rows) => collectFolderPaths(rows.map((row) => row.folder_path)),
   });
   return data;

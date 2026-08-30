@@ -120,6 +120,10 @@ msgstr ""
 msgid "A dated Notion update with the meeting summary."
 msgstr ""
 
+#: src/sidebar/folder-name-dialog.tsx
+msgid "A folder with this name already exists."
+msgstr ""
+
 #: src/automations/starters.tsx
 msgid "A Markdown file with the note, summary, and transcript."
 msgstr ""
@@ -771,6 +775,7 @@ msgstr ""
 #: src/settings/sync/index.tsx
 #: src/settings/todo/github.tsx
 #: src/shared/ui/destructive-confirmation-dialog.tsx
+#: src/sidebar/folder-name-dialog.tsx
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Cancel"
 msgstr ""
@@ -1447,6 +1452,10 @@ msgstr ""
 msgid "Could not save the automation setting"
 msgstr ""
 
+#: src/sidebar/folder-name-dialog.tsx
+msgid "Could not save the folder."
+msgstr ""
+
 #: src/session-sharing/delivery-management.ts
 msgid "Could not send the meeting notes to Slack."
 msgstr ""
@@ -1501,6 +1510,7 @@ msgid "Could not use the selected model"
 msgstr ""
 
 #: src/settings/team/index.tsx
+#: src/sidebar/note-filter-menu.tsx
 msgid "Create"
 msgstr ""
 
@@ -1905,6 +1915,7 @@ msgid "Enter a valid date and time"
 msgstr ""
 
 #: src/session/components/folder-picker.tsx
+#: src/sidebar/folder-name-dialog.tsx
 msgid "Enter a valid folder name."
 msgstr ""
 
@@ -2065,6 +2076,10 @@ msgstr ""
 
 #: src/chat/components/toolbar-controls.tsx
 msgid "Float chat"
+msgstr ""
+
+#: src/sidebar/folder-name-dialog.tsx
+msgid "Folder name"
 msgstr ""
 
 #: src/session/components/folder-picker.tsx
@@ -2836,6 +2851,10 @@ msgstr ""
 msgid "New chat"
 msgstr ""
 
+#: src/sidebar/note-filter-menu.tsx
+msgid "New folder"
+msgstr ""
+
 #: src/main/empty.tsx
 #: src/main/windows-title-bar.tsx
 msgid "New Note"
@@ -3594,8 +3613,16 @@ msgstr ""
 msgid "Remove repository"
 msgstr ""
 
+#: src/sidebar/folder-materials.tsx
+msgid "Rename"
+msgstr ""
+
 #: src/settings/sync/index.tsx
 msgid "Rename device"
+msgstr ""
+
+#: src/sidebar/folder-materials.tsx
+msgid "Rename folder"
 msgstr ""
 
 #: src/settings/sync/index.tsx

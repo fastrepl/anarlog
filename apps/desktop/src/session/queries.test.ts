@@ -172,6 +172,9 @@ describe("session SQLite operations", () => {
     expect(statements[1].sql).toContain("workspace_id");
     expect(statements[1].sql).toContain("FROM sessions");
     expect(statements[1].params).toContain('{"type":"doc"}');
+    expect(mocks.executeTransaction.mock.calls[1][0][1].sql).toContain(
+      "INSERT INTO folders",
+    );
   });
 
   it("derives the default self identity from the bound workspace", async () => {

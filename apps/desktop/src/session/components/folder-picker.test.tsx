@@ -1,12 +1,23 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FolderPicker } from "./folder-picker";
 
 const mocks = vi.hoisted(() => ({
+  createNamedFolder: vi.fn(() => Promise.resolve("clients")),
   folderId: "",
   folderPaths: [] as string[],
   updateSession: vi.fn(() => Promise.resolve()),
+}));
+
+vi.mock("~/session/folder-catalog", () => ({
+  createNamedFolder: mocks.createNamedFolder,
 }));
 
 vi.mock("~/session/queries", () => ({
@@ -19,7 +30,9 @@ describe("FolderPicker", () => {
   beforeEach(() => {
     mocks.folderId = "";
     mocks.folderPaths = ["personal", "work"];
+    mocks.createNamedFolder.mockClear();
     mocks.updateSession.mockClear();
+    mocks.createNamedFolder.mockResolvedValue("clients");
     globalThis.ResizeObserver = class {
       observe() {}
       unobserve() {}
@@ -92,8 +105,11 @@ describe("FolderPicker", () => {
       await screen.findByRole("option", { name: 'Create "clients"' }),
     );
 
-    expect(mocks.updateSession).toHaveBeenCalledWith({
-      folder_id: "clients",
+    expect(mocks.createNamedFolder).toHaveBeenCalledWith("clients");
+    await waitFor(() => {
+      expect(mocks.updateSession).toHaveBeenCalledWith({
+        folder_id: "clients",
+      });
     });
   });
 

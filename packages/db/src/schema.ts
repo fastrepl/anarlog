@@ -391,6 +391,19 @@ export const sessionAttachments = sqliteTable(
   (table) => [index("idx_session_attachments_session_id").on(table.sessionId)],
 );
 
+export const folders = sqliteTable(
+  "folders",
+  {
+    id: text("id").primaryKey().notNull(),
+    workspaceId: text("workspace_id").notNull().default(""),
+    path: text("path").notNull().default(""),
+    createdAt: text("created_at").notNull().default(currentTimestamp),
+    updatedAt: text("updated_at").notNull().default(currentTimestamp),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [index("idx_folders_path").on(table.path)],
+);
+
 export const folderAttachments = sqliteTable(
   "folder_attachments",
   {
