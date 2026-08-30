@@ -1,0 +1,125 @@
+---
+meta_title: "Is Granola AI safe? Privacy, consent, and the class action"
+display_title: "Is Granola AI safe? Consent, training, and the class action"
+meta_description: "Granola markets invisible capture. A class action says that is the problem. Here is what the product does with consent, training, HIPAA, and your audio."
+author: "John Jeong"
+category: "Comparisons"
+date: "2026-08-30"
+---
+
+Granola's pitch is the quiet one. No bot. No "Granola is recording" banner the other people can see. You take notes. The machine hears the room.
+
+That is the feature. It is also the lawsuit.
+
+On July 30, 2026, *Chamberlain v. Granola, Inc.*, No. 3:26-cv-07926-EMC, landed in the Northern District of California. The complaint says Granola captures other people's voices without telling them, markets that invisibility ("other people in the meeting won't know"), and ships notification and watermark **off** by default. We are not the court. The complaint is public. The product behavior it describes matches Granola's own help center.
+
+This is not a "delete Granola tonight" post. It is the due-diligence version of [why people complain about Granola](/blog/granola-ai-complaints): what the app does with consent, training, audio, and compliance badges, in Granola's words and in the docket's.
+
+The general legal frame (US all-party states, GDPR, privilege) is in [Is AI note-taking legal?](/blog/is-ai-notetaking-legal). The Otter and Fireflies versions of this article are [Is Otter.ai safe?](/blog/is-otter-ai-safe) and [Is Fireflies.ai safe?](/blog/is-fireflies-ai-safe). Same questions. Different capture model.
+
+## Short answers
+
+| Question | Short answer |
+| --- | --- |
+| Is Granola "safe"? | For a personal notepad on work that is not regulated, many teams use it. For meetings with outsiders, health data, or all-party-consent states, the defaults are the risk. |
+| Is silent capture legal? | Granola puts consent on **you**. The class action says the defaults make that duty a fiction. California and other all-party states are the sharp edge. |
+| Does Granola train on my meetings? | **On by default** for Free and Business. You can opt out per account. Org-wide opt-out is [Enterprise](https://docs.granola.ai/help-center/consent-security-privacy/model-training). Granola says it cannot guarantee anonymized data was unused before you opted out. |
+| HIPAA / BAA? | **No.** Granola [is not HIPAA-compliant and does not sign BAAs](https://docs.granola.ai/help-center/consent-security-privacy/is-granola-hipaa-compliant). They say they are aiming for support by the end of 2026. |
+| FERPA? | **No.** |
+| SOC 2? | Granola publishes [SOC 2 Type II](https://trust.granola.ai/). That is operational security, not consent. |
+| Where does data live? | AWS, United States. |
+| What happens to the audio? | Granola says audio is deleted after transcription. Transcripts and notes stay in the workspace. |
+
+## The capture model is the product
+
+Granola does not send a bot. It records **system audio on your machine** (and the mic, depending on setup). Other participants see a person taking notes, not a notetaker in the roster.
+
+Granola's help center tells you to disclose. It also ships the tools that would disclose (in-meeting notification, watermark) **off** unless you turn them on. The Chamberlain complaint quotes Granola marketing that the other people will not know.
+
+That combination is the legal theory:
+
+1. A participant's device is capturing everyone.
+2. The vendor designed the capture to be invisible.
+3. The vendor told the user that invisibility is the point.
+4. Consent for everyone else was left as a checkbox in a help article.
+
+Compare Otter and Fireflies. Those products get sued for **bots that join without asking**. Granola gets sued for **no bot at all**. Different mechanism. Same injury alleged: other people did not agree to be transcribed.
+
+If you use Granola, treat disclosure as a habit, not a setting you will remember. Say it out loud. Put it in the calendar invite. Turn the notification on. None of that is legal advice. All of it is cheaper than explaining the default to counsel.
+
+## Training is on unless you turn it off
+
+[Granola's model-training doc](https://docs.granola.ai/help-center/consent-security-privacy/model-training) and [security FAQ](https://docs.granola.ai/help-center/consent-security-privacy/security-privacy-data-faqs):
+
+- Free and Business: meetings can be used to train Granola's models **unless you opt out**.
+- Enterprise: the company can switch training off for the whole org.
+- After you opt out, Granola says it will stop using new data for training. It **cannot guarantee** that anonymized data already in the pipeline was never used.
+
+"Anonymized meeting data" is doing a lot of work in that sentence. If the meeting is the only place a deal, a diagnosis, or a personnel issue was discussed, stripping names may not be the protection you think it is.
+
+Opt-out is in account settings. It is not the default. Most people never open that page.
+
+## Audio, transcripts, and who holds the file
+
+Granola's privacy story is better than "we keep the wav forever":
+
+- Audio is used to transcribe, then deleted (Granola's stated policy).
+- Transcripts, enhanced notes, and chat live in your Granola workspace.
+- On Basic, you can only *see* the last 30 days. The files are still there. See [Granola pricing](/blog/granola-ai-pricing).
+
+So: the raw recording is not the long-term store. The text is. Text is enough to reproduce the conversation. Text is what a subpoena, a discovery request, or a disgruntled admin actually wants.
+
+There is no user-held audio archive to play back. That is a product complaint ([no playback](/blog/granola-ai-complaints)) and a safety fact. You cannot audit what the model heard. You can only read what it wrote.
+
+## Compliance badges, read narrowly
+
+**SOC 2 Type II** means an auditor looked at Granola's controls. It does not mean your meeting was consented. It does not mean the other party's voice is yours to upload.
+
+**US data residency** means AWS in the United States. Fine for many US companies. Not an answer for GDPR transfer questions, and not an answer for "we need the files in our VPC."
+
+**HIPAA:** Granola's docs say the product is [not HIPAA-compliant and they do not sign BAAs](https://docs.granola.ai/help-center/consent-security-privacy/is-granola-hipaa-compliant). They are working toward it and aim to have it in place by the end of 2026. If you are a covered entity or a BA, stop here and read [HIPAA-compliant AI notetakers](/blog/hipaa-compliant-ai-notetaker). Do not put PHI in Granola because the notepad is pretty.
+
+**FERPA:** same shape. Not a student-records product.
+
+**Enterprise controls:** SSO, SCIM, org-wide training opt-out, and org-wide notification that Granola is being used. That is a sales conversation, not a self-serve toggle. It is also not a BAA.
+
+## How this compares to Otter and Fireflies
+
+| | Granola | Otter | Fireflies |
+| --- | --- | --- | --- |
+| Capture | On-device, no bot | Bot + app | Bot |
+| Typical complaint | Other people never saw a recorder | Bot joined from the calendar | Bot joined / stayed |
+| Headline case | Chamberlain (ND Cal, 2026) | In re Otter.AI Privacy Litigation | Cruz (BIPA, N.D. Ill.) |
+| Training default | On (Free/Business) | Long-running plaintiff theory; check current policy | Check current policy; enterprise controls exist |
+| HIPAA / BAA | Not on standard plans | Business+ story; verify | Enterprise story; verify |
+
+None of these vendors is "the safe one" in the abstract. They fail in different rooms. Granola fails in the room where nobody knew a laptop was the recorder.
+
+## When Granola is a reasonable choice
+
+Use it if:
+
+- Meetings are internal, and your policy already allows on-device recording.
+- You disclose, every time, and you turned the notification on.
+- You opted out of training, or you are on an Enterprise contract that did it for you.
+- The work is not PHI, student records, or privileged in a way your counsel cares about.
+- You accept that Granola holds the text in AWS and that Basic hides it after 30 days.
+
+Skip it, or isolate it, if:
+
+- You are on sales calls with customers who did not sign a recording clause.
+- You work in California or another all-party state and you cannot reliably get yes from everyone.
+- You need a BAA.
+- You need the files on hardware you control.
+
+Anarlog's answer to the last point is boring on purpose. Notes live in a local SQLite database. Models are ones you configure. There is no silent cloud default and no 30-day lock on your own text. That does not erase consent law. You still have to tell the room. It does erase "the vendor has the corpus and the training toggle was on."
+
+## Related
+
+- [Why people complain about Granola](/blog/granola-ai-complaints)
+- [Granola pricing and the 30-day wall](/blog/granola-ai-pricing)
+- [Is AI note-taking legal?](/blog/is-ai-notetaking-legal)
+- [Is Otter.ai safe?](/blog/is-otter-ai-safe)
+- [Is Fireflies.ai safe?](/blog/is-fireflies-ai-safe)
+- [HIPAA-compliant AI notetakers](/blog/hipaa-compliant-ai-notetaker)
+- [Best Granola alternatives](/blog/granola-ai-alternatives)
