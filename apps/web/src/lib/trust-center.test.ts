@@ -50,6 +50,11 @@ test("does not claim certifications that are not complete", () => {
   assert.match(certificationStatus.planned, /does not claim/);
   assert.doesNotMatch(certificationStatus.planned, /we are SOC 2/i);
   assert.doesNotMatch(certificationStatus.planned, /HIPAA compliant/i);
+  assert.match(certificationStatus.hostedTrustCenter, /separate site/);
+  assert.doesNotMatch(
+    `${certificationStatus.planned} ${certificationStatus.hostedTrustCenter}`,
+    /this page is (the|our) trust center/i,
+  );
 });
 
 test("keeps the DPA as a request, not a published legal invention", () => {

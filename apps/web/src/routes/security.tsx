@@ -27,9 +27,9 @@ import {
   TRUST_CENTER_UPDATED_ON,
 } from "@/lib/trust-center";
 
-const title = "Security and trust · Anarlog";
+const title = "Security · Anarlog";
 const description =
-  "Anarlog trust center: encryption, data location, retention, training policy, subprocessors, incident reporting, and the documents an enterprise security review needs.";
+  "How Anarlog handles encryption, data location, retention, training, subprocessors, and incident reporting — the packet for a first enterprise security review.";
 
 export const Route = createFileRoute("/security")({
   component: SecurityPage,
@@ -73,7 +73,7 @@ function SecurityPage() {
               <AnarlogLogo className="h-8 w-auto md:h-9" />
             </Link>
             <h1 className="font-hand mt-12 text-4xl leading-none font-semibold text-[#181613] md:mt-16 md:text-5xl">
-              Trust center
+              Security
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
               What a first security review needs: how Anarlog stores meeting
@@ -200,7 +200,8 @@ function SecurityPage() {
               Certifications and contracts
             </h2>
             <p className="mt-5 text-base leading-7 text-[#4f4940]">
-              {certificationStatus.planned}
+              {certificationStatus.planned}{" "}
+              {certificationStatus.hostedTrustCenter}
             </p>
             <ul className="mt-6 divide-y divide-[#eadfce] text-sm">
               {contractualDocs.map((doc) => (

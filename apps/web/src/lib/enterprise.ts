@@ -12,7 +12,7 @@ export const ENTERPRISE_EVENTS = {
 
 export type EnterpriseCta =
   | "book_call"
-  | "trust_center"
+  | "security"
   | "enterprise"
   | "privacy"
   | "terms"

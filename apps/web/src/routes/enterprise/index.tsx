@@ -100,11 +100,11 @@ function EnterprisePage() {
               <BookFounderCall location="hero" page="enterprise" />
               <EnterpriseCtaLink
                 to="/security/"
-                cta="trust_center"
+                cta="security"
                 location="hero"
                 page="enterprise"
               >
-                Open the trust center
+                Read the security page
               </EnterpriseCtaLink>
             </div>
             <p className="mt-3 text-xs text-[#756b5d]">
@@ -156,12 +156,12 @@ function EnterprisePage() {
               The answers below are the same facts we use on questionnaires. The{" "}
               <EnterpriseCtaLink
                 to="/security/"
-                cta="trust_center"
+                cta="security"
                 location="security_review"
                 page="enterprise"
                 className="text-base text-[#4f4940]"
               >
-                trust center
+                security page
               </EnterpriseCtaLink>{" "}
               has architecture, processors, retention, and the procurement
               packet.

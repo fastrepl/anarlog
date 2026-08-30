@@ -153,6 +153,8 @@ export const certificationStatus = {
   claimed: [] as string[],
   planned:
     "SOC 2, ISO 27001, AIUC-1, and HIPAA/BAA programs are planned after we have operational evidence. This page does not claim any of them.",
+  hostedTrustCenter:
+    "A hosted trust center — the Vanta or Oneleet surface buyers expect — comes after those programs start. It will be a separate site, not this page.",
 };
 
 export const contractualDocs = [
@@ -191,7 +193,7 @@ export const shipsWithPartners = [
 export const pilotSteps = [
   {
     title: "Security review",
-    body: "Forward this site to IT, security, and legal. The trust center, privacy policy, and source-visible client are the packet. We answer questionnaires from the same facts — we will not invent certifications.",
+    body: "Forward this site to IT, security, and legal. The security page, privacy policy, and source-visible client are the packet. We answer questionnaires from the same facts — we will not invent certifications.",
   },
   {
     title: "Scoped pilot",
