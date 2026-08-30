@@ -9,7 +9,10 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  createNamedFolder: vi.fn(),
   deleteLocalFolderMaterial: vi.fn(),
+  deleteNamedFolder: vi.fn(),
+  instructions: "",
   materials: [] as Array<{
     id: string;
     filename: string;
@@ -19,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   }>,
   renameNamedFolder: vi.fn(),
   setView: vi.fn(),
+  updateFolderInstructions: vi.fn(),
   upload: vi.fn(),
 }));
 
@@ -35,7 +39,11 @@ vi.mock("@lingui/react/macro", () => ({
 }));
 
 vi.mock("~/session/folder-catalog", () => ({
+  createNamedFolder: mocks.createNamedFolder,
+  deleteNamedFolder: mocks.deleteNamedFolder,
   renameNamedFolder: mocks.renameNamedFolder,
+  updateFolderInstructions: mocks.updateFolderInstructions,
+  useFolderInstructions: () => mocks.instructions,
 }));
 
 vi.mock("./note-filter", () => ({
@@ -61,12 +69,19 @@ import { FolderMaterialsPanel } from "./folder-materials";
 
 describe("FolderMaterialsPanel", () => {
   beforeEach(() => {
+    mocks.createNamedFolder.mockReset();
     mocks.deleteLocalFolderMaterial.mockReset();
+    mocks.deleteNamedFolder.mockReset();
     mocks.renameNamedFolder.mockReset();
     mocks.setView.mockReset();
+    mocks.updateFolderInstructions.mockReset();
     mocks.upload.mockReset();
+    mocks.instructions = "";
     mocks.materials = [];
+    mocks.createNamedFolder.mockResolvedValue("CS 101/Week 1");
+    mocks.deleteNamedFolder.mockResolvedValue(undefined);
     mocks.renameNamedFolder.mockResolvedValue("Algorithms");
+    mocks.updateFolderInstructions.mockResolvedValue(undefined);
     mocks.upload.mockResolvedValue({
       path: "/vault/sessions/CS 101/materials/syllabus.txt",
       attachmentId: "syllabus.txt",
@@ -130,6 +145,49 @@ describe("FolderMaterialsPanel", () => {
         "Algorithms",
       );
       expect(mocks.setView).toHaveBeenCalledWith("mine", "Algorithms");
+    });
+  });
+
+  it("creates a nested subfolder and switches to it", async () => {
+    render(<FolderMaterialsPanel folderPath="CS 101" />);
+
+    fireEvent.click(screen.getByLabelText("New subfolder"));
+    fireEvent.change(screen.getByLabelText("Folder name"), {
+      target: { value: "Week 1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() => {
+      expect(mocks.createNamedFolder).toHaveBeenCalledWith("CS 101/Week 1");
+      expect(mocks.setView).toHaveBeenCalledWith("mine", "CS 101/Week 1");
+    });
+  });
+
+  it("saves folder instructions when the field blurs", async () => {
+    render(<FolderMaterialsPanel folderPath="CS 101" />);
+
+    fireEvent.change(screen.getByLabelText("Folder instructions"), {
+      target: { value: "Prefer the syllabus." },
+    });
+    fireEvent.blur(screen.getByLabelText("Folder instructions"));
+
+    await waitFor(() => {
+      expect(mocks.updateFolderInstructions).toHaveBeenCalledWith(
+        "CS 101",
+        "Prefer the syllabus.",
+      );
+    });
+  });
+
+  it("deletes the folder and returns to all notes", async () => {
+    render(<FolderMaterialsPanel folderPath="CS 101" />);
+
+    fireEvent.click(screen.getByLabelText("Delete folder"));
+    fireEvent.click(screen.getByRole("button", { name: "Delete folder" }));
+
+    await waitFor(() => {
+      expect(mocks.deleteNamedFolder).toHaveBeenCalledWith("CS 101");
+      expect(mocks.setView).toHaveBeenCalledWith("mine", null);
     });
   });
 });

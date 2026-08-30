@@ -397,6 +397,7 @@ export const folders = sqliteTable(
     id: text("id").primaryKey().notNull(),
     workspaceId: text("workspace_id").notNull().default(""),
     path: text("path").notNull().default(""),
+    instructions: text("instructions").notNull().default(""),
     createdAt: text("created_at").notNull().default(currentTimestamp),
     updatedAt: text("updated_at").notNull().default(currentTimestamp),
     deletedAt: text("deleted_at"),

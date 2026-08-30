@@ -20,7 +20,7 @@ import {
 import { cn } from "@anlg/utils";
 
 import { createNamedFolder } from "~/session/folder-catalog";
-import { folderDisplayName, normalizeFolderPath } from "~/session/folders";
+import { normalizeFolderPath } from "~/session/folders";
 import {
   useFolderPaths,
   useSession,
@@ -46,7 +46,7 @@ export function FolderPicker({
   const folderId = useSession(sessionId)?.folder_id ?? "";
   const folderPaths = useFolderPaths();
   const updateSession = useUpdateSession(sessionId);
-  const currentPath = folderDisplayName(folderId);
+  const currentPath = normalizeFolderPath(folderId) ?? "";
   const folders = useMemo(() => {
     if (currentPath && !folderPaths.includes(currentPath)) {
       return collectWithCurrent(folderPaths, currentPath);

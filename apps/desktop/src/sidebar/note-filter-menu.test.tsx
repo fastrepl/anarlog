@@ -118,4 +118,32 @@ describe("SidebarNoteFilterMenu", () => {
       expect(mocks.onValueChange).toHaveBeenCalledWith("mine", "CS 101");
     });
   });
+
+  it("creates a subfolder under the selected folder", async () => {
+    mocks.folderPaths = ["CS 101"];
+    mocks.createNamedFolder.mockResolvedValue("CS 101/Week 1");
+
+    render(
+      <SidebarNoteFilterMenu
+        folderFilter="CS 101"
+        value="mine"
+        onValueChange={mocks.onValueChange}
+      />,
+    );
+
+    const trigger = screen.getByRole("button", { name: "Filter notes" });
+    fireEvent.pointerDown(trigger);
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole("menuitem", { name: "New subfolder" }));
+
+    fireEvent.change(screen.getByLabelText("Folder name"), {
+      target: { value: "Week 1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() => {
+      expect(mocks.createNamedFolder).toHaveBeenCalledWith("CS 101/Week 1");
+      expect(mocks.onValueChange).toHaveBeenCalledWith("mine", "CS 101/Week 1");
+    });
+  });
 });

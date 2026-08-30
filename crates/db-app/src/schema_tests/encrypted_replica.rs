@@ -9,7 +9,7 @@ fn cloudsync_registry_enables_only_the_encrypted_replica() {
         .map(|table| table.table_name.as_str())
         .collect();
 
-    assert_eq!(registry.len(), 21);
+    assert_eq!(registry.len(), 23);
     assert_eq!(enabled, vec!["e2ee_records"]);
     assert!(
         !registry

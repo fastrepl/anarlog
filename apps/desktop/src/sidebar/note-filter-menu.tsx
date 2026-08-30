@@ -1,5 +1,10 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { FolderSimple, FunnelSimple, Plus } from "@phosphor-icons/react";
+import {
+  FolderSimple,
+  FolderSimplePlus,
+  FunnelSimple,
+  Plus,
+} from "@phosphor-icons/react";
 import { useState } from "react";
 
 import {
@@ -22,6 +27,7 @@ import {
 } from "./note-filter";
 
 import { createNamedFolder } from "~/session/folder-catalog";
+import { childFolderPath } from "~/session/folders";
 import { useFolderPaths } from "~/session/queries";
 
 export function SidebarNoteFilterMenu({
@@ -39,7 +45,7 @@ export function SidebarNoteFilterMenu({
   const { t } = useLingui();
   const folders = useFolderPaths();
   const encodedValue = encodeNotesView(value, folderFilter);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<"folder" | "subfolder" | null>(null);
 
   return (
     <>
@@ -94,23 +100,39 @@ export function SidebarNoteFilterMenu({
             </DropdownMenuRadioGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onSelect={() => setCreating(true)}
+              onSelect={() => setCreating("folder")}
               className="cursor-pointer"
             >
               <Plus className="size-4 shrink-0 opacity-70" />
               <Trans>New folder</Trans>
             </DropdownMenuItem>
+            {folderFilter ? (
+              <DropdownMenuItem
+                onSelect={() => setCreating("subfolder")}
+                className="cursor-pointer"
+              >
+                <FolderSimplePlus className="size-4 shrink-0 opacity-70" />
+                <Trans>New subfolder</Trans>
+              </DropdownMenuItem>
+            ) : null}
           </AppFloatingPanel>
         </DropdownMenuContent>
       </DropdownMenu>
       <FolderNameDialog
-        open={creating}
-        title={t`New folder`}
+        open={creating !== null}
+        title={creating === "subfolder" ? t`New subfolder` : t`New folder`}
         confirmLabel={t`Create`}
-        onOpenChange={setCreating}
+        onOpenChange={(open) => setCreating(open ? creating : null)}
         onSubmit={async (folderPath) => {
-          await createNamedFolder(folderPath);
-          onValueChange("mine", folderPath);
+          const nextPath =
+            creating === "subfolder" && folderFilter
+              ? childFolderPath(folderFilter, folderPath)
+              : folderPath;
+          if (!nextPath) {
+            throw new Error("invalid folder path");
+          }
+          await createNamedFolder(nextPath);
+          onValueChange("mine", nextPath);
         }}
       />
     </>

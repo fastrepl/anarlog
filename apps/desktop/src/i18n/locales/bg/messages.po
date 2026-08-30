@@ -1510,6 +1510,7 @@ msgid "Could not use the selected model"
 msgstr ""
 
 #: src/settings/team/index.tsx
+#: src/sidebar/folder-materials.tsx
 #: src/sidebar/note-filter-menu.tsx
 msgid "Create"
 msgstr ""
@@ -1651,6 +1652,10 @@ msgstr ""
 
 #: src/sidebar/timeline/item.tsx
 msgid "Delete Event"
+msgstr ""
+
+#: src/sidebar/folder-materials.tsx
+msgid "Delete folder"
 msgstr ""
 
 #: src/settings/ai/stt/select.tsx
@@ -2078,6 +2083,10 @@ msgstr ""
 msgid "Float chat"
 msgstr ""
 
+#: src/sidebar/folder-materials.tsx
+msgid "Folder instructions"
+msgstr ""
+
 #: src/sidebar/folder-name-dialog.tsx
 msgid "Folder name"
 msgstr ""
@@ -2248,6 +2257,10 @@ msgstr ""
 #. placeholder {1}: history.total
 #: src/chat/components/input/index.tsx
 msgid "History {0}/{1}"
+msgstr ""
+
+#: src/sidebar/folder-materials.tsx
+msgid "How chat should use notes in this folder"
 msgstr ""
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
@@ -2860,6 +2873,11 @@ msgstr ""
 msgid "New Note"
 msgstr ""
 
+#: src/sidebar/folder-materials.tsx
+#: src/sidebar/note-filter-menu.tsx
+msgid "New subfolder"
+msgstr ""
+
 #: src/session/components/note-input/raw.tsx
 msgid "New template"
 msgstr ""
@@ -3082,6 +3100,10 @@ msgstr ""
 
 #: src/contacts/details.tsx
 msgid "Notes"
+msgstr ""
+
+#: src/sidebar/folder-materials.tsx
+msgid "Notes stay in All notes. Materials and subfolders will be deleted."
 msgstr ""
 
 #. placeholder {0}: latestResult.conflicts

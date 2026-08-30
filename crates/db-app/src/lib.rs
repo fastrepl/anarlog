@@ -409,6 +409,11 @@ pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
         scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260830140000_folders.sql"),
     },
+    anlg_db_migrate::MigrationStep {
+        id: "20260830160000_folder_instructions",
+        scope: anlg_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260830160000_folder_instructions.sql"),
+    },
 ];
 
 pub fn schema() -> anlg_db_migrate::DbSchema {

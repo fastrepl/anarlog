@@ -10,7 +10,7 @@ import {
   TZDate,
 } from "@anlg/utils";
 
-import { folderDisplayName } from "~/session/folders";
+import { folderPathMatchesFilter } from "~/session/folders";
 import { getSessionEvent } from "~/session/utils";
 
 function toTZ(date: Date, timezone?: string): Date {
@@ -302,7 +302,7 @@ export function sessionMatchesFolderFilter(
     return true;
   }
 
-  return folderDisplayName(folderId) === folderFilter;
+  return folderPathMatchesFilter(folderId, folderFilter);
 }
 
 export function filterTimelineTablesByFolder({

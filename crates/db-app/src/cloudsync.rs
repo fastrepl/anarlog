@@ -104,6 +104,8 @@ static CLOUDSYNC_TABLE_REGISTRY: LazyLock<Vec<CloudsyncTableSpec>> = LazyLock::n
         ("e2ee_records", true),
         ("entity_mentions", false),
         ("events", false),
+        ("folder_attachments", false),
+        ("folders", false),
         ("humans", false),
         ("organizations", false),
         ("session_attachments", false),

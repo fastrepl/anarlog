@@ -1510,6 +1510,7 @@ msgid "Could not use the selected model"
 msgstr "Could not use the selected model"
 
 #: src/settings/team/index.tsx
+#: src/sidebar/folder-materials.tsx
 #: src/sidebar/note-filter-menu.tsx
 msgid "Create"
 msgstr "Create"
@@ -1652,6 +1653,10 @@ msgstr "Delete comment"
 #: src/sidebar/timeline/item.tsx
 msgid "Delete Event"
 msgstr "Delete Event"
+
+#: src/sidebar/folder-materials.tsx
+msgid "Delete folder"
+msgstr "Delete folder"
 
 #: src/settings/ai/stt/select.tsx
 msgid "Delete model"
@@ -2078,6 +2083,10 @@ msgstr "Flags"
 msgid "Float chat"
 msgstr "Float chat"
 
+#: src/sidebar/folder-materials.tsx
+msgid "Folder instructions"
+msgstr "Folder instructions"
+
 #: src/sidebar/folder-name-dialog.tsx
 msgid "Folder name"
 msgstr "Folder name"
@@ -2249,6 +2258,10 @@ msgstr "Hide sync log"
 #: src/chat/components/input/index.tsx
 msgid "History {0}/{1}"
 msgstr "History {0}/{1}"
+
+#: src/sidebar/folder-materials.tsx
+msgid "How chat should use notes in this folder"
+msgstr "How chat should use notes in this folder"
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
 msgid "How to get a Kimi Code key"
@@ -2860,6 +2873,11 @@ msgstr "New folder"
 msgid "New Note"
 msgstr "New Note"
 
+#: src/sidebar/folder-materials.tsx
+#: src/sidebar/note-filter-menu.tsx
+msgid "New subfolder"
+msgstr "New subfolder"
+
 #: src/session/components/note-input/raw.tsx
 msgid "New template"
 msgstr "New template"
@@ -3083,6 +3101,10 @@ msgstr "notes"
 #: src/contacts/details.tsx
 msgid "Notes"
 msgstr "Notes"
+
+#: src/sidebar/folder-materials.tsx
+msgid "Notes stay in All notes. Materials and subfolders will be deleted."
+msgstr "Notes stay in All notes. Materials and subfolders will be deleted."
 
 #. placeholder {0}: latestResult.conflicts
 #. placeholder {1}: latestResult.errors

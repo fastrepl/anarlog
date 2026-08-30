@@ -4,6 +4,7 @@ import { z } from "zod";
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 
 import { CONTEXT_TEXT_FIELD } from "./context-text";
+import { extractPdfText, isPdfMaterial } from "./pdf-text";
 import type { ToolDependencies } from "./types";
 
 import {
@@ -100,6 +101,34 @@ export const buildReadFolderMaterialTool = (deps: ToolDependencies) =>
           message: result.error,
           materialId: material.id,
           filename: material.filename,
+        };
+      }
+
+      if (isPdfMaterial(material.contentType, material.filename)) {
+        const extracted = await extractPdfText(result.data);
+        if (extracted) {
+          const limited = limitText(extracted, clampMaxChars(params.maxChars));
+          return {
+            status: "ok" as const,
+            materialId: material.id,
+            filename: material.filename,
+            contentType: material.contentType,
+            sizeBytes: material.sizeBytes,
+            readable: true,
+            truncated: limited.truncated,
+            [CONTEXT_TEXT_FIELD]: limited.text,
+          };
+        }
+
+        return {
+          status: "ok" as const,
+          materialId: material.id,
+          filename: material.filename,
+          contentType: material.contentType,
+          sizeBytes: material.sizeBytes,
+          readable: false,
+          message:
+            "Could not extract text from this PDF. Use the filename and folder notes.",
         };
       }
 

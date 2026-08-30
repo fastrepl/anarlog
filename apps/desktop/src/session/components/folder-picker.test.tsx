@@ -113,18 +113,23 @@ describe("FolderPicker", () => {
     });
   });
 
-  it("rejects nested folder names", async () => {
+  it("creates nested folder names", async () => {
     render(<FolderPicker sessionId="session-1" />);
 
     fireEvent.click(screen.getByRole("combobox", { name: "Select folder" }));
     fireEvent.change(screen.getByPlaceholderText("Search or create folder"), {
       target: { value: "clients/acme" },
     });
+    fireEvent.click(
+      await screen.findByRole("option", { name: 'Create "clients/acme"' }),
+    );
 
-    expect(
-      await screen.findByText("Enter a valid folder name."),
-    ).not.toBeNull();
-    expect(screen.queryByRole("option", { name: /Create/ })).toBeNull();
+    expect(mocks.createNamedFolder).toHaveBeenCalledWith("clients/acme");
+    await waitFor(() => {
+      expect(mocks.updateSession).toHaveBeenCalledWith({
+        folder_id: "clients/acme",
+      });
+    });
   });
 
   it("can remove the current note from its folder", () => {
@@ -138,13 +143,15 @@ describe("FolderPicker", () => {
     expect(mocks.updateSession).toHaveBeenCalledWith({ folder_id: "" });
   });
 
-  it("flattens a nested stored path when the top-level folder is selected", () => {
+  it("keeps a nested stored path selected and can move the note to the parent", () => {
     mocks.folderId = "work/meetings";
-    mocks.folderPaths = ["work"];
+    mocks.folderPaths = ["work", "work/meetings"];
 
     render(<FolderPicker sessionId="session-1" />);
 
-    fireEvent.click(screen.getByRole("combobox", { name: "Folder: work" }));
+    fireEvent.click(
+      screen.getByRole("combobox", { name: "Folder: work/meetings" }),
+    );
     fireEvent.click(screen.getByRole("option", { name: "work" }));
 
     expect(mocks.updateSession).toHaveBeenCalledWith({ folder_id: "work" });

@@ -1,4 +1,4 @@
-import { collectFolderPaths, folderDisplayName } from "../folders";
+import { collectFolderPaths, folderPathMatchesFilter } from "../folders";
 import type { SessionSummaryRecord } from "./types";
 
 import { liveQueryClient, useLiveQuery } from "~/db";
@@ -82,7 +82,7 @@ export async function loadSessionSummariesByFolder(
   );
 
   return rows
-    .filter((row) => folderDisplayName(row.folder_path) === folderFilter)
+    .filter((row) => folderPathMatchesFilter(row.folder_path, folderFilter))
     .map((row) => ({
       id: row.id,
       title: row.title,

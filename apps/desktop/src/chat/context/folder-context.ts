@@ -1,4 +1,5 @@
 import { loadFolderMaterials } from "~/session/folder-attachments";
+import { loadFolderInstructions } from "~/session/folder-catalog";
 import { loadSessionSummariesByFolder } from "~/session/queries";
 
 const FOLDER_CONTEXT_SESSION_LIMIT = 50;
@@ -8,11 +9,18 @@ export async function renderFolderContext(
 ): Promise<string | null> {
   const sessions = await loadSessionSummariesByFolder(folderId);
   const materials = folderId ? await loadFolderMaterials(folderId) : [];
+  const instructions = folderId ? await loadFolderInstructions(folderId) : "";
   const label = folderId || "No folder";
   const lines = [
     `Folder context: ${label}`,
     "Answer from notes in this folder. Use get_meeting or search_meetings with the listed IDs when you need full notes or transcripts. Use read_folder_material with a listed material ID to read a syllabus or other folder file.",
   ];
+
+  if (instructions.trim()) {
+    lines.push("");
+    lines.push("Folder instructions:");
+    lines.push(instructions.trim());
+  }
 
   if (materials.length > 0) {
     lines.push("");
