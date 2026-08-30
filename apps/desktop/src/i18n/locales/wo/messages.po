@@ -212,6 +212,10 @@ msgstr ""
 msgid "Add a payment method before it ends to keep using Pro without an interruption."
 msgstr ""
 
+#: src/sidebar/folder-materials.tsx
+msgid "Add a syllabus or PDF for this folder"
+msgstr ""
+
 #: src/settings/automations/index.tsx
 msgid "Add a trigger and actions. Chat on the right can help you refine the workflow."
 msgstr ""
@@ -259,6 +263,10 @@ msgstr ""
 #: src/settings/general/spoken-languages.tsx
 msgid "Add language"
 msgstr "Yokk làkk"
+
+#: src/sidebar/folder-materials.tsx
+msgid "Add material"
+msgstr ""
 
 #: src/automations/starters.tsx
 msgid "Add meeting decisions and follow-ups to a Notion project."
@@ -2632,6 +2640,10 @@ msgstr ""
 msgid "Match your device"
 msgstr ""
 
+#: src/sidebar/folder-materials.tsx
+msgid "Materials"
+msgstr ""
+
 #: src/main/windows-title-bar.tsx
 msgid "Maximize"
 msgstr ""
@@ -3554,6 +3566,11 @@ msgstr ""
 #: src/session-sharing/access-management.tsx
 #: src/sidebar/automations.tsx
 msgid "Remove"
+msgstr ""
+
+#. placeholder {0}: material.filename
+#: src/sidebar/folder-materials.tsx
+msgid "Remove {0}"
 msgstr ""
 
 #: src/settings/dictionary/index.tsx

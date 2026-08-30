@@ -11,6 +11,12 @@ vi.mock("~/store/zustand/tabs", () => ({
   ) => selector({ currentTab: mocks.currentTab }),
 }));
 
+vi.mock("~/sidebar/folder-materials", () => ({
+  FolderMaterialsPanel: ({ folderPath }: { folderPath: string }) => (
+    <div data-testid="folder-materials" data-folder-path={folderPath} />
+  ),
+}));
+
 vi.mock("~/sidebar/timeline", () => ({
   TimelineView: ({
     folderFilter = null,
@@ -123,7 +129,16 @@ describe("LeftSidebar", () => {
     expect(
       screen.getByTestId("timeline-view").getAttribute("data-folder-filter"),
     ).toBe("CS 101");
+    expect(
+      screen.getByTestId("folder-materials").getAttribute("data-folder-path"),
+    ).toBe("CS 101");
     expect(screen.queryByTestId("shared-notes-nav")).toBeNull();
+  });
+
+  it("hides folder materials when viewing all notes", () => {
+    render(<LeftSidebar />);
+
+    expect(screen.queryByTestId("folder-materials")).toBeNull();
   });
 
   it.each([

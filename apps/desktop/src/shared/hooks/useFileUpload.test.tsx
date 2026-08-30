@@ -4,8 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   attachmentRemove: vi.fn(),
   attachmentSave: vi.fn(),
+  catalogLocalFolderMaterial: vi.fn(),
   catalogLocalNoteAttachment: vi.fn(),
   convertFileSrc: vi.fn((path: string) => `asset:${path}`),
+  folderAttachmentRemove: vi.fn(),
+  folderAttachmentSave: vi.fn(),
   sha256Hex: vi.fn(),
 }));
 
@@ -17,6 +20,8 @@ vi.mock("@anlg/plugin-fs-sync", () => ({
   commands: {
     attachmentRemove: mocks.attachmentRemove,
     attachmentSave: mocks.attachmentSave,
+    folderAttachmentRemove: mocks.folderAttachmentRemove,
+    folderAttachmentSave: mocks.folderAttachmentSave,
   },
 }));
 
@@ -25,7 +30,11 @@ vi.mock("~/session/attachments", () => ({
   sha256Hex: mocks.sha256Hex,
 }));
 
-import { useFileUpload } from "./useFileUpload";
+vi.mock("~/session/folder-attachments", () => ({
+  catalogLocalFolderMaterial: mocks.catalogLocalFolderMaterial,
+}));
+
+import { useFileUpload, useFolderMaterialUpload } from "./useFileUpload";
 
 function uploadFile() {
   const bytes = new TextEncoder().encode("image bytes").buffer;
@@ -49,7 +58,19 @@ describe("useFileUpload", () => {
       },
     });
     mocks.attachmentRemove.mockResolvedValue({ status: "ok", data: null });
+    mocks.folderAttachmentSave.mockResolvedValue({
+      status: "ok",
+      data: {
+        path: "/vault/sessions/CS 101/materials/syllabus.txt",
+        attachmentId: "syllabus.txt",
+      },
+    });
+    mocks.folderAttachmentRemove.mockResolvedValue({
+      status: "ok",
+      data: null,
+    });
     mocks.catalogLocalNoteAttachment.mockResolvedValue(undefined);
+    mocks.catalogLocalFolderMaterial.mockResolvedValue(undefined);
   });
 
   it("hashes, saves, and catalogs the final physical attachment before returning", async () => {
@@ -137,5 +158,45 @@ describe("useFileUpload", () => {
     );
     expect(mocks.sha256Hex).not.toHaveBeenCalled();
     expect(mocks.attachmentSave).not.toHaveBeenCalled();
+  });
+
+  it("saves folder materials against the folder path", async () => {
+    const file = uploadFile();
+    const { result } = renderHook(() => useFolderMaterialUpload("CS 101"));
+    let uploaded: Awaited<ReturnType<typeof result.current>> | undefined;
+
+    await act(async () => {
+      uploaded = await result.current(file);
+    });
+
+    expect(uploaded).toEqual({
+      path: "/vault/sessions/CS 101/materials/syllabus.txt",
+      attachmentId: "syllabus.txt",
+    });
+    expect(mocks.folderAttachmentSave).toHaveBeenCalledWith(
+      "CS 101",
+      expect.any(Array),
+      "diagram.png",
+    );
+    expect(mocks.catalogLocalFolderMaterial).toHaveBeenCalledWith({
+      folderPath: "CS 101",
+      attachmentId: "syllabus.txt",
+      filename: "diagram.png",
+      contentType: "image/png",
+      sizeBytes: 11,
+      sha256: "a".repeat(64),
+    });
+  });
+
+  it("removes a folder material file when catalog persistence fails", async () => {
+    const catalogError = new Error("catalog unavailable");
+    mocks.catalogLocalFolderMaterial.mockRejectedValue(catalogError);
+    const { result } = renderHook(() => useFolderMaterialUpload("CS 101"));
+
+    await expect(result.current(uploadFile())).rejects.toBe(catalogError);
+    expect(mocks.folderAttachmentRemove).toHaveBeenCalledWith(
+      "CS 101",
+      "syllabus.txt",
+    );
   });
 });

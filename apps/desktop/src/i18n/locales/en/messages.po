@@ -212,6 +212,10 @@ msgstr "Add a dated update to the selected Notion page."
 msgid "Add a payment method before it ends to keep using Pro without an interruption."
 msgstr "Add a payment method before it ends to keep using Pro without an interruption."
 
+#: src/sidebar/folder-materials.tsx
+msgid "Add a syllabus or PDF for this folder"
+msgstr "Add a syllabus or PDF for this folder"
+
 #: src/settings/automations/index.tsx
 msgid "Add a trigger and actions. Chat on the right can help you refine the workflow."
 msgstr "Add a trigger and actions. Chat on the right can help you refine the workflow."
@@ -259,6 +263,10 @@ msgstr "Add example"
 #: src/settings/general/spoken-languages.tsx
 msgid "Add language"
 msgstr "Add language"
+
+#: src/sidebar/folder-materials.tsx
+msgid "Add material"
+msgstr "Add material"
 
 #: src/automations/starters.tsx
 msgid "Add meeting decisions and follow-ups to a Notion project."
@@ -2632,6 +2640,10 @@ msgstr "Match whole word"
 msgid "Match your device"
 msgstr "Match your device"
 
+#: src/sidebar/folder-materials.tsx
+msgid "Materials"
+msgstr "Materials"
+
 #: src/main/windows-title-bar.tsx
 msgid "Maximize"
 msgstr "Maximize"
@@ -3555,6 +3567,11 @@ msgstr "Remote MCP URL copied"
 #: src/sidebar/automations.tsx
 msgid "Remove"
 msgstr "Remove"
+
+#. placeholder {0}: material.filename
+#: src/sidebar/folder-materials.tsx
+msgid "Remove {0}"
+msgstr "Remove {0}"
 
 #: src/settings/dictionary/index.tsx
 msgid "Remove {term}"

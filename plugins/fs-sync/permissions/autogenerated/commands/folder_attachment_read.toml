@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-folder-attachment-read"
+description = "Enables the folder_attachment_read command without any pre-configured scope."
+commands.allow = ["folder_attachment_read"]
+
+[[permission]]
+identifier = "deny-folder-attachment-read"
+description = "Denies the folder_attachment_read command without any pre-configured scope."
+commands.deny = ["folder_attachment_read"]

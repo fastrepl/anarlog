@@ -391,6 +391,29 @@ export const sessionAttachments = sqliteTable(
   (table) => [index("idx_session_attachments_session_id").on(table.sessionId)],
 );
 
+export const folderAttachments = sqliteTable(
+  "folder_attachments",
+  {
+    id: text("id").primaryKey().notNull(),
+    workspaceId: text("workspace_id").notNull().default(""),
+    folderPath: text("folder_path").notNull().default(""),
+    filename: text("filename").notNull().default(""),
+    relativePath: text("relative_path").notNull().default(""),
+    contentType: text("content_type").notNull().default(""),
+    sizeBytes: integer("size_bytes").notNull().default(0),
+    sha256: text("sha256").notNull().default(""),
+    storageKind: text("storage_kind").notNull().default("local_file"),
+    cloudObjectKey: text("cloud_object_key").notNull().default(""),
+    sourceType: text("source_type").notNull().default("folder_material"),
+    sourceId: text("source_id").notNull().default(""),
+    metadataJson: text("metadata_json").notNull().default("{}"),
+    createdAt: text("created_at").notNull().default(currentTimestamp),
+    updatedAt: text("updated_at").notNull().default(currentTimestamp),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [index("idx_folder_attachments_folder_path").on(table.folderPath)],
+);
+
 export const attachmentLocalState = sqliteTable(
   "attachment_local_state",
   {

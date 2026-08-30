@@ -5,6 +5,7 @@ import { cn } from "@anlg/utils";
 import { AutomationsNav } from "./automations";
 import { CalendarNav } from "./calendar";
 import { ContactsNav } from "./contacts";
+import { FolderMaterialsPanel } from "./folder-materials";
 import type { SidebarNoteFilter } from "./note-filter";
 import { SettingsNav } from "./settings";
 import { SharedNotesNav } from "./shared-notes";
@@ -70,19 +71,26 @@ export function LeftSidebar({
           ) : (
             <div className="flex h-full min-h-0 flex-col">
               {noteFilter === "mine" ? (
-                <div className="relative min-h-0 flex-1">
-                  <TimelineView
-                    folderFilter={folderFilter}
-                    showIgnoredEvents={showIgnoredTimelineEvents}
-                    onShowIgnoredEventsChange={
-                      onShowIgnoredTimelineEventsChange
-                    }
-                    topChromeInset={isTimelineSidebarLayout && !timelineHeader}
-                    topChipsOverlapHeader={
-                      isTimelineSidebarLayout && !!timelineHeader
-                    }
-                  />
-                </div>
+                <>
+                  {folderFilter ? (
+                    <FolderMaterialsPanel folderPath={folderFilter} />
+                  ) : null}
+                  <div className="relative min-h-0 flex-1">
+                    <TimelineView
+                      folderFilter={folderFilter}
+                      showIgnoredEvents={showIgnoredTimelineEvents}
+                      onShowIgnoredEventsChange={
+                        onShowIgnoredTimelineEventsChange
+                      }
+                      topChromeInset={
+                        isTimelineSidebarLayout && !timelineHeader
+                      }
+                      topChipsOverlapHeader={
+                        isTimelineSidebarLayout && !!timelineHeader
+                      }
+                    />
+                  </div>
+                </>
               ) : (
                 <SharedNotesNav />
               )}

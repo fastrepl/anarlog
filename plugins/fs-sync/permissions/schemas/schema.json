@@ -535,6 +535,54 @@
           "markdownDescription": "Denies the entity_dir command without any pre-configured scope."
         },
         {
+          "description": "Enables the folder_attachment_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-folder-attachment-list",
+          "markdownDescription": "Enables the folder_attachment_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the folder_attachment_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-folder-attachment-list",
+          "markdownDescription": "Denies the folder_attachment_list command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the folder_attachment_read command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-folder-attachment-read",
+          "markdownDescription": "Enables the folder_attachment_read command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the folder_attachment_read command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-folder-attachment-read",
+          "markdownDescription": "Denies the folder_attachment_read command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the folder_attachment_remove command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-folder-attachment-remove",
+          "markdownDescription": "Enables the folder_attachment_remove command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the folder_attachment_remove command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-folder-attachment-remove",
+          "markdownDescription": "Denies the folder_attachment_remove command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the folder_attachment_save command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-folder-attachment-save",
+          "markdownDescription": "Enables the folder_attachment_save command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the folder_attachment_save command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-folder-attachment-save",
+          "markdownDescription": "Denies the folder_attachment_save command without any pre-configured scope."
+        },
+        {
           "description": "Enables the list_folders command without any pre-configured scope.",
           "type": "string",
           "const": "allow-list-folders",
@@ -643,10 +691,10 @@
           "markdownDescription": "Denies the write_json_batch command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the fs-sync plugin\n#### This default permission set includes:\n\n- `allow-deserialize`\n- `allow-write-json-batch`\n- `allow-write-document-batch`\n- `allow-read-document-batch`\n- `allow-list-folders`\n- `allow-move-session`\n- `allow-create-folder`\n- `allow-rename-folder`\n- `allow-delete-folder`\n- `allow-audio-exist`\n- `allow-audio-delete`\n- `allow-audio-metadata`\n- `allow-audio-delete-orphaned-expired`\n- `allow-audio-import`\n- `allow-audio-import-data`\n- `allow-audio-source-metadata`\n- `allow-audio-path`\n- `allow-audio-copy`\n- `allow-session-dir`\n- `allow-load-session-content`\n- `allow-delete-session-folder`\n- `allow-scan-and-read`\n- `allow-chat-dir`\n- `allow-entity-dir`\n- `allow-attachment-save`\n- `allow-attachment-list`\n- `allow-attachment-read`\n- `allow-attachment-remove`",
+          "description": "Default permissions for the fs-sync plugin\n#### This default permission set includes:\n\n- `allow-deserialize`\n- `allow-write-json-batch`\n- `allow-write-document-batch`\n- `allow-read-document-batch`\n- `allow-list-folders`\n- `allow-move-session`\n- `allow-create-folder`\n- `allow-rename-folder`\n- `allow-delete-folder`\n- `allow-audio-exist`\n- `allow-audio-delete`\n- `allow-audio-metadata`\n- `allow-audio-delete-orphaned-expired`\n- `allow-audio-import`\n- `allow-audio-import-data`\n- `allow-audio-source-metadata`\n- `allow-audio-path`\n- `allow-audio-copy`\n- `allow-session-dir`\n- `allow-load-session-content`\n- `allow-delete-session-folder`\n- `allow-scan-and-read`\n- `allow-chat-dir`\n- `allow-entity-dir`\n- `allow-attachment-save`\n- `allow-attachment-list`\n- `allow-attachment-read`\n- `allow-attachment-remove`\n- `allow-folder-attachment-save`\n- `allow-folder-attachment-list`\n- `allow-folder-attachment-read`\n- `allow-folder-attachment-remove`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the fs-sync plugin\n#### This default permission set includes:\n\n- `allow-deserialize`\n- `allow-write-json-batch`\n- `allow-write-document-batch`\n- `allow-read-document-batch`\n- `allow-list-folders`\n- `allow-move-session`\n- `allow-create-folder`\n- `allow-rename-folder`\n- `allow-delete-folder`\n- `allow-audio-exist`\n- `allow-audio-delete`\n- `allow-audio-metadata`\n- `allow-audio-delete-orphaned-expired`\n- `allow-audio-import`\n- `allow-audio-import-data`\n- `allow-audio-source-metadata`\n- `allow-audio-path`\n- `allow-audio-copy`\n- `allow-session-dir`\n- `allow-load-session-content`\n- `allow-delete-session-folder`\n- `allow-scan-and-read`\n- `allow-chat-dir`\n- `allow-entity-dir`\n- `allow-attachment-save`\n- `allow-attachment-list`\n- `allow-attachment-read`\n- `allow-attachment-remove`"
+          "markdownDescription": "Default permissions for the fs-sync plugin\n#### This default permission set includes:\n\n- `allow-deserialize`\n- `allow-write-json-batch`\n- `allow-write-document-batch`\n- `allow-read-document-batch`\n- `allow-list-folders`\n- `allow-move-session`\n- `allow-create-folder`\n- `allow-rename-folder`\n- `allow-delete-folder`\n- `allow-audio-exist`\n- `allow-audio-delete`\n- `allow-audio-metadata`\n- `allow-audio-delete-orphaned-expired`\n- `allow-audio-import`\n- `allow-audio-import-data`\n- `allow-audio-source-metadata`\n- `allow-audio-path`\n- `allow-audio-copy`\n- `allow-session-dir`\n- `allow-load-session-content`\n- `allow-delete-session-folder`\n- `allow-scan-and-read`\n- `allow-chat-dir`\n- `allow-entity-dir`\n- `allow-attachment-save`\n- `allow-attachment-list`\n- `allow-attachment-read`\n- `allow-attachment-remove`\n- `allow-folder-attachment-save`\n- `allow-folder-attachment-list`\n- `allow-folder-attachment-read`\n- `allow-folder-attachment-remove`"
         }
       ]
     }

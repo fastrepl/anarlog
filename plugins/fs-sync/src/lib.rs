@@ -39,6 +39,10 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::attachment_list::<tauri::Wry>,
             commands::attachment_read::<tauri::Wry>,
             commands::attachment_remove::<tauri::Wry>,
+            commands::folder_attachment_save::<tauri::Wry>,
+            commands::folder_attachment_list::<tauri::Wry>,
+            commands::folder_attachment_read::<tauri::Wry>,
+            commands::folder_attachment_remove::<tauri::Wry>,
         ])
         .events(tauri_specta::collect_events![AudioImportEvent])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)

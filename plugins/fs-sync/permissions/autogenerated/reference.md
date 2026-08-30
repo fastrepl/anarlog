@@ -32,6 +32,10 @@ Default permissions for the fs-sync plugin
 - `allow-attachment-list`
 - `allow-attachment-read`
 - `allow-attachment-remove`
+- `allow-folder-attachment-save`
+- `allow-folder-attachment-list`
+- `allow-folder-attachment-read`
+- `allow-folder-attachment-remove`
 
 ## Permission Table
 
@@ -558,6 +562,110 @@ Enables the entity_dir command without any pre-configured scope.
 <td>
 
 Denies the entity_dir command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs-sync:allow-folder-attachment-list`
+
+</td>
+<td>
+
+Enables the folder_attachment_list command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs-sync:deny-folder-attachment-list`
+
+</td>
+<td>
+
+Denies the folder_attachment_list command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs-sync:allow-folder-attachment-read`
+
+</td>
+<td>
+
+Enables the folder_attachment_read command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs-sync:deny-folder-attachment-read`
+
+</td>
+<td>
+
+Denies the folder_attachment_read command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs-sync:allow-folder-attachment-remove`
+
+</td>
+<td>
+
+Enables the folder_attachment_remove command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs-sync:deny-folder-attachment-remove`
+
+</td>
+<td>
+
+Denies the folder_attachment_remove command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs-sync:allow-folder-attachment-save`
+
+</td>
+<td>
+
+Enables the folder_attachment_save command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs-sync:deny-folder-attachment-save`
+
+</td>
+<td>
+
+Denies the folder_attachment_save command without any pre-configured scope.
 
 </td>
 </tr>

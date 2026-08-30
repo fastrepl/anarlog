@@ -1,0 +1,108 @@
+import { Trans, useLingui } from "@lingui/react/macro";
+import { Plus, X } from "@phosphor-icons/react";
+import { useRef, useState } from "react";
+
+import { cn } from "@anlg/utils";
+
+import {
+  deleteLocalFolderMaterial,
+  diskAttachmentId,
+  useFolderMaterials,
+} from "~/session/folder-attachments";
+import { useFolderMaterialUpload } from "~/shared/hooks/useFileUpload";
+
+export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
+  const { t } = useLingui();
+  const materials = useFolderMaterials(folderPath);
+  const upload = useFolderMaterialUpload(folderPath);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <div
+      data-testid="folder-materials"
+      className="border-border/60 mx-2 mb-1 shrink-0 rounded-lg border px-2 py-1.5"
+    >
+      <div className="flex items-center gap-1">
+        <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs font-medium">
+          <Trans>Materials</Trans>
+        </span>
+        <button
+          type="button"
+          aria-label={t`Add material`}
+          disabled={busy}
+          className={cn([
+            "text-muted-foreground hover:bg-accent hover:text-foreground flex size-6 items-center justify-center rounded-full",
+            "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
+            "disabled:opacity-50",
+          ])}
+          onClick={() => inputRef.current?.click()}
+        >
+          <Plus size={14} />
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          className="hidden"
+          onChange={async (event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (!file) {
+              return;
+            }
+            setBusy(true);
+            try {
+              await upload(file);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        />
+      </div>
+      {materials.length === 0 ? (
+        <p className="text-muted-foreground/80 pt-1 text-[11px] leading-4">
+          <Trans>Add a syllabus or PDF for this folder</Trans>
+        </p>
+      ) : (
+        <ul className="mt-1 flex max-h-24 flex-col gap-0.5 overflow-y-auto">
+          {materials.map((material) => (
+            <li
+              key={material.id}
+              className="flex min-w-0 items-center gap-1 text-xs"
+            >
+              <span
+                className="min-w-0 flex-1 truncate"
+                title={material.filename}
+              >
+                {material.filename}
+              </span>
+              <button
+                type="button"
+                aria-label={t`Remove ${material.filename}`}
+                disabled={busy}
+                className={cn([
+                  "text-muted-foreground hover:bg-accent hover:text-foreground flex size-5 items-center justify-center rounded-full",
+                  "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
+                  "disabled:opacity-50",
+                ])}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    await deleteLocalFolderMaterial({
+                      folderPath,
+                      attachmentId: diskAttachmentId(material.relativePath),
+                    });
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                <X size={12} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}

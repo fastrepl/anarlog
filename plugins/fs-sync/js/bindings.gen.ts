@@ -417,6 +417,74 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async folderAttachmentSave(
+    folderPath: string,
+    data: number[],
+    filename: string,
+  ): Promise<Result<AttachmentSaveResult, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("plugin:fs-sync|folder_attachment_save", {
+          folderPath,
+          data,
+          filename,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async folderAttachmentList(
+    folderPath: string,
+  ): Promise<Result<AttachmentInfo[], string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("plugin:fs-sync|folder_attachment_list", {
+          folderPath,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async folderAttachmentRead(
+    folderPath: string,
+    attachmentId: string,
+  ): Promise<Result<number[], string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("plugin:fs-sync|folder_attachment_read", {
+          folderPath,
+          attachmentId,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async folderAttachmentRemove(
+    folderPath: string,
+    attachmentId: string,
+  ): Promise<Result<null, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("plugin:fs-sync|folder_attachment_remove", {
+          folderPath,
+          attachmentId,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
 };
 
 /** user-defined events **/

@@ -7,6 +7,7 @@ import {
 } from "@anlg/plugin-fs-sync";
 
 import { catalogLocalNoteAttachment, sha256Hex } from "~/session/attachments";
+import { catalogLocalFolderMaterial } from "~/session/folder-attachments";
 
 export type FileUploadResult = AttachmentSaveResult & {
   url: string;
@@ -57,6 +58,52 @@ export function useFileUpload(sessionId: string) {
       return { path, attachmentId, url: convertFileSrc(path) };
     },
     [sessionId],
+  );
+}
+
+export function useFolderMaterialUpload(folderPath: string) {
+  return useCallback(
+    async (file: File): Promise<AttachmentSaveResult> => {
+      const filename = file.name;
+      const { data, sha256, sizeBytes } = await prepareIpcAttachment(file);
+
+      const result = await fsSyncCommands.folderAttachmentSave(
+        folderPath,
+        data,
+        filename,
+      );
+
+      if (result.status === "error") {
+        throw new Error(result.error);
+      }
+
+      const { path, attachmentId } = result.data;
+      try {
+        await catalogLocalFolderMaterial({
+          folderPath,
+          attachmentId,
+          filename,
+          contentType: file.type,
+          sizeBytes,
+          sha256,
+        });
+      } catch (error) {
+        try {
+          const cleanup = await fsSyncCommands.folderAttachmentRemove(
+            folderPath,
+            attachmentId,
+          );
+          if (cleanup.status === "error") {
+            console.error("[folder-material] failed to roll back local file");
+          }
+        } catch {
+          console.error("[folder-material] failed to roll back local file");
+        }
+        throw error;
+      }
+      return { path, attachmentId };
+    },
+    [folderPath],
   );
 }
 

@@ -575,6 +575,62 @@ pub(crate) async fn attachment_remove<R: tauri::Runtime>(
     })
 }
 
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn folder_attachment_save<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    folder_path: String,
+    data: Vec<u8>,
+    filename: String,
+) -> Result<crate::AttachmentSaveResult, String> {
+    spawn_blocking!({
+        app.fs_sync()
+            .folder_attachment_save(&folder_path, &data, &filename)
+            .map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn folder_attachment_list<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    folder_path: String,
+) -> Result<Vec<crate::AttachmentInfo>, String> {
+    spawn_blocking!({
+        app.fs_sync()
+            .folder_attachment_list(&folder_path)
+            .map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn folder_attachment_read<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    folder_path: String,
+    attachment_id: String,
+) -> Result<Vec<u8>, String> {
+    spawn_blocking!({
+        app.fs_sync()
+            .folder_attachment_read(&folder_path, &attachment_id)
+            .map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn folder_attachment_remove<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    folder_path: String,
+    attachment_id: String,
+) -> Result<(), String> {
+    spawn_blocking!({
+        app.fs_sync()
+            .folder_attachment_remove(&folder_path, &attachment_id)
+            .map_err(|e| e.to_string())
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

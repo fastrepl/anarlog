@@ -111,6 +111,7 @@ async fn migrations_apply_cleanly() {
             "enterprise_session_delivery_state",
             "entity_mentions",
             "events",
+            "folder_attachments",
             "humans",
             "migration_import_items",
             "migration_import_runs",

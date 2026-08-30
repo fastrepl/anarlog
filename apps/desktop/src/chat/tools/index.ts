@@ -11,6 +11,7 @@ import type {
 import { CONTEXT_TEXT_FIELD } from "./context-text";
 import { buildEditMemoTool } from "./edit-memo";
 import { buildEditSummaryTool } from "./edit-summary";
+import { buildReadFolderMaterialTool } from "./folder-materials";
 import {
   buildGetMeetingTool,
   buildGetMeetingTranscriptTool,
@@ -85,6 +86,10 @@ export const buildChatTools = (deps: ToolDependencies) => ({
     "search_meeting_content",
     buildSearchMeetingContentTool(deps),
   ),
+  read_folder_material: withToolLogging(
+    "read_folder_material",
+    buildReadFolderMaterialTool(deps),
+  ),
   find_related_meetings: withToolLogging(
     "find_related_meetings",
     buildFindRelatedMeetingsTool(deps),
@@ -144,6 +149,20 @@ type LocalTools = {
         score: number;
         snippets: Array<{ section: string; text: string }>;
       }>;
+    };
+  };
+  read_folder_material: {
+    input: { materialId: string; maxChars?: number };
+    output: {
+      status: "ok" | "error";
+      message?: string;
+      materialId?: string;
+      filename?: string;
+      contentType?: string;
+      sizeBytes?: number;
+      readable?: boolean;
+      truncated?: boolean;
+      contextText?: string;
     };
   };
   find_related_meetings: {

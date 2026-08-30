@@ -79,6 +79,41 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> FsSync<'a, R, M> {
     ) -> Result<(), crate::Error> {
         self.core()?.attachment_remove(session_id, attachment_id)
     }
+
+    pub fn folder_attachment_save(
+        &self,
+        folder_path: &str,
+        data: &[u8],
+        filename: &str,
+    ) -> Result<crate::AttachmentSaveResult, crate::Error> {
+        self.core()?
+            .folder_attachment_save(folder_path, data, filename)
+    }
+
+    pub fn folder_attachment_list(
+        &self,
+        folder_path: &str,
+    ) -> Result<Vec<crate::AttachmentInfo>, crate::Error> {
+        self.core()?.folder_attachment_list(folder_path)
+    }
+
+    pub fn folder_attachment_read(
+        &self,
+        folder_path: &str,
+        attachment_id: &str,
+    ) -> Result<Vec<u8>, crate::Error> {
+        self.core()?
+            .folder_attachment_read(folder_path, attachment_id)
+    }
+
+    pub fn folder_attachment_remove(
+        &self,
+        folder_path: &str,
+        attachment_id: &str,
+    ) -> Result<(), crate::Error> {
+        self.core()?
+            .folder_attachment_remove(folder_path, attachment_id)
+    }
 }
 
 pub trait FsSyncPluginExt<R: tauri::Runtime> {

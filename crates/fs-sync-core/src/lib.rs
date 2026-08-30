@@ -209,50 +209,7 @@ impl FsSyncCore {
     pub fn attachment_list(&self, session_id: &str) -> Result<Vec<AttachmentInfo>> {
         let session_dir = self.resolve_session_dir(session_id)?;
         let attachments_dir = session_dir.join("attachments");
-
-        let mut attachments = Vec::new();
-
-        let entries = match std::fs::read_dir(&attachments_dir) {
-            Ok(entries) => entries,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(attachments),
-            Err(e) => return Err(e.into()),
-        };
-
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_file() {
-                continue;
-            }
-
-            let filename = match path.file_name().and_then(|s| s.to_str()) {
-                Some(name) => name.to_string(),
-                None => continue,
-            };
-
-            let extension = path
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("")
-                .to_string();
-
-            let modified_at = entry
-                .metadata()
-                .and_then(|m| m.modified())
-                .map(|t| {
-                    chrono::DateTime::<chrono::Utc>::from(t)
-                        .to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
-                })
-                .unwrap_or_default();
-
-            attachments.push(AttachmentInfo {
-                attachment_id: filename,
-                path: path.to_string_lossy().to_string(),
-                extension,
-                modified_at,
-            });
-        }
-
-        Ok(attachments)
+        list_named_files(&attachments_dir)
     }
 
     pub fn attachment_read(&self, session_id: &str, attachment_id: &str) -> Result<Vec<u8>> {
@@ -266,36 +223,133 @@ impl FsSyncCore {
     pub fn attachment_remove(&self, session_id: &str, attachment_id: &str) -> Result<()> {
         let session_dir = self.resolve_session_dir(session_id)?;
         let attachments_dir = session_dir.join("attachments");
+        remove_named_file(&attachments_dir, attachment_id)
+    }
 
-        let entries = match std::fs::read_dir(&attachments_dir) {
-            Ok(entries) => entries,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-            Err(e) => return Err(e.into()),
-        };
+    pub fn folder_attachment_save(
+        &self,
+        folder_path: &str,
+        data: &[u8],
+        filename: &str,
+    ) -> Result<AttachmentSaveResult> {
+        let materials_dir = self.resolve_folder_materials_dir(folder_path)?;
+        std::fs::create_dir_all(&materials_dir)?;
 
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_file() {
-                continue;
-            }
+        let safe_filename = sanitize_filename(filename)?;
+        let (file_path, final_filename) = write_unique_file(&materials_dir, &safe_filename, data)?;
 
-            let filename = match path.file_name().and_then(|s| s.to_str()) {
-                Some(name) => name,
-                None => continue,
-            };
+        Ok(AttachmentSaveResult {
+            path: file_path.to_string_lossy().to_string(),
+            attachment_id: final_filename,
+        })
+    }
 
-            if filename == attachment_id {
-                std::fs::remove_file(&path)?;
-                return Ok(());
-            }
-        }
+    pub fn folder_attachment_list(&self, folder_path: &str) -> Result<Vec<AttachmentInfo>> {
+        let materials_dir = self.resolve_folder_materials_dir(folder_path)?;
+        list_named_files(&materials_dir)
+    }
 
-        Ok(())
+    pub fn folder_attachment_read(
+        &self,
+        folder_path: &str,
+        attachment_id: &str,
+    ) -> Result<Vec<u8>> {
+        let materials_dir = self.resolve_folder_materials_dir(folder_path)?;
+        let safe_attachment_id = sanitize_filename(attachment_id)?;
+
+        Ok(std::fs::read(materials_dir.join(safe_attachment_id))?)
+    }
+
+    pub fn folder_attachment_remove(&self, folder_path: &str, attachment_id: &str) -> Result<()> {
+        let materials_dir = self.resolve_folder_materials_dir(folder_path)?;
+        remove_named_file(&materials_dir, attachment_id)
     }
 
     pub fn resolve_session_dir(&self, session_id: &str) -> Result<PathBuf> {
         find_session_dir(&self.sessions_dir, session_id)
     }
+
+    fn resolve_folder_materials_dir(&self, folder_path: &str) -> Result<PathBuf> {
+        let folder_path = normalize_folder_path(folder_path)?;
+        if folder_path.is_empty() {
+            return Err(Error::Path("folder_materials_root_not_allowed".into()));
+        }
+
+        Ok(self.sessions_dir.join(folder_path).join("materials"))
+    }
+}
+
+fn list_named_files(dir: &std::path::Path) -> Result<Vec<AttachmentInfo>> {
+    let mut attachments = Vec::new();
+
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(attachments),
+        Err(e) => return Err(e.into()),
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+
+        let filename = match path.file_name().and_then(|s| s.to_str()) {
+            Some(name) => name.to_string(),
+            None => continue,
+        };
+
+        let extension = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_string();
+
+        let modified_at = entry
+            .metadata()
+            .and_then(|m| m.modified())
+            .map(|t| {
+                chrono::DateTime::<chrono::Utc>::from(t)
+                    .to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+            })
+            .unwrap_or_default();
+
+        attachments.push(AttachmentInfo {
+            attachment_id: filename,
+            path: path.to_string_lossy().to_string(),
+            extension,
+            modified_at,
+        });
+    }
+
+    Ok(attachments)
+}
+
+fn remove_named_file(dir: &std::path::Path, attachment_id: &str) -> Result<()> {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(e.into()),
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+
+        let filename = match path.file_name().and_then(|s| s.to_str()) {
+            Some(name) => name,
+            None => continue,
+        };
+
+        if filename == attachment_id {
+            std::fs::remove_file(&path)?;
+            return Ok(());
+        }
+    }
+
+    Ok(())
 }
 
 fn sanitize_filename(filename: &str) -> Result<String> {
@@ -726,5 +780,90 @@ mod tests {
     fn sanitize_filename_strips_directories() {
         let result = sanitize_filename("nested/path/file.txt").unwrap();
         assert_eq!(result, "file.txt");
+    }
+
+    #[test]
+    fn folder_attachment_save_and_read() {
+        let temp = TempDir::new().unwrap();
+        temp.child("sessions").create_dir_all().unwrap();
+
+        let core = FsSyncCore::new(temp.path().to_path_buf());
+        let saved = core
+            .folder_attachment_save("CS 101", b"syllabus", "syllabus.txt")
+            .unwrap();
+
+        assert_eq!(saved.attachment_id, "syllabus.txt");
+        temp.child("sessions")
+            .child("CS 101")
+            .child("materials")
+            .child("syllabus.txt")
+            .assert(predicates::path::exists());
+
+        let bytes = core
+            .folder_attachment_read("CS 101", "syllabus.txt")
+            .unwrap();
+        assert_eq!(bytes, b"syllabus");
+
+        let listed = core.folder_attachment_list("CS 101").unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].attachment_id, "syllabus.txt");
+    }
+
+    #[test]
+    fn folder_attachment_save_rejects_root() {
+        let temp = TempDir::new().unwrap();
+        temp.child("sessions").create_dir_all().unwrap();
+        let core = FsSyncCore::new(temp.path().to_path_buf());
+
+        let result = core.folder_attachment_save("", b"hello", "file.txt");
+
+        assert!(
+            matches!(result, Err(Error::Path(message)) if message == "folder_materials_root_not_allowed")
+        );
+        temp.child("sessions")
+            .child("materials")
+            .assert(predicates::path::missing());
+    }
+
+    #[test]
+    fn folder_attachment_save_rejects_traversal() {
+        let temp = TempDir::new().unwrap();
+        temp.child("sessions").create_dir_all().unwrap();
+        let core = FsSyncCore::new(temp.path().to_path_buf());
+
+        let result = core.folder_attachment_save("../outside", b"hello", "file.txt");
+
+        assert!(
+            matches!(result, Err(Error::Path(message)) if message == "folder_path_traversal_not_allowed")
+        );
+        temp.child("outside").assert(predicates::path::missing());
+    }
+
+    #[test]
+    fn folder_attachment_remove_deletes_file() {
+        let temp = TempDir::new().unwrap();
+        temp.child("sessions").create_dir_all().unwrap();
+        let core = FsSyncCore::new(temp.path().to_path_buf());
+        core.folder_attachment_save("CS 101", b"syllabus", "syllabus.txt")
+            .unwrap();
+
+        core.folder_attachment_remove("CS 101", "syllabus.txt")
+            .unwrap();
+
+        temp.child("sessions")
+            .child("CS 101")
+            .child("materials")
+            .child("syllabus.txt")
+            .assert(predicates::path::missing());
+    }
+
+    #[test]
+    fn folder_attachment_list_missing_dir_is_empty() {
+        let temp = TempDir::new().unwrap();
+        temp.child("sessions").create_dir_all().unwrap();
+        let core = FsSyncCore::new(temp.path().to_path_buf());
+
+        let listed = core.folder_attachment_list("CS 101").unwrap();
+        assert!(listed.is_empty());
     }
 }
