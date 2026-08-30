@@ -15,6 +15,8 @@ Language is the complaint we kept hearing under every other complaint. Granola u
 
 This is the dedicated post those threads deserved. Not a ranking of logos. A map of what each tool actually does when the room is not monolingual English.
 
+**Disclosure:** I co-founded Anarlog, one of the products in this comparison. Our bias is toward open-source software, local ownership, and a choice of speech and AI providers. The vendor counts and constraints below link to first-party documentation so you can check them.
+
 Vendor-specific mess lives in [Granola complaints](/blog/granola-ai-complaints), [Otter complaints](/blog/otter-ai-complaints), [Fireflies complaints](/blog/fireflies-ai-complaints), [Fathom complaints](/blog/fathom-ai-complaints), and [tl;dv complaints](/blog/tldv-complaints).
 
 ## What "multilingual" has to mean
@@ -36,11 +38,11 @@ Counts below are what the vendors published in 2026. They move. The caveats move
 | --- | --- | --- | --- |
 | **Granola** | 10 on desktop multi-language; 17 on iOS/Android | [Multi-language mode](https://docs.granola.ai/help-center/customising-granola/multi-language) turns **Internal Jargon off**. Mobile picks one language per meeting. | App is English. |
 | **Otter** | 6: EN, FR, ES, DE, JA, KO | [One language per meeting](https://help.otter.ai/hc/en-us/articles/360047928894-Using-Otter-in-Different-Languages), except a French+English mix. You pick before the call. | UI follows the meeting language more than Granola does. Still a short list. |
-| **Fireflies** | Help center: 69 for upload, 60+ live; marketing: 100+ | English-first product. Non-English is the upsell and the complaint. | English-centric UX. |
-| **Fathom** | ~38 on the bot path | [Fathom 3.0](https://help.fathom.video/en/articles/11577345-how-does-bot-free-recording-work-in-fathom-3-0) (bot-free, Mac) is **English only**. | English-first. |
-| **tl;dv** | 30+ | Custom vocabulary sits on higher tiers. Bot still has to be in the call. | Better than Granola on localized UI; still a bot. |
+| **Fireflies** | [100+ for transcription and summaries](https://guide.fireflies.ai/articles/2973706448-learn-about-fireflies-supported-languages); 60+ in multi-language mode | Multi-language mode is a separate beta. The summary follows the dominant language. | English-centric UX. |
+| **Fathom** | [38 on the bot path](https://help.fathom.video/en/articles/296192) | [Fathom 3.0](https://help.fathom.video/en/articles/11577345-how-does-bot-free-recording-work-in-fathom-3-0) (bot-free, Mac) is **English only**. | English-first. |
+| **tl;dv** | [30+](https://tldv.io/features/languages/) | Custom vocabulary sits on higher tiers. Bot still has to be in the call. | Better than Granola on localized UI; still a bot. |
 | **Notta** | [58 for monolingual](https://docs.notta.ai/docs/transcription-supported-languages-and-limitations); real-time and bilingual lists are shorter | Bilingual is a separate, smaller matrix. Do not read 58 as "any pair." | Stronger on JP/CN marketing than US notetakers. |
-| **Jamie** | 100+ claimed | Worth a trial if the language is the only requirement. Verify the pair you actually speak. | Check current app, not the homepage number. |
+| **Jamie** | [28+ with auto-detect](https://intercom.help/meetjamie/en/articles/8370135-what-languages-does-jamie-support) | Jamie lists a smaller set of languages as its best-quality group. Verify the pair you actually speak. | Check current app, not a roundup number. |
 | **Anarlog** | 45+ claimed; **provider-dependent** | You pick the STT model. Apple Speech is one language at a time (a short Apple list). Cloud models follow that vendor. | [Main language](https://docs.anarlog.so/languages) for summaries and chat; additional spoken languages for the transcript. |
 
 There is no "best" row. There is a best *for a given pair and a given capture model*.
@@ -49,7 +51,11 @@ There is no "best" row. There is a best *for a given pair and a given capture mo
 
 Granola is the reason this post exists. The language limit is specific, documented, and easy to miss because the rest of the product is good.
 
-[Granola's language page](https://docs.granola.ai/help-center/customising-granola/multi-language) lists ten languages on desktop multi-language and on mobile: English, French, German, Spanish, Italian, Portuguese, Dutch, Japanese, Russian, and Hindi. iOS and Android also add Mandarin Chinese, Finnish, Korean, Polish, Turkish, Ukrainian, and Vietnamese. If your working language is on mobile and not on desktop, the Mac app will not save you.
+[Granola's language page](https://docs.granola.ai/help-center/customising-granola/multi-language) lists ten languages in desktop multi-language mode: English, French, German, Spanish, Italian, Portuguese, Dutch, Japanese, Russian, and Hindi. iOS and Android add Mandarin Chinese, Finnish, Korean, Polish, Turkish, Ukrainian, and Vietnamese. If your working language is on mobile and not on desktop, the Mac app will not save you.
+
+![Granola meeting notepad with an enhanced summary beside the user's notes](/images/blog/library/products/granola/notepad/2026-07-19-meeting-note.jpg)
+
+*Granola's notepad is the product people want to keep; the language-mode constraints decide who can use it. Source: [Granola](https://www.granola.ai/).*
 
 Three more constraints from the same page:
 
@@ -65,29 +71,45 @@ Otter's list is short and the rule is strict. One language per conversation. The
 
 That is workable for a Berlin office that runs German meetings and English meetings as separate events. It is not workable for the meeting that starts in English and spends twenty minutes in Korean. Otter will not "figure it out." You should not expect it to.
 
-Details and the rest of the Otter wall (minutes, bots, billing) are in [Otter complaints](/blog/otter-ai-complaints) and [Otter vs Anarlog](/blog/otter-ai-vs-anarlog).
+![Otter Notetaker appearing as a visible meeting participant](/images/blog/library/products/otter/notetaker/2026-07-17-notetaker-overview.png)
+
+*Otter's official Notetaker overview shows the visible guest that joins the call. Source: [Otter](https://help.otter.ai/hc/en-us/articles/4425393298327-Otter-Notetaker-Overview).*
+
+Details and the rest of the Otter wall (minutes, bots, billing) are in [Otter complaints](/blog/otter-ai-complaints) and the [Otter review](/blog/otter-ai-review).
 
 ## Fireflies: the number is not the product
 
-Fireflies will show you 69, 100, or 100+ depending on which page you open. Upload vs live vs marketing are different lists.
+Fireflies documents [100+ languages for transcription and summaries](https://guide.fireflies.ai/articles/2973706448-learn-about-fireflies-supported-languages), but its [multi-language mode](https://guide.fireflies.ai/articles/2585231364-transcribe-fireflies-meetings-in-multiple-languages-with-multi-language-mode-beta) is a separate beta with 60+ languages. That mode can follow switches within a sentence, but the summary stays in the dominant language and cannot be changed independently yet.
 
-What users report is simpler: English meetings work; everything else is a downgrade in accuracy, summary quality, and UI. If Fireflies is already your English notetaker and you have occasional Spanish calls, you may be fine. If you are buying it *because* of the language count, read [Fireflies complaints](/blog/fireflies-ai-complaints) first and run a real bilingual meeting on a trial.
+![Fireflies meeting-summary workspace with transcript and AI summary](/images/blog/library/products/fireflies/meeting-summary/2026-07-17-refine-summary.png)
+
+*Fireflies' meeting-summary workspace is polished. The multilingual question is whether the transcript and summary preserve the same language choices. Source: [Fireflies](https://fireflies.ai/).*
+
+If Fireflies is already your English notetaker and you have occasional Spanish calls, you may be fine. If you are buying it *because* of the language count, read [Fireflies complaints](/blog/fireflies-ai-complaints) first and run a real bilingual meeting on a trial.
 
 ## Fathom: 38 languages until you want the nice capture
 
-Fathom's bot path has a wide language list. Fathom 3.0, the bot-free Mac recorder they are pushing, is English-only.
+Fathom's [bot path supports 38 transcript languages](https://help.fathom.video/en/articles/296192). Fathom 3.0, the bot-free Mac recorder they are pushing, is English-only.
+
+![Fathom recap with meeting video, transcript, and AI summary](/images/blog/library/products/fathom/meeting-recap/2026-08-30-recap.webp)
+
+*Fathom's recap is the reason to use it; the bot-free 3.0 path narrows the language choice to English. Source: [Fathom](https://www.fathom.video/).*
 
 So the multilingual buyer and the "no bot on the call" buyer are shopping two different products that share a logo. We walk through that split in the [Fathom review](/blog/fathom-ai-review) and [Fathom complaints](/blog/fathom-ai-complaints).
 
 ## tl;dv and Notta
 
-**tl;dv** is the boringly adequate multilingual bot: 30+ languages, clips, enough UI localization to not feel like an English app wearing a flag. Vocabulary control costs money. The bot is still a bot.
+**tl;dv** is the boringly adequate multilingual bot: [30+ languages](https://tldv.io/features/languages/), clips, enough UI localization to not feel like an English app wearing a flag. Vocabulary control costs money. The bot is still a bot.
+
+![tl;dv meeting-notes product demo with transcript and AI notes](/images/blog/library/products/tldv/meeting-notes/2026-08-30-product-demo.png)
+
+*tl;dv pairs a meeting recording with transcript and AI notes. Source: [tl;dv](https://tldv.io/).*
 
 **Notta** is the one US-centric roundups underweight. 58 monolingual languages is a real list. The bilingual and real-time matrices are smaller, and the docs say so. If your pair is JP-EN or CN-EN, try Notta before you try to stretch Granola or Otter.
 
 ## What we run
 
-Anarlog does not win a language-count contest against Jamie's homepage. It wins the *shape* of the problem:
+Anarlog does not win a language-count contest on a homepage. It wins the *shape* of the problem:
 
 - **Main language** = summaries, chat, AI output.
 - **Additional spoken languages** = what the transcriber should expect in the same room.
@@ -95,7 +117,11 @@ Anarlog does not win a language-count contest against Jamie's homepage. It wins 
 
 Apple Speech, if you use it, is the exception: one supported language at a time, and the language has to be enabled in macOS. For mixed meetings you want a cloud or local model that actually does code-switching.
 
-Notes stay in your database. Language policy is not tied to a 30-day history wall or a training-default cloud.
+Notes stay in your database. Language policy is not tied to a 30-day history wall or a training-default cloud. Anarlog is MIT-licensed, so the capture and storage path is auditable.
+
+![Anarlog desktop app with a local meeting note and recording controls](/images/blog/library/products/anarlog/desktop/2026-08-27-new-note.png)
+
+*Anarlog keeps the meeting note in a local SQLite database and lets you choose the speech and AI providers.*
 
 See [Anarlog language settings](https://docs.anarlog.so/languages).
 
@@ -115,5 +141,5 @@ If you want the rest of the product (bots, minutes, CRM, lawsuits), use the comp
 - [Otter.ai complaints](/blog/otter-ai-complaints)
 - [Fireflies.ai complaints](/blog/fireflies-ai-complaints)
 - [Fathom review](/blog/fathom-ai-review)
-- [Best AI meeting notetaker](/blog/best-ai-meeting-notetaker)
+- [Best AI notetaker](/blog/best-ai-notetaker)
 - [Granola alternatives](/blog/granola-ai-alternatives)
