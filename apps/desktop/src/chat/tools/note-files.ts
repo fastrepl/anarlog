@@ -357,7 +357,7 @@ function searchNote(note: LoadedNoteFile, query: string): SearchMatch | null {
   };
 }
 
-async function searchMeetingContent({
+export async function searchMeetingContent({
   query,
   sessionIds,
   limit,
@@ -375,9 +375,8 @@ async function searchMeetingContent({
     };
   }
 
-  const candidateIds = sessionIds?.length
-    ? sessionIds
-    : await loadActiveSessionIds();
+  const candidateIds =
+    sessionIds === undefined ? await loadActiveSessionIds() : sessionIds;
   const results: SearchMatch[] = [];
 
   for (const sessionId of candidateIds) {
@@ -578,11 +577,12 @@ export const buildSearchMeetingContentTool = (deps: ToolDependencies) =>
           : (await loadSessionSummariesByFolder(folderFilter)).map(
               (session) => session.id,
             );
-      const sessionIds = folderSessionIds
-        ? params.meeting_ids?.length
-          ? params.meeting_ids.filter((id) => folderSessionIds.includes(id))
-          : folderSessionIds
-        : params.meeting_ids;
+      const sessionIds =
+        folderSessionIds === undefined
+          ? params.meeting_ids
+          : params.meeting_ids?.length
+            ? params.meeting_ids.filter((id) => folderSessionIds.includes(id))
+            : folderSessionIds;
       const result = await searchMeetingContent({
         query: params.query,
         sessionIds,

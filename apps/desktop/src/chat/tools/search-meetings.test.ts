@@ -1,14 +1,23 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { searchMeetingContent } from "./note-files";
 import { buildSearchMeetingsTool } from "./search-meetings";
 
 import { loadSessionSummariesByFolder } from "~/session/queries";
+
+vi.mock("./note-files", () => ({
+  searchMeetingContent: vi.fn(),
+}));
 
 vi.mock("~/session/queries", () => ({
   loadSessionSummariesByFolder: vi.fn(),
 }));
 
 describe("search meetings chat tool", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("keeps full-content search results behind meeting vocabulary", async () => {
     const search = vi.fn().mockResolvedValue([
       {
@@ -64,29 +73,8 @@ describe("search meetings chat tool", () => {
     });
   });
 
-  it("keeps search results inside the active folder", async () => {
-    const search = vi.fn().mockResolvedValue([
-      {
-        score: 0.9,
-        document: {
-          id: "other-folder",
-          type: "session",
-          title: "Other class",
-          content: "midterm review",
-          created_at: 100,
-        },
-      },
-      {
-        score: 0.8,
-        document: {
-          id: "cs-101",
-          type: "session",
-          title: "CS 101 lecture",
-          content: "midterm review",
-          created_at: 200,
-        },
-      },
-    ]);
+  it("searches only the active folder instead of post-filtering global hits", async () => {
+    const search = vi.fn();
     const meetingSearchTool = buildSearchMeetingsTool({
       search,
       getFolderFilter: () => "CS 101",
@@ -99,13 +87,56 @@ describe("search meetings chat tool", () => {
         created_at: "2026-08-01T00:00:00.000Z",
       },
     ]);
+    vi.mocked(searchMeetingContent).mockResolvedValue({
+      query: "midterm",
+      scanned: 1,
+      results: [
+        {
+          sessionId: "cs-101",
+          title: "CS 101 lecture",
+          date: "2026-08-01T00:00:00.000Z",
+          score: 0.8,
+          snippets: [{ section: "Raw note", text: "midterm review" }],
+        },
+      ],
+    });
 
     const result = await (meetingSearchTool as any).execute({
       query: "midterm",
     });
 
+    expect(search).not.toHaveBeenCalled();
+    expect(searchMeetingContent).toHaveBeenCalledWith({
+      query: "midterm",
+      sessionIds: ["cs-101"],
+      limit: 5,
+    });
     expect(result.results).toEqual([
-      expect.objectContaining({ id: "cs-101", title: "CS 101 lecture" }),
+      {
+        id: "cs-101",
+        title: "CS 101 lecture",
+        excerpt: "midterm review",
+        score: 0.8,
+        created_at: Date.parse("2026-08-01T00:00:00.000Z"),
+      },
     ]);
+  });
+
+  it("returns no meetings when the active folder is empty", async () => {
+    const search = vi.fn();
+    const meetingSearchTool = buildSearchMeetingsTool({
+      search,
+      getFolderFilter: () => "CS 101",
+    } as any);
+
+    vi.mocked(loadSessionSummariesByFolder).mockResolvedValue([]);
+
+    const result = await (meetingSearchTool as any).execute({
+      query: "midterm",
+    });
+
+    expect(result).toEqual({ results: [] });
+    expect(search).not.toHaveBeenCalled();
+    expect(searchMeetingContent).not.toHaveBeenCalled();
   });
 });

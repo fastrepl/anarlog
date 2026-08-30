@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   loadActiveSessionIds: vi.fn(),
   loadMeetingChatRecords: vi.fn(),
   loadSessionContentSnapshot: vi.fn(),
+  loadSessionSummariesByFolder: vi.fn(),
 }));
 
 vi.mock("~/stt/meeting-chat-records", () => ({
@@ -15,6 +16,10 @@ vi.mock("~/stt/meeting-chat-records", () => ({
 vi.mock("~/session/content-queries", () => ({
   loadActiveSessionIds: mocks.loadActiveSessionIds,
   loadSessionContentSnapshot: mocks.loadSessionContentSnapshot,
+}));
+
+vi.mock("~/session/queries", () => ({
+  loadSessionSummariesByFolder: mocks.loadSessionSummariesByFolder,
 }));
 
 import {
@@ -44,6 +49,7 @@ describe("note file chat tools", () => {
     mocks.formatMeetingChatRecordsAsMarkdown.mockReturnValue("");
     mocks.loadMeetingChatRecords.mockResolvedValue([]);
     mocks.loadSessionContentSnapshot.mockResolvedValue(snapshot);
+    mocks.loadSessionSummariesByFolder.mockResolvedValue([]);
   });
 
   it("extracts raw, enhanced, and transcript sections from session files", () => {
@@ -163,6 +169,50 @@ describe("note file chat tools", () => {
     });
     expect(mocks.loadActiveSessionIds).toHaveBeenCalledOnce();
     expect(mocks.loadSessionContentSnapshot).toHaveBeenCalledWith("session-1");
+  });
+
+  it("does not scan all notes when a folder has no matching sessions", async () => {
+    mocks.loadSessionSummariesByFolder.mockResolvedValue([]);
+    mocks.loadActiveSessionIds.mockResolvedValue(["session-1"]);
+
+    const tool = buildSearchMeetingContentTool({
+      getFolderFilter: () => "CS 101",
+    } as any);
+    const result = await (tool as any).execute({ query: "midterm" });
+
+    expect(result).toMatchObject({
+      query: "midterm",
+      scanned: 0,
+      results: [],
+    });
+    expect(mocks.loadActiveSessionIds).not.toHaveBeenCalled();
+    expect(mocks.loadSessionContentSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("does not scan all notes when meeting ids fall outside the folder", async () => {
+    mocks.loadSessionSummariesByFolder.mockResolvedValue([
+      {
+        id: "cs-101",
+        title: "Lecture",
+        created_at: "2026-08-01T00:00:00.000Z",
+      },
+    ]);
+
+    const tool = buildSearchMeetingContentTool({
+      getFolderFilter: () => "CS 101",
+    } as any);
+    const result = await (tool as any).execute({
+      query: "midterm",
+      meeting_ids: ["other-folder"],
+    });
+
+    expect(result).toMatchObject({
+      query: "midterm",
+      scanned: 0,
+      results: [],
+    });
+    expect(mocks.loadActiveSessionIds).not.toHaveBeenCalled();
+    expect(mocks.loadSessionContentSnapshot).not.toHaveBeenCalled();
   });
 
   it("returns metadata snippets for participant matches", () => {
