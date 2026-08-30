@@ -10,6 +10,7 @@ import {
 
 import {
   AppFloatingPanel,
+  appFloatingMenuPanelClassName,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -52,7 +53,7 @@ export function SidebarNoteFilterMenu() {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent variant="app" align="start" className="w-56">
-        <AppFloatingPanel className="overflow-hidden p-1">
+        <AppFloatingPanel className={appFloatingMenuPanelClassName}>
           <DropdownMenuSub>
             <DropdownMenuSubTrigger
               aria-label={t`Grouping, ${groupingLabel}`}
@@ -65,7 +66,7 @@ export function SidebarNoteFilterMenu() {
             </DropdownMenuSubTrigger>
             <DropdownMenuPortal>
               <DropdownMenuSubContent variant="app" className="w-44">
-                <AppFloatingPanel className="overflow-hidden p-1">
+                <AppFloatingPanel className={appFloatingMenuPanelClassName}>
                   <DropdownMenuItem
                     onSelect={() => setGroupBy("date")}
                     className="cursor-pointer"
@@ -112,7 +113,7 @@ export function SidebarNoteFilterMenu() {
             </DropdownMenuSubTrigger>
             <DropdownMenuPortal>
               <DropdownMenuSubContent variant="app" className="w-44">
-                <AppFloatingPanel className="overflow-hidden p-1">
+                <AppFloatingPanel className={appFloatingMenuPanelClassName}>
                   <DropdownMenuItem
                     onSelect={() => setSortOrder("newest")}
                     className="cursor-pointer"

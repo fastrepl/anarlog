@@ -13,6 +13,7 @@ import { useState, type ReactNode } from "react";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
+  appFloatingMenuPanelClassName,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -72,7 +73,7 @@ export function ShareRecapOverflowMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent variant="app" align="end" className="w-44">
-        <AppFloatingPanel className="overflow-hidden p-1">
+        <AppFloatingPanel className={appFloatingMenuPanelClassName}>
           <DropdownMenuItem
             onSelect={() => onValueChange("email")}
             className="cursor-pointer"

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
+  appFloatingMenuPanelClassName,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -181,7 +182,7 @@ function WebTemplatePreview({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent variant="app" align="end">
-                <AppFloatingPanel className="overflow-hidden p-1">
+                <AppFloatingPanel className={appFloatingMenuPanelClassName}>
                   <DropdownMenuItem
                     onClick={() => onClone(nextTemplate)}
                     className="cursor-pointer"

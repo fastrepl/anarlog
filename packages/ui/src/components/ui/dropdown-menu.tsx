@@ -7,6 +7,8 @@ import { cn } from "@anlg/utils";
 import {
   AppFloatingPanel,
   appFloatingContentClassName,
+  appFloatingItemClassName,
+  appFloatingMenuPanelClassName,
   type FloatingContentVariant,
 } from "./floating-content";
 
@@ -26,7 +28,8 @@ const DropdownMenuSubTrigger = React.forwardRef<
   <DropdownMenuPrimitive.SubTrigger
     ref={ref}
     className={cn([
-      "focus:bg-accent data-[state=open]:bg-accent flex cursor-default items-center gap-2 rounded-full px-2 py-1.5 text-sm outline-hidden [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+      "focus:bg-accent data-[state=open]:bg-accent flex cursor-default items-center gap-2 px-2 py-1.5 text-sm outline-hidden [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+      appFloatingItemClassName,
       inset && "pl-8",
       className,
     ])}
@@ -92,7 +95,8 @@ const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn([
-      "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-full px-2 py-1.5 text-sm outline-hidden transition-colors data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+      "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center gap-2 px-2 py-1.5 text-sm outline-hidden transition-colors data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+      appFloatingItemClassName,
       inset && "pl-8",
       className,
     ])}
@@ -108,7 +112,8 @@ const DropdownMenuCheckboxItem = React.forwardRef<
   <DropdownMenuPrimitive.CheckboxItem
     ref={ref}
     className={cn([
-      "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center rounded-full py-1.5 pr-2 pl-8 text-sm outline-hidden transition-colors data-disabled:pointer-events-none data-disabled:opacity-50",
+      "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center py-1.5 pr-2 pl-8 text-sm outline-hidden transition-colors data-disabled:pointer-events-none data-disabled:opacity-50",
+      appFloatingItemClassName,
       className,
     ])}
     checked={checked}
@@ -132,7 +137,8 @@ const DropdownMenuRadioItem = React.forwardRef<
   <DropdownMenuPrimitive.RadioItem
     ref={ref}
     className={cn([
-      "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center rounded-full py-1.5 pr-2 pl-8 text-sm outline-hidden transition-colors data-disabled:pointer-events-none data-disabled:opacity-50",
+      "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center py-1.5 pr-2 pl-8 text-sm outline-hidden transition-colors data-disabled:pointer-events-none data-disabled:opacity-50",
+      appFloatingItemClassName,
       className,
     ])}
     {...props}
@@ -192,6 +198,7 @@ DropdownMenuShortcut.displayName = "DropdownMenuShortcut";
 
 export {
   AppFloatingPanel,
+  appFloatingMenuPanelClassName,
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,

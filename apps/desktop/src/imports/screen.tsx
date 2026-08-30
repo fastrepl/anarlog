@@ -20,6 +20,7 @@ import { Button } from "@anlg/ui/components/ui/button";
 import { ButtonGroup } from "@anlg/ui/components/ui/button-group";
 import {
   AppFloatingPanel,
+  appFloatingMenuPanelClassName,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -606,7 +607,9 @@ export function MeetingImportScreen({
                                 align="end"
                                 className="w-40"
                               >
-                                <AppFloatingPanel className="p-1">
+                                <AppFloatingPanel
+                                  className={appFloatingMenuPanelClassName}
+                                >
                                   <DropdownMenuItem
                                     onClick={() =>
                                       fileImportMutation.mutate(provider)

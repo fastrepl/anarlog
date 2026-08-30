@@ -3,8 +3,10 @@ import { DotsThreeVertical } from "@phosphor-icons/react";
 import { useCallback, useState } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
+import { appFloatingItemClassName } from "@anlg/ui/components/ui/floating-content";
 import {
   AppFloatingPanel,
+  appFloatingMenuPanelClassName,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -14,6 +16,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@anlg/ui/components/ui/tooltip";
+import { cn } from "@anlg/utils";
 
 import { ActionableTooltipContent } from "./shared";
 
@@ -124,10 +127,15 @@ export function OptionsMenu({
         sideOffset={8}
         className="w-43"
       >
-        <AppFloatingPanel className="flex flex-col gap-1 p-1">
+        <AppFloatingPanel
+          className={cn([appFloatingMenuPanelClassName, "flex flex-col gap-1"])}
+        >
           <Button
             variant="ghost"
-            className="h-9 justify-center px-3 whitespace-nowrap"
+            className={cn([
+              "h-9 justify-center px-3 whitespace-nowrap",
+              appFloatingItemClassName,
+            ])}
             onClick={handleUploadAudio}
           >
             <span className="text-sm">
@@ -136,7 +144,10 @@ export function OptionsMenu({
           </Button>
           <Button
             variant="ghost"
-            className="h-9 justify-center px-3 whitespace-nowrap"
+            className={cn([
+              "h-9 justify-center px-3 whitespace-nowrap",
+              appFloatingItemClassName,
+            ])}
             onClick={handleUploadTranscript}
           >
             <span className="text-sm">

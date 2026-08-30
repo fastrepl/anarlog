@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
+  appFloatingMenuPanelClassName,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -97,7 +98,7 @@ export function SkillsRow() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent variant="app" align="end" className="w-52">
-            <AppFloatingPanel className="p-1">
+            <AppFloatingPanel className={appFloatingMenuPanelClassName}>
               <DropdownMenuItem
                 disabled={detected.length === 0}
                 onClick={() =>

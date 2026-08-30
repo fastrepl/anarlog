@@ -46,6 +46,7 @@ vi.mock("~/types/tauri.gen", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
+  appFloatingMenuPanelClassName: "overflow-hidden p-1.5",
   AppFloatingPanel: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),

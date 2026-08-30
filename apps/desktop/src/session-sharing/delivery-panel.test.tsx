@@ -14,6 +14,7 @@ vi.mock("@iconify-icon/react", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
+  appFloatingMenuPanelClassName: "overflow-hidden p-1.5",
   AppFloatingPanel: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
   ),

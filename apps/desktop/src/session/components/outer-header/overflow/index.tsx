@@ -13,6 +13,7 @@ import { useState } from "react";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
+  appFloatingMenuPanelClassName,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -129,7 +130,7 @@ export function OverflowButton({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent variant="app" align="end" className="w-56">
-          <AppFloatingPanel className="overflow-hidden p-1">
+          <AppFloatingPanel className={appFloatingMenuPanelClassName}>
             <DropdownMenuItem
               onClick={openExportModal}
               className="cursor-pointer"
