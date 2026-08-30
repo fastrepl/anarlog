@@ -11,46 +11,6 @@ import {
   type TimelineSessionsTable,
 } from "./utils";
 
-export const TIMELINE_ORDERS = ["upcoming_first", "chronological"] as const;
-export type TimelineOrder = (typeof TIMELINE_ORDERS)[number];
-
-export function isTimelineOrder(
-  value: string | undefined,
-): value is TimelineOrder {
-  return value === "upcoming_first" || value === "chronological";
-}
-
-export function resolveTimelineOrder(value: string | undefined): TimelineOrder {
-  return isTimelineOrder(value) ? value : "upcoming_first";
-}
-
-export function applyTimelineOrder(
-  buckets: TimelineBucket[],
-  order: TimelineOrder,
-): TimelineBucket[] {
-  if (order !== "chronological") {
-    return buckets;
-  }
-
-  return [...buckets].reverse();
-}
-
-export function remapTimelineIndicatorIndex(
-  index: number,
-  bucketCount: number,
-  order: TimelineOrder,
-): number {
-  if (order !== "chronological") {
-    return index;
-  }
-
-  if (index < 0 || index === bucketCount) {
-    return 0;
-  }
-
-  return bucketCount - index;
-}
-
 export function getFallbackIndicatorIndex(
   buckets: TimelineBucket[],
   nowMs: number,

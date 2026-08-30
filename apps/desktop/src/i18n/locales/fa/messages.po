@@ -958,10 +958,6 @@ msgstr ""
 msgid "Choose the speakers that play other participants so Anarlog records them."
 msgstr ""
 
-#: src/settings/general/timeline-order.tsx
-msgid "Choose whether scrolling down moves toward older notes or toward upcoming meetings."
-msgstr ""
-
 #: src/settings/general/week-start.tsx
 msgid "Choose which day begins your calendar week."
 msgstr ""
@@ -3094,10 +3090,6 @@ msgstr ""
 msgid "Oldest"
 msgstr ""
 
-#: src/settings/general/timeline-order.tsx
-msgid "Oldest first"
-msgstr ""
-
 #: src/session/components/note-input/enhanced/streaming.tsx
 msgid "On-device models can take a few minutes to warm up before text appears."
 msgstr ""
@@ -3959,10 +3951,6 @@ msgstr ""
 msgid "Select summary length"
 msgstr ""
 
-#: src/settings/general/timeline-order.tsx
-msgid "Select timeline order"
-msgstr ""
-
 #: src/settings/general/timezone.tsx
 msgid "Select timezone"
 msgstr ""
@@ -4195,10 +4183,6 @@ msgstr ""
 
 #: src/settings/general/app-settings.tsx
 msgid "Show tray icon"
-msgstr ""
-
-#: src/settings/general/timeline-order.tsx
-msgid "Sidebar timeline"
 msgstr ""
 
 #: src/session/components/note-input/enhanced/enhance-error.tsx
@@ -4965,10 +4949,6 @@ msgstr ""
 
 #: src/services/event-notification/index.ts
 msgid "Upcoming Event"
-msgstr ""
-
-#: src/settings/general/timeline-order.tsx
-msgid "Upcoming first"
 msgstr ""
 
 #: src/automations/starters.tsx

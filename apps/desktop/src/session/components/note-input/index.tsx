@@ -346,7 +346,7 @@ const NoteInputContent = forwardRef<
         )}
 
         {showSearchBar && isEditableTab && (
-          <div className="px-6 pt-1">
+          <div className="px-3 pt-1">
             <SearchBar editorRef={internalEditorRef} />
           </div>
         )}
@@ -357,7 +357,7 @@ const NoteInputContent = forwardRef<
             onMouseDown={handleContainerMouseDown}
             onScroll={onScroll}
             className={cn([
-              "h-full px-6",
+              "h-full px-3",
               "pt-2",
               renderedCurrentTab.type === "transcript"
                 ? "overflow-hidden pb-0"

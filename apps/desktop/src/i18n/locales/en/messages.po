@@ -958,10 +958,6 @@ msgstr "Choose the microphone that captures your voice."
 msgid "Choose the speakers that play other participants so Anarlog records them."
 msgstr "Choose the speakers that play other participants so Anarlog records them."
 
-#: src/settings/general/timeline-order.tsx
-msgid "Choose whether scrolling down moves toward older notes or toward upcoming meetings."
-msgstr "Choose whether scrolling down moves toward older notes or toward upcoming meetings."
-
 #: src/settings/general/week-start.tsx
 msgid "Choose which day begins your calendar week."
 msgstr "Choose which day begins your calendar week."
@@ -3094,10 +3090,6 @@ msgstr "Older files that differ from your current data were kept as recovery cop
 msgid "Oldest"
 msgstr "Oldest"
 
-#: src/settings/general/timeline-order.tsx
-msgid "Oldest first"
-msgstr "Oldest first"
-
 #: src/session/components/note-input/enhanced/streaming.tsx
 msgid "On-device models can take a few minutes to warm up before text appears."
 msgstr "On-device models can take a few minutes to warm up before text appears."
@@ -3959,10 +3951,6 @@ msgstr "Select or type to add speaker"
 msgid "Select summary length"
 msgstr "Select summary length"
 
-#: src/settings/general/timeline-order.tsx
-msgid "Select timeline order"
-msgstr "Select timeline order"
-
 #: src/settings/general/timezone.tsx
 msgid "Select timezone"
 msgstr "Select timezone"
@@ -4196,10 +4184,6 @@ msgstr "Show This Event"
 #: src/settings/general/app-settings.tsx
 msgid "Show tray icon"
 msgstr "Show tray icon"
-
-#: src/settings/general/timeline-order.tsx
-msgid "Sidebar timeline"
-msgstr "Sidebar timeline"
 
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 #: src/settings/general/account.tsx
@@ -4966,10 +4950,6 @@ msgstr "Upcoming bot attendance"
 #: src/services/event-notification/index.ts
 msgid "Upcoming Event"
 msgstr "Upcoming Event"
-
-#: src/settings/general/timeline-order.tsx
-msgid "Upcoming first"
-msgstr "Upcoming first"
 
 #: src/automations/starters.tsx
 msgid "Update project notes in Notion"
