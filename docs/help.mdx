@@ -1,82 +1,143 @@
 ---
 title: "Frequently asked questions"
-description: "Answers about recording, AI, privacy, sharing, sync, and developer tools."
+description: "Answers about recording, transcription cost, local models, privacy, sharing, sync, and developer tools."
 ---
+
+Browse a topic, then expand the question. If something is not working, go to [Troubleshooting](/troubleshooting). For a question not covered here, email [founders@anarlog.so](mailto:founders@anarlog.so) or [join Discord](https://anarlog.so/discord).
+
+## Transcription and cost
+
+<AccordionGroup>
+  <Accordion title="How can I compare the costs of all the transcription options?" id="compare-transcription-costs">
+    Anarlog has three cost models. Compare those first, then compare providers inside the one you choose.
+
+    | Option | What you pay | When to use it |
+    | --- | --- | --- |
+    | On-device | Nothing extra after you download the model | Apple Silicon Mac, and you want no usage bill |
+    | Anarlog Cloud | [Pro](https://anarlog.so/pricing) at $15/month or $150/year | Hosted transcription without managing API keys |
+    | Your API key | The provider's own speech-to-text rates | You already have credits, a preferred vendor, or a required endpoint |
+
+    On-device and bring-your-own-key transcription stay on the Free plan. Cloud transcription is a Pro feature.
+
+    For a bring-your-own-key provider:
+
+    1. Open **Settings → Transcription → Configure Providers**.
+    2. Open that provider's **Available models** and **API setup** links.
+    3. On the provider's pricing page, compare live vs after-recording rates, language coverage, speaker labels, and any free tier.
+    4. Select the model under **Model being used** and run a short test meeting.
+
+    Anarlog does not publish a live price table for third-party providers because those rates change. [OpenRouter](https://openrouter.ai/models?output_modalities=transcription) is one key that can reach several after-recording models if you want a single bill to compare.
+
+    See [Models and providers](/models-and-providers) and [Transcription and AI](/ai-setup).
+  </Accordion>
+
+  <Accordion title="Is there a reliable local model that can handle hour-long calls?" id="local-model-hour-long-calls">
+    On an Apple Silicon Mac, yes — transcribe after the meeting with **Soniqo → Parakeet Batch**. That built-in model adds speaker labels for 25 European languages and is the on-device option meant for long calls.
+
+    Other local choices on the same Mac:
+
+    - **Soniqo → Parakeet Streaming** shows text during the meeting. Use Batch when you care more about finishing a long recording than seeing live captions.
+    - **Local file** runs a downloaded whisper.cpp `.bin` model after recording. transcribe.cpp `.gguf` files are not supported yet.
+    - **Apple Speech** is live-only and available when macOS 26 reports compatible system assets. It transcribes one supported language at a time.
+
+    On-device transcription is not available on Windows, Linux, or Intel Macs. On those systems, use Anarlog Cloud or a bring-your-own-key provider. After-recording hosted models handle hour-long audio. Some live models have short session limits — for example, Gemini 3.5 Transcribe Live preview sessions last up to 10 minutes.
+
+    Quality and speed depend on the computer. Run a short test recording before a long call. See [Use Anarlog offline](/offline).
+  </Accordion>
+
+  <Accordion title="Can I replace Granola on Windows?" id="replace-granola-on-windows">
+    Yes. Download the Windows x64 build and record from the desktop without a meeting bot. Windows support is in beta.
+
+    Expect these differences from a Mac setup:
+
+    - On-device transcription is not available. Choose Anarlog Cloud or configure your own provider.
+    - Microphone detection, auto-stop, and meeting-chat capture are macOS and Linux only.
+    - You can [import Granola meeting history](/imports) from an official export.
+
+    See [Install the desktop app](/desktop-installation).
+  </Accordion>
+</AccordionGroup>
 
 ## Recording and notes
 
-### Does Anarlog join the call?
+<AccordionGroup>
+  <Accordion title="Does Anarlog join the call?" id="does-anarlog-join-the-call">
+    No. Anarlog captures your microphone and computer audio from the desktop without adding a meeting bot. See [Record meetings](/meetings).
+  </Accordion>
 
-No. Anarlog captures your microphone and computer audio from the desktop without adding a meeting bot. See [Record meetings](/meetings).
+  <Accordion title="Can recording start automatically?" id="can-recording-start-automatically">
+    Yes. Anarlog can start calendar-backed meetings on schedule and prompt you when it detects an unscheduled call. Manage scheduled meeting controls under **Settings → Meetings** and microphone detection under **Settings → Notifications**. Microphone detection, auto-stop, and meeting-chat capture are available on macOS and Linux, not Windows. See [Automatic capture](/automatic-capture).
+  </Accordion>
 
-### Can recording start automatically?
+  <Accordion title="Can I edit a transcript or fix a speaker?" id="can-i-edit-a-transcript-or-fix-a-speaker">
+    Yes. Use **Write** to edit transcript text. Select text or a speaker label to assign the correct person, create a speaker, or apply the change to every matching segment. See [Correct a transcript](/notes#correct-a-transcript).
+  </Accordion>
 
-Yes. Anarlog can start calendar-backed meetings on schedule and prompt you when it detects an unscheduled call. Manage scheduled meeting controls under **Settings → Meetings** and microphone detection under **Settings → Notifications**. Microphone detection, auto-stop, and meeting-chat capture are available on macOS and Linux, not Windows. See [Automatic capture](/automatic-capture).
+  <Accordion title="Can I add more audio to an existing note?" id="can-i-add-more-audio-to-an-existing-note">
+    Yes. Right-click **Transcript** and choose **Resume listening**. The new recording stays in the same meeting note.
+  </Accordion>
 
-### Can I edit a transcript or fix a speaker?
-
-Yes. Use **Write** to edit transcript text. Select text or a speaker label to assign the correct person, create a speaker, or apply the change to every matching segment. See [Correct a transcript](/notes#correct-a-transcript).
-
-### Can I add more audio to an existing note?
-
-Yes. Right-click **Transcript** and choose **Resume listening**. The new recording stays in the same meeting note.
-
-### Can I import older meetings?
-
-Yes. Upload one audio, SRT, or VTT file to an empty note, or use **Settings → Imports** for meeting-history exports from another assistant. See [Import audio or a transcript](/import-recordings) and [Import meeting history](/imports).
+  <Accordion title="Can I import older meetings?" id="can-i-import-older-meetings">
+    Yes. Upload one audio, SRT, or VTT file to an empty note, or use **Settings → Imports** for meeting-history exports from another assistant. See [Import audio or a transcript](/import-recordings) and [Import meeting history](/imports).
+  </Accordion>
+</AccordionGroup>
 
 ## AI, offline use, and privacy
 
-### Can I use Anarlog offline?
+<AccordionGroup>
+  <Accordion title="Can I use Anarlog offline?" id="can-i-use-anarlog-offline">
+    Yes, if you prepare local models before disconnecting. Soniqo, Apple Speech, and Local file transcription require a supported Apple Silicon Mac; Apple Speech also needs macOS 26 to report compatible system assets. LM Studio, Ollama, Unsloth, and eligible Apple Intelligence can provide local Intelligence models. See [Use Anarlog offline](/offline).
+  </Accordion>
 
-Yes, if you prepare local models before disconnecting. Soniqo transcription requires a supported Apple Silicon Mac; Apple Speech is available when macOS 26 reports compatible system assets. LM Studio, Ollama, Unsloth, and eligible Apple Intelligence can provide local Intelligence models. See [Use Anarlog offline](/offline).
+  <Accordion title="Which AI models does Anarlog use?" id="which-ai-models-does-anarlog-use">
+    There is no single hidden model. Your Transcription selection handles audio, and your Intelligence selection handles summaries, titles, and chat. Anarlog Cloud currently routes transcription by language and mode and routes text Intelligence tasks through the latest Claude Sonnet alias on OpenRouter. See [Models and providers](/models-and-providers) for the current routes and local options.
+  </Accordion>
 
-### Which AI models does Anarlog use?
+  <Accordion title="Where is my data stored?" id="where-is-my-data-stored">
+    Anarlog stores app data locally by default. Hosted AI, calendars, sync, sharing, and the optional Cloud API receive the content needed for the feature you enable. See [Data, privacy, and retention](/data-and-privacy). Enterprise security reviews should start at the [security page](https://anarlog.so/security).
+  </Accordion>
 
-There is no single hidden model. Your Transcription selection handles audio, and your Intelligence selection handles summaries, titles, and chat. Anarlog Cloud currently routes transcription by language and mode and routes text Intelligence tasks through the latest Claude Sonnet alias on OpenRouter. See [Models and providers](/models-and-providers) for the current routes and local options.
+  <Accordion title="Does Anarlog train on my meetings?" id="does-anarlog-train-on-my-meetings">
+    The answer depends on the provider you choose. Local providers keep the model request on your computer. For Anarlog Cloud or a bring-your-own-key provider, review that provider's retention and training policy before sending sensitive content.
+  </Accordion>
 
-### Where is my data stored?
-
-Anarlog stores app data locally by default. Hosted AI, calendars, sync, sharing, and the optional Cloud API receive the content needed for the feature you enable. See [Data, privacy, and retention](/data-and-privacy). Enterprise security reviews should start at the [security page](https://anarlog.so/security).
-
-### Does Anarlog train on my meetings?
-
-The answer depends on the provider you choose. Local providers keep the model request on your computer. For Anarlog Cloud or a bring-your-own-key provider, review that provider's retention and training policy before sending sensitive content.
-
-### Can a meeting use multiple languages?
-
-Yes. Choose the summary language and add every spoken language you expect. The selected Transcription model must support them. See [Languages](/languages).
+  <Accordion title="Can a meeting use multiple languages?" id="can-a-meeting-use-multiple-languages">
+    Yes. Choose the summary language and add every spoken language you expect. The selected Transcription model must support them. See [Languages](/languages).
+  </Accordion>
+</AccordionGroup>
 
 ## Sharing, sync, and automation
 
-### What gets shared with another person?
+<AccordionGroup>
+  <Accordion title="What gets shared with another person?" id="what-gets-shared-with-another-person">
+    Anarlog shares the generated summary, not your private memo. Retained audio is optional and must be included separately. Sharing is a Pro feature. See [Share meetings](/sharing).
+  </Accordion>
 
-Anarlog shares the generated summary, not your private memo. Retained audio is optional and must be included separately. Sharing is a Pro feature. See [Share meetings](/sharing).
+  <Accordion title="Can Anarlog recover my sync recovery key?" id="can-anarlog-recover-my-sync-recovery-key">
+    No. The key is shown only during setup and Anarlog cannot read or recover it. Save it in a password manager before closing the setup window. See [Cloud sync](/sync#save-the-recovery-key).
+  </Accordion>
 
-### Can Anarlog recover my sync recovery key?
+  <Accordion title="Do my API keys sync to another device?" id="do-my-api-keys-sync-to-another-device">
+    No. Cloud Sync copies encrypted notes, not Transcription or Intelligence API keys. Enter each key again on the new computer, then select those models in Settings. See [What Cloud Sync replicates](/sync#what-cloud-sync-replicates).
+  </Accordion>
 
-No. The key is shown only during setup and Anarlog cannot read or recover it. Save it in a password manager before closing the setup window. See [Cloud sync](/sync#save-the-recovery-key).
-
-### Do my API keys sync to another device?
-
-No. Cloud Sync copies encrypted notes, not Transcription or Intelligence API keys. Enter each key again on the new computer, then select those models in Settings. See [What Cloud Sync replicates](/sync#what-cloud-sync-replicates).
-
-### Can I automate follow-up work?
-
-Yes, with Anarlog Pro. Built-in starters can post a Slack recap, update a Notion page, create Linear issues, or export each meeting as Markdown. See [Automate meeting follow-up](/automations).
+  <Accordion title="Can I automate follow-up work?" id="can-i-automate-follow-up-work">
+    Yes, with Anarlog Pro. Built-in starters can post a Slack recap, update a Notion page, create Linear issues, or export each meeting as Markdown. See [Automate meeting follow-up](/automations).
+  </Accordion>
+</AccordionGroup>
 
 ## Platforms and developer tools
 
-### Which desktop platforms are supported?
+<AccordionGroup>
+  <Accordion title="Which desktop platforms are supported?" id="which-desktop-platforms-are-supported">
+    Anarlog supports macOS 15 or later. Windows x64 and Linux x64 or ARM64 builds are available in beta. See [Install the desktop app](/desktop-installation).
+  </Accordion>
 
-Anarlog supports macOS 15 or later. Windows x64 and Linux x64 or ARM64 builds are available in beta. See [Install the desktop app](/desktop-installation).
+  <Accordion title="Is there a mobile app?" id="is-there-a-mobile-app">
+    Not yet. Anarlog currently ships as a desktop app.
+  </Accordion>
 
-### Is there a mobile app?
-
-Not yet. Anarlog currently ships as a desktop app.
-
-### Can agents reach my meetings while Anarlog is closed?
-
-The CLI and local MCP server read the local database, so they work while the app is closed. They can also stage a memo or summary proposal; review the **pending edit** banner in the desktop meeting note before applying it. Webhooks only deliver while the app is open. For hosted access from anywhere, explicitly enable [Cloud API & Connectors](/reference/api-cloud).
-
-If something is not working, go to [Troubleshooting](/troubleshooting). For a question not covered here, email [founders@anarlog.so](mailto:founders@anarlog.so) or [join Discord](https://anarlog.so/discord).
+  <Accordion title="Can agents reach my meetings while Anarlog is closed?" id="can-agents-reach-my-meetings-while-anarlog-is-closed">
+    The CLI and local MCP server read the local database, so they work while the app is closed. They can also stage a memo or summary proposal; review the **pending edit** banner in the desktop meeting note before applying it. Webhooks only deliver while the app is open. For hosted access from anywhere, explicitly enable [Cloud API & Connectors](/reference/api-cloud).
+  </Accordion>
+</AccordionGroup>

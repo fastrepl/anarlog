@@ -56,13 +56,14 @@ This audio-capable Intelligence route is separate from normal meeting transcript
 
 ## On-device models
 
-Anarlog currently offers two built-in on-device Transcription providers. Settings shows each provider only when it is supported by your Mac and release.
+Anarlog currently offers three built-in on-device Transcription providers. Settings shows each provider only when it is supported by your Mac and release.
 
 | Provider | Model | When it runs | Requirements |
 | --- | --- | --- | --- |
 | Soniqo | Parakeet Streaming | During the meeting | Apple Silicon; live transcription for 25 European languages |
-| Soniqo | Parakeet Batch | After recording | Apple Silicon; speaker-labeled transcription for 25 European languages |
+| Soniqo | Parakeet Batch | After recording | Apple Silicon; speaker-labeled transcription for 25 European languages. Prefer this for hour-long calls. |
 | Apple Speech | Apple Speech | During the meeting | macOS 26 with a supported language added in System Settings. Live transcription uses one language at a time from German, English, Spanish, French, Italian, Japanese, Korean, Portuguese, Cantonese, or Chinese. |
+| Local file | A whisper.cpp `.bin` you select | After recording | Apple Silicon. transcribe.cpp `.gguf` files are not supported yet. |
 
 <Note>
   Compatibility code still recognizes some older local model IDs, but they are not offered as new choices. The table above is the current user-facing model list.
@@ -110,8 +111,9 @@ Settings may still show older model IDs for compatibility. Prefer the current Ge
 
 | Goal | Transcription | Intelligence |
 | --- | --- | --- |
-| Keep meeting content on your computer | Select Soniqo or Apple Speech when available | Use LM Studio, Ollama, Unsloth, or eligible Apple Intelligence |
+| Keep meeting content on your computer | Select Soniqo, Apple Speech, or Local file when available | Use LM Studio, Ollama, Unsloth, or eligible Apple Intelligence |
+| Avoid per-minute transcription bills | Use on-device models, or Anarlog Cloud on a Pro plan | Use a local Intelligence provider, a connected subscription, or Anarlog Cloud |
 | Pin exact model IDs | Configure your own provider | Configure your own provider |
 | Minimize setup | Anarlog Cloud | Anarlog Cloud |
 
-For a fully local checklist, see [Use Anarlog offline](/offline). For the data sent by each feature, see [Data, privacy, and retention](/data-and-privacy).
+To compare on-device, Cloud, and bring-your-own-key cost, see [How can I compare the costs of all the transcription options?](/help#compare-transcription-costs). For a fully local checklist, see [Use Anarlog offline](/offline). For the data sent by each feature, see [Data, privacy, and retention](/data-and-privacy).

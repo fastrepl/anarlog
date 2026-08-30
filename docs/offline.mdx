@@ -10,7 +10,7 @@ Anarlog can record meetings and manage notes without an internet connection. To 
 - Create and edit notes.
 - Record and play meeting audio.
 - Export memos, summaries, and transcripts already on your computer.
-- Transcribe with Soniqo on a supported Apple Silicon Mac or Apple Speech when available on macOS 26.
+- Transcribe with Soniqo or a Local file whisper.cpp model on a supported Apple Silicon Mac, or Apple Speech when available on macOS 26.
 - Generate summaries and chat with LM Studio, Ollama, Unsloth, or eligible Apple Intelligence.
 
 Hosted models, Google and Outlook calendar sync, cloud sync, and share links need a network connection.
@@ -18,7 +18,7 @@ Hosted models, Google and Outlook calendar sync, cloud sync, and share links nee
 ## Prepare offline transcription
 
 1. Open **Settings → Transcription**.
-2. Choose Soniqo, or choose Apple Speech if it appears. You can also choose **Local file** for after-recording transcription from a downloaded GGUF model.
+2. Choose Soniqo, or choose Apple Speech if it appears. On Apple Silicon you can also choose **Local file** for after-recording transcription from a downloaded whisper.cpp `.bin` model.
 3. Download the Soniqo model. For Apple Speech, add the supported language in macOS System Settings.
 4. Select the model under **Model being used**.
 5. Run a short test recording before going offline.
