@@ -702,4 +702,90 @@ describe("timeline utils", () => {
       "session-unfiled",
     ]);
   });
+
+  test("buildTimelineBuckets can reverse date order", () => {
+    const timelineSessionsTable: TimelineSessionsTable = {
+      "session-future": {
+        title: "Future Session",
+        created_at: "2024-01-10T12:00:00.000Z",
+        event_json: JSON.stringify({ started_at: "2024-01-16T09:00:00.000Z" }),
+      },
+      "session-past": {
+        title: "Past Session",
+        created_at: "2024-01-14T09:00:00.000Z",
+      },
+    };
+
+    const buckets = buildTimelineBuckets({
+      sortOrder: "oldest",
+      timelineEventsTable: null,
+      timelineSessionsTable,
+    });
+
+    expect(buckets.map((bucket) => bucket.label)).toEqual([
+      "Yesterday",
+      "Tomorrow",
+    ]);
+    expect(buckets[0]?.items[0]).toMatchObject({ id: "session-past" });
+  });
+
+  test("buildTimelineBuckets groups notes by folder", () => {
+    const buckets = buildTimelineBuckets({
+      groupBy: "folder",
+      timelineEventsTable: null,
+      timelineSessionsTable: {
+        "session-work": {
+          title: "Standup",
+          created_at: "2024-01-15T13:00:00.000Z",
+          folder_id: "work",
+        },
+        "session-class": {
+          title: "Lecture 3",
+          created_at: "2024-01-15T11:00:00.000Z",
+          folder_id: "CS 101",
+        },
+        "session-unfiled": {
+          title: "Scratch",
+          created_at: "2024-01-15T14:00:00.000Z",
+          folder_id: "",
+        },
+      },
+    });
+
+    expect(buckets.map((bucket) => bucket.label)).toEqual([
+      "CS 101",
+      "work",
+      "No folder",
+    ]);
+    expect(buckets[0]?.items.map((item) => item.id)).toEqual(["session-class"]);
+    expect(buckets[2]?.items.map((item) => item.id)).toEqual([
+      "session-unfiled",
+    ]);
+  });
+
+  test("buildTimelineBuckets keeps folder groups and sorts notes oldest first", () => {
+    const buckets = buildTimelineBuckets({
+      groupBy: "folder",
+      sortOrder: "oldest",
+      timelineEventsTable: null,
+      timelineSessionsTable: {
+        "session-newer": {
+          title: "Later note",
+          created_at: "2024-01-15T14:00:00.000Z",
+          folder_id: "CS 101",
+        },
+        "session-older": {
+          title: "Earlier note",
+          created_at: "2024-01-15T10:00:00.000Z",
+          folder_id: "CS 101",
+        },
+      },
+    });
+
+    expect(buckets).toHaveLength(1);
+    expect(buckets[0]?.items.map((item) => item.id)).toEqual([
+      "session-older",
+      "session-newer",
+    ]);
+  });
 });

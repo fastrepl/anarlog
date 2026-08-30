@@ -82,7 +82,6 @@ export function ClassicMainBody({
     useState(false);
   const noteFilter = useSidebarNotes((state) => state.noteFilter);
   const folderFilter = useSidebarNotes((state) => state.folderFilter);
-  const setNotesView = useSidebarNotes((state) => state.setView);
   const showWindowControlsGutter = useWindowControlsGutter();
   const showSidebarToggleInBody = !usesWindowsStyleTitleBar();
   leftSidebarPanelConstraintsRef.current = leftSidebarPanelConstraints;
@@ -410,13 +409,10 @@ export function ClassicMainBody({
       {showSidebarTimeline ? (
         <SidebarTimelineChromeWithUpcomingMeeting
           currentSessionId={currentSessionId}
-          folderFilter={folderFilter}
-          noteFilter={noteFilter}
           sidebarExpanded
           showSidebarToggle={showSidebarToggleInBody}
           showIgnoredTimelineEvents={showIgnoredTimelineEvents}
           onNewNote={createNewNote}
-          onNoteFilterChange={setNotesView}
           onSearch={handleOpenNoteDialog}
           onToggleSidebar={handleToggleLeftSidebar}
         />
@@ -450,13 +446,10 @@ export function ClassicMainBody({
           >
             <SidebarTimelineChromeWithUpcomingMeeting
               currentSessionId={currentSessionId}
-              folderFilter={folderFilter}
-              noteFilter={noteFilter}
               sidebarExpanded={false}
               showSidebarToggle={showSidebarToggleInBody}
               showIgnoredTimelineEvents={showIgnoredTimelineEvents}
               onNewNote={createNewNote}
-              onNoteFilterChange={setNotesView}
               onSearch={handleOpenNoteDialog}
               onToggleSidebar={handleToggleLeftSidebar}
             />

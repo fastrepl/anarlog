@@ -201,7 +201,7 @@ vi.mock("./sync-status", () => ({
 }));
 
 vi.mock("~/sidebar/note-filter-menu", () => ({
-  SidebarNoteFilterMenu: () => <button type="button">Filter notes</button>,
+  SidebarNoteFilterMenu: () => <button type="button">Sort notes</button>,
 }));
 
 vi.mock("./useShortcuts", () => ({
@@ -628,14 +628,14 @@ describe("ClassicMainBody", () => {
     expect(mocks.tabContentRenderCount).toBe(initialRenderCount);
   });
 
-  it("keeps the note filter beside the new note button", () => {
+  it("keeps the sort menu beside the new note button", () => {
     render(<ClassicMainBody />);
 
     const newNoteButton = screen.getByRole("button", { name: "New note" });
-    const filterButton = screen.getByRole("button", { name: "Filter notes" });
+    const sortButton = screen.getByRole("button", { name: "Sort notes" });
 
-    expect(filterButton.parentElement).toBe(newNoteButton.parentElement);
-    expect(newNoteButton.compareDocumentPosition(filterButton)).toBe(
+    expect(sortButton.parentElement).toBe(newNoteButton.parentElement);
+    expect(newNoteButton.compareDocumentPosition(sortButton)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
   });

@@ -1511,7 +1511,6 @@ msgstr "Could not use the selected model"
 
 #: src/settings/team/index.tsx
 #: src/sidebar/folder-materials.tsx
-#: src/sidebar/note-filter-menu.tsx
 msgid "Create"
 msgstr "Create"
 
@@ -1600,6 +1599,10 @@ msgstr "Dark"
 #: src/sidebar/settings.tsx
 msgid "Data"
 msgstr "Data"
+
+#: src/sidebar/note-filter-menu.tsx
+msgid "Date"
+msgstr "Date"
 
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Date and time are required"
@@ -2047,10 +2050,6 @@ msgstr "File each action item as an issue in the selected team."
 msgid "File format"
 msgstr "File format"
 
-#: src/sidebar/note-filter-menu.tsx
-msgid "Filter notes"
-msgstr "Filter notes"
-
 #: src/shared/open-note-dialog.tsx
 msgid "Find a note..."
 msgstr "Find a note..."
@@ -2082,6 +2081,10 @@ msgstr "Flags"
 #: src/chat/components/toolbar-controls.tsx
 msgid "Float chat"
 msgstr "Float chat"
+
+#: src/sidebar/note-filter-menu.tsx
+msgid "Folder"
+msgstr "Folder"
 
 #: src/sidebar/folder-materials.tsx
 msgid "Folder instructions"
@@ -2188,6 +2191,14 @@ msgstr "Go to recent"
 #: src/settings/ai/stt/select.tsx
 msgid "Got it"
 msgstr "Got it"
+
+#: src/sidebar/note-filter-menu.tsx
+msgid "Grouping"
+msgstr "Grouping"
+
+#: src/sidebar/note-filter-menu.tsx
+msgid "Grouping, {groupingLabel}"
+msgstr "Grouping, {groupingLabel}"
 
 #: src/settings/developers/index.tsx
 msgid "Guide"
@@ -2843,10 +2854,6 @@ msgstr "Move up"
 msgid "My automations"
 msgstr "My automations"
 
-#: src/sidebar/note-filter-menu.tsx
-msgid "My notes"
-msgstr "My notes"
-
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
 msgid "Name"
@@ -2864,17 +2871,12 @@ msgstr "New automation"
 msgid "New chat"
 msgstr "New chat"
 
-#: src/sidebar/note-filter-menu.tsx
-msgid "New folder"
-msgstr "New folder"
-
 #: src/main/empty.tsx
 #: src/main/windows-title-bar.tsx
 msgid "New Note"
 msgstr "New Note"
 
 #: src/sidebar/folder-materials.tsx
-#: src/sidebar/note-filter-menu.tsx
 msgid "New subfolder"
 msgstr "New subfolder"
 
@@ -2884,6 +2886,7 @@ msgstr "New template"
 
 #: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
+#: src/sidebar/note-filter-menu.tsx
 msgid "Newest"
 msgstr "Newest"
 
@@ -2953,7 +2956,7 @@ msgid "No emoji found"
 msgstr "No emoji found"
 
 #: src/session/components/folder-picker.tsx
-#: src/sidebar/note-filter-menu.tsx
+#: src/sidebar/timeline/utils/index.ts
 msgid "No folder"
 msgstr "No folder"
 
@@ -3140,6 +3143,7 @@ msgstr "Older files that differ from your current data were kept as recovery cop
 
 #: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
+#: src/sidebar/note-filter-menu.tsx
 msgid "Oldest"
 msgstr "Oldest"
 
@@ -3274,6 +3278,14 @@ msgstr "Opens System Settings and guides you to add Anarlog to the {0} list."
 #: src/settings/todo/provider-content.tsx
 msgid "or"
 msgstr "or"
+
+#: src/sidebar/note-filter-menu.tsx
+msgid "Ordering"
+msgstr "Ordering"
+
+#: src/sidebar/note-filter-menu.tsx
+msgid "Ordering, {orderingLabel}"
+msgstr "Ordering, {orderingLabel}"
 
 #: src/contacts/details.tsx
 msgid "Organization"
@@ -4143,10 +4155,6 @@ msgstr "Share notes with others"
 msgid "Share usage data"
 msgstr "Share usage data"
 
-#: src/sidebar/note-filter-menu.tsx
-msgid "Shared"
-msgstr "Shared"
-
 #: src/shared-notes/index.tsx
 msgid "Shared link · View only"
 msgstr "Shared link · View only"
@@ -4419,6 +4427,10 @@ msgstr "Something went wrong"
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 msgid "Something went wrong while generating the summary."
 msgstr "Something went wrong while generating the summary."
+
+#: src/sidebar/note-filter-menu.tsx
+msgid "Sort notes"
+msgstr "Sort notes"
 
 #: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx

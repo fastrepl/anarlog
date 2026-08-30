@@ -10,8 +10,14 @@ import {
   TZDate,
 } from "@anlg/utils";
 
-import { folderPathMatchesFilter } from "~/session/folders";
+import {
+  folderPathMatchesFilter,
+  normalizeFolderPath,
+} from "~/session/folders";
 import { getSessionEvent } from "~/session/utils";
+
+export type TimelineGroupBy = "date" | "folder";
+export type TimelineSortOrder = "newest" | "oldest";
 
 function toTZ(date: Date, timezone?: string): Date {
   return timezone ? new TZDate(date, timezone) : date;
@@ -187,13 +193,16 @@ export function getBucketInfo(
 export function calculateIndicatorIndex(
   entries: Array<{ timestamp: Date | null }>,
   current: Date,
+  sortOrder: TimelineSortOrder = "newest",
 ): number {
   const index = entries.findIndex(({ timestamp }) => {
     if (!timestamp) {
       return true;
     }
 
-    return timestamp.getTime() < current.getTime();
+    return sortOrder === "oldest"
+      ? timestamp.getTime() >= current.getTime()
+      : timestamp.getTime() < current.getTime();
   });
 
   if (index === -1) {
@@ -224,6 +233,7 @@ export function getItemTimeRange(item: TimelineItem): {
 export function calculateTodayIndicatorPlacement(
   entries: Array<{ item: TimelineItem; timestamp: Date | null }>,
   current: Date,
+  sortOrder: TimelineSortOrder = "newest",
 ): TimelineIndicatorPlacement {
   const currentMs = current.getTime();
 
@@ -252,7 +262,7 @@ export function calculateTodayIndicatorPlacement(
     };
   }
 
-  const indicatorIndex = calculateIndicatorIndex(entries, current);
+  const indicatorIndex = calculateIndicatorIndex(entries, current, sortOrder);
   if (indicatorIndex === entries.length) {
     return { type: "after" };
   }
@@ -485,15 +495,13 @@ function getSessionTrackingId(row: TimelineSessionRow): string {
   return event.tracking_id;
 }
 
-export function buildTimelineBuckets({
+function collectTimelineItems({
   timelineEventsTable,
   timelineSessionsTable,
-  timezone,
 }: {
   timelineEventsTable: TimelineEventsTable;
   timelineSessionsTable: TimelineSessionsTable;
-  timezone?: string;
-}): TimelineBucket[] {
+}): TimelineItem[] {
   const items: TimelineItem[] = [];
   const seenEventKeys = new Set<string>();
 
@@ -552,21 +560,74 @@ export function buildTimelineBuckets({
     });
   }
 
-  items.sort((a, b) => {
-    const dateA = getItemTimestamp(a);
-    const dateB = getItemTimestamp(b);
-    const timeAValue = dateA?.getTime() ?? 0;
-    const timeBValue = dateB?.getTime() ?? 0;
-    if (timeBValue == timeAValue) {
-      return (a.data.title ?? "Untitled") > (b.data.title ?? "Untitled")
-        ? 1
-        : (a.data.title ?? "Untitled") < (b.data.title ?? "Untitled")
-          ? -1
-          : 0;
-    }
-    return timeBValue - timeAValue;
-  });
+  return items;
+}
 
+function compareTimelineItems(
+  left: TimelineItem,
+  right: TimelineItem,
+  sortOrder: TimelineSortOrder,
+): number {
+  const timeAValue = getItemTimestamp(left)?.getTime() ?? 0;
+  const timeBValue = getItemTimestamp(right)?.getTime() ?? 0;
+  if (timeAValue !== timeBValue) {
+    return sortOrder === "newest"
+      ? timeBValue - timeAValue
+      : timeAValue - timeBValue;
+  }
+
+  return (left.data.title ?? "Untitled").localeCompare(
+    right.data.title ?? "Untitled",
+  );
+}
+
+function folderBucketKey(item: TimelineItem): string {
+  if (item.type !== "session") {
+    return "";
+  }
+
+  return normalizeFolderPath(item.data.folder_id ?? "") ?? "";
+}
+
+function buildFolderBuckets(items: TimelineItem[]): TimelineBucket[] {
+  const bucketMap = new Map<string, TimelineItem[]>();
+
+  for (const item of items) {
+    const key = folderBucketKey(item);
+    const bucketItems = bucketMap.get(key);
+    if (bucketItems) {
+      bucketItems.push(item);
+      continue;
+    }
+    bucketMap.set(key, [item]);
+  }
+
+  return [...bucketMap.entries()]
+    .sort(([left], [right]) => {
+      if (left === "") {
+        return 1;
+      }
+      if (right === "") {
+        return -1;
+      }
+      return left.localeCompare(right);
+    })
+    .map(([key, bucketItems]) => ({
+      label: key === "" ? t`No folder` : key,
+      items: bucketItems,
+      precision: "date" as const,
+    }));
+}
+
+function buildDateBuckets({
+  items,
+  sortOrder,
+  timezone,
+}: {
+  items: TimelineItem[];
+  sortOrder: TimelineSortOrder;
+  timezone?: string;
+}): TimelineBucket[] {
   const bucketMap = new Map<
     string,
     { sortKey: number; precision: TimelinePrecision; items: TimelineItem[] }
@@ -589,7 +650,11 @@ export function buildTimelineBuckets({
   });
 
   return Array.from(bucketMap.entries())
-    .sort((a, b) => b[1].sortKey - a[1].sortKey)
+    .sort((left, right) =>
+      sortOrder === "newest"
+        ? right[1].sortKey - left[1].sortKey
+        : left[1].sortKey - right[1].sortKey,
+    )
     .map(
       ([label, value]) =>
         ({
@@ -598,4 +663,31 @@ export function buildTimelineBuckets({
           precision: value.precision,
         }) satisfies TimelineBucket,
     );
+}
+
+export function buildTimelineBuckets({
+  timelineEventsTable,
+  timelineSessionsTable,
+  timezone,
+  groupBy = "date",
+  sortOrder = "newest",
+}: {
+  timelineEventsTable: TimelineEventsTable;
+  timelineSessionsTable: TimelineSessionsTable;
+  timezone?: string;
+  groupBy?: TimelineGroupBy;
+  sortOrder?: TimelineSortOrder;
+}): TimelineBucket[] {
+  const items = collectTimelineItems({
+    timelineEventsTable,
+    timelineSessionsTable,
+  });
+
+  items.sort((left, right) => compareTimelineItems(left, right, sortOrder));
+
+  if (groupBy === "folder") {
+    return buildFolderBuckets(items);
+  }
+
+  return buildDateBuckets({ items, sortOrder, timezone });
 }

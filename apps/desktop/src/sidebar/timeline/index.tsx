@@ -44,6 +44,7 @@ import { scrollElementByWheel } from "~/shared/dom/scroll-wheel";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 import { DestructiveConfirmationDialog } from "~/shared/ui/destructive-confirmation-dialog";
+import { useSidebarNotes } from "~/sidebar/note-filter";
 import { useTabs } from "~/store/zustand/tabs";
 import { useTimelineSelection } from "~/store/zustand/timeline-selection";
 import { useListener } from "~/stt/contexts";
@@ -68,6 +69,9 @@ export const TimelineView = memo(function TimelineView({
   const { session } = useAuth();
   const managedSharedSessionIds = useActivatedSessionShareIds(session?.user.id);
   const { timelineEventsTable, timelineSessionsTable } = useTimelineTables();
+  const groupBy = useSidebarNotes((state) => state.groupBy);
+  const sortOrder = useSidebarNotes((state) => state.sortOrder);
+  const isDateTimeline = groupBy === "date";
   const [uncontrolledShowIgnored, setUncontrolledShowIgnored] = useState(false);
   const showIgnored = showIgnoredEvents ?? uncontrolledShowIgnored;
   const [isScrolledToTop, setIsScrolledToTop] = useState(true);
@@ -76,8 +80,10 @@ export const TimelineView = memo(function TimelineView({
   const { isIgnored } = useIgnoredEvents();
   const { buckets, hasMoreFutureItems } = useTimelineData({
     folderFilter,
+    groupBy,
     isEventIgnored: isIgnored,
     showIgnored,
+    sortOrder,
     timelineEventsTable,
     timelineSessionsTable,
     timezone,
@@ -85,13 +91,16 @@ export const TimelineView = memo(function TimelineView({
   const openNew = useTabs((state) => state.openNew);
 
   const showOpenCalendarChip =
-    showOpenCalendarButton && isScrolledToTop && hasMoreFutureItems;
+    isDateTimeline &&
+    showOpenCalendarButton &&
+    isScrolledToTop &&
+    hasMoreFutureItems;
   const reserveOpenCalendarChipSpace =
-    showOpenCalendarButton && hasMoreFutureItems;
+    isDateTimeline && showOpenCalendarButton && hasMoreFutureItems;
 
   const hasToday = useMemo(
-    () => buckets.some((bucket) => bucket.label === "Today"),
-    [buckets],
+    () => isDateTimeline && buckets.some((bucket) => bucket.label === "Today"),
+    [buckets, isDateTimeline],
   );
   const indicatorTimeMs = useCurrentTimeMs();
   const formatUpcomingMeetingLabel = useUpcomingMeetingLabelFormatter();
@@ -219,9 +228,14 @@ export const TimelineView = memo(function TimelineView({
     anchorNode: todayAnchorNode,
   } = useAnchor();
   const showUpcomingMeetingChip =
-    Boolean(upcomingMeetingStatus) && !isUpcomingMeetingVisible;
+    isDateTimeline &&
+    Boolean(upcomingMeetingStatus) &&
+    !isUpcomingMeetingVisible;
   const showTopNowChip =
-    !showUpcomingMeetingChip && !isTodayVisible && isScrolledPastToday;
+    isDateTimeline &&
+    !showUpcomingMeetingChip &&
+    !isTodayVisible &&
+    isScrolledPastToday;
   const topSpacerClassName = topChromeInset
     ? reserveOpenCalendarChipSpace
       ? "h-14"
@@ -395,11 +409,11 @@ export const TimelineView = memo(function TimelineView({
   });
 
   const indicatorIndex = useMemo(() => {
-    if (hasToday) {
+    if (!isDateTimeline || hasToday) {
       return -1;
     }
-    return getFallbackIndicatorIndex(buckets, Date.now());
-  }, [buckets, hasToday, indicatorTimeMs]);
+    return getFallbackIndicatorIndex(buckets, Date.now(), sortOrder);
+  }, [buckets, hasToday, indicatorTimeMs, isDateTimeline, sortOrder]);
 
   const toggleShowIgnored = useCallback(() => {
     const nextShowIgnored = !showIgnored;
@@ -517,8 +531,12 @@ export const TimelineView = memo(function TimelineView({
             selectedIds={selectedIds}
             selectedNodeRef={scrollSelectedSessionIntoView}
             selectedSessionId={selectedSessionId}
+            showCurrentTimeIndicator={isDateTimeline}
+            sortOrder={sortOrder}
             timezone={timezone}
-            upcomingMeetingStatus={upcomingMeetingStatus}
+            upcomingMeetingStatus={
+              isDateTimeline ? upcomingMeetingStatus : null
+            }
             upcomingNodeRef={setUpcomingMeetingNodeRef}
           />
         </div>
@@ -579,7 +597,8 @@ export const TimelineView = memo(function TimelineView({
           </div>
         )}
 
-        {!showUpcomingMeetingChip &&
+        {isDateTimeline &&
+          !showUpcomingMeetingChip &&
           !isTodayVisible &&
           !isScrolledPastToday && (
             <TimelineNowChip

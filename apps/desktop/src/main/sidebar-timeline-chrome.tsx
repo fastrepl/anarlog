@@ -8,17 +8,13 @@ import { memo, type ReactNode } from "react";
 
 import { cn } from "@anlg/utils";
 
-import type { SidebarNoteFilter } from "~/sidebar/note-filter";
 import { SidebarNoteFilterMenu } from "~/sidebar/note-filter-menu";
 import { useSidebarUpcomingMeetingStatus } from "~/sidebar/timeline/upcoming-meeting";
 
 export const SidebarTimelineChromeWithUpcomingMeeting = memo(
   function SidebarTimelineChromeWithUpcomingMeeting({
     currentSessionId,
-    folderFilter = null,
-    noteFilter,
     onNewNote,
-    onNoteFilterChange,
     onSearch,
     onToggleSidebar,
     sidebarExpanded,
@@ -26,13 +22,7 @@ export const SidebarTimelineChromeWithUpcomingMeeting = memo(
     showIgnoredTimelineEvents,
   }: {
     currentSessionId?: string;
-    folderFilter?: string | null;
-    noteFilter: SidebarNoteFilter;
     onNewNote: () => void;
-    onNoteFilterChange: (
-      filter: SidebarNoteFilter,
-      folderFilter?: string | null,
-    ) => void;
     onSearch: () => void;
     onToggleSidebar: () => void;
     sidebarExpanded: boolean;
@@ -49,11 +39,8 @@ export const SidebarTimelineChromeWithUpcomingMeeting = memo(
 
     return (
       <SidebarTimelineChrome
-        folderFilter={folderFilter}
         hasUpcomingMeeting={hasUpcomingMeeting}
-        noteFilter={noteFilter}
         onNewNote={onNewNote}
-        onNoteFilterChange={onNoteFilterChange}
         onSearch={onSearch}
         onToggleSidebar={onToggleSidebar}
         sidebarExpanded={sidebarExpanded}
@@ -64,24 +51,15 @@ export const SidebarTimelineChromeWithUpcomingMeeting = memo(
 );
 
 function SidebarTimelineChrome({
-  folderFilter,
   hasUpcomingMeeting,
-  noteFilter,
   onNewNote,
-  onNoteFilterChange,
   onSearch,
   onToggleSidebar,
   sidebarExpanded,
   showSidebarToggle,
 }: {
-  folderFilter: string | null;
   hasUpcomingMeeting: boolean;
-  noteFilter: SidebarNoteFilter;
   onNewNote: () => void;
-  onNoteFilterChange: (
-    filter: SidebarNoteFilter,
-    folderFilter?: string | null,
-  ) => void;
   onSearch: () => void;
   onToggleSidebar: () => void;
   sidebarExpanded: boolean;
@@ -123,11 +101,7 @@ function SidebarTimelineChrome({
             <LeftSurfaceChromeButton ariaLabel="New note" onClick={onNewNote}>
               <NotePencil size={15} />
             </LeftSurfaceChromeButton>
-            <SidebarNoteFilterMenu
-              folderFilter={folderFilter}
-              value={noteFilter}
-              onValueChange={onNoteFilterChange}
-            />
+            <SidebarNoteFilterMenu />
           </>
         ) : null}
       </div>
