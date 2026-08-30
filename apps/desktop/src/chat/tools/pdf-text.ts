@@ -58,11 +58,11 @@ function collectPdfStreams(bytes: Uint8Array): PdfStream[] {
       match.index,
     );
     const dataStart = match.index + match[0].length;
-    const lengthMatch = dictionary.match(/\/Length\s+(\d+)/);
-    const declaredLength = lengthMatch ? Number(lengthMatch[1]) : NaN;
-    const dataEnd = Number.isFinite(declaredLength)
-      ? Math.min(dataStart + declaredLength, bytes.length)
-      : source.indexOf("endstream", dataStart);
+    const declaredLength = pdfStreamByteLength(dictionary, source);
+    const dataEnd =
+      declaredLength !== null
+        ? Math.min(dataStart + declaredLength, bytes.length)
+        : source.indexOf("endstream", dataStart);
     if (dataEnd < dataStart) {
       match = pattern.exec(source);
       continue;
@@ -75,6 +75,28 @@ function collectPdfStreams(bytes: Uint8Array): PdfStream[] {
     match = pattern.exec(source);
   }
   return streams;
+}
+
+function pdfStreamByteLength(
+  dictionary: string,
+  source: string,
+): number | null {
+  const indirect = dictionary.match(/\/Length\s+(\d+)\s+(\d+)\s+R\b/);
+  if (indirect) {
+    const objectId = indirect[1] ?? "";
+    const generation = indirect[2] ?? "0";
+    const object = source.match(
+      new RegExp(
+        `(?:^|\\s)${objectId}\\s+${generation}\\s+obj\\s+(\\d+)\\s+endobj`,
+      ),
+    );
+    const resolved = Number(object?.[1]);
+    return Number.isFinite(resolved) ? resolved : null;
+  }
+
+  const direct = dictionary.match(/\/Length\s+(\d+)(?!\s+\d+\s+R\b)/);
+  const declared = Number(direct?.[1]);
+  return Number.isFinite(declared) ? declared : null;
 }
 
 async function decodePdfStream(stream: PdfStream): Promise<string | null> {

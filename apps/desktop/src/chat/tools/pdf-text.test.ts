@@ -23,6 +23,26 @@ describe("pdf text extraction", () => {
     await expect(extractPdfText(bytes)).resolves.toBe("Week 1: intro lab");
   });
 
+  it("resolves an indirect /Length object instead of treating the ref as bytes", async () => {
+    const bytes = buildPdf("(Office hours: Friday 2pm) Tj", {
+      indirectLength: true,
+    });
+
+    await expect(extractPdfText(bytes)).resolves.toBe(
+      "Office hours: Friday 2pm",
+    );
+  });
+
+  it("scans to endstream when an indirect /Length object is missing", async () => {
+    const bytes = buildPdf("(Office hours: Friday 2pm) Tj", {
+      lengthRef: "99 0 R",
+    });
+
+    await expect(extractPdfText(bytes)).resolves.toBe(
+      "Office hours: Friday 2pm",
+    );
+  });
+
   it("returns null for non-PDF bytes", async () => {
     await expect(
       extractPdfText(Array.from(new TextEncoder().encode("hello"))),
@@ -30,15 +50,24 @@ describe("pdf text extraction", () => {
   });
 });
 
-function buildPdf(contentStream: string): Uint8Array {
+function buildPdf(
+  contentStream: string,
+  options: { indirectLength?: boolean; lengthRef?: string } = {},
+): Uint8Array {
   const compressed = deflateSync(
     Buffer.from(`BT ${contentStream} ET`, "latin1"),
   );
+  const length = options.lengthRef
+    ? options.lengthRef
+    : options.indirectLength
+      ? "2 0 R"
+      : String(compressed.length);
+  const lengthObject = options.indirectLength
+    ? `2 0 obj\n${compressed.length}\nendobj\n`
+    : "";
+  const header = `%PDF-1.1\n${lengthObject}1 0 obj\n<< /Length ${length} /Filter /FlateDecode >>\nstream\n`;
   const stream = Buffer.concat([
-    Buffer.from(
-      `%PDF-1.1\n1 0 obj\n<< /Length ${compressed.length} /Filter /FlateDecode >>\nstream\n`,
-      "latin1",
-    ),
+    Buffer.from(header, "latin1"),
     compressed,
     Buffer.from("\nendstream\nendobj\n", "latin1"),
   ]);
