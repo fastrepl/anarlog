@@ -65,6 +65,18 @@ describe("Metadata controls", () => {
     cleanup();
   });
 
+  it("uses a narrow floating panel", () => {
+    render(<MetadataButton sessionId="session-1" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open note metadata" }));
+
+    const content = screen
+      .getByRole("button", { name: "Edit date" })
+      .closest("[data-radix-popper-content-wrapper] > *");
+
+    expect(content?.className.split(/\s+/) ?? []).toContain("w-56");
+  });
+
   it("renders the metadata calendar trigger as a circle", () => {
     render(<MetadataButton sessionId="session-1" />);
 

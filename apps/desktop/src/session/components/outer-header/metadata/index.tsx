@@ -30,7 +30,7 @@ export function MetadataButton({ sessionId }: { sessionId: string }) {
       <PopoverContent
         variant="app"
         align="end"
-        className="w-85 overflow-hidden"
+        className="w-56 overflow-hidden"
       >
         <AppFloatingPanel className="scrollbar-soft max-h-[80vh] min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain">
           <ContentInner sessionId={sessionId} />
