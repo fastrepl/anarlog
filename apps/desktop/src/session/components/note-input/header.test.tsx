@@ -381,6 +381,10 @@ describe("Header", () => {
     expect(viewSwitcher.className).toContain("h-[30px]");
     expect(viewSwitcher.className).toContain("p-[2px]");
     expect(viewSwitcher.className).toContain("gap-[2px]");
+    expect(viewSwitcher.className).toContain("rounded-pill");
+    expect(viewSwitcher.className).toContain("[corner-shape:round]");
+    expect(memoTab.className).toContain("rounded-pill");
+    expect(memoTab.className).toContain("[corner-shape:round]");
     expect(viewSwitcher.className).toContain("bg-foreground/10");
     expect(viewSwitcher.className).toContain("dark:bg-accent/55");
     expect(summaryTab.getAttribute("aria-current")).toBeNull();

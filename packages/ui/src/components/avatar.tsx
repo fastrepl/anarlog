@@ -78,7 +78,7 @@ function AvatarImage({
     overflow: "hidden",
     boxSizing: "border-box",
     border: "1px solid rgb(0 0 0 / 0.1)",
-    borderRadius: "9999px",
+    borderRadius: "0.5rem",
     background: avatarFallbackGradient(recipe.seed),
     boxShadow: "0 1px 2px rgb(0 0 0 / 0.08)",
   } satisfies CSSProperties;
