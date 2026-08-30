@@ -12,6 +12,7 @@ import {
 import { recoverInterruptedRecordings } from "@/audio/recover-recordings";
 import { AuthProvider, useAuth } from "@/auth/context";
 import { PaywallScreen, SignInScreen } from "@/auth/screens";
+import type { SignInMethod } from "@/auth/sign-in";
 import { BrandLoadingView } from "@/components/brand-loading-view";
 import { Button } from "@/components/ui/button";
 import { Colors, Spacing, Typography } from "@/constants/theme";
@@ -99,10 +100,10 @@ function Gate() {
   );
   const [signingIn, setSigningIn] = useState(false);
 
-  const handleSignIn = async () => {
+  const handleSignIn = async (method: SignInMethod) => {
     setSigningIn(true);
     try {
-      await auth.signIn();
+      await auth.signIn(method);
     } catch {
       // AuthProvider reports the actionable failure before rejecting.
     } finally {
@@ -137,7 +138,10 @@ function Gate() {
 
   if (auth.status === "signed_out") {
     return (
-      <SignInScreen busy={signingIn} onSignIn={() => void handleSignIn()} />
+      <SignInScreen
+        busy={signingIn}
+        onSignIn={(method) => void handleSignIn(method)}
+      />
     );
   }
 

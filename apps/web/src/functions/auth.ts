@@ -270,7 +270,7 @@ async function mintDesktopSessionFromEmail(email: string) {
 export const doAuth = createServerFn({ method: "POST" })
   .inputValidator(
     shared.extend({
-      provider: z.enum(["azure", "google", "github"]),
+      provider: z.enum(["apple", "azure", "google", "github"]),
       rra: z.boolean().optional(),
     }),
   )

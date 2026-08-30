@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { BillingInfo } from "@/auth/billing";
@@ -9,11 +9,13 @@ import {
   MOBILE_BILLING_RETURN_URL,
   parseBillingCallbackUrl,
 } from "@/auth/billing-handoff";
+import type { SignInMethod } from "@/auth/sign-in";
 import { Button } from "@/components/ui/button";
 import {
   Colors,
   CornerCurve,
   Gradients,
+  Radius,
   Spacing,
   Typography,
 } from "@/constants/theme";
@@ -26,39 +28,96 @@ export function SignInScreen({
   onSignIn,
   busy,
 }: {
-  onSignIn: () => void;
+  onSignIn: (method: SignInMethod) => void;
   busy: boolean;
 }) {
   return (
     <SafeAreaView style={[styles.safeArea, styles.brandBackground]}>
-      <ScrollView
-        alwaysBounceVertical={false}
-        contentContainerStyle={styles.signInContent}
-        contentInsetAdjustmentBehavior="automatic"
-      >
-        <View style={styles.signInBrand}>
-          <Image
-            accessible
-            accessibilityLabel="Anarlog"
-            contentFit="contain"
-            source={require("../../assets/images/anarlog-wordmark.png")}
-            style={styles.wordmark}
-          />
-          <Text accessibilityRole="header" style={styles.signInHeadline}>
-            The AI notepad for{"\n"}private meetings.
-          </Text>
+      <View style={styles.signInMethodsScreen} testID="sign-in-methods">
+        <View style={styles.signInMethods}>
+          <View style={styles.signInMethodList}>
+            <Button
+              label="Sign in with Apple"
+              onPress={() => onSignIn("apple")}
+              disabled={busy}
+              leading={
+                <ProviderIcon
+                  source={require("../../assets/images/auth/apple.svg")}
+                />
+              }
+              variant="outline"
+              style={styles.signInMethod}
+            />
+            <Button
+              label="Sign in with Google"
+              onPress={() => onSignIn("google")}
+              disabled={busy}
+              leading={
+                <ProviderIcon
+                  source={require("../../assets/images/auth/google.svg")}
+                />
+              }
+              variant="outline"
+              style={styles.signInMethod}
+            />
+            <Button
+              label="Sign in with Microsoft"
+              onPress={() => onSignIn("azure")}
+              disabled={busy}
+              leading={
+                <ProviderIcon
+                  source={require("../../assets/images/auth/microsoft.svg")}
+                />
+              }
+              variant="outline"
+              style={styles.signInMethod}
+            />
+            <Button
+              label="Sign in with GitHub"
+              onPress={() => onSignIn("github")}
+              disabled={busy}
+              leading={
+                <ProviderIcon
+                  source={require("../../assets/images/auth/github.svg")}
+                />
+              }
+              variant="outline"
+              style={styles.signInMethod}
+            />
+            <Button
+              label="Sign in with Email"
+              onPress={() => onSignIn("email")}
+              disabled={busy}
+              leading={
+                <ProviderIcon
+                  source={require("../../assets/images/auth/email.svg")}
+                />
+              }
+              variant="outline"
+              style={styles.signInMethod}
+            />
+            <Button
+              label="Sign in with SSO"
+              onPress={() => onSignIn("sso")}
+              disabled={busy}
+              leading={
+                <ProviderIcon
+                  source={require("../../assets/images/auth/sso.svg")}
+                />
+              }
+              variant="outline"
+              style={styles.signInMethod}
+            />
+          </View>
         </View>
-
-        <Button
-          label="Sign in"
-          onPress={onSignIn}
-          disabled={busy}
-          loading={busy}
-          size="large"
-          style={styles.signInCta}
-        />
-      </ScrollView>
+      </View>
     </SafeAreaView>
+  );
+}
+
+function ProviderIcon({ source }: { source: number }) {
+  return (
+    <Image contentFit="contain" source={source} style={styles.providerIcon} />
   );
 }
 
@@ -205,37 +264,26 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
   },
-  signInContent: {
-    flexGrow: 1,
-    position: "relative",
+  signInMethodsScreen: {
+    flex: 1,
+    justifyContent: "flex-end",
   },
-  signInBrand: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.xl,
+  signInMethods: {
+    padding: Spacing.md,
+    paddingBottom: Spacing.lg,
+    borderRadius: Radius.sheet,
+    borderCurve: CornerCurve.squircle,
+    backgroundColor: Colors.surface,
   },
-  wordmark: {
-    width: 168,
-    height: 47,
+  signInMethodList: {
+    gap: Spacing.sm,
   },
-  signInHeadline: {
-    maxWidth: 320,
-    fontFamily: "Caveat-SemiBold",
-    fontSize: 48,
-    lineHeight: 47,
-    textAlign: "center",
-    color: Colors.ink,
+  signInMethod: {
+    width: "100%",
   },
-  signInCta: {
-    position: "absolute",
-    right: 0,
-    bottom: Spacing.lg,
-    left: 0,
+  providerIcon: {
+    width: 18,
+    height: 18,
   },
   titleRow: {
     flexDirection: "row",

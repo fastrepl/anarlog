@@ -25,6 +25,7 @@ import {
 } from "@/auth/billing";
 import { refreshBillingEntitlement as retryBillingEntitlement } from "@/auth/billing-handoff";
 import { authStorageKey, supabase } from "@/auth/client";
+import { buildSignInUrl, type SignInMethod } from "@/auth/sign-in";
 import {
   captureAnalytics,
   identifyAnalytics,
@@ -45,7 +46,7 @@ export type AuthState = {
   session: Session | null;
   billing: BillingInfo;
   billingReady: boolean;
-  signIn: () => Promise<void>;
+  signIn: (method: SignInMethod) => Promise<void>;
   refreshBilling: () => Promise<boolean>;
   signOut: () => Promise<void>;
 };
@@ -331,18 +332,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const signIn = useCallback(async () => {
+  const signIn = useCallback(async (signInMethod: SignInMethod) => {
     if (!supabase) {
       return;
     }
 
     captureAnalytics("auth_started", {
       method: "browser_handoff",
+      sign_in_method: signInMethod,
       entry_point: "mobile_sign_in",
     });
     try {
       const result = await WebBrowser.openAuthSessionAsync(
-        `${env.appUrl}/auth?flow=desktop&scheme=anarlog`,
+        buildSignInUrl(env.appUrl, signInMethod),
         "anarlog://auth/callback",
       );
       if (result.type === "success") {
@@ -350,6 +352,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         captureAnalytics("auth_failed", {
           method: "browser_handoff",
+          sign_in_method: signInMethod,
           failure_stage: "cancelled",
         });
       }
@@ -360,6 +363,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       captureAnalytics("auth_failed", {
         method: "browser_handoff",
+        sign_in_method: signInMethod,
         failure_stage: "open_browser",
       });
       throw error;

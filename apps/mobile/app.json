@@ -9,7 +9,8 @@
     "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "so.anarlog.mobile"
+      "bundleIdentifier": "so.anarlog.mobile",
+      "usesAppleSignIn": true
     },
     "android": {
       "package": "so.anarlog.mobile",

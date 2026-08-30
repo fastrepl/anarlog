@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Text,
   type StyleProp,
+  View,
   type ViewStyle,
 } from "react-native";
 
@@ -76,10 +77,10 @@ export function Button({
       {loading ? (
         <ActivityIndicator size="small" color={foreground} />
       ) : (
-        <>
+        <View style={styles.content}>
           {leading}
           <Text style={[styles.label, { color: foreground }]}>{label}</Text>
-        </>
+        </View>
       )}
     </Pressable>
   );
@@ -87,13 +88,16 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
     borderRadius: Radius.pill,
     borderCurve: CornerCurve.squircle,
+  },
+  content: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
   },
   primary: {
     backgroundColor: Colors.primary,
