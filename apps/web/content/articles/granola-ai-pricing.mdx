@@ -17,6 +17,8 @@ People searching "granola pricing" or "granola ai cost" are usually not comparin
 
 For the broader complaint set (language, silent capture, no audio, class action), see [why people complain about Granola](/blog/granola-ai-complaints). For tools that do not age your notes out, see [Granola alternatives](/blog/granola-ai-alternatives).
 
+**Disclosure:** I co-founded Anarlog, an open-source Granola alternative. Our bias is toward local ownership and portable archives. Prices and plan rules below link to Granola's own pages so you can check them.
+
 ## The plans, in one table
 
 Prices are [Granola's published list](https://www.granola.ai/pricing) as of August 2026. Confirm before you buy. Granola bills **monthly only**. There is no annual discount.
@@ -25,9 +27,13 @@ Prices are [Granola's published list](https://www.granola.ai/pricing) as of Augu
 | --- | --- | --- | --- |
 | **Basic** | Free | Last 30 days visible | Personal notepad. Notes older than 30 days stay on Granola's servers and unlock if you upgrade. |
 | **Business** | $14 / user / month | Unlimited | History, plus Slack, Notion, CRM, Zapier, webhooks, folders, admin. |
-| **Enterprise** | From $35 / user / month | Unlimited | SSO, SCIM, HIPAA, zero data retention, org-wide AI training opt-out, analytics, custom contracts. |
+| **Enterprise** | From $35 / user / month | Unlimited | SSO, admin controls, org-wide auto-deletion, org-wide AI training opt-out, analytics, custom contracts. |
 
-A [startup and student program](https://www.granola.ai/for/startups) gives 12 months of Business for free if you qualify. After that you are on the normal bill.
+![Granola pricing page showing Basic at $0, Business at $14, and Enterprise from $35 per user per month](/images/blog/library/products/granola/pricing/2026-08-30-pricing.png)
+
+*Granola's pricing page as of August 30, 2026. Source: [Granola](https://www.granola.ai/pricing).*
+
+Granola's [startup](https://www.granola.ai/startups) and [student](https://www.granola.ai/students) programs give 12 months of Business for free if you qualify. After that you are on the normal bill.
 
 There is no personal paid tier between Basic and Business. The jump is $0 to $14, and it is a **workspace-wide** jump. [Granola's billing docs](https://docs.granola.ai/help-center/managing-your-account/subscriptions-and-billing) are explicit: everyone in the workspace sits on the same plan. You cannot keep yourself on Business and leave contractors on Basic.
 
@@ -79,7 +85,7 @@ At 10 people, Business is $140/month, every month, with no annual. At 50, $700. 
 
 ## What Enterprise is for
 
-Enterprise starts at $35/user/month. The page lists SSO, SCIM, HIPAA, zero data retention, analytics, and custom contracts.
+Enterprise starts at $35/user/month. The page lists SSO, admin controls, org-wide auto-deletion, usage analytics, and custom contracts. Granola's [current HIPAA page](https://docs.granola.ai/help-center/consent-security-privacy/is-granola-hipaa-compliant) still says the product is not HIPAA-compliant and does not sign BAAs.
 
 The item most people miss: **org-wide AI training opt-out**. On Free and Business, [training is on by default](https://docs.granola.ai/help-center/consent-security-privacy/model-training). You can turn it off per account. The company-wide switch is an Enterprise control. If procurement cares about training, you are not on the $14 plan.
 
@@ -114,7 +120,11 @@ Most power users are in the first group and tell themselves they are in the seco
 
 ## Granola vs a notepad that does not expire
 
-Anarlog is open source and local-first. Notes live in your SQLite database. There is no 30-day view. There is no paid unlock for last quarter. Export is the files on disk, not a CSV of titles.
+Anarlog is open source and local-first. Notes live in your SQLite database. There is no 30-day view. There is no paid unlock for last quarter. Markdown export is available when you want portable files; SQLite remains the canonical store.
+
+![Anarlog desktop app with a local meeting note and recording controls](/images/blog/library/products/anarlog/desktop/2026-08-27-new-note.png)
+
+*Anarlog keeps the canonical meeting record in local SQLite and offers Markdown export for portability.*
 
 The tradeoff is the usual one. Granola is a polished, hosted notepad with calendar-aware capture and a fast enhance step. Anarlog is the thing you run when the host holding your backlog is the bug, not the feature.
 
