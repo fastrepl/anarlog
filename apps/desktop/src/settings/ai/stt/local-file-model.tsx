@@ -41,7 +41,7 @@ export function LocalFileModel({
         defaultPath: modelPath || undefined,
         filters: [
           {
-            name: t`Local transcription models`,
+            name: t`whisper.cpp models`,
             extensions: ["bin", "gguf"],
           },
         ],
@@ -100,7 +100,7 @@ export function LocalFileModel({
           <FolderOpen className="size-4 shrink-0" />
         )}
         <span className="min-w-0 flex-1 truncate text-sm">
-          {filename || <Trans>Choose model file</Trans>}
+          {filename || <Trans>Choose a .bin model</Trans>}
         </span>
         {modelInfo.data ? (
           <span className="text-muted-foreground shrink-0 text-[11px]">

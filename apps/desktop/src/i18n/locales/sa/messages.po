@@ -858,6 +858,10 @@ msgstr ""
 msgid "Choose {0} export files"
 msgstr ""
 
+#: src/settings/ai/stt/local-file-model.tsx
+msgid "Choose a .bin model"
+msgstr ""
+
 #: src/session-sharing/delivery-panel.tsx
 #: src/settings/automations/starter-config.tsx
 msgid "Choose a channel"
@@ -953,10 +957,6 @@ msgstr ""
 
 #: src/settings/general/summary-length.tsx
 msgid "Choose how much detail generated meeting summaries include."
-msgstr ""
-
-#: src/settings/ai/stt/local-file-model.tsx
-msgid "Choose model file"
 msgstr ""
 
 #: src/onboarding/folder-location.tsx
@@ -2615,10 +2615,6 @@ msgstr ""
 #: src/contacts/details.tsx
 #: src/task/resource-view.tsx
 msgid "Loading..."
-msgstr ""
-
-#: src/settings/ai/stt/local-file-model.tsx
-msgid "Local transcription models"
 msgstr ""
 
 #: src/settings/privacy/index.tsx
@@ -5293,6 +5289,10 @@ msgstr ""
 
 #: src/onboarding/index.tsx
 msgid "Where your notes and recordings are stored"
+msgstr ""
+
+#: src/settings/ai/stt/local-file-model.tsx
+msgid "whisper.cpp models"
 msgstr ""
 
 #: src/task/tab-content.tsx
