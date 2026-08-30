@@ -126,77 +126,74 @@ export function FolderPicker({
       <PopoverContent
         variant="app"
         align={align}
-        className="w-85 overflow-hidden"
+        className="w-80 overflow-hidden"
       >
         <AppFloatingPanel className="overflow-hidden">
           <Command
             filter={filterFolders}
-            className="rounded-[inherit] border-0 bg-transparent **:[[cmdk-input-wrapper]]:h-7 **:[[cmdk-input-wrapper]]:border-0 **:[[cmdk-input-wrapper]]:px-0"
+            className="rounded-[inherit] border-0 bg-transparent **:[[cmdk-input-wrapper]]:h-8 **:[[cmdk-input-wrapper]]:px-2.5"
           >
-            <div className="flex flex-col gap-4 p-4">
-              <CommandInput
-                placeholder={t`Search or create folder`}
-                value={query}
-                onValueChange={setQuery}
-                className="h-7 py-0"
-              />
-              <div className="bg-accent h-px" />
-              <CommandList>
-                <CommandEmpty className="text-muted-foreground py-0 text-left text-sm">
-                  {trimmedQuery
-                    ? normalizedQuery === null
-                      ? t`Enter a valid folder name.`
-                      : t`No folders found.`
-                    : t`No folders yet.`}
-                </CommandEmpty>
-                {currentPath ? (
-                  <CommandGroup>
+            <CommandInput
+              placeholder={t`Search or create folder`}
+              value={query}
+              onValueChange={setQuery}
+              className="h-8 py-0"
+            />
+            <CommandList className="p-1">
+              <CommandEmpty className="text-muted-foreground px-2.5 py-2 text-left text-sm">
+                {trimmedQuery
+                  ? normalizedQuery === null
+                    ? t`Enter a valid folder name.`
+                    : t`No folders found.`
+                  : t`No folders yet.`}
+              </CommandEmpty>
+              {currentPath ? (
+                <CommandGroup>
+                  <CommandItem
+                    value={`no-folder ${t`No folder`}`}
+                    onSelect={() => handleSelect("")}
+                    className="cursor-pointer"
+                  >
+                    <span className="flex-1 truncate">{t`No folder`}</span>
+                  </CommandItem>
+                </CommandGroup>
+              ) : null}
+              {currentPath && (folders.length > 0 || canCreateFolder) ? (
+                <CommandSeparator />
+              ) : null}
+              {folders.length > 0 ? (
+                <CommandGroup>
+                  {folders.map((path) => (
                     <CommandItem
-                      value={`no-folder ${t`No folder`}`}
-                      onSelect={() => handleSelect("")}
+                      key={path}
+                      value={path}
+                      onSelect={() => handleSelect(path)}
                       className="cursor-pointer"
                     >
-                      <span className="flex-1 truncate">{t`No folder`}</span>
+                      <FolderSimple className="size-4 shrink-0 opacity-70" />
+                      <span className="min-w-0 flex-1 truncate">{path}</span>
+                      {path === currentPath ? (
+                        <Check className="size-4 shrink-0" />
+                      ) : null}
                     </CommandItem>
-                  </CommandGroup>
-                ) : null}
-                {currentPath && (folders.length > 0 || canCreateFolder) ? (
-                  <CommandSeparator />
-                ) : null}
-                {folders.length > 0 ? (
-                  <CommandGroup>
-                    {folders.map((path) => (
-                      <CommandItem
-                        key={path}
-                        value={path}
-                        onSelect={() => handleSelect(path)}
-                        className="cursor-pointer"
-                      >
-                        <FolderSimple className="size-4 shrink-0 opacity-70" />
-                        <span className="min-w-0 flex-1 truncate">{path}</span>
-                        {path === currentPath ? (
-                          <Check className="size-4 shrink-0" />
-                        ) : null}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                ) : null}
-                {canCreateFolder && normalizedQuery ? (
-                  <CommandGroup>
-                    <CommandItem
-                      value={`create-folder ${normalizedQuery}`}
-                      onSelect={() => handleSelect(normalizedQuery)}
-                      className="cursor-pointer"
-                    >
-                      <Plus className="size-4 shrink-0" />
-                      <span className="min-w-0 flex-1 truncate">
-                        {t`Create "${folderName}"`}
-                      </span>
-                    </CommandItem>
-                  </CommandGroup>
-                ) : null}
-              </CommandList>
-            </div>
+                  ))}
+                </CommandGroup>
+              ) : null}
+              {canCreateFolder && normalizedQuery ? (
+                <CommandGroup>
+                  <CommandItem
+                    value={`create-folder ${normalizedQuery}`}
+                    onSelect={() => handleSelect(normalizedQuery)}
+                    className="cursor-pointer"
+                  >
+                    <Plus className="size-4 shrink-0" />
+                    <span className="min-w-0 flex-1 truncate">
+                      {t`Create "${folderName}"`}
+                    </span>
+                  </CommandItem>
+                </CommandGroup>
+              ) : null}
+            </CommandList>
           </Command>
         </AppFloatingPanel>
       </PopoverContent>
