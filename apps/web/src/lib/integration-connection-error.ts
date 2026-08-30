@@ -10,6 +10,10 @@ export function getNangoAuthErrorType(error: unknown) {
   return "unknown_error";
 }
 
+export function shouldReportConnectionAuthError(errorType: string) {
+  return errorType !== "window_closed";
+}
+
 export function getConnectionErrorMessage(
   errorType: string,
   providerName: string,

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   getConnectionErrorMessage,
   getNangoAuthErrorType,
+  shouldReportConnectionAuthError,
 } from "./integration-connection-error.ts";
 
 test("reads Nango AuthError types and falls back for unknown values", () => {
@@ -31,6 +32,12 @@ test("keeps Outlook window-closed copy generic", () => {
     getConnectionErrorMessage("window_closed", "Outlook Calendar", "outlook"),
     "The Outlook Calendar sign-in window closed before the connection finished. Please try again.",
   );
+});
+
+test("does not report a closed sign-in window as an operational error", () => {
+  assert.equal(shouldReportConnectionAuthError("window_closed"), false);
+  assert.equal(shouldReportConnectionAuthError("blocked_by_browser"), true);
+  assert.equal(shouldReportConnectionAuthError("unknown_error"), true);
 });
 
 test("asks users to allow pop-ups when the browser blocks the window", () => {

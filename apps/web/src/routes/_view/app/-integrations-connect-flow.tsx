@@ -14,6 +14,7 @@ import { captureOperationalError } from "@/lib/error-reporting";
 import {
   getConnectionErrorMessage,
   getNangoAuthErrorType,
+  shouldReportConnectionAuthError,
 } from "@/lib/integration-connection-error";
 import {
   isConnectSessionFailed,
@@ -120,19 +121,21 @@ export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
   const finishWithAuthError = (error: unknown) => {
     if (disposedRef.current) return;
     const errorType = getNangoAuthErrorType(error);
-    captureOperationalError(
-      error instanceof Error
-        ? error
-        : new Error("Integration authorization failed"),
-      {
-        operation: "integration_connection_authorization",
-        tags: {
-          integration: search.integration_id,
-          mode: search.action,
-          error_type: errorType,
+    if (shouldReportConnectionAuthError(errorType)) {
+      captureOperationalError(
+        error instanceof Error
+          ? error
+          : new Error("Integration authorization failed"),
+        {
+          operation: "integration_connection_authorization",
+          tags: {
+            integration: search.integration_id,
+            mode: search.action,
+            error_type: errorType,
+          },
         },
-      },
-    );
+      );
+    }
     inFlightRef.current = false;
     setConnectionError(
       getConnectionErrorMessage(errorType, display.name, search.integration_id),
