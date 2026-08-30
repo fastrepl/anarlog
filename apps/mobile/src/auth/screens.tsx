@@ -10,7 +10,13 @@ import {
   parseBillingCallbackUrl,
 } from "@/auth/billing-handoff";
 import { Button } from "@/components/ui/button";
-import { Colors, CornerCurve, Spacing, Typography } from "@/constants/theme";
+import {
+  Colors,
+  CornerCurve,
+  Gradients,
+  Spacing,
+  Typography,
+} from "@/constants/theme";
 import { captureAnalytics } from "@/lib/analytics";
 import { env } from "@/lib/env";
 import { captureOperationalError } from "@/lib/error-reporting";
@@ -24,7 +30,7 @@ export function SignInScreen({
   busy: boolean;
 }) {
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, styles.brandBackground]}>
       <ScrollView
         alwaysBounceVertical={false}
         contentContainerStyle={styles.signInContent}
@@ -190,6 +196,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
     paddingHorizontal: Spacing.lg,
+  },
+  brandBackground: {
+    backgroundColor: Colors.brandBackgroundTop,
+    experimental_backgroundImage: Gradients.brandBackground,
   },
   body: {
     flex: 1,

@@ -10,6 +10,8 @@ const light = DesignColors.light;
 
 export const Colors = {
   background: light.background,
+  brandBackgroundTop: "#F7E7B0",
+  brandBackgroundBottom: "#FFE08C",
   paper: light.background,
   surface: light.card,
   ink: light.foreground,
@@ -28,6 +30,10 @@ export const Colors = {
   alertForeground: light.alertForeground,
   alertBorder: light.alertBorder,
   scrim: light.scrim,
+} as const;
+
+export const Gradients = {
+  brandBackground: "linear-gradient(to bottom, #F7E7B0 0%, #FFE08C 100%)",
 } as const;
 
 export const Spacing = {

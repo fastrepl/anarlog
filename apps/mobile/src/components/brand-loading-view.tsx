@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { StyleSheet, View } from "react-native";
 
-import { Colors } from "@/constants/theme";
+import { Colors, Gradients } from "@/constants/theme";
 
 export function BrandLoadingView() {
   return (
@@ -25,7 +25,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: Colors.paper,
+    backgroundColor: Colors.brandBackgroundTop,
+    experimental_backgroundImage: Gradients.brandBackground,
   },
   mark: {
     width: 76,
