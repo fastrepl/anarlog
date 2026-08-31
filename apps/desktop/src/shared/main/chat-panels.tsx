@@ -11,6 +11,7 @@ import {
 import {
   AUTOMATIONS_SURFACE_MIN_WIDTH_PX,
   NOTE_SURFACE_MIN_WIDTH_PX,
+  SETTINGS_SURFACE_MIN_WIDTH_PX,
   usesNoteSurfaceMinWidth,
 } from "./layout-widths";
 
@@ -129,6 +130,13 @@ function getMainBodyMinWidth({
   if (currentTab?.type === "automations") {
     return (
       AUTOMATIONS_SURFACE_MIN_WIDTH_PX +
+      (leftSidebarExpanded ? LEFT_SIDEBAR_MIN_WIDTH_PX : 0)
+    );
+  }
+
+  if (currentTab?.type === "settings") {
+    return (
+      SETTINGS_SURFACE_MIN_WIDTH_PX +
       (leftSidebarExpanded ? LEFT_SIDEBAR_MIN_WIDTH_PX : 0)
     );
   }
