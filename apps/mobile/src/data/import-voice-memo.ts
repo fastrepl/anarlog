@@ -29,6 +29,7 @@ type AudioImportOptions = {
   sessionId?: string;
   ownerUserId?: string;
   signal?: AbortSignal;
+  trackCreated?: boolean;
 };
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
@@ -117,7 +118,7 @@ async function importAsset(
           "application/octet-stream",
         size_bytes: asset.size ?? destination.size ?? 0,
       });
-      if (!options?.sessionId) {
+      if (options?.trackCreated ?? !options?.sessionId) {
         captureAnalytics("note_created", {
           entry_point: entryPoint,
           has_initial_title: Boolean(title),
@@ -238,6 +239,7 @@ export async function importWatchRecording(
       sessionId: recording.id,
       ownerUserId: recording.accountUserId,
       signal,
+      trackCreated: !existing,
     },
   );
 }
