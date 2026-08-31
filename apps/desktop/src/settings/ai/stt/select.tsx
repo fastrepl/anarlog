@@ -825,7 +825,17 @@ function ModelSelectItem({
   const showLocalActions = model.isDownloaded && isLocalModelId(model.id);
   const isDeprecated = model.isDeprecated === true;
   const content = (
-    <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+    <div
+      className={cn([
+        "flex min-w-0 flex-1 items-center justify-between gap-3",
+        !model.isDownloaded &&
+          !isDownloading &&
+          (isCloud
+            ? "group-focus-within:pr-24 group-hover:pr-24"
+            : "group-focus-within:pr-16 group-hover:pr-16"),
+        "transition-[padding] duration-150",
+      ])}
+    >
       <LocalModelLabel
         model={model.id}
         label={label}
@@ -907,10 +917,13 @@ function ModelSelectItem({
         </span>
       ) : (
         <button
+          type="button"
           className={cn([
             "rounded-full px-2 text-[11px] font-medium",
-            "opacity-0 group-hover:opacity-100",
-            "transition-all duration-150",
+            "pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 opacity-0",
+            "group-hover:pointer-events-auto group-hover:opacity-100",
+            "group-focus-within:pointer-events-auto group-focus-within:opacity-100",
+            "transition-opacity duration-150",
             isCloud
               ? "bg-primary text-primary-foreground hover:bg-primary/90 py-1 shadow-xs hover:shadow-md dark:!bg-white dark:!text-black dark:hover:!bg-white/90"
               : "from-muted to-accent text-foreground bg-linear-to-t py-0.5 shadow-xs hover:shadow-md",
