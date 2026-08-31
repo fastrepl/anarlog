@@ -59,7 +59,11 @@ type ControllerDependencies = {
   ) => Promise<
     | { status: "pending" }
     | { status: "first_device" }
-    | { status: "recovered"; recoveryKey: string }
+    | {
+        status: "recovered";
+        recoveryKey: string;
+        completeEnrollment: () => Promise<void>;
+      }
   >;
   bootstrap: (
     session: MobileSyncSession,
@@ -262,6 +266,9 @@ export class MobileSyncController {
           await this.dependencies.inspectRecoveryKey(recoveryKey);
         if (generation !== this.generation) return;
         await this.storeAndClaimIdentity(session, recoveryKey, identity.keyId);
+        if (enrollment.status === "recovered") {
+          await enrollment.completeEnrollment();
+        }
         if (generation !== this.generation) return;
         hasRecoveryKey = true;
         this.update({

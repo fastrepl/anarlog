@@ -217,6 +217,7 @@ test("uses the refreshed session when managed enrollment finishes", async () => 
         return {
           status: "recovered",
           recoveryKey: "approved-recovery-key",
+          completeEnrollment: async () => {},
         };
       },
       bootstrap: async (activeSession) => {
@@ -237,6 +238,39 @@ test("uses the refreshed session when managed enrollment finishes", async () => 
   assert.equal(saved, "approved-recovery-key");
   assert.equal(claimedAccessToken, "refreshed-token");
   assert.equal(bootstrappedAccessToken, "refreshed-token");
+});
+
+test("keeps a recovered enrollment reusable until identity claim succeeds", async () => {
+  let saved = null;
+  let enrollmentCompleted = false;
+  const controller = new MobileSyncController(
+    dependencies({
+      readRecoveryKey: async () => saved,
+      saveRecoveryKey: async (_accountUserId, recoveryKey) => {
+        saved = recoveryKey;
+      },
+      deleteRecoveryKey: async () => {
+        saved = null;
+      },
+      enrollDevice: async () => ({
+        status: "recovered",
+        recoveryKey: "approved-recovery-key",
+        completeEnrollment: async () => {
+          enrollmentCompleted = true;
+        },
+      }),
+      claimIdentity: async () => {
+        throw new Error("identity mismatch");
+      },
+    }),
+    0,
+    0,
+  );
+  controller.activate(session);
+
+  await waitFor(() => controller.getSnapshot().phase === "error");
+  assert.equal(saved, null);
+  assert.equal(enrollmentCompleted, false);
 });
 
 test("does not leave a stale poll interval after re-activation", async () => {

@@ -129,21 +129,25 @@ const controller = new MobileSyncController({
       keyCode,
       packageValue: enrollment.package,
     });
-    if (device.fingerprint) {
-      await consumeDeviceEnrollment({
-        apiUrl: session.apiUrl,
-        accessToken: session.accessToken,
-        requestId: enrollment.requestId,
-        publicKey,
-        fingerprint: device.fingerprint,
-      }).catch((error) => {
-        captureOperationalError(error, {
-          operation: "mobile_sync_enrollment_consume",
-          level: "warning",
+    return {
+      status: "recovered",
+      recoveryKey,
+      completeEnrollment: async () => {
+        if (!device.fingerprint) return;
+        await consumeDeviceEnrollment({
+          apiUrl: session.apiUrl,
+          accessToken: session.accessToken,
+          requestId: enrollment.requestId,
+          publicKey,
+          fingerprint: device.fingerprint,
+        }).catch((error) => {
+          captureOperationalError(error, {
+            operation: "mobile_sync_enrollment_consume",
+            level: "warning",
+          });
         });
-      });
-    }
-    return { status: "recovered", recoveryKey };
+      },
+    };
   },
   bootstrap: async (session, recoveryKeyCode, device) =>
     await bootstrapE2eeReplica({
