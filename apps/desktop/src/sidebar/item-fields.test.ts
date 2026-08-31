@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  formatSidebarItemMetaLine,
+  formatSidebarItemTags,
   parseSessionTagNames,
   resolveSidebarItemMeta,
 } from "./item-fields";
@@ -67,10 +67,8 @@ describe("resolveSidebarItemMeta", () => {
   });
 });
 
-describe("formatSidebarItemMetaLine", () => {
-  it("joins folder and tags on one line", () => {
-    expect(formatSidebarItemMetaLine("work", ["launch", "prep"])).toBe(
-      "work · #launch #prep",
-    );
+describe("formatSidebarItemTags", () => {
+  it("prefixes each tag", () => {
+    expect(formatSidebarItemTags(["launch", "prep"])).toBe("#launch #prep");
   });
 });

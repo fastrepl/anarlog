@@ -351,7 +351,7 @@ describe("TimelineItemComponent", () => {
     expect(screen.getByText("Live Note")).toBeTruthy();
   });
 
-  it("shows tags above the title when enabled", () => {
+  it("shows tags under the date when enabled", () => {
     mocks.showTags = true;
 
     render(
@@ -374,7 +374,20 @@ describe("TimelineItemComponent", () => {
       />,
     );
 
-    expect(screen.getByText("work · #launch #prep")).toBeTruthy();
+    const title = screen.getByText("Live Note");
+    const folder = screen.getByText("work");
+    const tags = screen.getByText("#launch #prep");
+    const time = screen.getByText("10:30 AM");
+
+    expect(title.compareDocumentPosition(folder)).toBe(
+      Node.DOCUMENT_POSITION_PRECEDING,
+    );
+    expect(time.compareDocumentPosition(tags)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(folder.compareDocumentPosition(tags)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
   });
 
   it("hides folder and tags when those fields are turned off", () => {
