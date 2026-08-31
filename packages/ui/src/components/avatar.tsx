@@ -22,6 +22,7 @@ export type AvatarProps = Readonly<{
   sphereCount?: number;
   dither?: number;
   renderStyle?: AvatarRenderStyle;
+  imageUrl?: string | null;
   className?: string;
 }>;
 
@@ -36,6 +37,7 @@ export function Avatar({
   sphereCount = 4,
   dither = 0.3,
   renderStyle = "dithered",
+  imageUrl,
   className,
 }: AvatarProps) {
   const recipe = { seed, colorCount, sphereCount, dither, renderStyle };
@@ -43,9 +45,10 @@ export function Avatar({
 
   return (
     <AvatarImage
-      key={cacheKey}
+      key={`${cacheKey}|${imageUrl ?? ""}`}
       cacheKey={cacheKey}
       className={className}
+      imageUrl={imageUrl}
       label={label}
       recipe={recipe}
       size={size}
@@ -56,12 +59,14 @@ export function Avatar({
 function AvatarImage({
   cacheKey,
   className,
+  imageUrl,
   label,
   recipe,
   size,
 }: {
   cacheKey: string;
   className?: string;
+  imageUrl?: string | null;
   label: string;
   recipe: AvatarRecipe;
   size: number;
@@ -69,6 +74,7 @@ function AvatarImage({
   const [src, setSrc] = useState<string | undefined>(() =>
     imageCache.get(cacheKey),
   );
+  const [imageFailed, setImageFailed] = useState(false);
   const squircleRef = useSquircleRef<HTMLSpanElement>();
   const dimension = Math.max(1, size);
   const containerStyle = {
@@ -96,6 +102,8 @@ function AvatarImage({
     letterSpacing: "-0.04em",
     mixBlendMode: "overlay",
   } satisfies CSSProperties;
+  const providerImageUrl = imageFailed ? null : imageUrl;
+  const displayedImageUrl = providerImageUrl ?? src;
 
   useMountEffect(() => {
     const cached = imageCache.get(cacheKey);
@@ -120,11 +128,12 @@ function AvatarImage({
       className={className}
       style={containerStyle}
     >
-      {src ? (
+      {displayedImageUrl ? (
         <img
           alt=""
           draggable={false}
-          src={src}
+          src={displayedImageUrl}
+          onError={providerImageUrl ? () => setImageFailed(true) : undefined}
           style={{
             position: "absolute",
             inset: 0,
@@ -134,9 +143,11 @@ function AvatarImage({
           }}
         />
       ) : null}
-      <span aria-hidden="true" style={initialsStyle}>
-        {avatarInitials(label)}
-      </span>
+      {!providerImageUrl && (
+        <span aria-hidden="true" style={initialsStyle}>
+          {avatarInitials(label)}
+        </span>
+      )}
     </span>
   );
 }

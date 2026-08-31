@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { commands as miscCommands } from "@anlg/plugin-misc";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { openUrlWithInstruction } from "@anlg/plugin-windows";
+import { getProviderProfileImageUrl } from "@anlg/supabase/profile";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import {
@@ -732,6 +733,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [session, fingerprint]);
 
   const getAvatarUrl = useCallback(async () => {
+    const providerImageUrl = getProviderProfileImageUrl(session?.user);
+    if (providerImageUrl) {
+      return providerImageUrl;
+    }
+
     const email = session?.user.email;
 
     if (!email) {

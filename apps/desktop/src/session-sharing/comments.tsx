@@ -14,6 +14,7 @@ import {
   getCommentAnchorRanges,
   setActiveCommentAnchor,
 } from "@anlg/editor/note";
+import { getProviderProfileImageUrl } from "@anlg/supabase/profile";
 import { Avatar } from "@anlg/ui/components/avatar";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
@@ -394,6 +395,8 @@ export function SessionCommentsLayer({
 }: {
   controller: SessionCommentsController;
 }) {
+  const auth = useAuth();
+  const authorImageUrl = getProviderProfileImageUrl(auth.session?.user);
   const openComments = controller.openAnchor
     ? controller.comments.filter((comment) =>
         controller.openAnchor?.commentIds.includes(comment.commentId),
@@ -413,6 +416,7 @@ export function SessionCommentsLayer({
           <CommentPopoverAnchor position={controller.draft} />
           <PopoverContent align="start" side="bottom" className="w-80 p-3">
             <CommentComposer
+              authorImageUrl={authorImageUrl}
               error={controller.createError}
               pending={controller.createPending}
               onCancel={controller.cancelDraft}
@@ -437,6 +441,7 @@ export function SessionCommentsLayer({
             {openComments.map((comment) => (
               <SessionCommentItem
                 key={comment.commentId}
+                authorImageUrl={authorImageUrl}
                 comment={comment}
                 deleting={
                   controller.deletePending &&
@@ -467,11 +472,13 @@ function CommentPopoverAnchor({ position }: { position: CommentPosition }) {
 }
 
 function CommentComposer({
+  authorImageUrl,
   error,
   onCancel,
   onSubmit,
   pending,
 }: {
+  authorImageUrl: string | null;
   error: boolean;
   onCancel: () => void;
   onSubmit: (body: string) => void;
@@ -504,6 +511,7 @@ function CommentComposer({
                 <Avatar
                   seed="shared-note:you"
                   label={t`You`}
+                  imageUrl={authorImageUrl}
                   size={28}
                   className="mt-1"
                 />
@@ -574,12 +582,14 @@ function CommentComposer({
 }
 
 function SessionCommentItem({
+  authorImageUrl,
   comment,
   deleteDisabled,
   deleting,
   onDelete,
   showDelete,
 }: {
+  authorImageUrl: string | null;
   comment: SessionShareComment;
   deleteDisabled: boolean;
   deleting: boolean;
@@ -597,6 +607,7 @@ function SessionCommentItem({
               comment.isAuthor ? "shared-note:you" : "shared-note:collaborator"
             }
             label={comment.isAuthor ? t`You` : t`Collaborator`}
+            imageUrl={comment.isAuthor ? authorImageUrl : null}
             size={24}
           />
           <span className="truncate text-sm font-medium">

@@ -9,6 +9,7 @@ import { SessionCard } from "@/components/session-card";
 import { StartListeningButton } from "@/components/start-listening-button";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
+import { UserAvatarButton } from "@/components/user-avatar";
 import { Colors, ControlSize, Spacing, Typography } from "@/constants/theme";
 import { importVoiceMemos } from "@/data/import-voice-memo";
 import { useSessionSearch } from "@/data/search";
@@ -156,11 +157,10 @@ export default function HomeScreen() {
           </>
         ) : (
           <>
-            <IconButton
+            <UserAvatarButton
               accessibilityLabel="Open settings"
-              icon="person-outline"
               onPress={() => router.push("/settings")}
-              variant="surface"
+              user={auth.session?.user ?? null}
             />
             <IconButton
               accessibilityLabel="Search meetings"

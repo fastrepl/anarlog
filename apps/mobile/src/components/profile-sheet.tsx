@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useSyncExternalStore } from "react";
 import {
   KeyboardAvoidingView,
@@ -11,6 +10,7 @@ import {
 
 import { useAuth } from "@/auth/context";
 import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/user-avatar";
 import {
   Colors,
   CornerCurve,
@@ -108,9 +108,7 @@ export function SettingsContent() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.accountCard}>
-          <View style={styles.accountIcon}>
-            <Ionicons name="person-outline" size={22} color={Colors.ink} />
-          </View>
+          <UserAvatar user={auth.session?.user ?? null} />
           <View style={styles.accountIdentity}>
             <Text style={styles.accountLabel}>Account</Text>
             <Text style={styles.email} numberOfLines={1}>
@@ -177,15 +175,6 @@ const styles = StyleSheet.create({
     borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.surface,
     padding: Spacing.md,
-  },
-  accountIcon: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: Radius.pill,
-    borderCurve: CornerCurve.squircle,
-    backgroundColor: Colors.accentSurface,
   },
   accountIdentity: {
     flex: 1,

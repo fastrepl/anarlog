@@ -6,6 +6,7 @@
     "./attachment-backups": "./src/attachment-backups.ts",
     "./billing": "./src/billing.ts",
     "./middleware": "./src/middleware.ts",
+    "./profile": "./src/profile.ts",
     "./storage": "./src/storage.ts"
   },
   "dependencies": {
