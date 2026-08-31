@@ -20,6 +20,10 @@ packageExtensions:
   "@sentry/react-native@8.20.0":
     dependencies:
       "@expo/config-plugins": "~57.0.9"
+  "react-native-worklets@0.10.1":
+    dependencies:
+      "@babel/generator": "^7.29.0"
+      "@babel/traverse": "^7.29.0"
 
 peerDependencyRules:
   allowedVersions:

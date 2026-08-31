@@ -11,7 +11,7 @@ overrides:
   seroval: 1.5.3
   '@xhmikosr/decompress': 10.2.1
 
-packageExtensionsChecksum: sha256-uvwHnRWU8xoBnLvfCsBs2JcrYoc5w4Gh9jVhvh1h708=
+packageExtensionsChecksum: sha256-oiDI3QlSZCcWj8/SC36JZqshvUsALZQJ46ilxkTLKHc=
 
 importers:
 
@@ -35454,6 +35454,7 @@ snapshots:
   react-native-worklets@0.10.1(@babel/core@7.29.0)(@react-native/metro-config@0.86.3(@babel/core@7.29.0))(react-native@0.86.3(@babel/core@7.29.0)(@react-native/metro-config@0.86.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3):
     dependencies:
       '@babel/core': 7.29.0
+      '@babel/generator': 7.29.8
       '@babel/plugin-transform-arrow-functions': 7.29.7(@babel/core@7.29.0)
       '@babel/plugin-transform-class-properties': 7.29.7(@babel/core@7.29.0)
       '@babel/plugin-transform-classes': 7.29.7(@babel/core@7.29.0)
@@ -35463,6 +35464,7 @@ snapshots:
       '@babel/plugin-transform-template-literals': 7.29.7(@babel/core@7.29.0)
       '@babel/plugin-transform-unicode-regex': 7.29.7(@babel/core@7.29.0)
       '@babel/preset-typescript': 7.29.7(@babel/core@7.29.0)
+      '@babel/traverse': 7.29.8
       '@babel/types': 7.29.8
       '@react-native/metro-config': 0.86.3(@babel/core@7.29.0)
       convert-source-map: 2.0.0
