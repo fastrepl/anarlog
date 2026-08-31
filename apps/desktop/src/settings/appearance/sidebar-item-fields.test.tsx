@@ -39,6 +39,8 @@ describe("SidebarItemFieldsSettings", () => {
     expect(
       screen.getByRole("switch", { name: "Tags" }).getAttribute("aria-checked"),
     ).toBe("false");
+    expect(screen.getByText("Show the folder above the title.")).toBeTruthy();
+    expect(screen.getByText("Show tags under the date and time.")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("switch", { name: "Tags" }));
 

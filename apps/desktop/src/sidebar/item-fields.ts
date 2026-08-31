@@ -56,14 +56,6 @@ export function resolveSidebarItemMeta({
   };
 }
 
-export function formatSidebarItemMetaLine(
-  folder: string,
-  tags: string[],
-): string {
-  const tagLabel = tags.map((tag) => `#${tag}`).join(" ");
-  if (folder && tagLabel) {
-    return `${folder} · ${tagLabel}`;
-  }
-
-  return folder || tagLabel;
+export function formatSidebarItemTags(tags: string[]): string {
+  return tags.map((tag) => `#${tag}`).join(" ");
 }

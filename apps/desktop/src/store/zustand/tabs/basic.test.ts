@@ -276,6 +276,16 @@ describe("Basic Tab Actions", () => {
     expect(useTabs.getState().chatMode).toBe("FloatingClosed");
   });
 
+  test("openNew redirects legacy folder settings links", () => {
+    useTabs.getState().openNew({
+      type: "settings",
+      state: { tab: "folders" },
+    });
+
+    expect(useTabs.getState()).toHaveCurrentTab({ type: "folders" });
+    expect(useTabs.getState().chatMode).toBe("FloatingClosed");
+  });
+
   test("openNew refreshes settings return target when reusing its tab", () => {
     const session1 = createSessionTab({ id: "tab1", active: false });
     const session2 = createSessionTab({ id: "tab2", active: false });

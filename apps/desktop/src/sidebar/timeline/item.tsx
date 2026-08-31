@@ -1,5 +1,11 @@
 import { useLingui } from "@lingui/react/macro";
-import { Lock, LockOpen, Square, Users } from "@phosphor-icons/react";
+import {
+  FolderSimple,
+  Lock,
+  LockOpen,
+  Square,
+  Users,
+} from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
 import {
   createContext,
@@ -44,7 +50,7 @@ import { useConfigValue } from "~/shared/config";
 import type { MenuItemDef } from "~/shared/hooks/useNativeContextMenu";
 import { InteractiveButton } from "~/shared/ui/interactive-button";
 import {
-  formatSidebarItemMetaLine,
+  formatSidebarItemTags,
   resolveSidebarItemMeta,
 } from "~/sidebar/item-fields";
 import { useSidebarNotes } from "~/sidebar/note-filter";
@@ -197,7 +203,9 @@ const ItemBase = memo(function ItemBase({
       ? Math.round(Math.max(0, Math.min(upcomingProgress, 1)) * 100)
       : 0;
   const showTrailingStatus = showLiveStop || showSpinner;
-  const metaLine = formatSidebarItemMetaLine(folder ?? "", tags ?? []);
+  const folderLabel = folder ?? "";
+  const tagLine = formatSidebarItemTags(tags ?? []);
+  const extraRows = Number(Boolean(folderLabel)) + Number(Boolean(tagLine));
   const setItemRef = useCallback(
     (node: HTMLDivElement | null) => {
       selectedNodeRef?.(node);
@@ -214,9 +222,11 @@ const ItemBase = memo(function ItemBase({
       onPointerDown={onPreload}
       className={cn([
         "group/sidebar-live-item relative [content-visibility:auto]",
-        metaLine
-          ? "[contain-intrinsic-size:auto_72px]"
-          : "[contain-intrinsic-size:auto_56px]",
+        extraRows === 2
+          ? "[contain-intrinsic-size:auto_88px]"
+          : extraRows === 1
+            ? "[contain-intrinsic-size:auto_72px]"
+            : "[contain-intrinsic-size:auto_56px]",
       ])}
     >
       <InteractiveButton
@@ -250,16 +260,17 @@ const ItemBase = memo(function ItemBase({
       >
         <div className="flex items-center gap-2">
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            {metaLine ? (
+            {folderLabel ? (
               <div
                 className={cn([
-                  "pointer-events-none min-w-0 truncate text-[11px] leading-4",
+                  "pointer-events-none flex min-w-0 items-center gap-1 text-[11px] leading-4",
                   isLive
                     ? "text-destructive-foreground/65"
                     : "text-muted-foreground",
                 ])}
               >
-                {metaLine}
+                <FolderSimple className="size-3 shrink-0" aria-hidden />
+                <span className="min-w-0 truncate">{folderLabel}</span>
               </div>
             ) : null}
             <div
@@ -282,6 +293,18 @@ const ItemBase = memo(function ItemBase({
                 {displayTime}
               </div>
             )}
+            {tagLine ? (
+              <div
+                className={cn([
+                  "pointer-events-none min-w-0 truncate text-[11px] leading-4",
+                  isLive
+                    ? "text-destructive-foreground/65"
+                    : "text-muted-foreground",
+                ])}
+              >
+                {tagLine}
+              </div>
+            ) : null}
           </div>
           {isLocked ? (
             isLockRevealed ? (

@@ -32,7 +32,7 @@ describe("CustomChatTransport", () => {
     });
   });
 
-  it("paces streamed chat responses line by line like summary generation", async () => {
+  it("streams chat responses word by word instead of waiting for newlines", async () => {
     const transport = new CustomChatTransport({} as never, {});
 
     await transport.sendMessages({
@@ -50,8 +50,7 @@ describe("CustomChatTransport", () => {
     });
 
     expect(mocks.smoothStream).toHaveBeenCalledWith({
-      chunking: "line",
-      delayInMs: 250,
+      chunking: "word",
     });
     expect(mocks.agentStream).toHaveBeenCalledWith(
       expect.objectContaining({

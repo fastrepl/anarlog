@@ -25,7 +25,13 @@ import {
 } from "@/auth/billing";
 import { refreshBillingEntitlement as retryBillingEntitlement } from "@/auth/billing-handoff";
 import { authStorageKey, supabase } from "@/auth/client";
-import { buildSignInUrl, type SignInMethod } from "@/auth/sign-in";
+import {
+  buildSignInUrl,
+  lastSignInMethodStorageKey,
+  parseAuthCallbackSignInMethod,
+  parseLastSignInMethod,
+  type SignInMethod,
+} from "@/auth/sign-in";
 import {
   captureAnalytics,
   identifyAnalytics,
@@ -37,6 +43,7 @@ import {
   captureOperationalError,
   setErrorReportingUser,
 } from "@/lib/error-reporting";
+import { useMountEffect } from "@/lib/use-mount-effect";
 import { suspendMobileSync } from "@/sync/mobile-sync";
 import { updateWatchAccount } from "@/watch-connectivity";
 
@@ -46,6 +53,7 @@ export type AuthState = {
   session: Session | null;
   billing: BillingInfo;
   billingReady: boolean;
+  lastSignInMethod: SignInMethod | null;
   signIn: (method: SignInMethod) => Promise<void>;
   refreshBilling: () => Promise<boolean>;
   signOut: () => Promise<void>;
@@ -102,13 +110,16 @@ function parseAuthCallbackUrl(
 // Deep links can be delivered twice (auth-session result + Linking event);
 // mirror desktop's 5s dedupe window (apps/desktop/src/auth/deeplink.ts).
 const RECENT_CALLBACK_WINDOW_MS = 5_000;
-const inFlightTokens = new Set<string>();
+const inFlightTokens = new Map<string, Promise<boolean>>();
 const recentTokens = new Map<string, number>();
 
-function acceptAuthTokens(accessToken: string, refreshToken: string): void {
+function acceptAuthTokens(
+  accessToken: string,
+  refreshToken: string,
+): Promise<boolean> {
   const client = supabase;
   if (!client) {
-    return;
+    return Promise.resolve(false);
   }
 
   const now = Date.now();
@@ -119,16 +130,18 @@ function acceptAuthTokens(accessToken: string, refreshToken: string): void {
   }
 
   const key = `${accessToken}\n${refreshToken}`;
-  if (inFlightTokens.has(key) || recentTokens.has(key)) {
-    return;
+  if (recentTokens.has(key)) {
+    return Promise.resolve(true);
+  }
+  const inFlight = inFlightTokens.get(key);
+  if (inFlight) {
+    return inFlight;
   }
 
-  inFlightTokens.add(key);
-  void client.auth
+  const request = client.auth
     .setSession({ access_token: accessToken, refresh_token: refreshToken })
     .then(
       ({ error }) => {
-        inFlightTokens.delete(key);
         if (error) {
           captureOperationalError(error, {
             operation: "auth_session_set",
@@ -138,12 +151,12 @@ function acceptAuthTokens(accessToken: string, refreshToken: string): void {
             method: "browser_handoff",
             failure_stage: "set_session",
           });
-        } else {
-          recentTokens.set(key, Date.now());
+          return false;
         }
+        recentTokens.set(key, Date.now());
+        return true;
       },
       (error) => {
-        inFlightTokens.delete(key);
         captureOperationalError(error, {
           operation: "auth_session_set",
           tags: { method: "browser_handoff" },
@@ -152,15 +165,20 @@ function acceptAuthTokens(accessToken: string, refreshToken: string): void {
           method: "browser_handoff",
           failure_stage: "set_session",
         });
+        return false;
       },
-    );
+    )
+    .finally(() => inFlightTokens.delete(key));
+  inFlightTokens.set(key, request);
+  return request;
 }
 
-function handleAuthCallbackUrl(url: string): void {
+function handleAuthCallbackUrl(url: string): Promise<boolean> {
   const tokens = parseAuthCallbackUrl(url);
-  if (tokens) {
-    acceptAuthTokens(tokens.accessToken, tokens.refreshToken);
+  if (!tokens) {
+    return Promise.resolve(false);
   }
+  return acceptAuthTokens(tokens.accessToken, tokens.refreshToken);
 }
 
 // Offline fallback: a retryable getSession error must not lock a Pro user out
@@ -200,6 +218,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const bypass = !hasSupabaseEnv;
   const [session, setSessionState] = useState<Session | null | undefined>(
     bypass ? null : undefined,
+  );
+  const [lastSignInMethod, setLastSignInMethod] = useState<SignInMethod | null>(
+    null,
   );
   const sessionRef = useRef<Session | null | undefined>(session);
   const identifiedUserIdRef = useRef<string | null>(null);
@@ -241,6 +262,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       identifiedUserIdRef.current = null;
     }
   }, []);
+
+  useMountEffect(() => {
+    let active = true;
+    void AsyncStorage.getItem(lastSignInMethodStorageKey).then(
+      (value) => {
+        if (active) {
+          setLastSignInMethod(parseLastSignInMethod(value));
+        }
+      },
+      (error) => {
+        captureOperationalError(error, {
+          operation: "auth_last_sign_in_method_read",
+          level: "warning",
+        });
+      },
+    );
+    return () => {
+      active = false;
+    };
+  });
+
+  const handleCompletedAuthCallback = useCallback(
+    async (url: string, expectedSignInMethod?: SignInMethod) => {
+      const signedIn = await handleAuthCallbackUrl(url);
+      if (!signedIn) return false;
+
+      const signInMethod =
+        parseAuthCallbackSignInMethod(url) ?? expectedSignInMethod;
+      if (!signInMethod) return true;
+
+      setLastSignInMethod(signInMethod);
+      try {
+        await AsyncStorage.setItem(lastSignInMethodStorageKey, signInMethod);
+      } catch (error) {
+        captureOperationalError(error, {
+          operation: "auth_last_sign_in_method_write",
+          level: "warning",
+        });
+      }
+      return true;
+    },
+    [],
+  );
 
   useEffect(() => {
     const client = supabase;
@@ -305,18 +369,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [setSession]);
 
-  useEffect(() => {
+  useMountEffect(() => {
     if (!supabase) {
       return;
     }
 
     const subscription = Linking.addEventListener("url", (event) => {
-      handleAuthCallbackUrl(event.url);
+      void handleCompletedAuthCallback(event.url);
     });
     void Linking.getInitialURL().then(
       (url) => {
         if (url) {
-          handleAuthCallbackUrl(url);
+          void handleCompletedAuthCallback(url);
         }
       },
       (error) => {
@@ -330,45 +394,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.remove();
     };
-  }, []);
+  });
 
-  const signIn = useCallback(async (signInMethod: SignInMethod) => {
-    if (!supabase) {
-      return;
-    }
+  const signIn = useCallback(
+    async (signInMethod: SignInMethod) => {
+      if (!supabase) {
+        return;
+      }
 
-    captureAnalytics("auth_started", {
-      method: "browser_handoff",
-      sign_in_method: signInMethod,
-      entry_point: "mobile_sign_in",
-    });
-    try {
-      const result = await WebBrowser.openAuthSessionAsync(
-        buildSignInUrl(env.appUrl, signInMethod),
-        "anarlog://auth/callback",
-      );
-      if (result.type === "success") {
-        handleAuthCallbackUrl(result.url);
-      } else {
+      captureAnalytics("auth_started", {
+        method: "browser_handoff",
+        sign_in_method: signInMethod,
+        entry_point: "mobile_sign_in",
+      });
+      try {
+        const result = await WebBrowser.openAuthSessionAsync(
+          buildSignInUrl(env.appUrl, signInMethod),
+          "anarlog://auth/callback",
+        );
+        if (result.type === "success") {
+          await handleCompletedAuthCallback(result.url, signInMethod);
+        } else {
+          captureAnalytics("auth_failed", {
+            method: "browser_handoff",
+            sign_in_method: signInMethod,
+            failure_stage: "cancelled",
+          });
+        }
+      } catch (error) {
+        captureOperationalError(error, {
+          operation: "auth_browser_open",
+          tags: { method: "browser_handoff" },
+        });
         captureAnalytics("auth_failed", {
           method: "browser_handoff",
           sign_in_method: signInMethod,
-          failure_stage: "cancelled",
+          failure_stage: "open_browser",
         });
+        throw error;
       }
-    } catch (error) {
-      captureOperationalError(error, {
-        operation: "auth_browser_open",
-        tags: { method: "browser_handoff" },
-      });
-      captureAnalytics("auth_failed", {
-        method: "browser_handoff",
-        sign_in_method: signInMethod,
-        failure_stage: "open_browser",
-      });
-      throw error;
-    }
-  }, []);
+    },
+    [handleCompletedAuthCallback],
+  );
 
   const refreshBilling = useCallback((): Promise<boolean> => {
     const client = supabase;
@@ -464,6 +531,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session: session ?? null,
       billing,
       billingReady,
+      lastSignInMethod,
       signIn,
       refreshBilling,
       signOut,
@@ -474,6 +542,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       billing,
       billingReady,
+      lastSignInMethod,
       signIn,
       refreshBilling,
       signOut,

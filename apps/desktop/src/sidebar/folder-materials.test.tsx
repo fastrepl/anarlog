@@ -67,6 +67,8 @@ vi.mock("~/shared/hooks/useFileUpload", () => ({
 
 import { FolderMaterialsPanel } from "./folder-materials";
 
+import { useFolderSelection } from "~/folders/selection";
+
 describe("FolderMaterialsPanel", () => {
   beforeEach(() => {
     mocks.createNamedFolder.mockReset();
@@ -87,6 +89,11 @@ describe("FolderMaterialsPanel", () => {
       attachmentId: "syllabus.txt",
     });
     mocks.deleteLocalFolderMaterial.mockResolvedValue(undefined);
+    useFolderSelection.setState({
+      selectedPath: "CS 101",
+      deletedPrefixes: [],
+      iconOverrides: {},
+    });
   });
 
   afterEach(() => {
@@ -148,28 +155,13 @@ describe("FolderMaterialsPanel", () => {
     });
   });
 
-  it("creates a nested subfolder and switches to it", async () => {
+  it("saves folder context when the field blurs", async () => {
     render(<FolderMaterialsPanel folderPath="CS 101" />);
 
-    fireEvent.click(screen.getByLabelText("New subfolder"));
-    fireEvent.change(screen.getByLabelText("Folder name"), {
-      target: { value: "Week 1" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Create" }));
-
-    await waitFor(() => {
-      expect(mocks.createNamedFolder).toHaveBeenCalledWith("CS 101/Week 1");
-      expect(mocks.setView).toHaveBeenCalledWith("mine", "CS 101/Week 1");
-    });
-  });
-
-  it("saves folder instructions when the field blurs", async () => {
-    render(<FolderMaterialsPanel folderPath="CS 101" />);
-
-    fireEvent.change(screen.getByLabelText("Folder instructions"), {
+    fireEvent.change(screen.getByLabelText("Folder context"), {
       target: { value: "Prefer the syllabus." },
     });
-    fireEvent.blur(screen.getByLabelText("Folder instructions"));
+    fireEvent.blur(screen.getByLabelText("Folder context"));
 
     await waitFor(() => {
       expect(mocks.updateFolderInstructions).toHaveBeenCalledWith(
@@ -188,6 +180,10 @@ describe("FolderMaterialsPanel", () => {
     await waitFor(() => {
       expect(mocks.deleteNamedFolder).toHaveBeenCalledWith("CS 101");
       expect(mocks.setView).toHaveBeenCalledWith("mine", null);
+      expect(useFolderSelection.getState()).toMatchObject({
+        selectedPath: null,
+        deletedPrefixes: ["CS 101"],
+      });
     });
   });
 });

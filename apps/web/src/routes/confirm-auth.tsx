@@ -18,6 +18,7 @@ import {
   resolveAuthFlowContext,
   toAuthFlowSearch,
 } from "@/lib/auth-flow-context";
+import { authSignInMethods } from "@/lib/auth-last-sign-in-method";
 import { buildPostAuthDestination } from "@/lib/auth-redirect";
 import { identifyPrivateRouteUser } from "@/lib/private-route-analytics";
 
@@ -35,6 +36,7 @@ const validateSearch = z.object({
   scheme: desktopSchemeSchema.optional(),
   redirect: z.string().optional(),
   redirect_to: z.string().max(2048).optional(),
+  method: z.enum(authSignInMethods).optional(),
 });
 
 export const Route = createFileRoute("/confirm-auth")({
@@ -106,6 +108,9 @@ function Component() {
         access_token: result.access_token,
         refresh_token: result.refresh_token,
       });
+      if (search.method) {
+        params.set("method", search.method);
+      }
       window.location.href = `/callback/auth?${params.toString()}`;
     },
   });

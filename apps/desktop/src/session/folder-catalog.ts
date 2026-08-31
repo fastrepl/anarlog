@@ -4,7 +4,9 @@ import { ancestorFolderPaths, normalizeFolderPath } from "./folders";
 
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
+import { normalizeFolderIcon } from "~/session/folder-icon";
 import { id } from "~/shared/utils";
+import { type TemplateIcon } from "~/templates/template-icon";
 
 export async function ensureFolderCatalog(folderPath: string): Promise<string> {
   const path = requireNamedFolderPath(folderPath);
@@ -185,6 +187,30 @@ export async function updateFolderInstructions(
             AND deleted_at IS NULL
         `,
         params: [instructions, path],
+      },
+    ]),
+  );
+}
+
+export async function updateFolderIcon(
+  folderPath: string,
+  icon: TemplateIcon,
+): Promise<void> {
+  const path = requireNamedFolderPath(folderPath);
+  const iconJson = JSON.stringify(normalizeFolderIcon(icon));
+  await enqueueDatabaseWrite("folders", () =>
+    executeTransaction([
+      ...ensureFolderStatements(path),
+      {
+        sql: `
+          UPDATE folders
+          SET
+            icon_json = ?,
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+          WHERE path = ?
+            AND deleted_at IS NULL
+        `,
+        params: [iconJson, path],
       },
     ]),
   );

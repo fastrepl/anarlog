@@ -6,6 +6,36 @@ export type SignInMethod =
   | "email"
   | "sso";
 
+export const lastSignInMethodStorageKey = "anarlog:auth:last-sign-in-method";
+
+export function parseLastSignInMethod(
+  value: string | null,
+): SignInMethod | null {
+  switch (value) {
+    case "apple":
+    case "google":
+    case "azure":
+    case "github":
+    case "email":
+    case "sso":
+      return value;
+    default:
+      return null;
+  }
+}
+
+export function parseAuthCallbackSignInMethod(
+  callbackUrl: string,
+): SignInMethod | null {
+  try {
+    return parseLastSignInMethod(
+      new URL(callbackUrl).searchParams.get("method"),
+    );
+  } catch {
+    return null;
+  }
+}
+
 export function buildSignInUrl(appUrl: string, method: SignInMethod): string {
   const url = new URL(`${appUrl.replace(/\/+$/, "")}/auth`);
   url.searchParams.set("flow", "desktop");

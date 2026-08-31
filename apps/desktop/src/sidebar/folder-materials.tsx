@@ -1,31 +1,20 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import {
-  FolderSimplePlus,
-  PencilSimple,
-  Plus,
-  Trash,
-  X,
-} from "@phosphor-icons/react";
-import { useEffect, useRef, useState } from "react";
+import { PencilSimple, Plus, Trash, X } from "@phosphor-icons/react";
+import { useRef, useState } from "react";
 
 import { cn } from "@anlg/utils";
 
 import { FolderNameDialog } from "./folder-name-dialog";
 import { useSidebarNotes } from "./note-filter";
 
+import { useFolderSelection } from "~/folders/selection";
 import {
   deleteLocalFolderMaterial,
   diskAttachmentId,
   useFolderMaterials,
 } from "~/session/folder-attachments";
-import {
-  createNamedFolder,
-  deleteNamedFolder,
-  renameNamedFolder,
-  updateFolderInstructions,
-  useFolderInstructions,
-} from "~/session/folder-catalog";
-import { childFolderPath } from "~/session/folders";
+import { deleteNamedFolder, renameNamedFolder } from "~/session/folder-catalog";
+import { FolderInstructionsField } from "~/session/folder-instructions";
 import { useFolderMaterialUpload } from "~/shared/hooks/useFileUpload";
 import { DestructiveConfirmationDialog } from "~/shared/ui/destructive-confirmation-dialog";
 
@@ -36,9 +25,11 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [renaming, setRenaming] = useState(false);
-  const [creatingChild, setCreatingChild] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const setView = useSidebarNotes((state) => state.setView);
+  const markFolderDeleted = useFolderSelection(
+    (state) => state.markFolderDeleted,
+  );
 
   return (
     <>
@@ -53,19 +44,6 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
           >
             {folderPath}
           </span>
-          <button
-            type="button"
-            aria-label={t`New subfolder`}
-            disabled={busy}
-            className={cn([
-              "text-muted-foreground hover:bg-accent hover:text-foreground flex size-6 items-center justify-center rounded-full",
-              "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
-              "disabled:opacity-50",
-            ])}
-            onClick={() => setCreatingChild(true)}
-          >
-            <FolderSimplePlus size={14} />
-          </button>
           <button
             type="button"
             aria-label={t`Rename folder`}
@@ -93,7 +71,9 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
             <Trash size={14} />
           </button>
         </div>
-        <FolderInstructionsField folderPath={folderPath} />
+        <div className="mt-1 mb-1.5">
+          <FolderInstructionsField folderPath={folderPath} />
+        </div>
         <div className="flex items-center gap-1">
           <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs font-medium">
             <Trans>Materials</Trans>
@@ -186,27 +166,14 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
           setView("mine", renamed);
         }}
       />
-      <FolderNameDialog
-        open={creatingChild}
-        title={t`New subfolder`}
-        confirmLabel={t`Create`}
-        onOpenChange={setCreatingChild}
-        onSubmit={async (name) => {
-          const nested = childFolderPath(folderPath, name);
-          if (!nested) {
-            throw new Error("invalid folder path");
-          }
-          const created = await createNamedFolder(nested);
-          setView("mine", created);
-        }}
-      />
       <DestructiveConfirmationDialog
         open={deleting}
         onOpenChange={setDeleting}
         title={<Trans>Delete folder</Trans>}
         description={
-          <Trans>
-            Notes stay in All notes. Materials and subfolders will be deleted.
+          <Trans id="Notes stay in All notes. Materials in this folder will be deleted.">
+            Notes stay in All notes. This folder, its nested folders, and all
+            their materials will be deleted.
           </Trans>
         }
         confirmLabel={<Trans>Delete folder</Trans>}
@@ -217,6 +184,7 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
             try {
               await deleteNamedFolder(folderPath);
               setDeleting(false);
+              markFolderDeleted(folderPath);
               setView("mine", null);
             } finally {
               setBusy(false);
@@ -225,36 +193,5 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
         }}
       />
     </>
-  );
-}
-
-function FolderInstructionsField({ folderPath }: { folderPath: string }) {
-  const { t } = useLingui();
-  const saved = useFolderInstructions(folderPath);
-  const [value, setValue] = useState(saved);
-
-  useEffect(() => {
-    setValue(saved);
-  }, [folderPath, saved]);
-
-  return (
-    <textarea
-      aria-label={t`Folder instructions`}
-      value={value}
-      placeholder={t`How chat should use notes in this folder`}
-      rows={2}
-      className={cn([
-        "border-border/60 placeholder:text-muted-foreground mt-1 mb-1.5 w-full resize-none rounded-md border bg-transparent px-1.5 py-1",
-        "text-[11px] leading-4",
-        "focus-visible:ring-ring focus-visible:ring-1 focus-visible:outline-hidden",
-      ])}
-      onChange={(event) => setValue(event.target.value)}
-      onBlur={() => {
-        if (value === saved) {
-          return;
-        }
-        void updateFolderInstructions(folderPath, value);
-      }}
-    />
   );
 }

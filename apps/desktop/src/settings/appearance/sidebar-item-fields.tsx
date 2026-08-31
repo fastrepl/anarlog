@@ -17,7 +17,7 @@ export function SidebarItemFieldsSettings() {
           <Trans>Notes list</Trans>
         </h3>
         <p className="text-muted-foreground mt-1 text-sm">
-          <Trans>Choose extra fields to show above each note title.</Trans>
+          <Trans>Choose extra fields to show on each note.</Trans>
         </p>
       </div>
       <div className="flex flex-col gap-4">
@@ -29,7 +29,7 @@ export function SidebarItemFieldsSettings() {
         />
         <SettingSwitchRow
           title={<Trans>Tags</Trans>}
-          description={<Trans>Show tags above the title.</Trans>}
+          description={<Trans>Show tags under the date and time.</Trans>}
           checked={showTags}
           onChange={setShowTags}
         />

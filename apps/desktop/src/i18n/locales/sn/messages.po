@@ -256,12 +256,20 @@ msgstr ""
 msgid "Add at least one example summary."
 msgstr ""
 
+#: src/session/folder-instructions.tsx
+msgid "Add context for this folder"
+msgstr ""
+
 #: src/settings/sync/index.tsx
 msgid "Add device"
 msgstr ""
 
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Add example"
+msgstr ""
+
+#: src/folders/folder-editor.tsx
+msgid "Add file"
 msgstr ""
 
 #: src/settings/general/spoken-languages.tsx
@@ -932,7 +940,7 @@ msgid "Choose export folder"
 msgstr ""
 
 #: src/settings/appearance/sidebar-item-fields.tsx
-msgid "Choose extra fields to show above each note title."
+msgid "Choose extra fields to show on each note."
 msgstr ""
 
 #: src/imports/screen.tsx
@@ -945,6 +953,10 @@ msgstr ""
 
 #: src/settings/automations/starter-config.tsx
 msgid "Choose folder"
+msgstr ""
+
+#: src/folders/folder-editor.tsx
+msgid "Choose folder icon"
 msgstr ""
 
 #: src/settings/appearance/app-icon.tsx
@@ -1009,6 +1021,7 @@ msgstr ""
 
 #: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
+#: src/folders/sidebar.tsx
 #: src/settings/ai/shared/provider-search.tsx
 #: src/sidebar/automations.tsx
 #: src/sidebar/settings.tsx
@@ -1194,10 +1207,6 @@ msgstr ""
 msgid "Company"
 msgstr ""
 
-#: src/settings/general/account.tsx
-msgid "Compare Free and Pro before you sign in."
-msgstr ""
-
 #: src/instruction/index.tsx
 msgid "Complete sign-in in your browser, then return to Anarlog."
 msgstr ""
@@ -1323,6 +1332,10 @@ msgstr ""
 
 #: src/sidebar/settings.tsx
 msgid "Contacts"
+msgstr ""
+
+#: src/folders/folder-editor.tsx
+msgid "Context"
 msgstr ""
 
 #: src/imports/screen.tsx
@@ -1521,8 +1534,8 @@ msgstr ""
 msgid "Could not use the selected model"
 msgstr ""
 
+#: src/folders/sidebar.tsx
 #: src/settings/team/index.tsx
-#: src/sidebar/folder-materials.tsx
 msgid "Create"
 msgstr ""
 
@@ -1591,6 +1604,10 @@ msgstr ""
 msgid "Crisp"
 msgstr ""
 
+#: src/settings/general/account.tsx
+msgid "Current"
+msgstr ""
+
 #: src/settings/general/audio-settings.tsx
 #: src/templates/auto-form.tsx
 msgid "Current default"
@@ -1633,6 +1650,7 @@ msgid "Default sharing"
 msgstr ""
 
 #: src/contacts/contact-page-header.tsx
+#: src/folders/folder-editor.tsx
 #: src/session/components/outer-header/overflow/delete.tsx
 #: src/sidebar/automations.tsx
 #: src/sidebar/timeline/index.tsx
@@ -1669,6 +1687,7 @@ msgstr ""
 msgid "Delete Event"
 msgstr ""
 
+#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Delete folder"
 msgstr ""
@@ -2099,16 +2118,25 @@ msgstr ""
 msgid "Folder"
 msgstr ""
 
-#: src/sidebar/folder-materials.tsx
-msgid "Folder instructions"
+#: src/folders/folder-editor.tsx
+msgid "Folder actions"
 msgstr ""
 
+#: src/session/folder-instructions.tsx
+msgid "Folder context"
+msgstr ""
+
+#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-name-dialog.tsx
 msgid "Folder name"
 msgstr ""
 
 #: src/session/components/folder-picker.tsx
 msgid "Folder: {currentPath}"
+msgstr ""
+
+#: src/sidebar/settings.tsx
+msgid "Folders"
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx
@@ -2281,10 +2309,6 @@ msgstr ""
 #. placeholder {1}: history.total
 #: src/chat/components/input/index.tsx
 msgid "History {0}/{1}"
-msgstr ""
-
-#: src/sidebar/folder-materials.tsx
-msgid "How chat should use notes in this folder"
 msgstr ""
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
@@ -2687,6 +2711,7 @@ msgstr ""
 msgid "Match your device"
 msgstr ""
 
+#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Materials"
 msgstr ""
@@ -2879,13 +2904,13 @@ msgstr ""
 msgid "New chat"
 msgstr ""
 
+#: src/folders/sidebar.tsx
+msgid "New folder"
+msgstr ""
+
 #: src/main/empty.tsx
 #: src/main/windows-title-bar.tsx
 msgid "New Note"
-msgstr ""
-
-#: src/sidebar/folder-materials.tsx
-msgid "New subfolder"
 msgstr ""
 
 #: src/session/components/note-input/raw.tsx
@@ -2963,7 +2988,6 @@ msgstr ""
 msgid "No emoji found"
 msgstr ""
 
-#: src/session/components/folder-picker.tsx
 #: src/sidebar/timeline/utils/index.ts
 msgid "No folder"
 msgstr ""
@@ -2972,12 +2996,24 @@ msgstr ""
 msgid "No folder selected yet."
 msgstr ""
 
+#: src/folders/sidebar.tsx
+msgid "No folders found"
+msgstr ""
+
 #: src/session/components/folder-picker.tsx
 msgid "No folders found."
 msgstr ""
 
+#: src/folders/sidebar.tsx
+msgid "No folders yet"
+msgstr ""
+
 #: src/session/components/folder-picker.tsx
 msgid "No folders yet."
+msgstr ""
+
+#: src/folders/index.tsx
+msgid "No folders yet. Create one to group notes and materials."
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx
@@ -3117,8 +3153,10 @@ msgstr ""
 msgid "Notes list"
 msgstr ""
 
+#. js-lingui-explicit-id
+#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
-msgid "Notes stay in All notes. Materials and subfolders will be deleted."
+msgid "Notes stay in All notes. Materials in this folder will be deleted."
 msgstr ""
 
 #. placeholder {0}: latestResult.conflicts
@@ -3161,6 +3199,10 @@ msgstr ""
 
 #: src/session/components/note-input/enhanced/streaming.tsx
 msgid "On-device models can take a few minutes to warm up before text appears."
+msgstr ""
+
+#: src/settings/general/account.tsx
+msgid "On-device transcription, recordings, and your own keys."
 msgstr ""
 
 #: src/settings/general/default-share-access.tsx
@@ -3635,6 +3677,7 @@ msgid "Remove"
 msgstr ""
 
 #. placeholder {0}: material.filename
+#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Remove {0}"
 msgstr ""
@@ -3921,6 +3964,10 @@ msgstr ""
 msgid "Search emoji..."
 msgstr ""
 
+#: src/folders/sidebar.tsx
+msgid "Search folders..."
+msgstr ""
+
 #: src/templates/template-icon-picker.tsx
 msgid "Search icons..."
 msgstr ""
@@ -3990,6 +4037,10 @@ msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "Security"
+msgstr ""
+
+#: src/session/components/folder-picker.tsx
+msgid "See all folders"
 msgstr ""
 
 #: src/session/components/note-input/template-picker.tsx
@@ -4261,7 +4312,7 @@ msgid "Show Sidebar"
 msgstr ""
 
 #: src/settings/appearance/sidebar-item-fields.tsx
-msgid "Show tags above the title."
+msgid "Show tags under the date and time."
 msgstr ""
 
 #: src/settings/appearance/sidebar-item-fields.tsx
@@ -4282,7 +4333,6 @@ msgstr ""
 
 #: src/session-sharing/index.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
-#: src/settings/general/account.tsx
 #: src/settings/sync/index.tsx
 #: src/shared-notes/index.tsx
 #: src/sidebar/toast/registry.tsx
@@ -4303,10 +4353,6 @@ msgstr ""
 
 #: src/settings/todo/github.tsx
 msgid "Sign in for private repo access."
-msgstr ""
-
-#: src/settings/general/account.tsx
-msgid "Sign in for Pro"
 msgstr ""
 
 #: src/settings/general/account.tsx
@@ -5292,8 +5338,16 @@ msgstr ""
 msgid "What are my action items from this meeting?"
 msgstr ""
 
+#: src/folders/folder-editor.tsx
+msgid "What these notes are usually about"
+msgstr ""
+
 #: src/chat/components/body/empty.tsx
 msgid "What were the key decisions that have been made?"
+msgstr ""
+
+#: src/settings/general/account.tsx
+msgid "What you're missing without Pro."
 msgstr ""
 
 #: src/changelog/index.tsx

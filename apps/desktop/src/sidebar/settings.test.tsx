@@ -146,6 +146,7 @@ describe("SettingsNav", () => {
       "Notifications",
       "Workspace",
       "Meetings",
+      "Folders",
       "Calendar",
       "Contacts",
       "Templates",
@@ -169,6 +170,7 @@ describe("SettingsNav", () => {
   it.each([
     ["Calendar", { type: "calendar" }],
     ["Contacts", { type: "contacts" }],
+    ["Folders", { type: "folders" }],
     ["Templates", { type: "templates" }],
     ["Automations", { type: "automations" }],
   ] as const)("opens the %s workspace", (label, destination) => {
@@ -379,11 +381,16 @@ describe("SettingsNav", () => {
       target: { value: "workspace" },
     });
 
-    ["Meetings", "Calendar", "Contacts", "Templates", "Automations"].forEach(
-      (label) => {
-        expect(screen.getByText(label)).toBeTruthy();
-      },
-    );
+    [
+      "Meetings",
+      "Folders",
+      "Calendar",
+      "Contacts",
+      "Templates",
+      "Automations",
+    ].forEach((label) => {
+      expect(screen.getByText(label)).toBeTruthy();
+    });
     expect(screen.queryByText("Appearance")).toBeNull();
   });
 

@@ -9,6 +9,7 @@ import {
   Code,
   DownloadSimple,
   FileText,
+  FolderSimple,
   Gear,
   Lightning,
   type Icon,
@@ -42,7 +43,7 @@ type SettingsNavItem =
       requiresPro?: boolean;
     }
   | {
-      id: "automations" | "calendar" | "contacts" | "templates";
+      id: "automations" | "calendar" | "contacts" | "folders" | "templates";
       label: string;
       icon: Icon;
       destination: TabInput;
@@ -96,6 +97,12 @@ export function SettingsNav() {
       label: t`Workspace`,
       items: [
         { id: "meetings", label: t`Meetings`, icon: VideoCamera },
+        {
+          id: "folders",
+          label: t`Folders`,
+          icon: FolderSimple,
+          destination: { type: "folders" },
+        },
         {
           id: "calendar",
           label: t`Calendar`,

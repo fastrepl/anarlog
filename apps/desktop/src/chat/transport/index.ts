@@ -251,9 +251,10 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
     const result = await agent.stream({
       messages: await convertToModelMessages(messagesWithContext),
       abortSignal: options.abortSignal,
+      // Word chunking emits tokens as they arrive. Line chunking holds the
+      // whole reply until a newline, so short chat answers only appear at the end.
       experimental_transform: smoothStream({
-        chunking: "line",
-        delayInMs: 250,
+        chunking: "word",
       }),
     });
 

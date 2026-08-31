@@ -1,8 +1,18 @@
+import { BottomSheet, RNHostView } from "@expo/ui";
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import type { BillingInfo } from "@/auth/billing";
 import {
@@ -27,91 +37,147 @@ import { useMountEffect } from "@/lib/use-mount-effect";
 export function SignInScreen({
   onSignIn,
   busy,
+  lastSignInMethod,
 }: {
   onSignIn: (method: SignInMethod) => void;
   busy: boolean;
+  lastSignInMethod: SignInMethod | null;
 }) {
+  const [showSignInMethods, setShowSignInMethods] = useState(false);
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
   return (
     <SafeAreaView style={[styles.safeArea, styles.brandBackground]}>
-      <View style={styles.signInMethodsScreen} testID="sign-in-methods">
-        <View style={styles.signInMethods}>
-          <View style={styles.signInMethodList}>
-            <Button
+      <View style={styles.signInBrand} testID="sign-in-screen">
+        <Image
+          contentFit="contain"
+          source={require("../../assets/images/anarlog-wordmark.png")}
+          style={styles.wordmark}
+        />
+        <Text style={styles.signInTitle}>
+          The AI notepad for{"\n"}private meetings.
+        </Text>
+      </View>
+
+      <Button
+        label="Sign in"
+        onPress={() => setShowSignInMethods(true)}
+        disabled={busy}
+        loading={busy}
+        size="large"
+        style={styles.cta}
+      />
+
+      <BottomSheet
+        isPresented={showSignInMethods}
+        onDismiss={() => setShowSignInMethods(false)}
+        testID="sign-in-methods"
+      >
+        <RNHostView matchContents>
+          <View
+            style={[
+              styles.signInMethodList,
+              { width, paddingBottom: Math.max(insets.bottom, Spacing.md) },
+            ]}
+          >
+            <SignInMethodButton
+              method="apple"
               label="Sign in with Apple"
-              onPress={() => onSignIn("apple")}
+              onSignIn={onSignIn}
               disabled={busy}
-              leading={
-                <ProviderIcon
-                  source={require("../../assets/images/auth/apple.svg")}
-                />
-              }
-              variant="outline"
-              style={styles.signInMethod}
+              iconSource={require("../../assets/images/auth/apple.svg")}
+              lastSignInMethod={lastSignInMethod}
             />
-            <Button
+            <SignInMethodButton
+              method="google"
               label="Sign in with Google"
-              onPress={() => onSignIn("google")}
+              onSignIn={onSignIn}
               disabled={busy}
-              leading={
-                <ProviderIcon
-                  source={require("../../assets/images/auth/google.svg")}
-                />
-              }
-              variant="outline"
-              style={styles.signInMethod}
+              iconSource={require("../../assets/images/auth/google.svg")}
+              lastSignInMethod={lastSignInMethod}
             />
-            <Button
+            <SignInMethodButton
+              method="azure"
               label="Sign in with Microsoft"
-              onPress={() => onSignIn("azure")}
+              onSignIn={onSignIn}
               disabled={busy}
-              leading={
-                <ProviderIcon
-                  source={require("../../assets/images/auth/microsoft.svg")}
-                />
-              }
-              variant="outline"
-              style={styles.signInMethod}
+              iconSource={require("../../assets/images/auth/microsoft.svg")}
+              lastSignInMethod={lastSignInMethod}
             />
-            <Button
+            <SignInMethodButton
+              method="github"
               label="Sign in with GitHub"
-              onPress={() => onSignIn("github")}
+              onSignIn={onSignIn}
               disabled={busy}
-              leading={
-                <ProviderIcon
-                  source={require("../../assets/images/auth/github.svg")}
-                />
-              }
-              variant="outline"
-              style={styles.signInMethod}
+              iconSource={require("../../assets/images/auth/github.svg")}
+              lastSignInMethod={lastSignInMethod}
             />
-            <Button
+            <SignInMethodButton
+              method="email"
               label="Sign in with Email"
-              onPress={() => onSignIn("email")}
+              onSignIn={onSignIn}
               disabled={busy}
-              leading={
-                <ProviderIcon
-                  source={require("../../assets/images/auth/email.svg")}
-                />
-              }
-              variant="outline"
-              style={styles.signInMethod}
+              iconSource={require("../../assets/images/auth/email.svg")}
+              lastSignInMethod={lastSignInMethod}
             />
-            <Button
+            <SignInMethodButton
+              method="sso"
               label="Sign in with SSO"
-              onPress={() => onSignIn("sso")}
+              onSignIn={onSignIn}
               disabled={busy}
-              leading={
-                <ProviderIcon
-                  source={require("../../assets/images/auth/sso.svg")}
-                />
-              }
-              variant="outline"
-              style={styles.signInMethod}
+              iconSource={require("../../assets/images/auth/sso.svg")}
+              lastSignInMethod={lastSignInMethod}
             />
           </View>
-        </View>
-      </View>
+        </RNHostView>
+      </BottomSheet>
     </SafeAreaView>
+  );
+}
+
+function SignInMethodButton({
+  method,
+  label,
+  iconSource,
+  onSignIn,
+  disabled,
+  lastSignInMethod,
+}: {
+  method: SignInMethod;
+  label: string;
+  iconSource: number;
+  onSignIn: (method: SignInMethod) => void;
+  disabled: boolean;
+  lastSignInMethod: SignInMethod | null;
+}) {
+  const isLastUsed = method === lastSignInMethod;
+
+  return (
+    <View
+      style={[
+        styles.signInMethodContainer,
+        isLastUsed && styles.signInMethodLastUsed,
+      ]}
+    >
+      <Button
+        label={label}
+        onPress={() => onSignIn(method)}
+        disabled={disabled}
+        leading={<ProviderIcon source={iconSource} />}
+        variant="outline"
+        style={styles.signInMethod}
+      />
+      {isLastUsed && (
+        <View
+          pointerEvents="none"
+          style={styles.lastUsedBadge}
+          testID={`last-used-${method}`}
+        >
+          <Text style={styles.lastUsedLabel}>Last used</Text>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -264,22 +330,53 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
   },
-  signInMethodsScreen: {
+  signInBrand: {
     flex: 1,
-    justifyContent: "flex-end",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.lg,
   },
-  signInMethods: {
-    padding: Spacing.md,
-    paddingBottom: Spacing.lg,
-    borderRadius: Radius.sheet,
-    borderCurve: CornerCurve.squircle,
-    backgroundColor: Colors.surface,
+  wordmark: {
+    width: 200,
+    height: 56,
+  },
+  signInTitle: {
+    maxWidth: 340,
+    color: Colors.ink,
+    fontFamily: "CaveatSemiBold",
+    fontSize: 38,
+    lineHeight: 44,
+    textAlign: "center",
   },
   signInMethodList: {
     gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+  },
+  signInMethodContainer: {
+    position: "relative",
+    width: "100%",
+  },
+  signInMethodLastUsed: {
+    paddingTop: Spacing.xs,
   },
   signInMethod: {
     width: "100%",
+  },
+  lastUsedBadge: {
+    position: "absolute",
+    top: 0,
+    right: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 1,
+    borderWidth: 2,
+    borderColor: Colors.surface,
+    borderRadius: Radius.pill,
+    borderCurve: CornerCurve.squircle,
+    backgroundColor: Colors.ink,
+  },
+  lastUsedLabel: {
+    ...Typography.captionStrong,
+    color: Colors.inkInverse,
   },
   providerIcon: {
     width: 18,

@@ -47,7 +47,7 @@ export function FolderNameDialog({
 
   const submit = async () => {
     const normalized = normalizeFolderPath(value.trim());
-    if (!normalized) {
+    if (!normalized || normalized.includes("/")) {
       setError(t`Enter a valid folder name.`);
       return;
     }

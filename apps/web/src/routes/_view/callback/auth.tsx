@@ -106,6 +106,7 @@ export const Route = createFileRoute("/_view/callback/auth")({
           scheme: search.scheme,
           access_token: result.access_token,
           refresh_token: result.refresh_token,
+          method: search.method,
           auto_open: "oauth",
         },
       });
@@ -120,6 +121,7 @@ export const Route = createFileRoute("/_view/callback/auth")({
           flow: search.flow,
           scheme: search.scheme,
           redirect: search.redirect,
+          method: search.method,
         },
       });
     }
@@ -143,6 +145,7 @@ function Component() {
     search.scheme,
     accessToken,
     refreshToken,
+    search.method,
   );
 
   useMountEffect(() => {

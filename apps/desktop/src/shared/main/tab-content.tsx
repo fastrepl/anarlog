@@ -5,6 +5,9 @@ import { type Tab } from "~/store/zustand/tabs";
 const TabContentAutomations = lazy(async () => ({
   default: (await import("~/settings/automations")).TabContentAutomations,
 }));
+const TabContentFolders = lazy(async () => ({
+  default: (await import("~/folders")).TabContentFolders,
+}));
 const TabContentCalendar = lazy(async () => ({
   default: (await import("~/calendar")).TabContentCalendar,
 }));
@@ -53,6 +56,9 @@ export function MainTabContent({ tab }: { tab: Tab }) {
 function LazyTabContent({ tab }: { tab: Tab }) {
   if (tab.type === "automations") {
     return <TabContentAutomations />;
+  }
+  if (tab.type === "folders") {
+    return <TabContentFolders />;
   }
   if (tab.type === "sessions") {
     return <TabContentNote tab={tab} />;
