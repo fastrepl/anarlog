@@ -36,10 +36,14 @@ export function parseAuthCallbackSignInMethod(
   }
 }
 
-export function buildSignInUrl(appUrl: string, method: SignInMethod): string {
+export function buildSignInUrl(
+  appUrl: string,
+  method: SignInMethod,
+  scheme = "anarlog",
+): string {
   const url = new URL(`${appUrl.replace(/\/+$/, "")}/auth`);
   url.searchParams.set("flow", "desktop");
-  url.searchParams.set("scheme", "anarlog");
+  url.searchParams.set("scheme", scheme);
 
   if (method === "email" || method === "sso") {
     url.searchParams.set("view", method);

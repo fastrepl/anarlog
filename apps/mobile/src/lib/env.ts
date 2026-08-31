@@ -8,6 +8,8 @@ const read = (key: string, fallback = ""): string => {
 };
 
 export const env = {
+  appVariant: read("appVariant", __DEV__ ? "dev" : "stable"),
+  appScheme: read("appScheme", "anarlog"),
   supabaseUrl: read("supabaseUrl"),
   supabaseAnonKey: read("supabaseAnonKey"),
   apiUrl: read("apiUrl", "https://api.anarlog.so"),

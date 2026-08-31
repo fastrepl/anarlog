@@ -56,3 +56,11 @@ test("reads the sign-in method carried by an auth callback", () => {
   );
   assert.equal(parseAuthCallbackSignInMethod("not a url"), null);
 });
+
+test("uses the current build scheme for sign-in callbacks", () => {
+  const url = new URL(
+    buildSignInUrl("https://anarlog.so", "google", "anarlog-staging"),
+  );
+
+  assert.equal(url.searchParams.get("scheme"), "anarlog-staging");
+});

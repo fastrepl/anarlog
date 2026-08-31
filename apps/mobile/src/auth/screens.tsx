@@ -13,7 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { BillingInfo } from "@/auth/billing";
 import {
-  MOBILE_BILLING_RETURN_URL,
+  buildMobileBillingReturnUrl,
   parseBillingCallbackUrl,
 } from "@/auth/billing-handoff";
 import type { SignInMethod } from "@/auth/sign-in";
@@ -253,12 +253,12 @@ export function PaywallScreen({
         source: "mobile",
       });
       const result = await WebBrowser.openAuthSessionAsync(
-        `${env.appUrl.replace(/\/+$/, "")}/app/checkout?period=monthly&source=mobile&scheme=anarlog`,
-        MOBILE_BILLING_RETURN_URL,
+        `${env.appUrl.replace(/\/+$/, "")}/app/checkout?period=monthly&source=mobile&scheme=${env.appScheme}`,
+        buildMobileBillingReturnUrl(env.appScheme),
       );
       if (result.type !== "success") return;
 
-      const callback = parseBillingCallbackUrl(result.url);
+      const callback = parseBillingCallbackUrl(result.url, env.appScheme);
       if (!callback) {
         throw new Error("Invalid billing callback URL");
       }

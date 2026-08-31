@@ -409,8 +409,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       try {
         const result = await WebBrowser.openAuthSessionAsync(
-          buildSignInUrl(env.appUrl, signInMethod),
-          "anarlog://auth/callback",
+          buildSignInUrl(env.appUrl, signInMethod, env.appScheme),
+          `${env.appScheme}://auth/callback`,
         );
         if (result.type === "success") {
           await handleCompletedAuthCallback(result.url, signInMethod);

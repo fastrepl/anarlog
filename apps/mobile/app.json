@@ -4,22 +4,11 @@
     "slug": "anarlog-mobile",
     "version": "0.1.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "anarlog",
     "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/images/icon.png",
-      "bundleIdentifier": "so.anarlog.mobile",
       "usesAppleSignIn": true
     },
     "android": {
-      "package": "so.anarlog.mobile",
-      "adaptiveIcon": {
-        "backgroundColor": "#FFFFFF",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      },
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -28,6 +17,7 @@
     },
     "plugins": [
       "expo-asset",
+      "expo-dev-client",
       "expo-font",
       "expo-image",
       "expo-router",
@@ -48,13 +38,7 @@
           "enableBackgroundRecording": true
         }
       ],
-      [
-        "expo-widgets",
-        {
-          "bundleIdentifier": "so.anarlog.mobile.widgets",
-          "groupIdentifier": "group.so.anarlog.mobile"
-        }
-      ],
+      "expo-widgets",
       "expo-secure-store",
       "@sentry/react-native/expo"
     ],

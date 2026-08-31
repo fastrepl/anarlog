@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildMobileBillingReturnUrl,
   parseBillingCallbackUrl,
   refreshBillingEntitlement,
 } from "./billing-handoff.ts";
@@ -22,6 +23,27 @@ test("parses the mobile checkout return without accepting other deep links", () 
   assert.equal(parseBillingCallbackUrl("anarlog://auth/callback"), null);
   assert.equal(
     parseBillingCallbackUrl("attacker://billing/refresh?checkout=paid"),
+    null,
+  );
+});
+
+test("uses and validates the current build scheme for checkout", () => {
+  assert.equal(
+    buildMobileBillingReturnUrl("anarlog-staging"),
+    "anarlog-staging://billing/refresh",
+  );
+  assert.deepEqual(
+    parseBillingCallbackUrl(
+      "anarlog-staging://billing/refresh?checkout=paid&source=mobile",
+      "anarlog-staging",
+    ),
+    { checkout: "paid", checkoutType: null, source: "mobile" },
+  );
+  assert.equal(
+    parseBillingCallbackUrl(
+      "anarlog://billing/refresh?checkout=paid&source=mobile",
+      "anarlog-staging",
+    ),
     null,
   );
 });

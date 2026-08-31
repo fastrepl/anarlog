@@ -14,6 +14,8 @@ import {
   type LiveActivityEnvironment,
 } from "expo-widgets";
 
+import { env } from "@/lib/env";
+
 type MeetingRecordingActivityProps = {
   startedAtEpochMs: number;
 };
@@ -209,7 +211,7 @@ export function startMeetingRecordingActivity(
 
     activeActivity = getActivityFactory().start(
       { startedAtEpochMs: Date.now() },
-      `anarlog://note/${sessionId}`,
+      `${env.appScheme}://note/${sessionId}`,
     );
     activeSessionId = sessionId;
   });
