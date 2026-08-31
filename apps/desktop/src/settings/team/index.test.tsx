@@ -211,22 +211,23 @@ describe("SettingsTeam", () => {
 
     renderTeam();
 
-    expect(screen.getByText("Existing workspace")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Existing workspace" }),
+    ).toBeTruthy();
     expect(screen.queryByRole("combobox")).toBeNull();
     expect(screen.queryByText("Anarlog Pro required")).toBeNull();
-    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(
+      screen.queryByRole("textbox", { name: "Workspace name" }),
+    ).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Change workspace logo" }),
     ).toBeNull();
-
-    openWorkspace("Existing workspace");
-
     expect(
       screen.getByRole("button", { name: "Delete workspace" }),
     ).toBeTruthy();
   });
 
-  it("renames the workspace through the edit button", async () => {
+  it("renames the workspace through the name field", async () => {
     mocks.billing.isPro = true;
     mocks.workspaces.data = [
       {
@@ -238,13 +239,10 @@ describe("SettingsTeam", () => {
     ];
 
     renderTeam();
-    openWorkspace("Fastrepl");
-
-    fireEvent.click(screen.getByRole("button", { name: "Rename workspace" }));
 
     const input = screen.getByRole("textbox", { name: "Workspace name" });
     fireEvent.change(input, { target: { value: "Fastrepl HQ" } });
-    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.blur(input);
 
     await waitFor(() =>
       expect(mocks.client.renameWorkspace).toHaveBeenCalledWith(
@@ -253,9 +251,6 @@ describe("SettingsTeam", () => {
         "Fastrepl HQ",
       ),
     );
-    expect(
-      screen.queryByRole("textbox", { name: "Workspace name" }),
-    ).toBeNull();
   });
 
   it("uploads a workspace logo from the identity tile", async () => {
@@ -298,7 +293,6 @@ describe("SettingsTeam", () => {
     vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue(jpeg);
 
     const { container } = renderTeam();
-    openWorkspace("Fastrepl");
     const input =
       container.querySelector<HTMLInputElement>('input[type="file"]');
     expect(input).not.toBeNull();
@@ -332,7 +326,6 @@ describe("SettingsTeam", () => {
     ];
 
     renderTeam();
-    openWorkspace("Fastrepl");
 
     fireEvent.click(
       screen.getByRole("button", { name: "Remove workspace logo" }),
@@ -360,7 +353,6 @@ describe("SettingsTeam", () => {
     ];
 
     renderTeam();
-    openWorkspace("Fastrepl");
 
     const input = await screen.findByRole("textbox", {
       name: "Workspace subdomain",
@@ -397,7 +389,6 @@ describe("SettingsTeam", () => {
     ];
 
     renderTeam();
-    openWorkspace("Fastrepl");
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Resend invitation" }),
@@ -414,7 +405,7 @@ describe("SettingsTeam", () => {
     );
   });
 
-  it("lists every team and opens one at a time", async () => {
+  it("switches teams from the tab row", async () => {
     mocks.billing.isPro = true;
     mocks.workspaces.data = [
       {
@@ -435,22 +426,21 @@ describe("SettingsTeam", () => {
 
     expect(screen.getByRole("button", { name: "Fastrepl" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Acme" })).toBeTruthy();
-    expect(screen.getByText("Create a shared workspace")).toBeTruthy();
     expect(
-      screen.queryByRole("button", { name: "Delete workspace" }),
-    ).toBeNull();
+      screen.getByRole("textbox", { name: "Workspace name" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Delete workspace" }),
+    ).toBeTruthy();
 
     openWorkspace("Acme");
 
-    expect(screen.getByRole("button", { name: "All teams" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Fastrepl" })).toBeNull();
-    expect(
-      screen.queryByRole("button", { name: "Rename workspace" }),
-    ).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "All teams" }));
-
     expect(screen.getByRole("button", { name: "Fastrepl" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Acme" })).toBeTruthy();
+    expect(
+      screen.queryByRole("textbox", { name: "Workspace name" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Leave workspace" }),
+    ).toBeTruthy();
   });
 });

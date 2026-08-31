@@ -1,22 +1,10 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
-  Buildings,
-  CalendarBlank,
-  CaretLeft,
-  CaretRight,
-  ChartBar,
   CircleNotch,
   Crown,
-  Globe,
-  LockSimple,
   PaperPlaneTilt,
-  PencilSimple,
   Plus,
-  ShieldCheck,
   Trash,
-  UserPlus,
-  UsersThree,
-  WarningCircle,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -30,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@anlg/ui/components/ui/select";
-import { Switch } from "@anlg/ui/components/ui/switch";
 import { cn } from "@anlg/utils";
 
 import {
@@ -61,7 +48,7 @@ import {
   getTeamSenderName,
   reportWorkspaceInvitation,
 } from "./invitation";
-import { WorkspaceLogoButton, WorkspaceLogoMark } from "./logo-button";
+import { WorkspaceLogoButton } from "./logo-button";
 import { MY_WORKSPACES_QUERY_KEY, useMyWorkspacesWithMirror } from "./mirror";
 
 import { useAuth } from "~/auth";
@@ -72,6 +59,7 @@ import {
 } from "~/enterprise-capture/client";
 import { env } from "~/env";
 import { SettingsPageTitle } from "~/settings/page-title";
+import { SettingSwitchRow } from "~/settings/setting-row";
 
 export function SettingsTeam() {
   const auth = useAuth();
@@ -79,20 +67,25 @@ export function SettingsTeam() {
   const { t } = useLingui();
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   const signedIn = Boolean(auth.supabase && auth.session);
 
   // Shares the query (and therefore the mirror refresh) with the app-level
   // mount, so opening this page is never what makes sharing scopes appear.
   const workspaces = useMyWorkspacesWithMirror();
-  const selectedWorkspace = workspaces.data?.find(
-    (workspace) => workspace.workspaceId === selectedId,
-  );
+  const selectedWorkspace =
+    isCreating || !workspaces.data
+      ? undefined
+      : (workspaces.data.find(
+          (workspace) => workspace.workspaceId === selectedId,
+        ) ?? workspaces.data[0]);
 
   const create = useMutation({
     mutationFn: (name: string) =>
       createWorkspace(requireTeamContext(auth), name),
     onSuccess: (result) => {
+      setIsCreating(false);
       setSelectedId(result.workspaceId);
       void queryClient.invalidateQueries({
         queryKey: [MY_WORKSPACES_QUERY_KEY],
@@ -128,26 +121,20 @@ export function SettingsTeam() {
     return (
       <div className="flex flex-col gap-8">
         <SettingsPageTitle title={<Trans>Teams</Trans>} />
-        <div className="border-border/60 bg-card/50 flex max-w-2xl items-center justify-between gap-6 rounded-xl border p-5 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-xl">
-              <LockSimple className="text-muted-foreground size-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-medium">
-                <Trans>Anarlog Pro required</Trans>
-              </h3>
-              <p className="text-muted-foreground mt-1 text-xs leading-5">
-                <Trans>
-                  Invite teammates, share notes across the workspace, and manage
-                  who has access. Your personal notes stay private.
-                </Trans>
-              </p>
-            </div>
-          </div>
+        <section className="flex max-w-xl flex-col gap-4">
+          <h3 className="text-sm font-medium">
+            <Trans>Anarlog Pro required</Trans>
+          </h3>
+          <p className="text-muted-foreground text-xs leading-5">
+            <Trans>
+              Invite teammates, share notes across the workspace, and manage who
+              has access. Your personal notes stay private.
+            </Trans>
+          </p>
           <Button
             type="button"
             size="sm"
+            className="w-fit"
             onClick={billing.upgradeToPro}
             disabled={billing.isUpgradingToPro}
           >
@@ -156,7 +143,7 @@ export function SettingsTeam() {
             ) : null}
             <Trans>Upgrade to Pro</Trans>
           </Button>
-        </div>
+        </section>
       </div>
     );
   }
@@ -168,44 +155,48 @@ export function SettingsTeam() {
       {workspaces.isPending ? (
         <TeamSkeleton />
       ) : workspaces.data && workspaces.data.length > 0 ? (
-        selectedWorkspace ? (
-          <WorkspacePanel
-            key={selectedWorkspace.workspaceId}
-            workspaceId={selectedWorkspace.workspaceId}
-            workspaceName={selectedWorkspace.name}
-            workspaceShareSlug={selectedWorkspace.shareSlug ?? null}
-            workspaceLogoDataUrl={selectedWorkspace.logoDataUrl ?? null}
-            workspaceRole={selectedWorkspace.role ?? "member"}
-            hasProAccess={billing.isPro}
-            onBack={() => setSelectedId(null)}
-            onWorkspaceRenamed={() => {
-              void queryClient.invalidateQueries({
-                queryKey: [MY_WORKSPACES_QUERY_KEY],
-              });
+        <div className="flex flex-col gap-8">
+          <WorkspaceTabs
+            workspaces={workspaces.data}
+            selectedId={selectedWorkspace?.workspaceId ?? null}
+            isCreating={isCreating}
+            canCreate={billing.isPro}
+            onSelect={(workspaceId) => {
+              setIsCreating(false);
+              setSelectedId(workspaceId);
             }}
-            onWorkspaceLeft={() => {
-              setSelectedId(null);
-              void queryClient.invalidateQueries({
-                queryKey: [MY_WORKSPACES_QUERY_KEY],
-              });
-            }}
+            onCreate={() => setIsCreating(true)}
           />
-        ) : (
-          <div className="flex flex-col gap-4">
-            <WorkspaceList
-              workspaces={workspaces.data}
-              onSelect={setSelectedId}
+          {isCreating ? (
+            <CreateWorkspaceForm
+              onCreate={(name) => create.mutate(name)}
+              pending={create.isPending}
+              error={create.error?.message}
+              placeholder={t`Acme`}
             />
-            {billing.isPro ? (
-              <CreateWorkspaceForm
-                onCreate={(name) => create.mutate(name)}
-                pending={create.isPending}
-                error={create.error?.message}
-                placeholder={t`Acme`}
-              />
-            ) : null}
-          </div>
-        )
+          ) : selectedWorkspace ? (
+            <WorkspacePanel
+              key={selectedWorkspace.workspaceId}
+              workspaceId={selectedWorkspace.workspaceId}
+              workspaceName={selectedWorkspace.name}
+              workspaceShareSlug={selectedWorkspace.shareSlug ?? null}
+              workspaceLogoDataUrl={selectedWorkspace.logoDataUrl ?? null}
+              workspaceRole={selectedWorkspace.role ?? "member"}
+              hasProAccess={billing.isPro}
+              onWorkspaceRenamed={() => {
+                void queryClient.invalidateQueries({
+                  queryKey: [MY_WORKSPACES_QUERY_KEY],
+                });
+              }}
+              onWorkspaceLeft={() => {
+                setSelectedId(null);
+                void queryClient.invalidateQueries({
+                  queryKey: [MY_WORKSPACES_QUERY_KEY],
+                });
+              }}
+            />
+          ) : null}
+        </div>
       ) : (
         <CreateWorkspaceForm
           onCreate={(name) => create.mutate(name)}
@@ -218,46 +209,62 @@ export function SettingsTeam() {
   );
 }
 
-function WorkspaceList({
+function WorkspaceTabs({
   workspaces,
+  selectedId,
+  isCreating,
+  canCreate,
   onSelect,
+  onCreate,
 }: {
-  workspaces: {
-    workspaceId: string;
-    name: string;
-    logoDataUrl?: string | null;
-    role: WorkspaceRole;
-  }[];
+  workspaces: { workspaceId: string; name: string }[];
+  selectedId: string | null;
+  isCreating: boolean;
+  canCreate: boolean;
   onSelect: (workspaceId: string) => void;
+  onCreate: () => void;
 }) {
+  const { t } = useLingui();
+
   return (
-    <ul className="border-border/60 bg-card/60 max-w-2xl overflow-hidden rounded-xl border shadow-sm">
-      {workspaces.map((workspace) => (
-        <li
-          key={workspace.workspaceId}
-          className="border-border/60 border-b last:border-b-0"
-        >
+    <div className="flex flex-wrap items-center gap-1.5">
+      {workspaces.map((workspace) => {
+        const selected = workspace.workspaceId === selectedId && !isCreating;
+        return (
           <button
+            key={workspace.workspaceId}
             type="button"
             aria-label={workspace.name}
+            aria-pressed={selected}
             onClick={() => onSelect(workspace.workspaceId)}
             className={cn([
-              "flex w-full items-center gap-3 px-4 py-3 text-left",
-              "hover:bg-muted/40 transition-colors",
+              "rounded-full px-3 py-1.5 text-sm transition-colors",
+              selected
+                ? "bg-muted text-foreground font-medium"
+                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
             ])}
           >
-            <WorkspaceLogoMark logoDataUrl={workspace.logoDataUrl ?? null} />
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">
-              {workspace.name}
-            </span>
-            <span className="border-border bg-background text-muted-foreground shrink-0 rounded-full border px-2.5 py-1 text-xs capitalize">
-              {workspace.role}
-            </span>
-            <CaretRight className="text-muted-foreground size-4 shrink-0" />
+            {workspace.name}
           </button>
-        </li>
-      ))}
-    </ul>
+        );
+      })}
+      {canCreate ? (
+        <button
+          type="button"
+          aria-label={t`Create a shared workspace`}
+          aria-pressed={isCreating}
+          onClick={onCreate}
+          className={cn([
+            "flex size-8 items-center justify-center rounded-full transition-colors",
+            isCreating
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+          ])}
+        >
+          <Plus className="size-4" />
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -276,25 +283,18 @@ function CreateWorkspaceForm({
   const trimmed = name.trim();
 
   return (
-    <div className="border-border/60 bg-card/50 max-w-2xl rounded-xl border p-5 shadow-sm">
-      <div className="flex items-start gap-4">
-        <div className="bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-xl">
-          <Buildings className="size-5" />
-        </div>
-        <div>
-          <h3 className="text-sm font-medium">
-            <Trans>Create a shared workspace</Trans>
-          </h3>
-          <p className="text-muted-foreground mt-1 text-xs leading-5">
-            <Trans>
-              Invite teammates, share notes across the workspace, and manage who
-              has access. Your personal notes stay private.
-            </Trans>
-          </p>
-        </div>
-      </div>
+    <section className="flex max-w-xl flex-col gap-4">
+      <h2 className="font-sans text-lg font-semibold">
+        <Trans>Create a shared workspace</Trans>
+      </h2>
+      <p className="text-muted-foreground text-xs leading-5">
+        <Trans>
+          Invite teammates, share notes across the workspace, and manage who has
+          access. Your personal notes stay private.
+        </Trans>
+      </p>
       <form
-        className="mt-5 flex gap-2"
+        className="flex gap-2"
         onSubmit={(event) => {
           event.preventDefault();
           if (trimmed) onCreate(trimmed);
@@ -316,8 +316,8 @@ function CreateWorkspaceForm({
           <Trans>Create</Trans>
         </Button>
       </form>
-      {error && <p className="text-destructive mt-2 text-xs">{error}</p>}
-    </div>
+      {error && <p className="text-destructive text-xs">{error}</p>}
+    </section>
   );
 }
 
@@ -328,7 +328,6 @@ function WorkspacePanel({
   workspaceLogoDataUrl,
   workspaceRole,
   hasProAccess,
-  onBack,
   onWorkspaceRenamed,
   onWorkspaceLeft,
 }: {
@@ -338,7 +337,6 @@ function WorkspacePanel({
   workspaceLogoDataUrl: string | null;
   workspaceRole: WorkspaceRole;
   hasProAccess: boolean;
-  onBack: () => void;
   // Renaming keeps the panel where it is; leaving or deleting must drop the
   // selection because the workspace is gone.
   onWorkspaceRenamed: () => void;
@@ -348,7 +346,7 @@ function WorkspacePanel({
   const { t } = useLingui();
   const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
-  const [isRenaming, setIsRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState(workspaceName);
 
   // The roster, invitation, and seat RPCs are manager-only, so a plain member
   // gets a permission error rather than data. Retrying cannot fix that.
@@ -485,25 +483,14 @@ function WorkspacePanel({
     destroy.error?.message;
 
   const submitRename = (value: string) => {
-    setIsRenaming(false);
     const next = value.trim();
     if (next && next !== workspaceName) rename.mutate(next);
+    else setNameDraft(workspaceName);
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <button
-        type="button"
-        onClick={onBack}
-        className={cn([
-          "text-muted-foreground hover:text-foreground -ml-2 flex w-fit items-center gap-1 rounded-full px-2 py-1 text-xs font-medium",
-          "hover:bg-muted/70 transition-colors",
-        ])}
-      >
-        <CaretLeft className="size-3.5" />
-        <Trans>All teams</Trans>
-      </button>
-      <div className="border-border/60 bg-card/60 flex items-center gap-4 rounded-xl border p-4 shadow-sm">
+    <div className="flex flex-col gap-8">
+      <div className="flex items-center gap-4">
         <WorkspaceLogoButton
           logoDataUrl={workspaceLogoDataUrl}
           label={t`Change workspace logo`}
@@ -513,220 +500,176 @@ function WorkspacePanel({
           onUpload={(dataUrl) => setLogo.mutate(dataUrl)}
           onRemove={() => setLogo.mutate(null)}
         />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            {isRenaming ? (
-              <Input
-                autoFocus
-                defaultValue={workspaceName}
-                maxLength={120}
-                aria-label={t`Workspace name`}
-                className="bg-background h-9 max-w-sm shadow-none"
-                onBlur={(event) => submitRename(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    submitRename(event.currentTarget.value);
-                  } else if (event.key === "Escape") {
-                    setIsRenaming(false);
-                  }
-                }}
-              />
-            ) : (
-              <>
-                <p className="truncate text-sm font-medium">{workspaceName}</p>
-                {canManage && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    title={t`Rename workspace`}
-                    onClick={() => setIsRenaming(true)}
-                  >
-                    {rename.isPending ? (
-                      <CircleNotch className="size-4 animate-spin" />
-                    ) : (
-                      <PencilSimple className="size-4" />
-                    )}
-                  </Button>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-        <span className="border-border bg-background text-muted-foreground shrink-0 rounded-full border px-2.5 py-1 text-xs capitalize">
-          {workspaceRole}
-        </span>
+        {canManage ? (
+          <Input
+            value={nameDraft}
+            onChange={(event) => setNameDraft(event.target.value)}
+            maxLength={120}
+            aria-label={t`Workspace name`}
+            className="bg-card h-9 max-w-sm shadow-none"
+            onBlur={(event) => submitRename(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur();
+              } else if (event.key === "Escape") {
+                setNameDraft(workspaceName);
+                event.currentTarget.blur();
+              }
+            }}
+          />
+        ) : (
+          <p className="truncate text-sm font-medium">{workspaceName}</p>
+        )}
+        {rename.isPending ? (
+          <CircleNotch className="text-muted-foreground size-4 animate-spin" />
+        ) : null}
       </div>
 
       {actionError && <p className="text-destructive text-xs">{actionError}</p>}
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.65fr)]">
-        <div className="flex min-w-0 flex-col gap-4">
-          <section className="border-border/60 bg-card/50 overflow-hidden rounded-xl border shadow-sm">
-            <div className="flex items-center justify-between gap-3 p-4">
-              <div className="flex items-center gap-3">
-                <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg">
-                  <UsersThree className="text-muted-foreground size-4" />
-                </div>
-                <h3 className="text-sm font-medium">
-                  <Trans>Members</Trans>
-                </h3>
-              </div>
-              {members.data && (
-                <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs tabular-nums">
-                  {members.data.length + (invitations.data?.length ?? 0)}
-                </span>
-              )}
-            </div>
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-sans text-lg font-semibold">
+            <Trans>Members</Trans>
+          </h2>
+          {canManage ? (
+            <form
+              className="flex items-center gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (trimmedEmail) invite.mutate(trimmedEmail);
+              }}
+            >
+              <Input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder={t`teammate@company.com`}
+                className="bg-card h-9 w-56 shadow-none"
+              />
+              <Button
+                type="submit"
+                size="sm"
+                disabled={!trimmedEmail || invite.isPending}
+              >
+                {invite.isPending ? (
+                  <CircleNotch className="size-4 animate-spin" />
+                ) : null}
+                <Trans>Add members</Trans>
+              </Button>
+            </form>
+          ) : null}
+        </div>
 
-            <div className="border-border/60 border-t p-4">
-              {canManage && (
-                <form
-                  className="relative mb-4 max-w-sm"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (trimmedEmail) invite.mutate(trimmedEmail);
-                  }}
-                >
-                  <Input
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder={t`teammate@company.com`}
-                    className="bg-background h-9 rounded-full pr-24 pl-4 shadow-none"
-                  />
-                  <Button
-                    type="submit"
-                    size="sm"
-                    variant="outline"
-                    className="absolute top-1 right-1"
-                    disabled={!trimmedEmail || invite.isPending}
-                  >
-                    {invite.isPending ? (
-                      <CircleNotch className="size-4 animate-spin" />
-                    ) : (
-                      <UserPlus className="size-4" />
-                    )}
-                    <Trans>Invite</Trans>
-                  </Button>
-                </form>
-              )}
-
-              {members.isPending ? (
-                <TeamSkeleton />
-              ) : members.isError ? (
-                <p className="text-muted-foreground border-border rounded-lg border p-4 text-sm">
-                  <Trans>
-                    Only workspace admins can see who has access. You are a
-                    member of this workspace.
-                  </Trans>
-                </p>
-              ) : (
-                <ul className="border-border divide-border divide-y overflow-hidden rounded-lg border">
-                  {members.data?.map((member) => (
-                    <MemberRow
-                      key={member.userId}
-                      member={member}
-                      isViewer={member.userId === viewerId}
-                      viewerRole={canManage ? viewerRole : undefined}
-                      onRoleChange={(role) =>
-                        changeRole.mutate({ userId: member.userId, role })
-                      }
-                      onRemove={() => remove.mutate(member.userId)}
-                      onTransfer={() => transfer.mutate(member.userId)}
-                    />
-                  ))}
-                  {invitations.data?.map((invitation) => (
-                    <li
-                      key={invitation.invitationId}
-                      className="flex items-center justify-between gap-3 px-3 py-2.5"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-muted-foreground truncate text-sm">
-                          {invitation.email}
-                        </p>
-                        <p className="text-muted-foreground text-xs">
-                          <Trans>Invitation pending</Trans>
-                        </p>
+        {members.isPending ? (
+          <TeamSkeleton />
+        ) : members.isError ? (
+          <p className="text-muted-foreground text-sm">
+            <Trans>
+              Only workspace admins can see who has access. You are a member of
+              this workspace.
+            </Trans>
+          </p>
+        ) : (
+          <table className="w-full text-sm">
+            <tbody>
+              {members.data?.map((member) => (
+                <MemberRow
+                  key={member.userId}
+                  member={member}
+                  isViewer={member.userId === viewerId}
+                  viewerRole={canManage ? viewerRole : undefined}
+                  onRoleChange={(role) =>
+                    changeRole.mutate({ userId: member.userId, role })
+                  }
+                  onRemove={() => remove.mutate(member.userId)}
+                  onTransfer={() => transfer.mutate(member.userId)}
+                />
+              ))}
+              {invitations.data?.map((invitation) => (
+                <tr key={invitation.invitationId}>
+                  <td className="py-2.5 pr-3">
+                    <p className="text-muted-foreground truncate">
+                      {invitation.email}
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      <Trans>Invitation pending</Trans>
+                    </p>
+                  </td>
+                  <td className="py-2.5 text-right">
+                    {canManage ? (
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          title={t`Resend invitation`}
+                          onClick={() =>
+                            resendInvite.mutate({
+                              email: invitation.email,
+                            })
+                          }
+                          disabled={resendInvite.isPending}
+                        >
+                          {resendInvite.isPending &&
+                          resendInvite.variables?.email === invitation.email ? (
+                            <CircleNotch className="size-4 animate-spin" />
+                          ) : (
+                            <PaperPlaneTilt className="size-4" />
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          title={t`Cancel invitation`}
+                          onClick={() =>
+                            cancelInvite.mutate(invitation.invitationId)
+                          }
+                          disabled={cancelInvite.isPending}
+                        >
+                          <Trash className="size-4" />
+                        </Button>
                       </div>
-                      {canManage && (
-                        <div className="flex shrink-0 items-center gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            title={t`Resend invitation`}
-                            onClick={() =>
-                              resendInvite.mutate({
-                                email: invitation.email,
-                              })
-                            }
-                            disabled={resendInvite.isPending}
-                          >
-                            {resendInvite.isPending &&
-                            resendInvite.variables?.email ===
-                              invitation.email ? (
-                              <CircleNotch className="size-4 animate-spin" />
-                            ) : (
-                              <PaperPlaneTilt className="size-4" />
-                            )}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            title={t`Cancel invitation`}
-                            onClick={() =>
-                              cancelInvite.mutate(invitation.invitationId)
-                            }
-                            disabled={cancelInvite.isPending}
-                          >
-                            <Trash className="size-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </section>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
 
-          {canManage && policy.data && (
+      {canManage ? (
+        <section className="flex flex-col gap-8">
+          <h2 className="font-sans text-lg font-semibold">
+            <Trans>Admin</Trans>
+          </h2>
+          {policy.data ? (
             <WorkspacePolicyForm
               workspaceId={workspaceId}
               policy={policy.data}
               onSaved={refresh}
             />
-          )}
-        </div>
-
-        <div className="flex min-w-0 flex-col gap-4">
-          {canManage && (
-            <WorkspaceShareDomainForm
-              workspaceId={workspaceId}
-              workspaceShareSlug={workspaceShareSlug}
-              onSaved={() => {
-                refresh();
-                onWorkspaceRenamed();
-              }}
-            />
-          )}
-
-          {canManage && usage.data && (
-            <section className="border-border/60 bg-card/50 rounded-xl border p-4 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg">
-                  <ChartBar className="text-muted-foreground size-4" />
-                </div>
-                <h3 className="text-sm font-medium">
-                  <Trans>Usage</Trans>
-                </h3>
-              </div>
-              <p className="text-muted-foreground mt-3 text-xs leading-5">
+          ) : null}
+          <WorkspaceShareDomainForm
+            workspaceId={workspaceId}
+            workspaceShareSlug={workspaceShareSlug}
+            onSaved={() => {
+              refresh();
+              onWorkspaceRenamed();
+            }}
+          />
+          {usage.data ? (
+            <div className="flex flex-col gap-3">
+              <h3 className="text-sm font-medium">
+                <Trans>Usage</Trans>
+              </h3>
+              <p className="text-muted-foreground text-xs leading-5">
                 <Trans>
                   Workspace activity from metadata only. Note content stays
                   unreadable on the server.
                 </Trans>
               </p>
-              <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
+              <dl className="grid max-w-lg grid-cols-2 gap-x-6 gap-y-3 text-sm">
                 {[
                   [t`Members`, usage.data.memberCount],
                   [
@@ -738,36 +681,29 @@ function WorkspacePanel({
                   [t`Devices`, usage.data.enrolledDevices],
                   [t`Shares (30d)`, usage.data.sharesCreated30d],
                 ].map(([label, value]) => (
-                  <div
-                    key={label}
-                    className="bg-muted/60 rounded-lg px-3 py-2.5"
-                  >
+                  <div key={label}>
                     <dt className="text-muted-foreground text-xs">{label}</dt>
                     <dd className="mt-1 font-medium tabular-nums">{value}</dd>
                   </div>
                 ))}
               </dl>
-            </section>
-          )}
-
+            </div>
+          ) : null}
           <UpcomingCaptureBots workspaceId={workspaceId} />
-        </div>
-      </div>
+        </section>
+      ) : null}
 
-      <div className="border-destructive/20 bg-destructive/5 flex items-center justify-between gap-4 rounded-xl border px-4 py-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <WarningCircle className="text-destructive/70 size-4 shrink-0" />
-          <p className="text-muted-foreground text-xs">
-            {viewerRole === "owner" ? (
-              <Trans>
-                Deleting removes the workspace for everyone. Transfer ownership
-                first if you only want to leave.
-              </Trans>
-            ) : (
-              <Trans>Leaving gives up your access to shared notes here.</Trans>
-            )}
-          </p>
-        </div>
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-muted-foreground text-xs">
+          {viewerRole === "owner" ? (
+            <Trans>
+              Deleting removes the workspace for everyone. Transfer ownership
+              first if you only want to leave.
+            </Trans>
+          ) : (
+            <Trans>Leaving gives up your access to shared notes here.</Trans>
+          )}
+        </p>
         {viewerRole === "owner" ? (
           <Button
             size="sm"
@@ -839,38 +775,31 @@ function UpcomingCaptureBots({ workspaceId }: { workspaceId: string }) {
   );
 
   return (
-    <section className="border-border/60 bg-card/50 rounded-xl border p-4 shadow-sm">
-      <div className="flex items-center gap-3">
-        <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg">
-          <CalendarBlank className="text-muted-foreground size-4" />
-        </div>
-        <h3 className="text-sm font-medium">
-          <Trans>Upcoming bot attendance</Trans>
-        </h3>
-      </div>
-      <p className="text-muted-foreground mt-3 text-xs leading-5">
+    <div className="flex flex-col gap-3">
+      <h3 className="text-sm font-medium">
+        <Trans>Upcoming bot attendance</Trans>
+      </h3>
+      <p className="text-muted-foreground text-xs leading-5">
         <Trans>
           Calendar-scheduled capture jobs. Canceling stops the bot from joining.
         </Trans>
       </p>
       {upcoming.isPending ? (
-        <p className="text-muted-foreground mt-3 text-sm">
+        <p className="text-muted-foreground text-sm">
           <Trans>Loading scheduled captures…</Trans>
         </p>
       ) : upcoming.error ? (
-        <p className="text-destructive mt-3 text-xs">
-          {upcoming.error.message}
-        </p>
+        <p className="text-destructive text-xs">{upcoming.error.message}</p>
       ) : visible.length === 0 ? (
-        <p className="text-muted-foreground mt-3 text-sm">
+        <p className="text-muted-foreground text-sm">
           <Trans>No upcoming bots.</Trans>
         </p>
       ) : (
-        <ul className="border-border divide-border mt-3 divide-y overflow-hidden rounded-lg border">
+        <ul className="flex flex-col">
           {visible.map((capture) => (
             <li
               key={capture.calendarEventId}
-              className="flex items-center justify-between gap-3 px-3 py-2.5"
+              className="flex items-center justify-between gap-3 py-2.5"
             >
               <div className="min-w-0">
                 <p className="truncate text-sm">{capture.title}</p>
@@ -890,7 +819,7 @@ function UpcomingCaptureBots({ workspaceId }: { workspaceId: string }) {
           ))}
         </ul>
       )}
-    </section>
+    </div>
   );
 }
 
@@ -958,132 +887,126 @@ function WorkspacePolicyForm({
   });
 
   return (
-    <section className="border-border/60 bg-card/50 rounded-xl border p-4 shadow-sm">
-      <div className="flex items-center gap-3">
-        <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg">
-          <ShieldCheck className="text-muted-foreground size-4" />
-        </div>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3">
         <h3 className="text-sm font-medium">
           <Trans>Policies</Trans>
         </h3>
+        <p className="text-muted-foreground text-xs leading-5">
+          <Trans>
+            These rules apply to every member. Sharing changes fail closed on
+            the server.
+          </Trans>
+        </p>
       </div>
-      <p className="text-muted-foreground mt-3 text-xs leading-5">
-        <Trans>
-          These rules apply to every member. Sharing changes fail closed on the
-          server.
-        </Trans>
-      </p>
-      <div className="mt-4 flex flex-col gap-4">
-        <div className="border-border divide-border divide-y overflow-hidden rounded-lg border">
-          <label className="flex items-center justify-between gap-4 px-3 py-2.5 text-sm">
-            <Trans>Allow anyone-with-the-link sharing</Trans>
-            <Switch checked={allowLink} onCheckedChange={setAllowLink} />
-          </label>
-          <label className="flex items-center justify-between gap-4 px-3 py-2.5 text-sm">
-            <Trans>Allow public indexing</Trans>
-            <Switch checked={allowPublic} onCheckedChange={setAllowPublic} />
-          </label>
-          <label className="flex items-center justify-between gap-4 px-3 py-2.5 text-sm">
-            <span className="flex min-w-0 flex-col gap-0.5">
-              <Trans>Require SSO</Trans>
-              <span className="text-muted-foreground text-xs font-normal">
-                <Trans>
-                  Members on a claimed email domain must sign in with SSO
-                  instead of Google, GitHub, or email.
-                </Trans>
-              </span>
-            </span>
-            <Switch checked={requireSso} onCheckedChange={setRequireSso} />
-          </label>
-        </div>
-        <label className="flex max-w-sm flex-col gap-1 text-sm">
-          <Trans>Retention (days)</Trans>
-          <Input
-            value={retention}
-            onChange={(event) => setRetention(event.target.value)}
-            placeholder={t`Keep forever`}
-            inputMode="numeric"
-            className="bg-background h-9 shadow-none"
-          />
-        </label>
-        <Button
-          type="button"
-          size="sm"
-          className="w-fit"
-          disabled={save.isPending}
-          onClick={() => save.mutate()}
-        >
-          {save.isPending ? (
-            <CircleNotch className="size-4 animate-spin" />
-          ) : null}
-          <Trans>Save policies</Trans>
-        </Button>
-        {save.error?.message ? (
-          <p className="text-destructive text-xs">{save.error.message}</p>
+      <SettingSwitchRow
+        title={<Trans>Allow anyone-with-the-link sharing</Trans>}
+        checked={allowLink}
+        onChange={setAllowLink}
+      />
+      <SettingSwitchRow
+        title={<Trans>Allow public indexing</Trans>}
+        checked={allowPublic}
+        onChange={setAllowPublic}
+      />
+      <SettingSwitchRow
+        title={<Trans>Require SSO</Trans>}
+        description={
+          <Trans>
+            Members on a claimed email domain must sign in with SSO instead of
+            Google, GitHub, or email.
+          </Trans>
+        }
+        checked={requireSso}
+        onChange={setRequireSso}
+      />
+      <label className="flex max-w-sm flex-col gap-1 text-sm">
+        <Trans>Retention (days)</Trans>
+        <Input
+          value={retention}
+          onChange={(event) => setRetention(event.target.value)}
+          placeholder={t`Keep forever`}
+          inputMode="numeric"
+          className="bg-card h-9 shadow-none"
+        />
+      </label>
+      <Button
+        type="button"
+        size="sm"
+        className="w-fit"
+        disabled={save.isPending}
+        onClick={() => save.mutate()}
+      >
+        {save.isPending ? (
+          <CircleNotch className="size-4 animate-spin" />
         ) : null}
-        <div className="border-border/60 grid gap-4 border-t pt-4 sm:grid-cols-2">
-          <form
-            className="flex flex-col gap-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (domain.trim()) claimDomain.mutate(domain.trim());
-            }}
+        <Trans>Save policies</Trans>
+      </Button>
+      {save.error?.message ? (
+        <p className="text-destructive text-xs">{save.error.message}</p>
+      ) : null}
+      <div className="grid gap-6 sm:grid-cols-2">
+        <form
+          className="flex flex-col gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (domain.trim()) claimDomain.mutate(domain.trim());
+          }}
+        >
+          <label className="flex flex-col gap-1 text-sm">
+            <Trans>Claim email domain</Trans>
+            <Input
+              value={domain}
+              onChange={(event) => setDomain(event.target.value)}
+              placeholder="company.com"
+              className="bg-card h-9 shadow-none"
+            />
+          </label>
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            className="w-fit"
+            disabled={!domain.trim() || claimDomain.isPending}
           >
-            <label className="flex flex-col gap-1 text-sm">
-              <Trans>Claim email domain</Trans>
-              <Input
-                value={domain}
-                onChange={(event) => setDomain(event.target.value)}
-                placeholder="company.com"
-                className="bg-background h-9 shadow-none"
-              />
-            </label>
-            <Button
-              type="submit"
-              size="sm"
-              variant="outline"
-              className="w-fit"
-              disabled={!domain.trim() || claimDomain.isPending}
-            >
-              <Trans>Verify domain</Trans>
-            </Button>
-          </form>
-          <form
-            className="flex flex-col gap-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (domain.trim() && scimToken.trim().length >= 32) {
-                rotateScim.mutate();
-              }
-            }}
+            <Trans>Verify domain</Trans>
+          </Button>
+        </form>
+        <form
+          className="flex flex-col gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (domain.trim() && scimToken.trim().length >= 32) {
+              rotateScim.mutate();
+            }
+          }}
+        >
+          <label className="flex flex-col gap-1 text-sm">
+            <Trans>SCIM bearer token</Trans>
+            <Input
+              value={scimToken}
+              onChange={(event) => setScimToken(event.target.value)}
+              type="password"
+              autoComplete="off"
+              className="bg-card h-9 shadow-none"
+            />
+          </label>
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            className="w-fit"
+            disabled={
+              !domain.trim() ||
+              scimToken.trim().length < 32 ||
+              rotateScim.isPending
+            }
           >
-            <label className="flex flex-col gap-1 text-sm">
-              <Trans>SCIM bearer token</Trans>
-              <Input
-                value={scimToken}
-                onChange={(event) => setScimToken(event.target.value)}
-                type="password"
-                autoComplete="off"
-                className="bg-background h-9 shadow-none"
-              />
-            </label>
-            <Button
-              type="submit"
-              size="sm"
-              variant="outline"
-              className="w-fit"
-              disabled={
-                !domain.trim() ||
-                scimToken.trim().length < 32 ||
-                rotateScim.isPending
-              }
-            >
-              <Trans>Save SCIM token</Trans>
-            </Button>
-          </form>
-        </div>
+            <Trans>Save SCIM token</Trans>
+          </Button>
+        </form>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -1110,20 +1033,15 @@ function WorkspaceShareDomainForm({
 
   return (
     <form
-      className="border-border/60 bg-card/50 flex flex-col gap-3 rounded-xl border p-4 shadow-sm"
+      className="flex flex-col gap-3"
       onSubmit={(event) => {
         event.preventDefault();
         if (shareSlug.trim()) save.mutate(shareSlug.trim());
       }}
     >
-      <div className="flex items-center gap-3">
-        <div className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-lg">
-          <Globe className="size-4" />
-        </div>
-        <h3 className="text-sm font-medium">
-          <Trans>Sharing domain</Trans>
-        </h3>
-      </div>
+      <h3 className="text-sm font-medium">
+        <Trans>Sharing domain</Trans>
+      </h3>
       <p className="text-muted-foreground text-xs">
         <Trans>Use this domain for links shared from this workspace.</Trans>
       </p>
@@ -1142,7 +1060,7 @@ function WorkspaceShareDomainForm({
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
-          className="bg-background h-9 min-w-0 rounded-r-none shadow-none"
+          className="bg-card h-9 min-w-0 rounded-r-none shadow-none"
         />
         <span className="border-input bg-muted text-muted-foreground flex h-9 shrink-0 items-center rounded-r-md border border-l-0 px-3 text-xs">
           .anarlog.so
@@ -1198,57 +1116,59 @@ function MemberRow({
   const canTransfer = viewerRole === "owner" && !isOwner;
 
   return (
-    <li className="flex items-center justify-between gap-3 px-3 py-2.5">
-      <div className="min-w-0">
-        <p className="truncate text-sm">{member.email}</p>
-        {isViewer && (
+    <tr>
+      <td className="py-2.5 pr-3">
+        <p className="truncate">{member.email}</p>
+        {isViewer ? (
           <p className="text-muted-foreground text-xs">
             <Trans>You</Trans>
           </p>
-        )}
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        {!canEditRole ? (
-          <span className={cn(["text-muted-foreground text-xs capitalize"])}>
-            {member.role}
-          </span>
-        ) : (
-          <Select
-            value={member.role}
-            onValueChange={(value) =>
-              onRoleChange(value === "admin" ? "admin" : "member")
-            }
-          >
-            <SelectTrigger className="bg-card h-8 w-28 shadow-none">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="admin">
-                <Trans>Admin</Trans>
-              </SelectItem>
-              <SelectItem value="member">
-                <Trans>Member</Trans>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        )}
-        {canTransfer && (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={onTransfer}
-            title={t`Make owner`}
-          >
-            <Crown className="size-4" />
-          </Button>
-        )}
-        {canRemove && (
-          <Button size="sm" variant="ghost" onClick={onRemove}>
-            <Trash className="size-4" />
-          </Button>
-        )}
-      </div>
-    </li>
+        ) : null}
+      </td>
+      <td className="py-2.5 text-right">
+        <div className="flex items-center justify-end gap-2">
+          {!canEditRole ? (
+            <span className="text-muted-foreground text-xs capitalize">
+              {member.role}
+            </span>
+          ) : (
+            <Select
+              value={member.role}
+              onValueChange={(value) =>
+                onRoleChange(value === "admin" ? "admin" : "member")
+              }
+            >
+              <SelectTrigger className="bg-card h-8 w-28 shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="admin">
+                  <Trans>Admin</Trans>
+                </SelectItem>
+                <SelectItem value="member">
+                  <Trans>Member</Trans>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          {canTransfer ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onTransfer}
+              title={t`Make owner`}
+            >
+              <Crown className="size-4" />
+            </Button>
+          ) : null}
+          {canRemove ? (
+            <Button size="sm" variant="ghost" onClick={onRemove}>
+              <Trash className="size-4" />
+            </Button>
+          ) : null}
+        </div>
+      </td>
+    </tr>
   );
 }
 

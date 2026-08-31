@@ -276,6 +276,10 @@ msgstr ""
 msgid "Add meeting decisions and follow-ups to a Notion project."
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Add members"
+msgstr ""
+
 #: src/settings/dictionary/index.tsx
 msgid "Add names, jargon, or product terms to prefer"
 msgstr ""
@@ -361,10 +365,6 @@ msgstr ""
 
 #: src/shared/open-note-dialog.tsx
 msgid "All Notes"
-msgstr ""
-
-#: src/settings/team/index.tsx
-msgid "All teams"
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -2401,7 +2401,6 @@ msgid "Invitations sent."
 msgstr ""
 
 #: src/session-sharing/invite-recipients.tsx
-#: src/settings/team/index.tsx
 msgid "Invite"
 msgstr ""
 
@@ -3679,10 +3678,6 @@ msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "Rename this device"
-msgstr ""
-
-#: src/settings/team/index.tsx
-msgid "Rename workspace"
 msgstr ""
 
 #: src/automations/starters.tsx
