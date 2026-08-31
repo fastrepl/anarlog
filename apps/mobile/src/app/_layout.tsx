@@ -23,10 +23,7 @@ import {
   initializeErrorReporting,
 } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
-import { canUseMobileCapture } from "@/sync/capture-access";
-import { getMobileSyncSnapshot, subscribeMobileSync } from "@/sync/mobile-sync";
 import { MobileSyncLifecycle } from "@/sync/mobile-sync-lifecycle";
-import { SyncEnrollmentScreen } from "@/sync/sync-enrollment-screen";
 import { initializeWatchConnectivity } from "@/watch-connectivity";
 
 initializeErrorReporting();
@@ -92,11 +89,6 @@ function Gate() {
     subscribeMobileCapture,
     getMobileCaptureActive,
     getMobileCaptureActive,
-  );
-  const sync = useSyncExternalStore(
-    subscribeMobileSync,
-    getMobileSyncSnapshot,
-    getMobileSyncSnapshot,
   );
   const [signingIn, setSigningIn] = useState(false);
 
@@ -166,11 +158,7 @@ function Gate() {
         accessToken={session.access_token}
         accountUserId={session.user.id}
       />
-      {canUseMobileCapture(sync, session.user.id) ? (
-        <Screens accountUserId={session.user.id} />
-      ) : (
-        <SyncEnrollmentScreen />
-      )}
+      <Screens accountUserId={session.user.id} />
     </>
   );
 }

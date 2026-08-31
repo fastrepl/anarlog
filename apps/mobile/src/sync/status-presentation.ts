@@ -12,10 +12,10 @@ const phaseCopy: Record<
     title: "Connecting this device",
     description: "Preparing your encrypted workspace…",
   },
-  setup_required: {
-    title: "Protect cloud sync",
+  approval_pending: {
+    title: "Connecting this device",
     description:
-      "Create a recovery key, or use the one from another Anarlog device.",
+      "Keep working here while Anarlog finishes connecting this device.",
   },
   ready: {
     title: "Cloud sync is on",
@@ -30,9 +30,9 @@ const phaseCopy: Record<
     description: "Anarlog Pro supports cloud sync on up to five devices.",
   },
   identity_mismatch: {
-    title: "Use your existing recovery key",
+    title: "Reconnect this device",
     description:
-      "This account already has encrypted notes. Use the same key as your other device.",
+      "Remove this device in Device Management, then sign in here again.",
   },
   not_entitled: {
     title: "Anarlog Pro required",
@@ -122,11 +122,12 @@ export function syncStatusPresentation(
                 : relativeSyncTime(snapshot.lastSyncAtMs, nowMs);
 
   const pending =
-    snapshot.phase === "ready" &&
-    !retrying &&
-    (snapshot.syncingNow ||
-      snapshot.hasUnsentChanges === true ||
-      awaitingFirstSync);
+    snapshot.phase === "approval_pending" ||
+    (snapshot.phase === "ready" &&
+      !retrying &&
+      (snapshot.syncingNow ||
+        snapshot.hasUnsentChanges === true ||
+        awaitingFirstSync));
 
   return {
     ...copy,

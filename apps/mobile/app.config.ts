@@ -4,6 +4,10 @@ const defaultApiUrl =
   process.env.NODE_ENV === "development"
     ? "http://localhost:3001"
     : "https://api.anarlog.so";
+const defaultAppUrl =
+  process.env.NODE_ENV === "development"
+    ? "http://localhost:3000"
+    : "https://anarlog.so";
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -18,7 +22,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       process.env.SUPABASE_ANON_KEY ??
       "",
     apiUrl: process.env.EXPO_PUBLIC_API_URL ?? defaultApiUrl,
-    appUrl: process.env.EXPO_PUBLIC_APP_URL ?? "http://localhost:3000",
+    appUrl: process.env.EXPO_PUBLIC_APP_URL ?? defaultAppUrl,
     posthogApiKey:
       process.env.EXPO_PUBLIC_POSTHOG_API_KEY ??
       process.env.POSTHOG_API_KEY ??
