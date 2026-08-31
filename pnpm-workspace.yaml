@@ -16,6 +16,11 @@ overrides:
   seroval: "1.5.3"
   "@xhmikosr/decompress": "10.2.1"
 
+packageExtensions:
+  "@sentry/react-native@8.20.0":
+    dependencies:
+      "@expo/config-plugins": "~57.0.9"
+
 peerDependencyRules:
   allowedVersions:
     motion: "11"

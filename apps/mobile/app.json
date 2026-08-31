@@ -8,7 +8,7 @@
     "scheme": "anarlog",
     "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/icon.png",
       "bundleIdentifier": "so.anarlog.mobile",
       "usesAppleSignIn": true
     },
@@ -27,7 +27,11 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "expo-asset",
+      "expo-font",
+      "expo-image",
       "expo-router",
+      "expo-sharing",
       [
         "expo-splash-screen",
         {
