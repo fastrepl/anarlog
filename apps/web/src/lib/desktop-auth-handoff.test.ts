@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 
 import {
   attemptDesktopAppOpen,
+  buildDesktopAuthCallbackPath,
   buildDesktopAuthDeeplink,
   getDesktopAppOpenLinkProps,
   useDesktopAppAutoOpen,
@@ -34,6 +35,18 @@ test("builds an encoded desktop auth callback", () => {
   assert.equal(
     buildDesktopAuthDeeplink("anarlog-staging", undefined, "fake-refresh"),
     null,
+  );
+});
+
+test("builds a web callback that preserves the sign-in method", () => {
+  assert.equal(
+    buildDesktopAuthCallbackPath(
+      "fake access",
+      "fake&refresh",
+      "anarlog-staging",
+      "email",
+    ),
+    "/callback/auth?flow=desktop&access_token=fake+access&refresh_token=fake%26refresh&scheme=anarlog-staging&method=email",
   );
 });
 

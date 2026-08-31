@@ -35,6 +35,7 @@ import {
   buildPostAuthDestination,
   sanitizeInternalReturnPath,
 } from "@/lib/auth-redirect";
+import { buildDesktopAuthCallbackPath } from "@/lib/desktop-auth-handoff";
 import {
   capturePrivateRouteEvent,
   identifyPrivateRouteUser,
@@ -287,12 +288,12 @@ function DesktopReauthView({
     },
     onSuccess: (result) => {
       if (result) {
-        const params = new URLSearchParams();
-        params.set("flow", "desktop");
-        params.set("scheme", scheme);
-        params.set("access_token", result.access_token);
-        params.set("refresh_token", result.refresh_token);
-        window.location.href = `/callback/auth?${params.toString()}`;
+        window.location.href = buildDesktopAuthCallbackPath(
+          result.access_token,
+          result.refresh_token,
+          scheme,
+          lastSignInMethod ?? undefined,
+        );
       }
     },
     onError: () => {
@@ -804,12 +805,12 @@ function handlePasswordSuccess(
   newAccount = false,
 ) {
   if (flow === "desktop") {
-    const params = new URLSearchParams();
-    params.set("flow", "desktop");
-    if (scheme) params.set("scheme", scheme);
-    params.set("access_token", accessToken);
-    params.set("refresh_token", refreshToken);
-    window.location.href = `/callback/auth?${params.toString()}`;
+    window.location.href = buildDesktopAuthCallbackPath(
+      accessToken,
+      refreshToken,
+      scheme,
+      "email",
+    );
   } else {
     window.location.href = buildPostAuthDestination({
       newAccount,

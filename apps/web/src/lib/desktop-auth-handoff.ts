@@ -25,6 +25,26 @@ export function buildDesktopAuthDeeplink(
   return `${scheme}://auth/callback?${params.toString()}`;
 }
 
+export function buildDesktopAuthCallbackPath(
+  accessToken: string,
+  refreshToken: string,
+  scheme?: DesktopScheme,
+  method?: AuthSignInMethod,
+) {
+  const params = new URLSearchParams({
+    flow: "desktop",
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+  if (scheme) {
+    params.set("scheme", scheme);
+  }
+  if (method) {
+    params.set("method", method);
+  }
+  return `/callback/auth?${params.toString()}`;
+}
+
 export function attemptDesktopAppOpen(
   deeplink: string,
   documentRef: Document = document,
