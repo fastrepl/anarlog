@@ -50,6 +50,7 @@
     "expo-symbols": "~57.0.2",
     "expo-system-ui": "~57.0.3",
     "expo-web-browser": "~57.0.2",
+    "expo-widgets": "~57.0.15",
     "js-sha256": "0.10.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",

@@ -48,6 +48,13 @@
           "enableBackgroundRecording": true
         }
       ],
+      [
+        "expo-widgets",
+        {
+          "bundleIdentifier": "so.anarlog.mobile.widgets",
+          "groupIdentifier": "group.so.anarlog.mobile"
+        }
+      ],
       "expo-secure-store",
       "@sentry/react-native/expo"
     ],
