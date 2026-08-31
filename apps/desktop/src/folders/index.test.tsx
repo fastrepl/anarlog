@@ -109,7 +109,11 @@ describe("Folders workspace", () => {
       attachmentId: "syllabus.pdf",
     });
     mocks.deleteLocalFolderMaterial.mockResolvedValue(undefined);
-    useFolderSelection.setState({ selectedPath: null, iconOverrides: {} });
+    useFolderSelection.setState({
+      selectedPath: null,
+      deletedPrefixes: [],
+      iconOverrides: {},
+    });
   });
 
   afterEach(() => {
@@ -200,6 +204,15 @@ describe("Folders workspace", () => {
     expect(screen.queryByRole("button", { name: "CS 101" })).toBeNull();
   });
 
+  it("shows parent paths for nested folders", () => {
+    mocks.folders = ["Work/Sales", "Personal/Sales"];
+
+    render(<FoldersWorkspace />);
+
+    expect(screen.getByText("Work/Sales")).toBeTruthy();
+    expect(screen.getByText("Personal/Sales")).toBeTruthy();
+  });
+
   it("renames the folder from the title field", async () => {
     mocks.folders = ["Work"];
 
@@ -253,7 +266,7 @@ describe("Folders workspace", () => {
   });
 
   it("deletes the folder from the actions menu", async () => {
-    mocks.folders = ["Work"];
+    mocks.folders = ["Work", "Personal"];
 
     render(<FoldersWorkspace />);
 
@@ -271,6 +284,9 @@ describe("Folders workspace", () => {
 
     await waitFor(() => {
       expect(mocks.deleteNamedFolder).toHaveBeenCalledWith("Work");
+      expect(
+        screen.getByRole("textbox", { name: "Folder name" }),
+      ).toHaveProperty("value", "Personal");
     });
   });
 

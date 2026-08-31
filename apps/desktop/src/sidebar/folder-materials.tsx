@@ -7,6 +7,7 @@ import { cn } from "@anlg/utils";
 import { FolderNameDialog } from "./folder-name-dialog";
 import { useSidebarNotes } from "./note-filter";
 
+import { useFolderSelection } from "~/folders/selection";
 import {
   deleteLocalFolderMaterial,
   diskAttachmentId,
@@ -26,6 +27,9 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
   const [renaming, setRenaming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const setView = useSidebarNotes((state) => state.setView);
+  const markFolderDeleted = useFolderSelection(
+    (state) => state.markFolderDeleted,
+  );
 
   return (
     <>
@@ -180,6 +184,7 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
             try {
               await deleteNamedFolder(folderPath);
               setDeleting(false);
+              markFolderDeleted(folderPath);
               setView("mine", null);
             } finally {
               setBusy(false);

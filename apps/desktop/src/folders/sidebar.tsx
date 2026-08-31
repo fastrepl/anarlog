@@ -9,7 +9,6 @@ import { useActiveFolderPath, useFolderSelection } from "./selection";
 
 import { createNamedFolder } from "~/session/folder-catalog";
 import { resolvedFolderIcon } from "~/session/folder-icon";
-import { folderDisplayName } from "~/session/folders";
 import { useFolderIcons, useFolderPaths } from "~/session/queries";
 import { CustomSidebarHeader } from "~/sidebar/custom-sidebar-header";
 import { FolderNameDialog } from "~/sidebar/folder-name-dialog";
@@ -131,9 +130,7 @@ export function FoldersSidebar() {
                         )}
                         className="size-4 text-sm"
                       />
-                      <span className="min-w-0 truncate">
-                        {folderDisplayName(folder)}
-                      </span>
+                      <span className="min-w-0 truncate">{folder}</span>
                     </span>
                   </button>
                 </li>

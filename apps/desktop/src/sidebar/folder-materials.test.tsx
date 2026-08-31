@@ -67,6 +67,8 @@ vi.mock("~/shared/hooks/useFileUpload", () => ({
 
 import { FolderMaterialsPanel } from "./folder-materials";
 
+import { useFolderSelection } from "~/folders/selection";
+
 describe("FolderMaterialsPanel", () => {
   beforeEach(() => {
     mocks.createNamedFolder.mockReset();
@@ -87,6 +89,11 @@ describe("FolderMaterialsPanel", () => {
       attachmentId: "syllabus.txt",
     });
     mocks.deleteLocalFolderMaterial.mockResolvedValue(undefined);
+    useFolderSelection.setState({
+      selectedPath: "CS 101",
+      deletedPrefixes: [],
+      iconOverrides: {},
+    });
   });
 
   afterEach(() => {
@@ -173,6 +180,10 @@ describe("FolderMaterialsPanel", () => {
     await waitFor(() => {
       expect(mocks.deleteNamedFolder).toHaveBeenCalledWith("CS 101");
       expect(mocks.setView).toHaveBeenCalledWith("mine", null);
+      expect(useFolderSelection.getState()).toMatchObject({
+        selectedPath: null,
+        deletedPrefixes: ["CS 101"],
+      });
     });
   });
 });

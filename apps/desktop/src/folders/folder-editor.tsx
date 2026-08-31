@@ -37,6 +37,9 @@ import { TemplateIconPicker } from "~/templates/template-icon-picker";
 export function FolderEditor({ folderPath }: { folderPath: string }) {
   const { t } = useLingui();
   const setSelectedPath = useFolderSelection((state) => state.setSelectedPath);
+  const markFolderDeleted = useFolderSelection(
+    (state) => state.markFolderDeleted,
+  );
   const persistedIcons = useFolderIcons();
   const iconOverrides = useFolderSelection((state) => state.iconOverrides);
   const setIconOverride = useFolderSelection((state) => state.setIconOverride);
@@ -287,7 +290,7 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
             try {
               await deleteNamedFolder(folderPath);
               setDeleting(false);
-              setSelectedPath(null);
+              markFolderDeleted(folderPath);
             } finally {
               setBusy(false);
             }
