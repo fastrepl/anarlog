@@ -3,7 +3,7 @@ import test from "node:test";
 
 import {
   parseAuthSignInMethod,
-  resolveSessionSignInMethod,
+  resolveSignInMethod,
   shouldRememberOtpSignIn,
 } from "./auth-last-sign-in-method.ts";
 
@@ -16,13 +16,32 @@ test("accepts only supported sign-in methods", () => {
   assert.equal(parseAuthSignInMethod(null), null);
 });
 
-test("prefers an authenticated SSO signal over the session provider", () => {
+test("prefers the completed sign-in method over the account's original provider", () => {
   assert.equal(
-    resolveSessionSignInMethod({ provider: "email", usesSso: true }),
+    resolveSignInMethod({
+      attemptedMethod: "email",
+      provider: "google",
+      usesSso: false,
+    }),
+    "email",
+  );
+  assert.equal(
+    resolveSignInMethod({
+      attemptedMethod: "google",
+      provider: "email",
+      usesSso: false,
+    }),
+    "google",
+  );
+});
+
+test("falls back to authenticated session metadata for legacy callbacks", () => {
+  assert.equal(
+    resolveSignInMethod({ provider: "email", usesSso: true }),
     "sso",
   );
   assert.equal(
-    resolveSessionSignInMethod({ provider: "google", usesSso: false }),
+    resolveSignInMethod({ provider: "google", usesSso: false }),
     "google",
   );
 });

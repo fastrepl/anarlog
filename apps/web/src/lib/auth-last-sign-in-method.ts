@@ -1,10 +1,13 @@
-export type AuthSignInMethod =
-  | "apple"
-  | "google"
-  | "azure"
-  | "github"
-  | "email"
-  | "sso";
+export const authSignInMethods = [
+  "apple",
+  "google",
+  "azure",
+  "github",
+  "email",
+  "sso",
+] as const;
+
+export type AuthSignInMethod = (typeof authSignInMethods)[number];
 
 export function parseAuthSignInMethod(value: unknown): AuthSignInMethod | null {
   switch (value) {
@@ -20,14 +23,16 @@ export function parseAuthSignInMethod(value: unknown): AuthSignInMethod | null {
   }
 }
 
-export function resolveSessionSignInMethod({
+export function resolveSignInMethod({
+  attemptedMethod,
   provider,
   usesSso,
 }: {
+  attemptedMethod?: AuthSignInMethod;
   provider: unknown;
   usesSso: boolean;
 }): AuthSignInMethod | null {
-  return usesSso ? "sso" : parseAuthSignInMethod(provider);
+  return attemptedMethod ?? (usesSso ? "sso" : parseAuthSignInMethod(provider));
 }
 
 export function shouldRememberOtpSignIn(type: string) {

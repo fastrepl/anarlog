@@ -19,6 +19,7 @@ import {
   resolveAuthFlowContext,
   toAuthFlowSearch,
 } from "@/lib/auth-flow-context";
+import { authSignInMethods } from "@/lib/auth-last-sign-in-method";
 import {
   buildPostAuthDestination,
   sanitizeInternalReturnPath,
@@ -46,6 +47,7 @@ const validateSearch = z.object({
       "email_change",
     ])
     .optional(),
+  method: z.enum(authSignInMethods).optional(),
   flow: z.enum(["desktop", "web"]).default("web"),
   scheme: desktopSchemeSchema.catch(DEFAULT_DESKTOP_SCHEME),
   redirect: z.string().optional(),
@@ -69,7 +71,12 @@ export const Route = createFileRoute("/_view/callback/auth")({
 
     if (search.code) {
       const result = await exchangeOAuthCode({
-        data: { code: search.code, flow: search.flow, type: search.type },
+        data: {
+          code: search.code,
+          flow: search.flow,
+          type: search.type,
+          method: search.method,
+        },
       });
 
       if (!result.success) {

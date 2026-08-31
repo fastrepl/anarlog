@@ -27,8 +27,10 @@ import {
   getSupabaseServerClient,
 } from "@/functions/supabase";
 import {
-  resolveSessionSignInMethod,
+  authSignInMethods,
+  resolveSignInMethod,
   shouldRememberOtpSignIn,
+  type AuthSignInMethod,
 } from "@/lib/auth-last-sign-in-method";
 import { sanitizeInternalReturnPath } from "@/lib/auth-redirect";
 import { captureOperationalError } from "@/lib/error-reporting";
@@ -49,8 +51,14 @@ type FlowTokenResult =
   | { ok: true; access_token: string; refresh_token: string }
   | { ok: false; error: string };
 
-function rememberSessionSignInMethod(session: Session) {
-  const method = resolveSessionSignInMethod({
+const authSignInMethodSchema = z.enum(authSignInMethods);
+
+function rememberSessionSignInMethod(
+  session: Session,
+  attemptedMethod?: AuthSignInMethod,
+) {
+  const method = resolveSignInMethod({
+    attemptedMethod,
     provider: session.user.app_metadata.provider,
     usesSso: sessionUsesSso(session),
   });
@@ -130,16 +138,20 @@ async function prepareNewAccountTrial(
   return { needsTrialCheckout: false, session: data.session };
 }
 
-function buildAuthCallbackParams(data: {
-  flow: Flow;
-  scheme?: string;
-  redirect?: string;
-}) {
+function buildAuthCallbackParams(
+  data: {
+    flow: Flow;
+    scheme?: string;
+    redirect?: string;
+  },
+  method?: AuthSignInMethod,
+) {
   const params = new URLSearchParams({ flow: data.flow });
   if (data.scheme) params.set("scheme", data.scheme);
   if (data.redirect) {
     params.set("redirect", sanitizeInternalReturnPath(data.redirect));
   }
+  if (method) params.set("method", method);
   return params;
 }
 
@@ -291,7 +303,7 @@ export const doAuth = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const supabase = getSupabaseServerClient();
-    const params = buildAuthCallbackParams(data);
+    const params = buildAuthCallbackParams(data, data.provider);
 
     const { data: authData, error } = await supabase.auth.signInWithOAuth({
       provider: data.provider,
@@ -326,7 +338,7 @@ export const doSsoAuth = createServerFn({ method: "POST" })
     }
 
     const supabase = getSupabaseServerClient();
-    const params = buildAuthCallbackParams(data);
+    const params = buildAuthCallbackParams(data, "sso");
 
     const { data: authData, error } = await supabase.auth.signInWithSSO({
       domain,
@@ -354,7 +366,7 @@ export const doMagicLinkAuth = createServerFn({ method: "POST" })
     if (blocked) {
       return blocked;
     }
-    const params = buildAuthCallbackParams(data);
+    const params = buildAuthCallbackParams(data, "email");
 
     const { error } = await supabase.auth.signInWithOtp({
       email: data.email,
@@ -427,6 +439,7 @@ export const exchangeOAuthCode = createServerFn({ method: "POST" })
           "email_change",
         ])
         .optional(),
+      method: authSignInMethodSchema.optional(),
     }),
   )
   .handler(async ({ data }) => {
@@ -461,7 +474,7 @@ export const exchangeOAuthCode = createServerFn({ method: "POST" })
       return response;
     }
     if (!data.type || shouldRememberOtpSignIn(data.type)) {
-      rememberSessionSignInMethod(authData.session);
+      rememberSessionSignInMethod(authData.session, data.method);
     }
     return { ...response, newAccount: trial.needsTrialCheckout };
   });
@@ -480,7 +493,7 @@ export const doPasswordSignUp = createServerFn({ method: "POST" })
     if (blocked) {
       return blocked;
     }
-    const params = buildAuthCallbackParams(data);
+    const params = buildAuthCallbackParams(data, "email");
 
     const { data: authData, error } = await supabase.auth.signUp({
       email: data.email,
@@ -517,7 +530,7 @@ export const doPasswordSignUp = createServerFn({ method: "POST" })
       if (!response.success) {
         return response;
       }
-      rememberSessionSignInMethod(authData.session);
+      rememberSessionSignInMethod(authData.session, "email");
       return { ...response, newAccount: trial.needsTrialCheckout };
     }
 
@@ -562,7 +575,7 @@ export const doPasswordSignIn = createServerFn({ method: "POST" })
     });
     const response = toMutationTokenResponse(tokens, authData.session.user.id);
     if (response.success) {
-      rememberSessionSignInMethod(authData.session);
+      rememberSessionSignInMethod(authData.session, "email");
     }
     return response;
   });
@@ -627,7 +640,7 @@ export const exchangeOtpToken = createServerFn({ method: "POST" })
       return response;
     }
     if (shouldRememberOtpSignIn(data.type)) {
-      rememberSessionSignInMethod(authData.session);
+      rememberSessionSignInMethod(authData.session, "email");
     }
     return { ...response, newAccount: trial.needsTrialCheckout };
   });
