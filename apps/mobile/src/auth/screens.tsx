@@ -9,10 +9,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { BillingInfo } from "@/auth/billing";
 import {
@@ -45,7 +42,6 @@ export function SignInScreen({
 }) {
   const [showSignInMethods, setShowSignInMethods] = useState(false);
   const { width } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
 
   return (
     <SafeAreaView style={[styles.safeArea, styles.brandBackground]}>
@@ -75,12 +71,7 @@ export function SignInScreen({
         testID="sign-in-methods"
       >
         <RNHostView matchContents>
-          <View
-            style={[
-              styles.signInMethodList,
-              { width, paddingBottom: Math.max(insets.bottom, Spacing.md) },
-            ]}
-          >
+          <View style={[styles.signInMethodList, { width }]}>
             <SignInMethodButton
               method="apple"
               label="Sign in with Apple"
@@ -129,6 +120,29 @@ export function SignInScreen({
               iconSource={require("../../assets/images/auth/sso.svg")}
               lastSignInMethod={lastSignInMethod}
             />
+            <Text style={styles.legalNotice}>
+              By signing up, you agree to our{" "}
+              <Text
+                accessibilityRole="link"
+                onPress={() =>
+                  void WebBrowser.openBrowserAsync("https://anarlog.so/terms")
+                }
+                style={styles.legalLink}
+              >
+                Terms of Service
+              </Text>{" "}
+              and{" "}
+              <Text
+                accessibilityRole="link"
+                onPress={() =>
+                  void WebBrowser.openBrowserAsync("https://anarlog.so/privacy")
+                }
+                style={styles.legalLink}
+              >
+                Privacy Policy
+              </Text>
+              .
+            </Text>
           </View>
         </RNHostView>
       </BottomSheet>
@@ -351,6 +365,7 @@ const styles = StyleSheet.create({
   signInMethodList: {
     gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
   },
   signInMethodContainer: {
     position: "relative",
@@ -381,6 +396,18 @@ const styles = StyleSheet.create({
   providerIcon: {
     width: 18,
     height: 18,
+  },
+  legalNotice: {
+    alignSelf: "center",
+    maxWidth: 320,
+    marginTop: Spacing.sm,
+    ...Typography.caption,
+    color: Colors.muted,
+    textAlign: "center",
+  },
+  legalLink: {
+    color: Colors.muted,
+    textDecorationLine: "underline",
   },
   titleRow: {
     flexDirection: "row",
