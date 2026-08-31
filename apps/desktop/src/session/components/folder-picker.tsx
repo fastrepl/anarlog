@@ -15,7 +15,6 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
 } from "@anlg/ui/components/ui/command";
 import {
   AppFloatingPanel,
@@ -185,7 +184,9 @@ export function FolderPicker({
                       <CommandItem
                         key={path}
                         value={path}
-                        onSelect={() => handleSelect(path)}
+                        onSelect={() =>
+                          handleSelect(path === currentPath ? "" : path)
+                        }
                         className="cursor-pointer"
                       >
                         <FolderSimple className="size-4 shrink-0 opacity-70" />
@@ -195,20 +196,6 @@ export function FolderPicker({
                         ) : null}
                       </CommandItem>
                     ))}
-                  </CommandGroup>
-                ) : null}
-                {currentPath && (folders.length > 0 || canCreateFolder) ? (
-                  <CommandSeparator />
-                ) : null}
-                {currentPath ? (
-                  <CommandGroup>
-                    <CommandItem
-                      value={`no-folder ${t`No folder`}`}
-                      onSelect={() => handleSelect("")}
-                      className="cursor-pointer"
-                    >
-                      <span className="flex-1 truncate">{t`No folder`}</span>
-                    </CommandItem>
                   </CommandGroup>
                 ) : null}
                 {canCreateFolder && normalizedQuery ? (

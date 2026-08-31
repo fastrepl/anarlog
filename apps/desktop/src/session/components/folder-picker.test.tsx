@@ -151,7 +151,7 @@ describe("FolderPicker", () => {
     });
   });
 
-  it("highlights the current folder instead of no folder", () => {
+  it("highlights the current folder and does not offer no folder", () => {
     mocks.folderId = "work";
 
     render(<FolderPicker sessionId="session-1" />);
@@ -159,13 +159,11 @@ describe("FolderPicker", () => {
     fireEvent.click(screen.getByRole("combobox", { name: "Folder: work" }));
 
     expect(
-      screen.getByRole("option", { name: "work" }).getAttribute("data-selected"),
-    ).toBe("true");
-    expect(
       screen
-        .getByRole("option", { name: "No folder" })
+        .getByRole("option", { name: "work" })
         .getAttribute("data-selected"),
-    ).not.toBe("true");
+    ).toBe("true");
+    expect(screen.queryByRole("option", { name: "No folder" })).toBeNull();
   });
 
   it("can remove the current note from its folder", () => {
@@ -174,7 +172,7 @@ describe("FolderPicker", () => {
     render(<FolderPicker sessionId="session-1" />);
 
     fireEvent.click(screen.getByRole("combobox", { name: "Folder: work" }));
-    fireEvent.click(screen.getByRole("option", { name: "No folder" }));
+    fireEvent.click(screen.getByRole("option", { name: "work" }));
 
     expect(mocks.updateSession).toHaveBeenCalledWith({ folder_id: "" });
   });
