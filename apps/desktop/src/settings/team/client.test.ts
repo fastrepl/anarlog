@@ -12,6 +12,7 @@ import {
   requireTeamContext,
   resendWorkspaceInvitation,
   sendWorkspaceInvitationEmail,
+  setWorkspaceLogo,
   setWorkspaceShareSlug,
   TeamError,
   type TeamContext,
@@ -85,6 +86,37 @@ describe("workspace reads", () => {
     expect(rpc).toHaveBeenCalledWith("set_workspace_share_slug", {
       p_workspace_id: WORKSPACE_ID,
       p_slug: "Fastrepl",
+    });
+  });
+
+  it("sets and clears the workspace logo", async () => {
+    const jpeg = "data:image/jpeg;base64,/9j/4AAQ";
+    const { context: ctx, rpc } = context([
+      {
+        workspace_id: WORKSPACE_ID,
+        workspace_logo_data: jpeg,
+      },
+    ]);
+
+    await expect(setWorkspaceLogo(ctx, WORKSPACE_ID, jpeg)).resolves.toEqual({
+      logoDataUrl: jpeg,
+    });
+    expect(rpc).toHaveBeenCalledWith("set_workspace_logo", {
+      p_workspace_id: WORKSPACE_ID,
+      p_logo_data: jpeg,
+    });
+  });
+
+  it("treats a cleared logo as null rather than a missing row", async () => {
+    const { context: ctx } = context([
+      {
+        workspace_id: WORKSPACE_ID,
+        workspace_logo_data: null,
+      },
+    ]);
+
+    await expect(setWorkspaceLogo(ctx, WORKSPACE_ID, null)).resolves.toEqual({
+      logoDataUrl: null,
     });
   });
 

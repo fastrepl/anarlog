@@ -809,6 +809,10 @@ msgstr "Change photo"
 msgid "Change speaker"
 msgstr "Change speaker"
 
+#: src/settings/team/index.tsx
+msgid "Change workspace logo"
+msgstr "Change workspace logo"
+
 #: src/main/sync-status.tsx
 msgid "Changes stay on this device until you resume sync"
 msgstr "Changes stay on this device until you resume sync"
@@ -3652,6 +3656,10 @@ msgstr "Remove photo"
 #: src/settings/todo/github.tsx
 msgid "Remove repository"
 msgstr "Remove repository"
+
+#: src/settings/team/index.tsx
+msgid "Remove workspace logo"
+msgstr "Remove workspace logo"
 
 #: src/sidebar/folder-materials.tsx
 msgid "Rename"

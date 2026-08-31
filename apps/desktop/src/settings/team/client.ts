@@ -98,6 +98,27 @@ export async function renameWorkspace(
   });
 }
 
+export async function setWorkspaceLogo(
+  context: TeamContext,
+  workspaceId: string,
+  logoDataUrl: string | null,
+) {
+  assertWorkspaceId(workspaceId);
+  const row = rows(
+    await callRpc(context, "set_workspace_logo", {
+      p_workspace_id: workspaceId,
+      p_logo_data: logoDataUrl,
+    }),
+  )[0];
+  if (!row) throw new TeamError();
+  return {
+    logoDataUrl:
+      typeof row.workspace_logo_data === "string"
+        ? row.workspace_logo_data
+        : null,
+  };
+}
+
 export async function listWorkspaceMembers(
   context: TeamContext,
   workspaceId: string,
@@ -495,7 +516,9 @@ export async function listMyWorkspaces(context: TeamContext) {
   // yields the caller's role without needing manager-only RPCs.
   const response = await context.supabase
     .from("workspaces")
-    .select("id,name,kind,owner_user_id,share_slug,workspace_memberships(role)")
+    .select(
+      "id,name,kind,owner_user_id,share_slug,logo_data,workspace_memberships(role)",
+    )
     .eq("kind", "shared");
   if (response.error !== null) throw new TeamError(response.error.message);
   return (response.data ?? []).map((row) => {
@@ -508,6 +531,7 @@ export async function listMyWorkspaces(context: TeamContext) {
       name: text(row.name),
       ownerUserId,
       shareSlug: typeof row.share_slug === "string" ? row.share_slug : null,
+      logoDataUrl: typeof row.logo_data === "string" ? row.logo_data : null,
       role: role(memberships[0]?.role ?? "member"),
       isOwner: ownerUserId === context.session.user.id,
     };

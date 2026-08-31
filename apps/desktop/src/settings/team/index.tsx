@@ -46,6 +46,7 @@ import {
   revokeInvitation,
   rotateWorkspaceScimToken,
   setMemberRole,
+  setWorkspaceLogo,
   setWorkspacePolicy,
   setWorkspaceShareSlug,
   transferOwnership,
@@ -58,6 +59,7 @@ import {
   getTeamSenderName,
   reportWorkspaceInvitation,
 } from "./invitation";
+import { WorkspaceLogoButton } from "./logo-button";
 import { MY_WORKSPACES_QUERY_KEY, useMyWorkspacesWithMirror } from "./mirror";
 
 import { useAuth } from "~/auth";
@@ -172,6 +174,7 @@ export function SettingsTeam() {
             workspaceId={activeId}
             workspaceName={activeWorkspace?.name ?? ""}
             workspaceShareSlug={activeWorkspace?.shareSlug ?? null}
+            workspaceLogoDataUrl={activeWorkspace?.logoDataUrl ?? null}
             workspaceRole={activeWorkspace?.role ?? "member"}
             workspaces={workspaces.data}
             hasProAccess={billing.isPro}
@@ -265,6 +268,7 @@ function WorkspacePanel({
   workspaceId,
   workspaceName,
   workspaceShareSlug,
+  workspaceLogoDataUrl,
   workspaceRole,
   workspaces,
   hasProAccess,
@@ -275,6 +279,7 @@ function WorkspacePanel({
   workspaceId: string;
   workspaceName: string;
   workspaceShareSlug: string | null;
+  workspaceLogoDataUrl: string | null;
   workspaceRole: WorkspaceRole;
   workspaces: { workspaceId: string; name: string }[];
   hasProAccess: boolean;
@@ -393,6 +398,11 @@ function WorkspacePanel({
       renameWorkspace(requireTeamContext(auth), workspaceId, value),
     onSuccess: onWorkspaceRenamed,
   });
+  const setLogo = useMutation({
+    mutationFn: (logoDataUrl: string | null) =>
+      setWorkspaceLogo(requireTeamContext(auth), workspaceId, logoDataUrl),
+    onSuccess: onWorkspaceRenamed,
+  });
   const leave = useMutation({
     mutationFn: () => leaveWorkspace(requireTeamContext(auth), workspaceId),
     onSuccess: onWorkspaceLeft,
@@ -415,6 +425,7 @@ function WorkspacePanel({
     resendInvite.error?.message ??
     transfer.error?.message ??
     rename.error?.message ??
+    setLogo.error?.message ??
     leave.error?.message ??
     destroy.error?.message;
 
@@ -427,9 +438,15 @@ function WorkspacePanel({
   return (
     <div className="flex flex-col gap-4">
       <div className="border-border/60 bg-card/60 flex items-center gap-4 rounded-xl border p-4 shadow-sm">
-        <div className="bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-xl">
-          <Buildings className="size-5" />
-        </div>
+        <WorkspaceLogoButton
+          logoDataUrl={workspaceLogoDataUrl}
+          label={t`Change workspace logo`}
+          removeLabel={t`Remove workspace logo`}
+          canManage={canManage}
+          pending={setLogo.isPending}
+          onUpload={(dataUrl) => setLogo.mutate(dataUrl)}
+          onRemove={() => setLogo.mutate(null)}
+        />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             {isRenaming ? (

@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
       name: string;
       ownerUserId: string;
       shareSlug?: string | null;
+      logoDataUrl?: string | null;
       role: "owner" | "admin" | "member";
     }>,
     isPending: false,
@@ -40,6 +41,9 @@ const mocks = vi.hoisted(() => ({
     }>,
     revokeInvitation: vi.fn(() => Promise.resolve()),
     renameWorkspace: vi.fn(() => Promise.resolve()),
+    setWorkspaceLogo: vi.fn(() =>
+      Promise.resolve({ logoDataUrl: "data:image/jpeg;base64,/9j/4AAQ" }),
+    ),
     getWorkspacePolicy: vi.fn(() =>
       Promise.resolve({
         allowedShareScopes: ["restricted", "workspace", "link", "public"],
@@ -110,6 +114,7 @@ vi.mock("./client", () => ({
   listWorkspaceMembers: () => Promise.resolve(mocks.client.members),
   removeMember: vi.fn(() => Promise.resolve()),
   renameWorkspace: mocks.client.renameWorkspace,
+  setWorkspaceLogo: mocks.client.setWorkspaceLogo,
   revokeInvitation: mocks.client.revokeInvitation,
   setMemberRole: vi.fn(() => Promise.resolve()),
   transferOwnership: vi.fn(() => Promise.resolve()),
@@ -158,12 +163,16 @@ describe("SettingsTeam", () => {
     mocks.client.invitations = [];
     mocks.client.revokeInvitation.mockClear();
     mocks.client.renameWorkspace.mockClear();
+    mocks.client.setWorkspaceLogo.mockClear();
     mocks.client.getWorkspacePolicy.mockClear();
     mocks.client.setWorkspaceShareSlug.mockClear();
     mocks.invitation.deliverWorkspaceInvitation.mockClear();
   });
 
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   it("offers an upgrade instead of Team controls on the free plan", () => {
     renderTeam();
@@ -205,6 +214,9 @@ describe("SettingsTeam", () => {
     ).toBeTruthy();
     expect(screen.queryByText("Anarlog Pro required")).toBeNull();
     expect(screen.queryByRole("textbox")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Change workspace logo" }),
+    ).toBeNull();
   });
 
   it("renames the workspace through the edit button", async () => {
@@ -236,6 +248,93 @@ describe("SettingsTeam", () => {
     expect(
       screen.queryByRole("textbox", { name: "Workspace name" }),
     ).toBeNull();
+  });
+
+  it("uploads a workspace logo from the identity tile", async () => {
+    mocks.billing.isPro = true;
+    mocks.workspaces.data = [
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        name: "Fastrepl",
+        ownerUserId: "user-1",
+        role: "owner",
+      },
+    ];
+    const jpeg = "data:image/jpeg;base64,/9j/4AAQ";
+    const context = {
+      drawImage: vi.fn(),
+      fillRect: vi.fn(),
+      fillStyle: "",
+      imageSmoothingQuality: "low",
+    };
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:logo"),
+      revokeObjectURL: vi.fn(),
+    });
+    vi.stubGlobal(
+      "Image",
+      class {
+        naturalHeight = 128;
+        naturalWidth = 128;
+        onerror: (() => void) | null = null;
+        onload: (() => void) | null = null;
+
+        set src(_value: string) {
+          queueMicrotask(() => this.onload?.());
+        }
+      },
+    );
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      context as unknown as CanvasRenderingContext2D,
+    );
+    vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue(jpeg);
+
+    const { container } = renderTeam();
+    const input =
+      container.querySelector<HTMLInputElement>('input[type="file"]');
+    expect(input).not.toBeNull();
+    if (!input) return;
+
+    fireEvent.change(input, {
+      target: {
+        files: [new File(["logo"], "logo.png", { type: "image/png" })],
+      },
+    });
+
+    await waitFor(() =>
+      expect(mocks.client.setWorkspaceLogo).toHaveBeenCalledWith(
+        expect.anything(),
+        "00000000-0000-4000-8000-000000000001",
+        jpeg,
+      ),
+    );
+  });
+
+  it("removes a workspace logo from the identity tile", async () => {
+    mocks.billing.isPro = true;
+    mocks.workspaces.data = [
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        name: "Fastrepl",
+        ownerUserId: "user-1",
+        logoDataUrl: "data:image/jpeg;base64,/9j/4AAQ",
+        role: "owner",
+      },
+    ];
+
+    renderTeam();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove workspace logo" }),
+    );
+
+    await waitFor(() =>
+      expect(mocks.client.setWorkspaceLogo).toHaveBeenCalledWith(
+        expect.anything(),
+        "00000000-0000-4000-8000-000000000001",
+        null,
+      ),
+    );
   });
 
   it("sets the workspace sharing subdomain", async () => {
