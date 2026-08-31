@@ -99,6 +99,7 @@ export function FolderPicker({
         try {
           if (normalized && !folderPaths.includes(normalized)) {
             await createNamedFolder(normalized);
+            setSelectedPath(normalized);
           }
           await updateSession({ folder_id: normalized });
         } catch (error) {
@@ -106,7 +107,7 @@ export function FolderPicker({
         }
       })();
     },
-    [folderId, folderPaths, updateSession],
+    [folderId, folderPaths, setSelectedPath, updateSession],
   );
 
   const handleSeeAllFolders = useCallback(() => {

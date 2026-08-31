@@ -129,6 +129,7 @@ describe("FolderPicker", () => {
 
     expect(mocks.createNamedFolder).toHaveBeenCalledWith("clients");
     await waitFor(() => {
+      expect(mocks.setSelectedPath).toHaveBeenCalledWith("clients");
       expect(mocks.updateSession).toHaveBeenCalledWith({
         folder_id: "clients",
       });
