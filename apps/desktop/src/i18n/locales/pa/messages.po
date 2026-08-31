@@ -1520,10 +1520,8 @@ msgstr ""
 msgid "Could not use the selected model"
 msgstr ""
 
-#: src/folders/folder-editor.tsx
 #: src/folders/sidebar.tsx
 #: src/settings/team/index.tsx
-#: src/sidebar/folder-materials.tsx
 msgid "Create"
 msgstr ""
 
@@ -2102,10 +2100,15 @@ msgstr ""
 msgid "Folder"
 msgstr ""
 
+#: src/folders/folder-editor.tsx
+msgid "Folder actions"
+msgstr ""
+
 #: src/session/folder-instructions.tsx
 msgid "Folder instructions"
 msgstr ""
 
+#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-name-dialog.tsx
 msgid "Folder name"
 msgstr ""
@@ -2901,11 +2904,6 @@ msgstr ""
 msgid "New Note"
 msgstr ""
 
-#: src/folders/folder-editor.tsx
-#: src/sidebar/folder-materials.tsx
-msgid "New subfolder"
-msgstr ""
-
 #: src/session/components/note-input/raw.tsx
 msgid "New template"
 msgstr ""
@@ -3148,7 +3146,7 @@ msgstr ""
 
 #: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
-msgid "Notes stay in All notes. Materials and subfolders will be deleted."
+msgid "Notes stay in All notes. Materials in this folder will be deleted."
 msgstr ""
 
 #. placeholder {0}: latestResult.conflicts
@@ -3691,7 +3689,6 @@ msgstr ""
 msgid "Remove repository"
 msgstr ""
 
-#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Rename"
 msgstr ""
@@ -3700,7 +3697,6 @@ msgstr ""
 msgid "Rename device"
 msgstr ""
 
-#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Rename folder"
 msgstr ""

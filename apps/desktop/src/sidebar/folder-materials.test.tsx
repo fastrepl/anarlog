@@ -148,21 +148,6 @@ describe("FolderMaterialsPanel", () => {
     });
   });
 
-  it("creates a nested subfolder and switches to it", async () => {
-    render(<FolderMaterialsPanel folderPath="CS 101" />);
-
-    fireEvent.click(screen.getByLabelText("New subfolder"));
-    fireEvent.change(screen.getByLabelText("Folder name"), {
-      target: { value: "Week 1" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Create" }));
-
-    await waitFor(() => {
-      expect(mocks.createNamedFolder).toHaveBeenCalledWith("CS 101/Week 1");
-      expect(mocks.setView).toHaveBeenCalledWith("mine", "CS 101/Week 1");
-    });
-  });
-
   it("saves folder instructions when the field blurs", async () => {
     render(<FolderMaterialsPanel folderPath="CS 101" />);
 

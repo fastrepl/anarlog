@@ -1520,10 +1520,8 @@ msgstr "Could not update this person's access."
 msgid "Could not use the selected model"
 msgstr "Could not use the selected model"
 
-#: src/folders/folder-editor.tsx
 #: src/folders/sidebar.tsx
 #: src/settings/team/index.tsx
-#: src/sidebar/folder-materials.tsx
 msgid "Create"
 msgstr "Create"
 
@@ -2102,10 +2100,15 @@ msgstr "Float chat"
 msgid "Folder"
 msgstr "Folder"
 
+#: src/folders/folder-editor.tsx
+msgid "Folder actions"
+msgstr "Folder actions"
+
 #: src/session/folder-instructions.tsx
 msgid "Folder instructions"
 msgstr "Folder instructions"
 
+#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-name-dialog.tsx
 msgid "Folder name"
 msgstr "Folder name"
@@ -2901,11 +2904,6 @@ msgstr "New folder"
 msgid "New Note"
 msgstr "New Note"
 
-#: src/folders/folder-editor.tsx
-#: src/sidebar/folder-materials.tsx
-msgid "New subfolder"
-msgstr "New subfolder"
-
 #: src/session/components/note-input/raw.tsx
 msgid "New template"
 msgstr "New template"
@@ -3148,8 +3146,8 @@ msgstr "Notes list"
 
 #: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
-msgid "Notes stay in All notes. Materials and subfolders will be deleted."
-msgstr "Notes stay in All notes. Materials and subfolders will be deleted."
+msgid "Notes stay in All notes. Materials in this folder will be deleted."
+msgstr "Notes stay in All notes. Materials in this folder will be deleted."
 
 #. placeholder {0}: latestResult.conflicts
 #. placeholder {1}: latestResult.errors
@@ -3691,7 +3689,6 @@ msgstr "Remove photo"
 msgid "Remove repository"
 msgstr "Remove repository"
 
-#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Rename"
 msgstr "Rename"
@@ -3700,7 +3697,6 @@ msgstr "Rename"
 msgid "Rename device"
 msgstr "Rename device"
 
-#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Rename folder"
 msgstr "Rename folder"

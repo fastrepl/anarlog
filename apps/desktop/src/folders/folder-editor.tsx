@@ -1,8 +1,17 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Plus, Trash, X } from "@phosphor-icons/react";
-import { useRef, useState } from "react";
+import { DotsThree, Plus, X } from "@phosphor-icons/react";
+import { useCallback, useRef, useState } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
+import {
+  AppFloatingPanel,
+  appFloatingMenuPanelClassName,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@anlg/ui/components/ui/dropdown-menu";
+import { Input } from "@anlg/ui/components/ui/input";
 import { cn } from "@anlg/utils";
 
 import { useFolderSelection } from "./selection";
@@ -13,18 +22,19 @@ import {
   useFolderMaterials,
 } from "~/session/folder-attachments";
 import {
-  createNamedFolder,
   deleteNamedFolder,
   renameNamedFolder,
   updateFolderIcon,
 } from "~/session/folder-catalog";
+import {
+  DEFAULT_FOLDER_ICON,
+  normalizeFolderIcon,
+} from "~/session/folder-icon";
 import { FolderInstructionsField } from "~/session/folder-instructions";
-import { childFolderPath, folderDisplayName } from "~/session/folders";
-import { DEFAULT_FOLDER_ICON, normalizeFolderIcon } from "~/session/folder-icon";
+import { folderDisplayName, normalizeFolderPath } from "~/session/folders";
 import { useFolderIcons } from "~/session/queries";
 import { useFolderMaterialUpload } from "~/shared/hooks/useFileUpload";
 import { DestructiveConfirmationDialog } from "~/shared/ui/destructive-confirmation-dialog";
-import { FolderNameDialog } from "~/sidebar/folder-name-dialog";
 import { TemplateIconPicker } from "~/templates/template-icon-picker";
 
 export function FolderEditor({ folderPath }: { folderPath: string }) {
@@ -35,11 +45,36 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
   const materials = useFolderMaterials(folderPath);
   const upload = useFolderMaterialUpload(folderPath);
   const inputRef = useRef<HTMLInputElement>(null);
+  const skipTitleCommit = useRef(false);
   const [busy, setBusy] = useState(false);
-  const [renaming, setRenaming] = useState(false);
-  const [creatingChild, setCreatingChild] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const displayName = folderDisplayName(folderPath);
+  const [draft, setDraft] = useState(displayName);
+
+  const commitTitle = useCallback(async () => {
+    if (skipTitleCommit.current) {
+      skipTitleCommit.current = false;
+      setDraft(displayName);
+      return;
+    }
+
+    const normalized = normalizeFolderPath(draft.trim());
+    if (!normalized || normalized.includes("/") || normalized === folderPath) {
+      setDraft(displayName);
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const renamed = await renameNamedFolder(folderPath, normalized);
+      setSelectedPath(renamed);
+    } catch {
+      setDraft(displayName);
+    } finally {
+      setBusy(false);
+    }
+  }, [displayName, draft, folderPath, setSelectedPath]);
 
   return (
     <section className="flex h-full flex-1 flex-col" aria-label={folderPath}>
@@ -53,44 +88,64 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
               void updateFolderIcon(folderPath, nextIcon);
             }}
           />
-          <h2
-            className="min-w-0 truncate text-sm font-semibold"
-            title={folderPath}
-          >
-            {displayName}
-          </h2>
+          <div className="relative max-w-full min-w-0">
+            <span
+              aria-hidden="true"
+              className="invisible block px-0 py-0 text-sm font-semibold whitespace-pre"
+            >
+              {(draft || t`Folder name`) + " "}
+            </span>
+            <Input
+              value={draft}
+              disabled={busy}
+              aria-label={t`Folder name`}
+              onChange={(event) => setDraft(event.target.value)}
+              onBlur={() => {
+                void commitTitle();
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.currentTarget.blur();
+                }
+                if (event.key === "Escape") {
+                  skipTitleCommit.current = true;
+                  setDraft(displayName);
+                  event.currentTarget.blur();
+                }
+              }}
+              placeholder={t`Folder name`}
+              className="absolute inset-0 h-auto w-full max-w-full min-w-0 border-0 px-0 py-0 text-sm font-semibold shadow-none focus-visible:ring-0 md:text-sm"
+            />
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-0">
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={busy}
-            onClick={() => setRenaming(true)}
-          >
-            <Trans>Rename</Trans>
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={busy}
-            onClick={() => setCreatingChild(true)}
-          >
-            <Trans>New subfolder</Trans>
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={busy}
-            className="text-destructive hover:text-destructive"
-            onClick={() => setDeleting(true)}
-          >
-            <Trash className="size-3.5" />
-            <Trans>Delete</Trans>
-          </Button>
-        </div>
+        <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              disabled={busy}
+              className={cn([
+                "text-muted-foreground hover:text-foreground",
+                actionsOpen && "bg-muted text-foreground hover:bg-accent",
+              ])}
+              aria-label={t`Folder actions`}
+            >
+              <DotsThree className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent variant="app" align="end">
+            <AppFloatingPanel className={appFloatingMenuPanelClassName}>
+              <DropdownMenuItem
+                disabled={busy}
+                onClick={() => setDeleting(true)}
+                className="cursor-pointer text-red-600 focus:text-red-600"
+              >
+                <Trans>Delete</Trans>
+              </DropdownMenuItem>
+            </AppFloatingPanel>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="scrollbar-hide flex-1 overflow-y-auto px-6 pt-3 pb-6">
@@ -194,38 +249,13 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
         </div>
       </div>
 
-      <FolderNameDialog
-        open={renaming}
-        title={t`Rename folder`}
-        confirmLabel={t`Rename`}
-        initialValue={folderPath}
-        onOpenChange={setRenaming}
-        onSubmit={async (nextPath) => {
-          const renamed = await renameNamedFolder(folderPath, nextPath);
-          setSelectedPath(renamed);
-        }}
-      />
-      <FolderNameDialog
-        open={creatingChild}
-        title={t`New subfolder`}
-        confirmLabel={t`Create`}
-        onOpenChange={setCreatingChild}
-        onSubmit={async (name) => {
-          const nested = childFolderPath(folderPath, name);
-          if (!nested) {
-            throw new Error("invalid folder path");
-          }
-          const created = await createNamedFolder(nested);
-          setSelectedPath(created);
-        }}
-      />
       <DestructiveConfirmationDialog
         open={deleting}
         onOpenChange={setDeleting}
         title={<Trans>Delete folder</Trans>}
         description={
           <Trans>
-            Notes stay in All notes. Materials and subfolders will be deleted.
+            Notes stay in All notes. Materials in this folder will be deleted.
           </Trans>
         }
         confirmLabel={<Trans>Delete folder</Trans>}

@@ -1,11 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import {
-  FolderSimplePlus,
-  PencilSimple,
-  Plus,
-  Trash,
-  X,
-} from "@phosphor-icons/react";
+import { PencilSimple, Plus, Trash, X } from "@phosphor-icons/react";
 import { useRef, useState } from "react";
 
 import { cn } from "@anlg/utils";
@@ -18,13 +12,8 @@ import {
   diskAttachmentId,
   useFolderMaterials,
 } from "~/session/folder-attachments";
-import {
-  createNamedFolder,
-  deleteNamedFolder,
-  renameNamedFolder,
-} from "~/session/folder-catalog";
+import { deleteNamedFolder, renameNamedFolder } from "~/session/folder-catalog";
 import { FolderInstructionsField } from "~/session/folder-instructions";
-import { childFolderPath } from "~/session/folders";
 import { useFolderMaterialUpload } from "~/shared/hooks/useFileUpload";
 import { DestructiveConfirmationDialog } from "~/shared/ui/destructive-confirmation-dialog";
 
@@ -35,7 +24,6 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [renaming, setRenaming] = useState(false);
-  const [creatingChild, setCreatingChild] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const setView = useSidebarNotes((state) => state.setView);
 
@@ -52,19 +40,6 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
           >
             {folderPath}
           </span>
-          <button
-            type="button"
-            aria-label={t`New subfolder`}
-            disabled={busy}
-            className={cn([
-              "text-muted-foreground hover:bg-accent hover:text-foreground flex size-6 items-center justify-center rounded-full",
-              "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
-              "disabled:opacity-50",
-            ])}
-            onClick={() => setCreatingChild(true)}
-          >
-            <FolderSimplePlus size={14} />
-          </button>
           <button
             type="button"
             aria-label={t`Rename folder`}
@@ -187,27 +162,13 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
           setView("mine", renamed);
         }}
       />
-      <FolderNameDialog
-        open={creatingChild}
-        title={t`New subfolder`}
-        confirmLabel={t`Create`}
-        onOpenChange={setCreatingChild}
-        onSubmit={async (name) => {
-          const nested = childFolderPath(folderPath, name);
-          if (!nested) {
-            throw new Error("invalid folder path");
-          }
-          const created = await createNamedFolder(nested);
-          setView("mine", created);
-        }}
-      />
       <DestructiveConfirmationDialog
         open={deleting}
         onOpenChange={setDeleting}
         title={<Trans>Delete folder</Trans>}
         description={
           <Trans>
-            Notes stay in All notes. Materials and subfolders will be deleted.
+            Notes stay in All notes. Materials in this folder will be deleted.
           </Trans>
         }
         confirmLabel={<Trans>Delete folder</Trans>}

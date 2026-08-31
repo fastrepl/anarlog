@@ -150,9 +150,15 @@ describe("Folders workspace", () => {
 
     render(<FoldersWorkspace />);
 
-    expect(screen.getByRole("heading", { name: "CS 101" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Folder name" })).toHaveProperty(
+      "value",
+      "CS 101",
+    );
     fireEvent.click(screen.getByRole("button", { name: "Work" }));
-    expect(screen.getByRole("heading", { name: "Work" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Folder name" })).toHaveProperty(
+      "value",
+      "Work",
+    );
 
     fireEvent.change(screen.getByLabelText("Folder instructions"), {
       target: { value: "Prefer the syllabus." },
@@ -188,6 +194,40 @@ describe("Folders workspace", () => {
 
     expect(screen.getByRole("button", { name: "Work" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "CS 101" })).toBeNull();
+  });
+
+  it("renames the folder from the title field", async () => {
+    mocks.folders = ["Work"];
+
+    render(<FoldersWorkspace />);
+
+    const title = screen.getByRole("textbox", { name: "Folder name" });
+    fireEvent.change(title, { target: { value: "Algorithms" } });
+    fireEvent.blur(title);
+
+    await waitFor(() => {
+      expect(mocks.renameNamedFolder).toHaveBeenCalledWith(
+        "Work",
+        "Algorithms",
+      );
+    });
+  });
+
+  it("deletes the folder from the actions menu", async () => {
+    mocks.folders = ["Work"];
+
+    render(<FoldersWorkspace />);
+
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: "Folder actions" }),
+      { button: 0, ctrlKey: false },
+    );
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete folder" }));
+
+    await waitFor(() => {
+      expect(mocks.deleteNamedFolder).toHaveBeenCalledWith("Work");
+    });
   });
 
   it("saves a folder icon from the header picker", async () => {

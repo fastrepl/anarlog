@@ -8,8 +8,8 @@ import { cn } from "@anlg/utils";
 import { useActiveFolderPath, useFolderSelection } from "./selection";
 
 import { createNamedFolder } from "~/session/folder-catalog";
-import { folderDisplayName } from "~/session/folders";
 import { DEFAULT_FOLDER_ICON } from "~/session/folder-icon";
+import { folderDisplayName } from "~/session/folders";
 import { useFolderIcons, useFolderPaths } from "~/session/queries";
 import { CustomSidebarHeader } from "~/sidebar/custom-sidebar-header";
 import { FolderNameDialog } from "~/sidebar/folder-name-dialog";
@@ -96,17 +96,17 @@ export function FoldersSidebar() {
               className="text-muted-foreground/70 mx-auto mb-2"
             />
             <p className="text-sm">
-              {search ? <Trans>No folders found</Trans> : <Trans>No folders yet</Trans>}
+              {search ? (
+                <Trans>No folders found</Trans>
+              ) : (
+                <Trans>No folders yet</Trans>
+              )}
             </p>
           </div>
         ) : (
           <ul className="flex flex-col">
             {filteredFolders.map((folder) => {
-              const depth = search.trim() ? 0 : folder.split("/").length - 1;
               const selected = folder === activeFolder;
-              const label = search.trim()
-                ? folder
-                : folderDisplayName(folder);
               return (
                 <li key={folder}>
                   <button
@@ -115,19 +115,20 @@ export function FoldersSidebar() {
                     aria-current={selected ? "page" : undefined}
                     onClick={() => setSelectedPath(folder)}
                     className={cn([
-                      "w-full rounded-lg py-2 text-left text-sm transition-colors select-none",
+                      "w-full rounded-lg px-3 py-2 text-left text-sm transition-colors select-none",
                       selected
                         ? "bg-accent font-medium"
                         : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
                     ])}
-                    style={{ paddingLeft: `${12 + depth * 12}px` }}
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       <TemplateIconGlyph
                         icon={icons[folder] ?? DEFAULT_FOLDER_ICON}
                         className="size-4 text-sm"
                       />
-                      <span className="min-w-0 truncate">{label}</span>
+                      <span className="min-w-0 truncate">
+                        {folderDisplayName(folder)}
+                      </span>
                     </span>
                   </button>
                 </li>
