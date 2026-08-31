@@ -555,7 +555,7 @@ export function MeetingImportScreen({
                               className={cn([
                                 "rounded-none border-0 shadow-none",
                                 signedIn &&
-                                  "hover:bg-primary/90 bg-transparent",
+                                  "hover:bg-primary-foreground/10 bg-transparent",
                                 !signedIn &&
                                   "group/sign-in bg-muted hover:bg-primary hover:text-primary-foreground focus-visible:bg-primary focus-visible:text-primary-foreground",
                               ])}
@@ -623,7 +623,7 @@ export function MeetingImportScreen({
                                     "relative w-6 rounded-none border-0 px-0 shadow-none",
                                     "before:absolute before:inset-y-1.5 before:left-0 before:w-px",
                                     signedIn
-                                      ? "hover:bg-primary/90 before:bg-primary-foreground/20 bg-transparent"
+                                      ? "hover:bg-primary-foreground/10 before:bg-primary-foreground/20 bg-transparent"
                                       : "bg-muted before:bg-border",
                                   ])}
                                 >

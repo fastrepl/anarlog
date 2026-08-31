@@ -202,9 +202,15 @@ describe("MeetingImportScreen", () => {
     expect(
       screen.getAllByRole("button", { name: "Connect & import" }),
     ).toHaveLength(3);
+    expect(
+      screen.getAllByRole("button", { name: "Connect & import" })[0]?.className,
+    ).toContain("hover:bg-primary-foreground/10");
     expect(screen.getAllByRole("button", { name: "Use files" })).toHaveLength(
       3,
     );
+    expect(
+      screen.getAllByRole("button", { name: "Use files" })[0]?.className,
+    ).toContain("hover:bg-primary-foreground/10");
     expect(screen.queryByRole("menuitem", { name: "Use files" })).toBeNull();
     expect(
       screen.getAllByRole("button", { name: "Choose files" }),
