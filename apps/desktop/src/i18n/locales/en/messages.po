@@ -3144,10 +3144,11 @@ msgstr "Notes"
 msgid "Notes list"
 msgstr "Notes list"
 
+#. js-lingui-explicit-id
 #: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Notes stay in All notes. Materials in this folder will be deleted."
-msgstr "Notes stay in All notes. Materials in this folder will be deleted."
+msgstr "Notes stay in All notes. This folder, its nested folders, and all their materials will be deleted."
 
 #. placeholder {0}: latestResult.conflicts
 #. placeholder {1}: latestResult.errors
