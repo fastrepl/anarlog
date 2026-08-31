@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { DotsThree, Plus, X } from "@phosphor-icons/react";
+import { DotsThree, File, Plus, X } from "@phosphor-icons/react";
 import { useCallback, useRef, useState } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
@@ -169,70 +169,68 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
         </DropdownMenu>
       </div>
 
-      <div className="scrollbar-hide flex-1 overflow-y-auto px-6 pt-3 pb-6">
+      <div className="scrollbar-hide flex-1 overflow-y-auto px-3 pt-3 pb-6">
         <div className="flex max-w-2xl flex-col gap-6">
           <div className="flex flex-col gap-1.5">
             <h4 className="text-sm font-medium">
-              <Trans>Instructions</Trans>
+              <Trans>Context</Trans>
             </h4>
             <p className="text-muted-foreground text-xs">
-              <Trans>
-                Tell chat how to use notes and materials in this folder.
-              </Trans>
+              <Trans>What these notes are usually about</Trans>
             </p>
             <FolderInstructionsField folderPath={folderPath} rows={4} />
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center gap-1">
-              <h4 className="min-w-0 flex-1 text-sm font-medium">
-                <Trans>Materials</Trans>
-              </h4>
-              <button
-                type="button"
-                aria-label={t`Add material`}
-                disabled={busy}
-                className={cn([
-                  "text-muted-foreground hover:bg-accent hover:text-foreground flex size-7 items-center justify-center rounded-full",
-                  "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
-                  "disabled:opacity-50",
-                ])}
-                onClick={() => inputRef.current?.click()}
-              >
-                <Plus size={14} />
-              </button>
-              <input
-                ref={inputRef}
-                type="file"
-                className="hidden"
-                onChange={async (event) => {
-                  const file = event.target.files?.[0];
-                  event.target.value = "";
-                  if (!file) {
-                    return;
-                  }
-                  setBusy(true);
-                  try {
-                    await upload(file);
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-              />
-            </div>
-            {materials.length === 0 ? (
-              <p className="text-muted-foreground text-xs">
-                <Trans>Add a syllabus or PDF for this folder</Trans>
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-1">
-                {materials.map((material) => (
-                  <li
-                    key={material.id}
-                    className="flex min-w-0 items-center gap-1 text-sm"
-                  >
+          <div className="flex flex-col gap-2">
+            <h4 className="text-sm font-medium">
+              <Trans>Materials</Trans>
+            </h4>
+            <input
+              ref={inputRef}
+              type="file"
+              className="hidden"
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (!file) {
+                  return;
+                }
+                setBusy(true);
+                try {
+                  await upload(file);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            />
+            <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <li>
+                <button
+                  type="button"
+                  disabled={busy}
+                  className={cn([
+                    "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
+                    "flex aspect-[4/3] w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed",
+                    "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
+                    "disabled:opacity-50",
+                  ])}
+                  onClick={() => inputRef.current?.click()}
+                >
+                  <Plus className="size-6" />
+                  <span className="text-xs font-medium">
+                    <Trans>Add file</Trans>
+                  </span>
+                </button>
+              </li>
+              {materials.map((material) => (
+                <li key={material.id}>
+                  <div className="border-border relative flex aspect-[4/3] flex-col items-center justify-center gap-1.5 rounded-lg border px-3 py-2">
+                    <File
+                      className="text-muted-foreground size-6 shrink-0"
+                      aria-hidden
+                    />
                     <span
-                      className="min-w-0 flex-1 truncate"
+                      className="w-full truncate text-center text-xs"
                       title={material.filename}
                     >
                       {material.filename}
@@ -242,7 +240,8 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
                       aria-label={t`Remove ${material.filename}`}
                       disabled={busy}
                       className={cn([
-                        "text-muted-foreground hover:bg-accent hover:text-foreground flex size-6 items-center justify-center rounded-full",
+                        "text-muted-foreground hover:bg-accent hover:text-foreground",
+                        "absolute top-1.5 right-1.5 flex size-6 items-center justify-center rounded-full",
                         "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
                         "disabled:opacity-50",
                       ])}
@@ -262,10 +261,10 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
                     >
                       <X size={12} />
                     </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </div>

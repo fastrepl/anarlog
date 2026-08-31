@@ -216,7 +216,6 @@ msgstr "Add a dated update to the selected Notion page."
 msgid "Add a payment method before it ends to keep using Pro without an interruption."
 msgstr "Add a payment method before it ends to keep using Pro without an interruption."
 
-#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Add a syllabus or PDF for this folder"
 msgstr "Add a syllabus or PDF for this folder"
@@ -257,6 +256,10 @@ msgstr "Add at least one configured action before enabling."
 msgid "Add at least one example summary."
 msgstr "Add at least one example summary."
 
+#: src/session/folder-instructions.tsx
+msgid "Add context for this folder"
+msgstr "Add context for this folder"
+
 #: src/settings/sync/index.tsx
 msgid "Add device"
 msgstr "Add device"
@@ -265,11 +268,14 @@ msgstr "Add device"
 msgid "Add example"
 msgstr "Add example"
 
+#: src/folders/folder-editor.tsx
+msgid "Add file"
+msgstr "Add file"
+
 #: src/settings/general/spoken-languages.tsx
 msgid "Add language"
 msgstr "Add language"
 
-#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Add material"
 msgstr "Add material"
@@ -1324,6 +1330,10 @@ msgstr "Contact options"
 msgid "Contacts"
 msgstr "Contacts"
 
+#: src/folders/folder-editor.tsx
+msgid "Context"
+msgstr "Context"
+
 #: src/imports/screen.tsx
 #: src/onboarding/calendar.tsx
 msgid "Continue"
@@ -2105,8 +2115,8 @@ msgid "Folder actions"
 msgstr "Folder actions"
 
 #: src/session/folder-instructions.tsx
-msgid "Folder instructions"
-msgstr "Folder instructions"
+msgid "Folder context"
+msgstr "Folder context"
 
 #: src/folders/folder-editor.tsx
 #: src/sidebar/folder-name-dialog.tsx
@@ -2293,10 +2303,6 @@ msgstr "Hide sync log"
 msgid "History {0}/{1}"
 msgstr "History {0}/{1}"
 
-#: src/session/folder-instructions.tsx
-msgid "How chat should use notes in this folder"
-msgstr "How chat should use notes in this folder"
-
 #: src/settings/ai/llm/subscriptions/connect.tsx
 msgid "How to get a Kimi Code key"
 msgstr "How to get a Kimi Code key"
@@ -2389,10 +2395,6 @@ msgstr "Install to all agents"
 #: src/settings/developers/cli.tsx
 msgid "Installed"
 msgstr "Installed"
-
-#: src/folders/folder-editor.tsx
-msgid "Instructions"
-msgstr "Instructions"
 
 #: src/settings/ai/llm/index.tsx
 #: src/sidebar/settings.tsx
@@ -4786,10 +4788,6 @@ msgstr "Team"
 msgid "teammate@company.com"
 msgstr "teammate@company.com"
 
-#: src/folders/folder-editor.tsx
-msgid "Tell chat how to use notes and materials in this folder."
-msgstr "Tell chat how to use notes and materials in this folder."
-
 #: src/settings/general/meeting-settings.tsx
 msgid "Tell participants when listening starts; this does not confirm consent."
 msgstr "Tell participants when listening starts; this does not confirm consent."
@@ -5333,6 +5331,10 @@ msgstr "Welcome to Anarlog"
 #: src/chat/components/body/empty.tsx
 msgid "What are my action items from this meeting?"
 msgstr "What are my action items from this meeting?"
+
+#: src/folders/folder-editor.tsx
+msgid "What these notes are usually about"
+msgstr "What these notes are usually about"
 
 #: src/chat/components/body/empty.tsx
 msgid "What were the key decisions that have been made?"

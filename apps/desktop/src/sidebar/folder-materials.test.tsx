@@ -148,13 +148,13 @@ describe("FolderMaterialsPanel", () => {
     });
   });
 
-  it("saves folder instructions when the field blurs", async () => {
+  it("saves folder context when the field blurs", async () => {
     render(<FolderMaterialsPanel folderPath="CS 101" />);
 
-    fireEvent.change(screen.getByLabelText("Folder instructions"), {
+    fireEvent.change(screen.getByLabelText("Folder context"), {
       target: { value: "Prefer the syllabus." },
     });
-    fireEvent.blur(screen.getByLabelText("Folder instructions"));
+    fireEvent.blur(screen.getByLabelText("Folder context"));
 
     await waitFor(() => {
       expect(mocks.updateFolderInstructions).toHaveBeenCalledWith(

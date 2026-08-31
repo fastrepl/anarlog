@@ -216,7 +216,6 @@ msgstr ""
 msgid "Add a payment method before it ends to keep using Pro without an interruption."
 msgstr ""
 
-#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Add a syllabus or PDF for this folder"
 msgstr ""
@@ -257,6 +256,10 @@ msgstr ""
 msgid "Add at least one example summary."
 msgstr ""
 
+#: src/session/folder-instructions.tsx
+msgid "Add context for this folder"
+msgstr ""
+
 #: src/settings/sync/index.tsx
 msgid "Add device"
 msgstr ""
@@ -265,11 +268,14 @@ msgstr ""
 msgid "Add example"
 msgstr ""
 
+#: src/folders/folder-editor.tsx
+msgid "Add file"
+msgstr ""
+
 #: src/settings/general/spoken-languages.tsx
 msgid "Add language"
 msgstr "Dil goşuň"
 
-#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Add material"
 msgstr ""
@@ -1324,6 +1330,10 @@ msgstr ""
 msgid "Contacts"
 msgstr ""
 
+#: src/folders/folder-editor.tsx
+msgid "Context"
+msgstr ""
+
 #: src/imports/screen.tsx
 #: src/onboarding/calendar.tsx
 msgid "Continue"
@@ -2105,7 +2115,7 @@ msgid "Folder actions"
 msgstr ""
 
 #: src/session/folder-instructions.tsx
-msgid "Folder instructions"
+msgid "Folder context"
 msgstr ""
 
 #: src/folders/folder-editor.tsx
@@ -2293,10 +2303,6 @@ msgstr ""
 msgid "History {0}/{1}"
 msgstr ""
 
-#: src/session/folder-instructions.tsx
-msgid "How chat should use notes in this folder"
-msgstr ""
-
 #: src/settings/ai/llm/subscriptions/connect.tsx
 msgid "How to get a Kimi Code key"
 msgstr ""
@@ -2388,10 +2394,6 @@ msgstr ""
 
 #: src/settings/developers/cli.tsx
 msgid "Installed"
-msgstr ""
-
-#: src/folders/folder-editor.tsx
-msgid "Instructions"
 msgstr ""
 
 #: src/settings/ai/llm/index.tsx
@@ -4786,10 +4788,6 @@ msgstr ""
 msgid "teammate@company.com"
 msgstr ""
 
-#: src/folders/folder-editor.tsx
-msgid "Tell chat how to use notes and materials in this folder."
-msgstr ""
-
 #: src/settings/general/meeting-settings.tsx
 msgid "Tell participants when listening starts; this does not confirm consent."
 msgstr ""
@@ -5332,6 +5330,10 @@ msgstr ""
 
 #: src/chat/components/body/empty.tsx
 msgid "What are my action items from this meeting?"
+msgstr ""
+
+#: src/folders/folder-editor.tsx
+msgid "What these notes are usually about"
 msgstr ""
 
 #: src/chat/components/body/empty.tsx

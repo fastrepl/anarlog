@@ -136,7 +136,7 @@ describe("Folders workspace", () => {
     });
   });
 
-  it("edits instructions and materials for the selected folder", async () => {
+  it("edits context and materials for the selected folder", async () => {
     mocks.folders = ["CS 101", "Work"];
     mocks.materials = [
       {
@@ -160,10 +160,10 @@ describe("Folders workspace", () => {
       "Work",
     );
 
-    fireEvent.change(screen.getByLabelText("Folder instructions"), {
+    fireEvent.change(screen.getByLabelText("Folder context"), {
       target: { value: "Prefer the syllabus." },
     });
-    fireEvent.blur(screen.getByLabelText("Folder instructions"));
+    fireEvent.blur(screen.getByLabelText("Folder context"));
 
     await waitFor(() => {
       expect(mocks.updateFolderInstructions).toHaveBeenCalledWith(
@@ -172,8 +172,12 @@ describe("Folders workspace", () => {
       );
     });
 
+    expect(screen.getByText("Context")).toBeTruthy();
+    expect(screen.getByText("What these notes are usually about")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add file" })).toBeTruthy();
     expect(screen.getByText("syllabus.pdf")).toBeTruthy();
     const file = new File(["week 1"], "notes.txt", { type: "text/plain" });
+    fireEvent.click(screen.getByRole("button", { name: "Add file" }));
     fireEvent.change(document.querySelector('input[type="file"]')!, {
       target: { files: [file] },
     });
@@ -200,6 +204,11 @@ describe("Folders workspace", () => {
     mocks.folders = ["Work"];
 
     render(<FoldersWorkspace />);
+
+    expect(screen.getByRole("button", { name: "Add file" })).toBeTruthy();
+    expect(
+      screen.queryByText("Add a syllabus or PDF for this folder"),
+    ).toBeNull();
 
     const title = screen.getByRole("textbox", { name: "Folder name" });
     fireEvent.change(title, { target: { value: "Algorithms" } });

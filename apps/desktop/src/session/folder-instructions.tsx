@@ -25,14 +25,16 @@ export function FolderInstructionsField({
 
   return (
     <textarea
-      aria-label={t`Folder instructions`}
+      aria-label={t`Folder context`}
       value={value}
-      placeholder={t`How chat should use notes in this folder`}
+      placeholder={t`Add context for this folder`}
       rows={rows}
       className={cn([
-        "border-border/60 placeholder:text-muted-foreground w-full resize-none rounded-md border bg-transparent px-1.5 py-1",
+        "border-border/60 placeholder:text-muted-foreground w-full resize-none rounded-md border bg-transparent",
         "focus-visible:ring-ring focus-visible:ring-1 focus-visible:outline-hidden",
-        rows > 2 ? "text-sm leading-5" : "text-[11px] leading-4",
+        rows > 2
+          ? "px-3 py-2.5 text-sm leading-5"
+          : "px-1.5 py-1 text-[11px] leading-4",
       ])}
       onChange={(event) => setValue(event.target.value)}
       onBlur={() => {
