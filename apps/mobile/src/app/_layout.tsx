@@ -218,8 +218,7 @@ function RootLayout() {
     CaveatSemiBold: require("../../assets/fonts/Caveat-SemiBold.ttf"),
   });
 
-  if (fontError) throw fontError;
-  if (!fontsLoaded) return <BrandLoadingView />;
+  if (!fontsLoaded && !fontError) return <BrandLoadingView />;
 
   return (
     <GestureHandlerRootView style={styles.root}>

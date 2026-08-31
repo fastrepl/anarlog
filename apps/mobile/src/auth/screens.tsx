@@ -68,12 +68,7 @@ export function SignInScreen({
         testID="sign-in-methods"
       >
         <RNHostView matchContents>
-          <View
-            style={[
-              styles.signInMethodList,
-              { width: Math.min(width - Spacing.md * 2, 480) },
-            ]}
-          >
+          <View style={[styles.signInMethodList, { width }]}>
             <Button
               label="Sign in with Apple"
               onPress={() => onSignIn("apple")}
@@ -322,6 +317,7 @@ const styles = StyleSheet.create({
   },
   signInMethodList: {
     gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.md,
   },
   signInMethod: {
