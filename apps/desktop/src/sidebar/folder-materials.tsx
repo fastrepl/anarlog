@@ -168,7 +168,8 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
         title={<Trans>Delete folder</Trans>}
         description={
           <Trans>
-            Notes stay in All notes. Materials in this folder will be deleted.
+            Notes stay in All notes. This folder, its nested folders, and all
+            their materials will be deleted.
           </Trans>
         }
         confirmLabel={<Trans>Delete folder</Trans>}

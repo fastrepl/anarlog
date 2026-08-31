@@ -253,6 +253,11 @@ describe("Folders workspace", () => {
       { button: 0, ctrlKey: false },
     );
     fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
+    expect(
+      screen.getByText(
+        "Notes stay in All notes. This folder, its nested folders, and all their materials will be deleted.",
+      ),
+    ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Delete folder" }));
 
     await waitFor(() => {
