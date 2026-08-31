@@ -13,7 +13,22 @@ const mocks = vi.hoisted(() => ({
   createNamedFolder: vi.fn(() => Promise.resolve("clients")),
   folderId: "",
   folderPaths: [] as string[],
+  openNew: vi.fn(),
+  setSelectedPath: vi.fn(),
   updateSession: vi.fn(() => Promise.resolve()),
+}));
+
+vi.mock("~/folders/selection", () => ({
+  useFolderSelection: (
+    selector: (state: {
+      setSelectedPath: typeof mocks.setSelectedPath;
+    }) => unknown,
+  ) => selector({ setSelectedPath: mocks.setSelectedPath }),
+}));
+
+vi.mock("~/store/zustand/tabs", () => ({
+  useTabs: (selector: (state: { openNew: typeof mocks.openNew }) => unknown) =>
+    selector({ openNew: mocks.openNew }),
 }));
 
 vi.mock("~/session/folder-catalog", () => ({
@@ -31,6 +46,8 @@ describe("FolderPicker", () => {
     mocks.folderId = "";
     mocks.folderPaths = ["personal", "work"];
     mocks.createNamedFolder.mockClear();
+    mocks.openNew.mockClear();
+    mocks.setSelectedPath.mockClear();
     mocks.updateSession.mockClear();
     mocks.createNamedFolder.mockResolvedValue("clients");
     globalThis.ResizeObserver = class {
@@ -157,5 +174,17 @@ describe("FolderPicker", () => {
     fireEvent.click(screen.getByRole("option", { name: "work" }));
 
     expect(mocks.updateSession).toHaveBeenCalledWith({ folder_id: "work" });
+  });
+
+  it("opens the folders workspace from see all folders", () => {
+    mocks.folderId = "work";
+
+    render(<FolderPicker sessionId="session-1" />);
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Folder: work" }));
+    fireEvent.click(screen.getByRole("button", { name: "See all folders" }));
+
+    expect(mocks.setSelectedPath).toHaveBeenCalledWith("work");
+    expect(mocks.openNew).toHaveBeenCalledWith({ type: "folders" });
   });
 });
