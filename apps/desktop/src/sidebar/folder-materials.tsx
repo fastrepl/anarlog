@@ -6,7 +6,7 @@ import {
   Trash,
   X,
 } from "@phosphor-icons/react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { cn } from "@anlg/utils";
 
@@ -22,9 +22,8 @@ import {
   createNamedFolder,
   deleteNamedFolder,
   renameNamedFolder,
-  updateFolderInstructions,
-  useFolderInstructions,
 } from "~/session/folder-catalog";
+import { FolderInstructionsField } from "~/session/folder-instructions";
 import { childFolderPath } from "~/session/folders";
 import { useFolderMaterialUpload } from "~/shared/hooks/useFileUpload";
 import { DestructiveConfirmationDialog } from "~/shared/ui/destructive-confirmation-dialog";
@@ -93,7 +92,9 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
             <Trash size={14} />
           </button>
         </div>
-        <FolderInstructionsField folderPath={folderPath} />
+        <div className="mt-1 mb-1.5">
+          <FolderInstructionsField folderPath={folderPath} />
+        </div>
         <div className="flex items-center gap-1">
           <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs font-medium">
             <Trans>Materials</Trans>
@@ -225,36 +226,5 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
         }}
       />
     </>
-  );
-}
-
-function FolderInstructionsField({ folderPath }: { folderPath: string }) {
-  const { t } = useLingui();
-  const saved = useFolderInstructions(folderPath);
-  const [value, setValue] = useState(saved);
-
-  useEffect(() => {
-    setValue(saved);
-  }, [folderPath, saved]);
-
-  return (
-    <textarea
-      aria-label={t`Folder instructions`}
-      value={value}
-      placeholder={t`How chat should use notes in this folder`}
-      rows={2}
-      className={cn([
-        "border-border/60 placeholder:text-muted-foreground mt-1 mb-1.5 w-full resize-none rounded-md border bg-transparent px-1.5 py-1",
-        "text-[11px] leading-4",
-        "focus-visible:ring-ring focus-visible:ring-1 focus-visible:outline-hidden",
-      ])}
-      onChange={(event) => setValue(event.target.value)}
-      onBlur={() => {
-        if (value === saved) {
-          return;
-        }
-        void updateFolderInstructions(folderPath, value);
-      }}
-    />
   );
 }

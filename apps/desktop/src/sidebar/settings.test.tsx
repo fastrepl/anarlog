@@ -146,6 +146,7 @@ describe("SettingsNav", () => {
       "Notifications",
       "Workspace",
       "Meetings",
+      "Folders",
       "Calendar",
       "Contacts",
       "Templates",
@@ -237,6 +238,17 @@ describe("SettingsNav", () => {
     expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
       mocks.currentTab,
       { tab: "meetings" },
+    );
+  });
+
+  it("opens Folders inside settings", () => {
+    render(<SettingsNav />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Folders" }));
+
+    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
+      mocks.currentTab,
+      { tab: "folders" },
     );
   });
 
@@ -379,11 +391,16 @@ describe("SettingsNav", () => {
       target: { value: "workspace" },
     });
 
-    ["Meetings", "Calendar", "Contacts", "Templates", "Automations"].forEach(
-      (label) => {
-        expect(screen.getByText(label)).toBeTruthy();
-      },
-    );
+    [
+      "Meetings",
+      "Folders",
+      "Calendar",
+      "Contacts",
+      "Templates",
+      "Automations",
+    ].forEach((label) => {
+      expect(screen.getByText(label)).toBeTruthy();
+    });
     expect(screen.queryByText("Appearance")).toBeNull();
   });
 

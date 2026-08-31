@@ -216,6 +216,7 @@ msgstr ""
 msgid "Add a payment method before it ends to keep using Pro without an interruption."
 msgstr ""
 
+#: src/settings/folders/index.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Add a syllabus or PDF for this folder"
 msgstr ""
@@ -268,6 +269,7 @@ msgstr ""
 msgid "Add language"
 msgstr "Til qo'shish"
 
+#: src/settings/folders/index.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Add material"
 msgstr ""
@@ -815,6 +817,10 @@ msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "Changes stay on this device until you resume sync."
+msgstr ""
+
+#: src/settings/folders/index.tsx
+msgid "Chat follows these instructions for notes in the folder. Add a syllabus or other files as materials."
 msgstr ""
 
 #: src/chat/components/toolbar-controls.tsx
@@ -1513,6 +1519,7 @@ msgstr ""
 msgid "Could not use the selected model"
 msgstr ""
 
+#: src/settings/folders/index.tsx
 #: src/settings/team/index.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Create"
@@ -1626,6 +1633,7 @@ msgstr ""
 
 #: src/contacts/contact-page-header.tsx
 #: src/session/components/outer-header/overflow/delete.tsx
+#: src/settings/folders/index.tsx
 #: src/sidebar/automations.tsx
 #: src/sidebar/timeline/index.tsx
 #: src/templates/sections-editor.tsx
@@ -1661,6 +1669,7 @@ msgstr ""
 msgid "Delete Event"
 msgstr ""
 
+#: src/settings/folders/index.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Delete folder"
 msgstr ""
@@ -2091,7 +2100,7 @@ msgstr ""
 msgid "Folder"
 msgstr ""
 
-#: src/sidebar/folder-materials.tsx
+#: src/session/folder-instructions.tsx
 msgid "Folder instructions"
 msgstr ""
 
@@ -2101,6 +2110,11 @@ msgstr ""
 
 #: src/session/components/folder-picker.tsx
 msgid "Folder: {currentPath}"
+msgstr ""
+
+#: src/settings/folders/index.tsx
+#: src/sidebar/settings.tsx
+msgid "Folders"
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx
@@ -2275,7 +2289,7 @@ msgstr ""
 msgid "History {0}/{1}"
 msgstr ""
 
-#: src/sidebar/folder-materials.tsx
+#: src/session/folder-instructions.tsx
 msgid "How chat should use notes in this folder"
 msgstr ""
 
@@ -2370,6 +2384,10 @@ msgstr ""
 
 #: src/settings/developers/cli.tsx
 msgid "Installed"
+msgstr ""
+
+#: src/settings/folders/index.tsx
+msgid "Instructions"
 msgstr ""
 
 #: src/settings/ai/llm/index.tsx
@@ -2680,6 +2698,7 @@ msgstr ""
 msgid "Match your device"
 msgstr ""
 
+#: src/settings/folders/index.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Materials"
 msgstr ""
@@ -2872,11 +2891,16 @@ msgstr ""
 msgid "New chat"
 msgstr ""
 
+#: src/settings/folders/index.tsx
+msgid "New folder"
+msgstr ""
+
 #: src/main/empty.tsx
 #: src/main/windows-title-bar.tsx
 msgid "New Note"
 msgstr ""
 
+#: src/settings/folders/index.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "New subfolder"
 msgstr ""
@@ -2971,6 +2995,10 @@ msgstr ""
 
 #: src/session/components/folder-picker.tsx
 msgid "No folders yet."
+msgstr ""
+
+#: src/settings/folders/index.tsx
+msgid "No folders yet. Create one to group notes and materials."
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx
@@ -3110,6 +3138,7 @@ msgstr ""
 msgid "Notes list"
 msgstr ""
 
+#: src/settings/folders/index.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Notes stay in All notes. Materials and subfolders will be deleted."
 msgstr ""
@@ -3628,6 +3657,7 @@ msgid "Remove"
 msgstr ""
 
 #. placeholder {0}: material.filename
+#: src/settings/folders/index.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Remove {0}"
 msgstr ""
@@ -3653,6 +3683,7 @@ msgstr ""
 msgid "Remove repository"
 msgstr ""
 
+#: src/settings/folders/index.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Rename"
 msgstr ""
@@ -3661,6 +3692,7 @@ msgstr ""
 msgid "Rename device"
 msgstr ""
 
+#: src/settings/folders/index.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Rename folder"
 msgstr ""
@@ -4739,6 +4771,10 @@ msgstr ""
 
 #: src/settings/team/index.tsx
 msgid "teammate@company.com"
+msgstr ""
+
+#: src/settings/folders/index.tsx
+msgid "Tell chat how to use notes and materials in this folder."
 msgstr ""
 
 #: src/settings/general/meeting-settings.tsx

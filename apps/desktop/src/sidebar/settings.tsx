@@ -9,6 +9,7 @@ import {
   Code,
   DownloadSimple,
   FileText,
+  FolderSimple,
   Gear,
   Lightning,
   type Icon,
@@ -96,6 +97,7 @@ export function SettingsNav() {
       label: t`Workspace`,
       items: [
         { id: "meetings", label: t`Meetings`, icon: VideoCamera },
+        { id: "folders", label: t`Folders`, icon: FolderSimple },
         {
           id: "calendar",
           label: t`Calendar`,
