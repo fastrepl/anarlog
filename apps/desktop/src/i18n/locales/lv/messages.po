@@ -819,10 +819,6 @@ msgstr ""
 msgid "Changes stay on this device until you resume sync."
 msgstr ""
 
-#: src/folders/index.tsx
-msgid "Chat follows these instructions for notes in the folder. Add a syllabus or other files as materials."
-msgstr ""
-
 #: src/chat/components/toolbar-controls.tsx
 msgid "Chat history"
 msgstr ""
@@ -945,6 +941,10 @@ msgstr ""
 msgid "Choose folder"
 msgstr ""
 
+#: src/folders/folder-editor.tsx
+msgid "Choose folder icon"
+msgstr ""
+
 #: src/settings/appearance/app-icon.tsx
 msgid "Choose how Anarlog appears in the Dock."
 msgstr ""
@@ -1007,6 +1007,7 @@ msgstr ""
 
 #: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
+#: src/folders/sidebar.tsx
 #: src/settings/ai/shared/provider-search.tsx
 #: src/sidebar/automations.tsx
 #: src/sidebar/settings.tsx
@@ -2113,7 +2114,6 @@ msgstr ""
 msgid "Folder: {currentPath}"
 msgstr ""
 
-#: src/folders/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Folders"
 msgstr ""
@@ -2987,6 +2987,10 @@ msgstr ""
 
 #: src/settings/automations/starter-config.tsx
 msgid "No folder selected yet."
+msgstr ""
+
+#: src/folders/sidebar.tsx
+msgid "No folders found"
 msgstr ""
 
 #: src/session/components/folder-picker.tsx
@@ -3948,6 +3952,10 @@ msgstr ""
 
 #: src/templates/template-icon-picker.tsx
 msgid "Search emoji..."
+msgstr ""
+
+#: src/folders/sidebar.tsx
+msgid "Search folders..."
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx

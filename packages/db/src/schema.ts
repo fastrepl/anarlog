@@ -398,6 +398,9 @@ export const folders = sqliteTable(
     workspaceId: text("workspace_id").notNull().default(""),
     path: text("path").notNull().default(""),
     instructions: text("instructions").notNull().default(""),
+    iconJson: text("icon_json", { mode: "json" })
+      .notNull()
+      .default('{"type":"icon","value":"folder","color":"#9ca3af"}'),
     createdAt: text("created_at").notNull().default(currentTimestamp),
     updatedAt: text("updated_at").notNull().default(currentTimestamp),
     deletedAt: text("deleted_at"),

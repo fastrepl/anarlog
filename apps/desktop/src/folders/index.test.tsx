@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   deleteLocalFolderMaterial: vi.fn(),
   deleteNamedFolder: vi.fn(),
   folders: [] as string[],
+  icons: {} as Record<string, { type: "icon"; value: string; color: string }>,
   instructions: "",
   materials: [] as Array<{
     id: string;
@@ -22,6 +23,7 @@ const mocks = vi.hoisted(() => ({
     relativePath: string;
   }>,
   renameNamedFolder: vi.fn(),
+  updateFolderIcon: vi.fn(),
   updateFolderInstructions: vi.fn(),
   upload: vi.fn(),
 }));
@@ -39,6 +41,7 @@ vi.mock("@lingui/react/macro", () => ({
 }));
 
 vi.mock("~/session/queries", () => ({
+  useFolderIcons: () => mocks.icons,
   useFolderPaths: () => mocks.folders,
 }));
 
@@ -46,6 +49,7 @@ vi.mock("~/session/folder-catalog", () => ({
   createNamedFolder: mocks.createNamedFolder,
   deleteNamedFolder: mocks.deleteNamedFolder,
   renameNamedFolder: mocks.renameNamedFolder,
+  updateFolderIcon: mocks.updateFolderIcon,
   updateFolderInstructions: mocks.updateFolderInstructions,
   useFolderInstructions: () => mocks.instructions,
 }));
@@ -88,14 +92,17 @@ describe("Folders workspace", () => {
     mocks.deleteLocalFolderMaterial.mockReset();
     mocks.deleteNamedFolder.mockReset();
     mocks.renameNamedFolder.mockReset();
+    mocks.updateFolderIcon.mockReset();
     mocks.updateFolderInstructions.mockReset();
     mocks.upload.mockReset();
     mocks.folders = [];
+    mocks.icons = {};
     mocks.instructions = "";
     mocks.materials = [];
     mocks.createNamedFolder.mockResolvedValue("CS 101");
     mocks.deleteNamedFolder.mockResolvedValue(undefined);
     mocks.renameNamedFolder.mockResolvedValue("Algorithms");
+    mocks.updateFolderIcon.mockResolvedValue(undefined);
     mocks.updateFolderInstructions.mockResolvedValue(undefined);
     mocks.upload.mockResolvedValue({
       path: "/vault/sessions/CS 101/materials/syllabus.pdf",
@@ -167,6 +174,36 @@ describe("Folders workspace", () => {
 
     await waitFor(() => {
       expect(mocks.upload).toHaveBeenCalledWith(file);
+    });
+  });
+
+  it("filters the sidebar by folder name", () => {
+    mocks.folders = ["CS 101", "Work"];
+
+    render(<FoldersWorkspace />);
+
+    fireEvent.change(screen.getByPlaceholderText("Search folders..."), {
+      target: { value: "work" },
+    });
+
+    expect(screen.getByRole("button", { name: "Work" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "CS 101" })).toBeNull();
+  });
+
+  it("saves a folder icon from the header picker", async () => {
+    mocks.folders = ["Work"];
+
+    render(<FoldersWorkspace />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Choose folder icon" }));
+    fireEvent.click(screen.getByRole("button", { name: "target" }));
+
+    await waitFor(() => {
+      expect(mocks.updateFolderIcon).toHaveBeenCalledWith("Work", {
+        type: "icon",
+        value: "target",
+        color: "#9ca3af",
+      });
     });
   });
 });

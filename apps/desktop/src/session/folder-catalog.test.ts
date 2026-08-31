@@ -35,6 +35,7 @@ import {
   deleteNamedFolder,
   ensureFolderCatalog,
   renameNamedFolder,
+  updateFolderIcon,
   updateFolderInstructions,
 } from "./folder-catalog";
 
@@ -145,6 +146,22 @@ describe("folder catalog", () => {
     expect(statements[2].sql).toContain("UPDATE sessions");
     expect(statements[2].sql).toContain("folder_path = ''");
     expect(mocks.deleteFolder).toHaveBeenCalledWith("CS 101");
+  });
+
+  it("saves a folder icon on the catalog row", async () => {
+    await updateFolderIcon("CS 101", {
+      type: "icon",
+      value: "target",
+      color: "#5b67d8",
+    });
+
+    expect(mocks.executeTransaction).toHaveBeenCalledTimes(2);
+    const update = mocks.executeTransaction.mock.calls[1]![0][0];
+    expect(update.sql).toContain("icon_json = ?");
+    expect(update.params).toEqual([
+      '{"type":"icon","value":"target","color":"#5b67d8"}',
+      "CS 101",
+    ]);
   });
 
   it("saves folder chat instructions on the catalog row", async () => {

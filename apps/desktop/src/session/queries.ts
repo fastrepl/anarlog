@@ -19,6 +19,7 @@ export {
 export {
   FOLDER_PATHS_SQL,
   loadSessionSummariesByFolder,
+  useFolderIcons,
   useFolderPaths,
 } from "./queries/folders";
 export type { FolderSessionSummary } from "./queries/folders";
