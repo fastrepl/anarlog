@@ -84,7 +84,7 @@ function ImportSplitButtonGroup({
     <div
       ref={ref}
       className={cn([
-        "w-fit overflow-hidden",
+        "focus-within:ring-ring/50 w-fit overflow-hidden focus-within:ring-[3px]",
         signedIn ? "bg-primary" : "border-input border",
       ])}
     >

@@ -205,6 +205,11 @@ describe("MeetingImportScreen", () => {
     expect(
       screen.getAllByRole("button", { name: "Connect & import" })[0]?.className,
     ).toContain("hover:bg-primary-foreground/10");
+    expect(
+      screen
+        .getAllByRole("button", { name: "Connect & import" })[0]
+        ?.closest('[role="group"]')?.parentElement?.className,
+    ).toContain("focus-within:ring-[3px]");
     expect(screen.getAllByRole("button", { name: "Use files" })).toHaveLength(
       3,
     );
