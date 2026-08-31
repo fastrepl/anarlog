@@ -9,7 +9,10 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import type { BillingInfo } from "@/auth/billing";
 import {
@@ -39,6 +42,7 @@ export function SignInScreen({
 }) {
   const [showSignInMethods, setShowSignInMethods] = useState(false);
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
   return (
     <SafeAreaView style={[styles.safeArea, styles.brandBackground]}>
@@ -68,7 +72,12 @@ export function SignInScreen({
         testID="sign-in-methods"
       >
         <RNHostView matchContents>
-          <View style={[styles.signInMethodList, { width }]}>
+          <View
+            style={[
+              styles.signInMethodList,
+              { width, paddingBottom: Math.max(insets.bottom, Spacing.md) },
+            ]}
+          >
             <Button
               label="Sign in with Apple"
               onPress={() => onSignIn("apple")}
@@ -318,7 +327,6 @@ const styles = StyleSheet.create({
   signInMethodList: {
     gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.md,
   },
   signInMethod: {
     width: "100%",
