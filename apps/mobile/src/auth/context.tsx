@@ -109,6 +109,7 @@ function parseAuthCallbackUrl(
 // Deep links can be delivered twice (auth-session result + Linking event);
 // mirror desktop's 5s dedupe window (apps/desktop/src/auth/deeplink.ts).
 const RECENT_CALLBACK_WINDOW_MS = 5_000;
+const pendingSignInMethodStorageKey = "anarlog:auth:pending-sign-in-method";
 const inFlightTokens = new Map<string, Promise<boolean>>();
 const recentTokens = new Map<string, number>();
 
@@ -225,6 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const identifiedUserIdRef = useRef<string | null>(null);
   const reportedUndecodableUserIdRef = useRef<string | null>(null);
   const billingRefreshRef = useRef<Promise<boolean> | null>(null);
+  const pendingSignInMethodRef = useRef<SignInMethod | null>(null);
   // Prevents double init in React StrictMode (refresh token races)
   const initStartedRef = useRef(false);
 
@@ -281,6 +283,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       active = false;
     };
   });
+
+  const handleCompletedAuthCallback = useCallback(async (url: string) => {
+    const signedIn = await handleAuthCallbackUrl(url);
+    if (!signedIn) return false;
+
+    let signInMethod = pendingSignInMethodRef.current;
+    if (!signInMethod) {
+      try {
+        signInMethod = parseLastSignInMethod(
+          await AsyncStorage.getItem(pendingSignInMethodStorageKey),
+        );
+      } catch (error) {
+        captureOperationalError(error, {
+          operation: "auth_pending_sign_in_method_read",
+          level: "warning",
+        });
+      }
+    }
+    if (!signInMethod) return true;
+
+    pendingSignInMethodRef.current = null;
+    setLastSignInMethod(signInMethod);
+    try {
+      await AsyncStorage.setItem(lastSignInMethodStorageKey, signInMethod);
+      await AsyncStorage.removeItem(pendingSignInMethodStorageKey);
+    } catch (error) {
+      captureOperationalError(error, {
+        operation: "auth_last_sign_in_method_write",
+        level: "warning",
+      });
+    }
+    return true;
+  }, []);
 
   useEffect(() => {
     const client = supabase;
@@ -345,18 +380,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [setSession]);
 
-  useEffect(() => {
+  useMountEffect(() => {
     if (!supabase) {
       return;
     }
 
     const subscription = Linking.addEventListener("url", (event) => {
-      void handleAuthCallbackUrl(event.url);
+      void handleCompletedAuthCallback(event.url);
     });
     void Linking.getInitialURL().then(
       (url) => {
         if (url) {
-          void handleAuthCallbackUrl(url);
+          void handleCompletedAuthCallback(url);
         }
       },
       (error) => {
@@ -370,57 +405,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.remove();
     };
-  }, []);
+  });
 
-  const signIn = useCallback(async (signInMethod: SignInMethod) => {
-    if (!supabase) {
-      return;
-    }
+  const signIn = useCallback(
+    async (signInMethod: SignInMethod) => {
+      if (!supabase) {
+        return;
+      }
 
-    captureAnalytics("auth_started", {
-      method: "browser_handoff",
-      sign_in_method: signInMethod,
-      entry_point: "mobile_sign_in",
-    });
-    try {
-      const result = await WebBrowser.openAuthSessionAsync(
-        buildSignInUrl(env.appUrl, signInMethod),
-        "anarlog://auth/callback",
-      );
-      if (result.type === "success") {
-        const signedIn = await handleAuthCallbackUrl(result.url);
-        if (signedIn) {
-          setLastSignInMethod(signInMethod);
-          await AsyncStorage.setItem(
-            lastSignInMethodStorageKey,
-            signInMethod,
-          ).catch((error) => {
-            captureOperationalError(error, {
-              operation: "auth_last_sign_in_method_write",
-              level: "warning",
-            });
+      captureAnalytics("auth_started", {
+        method: "browser_handoff",
+        sign_in_method: signInMethod,
+        entry_point: "mobile_sign_in",
+      });
+      pendingSignInMethodRef.current = signInMethod;
+      await AsyncStorage.setItem(
+        pendingSignInMethodStorageKey,
+        signInMethod,
+      ).catch((error) => {
+        captureOperationalError(error, {
+          operation: "auth_pending_sign_in_method_write",
+          level: "warning",
+        });
+      });
+      try {
+        const result = await WebBrowser.openAuthSessionAsync(
+          buildSignInUrl(env.appUrl, signInMethod),
+          "anarlog://auth/callback",
+        );
+        if (result.type === "success") {
+          await handleCompletedAuthCallback(result.url);
+        } else {
+          captureAnalytics("auth_failed", {
+            method: "browser_handoff",
+            sign_in_method: signInMethod,
+            failure_stage: "cancelled",
           });
         }
-      } else {
+      } catch (error) {
+        captureOperationalError(error, {
+          operation: "auth_browser_open",
+          tags: { method: "browser_handoff" },
+        });
         captureAnalytics("auth_failed", {
           method: "browser_handoff",
           sign_in_method: signInMethod,
-          failure_stage: "cancelled",
+          failure_stage: "open_browser",
         });
+        throw error;
       }
-    } catch (error) {
-      captureOperationalError(error, {
-        operation: "auth_browser_open",
-        tags: { method: "browser_handoff" },
-      });
-      captureAnalytics("auth_failed", {
-        method: "browser_handoff",
-        sign_in_method: signInMethod,
-        failure_stage: "open_browser",
-      });
-      throw error;
-    }
-  }, []);
+    },
+    [handleCompletedAuthCallback],
+  );
 
   const refreshBilling = useCallback((): Promise<boolean> => {
     const client = supabase;
