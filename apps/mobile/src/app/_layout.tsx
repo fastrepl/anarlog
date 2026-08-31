@@ -4,6 +4,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import {
   getMobileCaptureActive,
@@ -23,6 +24,7 @@ import {
   initializeErrorReporting,
 } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
+import { QuickActionLifecycle } from "@/quick-actions/quick-action-lifecycle";
 import { MobileSyncLifecycle } from "@/sync/mobile-sync-lifecycle";
 import { initializeWatchConnectivity } from "@/watch-connectivity";
 
@@ -74,12 +76,15 @@ function Screens({ accountUserId }: { accountUserId: string | null }) {
   });
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: Colors.paper },
-      }}
-    />
+    <>
+      <QuickActionLifecycle accountUserId={accountUserId} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: Colors.paper },
+        }}
+      />
+    </>
   );
 }
 
@@ -209,17 +214,22 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 
 function RootLayout() {
   return (
-    <AuthProvider>
-      <AnalyticsLifecycle />
-      <Gate />
-      <StatusBar style="dark" />
-    </AuthProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <AuthProvider>
+        <AnalyticsLifecycle />
+        <Gate />
+        <StatusBar style="dark" />
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }
 
 export default Sentry.wrap(RootLayout);
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   routeError: {
     flex: 1,
     alignItems: "center",

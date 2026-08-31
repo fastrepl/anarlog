@@ -5,6 +5,7 @@ import {
   beginMobileCapture,
   endMobileCapture,
   getMobileCaptureActive,
+  stopMobileCapture,
 } from "./capture-lifecycle.ts";
 
 test("keeps the mobile gate open until every active capture is settled", () => {
@@ -17,4 +18,17 @@ test("keeps the mobile gate open until every active capture is settled", () => {
 
   endMobileCapture("session-2");
   assert.equal(getMobileCaptureActive(), false);
+});
+
+test("stops the active capture through the registered handler", async () => {
+  const stopped = [];
+  beginMobileCapture("session-1", async () => {
+    stopped.push("session-1");
+    endMobileCapture("session-1");
+  });
+
+  assert.equal(await stopMobileCapture(), true);
+  assert.deepEqual(stopped, ["session-1"]);
+  assert.equal(getMobileCaptureActive(), false);
+  assert.equal(await stopMobileCapture(), false);
 });

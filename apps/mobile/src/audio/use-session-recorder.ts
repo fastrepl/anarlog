@@ -72,11 +72,12 @@ export function useSessionRecorder(
   const reportedFailureRef = useRef<string | null>(null);
   const durationRef = useRef(0);
   const captureRegisteredRef = useRef(false);
+  const stopRef = useRef<() => Promise<StopResult>>(async () => "noop");
 
   const registerCapture = useCallback(() => {
     if (captureRegisteredRef.current) return;
     captureRegisteredRef.current = true;
-    beginMobileCapture(sessionId);
+    beginMobileCapture(sessionId, () => stopRef.current());
   }, [sessionId]);
 
   const unregisterCapture = useCallback(() => {
@@ -385,7 +386,6 @@ export function useSessionRecorder(
     return "noop";
   };
 
-  const stopRef = useRef(stop);
   stopRef.current = stop;
   useMountEffect(() => () => {
     activeRef.current = false;

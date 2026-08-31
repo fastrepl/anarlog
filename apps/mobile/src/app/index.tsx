@@ -1,10 +1,19 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/auth/context";
+import { ActionButtonCard } from "@/components/action-button-card";
 import { SessionCard } from "@/components/session-card";
 import { StartListeningButton } from "@/components/start-listening-button";
 import { Button } from "@/components/ui/button";
@@ -19,6 +28,8 @@ import { captureAnalytics } from "@/lib/analytics";
 import { confirmDestructive } from "@/lib/confirm";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
+
+const ACTION_BUTTON_CARD_DISMISSED_KEY = "action-button-card-dismissed";
 
 function SearchAnalytics({ resultCount }: { resultCount: number }) {
   useMountEffect(() => {
@@ -38,6 +49,7 @@ export default function HomeScreen() {
   const [importing, setImporting] = useState(false);
   const [query, setQuery] = useState<string | null>(null);
   const [settledSearchQuery, setSettledSearchQuery] = useState("");
+  const [showActionButtonCard, setShowActionButtonCard] = useState(false);
   const searching = query !== null;
   const search = useSessionSearch(query ?? "");
   // Ref, not state: two taps in the same frame both pass a state check.
@@ -50,6 +62,26 @@ export default function HomeScreen() {
     if (searchAnalyticsTimerRef.current) {
       clearTimeout(searchAnalyticsTimerRef.current);
     }
+  });
+
+  useMountEffect(() => {
+    if (Platform.OS !== "ios") return;
+    let active = true;
+    void AsyncStorage.getItem(ACTION_BUTTON_CARD_DISMISSED_KEY).then(
+      (dismissed) => {
+        if (active && dismissed !== "1") setShowActionButtonCard(true);
+      },
+      (error) => {
+        if (active) setShowActionButtonCard(true);
+        captureOperationalError(error, {
+          operation: "action_button_card_load",
+          level: "warning",
+        });
+      },
+    );
+    return () => {
+      active = false;
+    };
   });
 
   const handleSearchChange = (value: string) => {
@@ -136,6 +168,18 @@ export default function HomeScreen() {
     }
   };
 
+  const dismissActionButtonCard = () => {
+    setShowActionButtonCard(false);
+    void AsyncStorage.setItem(ACTION_BUTTON_CARD_DISMISSED_KEY, "1").catch(
+      (error) => {
+        captureOperationalError(error, {
+          operation: "action_button_card_dismiss",
+          level: "warning",
+        });
+      },
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -210,6 +254,12 @@ export default function HomeScreen() {
           </>
         ) : (
           <>
+            {showActionButtonCard && (
+              <ActionButtonCard
+                onConfigure={() => router.push("/action-button")}
+                onDismiss={dismissActionButtonCard}
+              />
+            )}
             {!isLoading && items.length === 0 && (
               <View style={styles.empty}>
                 <Text style={styles.emptyTitle}>No meetings yet</Text>
