@@ -1,5 +1,6 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
+import { Claude, Cursor, OpenAI } from "@lobehub/icons";
 import { CaretDown, Check, CircleNotch } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -18,6 +19,51 @@ import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { commands, type SkillAgent } from "~/types/tauri.gen";
 
 const SKILL_AGENTS_QUERY_KEY = ["skill-agents"] as const;
+
+function OpenCodeIcon() {
+  return (
+    <svg viewBox="0 0 300 300" fill="none">
+      <g transform="translate(30 0)">
+        <path
+          className="fill-[#CFCECD] dark:fill-[#4B4646]"
+          d="M180 240H60V120h120z"
+        />
+        <path
+          className="fill-[#211E1E] dark:fill-[#F1ECEC]"
+          fillRule="evenodd"
+          d="M180 60H60v180h120V60ZM240 300H0V0h240v300Z"
+        />
+      </g>
+    </svg>
+  );
+}
+
+function SkillAgentIcon({ agent }: { agent: SkillAgent }) {
+  let icon;
+  switch (agent) {
+    case "claude_code":
+      icon = <Claude.Color size={16} />;
+      break;
+    case "codex":
+      icon = <OpenAI size={16} />;
+      break;
+    case "cursor":
+      icon = <Cursor size={16} />;
+      break;
+    case "opencode":
+      icon = <OpenCodeIcon />;
+      break;
+  }
+
+  return (
+    <span
+      aria-hidden
+      className="flex size-4 shrink-0 items-center justify-center [&>svg]:size-4"
+    >
+      {icon}
+    </span>
+  );
+}
 
 async function loadSkillAgents() {
   const result = await commands.listSkillAgents();
@@ -114,6 +160,7 @@ export function SkillsRow() {
                   disabled={!agent.detected}
                   onClick={() => installMutation.mutate([agent.agent])}
                 >
+                  <SkillAgentIcon agent={agent.agent} />
                   {agent.displayName}
                   {agent.installed && (
                     <Check
