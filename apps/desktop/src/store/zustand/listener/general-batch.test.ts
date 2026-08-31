@@ -423,9 +423,7 @@ describe("runBatchSession", () => {
     const handleBatchStopped = vi.fn();
     const updateBatchProgress = vi.fn();
     const setBatchPersist = vi.fn();
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     let handler:
       | ((event: {
@@ -497,7 +495,7 @@ describe("runBatchSession", () => {
     );
     expect(clearBatchPersist).toHaveBeenCalledWith("session-1");
     expect(clearBatchSession).not.toHaveBeenCalled();
-    consoleError.mockRestore();
+    consoleWarn.mockRestore();
   });
 
   test.each([

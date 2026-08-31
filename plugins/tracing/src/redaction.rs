@@ -260,7 +260,7 @@ fn sanitize_sentry_event_with_home(
 }
 
 pub fn sanitize_sentry_event(event: Event<'static>) -> Option<Event<'static>> {
-    if anlg_user_error::is_user_error_event(&event) {
+    if anlg_user_error::should_drop_sentry_event(&event) {
         return None;
     }
 
@@ -635,6 +635,24 @@ mod tests {
         };
 
         assert!(sanitize_sentry_event(event).is_none());
+    }
+
+    #[test]
+    fn sentry_event_dropped_when_archived_or_webview_console() {
+        let from_console = Event {
+            message: Some(
+                r#"[String("[runBatch] error handling batch response"), Object {}]"#.to_string(),
+            ),
+            logger: Some("tauri_plugin_tracing::ext".to_string()),
+            ..Default::default()
+        };
+        let from_archived = Event {
+            message: Some("batch transcription failed".to_string()),
+            ..Default::default()
+        };
+
+        assert!(sanitize_sentry_event(from_console).is_none());
+        assert!(sanitize_sentry_event(from_archived).is_none());
     }
 
     #[test]

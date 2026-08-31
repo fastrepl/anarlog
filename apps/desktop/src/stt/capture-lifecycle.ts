@@ -482,7 +482,7 @@ export function useCaptureLifecycle(sessionId: string) {
               await requestRecovery();
               return;
             }
-            console.error("[listener] post-stop transcript repair failed", {
+            console.warn("[listener] post-stop transcript repair failed", {
               sessionId,
               reasons: repairReasons,
               error,

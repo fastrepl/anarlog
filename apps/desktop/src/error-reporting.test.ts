@@ -273,6 +273,47 @@ describe("user-caused failures", () => {
   });
 });
 
+describe("archived operational noise", () => {
+  it("drops archived issue types before they reach Sentry", () => {
+    expect(
+      sanitizeErrorEvent({
+        type: undefined,
+        message:
+          '[String("[runBatch] error handling batch response"), Object {}]',
+      }),
+    ).toBeNull();
+    expect(
+      sanitizeErrorEvent({
+        type: undefined,
+        exception: {
+          values: [
+            {
+              type: "Error",
+              value: "[listener] post-stop transcript repair failed",
+            },
+          ],
+        },
+      }),
+    ).toBeNull();
+    expect(
+      sanitizeErrorEvent({
+        type: undefined,
+        logger: "tauri_plugin_tracing::ext",
+        message: "native_error:tauri_plugin_tracing::ext:35",
+      }),
+    ).toBeNull();
+  });
+
+  it("never captures archived types as operational errors", () => {
+    captureOperationalError(
+      new Error("[runBatch] error handling batch response"),
+      { operation: "batch_persist" },
+    );
+
+    expect(mocks.withScope).not.toHaveBeenCalled();
+  });
+});
+
 describe("session replay consent", () => {
   it("broadcasts revocation and stops the local replay", async () => {
     vi.resetModules();

@@ -99,7 +99,7 @@ async fn check_and_download<R: tauri::Runtime>(
         Ok(Some(v)) => v,
         Ok(None) => return false,
         Err(e) => {
-            tracing::error!("update_check_failed: {}", e);
+            tracing::warn!("update_check_failed: {}", e);
             return install_at_open;
         }
     };

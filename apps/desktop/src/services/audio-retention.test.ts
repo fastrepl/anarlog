@@ -231,15 +231,13 @@ describe("audio retention", () => {
     mocks.deleteLocalSessionAudio.mockRejectedValueOnce(
       new Error("disk failure"),
     );
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     await expect(
       cleanupExpiredAudio("oneDay", Date.parse("2026-05-13T00:00:00.000Z")),
     ).resolves.toEqual([]);
-    expect(consoleError).toHaveBeenCalled();
-    consoleError.mockRestore();
+    expect(consoleWarn).toHaveBeenCalled();
+    consoleWarn.mockRestore();
   });
 
   test("does not report a device without local audio as deleted", async () => {
