@@ -69,7 +69,7 @@ export const Route = createFileRoute("/_view/callback/auth")({
 
     if (search.code) {
       const result = await exchangeOAuthCode({
-        data: { code: search.code, flow: search.flow },
+        data: { code: search.code, flow: search.flow, type: search.type },
       });
 
       if (!result.success) {

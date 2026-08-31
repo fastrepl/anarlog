@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { isAdminEmail } from "@/functions/admin";
 import { getRequestAppOrigin } from "@/functions/app-origin";
+import { rememberLastSignInMethod } from "@/functions/auth-last-used";
 import { mintDesktopSessionForAuthenticatedUser } from "@/functions/auth-session";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import { ensureNewAccountTrial } from "@/functions/new-account-trial";
@@ -25,6 +26,10 @@ import {
   getSupabaseDesktopFlowClient,
   getSupabaseServerClient,
 } from "@/functions/supabase";
+import {
+  resolveSessionSignInMethod,
+  shouldRememberOtpSignIn,
+} from "@/lib/auth-last-sign-in-method";
 import { sanitizeInternalReturnPath } from "@/lib/auth-redirect";
 import { captureOperationalError } from "@/lib/error-reporting";
 import {
@@ -43,6 +48,16 @@ type Flow = z.infer<typeof shared>["flow"];
 type FlowTokenResult =
   | { ok: true; access_token: string; refresh_token: string }
   | { ok: false; error: string };
+
+function rememberSessionSignInMethod(session: Session) {
+  const method = resolveSessionSignInMethod({
+    provider: session.user.app_metadata.provider,
+    usesSso: sessionUsesSso(session),
+  });
+  if (method) {
+    rememberLastSignInMethod(method);
+  }
+}
 
 async function rejectIfEmailRequiresSso(
   supabase: SupabaseClient,
@@ -402,6 +417,16 @@ export const exchangeOAuthCode = createServerFn({ method: "POST" })
     z.object({
       code: z.string(),
       flow: z.enum(["desktop", "web"]).default("web"),
+      type: z
+        .enum([
+          "email",
+          "recovery",
+          "magiclink",
+          "signup",
+          "invite",
+          "email_change",
+        ])
+        .optional(),
     }),
   )
   .handler(async ({ data }) => {
@@ -432,9 +457,13 @@ export const exchangeOAuthCode = createServerFn({ method: "POST" })
       session: trial.session,
     });
     const response = toSuccessTokenResponse(tokens, authData.session.user.id);
-    return response.success
-      ? { ...response, newAccount: trial.needsTrialCheckout }
-      : response;
+    if (!response.success) {
+      return response;
+    }
+    if (!data.type || shouldRememberOtpSignIn(data.type)) {
+      rememberSessionSignInMethod(authData.session);
+    }
+    return { ...response, newAccount: trial.needsTrialCheckout };
   });
 
 export const doPasswordSignUp = createServerFn({ method: "POST" })
@@ -485,9 +514,11 @@ export const doPasswordSignUp = createServerFn({ method: "POST" })
         tokens,
         authData.session.user.id,
       );
-      return response.success
-        ? { ...response, newAccount: trial.needsTrialCheckout }
-        : response;
+      if (!response.success) {
+        return response;
+      }
+      rememberSessionSignInMethod(authData.session);
+      return { ...response, newAccount: trial.needsTrialCheckout };
     }
 
     return {
@@ -529,7 +560,11 @@ export const doPasswordSignIn = createServerFn({ method: "POST" })
       session: authData.session,
       email: data.email,
     });
-    return toMutationTokenResponse(tokens, authData.session.user.id);
+    const response = toMutationTokenResponse(tokens, authData.session.user.id);
+    if (response.success) {
+      rememberSessionSignInMethod(authData.session);
+    }
+    return response;
   });
 
 export const exchangeOtpToken = createServerFn({ method: "POST" })
@@ -588,9 +623,13 @@ export const exchangeOtpToken = createServerFn({ method: "POST" })
       session: trial.session,
     });
     const response = toSuccessTokenResponse(tokens, authData.session.user.id);
-    return response.success
-      ? { ...response, newAccount: trial.needsTrialCheckout }
-      : response;
+    if (!response.success) {
+      return response;
+    }
+    if (shouldRememberOtpSignIn(data.type)) {
+      rememberSessionSignInMethod(authData.session);
+    }
+    return { ...response, newAccount: trial.needsTrialCheckout };
   });
 
 export const createDesktopSession = createServerFn({ method: "POST" }).handler(

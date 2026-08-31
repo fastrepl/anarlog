@@ -22,6 +22,7 @@ import {
   doSsoAuth,
   fetchUser,
 } from "@/functions/auth";
+import { fetchLastSignInMethod } from "@/functions/auth-last-used";
 import {
   DEFAULT_DESKTOP_SCHEME,
   type DesktopScheme,
@@ -29,6 +30,7 @@ import {
 } from "@/functions/desktop-flow";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { toAuthFlowSearch } from "@/lib/auth-flow-context";
+import type { AuthSignInMethod } from "@/lib/auth-last-sign-in-method";
 import {
   buildPostAuthDestination,
   sanitizeInternalReturnPath,
@@ -54,7 +56,10 @@ export const Route = createFileRoute("/auth")({
     meta: [{ name: "robots", content: "noindex, nofollow" }],
   }),
   beforeLoad: async ({ search }) => {
-    const user = await fetchUser();
+    const [user, lastSignInMethod] = await Promise.all([
+      fetchUser(),
+      fetchLastSignInMethod(),
+    ]);
 
     if (user) {
       const shouldReauthWithProvider =
@@ -83,7 +88,7 @@ export const Route = createFileRoute("/auth")({
       }
     }
 
-    return { existingUser: user };
+    return { existingUser: user, lastSignInMethod };
   },
 });
 
@@ -112,7 +117,7 @@ function Component() {
     view: initialView,
     rra,
   } = Route.useSearch();
-  const { existingUser } = Route.useRouteContext();
+  const { existingUser, lastSignInMethod } = Route.useRouteContext();
   const [view, setView] = useState<AuthView>(initialView ?? "main");
   const autoStartOAuth = flow === "desktop" && provider !== undefined;
 
@@ -125,6 +130,7 @@ function Component() {
         <DesktopReauthView
           email={existingUser.email}
           scheme={scheme ?? DEFAULT_DESKTOP_SCHEME}
+          lastSignInMethod={lastSignInMethod}
         />
       </AuthShell>
     );
@@ -146,6 +152,7 @@ function Component() {
             provider={provider}
             rra={rra}
             autoStart
+            isLastUsed={lastSignInMethod === provider}
           />
         </div>
       </AuthShell>
@@ -170,6 +177,7 @@ function Component() {
                 redirect={redirect}
                 provider="apple"
                 autoStart={autoStartOAuth}
+                isLastUsed={lastSignInMethod === "apple"}
               />
             )}
             {showGoogle && (
@@ -179,6 +187,7 @@ function Component() {
                 redirect={redirect}
                 provider="google"
                 autoStart={autoStartOAuth}
+                isLastUsed={lastSignInMethod === "google"}
               />
             )}
             {showMicrosoft && (
@@ -188,6 +197,7 @@ function Component() {
                 redirect={redirect}
                 provider="azure"
                 autoStart={autoStartOAuth}
+                isLastUsed={lastSignInMethod === "azure"}
               />
             )}
             {showGithub && (
@@ -198,33 +208,40 @@ function Component() {
                 provider="github"
                 rra={rra}
                 autoStart={autoStartOAuth}
+                isLastUsed={lastSignInMethod === "github"}
               />
             )}
             {showEmail && (
-              <button
-                onClick={() => setView("email")}
-                className={authSecondaryButtonClassName}
-              >
-                <AuthProviderContent
-                  icon={<Envelope className="size-[18px]" aria-hidden="true" />}
+              <AuthMethodButton isLastUsed={lastSignInMethod === "email"}>
+                <button
+                  onClick={() => setView("email")}
+                  className={authSecondaryButtonClassName}
                 >
-                  Sign in with Email
-                </AuthProviderContent>
-              </button>
+                  <AuthProviderContent
+                    icon={
+                      <Envelope className="size-[18px]" aria-hidden="true" />
+                    }
+                  >
+                    Sign in with Email
+                  </AuthProviderContent>
+                </button>
+              </AuthMethodButton>
             )}
             {showEmail && (
-              <button
-                onClick={() => setView("sso")}
-                className={authSecondaryButtonClassName}
-              >
-                <AuthProviderContent
-                  icon={
-                    <Buildings className="size-[18px]" aria-hidden="true" />
-                  }
+              <AuthMethodButton isLastUsed={lastSignInMethod === "sso"}>
+                <button
+                  onClick={() => setView("sso")}
+                  className={authSecondaryButtonClassName}
                 >
-                  Sign in with SSO
-                </AuthProviderContent>
-              </button>
+                  <AuthProviderContent
+                    icon={
+                      <Buildings className="size-[18px]" aria-hidden="true" />
+                    }
+                  >
+                    Sign in with SSO
+                  </AuthProviderContent>
+                </button>
+              </AuthMethodButton>
             )}
           </div>
           <LegalText />
@@ -253,9 +270,11 @@ function Component() {
 function DesktopReauthView({
   email,
   scheme,
+  lastSignInMethod,
 }: {
   email: string;
   scheme: DesktopScheme;
+  lastSignInMethod: AuthSignInMethod | null;
 }) {
   const retryMutation = useMutation({
     mutationFn: () => {
@@ -311,10 +330,30 @@ function DesktopReauthView({
             </p>
           </div>
           <div className="flex flex-col gap-3">
-            <OAuthButton flow="desktop" scheme={scheme} provider="apple" />
-            <OAuthButton flow="desktop" scheme={scheme} provider="google" />
-            <OAuthButton flow="desktop" scheme={scheme} provider="azure" />
-            <OAuthButton flow="desktop" scheme={scheme} provider="github" />
+            <OAuthButton
+              flow="desktop"
+              scheme={scheme}
+              provider="apple"
+              isLastUsed={lastSignInMethod === "apple"}
+            />
+            <OAuthButton
+              flow="desktop"
+              scheme={scheme}
+              provider="google"
+              isLastUsed={lastSignInMethod === "google"}
+            />
+            <OAuthButton
+              flow="desktop"
+              scheme={scheme}
+              provider="azure"
+              isLastUsed={lastSignInMethod === "azure"}
+            />
+            <OAuthButton
+              flow="desktop"
+              scheme={scheme}
+              provider="github"
+              isLastUsed={lastSignInMethod === "github"}
+            />
             <SsoAuthView flow="desktop" scheme={scheme} />
           </div>
         </>
@@ -887,6 +926,25 @@ function AuthProviderContent({
   );
 }
 
+function AuthMethodButton({
+  isLastUsed,
+  children,
+}: {
+  isLastUsed: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cn(["relative", isLastUsed && "pt-1"])}>
+      {children}
+      {isLastUsed && (
+        <span className="border-surface bg-fg text-surface pointer-events-none absolute top-0 right-4 rounded-full border-2 px-2 py-0.5 text-[10px] leading-3 font-medium">
+          Last used
+        </span>
+      )}
+    </div>
+  );
+}
+
 function OAuthButton({
   flow,
   scheme,
@@ -894,6 +952,7 @@ function OAuthButton({
   provider,
   rra,
   autoStart = false,
+  isLastUsed = false,
 }: {
   flow: "desktop" | "web";
   scheme?: DesktopScheme;
@@ -901,6 +960,7 @@ function OAuthButton({
   provider: OAuthProvider;
   rra?: boolean;
   autoStart?: boolean;
+  isLastUsed?: boolean;
 }) {
   const oauthMutation = useMutation({
     mutationFn: (provider: OAuthProvider) => {
@@ -951,22 +1011,24 @@ function OAuthButton({
   });
 
   return (
-    <button
-      onClick={() => mutate(provider)}
-      disabled={isPending}
-      className={authSecondaryButtonClassName}
-    >
-      <AuthProviderContent
-        icon={
-          <img
-            src={oauthProviderIcons[provider]}
-            className="size-[18px] object-contain"
-            alt=""
-          />
-        }
+    <AuthMethodButton isLastUsed={isLastUsed}>
+      <button
+        onClick={() => mutate(provider)}
+        disabled={isPending}
+        className={authSecondaryButtonClassName}
       >
-        Sign in with {getOAuthProviderName(provider)}
-      </AuthProviderContent>
-    </button>
+        <AuthProviderContent
+          icon={
+            <img
+              src={oauthProviderIcons[provider]}
+              className="size-[18px] object-contain"
+              alt=""
+            />
+          }
+        >
+          Sign in with {getOAuthProviderName(provider)}
+        </AuthProviderContent>
+      </button>
+    </AuthMethodButton>
   );
 }
