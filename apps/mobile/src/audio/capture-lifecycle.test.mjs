@@ -32,3 +32,15 @@ test("stops the active capture through the registered handler", async () => {
   assert.equal(getMobileCaptureActive(), false);
   assert.equal(await stopMobileCapture(), false);
 });
+
+test("waits for a starting capture to register its stop handler", async () => {
+  beginMobileCapture("session-1");
+  const stopRequested = stopMobileCapture();
+
+  beginMobileCapture("session-1", async () => {
+    endMobileCapture("session-1");
+  });
+
+  assert.equal(await stopRequested, true);
+  assert.equal(getMobileCaptureActive(), false);
+});

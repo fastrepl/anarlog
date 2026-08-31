@@ -180,6 +180,7 @@ export function useSessionRecorder(
     setFailure(null);
     reportedFailureRef.current = null;
     setPhase("starting");
+    registerCapture();
     try {
       let permission = await getRecordingPermissionsAsync();
       if (!permission.granted) {
@@ -205,6 +206,7 @@ export function useSessionRecorder(
         captureAnalytics("session_start_failed", {
           failure_stage: "microphone_permission",
         });
+        unregisterCapture();
         setPhase("unavailable");
         return;
       }
@@ -217,7 +219,6 @@ export function useSessionRecorder(
       });
       if (!isCurrent()) return;
       writerRef.current = new SessionWavWriter(sessionId);
-      registerCapture();
       await stream.start();
       if (!isCurrent()) {
         phaseRef.current = "recording";

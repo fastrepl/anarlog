@@ -1,5 +1,9 @@
 const activeSessions = new Set<string>();
 const stopHandlers = new Map<string, () => Promise<unknown>>();
+const stopWaiters = new Map<
+  string,
+  Array<(stop: (() => Promise<unknown>) | null) => void>
+>();
 const listeners = new Set<() => void>();
 
 function notify() {
@@ -12,7 +16,11 @@ export function beginMobileCapture(
 ): void {
   const wasActive = activeSessions.size > 0;
   activeSessions.add(sessionId);
-  if (stop) stopHandlers.set(sessionId, stop);
+  if (stop) {
+    stopHandlers.set(sessionId, stop);
+    for (const resolve of stopWaiters.get(sessionId) ?? []) resolve(stop);
+    stopWaiters.delete(sessionId);
+  }
   if (!wasActive) notify();
 }
 
@@ -20,6 +28,8 @@ export function endMobileCapture(sessionId: string): void {
   const wasActive = activeSessions.size > 0;
   activeSessions.delete(sessionId);
   stopHandlers.delete(sessionId);
+  for (const resolve of stopWaiters.get(sessionId) ?? []) resolve(null);
+  stopWaiters.delete(sessionId);
   if (wasActive && activeSessions.size === 0) notify();
 }
 
@@ -33,7 +43,19 @@ export function getMobileCaptureActive(): boolean {
 }
 
 export async function stopMobileCapture(): Promise<boolean> {
-  const stop = stopHandlers.values().next().value;
+  const registeredStop = stopHandlers.values().next().value;
+  if (registeredStop) {
+    await registeredStop();
+    return true;
+  }
+
+  const sessionId = activeSessions.values().next().value;
+  if (!sessionId) return false;
+  const stop = await new Promise<(() => Promise<unknown>) | null>((resolve) => {
+    const waiters = stopWaiters.get(sessionId) ?? [];
+    waiters.push(resolve);
+    stopWaiters.set(sessionId, waiters);
+  });
   if (!stop) return false;
   await stop();
   return true;

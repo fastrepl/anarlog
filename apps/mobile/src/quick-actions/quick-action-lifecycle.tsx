@@ -2,6 +2,8 @@ import { useRouter } from "expo-router";
 import { useRef } from "react";
 
 import {
+  beginMobileCapture,
+  endMobileCapture,
   getMobileCaptureActive,
   stopMobileCapture,
 } from "@/audio/capture-lifecycle";
@@ -22,9 +24,9 @@ export function QuickActionLifecycle({
   const busyRef = useRef(false);
 
   const handleAction = async () => {
-    if (busyRef.current) return;
     const action = consumePendingQuickAction();
     if (action !== "toggle_listening") return;
+    if (busyRef.current) return;
 
     busyRef.current = true;
     try {
@@ -37,7 +39,13 @@ export function QuickActionLifecycle({
         entryPoint: "start_listening",
         ownerUserId: accountUserId ?? undefined,
       });
-      router.push(`/note/${sessionId}?listen=1`);
+      beginMobileCapture(sessionId);
+      try {
+        router.push(`/note/${sessionId}?listen=1`);
+      } catch (error) {
+        endMobileCapture(sessionId);
+        throw error;
+      }
     } catch (error) {
       captureOperationalError(error, {
         operation: "quick_action_toggle_listening",
