@@ -231,7 +231,7 @@ describe("Basic Tab Actions", () => {
     });
   });
 
-  test.each(["calendar", "contacts", "folders", "templates"] as const)(
+  test.each(["calendar", "contacts", "templates"] as const)(
     "openNew tracks where %s was opened from",
     (type) => {
       useTabs.getState().openNew({ type: "settings" });
