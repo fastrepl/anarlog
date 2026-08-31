@@ -41,6 +41,10 @@ select
 from shared_note_gateway_test_state
 where name = 'workspace';
 
+select tests.enable_workspace_plan(workspace_id)
+from shared_note_gateway_test_state
+where name = 'workspace';
+
 select tests.clear_authentication();
 reset role;
 

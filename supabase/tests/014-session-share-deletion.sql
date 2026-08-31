@@ -76,6 +76,10 @@ select
 from session_share_deletion_test_state
 where name = 'workspace';
 
+select tests.enable_workspace_plan(workspace_id)
+from session_share_deletion_test_state
+where name = 'workspace';
+
 select tests.clear_authentication();
 reset role;
 
@@ -217,8 +221,11 @@ select ok(
     )
     and lower(pg_get_functiondef(
       'private.protected_reactivate_session_share(uuid,text)'::regprocedure
-    )) like '%require_hyprnote_pro_entitlement%',
-  'Deletion is ungated while explicit reactivation is a hardened Pro-only RPC'
+    )) like '%require_workspace_or_pro_capability%'
+    and lower(pg_get_functiondef(
+      'private.protected_reactivate_session_share(uuid,text)'::regprocedure
+    )) like '%team.shared_notes%',
+  'Deletion is ungated while reactivation requires the applicable sharing capability'
 );
 
 select ok(

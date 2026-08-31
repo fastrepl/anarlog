@@ -4,6 +4,7 @@ import {
   createWorkspace,
   createWorkspaceInvitation,
   getSeatUsage,
+  getWorkspaceAccess,
   getWorkspacePolicy,
   intersectAllowedShareScopes,
   listWorkspaceInvitations,
@@ -47,6 +48,30 @@ describe("requireTeamContext", () => {
 });
 
 describe("workspace reads", () => {
+  it("parses workspace-scoped capabilities and ignores future additions", async () => {
+    const { context: ctx } = context([
+      {
+        workspace_role: "admin",
+        workspace_tier: "enterprise",
+        capabilities: [
+          "team.manage_members",
+          "enterprise.capture",
+          "future.capability",
+        ],
+        seat_limit: 12,
+        used_seats: 4,
+      },
+    ]);
+
+    await expect(getWorkspaceAccess(ctx, WORKSPACE_ID)).resolves.toEqual({
+      role: "admin",
+      tier: "enterprise",
+      capabilities: ["team.manage_members", "enterprise.capture"],
+      seatLimit: 12,
+      usedSeats: 4,
+    });
+  });
+
   it("keeps only active members and normalizes their role", async () => {
     const { context: ctx } = context([
       {

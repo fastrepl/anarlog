@@ -31,6 +31,20 @@ const mocks = vi.hoisted(() => ({
     isPending: false,
   },
   client: {
+    access: {
+      role: "owner" as const,
+      tier: "team" as "free" | "team" | "enterprise",
+      capabilities: [
+        "team.shared_notes",
+        "team.manage_workspace",
+        "team.manage_members",
+        "team.manage_policies",
+        "team.view_usage",
+        "team.custom_subdomain",
+      ] as string[],
+      seatLimit: 1 as number | null,
+      usedSeats: 1,
+    },
     members: [] as Array<{
       userId: string;
       email: string;
@@ -139,6 +153,7 @@ vi.mock("./client", () => ({
   setMemberRole: vi.fn(() => Promise.resolve()),
   transferOwnership: vi.fn(() => Promise.resolve()),
   getWorkspaceUsageOverview: () => Promise.resolve(mocks.client.usage),
+  getWorkspaceAccess: () => Promise.resolve(mocks.client.access),
   getWorkspacePolicy: mocks.client.getWorkspacePolicy,
   setWorkspacePolicy: vi.fn(() => Promise.resolve()),
   setWorkspaceShareSlug: mocks.client.setWorkspaceShareSlug,
@@ -181,6 +196,20 @@ describe("SettingsTeam", () => {
       usedSeats: 1,
       isBilled: true,
     };
+    mocks.client.access = {
+      role: "owner",
+      tier: "team",
+      capabilities: [
+        "team.shared_notes",
+        "team.manage_workspace",
+        "team.manage_members",
+        "team.manage_policies",
+        "team.view_usage",
+        "team.custom_subdomain",
+      ],
+      seatLimit: 1,
+      usedSeats: 1,
+    };
     mocks.client.revokeInvitation.mockClear();
     mocks.client.renameWorkspace.mockClear();
     mocks.client.setWorkspaceLogo.mockClear();
@@ -207,6 +236,9 @@ describe("SettingsTeam", () => {
   it("keeps an unbilled workspace accessible and offers Team checkout", async () => {
     mocks.client.usage.isBilled = false;
     mocks.client.usage.seatLimit = null;
+    mocks.client.access.tier = "free";
+    mocks.client.access.capabilities = [];
+    mocks.client.access.seatLimit = null;
     mocks.workspaces.data = [
       {
         workspaceId: "00000000-0000-4000-8000-000000000001",
@@ -390,6 +422,50 @@ describe("SettingsTeam", () => {
         "fastrepl-hq",
       ),
     );
+  });
+
+  it("keeps Enterprise policy controls hidden on Team", async () => {
+    mocks.workspaces.data = [
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        name: "Fastrepl",
+        ownerUserId: "user-1",
+        role: "owner",
+      },
+    ];
+
+    renderTeam();
+
+    await screen.findByText("Policies");
+    expect(screen.queryByText("Require SSO")).toBeNull();
+    expect(screen.queryByText("Retention (days)")).toBeNull();
+    expect(screen.queryByText("SCIM bearer token")).toBeNull();
+  });
+
+  it("shows Enterprise policy controls only with Enterprise capabilities", async () => {
+    mocks.client.access.tier = "enterprise";
+    mocks.client.access.capabilities = [
+      ...mocks.client.access.capabilities,
+      "enterprise.sso",
+      "enterprise.scim",
+      "enterprise.retention",
+      "enterprise.audit_logs",
+      "enterprise.capture",
+    ];
+    mocks.workspaces.data = [
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        name: "Fastrepl",
+        ownerUserId: "user-1",
+        role: "owner",
+      },
+    ];
+
+    renderTeam();
+
+    expect(await screen.findByText("Require SSO")).toBeTruthy();
+    expect(screen.getByText("Retention (days)")).toBeTruthy();
+    expect(screen.getByText("SCIM bearer token")).toBeTruthy();
   });
 
   it("resends a pending invitation by delivering a fresh invite", async () => {

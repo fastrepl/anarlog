@@ -41,6 +41,10 @@ select
 from preview_metadata_test_state
 where name = 'workspace';
 
+select tests.enable_workspace_plan(workspace_id)
+from preview_metadata_test_state
+where name = 'workspace';
+
 select tests.clear_authentication();
 select tests.authenticate_as_hyprnote_pro('preview_metadata_owner');
 

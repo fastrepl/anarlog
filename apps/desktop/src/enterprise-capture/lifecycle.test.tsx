@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   dispatchPendingEnterpriseCompletions: vi.fn(),
   getFingerprint: vi.fn(),
+  getWorkspaceAccess: vi.fn(),
   syncEnterpriseWorkspace: vi.fn(),
   useQuery: vi.fn(),
   workspaces: [{ workspaceId: "workspace-1" }],
@@ -20,8 +21,13 @@ vi.mock("./sync", () => ({
 }));
 vi.mock("~/auth", () => ({
   useAuth: () => ({
+    supabase: {},
     session: { access_token: "access-token", user: { id: "user-1" } },
   }),
+}));
+vi.mock("~/settings/team/client", () => ({
+  getWorkspaceAccess: mocks.getWorkspaceAccess,
+  requireTeamContext: (auth: unknown) => auth,
 }));
 vi.mock("~/env", () => ({
   env: { VITE_ENTERPRISE_API_URL: "https://capture.example.test" },
@@ -42,6 +48,9 @@ describe("EnterpriseCaptureSync", () => {
     vi.clearAllMocks();
     mocks.workspaces = [{ workspaceId: "workspace-1" }];
     mocks.dispatchPendingEnterpriseCompletions.mockResolvedValue(undefined);
+    mocks.getWorkspaceAccess.mockResolvedValue({
+      capabilities: ["enterprise.capture"],
+    });
     mocks.syncEnterpriseWorkspace.mockResolvedValue(undefined);
     mocks.useQuery.mockReturnValue({});
   });
@@ -96,5 +105,30 @@ describe("EnterpriseCaptureSync", () => {
       ),
     ).toEqual(["workspace-1", "workspace-2"]);
     expect(mocks.dispatchPendingEnterpriseCompletions).toHaveBeenCalledOnce();
+  });
+
+  it("syncs only workspaces with the Enterprise capture capability", async () => {
+    mocks.workspaces = [
+      { workspaceId: "workspace-1" },
+      { workspaceId: "workspace-2" },
+    ];
+    mocks.getFingerprint.mockResolvedValue({
+      status: "ok",
+      data: "device-1",
+    });
+    mocks.getWorkspaceAccess.mockImplementation(
+      async (_context: unknown, workspaceId: string) => ({
+        capabilities:
+          workspaceId === "workspace-2" ? ["enterprise.capture"] : [],
+      }),
+    );
+    render(<EnterpriseCaptureSync />);
+
+    await expect(getQueryFn()()).resolves.toBeNull();
+
+    expect(mocks.syncEnterpriseWorkspace).toHaveBeenCalledOnce();
+    expect(mocks.syncEnterpriseWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId: "workspace-2" }),
+    );
   });
 });

@@ -33,7 +33,7 @@ select throws_ok(
     )
   $$,
   '42501',
-  'active Team subscription required',
+  'workspace capability required: team.manage_workspace',
   'An unbilled workspace cannot use Team management controls'
 );
 
@@ -48,7 +48,7 @@ select throws_ok(
     )
   $$,
   '42501',
-  'active Team subscription required',
+  'workspace capability required: team.manage_workspace',
   'Personal Pro does not unlock Team management controls'
 );
 
@@ -66,6 +66,10 @@ on conflict (id) do nothing;
 insert into stripe.subscriptions (id, customer, status)
 values ('sub_team_split', 'cus_team_split', 'active'::stripe.subscription_status)
 on conflict (id) do nothing;
+
+insert into stripe.active_entitlements (id, customer, lookup_key)
+values ('ent_team_split', 'cus_team_split', 'hyprnote_team')
+on conflict (customer, lookup_key) do nothing;
 
 select tests.authenticate_as('team_split_owner');
 

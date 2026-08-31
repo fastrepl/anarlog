@@ -26,6 +26,7 @@ import {
   claimWorkspaceDomain,
   createWorkspace,
   deleteWorkspace,
+  getWorkspaceAccess,
   getWorkspacePolicy,
   getWorkspaceUsageOverview,
   leaveWorkspace,
@@ -41,6 +42,7 @@ import {
   setWorkspacePolicy,
   setWorkspaceShareSlug,
   transferOwnership,
+  type WorkspaceCapability,
   type WorkspaceMember,
   type WorkspacePolicy,
   type WorkspaceRole,
@@ -304,6 +306,29 @@ function WorkspacePanel({
   const [isOpeningBilling, setIsOpeningBilling] = useState(false);
   const isManager = workspaceRole === "owner" || workspaceRole === "admin";
 
+  const access = useQuery({
+    queryKey: ["team-access", workspaceId],
+    queryFn: () => getWorkspaceAccess(requireTeamContext(auth), workspaceId),
+    retry: false,
+  });
+  const hasCapability = (capability: WorkspaceCapability) =>
+    access.data?.capabilities.includes(capability) === true;
+  const canManageWorkspace =
+    isManager && hasCapability("team.manage_workspace");
+  const canManageMembers = isManager && hasCapability("team.manage_members");
+  const canManagePolicies = isManager && hasCapability("team.manage_policies");
+  const canViewUsage = isManager && hasCapability("team.view_usage");
+  const canUseCustomSubdomain =
+    isManager && hasCapability("team.custom_subdomain");
+  const canConfigureSso = isManager && hasCapability("enterprise.sso");
+  const canConfigureScim = isManager && hasCapability("enterprise.scim");
+  const canConfigureRetention =
+    isManager && hasCapability("enterprise.retention");
+  const canUseEnterpriseCapture =
+    isManager && hasCapability("enterprise.capture");
+  const hasPaidWorkspacePlan =
+    access.data?.tier === "team" || access.data?.tier === "enterprise";
+
   // The roster, invitation, and seat RPCs are manager-only, so a plain member
   // gets a permission error rather than data. Retrying cannot fix that.
   const members = useQuery({
@@ -322,16 +347,19 @@ function WorkspacePanel({
     queryFn: () =>
       getWorkspaceUsageOverview(requireTeamContext(auth), workspaceId),
     retry: false,
-    enabled: isManager,
+    enabled: canViewUsage,
   });
   const policy = useQuery({
     queryKey: ["team-policy", workspaceId],
     queryFn: () => getWorkspacePolicy(requireTeamContext(auth), workspaceId),
     retry: false,
-    enabled: isManager && usage.data?.isBilled === true,
+    enabled: canManagePolicies,
   });
 
   const refresh = () => {
+    void queryClient.invalidateQueries({
+      queryKey: ["team-access", workspaceId],
+    });
     void queryClient.invalidateQueries({
       queryKey: ["team-members", workspaceId],
     });
@@ -421,8 +449,12 @@ function WorkspacePanel({
 
   const viewerId = auth.session?.user.id;
   const viewerRole = workspaceRole;
-  const canManage = usage.data?.isBilled === true && isManager;
   const trimmedEmail = email.trim();
+  const hasAdminControls =
+    canManagePolicies ||
+    canUseCustomSubdomain ||
+    canViewUsage ||
+    (canUseEnterpriseCapture && Boolean(env.VITE_ENTERPRISE_API_URL));
   const actionError =
     invite.error?.message ??
     changeRole.error?.message ??
@@ -448,7 +480,7 @@ function WorkspacePanel({
       const url = await buildWebAppUrl("/app/team-checkout", {
         workspace_id: workspaceId,
         period: "monthly",
-        quantity: String(Math.max(usage.data?.usedSeats ?? 1, 1)),
+        quantity: String(Math.max(access.data?.usedSeats ?? 1, 1)),
       });
       await openUrlWithInstruction(url, "billing", (value) =>
         openerCommands.openUrl(value, null),
@@ -465,12 +497,12 @@ function WorkspacePanel({
           logoDataUrl={workspaceLogoDataUrl}
           label={t`Change workspace logo`}
           removeLabel={t`Remove workspace logo`}
-          canManage={canManage}
+          canManage={canManageWorkspace}
           pending={setLogo.isPending}
           onUpload={(dataUrl) => setLogo.mutate(dataUrl)}
           onRemove={() => setLogo.mutate(null)}
         />
-        {canManage ? (
+        {canManageWorkspace ? (
           <Input
             value={nameDraft}
             onChange={(event) => setNameDraft(event.target.value)}
@@ -501,7 +533,7 @@ function WorkspacePanel({
         <section className="flex max-w-xl flex-col gap-3 rounded-lg border p-4">
           <div>
             <h2 className="text-sm font-medium">
-              {usage.data?.isBilled ? (
+              {hasPaidWorkspacePlan ? (
                 <Trans>Team plan</Trans>
               ) : (
                 <Trans>Start Team</Trans>
@@ -518,13 +550,13 @@ function WorkspacePanel({
             type="button"
             size="sm"
             className="w-fit"
-            disabled={usage.isPending || isOpeningBilling}
+            disabled={access.isPending || isOpeningBilling}
             onClick={() => void openTeamBilling()}
           >
             {isOpeningBilling ? (
               <CircleNotch className="size-4 animate-spin" />
             ) : null}
-            {usage.data?.isBilled ? (
+            {hasPaidWorkspacePlan ? (
               <Trans>Manage Team billing</Trans>
             ) : (
               <Trans>Continue to Team checkout</Trans>
@@ -538,7 +570,7 @@ function WorkspacePanel({
           <h2 className="font-sans text-lg font-semibold">
             <Trans>Members</Trans>
           </h2>
-          {canManage ? (
+          {canManageMembers ? (
             <form
               className="flex items-center gap-2"
               onSubmit={(event) => {
@@ -584,7 +616,8 @@ function WorkspacePanel({
                   key={member.userId}
                   member={member}
                   isViewer={member.userId === viewerId}
-                  viewerRole={canManage ? viewerRole : undefined}
+                  viewerRole={isManager ? viewerRole : undefined}
+                  canManageMembers={canManageMembers}
                   onRoleChange={(role) =>
                     changeRole.mutate({ userId: member.userId, role })
                   }
@@ -603,26 +636,29 @@ function WorkspacePanel({
                     </p>
                   </td>
                   <td className="py-2.5 text-right">
-                    {canManage ? (
+                    {isManager ? (
                       <div className="flex items-center justify-end gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          title={t`Resend invitation`}
-                          onClick={() =>
-                            resendInvite.mutate({
-                              email: invitation.email,
-                            })
-                          }
-                          disabled={resendInvite.isPending}
-                        >
-                          {resendInvite.isPending &&
-                          resendInvite.variables?.email === invitation.email ? (
-                            <CircleNotch className="size-4 animate-spin" />
-                          ) : (
-                            <PaperPlaneTilt className="size-4" />
-                          )}
-                        </Button>
+                        {canManageMembers ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title={t`Resend invitation`}
+                            onClick={() =>
+                              resendInvite.mutate({
+                                email: invitation.email,
+                              })
+                            }
+                            disabled={resendInvite.isPending}
+                          >
+                            {resendInvite.isPending &&
+                            resendInvite.variables?.email ===
+                              invitation.email ? (
+                              <CircleNotch className="size-4 animate-spin" />
+                            ) : (
+                              <PaperPlaneTilt className="size-4" />
+                            )}
+                          </Button>
+                        ) : null}
                         <Button
                           size="sm"
                           variant="ghost"
@@ -644,7 +680,7 @@ function WorkspacePanel({
         )}
       </section>
 
-      {canManage ? (
+      {hasAdminControls ? (
         <section className="flex flex-col gap-8">
           <h2 className="font-sans text-lg font-semibold">
             <Trans>Admin</Trans>
@@ -653,19 +689,23 @@ function WorkspacePanel({
             <WorkspacePolicyForm
               workspaceId={workspaceId}
               policy={policy.data}
-              showEnterpriseControls={Boolean(env.VITE_ENTERPRISE_API_URL)}
+              canConfigureSso={canConfigureSso}
+              canConfigureScim={canConfigureScim}
+              canConfigureRetention={canConfigureRetention}
               onSaved={refresh}
             />
           ) : null}
-          <WorkspaceShareDomainForm
-            workspaceId={workspaceId}
-            workspaceShareSlug={workspaceShareSlug}
-            onSaved={() => {
-              refresh();
-              onWorkspaceRenamed();
-            }}
-          />
-          {usage.data ? (
+          {canUseCustomSubdomain ? (
+            <WorkspaceShareDomainForm
+              workspaceId={workspaceId}
+              workspaceShareSlug={workspaceShareSlug}
+              onSaved={() => {
+                refresh();
+                onWorkspaceRenamed();
+              }}
+            />
+          ) : null}
+          {canViewUsage && usage.data ? (
             <div className="flex flex-col gap-3">
               <h3 className="text-sm font-medium">
                 <Trans>Usage</Trans>
@@ -696,7 +736,9 @@ function WorkspacePanel({
               </dl>
             </div>
           ) : null}
-          <UpcomingCaptureBots workspaceId={workspaceId} />
+          {canUseEnterpriseCapture ? (
+            <UpcomingCaptureBots workspaceId={workspaceId} />
+          ) : null}
         </section>
       ) : null}
 
@@ -833,12 +875,16 @@ function UpcomingCaptureBots({ workspaceId }: { workspaceId: string }) {
 function WorkspacePolicyForm({
   workspaceId,
   policy,
-  showEnterpriseControls,
+  canConfigureSso,
+  canConfigureScim,
+  canConfigureRetention,
   onSaved,
 }: {
   workspaceId: string;
   policy: WorkspacePolicy;
-  showEnterpriseControls: boolean;
+  canConfigureSso: boolean;
+  canConfigureScim: boolean;
+  canConfigureRetention: boolean;
   onSaved: () => void;
 }) {
   const auth = useAuth();
@@ -868,10 +914,14 @@ function WorkspacePolicyForm({
         ...policy,
         allowedShareScopes,
         retentionDays:
-          retentionDays != null && Number.isFinite(retentionDays)
+          canConfigureRetention &&
+          retentionDays != null &&
+          Number.isFinite(retentionDays)
             ? retentionDays
-            : null,
-        requireSso,
+            : canConfigureRetention
+              ? null
+              : policy.retentionDays,
+        requireSso: canConfigureSso ? requireSso : policy.requireSso,
       });
     },
     onSuccess: onSaved,
@@ -918,30 +968,30 @@ function WorkspacePolicyForm({
         checked={allowPublic}
         onChange={setAllowPublic}
       />
-      {showEnterpriseControls ? (
-        <>
-          <SettingSwitchRow
-            title={<Trans>Require SSO</Trans>}
-            description={
-              <Trans>
-                Members on a claimed email domain must sign in with SSO instead
-                of Google, GitHub, or email.
-              </Trans>
-            }
-            checked={requireSso}
-            onChange={setRequireSso}
+      {canConfigureSso ? (
+        <SettingSwitchRow
+          title={<Trans>Require SSO</Trans>}
+          description={
+            <Trans>
+              Members on a claimed email domain must sign in with SSO instead of
+              Google, GitHub, or email.
+            </Trans>
+          }
+          checked={requireSso}
+          onChange={setRequireSso}
+        />
+      ) : null}
+      {canConfigureRetention ? (
+        <label className="flex max-w-sm flex-col gap-1 text-sm">
+          <Trans>Retention (days)</Trans>
+          <Input
+            value={retention}
+            onChange={(event) => setRetention(event.target.value)}
+            placeholder={t`Keep forever`}
+            inputMode="numeric"
+            className="bg-card h-9 shadow-none"
           />
-          <label className="flex max-w-sm flex-col gap-1 text-sm">
-            <Trans>Retention (days)</Trans>
-            <Input
-              value={retention}
-              onChange={(event) => setRetention(event.target.value)}
-              placeholder={t`Keep forever`}
-              inputMode="numeric"
-              className="bg-card h-9 shadow-none"
-            />
-          </label>
-        </>
+        </label>
       ) : null}
       <Button
         type="button"
@@ -958,67 +1008,82 @@ function WorkspacePolicyForm({
       {save.error?.message ? (
         <p className="text-destructive text-xs">{save.error.message}</p>
       ) : null}
-      {showEnterpriseControls ? (
+      {canConfigureSso || canConfigureScim ? (
         <div className="grid gap-6 sm:grid-cols-2">
-          <form
-            className="flex flex-col gap-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (domain.trim()) claimDomain.mutate(domain.trim());
-            }}
-          >
-            <label className="flex flex-col gap-1 text-sm">
-              <Trans>Claim email domain</Trans>
-              <Input
-                value={domain}
-                onChange={(event) => setDomain(event.target.value)}
-                placeholder="company.com"
-                className="bg-card h-9 shadow-none"
-              />
-            </label>
-            <Button
-              type="submit"
-              size="sm"
-              variant="outline"
-              className="w-fit"
-              disabled={!domain.trim() || claimDomain.isPending}
+          {canConfigureSso ? (
+            <form
+              className="flex flex-col gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (domain.trim()) claimDomain.mutate(domain.trim());
+              }}
             >
-              <Trans>Verify domain</Trans>
-            </Button>
-          </form>
-          <form
-            className="flex flex-col gap-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (domain.trim() && scimToken.trim().length >= 32) {
-                rotateScim.mutate();
-              }
-            }}
-          >
-            <label className="flex flex-col gap-1 text-sm">
-              <Trans>SCIM bearer token</Trans>
-              <Input
-                value={scimToken}
-                onChange={(event) => setScimToken(event.target.value)}
-                type="password"
-                autoComplete="off"
-                className="bg-card h-9 shadow-none"
-              />
-            </label>
-            <Button
-              type="submit"
-              size="sm"
-              variant="outline"
-              className="w-fit"
-              disabled={
-                !domain.trim() ||
-                scimToken.trim().length < 32 ||
-                rotateScim.isPending
-              }
+              <label className="flex flex-col gap-1 text-sm">
+                <Trans>Claim email domain</Trans>
+                <Input
+                  value={domain}
+                  onChange={(event) => setDomain(event.target.value)}
+                  placeholder="company.com"
+                  className="bg-card h-9 shadow-none"
+                />
+              </label>
+              <Button
+                type="submit"
+                size="sm"
+                variant="outline"
+                className="w-fit"
+                disabled={!domain.trim() || claimDomain.isPending}
+              >
+                <Trans>Verify domain</Trans>
+              </Button>
+            </form>
+          ) : null}
+          {canConfigureScim ? (
+            <form
+              className="flex flex-col gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (domain.trim() && scimToken.trim().length >= 32) {
+                  rotateScim.mutate();
+                }
+              }}
             >
-              <Trans>Save SCIM token</Trans>
-            </Button>
-          </form>
+              {!canConfigureSso ? (
+                <label className="flex flex-col gap-1 text-sm">
+                  <Trans>Claim email domain</Trans>
+                  <Input
+                    value={domain}
+                    onChange={(event) => setDomain(event.target.value)}
+                    placeholder="company.com"
+                    className="bg-card h-9 shadow-none"
+                  />
+                </label>
+              ) : null}
+              <label className="flex flex-col gap-1 text-sm">
+                <Trans>SCIM bearer token</Trans>
+                <Input
+                  value={scimToken}
+                  onChange={(event) => setScimToken(event.target.value)}
+                  type="password"
+                  autoComplete="off"
+                  className="bg-card h-9 shadow-none"
+                />
+              </label>
+              <Button
+                type="submit"
+                size="sm"
+                variant="outline"
+                className="w-fit"
+                disabled={
+                  !domain.trim() ||
+                  scimToken.trim().length < 32 ||
+                  rotateScim.isPending
+                }
+              >
+                <Trans>Save SCIM token</Trans>
+              </Button>
+            </form>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -1104,6 +1169,7 @@ function MemberRow({
   member,
   isViewer,
   viewerRole,
+  canManageMembers,
   onRoleChange,
   onRemove,
   onTransfer,
@@ -1111,6 +1177,7 @@ function MemberRow({
   member: WorkspaceMember;
   isViewer: boolean;
   viewerRole?: WorkspaceRole;
+  canManageMembers: boolean;
   onRoleChange: (role: "admin" | "member") => void;
   onRemove: () => void;
   onTransfer: () => void;
@@ -1120,6 +1187,7 @@ function MemberRow({
   // Mirrors the server: owners change any role, admins may only raise a member
   // to admin, and nobody may remove a peer admin or the owner.
   const canEditRole =
+    canManageMembers &&
     !isOwner &&
     (viewerRole === "owner" ||
       (viewerRole === "admin" && member.role === "member"));
@@ -1128,7 +1196,7 @@ function MemberRow({
     !isViewer &&
     (viewerRole === "owner" ||
       (viewerRole === "admin" && member.role === "member"));
-  const canTransfer = viewerRole === "owner" && !isOwner;
+  const canTransfer = canManageMembers && viewerRole === "owner" && !isOwner;
 
   return (
     <tr>

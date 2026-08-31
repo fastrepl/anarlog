@@ -1,5 +1,5 @@
 begin;
-select plan(9);
+select plan(10);
 
 select tests.create_supabase_user('team_pro_owner', 'team-pro-owner@example.com');
 select tests.create_supabase_user('team_free_member', 'team-free-member@example.com');
@@ -67,6 +67,17 @@ select lives_ok(
   'A free account can create a Team checkout shell'
 );
 
+select results_eq(
+  $$
+    select workspace_tier
+    from public.get_workspace_access(
+      (select workspace_id from team_pro_test_state where name = 'hq')
+    )
+  $$,
+  array['free'::text],
+  'A new checkout shell has no paid workspace capabilities'
+);
+
 select throws_ok(
   $$
     select *
@@ -76,7 +87,7 @@ select throws_ok(
     )
   $$,
   '42501',
-  'active Team subscription required',
+  'workspace capability required: team.manage_workspace',
   'An unpaid workspace cannot use Team management'
 );
 
@@ -92,7 +103,7 @@ select throws_ok(
     )
   $$,
   '42501',
-  'active Team subscription required',
+  'workspace capability required: team.manage_members',
   'Personal Pro cannot invite members into an unpaid workspace'
 );
 

@@ -42,6 +42,10 @@ insert into workspace_logo_test_state (name, workspace_id)
 select 'owner', workspace_id
 from public.create_workspace('Fastrepl');
 
+select tests.enable_workspace_plan(
+  (select workspace_id from workspace_logo_test_state where name = 'owner')
+);
+
 select lives_ok(
   $$
     select * from public.set_workspace_logo(
@@ -132,6 +136,10 @@ insert into workspace_logo_test_state (name, workspace_id)
 select 'other', workspace_id
 from public.create_workspace('Other Company');
 
+select tests.enable_workspace_plan(
+  (select workspace_id from workspace_logo_test_state where name = 'other')
+);
+
 select throws_ok(
   $$
     select * from public.set_workspace_logo(
@@ -147,16 +155,14 @@ select throws_ok(
 select tests.clear_authentication();
 select tests.authenticate_as('logo_owner');
 
-select throws_ok(
+select lives_ok(
   $$
     select * from public.set_workspace_logo(
       (select workspace_id from workspace_logo_test_state where name = 'owner'),
       NULL
     )
   $$,
-  '42501',
-  'hyprnote pro entitlement required',
-  'A free account cannot change the workspace logo'
+  'A free owner can manage a workspace paid by Team'
 );
 
 select tests.clear_authentication();

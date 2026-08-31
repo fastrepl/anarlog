@@ -33,6 +33,11 @@ select lives_ok(
   'The owner creates a shared workspace'
 );
 
+select tests.enable_workspace_plan(
+  (select workspace_id from workspace_policy_test_state where name = 'hq'),
+  'enterprise'
+);
+
 select results_eq(
   $$
     select default_share_scope, retention_days, model_training_opt_out

@@ -25,6 +25,31 @@ export type WorkspaceSeatUsage = {
   isBilled: boolean;
 };
 
+export const WORKSPACE_CAPABILITIES = [
+  "team.shared_notes",
+  "team.manage_workspace",
+  "team.manage_members",
+  "team.manage_policies",
+  "team.view_usage",
+  "team.custom_subdomain",
+  "enterprise.sso",
+  "enterprise.scim",
+  "enterprise.retention",
+  "enterprise.audit_logs",
+  "enterprise.capture",
+] as const;
+
+export type WorkspaceCapability = (typeof WORKSPACE_CAPABILITIES)[number];
+export type WorkspaceTier = "free" | "team" | "enterprise";
+
+export type WorkspaceAccess = {
+  role: WorkspaceRole;
+  tier: WorkspaceTier;
+  capabilities: WorkspaceCapability[];
+  seatLimit: number | null;
+  usedSeats: number;
+};
+
 export class TeamError extends Error {
   constructor(message = "Workspace request failed") {
     super(message);
@@ -170,6 +195,29 @@ export async function getSeatUsage(
     seatLimit: typeof row.seat_limit === "number" ? row.seat_limit : null,
     usedSeats: typeof row.used_seats === "number" ? row.used_seats : 0,
     isBilled: row.is_billed === true,
+  };
+}
+
+export async function getWorkspaceAccess(
+  context: TeamContext,
+  workspaceId: string,
+): Promise<WorkspaceAccess> {
+  assertWorkspaceId(workspaceId);
+  const row = rows(
+    await callRpc(context, "get_workspace_access", {
+      p_workspace_id: workspaceId,
+    }),
+  )[0];
+  if (!row) throw new TeamError();
+  const capabilities = Array.isArray(row.capabilities)
+    ? row.capabilities.filter(isWorkspaceCapability)
+    : [];
+  return {
+    role: role(row.workspace_role),
+    tier: workspaceTier(row.workspace_tier),
+    capabilities,
+    seatLimit: typeof row.seat_limit === "number" ? row.seat_limit : null,
+    usedSeats: typeof row.used_seats === "number" ? row.used_seats : 0,
   };
 }
 
@@ -549,6 +597,17 @@ function normalizeEmail(value: string) {
     throw new TeamError();
   }
   return email;
+}
+
+function isWorkspaceCapability(value: unknown): value is WorkspaceCapability {
+  return WORKSPACE_CAPABILITIES.some((capability) => capability === value);
+}
+
+function workspaceTier(value: unknown): WorkspaceTier {
+  if (value !== "free" && value !== "team" && value !== "enterprise") {
+    throw new TeamError();
+  }
+  return value;
 }
 
 function inviteTokenValue(value: unknown) {

@@ -48,6 +48,10 @@ select
 from session_share_attachment_test_state
 where name = 'source_workspace';
 
+select tests.enable_workspace_plan(workspace_id)
+from session_share_attachment_test_state
+where name = 'source_workspace';
+
 select tests.clear_authentication();
 reset role;
 

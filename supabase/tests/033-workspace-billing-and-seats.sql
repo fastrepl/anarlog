@@ -76,7 +76,9 @@ values ('sub_seat_team', 'cus_seat_team', 'active'::stripe.subscription_status)
 on conflict (id) do nothing;
 
 insert into stripe.active_entitlements (id, customer, lookup_key)
-values ('ent_seat_team', 'cus_seat_team', 'hyprnote_pro')
+values
+  ('ent_seat_pro', 'cus_seat_team', 'hyprnote_pro'),
+  ('ent_seat_team', 'cus_seat_team', 'hyprnote_team')
 on conflict (id) do nothing;
 
 select tests.clear_authentication();
@@ -176,8 +178,8 @@ select results_eq(
       )
     ) -> 'claims' -> 'entitlements'
   $$,
-  array['["hyprnote_pro"]'::jsonb],
-  'A member inherits the workspace entitlement without buying their own plan'
+  array['["hyprnote_pro", "hyprnote_team"]'::jsonb],
+  'A member inherits the workspace capabilities without buying their own plan'
 );
 
 select results_eq(
