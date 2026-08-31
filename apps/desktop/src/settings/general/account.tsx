@@ -139,7 +139,7 @@ export function SettingsAccount() {
               <button
                 type="button"
                 onClick={handleSignIn}
-                className="border-primary bg-primary text-primary-foreground hover:bg-primary/90 h-10 w-fit rounded-full border-2 px-6 text-sm font-medium shadow-[0_4px_14px_rgba(87,83,78,0.4)] transition-all duration-200"
+                className="border-primary bg-primary text-primary-foreground hover:bg-primary/90 rounded-pill h-10 w-fit border-2 px-6 text-sm font-medium shadow-[0_4px_14px_rgba(87,83,78,0.4)] transition-all duration-200 [corner-shape:round]"
               >
                 <Trans>Get started</Trans>
               </button>
@@ -147,7 +147,7 @@ export function SettingsAccount() {
           </div>
         </section>
 
-        <GuestPlanSection onSignIn={handleSignIn} />
+        <GuestPlanSection />
       </div>
     );
   }
@@ -280,48 +280,21 @@ function PlanBillingSection({
     );
   }, [openBillingUrl, trialDaysRemaining]);
 
-  const renderAction = (action: TierAction, compact: boolean) => {
+  const renderAction = (action: TierAction) => {
     if (action == null) return null;
 
     if (action.kind === "current") {
-      if (needsPaymentMethod) {
-        if (compact) {
-          return (
-            <button
-              type="button"
-              onClick={handleAddPaymentMethod}
-              disabled={actionPending}
-              className="text-foreground hover:text-foreground text-xs font-medium transition-colors disabled:opacity-50"
-            >
-              <Trans>Add payment method</Trans>
-            </button>
-          );
-        }
-
-        return (
-          <button
-            type="button"
-            onClick={handleAddPaymentMethod}
-            disabled={actionPending}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-8 w-full cursor-pointer items-center justify-center rounded-full text-xs font-medium shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%] disabled:opacity-50 disabled:hover:scale-100"
-          >
-            <Trans>Add payment method</Trans>
-          </button>
-        );
-      }
-
-      if (compact) {
-        return (
-          <span className="text-muted-foreground text-xs">
-            {tierActionLabel(action)}
-          </span>
-        );
-      }
+      if (!needsPaymentMethod) return null;
 
       return (
-        <div className="border-border bg-muted text-muted-foreground flex h-8 w-full items-center justify-center rounded-full border text-xs">
-          {tierActionLabel(action)}
-        </div>
+        <button
+          type="button"
+          onClick={handleAddPaymentMethod}
+          disabled={actionPending}
+          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-pill px-2 py-0.5 text-[10px] font-medium transition-colors [corner-shape:round] disabled:opacity-50"
+        >
+          <Trans>Add payment method</Trans>
+        </button>
       );
     }
 
@@ -368,42 +341,19 @@ function PlanBillingSection({
       );
     };
 
-    const isBusy = actionPending;
-    const label = isPaused ? t`Resume` : tierActionLabel(action);
-
-    if (compact) {
-      return (
-        <button
-          type="button"
-          onClick={handleClick}
-          disabled={isBusy}
-          className={cn([
-            "text-xs font-medium transition-colors",
-            isUpgrade
-              ? "text-muted-foreground hover:text-foreground"
-              : "text-muted-foreground hover:text-muted-foreground",
-          ])}
-        >
-          {label}
-        </button>
-      );
-    }
-
-    const buttonClass = cn([
-      "flex h-8 w-full cursor-pointer items-center justify-center rounded-full text-xs font-medium transition-all hover:scale-[102%] active:scale-[98%] disabled:opacity-50 disabled:hover:scale-100",
-      isUpgrade
-        ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md hover:shadow-lg"
-        : "border-border from-card to-background text-muted-foreground border bg-linear-to-b shadow-xs hover:shadow-md",
-    ]);
-
     return (
       <button
         type="button"
         onClick={handleClick}
-        disabled={isBusy}
-        className={buttonClass}
+        disabled={actionPending}
+        className={cn([
+          "rounded-pill px-2 py-0.5 text-[10px] font-medium transition-colors [corner-shape:round] disabled:opacity-50",
+          isUpgrade
+            ? "bg-primary text-primary-foreground hover:bg-primary/90"
+            : "bg-muted text-muted-foreground hover:text-foreground",
+        ])}
       >
-        {label}
+        {isPaused ? t`Resume` : tierActionLabel(action)}
       </button>
     );
   };
@@ -441,52 +391,7 @@ function PlanBillingSection({
   );
 }
 
-function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
-  const { t } = useLingui();
-  const renderAction = (action: TierAction, compact: boolean) => {
-    if (action == null) return null;
-
-    if (action.kind === "current") {
-      if (compact) {
-        return (
-          <span className="text-muted-foreground text-xs">
-            {tierActionLabel(action)}
-          </span>
-        );
-      }
-
-      return (
-        <div className="border-border bg-muted text-muted-foreground flex h-8 w-full items-center justify-center rounded-full border text-xs">
-          {tierActionLabel(action)}
-        </div>
-      );
-    }
-
-    const label = action.plan === "pro" ? t`Sign in for Pro` : t`Sign in`;
-
-    if (compact) {
-      return (
-        <button
-          type="button"
-          onClick={onSignIn}
-          className="text-muted-foreground hover:text-foreground text-xs font-medium transition-colors"
-        >
-          <Trans>Sign in</Trans>
-        </button>
-      );
-    }
-
-    return (
-      <button
-        type="button"
-        onClick={onSignIn}
-        className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-8 w-full cursor-pointer items-center justify-center rounded-full text-xs font-medium shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
-      >
-        {label}
-      </button>
-    );
-  };
-
+function GuestPlanSection() {
   return (
     <section>
       <div className="mb-4 flex flex-col gap-1">
@@ -494,7 +399,7 @@ function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
           <Trans>Plans</Trans>
         </h2>
         <p className="text-muted-foreground text-sm">
-          <Trans>Compare Free and Pro before you sign in.</Trans>
+          <Trans>What you're missing without Pro.</Trans>
         </p>
       </div>
 
@@ -502,9 +407,29 @@ function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
         currentTier="free"
         isTrialing={false}
         canStartTrial={false}
-        renderAction={renderAction}
       />
     </section>
+  );
+}
+
+function PlanStatusChip({
+  children,
+  emphasis = false,
+}: {
+  children: ReactNode;
+  emphasis?: boolean;
+}) {
+  return (
+    <span
+      className={cn([
+        "rounded-pill px-2 py-0.5 text-[10px] font-medium [corner-shape:round]",
+        emphasis
+          ? "bg-primary text-primary-foreground"
+          : "bg-muted text-muted-foreground",
+      ])}
+    >
+      {children}
+    </span>
   );
 }
 
@@ -517,10 +442,11 @@ function PlanTierList({
   currentTier: PlanTier;
   isTrialing: boolean;
   canStartTrial: boolean;
-  renderAction: (action: TierAction, compact: boolean) => ReactNode;
+  renderAction?: (action: TierAction) => ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isWide, setIsWide] = useState(true);
+  const highlightPro = currentTier === "free";
 
   useEffect(() => {
     const el = containerRef.current;
@@ -535,91 +461,92 @@ function PlanTierList({
 
   return (
     <div ref={containerRef}>
-      {isWide ? (
-        <div className="grid grid-cols-2">
-          {PLAN_TIERS.map((tier) => {
-            const isCurrent = tier.id === currentTier;
-            const action = getActionForTier(
-              tier.id,
-              currentTier,
-              canStartTrial,
+      <div
+        className={cn([isWide ? "grid grid-cols-2 gap-x-10" : "flex flex-col"])}
+      >
+        {PLAN_TIERS.map((tier) => {
+          const isCurrent = tier.id === currentTier;
+          const isPro = tier.id === "pro";
+          const action = getActionForTier(tier.id, currentTier, canStartTrial);
+          const chips = (
+            <>
+              {isCurrent && (
+                <PlanStatusChip>
+                  <Trans>Current</Trans>
+                </PlanStatusChip>
+              )}
+              {isCurrent && isTrialing && (
+                <PlanStatusChip emphasis>
+                  <Trans>Trial</Trans>
+                </PlanStatusChip>
+              )}
+              {renderAction?.(action)}
+            </>
+          );
+          const details =
+            highlightPro && !isPro ? (
+              <p className="text-muted-foreground text-xs">
+                <Trans>
+                  On-device transcription, recordings, and your own keys.
+                </Trans>
+              </p>
+            ) : (
+              <PlanFeatureList features={tier.features} dense />
             );
 
-            return (
-              <div key={tier.id} className="flex flex-col p-3">
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="text-foreground font-sans text-base font-medium">
-                    {tier.name}
-                  </span>
-                  {isCurrent && isTrialing && (
-                    <span className="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase">
-                      <Trans>Trial</Trans>
-                    </span>
-                  )}
-                </div>
-
-                <div className="mb-2">
-                  <span className="text-muted-foreground font-sans text-xl">
-                    {tier.price}
-                  </span>
-                  {tier.period && (
-                    <span className="text-muted-foreground ml-1 text-sm">
-                      {tier.period}
-                    </span>
-                  )}
-                  {tier.subtitle && (
-                    <div className="text-muted-foreground mt-0.5 text-xs">
-                      {tier.subtitle}
-                    </div>
-                  )}
-                </div>
-
-                <div className="mb-3">
-                  <PlanFeatureList features={tier.features} dense />
-                </div>
-
-                <div className="mt-auto">{renderAction(action, false)}</div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="flex flex-col">
-          {PLAN_TIERS.map((tier) => {
-            const isCurrent = tier.id === currentTier;
-            const action = getActionForTier(
-              tier.id,
-              currentTier,
-              canStartTrial,
-            );
-
+          if (!isWide) {
             return (
               <div key={tier.id} className="py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                    <span className="text-foreground text-sm font-medium">
-                      {tier.name}
-                    </span>
-                    <span className="text-muted-foreground text-sm">
-                      {tier.price}
-                      {tier.period}
-                    </span>
-                    {isCurrent && isTrialing && (
-                      <span className="bg-primary text-primary-foreground rounded-full px-1.5 py-px text-[10px] font-medium tracking-wide uppercase">
-                        <Trans>Trial</Trans>
-                      </span>
-                    )}
-                  </div>
-                  <div className="shrink-0">{renderAction(action, true)}</div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="text-foreground text-sm font-medium">
+                    {tier.name}
+                  </span>
+                  <span className="text-muted-foreground text-sm">
+                    {tier.price}
+                    {tier.period}
+                  </span>
+                  {chips}
                 </div>
-                <div className="mt-2">
-                  <PlanFeatureList features={tier.features} dense />
-                </div>
+                <div className="mt-2">{details}</div>
               </div>
             );
-          })}
-        </div>
-      )}
+          }
+
+          return (
+            <div key={tier.id} className="flex flex-col">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span
+                  className={cn([
+                    "text-foreground font-sans text-base",
+                    isPro && highlightPro ? "font-semibold" : "font-medium",
+                  ])}
+                >
+                  {tier.name}
+                </span>
+                {chips}
+              </div>
+
+              <div className="mb-2">
+                <span className="text-muted-foreground font-sans text-xl">
+                  {tier.price}
+                </span>
+                {tier.period && (
+                  <span className="text-muted-foreground ml-1 text-sm">
+                    {tier.period}
+                  </span>
+                )}
+                {tier.subtitle && (
+                  <div className="text-muted-foreground mt-0.5 text-xs">
+                    {tier.subtitle}
+                  </div>
+                )}
+              </div>
+
+              {details}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

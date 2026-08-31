@@ -1199,10 +1199,6 @@ msgstr ""
 msgid "Company"
 msgstr ""
 
-#: src/settings/general/account.tsx
-msgid "Compare Free and Pro before you sign in."
-msgstr ""
-
 #: src/instruction/index.tsx
 msgid "Complete sign-in in your browser, then return to Anarlog."
 msgstr ""
@@ -1598,6 +1594,10 @@ msgstr ""
 
 #: src/settings/general/summary-length.tsx
 msgid "Crisp"
+msgstr ""
+
+#: src/settings/general/account.tsx
+msgid "Current"
 msgstr ""
 
 #: src/settings/general/audio-settings.tsx
@@ -3194,6 +3194,10 @@ msgstr ""
 msgid "On-device models can take a few minutes to warm up before text appears."
 msgstr ""
 
+#: src/settings/general/account.tsx
+msgid "On-device transcription, recordings, and your own keys."
+msgstr ""
+
 #: src/settings/general/default-share-access.tsx
 msgid "Only me"
 msgstr ""
@@ -4322,7 +4326,6 @@ msgstr ""
 
 #: src/session-sharing/index.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
-#: src/settings/general/account.tsx
 #: src/settings/sync/index.tsx
 #: src/shared-notes/index.tsx
 #: src/sidebar/toast/registry.tsx
@@ -4343,10 +4346,6 @@ msgstr ""
 
 #: src/settings/todo/github.tsx
 msgid "Sign in for private repo access."
-msgstr ""
-
-#: src/settings/general/account.tsx
-msgid "Sign in for Pro"
 msgstr ""
 
 #: src/settings/general/account.tsx
@@ -5338,6 +5337,10 @@ msgstr ""
 
 #: src/chat/components/body/empty.tsx
 msgid "What were the key decisions that have been made?"
+msgstr ""
+
+#: src/settings/general/account.tsx
+msgid "What you're missing without Pro."
 msgstr ""
 
 #: src/changelog/index.tsx

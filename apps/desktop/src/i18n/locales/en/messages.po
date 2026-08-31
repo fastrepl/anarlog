@@ -1199,10 +1199,6 @@ msgstr "comments"
 msgid "Company"
 msgstr "Company"
 
-#: src/settings/general/account.tsx
-msgid "Compare Free and Pro before you sign in."
-msgstr "Compare Free and Pro before you sign in."
-
 #: src/instruction/index.tsx
 msgid "Complete sign-in in your browser, then return to Anarlog."
 msgstr "Complete sign-in in your browser, then return to Anarlog."
@@ -1599,6 +1595,10 @@ msgstr "Creating brief..."
 #: src/settings/general/summary-length.tsx
 msgid "Crisp"
 msgstr "Crisp"
+
+#: src/settings/general/account.tsx
+msgid "Current"
+msgstr "Current"
 
 #: src/settings/general/audio-settings.tsx
 #: src/templates/auto-form.tsx
@@ -3194,6 +3194,10 @@ msgstr "Oldest"
 msgid "On-device models can take a few minutes to warm up before text appears."
 msgstr "On-device models can take a few minutes to warm up before text appears."
 
+#: src/settings/general/account.tsx
+msgid "On-device transcription, recordings, and your own keys."
+msgstr "On-device transcription, recordings, and your own keys."
+
 #: src/settings/general/default-share-access.tsx
 msgid "Only me"
 msgstr "Only me"
@@ -4322,7 +4326,6 @@ msgstr "Show tray icon"
 
 #: src/session-sharing/index.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
-#: src/settings/general/account.tsx
 #: src/settings/sync/index.tsx
 #: src/shared-notes/index.tsx
 #: src/sidebar/toast/registry.tsx
@@ -4344,10 +4347,6 @@ msgstr "Sign in for cloud transcription, AI models, and sharing."
 #: src/settings/todo/github.tsx
 msgid "Sign in for private repo access."
 msgstr "Sign in for private repo access."
-
-#: src/settings/general/account.tsx
-msgid "Sign in for Pro"
-msgstr "Sign in for Pro"
 
 #: src/settings/general/account.tsx
 msgid "Sign in to Anarlog"
@@ -5339,6 +5338,10 @@ msgstr "What these notes are usually about"
 #: src/chat/components/body/empty.tsx
 msgid "What were the key decisions that have been made?"
 msgstr "What were the key decisions that have been made?"
+
+#: src/settings/general/account.tsx
+msgid "What you're missing without Pro."
+msgstr "What you're missing without Pro."
 
 #: src/changelog/index.tsx
 msgid "What's new in {version}?"
