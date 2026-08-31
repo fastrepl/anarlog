@@ -1,3 +1,5 @@
+export async function clearStaleMeetingRecordingActivities(): Promise<void> {}
+
 export async function startMeetingRecordingActivity(
   _sessionId: string,
 ): Promise<void> {}

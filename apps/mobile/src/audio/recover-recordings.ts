@@ -6,6 +6,7 @@ import { transcribeSession } from "@/data/transcribe";
 import { execute } from "@/db";
 import { captureAnalytics } from "@/lib/analytics";
 import { captureOperationalError } from "@/lib/error-reporting";
+import { clearStaleMeetingRecordingActivities } from "@/live-activity/meeting-recording-activity";
 
 const RECOVERY_CANDIDATES_SQL = `
 SELECT session.id
@@ -31,6 +32,12 @@ WHERE session.deleted_at IS NULL
       AND attachment.deleted_at IS NULL
   )
 `;
+
+void clearStaleMeetingRecordingActivities().catch((error) => {
+  captureOperationalError(error, {
+    operation: "recording_live_activity_cleanup",
+  });
+});
 
 function repairInterruptedWav(file: File): number | null {
   if (!file.exists || file.size <= WAV_HEADER_BYTES) return null;

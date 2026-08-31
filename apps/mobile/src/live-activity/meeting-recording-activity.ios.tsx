@@ -182,6 +182,21 @@ function getActivityFactory(): ActivityFactory {
   return activityFactory;
 }
 
+async function clearActiveActivities(): Promise<void> {
+  const activities = getActiveActivities();
+  activeActivity = null;
+  activeSessionId = null;
+  const results = await Promise.allSettled(
+    activities.map((activity) => activity.end("immediate")),
+  );
+  const rejected = results.find((result) => result.status === "rejected");
+  if (rejected?.status === "rejected") throw rejected.reason;
+}
+
+export function clearStaleMeetingRecordingActivities(): Promise<void> {
+  return enqueue(clearActiveActivities);
+}
+
 export function startMeetingRecordingActivity(
   sessionId: string,
 ): Promise<void> {
@@ -203,14 +218,6 @@ export function startMeetingRecordingActivity(
 export function endMeetingRecordingActivity(sessionId: string): Promise<void> {
   return enqueue(async () => {
     if (activeSessionId && activeSessionId !== sessionId) return;
-
-    const activities = getActiveActivities();
-    activeActivity = null;
-    activeSessionId = null;
-    const results = await Promise.allSettled(
-      activities.map((activity) => activity.end("immediate")),
-    );
-    const rejected = results.find((result) => result.status === "rejected");
-    if (rejected?.status === "rejected") throw rejected.reason;
+    await clearActiveActivities();
   });
 }
