@@ -932,8 +932,8 @@ msgid "Choose export folder"
 msgstr "Choose export folder"
 
 #: src/settings/appearance/sidebar-item-fields.tsx
-msgid "Choose extra fields to show above each note title."
-msgstr "Choose extra fields to show above each note title."
+msgid "Choose extra fields to show on each note."
+msgstr "Choose extra fields to show on each note."
 
 #: src/imports/screen.tsx
 msgid "Choose files"
@@ -4305,8 +4305,8 @@ msgid "Show Sidebar"
 msgstr "Show Sidebar"
 
 #: src/settings/appearance/sidebar-item-fields.tsx
-msgid "Show tags above the title."
-msgstr "Show tags above the title."
+msgid "Show tags under the date and time."
+msgstr "Show tags under the date and time."
 
 #: src/settings/appearance/sidebar-item-fields.tsx
 msgid "Show the folder above the title."
