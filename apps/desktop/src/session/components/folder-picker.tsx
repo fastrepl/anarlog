@@ -54,6 +54,7 @@ export function FolderPicker({
   const triggerRef = useSquircleRef<HTMLButtonElement>();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [highlighted, setHighlighted] = useState("");
   const folderId = useSession(sessionId)?.folder_id ?? "";
   const folderPaths = useFolderPaths();
   const updateSession = useUpdateSession(sessionId);
@@ -72,12 +73,17 @@ export function FolderPicker({
     Boolean(normalizedQuery) && !folders.includes(normalizedQuery ?? "");
   const folderName = normalizedQuery ?? "";
 
-  const handleOpenChange = useCallback((nextOpen: boolean) => {
-    setOpen(nextOpen);
-    if (!nextOpen) {
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      setOpen(nextOpen);
+      if (nextOpen) {
+        setHighlighted(currentPath);
+        return;
+      }
       setQuery("");
-    }
-  }, []);
+    },
+    [currentPath],
+  );
 
   const handleSelect = useCallback(
     (nextFolderId: string) => {
@@ -155,6 +161,8 @@ export function FolderPicker({
           <AppFloatingPanel className="overflow-hidden">
             <Command
               filter={filterFolders}
+              value={highlighted}
+              onValueChange={setHighlighted}
               className="rounded-[inherit] border-0 bg-transparent **:[[cmdk-input-wrapper]]:h-8 **:[[cmdk-input-wrapper]]:px-2.5"
             >
               <CommandInput
@@ -171,20 +179,6 @@ export function FolderPicker({
                       : t`No folders found.`
                     : t`No folders yet.`}
                 </CommandEmpty>
-                {currentPath ? (
-                  <CommandGroup>
-                    <CommandItem
-                      value={`no-folder ${t`No folder`}`}
-                      onSelect={() => handleSelect("")}
-                      className="cursor-pointer"
-                    >
-                      <span className="flex-1 truncate">{t`No folder`}</span>
-                    </CommandItem>
-                  </CommandGroup>
-                ) : null}
-                {currentPath && (folders.length > 0 || canCreateFolder) ? (
-                  <CommandSeparator />
-                ) : null}
                 {folders.length > 0 ? (
                   <CommandGroup>
                     {folders.map((path) => (
@@ -201,6 +195,20 @@ export function FolderPicker({
                         ) : null}
                       </CommandItem>
                     ))}
+                  </CommandGroup>
+                ) : null}
+                {currentPath && (folders.length > 0 || canCreateFolder) ? (
+                  <CommandSeparator />
+                ) : null}
+                {currentPath ? (
+                  <CommandGroup>
+                    <CommandItem
+                      value={`no-folder ${t`No folder`}`}
+                      onSelect={() => handleSelect("")}
+                      className="cursor-pointer"
+                    >
+                      <span className="flex-1 truncate">{t`No folder`}</span>
+                    </CommandItem>
                   </CommandGroup>
                 ) : null}
                 {canCreateFolder && normalizedQuery ? (

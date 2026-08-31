@@ -151,6 +151,23 @@ describe("FolderPicker", () => {
     });
   });
 
+  it("highlights the current folder instead of no folder", () => {
+    mocks.folderId = "work";
+
+    render(<FolderPicker sessionId="session-1" />);
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Folder: work" }));
+
+    expect(
+      screen.getByRole("option", { name: "work" }).getAttribute("data-selected"),
+    ).toBe("true");
+    expect(
+      screen
+        .getByRole("option", { name: "No folder" })
+        .getAttribute("data-selected"),
+    ).not.toBe("true");
+  });
+
   it("can remove the current note from its folder", () => {
     mocks.folderId = "work";
 
