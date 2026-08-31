@@ -24,6 +24,18 @@ export function parseLastSignInMethod(
   }
 }
 
+export function parseAuthCallbackSignInMethod(
+  callbackUrl: string,
+): SignInMethod | null {
+  try {
+    return parseLastSignInMethod(
+      new URL(callbackUrl).searchParams.get("method"),
+    );
+  } catch {
+    return null;
+  }
+}
+
 export function buildSignInUrl(appUrl: string, method: SignInMethod): string {
   const url = new URL(`${appUrl.replace(/\/+$/, "")}/auth`);
   url.searchParams.set("flow", "desktop");

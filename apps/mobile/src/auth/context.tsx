@@ -28,6 +28,7 @@ import { authStorageKey, supabase } from "@/auth/client";
 import {
   buildSignInUrl,
   lastSignInMethodStorageKey,
+  parseAuthCallbackSignInMethod,
   parseLastSignInMethod,
   type SignInMethod,
 } from "@/auth/sign-in";
@@ -109,7 +110,6 @@ function parseAuthCallbackUrl(
 // Deep links can be delivered twice (auth-session result + Linking event);
 // mirror desktop's 5s dedupe window (apps/desktop/src/auth/deeplink.ts).
 const RECENT_CALLBACK_WINDOW_MS = 5_000;
-const pendingSignInMethodStorageKey = "anarlog:auth:pending-sign-in-method";
 const inFlightTokens = new Map<string, Promise<boolean>>();
 const recentTokens = new Map<string, number>();
 
@@ -226,7 +226,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const identifiedUserIdRef = useRef<string | null>(null);
   const reportedUndecodableUserIdRef = useRef<string | null>(null);
   const billingRefreshRef = useRef<Promise<boolean> | null>(null);
-  const pendingSignInMethodRef = useRef<SignInMethod | null>(null);
   // Prevents double init in React StrictMode (refresh token races)
   const initStartedRef = useRef(false);
 
@@ -284,38 +283,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   });
 
-  const handleCompletedAuthCallback = useCallback(async (url: string) => {
-    const signedIn = await handleAuthCallbackUrl(url);
-    if (!signedIn) return false;
+  const handleCompletedAuthCallback = useCallback(
+    async (url: string, expectedSignInMethod?: SignInMethod) => {
+      const signedIn = await handleAuthCallbackUrl(url);
+      if (!signedIn) return false;
 
-    let signInMethod = pendingSignInMethodRef.current;
-    if (!signInMethod) {
+      const signInMethod =
+        parseAuthCallbackSignInMethod(url) ?? expectedSignInMethod;
+      if (!signInMethod) return true;
+
+      setLastSignInMethod(signInMethod);
       try {
-        signInMethod = parseLastSignInMethod(
-          await AsyncStorage.getItem(pendingSignInMethodStorageKey),
-        );
+        await AsyncStorage.setItem(lastSignInMethodStorageKey, signInMethod);
       } catch (error) {
         captureOperationalError(error, {
-          operation: "auth_pending_sign_in_method_read",
+          operation: "auth_last_sign_in_method_write",
           level: "warning",
         });
       }
-    }
-    if (!signInMethod) return true;
-
-    pendingSignInMethodRef.current = null;
-    setLastSignInMethod(signInMethod);
-    try {
-      await AsyncStorage.setItem(lastSignInMethodStorageKey, signInMethod);
-      await AsyncStorage.removeItem(pendingSignInMethodStorageKey);
-    } catch (error) {
-      captureOperationalError(error, {
-        operation: "auth_last_sign_in_method_write",
-        level: "warning",
-      });
-    }
-    return true;
-  }, []);
+      return true;
+    },
+    [],
+  );
 
   useEffect(() => {
     const client = supabase;
@@ -418,23 +407,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sign_in_method: signInMethod,
         entry_point: "mobile_sign_in",
       });
-      pendingSignInMethodRef.current = signInMethod;
-      await AsyncStorage.setItem(
-        pendingSignInMethodStorageKey,
-        signInMethod,
-      ).catch((error) => {
-        captureOperationalError(error, {
-          operation: "auth_pending_sign_in_method_write",
-          level: "warning",
-        });
-      });
       try {
         const result = await WebBrowser.openAuthSessionAsync(
           buildSignInUrl(env.appUrl, signInMethod),
           "anarlog://auth/callback",
         );
         if (result.type === "success") {
-          await handleCompletedAuthCallback(result.url);
+          await handleCompletedAuthCallback(result.url, signInMethod);
         } else {
           captureAnalytics("auth_failed", {
             method: "browser_handoff",

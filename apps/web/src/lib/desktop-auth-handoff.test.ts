@@ -23,8 +23,13 @@ const { JSDOM } = require("jsdom") as {
 
 test("builds an encoded desktop auth callback", () => {
   assert.equal(
-    buildDesktopAuthDeeplink("anarlog-staging", "fake access", "fake&refresh"),
-    "anarlog-staging://auth/callback?access_token=fake+access&refresh_token=fake%26refresh",
+    buildDesktopAuthDeeplink(
+      "anarlog-staging",
+      "fake access",
+      "fake&refresh",
+      "google",
+    ),
+    "anarlog-staging://auth/callback?access_token=fake+access&refresh_token=fake%26refresh&method=google",
   );
   assert.equal(
     buildDesktopAuthDeeplink("anarlog-staging", undefined, "fake-refresh"),

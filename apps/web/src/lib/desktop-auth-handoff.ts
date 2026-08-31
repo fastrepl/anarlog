@@ -1,4 +1,5 @@
 import type { DesktopScheme } from "@/functions/desktop-flow";
+import type { AuthSignInMethod } from "@/lib/auth-last-sign-in-method";
 
 import { useMountEffect } from "../hooks/useMountEffect.ts";
 
@@ -8,6 +9,7 @@ export function buildDesktopAuthDeeplink(
   scheme: DesktopScheme,
   accessToken: string | undefined,
   refreshToken: string | undefined,
+  method?: AuthSignInMethod,
 ) {
   if (!accessToken || !refreshToken) {
     return null;
@@ -17,6 +19,9 @@ export function buildDesktopAuthDeeplink(
     access_token: accessToken,
     refresh_token: refreshToken,
   });
+  if (method) {
+    params.set("method", method);
+  }
   return `${scheme}://auth/callback?${params.toString()}`;
 }
 

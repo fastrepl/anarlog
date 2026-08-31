@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildSignInUrl, parseLastSignInMethod } from "./sign-in.ts";
+import {
+  buildSignInUrl,
+  parseAuthCallbackSignInMethod,
+  parseLastSignInMethod,
+} from "./sign-in.ts";
 
 for (const provider of ["apple", "google", "azure", "github"]) {
   test(`builds a direct ${provider} OAuth URL`, () => {
@@ -35,4 +39,20 @@ test("accepts only supported last-used sign-in methods", () => {
 
   assert.equal(parseLastSignInMethod("password"), null);
   assert.equal(parseLastSignInMethod(null), null);
+});
+
+test("reads the sign-in method carried by an auth callback", () => {
+  assert.equal(
+    parseAuthCallbackSignInMethod(
+      "anarlog://auth/callback?access_token=token&method=google",
+    ),
+    "google",
+  );
+  assert.equal(
+    parseAuthCallbackSignInMethod(
+      "anarlog://auth/callback?access_token=token&method=password",
+    ),
+    null,
+  );
+  assert.equal(parseAuthCallbackSignInMethod("not a url"), null);
 });
