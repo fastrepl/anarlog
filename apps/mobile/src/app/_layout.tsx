@@ -138,6 +138,7 @@ function Gate() {
     return (
       <SignInScreen
         busy={signingIn}
+        lastSignInMethod={auth.lastSignInMethod}
         onSignIn={(method) => void handleSignIn(method)}
       />
     );
