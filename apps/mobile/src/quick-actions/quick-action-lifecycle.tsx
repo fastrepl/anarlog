@@ -22,12 +22,9 @@ export function QuickActionLifecycle({
 }) {
   const router = useRouter();
   const busyRef = useRef(false);
+  const queuedToggleRef = useRef(false);
 
-  const handleAction = async () => {
-    const action = consumePendingQuickAction();
-    if (action !== "toggle_listening") return;
-    if (busyRef.current) return;
-
+  const runToggle = async () => {
     busyRef.current = true;
     try {
       if (getMobileCaptureActive()) {
@@ -52,12 +49,26 @@ export function QuickActionLifecycle({
       });
     } finally {
       busyRef.current = false;
+      if (queuedToggleRef.current) {
+        queuedToggleRef.current = false;
+        void runToggle();
+      }
     }
   };
 
+  const handleAction = () => {
+    const action = consumePendingQuickAction();
+    if (action !== "toggle_listening") return;
+    if (busyRef.current) {
+      queuedToggleRef.current = !queuedToggleRef.current;
+      return;
+    }
+    void runToggle();
+  };
+
   useMountEffect(() => {
-    const unsubscribe = subscribeQuickActions(() => void handleAction());
-    void handleAction();
+    const unsubscribe = subscribeQuickActions(handleAction);
+    handleAction();
     return unsubscribe;
   });
 
