@@ -364,6 +364,10 @@ msgid "All Notes"
 msgstr "All Notes"
 
 #: src/settings/team/index.tsx
+msgid "All teams"
+msgstr "All teams"
+
+#: src/settings/team/index.tsx
 msgid "Allow anyone-with-the-link sharing"
 msgstr "Allow anyone-with-the-link sharing"
 
@@ -4741,13 +4745,13 @@ msgid "Teach coding agents when and how to use the Anarlog CLI and MCP"
 msgstr "Teach coding agents when and how to use the Anarlog CLI and MCP"
 
 #: src/settings/team/index.tsx
-#: src/sidebar/settings.tsx
-msgid "Team"
-msgstr "Team"
-
-#: src/settings/team/index.tsx
 msgid "teammate@company.com"
 msgstr "teammate@company.com"
+
+#: src/settings/team/index.tsx
+#: src/sidebar/settings.tsx
+msgid "Teams"
+msgstr "Teams"
 
 #: src/settings/general/meeting-settings.tsx
 msgid "Tell participants when listening starts; this does not confirm consent."

@@ -2,6 +2,8 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Buildings,
   CalendarBlank,
+  CaretLeft,
+  CaretRight,
   ChartBar,
   CircleNotch,
   Crown,
@@ -59,7 +61,7 @@ import {
   getTeamSenderName,
   reportWorkspaceInvitation,
 } from "./invitation";
-import { WorkspaceLogoButton } from "./logo-button";
+import { WorkspaceLogoButton, WorkspaceLogoMark } from "./logo-button";
 import { MY_WORKSPACES_QUERY_KEY, useMyWorkspacesWithMirror } from "./mirror";
 
 import { useAuth } from "~/auth";
@@ -83,10 +85,8 @@ export function SettingsTeam() {
   // Shares the query (and therefore the mirror refresh) with the app-level
   // mount, so opening this page is never what makes sharing scopes appear.
   const workspaces = useMyWorkspacesWithMirror();
-
-  const activeId = selectedId ?? workspaces.data?.[0]?.workspaceId ?? null;
-  const activeWorkspace = workspaces.data?.find(
-    (workspace) => workspace.workspaceId === activeId,
+  const selectedWorkspace = workspaces.data?.find(
+    (workspace) => workspace.workspaceId === selectedId,
   );
 
   const create = useMutation({
@@ -103,7 +103,7 @@ export function SettingsTeam() {
   if (!signedIn) {
     return (
       <div className="flex flex-col gap-8">
-        <SettingsPageTitle title={<Trans>Team</Trans>} />
+        <SettingsPageTitle title={<Trans>Teams</Trans>} />
         <p className="text-muted-foreground text-sm">
           <Trans>Sign in to create a shared workspace for your team.</Trans>
         </p>
@@ -114,7 +114,7 @@ export function SettingsTeam() {
   if (!billing.isReady) {
     return (
       <div className="flex flex-col gap-8">
-        <SettingsPageTitle title={<Trans>Team</Trans>} />
+        <SettingsPageTitle title={<Trans>Teams</Trans>} />
         <TeamSkeleton />
       </div>
     );
@@ -127,7 +127,7 @@ export function SettingsTeam() {
   ) {
     return (
       <div className="flex flex-col gap-8">
-        <SettingsPageTitle title={<Trans>Team</Trans>} />
+        <SettingsPageTitle title={<Trans>Teams</Trans>} />
         <div className="border-border/60 bg-card/50 flex max-w-2xl items-center justify-between gap-6 rounded-xl border p-5 shadow-sm">
           <div className="flex items-center gap-4">
             <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-xl">
@@ -163,22 +163,21 @@ export function SettingsTeam() {
 
   return (
     <div className="flex flex-col gap-8">
-      <SettingsPageTitle title={<Trans>Team</Trans>} />
+      <SettingsPageTitle title={<Trans>Teams</Trans>} />
 
       {workspaces.isPending ? (
         <TeamSkeleton />
       ) : workspaces.data && workspaces.data.length > 0 ? (
-        activeId && (
+        selectedWorkspace ? (
           <WorkspacePanel
-            key={activeId}
-            workspaceId={activeId}
-            workspaceName={activeWorkspace?.name ?? ""}
-            workspaceShareSlug={activeWorkspace?.shareSlug ?? null}
-            workspaceLogoDataUrl={activeWorkspace?.logoDataUrl ?? null}
-            workspaceRole={activeWorkspace?.role ?? "member"}
-            workspaces={workspaces.data}
+            key={selectedWorkspace.workspaceId}
+            workspaceId={selectedWorkspace.workspaceId}
+            workspaceName={selectedWorkspace.name}
+            workspaceShareSlug={selectedWorkspace.shareSlug ?? null}
+            workspaceLogoDataUrl={selectedWorkspace.logoDataUrl ?? null}
+            workspaceRole={selectedWorkspace.role ?? "member"}
             hasProAccess={billing.isPro}
-            onSelectWorkspace={setSelectedId}
+            onBack={() => setSelectedId(null)}
             onWorkspaceRenamed={() => {
               void queryClient.invalidateQueries({
                 queryKey: [MY_WORKSPACES_QUERY_KEY],
@@ -191,6 +190,21 @@ export function SettingsTeam() {
               });
             }}
           />
+        ) : (
+          <div className="flex flex-col gap-4">
+            <WorkspaceList
+              workspaces={workspaces.data}
+              onSelect={setSelectedId}
+            />
+            {billing.isPro ? (
+              <CreateWorkspaceForm
+                onCreate={(name) => create.mutate(name)}
+                pending={create.isPending}
+                error={create.error?.message}
+                placeholder={t`Acme`}
+              />
+            ) : null}
+          </div>
         )
       ) : (
         <CreateWorkspaceForm
@@ -201,6 +215,49 @@ export function SettingsTeam() {
         />
       )}
     </div>
+  );
+}
+
+function WorkspaceList({
+  workspaces,
+  onSelect,
+}: {
+  workspaces: {
+    workspaceId: string;
+    name: string;
+    logoDataUrl?: string | null;
+    role: WorkspaceRole;
+  }[];
+  onSelect: (workspaceId: string) => void;
+}) {
+  return (
+    <ul className="border-border/60 bg-card/60 max-w-2xl overflow-hidden rounded-xl border shadow-sm">
+      {workspaces.map((workspace) => (
+        <li
+          key={workspace.workspaceId}
+          className="border-border/60 border-b last:border-b-0"
+        >
+          <button
+            type="button"
+            aria-label={workspace.name}
+            onClick={() => onSelect(workspace.workspaceId)}
+            className={cn([
+              "flex w-full items-center gap-3 px-4 py-3 text-left",
+              "hover:bg-muted/40 transition-colors",
+            ])}
+          >
+            <WorkspaceLogoMark logoDataUrl={workspace.logoDataUrl ?? null} />
+            <span className="min-w-0 flex-1 truncate text-sm font-medium">
+              {workspace.name}
+            </span>
+            <span className="border-border bg-background text-muted-foreground shrink-0 rounded-full border px-2.5 py-1 text-xs capitalize">
+              {workspace.role}
+            </span>
+            <CaretRight className="text-muted-foreground size-4 shrink-0" />
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -270,9 +327,8 @@ function WorkspacePanel({
   workspaceShareSlug,
   workspaceLogoDataUrl,
   workspaceRole,
-  workspaces,
   hasProAccess,
-  onSelectWorkspace,
+  onBack,
   onWorkspaceRenamed,
   onWorkspaceLeft,
 }: {
@@ -281,9 +337,8 @@ function WorkspacePanel({
   workspaceShareSlug: string | null;
   workspaceLogoDataUrl: string | null;
   workspaceRole: WorkspaceRole;
-  workspaces: { workspaceId: string; name: string }[];
   hasProAccess: boolean;
-  onSelectWorkspace: (workspaceId: string) => void;
+  onBack: () => void;
   // Renaming keeps the panel where it is; leaving or deleting must drop the
   // selection because the workspace is gone.
   onWorkspaceRenamed: () => void;
@@ -437,6 +492,17 @@ function WorkspacePanel({
 
   return (
     <div className="flex flex-col gap-4">
+      <button
+        type="button"
+        onClick={onBack}
+        className={cn([
+          "text-muted-foreground hover:text-foreground -ml-2 flex w-fit items-center gap-1 rounded-full px-2 py-1 text-xs font-medium",
+          "hover:bg-muted/70 transition-colors",
+        ])}
+      >
+        <CaretLeft className="size-3.5" />
+        <Trans>All teams</Trans>
+      </button>
       <div className="border-border/60 bg-card/60 flex items-center gap-4 rounded-xl border p-4 shadow-sm">
         <WorkspaceLogoButton
           logoDataUrl={workspaceLogoDataUrl}
@@ -467,21 +533,7 @@ function WorkspacePanel({
               />
             ) : (
               <>
-                <Select value={workspaceId} onValueChange={onSelectWorkspace}>
-                  <SelectTrigger className="bg-background h-9 max-w-sm shadow-none">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {workspaces.map((workspace) => (
-                      <SelectItem
-                        key={workspace.workspaceId}
-                        value={workspace.workspaceId}
-                      >
-                        {workspace.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <p className="truncate text-sm font-medium">{workspaceName}</p>
                 {canManage && (
                   <Button
                     size="sm"

@@ -150,6 +150,10 @@ function renderTeam() {
   );
 }
 
+function openWorkspace(name: string) {
+  fireEvent.click(screen.getByRole("button", { name }));
+}
+
 describe("SettingsTeam", () => {
   beforeEach(() => {
     mocks.billing.isPro = false;
@@ -208,15 +212,18 @@ describe("SettingsTeam", () => {
     renderTeam();
 
     expect(screen.getByText("Existing workspace")).toBeTruthy();
-    expect(screen.getByRole("combobox")).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: "Delete workspace" }),
-    ).toBeTruthy();
+    expect(screen.queryByRole("combobox")).toBeNull();
     expect(screen.queryByText("Anarlog Pro required")).toBeNull();
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Change workspace logo" }),
     ).toBeNull();
+
+    openWorkspace("Existing workspace");
+
+    expect(
+      screen.getByRole("button", { name: "Delete workspace" }),
+    ).toBeTruthy();
   });
 
   it("renames the workspace through the edit button", async () => {
@@ -231,6 +238,7 @@ describe("SettingsTeam", () => {
     ];
 
     renderTeam();
+    openWorkspace("Fastrepl");
 
     fireEvent.click(screen.getByRole("button", { name: "Rename workspace" }));
 
@@ -290,6 +298,7 @@ describe("SettingsTeam", () => {
     vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue(jpeg);
 
     const { container } = renderTeam();
+    openWorkspace("Fastrepl");
     const input =
       container.querySelector<HTMLInputElement>('input[type="file"]');
     expect(input).not.toBeNull();
@@ -323,6 +332,7 @@ describe("SettingsTeam", () => {
     ];
 
     renderTeam();
+    openWorkspace("Fastrepl");
 
     fireEvent.click(
       screen.getByRole("button", { name: "Remove workspace logo" }),
@@ -350,6 +360,7 @@ describe("SettingsTeam", () => {
     ];
 
     renderTeam();
+    openWorkspace("Fastrepl");
 
     const input = await screen.findByRole("textbox", {
       name: "Workspace subdomain",
@@ -386,6 +397,7 @@ describe("SettingsTeam", () => {
     ];
 
     renderTeam();
+    openWorkspace("Fastrepl");
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Resend invitation" }),
@@ -400,5 +412,45 @@ describe("SettingsTeam", () => {
         senderName: "Owner",
       }),
     );
+  });
+
+  it("lists every team and opens one at a time", async () => {
+    mocks.billing.isPro = true;
+    mocks.workspaces.data = [
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        name: "Fastrepl",
+        ownerUserId: "user-1",
+        role: "owner",
+      },
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000002",
+        name: "Acme",
+        ownerUserId: "client-1",
+        role: "member",
+      },
+    ];
+
+    renderTeam();
+
+    expect(screen.getByRole("button", { name: "Fastrepl" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Acme" })).toBeTruthy();
+    expect(screen.getByText("Create a shared workspace")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Delete workspace" }),
+    ).toBeNull();
+
+    openWorkspace("Acme");
+
+    expect(screen.getByRole("button", { name: "All teams" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Fastrepl" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Rename workspace" }),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "All teams" }));
+
+    expect(screen.getByRole("button", { name: "Fastrepl" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Acme" })).toBeTruthy();
   });
 });

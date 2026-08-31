@@ -142,7 +142,7 @@ describe("SettingsNav", () => {
       "General",
       "Appearance",
       "Account",
-      "Team",
+      "Teams",
       "Notifications",
       "Workspace",
       "Meetings",
@@ -289,7 +289,7 @@ describe("SettingsNav", () => {
     expect(mocks.updateSettingsTabState).not.toHaveBeenCalled();
   });
 
-  it.each(["Team", "Automations", "Dictionary", "Sync"])(
+  it.each(["Teams", "Automations", "Dictionary", "Sync"])(
     "does not open locked %s navigation",
     (label) => {
       mocks.isPro = false;
@@ -303,49 +303,49 @@ describe("SettingsNav", () => {
     },
   );
 
-  it("shows Team with the Pro lock on the free plan", () => {
+  it("shows Teams with the Pro lock on the free plan", () => {
     mocks.isPro = false;
 
     render(<SettingsNav />);
 
-    expect(screen.getByRole("button", { name: "Team" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Teams" })).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "Upgrade to Pro for Team" }),
+      screen.getByRole("button", { name: "Upgrade to Pro for Teams" }),
     ).toBeTruthy();
   });
 
-  it("opens Team for free members of an existing workspace", () => {
+  it("opens Teams for free members of an existing workspace", () => {
     mocks.isPro = false;
     mocks.workspaces = [{ workspaceId: "ws-1" }];
 
     render(<SettingsNav />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Team" }));
+    fireEvent.click(screen.getByRole("button", { name: "Teams" }));
 
     expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
       mocks.currentTab,
       { tab: "team" },
     );
     expect(
-      screen.queryByRole("button", { name: "Upgrade to Pro for Team" }),
+      screen.queryByRole("button", { name: "Upgrade to Pro for Teams" }),
     ).toBeNull();
   });
 
-  it("does not lock Team while workspaces are still loading", () => {
+  it("does not lock Teams while workspaces are still loading", () => {
     mocks.isPro = false;
     mocks.workspaces = undefined;
     mocks.workspacesLoading = true;
 
     render(<SettingsNav />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Team" }));
+    fireEvent.click(screen.getByRole("button", { name: "Teams" }));
 
     expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
       mocks.currentTab,
       { tab: "team" },
     );
     expect(
-      screen.queryByRole("button", { name: "Upgrade to Pro for Team" }),
+      screen.queryByRole("button", { name: "Upgrade to Pro for Teams" }),
     ).toBeNull();
   });
 

@@ -5,6 +5,29 @@ import { cn } from "@anlg/utils";
 
 import { compressWorkspaceLogo } from "./logo";
 
+export function WorkspaceLogoMark({
+  logoDataUrl,
+}: {
+  logoDataUrl: string | null;
+}) {
+  if (logoDataUrl) {
+    return (
+      <img
+        src={logoDataUrl}
+        alt=""
+        draggable={false}
+        className="size-10 rounded-xl object-cover"
+      />
+    );
+  }
+
+  return (
+    <div className="bg-primary/10 text-primary flex size-10 items-center justify-center rounded-xl">
+      <Buildings className="size-5" />
+    </div>
+  );
+}
+
 export function WorkspaceLogoButton({
   logoDataUrl,
   label,
@@ -23,19 +46,7 @@ export function WorkspaceLogoButton({
   onRemove: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const preview = logoDataUrl ? (
-    <img
-      src={logoDataUrl}
-      alt=""
-      draggable={false}
-      className="size-10 rounded-xl object-cover"
-    />
-  ) : (
-    <div className="bg-primary/10 text-primary flex size-10 items-center justify-center rounded-xl">
-      <Buildings className="size-5" />
-    </div>
-  );
+  const preview = <WorkspaceLogoMark logoDataUrl={logoDataUrl} />;
 
   if (!canManage) {
     return <div className="shrink-0">{preview}</div>;
