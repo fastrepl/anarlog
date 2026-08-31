@@ -1,11 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import {
-  CaretRight,
-  Check,
-  Folder,
-  FolderSimple,
-  Plus,
-} from "@phosphor-icons/react";
+import { CaretRight, Check, Plus } from "@phosphor-icons/react";
 import { useCallback, useMemo, useState } from "react";
 
 import {
@@ -28,13 +22,16 @@ import { cn } from "@anlg/utils";
 
 import { useFolderSelection } from "~/folders/selection";
 import { createNamedFolder } from "~/session/folder-catalog";
+import { resolvedFolderIcon } from "~/session/folder-icon";
 import { normalizeFolderPath } from "~/session/folders";
 import {
+  useFolderIcons,
   useFolderPaths,
   useSession,
   useUpdateSession,
 } from "~/session/queries";
 import { useTabs } from "~/store/zustand/tabs";
+import { TemplateIconGlyph } from "~/templates/template-icon";
 
 const filterFolders = (value: string, search: string) => {
   const haystack = value.toLocaleLowerCase();
@@ -56,6 +53,7 @@ export function FolderPicker({
   const [highlighted, setHighlighted] = useState("");
   const folderId = useSession(sessionId)?.folder_id ?? "";
   const folderPaths = useFolderPaths();
+  const folderIcons = useFolderIcons();
   const updateSession = useUpdateSession(sessionId);
   const openNew = useTabs((state) => state.openNew);
   const setSelectedPath = useFolderSelection((state) => state.setSelectedPath);
@@ -143,7 +141,10 @@ export function FolderPicker({
             open && "bg-accent text-foreground",
           ])}
         >
-          <Folder className="size-4 shrink-0" aria-hidden="true" />
+          <TemplateIconGlyph
+            icon={resolvedFolderIcon(currentPath, folderIcons)}
+            className="size-4"
+          />
           {currentPath ? (
             <span className="min-w-0 truncate text-xs text-neutral-600 dark:text-neutral-300">
               {currentPath}
@@ -189,7 +190,10 @@ export function FolderPicker({
                         }
                         className="cursor-pointer"
                       >
-                        <FolderSimple className="size-4 shrink-0 opacity-70" />
+                        <TemplateIconGlyph
+                          icon={resolvedFolderIcon(path, folderIcons)}
+                          className="size-4 opacity-70"
+                        />
                         <span className="min-w-0 flex-1 truncate">{path}</span>
                         {path === currentPath ? (
                           <Check className="size-4 shrink-0" />

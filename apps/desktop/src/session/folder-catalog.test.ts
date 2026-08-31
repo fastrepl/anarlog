@@ -155,8 +155,9 @@ describe("folder catalog", () => {
       color: "#5b67d8",
     });
 
-    expect(mocks.executeTransaction).toHaveBeenCalledTimes(2);
-    const update = mocks.executeTransaction.mock.calls[1]![0][0];
+    expect(mocks.executeTransaction).toHaveBeenCalledTimes(1);
+    const statements = mocks.executeTransaction.mock.calls[0]![0];
+    const update = statements[statements.length - 1];
     expect(update.sql).toContain("icon_json = ?");
     expect(update.params).toEqual([
       '{"type":"icon","value":"target","color":"#5b67d8"}',

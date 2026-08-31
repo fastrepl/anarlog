@@ -196,9 +196,11 @@ export async function updateFolderIcon(
   folderPath: string,
   icon: TemplateIcon,
 ): Promise<void> {
-  const path = await ensureFolderCatalog(folderPath);
+  const path = requireNamedFolderPath(folderPath);
+  const iconJson = JSON.stringify(normalizeFolderIcon(icon));
   await enqueueDatabaseWrite("folders", () =>
     executeTransaction([
+      ...ensureFolderStatements(path),
       {
         sql: `
           UPDATE folders
@@ -208,7 +210,7 @@ export async function updateFolderIcon(
           WHERE path = ?
             AND deleted_at IS NULL
         `,
-        params: [JSON.stringify(normalizeFolderIcon(icon)), path],
+        params: [iconJson, path],
       },
     ]),
   );

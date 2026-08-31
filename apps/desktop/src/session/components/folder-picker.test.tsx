@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   createNamedFolder: vi.fn(() => Promise.resolve("clients")),
   folderId: "",
   folderPaths: [] as string[],
+  icons: {} as Record<string, { type: "icon"; value: string; color: string }>,
   openNew: vi.fn(),
   setSelectedPath: vi.fn(),
   updateSession: vi.fn(() => Promise.resolve()),
@@ -36,6 +37,7 @@ vi.mock("~/session/folder-catalog", () => ({
 }));
 
 vi.mock("~/session/queries", () => ({
+  useFolderIcons: () => mocks.icons,
   useFolderPaths: () => mocks.folderPaths,
   useSession: () => ({ folder_id: mocks.folderId }),
   useUpdateSession: () => mocks.updateSession,
@@ -45,6 +47,7 @@ describe("FolderPicker", () => {
   beforeEach(() => {
     mocks.folderId = "";
     mocks.folderPaths = ["personal", "work"];
+    mocks.icons = {};
     mocks.createNamedFolder.mockClear();
     mocks.openNew.mockClear();
     mocks.setSelectedPath.mockClear();

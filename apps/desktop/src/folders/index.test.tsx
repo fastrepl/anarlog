@@ -109,7 +109,7 @@ describe("Folders workspace", () => {
       attachmentId: "syllabus.pdf",
     });
     mocks.deleteLocalFolderMaterial.mockResolvedValue(undefined);
-    useFolderSelection.setState({ selectedPath: null });
+    useFolderSelection.setState({ selectedPath: null, iconOverrides: {} });
   });
 
   afterEach(() => {
@@ -213,6 +213,36 @@ describe("Folders workspace", () => {
     });
   });
 
+  it("keeps an explicitly selected folder active while queries catch up", () => {
+    mocks.folders = ["Work"];
+    useFolderSelection.setState({ selectedPath: "New Folder" });
+
+    render(<FoldersWorkspace />);
+
+    expect(screen.getByRole("textbox", { name: "Folder name" })).toHaveProperty(
+      "value",
+      "New Folder",
+    );
+  });
+
+  it("keeps a nested folder under its parent when renaming it", async () => {
+    mocks.folders = ["Courses/Algorithms"];
+    mocks.renameNamedFolder.mockResolvedValue("Courses/Data Structures");
+
+    render(<FoldersWorkspace />);
+
+    const title = screen.getByRole("textbox", { name: "Folder name" });
+    fireEvent.change(title, { target: { value: "Data Structures" } });
+    fireEvent.blur(title);
+
+    await waitFor(() => {
+      expect(mocks.renameNamedFolder).toHaveBeenCalledWith(
+        "Courses/Algorithms",
+        "Courses/Data Structures",
+      );
+    });
+  });
+
   it("deletes the folder from the actions menu", async () => {
     mocks.folders = ["Work"];
 
@@ -244,6 +274,11 @@ describe("Folders workspace", () => {
         value: "target",
         color: "#9ca3af",
       });
+    });
+    expect(useFolderSelection.getState().iconOverrides.Work).toEqual({
+      type: "icon",
+      value: "target",
+      color: "#9ca3af",
     });
   });
 });

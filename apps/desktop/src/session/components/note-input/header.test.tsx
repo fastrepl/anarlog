@@ -192,6 +192,7 @@ vi.mock("~/session/queries", () => ({
     title: "Summary",
   }),
   useEnhancedNoteRecords: () => [{ id: "note-1" }],
+  useFolderIcons: () => ({}),
   useFolderPaths: () => [],
   useSession: () => ({
     folder_id: "",

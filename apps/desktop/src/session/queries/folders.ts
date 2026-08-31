@@ -44,7 +44,8 @@ export function useFolderPaths(): string[] {
 
 type FolderIconSqlRow = {
   path: string;
-  icon_json: string;
+  icon_json?: unknown;
+  iconJson?: unknown;
 };
 
 const EMPTY_FOLDER_ICONS: Record<string, TemplateIcon> = {};
@@ -63,7 +64,7 @@ export function useFolderIcons(): Record<string, TemplateIcon> {
     mapRows: (rows) => {
       const icons: Record<string, TemplateIcon> = {};
       for (const row of rows) {
-        icons[row.path] = normalizeFolderIcon(row.icon_json);
+        icons[row.path] = normalizeFolderIcon(row.icon_json ?? row.iconJson);
       }
       return icons;
     },

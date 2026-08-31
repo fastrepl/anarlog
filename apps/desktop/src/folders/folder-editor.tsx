@@ -26,10 +26,7 @@ import {
   renameNamedFolder,
   updateFolderIcon,
 } from "~/session/folder-catalog";
-import {
-  DEFAULT_FOLDER_ICON,
-  normalizeFolderIcon,
-} from "~/session/folder-icon";
+import { resolvedFolderIcon } from "~/session/folder-icon";
 import { FolderInstructionsField } from "~/session/folder-instructions";
 import { folderDisplayName, normalizeFolderPath } from "~/session/folders";
 import { useFolderIcons } from "~/session/queries";
@@ -40,8 +37,13 @@ import { TemplateIconPicker } from "~/templates/template-icon-picker";
 export function FolderEditor({ folderPath }: { folderPath: string }) {
   const { t } = useLingui();
   const setSelectedPath = useFolderSelection((state) => state.setSelectedPath);
-  const icons = useFolderIcons();
-  const icon = normalizeFolderIcon(icons[folderPath] ?? DEFAULT_FOLDER_ICON);
+  const persistedIcons = useFolderIcons();
+  const iconOverrides = useFolderSelection((state) => state.iconOverrides);
+  const setIconOverride = useFolderSelection((state) => state.setIconOverride);
+  const rekeyIconOverride = useFolderSelection(
+    (state) => state.rekeyIconOverride,
+  );
+  const icon = resolvedFolderIcon(folderPath, persistedIcons, iconOverrides);
   const materials = useFolderMaterials(folderPath);
   const upload = useFolderMaterialUpload(folderPath);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -59,22 +61,34 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
       return;
     }
 
-    const normalized = normalizeFolderPath(draft.trim());
-    if (!normalized || normalized.includes("/") || normalized === folderPath) {
+    const normalizedName = normalizeFolderPath(draft.trim());
+    if (!normalizedName || normalizedName.includes("/")) {
+      setDraft(displayName);
+      return;
+    }
+
+    const separatorIndex = folderPath.lastIndexOf("/");
+    const parentPath =
+      separatorIndex === -1 ? "" : folderPath.slice(0, separatorIndex);
+    const renamedPath = parentPath
+      ? `${parentPath}/${normalizedName}`
+      : normalizedName;
+    if (renamedPath === folderPath) {
       setDraft(displayName);
       return;
     }
 
     setBusy(true);
     try {
-      const renamed = await renameNamedFolder(folderPath, normalized);
+      const renamed = await renameNamedFolder(folderPath, renamedPath);
+      rekeyIconOverride(folderPath, renamed);
       setSelectedPath(renamed);
     } catch {
       setDraft(displayName);
     } finally {
       setBusy(false);
     }
-  }, [displayName, draft, folderPath, setSelectedPath]);
+  }, [displayName, draft, folderPath, rekeyIconOverride, setSelectedPath]);
 
   return (
     <section className="flex h-full flex-1 flex-col" aria-label={folderPath}>
@@ -85,7 +99,10 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
             label={t`Choose folder icon`}
             value={icon}
             onChange={(nextIcon) => {
-              void updateFolderIcon(folderPath, nextIcon);
+              setIconOverride(folderPath, nextIcon);
+              void updateFolderIcon(folderPath, nextIcon).catch((error) => {
+                console.error("[folder-editor] failed to update icon", error);
+              });
             }}
           />
           <div className="relative max-w-full min-w-0">

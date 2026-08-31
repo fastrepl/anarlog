@@ -8,7 +8,7 @@ import { cn } from "@anlg/utils";
 import { useActiveFolderPath, useFolderSelection } from "./selection";
 
 import { createNamedFolder } from "~/session/folder-catalog";
-import { DEFAULT_FOLDER_ICON } from "~/session/folder-icon";
+import { resolvedFolderIcon } from "~/session/folder-icon";
 import { folderDisplayName } from "~/session/folders";
 import { useFolderIcons, useFolderPaths } from "~/session/queries";
 import { CustomSidebarHeader } from "~/sidebar/custom-sidebar-header";
@@ -18,7 +18,8 @@ import { TemplateIconGlyph } from "~/templates/template-icon";
 export function FoldersSidebar() {
   const { t } = useLingui();
   const folders = useFolderPaths();
-  const icons = useFolderIcons();
+  const persistedIcons = useFolderIcons();
+  const iconOverrides = useFolderSelection((state) => state.iconOverrides);
   const setSelectedPath = useFolderSelection((state) => state.setSelectedPath);
   const activeFolder = useActiveFolderPath(folders);
   const [creating, setCreating] = useState(false);
@@ -123,7 +124,11 @@ export function FoldersSidebar() {
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       <TemplateIconGlyph
-                        icon={icons[folder] ?? DEFAULT_FOLDER_ICON}
+                        icon={resolvedFolderIcon(
+                          folder,
+                          persistedIcons,
+                          iconOverrides,
+                        )}
                         className="size-4 text-sm"
                       />
                       <span className="min-w-0 truncate">
