@@ -1,8 +1,8 @@
-//! Classification of failures that are not actionable for engineering, so they
-//! are dropped before reaching Sentry.
+//! Classification of failures that should still be logged locally but must not
+//! be reported to Sentry.
 //!
 //! This includes the end user's own account state (exhausted credits, expired
-//! plans, bad API keys) and operational noise that was archived in Sentry.
+//! plans, bad API keys) and issue types that were already archived as solved.
 
 use sentry::protocol::{Context, Event, Value};
 
@@ -26,8 +26,9 @@ const USER_ERROR_MARKERS: &[&str] = &[
     "upgrade or purchase credits",
 ];
 
-// Archived Sentry issue types. New events still consume quota after archive.
-// Keep in sync with `IGNORED_ERROR_MARKERS` in apps/desktop/src/error-reporting.ts.
+// Archived Sentry issue types. Local error logs stay; Sentry should not reopen
+// or bill for issues that were already solved. Keep in sync with
+// `IGNORED_ERROR_MARKERS` in apps/desktop/src/error-reporting.ts.
 const IGNORED_ERROR_MARKERS: &[&str] = &[
     "[runbatch]",
     "post-stop transcript repair failed",

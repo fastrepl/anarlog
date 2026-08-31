@@ -143,7 +143,7 @@ export const runBatchSession = async <T extends BatchStore>(
       });
       cleanup();
     } catch (error) {
-      console.warn("[runBatch] error handling batch response", error);
+      console.error("[runBatch] error handling batch response", error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       get().handleBatchFailed(sessionId, errorMessage);

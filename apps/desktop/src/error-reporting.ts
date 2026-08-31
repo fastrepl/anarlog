@@ -34,8 +34,9 @@ const USER_ERROR_MARKERS = [
   "upgrade or purchase credits",
 ];
 
-// Archived Sentry issue types. New events still consume quota after archive.
-// Keep in sync with `IGNORED_ERROR_MARKERS` in crates/user-error/src/lib.rs.
+// Archived Sentry issue types. Local error logs stay; Sentry should not reopen
+// or bill for issues that were already solved. Keep in sync with
+// `IGNORED_ERROR_MARKERS` in crates/user-error/src/lib.rs.
 const IGNORED_ERROR_MARKERS = [
   "[runbatch]",
   "post-stop transcript repair failed",

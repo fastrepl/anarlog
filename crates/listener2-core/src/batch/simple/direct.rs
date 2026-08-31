@@ -370,7 +370,7 @@ pub(super) async fn run_direct_batch_with_timeout<A: BatchSttAdapter>(
                 Ok(Err(err)) => {
                     let raw_error = format!("{err:?}");
                     let message = format_user_friendly_error(&raw_error);
-                    tracing::warn!(
+                    tracing::error!(
                         error = %raw_error,
                         anarlog.error.user_message = %message,
                         "batch transcription failed"

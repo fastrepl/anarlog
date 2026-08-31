@@ -135,7 +135,7 @@ export async function deleteProcessedAudioForRetention(
       deleteLocalSessionAudio(sessionId, () => isSessionAudioIdle(sessionId)),
     );
   } catch (error) {
-    console.warn("[audio-retention] failed to delete audio", {
+    console.error("[audio-retention] failed to delete audio", {
       sessionId,
       error,
     });
@@ -214,7 +214,7 @@ export async function cleanupExpiredAudio(
           }
         })
         .catch((error) => {
-          console.warn("[audio-retention] failed to delete audio", {
+          console.error("[audio-retention] failed to delete audio", {
             sessionId: session.id,
             error,
           });
