@@ -26,6 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
+import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 import { cn } from "@anlg/utils";
 
 import {
@@ -70,6 +71,27 @@ const IMPORT_EXTENSIONS = [
   "txt",
   "vtt",
 ];
+
+function ImportSplitButtonGroup({
+  signedIn,
+  children,
+}: {
+  signedIn: boolean;
+  children: ReactNode;
+}) {
+  const ref = useSquircleRef<HTMLDivElement>();
+  return (
+    <div
+      ref={ref}
+      className={cn([
+        "w-fit overflow-hidden",
+        signedIn ? "bg-primary" : "border-input border",
+      ])}
+    >
+      <ButtonGroup>{children}</ButtonGroup>
+    </div>
+  );
+}
 
 function ProviderIcon({
   provider,
@@ -513,11 +535,12 @@ export function MeetingImportScreen({
                             </Button>
                           </>
                         ) : (
-                          <ButtonGroup>
+                          <ImportSplitButtonGroup signedIn={signedIn}>
                             <Button
                               type="button"
                               size="sm"
                               variant={signedIn ? "default" : "outline"}
+                              smoothCorners={false}
                               aria-label={
                                 signedIn ? undefined : t`Sign in to connect`
                               }
@@ -530,8 +553,11 @@ export function MeetingImportScreen({
                                   : signInMutation.isPending
                               }
                               className={cn([
+                                "rounded-none border-0 shadow-none",
+                                signedIn &&
+                                  "hover:bg-primary/90 bg-transparent",
                                 !signedIn &&
-                                  "group/sign-in bg-muted hover:border-primary hover:bg-primary hover:text-primary-foreground focus-visible:border-primary focus-visible:bg-primary focus-visible:text-primary-foreground",
+                                  "group/sign-in bg-muted hover:bg-primary hover:text-primary-foreground focus-visible:bg-primary focus-visible:text-primary-foreground",
                               ])}
                               onClick={() => {
                                 if (!signedIn) {
@@ -590,13 +616,15 @@ export function MeetingImportScreen({
                                   type="button"
                                   size="sm"
                                   variant={signedIn ? "default" : "outline"}
+                                  smoothCorners={false}
                                   aria-label={t`Use files`}
                                   disabled={fileImportMutation.isPending}
                                   className={cn([
-                                    "relative w-6 px-0 before:absolute before:inset-y-1.5 before:left-0 before:w-px",
+                                    "relative w-6 rounded-none border-0 px-0 shadow-none",
+                                    "before:absolute before:inset-y-1.5 before:left-0 before:w-px",
                                     signedIn
-                                      ? "before:bg-primary-foreground/20"
-                                      : "before:bg-border",
+                                      ? "hover:bg-primary/90 before:bg-primary-foreground/20 bg-transparent"
+                                      : "bg-muted before:bg-border",
                                   ])}
                                 >
                                   <CaretDown className="size-3.5" />
@@ -621,7 +649,7 @@ export function MeetingImportScreen({
                                 </AppFloatingPanel>
                               </DropdownMenuContent>
                             </DropdownMenu>
-                          </ButtonGroup>
+                          </ImportSplitButtonGroup>
                         )}
                         {connected ? (
                           <Button

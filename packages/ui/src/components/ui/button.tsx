@@ -44,17 +44,28 @@ export interface ButtonProps
     React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  smoothCorners?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  (
+    {
+      className,
+      variant,
+      size,
+      asChild = false,
+      smoothCorners = true,
+      ...props
+    },
+    ref,
+  ) => {
     const Comp = asChild ? Slot : "button";
     const squircleRef = useSquircleRef(ref);
     return (
       <Comp
         className={cn([buttonVariants({ variant, size, className })])}
         {...props}
-        ref={squircleRef}
+        ref={smoothCorners ? squircleRef : ref}
       />
     );
   },
