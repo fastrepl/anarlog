@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
@@ -16,11 +15,9 @@ import { useAuth } from "@/auth/context";
 import { ActionButtonCard } from "@/components/action-button-card";
 import { SessionCard } from "@/components/session-card";
 import { StartListeningButton } from "@/components/start-listening-button";
-import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { UserAvatarButton } from "@/components/user-avatar";
 import { Colors, ControlSize, Spacing, Typography } from "@/constants/theme";
-import { importVoiceMemos } from "@/data/import-voice-memo";
 import { useSessionSearch } from "@/data/search";
 import { createSession, deleteSession } from "@/data/session";
 import { useTimelineSessions, type TimelineSession } from "@/data/timeline";
@@ -46,7 +43,6 @@ export default function HomeScreen() {
   const router = useRouter();
   const auth = useAuth();
   const { items, isLoading } = useTimelineSessions();
-  const [importing, setImporting] = useState(false);
   const [query, setQuery] = useState<string | null>(null);
   const [settledSearchQuery, setSettledSearchQuery] = useState("");
   const [showActionButtonCard, setShowActionButtonCard] = useState(false);
@@ -149,25 +145,6 @@ export default function HomeScreen() {
     }
   };
 
-  const handleImport = async () => {
-    if (busyRef.current) return;
-    busyRef.current = true;
-    setImporting(true);
-    try {
-      const sessionIds = await importVoiceMemos(auth.session?.user.id);
-      if (sessionIds.length === 1) {
-        router.push(`/note/${sessionIds[0]}`);
-      }
-    } catch (error) {
-      captureOperationalError(error, {
-        operation: "voice_memo_picker",
-      });
-    } finally {
-      busyRef.current = false;
-      setImporting(false);
-    }
-  };
-
   const dismissActionButtonCard = () => {
     setShowActionButtonCard(false);
     void AsyncStorage.setItem(ACTION_BUTTON_CARD_DISMISSED_KEY, "1").catch(
@@ -206,11 +183,18 @@ export default function HomeScreen() {
               onPress={() => router.push("/settings")}
               user={auth.session?.user ?? null}
             />
-            <IconButton
-              accessibilityLabel="Search meetings"
-              icon="search"
-              onPress={() => setQuery("")}
-            />
+            <View style={styles.headerActions}>
+              <IconButton
+                accessibilityLabel="Create new note"
+                icon="create-outline"
+                onPress={() => void createAndOpen()}
+              />
+              <IconButton
+                accessibilityLabel="Search meetings"
+                icon="search"
+                onPress={() => setQuery("")}
+              />
+            </View>
           </>
         )}
       </View>
@@ -264,7 +248,7 @@ export default function HomeScreen() {
               <View style={styles.empty}>
                 <Text style={styles.emptyTitle}>No meetings yet</Text>
                 <Text style={styles.emptyBody}>
-                  Start listening, create a meeting, or import a recording.
+                  Start listening or create a new note.
                 </Text>
               </View>
             )}
@@ -297,39 +281,10 @@ export default function HomeScreen() {
       </ScrollView>
 
       {!searching && (
-        <>
-          <View style={styles.actions}>
-            <Button
-              label="New meeting"
-              onPress={() => void createAndOpen()}
-              leading={
-                <Ionicons name="create-outline" size={17} color={Colors.ink} />
-              }
-              style={styles.secondaryButton}
-              variant="outline"
-            />
-            <Button
-              label={importing ? "Importing…" : "Import recording"}
-              onPress={handleImport}
-              disabled={importing}
-              leading={
-                <Ionicons
-                  name="cloud-upload-outline"
-                  size={17}
-                  color={Colors.ink}
-                />
-              }
-              loading={importing}
-              style={styles.secondaryButton}
-              variant="outline"
-            />
-          </View>
-
-          <StartListeningButton
-            bottomSpacing={Spacing.xs}
-            onPress={() => void createAndOpen("?listen=1")}
-          />
-        </>
+        <StartListeningButton
+          bottomSpacing={Spacing.xs}
+          onPress={() => void createAndOpen("?listen=1")}
+        />
       )}
     </SafeAreaView>
   );
@@ -348,6 +303,10 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.md,
   },
+  headerActions: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+  },
   searchInput: {
     flex: 1,
     height: ControlSize.compact,
@@ -361,12 +320,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
+    flexGrow: 1,
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.lg,
   },
   empty: {
+    flex: 1,
     alignItems: "center",
-    paddingVertical: Spacing.xl * 2,
+    justifyContent: "center",
+    paddingHorizontal: Spacing.lg,
     gap: Spacing.sm,
   },
   emptyTitle: {
@@ -389,14 +351,5 @@ const styles = StyleSheet.create({
     color: Colors.ink,
     marginTop: Spacing.lg,
     marginBottom: Spacing.sm,
-  },
-  actions: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.sm,
-  },
-  secondaryButton: {
-    flex: 1,
   },
 });

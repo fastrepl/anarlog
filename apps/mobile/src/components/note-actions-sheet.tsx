@@ -16,6 +16,7 @@ export function NoteActionsSheet({
   onClose,
   onDelete,
   onExport,
+  onImportRecording,
   onToggleListening,
   visible,
 }: {
@@ -24,6 +25,7 @@ export function NoteActionsSheet({
   onClose: () => void;
   onDelete: () => void;
   onExport: () => void;
+  onImportRecording: () => void;
   onToggleListening: () => void;
   visible: boolean;
 }) {
@@ -77,6 +79,23 @@ export function NoteActionsSheet({
             <Ionicons name="download-outline" size={20} color={Colors.ink} />
             <Text style={styles.actionLabel}>Export</Text>
           </Pressable>
+          {!listening && !hasRecordingHistory && (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => select(onImportRecording)}
+              style={({ pressed }) => [
+                styles.action,
+                pressed && styles.actionPressed,
+              ]}
+            >
+              <Ionicons
+                name="cloud-upload-outline"
+                size={20}
+                color={Colors.ink}
+              />
+              <Text style={styles.actionLabel}>Import recording</Text>
+            </Pressable>
+          )}
           {(listening || !hasRecordingHistory) && (
             <Pressable
               accessibilityRole="button"

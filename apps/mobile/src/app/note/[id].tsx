@@ -32,6 +32,7 @@ import { Card } from "@/components/ui/card";
 import { IconButton } from "@/components/ui/icon-button";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 import { useSessionAudio } from "@/data/audio-catalog";
+import { importRecordingIntoSession } from "@/data/import-voice-memo";
 import {
   type NoteAttachment,
   useNoteAttachments,
@@ -430,6 +431,27 @@ export default function NoteScreen() {
     }
   };
 
+  const handleImportRecording = async () => {
+    if (audioRestoreBusyRef.current || hasRecordingHistory) return;
+    audioRestoreBusyRef.current = true;
+    try {
+      await importRecordingIntoSession(id, auth.session?.user.id);
+    } catch (error) {
+      captureOperationalError(error, {
+        operation: "voice_memo_import",
+        tags: { entry_point: "mobile_note" },
+      });
+      Alert.alert(
+        "Couldn’t import recording",
+        error instanceof Error
+          ? error.message
+          : "The selected recording could not be imported.",
+      );
+    } finally {
+      audioRestoreBusyRef.current = false;
+    }
+  };
+
   const handleDownloadRecording = async () => {
     const accessToken = auth.session?.access_token;
     if (
@@ -815,6 +837,7 @@ export default function NoteScreen() {
         onClose={() => setActionsOpen(false)}
         onDelete={() => void handleDelete()}
         onExport={() => void handleExport()}
+        onImportRecording={() => void handleImportRecording()}
         onToggleListening={handleListeningAction}
         visible={actionsOpen}
       />
