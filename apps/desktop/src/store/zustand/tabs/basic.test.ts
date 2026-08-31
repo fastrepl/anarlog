@@ -231,6 +231,21 @@ describe("Basic Tab Actions", () => {
     });
   });
 
+  test.each(["calendar", "contacts", "folders", "templates"] as const)(
+    "openNew tracks where %s was opened from",
+    (type) => {
+      useTabs.getState().openNew({ type: "settings" });
+      const settings = useTabs.getState().currentTab!;
+      useTabs.getState().openNew({ type });
+
+      expect(useTabs.getState()).toHaveCurrentTab({
+        type,
+        returnToSlotId: settings.slotId,
+        returnToTabId: "settings",
+      });
+    },
+  );
+
   test("openNew collapses docked chat when opening settings", () => {
     const session = createSessionTab({ id: "tab1", active: false });
 
