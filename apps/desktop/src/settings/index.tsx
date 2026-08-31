@@ -14,7 +14,6 @@ import { STT } from "~/settings/ai/stt";
 import { SettingsAppearance } from "~/settings/appearance";
 import { SettingsDevelopers } from "~/settings/developers";
 import { SettingsDictionary } from "~/settings/dictionary";
-import { SettingsFolders } from "~/settings/folders";
 import { SettingsHydrationBoundary } from "~/settings/hydration-boundary";
 import { SettingsImports } from "~/settings/imports";
 import { SettingsPrivacy } from "~/settings/privacy";
@@ -56,8 +55,6 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <SettingsApp />;
       case "meetings":
         return <SettingsMeetings />;
-      case "folders":
-        return <SettingsFolders />;
       case "appearance":
         return <SettingsAppearance />;
       case "notifications":

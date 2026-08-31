@@ -59,6 +59,10 @@ vi.mock("~/sidebar/templates", () => ({
   TemplatesNav: () => <div data-testid="templates-nav" />,
 }));
 
+vi.mock("~/sidebar/folders", () => ({
+  FoldersNav: () => <div data-testid="folders-nav" />,
+}));
+
 vi.mock("~/sidebar/shared-notes", () => ({
   SharedNotesNav: () => <div data-testid="shared-notes-nav" />,
 }));
@@ -147,6 +151,7 @@ describe("LeftSidebar", () => {
     ["contacts", "contacts-nav"],
     ["templates", "templates-nav"],
     ["automations", "automations-nav"],
+    ["folders", "folders-nav"],
   ])(
     "lets the %s nav place its own header in the chrome row",
     (type, testId) => {

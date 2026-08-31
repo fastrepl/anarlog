@@ -170,6 +170,7 @@ describe("SettingsNav", () => {
   it.each([
     ["Calendar", { type: "calendar" }],
     ["Contacts", { type: "contacts" }],
+    ["Folders", { type: "folders" }],
     ["Templates", { type: "templates" }],
     ["Automations", { type: "automations" }],
   ] as const)("opens the %s workspace", (label, destination) => {
@@ -238,17 +239,6 @@ describe("SettingsNav", () => {
     expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
       mocks.currentTab,
       { tab: "meetings" },
-    );
-  });
-
-  it("opens Folders inside settings", () => {
-    render(<SettingsNav />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Folders" }));
-
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      { tab: "folders" },
     );
   });
 

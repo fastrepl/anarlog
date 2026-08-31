@@ -1,9 +1,11 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { FolderSimplePlus, Plus, Trash, X } from "@phosphor-icons/react";
+import { Plus, Trash, X } from "@phosphor-icons/react";
 import { useRef, useState } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
 import { cn } from "@anlg/utils";
+
+import { useFolderSelection } from "./selection";
 
 import {
   deleteLocalFolderMaterial,
@@ -17,109 +19,13 @@ import {
 } from "~/session/folder-catalog";
 import { FolderInstructionsField } from "~/session/folder-instructions";
 import { childFolderPath } from "~/session/folders";
-import { useFolderPaths } from "~/session/queries";
-import { SettingsPageTitle } from "~/settings/page-title";
 import { useFolderMaterialUpload } from "~/shared/hooks/useFileUpload";
 import { DestructiveConfirmationDialog } from "~/shared/ui/destructive-confirmation-dialog";
 import { FolderNameDialog } from "~/sidebar/folder-name-dialog";
 
-export function SettingsFolders() {
+export function FolderEditor({ folderPath }: { folderPath: string }) {
   const { t } = useLingui();
-  const folders = useFolderPaths();
-  const [selected, setSelected] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
-  const activeFolder =
-    selected !== null && folders.includes(selected)
-      ? selected
-      : (folders[0] ?? null);
-
-  return (
-    <div className="flex max-w-5xl flex-col gap-8">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <SettingsPageTitle title={<Trans>Folders</Trans>} />
-          <p className="text-muted-foreground mt-2 max-w-xl text-sm leading-5">
-            <Trans>
-              Chat follows these instructions for notes in the folder. Add a
-              syllabus or other files as materials.
-            </Trans>
-          </p>
-        </div>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={() => setCreating(true)}
-        >
-          <FolderSimplePlus className="size-3.5" />
-          <Trans>New folder</Trans>
-        </Button>
-      </div>
-
-      {folders.length === 0 ? (
-        <p className="text-muted-foreground text-sm">
-          <Trans>
-            No folders yet. Create one to group notes and materials.
-          </Trans>
-        </p>
-      ) : (
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-          <ul className="border-border/60 flex min-w-0 flex-1 flex-col gap-0.5 rounded-2xl border p-1.5">
-            {folders.map((folder) => {
-              const depth = folder.split("/").length - 1;
-              const isActive = folder === activeFolder;
-              return (
-                <li key={folder}>
-                  <button
-                    type="button"
-                    aria-current={isActive ? "true" : undefined}
-                    onClick={() => setSelected(folder)}
-                    className={cn([
-                      "w-full rounded-xl px-3 py-2 text-left text-sm",
-                      "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
-                      isActive
-                        ? "bg-accent text-foreground font-medium"
-                        : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                    ])}
-                    style={{ paddingLeft: `${12 + depth * 12}px` }}
-                  >
-                    <span className="min-w-0 truncate">{folder}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          {activeFolder ? (
-            <FolderSettingsCard
-              folderPath={activeFolder}
-              onFolderChanged={setSelected}
-            />
-          ) : null}
-        </div>
-      )}
-
-      <FolderNameDialog
-        open={creating}
-        title={t`New folder`}
-        confirmLabel={t`Create`}
-        onOpenChange={setCreating}
-        onSubmit={async (path) => {
-          const created = await createNamedFolder(path);
-          setSelected(created);
-        }}
-      />
-    </div>
-  );
-}
-
-function FolderSettingsCard({
-  folderPath,
-  onFolderChanged,
-}: {
-  folderPath: string;
-  onFolderChanged: (folderPath: string | null) => void;
-}) {
-  const { t } = useLingui();
+  const setSelectedPath = useFolderSelection((state) => state.setSelectedPath);
   const materials = useFolderMaterials(folderPath);
   const upload = useFolderMaterialUpload(folderPath);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -129,10 +35,7 @@ function FolderSettingsCard({
   const [deleting, setDeleting] = useState(false);
 
   return (
-    <section
-      className="border-border/60 flex min-w-0 flex-1 flex-col gap-4 rounded-2xl border p-4"
-      aria-label={folderPath}
-    >
+    <section className="flex max-w-2xl flex-col gap-6" aria-label={folderPath}>
       <div className="flex items-start justify-between gap-3">
         <h3 className="min-w-0 truncate text-sm font-medium" title={folderPath}>
           {folderPath}
@@ -273,7 +176,7 @@ function FolderSettingsCard({
         onOpenChange={setRenaming}
         onSubmit={async (nextPath) => {
           const renamed = await renameNamedFolder(folderPath, nextPath);
-          onFolderChanged(renamed);
+          setSelectedPath(renamed);
         }}
       />
       <FolderNameDialog
@@ -287,7 +190,7 @@ function FolderSettingsCard({
             throw new Error("invalid folder path");
           }
           const created = await createNamedFolder(nested);
-          onFolderChanged(created);
+          setSelectedPath(created);
         }}
       />
       <DestructiveConfirmationDialog
@@ -307,7 +210,7 @@ function FolderSettingsCard({
             try {
               await deleteNamedFolder(folderPath);
               setDeleting(false);
-              onFolderChanged(null);
+              setSelectedPath(null);
             } finally {
               setBusy(false);
             }

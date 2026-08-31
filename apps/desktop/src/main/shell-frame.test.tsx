@@ -142,7 +142,7 @@ describe("ClassicMainShellFrame", () => {
     ).toBe("top-borderless");
   });
 
-  it.each(["settings", "automations"])(
+  it.each(["settings", "automations", "folders"])(
     "uses left-edge main surface chrome for the %s custom sidebar",
     (type) => {
       mocks.currentTab = { type };

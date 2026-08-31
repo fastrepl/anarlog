@@ -6,6 +6,7 @@ import { AutomationsNav } from "./automations";
 import { CalendarNav } from "./calendar";
 import { ContactsNav } from "./contacts";
 import { FolderMaterialsPanel } from "./folder-materials";
+import { FoldersNav } from "./folders";
 import type { SidebarNoteFilter } from "./note-filter";
 import { SettingsNav } from "./settings";
 import { SharedNotesNav } from "./shared-notes";
@@ -35,12 +36,14 @@ export function LeftSidebar({
   const isContactsMode = currentTab?.type === "contacts";
   const isTemplatesMode = currentTab?.type === "templates";
   const isAutomationsMode = currentTab?.type === "automations";
+  const isFoldersMode = currentTab?.type === "folders";
   const isSpecialMode =
     isSettingsMode ||
     isCalendarMode ||
     isContactsMode ||
     isTemplatesMode ||
-    isAutomationsMode;
+    isAutomationsMode ||
+    isFoldersMode;
   const isTimelineSidebarLayout = !isSpecialMode;
   // Navs with their own CustomSidebarHeader fill the chrome row themselves; a
   // top padding here would push the header out of it (and overflow-hidden
@@ -68,6 +71,8 @@ export function LeftSidebar({
             <TemplatesNav />
           ) : isAutomationsMode ? (
             <AutomationsNav />
+          ) : isFoldersMode ? (
+            <FoldersNav />
           ) : (
             <div className="flex h-full min-h-0 flex-col">
               {noteFilter === "mine" ? (

@@ -216,7 +216,7 @@ msgstr "Add a dated update to the selected Notion page."
 msgid "Add a payment method before it ends to keep using Pro without an interruption."
 msgstr "Add a payment method before it ends to keep using Pro without an interruption."
 
-#: src/settings/folders/index.tsx
+#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Add a syllabus or PDF for this folder"
 msgstr "Add a syllabus or PDF for this folder"
@@ -269,7 +269,7 @@ msgstr "Add example"
 msgid "Add language"
 msgstr "Add language"
 
-#: src/settings/folders/index.tsx
+#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Add material"
 msgstr "Add material"
@@ -819,7 +819,7 @@ msgstr "Changes stay on this device until you resume sync"
 msgid "Changes stay on this device until you resume sync."
 msgstr "Changes stay on this device until you resume sync."
 
-#: src/settings/folders/index.tsx
+#: src/folders/index.tsx
 msgid "Chat follows these instructions for notes in the folder. Add a syllabus or other files as materials."
 msgstr "Chat follows these instructions for notes in the folder. Add a syllabus or other files as materials."
 
@@ -1519,7 +1519,8 @@ msgstr "Could not update this person's access."
 msgid "Could not use the selected model"
 msgstr "Could not use the selected model"
 
-#: src/settings/folders/index.tsx
+#: src/folders/folder-editor.tsx
+#: src/folders/sidebar.tsx
 #: src/settings/team/index.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Create"
@@ -1632,8 +1633,8 @@ msgid "Default sharing"
 msgstr "Default sharing"
 
 #: src/contacts/contact-page-header.tsx
+#: src/folders/folder-editor.tsx
 #: src/session/components/outer-header/overflow/delete.tsx
-#: src/settings/folders/index.tsx
 #: src/sidebar/automations.tsx
 #: src/sidebar/timeline/index.tsx
 #: src/templates/sections-editor.tsx
@@ -1669,7 +1670,7 @@ msgstr "Delete comment"
 msgid "Delete Event"
 msgstr "Delete Event"
 
-#: src/settings/folders/index.tsx
+#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Delete folder"
 msgstr "Delete folder"
@@ -2112,7 +2113,7 @@ msgstr "Folder name"
 msgid "Folder: {currentPath}"
 msgstr "Folder: {currentPath}"
 
-#: src/settings/folders/index.tsx
+#: src/folders/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Folders"
 msgstr "Folders"
@@ -2386,7 +2387,7 @@ msgstr "Install to all agents"
 msgid "Installed"
 msgstr "Installed"
 
-#: src/settings/folders/index.tsx
+#: src/folders/folder-editor.tsx
 msgid "Instructions"
 msgstr "Instructions"
 
@@ -2698,7 +2699,7 @@ msgstr "Match whole word"
 msgid "Match your device"
 msgstr "Match your device"
 
-#: src/settings/folders/index.tsx
+#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Materials"
 msgstr "Materials"
@@ -2891,7 +2892,7 @@ msgstr "New automation"
 msgid "New chat"
 msgstr "New chat"
 
-#: src/settings/folders/index.tsx
+#: src/folders/sidebar.tsx
 msgid "New folder"
 msgstr "New folder"
 
@@ -2900,7 +2901,7 @@ msgstr "New folder"
 msgid "New Note"
 msgstr "New Note"
 
-#: src/settings/folders/index.tsx
+#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "New subfolder"
 msgstr "New subfolder"
@@ -2993,11 +2994,15 @@ msgstr "No folder selected yet."
 msgid "No folders found."
 msgstr "No folders found."
 
+#: src/folders/sidebar.tsx
+msgid "No folders yet"
+msgstr "No folders yet"
+
 #: src/session/components/folder-picker.tsx
 msgid "No folders yet."
 msgstr "No folders yet."
 
-#: src/settings/folders/index.tsx
+#: src/folders/index.tsx
 msgid "No folders yet. Create one to group notes and materials."
 msgstr "No folders yet. Create one to group notes and materials."
 
@@ -3138,7 +3143,7 @@ msgstr "Notes"
 msgid "Notes list"
 msgstr "Notes list"
 
-#: src/settings/folders/index.tsx
+#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Notes stay in All notes. Materials and subfolders will be deleted."
 msgstr "Notes stay in All notes. Materials and subfolders will be deleted."
@@ -3657,7 +3662,7 @@ msgid "Remove"
 msgstr "Remove"
 
 #. placeholder {0}: material.filename
-#: src/settings/folders/index.tsx
+#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Remove {0}"
 msgstr "Remove {0}"
@@ -3683,7 +3688,7 @@ msgstr "Remove photo"
 msgid "Remove repository"
 msgstr "Remove repository"
 
-#: src/settings/folders/index.tsx
+#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Rename"
 msgstr "Rename"
@@ -3692,7 +3697,7 @@ msgstr "Rename"
 msgid "Rename device"
 msgstr "Rename device"
 
-#: src/settings/folders/index.tsx
+#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Rename folder"
 msgstr "Rename folder"
@@ -4773,7 +4778,7 @@ msgstr "Team"
 msgid "teammate@company.com"
 msgstr "teammate@company.com"
 
-#: src/settings/folders/index.tsx
+#: src/folders/folder-editor.tsx
 msgid "Tell chat how to use notes and materials in this folder."
 msgstr "Tell chat how to use notes and materials in this folder."
 

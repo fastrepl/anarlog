@@ -63,9 +63,26 @@ vi.mock("~/shared/hooks/useFileUpload", () => ({
   useFolderMaterialUpload: () => mocks.upload,
 }));
 
-import { SettingsFolders } from "./index";
+vi.mock("~/sidebar/custom-sidebar-header", () => ({
+  CustomSidebarHeader: ({ children }: { children?: ReactNode }) => (
+    <div>{children}</div>
+  ),
+}));
 
-describe("SettingsFolders", () => {
+import { FoldersMain } from "./index";
+import { useFolderSelection } from "./selection";
+import { FoldersSidebar } from "./sidebar";
+
+function FoldersWorkspace() {
+  return (
+    <>
+      <FoldersSidebar />
+      <FoldersMain />
+    </>
+  );
+}
+
+describe("Folders workspace", () => {
   beforeEach(() => {
     mocks.createNamedFolder.mockReset();
     mocks.deleteLocalFolderMaterial.mockReset();
@@ -85,6 +102,7 @@ describe("SettingsFolders", () => {
       attachmentId: "syllabus.pdf",
     });
     mocks.deleteLocalFolderMaterial.mockResolvedValue(undefined);
+    useFolderSelection.setState({ selectedPath: null });
   });
 
   afterEach(() => {
@@ -92,7 +110,7 @@ describe("SettingsFolders", () => {
   });
 
   it("shows an empty state until a folder is created", async () => {
-    render(<SettingsFolders />);
+    render(<FoldersWorkspace />);
 
     expect(
       screen.getByText(
@@ -123,7 +141,7 @@ describe("SettingsFolders", () => {
       },
     ];
 
-    render(<SettingsFolders />);
+    render(<FoldersWorkspace />);
 
     expect(screen.getByRole("heading", { name: "CS 101" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Work" }));

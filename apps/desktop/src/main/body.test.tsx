@@ -364,6 +364,7 @@ describe("ClassicMainBody", () => {
     ["contacts", { state: { selected: null } }],
     ["templates", { state: { selectedMineId: null, selectedWebIndex: null } }],
     ["automations", {}],
+    ["folders", {}],
   ])("keeps the %s left sidebar fixed", (type, extraTabState) => {
     mocks.currentTab = {
       active: true,
@@ -422,6 +423,7 @@ describe("ClassicMainBody", () => {
     ["calendar", {}],
     ["contacts", { state: { selected: null } }],
     ["automations", {}],
+    ["folders", {}],
     ["templates", { state: { selectedMineId: null, selectedWebIndex: null } }],
   ] as const)(
     "leaves the %s chrome row back button to the sidebar header",
