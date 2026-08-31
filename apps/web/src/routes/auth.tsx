@@ -35,7 +35,10 @@ import {
   buildPostAuthDestination,
   sanitizeInternalReturnPath,
 } from "@/lib/auth-redirect";
-import { buildDesktopAuthCallbackPath } from "@/lib/desktop-auth-handoff";
+import {
+  buildDesktopAuthCallbackPath,
+  resolveDesktopAuthCallbackMethod,
+} from "@/lib/desktop-auth-handoff";
 import {
   capturePrivateRouteEvent,
   identifyPrivateRouteUser,
@@ -132,6 +135,10 @@ function Component() {
         <DesktopReauthView
           email={existingUser.email}
           scheme={scheme ?? DEFAULT_DESKTOP_SCHEME}
+          callbackMethod={resolveDesktopAuthCallbackMethod(
+            provider ?? initialView,
+            lastSignInMethod,
+          )}
           lastSignInMethod={lastSignInMethod}
         />
       </AuthShell>
@@ -272,10 +279,12 @@ function Component() {
 function DesktopReauthView({
   email,
   scheme,
+  callbackMethod,
   lastSignInMethod,
 }: {
   email: string;
   scheme: DesktopScheme;
+  callbackMethod: AuthSignInMethod | undefined;
   lastSignInMethod: AuthSignInMethod | null;
 }) {
   const retryMutation = useMutation({
@@ -292,7 +301,7 @@ function DesktopReauthView({
           result.access_token,
           result.refresh_token,
           scheme,
-          lastSignInMethod ?? undefined,
+          callbackMethod,
         );
       }
     },

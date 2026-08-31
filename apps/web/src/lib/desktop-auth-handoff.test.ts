@@ -9,6 +9,7 @@ import {
   buildDesktopAuthCallbackPath,
   buildDesktopAuthDeeplink,
   getDesktopAppOpenLinkProps,
+  resolveDesktopAuthCallbackMethod,
   useDesktopAppAutoOpen,
 } from "./desktop-auth-handoff.ts";
 
@@ -48,6 +49,12 @@ test("builds a web callback that preserves the sign-in method", () => {
     ),
     "/callback/auth?flow=desktop&access_token=fake+access&refresh_token=fake%26refresh&scheme=anarlog-staging&method=email",
   );
+});
+
+test("prefers the requested desktop sign-in method over a remembered method", () => {
+  assert.equal(resolveDesktopAuthCallbackMethod("github", "google"), "github");
+  assert.equal(resolveDesktopAuthCallbackMethod(undefined, "google"), "google");
+  assert.equal(resolveDesktopAuthCallbackMethod(undefined, null), undefined);
 });
 
 test("attempts the external protocol through an anchor navigation", () => {

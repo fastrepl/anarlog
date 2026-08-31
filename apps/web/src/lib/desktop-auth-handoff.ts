@@ -5,6 +5,13 @@ import { useMountEffect } from "../hooks/useMountEffect.ts";
 
 const autoOpenAttempts = new WeakMap<Document, Set<string>>();
 
+export function resolveDesktopAuthCallbackMethod(
+  requestedMethod: AuthSignInMethod | undefined,
+  rememberedMethod: AuthSignInMethod | null,
+) {
+  return requestedMethod ?? rememberedMethod ?? undefined;
+}
+
 export function buildDesktopAuthDeeplink(
   scheme: DesktopScheme,
   accessToken: string | undefined,
