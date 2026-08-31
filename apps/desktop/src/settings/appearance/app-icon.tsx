@@ -102,10 +102,7 @@ export function AppIconSelector() {
               title={labels[option]}
               disabled={locked && billing.isUpgradingToPro}
               className={cn([
-                "group text-foreground focus-visible:ring-ring focus-visible:ring-offset-background relative flex cursor-pointer items-center justify-center rounded-[22px] border bg-transparent p-0.5 transition-[border-color,scale] duration-150 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98] disabled:cursor-wait",
-                selected
-                  ? "border-transparent"
-                  : "border-border hover:border-foreground/30",
+                "group text-foreground focus-visible:ring-ring focus-visible:ring-offset-background relative flex cursor-pointer items-center justify-center rounded-[22px] bg-transparent p-0.5 pb-2.5 transition-transform duration-150 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98] disabled:cursor-wait",
               ])}
               onClick={() => {
                 if (locked) {
@@ -119,18 +116,28 @@ export function AppIconSelector() {
             >
               <span
                 aria-hidden
+                data-app-icon-stage=""
                 className={cn([
-                  "pointer-events-none absolute inset-x-2.5 bottom-0 h-2 rounded-full",
-                  "bg-black/35 blur-[6px] dark:bg-white/25",
+                  "rounded-pill pointer-events-none absolute bottom-0.5 left-1/2 h-4 w-14 -translate-x-1/2",
+                  "bg-sky-400/60 blur-md dark:bg-sky-300/55",
+                  "transition-opacity duration-150",
+                  selected ? "opacity-100" : "opacity-0",
+                ])}
+              />
+              <span
+                aria-hidden
+                className={cn([
+                  "rounded-pill pointer-events-none absolute bottom-1.5 left-1/2 h-1.5 w-8 -translate-x-1/2",
+                  "bg-sky-300/90 blur-[3px] dark:bg-sky-200/80",
                   "transition-opacity duration-150",
                   selected ? "opacity-100" : "opacity-0",
                 ])}
               />
               <span
                 className={cn([
-                  "flex size-16 overflow-hidden rounded-[18px]",
+                  "relative flex size-16 overflow-hidden rounded-[18px]",
                   "transition-transform duration-150",
-                  selected && "-translate-y-1",
+                  selected && "-translate-y-1.5",
                 ])}
               >
                 {theme === "system" && hasDarkVariant ? (
@@ -158,7 +165,7 @@ export function AppIconSelector() {
                 )}
               </span>
               {locked ? (
-                <span className="bg-background border-border text-muted-foreground pointer-events-none absolute right-0.5 bottom-0.5 flex size-5 items-center justify-center rounded-full border shadow-sm">
+                <span className="bg-background border-border text-muted-foreground pointer-events-none absolute right-1 bottom-3 flex size-5 items-center justify-center rounded-full border shadow-sm">
                   {billing.isUpgradingToPro ? (
                     <CircleNotch className="size-3 animate-spin" aria-hidden />
                   ) : (

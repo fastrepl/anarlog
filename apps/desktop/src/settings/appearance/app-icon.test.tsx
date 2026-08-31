@@ -74,6 +74,10 @@ describe("AppIconSelector", () => {
 
     const defaultOption = screen.getByRole("radio", { name: "Default" });
     expect(defaultOption.getAttribute("aria-checked")).toBe("true");
+    expect(defaultOption.className).not.toMatch(/\bborder(?:-|\s|$)/);
+    expect(
+      defaultOption.querySelector("[data-app-icon-stage]")?.className,
+    ).toContain("opacity-100");
     expect(
       defaultOption
         .querySelector('source[media="(prefers-color-scheme: dark)"]')
