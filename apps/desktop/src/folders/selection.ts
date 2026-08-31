@@ -7,6 +7,7 @@ export const useFolderSelection = create<{
   iconOverrides: Record<string, TemplateIcon>;
   setSelectedPath: (path: string | null) => void;
   setIconOverride: (path: string, icon: TemplateIcon) => void;
+  clearIconOverride: (path: string, icon: TemplateIcon) => void;
   rekeyIconOverride: (fromPath: string, toPath: string) => void;
 }>((set) => ({
   selectedPath: null,
@@ -16,6 +17,14 @@ export const useFolderSelection = create<{
     set((state) => ({
       iconOverrides: { ...state.iconOverrides, [path]: icon },
     })),
+  clearIconOverride: (path, icon) =>
+    set((state) => {
+      if (state.iconOverrides[path] !== icon) {
+        return state;
+      }
+      const { [path]: _, ...rest } = state.iconOverrides;
+      return { iconOverrides: rest };
+    }),
   rekeyIconOverride: (fromPath, toPath) =>
     set((state) => {
       if (fromPath === toPath || !state.iconOverrides[fromPath]) {

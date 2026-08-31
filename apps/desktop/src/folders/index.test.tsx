@@ -281,4 +281,27 @@ describe("Folders workspace", () => {
       color: "#9ca3af",
     });
   });
+
+  it("clears an optimistic folder icon when saving fails", async () => {
+    mocks.folders = ["Work"];
+    mocks.updateFolderIcon.mockRejectedValue(new Error("unavailable"));
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    render(<FoldersWorkspace />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Choose folder icon" }));
+    fireEvent.click(screen.getByRole("button", { name: "target" }));
+
+    await waitFor(() => {
+      expect(mocks.updateFolderIcon).toHaveBeenCalledWith("Work", {
+        type: "icon",
+        value: "target",
+        color: "#9ca3af",
+      });
+      expect(useFolderSelection.getState().iconOverrides.Work).toBeUndefined();
+    });
+    consoleError.mockRestore();
+  });
 });

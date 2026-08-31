@@ -40,6 +40,9 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
   const persistedIcons = useFolderIcons();
   const iconOverrides = useFolderSelection((state) => state.iconOverrides);
   const setIconOverride = useFolderSelection((state) => state.setIconOverride);
+  const clearIconOverride = useFolderSelection(
+    (state) => state.clearIconOverride,
+  );
   const rekeyIconOverride = useFolderSelection(
     (state) => state.rekeyIconOverride,
   );
@@ -101,6 +104,7 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
             onChange={(nextIcon) => {
               setIconOverride(folderPath, nextIcon);
               void updateFolderIcon(folderPath, nextIcon).catch((error) => {
+                clearIconOverride(folderPath, nextIcon);
                 console.error("[folder-editor] failed to update icon", error);
               });
             }}
