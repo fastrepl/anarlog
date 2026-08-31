@@ -111,6 +111,10 @@ select
 from workspace_invitation_test_state
 where name = 'shared_workspace';
 
+select tests.enable_workspace_plan(workspace_id)
+from workspace_invitation_test_state
+where name = 'shared_workspace';
+
 select results_eq(
   $$
     select kind

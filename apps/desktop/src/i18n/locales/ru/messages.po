@@ -470,7 +470,6 @@ msgid "Anarlog Pro is required to use cloud sync."
 msgstr ""
 
 #: src/main/sync-status.tsx
-#: src/settings/team/index.tsx
 msgid "Anarlog Pro required"
 msgstr ""
 
@@ -1341,6 +1340,10 @@ msgstr ""
 #: src/imports/screen.tsx
 #: src/onboarding/calendar.tsx
 msgid "Continue"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Continue to Team checkout"
 msgstr ""
 
 #: src/onboarding/account/after-login.tsx
@@ -2691,6 +2694,10 @@ msgstr ""
 msgid "Manage billing"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Manage Team billing"
+msgstr ""
+
 #: src/settings/sync/index.tsx
 msgid "Manual sync"
 msgstr ""
@@ -3516,6 +3523,10 @@ msgstr ""
 
 #: src/sidebar/toast/registry.tsx
 msgid "Pro features available"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Pro for every member, shared workspaces, roles, policies, and centralized billing. $20 per person monthly or $200 yearly."
 msgstr ""
 
 #: src/settings/general/account.tsx
@@ -4541,6 +4552,10 @@ msgstr ""
 msgid "Start Recording"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Start Team"
+msgstr ""
+
 #: src/chat/components/input/index.tsx
 msgid "Start voice input"
 msgstr ""
@@ -4783,6 +4798,10 @@ msgstr ""
 
 #: src/settings/developers/skills.tsx
 msgid "Teach coding agents when and how to use the Anarlog CLI and MCP"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Team plan"
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -5148,7 +5167,6 @@ msgstr ""
 #: src/session-sharing/index.tsx
 #: src/settings/developers/cloud-api.tsx
 #: src/settings/dictionary/index.tsx
-#: src/settings/team/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Upgrade to Pro"
 msgstr ""

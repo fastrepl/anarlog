@@ -9,6 +9,8 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { openUrlWithInstruction } from "@anlg/plugin-windows";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
 import {
@@ -52,7 +54,6 @@ import { WorkspaceLogoButton } from "./logo-button";
 import { MY_WORKSPACES_QUERY_KEY, useMyWorkspacesWithMirror } from "./mirror";
 
 import { useAuth } from "~/auth";
-import { useBillingAccess } from "~/auth/billing-context";
 import {
   cancelScheduledCapture,
   listScheduledCaptures,
@@ -60,10 +61,10 @@ import {
 import { env } from "~/env";
 import { SettingsPageTitle } from "~/settings/page-title";
 import { SettingSwitchRow } from "~/settings/setting-row";
+import { buildWebAppUrl } from "~/shared/utils";
 
 export function SettingsTeam() {
   const auth = useAuth();
-  const billing = useBillingAccess();
   const { t } = useLingui();
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -104,50 +105,6 @@ export function SettingsTeam() {
     );
   }
 
-  if (!billing.isReady) {
-    return (
-      <div className="flex flex-col gap-8">
-        <SettingsPageTitle title={<Trans>Teams</Trans>} />
-        <TeamSkeleton />
-      </div>
-    );
-  }
-
-  if (
-    !billing.isPro &&
-    !workspaces.isPending &&
-    (!workspaces.data || workspaces.data.length === 0)
-  ) {
-    return (
-      <div className="flex flex-col gap-8">
-        <SettingsPageTitle title={<Trans>Teams</Trans>} />
-        <section className="flex max-w-xl flex-col gap-4">
-          <h3 className="text-sm font-medium">
-            <Trans>Anarlog Pro required</Trans>
-          </h3>
-          <p className="text-muted-foreground text-xs leading-5">
-            <Trans>
-              Invite teammates, share notes across the workspace, and manage who
-              has access. Your personal notes stay private.
-            </Trans>
-          </p>
-          <Button
-            type="button"
-            size="sm"
-            className="w-fit"
-            onClick={billing.upgradeToPro}
-            disabled={billing.isUpgradingToPro}
-          >
-            {billing.isUpgradingToPro ? (
-              <CircleNotch className="size-4 animate-spin" />
-            ) : null}
-            <Trans>Upgrade to Pro</Trans>
-          </Button>
-        </section>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-8">
       <SettingsPageTitle title={<Trans>Teams</Trans>} />
@@ -160,7 +117,7 @@ export function SettingsTeam() {
             workspaces={workspaces.data}
             selectedId={selectedWorkspace?.workspaceId ?? null}
             isCreating={isCreating}
-            canCreate={billing.isPro}
+            canCreate
             onSelect={(workspaceId) => {
               setIsCreating(false);
               setSelectedId(workspaceId);
@@ -182,7 +139,6 @@ export function SettingsTeam() {
               workspaceShareSlug={selectedWorkspace.shareSlug ?? null}
               workspaceLogoDataUrl={selectedWorkspace.logoDataUrl ?? null}
               workspaceRole={selectedWorkspace.role ?? "member"}
-              hasProAccess={billing.isPro}
               onWorkspaceRenamed={() => {
                 void queryClient.invalidateQueries({
                   queryKey: [MY_WORKSPACES_QUERY_KEY],
@@ -327,7 +283,6 @@ function WorkspacePanel({
   workspaceShareSlug,
   workspaceLogoDataUrl,
   workspaceRole,
-  hasProAccess,
   onWorkspaceRenamed,
   onWorkspaceLeft,
 }: {
@@ -336,7 +291,6 @@ function WorkspacePanel({
   workspaceShareSlug: string | null;
   workspaceLogoDataUrl: string | null;
   workspaceRole: WorkspaceRole;
-  hasProAccess: boolean;
   // Renaming keeps the panel where it is; leaving or deleting must drop the
   // selection because the workspace is gone.
   onWorkspaceRenamed: () => void;
@@ -347,6 +301,8 @@ function WorkspacePanel({
   const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [nameDraft, setNameDraft] = useState(workspaceName);
+  const [isOpeningBilling, setIsOpeningBilling] = useState(false);
+  const isManager = workspaceRole === "owner" || workspaceRole === "admin";
 
   // The roster, invitation, and seat RPCs are manager-only, so a plain member
   // gets a permission error rather than data. Retrying cannot fix that.
@@ -366,15 +322,13 @@ function WorkspacePanel({
     queryFn: () =>
       getWorkspaceUsageOverview(requireTeamContext(auth), workspaceId),
     retry: false,
-    enabled:
-      hasProAccess && (workspaceRole === "owner" || workspaceRole === "admin"),
+    enabled: isManager,
   });
   const policy = useQuery({
     queryKey: ["team-policy", workspaceId],
     queryFn: () => getWorkspacePolicy(requireTeamContext(auth), workspaceId),
     retry: false,
-    enabled:
-      hasProAccess && (workspaceRole === "owner" || workspaceRole === "admin"),
+    enabled: isManager && usage.data?.isBilled === true,
   });
 
   const refresh = () => {
@@ -467,8 +421,7 @@ function WorkspacePanel({
 
   const viewerId = auth.session?.user.id;
   const viewerRole = workspaceRole;
-  const canManage =
-    hasProAccess && (viewerRole === "owner" || viewerRole === "admin");
+  const canManage = usage.data?.isBilled === true && isManager;
   const trimmedEmail = email.trim();
   const actionError =
     invite.error?.message ??
@@ -486,6 +439,23 @@ function WorkspacePanel({
     const next = value.trim();
     if (next && next !== workspaceName) rename.mutate(next);
     else setNameDraft(workspaceName);
+  };
+
+  const openTeamBilling = async () => {
+    if (isOpeningBilling) return;
+    setIsOpeningBilling(true);
+    try {
+      const url = await buildWebAppUrl("/app/team-checkout", {
+        workspace_id: workspaceId,
+        period: "monthly",
+        quantity: String(Math.max(usage.data?.usedSeats ?? 1, 1)),
+      });
+      await openUrlWithInstruction(url, "billing", (value) =>
+        openerCommands.openUrl(value, null),
+      );
+    } finally {
+      setIsOpeningBilling(false);
+    }
   };
 
   return (
@@ -526,6 +496,42 @@ function WorkspacePanel({
       </div>
 
       {actionError && <p className="text-destructive text-xs">{actionError}</p>}
+
+      {isManager ? (
+        <section className="flex max-w-xl flex-col gap-3 rounded-lg border p-4">
+          <div>
+            <h2 className="text-sm font-medium">
+              {usage.data?.isBilled ? (
+                <Trans>Team plan</Trans>
+              ) : (
+                <Trans>Start Team</Trans>
+              )}
+            </h2>
+            <p className="text-muted-foreground mt-1 text-xs leading-5">
+              <Trans>
+                Pro for every member, shared workspaces, roles, policies, and
+                centralized billing. $20 per person monthly or $200 yearly.
+              </Trans>
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            className="w-fit"
+            disabled={usage.isPending || isOpeningBilling}
+            onClick={() => void openTeamBilling()}
+          >
+            {isOpeningBilling ? (
+              <CircleNotch className="size-4 animate-spin" />
+            ) : null}
+            {usage.data?.isBilled ? (
+              <Trans>Manage Team billing</Trans>
+            ) : (
+              <Trans>Continue to Team checkout</Trans>
+            )}
+          </Button>
+        </section>
+      ) : null}
 
       <section className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -647,6 +653,7 @@ function WorkspacePanel({
             <WorkspacePolicyForm
               workspaceId={workspaceId}
               policy={policy.data}
+              showEnterpriseControls={Boolean(env.VITE_ENTERPRISE_API_URL)}
               onSaved={refresh}
             />
           ) : null}
@@ -826,10 +833,12 @@ function UpcomingCaptureBots({ workspaceId }: { workspaceId: string }) {
 function WorkspacePolicyForm({
   workspaceId,
   policy,
+  showEnterpriseControls,
   onSaved,
 }: {
   workspaceId: string;
   policy: WorkspacePolicy;
+  showEnterpriseControls: boolean;
   onSaved: () => void;
 }) {
   const auth = useAuth();
@@ -909,27 +918,31 @@ function WorkspacePolicyForm({
         checked={allowPublic}
         onChange={setAllowPublic}
       />
-      <SettingSwitchRow
-        title={<Trans>Require SSO</Trans>}
-        description={
-          <Trans>
-            Members on a claimed email domain must sign in with SSO instead of
-            Google, GitHub, or email.
-          </Trans>
-        }
-        checked={requireSso}
-        onChange={setRequireSso}
-      />
-      <label className="flex max-w-sm flex-col gap-1 text-sm">
-        <Trans>Retention (days)</Trans>
-        <Input
-          value={retention}
-          onChange={(event) => setRetention(event.target.value)}
-          placeholder={t`Keep forever`}
-          inputMode="numeric"
-          className="bg-card h-9 shadow-none"
-        />
-      </label>
+      {showEnterpriseControls ? (
+        <>
+          <SettingSwitchRow
+            title={<Trans>Require SSO</Trans>}
+            description={
+              <Trans>
+                Members on a claimed email domain must sign in with SSO instead
+                of Google, GitHub, or email.
+              </Trans>
+            }
+            checked={requireSso}
+            onChange={setRequireSso}
+          />
+          <label className="flex max-w-sm flex-col gap-1 text-sm">
+            <Trans>Retention (days)</Trans>
+            <Input
+              value={retention}
+              onChange={(event) => setRetention(event.target.value)}
+              placeholder={t`Keep forever`}
+              inputMode="numeric"
+              className="bg-card h-9 shadow-none"
+            />
+          </label>
+        </>
+      ) : null}
       <Button
         type="button"
         size="sm"
@@ -945,67 +958,69 @@ function WorkspacePolicyForm({
       {save.error?.message ? (
         <p className="text-destructive text-xs">{save.error.message}</p>
       ) : null}
-      <div className="grid gap-6 sm:grid-cols-2">
-        <form
-          className="flex flex-col gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (domain.trim()) claimDomain.mutate(domain.trim());
-          }}
-        >
-          <label className="flex flex-col gap-1 text-sm">
-            <Trans>Claim email domain</Trans>
-            <Input
-              value={domain}
-              onChange={(event) => setDomain(event.target.value)}
-              placeholder="company.com"
-              className="bg-card h-9 shadow-none"
-            />
-          </label>
-          <Button
-            type="submit"
-            size="sm"
-            variant="outline"
-            className="w-fit"
-            disabled={!domain.trim() || claimDomain.isPending}
+      {showEnterpriseControls ? (
+        <div className="grid gap-6 sm:grid-cols-2">
+          <form
+            className="flex flex-col gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (domain.trim()) claimDomain.mutate(domain.trim());
+            }}
           >
-            <Trans>Verify domain</Trans>
-          </Button>
-        </form>
-        <form
-          className="flex flex-col gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (domain.trim() && scimToken.trim().length >= 32) {
-              rotateScim.mutate();
-            }
-          }}
-        >
-          <label className="flex flex-col gap-1 text-sm">
-            <Trans>SCIM bearer token</Trans>
-            <Input
-              value={scimToken}
-              onChange={(event) => setScimToken(event.target.value)}
-              type="password"
-              autoComplete="off"
-              className="bg-card h-9 shadow-none"
-            />
-          </label>
-          <Button
-            type="submit"
-            size="sm"
-            variant="outline"
-            className="w-fit"
-            disabled={
-              !domain.trim() ||
-              scimToken.trim().length < 32 ||
-              rotateScim.isPending
-            }
+            <label className="flex flex-col gap-1 text-sm">
+              <Trans>Claim email domain</Trans>
+              <Input
+                value={domain}
+                onChange={(event) => setDomain(event.target.value)}
+                placeholder="company.com"
+                className="bg-card h-9 shadow-none"
+              />
+            </label>
+            <Button
+              type="submit"
+              size="sm"
+              variant="outline"
+              className="w-fit"
+              disabled={!domain.trim() || claimDomain.isPending}
+            >
+              <Trans>Verify domain</Trans>
+            </Button>
+          </form>
+          <form
+            className="flex flex-col gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (domain.trim() && scimToken.trim().length >= 32) {
+                rotateScim.mutate();
+              }
+            }}
           >
-            <Trans>Save SCIM token</Trans>
-          </Button>
-        </form>
-      </div>
+            <label className="flex flex-col gap-1 text-sm">
+              <Trans>SCIM bearer token</Trans>
+              <Input
+                value={scimToken}
+                onChange={(event) => setScimToken(event.target.value)}
+                type="password"
+                autoComplete="off"
+                className="bg-card h-9 shadow-none"
+              />
+            </label>
+            <Button
+              type="submit"
+              size="sm"
+              variant="outline"
+              className="w-fit"
+              disabled={
+                !domain.trim() ||
+                scimToken.trim().length < 32 ||
+                rotateScim.isPending
+              }
+            >
+              <Trans>Save SCIM token</Trans>
+            </Button>
+          </form>
+        </div>
+      ) : null}
     </div>
   );
 }

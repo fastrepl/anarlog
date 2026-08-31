@@ -169,6 +169,20 @@ const getProPriceId = (period: "monthly" | "yearly") => {
   return requireEnv(env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
 };
 
+const getTeamPriceId = (period: "monthly" | "yearly") => {
+  if (period === "yearly") {
+    return requireEnv(
+      env.STRIPE_TEAM_YEARLY_PRICE_ID,
+      "STRIPE_TEAM_YEARLY_PRICE_ID",
+    );
+  }
+
+  return requireEnv(
+    env.STRIPE_TEAM_MONTHLY_PRICE_ID,
+    "STRIPE_TEAM_MONTHLY_PRICE_ID",
+  );
+};
+
 async function getCurrentSubscription(
   stripe: Stripe,
   stripeCustomerId: string,
@@ -646,7 +660,7 @@ export const createTeamCheckoutSession = createServerFn({ method: "POST" })
             usedSeats: row.used_seats,
           } as WorkspaceCheckoutContext;
         },
-        getPriceId: getProPriceId,
+        getPriceId: getTeamPriceId,
         async createCustomer({ workspaceId, workspaceName }) {
           return stripe.customers.create(
             {

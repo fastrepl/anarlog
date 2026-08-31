@@ -1,5 +1,5 @@
 begin;
-select plan(10);
+select plan(9);
 
 select tests.create_supabase_user('team_pro_owner', 'team-pro-owner@example.com');
 select tests.create_supabase_user('team_free_member', 'team-free-member@example.com');
@@ -58,27 +58,14 @@ select ok(
 
 select tests.authenticate_as('team_pro_owner');
 
-select throws_ok(
-  $$select * from public.create_workspace('Free Team')$$,
-  '42501',
-  'hyprnote pro entitlement required',
-  'A free account cannot create a Team workspace'
-);
-
-select tests.clear_authentication();
-select tests.authenticate_as_hyprnote_pro('team_pro_owner');
-
 select lives_ok(
   $$
     insert into team_pro_test_state (name, workspace_id)
     select 'hq', workspace_id
-    from public.create_workspace('Pro Team')
+    from public.create_workspace('Team checkout shell')
   $$,
-  'A Pro account can create a Team workspace'
+  'A free account can create a Team checkout shell'
 );
-
-select tests.clear_authentication();
-select tests.authenticate_as('team_pro_owner');
 
 select throws_ok(
   $$
@@ -89,9 +76,12 @@ select throws_ok(
     )
   $$,
   '42501',
-  'hyprnote pro entitlement required',
-  'A free account cannot manage its existing Team workspace'
+  'active Team subscription required',
+  'An unpaid workspace cannot use Team management'
 );
+
+select tests.clear_authentication();
+select tests.authenticate_as_hyprnote_pro('team_pro_owner');
 
 select throws_ok(
   $$
@@ -102,12 +92,18 @@ select throws_ok(
     )
   $$,
   '42501',
-  'hyprnote pro entitlement required',
-  'A free account cannot invite Team members'
+  'active Team subscription required',
+  'Personal Pro cannot invite members into an unpaid workspace'
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as_hyprnote_pro('team_pro_owner');
+reset role;
+
+select tests.enable_workspace_plan(
+  (select workspace_id from team_pro_test_state where name = 'hq')
+);
+
+select tests.authenticate_as('team_pro_owner');
 
 select lives_ok(
   $$
@@ -122,22 +118,28 @@ select lives_ok(
       'team-free-member@example.com'
     )
   $$,
-  'A Pro account can invite a Team member'
+  'The workspace Team plan lets a free owner invite members'
 );
 
 select tests.clear_authentication();
 select tests.authenticate_as('team_pro_owner');
 
-select throws_ok(
+select lives_ok(
   $$
-    select *
-    from public.resend_workspace_invitation(
-      (select invitation_id from team_pro_test_state where name = 'member_invite')
+    with resent as (
+      select *
+      from public.resend_workspace_invitation(
+        (select invitation_id from team_pro_test_state where name = 'member_invite')
+      )
     )
+    update team_pro_test_state as state
+    set
+      invitation_id = resent.invitation_id,
+      invite_token = resent.invite_token
+    from resent
+    where state.name = 'member_invite'
   $$,
-  '42501',
-  'hyprnote pro entitlement required',
-  'A free account cannot resend a Team invitation'
+  'The workspace Team plan lets a free owner resend invitations'
 );
 
 select results_eq(
@@ -153,7 +155,7 @@ select results_eq(
     from team_pro_test_state
     where name = 'member_invite'
   $$,
-  'Rejected resend preserves the original pending invitation'
+  'Resend replaces the original pending invitation atomically'
 );
 
 select tests.clear_authentication();
@@ -171,6 +173,16 @@ select lives_ok(
 );
 
 select tests.clear_authentication();
+reset role;
+
+update stripe.subscriptions
+set status = 'canceled'::stripe.subscription_status
+where customer = (
+  select workspace.stripe_customer_id
+  from public.workspaces as workspace
+  where workspace.id = (select workspace_id from team_pro_test_state where name = 'hq')
+);
+
 select tests.authenticate_as('team_pro_owner');
 
 select lives_ok(

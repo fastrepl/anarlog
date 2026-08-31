@@ -94,7 +94,7 @@ test("paid copy names the YC founder year when that perk is on the subscription"
     }),
     {
       planLabel: "Pro",
-      planDetail: "YC founder year is applied.",
+      planDetail: "YC founder year is applied to personal Pro.",
     },
   );
 });

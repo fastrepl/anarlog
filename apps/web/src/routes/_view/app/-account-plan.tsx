@@ -176,7 +176,7 @@ function YcPerkApplyForm({
     return (
       <div className="border-t border-[#ede7dc] px-6 py-5 sm:px-8">
         <p className="text-sm leading-6 text-[#756b5d]">
-          YC founder year is applied.
+          YC founder year is applied to personal Pro.
         </p>
       </div>
     );

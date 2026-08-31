@@ -129,6 +129,10 @@ select lives_ok(
   'The owner creates a shared workspace to key'
 );
 
+select tests.enable_workspace_plan(
+  (select workspace_id from workspace_grant_test_state where name = 'hq')
+);
+
 select lives_ok(
   $$
     insert into workspace_grant_test_state (name, invitation_id, invite_token)

@@ -470,7 +470,6 @@ msgid "Anarlog Pro is required to use cloud sync."
 msgstr "Anarlog Pro is required to use cloud sync."
 
 #: src/main/sync-status.tsx
-#: src/settings/team/index.tsx
 msgid "Anarlog Pro required"
 msgstr "Anarlog Pro required"
 
@@ -1342,6 +1341,10 @@ msgstr "Context"
 #: src/onboarding/calendar.tsx
 msgid "Continue"
 msgstr "Continue"
+
+#: src/settings/team/index.tsx
+msgid "Continue to Team checkout"
+msgstr "Continue to Team checkout"
 
 #: src/onboarding/account/after-login.tsx
 msgid "Continuing without trial"
@@ -2691,6 +2694,10 @@ msgstr "Make owner"
 msgid "Manage billing"
 msgstr "Manage billing"
 
+#: src/settings/team/index.tsx
+msgid "Manage Team billing"
+msgstr "Manage Team billing"
+
 #: src/settings/sync/index.tsx
 msgid "Manual sync"
 msgstr "Manual sync"
@@ -3517,6 +3524,10 @@ msgstr "Pro"
 #: src/sidebar/toast/registry.tsx
 msgid "Pro features available"
 msgstr "Pro features available"
+
+#: src/settings/team/index.tsx
+msgid "Pro for every member, shared workspaces, roles, policies, and centralized billing. $20 per person monthly or $200 yearly."
+msgstr "Pro for every member, shared workspaces, roles, policies, and centralized billing. $20 per person monthly or $200 yearly."
 
 #: src/settings/general/account.tsx
 msgid "Pro trial"
@@ -4541,6 +4552,10 @@ msgstr "Start listening when a scheduled meeting begins."
 msgid "Start Recording"
 msgstr "Start Recording"
 
+#: src/settings/team/index.tsx
+msgid "Start Team"
+msgstr "Start Team"
+
 #: src/chat/components/input/index.tsx
 msgid "Start voice input"
 msgstr "Start voice input"
@@ -4784,6 +4799,10 @@ msgstr "Take the enhanced note with decisions and follow-ups."
 #: src/settings/developers/skills.tsx
 msgid "Teach coding agents when and how to use the Anarlog CLI and MCP"
 msgstr "Teach coding agents when and how to use the Anarlog CLI and MCP"
+
+#: src/settings/team/index.tsx
+msgid "Team plan"
+msgstr "Team plan"
 
 #: src/settings/team/index.tsx
 msgid "teammate@company.com"
@@ -5148,7 +5167,6 @@ msgstr "Upgrade to enable"
 #: src/session-sharing/index.tsx
 #: src/settings/developers/cloud-api.tsx
 #: src/settings/dictionary/index.tsx
-#: src/settings/team/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Upgrade to Pro"
 msgstr "Upgrade to Pro"
