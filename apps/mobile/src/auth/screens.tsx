@@ -1,7 +1,14 @@
+import { BottomSheet, RNHostView } from "@expo/ui";
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { BillingInfo } from "@/auth/billing";
@@ -15,7 +22,6 @@ import {
   Colors,
   CornerCurve,
   Gradients,
-  Radius,
   Spacing,
   Typography,
 } from "@/constants/theme";
@@ -31,11 +37,43 @@ export function SignInScreen({
   onSignIn: (method: SignInMethod) => void;
   busy: boolean;
 }) {
+  const [showSignInMethods, setShowSignInMethods] = useState(false);
+  const { width } = useWindowDimensions();
+
   return (
     <SafeAreaView style={[styles.safeArea, styles.brandBackground]}>
-      <View style={styles.signInMethodsScreen} testID="sign-in-methods">
-        <View style={styles.signInMethods}>
-          <View style={styles.signInMethodList}>
+      <View style={styles.signInBrand} testID="sign-in-screen">
+        <Image
+          contentFit="contain"
+          source={require("../../assets/images/anarlog-wordmark.png")}
+          style={styles.wordmark}
+        />
+        <Text style={styles.signInTitle}>
+          The AI notepad for{"\n"}private meetings.
+        </Text>
+      </View>
+
+      <Button
+        label="Sign in"
+        onPress={() => setShowSignInMethods(true)}
+        disabled={busy}
+        loading={busy}
+        size="large"
+        style={styles.cta}
+      />
+
+      <BottomSheet
+        isPresented={showSignInMethods}
+        onDismiss={() => setShowSignInMethods(false)}
+        testID="sign-in-methods"
+      >
+        <RNHostView matchContents>
+          <View
+            style={[
+              styles.signInMethodList,
+              { width: Math.min(width - Spacing.md * 2, 480) },
+            ]}
+          >
             <Button
               label="Sign in with Apple"
               onPress={() => onSignIn("apple")}
@@ -109,8 +147,8 @@ export function SignInScreen({
               style={styles.signInMethod}
             />
           </View>
-        </View>
-      </View>
+        </RNHostView>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
@@ -264,19 +302,27 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
   },
-  signInMethodsScreen: {
+  signInBrand: {
     flex: 1,
-    justifyContent: "flex-end",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.lg,
   },
-  signInMethods: {
-    padding: Spacing.md,
-    paddingBottom: Spacing.lg,
-    borderRadius: Radius.sheet,
-    borderCurve: CornerCurve.squircle,
-    backgroundColor: Colors.surface,
+  wordmark: {
+    width: 200,
+    height: 56,
+  },
+  signInTitle: {
+    maxWidth: 340,
+    color: Colors.ink,
+    fontFamily: "CaveatSemiBold",
+    fontSize: 38,
+    lineHeight: 44,
+    textAlign: "center",
   },
   signInMethodList: {
     gap: Spacing.sm,
+    paddingBottom: Spacing.md,
   },
   signInMethod: {
     width: "100%",

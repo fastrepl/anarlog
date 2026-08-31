@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/react-native";
+import { useFonts } from "expo-font";
 import { type ErrorBoundaryProps, Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -213,6 +214,13 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 }
 
 function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    CaveatSemiBold: require("../../assets/fonts/Caveat-SemiBold.ttf"),
+  });
+
+  if (fontError) throw fontError;
+  if (!fontsLoaded) return <BrandLoadingView />;
+
   return (
     <GestureHandlerRootView style={styles.root}>
       <AuthProvider>
