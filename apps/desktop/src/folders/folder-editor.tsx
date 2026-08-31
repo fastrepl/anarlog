@@ -275,7 +275,7 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
         onOpenChange={setDeleting}
         title={<Trans>Delete folder</Trans>}
         description={
-          <Trans>
+          <Trans id="Notes stay in All notes. Materials in this folder will be deleted.">
             Notes stay in All notes. This folder, its nested folders, and all
             their materials will be deleted.
           </Trans>
