@@ -96,14 +96,10 @@ impl AmModel {
 
     pub fn tar_url(&self) -> &str {
         match self {
-            AmModel::ParakeetV2 => {
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/nvidia_parakeet-v2_476MB.tar"
-            }
-            AmModel::ParakeetV3 => {
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/nvidia_parakeet-v3_494MB.tar"
-            }
+            AmModel::ParakeetV2 => "https://models.anarlog.so/v0/nvidia_parakeet-v2_476MB.tar",
+            AmModel::ParakeetV3 => "https://models.anarlog.so/v0/nvidia_parakeet-v3_494MB.tar",
             AmModel::WhisperLargeV3 => {
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/openai_whisper-large-v3-v20240930_626MB.tar"
+                "https://models.anarlog.so/v0/openai_whisper-large-v3-v20240930_626MB.tar"
             }
         }
     }
@@ -155,6 +151,17 @@ fn extract_tar_file(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn model_urls_use_anarlog_domain() {
+        for model in [
+            AmModel::ParakeetV2,
+            AmModel::ParakeetV3,
+            AmModel::WhisperLargeV3,
+        ] {
+            assert!(model.tar_url().starts_with("https://models.anarlog.so/v0/"));
+        }
+    }
 
     #[test]
     fn tar_unpack_and_cleanup_skips_checksum_verification() {
