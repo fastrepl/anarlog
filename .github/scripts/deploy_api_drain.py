@@ -329,7 +329,28 @@ def create_replacement_machine(
     if machine.get("region"):
         payload["region"] = machine["region"]
 
-    created = api_request("POST", f"{app_path(app)}/machines", payload)
+    delay = FLY_API_RETRY_INITIAL_DELAY_SECONDS
+    for attempt in range(1, FLY_API_RETRY_ATTEMPTS + 1):
+        try:
+            created = api_request("POST", f"{app_path(app)}/machines", payload)
+            break
+        except FlyApiError as error:
+            manifest_pending = error.status_code == 400 and (
+                "MANIFEST_UNKNOWN" in str(error) or "manifest unknown" in str(error)
+            )
+            if not manifest_pending or attempt == FLY_API_RETRY_ATTEMPTS:
+                raise
+            print(
+                f"image manifest is not available yet "
+                f"(attempt {attempt}/{FLY_API_RETRY_ATTEMPTS}); "
+                f"retrying in {delay:g}s",
+                file=sys.stderr,
+            )
+            time.sleep(delay)
+            delay *= 2
+    else:
+        raise AssertionError("unreachable")
+
     if not isinstance(created, dict) or not created.get("id"):
         raise DeployError(f"Fly returned no id for replacement of {machine.get('id')}")
     machine_id = str(created["id"])
