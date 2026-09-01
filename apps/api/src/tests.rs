@@ -1,6 +1,7 @@
 use axum::{
     body::{Body, to_bytes},
     http::{Method, Request, StatusCode, header},
+    routing::get,
 };
 use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use serde_json::{Value, json};
@@ -130,6 +131,18 @@ fn api_env(with_hosted_integrations: bool) -> &'static crate::env::RuntimeConfig
     Box::leak(Box::new(config))
 }
 
+fn api_env_with_subsystems() -> &'static crate::env::RuntimeConfig {
+    let env = deserialize_api_env([
+        ("SQLITECLOUD_PROJECT_URL", "https://test.sqlite.cloud"),
+        ("SQLITECLOUD_TOKEN_ISSUER_API_KEY", "issuer-key"),
+        ("ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID", "database-id"),
+        ("DEEPGRAM_API_KEY", "deepgram-key"),
+    ]);
+    let config = crate::env::RuntimeConfig::resolve(env)
+        .unwrap_or_else(|error| panic!("environment should validate: {error}"));
+    Box::leak(Box::new(config))
+}
+
 async fn request_status(app: &Router, method: Method, path: &str) -> StatusCode {
     app.clone()
         .oneshot(
@@ -142,6 +155,41 @@ async fn request_status(app: &Router, method: Method, path: &str) -> StatusCode 
         .await
         .unwrap()
         .status()
+}
+
+async fn request_json(app: &Router, path: &str) -> (StatusCode, Value) {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = serde_json::from_slice(&response_bytes(response).await).unwrap();
+    (status, body)
+}
+
+fn subsystem_health_app(
+    cloudsync_configured: bool,
+    transcription_configured: bool,
+    llm_configured: bool,
+    session_gate: anlg_transcribe_proxy::SessionGate,
+) -> Router {
+    Router::new()
+        .route("/health/sync", get(sync_health))
+        .route("/health/transcription", get(transcription_health))
+        .route("/health/llm", get(llm_health))
+        .with_state(SubsystemHealthState {
+            cloudsync_configured,
+            transcription_configured,
+            llm_configured,
+            session_gate,
+        })
 }
 
 #[tokio::test]
@@ -185,6 +233,87 @@ async fn boots_with_minimal_self_hosted_configuration() {
             "optional route should not be mounted: {path}"
         );
     }
+}
+
+#[tokio::test]
+async fn subsystem_health_routes_are_mounted_unauthenticated_and_secret_free() {
+    let app = app_with_env(api_env_with_subsystems()).await;
+
+    let (sync_status, sync_body) = request_json(&app, "/health/sync").await;
+    assert_eq!(sync_status, StatusCode::OK);
+    assert_eq!(sync_body, json!({"status": "ok", "configured": true}));
+
+    let (transcription_status, transcription_body) =
+        request_json(&app, "/health/transcription").await;
+    assert_eq!(transcription_status, StatusCode::OK);
+    assert_eq!(
+        transcription_body,
+        json!({"status": "ok", "configured": true, "draining": false})
+    );
+
+    let (llm_status, llm_body) = request_json(&app, "/health/llm").await;
+    assert_eq!(llm_status, StatusCode::OK);
+    assert_eq!(llm_body, json!({"status": "ok", "configured": true}));
+
+    let bodies = format!("{sync_body}{transcription_body}{llm_body}");
+    for secret in [
+        "issuer-key",
+        "database-id",
+        "deepgram-key",
+        "openrouter-key",
+    ] {
+        assert!(!bodies.contains(secret), "health response leaked {secret}");
+    }
+}
+
+#[tokio::test]
+async fn subsystem_health_handlers_report_unavailable_states() {
+    let app = subsystem_health_app(
+        true,
+        false,
+        false,
+        anlg_transcribe_proxy::SessionGate::new(),
+    );
+
+    let (sync_status, sync_body) = request_json(&app, "/health/sync").await;
+    assert_eq!(sync_status, StatusCode::OK);
+    assert_eq!(sync_body, json!({"status": "ok", "configured": true}));
+
+    let (transcription_status, transcription_body) =
+        request_json(&app, "/health/transcription").await;
+    assert_eq!(transcription_status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(
+        transcription_body,
+        json!({"status": "unavailable", "configured": false, "draining": false})
+    );
+
+    let (llm_status, llm_body) = request_json(&app, "/health/llm").await;
+    assert_eq!(llm_status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(
+        llm_body,
+        json!({"status": "not_configured", "configured": false})
+    );
+}
+
+#[tokio::test]
+async fn transcription_health_reflects_drain_state() {
+    let gate = anlg_transcribe_proxy::SessionGate::new();
+    let app = subsystem_health_app(false, true, false, gate.clone());
+
+    let (status, body) = request_json(&app, "/health/transcription").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body,
+        json!({"status": "ok", "configured": true, "draining": false})
+    );
+
+    gate.begin_drain();
+    let (status, body) = request_json(&app, "/health/transcription").await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(
+        body,
+        json!({"status": "unavailable", "configured": true, "draining": true})
+    );
 }
 
 #[tokio::test]

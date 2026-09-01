@@ -10,7 +10,10 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::SystemTime;
 
-use axum::{Router, body::Body, extract::MatchedPath, http::HeaderMap, http::Request, middleware};
+use axum::{
+    Json, Router, body::Body, extract::MatchedPath, http::HeaderMap, http::Request,
+    http::StatusCode, middleware,
+};
 use sentry::integrations::tower::{NewSentryLayer, SentryHttpLayer};
 use sentry::protocol::{Context, Value};
 use tokio_util::sync::CancellationToken;
@@ -265,6 +268,13 @@ async fn app_with_session_gate(
         &env.supabase.supabase_service_role_key,
     )
     .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
+    let subsystem_health_state = SubsystemHealthState {
+        cloudsync_configured: sync_config.is_some(),
+        transcription_configured: !stt_config.api_keys.is_empty(),
+        llm_configured: !llm_config.api_key.is_empty(),
+        session_gate: session_gate.clone(),
+    };
+
     let shared_notes_config = anlg_api_sync::SharedNotesConfig::new(
         &env.supabase.supabase_url,
         &env.supabase.supabase_service_role_key,
@@ -460,6 +470,14 @@ async fn app_with_session_gate(
             auth::require_auth,
         ));
 
+    let subsystem_health_routes = Router::new()
+        .route("/health/sync", axum::routing::get(sync_health))
+        .route(
+            "/health/transcription",
+            axum::routing::get(transcription_health),
+        )
+        .route("/health/llm", axum::routing::get(llm_health))
+        .with_state(subsystem_health_state);
     let drain_routes = Router::new()
         .route("/drain", axum::routing::get(drain_status))
         .with_state(session_gate);
@@ -467,6 +485,7 @@ async fn app_with_session_gate(
     Router::new()
         .route("/health", axum::routing::get(version))
         .route("/openapi.json", axum::routing::get(openapi_json))
+        .merge(subsystem_health_routes)
         .merge(drain_routes)
         .merge(webhook_routes)
         .merge(paid_routes)
@@ -568,7 +587,8 @@ async fn app_with_session_gate(
                             span
                         })
                         .on_request(|request: &Request<Body>, span: &tracing::Span| {
-                            // Skip logging for health checks
+                            // Skip logging for liveness and drain checks. Subsystem readiness
+                            // checks remain traced so failures have debugging context.
                             if request.uri().path() == "/health" || request.uri().path() == "/drain"
                             {
                                 return;
@@ -764,6 +784,64 @@ fn main() -> std::io::Result<()> {
     observability.shutdown();
 
     Ok(())
+}
+
+#[derive(Clone)]
+struct SubsystemHealthState {
+    cloudsync_configured: bool,
+    transcription_configured: bool,
+    llm_configured: bool,
+    session_gate: anlg_transcribe_proxy::SessionGate,
+}
+
+fn subsystem_health_response(
+    ok: bool,
+    body: serde_json::Value,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let status = if ok {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
+    (status, Json(body))
+}
+
+async fn sync_health(
+    axum::extract::State(state): axum::extract::State<SubsystemHealthState>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    subsystem_health_response(
+        state.cloudsync_configured,
+        serde_json::json!({
+            "status": if state.cloudsync_configured { "ok" } else { "not_configured" },
+            "configured": state.cloudsync_configured,
+        }),
+    )
+}
+
+async fn transcription_health(
+    axum::extract::State(state): axum::extract::State<SubsystemHealthState>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let draining = state.session_gate.is_draining();
+    subsystem_health_response(
+        state.transcription_configured && !draining,
+        serde_json::json!({
+            "status": if state.transcription_configured && !draining { "ok" } else { "unavailable" },
+            "configured": state.transcription_configured,
+            "draining": draining,
+        }),
+    )
+}
+
+async fn llm_health(
+    axum::extract::State(state): axum::extract::State<SubsystemHealthState>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    subsystem_health_response(
+        state.llm_configured,
+        serde_json::json!({
+            "status": if state.llm_configured { "ok" } else { "not_configured" },
+            "configured": state.llm_configured,
+        }),
+    )
 }
 
 const TERM_DRAIN_TIMEOUT: Duration = Duration::from_secs(270);
