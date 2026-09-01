@@ -1,3 +1,4 @@
+import MenuView, { type MenuAction } from "@expo/ui/community/menu";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -9,6 +10,15 @@ import {
   Typography,
 } from "@/constants/theme";
 import { relativeLabel, type TimelineSession } from "@/data/timeline";
+
+const DELETE_ACTIONS: MenuAction[] = [
+  {
+    id: "delete",
+    title: "Delete",
+    image: "trash",
+    attributes: { destructive: true },
+  },
+];
 
 export function SessionCard({
   session,
@@ -35,61 +45,59 @@ export function SessionCard({
     .filter(Boolean)
     .join(", ");
 
-  return (
-    <View style={styles.card}>
-      <Pressable
-        accessibilityLabel={accessibilityLabel}
-        accessibilityRole="button"
-        onPress={onPress}
-        style={({ pressed }) => [
-          styles.cardContent,
-          pressed && styles.cardPressed,
-        ]}
-      >
-        {folder && (
-          <View style={styles.folderRow}>
-            <Ionicons name="folder-outline" size={12} color={Colors.muted} />
-            <Text style={styles.folder} numberOfLines={1}>
-              {folder}
-            </Text>
-          </View>
-        )}
-        <Text
-          style={[styles.title, !session.title && styles.titleEmpty]}
-          numberOfLines={1}
-        >
-          {title}
-        </Text>
-        <Text style={styles.subtitle}>{relativeLabel(session.startedAt)}</Text>
-        {tags && (
-          <Text style={styles.tags} numberOfLines={1}>
-            {tags}
+  const content = (
+    <Pressable
+      accessibilityHint={onDelete ? "Long press for actions" : undefined}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.cardContent,
+        pressed && styles.cardPressed,
+      ]}
+    >
+      {folder && (
+        <View style={styles.folderRow}>
+          <Ionicons name="folder-outline" size={12} color={Colors.muted} />
+          <Text style={styles.folder} numberOfLines={1}>
+            {folder}
           </Text>
-        )}
-      </Pressable>
-      {onDelete && (
-        <Pressable
-          accessibilityLabel={`Delete ${title}`}
-          accessibilityRole="button"
-          hitSlop={4}
-          onPress={onDelete}
-          style={({ pressed }) => [
-            styles.moreButton,
-            pressed && styles.moreButtonPressed,
-          ]}
-        >
-          <Ionicons name="ellipsis-horizontal" size={17} color={Colors.muted} />
-        </Pressable>
+        </View>
       )}
-    </View>
+      <Text
+        style={[styles.title, !session.title && styles.titleEmpty]}
+        numberOfLines={1}
+      >
+        {title}
+      </Text>
+      <Text style={styles.subtitle}>{relativeLabel(session.startedAt)}</Text>
+      {tags && (
+        <Text style={styles.tags} numberOfLines={1}>
+          {tags}
+        </Text>
+      )}
+    </Pressable>
+  );
+
+  if (!onDelete) return <View style={styles.card}>{content}</View>;
+
+  return (
+    <MenuView
+      actions={DELETE_ACTIONS}
+      onPressAction={({ nativeEvent }) => {
+        if (nativeEvent.event === "delete") onDelete();
+      }}
+      shouldOpenOnLongPress
+      style={styles.card}
+    >
+      {content}
+    </MenuView>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
     minHeight: 64,
-    flexDirection: "row",
-    alignItems: "stretch",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Colors.border,
     borderRadius: Radius.card,
@@ -99,7 +107,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   cardContent: {
-    flex: 1,
+    minHeight: 64,
     justifyContent: "center",
     paddingLeft: Spacing.compact,
     paddingVertical: Spacing.sm,
@@ -124,18 +132,6 @@ const styles = StyleSheet.create({
   },
   titleEmpty: {
     color: Colors.muted,
-  },
-  moreButton: {
-    width: 32,
-    alignSelf: "stretch",
-    alignItems: "center",
-    justifyContent: "center",
-    marginHorizontal: Spacing.compact,
-    marginVertical: Spacing.sm,
-    borderRadius: Radius.pill,
-  },
-  moreButtonPressed: {
-    backgroundColor: Colors.accentSurface,
   },
   subtitle: {
     marginTop: Spacing.xs,
