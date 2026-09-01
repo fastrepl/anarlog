@@ -1,6 +1,7 @@
 export {
   buildSessionTombstoneStatements,
   finalizeSessionDeletion,
+  isSessionDeleted,
   isSessionEmpty,
   restoreDeletedSession,
   softDeleteSession,
