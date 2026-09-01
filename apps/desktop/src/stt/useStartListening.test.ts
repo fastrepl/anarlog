@@ -3076,6 +3076,42 @@ describe("useStartListening", () => {
     consoleError.mockRestore();
   });
 
+  test("requests recovery when the deleted session is restored during finalization", async () => {
+    useSessionHasTranscriptMock.mockReturnValue(true);
+    isSessionDeletedMock
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    queueAutoEnhanceIfSummaryEmptyMock.mockRejectedValueOnce(
+      new Error("constraint failed"),
+    );
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
+    await act(async () => {
+      await onStopped?.("session-1", {
+        durationSeconds: 42,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+      });
+    });
+
+    expect(isSessionDeletedMock).toHaveBeenCalledTimes(2);
+    expect(sonnerToastErrorMock).not.toHaveBeenCalled();
+    expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
+    expect(requestCaptureRecoveryMock).toHaveBeenCalledWith("session-1");
+    consoleError.mockRestore();
+  });
+
   test("regenerates the summary after resumed batch capture completes", async () => {
     useSessionHasTranscriptMock.mockReturnValue(true);
 

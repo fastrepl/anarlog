@@ -361,18 +361,16 @@ export function useCaptureLifecycle(sessionId: string) {
         sonnerToast.dismiss("recording-without-transcription");
         sonnerToast.dismiss("live-transcription-stalled");
         sonnerToast.dismiss("meeting-disclosure-send-failed");
-        let sessionDeleted = false;
         const sessionWasDeleted = async () => {
-          if (sessionDeleted) return true;
           try {
-            sessionDeleted = await isSessionDeleted(sessionId);
+            return await isSessionDeleted(sessionId);
           } catch (error) {
             console.warn(
               "[listener] failed to check whether the session was deleted",
               error,
             );
+            return false;
           }
-          return sessionDeleted;
         };
         const notifyFailure = async (message: string, id: string) => {
           if (requestRecoveryOnFailure && !(await sessionWasDeleted())) {
