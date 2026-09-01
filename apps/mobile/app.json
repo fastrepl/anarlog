@@ -45,6 +45,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "fcaa4e46-0da5-4dfc-a9e2-6447de0030d2"
+      }
+    },
+    "owner": "john_fastrepl"
   }
 }
