@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { inspectionShowsActiveMeeting } from "./useMeetingAccessibilityActive";
+import {
+  inspectionsShowActiveMeetingForApps,
+  inspectionShowsActiveMeeting,
+} from "~/stt/meeting-accessibility";
 
 const activeInspection = {
   app: { id: "com.google.Chrome", name: "Google Chrome" },
@@ -35,6 +38,18 @@ describe("meeting accessibility activity", () => {
         ...activeInspection,
         windowTitle: null,
       }),
+    ).toBe(false);
+  });
+
+  it("only accepts active meetings from the expected trigger app", () => {
+    expect(
+      inspectionsShowActiveMeetingForApps(
+        [activeInspection],
+        ["com.google.Chrome"],
+      ),
+    ).toBe(true);
+    expect(
+      inspectionsShowActiveMeetingForApps([activeInspection], ["us.zoom.xos"]),
     ).toBe(false);
   });
 });

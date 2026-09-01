@@ -41,16 +41,10 @@ import {
   subscribeCanonicalSessionImportLocks,
 } from "~/session-sharing/editor-activity";
 import { useSession } from "~/session/queries";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 import { consumePendingUpload } from "~/stt/pending-upload";
-import {
-  beginScheduledAutoStart,
-  finishScheduledAutoStart,
-} from "~/stt/scheduled-auto-start-state";
-import { useStartListening } from "~/stt/useStartListening";
-import { useSTTConnection } from "~/stt/useSTTConnection";
+import { ScheduledSessionAutoStart } from "~/stt/scheduled-session-auto-start";
 import { useUploadFile } from "~/stt/useUploadFile";
 
 export function TabContentNote({
@@ -132,7 +126,7 @@ function UnlockedTabContentNote({
   return (
     <>
       {tab.state.autoStart && !standaloneWindow && !lockOverlay ? (
-        <AutoStartListening tab={tab} />
+        <ScheduledSessionAutoStart sessionId={tab.id} />
       ) : null}
       <SearchProvider>
         <AudioPlayer.Provider sessionId={tab.id} url={audioUrl ?? ""}>
@@ -147,67 +141,6 @@ function UnlockedTabContentNote({
       </SearchProvider>
     </>
   );
-}
-
-function AutoStartListening({
-  tab,
-}: {
-  tab: Extract<Tab, { type: "sessions" }>;
-}) {
-  const canStartLiveSession = useListener((state) =>
-    state.canStartLiveSession(tab.id),
-  );
-  const { conn } = useSTTConnection();
-  const startListening = useStartListening(tab.id);
-  const hasAttemptedAutoStart = useRef(false);
-
-  useMountEffect(() => {
-    // Readiness can be blocked by startup or an import lock; abandon the
-    // request instead of preventing every later scheduled meeting.
-    const timeout = setTimeout(() => {
-      if (!hasAttemptedAutoStart.current) {
-        clearPendingAutoStart(tab.id);
-      }
-    }, 30_000);
-
-    return () => clearTimeout(timeout);
-  });
-
-  useEffect(() => {
-    if (hasAttemptedAutoStart.current || !canStartLiveSession || !conn) {
-      return;
-    }
-
-    hasAttemptedAutoStart.current = true;
-    beginScheduledAutoStart(tab.id);
-    clearPendingAutoStart(tab.id);
-
-    void startListening()
-      .catch((error) => {
-        console.error("[listener] failed to auto-start session", error);
-      })
-      .finally(() => {
-        finishScheduledAutoStart(tab.id);
-      });
-  }, [canStartLiveSession, conn, startListening, tab.id]);
-
-  return null;
-}
-
-function clearPendingAutoStart(sessionId: string) {
-  const tabsState = useTabs.getState();
-  const currentTab = tabsState.tabs.find(
-    (candidate): candidate is Extract<Tab, { type: "sessions" }> =>
-      candidate.type === "sessions" && candidate.id === sessionId,
-  );
-  if (!currentTab?.state.autoStart) {
-    return;
-  }
-
-  tabsState.updateSessionTabState(currentTab, {
-    ...currentTab.state,
-    autoStart: null,
-  });
 }
 
 function TabContentNoteInner({

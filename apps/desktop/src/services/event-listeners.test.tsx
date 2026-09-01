@@ -3,7 +3,10 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { EventListeners } from "./event-listeners";
 
-import { createAutoStopEndedNotificationKey } from "~/stt/auto-stop-notification";
+import {
+  cancelAutoStopEndedNotification,
+  createAutoStopEndedNotificationKey,
+} from "~/stt/auto-stop-notification";
 import { createBatchCompletedNotificationKey } from "~/stt/batch-completed-notification";
 
 const {
@@ -105,6 +108,8 @@ vi.mock("~/store/zustand/listener/instance", () => ({
 
 describe("EventListeners notification events", () => {
   beforeEach(() => {
+    cancelAutoStopEndedNotification("session-1");
+    cancelAutoStopEndedNotification("session-old");
     notificationListenMock.mockReset();
     updaterListenMock.mockReset();
     maybeEmitUpdatedMock.mockReset();

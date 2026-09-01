@@ -1,9 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 
-import {
-  commands as detectCommands,
-  type MeetingAccessibilityInspection,
-} from "@anlg/plugin-detect";
+import { commands as detectCommands } from "@anlg/plugin-detect";
+
+import { inspectionShowsActiveMeeting } from "~/stt/meeting-accessibility";
 
 const MEETING_ACCESSIBILITY_POLL_INTERVAL_MS = 5_000;
 
@@ -23,22 +22,4 @@ export function useMeetingAccessibilityActive(enabled: boolean): boolean {
   });
 
   return enabled && data;
-}
-
-export function inspectionShowsActiveMeeting(
-  inspection: MeetingAccessibilityInspection,
-): boolean {
-  return Boolean(
-    inspection.accessibilityTrusted &&
-    inspection.platform !== "unknown" &&
-    inspection.windowTitle?.trim() &&
-    !inspection.warnings.some((warning) => {
-      const normalized = warning.toLowerCase();
-      return (
-        normalized.includes("ambiguous") ||
-        normalized.includes("incomplete") ||
-        normalized.includes("no uniquely validated")
-      );
-    }),
-  );
 }
