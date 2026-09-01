@@ -71,11 +71,11 @@
   assertions:
     - compare: eq
       kind: statusCode
-      target: 401
-    - compare: eq
+      target: 200
+    - compare: contains
       kind: textBody
-      target: missing_authorization_header
-  description: Verifies the production sync route and authentication layer.
+      target: '"status":"ok"'
+  description: Checks that production CloudSync is configured and ready.
   frequency: 1m
   kind: http
   name: Anarlog Sync API
@@ -89,7 +89,7 @@
     - jnb
   request:
     method: GET
-    url: https://api.anarlog.so/sync/devices
+    url: https://api.anarlog.so/health/sync
   retry: 3
   timeout: 45000
 "anarlog-transcription-api":
@@ -97,11 +97,11 @@
   assertions:
     - compare: eq
       kind: statusCode
-      target: 401
-    - compare: eq
+      target: 200
+    - compare: contains
       kind: textBody
-      target: missing_authorization_header
-  description: Verifies the production transcription route and authentication layer.
+      target: '"status":"ok"'
+  description: Checks transcription-provider configuration and stream readiness.
   frequency: 1m
   kind: http
   name: Anarlog Transcription API
@@ -115,10 +115,88 @@
     - jnb
   request:
     method: GET
-    url: https://api.anarlog.so/stt/status/openstatus-probe
+    url: https://api.anarlog.so/health/transcription
   retry: 3
   timeout: 45000
 "anarlog-llm-api":
+  active: true
+  assertions:
+    - compare: eq
+      kind: statusCode
+      target: 200
+    - compare: contains
+      kind: textBody
+      target: '"status":"ok"'
+  description: Checks that the production LLM provider is configured and ready.
+  frequency: 1m
+  kind: http
+  name: Anarlog LLM API
+  openTelemetry: {}
+  regions:
+    - iad
+    - arn
+    - sin
+    - syd
+    - gru
+    - jnb
+  request:
+    method: GET
+    url: https://api.anarlog.so/health/llm
+  retry: 3
+  timeout: 45000
+"anarlog-cloud-api-mcp":
+  active: true
+  assertions:
+    - compare: eq
+      kind: statusCode
+      target: 200
+    - compare: contains
+      kind: textBody
+      target: https://api.anarlog.so/mcp
+  description: Verifies Cloud API and MCP OAuth discovery metadata.
+  frequency: 1m
+  kind: http
+  name: Anarlog Cloud API & MCP
+  openTelemetry: {}
+  regions:
+    - iad
+    - arn
+    - sin
+    - syd
+    - gru
+    - jnb
+  request:
+    method: GET
+    url: https://api.anarlog.so/.well-known/oauth-protected-resource/mcp
+  retry: 3
+  timeout: 45000
+"anarlog-billing":
+  active: true
+  assertions:
+    - compare: eq
+      kind: statusCode
+      target: 200
+    - compare: contains
+      kind: textBody
+      target: '"status":"ok"'
+  description: Verifies the production Stripe webhook and billing service.
+  frequency: 1m
+  kind: http
+  name: Anarlog Billing
+  openTelemetry: {}
+  regions:
+    - iad
+    - arn
+    - sin
+    - syd
+    - gru
+    - jnb
+  request:
+    method: GET
+    url: https://hyprnote-stripe.fly.dev/health
+  retry: 3
+  timeout: 45000
+"anarlog-sync-auth-guard":
   active: true
   assertions:
     - compare: eq
@@ -127,10 +205,62 @@
     - compare: eq
       kind: textBody
       target: missing_authorization_header
-  description: Verifies the production LLM route and authentication layer.
+  description: Verifies that the production sync route remains protected.
   frequency: 1m
   kind: http
-  name: Anarlog LLM API
+  name: Anarlog Sync Auth Guard
+  openTelemetry: {}
+  regions:
+    - iad
+    - arn
+    - sin
+    - syd
+    - gru
+    - jnb
+  request:
+    method: GET
+    url: https://api.anarlog.so/sync/devices
+  retry: 3
+  timeout: 45000
+"anarlog-transcription-auth-guard":
+  active: true
+  assertions:
+    - compare: eq
+      kind: statusCode
+      target: 401
+    - compare: eq
+      kind: textBody
+      target: missing_authorization_header
+  description: Verifies that the production transcription route remains protected.
+  frequency: 1m
+  kind: http
+  name: Anarlog Transcription Auth Guard
+  openTelemetry: {}
+  regions:
+    - iad
+    - arn
+    - sin
+    - syd
+    - gru
+    - jnb
+  request:
+    method: GET
+    url: https://api.anarlog.so/stt/status/openstatus-probe
+  retry: 3
+  timeout: 45000
+"anarlog-llm-auth-guard":
+  active: true
+  assertions:
+    - compare: eq
+      kind: statusCode
+      target: 401
+    - compare: eq
+      kind: textBody
+      target: missing_authorization_header
+  description: Verifies that the production LLM route remains protected.
+  frequency: 1m
+  kind: http
+  name: Anarlog LLM Auth Guard
   openTelemetry: {}
   regions:
     - iad
