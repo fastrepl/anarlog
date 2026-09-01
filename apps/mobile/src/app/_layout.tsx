@@ -218,8 +218,17 @@ function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     CaveatSemiBold: require("../../assets/fonts/Caveat-SemiBold.ttf"),
   });
+  const [startupAnimationComplete, setStartupAnimationComplete] =
+    useState(false);
 
-  if (!fontsLoaded && !fontError) return <BrandLoadingView />;
+  if (!startupAnimationComplete || (!fontsLoaded && !fontError)) {
+    return (
+      <BrandLoadingView
+        animated={!startupAnimationComplete}
+        onAnimationComplete={() => setStartupAnimationComplete(true)}
+      />
+    );
+  }
 
   return (
     <GestureHandlerRootView style={styles.root}>
