@@ -11,7 +11,7 @@
   "devDependencies": {
     "@anlg/plugin-sdk": "workspace:*",
     "@types/react": "^19.2.14",
-    "esbuild": "^0.27.7",
+    "esbuild": "^0.28.1",
     "typescript": "^5.9.3"
   }
 }

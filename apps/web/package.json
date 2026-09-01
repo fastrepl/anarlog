@@ -110,7 +110,7 @@
     "pagefind": "^1.5.2",
     "tanstack-router-sitemap": "^1.0.13",
     "typescript": "^5.9.3",
-    "vite": "^8.0.8",
+    "vite": "^8.0.16",
     "web-vitals": "^5.2.0"
   }
 }
