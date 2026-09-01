@@ -162,7 +162,7 @@ tasks:
   # infisical run --env=dev --projectId=87dad7b5-72a6-4791-9228-b3b86b169db1 --path="/supabase" -- task supabase-start
   supabase-start:
     cmds:
-      - curl -o supabase/config.toml https://gist.githubusercontent.com/yujonglee/c0704ebe0818621a64753d663c4fcaff/raw/b82572dfcb6ffa4d20c332a8dd7650e5b82b99c3/supabase-default.toml
+      - cp supabase/config.default.toml supabase/config.toml
       - cargo xtask supabase-patch
       # - task: supabase-storage-seed-config
       # - '[ ! -f supabase/signing_keys.json ] && pnpm exec supabase gen signing-key --algorithm ES256 | jq -s ''.'' > supabase/signing_keys.json || true'

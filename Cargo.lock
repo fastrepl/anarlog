@@ -4841,7 +4841,7 @@ dependencies = [
  "objc2-foundation",
  "serde",
  "serde_json",
- "swift-rs 1.0.7 (git+https://github.com/yujonglee/swift-rs?rev=41a1605)",
+ "swift-rs 1.0.7 (git+https://github.com/Brendonovich/swift-rs?rev=41a1605)",
 ]
 
 [[package]]
@@ -9301,7 +9301,7 @@ dependencies = [
  "objc2",
  "objc2-app-kit",
  "objc2-foundation",
- "swift-rs 1.0.7 (git+https://github.com/yujonglee/swift-rs?rev=41a1605)",
+ "swift-rs 1.0.7 (git+https://github.com/Brendonovich/swift-rs?rev=41a1605)",
 ]
 
 [[package]]
@@ -11109,7 +11109,7 @@ dependencies = [
  "objc2-foundation",
  "serde",
  "serde_json",
- "swift-rs 1.0.7 (git+https://github.com/yujonglee/swift-rs?rev=41a1605)",
+ "swift-rs 1.0.7 (git+https://github.com/Brendonovich/swift-rs?rev=41a1605)",
 ]
 
 [[package]]
@@ -16581,7 +16581,7 @@ dependencies = [
 [[package]]
 name = "swift-rs"
 version = "1.0.7"
-source = "git+https://github.com/yujonglee/swift-rs?rev=41a1605#41a160524c737c061f5633e4371952544425aa01"
+source = "git+https://github.com/Brendonovich/swift-rs?rev=41a1605#41a160524c737c061f5633e4371952544425aa01"
 dependencies = [
  "base64 0.21.7",
  "serde",
@@ -17908,7 +17908,7 @@ dependencies = [
  "serde_json",
  "specta",
  "specta-typescript",
- "swift-rs 1.0.7 (git+https://github.com/yujonglee/swift-rs?rev=41a1605)",
+ "swift-rs 1.0.7 (git+https://github.com/Brendonovich/swift-rs?rev=41a1605)",
  "tauri",
  "tauri-plugin",
  "tauri-plugin-settings",
@@ -18633,7 +18633,7 @@ dependencies = [
  "specta",
  "specta-typescript",
  "strum 0.28.0",
- "swift-rs 1.0.7 (git+https://github.com/yujonglee/swift-rs?rev=41a1605)",
+ "swift-rs 1.0.7 (git+https://github.com/Brendonovich/swift-rs?rev=41a1605)",
  "tauri",
  "tauri-nspanel",
  "tauri-plugin",
@@ -18781,7 +18781,7 @@ dependencies = [
 name = "tcc"
 version = "0.1.0"
 dependencies = [
- "swift-rs 1.0.7 (git+https://github.com/yujonglee/swift-rs?rev=41a1605)",
+ "swift-rs 1.0.7 (git+https://github.com/Brendonovich/swift-rs?rev=41a1605)",
 ]
 
 [[package]]
@@ -19691,7 +19691,7 @@ dependencies = [
  "serde",
  "serde_json",
  "specta",
- "swift-rs 1.0.7 (git+https://github.com/yujonglee/swift-rs?rev=41a1605)",
+ "swift-rs 1.0.7 (git+https://github.com/Brendonovich/swift-rs?rev=41a1605)",
  "thiserror 2.0.18",
  "tracing",
 ]
@@ -19705,7 +19705,7 @@ dependencies = [
  "serde",
  "serde_json",
  "specta",
- "swift-rs 1.0.7 (git+https://github.com/yujonglee/swift-rs?rev=41a1605)",
+ "swift-rs 1.0.7 (git+https://github.com/Brendonovich/swift-rs?rev=41a1605)",
  "thiserror 2.0.18",
  "tracing",
 ]
