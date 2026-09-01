@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
   cardContent: {
     minHeight: 64,
     justifyContent: "center",
-    paddingLeft: Spacing.compact,
+    paddingHorizontal: Spacing.compact,
     paddingVertical: Spacing.sm,
   },
   cardPressed: {
