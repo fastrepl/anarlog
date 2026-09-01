@@ -442,7 +442,6 @@ const E2EE_REPLICA_PAYLOAD_HASHES_MIGRATION_VERSION: i64 = 20260816100000;
 const CURRENT_E2EE_PAYLOAD_HASH_LOCAL_STATE_CHECKSUM: &str = "1e0da0d8b5a524adf12cf1bb5a9c3910f922c9c2e7feb9c1f2704c4b093af41b50519083546409fe55a0d9d9f6f12f5a";
 const E2EE_PAYLOAD_HASH_LOCAL_STATE_ALTER: &str =
     "ALTER TABLE e2ee_records DROP COLUMN payload_hash;";
-const E2EE_PAYLOAD_HASH_LOCAL_STATE_STEP_ID: &str = "20260816100100_e2ee_payload_hash_local_state";
 
 #[derive(Debug)]
 pub enum AppSchemaError {
@@ -509,23 +508,8 @@ pub async fn prepare_schema_with_progress(
     adopt_legacy_mobile_schema_migration(db.pool()).await?;
     repair_legacy_shared_session_cache_migration(db.pool()).await?;
     repair_legacy_attachment_transfer_jobs_migration(db.pool()).await?;
-    // 1.4.15 added payload_hash to e2ee_records and 1.4.x dropped it again. Each
-    // CloudSync alter rewrites change-tracking on the whole replica; on large
-    // databases that stalls startup for many minutes even though the net schema
-    // is unchanged. Skip both alters when the add has not already been applied.
-    let e2ee_payload_hash_alter_already_applied =
-        successful_migration_exists(db.pool(), E2EE_RECORD_PAYLOAD_HASH_MIGRATION_VERSION).await?;
-    adopt_e2ee_record_payload_hash_alter(db.pool()).await?;
     repair_torn_e2ee_payload_hash_local_state_migration(db).await?;
-    anlg_db_migrate::migrate_with_progress(
-        db,
-        schema_before(E2EE_PAYLOAD_HASH_LOCAL_STATE_STEP_ID),
-        &mut on_migration_progress,
-    )
-    .await?;
-    if !e2ee_payload_hash_alter_already_applied {
-        apply_e2ee_payload_hash_local_state_without_drop_column(db, false).await?;
-    }
+    apply_net_zero_e2ee_payload_hash_alters(db, &mut on_migration_progress).await?;
     anlg_db_migrate::migrate_with_progress(db, schema(), on_migration_progress).await?;
     repair_missing_core_tables(db.pool(), templates_missing_before_migration).await?;
     backfill_session_share_activation(db.pool()).await?;
@@ -1013,17 +997,6 @@ async fn repair_legacy_shared_session_cache_migration(
     Ok(())
 }
 
-fn schema_before(id: &str) -> anlg_db_migrate::DbSchema {
-    let index = APP_MIGRATION_STEPS
-        .iter()
-        .position(|step| step.id == id)
-        .expect("migration step id must exist");
-    anlg_db_migrate::DbSchema {
-        steps: &APP_MIGRATION_STEPS[..index],
-        validate_cloudsync_table: cloudsync_alter_guard_required,
-    }
-}
-
 async fn successful_migration_exists(
     pool: &sqlx::SqlitePool,
     version: i64,
@@ -1049,34 +1022,137 @@ async fn successful_migration_exists(
     .await
 }
 
-async fn adopt_e2ee_record_payload_hash_alter(
-    pool: &sqlx::SqlitePool,
+async fn apply_net_zero_e2ee_payload_hash_alters(
+    db: &anlg_db_core::Db,
+    on_migration_progress: &mut (impl FnMut(anlg_db_migrate::MigrationProgress) + Send),
 ) -> Result<(), AppSchemaError> {
-    if successful_migration_exists(pool, E2EE_RECORD_PAYLOAD_HASH_MIGRATION_VERSION).await? {
+    if successful_migration_exists(db.pool(), E2EE_RECORD_PAYLOAD_HASH_MIGRATION_VERSION).await? {
+        return Ok(());
+    }
+    let e2ee_records_exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'e2ee_records'
+        )",
+    )
+    .fetch_one(db.pool())
+    .await?;
+    if !e2ee_records_exists {
         return Ok(());
     }
 
-    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
-    sqlx::raw_sql(
-        "CREATE TABLE IF NOT EXISTS _sqlx_migrations (
-            version BIGINT PRIMARY KEY,
-            description TEXT NOT NULL,
-            installed_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            success BOOLEAN NOT NULL,
-            checksum BLOB NOT NULL,
-            execution_time BIGINT NOT NULL
-        );",
-    )
-    .execute(&mut *transaction)
-    .await?;
-    adopt_legacy_mobile_migration(
-        &mut transaction,
+    const PAIR: &[(i64, &str, &str)] = &[
+        (
+            E2EE_RECORD_PAYLOAD_HASH_MIGRATION_VERSION,
+            "e2ee_record_payload_hash",
+            include_str!("../migrations/20260815100300_e2ee_record_payload_hash.sql"),
+        ),
+        (
+            20260815100400,
+            "e2ee_ciphertext_ownership",
+            include_str!("../migrations/20260815100400_e2ee_ciphertext_ownership.sql"),
+        ),
+        (
+            E2EE_REPLICA_PAYLOAD_HASHES_MIGRATION_VERSION,
+            "e2ee_replica_payload_hashes",
+            include_str!("../migrations/20260816100000_e2ee_replica_payload_hashes.sql"),
+        ),
+        (
+            E2EE_PAYLOAD_HASH_LOCAL_STATE_MIGRATION_VERSION,
+            "e2ee_payload_hash_local_state",
+            include_str!("../migrations/20260816100100_e2ee_payload_hash_local_state.sql"),
+        ),
+    ];
+    let drop_checksum = migration_checksum(PAIR[3].2);
+    if checksum_hex(&drop_checksum) != CURRENT_E2EE_PAYLOAD_HASH_LOCAL_STATE_CHECKSUM {
+        return Err(AppSchemaError::E2eePayloadHashLocalStateRepair(
+            "compiled e2ee payload-hash migration has an unexpected checksum",
+        ));
+    }
+
+    let mut transaction = db.pool().begin_with("BEGIN IMMEDIATE").await?;
+    if successful_migration_exists_on(
+        &mut *transaction,
         E2EE_RECORD_PAYLOAD_HASH_MIGRATION_VERSION,
-        "e2ee_record_payload_hash",
-        include_str!("../migrations/20260815100300_e2ee_record_payload_hash.sql"),
     )
-    .await?;
+    .await?
+    {
+        transaction.commit().await?;
+        return Ok(());
+    }
+
+    // One alter window around the temporary payload_hash column so CloudSync
+    // never records a schema change. The final table matches the snapshot
+    // taken at begin_alter, so commit_alter only restores tracking.
+    let cloudsync_alter = db.cloudsync_enabled()
+        && anlg_db_core::cloudsync_is_enabled_on(&mut *transaction, "e2ee_records").await?;
+    if cloudsync_alter {
+        anlg_db_core::cloudsync_begin_alter_on(&mut *transaction, "e2ee_records").await?;
+    }
+
+    for (index, (version, description, sql)) in PAIR.iter().enumerate() {
+        on_migration_progress(anlg_db_migrate::MigrationProgress {
+            completed: index,
+            total: PAIR.len(),
+        });
+        if successful_migration_exists_on(&mut *transaction, *version).await? {
+            continue;
+        }
+        sqlx::raw_sql(sqlx::AssertSqlSafe(*sql))
+            .execute(&mut *transaction)
+            .await?;
+        insert_successful_migration(
+            &mut transaction,
+            *version,
+            description,
+            &migration_checksum(sql),
+        )
+        .await?;
+    }
+    on_migration_progress(anlg_db_migrate::MigrationProgress {
+        completed: PAIR.len(),
+        total: PAIR.len(),
+    });
+
+    if cloudsync_alter {
+        anlg_db_core::cloudsync_commit_alter_on(&mut *transaction, "e2ee_records").await?;
+    }
     transaction.commit().await?;
+    Ok(())
+}
+
+async fn successful_migration_exists_on<'e, E>(
+    executor: E,
+    version: i64,
+) -> Result<bool, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
+    sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM _sqlx_migrations WHERE version = ? AND success = 1
+        )",
+    )
+    .bind(version)
+    .fetch_one(executor)
+    .await
+}
+
+async fn insert_successful_migration(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    version: i64,
+    description: &'static str,
+    checksum: &[u8],
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT INTO _sqlx_migrations (
+            version, description, success, checksum, execution_time
+         ) VALUES (?, ?, 1, ?, 0)",
+    )
+    .bind(version)
+    .bind(description)
+    .bind(checksum)
+    .execute(&mut **transaction)
+    .await?;
     Ok(())
 }
 
