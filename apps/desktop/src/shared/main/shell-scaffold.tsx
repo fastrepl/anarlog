@@ -44,11 +44,15 @@ export function MainShellScaffold({
           ],
           resolvedMainSurfaceChrome === "left" && [
             isMacos && "[&_[data-chat-floating-anchor]]:rounded-l-xl",
+            !isMacos && "[&_[data-chat-floating-anchor]]:rounded-tl-xl",
             "[&_[data-chat-floating-anchor]]:rounded-r-none",
             "[&_[data-chat-floating-anchor]]:border-y-0",
             "[&_[data-chat-floating-anchor]]:border-r-0",
             "[&_[data-chat-floating-anchor]]:border-l",
           ],
+          hasTopMainSurfaceChrome &&
+            !isMacos &&
+            "[&_[data-chat-floating-anchor]]:rounded-t-xl",
         ])}
         data-testid="main-app-shell"
       >

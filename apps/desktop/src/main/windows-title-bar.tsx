@@ -103,7 +103,7 @@ export function WindowsTitleBar() {
     <header
       data-tauri-drag-region
       data-testid="windows-title-bar"
-      className="border-border/60 bg-background flex h-10 shrink-0 items-stretch border-b"
+      className="bg-background flex h-10 shrink-0 items-stretch"
     >
       <div
         data-tauri-drag-region

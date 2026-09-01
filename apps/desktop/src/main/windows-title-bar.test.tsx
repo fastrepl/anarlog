@@ -95,9 +95,16 @@ describe("WindowsTitleBar", () => {
     render(<WindowsTitleBar />);
 
     const titleBar = screen.getByTestId("windows-title-bar");
+    const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
 
     expect(titleBar.hasAttribute("data-tauri-drag-region")).toBe(true);
-    expect(screen.getByRole("button", { name: "Hide sidebar" })).toBeTruthy();
+    expect(titleBar.className).toContain("bg-background");
+    expect(titleBar.className).not.toContain("border-b");
+    expect(
+      sidebarToggle.compareDocumentPosition(
+        screen.getByRole("menuitem", { name: "File" }),
+      ),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(screen.getByRole("menuitem", { name: "File" })).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: "Edit" })).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: "View" })).toBeTruthy();

@@ -64,12 +64,12 @@ describe("MainShellScaffold", () => {
   });
 
   it.each([
-    ["windows", "left", "rounded-l-xl"],
-    ["windows", "top", "rounded-t-xl"],
-    ["linux", "left", "rounded-l-xl"],
-    ["linux", "top", "rounded-t-xl"],
+    ["windows", "left", "[&_[data-chat-floating-anchor]]:rounded-tl-xl"],
+    ["windows", "top", "[&_[data-chat-floating-anchor]]:rounded-t-xl"],
+    ["linux", "left", "[&_[data-chat-floating-anchor]]:rounded-tl-xl"],
+    ["linux", "top", "[&_[data-chat-floating-anchor]]:rounded-t-xl"],
   ] as const)(
-    "does not add %s main surface rounding for %s chrome",
+    "adds %s main surface rounding for %s chrome",
     (currentPlatform, mainSurfaceChrome, roundedClass) => {
       mocks.platform = currentPlatform;
 
@@ -79,7 +79,7 @@ describe("MainShellScaffold", () => {
         </MainShellScaffold>,
       );
 
-      expect(screen.getByTestId("main-app-shell").className).not.toContain(
+      expect(screen.getByTestId("main-app-shell").className).toContain(
         roundedClass,
       );
     },
