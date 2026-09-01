@@ -66,7 +66,7 @@
     url: https://docs.anarlog.so
   retry: 3
   timeout: 45000
-"anarlog-sync-api":
+"11509":
   active: true
   assertions:
     - compare: eq
@@ -92,7 +92,7 @@
     url: https://api.anarlog.so/health/sync
   retry: 3
   timeout: 45000
-"anarlog-transcription-api":
+"11510":
   active: true
   assertions:
     - compare: eq
@@ -118,7 +118,7 @@
     url: https://api.anarlog.so/health/transcription
   retry: 3
   timeout: 45000
-"anarlog-llm-api":
+"11511":
   active: true
   assertions:
     - compare: eq
@@ -144,7 +144,7 @@
     url: https://api.anarlog.so/health/llm
   retry: 3
   timeout: 45000
-"anarlog-cloud-api-mcp":
+"11515":
   active: true
   assertions:
     - compare: eq
@@ -170,7 +170,7 @@
     url: https://api.anarlog.so/.well-known/oauth-protected-resource/mcp
   retry: 3
   timeout: 45000
-"anarlog-billing":
+"11518":
   active: true
   assertions:
     - compare: eq
@@ -196,7 +196,7 @@
     url: https://hyprnote-stripe.fly.dev/health
   retry: 3
   timeout: 45000
-"anarlog-sync-auth-guard":
+"11519":
   active: true
   assertions:
     - compare: eq
@@ -222,7 +222,7 @@
     url: https://api.anarlog.so/sync/devices
   retry: 3
   timeout: 45000
-"anarlog-transcription-auth-guard":
+"11514":
   active: true
   assertions:
     - compare: eq
@@ -248,7 +248,7 @@
     url: https://api.anarlog.so/stt/status/openstatus-probe
   retry: 3
   timeout: 45000
-"anarlog-llm-auth-guard":
+"11512":
   active: true
   assertions:
     - compare: eq
