@@ -56,7 +56,7 @@ jobs:
           MERGE_SHA=$(echo "$PR_DATA" | jq -r '.merge_commit_sha')
           TEMP_BRANCH="release-temp-${MERGE_SHA:0:8}"
 
-          GH_TOKEN=${{ secrets.YUJONGLEE_GITHUB_TOKEN_REPO }} gh api repos/$REPO/git/refs -f ref="refs/heads/$TEMP_BRANCH" -f sha="$MERGE_SHA"
+          GH_TOKEN=${{ secrets.REPO_GITHUB_TOKEN }} gh api repos/$REPO/git/refs -f ref="refs/heads/$TEMP_BRANCH" -f sha="$MERGE_SHA"
 
           echo "resolved=true" >> $GITHUB_OUTPUT
           echo "target_sha=$MERGE_SHA" >> $GITHUB_OUTPUT
@@ -110,5 +110,5 @@ jobs:
           data: ${{ steps.result.outputs.data }}
       - if: ${{ always() && steps.resolve.outputs.resolved == 'true' }}
         env:
-          GH_TOKEN: ${{ secrets.YUJONGLEE_GITHUB_TOKEN_REPO }}
+          GH_TOKEN: ${{ secrets.REPO_GITHUB_TOKEN }}
         run: gh api repos/${{ github.repository }}/git/refs/heads/${{ steps.resolve.outputs.branch }} -X DELETE || true

@@ -16,7 +16,7 @@ jobs:
         run: |
           PLATFORM="${{ inputs.platform }}"
 
-          LATEST_FILE=$(aws s3 ls "s3://hyprnote-build/desktop/staging/" \
+          LATEST_FILE=$(aws s3 ls "s3://anarlog-build/desktop/staging/" \
             --endpoint-url ${{ secrets.CLOUDFLARE_R2_ENDPOINT_URL }} \
             --region auto | grep "hyprnote-staging-.*-${PLATFORM}" | sort -r | head -1 | awk '{print $4}')
 
@@ -27,7 +27,7 @@ jobs:
 
           echo "Latest staging build: $LATEST_FILE"
 
-          aws s3 cp "s3://hyprnote-build/desktop/staging/$LATEST_FILE" \
+          aws s3 cp "s3://anarlog-build/desktop/staging/$LATEST_FILE" \
             "./$LATEST_FILE" \
             --endpoint-url ${{ secrets.CLOUDFLARE_R2_ENDPOINT_URL }} \
             --region auto

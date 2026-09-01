@@ -56,7 +56,7 @@ jobs:
               output_ref "$EXPLICIT_REF" "$SHA" "$EXPLICIT_REF" "false"
             else
               TEMP_BRANCH="staging-temp-${SHA:0:8}"
-              GH_TOKEN=${{ secrets.YUJONGLEE_GITHUB_TOKEN_REPO }} gh api repos/$REPO/git/refs -f ref="refs/heads/$TEMP_BRANCH" -f sha="$SHA"
+              GH_TOKEN=${{ secrets.REPO_GITHUB_TOKEN }} gh api repos/$REPO/git/refs -f ref="refs/heads/$TEMP_BRANCH" -f sha="$SHA"
               output_ref "$EXPLICIT_REF" "$SHA" "$TEMP_BRANCH" "true"
             fi
           fi
@@ -105,5 +105,5 @@ jobs:
           data: ${{ steps.result.outputs.data }}
       - if: ${{ always() && steps.resolve.outputs.needs_cleanup == 'true' }}
         env:
-          GH_TOKEN: ${{ secrets.YUJONGLEE_GITHUB_TOKEN_REPO }}
+          GH_TOKEN: ${{ secrets.REPO_GITHUB_TOKEN }}
         run: gh api repos/${{ github.repository }}/git/refs/heads/${{ steps.resolve.outputs.branch }} -X DELETE || true

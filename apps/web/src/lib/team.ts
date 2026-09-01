@@ -36,13 +36,7 @@ export const AUTHORS = Object.values(EDITORS).map((m) => ({
   avatar: m.avatar,
 }));
 
-export const ADMIN_EMAILS = [
-  "john@hyprnote.com",
-  "marketing@hyprnote.com",
-  "artem@hyprnote.com",
-  "stua@fastmail.com",
-  "thestua@gmail.com",
-];
+export const ADMIN_EMAILS = ["john@fastrepl.com", "artem@fastrepl.com"];
 
 export const TEAM_PHOTOS = [
   { id: "john-1", name: "john-1.jpg", url: "/api/assets/team/john-1.jpg" },

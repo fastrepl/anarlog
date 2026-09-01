@@ -16,13 +16,13 @@ jobs:
   rebase:
     runs-on: ubuntu-latest
     env:
-      GH_TOKEN: ${{ secrets.YUJONGLEE_GITHUB_TOKEN_REPO }}
+      GH_TOKEN: ${{ secrets.REPO_GITHUB_TOKEN }}
       REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/add-reaction
         with:
-          token: ${{ secrets.YUJONGLEE_GITHUB_TOKEN_REPO }}
+          token: ${{ secrets.REPO_GITHUB_TOKEN }}
           repo: ${{ github.repository }}
           comment: ${{ inputs.comment_id }}
           reaction: eyes
@@ -51,14 +51,14 @@ jobs:
       - if: steps.rebase.outputs.success == 'true'
         uses: ./.github/actions/add-reaction
         with:
-          token: ${{ secrets.YUJONGLEE_GITHUB_TOKEN_REPO }}
+          token: ${{ secrets.REPO_GITHUB_TOKEN }}
           repo: ${{ github.repository }}
           comment: ${{ inputs.comment_id }}
           reaction: "+1"
       - if: steps.rebase.outputs.success != 'true'
         uses: ./.github/actions/add-reaction
         with:
-          token: ${{ secrets.YUJONGLEE_GITHUB_TOKEN_REPO }}
+          token: ${{ secrets.REPO_GITHUB_TOKEN }}
           repo: ${{ github.repository }}
           comment: ${{ inputs.comment_id }}
           reaction: confused
