@@ -9,6 +9,8 @@ export type DesktopPlatform = "linux" | "macos" | "windows";
 
 export const appleSiliconDownloadUrl = getStableDownloadUrl("dmg-aarch64");
 export const appleIntelDownloadUrl = getStableDownloadUrl("dmg-x86_64");
+export const windowsStoreDownloadUrl =
+  "https://apps.microsoft.com/detail/XPDLN196NKSW10";
 
 export const comingSoonPlatforms = [
   "iOS",
@@ -42,12 +44,13 @@ export const desktopDownloadSections = [
     platform: "windows",
     name: "Windows",
     status: "Beta",
-    description: "Beta installer for 64-bit Windows PCs.",
+    description: "Install Anarlog through the Microsoft Store.",
     downloads: [
       {
-        name: "Windows x64",
-        detail: "NSIS installer · EXE",
-        url: getStableDownloadUrl("nsis-x86_64"),
+        name: "Microsoft Store",
+        detail: "Windows 10 and 11",
+        url: windowsStoreDownloadUrl,
+        actionLabel: "Get from Store",
         showInMenu: true,
       },
     ],

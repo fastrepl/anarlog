@@ -6,6 +6,7 @@ import {
   desktopDownloadSections,
   detectDesktopPlatform,
   getOrderedDesktopDownloadSections,
+  windowsStoreDownloadUrl,
 } from "./download.ts";
 
 test("offers macOS, Windows, and Linux downloads", () => {
@@ -34,9 +35,13 @@ test("offers macOS, Windows, and Linux downloads", () => {
     macosDownloads[0].url,
     /^https:\/\/desktop\.anarlog\.so\/download\/latest\/platform\/dmg-aarch64\?/,
   );
-  assert.match(
-    windowsDownloads[0].url,
-    /^https:\/\/desktop\.anarlog\.so\/download\/latest\/platform\/nsis-x86_64\?/,
+  assert.equal(windowsDownloads.length, 1);
+  assert.equal(windowsDownloads[0].name, "Microsoft Store");
+  assert.equal(windowsDownloads[0].url, windowsStoreDownloadUrl);
+  assert.equal(windowsDownloads[0].actionLabel, "Get from Store");
+  assert.equal(
+    windowsDownloads.some((download) => download.url.includes("nsis-x86_64")),
+    false,
   );
   assert.deepEqual(
     linuxDownloads.map((download) =>
