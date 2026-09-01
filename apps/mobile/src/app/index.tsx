@@ -20,6 +20,7 @@ import { UserAvatarButton } from "@/components/user-avatar";
 import { Colors, ControlSize, Spacing, Typography } from "@/constants/theme";
 import { useSessionSearch } from "@/data/search";
 import { createSession, deleteSession } from "@/data/session";
+import { useSidebarItemPreferences } from "@/data/sidebar-preferences";
 import { useTimelineSessions, type TimelineSession } from "@/data/timeline";
 import { captureAnalytics } from "@/lib/analytics";
 import { confirmDestructive } from "@/lib/confirm";
@@ -43,6 +44,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const auth = useAuth();
   const { items, isLoading } = useTimelineSessions();
+  const sidebarPreferences = useSidebarItemPreferences();
   const [query, setQuery] = useState<string | null>(null);
   const [settledSearchQuery, setSettledSearchQuery] = useState("");
   const [showActionButtonCard, setShowActionButtonCard] = useState(false);
@@ -225,6 +227,8 @@ export default function HomeScreen() {
               <SessionCard
                 key={session.id}
                 session={session}
+                showFolder={sidebarPreferences.showFolder}
+                showTags={sidebarPreferences.showTags}
                 onPress={() => {
                   captureAnalytics("search_result_opened", {
                     entry_point: "mobile_home",
@@ -253,13 +257,6 @@ export default function HomeScreen() {
               </View>
             )}
             {items.map((item) => {
-              if (item.type === "group") {
-                return (
-                  <Text key={item.key} style={styles.groupLabel}>
-                    {item.label}
-                  </Text>
-                );
-              }
               if (item.type === "header") {
                 return (
                   <Text key={item.key} style={styles.sectionLabel}>
@@ -271,6 +268,8 @@ export default function HomeScreen() {
                 <SessionCard
                   key={item.key}
                   session={item.session}
+                  showFolder={sidebarPreferences.showFolder}
+                  showTags={sidebarPreferences.showTags}
                   onPress={() => router.push(`/note/${item.session.id}`)}
                   onDelete={() => void handleDelete(item.session)}
                 />
@@ -341,15 +340,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   sectionLabel: {
-    ...Typography.captionStrong,
+    ...Typography.section,
     color: Colors.muted,
-    marginTop: Spacing.xs,
-    marginBottom: Spacing.sm,
-  },
-  groupLabel: {
-    ...Typography.title,
-    color: Colors.ink,
-    marginTop: Spacing.lg,
+    marginTop: Spacing.md,
     marginBottom: Spacing.sm,
   },
 });

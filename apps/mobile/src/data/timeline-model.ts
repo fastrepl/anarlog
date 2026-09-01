@@ -2,10 +2,11 @@ export type TimelineSession = {
   id: string;
   title: string;
   startedAt: string;
+  folderPath: string;
+  tags: string[];
 };
 
 export type SessionListItem =
-  | { type: "group"; key: string; label: "Upcoming" | "Past" }
   | { type: "header"; key: string; label: string }
   | { type: "session"; key: string; session: TimelineSession };
 
@@ -14,6 +15,8 @@ export type TimelineRow = {
   title: string;
   created_at: string;
   event_json: string;
+  folder_path?: string;
+  tags_json?: string;
 };
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -71,20 +74,14 @@ export function buildSessionList(
   now = Date.now(),
 ): SessionListItem[] {
   const items: SessionListItem[] = [];
-  const appendGroup = (
-    label: "Upcoming" | "Past",
-    group: TimelineSession[],
-  ) => {
-    if (group.length === 0) return;
-    const groupKey = label.toLowerCase();
-    items.push({ type: "group", key: `group-${groupKey}`, label });
+  const appendSessions = (keyPrefix: string, group: TimelineSession[]) => {
     let currentLabel: string | null = null;
     for (const session of group) {
       const sessionDayLabel = dayLabel(session.startedAt, now);
       if (sessionDayLabel !== currentLabel) {
         items.push({
           type: "header",
-          key: `header-${groupKey}-${sessionDayLabel}`,
+          key: `header-${keyPrefix}-${sessionDayLabel}`,
           label: sessionDayLabel,
         });
         currentLabel = sessionDayLabel;
@@ -112,8 +109,8 @@ export function buildSessionList(
     .sort((a, b) => (b.timestamp ?? -Infinity) - (a.timestamp ?? -Infinity))
     .map((item) => item.session);
 
-  appendGroup("Upcoming", upcoming);
-  appendGroup("Past", past);
+  appendSessions("upcoming", upcoming);
+  appendSessions("past", past);
   return items;
 }
 
@@ -158,5 +155,25 @@ export function mapTimelineRows(rows: TimelineRow[]): TimelineSession[] {
     id: row.id,
     title: row.title,
     startedAt: sessionStartedAt(row),
+    folderPath: row.folder_path?.trim() ?? "",
+    tags: parseTagNames(row.tags_json),
   }));
+}
+
+function parseTagNames(value: string | undefined): string[] {
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return [
+      ...new Set(
+        parsed
+          .filter((tag): tag is string => typeof tag === "string")
+          .map((tag) => tag.trim())
+          .filter(Boolean),
+      ),
+    ].sort((left, right) => left.localeCompare(right));
+  } catch {
+    return [];
+  }
 }

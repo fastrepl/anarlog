@@ -1,3 +1,4 @@
+import { Host, Switch } from "@expo/ui";
 import { useSyncExternalStore } from "react";
 import {
   KeyboardAvoidingView,
@@ -19,6 +20,11 @@ import {
   Typography,
 } from "@/constants/theme";
 import {
+  setSidebarItemPreference,
+  useSidebarItemPreferences,
+} from "@/data/sidebar-preferences";
+import { captureOperationalError } from "@/lib/error-reporting";
+import {
   getMobileSyncSnapshot,
   retryMobileSync,
   subscribeMobileSync,
@@ -33,6 +39,7 @@ export function SettingsContent() {
     getMobileSyncSnapshot,
     getMobileSyncSnapshot,
   );
+  const sidebarPreferences = useSidebarItemPreferences();
 
   const planLabel = auth.bypass
     ? "Local dev"
@@ -42,6 +49,18 @@ export function SettingsContent() {
         ? "Pro"
         : "Free";
   const presentation = syncStatusPresentation(sync);
+
+  const updateSidebarPreference = (
+    key: "sidebar_show_folder" | "sidebar_show_tags",
+    value: boolean,
+  ) => {
+    void setSidebarItemPreference(key, value).catch((error) => {
+      captureOperationalError(error, {
+        operation: "sidebar_preference_update",
+        tags: { key },
+      });
+    });
+  };
 
   const renderStatusActions = () => {
     if (auth.bypass || sync.phase === "inactive") return null;
@@ -117,6 +136,54 @@ export function SettingsContent() {
           </View>
           <View style={styles.planChip}>
             <Text style={styles.planLabel}>{planLabel}</Text>
+          </View>
+        </View>
+
+        <View style={styles.notesListCard}>
+          <Text style={styles.eyebrow}>Notes list</Text>
+          <Text style={styles.notesListDescription}>
+            Choose extra details to show on each note.
+          </Text>
+          <View style={styles.preferenceGroup}>
+            <View>
+              <Host
+                matchContents={{ vertical: true }}
+                seedColor={Colors.primary}
+                style={styles.preferenceControl}
+              >
+                <Switch
+                  label="Folder"
+                  value={sidebarPreferences.showFolder}
+                  onValueChange={(value) =>
+                    updateSidebarPreference("sidebar_show_folder", value)
+                  }
+                  testID="sidebar-show-folder"
+                />
+              </Host>
+              <Text style={styles.preferenceDescription}>
+                Show the folder above the title.
+              </Text>
+            </View>
+            <View style={styles.preferenceDivider} />
+            <View>
+              <Host
+                matchContents={{ vertical: true }}
+                seedColor={Colors.primary}
+                style={styles.preferenceControl}
+              >
+                <Switch
+                  label="Tags"
+                  value={sidebarPreferences.showTags}
+                  onValueChange={(value) =>
+                    updateSidebarPreference("sidebar_show_tags", value)
+                  }
+                  testID="sidebar-show-tags"
+                />
+              </Host>
+              <Text style={styles.preferenceDescription}>
+                Show tags under the date and time.
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -209,6 +276,36 @@ const styles = StyleSheet.create({
     borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.surface,
     padding: Spacing.md,
+  },
+  notesListCard: {
+    marginTop: Spacing.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.border,
+    borderRadius: Radius.card,
+    borderCurve: CornerCurve.squircle,
+    backgroundColor: Colors.surface,
+    padding: Spacing.md,
+  },
+  notesListDescription: {
+    marginTop: Spacing.xs,
+    ...Typography.body,
+    color: Colors.muted,
+  },
+  preferenceGroup: {
+    marginTop: Spacing.md,
+    gap: Spacing.md,
+  },
+  preferenceControl: {
+    width: "100%",
+  },
+  preferenceDescription: {
+    marginTop: Spacing.xs,
+    ...Typography.caption,
+    color: Colors.muted,
+  },
+  preferenceDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: Colors.border,
   },
   statusHeading: {
     flexDirection: "row",
