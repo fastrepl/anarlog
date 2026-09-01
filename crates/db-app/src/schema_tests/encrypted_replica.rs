@@ -1293,3 +1293,155 @@ async fn e2ee_payload_hash_repair_leaves_cleanly_migrated_databases_alone() {
     assert_eq!(checksum_before, checksum_after);
     assert_eq!(before, e2ee_schema_objects(&db).await);
 }
+
+#[tokio::test]
+async fn prepare_schema_skips_net_zero_e2ee_payload_hash_alters() {
+    let clean_db = test_db().await;
+    let db = Db::connect_memory_plain().await.unwrap();
+    anlg_db_migrate::migrate(
+        &db,
+        anlg_db_migrate::DbSchema {
+            steps: migration_steps_before("20260815100300_e2ee_record_payload_hash"),
+            validate_cloudsync_table: cloudsync_alter_guard_required,
+        },
+    )
+    .await
+    .unwrap();
+
+    prepare_schema(&db).await.unwrap();
+
+    let add_applied: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM _sqlx_migrations WHERE version = 20260815100300 AND success = 1
+        )",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    let drop_applied: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM _sqlx_migrations WHERE version = 20260816100100 AND success = 1
+        )",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert!(add_applied);
+    assert!(drop_applied);
+
+    let payload_hash_exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM pragma_table_info('e2ee_records') WHERE name = 'payload_hash'
+        )",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert!(!payload_hash_exists);
+    assert_eq!(
+        e2ee_schema_objects(&db).await,
+        e2ee_schema_objects(&clean_db).await
+    );
+}
+
+#[tokio::test]
+async fn prepare_schema_still_drops_an_already_applied_payload_hash_column() {
+    let db = Db::connect_memory_plain().await.unwrap();
+    anlg_db_migrate::migrate(
+        &db,
+        anlg_db_migrate::DbSchema {
+            steps: migration_steps_before("20260816100100_e2ee_payload_hash_local_state"),
+            validate_cloudsync_table: cloudsync_alter_guard_required,
+        },
+    )
+    .await
+    .unwrap();
+
+    let payload_hash_exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM pragma_table_info('e2ee_records') WHERE name = 'payload_hash'
+        )",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert!(payload_hash_exists);
+
+    prepare_schema(&db).await.unwrap();
+
+    let payload_hash_exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM pragma_table_info('e2ee_records') WHERE name = 'payload_hash'
+        )",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert!(!payload_hash_exists);
+}
+
+#[cfg(any(
+    all(test, target_os = "macos", target_arch = "aarch64"),
+    all(test, target_os = "macos", target_arch = "x86_64"),
+    all(test, target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
+    all(test, target_os = "linux", target_env = "gnu", target_arch = "x86_64"),
+    all(
+        test,
+        target_os = "linux",
+        target_env = "musl",
+        target_arch = "aarch64"
+    ),
+    all(test, target_os = "linux", target_env = "musl", target_arch = "x86_64"),
+    all(test, target_os = "windows", target_arch = "x86_64"),
+))]
+#[tokio::test]
+async fn prepare_schema_does_not_rewrite_cloudsync_for_net_zero_payload_hash_alters() {
+    async fn open_cloudsync_db(path: &std::path::Path) -> Db {
+        Db::open(anlg_db_core::DbOpenOptions {
+            storage: anlg_db_core::DbStorage::Local(path),
+            cloudsync_enabled: true,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .await
+        .unwrap()
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    let db = open_cloudsync_db(&dir.path().join("app.db")).await;
+    anlg_db_migrate::migrate(
+        &db,
+        anlg_db_migrate::DbSchema {
+            steps: migration_steps_before("20260815100300_e2ee_record_payload_hash"),
+            validate_cloudsync_table: cloudsync_alter_guard_required,
+        },
+    )
+    .await
+    .unwrap();
+    db.cloudsync_init("e2ee_records", None, None).await.unwrap();
+
+    let versions_before: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM cloudsync_schema_versions")
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    let hash_before: i64 =
+        sqlx::query_scalar("SELECT hash FROM cloudsync_schema_versions ORDER BY seq DESC LIMIT 1")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+
+    prepare_schema(&db).await.unwrap();
+
+    let versions_after: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM cloudsync_schema_versions")
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    let hash_after: i64 =
+        sqlx::query_scalar("SELECT hash FROM cloudsync_schema_versions ORDER BY seq DESC LIMIT 1")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(versions_before, versions_after);
+    assert_eq!(hash_before, hash_after);
+}
