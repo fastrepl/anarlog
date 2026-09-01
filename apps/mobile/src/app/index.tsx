@@ -188,7 +188,7 @@ export default function HomeScreen() {
             <View style={styles.headerActions}>
               <IconButton
                 accessibilityLabel="Create new note"
-                icon="create-outline"
+                icon="new-note"
                 onPress={() => void createAndOpen()}
               />
               <IconButton

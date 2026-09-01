@@ -681,14 +681,14 @@ export default function NoteScreen() {
       <View style={styles.header}>
         <IconButton
           accessibilityLabel="Back"
-          icon="arrow-back"
+          icon="back"
           iconSize={22}
           onPress={() => void handleBack()}
         />
         <IconButton
           accessibilityLabel="More actions"
           disabled={!data}
-          icon="ellipsis-horizontal"
+          icon="more"
           iconSize={22}
           onPress={handleMoreActions}
           tone="muted"

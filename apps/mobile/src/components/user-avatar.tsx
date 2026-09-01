@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import type { User } from "@supabase/supabase-js";
 import { Image } from "expo-image";
 import { useState } from "react";
@@ -9,7 +8,14 @@ import {
   getProviderProfileName,
 } from "@anlg/supabase/profile";
 
-import { Colors, CornerCurve, Radius, Typography } from "@/constants/theme";
+import { NativeIcon } from "@/components/ui/native-icon";
+import {
+  Colors,
+  ControlSize,
+  CornerCurve,
+  Radius,
+  Typography,
+} from "@/constants/theme";
 
 function profileInitials(name: string | null): string {
   if (!name) return "";
@@ -47,7 +53,7 @@ export function UserAvatar({
           {initials}
         </Text>
       ) : (
-        <Ionicons name="person-outline" size={size * 0.55} color={Colors.ink} />
+        <NativeIcon name="profile" size={size * 0.55} color={Colors.ink} />
       )}
       {imageUrl ? <ProviderImage key={imageUrl} imageUrl={imageUrl} /> : null}
     </View>
@@ -82,7 +88,6 @@ export function UserAvatarButton({
     <Pressable
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
-      hitSlop={4}
       onPress={onPress}
       style={({ pressed }) => [styles.button, pressed && styles.pressed]}
     >
@@ -106,6 +111,10 @@ const styles = StyleSheet.create({
     color: Colors.ink,
   },
   button: {
+    width: ControlSize.default,
+    height: ControlSize.default,
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: Radius.pill,
     borderCurve: CornerCurve.squircle,
   },

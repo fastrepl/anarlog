@@ -27,7 +27,7 @@ export default function SettingsScreen() {
       <View style={styles.header}>
         <IconButton
           accessibilityLabel="Back"
-          icon="arrow-back"
+          icon="back"
           iconSize={22}
           onPress={handleBack}
         />
@@ -77,8 +77,8 @@ const styles = StyleSheet.create({
     color: Colors.ink,
   },
   headerSpacer: {
-    width: ControlSize.compact,
-    height: ControlSize.compact,
+    width: ControlSize.default,
+    height: ControlSize.default,
   },
   actionButtonRow: {
     flexDirection: "row",
