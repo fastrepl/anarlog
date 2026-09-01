@@ -30,6 +30,11 @@
     }
   },
   "submit": {
-    "stable": {}
+    "stable": {
+      "ios": {
+        "appleId": "john@fastrepl.com",
+        "ascAppId": "6807350358"
+      }
+    }
   }
 }

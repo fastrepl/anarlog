@@ -54,6 +54,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ...config.ios,
       icon: variant.icon,
       bundleIdentifier: variant.bundleIdentifier,
+      infoPlist: {
+        ...config.ios?.infoPlist,
+        ITSAppUsesNonExemptEncryption: false,
+      },
     },
     android: {
       ...config.android,
