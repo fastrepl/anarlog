@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { trackPendingSoftDelete } from "./pending-soft-deletes";
+
 const mocks = vi.hoisted(() => ({
   analyticsEventFireAndForget: vi.fn(() => Promise.resolve()),
   execute: vi.fn(),
@@ -34,6 +36,7 @@ import {
   declineSessionProposal,
   deleteEnhancedNote,
   getOrCreateSessionForEventId,
+  isSessionDeleted,
   isSessionEmpty,
   loadSessionEvent,
   persistChatSessionProposal,
@@ -392,6 +395,31 @@ describe("session SQLite operations", () => {
     mocks.executeTransaction.mockResolvedValueOnce([0, 0, 0, 0, 0, 0, 0, 0]);
 
     await expect(softDeleteSession("session-1")).resolves.toBeNull();
+  });
+
+  it("reports whether a session has been deleted", async () => {
+    mocks.execute
+      .mockResolvedValueOnce([{ id: "session-1" }])
+      .mockResolvedValueOnce([]);
+
+    await expect(isSessionDeleted("session-1")).resolves.toBe(false);
+    await expect(isSessionDeleted("session-1")).resolves.toBe(true);
+  });
+
+  it("waits for an in-flight soft delete before checking the session", async () => {
+    let finishDelete = () => {};
+    const deleteWrite = new Promise<void>((resolve) => {
+      finishDelete = resolve;
+    });
+    trackPendingSoftDelete("pending-session", deleteWrite);
+
+    const deleted = isSessionDeleted("pending-session");
+    await Promise.resolve();
+    expect(mocks.execute).not.toHaveBeenCalled();
+
+    mocks.execute.mockResolvedValueOnce([]);
+    finishDelete();
+    await expect(deleted).resolves.toBe(true);
   });
 
   it("recognizes a blank SQLite session", async () => {
