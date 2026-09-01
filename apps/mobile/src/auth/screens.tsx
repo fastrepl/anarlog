@@ -57,7 +57,7 @@ export function SignInScreen({
       </View>
 
       <Button
-        label="Sign in"
+        label="Get started"
         onPress={() => setShowSignInMethods(true)}
         disabled={busy}
         loading={busy}
