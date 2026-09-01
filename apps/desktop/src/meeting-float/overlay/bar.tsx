@@ -3,7 +3,6 @@ import {
   ArrowsOutSimple,
   CaretDown,
   Square,
-  Warning,
 } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 
@@ -287,8 +286,6 @@ function StopControl({
           <Square size={9} weight="fill" />
           Stop
         </span>
-      ) : state.status === "error" ? (
-        <Warning size={16} weight="fill" />
       ) : (
         <DancingSticks
           color={colors.accent}

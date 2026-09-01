@@ -63,6 +63,18 @@ describe("FloatingBarOverlay", () => {
     expect(screen.getByTestId("waveform")).toBeTruthy();
   });
 
+  it("keeps showing the waveform when live transcription is degraded", () => {
+    render(
+      <FloatingBarOverlay
+        state={state({ status: "error" })}
+        onStop={vi.fn()}
+        onToggleExpanded={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("waveform")).toBeTruthy();
+  });
+
   it("expands to the live transcript and can collapse again", () => {
     const onToggleExpanded = vi.fn();
 
