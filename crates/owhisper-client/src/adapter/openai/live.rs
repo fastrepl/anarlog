@@ -137,16 +137,18 @@ impl RealtimeSttAdapter for OpenAIAdapter {
                                 .then(|| params.keywords.clone()),
                             prompt: None,
                         }),
-                        turn_detection: Some(TurnDetectionConfig {
-                            detection_type: TurnDetectionType::ServerVad,
-                            create_response: None,
-                            interrupt_response: None,
-                            idle_timeout_ms: None,
-                            eagerness: None,
-                            threshold: Some(VAD_THRESHOLD),
-                            prefix_padding_ms: Some(VAD_PREFIX_PADDING_MS),
-                            silence_duration_ms: Some(VAD_SILENCE_DURATION_MS),
-                        }),
+                        turn_detection: (model != "gpt-live-transcribe").then_some(
+                            TurnDetectionConfig {
+                                detection_type: TurnDetectionType::ServerVad,
+                                create_response: None,
+                                interrupt_response: None,
+                                idle_timeout_ms: None,
+                                eagerness: None,
+                                threshold: Some(VAD_THRESHOLD),
+                                prefix_padding_ms: Some(VAD_PREFIX_PADDING_MS),
+                                silence_duration_ms: Some(VAD_SILENCE_DURATION_MS),
+                            },
+                        ),
                         noise_reduction: None,
                     }),
                 }),
@@ -760,6 +762,11 @@ mod tests {
         );
         assert!(transcription.get("language").is_none());
         assert!(json["session"].get("include").is_none());
+        assert!(
+            json["session"]["audio"]["input"]
+                .get("turn_detection")
+                .is_none()
+        );
     }
 
     #[test]
@@ -808,6 +815,11 @@ mod tests {
         assert_eq!(
             json["session"]["include"],
             serde_json::json!(["item.input_audio_transcription.logprobs"])
+        );
+        assert!(
+            json["session"]["audio"]["input"]
+                .get("turn_detection")
+                .is_some()
         );
     }
 

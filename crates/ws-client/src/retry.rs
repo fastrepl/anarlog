@@ -162,10 +162,35 @@ struct RedactedRequest<'a>(&'a tokio_tungstenite::tungstenite::handshake::client
 impl fmt::Debug for RedactedRequest<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("RedactedRequest")
-            .field("uri", &self.0.uri())
+            .field("uri", &redact_uri(self.0.uri()))
             .field("headers", &RedactedHeaders(self.0.headers()))
             .finish()
     }
+}
+
+fn redact_uri(uri: &tokio_tungstenite::tungstenite::http::Uri) -> String {
+    let raw = uri.to_string();
+    let Ok(mut url) = url::Url::parse(&raw) else {
+        return "<redacted-uri>".to_string();
+    };
+    let has_userinfo = !url.username().is_empty() || url.password().is_some();
+    if has_userinfo {
+        let _ = url.set_username("<redacted>");
+        let _ = url.set_password(Some("<redacted>"));
+    }
+    let has_query = url.query().is_some();
+    let pairs = url
+        .query_pairs()
+        .map(|(key, _)| (key.into_owned(), "<redacted>"))
+        .collect::<Vec<_>>();
+
+    if !has_userinfo && !has_query {
+        return raw;
+    }
+    if has_query {
+        url.query_pairs_mut().clear().extend_pairs(&pairs);
+    }
+    url.to_string()
 }
 
 struct RedactedHeaders<'a>(&'a HeaderMap<HeaderValue>);
@@ -177,10 +202,10 @@ impl fmt::Debug for RedactedHeaders<'_> {
             .iter()
             .map(|(name, value)| {
                 let key = name.as_str().to_ascii_lowercase();
-                let value = if is_sensitive_header(&key) {
-                    redact_header_value(&key, value)
-                } else {
+                let value = if is_safe_header(&key) {
                     value.to_str().unwrap_or("<non-utf8>").to_string()
+                } else {
+                    redact_header_value(&key, value)
                 };
                 (key, value)
             })
@@ -197,10 +222,19 @@ impl fmt::Debug for RedactedHeaders<'_> {
     }
 }
 
-fn is_sensitive_header(name: &str) -> bool {
+fn is_safe_header(name: &str) -> bool {
     matches!(
         name,
-        "authorization" | "proxy-authorization" | "x-api-key" | "xi-api-key" | "x-gladia-key"
+        "accept"
+            | "accept-encoding"
+            | "cache-control"
+            | "connection"
+            | "host"
+            | "pragma"
+            | "sec-websocket-key"
+            | "sec-websocket-version"
+            | "upgrade"
+            | "user-agent"
     )
 }
 
@@ -218,9 +252,12 @@ fn redact_header_value(name: &str, value: &HeaderValue) -> String {
 
 #[cfg(test)]
 mod tests {
-    use tokio_tungstenite::tungstenite::http::{HeaderMap, HeaderValue};
+    use tokio_tungstenite::tungstenite::{
+        client::IntoClientRequest,
+        http::{HeaderMap, HeaderValue},
+    };
 
-    use super::{RedactedHeaders, redact_header_value};
+    use super::{RedactedHeaders, RedactedRequest, redact_header_value};
 
     #[test]
     fn redacted_headers_redacts_sensitive_values() {
@@ -230,13 +267,63 @@ mod tests {
             HeaderValue::from_static("Token secret-key"),
         );
         headers.insert("x-api-key", HeaderValue::from_static("secret-api-key"));
+        headers.insert(
+            "x-goog-api-key",
+            HeaderValue::from_static("secret-google-key"),
+        );
+        headers.insert(
+            "ocp-apim-subscription-key",
+            HeaderValue::from_static("secret-azure-key"),
+        );
+        headers.insert("api-key", HeaderValue::from_static("secret-generic-key"));
+        headers.insert("cookie", HeaderValue::from_static("session=secret-cookie"));
+        headers.insert(
+            "x-custom-token",
+            HeaderValue::from_static("secret-custom-token"),
+        );
         headers.insert("user-agent", HeaderValue::from_static("ws-client/0.1.0"));
 
         let redacted = format!("{:?}", RedactedHeaders(&headers));
 
         assert!(redacted.contains("(\"authorization\", \"Token <redacted>\")"));
         assert!(redacted.contains("(\"x-api-key\", \"<redacted>\")"));
+        assert!(redacted.contains("(\"x-goog-api-key\", \"<redacted>\")"));
+        assert!(redacted.contains("(\"ocp-apim-subscription-key\", \"<redacted>\")"));
+        assert!(redacted.contains("(\"api-key\", \"<redacted>\")"));
+        assert!(redacted.contains("(\"cookie\", \"<redacted>\")"));
+        assert!(redacted.contains("(\"x-custom-token\", \"<redacted>\")"));
         assert!(redacted.contains("(\"user-agent\", \"ws-client/0.1.0\")"));
+        assert!(!redacted.contains("secret-google-key"));
+        assert!(!redacted.contains("secret-azure-key"));
+        assert!(!redacted.contains("secret-generic-key"));
+        assert!(!redacted.contains("secret-cookie"));
+        assert!(!redacted.contains("secret-custom-token"));
+    }
+
+    #[test]
+    fn redacted_request_hides_query_and_header_credentials() {
+        let mut request = "wss://username-secret:secret-password@example.com/live?key=secret-query-key&provider=google_generative_ai&access_token=secret-access-token&apikey=secret-alias-key"
+            .into_client_request()
+            .unwrap();
+        request.headers_mut().insert(
+            "x-goog-api-key",
+            HeaderValue::from_static("secret-header-key"),
+        );
+
+        let redacted = format!("{:?}", RedactedRequest(&request));
+
+        assert!(redacted.contains("example.com/live?"));
+        assert!(redacted.contains("key=%3Credacted%3E"));
+        assert!(redacted.contains("provider=%3Credacted%3E"));
+        assert!(redacted.contains("access_token=%3Credacted%3E"));
+        assert!(redacted.contains("apikey=%3Credacted%3E"));
+        assert!(redacted.contains("(\"x-goog-api-key\", \"<redacted>\")"));
+        assert!(!redacted.contains("username-secret"));
+        assert!(!redacted.contains("secret-password"));
+        assert!(!redacted.contains("secret-query-key"));
+        assert!(!redacted.contains("secret-access-token"));
+        assert!(!redacted.contains("secret-alias-key"));
+        assert!(!redacted.contains("secret-header-key"));
     }
 
     #[test]
