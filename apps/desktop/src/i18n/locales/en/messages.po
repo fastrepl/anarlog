@@ -4429,10 +4429,6 @@ msgid "Sign in with ChatGPT Plus or Pro. We'll open Anarlog and finish connectin
 msgstr "Sign in with ChatGPT Plus or Pro. We'll open Anarlog and finish connecting."
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Sign in with Claude Pro or Max. After you authorize, we'll pick up the code and finish connecting."
-msgstr "Sign in with Claude Pro or Max. After you authorize, we'll pick up the code and finish connecting."
-
-#: src/settings/ai/llm/subscriptions/connect.tsx
 msgid "Sign in with GitHub Copilot and enter the code below."
 msgstr "Sign in with GitHub Copilot and enter the code below."
 

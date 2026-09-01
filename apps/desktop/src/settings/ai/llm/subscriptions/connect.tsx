@@ -1,7 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { CircleNotch, Copy } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
-import { readText as readClipboardText } from "@tauri-apps/plugin-clipboard-manager";
 import { useEffect, useRef, useState } from "react";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
@@ -28,7 +27,6 @@ import {
   completeCodeConnect,
   type ConnectSession,
   isSubscriptionProviderId,
-  looksLikeAuthorizationInput,
   pollDeviceConnect,
   startSubscriptionConnect,
   subscriptionAuthFromCallback,
@@ -50,11 +48,11 @@ export function ConnectSubscriptionDialog({
   const currentProvider = useConfigValue("current_llm_provider");
   const providerId =
     provider && isSubscriptionProviderId(provider.id) ? provider.id : null;
-  const saveProvider = useSetAiProvider("llm", providerId ?? "claude");
+  const saveProvider = useSetAiProvider("llm", providerId ?? "chatgpt");
   const notifyProviderSelection = useProviderSelectionPrompt({
     providerType: "llm",
-    providerId: providerId ?? "claude",
-    providerName: provider?.displayName ?? "Claude",
+    providerId: providerId ?? "chatgpt",
+    providerName: provider?.displayName ?? "ChatGPT",
     currentProvider,
     providerStateReady: true,
     storedApiKey: "",
@@ -107,14 +105,10 @@ export function ConnectSubscriptionDialog({
         throw new Error("Sign-in is not ready yet.");
       }
       if (session.kind === "code") {
-        if (providerId !== "claude" && providerId !== "chatgpt") {
+        if (providerId !== "chatgpt") {
           throw new Error("This provider uses a different sign-in flow.");
         }
-        const stored = await completeCodeConnect(
-          providerId,
-          session,
-          rawCode ?? code,
-        );
+        const stored = await completeCodeConnect(session, rawCode ?? code);
         await saveProvider.mutateAsync({
           base_url: provider.baseUrl,
           api_key: stored,
@@ -231,7 +225,7 @@ export function ConnectSubscriptionDialog({
   }, [providerId]);
 
   useEffect(() => {
-    if (providerId !== "chatgpt" && providerId !== "claude") {
+    if (providerId !== "chatgpt") {
       return;
     }
 
@@ -271,35 +265,6 @@ export function ConnectSubscriptionDialog({
     pendingCodeRef.current = null;
     completeFromAuthorizationRef.current(pending);
   }, [session]);
-
-  useEffect(() => {
-    if (providerId !== "claude" || session?.kind !== "code") {
-      return;
-    }
-
-    let cancelled = false;
-    const pollClipboard = async () => {
-      try {
-        const text = await readClipboardText();
-        if (cancelled || !looksLikeAuthorizationInput(text)) {
-          return;
-        }
-        completeFromAuthorizationRef.current(text);
-      } catch {
-        // Clipboard permission or empty clipboard — keep the paste field.
-      }
-    };
-
-    const intervalId = window.setInterval(() => {
-      void pollClipboard();
-    }, 1000);
-    void pollClipboard();
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [providerId, session]);
 
   useEffect(() => {
     if (
@@ -356,8 +321,7 @@ export function ConnectSubscriptionDialog({
   };
 
   const showCodeInput =
-    session?.kind === "code" &&
-    (providerId !== "chatgpt" || showPasteFallback || !listeningForCallback);
+    session?.kind === "code" && (showPasteFallback || !listeningForCallback);
 
   return (
     <Dialog open={!!provider} onOpenChange={onOpenChange}>
@@ -367,23 +331,20 @@ export function ConnectSubscriptionDialog({
             {provider ? t`Connect ${provider.displayName}` : t`Connect`}
           </DialogTitle>
           <DialogDescription>
-            {providerId === "claude"
-              ? t`Sign in with Claude Pro or Max. After you authorize, we'll pick up the code and finish connecting.`
-              : providerId === "chatgpt"
-                ? listeningForCallback
-                  ? t`Sign in with ChatGPT Plus or Pro. We'll open Anarlog and finish connecting.`
-                  : t`Sign in with ChatGPT Plus or Pro, then paste the redirect URL from your browser.`
-                : providerId === "github_copilot"
-                  ? t`Sign in with GitHub Copilot and enter the code below.`
-                  : providerId === "grok"
-                    ? t`Sign in with SuperGrok or X Premium+ and enter the code below.`
-                    : t`Paste an API key from your Kimi Code membership.`}
+            {providerId === "chatgpt"
+              ? listeningForCallback
+                ? t`Sign in with ChatGPT Plus or Pro. We'll open Anarlog and finish connecting.`
+                : t`Sign in with ChatGPT Plus or Pro, then paste the redirect URL from your browser.`
+              : providerId === "github_copilot"
+                ? t`Sign in with GitHub Copilot and enter the code below.`
+                : providerId === "grok"
+                  ? t`Sign in with SuperGrok or X Premium+ and enter the code below.`
+                  : t`Paste an API key from your Kimi Code membership.`}
           </DialogDescription>
         </DialogHeader>
         {isStarting ||
         completeMutation.isPending ||
-        (session?.kind === "code" &&
-          (listeningForCallback || providerId === "claude")) ? (
+        (session?.kind === "code" && listeningForCallback) ? (
           <div className="text-muted-foreground flex items-center gap-2 text-sm">
             <CircleNotch className="size-4 animate-spin" />
             {isStarting ? (

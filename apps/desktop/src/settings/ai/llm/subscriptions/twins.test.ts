@@ -9,7 +9,7 @@ import {
 describe("subscription twins", () => {
   test("maps API providers to their subscription login", () => {
     expect(subscriptionTwinId("openai")).toBe("chatgpt");
-    expect(subscriptionTwinId("anthropic")).toBe("claude");
+    expect(subscriptionTwinId("anthropic")).toBeUndefined();
     expect(subscriptionTwinId("xai")).toBe("grok");
     expect(subscriptionTwinId("moonshot")).toBe("kimi_code");
     expect(subscriptionTwinId("github_copilot")).toBeUndefined();
