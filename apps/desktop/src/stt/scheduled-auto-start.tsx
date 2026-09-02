@@ -1,6 +1,5 @@
 import { useCallback, useRef } from "react";
 
-import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
 import { parseEventInstant } from "@anlg/utils";
 
@@ -13,7 +12,11 @@ import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import type { LiveSessionStatus } from "~/store/zustand/listener/general-shared";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
-import { hasScheduledAutoStartInFlight } from "~/stt/scheduled-auto-start-state";
+import {
+  hasScheduledAutoStartInFlight,
+  queueScheduledAutoJoin,
+  takeScheduledAutoJoin,
+} from "~/stt/scheduled-auto-start-state";
 
 // A meeting that started while the app was asleep or quit is still worth
 // recording, but only briefly — reopening hours later must not start capturing
@@ -114,8 +117,10 @@ async function startScheduledMeeting(
     return "blocked";
   }
 
+  // Defer opening the meeting until listening starts. Opening it here first
+  // lets the meeting app take audio devices before capture begins.
   if (autoJoin) {
-    void openerCommands.openUrl(row.meeting_link, null);
+    queueScheduledAutoJoin(sessionId, row.meeting_link);
   }
 
   useTabs.getState().openNew({
@@ -208,6 +213,7 @@ export function ScheduledMeetingAutoStart() {
           ...tab.state,
           autoStart: null,
         });
+        takeScheduledAutoJoin(tab.id);
       }
 
       const due = selectDueMeetings({
