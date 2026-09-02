@@ -145,6 +145,10 @@ export const createBatchSlice = <T extends BatchState>(
   },
 
   handleBatchResponseStreamed: (sessionId, event) => {
+    if (get().batch[sessionId]?.terminalReason === "stopped") {
+      return;
+    }
+
     const percentage = getBatchStreamPercentage(event);
     const isComplete = event.type === "result" || event.type === "terminal";
     const currentPreview = get().batchPreview[sessionId] ?? {

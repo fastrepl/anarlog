@@ -707,6 +707,28 @@ describe("General Listener Slice", () => {
       });
       expect(getSessionMode(sessionId)).toBe("inactive");
     });
+
+    test("late progress cannot restart a stopped batch", () => {
+      const sessionId = "session-batch-stopped";
+      const { handleBatchResponseStreamed, handleBatchStopped } =
+        store.getState();
+
+      handleBatchStopped(sessionId);
+      handleBatchResponseStreamed(sessionId, {
+        type: "progress",
+        percentage: 0.5,
+        partial_text: "late progress",
+      });
+
+      expect(store.getState().batch[sessionId]).toEqual({
+        percentage: 0,
+        error: "Transcription stopped.",
+        isComplete: false,
+        terminalReason: "stopped",
+        errorCode: undefined,
+      });
+      expect(store.getState().getSessionMode(sessionId)).toBe("inactive");
+    });
   });
 
   describe("Stop Action", () => {
