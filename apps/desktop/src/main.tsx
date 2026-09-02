@@ -17,6 +17,7 @@ import { Toaster } from "@anlg/ui/components/ui/toast";
 import { AITaskWindowSyncBridge } from "./ai/task-window-sync";
 import { trackAnalyticsEvent } from "./analytics";
 import { createToolRegistry } from "./contexts/tool-registry/core";
+import { startReactScanInDev } from "./devtools-bar/react-scan";
 import {
   captureOperationalError,
   initializeErrorReporting,
@@ -156,25 +157,19 @@ if (isMainWindow) {
 
 const rootElement = document.getElementById("root")!;
 
-async function enableReactScanInDev() {
+async function enableDevInstrumentation() {
   if (!import.meta.env.DEV) {
     return;
   }
 
-  try {
-    const { scan } = await import("react-scan");
-    scan({ enabled: true });
-  } catch (error) {
-    console.warn("Failed to start React Scan:", error);
-  }
-
+  await startReactScanInDev();
   startInteractionProfiler();
 }
 
 async function renderApp() {
   await Promise.all([
     bootstrapThemeFromSettings(),
-    enableReactScanInDev(),
+    enableDevInstrumentation(),
     initializeAppStoreBuild(),
   ]);
   const root = ReactDOM.createRoot(rootElement);
