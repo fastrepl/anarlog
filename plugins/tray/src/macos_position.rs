@@ -58,12 +58,12 @@ pub fn apply_autosave_name(app: &tauri::AppHandle<tauri::Wry>, autosave_name: &'
         tracing::warn!(%error, "failed to set tray status item autosave name");
     }
 
-    let app = app.clone();
+    let app_for_callback = app.clone();
     if let Err(error) = app.run_on_main_thread(move || {
         if !wanted_visible() {
             return;
         }
-        if let Some(tray) = app.tray_by_id(autosave_name) {
+        if let Some(tray) = app_for_callback.tray_by_id(autosave_name) {
             let _ = tray.set_visible(true);
         }
     }) {
