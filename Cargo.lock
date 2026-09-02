@@ -927,17 +927,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "apple-note"
-version = "0.1.0"
-dependencies = [
- "flate2",
- "prost",
- "prost-build",
- "serde",
- "thiserror 2.0.18",
-]
-
-[[package]]
 name = "apple-todo"
 version = "0.1.0"
 dependencies = [
@@ -5277,16 +5266,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "email"
-version = "0.1.0"
-dependencies = [
- "objc2",
- "objc2-app-kit",
- "objc2-foundation",
- "url",
-]
-
-[[package]]
 name = "email_address"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5427,10 +5406,7 @@ version = "0.11.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0621c04f2196ac3f488dd583365b9c09be011a4ab8b9f37248ffcc8f6198b56a"
 dependencies = [
- "anstream",
- "anstyle",
  "env_filter",
- "jiff",
  "log",
 ]
 
@@ -6003,7 +5979,7 @@ version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df420e2e84819663797d1ec6544b13c5be84629e7bb00dc960d6917db2987843"
 dependencies = [
- "mac 0.1.1",
+ "mac",
  "new_debug_unreachable",
 ]
 
@@ -8546,7 +8522,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b7410cae13cbc75623c98ac4cbfd1f0bedddf3227afc24f370cf0f50a44a11c"
 dependencies = [
  "log",
- "mac 0.1.1",
+ "mac",
  "markup5ever 0.14.1",
  "match_token",
 ]
@@ -10346,15 +10322,6 @@ dependencies = [
 
 [[package]]
 name = "mac"
-version = "0.1.0"
-dependencies = [
- "libc",
- "objc2-core-graphics",
- "strum 0.28.0",
-]
-
-[[package]]
-name = "mac"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c41e0c4fef86961ac6d6f8a82609f55f31b05e4fce149ac5710e439df7619ba4"
@@ -10898,12 +10865,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "multimap"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d87ecb2933e8aeadb3e3a02b828fed80a7528047e68b4f424523a0981a3a084"
-
-[[package]]
 name = "murmurhash32"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11110,20 +11071,6 @@ dependencies = [
  "serde",
  "serde_json",
  "swift-rs 1.0.7 (git+https://github.com/Brendonovich/swift-rs?rev=41a1605)",
-]
-
-[[package]]
-name = "notification-macos2"
-version = "0.1.0"
-dependencies = [
- "block2",
- "env_logger",
- "log",
- "notification-interface",
- "objc2",
- "objc2-foundation",
- "objc2-user-notifications",
- "uuid",
 ]
 
 [[package]]
@@ -11814,10 +11761,7 @@ version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9df9128cbbfef73cda168416ccf7f837b62737d748333bfe9ab71c245d76613e"
 dependencies = [
- "bitflags 2.11.1",
- "block2",
  "objc2",
- "objc2-core-location",
  "objc2-foundation",
 ]
 
@@ -12569,16 +12513,6 @@ dependencies = [
 
 [[package]]
 name = "petgraph"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3672b37090dbd86368a4145bc067582552b29c27377cad4e0a306c97f9bd7772"
-dependencies = [
- "fixedbitset",
- "indexmap 2.14.0",
-]
-
-[[package]]
-name = "petgraph"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8701b58ea97060d5e5b155d383a69952a60943f0e6dfe30b04c287beb0b27455"
@@ -13073,15 +13007,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "power"
-version = "0.1.0"
-dependencies = [
- "cidre",
- "thiserror 2.0.18",
- "windows 0.62.2",
-]
-
-[[package]]
 name = "powerfmt"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13362,26 +13287,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "prost-build"
-version = "0.13.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be769465445e8c1474e9c5dac2018218498557af32d9ed057325ec9a41ae81bf"
-dependencies = [
- "heck 0.5.0",
- "itertools 0.14.0",
- "log",
- "multimap",
- "once_cell",
- "petgraph 0.7.1",
- "prettyplease",
- "prost",
- "prost-types",
- "regex",
- "syn 2.0.117",
- "tempfile",
-]
-
-[[package]]
 name = "prost-derive"
 version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13392,15 +13297,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
-]
-
-[[package]]
-name = "prost-types"
-version = "0.13.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52c2c1bf36ddb1a1c396b3601a3cec27c2462e45f07c386894ec3ccf5332bd16"
-dependencies = [
- "prost",
 ]
 
 [[package]]
@@ -18021,21 +17917,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tauri-plugin-network"
-version = "0.1.0"
-dependencies = [
- "ractor",
- "reqwest 0.13.2",
- "serde",
- "specta",
- "specta-typescript",
- "tauri",
- "tauri-plugin",
- "tauri-specta",
- "tracing",
-]
-
-[[package]]
 name = "tauri-plugin-notification"
 version = "0.1.0"
 dependencies = [
@@ -18588,23 +18469,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tauri-plugin-webhook"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "specta",
- "specta-typescript",
- "strum 0.28.0",
- "tauri",
- "tauri-plugin",
- "tauri-specta",
- "thiserror 2.0.18",
- "utoipa",
- "uuid",
-]
-
-[[package]]
 name = "tauri-plugin-window-state"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -18855,7 +18719,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d24a120c5fc464a3458240ee02c299ebcb9d67b5249c8848b09d639dca8d7bb0"
 dependencies = [
  "futf",
- "mac 0.1.1",
+ "mac",
  "utf-8",
 ]
 
@@ -19806,7 +19670,7 @@ checksum = "b8765b90061cba6c22b5831f675da109ae5561588290f9fa2317adab2714d5a6"
 dependencies = [
  "memchr",
  "nom 8.0.0",
- "petgraph 0.8.3",
+ "petgraph",
 ]
 
 [[package]]

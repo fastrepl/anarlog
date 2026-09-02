@@ -88,8 +88,6 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@anlg/plugin-auth": "workspace:*",
-    "@anlg/plugin-deeplink2": "workspace:*",
     "@content-collections/core": "^0.15.0",
     "@content-collections/mdx": "^0.2.2",
     "@content-collections/vite": "^0.3.0",

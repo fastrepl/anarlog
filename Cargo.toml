@@ -16,11 +16,6 @@ members = [
   "crates/*",
   "plugins/*",
 ]
-exclude = [
-  "plugins/apple-calendar",
-  "plugins/extensions",
-  "crates/vad-ext",
-]
 
 [workspace.dependencies]
 anlg-aec = { path = "crates/aec", package = "aec" }
@@ -47,7 +42,6 @@ anlg-api-sync = { path = "crates/api-sync", package = "api-sync" }
 anlg-api-ticket = { path = "crates/api-ticket", package = "api-ticket" }
 anlg-api-zoom = { path = "crates/api-zoom", package = "api-zoom" }
 anlg-apple-calendar = { path = "crates/apple-calendar", package = "apple-calendar" }
-anlg-apple-note = { path = "crates/apple-note", package = "apple-note" }
 anlg-apple-todo = { path = "crates/apple-todo", package = "apple-todo" }
 anlg-askama-utils = { path = "crates/askama-utils", package = "askama-utils" }
 anlg-attachment-sync-core = { path = "crates/attachment-sync-core", package = "attachment-sync-core" }
@@ -113,26 +107,21 @@ anlg-local-llm-core = { path = "crates/local-llm-core", package = "local-llm-cor
 anlg-local-model = { path = "crates/local-model", package = "local-model" }
 anlg-local-stt-core = { path = "crates/local-stt-core", package = "local-stt-core" }
 anlg-loops = { path = "crates/loops", package = "loops" }
-anlg-mac = { path = "crates/mac", package = "mac" }
 anlg-mcp = { path = "crates/mcp", package = "mcp" }
 anlg-meeting-capture = { path = "crates/meeting-capture", package = "meeting-capture" }
 anlg-meeting-import = { path = "crates/meeting-import", package = "meeting-import" }
-anlg-mobile-bridge = { path = "crates/mobile-bridge", package = "mobile-bridge" }
 anlg-model-downloader = { path = "crates/model-downloader", package = "model-downloader" }
 anlg-model-manager = { path = "crates/model-manager", package = "model-manager" }
 anlg-mp3 = { path = "crates/mp3", package = "mp3" }
 anlg-nango = { path = "crates/nango", package = "nango" }
 anlg-notification = { path = "crates/notification", package = "notification" }
 anlg-notification-interface = { path = "crates/notification-interface", package = "notification-interface" }
-anlg-notification-macos2 = { path = "crates/notification-macos2", package = "notification-macos2" }
-anlg-notion = { path = "crates/notion", package = "notion" }
 anlg-observability = { path = "crates/observability", package = "observability" }
 anlg-onnx = { path = "crates/onnx", package = "onnx" }
 anlg-opencode = { path = "crates/opencode", package = "opencode" }
 anlg-openrouter = { path = "crates/openrouter", package = "openrouter" }
 anlg-outlook-calendar = { path = "crates/outlook-calendar", package = "outlook-calendar" }
 anlg-overlay-kit = { path = "crates/overlay-kit", package = "overlay-kit" }
-anlg-power = { path = "crates/power", package = "power" }
 anlg-pyannote-cloud = { path = "crates/pyannote-cloud", package = "pyannote-cloud" }
 anlg-pyannote-local = { path = "crates/pyannote-local", package = "pyannote-local" }
 anlg-resampler = { path = "crates/resampler", package = "resampler" }
@@ -144,7 +133,6 @@ anlg-slack-web = { path = "crates/slack-web", package = "slack-web" }
 anlg-storage = { path = "crates/storage", package = "storage" }
 anlg-supabase-auth = { path = "crates/supabase-auth", package = "supabase-auth" }
 anlg-supabase-storage = { path = "crates/supabase-storage", package = "supabase-storage" }
-anlg-tantivy-core = { path = "crates/tantivy", package = "tantivy-core" }
 anlg-tcc = { path = "crates/tcc", package = "tcc" }
 anlg-template-app = { path = "crates/template-app", package = "template-app" }
 anlg-template-app-legacy = { path = "crates/template-app-legacy", package = "template-app-legacy" }
@@ -158,7 +146,6 @@ anlg-transcribe-speechanalyzer = { path = "crates/transcribe-speechanalyzer", pa
 anlg-transcribe-whisper-local = { path = "crates/transcribe-whisper-local", package = "transcribe-whisper-local" }
 anlg-transcript = { path = "crates/transcript", package = "transcript" }
 anlg-transcription-core = { path = "crates/transcription-core", package = "transcription-core" }
-anlg-updater-core = { path = "crates/updater-core", package = "updater-core" }
 anlg-user-error = { path = "crates/user-error", package = "user-error" }
 anlg-vad = { path = "crates/vad", package = "vad" }
 anlg-vad-masking = { path = "crates/vad-masking", package = "vad-masking" }
@@ -173,7 +160,6 @@ keyring = "4.1.4"
 posthog-rs = "0.5"
 progenitor-client = "0.13"
 
-notify-rust = "=4.11.7"
 openai-transcription = { path = "crates/openai-transcription", package = "openai-transcription" }
 owhisper-client = { path = "crates/owhisper-client", package = "owhisper-client" }
 owhisper-interface = { path = "crates/owhisper-interface", package = "owhisper-interface" }
@@ -225,7 +211,6 @@ tauri-plugin-local-stt = { path = "plugins/local-stt" }
 tauri-plugin-mcp = { path = "plugins/mcp" }
 tauri-plugin-messenger = { path = "plugins/messenger" }
 tauri-plugin-misc = { path = "plugins/misc" }
-tauri-plugin-network = { path = "plugins/network" }
 tauri-plugin-notification = { path = "plugins/notification" }
 tauri-plugin-notify = { path = "plugins/notify" }
 tauri-plugin-opener2 = { path = "plugins/opener2" }
@@ -246,7 +231,6 @@ tauri-plugin-tracing = { path = "plugins/tracing" }
 tauri-plugin-transcription = { path = "plugins/transcription" }
 tauri-plugin-tray = { path = "plugins/tray", package = "tauri-plugin-anlg-tray" }
 tauri-plugin-updater2 = { path = "plugins/updater2" }
-tauri-plugin-webhook = { path = "plugins/webhook" }
 tauri-plugin-windows = { path = "plugins/windows" }
 
 anlg-supervisor = { path = "crates/supervisor", package = "supervisor" }
@@ -260,8 +244,6 @@ ractor = "0.15.10"
 rayon = "1.11"
 reqwest = "0.13"
 reqwest-middleware = "0.5"
-reqwest-retry = "0.9"
-reqwest-streams = "0.15"
 reqwest-tracing = "0.6"
 tokio = "1"
 tokio-stream = "0.1.17"
@@ -275,9 +257,7 @@ approx = "0.5.1"
 backon = "1.6.0"
 base64 = "0.22.1"
 bytes = "1.11"
-cached = "0.55.1"
 clap = "4"
-clap_complete = "4"
 codes-iso-639 = "0.1.5"
 dirs = "6.0.0"
 dotenvy = "0.15.7"
@@ -285,19 +265,16 @@ envy = "0.4"
 governor = "0.10.4"
 http = "1"
 image = { version = "0.25.10", default-features = false, features = ["webp"] }
-include_url_macro = "0.1.0"
 indoc = "2"
 isolang = "2.4"
 itertools = "0.14.0"
 jsonschema = "0.46.0"
 lazy_static = "1.5.0"
 libloading = "0.8"
-moka = { version = "0.12", features = ["future"] }
 open = "5"
 regex = "1.12"
 rpassword = "7.5.4"
 schemars = "1"
-self-replace = "1.5"
 semver = "1"
 serde = "1"
 serde_bytes = "0.11.15"
@@ -307,7 +284,6 @@ serde_qs = "1"
 serde_yaml = "0.9"
 shellexpand = "3"
 similar = "2.7.0"
-statig = "0.4"
 strum = "0.28"
 tempfile = "3"
 thiserror = "2"
@@ -334,7 +310,6 @@ utoipa = { version = "5", features = ["axum_extras"] }
 chrono = "0.4"
 chrono-tz = "0.10"
 
-async-openai = { git = "https://github.com/fastrepl/async-openai", rev = "6404d307f3f706e818ad91544dc82fac5c545aee", default-features = false }
 async-stripe = { version = "1.0.0-rc.0" }
 async-stripe-billing = { version = "1.0.0-rc.1", default-features = false }
 async-stripe-core = { version = "1.0.0-rc.1", default-features = false }
@@ -359,7 +334,6 @@ opentelemetry_sdk = "0.30"
 tracing = "0.1"
 tracing-opentelemetry = "0.31"
 tracing-subscriber = "0.3"
-tracing-test = "0.2"
 
 apalis = "1.0.0-rc.7"
 apalis-cron = "1.0.0-rc.7"
@@ -370,26 +344,20 @@ tauri-specta = "2.0.0-rc.21"
 
 cidre = { version = "0.15", default-features = false, features = ["app", "async", "av", "ax", "blocks", "cm", "core_audio", "dispatch", "io_kit", "io_pm", "macos_15_0"] }
 cpal = "0.17"
-crossterm = { version = "0.29", features = ["event-stream"] }
 dasp = { version = "0.11.0", features = ["interpolate", "interpolate-linear"] }
 earshot = "0.1.0"
 hound = "3.5.1"
 htmd = "0.5.0"
 macos-accessibility-client = "0.0.1"
 mp3lame-encoder = "0.2.2"
-ratatui = "0.30"
 realfft = "3.5.0"
 ringbuf = "0.4.8"
 rodio = { version = "0.22", features = ["tracing"] }
-tachyonfx = "0.25"
 vorbis_rs = "0.5.5"
 
 deepgram = { version = "0.7", default-features = false }
-hf-hub = { git = "https://github.com/huggingface/hf-hub", rev = "5510260", default-features = false, features = ["tokio"] }
-hidapi = { version = "2.6.5", features = ["macos-shared-device"] }
 
 block2 = "0.6"
-core-foundation = "0.10"
 dispatch2 = "0.3"
 objc2 = "0.6"
 objc2-app-kit = "0.3.2"
@@ -410,7 +378,6 @@ security-framework = "3.7"
 hmac = "0.13"
 sha2 = "0.11"
 
-tokenizers = "0.22"
 whichlang = "0.1"
 
 swift-rs = { git = "https://github.com/Brendonovich/swift-rs", rev = "41a1605" }
