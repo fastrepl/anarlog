@@ -10123,6 +10123,7 @@ dependencies = [
  "audio-utils",
  "axum",
  "bytes",
+ "data",
  "denoise",
  "futures-util",
  "host",
@@ -10131,6 +10132,7 @@ dependencies = [
  "mp3",
  "owhisper-client",
  "owhisper-interface",
+ "pyannote-local",
  "ractor",
  "reqwest-middleware",
  "rodio",
@@ -13363,15 +13365,16 @@ name = "pyannote-local"
 version = "0.1.0"
 dependencies = [
  "approx",
- "dasp",
  "data",
- "knf-rs",
+ "embedding",
+ "hound",
  "onnx",
- "rodio",
  "serde",
- "simsimd",
+ "serde_json",
  "specta",
  "thiserror 2.0.18",
+ "tracing",
+ "voiceprint",
 ]
 
 [[package]]
@@ -15549,15 +15552,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a9c6883ca9c3c7c90e888de77b7a5c849c779d25d74a1269b0218b14e8b136c"
 dependencies = [
  "log",
-]
-
-[[package]]
-name = "simsimd"
-version = "6.5.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4fb3bc3cdce07a7d7d4caa4c54f8aa967f6be41690482b54b24100a2253fa70"
-dependencies = [
- "cc",
 ]
 
 [[package]]

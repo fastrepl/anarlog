@@ -8,10 +8,16 @@ pub enum Error {
     OrtError(#[from] anlg_onnx::ort::Error),
     #[error(transparent)]
     ShapeError(#[from] anlg_onnx::ndarray::ShapeError),
-    #[error("knf error: {0}")]
-    KnfError(String),
+    #[error(transparent)]
+    EmbeddingError(#[from] anlg_embedding::Error),
     #[error("empty row in outputs")]
     EmptyRowError,
+    #[error("segmentation window must hold {expected} samples, got {actual}")]
+    WindowLength { expected: usize, actual: usize },
+    #[error("diarization cancelled")]
+    Cancelled,
+    #[error("audio read failed: {0}")]
+    AudioRead(String),
 }
 
 impl Serialize for Error {
