@@ -2,6 +2,8 @@ import { useRef } from "react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 
+import { isLockedFlag } from "~/lock/flag";
+import { useAppLock } from "~/lock/store";
 import { useSession } from "~/session/queries";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -23,12 +25,32 @@ export function ScheduledSessionAutoStart({
     state.canStartLiveSession(sessionId),
   );
   const session = useSession(sessionId);
+  const revealed = useAppLock((state) =>
+    Boolean(state.revealedNoteIds[sessionId]),
+  );
+  const locked = isLockedFlag(session?.locked) && !revealed;
+
+  if (session && locked) {
+    return <AbandonedScheduledSessionAutoStart sessionId={sessionId} />;
+  }
 
   return canStartLiveSession && session ? (
     <ReadyScheduledSessionAutoStart sessionId={sessionId} />
   ) : (
     <PendingScheduledSessionAutoStart sessionId={sessionId} />
   );
+}
+
+function AbandonedScheduledSessionAutoStart({
+  sessionId,
+}: {
+  sessionId: string;
+}) {
+  useMountEffect(() => {
+    clearPendingAutoStart(sessionId);
+  });
+
+  return null;
 }
 
 function PendingScheduledSessionAutoStart({

@@ -1,8 +1,9 @@
-import { render } from "@testing-library/react";
-import { beforeEach, expect, test, vi } from "vitest";
+import { cleanup, render } from "@testing-library/react";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { ScheduledSessionAutoStart } from "./scheduled-session-auto-start";
 
+import { useAppLock } from "~/lock/store";
 import {
   queueScheduledAutoJoin,
   takeScheduledAutoJoin,
@@ -103,6 +104,11 @@ beforeEach(() => {
   mocks.startListening.mockReset().mockResolvedValue(undefined);
   mocks.updateSessionTabState.mockReset();
   takeScheduledAutoJoin("session-1");
+  useAppLock.setState({ revealedNoteIds: {} });
+});
+
+afterEach(() => {
+  cleanup();
 });
 
 test("starts scheduled recording without waiting for transcription", async () => {
@@ -185,6 +191,62 @@ test("abandons a scheduled start that never becomes ready", async () => {
   } finally {
     vi.useRealTimers();
   }
+});
+
+test("abandons when the session loads locked so later meetings can start", () => {
+  mocks.session = {
+    ...mocks.session!,
+    locked: true,
+  };
+  queueScheduledAutoJoin("session-1", "https://meet.google.com/abc-defg-hij");
+
+  render(<ScheduledSessionAutoStart sessionId="session-1" />);
+
+  expect(mocks.startListening).not.toHaveBeenCalled();
+  expect(mocks.openUrl).not.toHaveBeenCalled();
+  expect(mocks.updateSessionTabState).toHaveBeenCalledWith(tab, {
+    view: null,
+    autoStart: null,
+  });
+  expect(takeScheduledAutoJoin("session-1")).toBeUndefined();
+});
+
+test("abandons when a pending session becomes locked", () => {
+  mocks.session = null;
+  const view = render(<ScheduledSessionAutoStart sessionId="session-1" />);
+
+  expect(mocks.startListening).not.toHaveBeenCalled();
+
+  mocks.session = {
+    id: "session-1",
+    user_id: "user-1",
+    created_at: "2026-05-15T12:00:00.000Z",
+    folder_id: "",
+    event_json: "",
+    title: "Design Review",
+    raw_md: "",
+    raw_template_id: "",
+    locked: true,
+  };
+  view.rerender(<ScheduledSessionAutoStart sessionId="session-1" />);
+
+  expect(mocks.startListening).not.toHaveBeenCalled();
+  expect(mocks.updateSessionTabState).toHaveBeenCalledWith(tab, {
+    view: null,
+    autoStart: null,
+  });
+});
+
+test("starts a locked session after it has been revealed", () => {
+  useAppLock.setState({ revealedNoteIds: { "session-1": true } });
+  mocks.session = {
+    ...mocks.session!,
+    locked: true,
+  };
+
+  render(<ScheduledSessionAutoStart sessionId="session-1" />);
+
+  expect(mocks.startListening).toHaveBeenCalledTimes(1);
 });
 
 test("discards a queued meeting link when the start is abandoned", async () => {

@@ -125,7 +125,9 @@ function UnlockedTabContentNote({
 
   return (
     <>
-      {tab.state.autoStart && !standaloneWindow && !lockOverlay ? (
+      {tab.state.autoStart && !standaloneWindow ? (
+        // Stay mounted under the lock overlay so a locked session can clear
+        // autoStart instead of blocking later scheduled meetings.
         <ScheduledSessionAutoStart sessionId={tab.id} />
       ) : null}
       <SearchProvider>
