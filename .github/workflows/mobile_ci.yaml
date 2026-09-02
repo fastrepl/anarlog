@@ -66,7 +66,7 @@ jobs:
 
   watchos_build:
     if: ${{ github.event_name != 'pull_request' }}
-    runs-on: depot-macos-26
+    runs-on: macos-26
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -82,7 +82,7 @@ jobs:
 
   ios_build:
     if: ${{ github.event_name != 'pull_request' }}
-    runs-on: depot-macos-26
+    runs-on: macos-26
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
