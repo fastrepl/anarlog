@@ -132,13 +132,14 @@ describe("traverseRenderedFibers", () => {
     ]);
   });
 
-  it("ignores components whose props were marked as ignored", () => {
+  it("skips marked components together with everything they render", () => {
     const props = { ignored: true };
-    const ignored = component("Ignored");
+    const ignored = component("Ignored", PerformedWork, component("Nested"));
     ignored.memoizedProps = props;
+    ignored.sibling = component("Visible");
     ignoreRenderTracking(props);
 
-    expect(collectNames(root(ignored))).toEqual([]);
+    expect(collectNames(root(ignored))).toEqual(["Visible"]);
   });
 });
 

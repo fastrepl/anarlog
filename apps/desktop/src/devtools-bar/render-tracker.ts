@@ -20,7 +20,10 @@ let buckets: Array<Map<string, number>> = [new Map()];
 let outlinesEnabled = import.meta.env.DEV;
 let stopTracking: (() => void) | null = null;
 
-/** Call with a component's props during render to keep it out of outlines and counts. */
+/**
+ * Call with a component's props during render to keep it, and everything it
+ * renders (portals included), out of outlines and counts.
+ */
 export function ignoreRenderTracking(props: object): void {
   ignoredProps.add(props);
 }
@@ -107,12 +110,15 @@ function isCompositeFiber(fiber: Fiber): boolean {
   }
 }
 
+function isIgnoredFiber(fiber: Fiber): boolean {
+  const props = fiber.memoizedProps;
+  return Boolean(props && typeof props === "object" && ignoredProps.has(props));
+}
+
 function isTrackedRender(fiber: Fiber): boolean {
   if (!isCompositeFiber(fiber)) return false;
   const flags = fiber.flags ?? fiber.effectTag ?? 0;
-  if ((flags & PerformedWork) === 0) return false;
-  const props = fiber.memoizedProps;
-  return !(props && typeof props === "object" && ignoredProps.has(props));
+  return (flags & PerformedWork) !== 0;
 }
 
 /**
@@ -139,15 +145,19 @@ export function traverseRenderedFibers(
   updateFiberRecursively(current, previous, onRender);
 }
 
+/** A freshly mounted fiber: every composite fiber beneath it rendered. */
+function mountFiber(fiber: Fiber, onRender: (fiber: Fiber) => void) {
+  if (isIgnoredFiber(fiber)) return;
+  if (isTrackedRender(fiber)) onRender(fiber);
+  mountFiberRecursively(fiber.child, onRender);
+}
+
 function mountFiberRecursively(
   firstChild: Fiber | null,
   onRender: (fiber: Fiber) => void,
 ) {
-  let fiber = firstChild;
-  while (fiber) {
-    if (isTrackedRender(fiber)) onRender(fiber);
-    mountFiberRecursively(fiber.child, onRender);
-    fiber = fiber.sibling;
+  for (let fiber = firstChild; fiber; fiber = fiber.sibling) {
+    mountFiber(fiber, onRender);
   }
 }
 
@@ -156,19 +166,16 @@ function updateFiberRecursively(
   previous: Fiber,
   onRender: (fiber: Fiber) => void,
 ) {
+  if (isIgnoredFiber(next)) return;
   if (isTrackedRender(next)) onRender(next);
   if (next.child === previous.child) return;
 
-  let child = next.child;
-  while (child) {
+  for (let child = next.child; child; child = child.sibling) {
     if (child.alternate) {
       updateFiberRecursively(child, child.alternate, onRender);
     } else {
-      // A freshly mounted subtree: every composite fiber in it rendered.
-      if (isTrackedRender(child)) onRender(child);
-      mountFiberRecursively(child.child, onRender);
+      mountFiber(child, onRender);
     }
-    child = child.sibling;
   }
 }
 

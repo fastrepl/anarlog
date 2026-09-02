@@ -7,8 +7,19 @@ const mocks = vi.hoisted(() => ({
   identifier: "com.hyprnote.staging",
   outlinesEnabled: true,
   topComponents: [] as Array<{ name: string; count: number }>,
+  session: { user: { id: "user-1" } } as object | null,
+  billing: {
+    isReady: true,
+    plan: "trial" as "free" | "trial" | "pro",
+    isLite: false,
+    trialDaysRemaining: 12 as number | null,
+    subscriptionStatus: "trialing",
+    hasPaymentMethod: false,
+    entitlements: ["pro"],
+  },
   setRenderOutlinesEnabled: vi.fn(),
   runAction: vi.fn(),
+  copyDiagnostics: vi.fn(),
   startDevtoolsMetrics: vi.fn(() => vi.fn()),
 }));
 
@@ -36,6 +47,7 @@ vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
   DropdownMenuContent: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="devtools-menu">{children}</div>
   ),
+  DropdownMenuSeparator: () => <hr />,
   DropdownMenuSub: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -58,6 +70,22 @@ vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
   ),
 }));
 
+vi.mock("@anlg/ui/components/ui/tooltip", () => ({
+  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+  TooltipContent: () => null,
+}));
+
+vi.mock("~/auth", () => ({
+  useAuth: () => ({ session: mocks.session }),
+}));
+
+vi.mock("~/auth/billing-context", () => ({
+  useBillingAccess: () => mocks.billing,
+}));
+
 vi.mock("./actions", () => ({
   DEVTOOLS_MENU: [
     {
@@ -78,6 +106,14 @@ vi.mock("./actions", () => ({
   }),
 }));
 
+vi.mock("./quick-settings", () => ({
+  QuickSettingsMenu: () => <div data-testid="quick-settings" />,
+}));
+
+vi.mock("./diagnostics", () => ({
+  copyDiagnostics: mocks.copyDiagnostics,
+}));
+
 vi.mock("./render-tracker", () => ({
   ignoreRenderTracking: vi.fn(),
   areRenderOutlinesEnabled: () => mocks.outlinesEnabled,
@@ -94,7 +130,7 @@ vi.mock("./metrics", async (importOriginal) => {
 });
 
 import { DevtoolsStatusBar } from "./index";
-import { useDevtoolsMetrics } from "./metrics";
+import { resetDevtoolsMetrics, useDevtoolsMetrics } from "./metrics";
 
 import { commands } from "~/types/tauri.gen";
 
@@ -112,17 +148,26 @@ function renderBar() {
 
 describe("DevtoolsStatusBar", () => {
   beforeEach(() => {
+    localStorage.clear();
     mocks.identifier = "com.hyprnote.staging";
     vi.mocked(getIdentifier).mockImplementation(() =>
       Promise.resolve(mocks.identifier),
     );
     mocks.outlinesEnabled = true;
     mocks.topComponents = [];
+    mocks.session = { user: { id: "user-1" } };
+    mocks.billing.plan = "trial";
+    mocks.billing.trialDaysRemaining = 12;
     vi.mocked(commands.showDevtool).mockResolvedValue(true);
+    resetDevtoolsMetrics();
     useDevtoolsMetrics.setState({
       fps: [58, 60],
+      jank: [0, 4],
+      delay: [12, 250],
       invokes: [3, 12],
       callbacks: [4, 15],
+      requests: [0, 1],
+      requestsInFlight: 2,
       renders: [10, 41],
       memoryBytes: [300 * 1024 ** 2, 312 * 1024 ** 2],
     });
@@ -143,22 +188,6 @@ describe("DevtoolsStatusBar", () => {
     expect(mocks.startDevtoolsMetrics).not.toHaveBeenCalled();
   });
 
-  it("shows the build channel, version, hash and live metrics", async () => {
-    renderBar();
-
-    const bar = await screen.findByTestId("devtools-status-bar");
-    await screen.findByText("1.2.3 abcdef1");
-
-    expect(bar.textContent).toContain("staging");
-    expect(bar.className).toContain("bg-amber-900");
-    expect(bar.textContent).toContain("FPS60");
-    expect(bar.textContent).toContain("↑12 ↓15");
-    expect(bar.textContent).toContain("renders41");
-    expect(bar.textContent).toContain("MEM312MB");
-    expect(screen.getByTestId("devtools-dialogs")).toBeTruthy();
-    expect(mocks.startDevtoolsMetrics).toHaveBeenCalledTimes(1);
-  });
-
   it("waits for build info before rendering the channel", async () => {
     let resolveIdentifier: (identifier: string) => void = () => {};
     vi.mocked(getIdentifier).mockReturnValue(
@@ -176,50 +205,98 @@ describe("DevtoolsStatusBar", () => {
 
     const bar = await screen.findByTestId("devtools-status-bar");
     expect(bar.textContent).toContain("staging");
-    expect(bar.className).toContain("bg-amber-900");
   });
 
-  it("uses the dev palette for local builds", async () => {
-    mocks.identifier = "com.hyprnote.dev";
+  it("shows build, plan and live metrics with threshold tones", async () => {
+    renderBar();
+
+    const bar = await screen.findByTestId("devtools-status-bar");
+    await screen.findByText("1.2.3 abcdef1");
+
+    expect(bar.textContent).toContain("staging");
+    expect(bar.textContent).toContain("trial 12d");
+    expect(bar.textContent).toContain("FPS60");
+    expect(bar.textContent).toContain("Jank4%");
+    expect(bar.textContent).toContain("Delay250ms");
+    expect(bar.textContent).toContain("Renders41");
+    expect(bar.textContent).toContain("IPC↑12 ↓15");
+    expect(bar.textContent).toContain("Net2");
+    expect(bar.textContent).toContain("Mem312MB");
+    expect(screen.getByText("250ms").className).toContain("text-red-400");
+    expect(screen.getByText("4%").className).toContain("text-amber-400");
+    expect(screen.getByText("60").className).toContain("text-neutral-100");
+    expect(screen.getByTestId("devtools-dialogs")).toBeTruthy();
+    expect(mocks.startDevtoolsMetrics).toHaveBeenCalledTimes(1);
+  });
+
+  it("labels the plan badge from billing state", async () => {
+    mocks.billing.plan = "pro";
+    mocks.billing.trialDaysRemaining = null;
 
     renderBar();
 
     const bar = await screen.findByTestId("devtools-status-bar");
-    await vi.waitFor(() => expect(bar.className).toContain("bg-blue-900"));
-    expect(bar.textContent).toContain("dev");
+    expect(bar.textContent).toContain("pro");
+    expect(bar.textContent).not.toContain("trial");
   });
 
-  it("runs devtools actions from the channel menu", async () => {
+  it("shows signed out instead of a plan without a session", async () => {
+    mocks.session = null;
+
+    renderBar();
+
+    const bar = await screen.findByTestId("devtools-status-bar");
+    expect(bar.textContent).toContain("signed out");
+    expect(bar.textContent).not.toContain("trial");
+  });
+
+  it("runs devtools actions and exposes quick settings from the channel menu", async () => {
     renderBar();
 
     await screen.findByTestId("devtools-status-bar");
+    expect(screen.getByTestId("quick-settings")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Clear all toasts" }));
 
     expect(mocks.runAction).toHaveBeenCalledWith("toasts:clear");
   });
 
-  it("toggles render outlines and lists the most rendered components", async () => {
-    mocks.topComponents = [{ name: "Sidebar", count: 12 }];
-
+  it("toggles render outlines from the renders metric", async () => {
     renderBar();
 
     const bar = await screen.findByTestId("devtools-status-bar");
-    expect(bar.textContent).toContain("◉ outline");
+    expect(bar.textContent).toContain("◉");
 
-    const rendersButton = screen.getByTitle(/Outlines on \(click to toggle\)/);
-    expect(rendersButton.title).toContain("Sidebar ×12");
-
-    fireEvent.click(rendersButton);
+    fireEvent.click(screen.getByRole("button", { name: /Renders/ }));
     expect(mocks.setRenderOutlinesEnabled).toHaveBeenCalledWith(false);
   });
 
-  it("shows outlines as off when paused", async () => {
-    mocks.outlinesEnabled = false;
+  it("copies diagnostics and collapses to a strip that expands again", async () => {
+    renderBar();
+
+    await screen.findByTestId("devtools-status-bar");
+    fireEvent.click(screen.getByRole("button", { name: "Copy diagnostics" }));
+    expect(mocks.copyDiagnostics).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Collapse developer bar" }),
+    );
+    expect(screen.queryByTestId("devtools-status-bar")).toBeNull();
+    expect(localStorage.getItem("anarlog:devtools-bar:collapsed")).toBe("1");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Expand developer bar" }),
+    );
+    expect(screen.getByTestId("devtools-status-bar")).toBeTruthy();
+    expect(localStorage.getItem("anarlog:devtools-bar:collapsed")).toBe("0");
+  });
+
+  it("starts collapsed when that was persisted", async () => {
+    localStorage.setItem("anarlog:devtools-bar:collapsed", "1");
 
     renderBar();
 
-    const bar = await screen.findByTestId("devtools-status-bar");
-    expect(bar.textContent).toContain("○ outline");
-    expect(screen.getByTitle(/Outlines off/)).toBeTruthy();
+    await screen.findByTestId("devtools-status-bar-collapsed");
+    expect(screen.queryByTestId("devtools-status-bar")).toBeNull();
+    expect(mocks.startDevtoolsMetrics).toHaveBeenCalledTimes(1);
   });
 });
