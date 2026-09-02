@@ -12,18 +12,6 @@ updates:
         applies-to: security-updates
         patterns:
           - "*"
-  - package-ecosystem: pip
-    directory: /e2e/cua
-    schedule:
-      interval: weekly
-    cooldown:
-      default-days: 7
-    open-pull-requests-limit: 0
-    groups:
-      security:
-        applies-to: security-updates
-        patterns:
-          - "*"
   - package-ecosystem: cargo
     directory: /
     schedule:
