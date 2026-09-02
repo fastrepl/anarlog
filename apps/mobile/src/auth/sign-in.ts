@@ -6,6 +6,10 @@ export type SignInMethod =
   | "email"
   | "sso";
 
+export function isAppleSignInAvailable(os: string) {
+  return os !== "android";
+}
+
 export const lastSignInMethodStorageKey = "anarlog:auth:last-sign-in-method";
 
 export function parseLastSignInMethod(

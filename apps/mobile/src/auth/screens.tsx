@@ -3,6 +3,7 @@ import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import {
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -16,7 +17,7 @@ import {
   buildMobileBillingReturnUrl,
   parseBillingCallbackUrl,
 } from "@/auth/billing-handoff";
-import type { SignInMethod } from "@/auth/sign-in";
+import { isAppleSignInAvailable, type SignInMethod } from "@/auth/sign-in";
 import { Button } from "@/components/ui/button";
 import {
   Colors,
@@ -72,14 +73,16 @@ export function SignInScreen({
       >
         <RNHostView matchContents>
           <View style={[styles.signInMethodList, { width }]}>
-            <SignInMethodButton
-              method="apple"
-              label="Sign in with Apple"
-              onSignIn={onSignIn}
-              disabled={busy}
-              iconSource={require("../../assets/images/auth/apple.svg")}
-              lastSignInMethod={lastSignInMethod}
-            />
+            {isAppleSignInAvailable(Platform.OS) && (
+              <SignInMethodButton
+                method="apple"
+                label="Sign in with Apple"
+                onSignIn={onSignIn}
+                disabled={busy}
+                iconSource={require("../../assets/images/auth/apple.svg")}
+                lastSignInMethod={lastSignInMethod}
+              />
+            )}
             <SignInMethodButton
               method="google"
               label="Sign in with Google"

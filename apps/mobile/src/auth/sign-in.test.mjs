@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildSignInUrl,
+  isAppleSignInAvailable,
   parseAuthCallbackSignInMethod,
   parseLastSignInMethod,
 } from "./sign-in.ts";
@@ -31,6 +32,12 @@ for (const view of ["email", "sso"]) {
     assert.equal(url.searchParams.has("provider"), false);
   });
 }
+
+test("hides Sign in with Apple on Android", () => {
+  assert.equal(isAppleSignInAvailable("android"), false);
+  assert.equal(isAppleSignInAvailable("ios"), true);
+  assert.equal(isAppleSignInAvailable("web"), true);
+});
 
 test("accepts only supported last-used sign-in methods", () => {
   for (const method of ["apple", "google", "azure", "github", "email", "sso"]) {
