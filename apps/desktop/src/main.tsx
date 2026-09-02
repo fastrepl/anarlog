@@ -17,6 +17,7 @@ import { Toaster } from "@anlg/ui/components/ui/toast";
 import { AITaskWindowSyncBridge } from "./ai/task-window-sync";
 import { trackAnalyticsEvent } from "./analytics";
 import { createToolRegistry } from "./contexts/tool-registry/core";
+import { enableReactScan } from "./devtools-panel/react-scan";
 import {
   captureOperationalError,
   initializeErrorReporting,
@@ -49,6 +50,7 @@ import { AppThemeProvider } from "./shared/theme/provider";
 import type { ThemePreference } from "./shared/theme/resolve";
 import { createAITaskStore } from "./store/zustand/ai-task";
 import { listenerStore } from "./store/zustand/listener/instance";
+import { commands } from "./types/tauri.gen";
 
 const toolRegistry = createToolRegistry();
 const queryClient = new QueryClient({
@@ -156,25 +158,19 @@ if (isMainWindow) {
 
 const rootElement = document.getElementById("root")!;
 
-async function enableReactScanInDev() {
-  if (!import.meta.env.DEV) {
-    return;
-  }
+async function enableDevtoolsInstrumentation() {
+  const enabled = await commands.showDevtool().catch(() => import.meta.env.DEV);
+  await enableReactScan(enabled);
 
-  try {
-    const { scan } = await import("react-scan");
-    scan({ enabled: true });
-  } catch (error) {
-    console.warn("Failed to start React Scan:", error);
+  if (import.meta.env.DEV) {
+    startInteractionProfiler();
   }
-
-  startInteractionProfiler();
 }
 
 async function renderApp() {
   await Promise.all([
     bootstrapThemeFromSettings(),
-    enableReactScanInDev(),
+    enableDevtoolsInstrumentation(),
     initializeAppStoreBuild(),
   ]);
   const root = ReactDOM.createRoot(rootElement);

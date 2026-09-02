@@ -8,7 +8,7 @@ vi.mock("@tauri-apps/api/app", () => ({
   getIdentifier: mocks.getIdentifier,
 }));
 
-import { getScheme } from "./utils";
+import { getDevtoolsChannel, getScheme } from "./utils";
 
 describe("getScheme", () => {
   beforeEach(() => {
@@ -26,5 +26,17 @@ describe("getScheme", () => {
     mocks.getIdentifier.mockResolvedValue(identifier);
 
     await expect(getScheme()).resolves.toBe(scheme);
+  });
+});
+
+describe("getDevtoolsChannel", () => {
+  it.each([
+    ["com.hyprnote.staging", "staging"],
+    ["com.anarlog.staging", "staging"],
+    ["com.hyprnote.dev", "dev"],
+    ["com.anarlog.dev", "dev"],
+    ["com.hyprnote.stable", "dev"],
+  ])("maps %s to %s", (identifier, channel) => {
+    expect(getDevtoolsChannel(identifier)).toBe(channel);
   });
 });

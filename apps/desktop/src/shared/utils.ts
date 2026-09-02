@@ -25,6 +25,13 @@ export const getScheme = async (): Promise<DesktopScheme> => {
   return schemes[id] ?? "anarlog";
 };
 
+export function getDevtoolsChannel(identifier: string): "dev" | "staging" {
+  return identifier === "com.hyprnote.staging" ||
+    identifier === "com.anarlog.staging"
+    ? "staging"
+    : "dev";
+}
+
 type DesktopFlowPath =
   | "/auth"
   | "/app/account"

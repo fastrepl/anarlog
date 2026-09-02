@@ -15,6 +15,7 @@ import {
 import { AuthProvider } from "~/auth";
 import { BillingProvider } from "~/auth/billing";
 import { DevtoolsFloatingPanelHost } from "~/devtools-panel/host";
+import { EnvironmentModeBar } from "~/devtools-panel/mode-bar";
 import { EnterpriseCaptureSync } from "~/enterprise-capture/lifecycle";
 import { MeetingImportSync } from "~/services/meeting-import-sync";
 import { getOrCreateSessionForEventId } from "~/session/queries";
@@ -41,7 +42,12 @@ function MainAppContent() {
 
   return (
     <>
-      <Outlet />
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <Outlet />
+        </div>
+        {isMainWindow ? <EnvironmentModeBar /> : null}
+      </div>
       {isMainWindow ? <MeetingImportSync /> : null}
       {isMainWindow ? <EnterpriseCaptureSync /> : null}
       <UndoDeleteToast />

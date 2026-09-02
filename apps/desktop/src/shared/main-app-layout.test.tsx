@@ -39,6 +39,10 @@ vi.mock("~/devtools-panel/host", () => ({
   DevtoolsFloatingPanelHost: () => null,
 }));
 
+vi.mock("~/devtools-panel/mode-bar", () => ({
+  EnvironmentModeBar: () => <div data-testid="environment-mode-bar" />,
+}));
+
 vi.mock("~/enterprise-capture/lifecycle", () => ({
   EnterpriseCaptureSync: () => <div data-testid="enterprise-capture-sync" />,
 }));
@@ -87,6 +91,9 @@ describe("MainAppLayout", () => {
     expect(
       authProvider.contains(screen.getByTestId("enterprise-capture-sync")),
     ).toBe(true);
+    expect(
+      authProvider.contains(screen.getByTestId("environment-mode-bar")),
+    ).toBe(true);
   });
 
   it("does not mount connected import sync in secondary windows", () => {
@@ -96,5 +103,6 @@ describe("MainAppLayout", () => {
 
     expect(screen.queryByTestId("meeting-import-sync")).toBeNull();
     expect(screen.queryByTestId("enterprise-capture-sync")).toBeNull();
+    expect(screen.queryByTestId("environment-mode-bar")).toBeNull();
   });
 });
