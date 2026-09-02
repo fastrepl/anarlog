@@ -4,11 +4,11 @@ This is the customer-hosted meeting capture distribution. Evaluation Compose doe
 
 ## Layout
 
-| Mode | Manifest | License | Typical use |
-| --- | --- | --- | --- |
-| Evaluation | `enterprise/control-plane/compose.yaml` | optional | Single-box soak of the control plane |
-| Production Compose | `enterprise/deploy/compose.prod.yaml` | required | Compose on customer VMs |
-| Production Helm | `enterprise/deploy/helm/anarlog-capture` | required | Kubernetes |
+| Mode               | Manifest                                 | License  | Typical use                          |
+| ------------------ | ---------------------------------------- | -------- | ------------------------------------ |
+| Evaluation         | `enterprise/control-plane/compose.yaml`  | optional | Single-box soak of the control plane |
+| Production Compose | `enterprise/deploy/compose.prod.yaml`    | required | Compose on customer VMs              |
+| Production Helm    | `enterprise/deploy/helm/anarlog-capture` | required | Kubernetes                           |
 
 Pinned images live in the Compose files and Helm `values.yaml`. Do not float untagged `latest`.
 

@@ -2,17 +2,17 @@
 
 <div align="center">
 
-  <img width="110" src="apps/desktop/src-tauri/icons/stable/128x128@2x.png" alt="anarlog icon" />
+<img width="110" src="apps/desktop/src-tauri/icons/stable/128x128@2x.png" alt="anarlog icon" />
 
-  <h1>anarlog</h1>
+<h1>anarlog</h1>
 
-  <p>
+<p>
     <b>The privacy-first AI meeting notepad.</b>
     <br />
     Open source, local-first, and yours to fork. Granola, rearranged.
   </p>
 
-  <p>
+<p>
     <a href="https://anarlog.so">Website</a>
     &nbsp;•&nbsp;
     <a href="https://docs.anarlog.so">Docs</a>
@@ -28,14 +28,14 @@
     <a href="https://status.anarlog.so">Status</a>
   </p>
 
-  <p>
+<p>
     <a href="https://github.com/fastrepl/anarlog/stargazers"><img src="https://img.shields.io/github/stars/fastrepl/anarlog?style=flat&color=ffe09d" alt="GitHub stars" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-black" alt="MIT license" /></a>
     <a href="https://anarlog.so/discord"><img src="https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white" alt="Discord" /></a>
     <a href="https://deepwiki.com/fastrepl/anarlog"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki" /></a>
   </p>
 
-  <img width="100%" src="apps/web/public/og.jpg" alt="anarlog" />
+<img width="100%" src="apps/web/public/og.jpg" alt="anarlog" />
 
 </div>
 
@@ -57,22 +57,22 @@ It is built for people who want AI meeting notes without handing their conversat
 
 ## What runs where
 
-| Part of the workflow | Where it happens |
-| --- | --- |
-| Audio capture and recording | Your device |
-| Transcription | Your device with an on-device model, or the provider you select |
-| Notes and transcript storage | Local SQLite plus local files |
-| AI summaries and chat | Your choice: local model, your own API key, or optional hosted AI |
-| Sync and sharing | Off by default, opt-in encrypted CloudSync |
+| Part of the workflow         | Where it happens                                                  |
+| ---------------------------- | ----------------------------------------------------------------- |
+| Audio capture and recording  | Your device                                                       |
+| Transcription                | Your device with an on-device model, or the provider you select   |
+| Notes and transcript storage | Local SQLite plus local files                                     |
+| AI summaries and chat        | Your choice: local model, your own API key, or optional hosted AI |
+| Sync and sharing             | Off by default, opt-in encrypted CloudSync                        |
 
 ## How AI works
 
 anarlog keeps audio transcription separate from the language model used for summaries and chat. You can change either one without changing the other.
 
-| Stage | App setting | Anarlog Cloud | Local or bring your own |
-| --- | --- | --- | --- |
-| Audio → transcript | **Transcription** | Managed **Pro (Cloud)** chooses by language and live or batch mode. Current primary paths include Deepgram Nova, Soniox 5, and AssemblyAI Universal 3.5. | Soniqo or Apple Speech when available, or your selected transcription provider and model |
-| Transcript + memo → summary, title, or chat | **Intelligence** | Managed **Auto** (also shown as Pro (Cloud)) currently uses the latest Claude Sonnet alias through OpenRouter. | Your selected API, subscription, OpenAI-compatible server, or eligible Apple Intelligence |
+| Stage                                       | App setting       | Anarlog Cloud                                                                                                                                            | Local or bring your own                                                                   |
+| ------------------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Audio → transcript                          | **Transcription** | Managed **Pro (Cloud)** chooses by language and live or batch mode. Current primary paths include Deepgram Nova, Soniox 5, and AssemblyAI Universal 3.5. | Soniqo or Apple Speech when available, or your selected transcription provider and model  |
+| Transcript + memo → summary, title, or chat | **Intelligence**  | Managed **Auto** (also shown as Pro (Cloud)) currently uses the latest Claude Sonnet alias through OpenRouter.                                           | Your selected API, subscription, OpenAI-compatible server, or eligible Apple Intelligence |
 
 The active provider and model are always visible under **Settings → Transcription** and **Settings → Intelligence**. Read [Models and providers](https://docs.anarlog.so/models-and-providers) for the current routes, local model list, and privacy boundaries.
 
@@ -87,21 +87,21 @@ Product docs live at [docs.anarlog.so](https://docs.anarlog.so). To build the de
 
 ## Repository map
 
-| Path | What lives there |
-| --- | --- |
-| `apps/desktop` | Tauri v2 desktop app: React and TypeScript UI, Rust backend |
-| `apps/web` | anarlog.so website, account portal, and shared-note pages; not the desktop notepad |
-| `apps/api` | Optional hosted services for AI, sync, sharing, and integrations |
-| `apps/cli` | Local CLI and MCP server |
-| `apps/mobile` | Mobile client source; no mobile app is currently distributed |
-| `apps/stripe` | Billing integration |
-| `apps/watch/apple` | watchOS companion source built with the mobile app |
-| `plugins/*` | Tauri capabilities such as local STT, database access, calendar, export, and notifications |
-| `crates/*` | Rust libraries for audio capture, transcription, diarization, storage, and services |
-| `packages/*` | Shared TypeScript packages for the editor, database, UI, and plugin SDK |
-| `supabase/` | Hosted authentication, sharing, sync, billing, and Cloud API data |
-| `skills/anarlog` | Published agent skill for the CLI and MCP server |
-| `enterprise/` | Source-visible enterprise components, commercially licensed |
+| Path               | What lives there                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------ |
+| `apps/desktop`     | Tauri v2 desktop app: React and TypeScript UI, Rust backend                                |
+| `apps/web`         | anarlog.so website, account portal, and shared-note pages; not the desktop notepad         |
+| `apps/api`         | Optional hosted services for AI, sync, sharing, and integrations                           |
+| `apps/cli`         | Local CLI and MCP server                                                                   |
+| `apps/mobile`      | Mobile client source; no mobile app is currently distributed                               |
+| `apps/stripe`      | Billing integration                                                                        |
+| `apps/watch/apple` | watchOS companion source built with the mobile app                                         |
+| `plugins/*`        | Tauri capabilities such as local STT, database access, calendar, export, and notifications |
+| `crates/*`         | Rust libraries for audio capture, transcription, diarization, storage, and services        |
+| `packages/*`       | Shared TypeScript packages for the editor, database, UI, and plugin SDK                    |
+| `supabase/`        | Hosted authentication, sharing, sync, billing, and Cloud API data                          |
+| `skills/anarlog`   | Published agent skill for the CLI and MCP server                                           |
+| `enterprise/`      | Source-visible enterprise components, commercially licensed                                |
 
 ## Local development
 

@@ -14,12 +14,12 @@ Posting a recording/transcription disclosure is an opt-in transport. A sent disc
 
 ## Evidence vs consent
 
-| Event | Product meaning |
-| --- | --- |
-| `session_disclosure_attempts` row with `delivery = sent` | Transport evidence only |
-| `session_participant_consent.status = unknown` | Default, including late joiners |
-| `status = consented` with `source` in `explicit_chat_reply` / `explicit_ui` | That participant answered; not legal consent for the room |
-| `status = declined` | Stop listening. Still not a legal record of anyone else's choice |
+| Event                                                                       | Product meaning                                                  |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `session_disclosure_attempts` row with `delivery = sent`                    | Transport evidence only                                          |
+| `session_participant_consent.status = unknown`                              | Default, including late joiners                                  |
+| `status = consented` with `source` in `explicit_chat_reply` / `explicit_ui` | That participant answered; not legal consent for the room        |
+| `status = declined`                                                         | Stop listening. Still not a legal record of anyone else's choice |
 
 `sessionHasLegalConsent()` is always false. Schema CHECK constraints reject a `disclosure_sent` consent source. These tables are local-only and are not in CloudSync or the E2EE domain.
 

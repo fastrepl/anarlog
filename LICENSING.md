@@ -6,10 +6,10 @@ This is path-based mixed licensing, not a choice between two licenses for the sa
 
 ## License scope
 
-| Path | License |
-| --- | --- |
+| Path            | License                                                                                                                     |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `enterprise/**` | [Anarlog Enterprise Commercial License Notice](enterprise/LICENSE) and the applicable written agreement with Fastrepl, Inc. |
-| Everything else | [MIT License](LICENSE), unless a nearer license or third-party notice says otherwise |
+| Everything else | [MIT License](LICENSE), unless a nearer license or third-party notice says otherwise                                        |
 
 The nearest license file controls. Moving code across the `enterprise/` boundary requires an explicit licensing review; a file does not keep its previous license merely because it was moved.
 

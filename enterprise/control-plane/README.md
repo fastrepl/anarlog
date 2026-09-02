@@ -54,17 +54,17 @@ See the official [`infisical run` documentation](https://infisical.com/docs/cli/
 
 ## Configuration
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `ANARLOG_ENTERPRISE_DATABASE_URL` | Yes | PostgreSQL connection URL. Startup fails if the database is unavailable or migrations fail. |
-| `ANARLOG_ENTERPRISE_WORKSPACE_TOKENS` | Yes | JSON object mapping workspace IDs to bearer tokens. At least one unique token of 32–512 bytes is required. |
-| `ANARLOG_ENTERPRISE_BIND_ADDRESS` | No | Listener address. Defaults to `0.0.0.0:8080`; the image sets the same value. |
-| `ANARLOG_ENTERPRISE_DATABASE_MAX_CONNECTIONS` | No | PostgreSQL pool size from 1–100. Defaults to `10`. |
-| `ANARLOG_ENTERPRISE_ZOOM_CLIENT_ID` | Together | Zoom RTMS app client ID. |
-| `ANARLOG_ENTERPRISE_ZOOM_CLIENT_SECRET` | Together | Zoom RTMS app client secret. |
-| `ANARLOG_ENTERPRISE_ZOOM_WEBHOOK_SECRET` | Together | Zoom webhook secret used to verify signed request bodies. |
-| `ANARLOG_ENTERPRISE_ZOOM_ACCOUNT_WORKSPACES` | Together | JSON object mapping signed Zoom account IDs to configured workspace IDs. |
-| `RUST_LOG` | No | Standard tracing filter. Defaults to request and service information. No telemetry is exported. |
+| Variable                                      | Required | Purpose                                                                                                    |
+| --------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------- |
+| `ANARLOG_ENTERPRISE_DATABASE_URL`             | Yes      | PostgreSQL connection URL. Startup fails if the database is unavailable or migrations fail.                |
+| `ANARLOG_ENTERPRISE_WORKSPACE_TOKENS`         | Yes      | JSON object mapping workspace IDs to bearer tokens. At least one unique token of 32–512 bytes is required. |
+| `ANARLOG_ENTERPRISE_BIND_ADDRESS`             | No       | Listener address. Defaults to `0.0.0.0:8080`; the image sets the same value.                               |
+| `ANARLOG_ENTERPRISE_DATABASE_MAX_CONNECTIONS` | No       | PostgreSQL pool size from 1–100. Defaults to `10`.                                                         |
+| `ANARLOG_ENTERPRISE_ZOOM_CLIENT_ID`           | Together | Zoom RTMS app client ID.                                                                                   |
+| `ANARLOG_ENTERPRISE_ZOOM_CLIENT_SECRET`       | Together | Zoom RTMS app client secret.                                                                               |
+| `ANARLOG_ENTERPRISE_ZOOM_WEBHOOK_SECRET`      | Together | Zoom webhook secret used to verify signed request bodies.                                                  |
+| `ANARLOG_ENTERPRISE_ZOOM_ACCOUNT_WORKSPACES`  | Together | JSON object mapping signed Zoom account IDs to configured workspace IDs.                                   |
+| `RUST_LOG`                                    | No       | Standard tracing filter. Defaults to request and service information. No telemetry is exported.            |
 
 `GET /health/live` is process-only liveness. `GET /health/ready` checks PostgreSQL. Capture and delivery routes require `Authorization: Bearer <token>` and reject a token used against any workspace other than its configured workspace.
 

@@ -12,4 +12,3 @@ Customer configuration, credentials, license-signing keys, and confidential depl
 - Zoom RTMS: `docs/zoom-rtms.md`
 - Teams connector: `docs/teams-capture.md`
 - Owned-stack planning: `docs/planning/`
-

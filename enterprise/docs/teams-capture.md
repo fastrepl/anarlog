@@ -20,20 +20,20 @@ This is **not** deployable on Linux-only clusters or a fully air-gapped network 
 
 Replay fixtures in `enterprise/meeting-sdk-bridge-worker/tests/teams_reliability.rs` cover:
 
-| Scenario | Terminal reason |
-| --- | --- |
-| Admitted then capturing | (non-terminal) |
-| Lobby timeout | `admission_timeout` |
-| Organizer denied | `admission_denied` |
-| Removed by organizer | `removed_from_meeting` |
-| Meeting ended | `meeting_ended` |
+| Scenario                              | Terminal reason              |
+| ------------------------------------- | ---------------------------- |
+| Admitted then capturing               | (non-terminal)               |
+| Lobby timeout                         | `admission_timeout`          |
+| Organizer denied                      | `admission_denied`           |
+| Removed by organizer                  | `removed_from_meeting`       |
+| Meeting ended                         | `meeting_ended`              |
 | Participant upsert / leave / captions | non-terminal until host ends |
 
 ## Deployment modes
 
-| Mode | Supported |
-| --- | --- |
-| Customer Azure + Windows Server sidecar | yes |
-| Linux-only Helm capture chart | no (Meet/Zoom only) |
-| Air-gapped / no Graph | no |
-| Browser worker against teams.microsoft.com | no |
+| Mode                                       | Supported           |
+| ------------------------------------------ | ------------------- |
+| Customer Azure + Windows Server sidecar    | yes                 |
+| Linux-only Helm capture chart              | no (Meet/Zoom only) |
+| Air-gapped / no Graph                      | no                  |
+| Browser worker against teams.microsoft.com | no                  |

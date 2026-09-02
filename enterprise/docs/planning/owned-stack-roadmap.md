@@ -18,15 +18,15 @@ Later: SOC 2 / ISO 27001 / AIUC-1 / HIPAA programs, certified-cloud SKU, Teams G
 
 ## Workstreams
 
-| Workstream | Tickets | v1 vs later |
-| --- | --- | --- |
-| Capture data plane | ANLG-223 and children | Meet + Zoom v1; Teams after Meet reliability |
-| Inference routing | ANLG-132 | Policy model v1; certified-cloud providers later |
-| Admin / deletion | ANLG-133, 216, 217, 218 | Policies + SSO/SCIM + analytics v1; MDM later |
-| Disclosure / consent | ANLG-134, 135 | Slack huddle transport v1; virtual camera later |
-| Trust / procurement | ANLG-136 | Questionnaires and DPA v1; certifications later |
-| Deployment SKUs | ANLG-137, 233 | Customer-hosted data plane v1; certified cloud later |
-| No lock-in | ANLG-138 | CLI/MCP/export v1; public HTTP API later |
+| Workstream           | Tickets                 | v1 vs later                                          |
+| -------------------- | ----------------------- | ---------------------------------------------------- |
+| Capture data plane   | ANLG-223 and children   | Meet + Zoom v1; Teams after Meet reliability         |
+| Inference routing    | ANLG-132                | Policy model v1; certified-cloud providers later     |
+| Admin / deletion     | ANLG-133, 216, 217, 218 | Policies + SSO/SCIM + analytics v1; MDM later        |
+| Disclosure / consent | ANLG-134, 135           | Slack huddle transport v1; virtual camera later      |
+| Trust / procurement  | ANLG-136                | Questionnaires and DPA v1; certifications later      |
+| Deployment SKUs      | ANLG-137, 233           | Customer-hosted data plane v1; certified cloud later |
+| No lock-in           | ANLG-138                | CLI/MCP/export v1; public HTTP API later             |
 
 ## Platform constraints
 
