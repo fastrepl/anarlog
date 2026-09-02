@@ -359,6 +359,7 @@ export function useCaptureLifecycle(sessionId: string) {
         requestRecoveryOnFailure: boolean,
       ) => {
         sonnerToast.dismiss("recording-without-transcription");
+        sonnerToast.dismiss("recording-with-limited-transcription-languages");
         sonnerToast.dismiss("live-transcription-stalled");
         sonnerToast.dismiss("meeting-disclosure-send-failed");
         const sessionWasDeleted = async () => {

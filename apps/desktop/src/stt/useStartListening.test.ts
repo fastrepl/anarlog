@@ -3376,6 +3376,24 @@ describe("useStartListening", () => {
       languages: ["en"],
       transcription_mode: undefined,
     });
+    expect(sonnerToastWarningMock).toHaveBeenCalledWith(
+      "Live transcription is using English",
+      expect.objectContaining({
+        id: "recording-with-limited-transcription-languages",
+        description:
+          "Live transcription won't include Korean. Audio is still being saved.",
+        action: expect.objectContaining({ label: "Change" }),
+      }),
+    );
+
+    const warningCalls = sonnerToastWarningMock.mock.calls;
+    const warningOptions = warningCalls[warningCalls.length - 1]?.[1];
+    warningOptions?.action.onClick();
+
+    expect(openNewMock).toHaveBeenCalledWith({
+      type: "settings",
+      state: { tab: "transcription" },
+    });
   });
 
   test("does not send the recording disclosure when auto-post is disabled", async () => {

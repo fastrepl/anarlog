@@ -7,7 +7,7 @@ import type { AIProviderStorage } from "@anlg/store";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { env } from "~/env";
-import { type ProviderId } from "~/settings/ai/stt/shared";
+import { type ProviderId, PROVIDERS } from "~/settings/ai/stt/shared";
 import { useAiProvider } from "~/settings/providers";
 import { useConfigValues } from "~/shared/config";
 import {
@@ -130,7 +130,10 @@ export const useSTTConnection = () => {
     },
   });
 
-  const baseUrl = providerConfig?.base_url?.trim();
+  const defaultBaseUrl = PROVIDERS.find(
+    (provider) => provider.id === current_stt_provider,
+  )?.baseUrl;
+  const baseUrl = providerConfig?.base_url?.trim() || defaultBaseUrl?.trim();
   const apiKey = providerConfig?.api_key?.trim();
 
   const connection = useMemo(() => {

@@ -36,7 +36,7 @@ vi.mock("~/settings/providers", () => ({
   useAiProvider: () => ({
     type: "stt",
     base_url: "   ",
-    api_key: "",
+    api_key: "test-key",
   }),
 }));
 
@@ -77,6 +77,25 @@ describe("useSTTConnection", () => {
       model: "cloud",
       baseUrl: "https://api.anarlog.so/stt",
       apiKey: "access-token",
+    });
+  });
+
+  it("uses the provider endpoint when only a Deepgram API key is stored", () => {
+    config.current_stt_provider = "deepgram";
+    config.current_stt_model = "nova-3-general";
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    const { result } = renderHook(() => useSTTConnection(), { wrapper });
+
+    expect(result.current.conn).toEqual({
+      provider: "deepgram",
+      model: "nova-3-general",
+      baseUrl: "https://api.deepgram.com/v1",
+      apiKey: "test-key",
     });
   });
 

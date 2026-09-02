@@ -478,6 +478,7 @@ describe("getLiveTranscriptionConfig", () => {
       }),
     ).resolves.toEqual({
       languages: ["en"],
+      omittedLanguages: ["ko"],
       transcriptionMode: undefined,
     });
   });

@@ -6,6 +6,7 @@ import {
 
 type LiveTranscriptionConfig = {
   languages: string[];
+  omittedLanguages?: string[];
   transcriptionMode?: TranscriptionMode;
 };
 
@@ -413,6 +414,7 @@ export async function getLiveTranscriptionConfig({
     return {
       ...config,
       languages: [primaryLanguage],
+      omittedLanguages: languages.slice(1),
     };
   }
 

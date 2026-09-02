@@ -492,12 +492,17 @@ function clearTranscriptionLanguageWarningToast() {
 }
 
 function useTranscriptionLanguageWarning() {
-  const { current_stt_provider, current_stt_model, spoken_languages } =
-    useConfigValues([
-      "current_stt_provider",
-      "current_stt_model",
-      "spoken_languages",
-    ] as const);
+  const {
+    ai_language,
+    current_stt_provider,
+    current_stt_model,
+    spoken_languages,
+  } = useConfigValues([
+    "ai_language",
+    "current_stt_provider",
+    "current_stt_model",
+    "spoken_languages",
+  ] as const);
   const health = useConnectionHealth();
 
   const selectedSttModel = isConfiguredSttModel(
@@ -531,6 +536,7 @@ function useTranscriptionLanguageWarning() {
       current_stt_provider,
       selectedSttModel,
       useLiveMode,
+      ai_language,
       spoken_languages,
     ],
     queryFn: async () => {
@@ -547,12 +553,13 @@ function useTranscriptionLanguageWarning() {
               languages,
             );
 
-      return await getLanguageSupportIssue(spoken_languages ?? [], isSupported);
+      return await getLanguageSupportIssue(
+        ai_language,
+        spoken_languages,
+        isSupported,
+      );
     },
-    enabled:
-      isConfigured &&
-      liveSupport.data !== undefined &&
-      !!spoken_languages?.length,
+    enabled: isConfigured && liveSupport.data !== undefined && !!ai_language,
   });
 
   if (
@@ -568,6 +575,7 @@ function useTranscriptionLanguageWarning() {
     key: [
       current_stt_provider,
       selectedSttModel,
+      ai_language,
       ...(spoken_languages ?? []),
     ].join(":"),
     model: selectedSttModel,

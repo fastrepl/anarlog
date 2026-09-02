@@ -14,6 +14,7 @@ import {
 import { trackAnalyticsEvent } from "~/analytics";
 import { useShell } from "~/contexts/shell";
 import { getSessionEvent } from "~/session/utils";
+import { getBaseLanguageDisplayName } from "~/settings/general/language";
 import { useConfigValue } from "~/shared/config";
 import { useTabs } from "~/store/zustand/tabs";
 import {
@@ -199,7 +200,34 @@ export function useStartListening(sessionId: string) {
       return;
     }
 
-    if (!conn) {
+    const openTranscriptionSettings = () => {
+      openNew({
+        type: "settings",
+        state: { tab: "transcription" },
+      });
+    };
+
+    const primaryLanguage = liveTranscriptionConfig.languages[0];
+    const omittedLanguages = liveTranscriptionConfig.omittedLanguages ?? [];
+    if (conn && primaryLanguage && omittedLanguages.length > 0) {
+      const primaryLanguageName = getBaseLanguageDisplayName(primaryLanguage);
+      const omittedLanguageNames = omittedLanguages
+        .map((language) => getBaseLanguageDisplayName(language))
+        .join(", ");
+
+      sonnerToast.warning(
+        `Live transcription is using ${primaryLanguageName}`,
+        {
+          id: "recording-with-limited-transcription-languages",
+          duration: Infinity,
+          description: `Live transcription won't include ${omittedLanguageNames}. Audio is still being saved.`,
+          action: {
+            label: "Change",
+            onClick: openTranscriptionSettings,
+          },
+        },
+      );
+    } else if (!conn) {
       sonnerToast.warning("Live transcription is not configured", {
         id: "recording-without-transcription",
         duration: Infinity,
@@ -207,12 +235,7 @@ export function useStartListening(sessionId: string) {
           "Audio is being saved. Choose a transcription provider to ensure this recording can be transcribed.",
         action: {
           label: "Configure",
-          onClick: () => {
-            openNew({
-              type: "settings",
-              state: { tab: "transcription" },
-            });
-          },
+          onClick: openTranscriptionSettings,
         },
       });
     }

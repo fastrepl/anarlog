@@ -1,3 +1,4 @@
+import { getTranscriptionLanguages } from "~/stt/capabilities";
 import {
   getDefaultSttModel,
   getPreferredProviderModel,
@@ -6,9 +7,11 @@ import {
 export { getDefaultSttModel, getPreferredProviderModel };
 
 export async function getLanguageSupportIssue(
-  languages: readonly string[],
+  mainLanguage: string | null | undefined,
+  spokenLanguages: readonly string[] | null | undefined,
   isSupported: (languages: readonly string[]) => Promise<boolean>,
 ) {
+  const languages = getTranscriptionLanguages(mainLanguage, spokenLanguages);
   if (await isSupported(languages)) {
     return null;
   }

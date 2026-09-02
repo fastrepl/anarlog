@@ -190,7 +190,8 @@ describe("getDefaultSttSelection", () => {
 describe("getLanguageSupportIssue", () => {
   test("returns the languages the model cannot transcribe", async () => {
     const issue = await getLanguageSupportIssue(
-      ["en", "ko", "ja"],
+      "en",
+      ["ko", "ja"],
       async (languages) => !languages.includes("ko"),
     );
 
@@ -199,7 +200,8 @@ describe("getLanguageSupportIssue", () => {
 
   test("distinguishes an unsupported combination from unsupported languages", async () => {
     const issue = await getLanguageSupportIssue(
-      ["en", "ko"],
+      "en",
+      ["ko"],
       async (languages) => languages.length === 1,
     );
 
@@ -207,7 +209,7 @@ describe("getLanguageSupportIssue", () => {
   });
 
   test("returns no issue when the full selection is supported", async () => {
-    const issue = await getLanguageSupportIssue(["en", "ko"], async () => true);
+    const issue = await getLanguageSupportIssue("en", ["ko"], async () => true);
 
     expect(issue).toBeNull();
   });
