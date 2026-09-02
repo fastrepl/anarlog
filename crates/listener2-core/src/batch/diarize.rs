@@ -76,6 +76,33 @@ pub(super) fn plan_channel(
     channel_speaker_bounds(listen_params, shift).map(|bounds| (audio, bounds))
 }
 
+/// Whether any recording layout the resampler can produce would let
+/// [`plan_channel`] accept this transcript channel. The declared channel
+/// count is an upper bound: a stereo file with identical channels collapses
+/// to one. Lets the common stereo case (unlabeled mic channel, labeled or
+/// single-voice remote channel) skip the full resample entirely.
+pub(super) fn could_plan_channel(
+    listen_params: &owhisper_interface::ListenParams,
+    transcript_channels: usize,
+    channel_index: usize,
+) -> bool {
+    let declared = usize::from(listen_params.channels);
+    let layouts: &[usize] = match declared {
+        0 => &[1, 2],
+        1 => &[1],
+        _ => &[declared, 1],
+    };
+    layouts.iter().any(|recording_channels| {
+        plan_channel(
+            listen_params,
+            transcript_channels,
+            *recording_channels,
+            channel_index,
+        )
+        .is_some()
+    })
+}
+
 fn channel_speaker_bounds(
     listen_params: &owhisper_interface::ListenParams,
     shift: usize,
@@ -120,15 +147,21 @@ pub(super) async fn apply_local_diarization(
     if !is_local_batch(params) {
         return;
     }
+    let transcript_channels = output.response.results.channels.len();
     // Only word timings cross into the blocking task; the transcript itself
-    // stays here so a panic in the diarizer cannot lose it.
+    // stays here so a panic in the diarizer cannot lose it. Channels that no
+    // recording layout could plan are dropped now, before the recording is
+    // resampled.
     let unlabeled: Vec<UnlabeledChannel> = output
         .response
         .results
         .channels
         .iter()
         .enumerate()
-        .filter(|(_, channel)| channel_needs_diarization(channel))
+        .filter(|(index, channel)| {
+            channel_needs_diarization(channel)
+                && could_plan_channel(listen_params, transcript_channels, *index)
+        })
         .map(|(index, channel)| UnlabeledChannel {
             index,
             alternatives: channel
@@ -150,7 +183,6 @@ pub(super) async fn apply_local_diarization(
 
     let file_path = params.file_path.clone();
     let listen_params = listen_params.clone();
-    let transcript_channels = output.response.results.channels.len();
     let known_speakers: Vec<anlg_pyannote_local::KnownSpeaker> = params
         .known_speakers
         .iter()
@@ -524,6 +556,37 @@ mod tests {
         // Identical stereo channels collapse to one file; the transcript's
         // remote channel then has no audio of its own.
         assert!(plan_channel(&listen_params(None, None, None), 2, 1, 1).is_none());
+    }
+
+    #[test]
+    fn stereo_transcripts_skip_resampling_when_nothing_is_plannable() {
+        let stereo = owhisper_interface::ListenParams {
+            channels: 2,
+            ..listen_params(None, None, None)
+        };
+        // The direct-mic channel of a stereo capture is never diarized, so a
+        // Soniqo/Apple Speech batch whose remote channel is already labeled
+        // must not pay for a second resample.
+        assert!(!could_plan_channel(&stereo, 2, 0));
+        assert!(could_plan_channel(&stereo, 2, 1));
+        // A 1:1 call: one remote voice, nothing to separate.
+        let one_on_one = owhisper_interface::ListenParams {
+            channels: 2,
+            ..listen_params(Some(2), None, None)
+        };
+        assert!(!could_plan_channel(&one_on_one, 2, 1));
+
+        // Downmixed transcripts stay eligible whether the stereo file keeps
+        // both channels or collapses to one.
+        assert!(could_plan_channel(&stereo, 1, 0));
+        let mono = owhisper_interface::ListenParams {
+            channels: 1,
+            ..listen_params(None, None, None)
+        };
+        assert!(could_plan_channel(&mono, 1, 0));
+        assert!(!could_plan_channel(&mono, 2, 1));
+        // Unknown channel count stays permissive.
+        assert!(could_plan_channel(&listen_params(None, None, None), 1, 0));
     }
 
     #[test]
