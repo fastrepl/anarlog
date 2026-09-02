@@ -44,8 +44,14 @@ export const desktopDownloadSections = [
     platform: "windows",
     name: "Windows",
     status: "Beta",
-    description: "Install Anarlog through the Microsoft Store.",
+    description: "Choose a direct download or install from Microsoft Store.",
     downloads: [
+      {
+        name: "Windows x64",
+        detail: "Signed EXE installer",
+        url: getStableDownloadUrl("nsis-x86_64"),
+        showInMenu: true,
+      },
       {
         name: "Microsoft Store",
         detail: "Windows 10 and 11",
