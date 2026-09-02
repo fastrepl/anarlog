@@ -1,21 +1,24 @@
 import { useLingui } from "@lingui/react/macro";
-import { Waveform } from "@phosphor-icons/react";
+import { CheckCircle, PencilSimple, Waveform } from "@phosphor-icons/react";
 import { useCallback, useMemo } from "react";
 
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
-import { cn } from "@anlg/utils";
+import { cn, safeParseDate } from "@anlg/utils";
 
 import { IconHeaderView, copyTextToClipboard } from "./header-shared";
 
 import * as AudioPlayer from "~/audio-player";
+import { useNow } from "~/calendar/hooks";
 import { useRegenerateTranscript } from "~/session/components/note-input/transcript/actions";
 import {
   buildTranscriptExportSegments,
   formatTranscriptExportSegments,
 } from "~/session/components/note-input/transcript/export-data";
 import { useSessionTranscriptRenderData } from "~/session/components/note-input/transcript/render-request-hooks";
+import { useHasTranscript } from "~/session/components/shared";
+import { useSessionEvent } from "~/session/hooks/useSessionEvent";
 import {
   type MenuItemDef,
   useNativeContextMenu,
@@ -30,11 +33,15 @@ import {
 export function HeaderViewTranscript({
   isActive,
   isTranscribing,
+  editMode = false,
+  onEditModeChange,
   onClick = () => {},
   sessionId,
 }: {
   isActive: boolean;
   isTranscribing: boolean;
+  editMode?: boolean;
+  onEditModeChange?: (editMode: boolean) => void;
   onClick?: () => void;
   sessionId: string;
 }) {
@@ -55,6 +62,8 @@ export function HeaderViewTranscript({
     <HeaderViewTranscriptActive
       isActive={isActive}
       isTranscribing={isTranscribing}
+      editMode={editMode}
+      onEditModeChange={onEditModeChange}
       onClick={onClick}
       sessionId={sessionId}
       live={liveState.live}
@@ -68,11 +77,15 @@ function HeaderViewTranscriptButton({
   onClick,
   onContextMenu,
   live,
+  suffixIcon,
+  pressed,
 }: {
   isActive: boolean;
   isTranscribing: boolean;
   onClick?: () => void;
   onContextMenu?: React.MouseEventHandler<HTMLButtonElement>;
+  suffixIcon?: React.ReactNode;
+  pressed?: boolean;
   live?: {
     amplitude: number;
     degraded: boolean;
@@ -95,6 +108,8 @@ function HeaderViewTranscriptButton({
           <Waveform className="size-4" />
         )
       }
+      suffixIcon={suffixIcon}
+      pressed={pressed}
       onClick={onClick}
       onContextMenu={onContextMenu}
       title={undefined}
@@ -178,12 +193,16 @@ function useTranscriptLiveViewState(sessionId: string) {
 function HeaderViewTranscriptActive({
   isActive,
   isTranscribing,
+  editMode,
+  onEditModeChange,
   onClick,
   sessionId,
   live,
 }: {
   isActive: boolean;
   isTranscribing: boolean;
+  editMode: boolean;
+  onEditModeChange?: (editMode: boolean) => void;
   onClick?: () => void;
   sessionId: string;
   live?: {
@@ -194,6 +213,9 @@ function HeaderViewTranscriptActive({
 }) {
   const regenerate = useRegenerateTranscript(sessionId);
   const startListening = useStartListening(sessionId);
+  const sessionEvent = useSessionEvent(sessionId);
+  const hasTranscript = useHasTranscript(sessionId);
+  const now = useNow();
   const { request: transcriptExportRequest } =
     useSessionTranscriptRenderData(sessionId);
   const {
@@ -203,6 +225,23 @@ function HeaderViewTranscriptActive({
     isDeletingRecording,
   } = AudioPlayer.useAudioPlayer();
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
+  const endedAt = sessionEvent?.ended_at
+    ? safeParseDate(sessionEvent.ended_at)
+    : null;
+  const eventEnded = !!endedAt && endedAt.getTime() <= now.getTime();
+  const canEdit =
+    sessionMode === "inactive" &&
+    hasTranscript &&
+    (!sessionEvent || eventEnded) &&
+    Boolean(onEditModeChange);
+  const handleClick = useCallback(() => {
+    if (canEdit) {
+      onEditModeChange?.(!editMode);
+      return;
+    }
+
+    onClick?.();
+  }, [canEdit, editMode, onClick, onEditModeChange]);
   const canCopyTranscript = Boolean(transcriptExportRequest);
   const handleCopyTranscript = useCallback(async () => {
     if (!transcriptExportRequest) {
@@ -296,9 +335,19 @@ function HeaderViewTranscriptActive({
     <HeaderViewTranscriptButton
       isActive={isActive}
       isTranscribing={isTranscribing}
-      onClick={onClick}
+      onClick={handleClick}
       onContextMenu={showContextMenu}
       live={live}
+      suffixIcon={
+        canEdit ? (
+          editMode ? (
+            <CheckCircle aria-hidden className="size-3.5" />
+          ) : (
+            <PencilSimple aria-hidden className="size-3.5" />
+          )
+        ) : undefined
+      }
+      pressed={canEdit ? editMode : undefined}
     />
   );
 }

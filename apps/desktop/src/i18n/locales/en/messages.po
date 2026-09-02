@@ -1809,7 +1809,6 @@ msgstr "Documentation"
 msgid "Don't save"
 msgstr "Don't save"
 
-#: src/session/components/note-input/transcript/index.tsx
 #: src/settings/sync/index.tsx
 msgid "Done"
 msgstr "Done"
@@ -1869,7 +1868,6 @@ msgid "Each example must be 12,000 characters or fewer."
 msgstr "Each example must be 12,000 characters or fewer."
 
 #: src/main/windows-title-bar.tsx
-#: src/session/components/note-input/transcript/index.tsx
 #: src/sidebar/automations.tsx
 msgid "Edit"
 msgstr "Edit"
@@ -2104,6 +2102,7 @@ msgstr "Flags"
 msgid "Float chat"
 msgstr "Float chat"
 
+#: src/session/components/folder-picker.tsx
 #: src/settings/appearance/sidebar-item-fields.tsx
 #: src/sidebar/note-filter-menu.tsx
 msgid "Folder"
@@ -2742,6 +2741,10 @@ msgstr "Meeting exports"
 #: src/onboarding/index.tsx
 msgid "Meeting history imported"
 msgstr "Meeting history imported"
+
+#: src/session/components/outer-header/overflow/index.tsx
+msgid "Meeting info"
+msgstr "Meeting info"
 
 #: src/session-sharing/delivery-management.ts
 #: src/session-sharing/index.tsx
@@ -3834,14 +3837,9 @@ msgstr "Restore"
 msgid "Restoring cloud sync..."
 msgstr "Restoring cloud sync..."
 
-#: src/session/components/outer-header/index.tsx
 #: src/settings/general/account.tsx
 msgid "Resume"
 msgstr "Resume"
-
-#: src/session/components/outer-header/index.tsx
-msgid "Resume listening"
-msgstr "Resume listening"
 
 #: src/main/sync-status.tsx
 msgid "Resume sync"

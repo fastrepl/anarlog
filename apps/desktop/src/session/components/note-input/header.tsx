@@ -22,12 +22,16 @@ export function SessionViewSwitcher({
   currentTab,
   handleTabChange,
   isTranscribing = false,
+  transcriptEditMode = false,
+  onTranscriptEditModeChange,
 }: {
   sessionId: string;
   editorTabs: EditorView[];
   currentTab: EditorView;
   handleTabChange: (view: EditorView) => void;
   isTranscribing?: boolean;
+  transcriptEditMode?: boolean;
+  onTranscriptEditModeChange?: (editMode: boolean) => void;
 }) {
   const { t } = useLingui();
   const primaryEnhancedTabId = editorTabs.find(
@@ -109,6 +113,8 @@ export function SessionViewSwitcher({
               sessionId={sessionId}
               isActive={currentTab.type === view.type}
               isTranscribing={isTranscribing}
+              editMode={transcriptEditMode}
+              onEditModeChange={onTranscriptEditModeChange}
               onClick={() => handleTabChange(view)}
             />
           );

@@ -25,6 +25,8 @@ export function IconHeaderView({
   label,
   hoverLabel,
   icon,
+  suffixIcon,
+  pressed,
   onClick,
   onContextMenu,
   title,
@@ -35,6 +37,8 @@ export function IconHeaderView({
   label: string;
   hoverLabel?: string;
   icon: React.ReactNode;
+  suffixIcon?: React.ReactNode;
+  pressed?: boolean;
   onClick?: () => void;
   onContextMenu?: React.MouseEventHandler<HTMLButtonElement>;
   title?: string;
@@ -48,6 +52,7 @@ export function IconHeaderView({
       type="button"
       aria-label={label}
       aria-current={isActive ? "page" : undefined}
+      aria-pressed={pressed}
       onClick={onClick}
       onContextMenu={onContextMenu}
       title={title}
@@ -58,7 +63,9 @@ export function IconHeaderView({
         cn([
           "px-2",
           isActive
-            ? "max-w-40 min-w-10 gap-1.5 @max-[480px]:max-w-10 @max-[480px]:gap-0"
+            ? suffixIcon
+              ? "max-w-40 min-w-10 gap-1.5 @max-[480px]:max-w-12 @max-[480px]:min-w-12 @max-[480px]:gap-0 @max-[480px]:px-1.5"
+              : "max-w-40 min-w-10 gap-1.5 @max-[480px]:max-w-10 @max-[480px]:gap-0"
             : null,
           hoverLabel
             ? "after:hidden after:min-w-0 after:truncate after:text-xs after:font-medium after:content-[attr(data-hover-label)] hover:after:block"
@@ -78,6 +85,7 @@ export function IconHeaderView({
           {label}
         </span>
       )}
+      {isActive ? suffixIcon : null}
     </button>
   );
 }

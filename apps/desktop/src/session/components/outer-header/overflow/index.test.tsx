@@ -74,7 +74,25 @@ vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
       {children}
     </button>
   ),
+  DropdownMenuPortal: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
   DropdownMenuSeparator: () => <hr />,
+  DropdownMenuSub: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuSubContent: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuSubTrigger: ({
+    children,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button type="button" {...props}>
+      {children}
+      <span aria-hidden>›</span>
+    </button>
+  ),
   DropdownMenuTrigger: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
@@ -102,6 +120,20 @@ vi.mock("./misc", () => ({
 
 vi.mock("./lock-note", () => ({
   LockNote: () => <button type="button">Lock Note</button>,
+}));
+
+vi.mock("../metadata", () => ({
+  MetadataPanelContent: ({ sessionId }: { sessionId: string }) => (
+    <div data-testid="meeting-info-popover">{sessionId}</div>
+  ),
+}));
+
+vi.mock("../../folder-picker", () => ({
+  FolderPickerSubmenu: ({ sessionId }: { sessionId: string }) => (
+    <button type="button" aria-label="Select folder">
+      Folder {sessionId}
+    </button>
+  ),
 }));
 
 vi.mock("~/meeting-float/host", () => ({
@@ -270,7 +302,7 @@ describe("OverflowButton", () => {
       />,
     );
 
-    expect(container.querySelectorAll("hr")).toHaveLength(1);
+    expect(container.querySelectorAll("hr")).toHaveLength(2);
   });
 
   it("offers resume and re-transcribe when recorded audio exists", () => {
@@ -306,7 +338,34 @@ describe("OverflowButton", () => {
       />,
     );
 
-    expect(container.querySelectorAll("hr")).toHaveLength(2);
+    expect(container.querySelectorAll("hr")).toHaveLength(3);
+  });
+
+  it("nests meeting info in a hover submenu", () => {
+    render(
+      <OverflowButton
+        sessionId="session-1"
+        currentView={{ type: "enhanced", id: "note-1" } as EditorView}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Meeting info" })).not.toBeNull();
+    expect(screen.getByTestId("meeting-info-popover").textContent).toBe(
+      "session-1",
+    );
+  });
+
+  it("nests folder selection in the overflow menu", () => {
+    render(
+      <OverflowButton
+        sessionId="session-1"
+        currentView={{ type: "enhanced", id: "note-1" } as EditorView}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Select folder" }).textContent,
+    ).toContain("session-1");
   });
 
   it("keeps the overflow trigger out of the header drag region", () => {

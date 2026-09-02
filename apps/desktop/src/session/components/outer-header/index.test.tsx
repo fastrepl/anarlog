@@ -39,29 +39,8 @@ const mocks = vi.hoisted(() => ({
     allowListening?: boolean;
     standaloneWindow?: boolean;
   }>,
-  shareSessionIds: [] as string[],
   windowControlsGutter: true,
   meetingMicInUse: false,
-}));
-
-vi.mock("../folder-picker", () => ({
-  FolderPicker: () => (
-    <button type="button" role="combobox" aria-label="Select folder">
-      Folder
-    </button>
-  ),
-}));
-
-vi.mock("./metadata", () => ({
-  MetadataButton: () => (
-    <button
-      type="button"
-      data-tauri-drag-region="false"
-      aria-label="Open event metadata"
-    >
-      <svg aria-hidden="true" data-testid="metadata-calendar-icon" />
-    </button>
-  ),
 }));
 
 vi.mock("../title-input", () => ({
@@ -75,13 +54,6 @@ vi.mock("./overflow", () => ({
   }) => {
     mocks.overflowProps.push(props);
     return <button type="button">More</button>;
-  },
-}));
-
-vi.mock("~/session-sharing", () => ({
-  SessionShareButton: ({ sessionId }: { sessionId: string }) => {
-    mocks.shareSessionIds.push(sessionId);
-    return <button type="button">Share</button>;
   },
 }));
 
@@ -205,7 +177,6 @@ describe("OuterHeader", () => {
       auto_start_scheduled_meetings: false,
     };
     mocks.overflowProps = [];
-    mocks.shareSessionIds = [];
     mocks.windowControlsGutter = true;
     mocks.meetingMicInUse = false;
   });
@@ -233,7 +204,7 @@ describe("OuterHeader", () => {
     expect(spacer?.className).not.toContain("right-[140px]");
   });
 
-  it("shows only calendar metadata after a scheduled meeting is stopped", () => {
+  it("keeps overflow available after a scheduled meeting is stopped", () => {
     mocks.leftsidebar.expanded = false;
     mocks.sessionModes = { "session-1": "finalizing" };
     mocks.sessionEvents = {
@@ -257,7 +228,7 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("button", { name: "Join & record" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
-    expect(screen.getByTestId("metadata-calendar-icon")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "More" })).not.toBeNull();
     expect(spacer?.className).toContain("flex-1");
     expect(spacer?.className).not.toContain("right-[140px]");
   });
@@ -326,7 +297,7 @@ describe("OuterHeader", () => {
     ["summary", { type: "enhanced", id: "summary-1" }],
     ["memos", { type: "raw" }],
     ["transcript", { type: "transcript" }],
-  ])("shows sharing from the %s view", (_label, currentView) => {
+  ])("shows the record CTA from the %s view", (_label, currentView) => {
     const { container } = render(
       <OuterHeader
         sessionId="session-1"
@@ -336,8 +307,7 @@ describe("OuterHeader", () => {
 
     const spacer = container.firstElementChild?.firstElementChild;
 
-    expect(mocks.shareSessionIds).toEqual(["session-1"]);
-    expect(screen.getByRole("button", { name: "Share" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Record" })).not.toBeNull();
     expect(spacer?.className).toContain("flex-1");
   });
 
@@ -387,7 +357,7 @@ describe("OuterHeader", () => {
     expect(actionStrip?.hasAttribute("data-tauri-drag-region")).toBe(true);
   });
 
-  it("places the folder, calendar, and share controls in order", () => {
+  it("places the record and overflow controls in order", () => {
     mocks.hasTranscriptBySession = { "session-1": true };
 
     const { container } = render(
@@ -404,26 +374,20 @@ describe("OuterHeader", () => {
 
     const header = container.firstElementChild;
     const views = screen.getByRole("group", { name: "Session note views" });
-    const folder = screen.getByRole("combobox", { name: "Select folder" });
-    const calendar = screen.getByRole("button", {
-      name: "Open event metadata",
-    });
-    const share = screen.getByRole("button", { name: "Share" });
+    const record = screen.getByRole("button", { name: "Record" });
+    const more = screen.getByRole("button", { name: "More" });
     const actionStrip = header?.lastElementChild;
     const actionChildren = [...(actionStrip?.children ?? [])];
 
     expect(header?.firstElementChild).toBe(views);
-    expect(actionStrip?.contains(folder)).toBe(true);
-    expect(actionStrip?.contains(calendar)).toBe(true);
-    expect(actionStrip?.contains(share)).toBe(true);
+    expect(actionStrip?.contains(record)).toBe(true);
+    expect(actionStrip?.contains(more)).toBe(true);
     expect(
-      actionChildren.findIndex((child) => child.contains(folder)),
-    ).toBeLessThan(
-      actionChildren.findIndex((child) => child.contains(calendar)),
-    );
+      actionChildren.findIndex((child) => child.contains(record)),
+    ).toBeLessThan(actionChildren.findIndex((child) => child.contains(more)));
     expect(
-      actionChildren.findIndex((child) => child.contains(calendar)),
-    ).toBeLessThan(actionChildren.findIndex((child) => child.contains(share)));
+      screen.queryByRole("combobox", { name: "Select folder" }),
+    ).toBeNull();
   });
 
   it("shows an editable title in the header on the summary tab", () => {
@@ -603,7 +567,7 @@ describe("OuterHeader", () => {
     },
   );
 
-  it("places stop immediately before the folder while listening", () => {
+  it("places stop immediately before overflow while listening", () => {
     mocks.sessionModes = { "session-1": "active" };
 
     const { container } = render(
@@ -619,16 +583,14 @@ describe("OuterHeader", () => {
     );
 
     const stop = screen.getByRole("button", { name: "Stop" });
-    const folder = screen.getByRole("combobox", { name: "Select folder" });
+    const more = screen.getByRole("button", { name: "More" });
     const actionStrip = container.firstElementChild?.lastElementChild;
     const actionChildren = [...(actionStrip?.children ?? [])];
     const stopIndex = actionChildren.findIndex((child) => child.contains(stop));
-    const folderIndex = actionChildren.findIndex((child) =>
-      child.contains(folder),
-    );
+    const moreIndex = actionChildren.findIndex((child) => child.contains(more));
 
     expect(actionStrip?.contains(stop)).toBe(true);
-    expect(stopIndex).toBe(folderIndex - 1);
+    expect(moreIndex).toBe(stopIndex + 1);
     expect(screen.getByRole("group", { name: "Session note views" })).not.toBe(
       stop.closest("[role='group']"),
     );
@@ -647,7 +609,7 @@ describe("OuterHeader", () => {
     expect(screen.getByRole("button", { name: "Stop" })).not.toBeNull();
   });
 
-  it("shows stop next to folder in standalone windows", () => {
+  it("shows stop next to overflow in standalone windows", () => {
     mocks.leftsidebar.expanded = true;
     mocks.sessionModes = { "session-1": "active" };
 
@@ -661,7 +623,7 @@ describe("OuterHeader", () => {
 
     const header = container.firstElementChild;
     const stop = screen.getByRole("button", { name: "Stop" });
-    const folder = screen.getByRole("combobox", { name: "Select folder" });
+    const more = screen.getByRole("button", { name: "More" });
     const actionStrip = header?.lastElementChild;
     const actionChildren = [...(actionStrip?.children ?? [])];
 
@@ -669,12 +631,12 @@ describe("OuterHeader", () => {
     expect(header?.className).not.toContain("right-[153px]");
     expect(
       actionChildren.findIndex((child) => child.contains(stop)),
-    ).toBeLessThan(actionChildren.findIndex((child) => child.contains(folder)));
+    ).toBeLessThan(actionChildren.findIndex((child) => child.contains(more)));
 
     const overflowProps = mocks.overflowProps[mocks.overflowProps.length - 1];
     expect(overflowProps?.standaloneWindow).toBe(true);
     expect(overflowProps?.allowListening).toBeUndefined();
-    expect(mocks.shareSessionIds).toContain("session-1");
+    expect(more).not.toBeNull();
   });
 
   it("delegates live meeting stop from the header pill in standalone windows", () => {
@@ -758,9 +720,7 @@ describe("OuterHeader", () => {
     );
 
     const joinButton = screen.getByRole("button", { name: "Join & record" });
-    const metadataButton = screen.getByRole("button", {
-      name: "Open event metadata",
-    });
+    const moreButton = screen.getByRole("button", { name: "More" });
 
     expect(joinButton.className).toContain("bg-primary");
     expect(joinButton.className).toContain("dark:bg-white");
@@ -771,8 +731,8 @@ describe("OuterHeader", () => {
     expect(joinButton.getAttribute("aria-label")).toBe("Join & record");
     expect(joinButton.textContent).toContain("Join & record");
     expect(joinButton.getAttribute("data-tauri-drag-region")).toBe("false");
-    expect(metadataButton.getAttribute("data-tauri-drag-region")).toBe("false");
-    expect(joinButton.parentElement?.contains(metadataButton)).toBe(false);
+    expect(moreButton).not.toBeNull();
+    expect(joinButton.parentElement?.contains(moreButton)).toBe(false);
 
     fireEvent.click(joinButton);
 
@@ -1180,9 +1140,7 @@ describe("OuterHeader", () => {
     fireEvent.click(screen.getByRole("button", { name: "Record" }));
 
     expect(mocks.startListening).toHaveBeenCalledTimes(1);
-    expect(
-      screen.getByRole("button", { name: "Open event metadata" }),
-    ).not.toBeNull();
+    expect(screen.getByRole("button", { name: "More" })).not.toBeNull();
   });
 
   it("shows record before a meeting with an unrecognized video link", () => {
@@ -1231,12 +1189,10 @@ describe("OuterHeader", () => {
     fireEvent.click(recordButton);
 
     expect(mocks.startListening).toHaveBeenCalledTimes(1);
-    expect(
-      screen.getByRole("button", { name: "Open event metadata" }),
-    ).not.toBeNull();
+    expect(screen.getByRole("button", { name: "More" })).not.toBeNull();
   });
 
-  it("shows only metadata for an inactive ad hoc session with a transcript", () => {
+  it("shows record for an inactive ad hoc session with a transcript", () => {
     mocks.hasTranscriptBySession = { "session-1": true };
 
     render(
@@ -1246,15 +1202,12 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
-    expect(
-      screen.getByRole("button", { name: "Open event metadata" }),
-    ).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Record" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "More" })).not.toBeNull();
     expect(mocks.startListening).not.toHaveBeenCalled();
   });
 
-  it("shows only metadata for an inactive ad hoc session with audio", () => {
+  it("shows record for an inactive ad hoc session with audio", () => {
     mocks.audioExists = true;
 
     render(
@@ -1264,15 +1217,12 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
-    expect(
-      screen.getByRole("button", { name: "Open event metadata" }),
-    ).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Record" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "More" })).not.toBeNull();
     expect(mocks.startListening).not.toHaveBeenCalled();
   });
 
-  it("keeps the separate stop pill next to folder when the view switcher is present", () => {
+  it("keeps the separate stop pill before overflow when the view switcher is present", () => {
     mocks.sessionModes = { "session-1": "active" };
 
     render(
@@ -1284,14 +1234,16 @@ describe("OuterHeader", () => {
     );
 
     const stop = screen.getByRole("button", { name: "Stop" });
-    const folder = screen.getByRole("combobox", { name: "Select folder" });
+    const more = screen.getByRole("button", { name: "More" });
 
     expect(stop).not.toBeNull();
     expect(screen.getByText("tabs")).not.toBeNull();
-    expect(screen.getByTestId("metadata-calendar-icon")).not.toBeNull();
     expect(
-      stop.compareDocumentPosition(folder) & Node.DOCUMENT_POSITION_FOLLOWING,
+      stop.compareDocumentPosition(more) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+    expect(
+      screen.queryByRole("combobox", { name: "Select folder" }),
+    ).toBeNull();
   });
 
   it("keeps stop available for an active ad hoc session", () => {
@@ -1306,9 +1258,7 @@ describe("OuterHeader", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Stop" }));
 
-    expect(
-      screen.getByRole("button", { name: "Open event metadata" }),
-    ).not.toBeNull();
+    expect(screen.getByRole("button", { name: "More" })).not.toBeNull();
     expect(mocks.stopListening).toHaveBeenCalledTimes(1);
   });
 
@@ -1338,9 +1288,7 @@ describe("OuterHeader", () => {
       "text-red-500",
     );
     expect(screen.queryByRole("button", { name: "Join & record" })).toBeNull();
-    expect(
-      screen.getByRole("button", { name: "Open event metadata" }),
-    ).not.toBeNull();
+    expect(screen.getByRole("button", { name: "More" })).not.toBeNull();
     expect(mocks.stopListening).toHaveBeenCalledTimes(1);
   });
 
@@ -1365,11 +1313,11 @@ describe("OuterHeader", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Stop" }));
 
-    expect(screen.getByTestId("metadata-calendar-icon")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "More" })).not.toBeNull();
     expect(mocks.stopListening).toHaveBeenCalledTimes(1);
   });
 
-  it("shows only the calendar metadata button after the meeting is over", () => {
+  it("shows record and overflow after the meeting is over", () => {
     mocks.sessionEvents = {
       "session-1": {
         title: "Design Review",
@@ -1387,19 +1335,15 @@ describe("OuterHeader", () => {
       />,
     );
 
-    const metadataButton = screen.getByRole("button", {
-      name: "Open event metadata",
-    });
+    const moreButton = screen.getByRole("button", { name: "More" });
 
-    expect(screen.getByTestId("metadata-calendar-icon")).not.toBeNull();
     expect(screen.queryByRole("button", { name: "Join & record" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
-    expect(metadataButton.getAttribute("data-tauri-drag-region")).toBe("false");
-    expect(metadataButton.parentElement?.className).not.toContain("mr-1");
+    expect(screen.getByRole("button", { name: "Record" })).not.toBeNull();
+    expect(moreButton).not.toBeNull();
     expect(mocks.startListening).not.toHaveBeenCalled();
   });
 
-  it("shows only the calendar metadata button when the session is recorded but ended_at is missing", () => {
+  it("shows record instead of rejoining when a recorded event has no ended_at", () => {
     mocks.sessionEvents = {
       "session-1": {
         title: "Design Review",
@@ -1417,103 +1361,23 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(screen.getByTestId("metadata-calendar-icon")).not.toBeNull();
     expect(screen.queryByRole("button", { name: "Join & record" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Record" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "More" })).not.toBeNull();
     expect(mocks.startListening).not.toHaveBeenCalled();
   });
 
-  it("shows transcript editing in the meeting-action slot after an ad hoc meeting", () => {
+  it("does not render separate transcript edit controls", () => {
     mocks.hasTranscriptBySession = { "session-1": true };
-    const onTranscriptEditModeChange = vi.fn();
-    const view = render(
-      <OuterHeader
-        sessionId="session-1"
-        currentView={{ type: "transcript" } as EditorView}
-        transcriptEditMode={false}
-        onTranscriptEditModeChange={onTranscriptEditModeChange}
-      />,
-    );
-
-    const editButton = screen.getByRole("button", { name: "Edit" });
-    expect(editButton.className).toContain("@max-[480px]:w-7");
-    expect(editButton.querySelector("span")?.className).toContain(
-      "@max-[480px]:sr-only",
-    );
-    fireEvent.click(editButton);
-    expect(onTranscriptEditModeChange).toHaveBeenCalledWith(true);
-    expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
-    expect(
-      screen.getByRole("button", { name: "Open event metadata" }),
-    ).not.toBeNull();
-
-    view.rerender(
-      <OuterHeader
-        sessionId="session-1"
-        currentView={{ type: "transcript" } as EditorView}
-        transcriptEditMode
-        onTranscriptEditModeChange={onTranscriptEditModeChange}
-      />,
-    );
-
-    const doneButton = screen.getByRole("button", { name: "Done" });
-    expect(doneButton.getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(doneButton);
-    expect(onTranscriptEditModeChange).toHaveBeenLastCalledWith(false);
-  });
-
-  it("does not show transcript editing outside the transcript tab", () => {
-    mocks.hasTranscriptBySession = { "session-1": true };
-
     render(
       <OuterHeader
         sessionId="session-1"
-        currentView={{ type: "raw" } as EditorView}
-        onTranscriptEditModeChange={vi.fn()}
+        currentView={{ type: "transcript" } as EditorView}
       />,
     );
 
     expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
-  });
-
-  it("does not show transcript editing while the meeting is active", () => {
-    mocks.hasTranscriptBySession = { "session-1": true };
-    mocks.sessionModes = { "session-1": "active" };
-
-    render(
-      <OuterHeader
-        sessionId="session-1"
-        currentView={{ type: "transcript" } as EditorView}
-        onTranscriptEditModeChange={vi.fn()}
-      />,
-    );
-
-    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Stop" })).not.toBeNull();
-  });
-
-  it("shows transcript editing alongside metadata after a scheduled meeting", () => {
-    mocks.hasTranscriptBySession = { "session-1": true };
-    mocks.sessionEvents = {
-      "session-1": {
-        title: "Design Review",
-        started_at: "2026-06-05T10:00:00.000Z",
-        ended_at: "2026-06-05T10:30:00.000Z",
-      },
-    };
-    mocks.nowMs = new Date("2026-06-05T10:31:00.000Z").getTime();
-
-    render(
-      <OuterHeader
-        sessionId="session-1"
-        currentView={{ type: "transcript" } as EditorView}
-        onTranscriptEditModeChange={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByRole("button", { name: "Edit" })).not.toBeNull();
-    expect(
-      screen.getByRole("button", { name: "Open event metadata" }),
-    ).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Done" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Record" })).not.toBeNull();
   });
 });

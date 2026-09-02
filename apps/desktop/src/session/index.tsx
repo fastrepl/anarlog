@@ -258,8 +258,6 @@ function TabContentNoteInner({
               currentView={currentView}
               tab={tab}
               standaloneWindow={standaloneWindow}
-              transcriptEditMode={transcriptEditMode}
-              onTranscriptEditModeChange={handleTranscriptEditModeChange}
               viewSwitcher={
                 <SessionViewSwitcher
                   sessionId={sessionId}
@@ -267,6 +265,8 @@ function TabContentNoteInner({
                   currentTab={currentView}
                   handleTabChange={handleTabChange}
                   isTranscribing={isTranscribing}
+                  transcriptEditMode={transcriptEditMode}
+                  onTranscriptEditModeChange={handleTranscriptEditModeChange}
                 />
               }
             />

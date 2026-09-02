@@ -37,6 +37,8 @@ const hoisted = vi.hoisted(() => ({
   liveDegraded: null as unknown,
   liveMuted: false,
   sessionMode: "inactive",
+  sessionEvent: null as { ended_at?: string } | null,
+  nowMs: new Date("2026-06-05T10:31:00.000Z").getTime(),
   isMainWebviewWindow: true,
   isDeletingRecording: false,
   updateSession: vi.fn(() => Promise.resolve()),
@@ -142,6 +144,10 @@ vi.mock("~/audio-player", () => ({
   }),
 }));
 
+vi.mock("~/calendar/hooks", () => ({
+  useNow: () => new Date(hoisted.nowMs),
+}));
+
 vi.mock("~/ai/hooks", () => ({
   useAITaskTask: () => ({
     isIdle: true,
@@ -178,6 +184,10 @@ vi.mock("~/session/components/shared", () => ({
 
 vi.mock("~/session/hooks/useEnhancedNotes", () => ({
   useEnsureDefaultSummary: vi.fn(),
+}));
+
+vi.mock("~/session/hooks/useSessionEvent", () => ({
+  useSessionEvent: () => hoisted.sessionEvent,
 }));
 
 vi.mock("~/services/enhancer", () => ({
@@ -336,6 +346,8 @@ describe("Header", () => {
     hoisted.liveDegraded = null;
     hoisted.liveMuted = false;
     hoisted.sessionMode = "inactive";
+    hoisted.sessionEvent = null;
+    hoisted.nowMs = new Date("2026-06-05T10:31:00.000Z").getTime();
     hoisted.isMainWebviewWindow = true;
     hoisted.isDeletingRecording = false;
     hoisted.transcriptExportRequest = {};
@@ -894,6 +906,84 @@ describe("Header", () => {
     expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
     expect(hoisted.startListening).not.toHaveBeenCalled();
     expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
+  });
+
+  it("toggles transcript editing from the selected transcript tab", () => {
+    const handleTabChange = vi.fn();
+    const onTranscriptEditModeChange = vi.fn();
+    const editorTabs: EditorView[] = [
+      { type: "enhanced", id: "note-1" },
+      { type: "raw" },
+      { type: "transcript" },
+    ];
+    const view = render(
+      <SessionViewSwitcher
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "transcript" }}
+        handleTabChange={handleTabChange}
+        onTranscriptEditModeChange={onTranscriptEditModeChange}
+      />,
+    );
+
+    const transcriptTab = screen.getByRole("button", { name: "Transcript" });
+
+    expect(transcriptTab.getAttribute("aria-pressed")).toBe("false");
+    expect(transcriptTab.querySelectorAll("svg")).toHaveLength(2);
+    expect(transcriptTab.className).toContain("@max-[480px]:max-w-12");
+
+    fireEvent.click(transcriptTab);
+
+    expect(onTranscriptEditModeChange).toHaveBeenCalledWith(true);
+    expect(handleTabChange).not.toHaveBeenCalled();
+
+    view.rerender(
+      <SessionViewSwitcher
+        sessionId="session-1"
+        editorTabs={editorTabs}
+        currentTab={{ type: "transcript" }}
+        handleTabChange={handleTabChange}
+        transcriptEditMode
+        onTranscriptEditModeChange={onTranscriptEditModeChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Transcript" }));
+
+    expect(
+      screen
+        .getByRole("button", { name: "Transcript" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(onTranscriptEditModeChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("keeps transcript editing off while a meeting is active", () => {
+    hoisted.sessionMode = "active";
+    const handleTabChange = vi.fn();
+    const onTranscriptEditModeChange = vi.fn();
+
+    render(
+      <SessionViewSwitcher
+        sessionId="session-1"
+        editorTabs={[
+          { type: "enhanced", id: "note-1" },
+          { type: "raw" },
+          { type: "transcript" },
+        ]}
+        currentTab={{ type: "transcript" }}
+        handleTabChange={handleTabChange}
+        onTranscriptEditModeChange={onTranscriptEditModeChange}
+      />,
+    );
+
+    const transcriptTab = screen.getByRole("button", { name: "Transcript" });
+    expect(transcriptTab.getAttribute("aria-pressed")).toBeNull();
+
+    fireEvent.click(transcriptTab);
+
+    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
+    expect(onTranscriptEditModeChange).not.toHaveBeenCalled();
   });
 
   it("does not delegate resume listening from the transcript tab in standalone windows", () => {

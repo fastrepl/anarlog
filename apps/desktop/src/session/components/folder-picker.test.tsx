@@ -7,7 +7,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { FolderPicker } from "./folder-picker";
+import { FolderPicker, FolderPickerSubmenu } from "./folder-picker";
 
 const mocks = vi.hoisted(() => ({
   createNamedFolder: vi.fn(() => Promise.resolve("clients")),
@@ -41,6 +41,27 @@ vi.mock("~/session/queries", () => ({
   useFolderPaths: () => mocks.folderPaths,
   useSession: () => ({ folder_id: mocks.folderId }),
   useUpdateSession: () => mocks.updateSession,
+}));
+
+vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
+  DropdownMenuPortal: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+  DropdownMenuSub: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuSubContent: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuSubTrigger: ({
+    children,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button type="button" {...props}>
+      {children}
+      <span aria-hidden>›</span>
+    </button>
+  ),
 }));
 
 describe("FolderPicker", () => {
@@ -84,9 +105,33 @@ describe("FolderPicker", () => {
     render(<FolderPicker sessionId="session-1" />);
 
     const trigger = screen.getByRole("combobox", { name: "Folder: work" });
+    const label = trigger.querySelector("span");
 
     expect(trigger.textContent).toBe("work");
+    expect(trigger.className).toContain("max-w-36");
+    expect(trigger.className).toContain("@max-[480px]:w-7");
+    expect(label?.className).toContain("truncate");
+    expect(label?.className).toContain("@max-[480px]:sr-only");
     expect(trigger.querySelectorAll("svg")).toHaveLength(1);
+  });
+
+  it("shows the current folder in the overflow submenu", () => {
+    mocks.folderId = "work";
+    const onClose = vi.fn();
+
+    render(<FolderPickerSubmenu sessionId="session-1" onClose={onClose} />);
+
+    const trigger = screen.getByRole("button", { name: "Folder: work" });
+
+    expect(trigger.textContent).toContain("Folder");
+    expect(trigger.textContent).toContain("work");
+
+    fireEvent.click(screen.getByRole("option", { name: "personal" }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(mocks.updateSession).toHaveBeenCalledWith({
+      folder_id: "personal",
+    });
   });
 
   it("uses the same floating chrome as note metadata", () => {

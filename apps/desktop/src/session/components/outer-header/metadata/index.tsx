@@ -27,16 +27,24 @@ export function MetadataButton({ sessionId }: { sessionId: string }) {
       <PopoverTrigger asChild>
         <TriggerInner label={label} open={open} />
       </PopoverTrigger>
-      <PopoverContent
-        variant="app"
-        align="end"
-        className="w-72 overflow-hidden"
-      >
-        <AppFloatingPanel className="scrollbar-soft max-h-[80vh] min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain">
-          <ContentInner sessionId={sessionId} />
-        </AppFloatingPanel>
-      </PopoverContent>
+      <MetadataPopoverContent sessionId={sessionId} />
     </Popover>
+  );
+}
+
+export function MetadataPopoverContent({ sessionId }: { sessionId: string }) {
+  return (
+    <PopoverContent variant="app" align="end" className="w-72 overflow-hidden">
+      <MetadataPanelContent sessionId={sessionId} />
+    </PopoverContent>
+  );
+}
+
+export function MetadataPanelContent({ sessionId }: { sessionId: string }) {
+  return (
+    <AppFloatingPanel className="scrollbar-soft max-h-[80vh] min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain">
+      <ContentInner sessionId={sessionId} />
+    </AppFloatingPanel>
   );
 }
 

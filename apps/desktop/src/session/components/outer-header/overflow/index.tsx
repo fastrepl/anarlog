@@ -2,6 +2,7 @@ import { Trans } from "@lingui/react/macro";
 import {
   AppWindow,
   ArrowsClockwise,
+  CalendarBlank,
   DotsThree,
   FileArrowDown,
   FileText,
@@ -17,10 +18,16 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuPortal,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
 
+import { FolderPickerSubmenu } from "../../folder-picker";
+import { MetadataPanelContent } from "../metadata";
 import { DeleteNote } from "./delete";
 import { ExportModal } from "./export-modal";
 import { Listening } from "./listening";
@@ -124,6 +131,7 @@ export function OverflowButton({
             size="icon"
             variant="ghost"
             data-tauri-drag-region="false"
+            aria-label="More"
             className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-full [&_svg]:size-4"
           >
             <DotsThree className="size-4" />
@@ -131,6 +139,27 @@ export function OverflowButton({
         </DropdownMenuTrigger>
         <DropdownMenuContent variant="app" align="end" className="w-56">
           <AppFloatingPanel className={appFloatingMenuPanelClassName}>
+            <FolderPickerSubmenu
+              sessionId={sessionId}
+              onClose={() => setOpen(false)}
+            />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="cursor-pointer">
+                <CalendarBlank />
+                <span>
+                  <Trans>Meeting info</Trans>
+                </span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent
+                  variant="app"
+                  className="w-72 overflow-hidden"
+                >
+                  <MetadataPanelContent sessionId={sessionId} />
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={openExportModal}
               className="cursor-pointer"

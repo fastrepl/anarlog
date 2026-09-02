@@ -11,11 +11,8 @@ import {
 } from "@anlg/ui/components/ui/popover";
 import { cn, parseEventInstant, safeParseDate } from "@anlg/utils";
 
-import { FolderPicker } from "../folder-picker";
-import { TranscriptEditButton } from "../note-input/transcript";
 import { RecordingIcon, useHasTranscript } from "../shared";
 import { TitleInput } from "../title-input";
-import { MetadataButton } from "./metadata";
 import { OverflowButton } from "./overflow";
 
 import { useAudioPlayer } from "~/audio-player";
@@ -25,7 +22,6 @@ import {
   buildWelcomeNoteDemoUrl,
   WELCOME_NOTE_TRACKING_ID,
 } from "~/onboarding/welcome-note.constants";
-import { SessionShareButton } from "~/session-sharing";
 import { useEventCountdown } from "~/session/hooks/useEventCountdown";
 import { useMeetingMicInUse } from "~/session/hooks/useMeetingMicInUse";
 import {
@@ -49,16 +45,12 @@ export function OuterHeader({
   tab,
   standaloneWindow = false,
   viewSwitcher,
-  transcriptEditMode = false,
-  onTranscriptEditModeChange,
 }: {
   sessionId: string;
   currentView: EditorView;
   tab?: Extract<Tab, { type: "sessions" }>;
   standaloneWindow?: boolean;
   viewSwitcher?: React.ReactNode;
-  transcriptEditMode?: boolean;
-  onTranscriptEditModeChange?: (editMode: boolean) => void;
 }) {
   const { leftsidebar } = useShell();
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
@@ -106,16 +98,7 @@ export function OuterHeader({
         data-tauri-drag-region
         className="relative z-10 flex shrink-0 items-center pr-1"
       >
-        <HeaderMeetingControl
-          sessionId={sessionId}
-          sessionMode={sessionMode}
-          currentView={currentView}
-          transcriptEditMode={transcriptEditMode}
-          onTranscriptEditModeChange={onTranscriptEditModeChange}
-        />
-        <FolderPicker sessionId={sessionId} align="end" />
-        <MetadataButton sessionId={sessionId} />
-        <SessionShareButton key={sessionId} sessionId={sessionId} />
+        <HeaderMeetingControl sessionId={sessionId} sessionMode={sessionMode} />
         <OverflowButton
           standaloneWindow={standaloneWindow}
           sessionId={sessionId}
@@ -129,15 +112,9 @@ export function OuterHeader({
 function HeaderMeetingControl({
   sessionId,
   sessionMode,
-  currentView,
-  transcriptEditMode,
-  onTranscriptEditModeChange,
 }: {
   sessionId: string;
   sessionMode: string;
-  currentView: EditorView;
-  transcriptEditMode: boolean;
-  onTranscriptEditModeChange?: (editMode: boolean) => void;
 }) {
   const sessionEvent = useSessionEvent(sessionId);
   const hasTranscript = useHasTranscript(sessionId);
@@ -147,55 +124,7 @@ function HeaderMeetingControl({
     ? safeParseDate(sessionEvent.ended_at)
     : null;
   const ended = !!endedAt && endedAt.getTime() <= now.getTime();
-  const canEditTranscript =
-    currentView.type === "transcript" &&
-    sessionMode === "inactive" &&
-    hasTranscript &&
-    (!sessionEvent || ended) &&
-    onTranscriptEditModeChange;
-
-  if (canEditTranscript) {
-    return (
-      <TranscriptEditButton
-        editMode={transcriptEditMode}
-        onEditModeChange={onTranscriptEditModeChange}
-      />
-    );
-  }
-
-  const isRecording =
-    sessionMode === "active" || sessionMode === "running_batch";
-
   if (sessionMode === "finalizing") {
-    return null;
-  }
-
-  if (!sessionEvent && !isRecording) {
-    if (hasTranscript || audioExists) {
-      return null;
-    }
-
-    return (
-      <HeaderMeetingActionPill
-        sessionId={sessionId}
-        event={null}
-        sessionMode={sessionMode}
-        hasTranscript={hasTranscript}
-        audioExists={audioExists}
-      />
-    );
-  }
-
-  if (
-    !isRecording &&
-    sessionMode === "inactive" &&
-    sessionEvent &&
-    (hasTranscript || audioExists)
-  ) {
-    return null;
-  }
-
-  if (ended && !isRecording) {
     return null;
   }
 
@@ -203,6 +132,7 @@ function HeaderMeetingControl({
     <HeaderMeetingActionPill
       sessionId={sessionId}
       event={sessionEvent}
+      eventEnded={ended}
       sessionMode={sessionMode}
       hasTranscript={hasTranscript}
       audioExists={audioExists}
@@ -218,6 +148,7 @@ function meetingHasStarted(startedAt: string | undefined, now: Date) {
 function HeaderMeetingActionPill({
   sessionId,
   event,
+  eventEnded,
   sessionMode,
   hasTranscript,
   audioExists,
@@ -228,6 +159,7 @@ function HeaderMeetingActionPill({
     tracking_id?: string;
     started_at?: string;
   } | null;
+  eventEnded: boolean;
   sessionMode: string;
   hasTranscript: boolean;
   audioExists: boolean;
@@ -241,7 +173,11 @@ function HeaderMeetingActionPill({
   const meetingLink = event?.meeting_link || null;
   const isWelcomeDemo = event?.tracking_id === WELCOME_NOTE_TRACKING_ID;
   const canJoinFromHeader = Boolean(
-    meetingLink && (remote !== null || isWelcomeDemo),
+    !eventEnded &&
+    !hasTranscript &&
+    !audioExists &&
+    meetingLink &&
+    (remote !== null || isWelcomeDemo),
   );
   const now = useNow();
   const meetingStarted = meetingHasStarted(event?.started_at, now);
@@ -251,7 +187,6 @@ function HeaderMeetingActionPill({
       sessionMode === "inactive" &&
       meetingStarted,
   );
-  const canResume = audioExists || hasTranscript;
   const { t } = useLingui();
   const joiningMeetingRef = useRef(false);
   const [joiningMeeting, setJoiningMeeting] = useState(false);
@@ -354,8 +289,8 @@ function HeaderMeetingActionPill({
     }
 
     return {
-      label: canResume ? t`Resume` : t`Record`,
-      title: canResume ? t`Resume listening` : t`Record`,
+      label: t`Record`,
+      title: t`Record`,
       icon: <RecordingIcon />,
       onClick: start,
     };
