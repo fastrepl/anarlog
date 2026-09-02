@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   renderTemplate: vi.fn(),
   setSettingValue: vi.fn(),
   toastError: vi.fn(),
+  toastWarning: vi.fn(),
   inferSummaryFormat: vi.fn(),
   model: { modelId: "test-model" },
   billing: {
@@ -102,7 +103,7 @@ vi.mock("@anlg/plugin-template", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: { error: mocks.toastError },
+  sonnerToast: { error: mocks.toastError, warning: mocks.toastWarning },
 }));
 
 vi.mock("./auto-format-inference", () => ({
@@ -173,7 +174,7 @@ describe("Auto format editor", () => {
     expect(screen.queryByText("Variables")).toBeNull();
   });
 
-  it("keeps the format visible and read-only for Free users", () => {
+  it("keeps the format visible and toasts for Free users", () => {
     mocks.billing.isPro = false;
 
     renderWithQueryClient(
@@ -184,22 +185,27 @@ describe("Auto format editor", () => {
       screen.getByRole("textbox", {
         name: "Auto summary format",
       }) as HTMLTextAreaElement,
-    ).toHaveProperty("readOnly", true);
+    ).toHaveProperty("value", defaultFormat);
     expect(
-      screen.getByText(
-        "Preview the summary format, then upgrade to Pro to customize it.",
-      ),
+      screen.getByText("Choose how Auto structures and styles your summaries."),
     ).toBeTruthy();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Get Pro to customize" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(mocks.billing.upgradeToPro).toHaveBeenCalledOnce();
+    expect(mocks.toastWarning).toHaveBeenCalledWith(
+      "This requires Anarlog Pro",
+      {
+        action: {
+          label: "Upgrade",
+          onClick: expect.any(Function),
+        },
+      },
+    );
+    expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
     expect(mocks.setSettingValue).not.toHaveBeenCalled();
   });
 
-  it("routes example generation to the Pro upgrade for Free users", () => {
+  it("toasts instead of opening example generation for Free users", () => {
     mocks.billing.isPro = false;
 
     renderWithQueryClient(
@@ -210,7 +216,16 @@ describe("Auto format editor", () => {
       screen.getByRole("button", { name: "Improve with examples" }),
     );
 
-    expect(mocks.billing.upgradeToPro).toHaveBeenCalledOnce();
+    expect(mocks.toastWarning).toHaveBeenCalledWith(
+      "This requires Anarlog Pro",
+      {
+        action: {
+          label: "Upgrade",
+          onClick: expect.any(Function),
+        },
+      },
+    );
+    expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
     expect(
       screen.queryByRole("dialog", { name: "Improve summary format" }),
     ).toBeNull();

@@ -48,6 +48,7 @@ const mocks = vi.hoisted(() => ({
   }>,
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
+  toastWarning: vi.fn(),
 }));
 
 vi.mock("~/auth/billing-context", () => ({
@@ -104,6 +105,7 @@ vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: {
     error: mocks.toastError,
     success: mocks.toastSuccess,
+    warning: mocks.toastWarning,
   },
 }));
 
@@ -144,6 +146,7 @@ describe("AutomationsContent", () => {
     mocks.setSettingValue.mockClear();
     mocks.toastError.mockClear();
     mocks.toastSuccess.mockClear();
+    mocks.toastWarning.mockClear();
   });
 
   it("shows the overview when nothing is selected", () => {
@@ -274,15 +277,24 @@ describe("AutomationsContent", () => {
     expect(mocks.toastSuccess).toHaveBeenCalledWith("Automation draft saved");
   });
 
-  it("offers the Pro upgrade instead of saving on the free plan", () => {
+  it("toasts instead of saving on the free plan", () => {
     mocks.billing.isPro = false;
     mocks.selection = { kind: "starter", starterId: "notion-project-notes" };
 
     renderAutomations();
 
-    fireEvent.click(screen.getByRole("button", { name: "Upgrade to save" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
 
-    expect(mocks.billing.upgradeToPro).toHaveBeenCalledOnce();
+    expect(mocks.toastWarning).toHaveBeenCalledWith(
+      "This requires Anarlog Pro",
+      {
+        action: {
+          label: "Upgrade",
+          onClick: expect.any(Function),
+        },
+      },
+    );
+    expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
     expect(mocks.setSettingValue).not.toHaveBeenCalled();
   });
 

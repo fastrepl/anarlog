@@ -19,6 +19,7 @@ import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { useConnections } from "~/auth/useConnections";
 import type { CalendarProvider } from "~/calendar/components/shared";
+import { PlanGate } from "~/settings/plan-gate";
 import { useOpenIntegrationUrl } from "~/shared/integration";
 
 export function OAuthProviderContent({
@@ -31,7 +32,7 @@ export function OAuthProviderContent({
   onConnectStarted?: () => void;
 }) {
   const auth = useAuth();
-  const { isPro, upgradeToPro, isUpgradingToPro } = useBillingAccess();
+  const { isPro } = useBillingAccess();
   const { data: connections, isError } = useConnections(isPro);
   const { openIntegration, openingAction } = useOpenIntegrationUrl();
   const providerConnections = useMemo(
@@ -74,16 +75,14 @@ export function OAuthProviderContent({
   if (!isPro) {
     return (
       <div className="pt-1 pb-2">
-        <button
-          onClick={upgradeToPro}
-          disabled={isUpgradingToPro}
-          className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors disabled:opacity-50"
-        >
-          {isUpgradingToPro && (
-            <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
-          )}
-          {t`Upgrade to connect`}
-        </button>
+        <PlanGate plan="pro" allowed={false}>
+          <button
+            type="button"
+            className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors"
+          >
+            {t`Connect ${config.displayName} Calendar`}
+          </button>
+        </PlanGate>
       </div>
     );
   }

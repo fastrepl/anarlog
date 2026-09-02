@@ -5,7 +5,6 @@ import {
   Bell,
   BookOpen,
   CalendarDots,
-  CircleNotch,
   Code,
   DownloadSimple,
   FileText,
@@ -54,7 +53,7 @@ type SettingsNavGroup = { label: string; items: SettingsNavItem[] };
 
 export function SettingsNav() {
   const { i18n, t } = useLingui();
-  const { isPro, upgradeToPro, isUpgradingToPro } = useBillingAccess();
+  const { isPro } = useBillingAccess();
   const workspaces = useMyWorkspacesWithMirror();
   const hasExistingWorkspace = (workspaces.data?.length ?? 0) > 0;
   const [search, setSearch] = useState("");
@@ -246,13 +245,10 @@ export function SettingsNav() {
                 const requiresPro = Boolean(item.requiresPro && !isPro);
 
                 return (
-                  <div key={item.id} className="group/row relative">
+                  <div key={item.id} className="relative">
                     <button
                       type="button"
-                      aria-disabled={requiresPro}
                       onClick={() => {
-                        if (requiresPro) return;
-
                         if ("destination" in item) {
                           openNew(item.destination);
                           return;
@@ -266,7 +262,6 @@ export function SettingsNav() {
                         activeTab === item.id
                           ? "bg-sidebar-accent text-foreground font-medium"
                           : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground",
-                        requiresPro && "opacity-60",
                       ])}
                     >
                       <item.icon
@@ -274,18 +269,15 @@ export function SettingsNav() {
                         className="shrink-0"
                         data-testid={`settings-nav-icon-${item.id}`}
                       />
-                      <span
-                        className={cn([
-                          "flex min-w-0 flex-1 items-center gap-2 transition-opacity duration-150",
-                          requiresPro &&
-                            "group-focus-within/row:opacity-0 group-hover/row:opacity-0",
-                        ])}
-                      >
+                      <span className="flex min-w-0 flex-1 items-center gap-2">
                         <span className="min-w-0 flex-1 truncate">
                           {item.label}
                         </span>
                         {requiresPro ? (
-                          <Lock aria-hidden className="size-3.5 shrink-0" />
+                          <Lock
+                            aria-label={t`Requires Anarlog Pro`}
+                            className="size-3.5 shrink-0"
+                          />
                         ) : "destination" in item ? (
                           <ArrowUpRight
                             aria-hidden
@@ -295,23 +287,6 @@ export function SettingsNav() {
                         ) : null}
                       </span>
                     </button>
-                    {requiresPro ? (
-                      <button
-                        type="button"
-                        onClick={upgradeToPro}
-                        disabled={isUpgradingToPro}
-                        className="border-primary bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring pointer-events-none absolute top-1/2 right-1 flex translate-x-1 -translate-y-1/2 items-center gap-1 rounded-full border-2 px-3 py-1 text-xs font-medium opacity-0 shadow-[0_4px_14px_rgba(87,83,78,0.18)] transition-all duration-150 group-focus-within/row:pointer-events-auto group-focus-within/row:translate-x-0 group-focus-within/row:opacity-100 group-hover/row:pointer-events-auto group-hover/row:translate-x-0 group-hover/row:opacity-100 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-70"
-                        aria-label={t`Upgrade to Pro for ${item.label}`}
-                      >
-                        {isUpgradingToPro ? (
-                          <CircleNotch
-                            className="size-3 animate-spin"
-                            aria-hidden
-                          />
-                        ) : null}
-                        <Trans>Upgrade to Pro</Trans>
-                      </button>
-                    ) : null}
                   </div>
                 );
               })}

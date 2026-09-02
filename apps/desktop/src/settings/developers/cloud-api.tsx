@@ -1,6 +1,6 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
-import { CircleNotch, Copy, Key, LockSimple } from "@phosphor-icons/react";
+import { CircleNotch, Copy, Key } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -24,6 +24,7 @@ import {
   type CloudApiKey,
 } from "~/cloud-api/client";
 import { env } from "~/env";
+import { PlanGate } from "~/settings/plan-gate";
 
 const CLOUD_API_BASE_URL = new URL("/v1", env.VITE_API_URL).toString();
 const CLOUD_MCP_URL = new URL("/mcp", env.VITE_API_URL).toString();
@@ -85,35 +86,35 @@ export function CloudApiSection() {
     );
   }
 
+  const endpoints = (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <CloudEndpoint
+        label={t`REST API`}
+        value={CLOUD_API_BASE_URL}
+        copyMessage={t`Cloud API URL copied`}
+      />
+      <CloudEndpoint
+        label={t`Remote MCP`}
+        value={CLOUD_MCP_URL}
+        copyMessage={t`Remote MCP URL copied`}
+      />
+    </div>
+  );
+
   if (!billing.isPro) {
     return (
-      <section className="flex items-start justify-between gap-6">
-        <div className="flex gap-3">
-          <LockSimple className="text-muted-foreground mt-1 size-4 shrink-0" />
-          <div>
-            <h2 className="font-sans text-lg font-semibold">
-              <Trans>Cloud API & Connectors</Trans>
-            </h2>
-            <p className="text-muted-foreground mt-1 text-xs leading-5">
-              <Trans>
-                Access meetings remotely through the REST API and MCP connectors
-                with Anarlog Pro.
-              </Trans>
-            </p>
+      <PlanGate plan="pro" allowed={false}>
+        <section className="flex flex-col gap-4">
+          <div className="flex items-start justify-between gap-4">
+            <CloudApiHeading />
+            <Switch
+              checked={false}
+              aria-label={t`Enable Cloud API & Connectors`}
+            />
           </div>
-        </div>
-        <Button
-          type="button"
-          size="sm"
-          onClick={billing.upgradeToPro}
-          disabled={billing.isUpgradingToPro}
-        >
-          {billing.isUpgradingToPro ? (
-            <CircleNotch className="size-4 animate-spin" />
-          ) : null}
-          <Trans>Upgrade to Pro</Trans>
-        </Button>
-      </section>
+          {endpoints}
+        </section>
+      </PlanGate>
     );
   }
 
@@ -135,18 +136,7 @@ export function CloudApiSection() {
 
       {enabled && (
         <>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <CloudEndpoint
-              label={t`REST API`}
-              value={CLOUD_API_BASE_URL}
-              copyMessage={t`Cloud API URL copied`}
-            />
-            <CloudEndpoint
-              label={t`Remote MCP`}
-              value={CLOUD_MCP_URL}
-              copyMessage={t`Remote MCP URL copied`}
-            />
-          </div>
+          {endpoints}
           <CloudApiKeys />
         </>
       )}

@@ -1,12 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import {
-  Check,
-  CircleNotch,
-  DotsThree,
-  LockSimple,
-  MagicWand,
-  Sparkle,
-} from "@phosphor-icons/react";
+import { Check, DotsThree, MagicWand, Sparkle } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
@@ -28,6 +21,7 @@ import { cn } from "@anlg/utils";
 import { AutoFormatExamplesDialog } from "./auto-format-examples-dialog";
 
 import { useBillingAccess } from "~/auth/billing-context";
+import { PlanGate, useNotifyPlanRequired } from "~/settings/plan-gate";
 import { setSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
 
@@ -77,6 +71,7 @@ export function AutoFormatForm({
 }) {
   const { t } = useLingui();
   const billing = useBillingAccess();
+  const notifyPlanRequired = useNotifyPlanRequired();
   const editorRef = useRef<PromptEditorHandle>(null);
   const [showExamplesDialog, setShowExamplesDialog] = useState(false);
   const selectedTemplateId = useConfigValue("selected_template_id");
@@ -114,7 +109,7 @@ export function AutoFormatForm({
     defaultValues: { format: initialFormat },
     onSubmit: async ({ value }) => {
       if (!billing.isPro) {
-        billing.upgradeToPro();
+        notifyPlanRequired("pro");
         return;
       }
 
@@ -127,7 +122,7 @@ export function AutoFormatForm({
 
   const resetToDefault = async () => {
     if (!billing.isPro) {
-      billing.upgradeToPro();
+      notifyPlanRequired("pro");
       return;
     }
 
@@ -201,7 +196,6 @@ export function AutoFormatForm({
                     <DropdownMenuItem
                       className="cursor-pointer"
                       disabled={
-                        !billing.isPro ||
                         (!isCustomized &&
                           formatsMatch(currentFormat, defaultFormat)) ||
                         saveMutation.isPending
@@ -228,16 +222,9 @@ export function AutoFormatForm({
                 <Trans>Summary format</Trans>
               </h1>
               <p className="text-muted-foreground mt-1 text-sm">
-                {billing.isPro ? (
-                  <Trans>
-                    Choose how Auto structures and styles your summaries.
-                  </Trans>
-                ) : (
-                  <Trans>
-                    Preview the summary format, then upgrade to Pro to customize
-                    it.
-                  </Trans>
-                )}
+                <Trans>
+                  Choose how Auto structures and styles your summaries.
+                </Trans>
               </p>
             </div>
             <Button
@@ -247,88 +234,56 @@ export function AutoFormatForm({
               className="shrink-0"
               onClick={() => {
                 if (!billing.isPro) {
-                  billing.upgradeToPro();
+                  notifyPlanRequired("pro");
                   return;
                 }
                 setShowExamplesDialog(true);
               }}
-              disabled={billing.isUpgradingToPro}
             >
-              {billing.isPro ? (
-                <MagicWand className="size-4" />
-              ) : (
-                <LockSimple className="size-4" />
-              )}
+              <MagicWand className="size-4" />
               <Trans>Improve with examples</Trans>
             </Button>
           </div>
 
-          <form.Field name="format">
-            {(field) => (
-              <div className="border-border bg-card overflow-hidden rounded-2xl border">
-                <div className="group/editor relative">
-                  <PromptEditor
-                    ref={editorRef}
-                    ariaLabel={t`Auto summary format`}
-                    className="min-h-[28rem] px-4 py-3 font-mono text-sm leading-5"
-                    initialValue={field.state.value}
-                    maxLength={16000}
-                    onChange={field.handleChange}
-                    onBlur={field.handleBlur}
-                    readOnly={!billing.isPro}
-                    tokens={AUTO_FORMAT_TOKENS}
-                  />
-                  {!billing.isPro ? (
-                    <button
-                      type="button"
-                      onClick={billing.upgradeToPro}
-                      disabled={billing.isUpgradingToPro}
-                      aria-label={t`Upgrade to Pro to customize Auto format`}
-                      className="focus-visible:ring-ring absolute inset-0 cursor-pointer rounded-2xl focus-visible:ring-2 focus-visible:outline-none"
-                    >
-                      <span className="border-primary bg-primary text-primary-foreground pointer-events-none absolute top-3 right-3 flex translate-x-1 items-center gap-1 rounded-full border-2 px-3 py-1 text-xs font-medium opacity-0 shadow-[0_4px_14px_rgba(87,83,78,0.18)] transition-all duration-150 group-focus-within/editor:translate-x-0 group-focus-within/editor:opacity-100 group-hover/editor:translate-x-0 group-hover/editor:opacity-100">
-                        {billing.isUpgradingToPro ? (
-                          <CircleNotch
-                            className="size-3 animate-spin"
-                            aria-hidden
-                          />
-                        ) : (
-                          <LockSimple className="size-3" aria-hidden />
-                        )}
-                        <Trans>Upgrade to customize</Trans>
-                      </span>
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-            )}
-          </form.Field>
-
-          <div className="flex items-center justify-end gap-2">
-            {billing.isPro ? (
-              <form.Subscribe
-                selector={(state) => [state.canSubmit, state.isDirty] as const}
-              >
-                {([canSubmit, isDirty]) => (
-                  <Button
-                    type="submit"
-                    disabled={!canSubmit || !isDirty || saveMutation.isPending}
-                  >
-                    <Trans>Save</Trans>
-                  </Button>
+          <PlanGate plan="pro" allowed={billing.isPro}>
+            <div className="flex flex-col gap-5">
+              <form.Field name="format">
+                {(field) => (
+                  <div className="border-border bg-card overflow-hidden rounded-2xl border">
+                    <PromptEditor
+                      ref={editorRef}
+                      ariaLabel={t`Auto summary format`}
+                      className="min-h-[28rem] px-4 py-3 font-mono text-sm leading-5"
+                      initialValue={field.state.value}
+                      maxLength={16000}
+                      onChange={field.handleChange}
+                      onBlur={field.handleBlur}
+                      tokens={AUTO_FORMAT_TOKENS}
+                    />
+                  </div>
                 )}
-              </form.Subscribe>
-            ) : (
-              <Button
-                type="button"
-                onClick={billing.upgradeToPro}
-                disabled={billing.isUpgradingToPro}
-              >
-                <LockSimple className="size-4" />
-                <Trans>Get Pro to customize</Trans>
-              </Button>
-            )}
-          </div>
+              </form.Field>
+
+              <div className="flex items-center justify-end gap-2">
+                <form.Subscribe
+                  selector={(state) =>
+                    [state.canSubmit, state.isDirty] as const
+                  }
+                >
+                  {([canSubmit, isDirty]) => (
+                    <Button
+                      type="submit"
+                      disabled={
+                        !canSubmit || !isDirty || saveMutation.isPending
+                      }
+                    >
+                      <Trans>Save</Trans>
+                    </Button>
+                  )}
+                </form.Subscribe>
+              </div>
+            </div>
+          </PlanGate>
         </div>
       </div>
 

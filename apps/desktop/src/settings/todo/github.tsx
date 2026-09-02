@@ -18,6 +18,7 @@ import type { TodoProvider } from "./shared";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { useConnections } from "~/auth/useConnections";
+import { PlanGate } from "~/settings/plan-gate";
 import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
 import { useOpenIntegrationUrl } from "~/shared/integration";
@@ -40,7 +41,7 @@ export function GitHubTodoProviderContent({
 }) {
   const { t } = useLingui();
   const auth = useAuth();
-  const { isPaid, upgradeToPro, isUpgradingToPro } = useBillingAccess();
+  const { isPaid } = useBillingAccess();
   const { data: connections } = useConnections(isPaid);
   const { openIntegration, openingAction } = useOpenIntegrationUrl();
   const [showAddInput, setShowAddInput] = useState(false);
@@ -94,24 +95,21 @@ export function GitHubTodoProviderContent({
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-muted-foreground text-xs">
+      <div className="text-muted-foreground text-xs">
         <Trans>Only public repositories are supported.</Trans>{" "}
         {!auth.session ? (
           <span>
             <Trans>Sign in for private repo access.</Trans>
           </span>
         ) : !isPaid ? (
-          <button
-            type="button"
-            onClick={upgradeToPro}
-            disabled={isUpgradingToPro}
-            className="hover:text-muted-foreground inline-flex items-center gap-1 underline transition-colors disabled:opacity-50"
-          >
-            {isUpgradingToPro && (
-              <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
-            )}
-            <Trans>Upgrade for private repos.</Trans>
-          </button>
+          <PlanGate plan="pro" allowed={false} className="inline-flex">
+            <button
+              type="button"
+              className="hover:text-muted-foreground inline-flex items-center gap-1 underline transition-colors"
+            >
+              <Trans>Connect GitHub for private repos.</Trans>
+            </button>
+          </PlanGate>
         ) : providerConnections.length === 0 ? (
           <button
             type="button"
@@ -150,7 +148,7 @@ export function GitHubTodoProviderContent({
             <Trans>Disconnect private repo access.</Trans>
           </button>
         )}
-      </p>
+      </div>
 
       {hasRepository && !showAddInput ? (
         <div className="flex items-center gap-2">

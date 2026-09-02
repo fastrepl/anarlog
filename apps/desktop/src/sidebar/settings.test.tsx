@@ -275,44 +275,63 @@ describe("SettingsNav", () => {
     );
   });
 
-  it("shows locked Pro features and opens the upgrade flow", () => {
+  it("keeps locked Pro features visible and opens them", () => {
     mocks.isPro = false;
 
     render(<SettingsNav />);
 
     expect(screen.getByText("Sync")).toBeTruthy();
     expect(screen.getByText("Imports")).toBeTruthy();
+    expect(
+      screen.getAllByLabelText("Requires Anarlog Pro").length,
+    ).toBeGreaterThan(0);
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Upgrade to Pro for Sync" }),
+    fireEvent.click(screen.getByRole("button", { name: /Sync/ }));
+
+    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
+      mocks.currentTab,
+      { tab: "sync" },
     );
-
-    expect(mocks.upgradeToPro).toHaveBeenCalledOnce();
-    expect(mocks.updateSettingsTabState).not.toHaveBeenCalled();
+    expect(mocks.upgradeToPro).not.toHaveBeenCalled();
   });
 
-  it.each(["Teams", "Automations", "Dictionary", "Sync"])(
-    "does not open locked %s navigation",
-    (label) => {
-      mocks.isPro = false;
+  it.each([
+    ["Teams", { tab: "team" }],
+    ["Dictionary", { tab: "dictionary" }],
+    ["Sync", { tab: "sync" }],
+  ] as const)("opens locked %s navigation", (label, state) => {
+    mocks.isPro = false;
 
-      render(<SettingsNav />);
+    render(<SettingsNav />);
 
-      fireEvent.click(screen.getByRole("button", { name: label }));
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(label) }));
 
-      expect(mocks.openNew).not.toHaveBeenCalled();
-      expect(mocks.updateSettingsTabState).not.toHaveBeenCalled();
-    },
-  );
+    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
+      mocks.currentTab,
+      state,
+    );
+  });
+
+  it("opens locked Automations from settings", () => {
+    mocks.isPro = false;
+
+    render(<SettingsNav />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Automations/ }));
+
+    expect(mocks.openNew).toHaveBeenCalledWith({ type: "automations" });
+  });
 
   it("shows Teams with the Pro lock on the free plan", () => {
     mocks.isPro = false;
 
     render(<SettingsNav />);
 
-    expect(screen.getByRole("button", { name: "Teams" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Teams/ })).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "Upgrade to Pro for Teams" }),
+      screen
+        .getByRole("button", { name: /Teams/ })
+        .querySelector("[aria-label='Requires Anarlog Pro']"),
     ).toBeTruthy();
   });
 
@@ -329,7 +348,9 @@ describe("SettingsNav", () => {
       { tab: "team" },
     );
     expect(
-      screen.queryByRole("button", { name: "Upgrade to Pro for Teams" }),
+      screen
+        .getByRole("button", { name: "Teams" })
+        .querySelector("[aria-label='Requires Anarlog Pro']"),
     ).toBeNull();
   });
 
@@ -347,7 +368,9 @@ describe("SettingsNav", () => {
       { tab: "team" },
     );
     expect(
-      screen.queryByRole("button", { name: "Upgrade to Pro for Teams" }),
+      screen
+        .getByRole("button", { name: "Teams" })
+        .querySelector("[aria-label='Requires Anarlog Pro']"),
     ).toBeNull();
   });
 

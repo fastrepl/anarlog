@@ -229,7 +229,7 @@ function ProviderAccordionItem({
 }) {
   const { t } = useLingui();
   const auth = useAuth();
-  const { isPaid, isPro, upgradeToPro, isUpgradingToPro } = useBillingAccess();
+  const { isPaid, isPro } = useBillingAccess();
   const { openIntegration, openingAction } = useOpenIntegrationUrl();
   const { data: connections, isPending, isError } = useConnections(isPaid);
   const [isApplePermissionDialogOpen, setIsApplePermissionDialogOpen] =
@@ -282,10 +282,6 @@ function ProviderAccordionItem({
   }, [calendar]);
   const handleTriggerClick = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
-      if (requiresPro) {
-        event.preventDefault();
-        return;
-      }
       if (appleNeedsPermission) {
         event.preventDefault();
         handleAppleConnect();
@@ -306,7 +302,6 @@ function ProviderAccordionItem({
       onConnectStarted,
       openIntegration,
       provider.nangoIntegrationId,
-      requiresPro,
       returnTo,
       shouldConnectOnClick,
     ],
@@ -330,14 +325,6 @@ function ProviderAccordionItem({
       provider.nangoIntegrationId,
       returnTo,
     ],
-  );
-  const handleUpgradeToPro = useCallback(
-    (event: MouseEvent<HTMLButtonElement>) => {
-      event.preventDefault();
-      event.stopPropagation();
-      upgradeToPro();
-    },
-    [upgradeToPro],
   );
   const providerMenuItems = useMemo(
     (): MenuItemDef[] =>
@@ -408,22 +395,14 @@ function ProviderAccordionItem({
             : "grid-cols-[minmax(0,1fr)_auto]",
         ])}
       >
-        <AccordionHeader
-          className={cn(["min-w-0", requiresPro && "opacity-60"])}
-        >
+        <AccordionHeader className="min-w-0">
           <AccordionTriggerPrimitive
             className="flex w-full min-w-0 items-center py-3 text-left text-sm font-medium transition-all hover:no-underline"
             onClick={handleTriggerClick}
           >
             <div className="flex min-w-0 items-center gap-2">
               <ProviderIcon provider={provider} />
-              <span
-                className={cn([
-                  "flex min-w-0 items-center gap-2 transition-opacity duration-150",
-                  requiresPro &&
-                    "group-focus-within/row:opacity-0 group-hover/row:opacity-0",
-                ])}
-              >
+              <span className="flex min-w-0 items-center gap-2">
                 <span className="truncate text-sm font-medium">
                   {provider.displayName}
                 </span>
@@ -437,20 +416,7 @@ function ProviderAccordionItem({
           </AccordionTriggerPrimitive>
         </AccordionHeader>
 
-        {requiresPro ? (
-          <button
-            type="button"
-            onClick={handleUpgradeToPro}
-            disabled={isUpgradingToPro}
-            className="border-primary bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring pointer-events-none absolute top-1/2 right-1 flex shrink-0 translate-x-1 -translate-y-1/2 items-center gap-1 rounded-full border-2 px-3 py-1 text-xs font-medium opacity-0 shadow-[0_4px_14px_rgba(87,83,78,0.18)] transition-all duration-150 group-focus-within/row:pointer-events-auto group-focus-within/row:translate-x-0 group-focus-within/row:opacity-100 group-hover/row:pointer-events-auto group-hover/row:translate-x-0 group-hover/row:opacity-100 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-70"
-            aria-label={t`Upgrade to Pro for ${provider.displayName}`}
-          >
-            {isUpgradingToPro && (
-              <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
-            )}
-            {t`Upgrade to Pro`}
-          </button>
-        ) : appleNeedsPermission ? (
+        {appleNeedsPermission ? (
           <button
             type="button"
             onClick={handleAppleConnect}
@@ -493,7 +459,7 @@ function ProviderAccordionItem({
           </button>
         ) : null}
 
-        {!requiresPro && !appleNeedsPermission && (
+        {!appleNeedsPermission && (
           <CaretRight
             className={cn([
               "text-muted-foreground size-4 shrink-0 transition-transform duration-200",
@@ -502,7 +468,7 @@ function ProviderAccordionItem({
           />
         )}
       </div>
-      {!requiresPro && !appleNeedsPermission && (
+      {!appleNeedsPermission && (
         <AccordionContent className="pb-3">
           {provider.id === "apple" && (
             <div className="flex flex-col gap-3">

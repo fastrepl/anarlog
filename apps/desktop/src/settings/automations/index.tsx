@@ -60,6 +60,7 @@ import {
 import { useChatGroup } from "~/chat/store/queries";
 import { SettingsHydrationBoundary } from "~/settings/hydration-boundary";
 import { SettingsPageTitle } from "~/settings/page-title";
+import { useNotifyPlanRequired } from "~/settings/plan-gate";
 import {
   getStoredSettingValues,
   setSettingValue,
@@ -300,6 +301,7 @@ function CustomWorkflowDetails({
 }) {
   const { t } = useLingui();
   const billing = useBillingAccess();
+  const notifyPlanRequired = useNotifyPlanRequired();
   const workflows = useAutomationWorkflows();
   const saveWorkflow = useSaveWorkflow();
 
@@ -309,7 +311,7 @@ function CustomWorkflowDetails({
 
   const handleEnable = (enabled: boolean) => {
     if (enabled && !billing.isPro) {
-      billing.upgradeToPro();
+      notifyPlanRequired("pro");
       return;
     }
     persist({ ...workflow, enabled });
@@ -349,11 +351,7 @@ function CustomWorkflowDetails({
               }
             >
               <Lightning size={14} weight="fill" />
-              {billing.isPro ? (
-                <Trans>Save &amp; enable</Trans>
-              ) : (
-                <Trans>Upgrade to enable</Trans>
-              )}
+              <Trans>Save &amp; enable</Trans>
             </Button>
           )}
           <AutomationActionsMenu
@@ -422,6 +420,7 @@ function useEnsuredWorkflow({
 function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
   const { t } = useLingui();
   const billing = useBillingAccess();
+  const notifyPlanRequired = useNotifyPlanRequired();
   const starter = useStarterAutomations().find((item) => item.id === starterId);
   const [showPreview, setShowPreview] = useState(false);
   const { values: settingValues } = useStoredSettingValues();
@@ -476,7 +475,7 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
 
   const handleSaveDraft = () => {
     if (!billing.isPro) {
-      billing.upgradeToPro();
+      notifyPlanRequired("pro");
       return;
     }
     saveDraftMutation.mutate();
@@ -484,7 +483,7 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
 
   const handleEnable = () => {
     if (!billing.isPro) {
-      billing.upgradeToPro();
+      notifyPlanRequired("pro");
       return;
     }
     setEnabledMutation.mutate({ enabled: true });
@@ -561,11 +560,7 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
               disabled={!billing.isReady || saveDraftMutation.isPending}
             >
               <FloppyDisk size={14} />
-              {billing.isPro ? (
-                <Trans>Save draft</Trans>
-              ) : (
-                <Trans>Upgrade to save</Trans>
-              )}
+              <Trans>Save draft</Trans>
             </Button>
             {isEnabled ? (
               <Button
@@ -590,11 +585,7 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
                 title={billing.isPro && !isReady ? readinessHint : undefined}
               >
                 <Lightning size={14} weight="fill" />
-                {billing.isPro ? (
-                  <Trans>Save &amp; enable</Trans>
-                ) : (
-                  <Trans>Upgrade to enable</Trans>
-                )}
+                <Trans>Save &amp; enable</Trans>
               </Button>
             )}
           </div>

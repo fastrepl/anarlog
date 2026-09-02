@@ -19,6 +19,7 @@ import {
   AccessPermissionRow,
   TroubleShootingLink,
 } from "~/calendar/components/apple/permission";
+import { PlanGate } from "~/settings/plan-gate";
 import { usePermission } from "~/shared/hooks/usePermissions";
 import { useOpenIntegrationUrl } from "~/shared/integration";
 
@@ -42,7 +43,7 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
   }
 
   const auth = useAuth();
-  const { isPaid, upgradeToPro, isUpgradingToPro } = useBillingAccess();
+  const { isPaid } = useBillingAccess();
   const { data: connections, isError } = useConnections(isPaid);
   const { openIntegration, openingAction } = useOpenIntegrationUrl();
 
@@ -87,17 +88,14 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
   if (!isPaid) {
     return (
       <div className="pt-1 pb-2">
-        <button
-          type="button"
-          onClick={upgradeToPro}
-          disabled={isUpgradingToPro}
-          className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors disabled:opacity-50"
-        >
-          {isUpgradingToPro && (
-            <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
-          )}
-          <Trans>Upgrade to connect</Trans>
-        </button>
+        <PlanGate plan="pro" allowed={false}>
+          <button
+            type="button"
+            className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors"
+          >
+            <Trans>Connect {config.displayName}</Trans>
+          </button>
+        </PlanGate>
       </div>
     );
   }

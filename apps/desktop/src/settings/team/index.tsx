@@ -56,17 +56,20 @@ import { WorkspaceLogoButton } from "./logo-button";
 import { MY_WORKSPACES_QUERY_KEY, useMyWorkspacesWithMirror } from "./mirror";
 
 import { useAuth } from "~/auth";
+import { useBillingAccess } from "~/auth/billing-context";
 import {
   cancelScheduledCapture,
   listScheduledCaptures,
 } from "~/enterprise-capture/client";
 import { env } from "~/env";
 import { SettingsPageTitle } from "~/settings/page-title";
+import { PlanGate } from "~/settings/plan-gate";
 import { SettingSwitchRow } from "~/settings/setting-row";
 import { buildWebAppUrl } from "~/shared/utils";
 
 export function SettingsTeam() {
   const auth = useAuth();
+  const { isPro } = useBillingAccess();
   const { t } = useLingui();
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -107,6 +110,17 @@ export function SettingsTeam() {
     );
   }
 
+  const createForm = (
+    <PlanGate allowed={isPro} plan="pro">
+      <CreateWorkspaceForm
+        onCreate={(name) => create.mutate(name)}
+        pending={create.isPending}
+        error={create.error?.message}
+        placeholder={t`Acme`}
+      />
+    </PlanGate>
+  );
+
   return (
     <div className="flex flex-col gap-8">
       <SettingsPageTitle title={<Trans>Teams</Trans>} />
@@ -127,12 +141,7 @@ export function SettingsTeam() {
             onCreate={() => setIsCreating(true)}
           />
           {isCreating ? (
-            <CreateWorkspaceForm
-              onCreate={(name) => create.mutate(name)}
-              pending={create.isPending}
-              error={create.error?.message}
-              placeholder={t`Acme`}
-            />
+            createForm
           ) : selectedWorkspace ? (
             <WorkspacePanel
               key={selectedWorkspace.workspaceId}
@@ -156,12 +165,7 @@ export function SettingsTeam() {
           ) : null}
         </div>
       ) : (
-        <CreateWorkspaceForm
-          onCreate={(name) => create.mutate(name)}
-          pending={create.isPending}
-          error={create.error?.message}
-          placeholder={t`Acme`}
-        />
+        createForm
       )}
     </div>
   );
@@ -968,49 +972,33 @@ function WorkspacePolicyForm({
         checked={allowPublic}
         onChange={setAllowPublic}
       />
-      {canConfigureSso ? (
-        <SettingSwitchRow
-          title={<Trans>Require SSO</Trans>}
-          description={
-            <Trans>
-              Members on a claimed email domain must sign in with SSO instead of
-              Google, GitHub, or email.
-            </Trans>
-          }
-          checked={requireSso}
-          onChange={setRequireSso}
-        />
-      ) : null}
-      {canConfigureRetention ? (
-        <label className="flex max-w-sm flex-col gap-1 text-sm">
-          <Trans>Retention (days)</Trans>
-          <Input
-            value={retention}
-            onChange={(event) => setRetention(event.target.value)}
-            placeholder={t`Keep forever`}
-            inputMode="numeric"
-            className="bg-card h-9 shadow-none"
-          />
-        </label>
-      ) : null}
-      <Button
-        type="button"
-        size="sm"
-        className="w-fit"
-        disabled={save.isPending}
-        onClick={() => save.mutate()}
+      <PlanGate
+        plan="enterprise"
+        allowed={canConfigureSso || canConfigureScim || canConfigureRetention}
       >
-        {save.isPending ? (
-          <CircleNotch className="size-4 animate-spin" />
-        ) : null}
-        <Trans>Save policies</Trans>
-      </Button>
-      {save.error?.message ? (
-        <p className="text-destructive text-xs">{save.error.message}</p>
-      ) : null}
-      {canConfigureSso || canConfigureScim ? (
-        <div className="grid gap-6 sm:grid-cols-2">
-          {canConfigureSso ? (
+        <div className="flex flex-col gap-6">
+          <SettingSwitchRow
+            title={<Trans>Require SSO</Trans>}
+            description={
+              <Trans>
+                Members on a claimed email domain must sign in with SSO instead
+                of Google, GitHub, or email.
+              </Trans>
+            }
+            checked={requireSso}
+            onChange={setRequireSso}
+          />
+          <label className="flex max-w-sm flex-col gap-1 text-sm">
+            <Trans>Retention (days)</Trans>
+            <Input
+              value={retention}
+              onChange={(event) => setRetention(event.target.value)}
+              placeholder={t`Keep forever`}
+              inputMode="numeric"
+              className="bg-card h-9 shadow-none"
+            />
+          </label>
+          <div className="grid gap-6 sm:grid-cols-2">
             <form
               className="flex flex-col gap-2"
               onSubmit={(event) => {
@@ -1037,8 +1025,6 @@ function WorkspacePolicyForm({
                 <Trans>Verify domain</Trans>
               </Button>
             </form>
-          ) : null}
-          {canConfigureScim ? (
             <form
               className="flex flex-col gap-2"
               onSubmit={(event) => {
@@ -1048,17 +1034,6 @@ function WorkspacePolicyForm({
                 }
               }}
             >
-              {!canConfigureSso ? (
-                <label className="flex flex-col gap-1 text-sm">
-                  <Trans>Claim email domain</Trans>
-                  <Input
-                    value={domain}
-                    onChange={(event) => setDomain(event.target.value)}
-                    placeholder="company.com"
-                    className="bg-card h-9 shadow-none"
-                  />
-                </label>
-              ) : null}
               <label className="flex flex-col gap-1 text-sm">
                 <Trans>SCIM bearer token</Trans>
                 <Input
@@ -1083,8 +1058,23 @@ function WorkspacePolicyForm({
                 <Trans>Save SCIM token</Trans>
               </Button>
             </form>
-          ) : null}
+          </div>
         </div>
+      </PlanGate>
+      <Button
+        type="button"
+        size="sm"
+        className="w-fit"
+        disabled={save.isPending}
+        onClick={() => save.mutate()}
+      >
+        {save.isPending ? (
+          <CircleNotch className="size-4 animate-spin" />
+        ) : null}
+        <Trans>Save policies</Trans>
+      </Button>
+      {save.error?.message ? (
+        <p className="text-destructive text-xs">{save.error.message}</p>
       ) : null}
     </div>
   );

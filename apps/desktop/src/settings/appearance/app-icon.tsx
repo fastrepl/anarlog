@@ -7,6 +7,7 @@ import { platform } from "@tauri-apps/plugin-os";
 import { cn } from "@anlg/utils";
 
 import { useBillingAccess } from "~/auth/billing-context";
+import { useNotifyPlanRequired } from "~/settings/plan-gate";
 import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
 import {
@@ -37,6 +38,7 @@ const PREVIEW_CLASS =
 export function AppIconSelector() {
   const { t } = useLingui();
   const billing = useBillingAccess();
+  const notifyPlanRequired = useNotifyPlanRequired();
   const value = normalizeAppIconPreference(useConfigValue("app_icon"));
   const storedTheme = useConfigValue("theme") as ThemePreference;
   const theme: ThemePreference =
@@ -106,7 +108,7 @@ export function AppIconSelector() {
               ])}
               onClick={() => {
                 if (locked) {
-                  billing.upgradeToPro();
+                  notifyPlanRequired("pro");
                   return;
                 }
 

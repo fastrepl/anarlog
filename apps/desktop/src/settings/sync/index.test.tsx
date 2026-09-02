@@ -24,7 +24,8 @@ const mocks = vi.hoisted(() => ({
   openNew: vi.fn(),
   signOut: vi.fn(),
   trackAnalyticsEvent: vi.fn(),
-  billing: { isPro: true, isReady: true },
+  billing: { isPro: true, isReady: true, upgradeToPro: vi.fn() },
+  toastWarning: vi.fn(),
   credentialBlock: null as string | null,
   platform: "macos",
   syncEnabled: true,
@@ -104,6 +105,10 @@ vi.mock("~/settings/queries", () => ({
 vi.mock("~/store/zustand/tabs", () => ({
   useTabs: (selector: (state: { openNew: typeof mocks.openNew }) => unknown) =>
     selector({ openNew: mocks.openNew }),
+}));
+
+vi.mock("@anlg/ui/components/ui/toast", () => ({
+  sonnerToast: { warning: mocks.toastWarning },
 }));
 
 vi.mock("../general/e2ee-setup", () => ({
@@ -744,16 +749,23 @@ describe("SettingsSync", () => {
     ]);
   });
 
-  it("routes free users to account plans", () => {
+  it("shows sync controls and toasts on the free plan", () => {
     mocks.billing.isPro = false;
     renderSettings();
 
-    fireEvent.click(screen.getByRole("button", { name: "View plans" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Cloud sync" }));
 
-    expect(mocks.openNew).toHaveBeenCalledWith({
-      type: "settings",
-      state: { tab: "account" },
-    });
+    expect(screen.getByRole("button", { name: "Sync now" })).toBeTruthy();
+    expect(screen.getByText("Devices")).toBeTruthy();
     expect(mocks.getCloudsyncStatus).not.toHaveBeenCalled();
+    expect(mocks.toastWarning).toHaveBeenCalledWith(
+      "This requires Anarlog Pro",
+      {
+        action: {
+          label: "Upgrade",
+          onClick: expect.any(Function),
+        },
+      },
+    );
   });
 });

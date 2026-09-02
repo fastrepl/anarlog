@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
     isUpgradingToPro: false,
     upgradeToPro: vi.fn(),
   },
+  toastWarning: vi.fn(),
 }));
 
 vi.mock("@lingui/react/macro", () => ({
@@ -44,6 +45,10 @@ vi.mock("~/auth/billing-context", () => ({
   useBillingAccess: () => mocks.billing,
 }));
 
+vi.mock("@anlg/ui/components/ui/toast", () => ({
+  sonnerToast: { warning: mocks.toastWarning },
+}));
+
 vi.mock("~/shared/config", () => ({
   useConfigValue: () => [],
 }));
@@ -55,19 +60,29 @@ describe("DictionarySettings", () => {
     mocks.billing.isPro = true;
     mocks.billing.isUpgradingToPro = false;
     mocks.billing.upgradeToPro.mockClear();
+    mocks.toastWarning.mockClear();
   });
 
   afterEach(cleanup);
 
-  it("offers an upgrade instead of editing on the free plan", () => {
+  it("shows the dictionary editor and toasts on the free plan", () => {
     mocks.billing.isPro = false;
 
     render(<SettingsDictionary />);
 
-    expect(screen.queryByRole("textbox")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Upgrade to Pro" }));
+    expect(screen.getByRole("textbox")).toBeTruthy();
+    fireEvent.click(screen.getByRole("textbox"));
 
-    expect(mocks.billing.upgradeToPro).toHaveBeenCalledOnce();
+    expect(mocks.toastWarning).toHaveBeenCalledWith(
+      "This requires Anarlog Pro",
+      {
+        action: {
+          label: "Upgrade",
+          onClick: expect.any(Function),
+        },
+      },
+    );
+    expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
   });
 
   it("shows an empty state and disabled add control", () => {

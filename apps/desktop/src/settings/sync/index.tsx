@@ -67,6 +67,7 @@ import {
 } from "~/auth/sync-devices";
 import { captureOperationalError } from "~/error-reporting";
 import { SettingsPageTitle } from "~/settings/page-title";
+import { PlanGate } from "~/settings/plan-gate";
 import {
   setSettingValue,
   useStoredSettingValuesQuery,
@@ -332,6 +333,68 @@ function SyncLogEntry({ entry }: { entry: CloudsyncActivityEntry }) {
         )}
       </div>
     </li>
+  );
+}
+
+function SyncSettingsPreview() {
+  const { t } = useLingui();
+
+  return (
+    <section className="flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 gap-3">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full">
+            <CloudSlash className="text-muted-foreground size-4" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-sm font-medium">
+              <Trans>Sync paused</Trans>
+            </h3>
+            <p className="text-muted-foreground mt-1 text-xs leading-5">
+              <Trans>Changes stay on this device until you resume sync.</Trans>
+            </p>
+          </div>
+        </div>
+        <Switch aria-label={t`Cloud sync`} checked={false} />
+      </div>
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-muted-foreground text-xs">
+          <Trans>Keep notes current automatically.</Trans>
+        </p>
+        <Button variant="outline" size="sm">
+          <ArrowsClockwise className="size-3.5" />
+          <Trans>Sync now</Trans>
+        </Button>
+      </div>
+      <div>
+        <h2 className="mb-4 font-sans text-lg font-semibold">
+          <Trans>Devices</Trans>
+        </h2>
+        <div className="border-border/60 overflow-hidden rounded-xl border">
+          <p className="text-muted-foreground px-4 py-5 text-center text-xs">
+            <Trans>No devices registered yet.</Trans>
+          </p>
+        </div>
+      </div>
+      <div>
+        <h2 className="mb-4 font-sans text-lg font-semibold">
+          <Trans>Security</Trans>
+        </h2>
+        <div className="flex items-start gap-3">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full">
+            <Shield className="text-muted-foreground size-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium">
+              <Trans>End-to-end encryption</Trans>
+            </h3>
+            <p className="text-muted-foreground mt-1 text-xs leading-5">
+              <Trans>Turn on sync to create or enter your recovery key.</Trans>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -670,7 +733,7 @@ export function SettingsSync() {
     openNew({ type: "settings", state: { tab: "account" } });
   };
 
-  if (!session || !isPro) {
+  if (!session) {
     return (
       <div className="flex flex-col gap-8">
         <SettingsPageTitle title={<Trans>Sync</Trans>} />
@@ -681,11 +744,7 @@ export function SettingsSync() {
             </div>
             <div>
               <h3 className="text-sm font-medium">
-                {session ? (
-                  <Trans>Cloud sync is available with Anarlog Pro</Trans>
-                ) : (
-                  <Trans>Sign in to use cloud sync</Trans>
-                )}
+                <Trans>Sign in to use cloud sync</Trans>
               </h3>
               <p className="text-muted-foreground mt-1 text-xs leading-5">
                 <Trans>
@@ -695,9 +754,20 @@ export function SettingsSync() {
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={openAccountSettings}>
-            {session ? <Trans>View plans</Trans> : <Trans>Sign in</Trans>}
+            <Trans>Sign in</Trans>
           </Button>
         </div>
+      </div>
+    );
+  }
+
+  if (!isPro) {
+    return (
+      <div className="flex flex-col gap-8">
+        <SettingsPageTitle title={<Trans>Sync</Trans>} />
+        <PlanGate plan="pro" allowed={false}>
+          <SyncSettingsPreview />
+        </PlanGate>
       </div>
     );
   }

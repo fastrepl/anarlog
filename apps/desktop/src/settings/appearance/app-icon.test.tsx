@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
     isUpgradingToPro: false,
     upgradeToPro: vi.fn(),
   },
+  toastWarning: vi.fn(),
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -39,6 +40,10 @@ vi.mock("~/settings/queries", () => ({
 
 vi.mock("~/auth/billing-context", () => ({
   useBillingAccess: () => mocks.billing,
+}));
+
+vi.mock("@anlg/ui/components/ui/toast", () => ({
+  sonnerToast: { warning: mocks.toastWarning },
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -62,6 +67,7 @@ describe("AppIconSelector", () => {
     mocks.appIdentifier = "com.hyprnote.stable";
     mocks.billing.isPro = true;
     mocks.billing.isUpgradingToPro = false;
+    mocks.toastWarning.mockClear();
   });
 
   const iconOptions = () =>
@@ -103,7 +109,7 @@ describe("AppIconSelector", () => {
     expect(mocks.setAppIcon).toHaveBeenCalledWith("dev");
   });
 
-  it("offers a Pro upgrade instead of changing icons on the free plan", () => {
+  it("toasts instead of changing icons on the free plan", () => {
     mocks.billing.isPro = false;
 
     render(<AppIconSelector />);
@@ -115,7 +121,16 @@ describe("AppIconSelector", () => {
 
     fireEvent.click(blueprintOption);
 
-    expect(mocks.billing.upgradeToPro).toHaveBeenCalledOnce();
+    expect(mocks.toastWarning).toHaveBeenCalledWith(
+      "This requires Anarlog Pro",
+      {
+        action: {
+          label: "Upgrade",
+          onClick: expect.any(Function),
+        },
+      },
+    );
+    expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
     expect(mocks.applyAppIconPreference).not.toHaveBeenCalled();
     expect(mocks.setAppIcon).not.toHaveBeenCalled();
   });

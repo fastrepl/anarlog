@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   devtoolsPanelShow: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
+  toastWarning: vi.fn(),
   openUrl: vi.fn(),
   getCloudApiSettings: vi.fn(),
   setCloudApiEnabled: vi.fn(),
@@ -97,7 +98,11 @@ vi.mock("~/cloud-api/client", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: { error: mocks.toastError, success: mocks.toastSuccess },
+  sonnerToast: {
+    error: mocks.toastError,
+    success: mocks.toastSuccess,
+    warning: mocks.toastWarning,
+  },
 }));
 
 import {
@@ -168,6 +173,7 @@ describe("SettingsDevelopers", () => {
     mocks.devtoolsPanelShow.mockResolvedValue({ status: "ok" });
     mocks.toastError.mockReset();
     mocks.toastSuccess.mockReset();
+    mocks.toastWarning.mockReset();
     mocks.openUrl.mockReset();
     mocks.createCloudApiKey.mockReset();
     mocks.getCloudApiSettings.mockReset();
@@ -409,7 +415,7 @@ describe("SettingsDevelopers", () => {
     expect(screen.getByText("Remote MCP")).toBeTruthy();
   });
 
-  it("offers an upgrade instead of Cloud API controls on the free plan", () => {
+  it("shows Cloud API controls and toasts on the free plan", () => {
     mocks.billing.isPro = false;
     mocks.checkEmbeddedCli.mockResolvedValue({
       status: "ok",
@@ -431,16 +437,24 @@ describe("SettingsDevelopers", () => {
       </QueryClientProvider>,
     );
 
-    expect(
-      screen.queryByRole("switch", {
+    fireEvent.click(
+      screen.getByRole("switch", {
         name: "Enable Cloud API & Connectors",
       }),
-    ).toBeNull();
+    );
+
+    expect(screen.getByText("REST API")).toBeTruthy();
     expect(mocks.getCloudApiSettings).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole("button", { name: "Upgrade to Pro" }));
-
-    expect(mocks.billing.upgradeToPro).toHaveBeenCalledOnce();
+    expect(mocks.toastWarning).toHaveBeenCalledWith(
+      "This requires Anarlog Pro",
+      {
+        action: {
+          label: "Upgrade",
+          onClick: expect.any(Function),
+        },
+      },
+    );
+    expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
   });
 
   it("installs the skill into every detected agent from one action", async () => {

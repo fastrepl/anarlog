@@ -144,10 +144,6 @@ msgstr ""
 msgid "a week ago"
 msgstr ""
 
-#: src/settings/developers/cloud-api.tsx
-msgid "Access meetings remotely through the REST API and MCP connectors with Anarlog Pro."
-msgstr ""
-
 #: src/shared-notes/index.tsx
 msgid "Access no longer available"
 msgstr ""
@@ -740,10 +736,6 @@ msgstr ""
 msgid "Browser handoff not working? Paste the callback link instead"
 msgstr ""
 
-#: src/settings/dictionary/index.tsx
-msgid "Build a custom dictionary with Anarlog Pro"
-msgstr ""
-
 #: src/settings/general/audio-settings.tsx
 msgid "Build voiceprints from meeting audio so speakers you name in a transcript are recognized in later meetings. Voiceprints never leave this device, and unnamed ones are deleted after 45 days."
 msgstr ""
@@ -1115,10 +1107,6 @@ msgstr ""
 
 #: src/main/sync-status.tsx
 msgid "Cloud sync identity mismatch"
-msgstr ""
-
-#: src/settings/sync/index.tsx
-msgid "Cloud sync is available with Anarlog Pro"
 msgstr ""
 
 #: src/auth/cloudsync.ts
@@ -2193,10 +2181,6 @@ msgstr ""
 msgid "Get Pro"
 msgstr ""
 
-#: src/templates/auto-form.tsx
-msgid "Get Pro to customize"
-msgstr ""
-
 #: src/onboarding/account/before-login.tsx
 #: src/settings/general/account.tsx
 #: src/sidebar/automations.tsx
@@ -2278,10 +2262,6 @@ msgstr ""
 
 #: src/settings/general/app-settings.tsx
 msgid "Help improve Anarlog with anonymous usage data."
-msgstr ""
-
-#: src/settings/dictionary/index.tsx
-msgid "Help transcription recognize names, jargon, and product terms."
 msgstr ""
 
 #: src/chat/components/body/empty.tsx
@@ -3505,10 +3485,6 @@ msgstr ""
 msgid "Preview notifications, toasts, updates, and billing dialogs. Only available in dev and staging builds."
 msgstr ""
 
-#: src/templates/auto-form.tsx
-msgid "Preview the summary format, then upgrade to Pro to customize it."
-msgstr ""
-
 #: src/session/components/note-input/search/bar.tsx
 msgid "Previous match"
 msgstr ""
@@ -3806,6 +3782,10 @@ msgstr ""
 
 #: src/settings/privacy/index.tsx
 msgid "Require Windows Hello face, PIN, or password when opening Anarlog."
+msgstr ""
+
+#: src/sidebar/settings.tsx
+msgid "Requires Anarlog Pro"
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -4918,6 +4898,18 @@ msgstr ""
 msgid "This recording is using batch transcription, so the transcript isn't available to chat yet. Ask again after transcription finishes, or switch to a Pro model for live transcription."
 msgstr ""
 
+#: src/settings/plan-gate.tsx
+msgid "This requires Anarlog Enterprise"
+msgstr ""
+
+#: src/settings/plan-gate.tsx
+msgid "This requires Anarlog Pro"
+msgstr ""
+
+#: src/settings/plan-gate.tsx
+msgid "This requires Anarlog Team"
+msgstr ""
+
 #. placeholder {0}: status.fileCount
 #. placeholder {1}: formatBytes(status.totalBytes)
 #: src/settings/general/storage/legacy-cleanup.tsx
@@ -5136,46 +5128,15 @@ msgstr ""
 msgid "Updating audio sharing"
 msgstr ""
 
+#: src/settings/plan-gate.tsx
 #: src/sidebar/toast/registry.tsx
 msgid "Upgrade"
 msgstr ""
 
-#: src/settings/todo/github.tsx
-msgid "Upgrade for private repos."
-msgstr ""
-
-#: src/calendar/components/oauth/provider-content.tsx
-#: src/settings/todo/provider-content.tsx
-msgid "Upgrade to connect"
-msgstr ""
-
-#: src/templates/auto-form.tsx
-msgid "Upgrade to customize"
-msgstr ""
-
-#: src/settings/automations/index.tsx
-msgid "Upgrade to enable"
-msgstr ""
-
 #: src/billing/trial-ended-dialog.tsx
-#: src/calendar/components/sidebar.tsx
 #: src/instruction/index.tsx
 #: src/session-sharing/index.tsx
-#: src/settings/developers/cloud-api.tsx
-#: src/settings/dictionary/index.tsx
-#: src/sidebar/settings.tsx
 msgid "Upgrade to Pro"
-msgstr ""
-
-#. placeholder {0}: item.label
-#. placeholder {0}: provider.displayName
-#: src/calendar/components/sidebar.tsx
-#: src/sidebar/settings.tsx
-msgid "Upgrade to Pro for {0}"
-msgstr ""
-
-#: src/templates/auto-form.tsx
-msgid "Upgrade to Pro to customize Auto format"
 msgstr ""
 
 #: src/session-sharing/index.tsx
@@ -5185,10 +5146,6 @@ msgstr ""
 #: src/settings/ai/llm/select.tsx
 #: src/settings/ai/stt/select.tsx
 msgid "Upgrade to Pro to use this provider."
-msgstr ""
-
-#: src/settings/automations/index.tsx
-msgid "Upgrade to save"
 msgstr ""
 
 #: src/settings/ai/stt/select.tsx
@@ -5297,10 +5254,6 @@ msgstr ""
 
 #: src/lock/screen.tsx
 msgid "View Note"
-msgstr ""
-
-#: src/settings/sync/index.tsx
-msgid "View plans"
 msgstr ""
 
 #: src/settings/sync/index.tsx

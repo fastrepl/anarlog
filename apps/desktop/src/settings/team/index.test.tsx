@@ -30,6 +30,7 @@ const mocks = vi.hoisted(() => ({
     }>,
     isPending: false,
   },
+  createWorkspace: vi.fn(() => Promise.resolve({ workspaceId: "ws" })),
   client: {
     access: {
       role: "owner" as const,
@@ -92,6 +93,13 @@ const mocks = vi.hoisted(() => ({
       Promise.resolve({ deliveredBy: "email" as const }),
     ),
   },
+  billing: {
+    isPro: true,
+    isReady: true,
+    upgradeToPro: vi.fn(),
+    isUpgradingToPro: false,
+  },
+  toastWarning: vi.fn(),
 }));
 
 vi.mock("@lingui/react/macro", () => ({
@@ -108,6 +116,18 @@ vi.mock("@lingui/react/macro", () => ({
 
 vi.mock("~/auth", () => ({
   useAuth: () => ({ session: mocks.session, supabase: {} }),
+}));
+
+vi.mock("~/auth/billing-context", () => ({
+  useBillingAccess: () => mocks.billing,
+}));
+
+vi.mock("@anlg/ui/components/ui/toast", () => ({
+  sonnerToast: {
+    warning: mocks.toastWarning,
+    success: vi.fn(),
+    error: vi.fn(),
+  },
 }));
 
 vi.mock("@anlg/plugin-opener2", () => ({
@@ -139,7 +159,7 @@ vi.mock("./mirror", () => ({
 
 vi.mock("./client", () => ({
   requireTeamContext: (auth: unknown) => auth,
-  createWorkspace: vi.fn(() => Promise.resolve({ workspaceId: "ws" })),
+  createWorkspace: mocks.createWorkspace,
   deleteWorkspace: vi.fn(() => Promise.resolve()),
   getSeatUsage: () =>
     Promise.resolve({ seatLimit: null, usedSeats: 1, isBilled: false }),
@@ -219,6 +239,10 @@ describe("SettingsTeam", () => {
     mocks.billingCheckout.buildWebAppUrl.mockClear();
     mocks.billingCheckout.openUrl.mockClear();
     mocks.billingCheckout.openUrlWithInstruction.mockClear();
+    mocks.billing.isPro = true;
+    mocks.billing.upgradeToPro.mockClear();
+    mocks.toastWarning.mockClear();
+    mocks.createWorkspace.mockClear();
   });
 
   afterEach(() => {
@@ -226,11 +250,26 @@ describe("SettingsTeam", () => {
     vi.unstubAllGlobals();
   });
 
-  it("lets a signed-in account create a Team workspace without personal Pro", () => {
+  it("shows the create workspace form on the free plan without creating", () => {
+    mocks.billing.isPro = false;
     renderTeam();
 
     expect(screen.getByText("Create a shared workspace")).toBeTruthy();
     expect(screen.getByRole("textbox")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("textbox"));
+
+    expect(mocks.toastWarning).toHaveBeenCalledWith(
+      "This requires Anarlog Pro",
+      {
+        action: {
+          label: "Upgrade",
+          onClick: expect.any(Function),
+        },
+      },
+    );
+    expect(mocks.createWorkspace).not.toHaveBeenCalled();
+    expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
   });
 
   it("keeps an unbilled workspace accessible and offers Team checkout", async () => {
@@ -424,7 +463,7 @@ describe("SettingsTeam", () => {
     );
   });
 
-  it("keeps Enterprise policy controls hidden on Team", async () => {
+  it("shows Enterprise policy controls on Team without allowing them", async () => {
     mocks.workspaces.data = [
       {
         workspaceId: "00000000-0000-4000-8000-000000000001",
@@ -436,13 +475,19 @@ describe("SettingsTeam", () => {
 
     renderTeam();
 
-    await screen.findByText("Policies");
-    expect(screen.queryByText("Require SSO")).toBeNull();
-    expect(screen.queryByText("Retention (days)")).toBeNull();
-    expect(screen.queryByText("SCIM bearer token")).toBeNull();
+    expect(await screen.findByText("Require SSO")).toBeTruthy();
+    expect(screen.getByText("Retention (days)")).toBeTruthy();
+    expect(screen.getByText("SCIM bearer token")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("switch", { name: "Require SSO" }));
+
+    expect(mocks.toastWarning).toHaveBeenCalledWith(
+      "This requires Anarlog Enterprise",
+      {},
+    );
   });
 
-  it("shows Enterprise policy controls only with Enterprise capabilities", async () => {
+  it("shows Enterprise policy controls with Enterprise capabilities", async () => {
     mocks.client.access.tier = "enterprise";
     mocks.client.access.capabilities = [
       ...mocks.client.access.capabilities,
