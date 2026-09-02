@@ -7,7 +7,7 @@ edition = "2024"
 default = []
 coreml = ["anlg-onnx/coreml", "anlg-embedding/coreml"]
 directml = ["anlg-onnx/directml", "anlg-embedding/directml"]
-eval = ["dep:hound", "dep:serde_json"]
+eval = ["dep:hound", "dep:serde_json", "dep:tracing-subscriber"]
 
 [[bin]]
 name = "diarization-eval"
@@ -22,9 +22,8 @@ anlg-voiceprint = { workspace = true }
 hound = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, optional = true }
-specta = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
-tracing = { workspace = true }
+tracing-subscriber = { workspace = true, optional = true, features = ["env-filter"] }
 
 [dev-dependencies]
 anlg-data = { workspace = true }

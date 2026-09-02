@@ -252,42 +252,28 @@ pub fn cluster(
     let merges = linkage(embeddings);
     let (min_clusters, max_clusters) = bounds.range();
 
+    let count_at =
+        |merge_count: usize| large_cluster_count(&cut(n, &merges, merge_count), min_cluster_size);
     let threshold_cut = merges
         .iter()
         .position(|merge| merge.distance > threshold)
         .unwrap_or(merges.len());
     let mut chosen = threshold_cut;
-    let mut count = large_cluster_count(&cut(n, &merges, chosen), min_cluster_size);
+    let mut count = count_at(chosen);
     if count < min_clusters || count > max_clusters {
+        // The threshold cut violates the speaker bounds: take the cut whose
+        // large-cluster count is closest to the bounds, preferring the one
+        // nearest the threshold when several tie.
         let target = count.clamp(min_clusters, max_clusters);
-        let mut best: Option<(usize, usize)> = None;
-        for offset in 0..=merges.len() {
-            for candidate in [
-                threshold_cut.checked_sub(offset),
-                Some(threshold_cut + offset),
-            ]
-            .into_iter()
-            .flatten()
-            .filter(|candidate| *candidate <= merges.len())
-            {
-                let candidate_count =
-                    large_cluster_count(&cut(n, &merges, candidate), min_cluster_size);
-                let gap = candidate_count.abs_diff(target);
-                if best.is_none_or(|(_, best_gap)| gap < best_gap) {
-                    best = Some((candidate, gap));
-                }
-                if gap == 0 {
-                    break;
-                }
-            }
-            if best.is_some_and(|(_, gap)| gap == 0) {
-                break;
-            }
-        }
-        if let Some((candidate, _)) = best {
-            chosen = candidate;
-            count = large_cluster_count(&cut(n, &merges, chosen), min_cluster_size);
-        }
+        chosen = (0..=merges.len())
+            .min_by_key(|merge_count| {
+                (
+                    count_at(*merge_count).abs_diff(target),
+                    merge_count.abs_diff(threshold_cut),
+                )
+            })
+            .unwrap_or(threshold_cut);
+        count = count_at(chosen);
     }
 
     let labels = cut(n, &merges, chosen);

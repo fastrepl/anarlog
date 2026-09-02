@@ -13371,9 +13371,8 @@ dependencies = [
  "onnx",
  "serde",
  "serde_json",
- "specta",
  "thiserror 2.0.18",
- "tracing",
+ "tracing-subscriber",
  "voiceprint",
 ]
 
