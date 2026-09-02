@@ -1,9 +1,21 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+
+static WANTED_VISIBLE: AtomicBool = AtomicBool::new(true);
+
 pub fn preferred_position_key(autosave_name: &str) -> String {
     format!("NSStatusItem Preferred Position {autosave_name}")
 }
 
 pub fn visibility_key(autosave_name: &str) -> String {
     format!("NSStatusItem Visible {autosave_name}")
+}
+
+pub fn set_wanted_visible(visible: bool) {
+    WANTED_VISIBLE.store(visible, Ordering::SeqCst);
+}
+
+pub fn wanted_visible() -> bool {
+    WANTED_VISIBLE.load(Ordering::SeqCst)
 }
 
 #[cfg(target_os = "macos")]
@@ -48,6 +60,9 @@ pub fn apply_autosave_name(app: &tauri::AppHandle<tauri::Wry>, autosave_name: &'
 
     let app = app.clone();
     if let Err(error) = app.run_on_main_thread(move || {
+        if !wanted_visible() {
+            return;
+        }
         if let Some(tray) = app.tray_by_id(autosave_name) {
             let _ = tray.set_visible(true);
         }
@@ -74,5 +89,14 @@ mod tests {
             visibility_key("anlg-tray"),
             "NSStatusItem Visible anlg-tray"
         );
+    }
+
+    #[test]
+    fn deferred_show_respects_a_later_hide() {
+        super::set_wanted_visible(true);
+        assert!(super::wanted_visible());
+        super::set_wanted_visible(false);
+        assert!(!super::wanted_visible());
+        super::set_wanted_visible(true);
     }
 }

@@ -229,6 +229,7 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
 
     pub fn set_visible(&self, visible: bool) -> Result<()> {
         let app = self.manager.app_handle();
+        crate::macos_position::set_wanted_visible(visible);
 
         if visible {
             if let Some(tray) = app.tray_by_id(TRAY_ID) {
