@@ -231,6 +231,21 @@ describe("Basic Tab Actions", () => {
     });
   });
 
+  test.each(["calendar", "contacts", "templates"] as const)(
+    "openNew tracks where %s was opened from",
+    (type) => {
+      useTabs.getState().openNew({ type: "settings" });
+      const settings = useTabs.getState().currentTab!;
+      useTabs.getState().openNew({ type });
+
+      expect(useTabs.getState()).toHaveCurrentTab({
+        type,
+        returnToSlotId: settings.slotId,
+        returnToTabId: "settings",
+      });
+    },
+  );
+
   test("openNew collapses docked chat when opening settings", () => {
     const session = createSessionTab({ id: "tab1", active: false });
 
@@ -258,6 +273,16 @@ describe("Basic Tab Actions", () => {
     });
 
     expect(useTabs.getState()).toHaveCurrentTab({ type: "automations" });
+    expect(useTabs.getState().chatMode).toBe("FloatingClosed");
+  });
+
+  test("openNew redirects legacy folder settings links", () => {
+    useTabs.getState().openNew({
+      type: "settings",
+      state: { tab: "folders" },
+    });
+
+    expect(useTabs.getState()).toHaveCurrentTab({ type: "folders" });
     expect(useTabs.getState().chatMode).toBe("FloatingClosed");
   });
 

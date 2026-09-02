@@ -9,3 +9,8 @@
     corner-shape: squircle;
   }
 }
+
+.rounded-pill {
+  border-radius: calc(infinity * 1px);
+  corner-shape: round;
+}

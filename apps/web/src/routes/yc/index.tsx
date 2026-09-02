@@ -14,7 +14,7 @@ import { validateYcVerificationUrl, ycPerkRequestSchema } from "@/lib/yc-perk";
 
 const title = "YC founder perk · Anarlog";
 const description =
-  "YC founders get one year of Anarlog Pro free for private, bot-free meeting notes.";
+  "YC founders get one year of the personal Anarlog Pro plan free for private, bot-free meeting notes.";
 
 const invalidVerificationMessages = {
   not_verified: "This YC link is no longer active.",
@@ -124,7 +124,8 @@ function YcPerkPage() {
             Build the company. Keep every decision.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
-            Get 1 year of Anarlog Pro free for private, bot-free meeting notes.
+            Get 1 year of the personal Anarlog Pro plan free for private,
+            bot-free meeting notes. Team and Enterprise plans are separate.
           </p>
 
           <div className="mx-auto mt-8 max-w-xl">
@@ -141,8 +142,8 @@ function YcPerkPage() {
                 </h2>
                 <p className="mt-2 text-base leading-7 text-[#4f4940]">
                   {appliedToAccount
-                    ? "Your YC year is on this account."
-                    : "We sent your Pro code to your YC email."}
+                    ? "Your personal Pro year is on this account."
+                    : "We sent your personal Pro code to your YC email."}
                 </p>
                 {appliedToAccount ? (
                   <Link

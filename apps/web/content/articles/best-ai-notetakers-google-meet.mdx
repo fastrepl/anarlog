@@ -1,316 +1,204 @@
 ---
-meta_title: "7 Best AI Notetakers for Google Meet in 2026"
-meta_description: "Google's native AI notes falling short? Find the right alternative by comparing the 7 best AI notetakers for Google Meet in 2026. Free & paid options included."
+meta_title: "8 Best Google Meet AI Note Takers in 2026"
+meta_description: "Compare 8 Google Meet AI note takers by capture method, privacy, workflow, and price. Includes Gemini, Anarlog, Fireflies, tl;dv, Tactiq, and more"
 author: "John Jeong"
 featured: false
 category: "Comparisons"
-date: "2026-02-11"
+date: "2026-08-31"
 ---
 
-Google shipped "Take notes for me," but it still feels like a feature, not a real meeting system.
+Google Meet no longer has one AI note-taking workflow. It has four.
 
-The limitations show up quickly. Availability is narrow, language support is limited, the output is hard to customize, and there is very little portability once you want something outside Google's flow.
+Google can write notes inside Meet. A bot can join as a participant. A Chrome extension can transcribe the tab. A desktop app can capture microphone and system audio without touching the meeting roster.
 
-That leaves room for specialized tools. We tested the ones that work with Google Meet while doing more than Google's native notes can. For a closer look at Google's own workflow, read our test of [Google Gemini meeting notes](/blog/google-gemini-meeting-notes).
+That choice matters more than another checklist of AI features. It decides whether the tool can attend without you, whether guests see a bot, where the meeting record lives, and whether the same setup works outside Google Meet.
 
-Here are our top picks: 
+I rechecked the current product docs, pricing, capture modes, and privacy pages for eight serious options. The old bot-versus-no-bot split is already outdated: Fireflies, tl;dv, Otter, and Krisp now offer more than one capture path.
 
-1. **Anarlog:** Best for people and teams who seek control over data and AI stack.
-2. **Fireflies AI:** Best for teams needing comprehensive conversation analytics and multilingual support.
-3. **Sembly AI:** Best for teams needing automated deliverable generation and cross-meeting analytics
-4. **tl;dv:** Best for sales teams needing video analysis, coaching insights, and CRM automation
-5. **Tactiq:** Best for Chrome users wanting real-time transcription without installing separate apps
-6. **Krisp:** Best for teams in noisy environments who need both audio enhancement and meeting notes
-7. **Otter AI:** Best for users wanting familiar, mainstream AI transcription with team features
+## The short answer
 
-## Best AI notetakers for Google Meet
+- **Use [Google's Take notes for me](#1-google-take-notes-for-me-best-native-option)** when your Workspace plan includes it and a Google Doc is the desired final record.
+- **Use [Anarlog](#2-anarlog-best-for-local-control)** when you want local SQLite storage, bot-free capture, and control over the transcription and language models.
+- **Use [Fireflies](#3-fireflies-best-for-automation-and-conversation-intelligence)** when CRM automation and cross-meeting analysis matter more than keeping data local.
+- **Use [tl;dv](#4-tldv-best-for-video-and-sales-workflows)** when you need video, clips, sales coaching, or a choice between bot and desktop capture.
+- **Use [Tactiq](#5-tactiq-best-lightweight-chrome-extension)** when you want a fast, text-only Chrome workflow with no bot and no audio recording.
+- **Use [Krisp](#6-krisp-best-when-audio-quality-matters-too)** when noise cancellation and meeting notes need to share one desktop audio layer.
+- **Use [Otter](#7-otter-best-familiar-team-workspace)** when your team already works in Otter and wants both bot and bot-free capture.
+- **Use [Sembly](#8-sembly-best-for-structured-deliverables)** when meetings need to become project plans, requirements, and other structured deliverables.
 
-Each of these tools brings different strengths to meeting capture and analysis.
+## Google Meet AI note takers compared
 
-### 1. Anarlog: complete control over your data and AI stack
+| Tool | Google Meet capture | Meeting record | Best fit | Free entry point |
+| --- | --- | --- | --- | --- |
+| Google Take notes for me | Native Meet feature | Google Doc in Drive | Workspace-native notes | Included on eligible Workspace and Google AI plans |
+| Anarlog | Desktop microphone + system audio, no bot | Local SQLite + local files | Local control and flexible AI | Free with local models or your own keys |
+| Fireflies | Bot or Chrome extension | Vendor cloud workspace | Automation and conversation intelligence | Free plan |
+| tl;dv | Bot or desktop device capture | Vendor cloud workspace | Video, clips, sales workflows | Free plan |
+| Tactiq | Chrome extension, no bot | Text transcript in Tactiq | Lightweight live transcription | 10 transcripts/month |
+| Krisp | Desktop audio layer, optional bot | Krisp workspace | Noise cancellation + notes | 7-day trial |
+| Otter | Bot, desktop, or Chrome | Otter workspace | Familiar collaborative transcripts | 300 minutes/month |
+| Sembly | Bot for live Meet calls | Sembly workspace | AI documents and meeting analysis | Free trial |
 
-Most transcription software forces you into their cloud, their servers, their rules. **[Anarlog](https://anarlog.so)** is an open-source AI note-taker that stores your data locally and gives you complete control over the AI stack.
+![Four Google Meet AI note-taking capture paths: native, bot, browser extension, and desktop audio](/images/blog/articles/best-ai-notetakers-google-meet/google-meet-capture-paths.png)
 
-You decide if your audio, transcripts, or notes ever leave your device. You pick your preferred STT and LLM provider, which means you can go completely local if you want to. No forced stack. No lock-in.
+Capture architecture decides who runs the recorder, whether it can attend alone, and where the meeting record lands.
 
-#### How it works with Google Meet
+## 1. Google Take notes for me: best native option
 
-Anarlog doesn't join your Google Meet as a bot. Instead, it captures both your microphone input and your system's audio. During meetings, Anarlog transcribes conversations in real-time. When the meeting ends, it combines any notes you took with your transcripts to create a summary.
+Google's own [Take notes for me](https://support.google.com/meet/answer/14754931) is now the cleanest default for eligible Workspace users. It runs inside Meet, creates a structured Google Doc, saves that document to Drive, and attaches it to the Calendar event. There is no third-party bot to admit.
 
-![Current Anarlog meeting summary view](/images/blog/library/products/anarlog/desktop/2026-08-20-meeting-summary.jpg)
+![Google Meet settings for Take notes for me, recording, and transcripts](/images/blog/library/products/google-meet/take-notes-for-me/2026-08-30-settings.gif)
 
-#### Key features
+*Google's current Meet UI exposes notes, recording, and transcripts as separate meeting records. Source: [Google Meet Help](https://support.google.com/meet/answer/14754931).*
 
-- **Local-first data**: canonical meeting data stays in SQLite on your device, with Markdown export when you need it
-- **Flexible AI**: Use the managed service or bring your own key (cloud or local). Switch anytime.
-- **No meeting bots**: System audio capture works on Zoom, Teams, phone calls, in-person
-- **Custom templates**: Structure recurring meetings automatically with community templates or build your own
-- **Searchable notes**: Find anything from any meeting instantly with semantic search and date filters
-- **Open source**: Code is public. Your IT team can audit it, your security team can verify it
+Hosts can choose who receives the notes and request a longer format. They can also include screenshots of shared content or use an admin-controlled explicit-consent flow. Late joiners can request a summary so far.
 
-#### Strengths
+The constraint is the ecosystem. The output is a Google Doc governed by Drive sharing and Meet retention settings. Audio must use one of eight supported languages at a time, and eligibility depends on specific Workspace editions or Google AI Pro/Ultra. If that is already how your company works, the integration is hard to beat. If you want a portable local meeting archive, it is the wrong architecture.
 
-- You own your data—files stay on your device, not in a remote database
-- No internet required for recording or transcription with local models
-- No lock-in. Export anytime, switch AI providers anytime, or stop using it
-- No bots in your meetings, more discreet than competitors
-- Security teams can audit the code before approving it
-- Works for any conversation
+**Pricing:** Included with eligible Business Standard, Business Plus, Enterprise Standard, Enterprise Plus, Frontline Plus, Google AI Pro, and Google AI Ultra plans. [Google's plan table](https://support.google.com/meet/answer/13952129) is the reliable place to check eligibility.
 
-#### Considerations
+## 2. Anarlog: best for local control
 
-- macOS is the most mature build; Windows and Linux builds are in beta
-- No video recordings
+[Anarlog](https://anarlog.so) captures microphone and system audio on your computer. It does not join Google Meet or need Calendar access to record, and it keeps canonical notes, transcripts, and meeting metadata in local SQLite.
 
-#### Pricing
+![Anarlog meeting summary with notes, transcript, and speaker labels](/images/blog/library/products/anarlog/desktop/2026-08-20-meeting-summary.jpg)
 
-Unlimited free plan with local transcription or bring-your-own-key. Pro is $15/month or $150/year for managed cloud service.
+The difference runs deeper than "bot-free". Tactiq, Krisp, Otter, Fireflies, and tl;dv all have a bot-free path now. Anarlog's sharper advantage is control over the full stack: local data, local or cloud transcription, your choice of language model, portable exports, and an MIT-licensed desktop client your team can audit.
 
-### 2. Fireflies AI: the conversation intelligence platform
+That control adds decisions. The free path works best for people comfortable choosing local models or adding their own API keys. The managed Pro path removes most of that setup, but hosted transcription and AI still create explicit cloud data paths. Only the local-only configuration keeps the full workflow on the device.
 
-**[Fireflies](http://fireflies.ai/)** positions itself as more than just a transcription tool—it's a full conversation intelligence solution for sales teams and growing businesses.
+macOS is the mature build. Windows and Linux builds are available in beta. Anarlog records Google Meet, Zoom, Teams, phone calls, and in-person conversations through the same desktop workflow, but it does not record meeting video.
 
-#### How it works with Google Meet
+**Pricing:** Free with on-device models or your own API keys. Pro is $15/month or $150/year and adds managed transcription, managed AI, encrypted CloudSync, sharing, and integrations. See the current [Anarlog pricing page](https://anarlog.so/pricing/).
 
-Fireflies joins your Google Meet as a bot participant called "Fred". You can invite it manually to specific meetings or set it to auto-join based on your calendar integration. The bot records, transcribes, and processes the entire conversation, then automatically sends meeting summaries to designated channels.
+## 3. Fireflies: best for automation and conversation intelligence
 
-![Fireflies meeting workspace with video playback, transcript, summary, and integrations](/images/blog/articles/best-ai-notetakers-google-meet/image-2-2.png)
+[Fireflies](https://fireflies.ai/) is no longer bot-only. You can still invite Fred or let it auto-join Calendar events, but its Chrome extension can also capture Google Meet without adding a participant.
 
-#### Key features
+![Fireflies meeting workspace with video, transcript, summary, and integrations](/images/blog/articles/best-ai-notetakers-google-meet/image-2-2.png)
 
-- **AskFred AI assistant** for chatting with meeting transcripts and querying past conversations
-- **69+ language support** for global teams and multilingual meetings
-- **Advanced conversation analytics** tracking speaker talk time, sentiment, and key topics
-- **Extensive integrations** with 58+ platforms, including major CRMs and productivity tools
-- **Video recording capability**, capturing screen shares and visual content alongside audio
+*Fireflies organizes playback, transcript, summary, and integrations in one cloud workspace. Source: [Fireflies](https://fireflies.ai/).*
 
-#### Strengths
+Choose Fireflies when the transcript is an input to a larger workflow. AskFred searches meetings, AI Skills extract structured details, and paid plans add integrations, analytics, CRM workflows, and admin controls. The company currently advertises more than 100 transcription languages and multi-language mode on Business and Enterprise.
 
-- Strong multilingual capabilities with automatic language detection
-- Comprehensive analytics for understanding meeting patterns and team performance
-- Unlimited transcription even on the free plan
-- Mobile app support for recording in-person conversations
+The tradeoff is a vendor-hosted meeting workspace. Fireflies publishes SOC 2 Type II, GDPR, and HIPAA claims, plus custom retention and private storage on Enterprise. Those controls can fit a managed team deployment. They are not the same as keeping the canonical meeting database on your computer.
 
-#### Considerations
+**Pricing:** Free includes unlimited transcription and AI summaries with storage and credit limits. Pro is $10/seat/month billed annually, Business is $19, and Enterprise is $39. Check [Fireflies pricing](https://fireflies.ai/pricing) because the page also displays higher month-to-month list prices.
 
-- Bot presence in meetings can feel intrusive as Fireflies appears as an additional meeting participant
-- Storage limitations on lower-tier plans create pressure to upgrade
-- May send meeting notes to all participants
+## 4. tl;dv: best for video and sales workflows
 
-#### Pricing
-
-Free forever with unlimited transcription but limited AI features. Paid plans start at $18/user/month.
-
-### 3. Sembly AI: the workflow integration specialist
-
-**[Sembly](https://www.sembly.ai/)** transforms meetings into actionable business deliverables like project plans, requirements documents, and reports. Beyond transcription, it analyzes patterns across multiple meetings, automatically generates artifacts tailored to specific roles, and provides enterprise-grade analytics for team productivity.
-
-#### How it works with Google Meet
-
-You can invite a Sembly agent to your meeting from the Google Chrome Extension or connect your Google Calendar. It records and transcribes the meeting, then uses AI to identify action items, decisions, and key discussion points.
-
-![Sembly product-weekly meeting note with tasks, summary, and transcript](/images/blog/articles/best-ai-notetakers-google-meet/image-3-2.png)
-
-#### Key features
-
-- **48+ language support**, including English, French, Spanish, German, Arabic, Japanese, and many others
-- **AI Artifacts generation** (project plans, requirements, reports)
-- **Multi-meeting trend analysis** and insights across conversations
-- **Advanced action item extraction** with assignees and due dates
-- **Enterprise-grade security** (SOC 2 Type II, GDPR compliance)
-
-#### Strengths
-
-- Flexible attendance model allowing the bot to capture meetings even when you're not present
-- Unified meeting intelligence consolidating summaries, transcripts, and analytics in one interface
-- Comprehensive integrations with popular CRMs and project management tools like Trello, ClickUp, Asana
-
-#### Considerations
-
-- Bot presence required, appearing as an additional participant that introduces itself in meetings
-- Steeper learning curve compared to more straightforward tools like Anarlog
-- Limited export options lacking direct Word document export for summaries and tasks
-
-#### Pricing
-
-Free trial available, with paid plans starting at $15/user/month.
-
-### 4. tl;dv: the video-first meeting assistant
-
-**[tl;dv](https://tldv.io/)** turns meeting notes into clickable timestamps, making it easy to navigate directly to specific moments in recordings while providing advanced sales coaching features.
-
-#### How it works with Google Meet
-
-The tl;dv bot joins your Google Meet automatically, records both audio and video, then generates AI summaries while allowing you to add manual timestamped notes during the call. You can create clips and share specific moments from longer recordings.
+[tl;dv](https://tldv.io/google-meet/) gives Google Meet users two distinct capture modes. Its Chrome extension can send a bot that records audio and video, while the desktop app captures device audio without adding a bot. The bot-free mode does not include video recording.
 
 ![tl;dv coaching dashboard with speaker insights and meeting playback](/images/blog/articles/best-ai-notetakers-google-meet/image-4-2.png)
 
-#### Key features
+*tl;dv combines recordings with speaker analytics, coaching, and meeting playback. Source: [tl;dv for Google Meet](https://tldv.io/google-meet/).*
 
-- **Timestamped video navigation** allows you to jump directly to specific moments in recordings
-- **AI meeting summaries** automatically extract key points, decisions, and action items
-- **Sales coaching**, analytics tracking, playbook adherence, and objection handling performance
-- **Video clip creation** for easy sharing of important conversation moments
-- **30+ language transcription** supporting global teams with multilingual meeting capture
+Choose tl;dv when a sales or customer team will use the recording after the recap. Paid plans add unlimited AI notes, multi-meeting analysis, scheduled reports, playbook monitoring, objection handling, and CRM automation. Pro also exposes an API, webhooks, and an MCP server.
 
-#### Strengths
+Its free tier is unusually usable: unlimited recordings and transcription, with limits on AI notes and Ask AI. The harder choice is operational. Bot capture gives you video and unattended attendance; desktop capture removes the participant but depends on the user's device and loses video.
 
-- Generous free plan offering unlimited recordings and transcriptions without time limits
-- Sales-focused features helping managers analyze rep performance and deal progression
-- CRM automation with automatic updates to Salesforce, HubSpot, and other sales tools
+**Pricing:** Free plan available. Pro is $29/seat/month monthly, with lower annual pricing. Business is $39/seat/month monthly. See [tl;dv pricing](https://tldv.io/app/pricing/) for local currency and billing-cycle totals.
 
-#### Considerations
+## 5. Tactiq: best lightweight Chrome extension
 
-- Bot presence required means Google Meet shows an additional participant during calls
-- Internet dependency for optimal performance
-- Video storage demands consume significant space for frequent, long meetings
-- No mobile app restricting access to browser and desktop versions only
+[Tactiq](https://tactiq.io/) is the least invasive option in this list if you live in Chrome and only need text. The extension opens a widget beside Google Meet and transcribes in real time without adding a participant. Current Tactiq documentation says you do not need to enable Meet captions first.
 
-#### Pricing
+![Tactiq live transcript panel beside a Google Meet call](/images/blog/articles/best-ai-notetakers-google-meet/image-5-2.png)
 
-Free forever plan with unlimited recordings. Pro plans start at $29/month for advanced analytics and coaching features.
+*Tactiq keeps the transcript visible beside the call without adding a bot. Source: [Tactiq Google Meet guide](https://help.tactiq.io/en/articles/9535734-how-to-use-tactiq-with-google-meet-meetings).*
 
-### 5. Tactiq: the Chrome extension solution
+Tactiq's documentation says it does not record or store meeting audio. That reduces the data footprint and means there is no playback to revisit later. That trade works when the live transcript, summary, and workflow actions are the product you want.
 
-**[Tactiq](https://tactiq.io/)** works as a Chrome extension rather than a standalone app. It provides live transcription directly in your browser during Google Meet, with powerful workflow automation capabilities.
+The language story needs careful wording. Tactiq markets 60+ languages, while its help center says support varies by meeting platform and only one selected language is transcribed at a time. Google Meet has the broadest enumerated list.
 
-#### How it works with Google Meet
+**Pricing:** Free includes 10 transcripts and 5 AI credits per month. Pro is $8/user/month billed annually, Team is $16.67, and Business is $29.17. See [Tactiq pricing](https://tactiq.io/buy).
 
-Tactiq captures audio directly from your Google Meet tab. It shows live transcription as people speak and can push meeting insights to your existing workflow tools without requiring a separate bot to join the meeting.
+## 6. Krisp: best when audio quality matters too
 
-![Tactiq live transcript panel beside a Google Meet browser call](/images/blog/articles/best-ai-notetakers-google-meet/image-5-2.png)
+[Krisp](https://krisp.ai/ai-meeting-assistant/google-meet/) sits at the desktop audio layer. Select Krisp as the microphone and speaker in Google Meet, then enable its note taker. The same layer can remove noise and echoes while it transcribes. Krisp also offers optional bot capture when automated participation is more useful.
 
-#### Key features
+![Krisp meeting summary with action items and transcript navigation](/images/blog/articles/best-ai-notetakers-google-meet/image-6-2.png)
 
-- **Live transcription** visible during meetings as conversations happen
-- **60+ language support** with automatic language detection
-- **Custom AI workflows** for repetitive tasks and meeting follow-ups
-- **Extensive integrations** pushing insights to Slack, HubSpot, Jira, and other business tools
-- **One-click AI actions** for generating summaries, action items, and follow-up emails
+*Krisp combines meeting notes with its audio-processing workflow. Source: [Krisp for Google Meet](https://krisp.ai/ai-meeting-assistant/google-meet/).*
 
-#### Strengths
+Krisp can transcribe only or transcribe and record audio/video. Its current documentation lists English on-device transcription plus 15 server-based languages. Summaries use Microsoft Azure services, and the standard meeting workspace is cloud-backed. Krisp's documentation lists fully private on-device transcription and recording as Enterprise features, not defaults for every plan.
 
-- Real-time visibility allows you to see transcription happening live during meetings
-- Workflow automation seamlessly connects meeting insights to your existing tool stack
-- Bot-free operation captures audio without appearing as an additional meeting participant
-- Quick setup works immediately after installing the Chrome extension
+That makes Krisp a strong fit for people who already need its audio cleanup. If you do not, Tactiq is lighter and Anarlog gives you more control over storage and models.
 
-#### Considerations
+**Pricing:** Seven-day free trial. Core is $16/user/month monthly or $8 billed annually and includes unlimited transcription, noise cancellation, and recording. See [Krisp pricing](https://krisp.ai/pricing).
 
-- Chrome dependency limits flexibility compared to platform-agnostic tools
-- No audio recording, focusing only on transcription without meeting playback capabilities
-- Limited free plan with only 5 AI credits per month, restricting regular use
+## 7. Otter: best familiar team workspace
 
-#### Pricing
+[Otter](https://otter.ai/googlemeet) now offers both visible and bot-free Google Meet workflows. You can send AI Notetaker as a normal participant, record from the Chrome extension, or use the desktop app to capture on your device.
 
-Free plan with 10 meetings/month and 5 AI credits. Paid plans start at $12/user/month.
+![Otter AI Notetaker calendar controls, visible meeting participant, and transcript workspace](/images/blog/library/products/otter/notetaker/2026-07-17-notetaker-overview.png)
 
-### 6. Krisp: noise cancellation plus AI notes
+*Otter supports scheduled AI Notetaker attendance as well as device capture. Source: [Otter Google Meet guide](https://otter.ai/googlemeet).*
 
-**[Krisp](https://krisp.ai/)** combines background noise cancellation with meeting transcription. The platform removes background noises, voices, and echoes from both sides of calls while transcribing meetings in real-time.
+Otter remains strong at the collaborative transcript: live text, summaries, action items, AI Chat, imports, and integrations around a shared workspace. Its dedicated language help page currently lists English, Spanish, French, German, Japanese, and Simplified Chinese.
 
-#### How it works with Google Meet
+The privacy model is cloud-first. Otter states that it de-identifies user data before model training, encrypts stored data, and maintains SOC 2 Type 2, GDPR, CCPA, and HIPAA controls. Teams comparing it with a local-first product should read the [privacy and security page](https://otter.ai/privacy-security), not infer policy from the fact that bot-free recording happens on a device.
 
-Krisp installs as a desktop application that creates virtual microphone and speaker devices on your computer. You select Krisp as your microphone and speaker in Google Meet settings, and it processes all audio in real-time—removing noise while recording the conversation for transcription.
+**Pricing:** Free includes 300 transcription minutes per user each month. Business starts at $19.99/user/month; Enterprise is custom. Current limits vary by plan on [Otter pricing](https://otter.ai/pricing).
 
-![Krisp generated meeting summary with an action-item checklist](/images/blog/articles/best-ai-notetakers-google-meet/image-6-2.png)
+## 8. Sembly: best for structured deliverables
 
-#### Key features
+[Sembly](https://www.sembly.ai/) sends an agent into live Google Meet calls. It can join even when you are absent, transcribe the meeting, extract decisions and tasks, and turn the conversation into documents such as project plans or requirements.
 
-- **AI-powered noise cancellation** removes background noises, voices, and echoes from both call sides
-- **Real-time transcription** captures conversations across all communication platforms
-- **Universal app compatibility** works with any communication app as an audio processing layer
-- **Direct CRM integrations** with Salesforce, HubSpot, Slack, and Google Calendar
-- **Mobile apps** for iOS and Android to record in-person meetings
+![Sembly meeting note with tasks, summary, and transcript](/images/blog/articles/best-ai-notetakers-google-meet/image-3-2.png)
 
-#### Strengths
+*Sembly organizes the transcript around tasks, decisions, and structured meeting notes. Source: [Sembly](https://www.sembly.ai/).*
 
-- Platform agnostic, working with any video conferencing app
-- Free unlimited transcripts make it accessible for regular testing and use
-- Strong privacy controls with encrypted data storage and clear security practices
-- No meeting disruption—operates invisibly without bots or participant notifications
+This is the narrowest capture choice in the group. Sembly supports microphone recording and file uploads for offline or in-person use, but its documented live Google Meet workflow uses a visible participant. That is useful when the agent must attend without you and awkward when guests do not want another participant.
 
-#### Considerations
+Sembly lists 48 transcription languages and integrations across project management, CRM, storage, and collaboration tools. Higher plans add multi-meeting chat, AI documents, consent tracking, retention controls, SSO, audit logs, and HIPAA support.
 
-- Basic AI summaries offer simple note generation compared to specialized tools
-- Limited customization with no ability to modify AI output beyond manual editing
-- No AI assistant lacking follow-up question capabilities or deeper meeting insights
-- Simple feature set focusing more on audio enhancement than advanced meeting intelligence
+**Pricing:** Basic is $10/month billed annually, Pro is $20, and Max is $30. Monthly billing is higher. See [Sembly pricing](https://www.sembly.ai/pricing/).
 
-#### Pricing
+## How to choose by capture path
 
-Free plan with unlimited transcripts and 2 daily meeting notes. Paid plans start at $16/user/month.
+### Native Google Meet
 
-### 7. Otter AI: the established cloud solution
+Google's feature fits meetings that already belong in Workspace and need a Drive document as the long-term record. You get the least setup and the tightest Calendar integration, but almost no control over the processing stack.
 
-**[Otter AI](https://otter.ai/)** is a well-known AI meeting assistant offering cloud-based meeting intelligence that works across Google Meet, [Zoom](/blog/best-ai-notetaker-for-zoom/), and Microsoft Teams with established real-time collaboration features.
+### Visible meeting bot
 
-#### How it works with Google Meet
+A visible bot earns its place when unattended attendance, video recording, or consistent server-side capture matters. Fireflies, tl;dv, Otter, and Sembly can cover meetings even when your laptop is not doing the recording. Guests will see the participant, and admins may block or scrutinize it.
 
-Otter joins your Google Meet as a visible bot participant called "OtterPilot". It records the audio, generates real-time transcripts with speaker identification, and creates meeting summaries automatically.
+### Browser extension
 
-![Otter Notetaker calendar controls, visible meeting participant, and live transcript workspace](/images/blog/library/products/otter/notetaker/2026-07-17-notetaker-overview.png)
+Tactiq, Fireflies, and Otter offer a fast Google Meet-specific workflow without a visible participant. Browser capture is convenient, but it ties the workflow to a supported browser and can offer less control than a native desktop app.
 
-*Otter's official Notetaker overview shows the calendar, visible guest, and transcript workflow. Source: [Otter](https://help.otter.ai/hc/en-us/articles/4425393298327-Otter-Notetaker-Overview).*
+### Desktop audio capture
 
-#### Key features
-
-- **OtterPilot AI Chat** for asking questions about meeting content during or after calls
-- **Slide capture** automatically screenshots presentations and embeds them in transcripts
-- **Custom vocabulary** for industry terms, names, and company-specific language
-- **Team workspaces** with comment threads and assignable action items
-- **CRM integrations** with Salesforce and HubSpot (Business/Enterprise plans)
-- **OtterPilot for Sales** extracts insights and pushes notes to CRM (Enterprise only)
-
-#### Strengths
-
-- Consistent performance and regular feature updates
-- Reliable speaker identification that improves with usage and learns voice patterns
-- Cross-platform compatibility working reliably across Google Meet, Zoom, and Teams
-- Mobile app functionality handling both virtual meetings and in-person conversation capture
-
-#### Considerations
-
-- Limited language support restricted to English, Spanish, and French only
-- Privacy concerns with an ongoing **[class-action lawsuit](https://anarlog.so/blog/is-otter-ai-safe)** regarding data handling practices
-- Free plan restrictions limited to 300 monthly minutes, which gets consumed quickly
-- Bot presence in meetings can feel intrusive for sensitive client conversations
-
-#### Pricing
-
-Free plan with 300 monthly minutes. Paid plans start at $16.99/user/month.
+The desktop path is broader. Anarlog, Krisp, tl;dv, and Otter can use the same recorder across Meet, Zoom, Teams, phone calls, and in-person conversations. The app must run on the user's computer, but the meeting platform does not need to cooperate.
 
 ## My take
 
-If all you want is a lightweight Google-native recap and your Workspace plan includes it, Gemini notes may be enough.
+Google's native notes are better than they were six months ago. For a company already standardized on Workspace, they may be enough.
 
-If you want something you can keep using outside Google's stack, with real control over where the data goes, start with Anarlog. You can try it, keep the canonical meeting record in local SQLite, export Markdown when needed, and walk away later without rebuilding your system around one vendor.
+But "works with Google Meet" is no longer a useful differentiator. Almost every serious tool does. The real choice is who controls capture, where the canonical record lives, and whether you can change the AI stack later.
+
+I would pick Google for the cleanest Workspace workflow, Tactiq for lightweight browser transcription, Fireflies or tl;dv for managed automation, and Anarlog when ownership matters more than convenience.
 
 ## Frequently asked questions
 
-### 1. Can Google Meet do AI notes?
+### Can Google Meet take AI notes without another app?
 
-Yes, but with significant limitations. Google's "Take notes for me" feature uses Gemini AI to generate meeting summaries in Google Docs. However, it's only available to a small group of users on expensive Workspace plans (Google One AI Premium or specific Business/Enterprise tiers), works in just 8 languages, and often produces incomplete summaries.
+Yes. [Take notes for me](https://support.google.com/meet/answer/14754931) runs inside Google Meet on eligible Workspace and Google AI plans. It creates a notes document in Google Drive and attaches it to the Calendar event.
 
-You have no control over the AI processing. It runs in Google's cloud, uses their models, and follows their data handling practices. For organizations with compliance requirements or privacy concerns, that's a non-starter.
+### Which Google Meet note takers do not add a bot?
 
-### 2. Does Google have a note-taking tool?
+Google's native feature, Anarlog, Tactiq, Krisp, and the bot-free modes in Fireflies, tl;dv, and Otter can capture without adding a participant. The mechanics differ: native Meet processing, browser extension, or desktop audio capture.
 
-Google Docs serves as Google's general note-taking solution, and Google Keep handles quick notes and lists. For meetings specifically, Google offers "Take notes for me" powered by Gemini AI, but it's restricted to select Workspace plans and lacks features teams actually need.
+### Does bot-free mean the meeting stays on my device?
 
-### 3. How do I turn on AI transcription in Google Meet?
+No. Bot-free describes capture, not storage or AI processing. A browser extension or desktop app can still upload audio, transcripts, or notes to a vendor cloud. Check the data path separately.
 
-If you have access:
+### Which option keeps meeting data local?
 
-- Join a Google Meet
-- Click the three dots menu (bottom right)
-- Select "Take notes for me"
-- Google's AI generates notes in a linked Google Doc during the meeting
+Anarlog keeps its canonical meeting database in local SQLite. A fully local setup can use on-device transcription and a local language model. Hosted transcription, hosted AI, encrypted CloudSync, and sharing are optional cloud paths, so the exact configuration still matters.
 
-### 4. Is there a botless AI notetaker?
+### Should I tell participants that AI notes are running?
 
-Yes. Anarlog and Tactiq both work without sending a bot into your meetings.
-
-### 5. What is the most secure AI note taker for Google Meet?
-
-For maximum security, run Anarlog with fully local AI models (Ollama/LM Studio)—zero data leaves your device. For organizations that need cloud AI, bring your own approved API keys from providers your security team has already vetted.
+Yes. A hidden participant is still recording or transcription. Google Workspace admins can require explicit consent for Google's native feature, but every tool and jurisdiction has different requirements. Make disclosure part of the meeting workflow rather than relying on whether a bot is visible.

@@ -1,7 +1,9 @@
-import { collectFolderPaths, folderDisplayName } from "../folders";
+import { collectFolderPaths, folderPathMatchesFilter } from "../folders";
 import type { SessionSummaryRecord } from "./types";
 
 import { liveQueryClient, useLiveQuery } from "~/db";
+import { normalizeFolderIcon } from "~/session/folder-icon";
+import { type TemplateIcon } from "~/templates/template-icon";
 
 type FolderPathSqlRow = {
   folder_path: string;
@@ -36,6 +38,36 @@ export function useFolderPaths(): string[] {
   >({
     sql: FOLDER_PATHS_SQL,
     mapRows: (rows) => collectFolderPaths(rows.map((row) => row.folder_path)),
+  });
+  return data;
+}
+
+type FolderIconSqlRow = {
+  path: string;
+  icon_json?: unknown;
+  iconJson?: unknown;
+};
+
+const EMPTY_FOLDER_ICONS: Record<string, TemplateIcon> = {};
+
+export function useFolderIcons(): Record<string, TemplateIcon> {
+  const { data = EMPTY_FOLDER_ICONS } = useLiveQuery<
+    FolderIconSqlRow,
+    Record<string, TemplateIcon>
+  >({
+    sql: `
+      SELECT path, icon_json
+      FROM folders
+      WHERE deleted_at IS NULL
+        AND path != ''
+    `,
+    mapRows: (rows) => {
+      const icons: Record<string, TemplateIcon> = {};
+      for (const row of rows) {
+        icons[row.path] = normalizeFolderIcon(row.icon_json ?? row.iconJson);
+      }
+      return icons;
+    },
   });
   return data;
 }
@@ -82,7 +114,7 @@ export async function loadSessionSummariesByFolder(
   );
 
   return rows
-    .filter((row) => folderDisplayName(row.folder_path) === folderFilter)
+    .filter((row) => folderPathMatchesFilter(row.folder_path, folderFilter))
     .map((row) => ({
       id: row.id,
       title: row.title,

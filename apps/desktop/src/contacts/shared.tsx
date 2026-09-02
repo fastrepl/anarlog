@@ -6,6 +6,7 @@ import { Avatar } from "@anlg/ui/components/avatar";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
+  appFloatingMenuPanelClassName,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
@@ -54,7 +55,7 @@ function SortDropdown({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent variant="app" align="end">
-        <AppFloatingPanel className="overflow-hidden p-1">
+        <AppFloatingPanel className={appFloatingMenuPanelClassName}>
           <DropdownMenuRadioGroup
             value={sortOption}
             onValueChange={(value) => setSortOption(value as SortOption)}

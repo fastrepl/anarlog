@@ -97,14 +97,12 @@ fn transcription_config(params: &ListenParams) -> serde_json::Value {
     });
     let language_codes = GoogleGenerativeAiAdapter::language_codes(params);
     if !language_codes.is_empty() {
-        let codes = serde_json::Value::Array(
+        config["language_codes"] = serde_json::Value::Array(
             language_codes
                 .into_iter()
                 .map(serde_json::Value::String)
                 .collect(),
         );
-        config["language_hints"] = codes.clone();
-        config["language_codes"] = codes;
     }
     config
 }
@@ -264,12 +262,12 @@ mod tests {
     }
 
     #[test]
-    fn includes_language_hints_when_selected() {
+    fn includes_supported_language_codes_when_selected() {
         let config = transcription_config(&ListenParams {
             languages: vec!["en-US".parse().unwrap()],
             ..Default::default()
         });
-        assert_eq!(config["language_hints"][0], "en-US");
+        assert!(config.get("language_hints").is_none());
         assert_eq!(config["language_codes"][0], "en-US");
     }
 

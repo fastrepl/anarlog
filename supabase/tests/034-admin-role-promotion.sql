@@ -29,6 +29,10 @@ select tests.authenticate_as_hyprnote_pro('promo_owner');
 insert into promo_test_state (name, workspace_id)
 select 'hq', workspace_id from public.create_workspace('Promotion HQ');
 
+select tests.enable_workspace_plan(
+  (select workspace_id from promo_test_state where name = 'hq')
+);
+
 -- Seat both teammates.
 insert into promo_test_state (name, invitation_id, invite_token)
 select 'admin_invite', invitation_id, invite_token

@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { PencilSimple, Plus, X } from "@phosphor-icons/react";
+import { PencilSimple, Plus, Trash, X } from "@phosphor-icons/react";
 import { useRef, useState } from "react";
 
 import { cn } from "@anlg/utils";
@@ -7,13 +7,16 @@ import { cn } from "@anlg/utils";
 import { FolderNameDialog } from "./folder-name-dialog";
 import { useSidebarNotes } from "./note-filter";
 
+import { useFolderSelection } from "~/folders/selection";
 import {
   deleteLocalFolderMaterial,
   diskAttachmentId,
   useFolderMaterials,
 } from "~/session/folder-attachments";
-import { renameNamedFolder } from "~/session/folder-catalog";
+import { deleteNamedFolder, renameNamedFolder } from "~/session/folder-catalog";
+import { FolderInstructionsField } from "~/session/folder-instructions";
 import { useFolderMaterialUpload } from "~/shared/hooks/useFileUpload";
+import { DestructiveConfirmationDialog } from "~/shared/ui/destructive-confirmation-dialog";
 
 export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
   const { t } = useLingui();
@@ -22,7 +25,11 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const setView = useSidebarNotes((state) => state.setView);
+  const markFolderDeleted = useFolderSelection(
+    (state) => state.markFolderDeleted,
+  );
 
   return (
     <>
@@ -50,6 +57,22 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
           >
             <PencilSimple size={14} />
           </button>
+          <button
+            type="button"
+            aria-label={t`Delete folder`}
+            disabled={busy}
+            className={cn([
+              "text-muted-foreground hover:bg-accent hover:text-destructive flex size-6 items-center justify-center rounded-full",
+              "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
+              "disabled:opacity-50",
+            ])}
+            onClick={() => setDeleting(true)}
+          >
+            <Trash size={14} />
+          </button>
+        </div>
+        <div className="mt-1 mb-1.5">
+          <FolderInstructionsField folderPath={folderPath} />
         </div>
         <div className="flex items-center gap-1">
           <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs font-medium">
@@ -141,6 +164,32 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
         onSubmit={async (nextPath) => {
           const renamed = await renameNamedFolder(folderPath, nextPath);
           setView("mine", renamed);
+        }}
+      />
+      <DestructiveConfirmationDialog
+        open={deleting}
+        onOpenChange={setDeleting}
+        title={<Trans>Delete folder</Trans>}
+        description={
+          <Trans id="Notes stay in All notes. Materials in this folder will be deleted.">
+            Notes stay in All notes. This folder, its nested folders, and all
+            their materials will be deleted.
+          </Trans>
+        }
+        confirmLabel={<Trans>Delete folder</Trans>}
+        isPending={busy}
+        onConfirm={() => {
+          void (async () => {
+            setBusy(true);
+            try {
+              await deleteNamedFolder(folderPath);
+              setDeleting(false);
+              markFolderDeleted(folderPath);
+              setView("mine", null);
+            } finally {
+              setBusy(false);
+            }
+          })();
         }}
       />
     </>

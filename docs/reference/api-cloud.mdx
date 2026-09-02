@@ -78,7 +78,7 @@ It exposes the same four read-only tools as the local MCP server:
 
 Hosts that support MCP OAuth 2.1 connect your Anarlog account without a cloud API key. The host discovers Anarlog's authorization server from the MCP endpoint, opens the Anarlog sign-in and consent flow, and stores the resulting connection.
 
-The connection requests the `openid` and `email` scopes. Meeting access remains limited to the server-readable snapshots you explicitly opted in to upload. Every MCP tool is read-only, and every access token is checked for its signature, issuer, expiry, MCP resource audience, OAuth client identifier, and required scopes.
+Anarlog does not use identity scopes as meeting permissions. Meeting access remains limited to the server-readable snapshots you explicitly opted in to upload. Every MCP tool is read-only, and every access token is checked for its signature, issuer, expiry, MCP resource audience, and OAuth client identifier.
 
 Anarlog publishes OAuth protected-resource metadata at:
 

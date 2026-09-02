@@ -46,6 +46,7 @@ vi.mock("~/types/tauri.gen", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
+  appFloatingMenuPanelClassName: "overflow-hidden p-1.5",
   AppFloatingPanel: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -510,6 +511,16 @@ describe("SettingsDevelopers", () => {
 
     const cursorItem = await screen.findByRole("button", { name: "Cursor" });
     expect(cursorItem.hasAttribute("disabled")).toBe(true);
+    expect(
+      screen.getByRole("button", { name: /Claude Code/ }).querySelector("svg"),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Codex" }).querySelector("svg"),
+    ).toBeTruthy();
+    expect(cursorItem.querySelector("svg")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "OpenCode" }).querySelector("svg"),
+    ).toBeTruthy();
     const installedIcon = screen.getByLabelText("Skill installed");
     expect(installedIcon.closest("button")?.textContent).toContain(
       "Claude Code",

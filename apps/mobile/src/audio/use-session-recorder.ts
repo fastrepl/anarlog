@@ -25,6 +25,10 @@ import { transcribeSession } from "@/data/transcribe";
 import { captureAnalytics } from "@/lib/analytics";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
+import {
+  endMeetingRecordingActivity,
+  startMeetingRecordingActivity,
+} from "@/live-activity/meeting-recording-activity";
 
 const STREAM_SAMPLE_RATE = 16_000;
 const STREAM_CHANNELS = 1;
@@ -72,11 +76,12 @@ export function useSessionRecorder(
   const reportedFailureRef = useRef<string | null>(null);
   const durationRef = useRef(0);
   const captureRegisteredRef = useRef(false);
+  const stopRef = useRef<() => Promise<StopResult>>(async () => "noop");
 
   const registerCapture = useCallback(() => {
     if (captureRegisteredRef.current) return;
     captureRegisteredRef.current = true;
-    beginMobileCapture(sessionId);
+    beginMobileCapture(sessionId, () => stopRef.current());
   }, [sessionId]);
 
   const unregisterCapture = useCallback(() => {
@@ -124,6 +129,11 @@ export function useSessionRecorder(
         try {
           streamRef.current.stop();
         } catch {}
+        void endMeetingRecordingActivity(sessionId).catch((activityError) => {
+          captureOperationalError(activityError, {
+            operation: "recording_live_activity_end",
+          });
+        });
         return;
       }
       const generation = startGenerationRef.current;
@@ -179,6 +189,7 @@ export function useSessionRecorder(
     setFailure(null);
     reportedFailureRef.current = null;
     setPhase("starting");
+    registerCapture();
     try {
       let permission = await getRecordingPermissionsAsync();
       if (!permission.granted) {
@@ -204,6 +215,7 @@ export function useSessionRecorder(
         captureAnalytics("session_start_failed", {
           failure_stage: "microphone_permission",
         });
+        unregisterCapture();
         setPhase("unavailable");
         return;
       }
@@ -216,12 +228,16 @@ export function useSessionRecorder(
       });
       if (!isCurrent()) return;
       writerRef.current = new SessionWavWriter(sessionId);
-      registerCapture();
       await stream.start();
       if (!isCurrent()) {
         phaseRef.current = "recording";
         return;
       }
+      await startMeetingRecordingActivity(sessionId).catch((activityError) => {
+        captureOperationalError(activityError, {
+          operation: "recording_live_activity_start",
+        });
+      });
       captureAnalytics("recording_started", {
         entry_point: "mobile_recorder",
         transcription_mode: "live_with_batch_fallback",
@@ -245,6 +261,11 @@ export function useSessionRecorder(
       writerRef.current = null;
       void liveRef.current?.stop();
       liveRef.current = null;
+      await endMeetingRecordingActivity(sessionId).catch((activityError) => {
+        captureOperationalError(activityError, {
+          operation: "recording_live_activity_end",
+        });
+      });
       unregisterCapture();
       reportFailure("start_failed", error, "recording_start");
       captureAnalytics("session_start_failed", {
@@ -308,10 +329,22 @@ export function useSessionRecorder(
     ) {
       return "noop";
     }
-    if (!writerRef.current) return "noop";
+    if (!writerRef.current) {
+      await endMeetingRecordingActivity(sessionId).catch((activityError) => {
+        captureOperationalError(activityError, {
+          operation: "recording_live_activity_end",
+        });
+      });
+      return "noop";
+    }
     setPhase("saving");
     try {
       streamRef.current.stop();
+      await endMeetingRecordingActivity(sessionId).catch((activityError) => {
+        captureOperationalError(activityError, {
+          operation: "recording_live_activity_end",
+        });
+      });
       const writer = writerRef.current;
       if (!writer) throw new Error("Recording file is unavailable");
       const live = liveRef.current;
@@ -385,7 +418,6 @@ export function useSessionRecorder(
     return "noop";
   };
 
-  const stopRef = useRef(stop);
   stopRef.current = stop;
   useMountEffect(() => () => {
     activeRef.current = false;

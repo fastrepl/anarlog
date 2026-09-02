@@ -7,6 +7,7 @@ import type { TemplateSection } from "@anlg/store";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
+  appFloatingMenuPanelClassName,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -242,7 +243,7 @@ function SectionItem({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent variant="app" align="end">
-              <AppFloatingPanel className="overflow-hidden p-1">
+              <AppFloatingPanel className={appFloatingMenuPanelClassName}>
                 <DropdownMenuItem
                   onClick={() => onInsertAbove(index)}
                   className="cursor-pointer"

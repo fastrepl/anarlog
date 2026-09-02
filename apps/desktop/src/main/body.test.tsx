@@ -201,7 +201,7 @@ vi.mock("./sync-status", () => ({
 }));
 
 vi.mock("~/sidebar/note-filter-menu", () => ({
-  SidebarNoteFilterMenu: () => <button type="button">Filter notes</button>,
+  SidebarNoteFilterMenu: () => <button type="button">Sort notes</button>,
 }));
 
 vi.mock("./useShortcuts", () => ({
@@ -289,6 +289,9 @@ describe("ClassicMainBody", () => {
       "after:w-2",
     );
     expect(screen.getByTestId("resize-handle").dataset.className).toContain(
+      "cursor-ew-resize",
+    );
+    expect(screen.getByTestId("resize-handle").dataset.className).toContain(
       "w-1",
     );
 
@@ -364,6 +367,7 @@ describe("ClassicMainBody", () => {
     ["contacts", { state: { selected: null } }],
     ["templates", { state: { selectedMineId: null, selectedWebIndex: null } }],
     ["automations", {}],
+    ["folders", {}],
   ])("keeps the %s left sidebar fixed", (type, extraTabState) => {
     mocks.currentTab = {
       active: true,
@@ -422,6 +426,7 @@ describe("ClassicMainBody", () => {
     ["calendar", {}],
     ["contacts", { state: { selected: null } }],
     ["automations", {}],
+    ["folders", {}],
     ["templates", { state: { selectedMineId: null, selectedWebIndex: null } }],
   ] as const)(
     "leaves the %s chrome row back button to the sidebar header",
@@ -628,14 +633,14 @@ describe("ClassicMainBody", () => {
     expect(mocks.tabContentRenderCount).toBe(initialRenderCount);
   });
 
-  it("keeps the note filter beside the new note button", () => {
+  it("keeps the sort menu beside the new note button", () => {
     render(<ClassicMainBody />);
 
     const newNoteButton = screen.getByRole("button", { name: "New note" });
-    const filterButton = screen.getByRole("button", { name: "Filter notes" });
+    const sortButton = screen.getByRole("button", { name: "Sort notes" });
 
-    expect(filterButton.parentElement).toBe(newNoteButton.parentElement);
-    expect(newNoteButton.compareDocumentPosition(filterButton)).toBe(
+    expect(sortButton.parentElement).toBe(newNoteButton.parentElement);
+    expect(newNoteButton.compareDocumentPosition(sortButton)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
   });
@@ -715,6 +720,21 @@ describe("ClassicMainBody", () => {
 
     const panels = screen.getAllByTestId("panel");
     expect(panels[1]?.dataset.minWidth).toBe("500");
+  });
+
+  it("keeps the settings content panel at least 700px wide", () => {
+    mocks.currentTab = {
+      active: true,
+      pinned: false,
+      slotId: "slot-settings",
+      type: "settings",
+      state: { tab: "app" },
+    };
+
+    render(<ClassicMainBody />);
+
+    const panels = screen.getAllByTestId("panel");
+    expect(panels[1]?.dataset.minWidth).toBe("700");
   });
 
   it("unmounts hidden sidebar content when the panel is collapsed", () => {

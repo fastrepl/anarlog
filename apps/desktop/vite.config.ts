@@ -41,6 +41,8 @@ export default defineConfig(() => ({
       "@codemirror/lang-jinja",
       "codemirror-readonly-ranges",
       "@uiw/react-codemirror",
+      "react",
+      "react-dom",
     ],
   },
   test: {

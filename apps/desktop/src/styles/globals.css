@@ -3,6 +3,7 @@
 
 @import "tailwindcss";
 @import "./dark-theme.css";
+@import "../../../../packages/ui/src/styles/corners.css";
 @import "../../../../packages/ui/src/styles/scroll-fade.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -38,6 +39,10 @@ html[data-live-caption] #root {
   --font-sans:
     system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-hand: "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive;
+
+  /* Capsule radii still read as pills/circles; remap to a control squircle. */
+  --radius-full: 0.5rem;
+  --radius-pill: calc(infinity * 1px);
 
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
@@ -307,4 +312,18 @@ html[data-live-caption] #root {
     right: auto;
     width: var(--width);
   }
+}
+
+/*
+ * Capsule radii still read as pills/circles even with corner-shape: squircle.
+ * Keep this unlayered so it outranks Tailwind utilities from @anlg/ui.
+ * Session view tabs opt out with .rounded-pill.
+ */
+.rounded-full {
+  border-radius: 0.5rem;
+}
+
+.rounded-pill {
+  border-radius: calc(infinity * 1px);
+  corner-shape: round;
 }

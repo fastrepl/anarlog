@@ -4,7 +4,7 @@ import { Switch } from "@anlg/ui/components/ui/switch";
 import { cn } from "@anlg/utils";
 
 export const SETTING_CONTROL_CLASS =
-  "bg-card h-9 w-full shadow-none focus:ring-0";
+  "bg-card h-9 w-full rounded-pill shadow-none [corner-shape:round] focus:ring-0";
 
 export function SettingRow({
   title,

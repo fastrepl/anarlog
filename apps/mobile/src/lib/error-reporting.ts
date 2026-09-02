@@ -39,7 +39,7 @@ export function initializeErrorReporting() {
   Sentry.init({
     dsn: env.sentryDsn,
     enabled: Boolean(env.sentryDsn) && !__DEV__,
-    environment: __DEV__ ? "development" : "production",
+    environment: env.appVariant === "stable" ? "production" : env.appVariant,
     release: `anarlog-mobile@${Constants.expoConfig?.version ?? "unknown"}`,
     dist: appDist(),
     sendDefaultPii: false,
@@ -59,6 +59,7 @@ export function initializeErrorReporting() {
       tags: {
         "service.name": "mobile",
         "service.namespace": "anarlog",
+        "anarlog.mobile.app_variant": env.appVariant,
         "anarlog.mobile.execution_environment": Constants.executionEnvironment,
         "anarlog.mobile.os": Platform.OS,
         "anarlog.surface": "mobile",

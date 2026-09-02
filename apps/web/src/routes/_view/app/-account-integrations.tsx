@@ -8,6 +8,7 @@ import { listConnections } from "@anlg/api-client";
 import { OutlookIcon } from "@anlg/ui/components/icons/outlook";
 import {
   AppFloatingPanel,
+  appFloatingMenuPanelClassName,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -173,7 +174,7 @@ function IntegrationRowMenu({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent variant="app" align="end" className="w-44">
-        <AppFloatingPanel className="overflow-hidden p-1">
+        <AppFloatingPanel className={appFloatingMenuPanelClassName}>
           {needsReconnect && (
             <>
               <DropdownMenuItem asChild className="cursor-pointer">

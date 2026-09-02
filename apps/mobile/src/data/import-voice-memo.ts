@@ -29,6 +29,7 @@ type AudioImportOptions = {
   sessionId?: string;
   ownerUserId?: string;
   signal?: AbortSignal;
+  trackCreated?: boolean;
 };
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
@@ -117,10 +118,12 @@ async function importAsset(
           "application/octet-stream",
         size_bytes: asset.size ?? destination.size ?? 0,
       });
-      captureAnalytics("note_created", {
-        entry_point: entryPoint,
-        has_initial_title: Boolean(title),
-      });
+      if (options?.trackCreated ?? !options?.sessionId) {
+        captureAnalytics("note_created", {
+          entry_point: entryPoint,
+          has_initial_title: Boolean(title),
+        });
+      }
     }
   } catch (error) {
     if (!cataloged) {
@@ -152,32 +155,23 @@ async function importAsset(
   return sessionId;
 }
 
-export async function importVoiceMemos(
+export async function importRecordingIntoSession(
+  sessionId: string,
   ownerUserId?: string,
-): Promise<string[]> {
+): Promise<boolean> {
   const result = await getDocumentAsync({
     type: ["audio/*"],
-    multiple: true,
+    multiple: false,
     copyToCacheDirectory: true,
   });
-  if (result.canceled) return [];
+  if (result.canceled) return false;
 
-  const created: string[] = [];
-  for (const asset of result.assets) {
-    try {
-      created.push(
-        await importAsset(asset, "voice_memo_import", { ownerUserId }),
-      );
-    } catch (error) {
-      captureOperationalError(error, {
-        operation: "voice_memo_import",
-        context: {
-          content_type: asset.mimeType ?? "unknown",
-        },
-      });
-    }
-  }
-  return created;
+  await importAsset(result.assets[0], "voice_memo_import", {
+    preserveSessionOnFailure: true,
+    sessionId,
+    ownerUserId,
+  });
+  return true;
 }
 
 export async function importWatchRecording(
@@ -245,6 +239,7 @@ export async function importWatchRecording(
       sessionId: recording.id,
       ownerUserId: recording.accountUserId,
       signal,
+      trackCreated: !existing,
     },
   );
 }

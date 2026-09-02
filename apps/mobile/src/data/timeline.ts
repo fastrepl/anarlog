@@ -14,10 +14,28 @@ import {
 export * from "./timeline-model";
 
 const TIMELINE_SQL = `
-SELECT id, title, created_at, event_json
+SELECT
+  sessions.id,
+  sessions.title,
+  sessions.created_at,
+  sessions.event_json,
+  sessions.folder_path,
+  COALESCE((
+    SELECT json_group_array(name)
+    FROM (
+      SELECT DISTINCT tags.name AS name
+      FROM session_tags
+      JOIN tags ON tags.id = session_tags.tag_id
+      WHERE session_tags.session_id = sessions.id
+        AND session_tags.deleted_at IS NULL
+        AND tags.deleted_at IS NULL
+        AND trim(tags.name) <> ''
+      ORDER BY tags.name COLLATE NOCASE
+    )
+  ), '[]') AS tags_json
 FROM sessions
-WHERE deleted_at IS NULL
-ORDER BY created_at DESC
+WHERE sessions.deleted_at IS NULL
+ORDER BY sessions.created_at DESC
 `;
 
 const MAX_TIMER_DELAY_MS = 2_147_483_647;

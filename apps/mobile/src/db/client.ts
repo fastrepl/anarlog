@@ -368,6 +368,62 @@ export async function inspectE2eeRecoveryKey(
   }
 }
 
+export function generateE2eeDeviceEnrollmentKey(): string {
+  try {
+    return getBridge().generateE2eeDeviceEnrollmentKey();
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "database_device_enrollment_key_generate",
+    });
+    throw error;
+  }
+}
+
+export function inspectE2eeDeviceEnrollmentKey(keyCode: string): string {
+  try {
+    const publicKey = getBridge().inspectE2eeDeviceEnrollmentKey(keyCode);
+    if (!/^[A-Za-z0-9_-]{43}$/.test(publicKey)) {
+      throw new Error("Unexpected device enrollment public key");
+    }
+    return publicKey;
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "database_device_enrollment_key_inspect",
+    });
+    throw error;
+  }
+}
+
+export function openE2eeDeviceEnrollment({
+  accountUserId,
+  requestId,
+  keyCode,
+  packageValue,
+}: {
+  accountUserId: string;
+  requestId: string;
+  keyCode: string;
+  packageValue: {
+    ephemeralPublicKey: string;
+    nonce: string;
+    ciphertext: string;
+  };
+}): string {
+  try {
+    return getBridge().openE2eeDeviceEnrollment(
+      accountUserId,
+      requestId,
+      keyCode,
+      JSON.stringify(packageValue),
+    );
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "database_device_enrollment_open",
+    });
+    throw error;
+  }
+}
+
 export async function configureE2eeReplica({
   workspaceId,
   witnessEndpoint,

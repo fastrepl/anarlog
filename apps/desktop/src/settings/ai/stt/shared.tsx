@@ -41,6 +41,7 @@ type Provider = {
   disabled: boolean;
   id: string;
   displayName: string;
+  description?: string;
   icon: ReactNode;
   baseUrl?: string;
   models: LocalModel[] | string[];
@@ -69,7 +70,7 @@ export const displayModelId = (model: string): string => {
   }
 
   if (model === "local-file") {
-    return "Local model file";
+    return "whisper.cpp .bin";
   }
 
   if (model === "nova-3" || model === "nova-3-general") {
@@ -375,8 +376,9 @@ const _PROVIDERS = [
   {
     disabled: false,
     id: "local_file",
-    displayName: "Local file",
-    badge: "Batch only",
+    displayName: "On-device file",
+    description: "whisper.cpp .bin",
+    badge: "On device",
     baseUrl: "",
     builtIn: true,
     icon: <FolderOpen />,
@@ -947,6 +949,7 @@ const _PROVIDERS = [
     disabled: false,
     id: "custom",
     displayName: "Custom",
+    description: "Deepgram-compatible",
     badge: null,
     icon: <Shuffle weight="fill" />,
     baseUrl: undefined,

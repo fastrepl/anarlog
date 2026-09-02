@@ -25,7 +25,7 @@ function dependencies(
     deletedCustomers,
     value: {
       getContext: async () => context,
-      getPriceId: (period: "monthly" | "yearly") => `price_pro_${period}`,
+      getPriceId: (period: "monthly" | "yearly") => `price_team_${period}`,
       createCustomer: async () => ({ id: "cus_created123" }),
       bindCustomer: async (_workspaceId: string, customerId: string) =>
         customerId,
@@ -74,7 +74,7 @@ test("provisions a workspace customer and starts per-seat checkout", async () =>
   assert.deepEqual(deps.checkoutInputs, [
     {
       customerId: "cus_created123",
-      priceId: "price_pro_monthly",
+      priceId: "price_team_monthly",
       quantity: 3,
       minimumQuantity: 2,
       workspaceId,
@@ -108,7 +108,7 @@ test("a concurrent customer assignment wins without leaking the loser", async ()
   assert.deepEqual(deps.deletedCustomers, ["cus_created123"]);
 });
 
-test("missing Pro pricing fails before provisioning a customer", async () => {
+test("missing Team pricing fails before provisioning a customer", async () => {
   const deps = dependencies({
     workspaceName: "Checkout HQ",
     stripeCustomerId: null,
@@ -116,7 +116,7 @@ test("missing Pro pricing fails before provisioning a customer", async () => {
   });
   let created = false;
   deps.value.getPriceId = () => {
-    throw new Error("Missing Pro price");
+    throw new Error("Missing Team price");
   };
   deps.value.createCustomer = async () => {
     created = true;
@@ -125,7 +125,7 @@ test("missing Pro pricing fails before provisioning a customer", async () => {
 
   await assert.rejects(
     startWorkspaceCheckout(input, deps.value),
-    /Missing Pro price/,
+    /Missing Team price/,
   );
   assert.equal(created, false);
 });
@@ -148,10 +148,10 @@ for (const status of ["active", "trialing", "past_due", "unpaid"]) {
   });
 }
 
-test("an existing subscription can reach the portal without Pro price config", async () => {
+test("an existing subscription can reach the portal without Team price config", async () => {
   const deps = dependencies();
   deps.value.getPriceId = () => {
-    throw new Error("Missing Pro price");
+    throw new Error("Missing Team price");
   };
   deps.value.listSubscriptions = async () => [{ status: "active" }];
 

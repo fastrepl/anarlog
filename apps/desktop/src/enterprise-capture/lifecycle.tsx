@@ -10,6 +10,7 @@ import {
 
 import { useAuth } from "~/auth";
 import { env } from "~/env";
+import { getWorkspaceAccess, requireTeamContext } from "~/settings/team/client";
 import { useMyWorkspacesWithMirror } from "~/settings/team/mirror";
 
 const POLL_INTERVAL_MS = 15_000;
@@ -28,12 +29,33 @@ export function EnterpriseCaptureSync() {
       session?.user.id,
       workspaces.data?.map((workspace) => workspace.workspaceId).sort(),
     ],
-    enabled: Boolean(serverUrl && session && workspaces.data),
+    enabled: Boolean(serverUrl && auth.supabase && session && workspaces.data),
     queryFn: async () => {
-      if (!serverUrl || !session || !workspaces.data) return null;
-      const consumerId = await getDeviceFingerprint(deviceFingerprint);
+      if (!serverUrl || !auth.supabase || !session || !workspaces.data) {
+        return null;
+      }
+      const context = requireTeamContext(auth);
+      const eligibleWorkspaces: NonNullable<typeof workspaces.data> = [];
       let workspaceError: unknown;
       for (const workspace of workspaces.data) {
+        try {
+          const access = await getWorkspaceAccess(
+            context,
+            workspace.workspaceId,
+          );
+          if (access.capabilities.includes("enterprise.capture")) {
+            eligibleWorkspaces.push(workspace);
+          }
+        } catch (error) {
+          workspaceError ??= error;
+        }
+      }
+      if (eligibleWorkspaces.length === 0) {
+        if (workspaceError) throw workspaceError;
+        return null;
+      }
+      const consumerId = await getDeviceFingerprint(deviceFingerprint);
+      for (const workspace of eligibleWorkspaces) {
         try {
           await syncEnterpriseWorkspace({
             serverUrl,

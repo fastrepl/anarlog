@@ -1,8 +1,11 @@
 import * as Sentry from "@sentry/react-native";
+import { useFonts } from "expo-font";
 import { type ErrorBoundaryProps, Stack, usePathname } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import {
   getMobileCaptureActive,
@@ -11,6 +14,8 @@ import {
 import { recoverInterruptedRecordings } from "@/audio/recover-recordings";
 import { AuthProvider, useAuth } from "@/auth/context";
 import { PaywallScreen, SignInScreen } from "@/auth/screens";
+import type { SignInMethod } from "@/auth/sign-in";
+import { BrandLoadingView } from "@/components/brand-loading-view";
 import { Button } from "@/components/ui/button";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 import { initializeAnalytics, screenAnalytics } from "@/lib/analytics";
@@ -20,14 +25,13 @@ import {
   initializeErrorReporting,
 } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
-import { canUseMobileCapture } from "@/sync/capture-access";
-import { getMobileSyncSnapshot, subscribeMobileSync } from "@/sync/mobile-sync";
+import { QuickActionLifecycle } from "@/quick-actions/quick-action-lifecycle";
 import { MobileSyncLifecycle } from "@/sync/mobile-sync-lifecycle";
-import { SyncEnrollmentScreen } from "@/sync/sync-enrollment-screen";
 import { initializeWatchConnectivity } from "@/watch-connectivity";
 
 initializeErrorReporting();
 initializeWatchConnectivity();
+SplashScreen.setOptions({ duration: 300, fade: true });
 
 const routeErrorKeys = new WeakMap<Error, number>();
 let nextRouteErrorKey = 0;
@@ -73,12 +77,15 @@ function Screens({ accountUserId }: { accountUserId: string | null }) {
   });
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: Colors.paper },
-      }}
-    />
+    <>
+      <QuickActionLifecycle accountUserId={accountUserId} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: Colors.paper },
+        }}
+      />
+    </>
   );
 }
 
@@ -89,17 +96,12 @@ function Gate() {
     getMobileCaptureActive,
     getMobileCaptureActive,
   );
-  const sync = useSyncExternalStore(
-    subscribeMobileSync,
-    getMobileSyncSnapshot,
-    getMobileSyncSnapshot,
-  );
   const [signingIn, setSigningIn] = useState(false);
 
-  const handleSignIn = async () => {
+  const handleSignIn = async (method: SignInMethod) => {
     setSigningIn(true);
     try {
-      await auth.signIn();
+      await auth.signIn(method);
     } catch {
       // AuthProvider reports the actionable failure before rejecting.
     } finally {
@@ -129,16 +131,16 @@ function Gate() {
     auth.status === "loading" ||
     (auth.status === "signed_in" && !auth.billingReady)
   ) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator color={Colors.ink} />
-      </View>
-    );
+    return <BrandLoadingView />;
   }
 
   if (auth.status === "signed_out") {
     return (
-      <SignInScreen busy={signingIn} onSignIn={() => void handleSignIn()} />
+      <SignInScreen
+        busy={signingIn}
+        lastSignInMethod={auth.lastSignInMethod}
+        onSignIn={(method) => void handleSignIn(method)}
+      />
     );
   }
 
@@ -163,11 +165,7 @@ function Gate() {
         accessToken={session.access_token}
         accountUserId={session.user.id}
       />
-      {canUseMobileCapture(sync, session.user.id) ? (
-        <Screens accountUserId={session.user.id} />
-      ) : (
-        <SyncEnrollmentScreen />
-      )}
+      <Screens accountUserId={session.user.id} />
     </>
   );
 }
@@ -217,23 +215,37 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 }
 
 function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    CaveatSemiBold: require("../../assets/fonts/Caveat-SemiBold.ttf"),
+  });
+  const [startupAnimationComplete, setStartupAnimationComplete] =
+    useState(false);
+
+  if (!startupAnimationComplete || (!fontsLoaded && !fontError)) {
+    return (
+      <BrandLoadingView
+        animated={!startupAnimationComplete}
+        onAnimationComplete={() => setStartupAnimationComplete(true)}
+      />
+    );
+  }
+
   return (
-    <AuthProvider>
-      <AnalyticsLifecycle />
-      <Gate />
-      <StatusBar style="dark" />
-    </AuthProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <AuthProvider>
+        <AnalyticsLifecycle />
+        <Gate />
+        <StatusBar style="dark" />
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }
 
 export default Sentry.wrap(RootLayout);
 
 const styles = StyleSheet.create({
-  loading: {
+  root: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: Colors.paper,
   },
   routeError: {
     flex: 1,

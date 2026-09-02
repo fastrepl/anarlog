@@ -390,9 +390,9 @@ export function TemplatePickerPopover({
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent variant="app" className="w-80" align="start">
-        <div className="flex flex-col gap-1">
-          <AppFloatingPanel className="flex flex-col overflow-hidden">
+      <PopoverContent variant="app" className="w-80 pb-0" align="start">
+        <div className="flex flex-col">
+          <AppFloatingPanel className="flex flex-col overflow-hidden rounded-[20px]">
             <div className="border-border border-b py-1">
               <div
                 className={cn([
@@ -421,9 +421,9 @@ export function TemplatePickerPopover({
               </div>
             </div>
 
-            <div className="relative">
+            <div className="relative overflow-hidden rounded-b-[20px]">
               <div
-                className={cn(["scroll-fade-y max-h-80 overflow-y-auto p-1.5"])}
+                className={cn(["scroll-fade-y max-h-80 overflow-y-auto p-1"])}
               >
                 <div className="flex flex-col gap-0">
                   {resultSections.map((section) => (
@@ -485,7 +485,7 @@ export function TemplatePickerPopover({
           <button
             onClick={handleSeeAllTemplates}
             className={cn([
-              "flex h-7 w-full items-center justify-center gap-1 rounded-lg px-3 text-xs font-medium",
+              "flex w-full items-center justify-center gap-1 px-3 py-1.5 text-xs font-medium",
               "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
             ])}
           >

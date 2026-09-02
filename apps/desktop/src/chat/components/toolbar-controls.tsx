@@ -13,10 +13,12 @@ import { useState } from "react";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
+  appFloatingMenuPanelClassName,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
+import { appFloatingItemClassName } from "@anlg/ui/components/ui/floating-content";
 import { cn, formatDistanceToNow } from "@anlg/utils";
 
 import {
@@ -205,7 +207,7 @@ function ChatGroups({
         collisionPadding={8}
         className="max-h-[min(20rem,var(--radix-dropdown-menu-content-available-height))] w-72 max-w-[var(--radix-dropdown-menu-content-available-width)] overflow-y-auto"
       >
-        <AppFloatingPanel className="p-1.5">
+        <AppFloatingPanel className={appFloatingMenuPanelClassName}>
           <div className="px-2 py-1.5">
             <h4 className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
               Recent Chats
@@ -260,6 +262,7 @@ function ChatGroupItem({
       onClick={() => onSelect(chatGroup.id)}
       className={cn([
         "group h-auto w-full justify-start px-2.5 py-1.5",
+        appFloatingItemClassName,
         isActive
           ? "bg-muted hover:bg-accent shadow-xs"
           : "hover:bg-accent active:bg-muted",

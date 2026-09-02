@@ -30,7 +30,7 @@ export function MetadataButton({ sessionId }: { sessionId: string }) {
       <PopoverContent
         variant="app"
         align="end"
-        className="w-85 overflow-hidden"
+        className="w-72 overflow-hidden"
       >
         <AppFloatingPanel className="scrollbar-soft max-h-[80vh] min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain">
           <ContentInner sessionId={sessionId} />
@@ -55,7 +55,7 @@ const TriggerInner = forwardRef<
       aria-label={label}
       title={label}
       className={cn([
-        "size-7 rounded-full",
+        "size-7 rounded-full [&_svg]:size-4",
         "text-muted-foreground hover:bg-accent hover:text-foreground",
         open && "bg-muted text-foreground",
       ])}
@@ -81,7 +81,7 @@ function ContentInner({ sessionId }: { sessionId: string }) {
     : null;
 
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <div className="flex min-w-0 flex-col gap-4 p-4">
       {!eventDisplayData && <DateEditor sessionId={sessionId} />}
       {eventDisplayData && (
         <EventDisplay event={eventDisplayData}>

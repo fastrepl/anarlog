@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import {
   AppFloatingPanel,
+  appFloatingMenuPanelClassName,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -239,7 +240,7 @@ function ShareRowMenu({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent variant="app" align="end" className="w-44">
-        <AppFloatingPanel className="overflow-hidden p-1">
+        <AppFloatingPanel className={appFloatingMenuPanelClassName}>
           <DropdownMenuItem asChild className="cursor-pointer">
             <Link
               to="/share/$shareId/"

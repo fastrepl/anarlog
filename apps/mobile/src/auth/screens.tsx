@@ -1,15 +1,31 @@
+import { BottomSheet, RNHostView } from "@expo/ui";
+import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { BillingInfo } from "@/auth/billing";
 import {
-  MOBILE_BILLING_RETURN_URL,
+  buildMobileBillingReturnUrl,
   parseBillingCallbackUrl,
 } from "@/auth/billing-handoff";
+import type { SignInMethod } from "@/auth/sign-in";
 import { Button } from "@/components/ui/button";
-import { Colors, CornerCurve, Spacing, Typography } from "@/constants/theme";
+import {
+  Colors,
+  CornerCurve,
+  Gradients,
+  Radius,
+  Spacing,
+  Typography,
+} from "@/constants/theme";
 import { captureAnalytics } from "@/lib/analytics";
 import { env } from "@/lib/env";
 import { captureOperationalError } from "@/lib/error-reporting";
@@ -18,32 +34,170 @@ import { useMountEffect } from "@/lib/use-mount-effect";
 export function SignInScreen({
   onSignIn,
   busy,
+  lastSignInMethod,
 }: {
-  onSignIn: () => void;
+  onSignIn: (method: SignInMethod) => void;
   busy: boolean;
+  lastSignInMethod: SignInMethod | null;
 }) {
+  const [showSignInMethods, setShowSignInMethods] = useState(false);
+  const { width } = useWindowDimensions();
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.body}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>Anarlog</Text>
-          <View style={styles.accentDot} />
-        </View>
-        <Text style={styles.subtitle}>Meetings, remembered.</Text>
-        <Text style={styles.copy}>
-          Sign in to use the mobile companion with your Pro account.
+    <SafeAreaView style={[styles.safeArea, styles.brandBackground]}>
+      <View style={styles.signInBrand} testID="sign-in-screen">
+        <Image
+          contentFit="contain"
+          source={require("../../assets/images/anarlog-wordmark.png")}
+          style={styles.wordmark}
+        />
+        <Text style={styles.signInTitle}>
+          The AI notepad for{"\n"}private meetings.
         </Text>
       </View>
 
       <Button
-        label="Sign in"
-        onPress={onSignIn}
+        label="Get started"
+        onPress={() => setShowSignInMethods(true)}
         disabled={busy}
         loading={busy}
         size="large"
         style={styles.cta}
       />
+
+      <BottomSheet
+        isPresented={showSignInMethods}
+        onDismiss={() => setShowSignInMethods(false)}
+        testID="sign-in-methods"
+      >
+        <RNHostView matchContents>
+          <View style={[styles.signInMethodList, { width }]}>
+            <SignInMethodButton
+              method="apple"
+              label="Sign in with Apple"
+              onSignIn={onSignIn}
+              disabled={busy}
+              iconSource={require("../../assets/images/auth/apple.svg")}
+              lastSignInMethod={lastSignInMethod}
+            />
+            <SignInMethodButton
+              method="google"
+              label="Sign in with Google"
+              onSignIn={onSignIn}
+              disabled={busy}
+              iconSource={require("../../assets/images/auth/google.svg")}
+              lastSignInMethod={lastSignInMethod}
+            />
+            <SignInMethodButton
+              method="azure"
+              label="Sign in with Microsoft"
+              onSignIn={onSignIn}
+              disabled={busy}
+              iconSource={require("../../assets/images/auth/microsoft.svg")}
+              lastSignInMethod={lastSignInMethod}
+            />
+            <SignInMethodButton
+              method="github"
+              label="Sign in with GitHub"
+              onSignIn={onSignIn}
+              disabled={busy}
+              iconSource={require("../../assets/images/auth/github.svg")}
+              lastSignInMethod={lastSignInMethod}
+            />
+            <SignInMethodButton
+              method="email"
+              label="Sign in with Email"
+              onSignIn={onSignIn}
+              disabled={busy}
+              iconSource={require("../../assets/images/auth/email.svg")}
+              lastSignInMethod={lastSignInMethod}
+            />
+            <SignInMethodButton
+              method="sso"
+              label="Sign in with SSO"
+              onSignIn={onSignIn}
+              disabled={busy}
+              iconSource={require("../../assets/images/auth/sso.svg")}
+              lastSignInMethod={lastSignInMethod}
+            />
+            <Text style={styles.legalNotice}>
+              By signing up, you agree to our{" "}
+              <Text
+                accessibilityRole="link"
+                onPress={() =>
+                  void WebBrowser.openBrowserAsync("https://anarlog.so/terms")
+                }
+                style={styles.legalLink}
+              >
+                Terms of Service
+              </Text>{" "}
+              and{" "}
+              <Text
+                accessibilityRole="link"
+                onPress={() =>
+                  void WebBrowser.openBrowserAsync("https://anarlog.so/privacy")
+                }
+                style={styles.legalLink}
+              >
+                Privacy Policy
+              </Text>
+              .
+            </Text>
+          </View>
+        </RNHostView>
+      </BottomSheet>
     </SafeAreaView>
+  );
+}
+
+function SignInMethodButton({
+  method,
+  label,
+  iconSource,
+  onSignIn,
+  disabled,
+  lastSignInMethod,
+}: {
+  method: SignInMethod;
+  label: string;
+  iconSource: number;
+  onSignIn: (method: SignInMethod) => void;
+  disabled: boolean;
+  lastSignInMethod: SignInMethod | null;
+}) {
+  const isLastUsed = method === lastSignInMethod;
+
+  return (
+    <View
+      style={[
+        styles.signInMethodContainer,
+        isLastUsed && styles.signInMethodLastUsed,
+      ]}
+    >
+      <Button
+        label={label}
+        onPress={() => onSignIn(method)}
+        disabled={disabled}
+        leading={<ProviderIcon source={iconSource} />}
+        variant="outline"
+        style={styles.signInMethod}
+      />
+      {isLastUsed && (
+        <View
+          pointerEvents="none"
+          style={styles.lastUsedBadge}
+          testID={`last-used-${method}`}
+        >
+          <Text style={styles.lastUsedLabel}>Last used</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function ProviderIcon({ source }: { source: number }) {
+  return (
+    <Image contentFit="contain" source={source} style={styles.providerIcon} />
   );
 }
 
@@ -99,12 +253,12 @@ export function PaywallScreen({
         source: "mobile",
       });
       const result = await WebBrowser.openAuthSessionAsync(
-        `${env.appUrl.replace(/\/+$/, "")}/app/checkout?period=monthly&source=mobile&scheme=anarlog`,
-        MOBILE_BILLING_RETURN_URL,
+        `${env.appUrl.replace(/\/+$/, "")}/app/checkout?period=monthly&source=mobile&scheme=${env.appScheme}`,
+        buildMobileBillingReturnUrl(env.appScheme),
       );
       if (result.type !== "success") return;
 
-      const callback = parseBillingCallbackUrl(result.url);
+      const callback = parseBillingCallbackUrl(result.url, env.appScheme);
       if (!callback) {
         throw new Error("Invalid billing callback URL");
       }
@@ -182,18 +336,83 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     paddingHorizontal: Spacing.lg,
   },
+  brandBackground: {
+    backgroundColor: Colors.brandBackgroundTop,
+    experimental_backgroundImage: Gradients.brandBackground,
+  },
   body: {
     flex: 1,
     justifyContent: "center",
+  },
+  signInBrand: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.lg,
+  },
+  wordmark: {
+    width: 200,
+    height: 56,
+  },
+  signInTitle: {
+    maxWidth: 340,
+    color: Colors.ink,
+    fontFamily: "CaveatSemiBold",
+    fontSize: 38,
+    lineHeight: 44,
+    textAlign: "center",
+  },
+  signInMethodList: {
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+  },
+  signInMethodContainer: {
+    position: "relative",
+    width: "100%",
+  },
+  signInMethodLastUsed: {
+    paddingTop: Spacing.xs,
+  },
+  signInMethod: {
+    width: "100%",
+  },
+  lastUsedBadge: {
+    position: "absolute",
+    top: 0,
+    right: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 1,
+    borderWidth: 2,
+    borderColor: Colors.surface,
+    borderRadius: Radius.pill,
+    borderCurve: CornerCurve.squircle,
+    backgroundColor: Colors.ink,
+  },
+  lastUsedLabel: {
+    ...Typography.captionStrong,
+    color: Colors.inkInverse,
+  },
+  providerIcon: {
+    width: 18,
+    height: 18,
+  },
+  legalNotice: {
+    alignSelf: "center",
+    maxWidth: 320,
+    marginTop: Spacing.sm,
+    ...Typography.caption,
+    color: Colors.muted,
+    textAlign: "center",
+  },
+  legalLink: {
+    color: Colors.muted,
+    textDecorationLine: "underline",
   },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-  },
-  title: {
-    ...Typography.largeTitle,
-    color: Colors.ink,
   },
   paywallTitle: {
     flexShrink: 1,
@@ -206,11 +425,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.accent,
-  },
-  subtitle: {
-    marginTop: Spacing.sm,
-    ...Typography.section,
-    color: Colors.ink,
   },
   copy: {
     marginTop: Spacing.md,

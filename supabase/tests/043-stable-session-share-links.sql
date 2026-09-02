@@ -40,6 +40,10 @@ select
 from stable_share_test_state
 where name = 'workspace';
 
+select tests.enable_workspace_plan(workspace_id)
+from stable_share_test_state
+where name = 'workspace';
+
 select tests.clear_authentication();
 select tests.authenticate_as_hyprnote_pro('stable_share_owner');
 

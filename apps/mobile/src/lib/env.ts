@@ -8,10 +8,12 @@ const read = (key: string, fallback = ""): string => {
 };
 
 export const env = {
+  appVariant: read("appVariant", __DEV__ ? "dev" : "stable"),
+  appScheme: read("appScheme", "anarlog"),
   supabaseUrl: read("supabaseUrl"),
   supabaseAnonKey: read("supabaseAnonKey"),
   apiUrl: read("apiUrl", "https://api.anarlog.so"),
-  appUrl: read("appUrl", "http://localhost:3000"),
+  appUrl: read("appUrl", "https://anarlog.so"),
   posthogApiKey: read("posthogApiKey"),
   posthogHost: read("posthogHost", "https://us.i.posthog.com"),
   sentryDsn: read("sentryDsn"),

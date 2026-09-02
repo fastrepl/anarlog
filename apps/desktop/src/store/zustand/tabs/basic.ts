@@ -25,6 +25,7 @@ const RETURN_ORIGIN_TAB_TYPES: Tab["type"][] = [
   "automations",
   "calendar",
   "contacts",
+  "folders",
   "settings",
   "templates",
 ];

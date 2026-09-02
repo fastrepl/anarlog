@@ -4,6 +4,7 @@ import { eventParticipantSchema, type EventParticipant } from "@anlg/store";
 
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
+import { parseSessionTagNames } from "~/sidebar/item-fields";
 import type {
   TimelineEventRow,
   TimelineEventsTable,
@@ -21,7 +22,10 @@ type TimelineEventSqlRow = Omit<
   is_all_day: boolean | number;
 };
 
-type TimelineSessionSqlRow = TimelineSessionRow & { id: string };
+type TimelineSessionSqlRow = Omit<TimelineSessionRow, "tags"> & {
+  id: string;
+  tags_json?: string | null;
+};
 
 type CalendarSqlRow = {
   id: string;
@@ -162,7 +166,16 @@ export function useTimelineSessionsTable(): TimelineSessionsTable {
         created_at,
         event_json,
         folder_path AS folder_id,
-        locked
+        locked,
+        COALESCE((
+          SELECT json_group_array(tags.name)
+          FROM session_tags
+          INNER JOIN tags
+            ON tags.id = session_tags.tag_id
+            AND tags.deleted_at IS NULL
+          WHERE session_tags.session_id = sessions.id
+            AND session_tags.deleted_at IS NULL
+        ), '[]') AS tags_json
       FROM sessions
       WHERE deleted_at IS NULL
       ORDER BY created_at, id
@@ -519,7 +532,15 @@ export function mapTimelineEventRows(
 export function mapTimelineSessionRows(
   rows: TimelineSessionSqlRow[],
 ): Record<string, TimelineSessionRow> {
-  return Object.fromEntries(rows.map(({ id, ...row }) => [id, row]));
+  return Object.fromEntries(
+    rows.map(({ id, tags_json, ...row }) => [
+      id,
+      {
+        ...row,
+        tags: parseSessionTagNames(tags_json),
+      },
+    ]),
+  );
 }
 
 function normalizeCalendarRow(row: CalendarSqlRow): CalendarRow {

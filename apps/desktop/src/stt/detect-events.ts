@@ -17,6 +17,8 @@ import {
   shouldPromptBeforeAutoStopping,
   showMeetingEndedPrompt,
 } from "./auto-stop";
+import { cancelAutoStopEndedNotification } from "./auto-stop-notification";
+import { inspectionsShowActiveMeetingForApps } from "./meeting-accessibility";
 import {
   getBrowserMeetingPlatform,
   getIgnorableApps,
@@ -84,7 +86,11 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
     let cancelled = false;
     isOnlineRef.current = navigator.onLine;
     const clearNotificationsIfActive = () => {
-      if (store.getState().live.status === "active") {
+      const live = store.getState().live;
+      if (live.status === "active") {
+        if (live.sessionId) {
+          cancelAutoStopEndedNotification(live.sessionId);
+        }
         void notificationCommands.clearNotifications();
       }
     };
@@ -94,6 +100,9 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
         state.live.status === "active" &&
         previousState.live.status !== "active"
       ) {
+        if (state.live.sessionId) {
+          cancelAutoStopEndedNotification(state.live.sessionId);
+        }
         void notificationCommands.clearNotifications();
       }
     });
@@ -122,6 +131,12 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
       const currentTrigger = currentLive.triggerAppIds ?? [];
       if (appIds.some((id) => currentTrigger.includes(id))) {
         clearPendingAutoStop();
+        if (
+          currentLive.sessionId &&
+          cancelAutoStopEndedNotification(currentLive.sessionId)
+        ) {
+          void notificationCommands.clearNotifications();
+        }
       }
       store
         .getState()
@@ -212,6 +227,34 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
         return;
       }
 
+      const accessibilityResult =
+        await detectCommands.inspectMeetingAccessibility();
+      if (
+        accessibilityResult.status === "ok" &&
+        inspectionsShowActiveMeetingForApps(
+          accessibilityResult.data,
+          activeCheckAppIds,
+        )
+      ) {
+        if (pendingAutoStopRef.current !== pending) {
+          return;
+        }
+        scheduleAutoStop(
+          AUTO_STOP_CONFIRM_DELAY_MS,
+          candidateAppIds,
+          stoppedApps,
+          pending.requireMicSnapshot,
+          pending.sessionId,
+          pending.networkInterrupted,
+          pending.networkHoldUntilMs,
+        );
+        return;
+      }
+
+      if (pendingAutoStopRef.current !== pending) {
+        return;
+      }
+
       if (pending.networkInterrupted || !isOnlineRef.current) {
         const nowMs = Date.now();
         const holdUntilMs =
@@ -249,10 +292,9 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
         return;
       }
 
-      const shouldPrompt = await shouldPromptBeforeAutoStopping({
+      const shouldPrompt = shouldPromptBeforeAutoStopping({
         appIds: candidateAppIds,
         sessionId: pending.sessionId,
-        nowMs: Date.now(),
       });
       if (pendingAutoStopRef.current !== pending) {
         return;

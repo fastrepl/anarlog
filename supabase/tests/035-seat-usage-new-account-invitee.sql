@@ -23,6 +23,10 @@ select tests.authenticate_as_hyprnote_pro('cap_owner');
 insert into cap_test_state (name, workspace_id)
 select 'hq', workspace_id from public.create_workspace('Cap HQ');
 
+select tests.enable_workspace_plan(
+  (select workspace_id from cap_test_state where name = 'hq')
+);
+
 select tests.clear_authentication();
 reset role;
 

@@ -80,3 +80,16 @@ test("prioritizes active and pending sync detail", () => {
     true,
   );
 });
+
+test("keeps device approval in the background", () => {
+  const presentation = syncStatusPresentation({
+    ...ready,
+    phase: "approval_pending",
+    running: false,
+    lastSyncAtMs: null,
+  });
+
+  assert.equal(presentation.title, "Connecting this device");
+  assert.match(presentation.description, /Keep working here/);
+  assert.equal(presentation.healthy, false);
+});

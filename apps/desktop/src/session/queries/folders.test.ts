@@ -50,7 +50,7 @@ describe("folder session queries", () => {
     );
   });
 
-  it("keeps nested paths under the top-level folder name", async () => {
+  it("keeps nested paths under a parent folder filter", async () => {
     mocks.execute.mockResolvedValue([
       {
         id: "nested",

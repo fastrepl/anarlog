@@ -4,15 +4,23 @@ import * as SecureStore from "expo-secure-store";
 
 import {
   bootstrapE2eeReplica,
+  generateE2eeDeviceEnrollmentKey,
   generateE2eeRecoveryKey,
   getSyncStatus,
+  inspectE2eeDeviceEnrollmentKey,
   inspectE2eeRecoveryKey,
+  openE2eeDeviceEnrollment,
   stopSync,
   syncNow,
 } from "@/db/client";
 import { env } from "@/lib/env";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { MobileSyncController } from "@/sync/controller";
+import {
+  DeviceEnrollmentError,
+  consumeDeviceEnrollment,
+  requestDeviceEnrollment,
+} from "@/sync/device-enrollment";
 import { claimReplicaIdentity } from "@/sync/identity";
 
 const keychainOptions: SecureStore.SecureStoreOptions = {
@@ -28,6 +36,13 @@ function recoveryKeyStorageKey(accountUserId: string): string {
     throw new Error("Unexpected account identity.");
   }
   return `anarlog.sync.recovery.${accountUserId}`;
+}
+
+function enrollmentKeyStorageKey(accountUserId: string): string {
+  if (!accountIdPattern.test(accountUserId)) {
+    throw new Error("Unexpected account identity.");
+  }
+  return `anarlog.sync.enrollment.${accountUserId}`;
 }
 
 async function getDeviceFingerprint(): Promise<string> {
@@ -80,6 +95,60 @@ const controller = new MobileSyncController({
     fingerprint: await getDeviceFingerprint(),
     name: Device.deviceName ?? Device.modelName,
   }),
+  enrollDevice: async (session, device) => {
+    const storageKey = enrollmentKeyStorageKey(session.accountUserId);
+    let keyCode = await SecureStore.getItemAsync(storageKey, keychainOptions);
+    if (!keyCode) {
+      keyCode = generateE2eeDeviceEnrollmentKey();
+      await SecureStore.setItemAsync(storageKey, keyCode, keychainOptions);
+    }
+    const publicKey = inspectE2eeDeviceEnrollmentKey(keyCode);
+    let enrollment: Awaited<ReturnType<typeof requestDeviceEnrollment>>;
+    try {
+      enrollment = await requestDeviceEnrollment({
+        apiUrl: session.apiUrl,
+        accessToken: session.accessToken,
+        publicKey,
+        device,
+      });
+    } catch (error) {
+      if (
+        error instanceof DeviceEnrollmentError &&
+        error.code === "first_device"
+      ) {
+        return { status: "first_device" };
+      }
+      throw error;
+    }
+    if (enrollment.status !== "sealed" || !enrollment.package) {
+      return { status: "pending" };
+    }
+    const recoveryKey = openE2eeDeviceEnrollment({
+      accountUserId: session.accountUserId,
+      requestId: enrollment.requestId,
+      keyCode,
+      packageValue: enrollment.package,
+    });
+    return {
+      status: "recovered",
+      recoveryKey,
+      completeEnrollment: async () => {
+        if (!device.fingerprint) return;
+        await consumeDeviceEnrollment({
+          apiUrl: session.apiUrl,
+          accessToken: session.accessToken,
+          requestId: enrollment.requestId,
+          publicKey,
+          fingerprint: device.fingerprint,
+        }).catch((error) => {
+          captureOperationalError(error, {
+            operation: "mobile_sync_enrollment_consume",
+            level: "warning",
+          });
+        });
+      },
+    };
+  },
   bootstrap: async (session, recoveryKeyCode, device) =>
     await bootstrapE2eeReplica({
       apiUrl: session.apiUrl,
@@ -119,22 +188,6 @@ export function suspendMobileSync(): void {
 
 export function retryMobileSync(): void {
   controller.retry();
-}
-
-export async function generateMobileRecoveryKey(): Promise<string> {
-  return await controller.generateRecoveryKey();
-}
-
-export async function confirmMobileRecoveryKey(
-  recoveryKey: string,
-): Promise<void> {
-  await controller.confirmRecoveryKey(recoveryKey);
-}
-
-export async function importMobileRecoveryKey(
-  recoveryKey: string,
-): Promise<void> {
-  await controller.importRecoveryKey(recoveryKey);
 }
 
 export async function syncMobileNow(): Promise<void> {

@@ -19,6 +19,7 @@ import {
   resolveAuthFlowContext,
   toAuthFlowSearch,
 } from "@/lib/auth-flow-context";
+import { authSignInMethods } from "@/lib/auth-last-sign-in-method";
 import {
   buildPostAuthDestination,
   sanitizeInternalReturnPath,
@@ -46,6 +47,7 @@ const validateSearch = z.object({
       "email_change",
     ])
     .optional(),
+  method: z.enum(authSignInMethods).optional(),
   flow: z.enum(["desktop", "web"]).default("web"),
   scheme: desktopSchemeSchema.catch(DEFAULT_DESKTOP_SCHEME),
   redirect: z.string().optional(),
@@ -69,7 +71,12 @@ export const Route = createFileRoute("/_view/callback/auth")({
 
     if (search.code) {
       const result = await exchangeOAuthCode({
-        data: { code: search.code, flow: search.flow },
+        data: {
+          code: search.code,
+          flow: search.flow,
+          type: search.type,
+          method: search.method,
+        },
       });
 
       if (!result.success) {
@@ -99,6 +106,7 @@ export const Route = createFileRoute("/_view/callback/auth")({
           scheme: search.scheme,
           access_token: result.access_token,
           refresh_token: result.refresh_token,
+          method: search.method,
           auto_open: "oauth",
         },
       });
@@ -113,6 +121,7 @@ export const Route = createFileRoute("/_view/callback/auth")({
           flow: search.flow,
           scheme: search.scheme,
           redirect: search.redirect,
+          method: search.method,
         },
       });
     }
@@ -136,6 +145,7 @@ function Component() {
     search.scheme,
     accessToken,
     refreshToken,
+    search.method,
   );
 
   useMountEffect(() => {

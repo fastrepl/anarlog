@@ -34,6 +34,31 @@ const USER_ERROR_MARKERS = [
   "upgrade or purchase credits",
 ];
 
+// Archived Sentry issue types. Local error logs stay; Sentry should not reopen
+// or bill for issues that were already solved. Keep in sync with
+// `IGNORED_ERROR_MARKERS` in crates/user-error/src/lib.rs.
+const IGNORED_ERROR_MARKERS = [
+  "[runbatch]",
+  "post-stop transcript repair failed",
+  "[audio-retention]",
+  "batch transcription failed",
+  "connect_async_failed",
+  "acquired connection, but time to acquire exceeded",
+  "slow statement",
+  "samples_dropped",
+  "mic_samples_dropped",
+  "zoom_mic_usage_check_failed",
+  "e2ee recovery key setup is required",
+  "couldn't find callback id",
+  "[sessionpersister]",
+  "update_check_failed",
+  "failed to check for updates",
+  "failed_to_check_for_updates",
+  "listen_ws_connect_failed",
+  "listener_retry_failed",
+  "failed to fetch remote connection ids",
+];
+
 function serializeForUserErrorMatch(value: unknown): string {
   if (typeof value === "string") return value;
   if (value instanceof Error) {
@@ -47,16 +72,39 @@ function serializeForUserErrorMatch(value: unknown): string {
   }
 }
 
-export function isUserError(value: unknown): boolean {
+function textMatchesMarkers(value: unknown, markers: readonly string[]) {
   const text = serializeForUserErrorMatch(value).toLowerCase();
-  return USER_ERROR_MARKERS.some((marker) => text.includes(marker));
+  return markers.some((marker) => text.includes(marker));
+}
+
+export function isUserError(value: unknown): boolean {
+  return textMatchesMarkers(value, USER_ERROR_MARKERS);
+}
+
+export function isIgnoredError(value: unknown): boolean {
+  const text = serializeForUserErrorMatch(value);
+  return (
+    text.startsWith("[String(") ||
+    text.startsWith("[Object {") ||
+    textMatchesMarkers(text, IGNORED_ERROR_MARKERS)
+  );
 }
 
 // Breadcrumbs are deliberately excluded: they outlive the failure that produced
 // them and would suppress later, unrelated errors.
-function isUserErrorEvent(event: ErrorEvent): boolean {
+function isDroppedErrorEvent(event: ErrorEvent): boolean {
+  const logger = typeof event.logger === "string" ? event.logger : undefined;
+  if (
+    logger &&
+    (logger.startsWith("tauri_plugin_tracing") ||
+      logger === "anarlog.webview.console" ||
+      logger === "hyprnote.webview.console")
+  ) {
+    return true;
+  }
+
   return [event.message, event.logentry, event.exception, event.extra].some(
-    isUserError,
+    (value) => isUserError(value) || isIgnoredError(value),
   );
 }
 
@@ -138,7 +186,7 @@ function sanitizeUrl(value: string | undefined) {
 }
 
 export function sanitizeErrorEvent(event: ErrorEvent): ErrorEvent | null {
-  if (isUserErrorEvent(event)) return null;
+  if (isDroppedErrorEvent(event)) return null;
 
   if (event.user) {
     event.user = event.user.id ? { id: event.user.id } : undefined;
@@ -312,7 +360,7 @@ export function captureOperationalError(
     context?: Record<string, ErrorContextValue>;
   },
 ) {
-  if (isUserError(error)) return;
+  if (isUserError(error) || isIgnoredError(error)) return;
 
   const metadata = operationalErrorMetadata(error);
   const exception = normalizeOperationalError(error, operation);

@@ -1,0 +1,113 @@
+---
+meta_title: "Granola AI Complaints in 2026: Language Limits and Other Recurring Issues"
+display_title: "What People Get Frustrated About With Granola"
+meta_description: "What Google, Reddit, and Semrush show about Granola: language limits, 30-day history locks, silent recording failures, and why people look for alternatives."
+author: "John Jeong"
+category: "Comparisons"
+date: "2026-08-30"
+---
+
+Granola is one of the better-designed AI meeting notepads. It stays out of the participant list, lets you type what matters, and fills in the rest from the transcript. That is why people keep recommending it.
+
+It is also why the complaints are specific. People who bounce off Granola usually liked the notepad. They ran into a limit that the product treats as a feature: a short language list, a history wall on the free plan, a capture path that can fail quietly, or a workspace that keeps the record after the audio is gone.
+
+We already have a [Granola AI alternatives guide](/blog/granola-ai-alternatives/) for the product-by-product comparison. This post maps the frustrations that keep showing up in Google results, Reddit threads, and Semrush traffic data, with Granola's own docs as the check against stale reviews.
+
+**Disclosure:** I co-founded Anarlog, an open-source Granola alternative. Our bias is toward local ownership and a choice of AI providers. The product limits below link to Granola's own documentation so you can check them.
+
+## What the search data actually shows
+
+[Semrush's July 2026 snapshot](https://www.semrush.com/website/granola.ai/overview/) puts granola.ai at about 2.1 million visits, up slightly from June. More than half of that traffic is direct. Google is the next source, at about 19%. The organic keywords Granola itself ranks for are almost all branded: `granola ai` at 22,200 monthly searches, then `granola.ai`, `granola ai notes`, `granola notes`, and `granola note taker`.
+
+That mix explains the Google landscape. Brand searches go to Granola. The surrounding SERP is packed with "Granola alternatives" and "Granola review" pages, because that is where commercial intent sits once someone already knows the product. Semrush also shows a country split that is less US-only than the brand story suggests: the United States is about 50% of visits, then the United Kingdom, India, Canada, and Brazil.
+
+Reddit and aggregated review dumps are thinner and noisier. [SearchTools](https://searchtools.ai/t/granola) and later reviews keep quoting the same themes: names come out wrong, a session looks live and produces nothing, the free plan hides older notes, and other people in the call may not know a transcript is being made. Those are not universal experiences. They are the recurring ones.
+
+<Image src="/images/blog/library/products/granola/notepad/2026-07-19-meeting-note.jpg" alt="Granola notepad beside a video call with background transcription active" />
+
+*Granola's first-party product image of the notepad working beside a call. Source: [Granola](https://www.granola.ai/).*
+
+## Language support is still a real limit
+
+Language is the frustration that holds up after Granola added multi-language support. The product is no longer English-only. The remaining limit is narrower, and it still matters if your meetings are not mostly English.
+
+Granola's [multi-language docs](https://docs.granola.ai/help-center/customising-granola/multi-language) currently list ten languages on desktop: English, French, German, Spanish, Italian, Portuguese, Dutch, Japanese, Russian, and Hindi. iOS and Android add Mandarin Chinese, Finnish, Korean, Polish, Turkish, Ukrainian, and Vietnamese. The app UI stays English-only.
+
+| Constraint | What Granola does today |
+| --- | --- |
+| Desktop transcription | 10 languages on the Multi-language setting |
+| Mobile transcription | Those 10, plus Mandarin, Finnish, Korean, Polish, Turkish, Ukrainian, and Vietnamese |
+| App interface | English only |
+| Mixed-language desktop calls | Supported when Multi-language is on |
+| Mixed-language mobile calls | The app picks one language for the whole meeting |
+| Company jargon | Internal Jargon is disabled in Multi-language mode |
+| Old meetings | You cannot change the transcription language after the fact |
+
+That table is the whole argument. Mandarin and Korean exist on the phone and not on the Mac or Windows app, which is where most scheduled work calls happen. A Hindi or Portuguese desktop meeting is in-scope. A Korean customer call on a laptop is not, unless you take it from the phone. A Brazilian team that also speaks English can use Multi-language on desktop, then lose Internal Jargon for product names and acronyms.
+
+Independent reviews keep hitting the same wall. [tl;dv's 2026 Granola review](https://tldv.io/blog/granola-review/) called out the short desktop list and noted that Chinese was missing there. Other write-ups describe the jargon tradeoff as a forced choice: accurate company vocabulary, or mixed-language capture, not both. Granola's own docs agree. English mode is still the quality recommendation when most of the meeting is English.
+
+This is also where search demand and product coverage drift apart. Semrush puts India and Brazil in Granola's top five countries. Hindi and Portuguese are on the desktop list. Korean, Polish, Turkish, Arabic, Thai, and Indonesian are not, or they appear only on mobile. If your calendar is a mix of those, the language setting becomes a weekly decision instead of a default.
+
+Anarlog takes a different cut. Transcription language coverage follows the provider you pick, and the [language settings](https://docs.anarlog.so/languages) keep summary language separate from additional spoken languages. That is not "we support every language equally." It is "you can change the STT model when a language is missing," instead of waiting on Granola's provider list.
+
+## The free plan keeps notes you cannot open
+
+Granola's Basic plan is free and does not cap the number of meetings. The limit moved to time. [Granola's billing docs](https://docs.granola.ai/help-center/managing-your-account/subscriptions-and-billing) say you can only see and use notes from the last 30 days in the app. Older notes are not deleted. They stay stored. They become visible again if you pay for Business at $14 per user per month.
+
+That is the complaint people mean when they say the free plan became a hostage window. You can keep recording. You cannot keep working from last quarter without upgrading or exporting. The official escape hatch is a CSV from Settings, emailed later, with titles and summaries for all notes. [Granola's current billing docs](https://docs.granola.ai/help-center/managing-your-account/subscriptions-and-billing) say full transcripts are not included. Treat the export as an index, not an archive.
+
+Business also unlocks Notion, HubSpot, Attio, Affinity, Zapier, MCP, and API access. Slack is the integration that remains on Basic. If the reason you are evaluating Granola is "I want my notes in the tools I already use," the free plan is a demo of the notepad, not of the workflow.
+
+## Capture can look fine and still miss the meeting
+
+The sharpest Reddit-shaped complaints are about silence, not summary quality. SearchTools quotes users who started a note, watched the window sit there, and found out after the call that nothing had been captured. One founder said the app was open all day and produced notes for about 60% of calls. Another described two important conversations that appeared to be recording and were not, with no error and no alert.
+
+Granola's architecture makes that failure mode expensive. It does not join the call as a participant, so nobody else can see that capture died. It [does not keep the audio](https://docs.granola.ai/help-center/taking-notes/transcription), so there is nothing to replay or re-transcribe. It [does not import recordings](https://docs.granola.ai/help-center/taking-notes/transcription). If the session never started, the meeting is gone.
+
+That is the tradeoff people accepted for a bot-free notepad. It is also why "it just sat there" shows up more often than "the summary was generic." A generic summary can be edited. A blank session cannot.
+
+Desktop speaker labels add a second reliability complaint. Granola can tag Me and Them from microphone versus system audio. Named speakers are not a solved desktop problem. In a three-person call, two people collapse into Them, and action items lose their owner. Mobile in-person capture is further along. Most work meetings are still on a laptop.
+
+## No tape means you cannot check the transcript
+
+Granola's privacy story and its verification problem are the same design choice. Audio is cached for transcription, then deleted. There is no playback, no clip, and no way to hear the sentence again when a number, a name, or a commitment looks wrong.
+
+Users report names getting mangled and notes that are risky to send as-is. That happens in every transcription product. The difference here is that you cannot settle the argument by listening. You either trust the text, ask the other person, or keep typing your own notes as the audit trail, which is the original Granola workflow.
+
+If you need a record for legal review, coaching, or a disputed quote, this is a disqualifier. If you want less stored audio, it is the reason to stay.
+
+## Invisible capture is now a legal and social argument
+
+Granola markets the missing bot as the distinction that matters. Other people in the room do not see a notetaker join. Granola offers a chat notification and a video watermark. Both default off. Enterprise has been piloting an org-wide "Heads Up" notice. Consent stays the user's problem.
+
+That design is now in court. [Chamberlain v. Granola](https://storage.courtlistener.com/recap/gov.uscourts.cand.475308/gov.uscourts.cand.475308.1.0.pdf) alleges that the product intercepts meeting communications without the other participants' knowledge. A [Barnes & Thornburg summary](https://btlaw.com/en/insights/alerts/2026/what-the-granola-class-action-means-for-companies-building-and-deploying-conversation-capture-tools) is a useful read even if you never open the complaint: the legal risk sits with the company that deployed the tool, and optional transparency features do not, by themselves, create consent.
+
+Reddit comments in the same cluster are simpler. People in Europe call the hidden transcript a GDPR problem. Others just find it weird that nobody else in the meeting knows. Granola's position is that it transcribes and deletes audio rather than storing a recording. That is a real technical difference. It does not answer the social one.
+
+Model training sits next to that argument. On Free and Business, [anonymized data may be used to improve Granola's models](https://docs.granola.ai/help-center/consent-security-privacy/security-privacy-data-faqs) unless you turn the setting off. Third-party providers are covered by enterprise agreements that bar training. Org-wide opt-out is an Enterprise control. Granola is also explicit that it is not HIPAA compliant, cannot sign a BAA, and should not be used for PHI. Data residency is US AWS.
+
+None of that makes Granola reckless. It does mean "no bot" is not the same as "no cloud," "no training," or "no consent work."
+
+## When these frustrations matter, and when they do not
+
+Stay with Granola if the notepad is the product you wanted: you type during calls, English or one of the ten desktop languages covers your week, you will pay for history, and you can live without audio playback. The note quality is why the brand searches are so large.
+
+Look elsewhere when the recurring complaints match your actual meetings:
+
+- you need Korean, Mandarin, or another language that desktop Granola does not transcribe
+- you need jargon and mixed languages in the same call
+- you cannot lose a meeting to a silent failure with no tape
+- you need named speakers in group calls
+- you need notes older than 30 days without paying to unlock them
+- legal, health, or residency rules rule out Granola's current cloud path
+
+If the issue is the notepad versus a meeting bot, read the [bot-free AI meeting assistant guide](/blog/bot-free-ai-meeting-assistants/). If the issue is ownership after the call, [local AI meeting notes](/blog/local-ai-meeting-notes/) is the better comparison. If you already know you want a different product, the [Granola alternatives](/blog/granola-ai-alternatives/) piece is the workflow-by-workflow map.
+
+Anarlog is the open-source option we built for the last group: bot-free capture, local SQLite as the meeting record, transcription and AI you can point at a local model or your own keys, and language coverage that follows the provider instead of a fixed ten-language desktop list. It will not attend a meeting when your computer is closed, and you are responsible for backups. That is the trade.
+
+![Anarlog desktop app with a local meeting note and recording controls](/images/blog/library/products/anarlog/desktop/2026-08-27-new-note.png)
+
+*Anarlog keeps the canonical meeting record in local SQLite and lets you choose the speech and AI providers.*
+
+If the frustration is language, history, or a record you can still open next quarter, [try Anarlog](/).

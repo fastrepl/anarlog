@@ -16,7 +16,7 @@ namespace jsi = facebook::jsi;
 extern "C" {
     typedef void
     (*UniffiRustFutureContinuationCallback)(
-    uint64_t data,
+    uint64_t data, 
     int8_t poll_result
     );
     typedef void
@@ -39,7 +39,7 @@ extern "C" {
     } UniffiForeignFutureResultU8;
     typedef void
     (*UniffiForeignFutureCompleteU8)(
-    uint64_t callback_data,
+    uint64_t callback_data, 
     UniffiForeignFutureResultU8 result
     );typedef struct UniffiForeignFutureResultI8 {
         int8_t return_value;
@@ -47,7 +47,7 @@ extern "C" {
     } UniffiForeignFutureResultI8;
     typedef void
     (*UniffiForeignFutureCompleteI8)(
-    uint64_t callback_data,
+    uint64_t callback_data, 
     UniffiForeignFutureResultI8 result
     );typedef struct UniffiForeignFutureResultU16 {
         uint16_t return_value;
@@ -55,7 +55,7 @@ extern "C" {
     } UniffiForeignFutureResultU16;
     typedef void
     (*UniffiForeignFutureCompleteU16)(
-    uint64_t callback_data,
+    uint64_t callback_data, 
     UniffiForeignFutureResultU16 result
     );typedef struct UniffiForeignFutureResultI16 {
         int16_t return_value;
@@ -63,7 +63,7 @@ extern "C" {
     } UniffiForeignFutureResultI16;
     typedef void
     (*UniffiForeignFutureCompleteI16)(
-    uint64_t callback_data,
+    uint64_t callback_data, 
     UniffiForeignFutureResultI16 result
     );typedef struct UniffiForeignFutureResultU32 {
         uint32_t return_value;
@@ -71,7 +71,7 @@ extern "C" {
     } UniffiForeignFutureResultU32;
     typedef void
     (*UniffiForeignFutureCompleteU32)(
-    uint64_t callback_data,
+    uint64_t callback_data, 
     UniffiForeignFutureResultU32 result
     );typedef struct UniffiForeignFutureResultI32 {
         int32_t return_value;
@@ -79,7 +79,7 @@ extern "C" {
     } UniffiForeignFutureResultI32;
     typedef void
     (*UniffiForeignFutureCompleteI32)(
-    uint64_t callback_data,
+    uint64_t callback_data, 
     UniffiForeignFutureResultI32 result
     );typedef struct UniffiForeignFutureResultU64 {
         uint64_t return_value;
@@ -87,7 +87,7 @@ extern "C" {
     } UniffiForeignFutureResultU64;
     typedef void
     (*UniffiForeignFutureCompleteU64)(
-    uint64_t callback_data,
+    uint64_t callback_data, 
     UniffiForeignFutureResultU64 result
     );typedef struct UniffiForeignFutureResultI64 {
         int64_t return_value;
@@ -95,7 +95,7 @@ extern "C" {
     } UniffiForeignFutureResultI64;
     typedef void
     (*UniffiForeignFutureCompleteI64)(
-    uint64_t callback_data,
+    uint64_t callback_data, 
     UniffiForeignFutureResultI64 result
     );typedef struct UniffiForeignFutureResultF32 {
         float return_value;
@@ -103,7 +103,7 @@ extern "C" {
     } UniffiForeignFutureResultF32;
     typedef void
     (*UniffiForeignFutureCompleteF32)(
-    uint64_t callback_data,
+    uint64_t callback_data, 
     UniffiForeignFutureResultF32 result
     );typedef struct UniffiForeignFutureResultF64 {
         double return_value;
@@ -111,7 +111,7 @@ extern "C" {
     } UniffiForeignFutureResultF64;
     typedef void
     (*UniffiForeignFutureCompleteF64)(
-    uint64_t callback_data,
+    uint64_t callback_data, 
     UniffiForeignFutureResultF64 result
     );typedef struct UniffiForeignFutureResultRustBuffer {
         RustBuffer return_value;
@@ -119,26 +119,26 @@ extern "C" {
     } UniffiForeignFutureResultRustBuffer;
     typedef void
     (*UniffiForeignFutureCompleteRustBuffer)(
-    uint64_t callback_data,
+    uint64_t callback_data, 
     UniffiForeignFutureResultRustBuffer result
     );typedef struct UniffiForeignFutureResultVoid {
         RustCallStatus call_status;
     } UniffiForeignFutureResultVoid;
     typedef void
     (*UniffiForeignFutureCompleteVoid)(
-    uint64_t callback_data,
+    uint64_t callback_data, 
     UniffiForeignFutureResultVoid result
     );
     typedef void
     (*UniffiCallbackInterfaceQueryEventListenerMethod0)(
-    uint64_t uniffi_handle,
-    RustBuffer rows_json,
+    uint64_t uniffi_handle, 
+    RustBuffer rows_json, 
     void * uniffi_out_return, RustCallStatus* rust_call_status
     );
     typedef void
     (*UniffiCallbackInterfaceQueryEventListenerMethod1)(
-    uint64_t uniffi_handle,
-    RustBuffer message,
+    uint64_t uniffi_handle, 
+    RustBuffer message, 
     void * uniffi_out_return, RustCallStatus* rust_call_status
     );typedef struct UniffiVTableCallbackInterfaceQueryEventListener {
         UniffiCallbackInterfaceFree uniffi_free;
@@ -147,199 +147,216 @@ extern "C" {
         UniffiCallbackInterfaceQueryEventListenerMethod1 on_error;
     } UniffiVTableCallbackInterfaceQueryEventListener;
     /*handle*/ uint64_t uniffi_mobile_bridge_fn_clone_mobiledbbridge(
-        /*handle*/ uint64_t handle,
+        /*handle*/ uint64_t handle, 
         RustCallStatus *uniffi_out_err
     );
     void uniffi_mobile_bridge_fn_free_mobiledbbridge(
-        /*handle*/ uint64_t handle,
+        /*handle*/ uint64_t handle, 
         RustCallStatus *uniffi_out_err
     );
     /*handle*/ uint64_t uniffi_mobile_bridge_fn_constructor_mobiledbbridge_open(
-        RustBuffer db_path,
-        RustBuffer cloudsync_open_mode,
+        RustBuffer db_path, 
+        RustBuffer cloudsync_open_mode, 
         RustCallStatus *uniffi_out_err
     );
     /*handle*/ uint64_t uniffi_mobile_bridge_fn_method_mobiledbbridge_cleanup_attachment_upload_cache(
-        /*handle*/ uint64_t ptr,
-        RustBuffer job_id,
-        uint32_t attempt_count,
+        /*handle*/ uint64_t ptr, 
+        RustBuffer job_id, 
+        uint32_t attempt_count, 
         RustBuffer cache_id
     );
     void uniffi_mobile_bridge_fn_method_mobiledbbridge_close(
-        /*handle*/ uint64_t ptr,
+        /*handle*/ uint64_t ptr, 
         RustCallStatus *uniffi_out_err
     );
     void uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_init(
-        /*handle*/ uint64_t ptr,
-        RustBuffer table_name,
-        RustBuffer crdt_algo,
-        RustBuffer init_flags,
+        /*handle*/ uint64_t ptr, 
+        RustBuffer table_name, 
+        RustBuffer crdt_algo, 
+        RustBuffer init_flags, 
         RustCallStatus *uniffi_out_err
     );
     void uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_init(
-        /*handle*/ uint64_t ptr,
-        RustBuffer connection_string,
+        /*handle*/ uint64_t ptr, 
+        RustBuffer connection_string, 
         RustCallStatus *uniffi_out_err
     );
     void uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_set_apikey(
-        /*handle*/ uint64_t ptr,
-        RustBuffer api_key,
+        /*handle*/ uint64_t ptr, 
+        RustBuffer api_key, 
         RustCallStatus *uniffi_out_err
     );
     void uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_set_token(
-        /*handle*/ uint64_t ptr,
-        RustBuffer token,
+        /*handle*/ uint64_t ptr, 
+        RustBuffer token, 
         RustCallStatus *uniffi_out_err
     );
     RustBuffer uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_sync(
-        /*handle*/ uint64_t ptr,
-        RustBuffer wait_ms,
-        RustBuffer max_retries,
+        /*handle*/ uint64_t ptr, 
+        RustBuffer wait_ms, 
+        RustBuffer max_retries, 
         RustCallStatus *uniffi_out_err
     );
     RustBuffer uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_status(
-        /*handle*/ uint64_t ptr,
+        /*handle*/ uint64_t ptr, 
         RustCallStatus *uniffi_out_err
     );
     RustBuffer uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_sync_now(
-        /*handle*/ uint64_t ptr,
+        /*handle*/ uint64_t ptr, 
         RustCallStatus *uniffi_out_err
     );
     RustBuffer uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_version(
-        /*handle*/ uint64_t ptr,
+        /*handle*/ uint64_t ptr, 
         RustCallStatus *uniffi_out_err
     );
     void uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_attachment_storage(
-        /*handle*/ uint64_t ptr,
-        RustBuffer documents_path,
-        RustBuffer cache_path,
+        /*handle*/ uint64_t ptr, 
+        RustBuffer documents_path, 
+        RustBuffer cache_path, 
         RustCallStatus *uniffi_out_err
     );
     void uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_cloudsync(
-        /*handle*/ uint64_t ptr,
-        RustBuffer config_json,
+        /*handle*/ uint64_t ptr, 
+        RustBuffer config_json, 
         RustCallStatus *uniffi_out_err
     );
     RustBuffer uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_e2ee_replica(
-        /*handle*/ uint64_t ptr,
-        RustBuffer workspace_id,
-        RustBuffer witness_endpoint,
-        RustBuffer witness_access_token,
-        RustBuffer recovery_key_code,
+        /*handle*/ uint64_t ptr, 
+        RustBuffer workspace_id, 
+        RustBuffer witness_endpoint, 
+        RustBuffer witness_access_token, 
+        RustBuffer recovery_key_code, 
         RustCallStatus *uniffi_out_err
     );
     /*handle*/ uint64_t uniffi_mobile_bridge_fn_method_mobiledbbridge_describe_attachment_upload(
-        /*handle*/ uint64_t ptr,
-        RustBuffer job_id,
+        /*handle*/ uint64_t ptr, 
+        RustBuffer job_id, 
         uint32_t attempt_count
     );
     RustBuffer uniffi_mobile_bridge_fn_method_mobiledbbridge_execute(
-        /*handle*/ uint64_t ptr,
-        RustBuffer sql,
-        RustBuffer params_json,
+        /*handle*/ uint64_t ptr, 
+        RustBuffer sql, 
+        RustBuffer params_json, 
         RustCallStatus *uniffi_out_err
     );
     RustBuffer uniffi_mobile_bridge_fn_method_mobiledbbridge_execute_proxy(
-        /*handle*/ uint64_t ptr,
-        RustBuffer sql,
-        RustBuffer params_json,
-        RustBuffer method,
+        /*handle*/ uint64_t ptr, 
+        RustBuffer sql, 
+        RustBuffer params_json, 
+        RustBuffer method, 
         RustCallStatus *uniffi_out_err
     );
     RustBuffer uniffi_mobile_bridge_fn_method_mobiledbbridge_execute_transaction(
-        /*handle*/ uint64_t ptr,
-        RustBuffer statements_json,
+        /*handle*/ uint64_t ptr, 
+        RustBuffer statements_json, 
+        RustCallStatus *uniffi_out_err
+    );
+    RustBuffer uniffi_mobile_bridge_fn_method_mobiledbbridge_generate_e2ee_device_enrollment_key(
+        /*handle*/ uint64_t ptr, 
         RustCallStatus *uniffi_out_err
     );
     RustBuffer uniffi_mobile_bridge_fn_method_mobiledbbridge_generate_e2ee_recovery_key(
-        /*handle*/ uint64_t ptr,
+        /*handle*/ uint64_t ptr, 
+        RustCallStatus *uniffi_out_err
+    );
+    RustBuffer uniffi_mobile_bridge_fn_method_mobiledbbridge_inspect_e2ee_device_enrollment_key(
+        /*handle*/ uint64_t ptr, 
+        RustBuffer key_code, 
         RustCallStatus *uniffi_out_err
     );
     RustBuffer uniffi_mobile_bridge_fn_method_mobiledbbridge_inspect_e2ee_recovery_key(
-        /*handle*/ uint64_t ptr,
-        RustBuffer recovery_key_code,
+        /*handle*/ uint64_t ptr, 
+        RustBuffer recovery_key_code, 
+        RustCallStatus *uniffi_out_err
+    );
+    RustBuffer uniffi_mobile_bridge_fn_method_mobiledbbridge_open_e2ee_device_enrollment(
+        /*handle*/ uint64_t ptr, 
+        RustBuffer account_user_id, 
+        RustBuffer request_id, 
+        RustBuffer key_code, 
+        RustBuffer package_json, 
         RustCallStatus *uniffi_out_err
     );
     /*handle*/ uint64_t uniffi_mobile_bridge_fn_method_mobiledbbridge_prepare_attachment_upload(
-        /*handle*/ uint64_t ptr,
-        RustBuffer job_id,
-        uint32_t attempt_count,
-        RustBuffer object_id,
+        /*handle*/ uint64_t ptr, 
+        RustBuffer job_id, 
+        uint32_t attempt_count, 
+        RustBuffer object_id, 
         RustBuffer object_key
     );
     /*handle*/ uint64_t uniffi_mobile_bridge_fn_method_mobiledbbridge_read_attachment_upload_range(
-        /*handle*/ uint64_t ptr,
-        RustBuffer job_id,
-        uint32_t attempt_count,
-        RustBuffer cache_id,
-        uint32_t start,
+        /*handle*/ uint64_t ptr, 
+        RustBuffer job_id, 
+        uint32_t attempt_count, 
+        RustBuffer cache_id, 
+        uint32_t start, 
         uint32_t end
     );
     /*handle*/ uint64_t uniffi_mobile_bridge_fn_method_mobiledbbridge_restore_attachment(
-        /*handle*/ uint64_t ptr,
+        /*handle*/ uint64_t ptr, 
         RustBuffer request_json
     );
     void uniffi_mobile_bridge_fn_method_mobiledbbridge_start_cloudsync(
-        /*handle*/ uint64_t ptr,
+        /*handle*/ uint64_t ptr, 
         RustCallStatus *uniffi_out_err
     );
     void uniffi_mobile_bridge_fn_method_mobiledbbridge_stop_cloudsync(
-        /*handle*/ uint64_t ptr,
+        /*handle*/ uint64_t ptr, 
         RustCallStatus *uniffi_out_err
     );
     RustBuffer uniffi_mobile_bridge_fn_method_mobiledbbridge_subscribe(
-        /*handle*/ uint64_t ptr,
-        RustBuffer sql,
-        RustBuffer params_json,
-        /*handle*/ uint64_t listener,
+        /*handle*/ uint64_t ptr, 
+        RustBuffer sql, 
+        RustBuffer params_json, 
+        /*handle*/ uint64_t listener, 
         RustCallStatus *uniffi_out_err
     );
     void uniffi_mobile_bridge_fn_method_mobiledbbridge_unsubscribe(
-        /*handle*/ uint64_t ptr,
-        RustBuffer subscription_id,
+        /*handle*/ uint64_t ptr, 
+        RustBuffer subscription_id, 
         RustCallStatus *uniffi_out_err
     );
     /*handle*/ uint64_t uniffi_mobile_bridge_fn_clone_queryeventlistener(
-        /*handle*/ uint64_t handle,
+        /*handle*/ uint64_t handle, 
         RustCallStatus *uniffi_out_err
     );
     void uniffi_mobile_bridge_fn_free_queryeventlistener(
-        /*handle*/ uint64_t handle,
+        /*handle*/ uint64_t handle, 
         RustCallStatus *uniffi_out_err
     );
     void uniffi_mobile_bridge_fn_init_callback_vtable_queryeventlistener(
         UniffiVTableCallbackInterfaceQueryEventListener * vtable
     );
     void uniffi_mobile_bridge_fn_method_queryeventlistener_on_result(
-        /*handle*/ uint64_t ptr,
-        RustBuffer rows_json,
+        /*handle*/ uint64_t ptr, 
+        RustBuffer rows_json, 
         RustCallStatus *uniffi_out_err
     );
     void uniffi_mobile_bridge_fn_method_queryeventlistener_on_error(
-        /*handle*/ uint64_t ptr,
-        RustBuffer message,
+        /*handle*/ uint64_t ptr, 
+        RustBuffer message, 
         RustCallStatus *uniffi_out_err
     );
     RustBuffer ffi_mobile_bridge_rustbuffer_alloc(
-        uint64_t size,
+        uint64_t size, 
         RustCallStatus *uniffi_out_err
     );
     RustBuffer ffi_mobile_bridge_rustbuffer_from_bytes(
-        ForeignBytes bytes,
+        ForeignBytes bytes, 
         RustCallStatus *uniffi_out_err
     );
     void ffi_mobile_bridge_rustbuffer_free(
-        RustBuffer buf,
+        RustBuffer buf, 
         RustCallStatus *uniffi_out_err
     );
     RustBuffer ffi_mobile_bridge_rustbuffer_reserve(
-        RustBuffer buf,
-        uint64_t additional,
+        RustBuffer buf, 
+        uint64_t additional, 
         RustCallStatus *uniffi_out_err
     );
     void ffi_mobile_bridge_rust_future_poll_u8(
-        /*handle*/ uint64_t handle,
-        UniffiRustFutureContinuationCallback callback,
+        /*handle*/ uint64_t handle, 
+        UniffiRustFutureContinuationCallback callback, 
         /*handle*/ uint64_t callback_data
     );
     void ffi_mobile_bridge_rust_future_cancel_u8(
@@ -349,12 +366,12 @@ extern "C" {
         /*handle*/ uint64_t handle
     );
     uint8_t ffi_mobile_bridge_rust_future_complete_u8(
-        /*handle*/ uint64_t handle,
+        /*handle*/ uint64_t handle, 
         RustCallStatus *uniffi_out_err
     );
     void ffi_mobile_bridge_rust_future_poll_i8(
-        /*handle*/ uint64_t handle,
-        UniffiRustFutureContinuationCallback callback,
+        /*handle*/ uint64_t handle, 
+        UniffiRustFutureContinuationCallback callback, 
         /*handle*/ uint64_t callback_data
     );
     void ffi_mobile_bridge_rust_future_cancel_i8(
@@ -364,12 +381,12 @@ extern "C" {
         /*handle*/ uint64_t handle
     );
     int8_t ffi_mobile_bridge_rust_future_complete_i8(
-        /*handle*/ uint64_t handle,
+        /*handle*/ uint64_t handle, 
         RustCallStatus *uniffi_out_err
     );
     void ffi_mobile_bridge_rust_future_poll_u16(
-        /*handle*/ uint64_t handle,
-        UniffiRustFutureContinuationCallback callback,
+        /*handle*/ uint64_t handle, 
+        UniffiRustFutureContinuationCallback callback, 
         /*handle*/ uint64_t callback_data
     );
     void ffi_mobile_bridge_rust_future_cancel_u16(
@@ -379,12 +396,12 @@ extern "C" {
         /*handle*/ uint64_t handle
     );
     uint16_t ffi_mobile_bridge_rust_future_complete_u16(
-        /*handle*/ uint64_t handle,
+        /*handle*/ uint64_t handle, 
         RustCallStatus *uniffi_out_err
     );
     void ffi_mobile_bridge_rust_future_poll_i16(
-        /*handle*/ uint64_t handle,
-        UniffiRustFutureContinuationCallback callback,
+        /*handle*/ uint64_t handle, 
+        UniffiRustFutureContinuationCallback callback, 
         /*handle*/ uint64_t callback_data
     );
     void ffi_mobile_bridge_rust_future_cancel_i16(
@@ -394,12 +411,12 @@ extern "C" {
         /*handle*/ uint64_t handle
     );
     int16_t ffi_mobile_bridge_rust_future_complete_i16(
-        /*handle*/ uint64_t handle,
+        /*handle*/ uint64_t handle, 
         RustCallStatus *uniffi_out_err
     );
     void ffi_mobile_bridge_rust_future_poll_u32(
-        /*handle*/ uint64_t handle,
-        UniffiRustFutureContinuationCallback callback,
+        /*handle*/ uint64_t handle, 
+        UniffiRustFutureContinuationCallback callback, 
         /*handle*/ uint64_t callback_data
     );
     void ffi_mobile_bridge_rust_future_cancel_u32(
@@ -409,12 +426,12 @@ extern "C" {
         /*handle*/ uint64_t handle
     );
     uint32_t ffi_mobile_bridge_rust_future_complete_u32(
-        /*handle*/ uint64_t handle,
+        /*handle*/ uint64_t handle, 
         RustCallStatus *uniffi_out_err
     );
     void ffi_mobile_bridge_rust_future_poll_i32(
-        /*handle*/ uint64_t handle,
-        UniffiRustFutureContinuationCallback callback,
+        /*handle*/ uint64_t handle, 
+        UniffiRustFutureContinuationCallback callback, 
         /*handle*/ uint64_t callback_data
     );
     void ffi_mobile_bridge_rust_future_cancel_i32(
@@ -424,12 +441,12 @@ extern "C" {
         /*handle*/ uint64_t handle
     );
     int32_t ffi_mobile_bridge_rust_future_complete_i32(
-        /*handle*/ uint64_t handle,
+        /*handle*/ uint64_t handle, 
         RustCallStatus *uniffi_out_err
     );
     void ffi_mobile_bridge_rust_future_poll_u64(
-        /*handle*/ uint64_t handle,
-        UniffiRustFutureContinuationCallback callback,
+        /*handle*/ uint64_t handle, 
+        UniffiRustFutureContinuationCallback callback, 
         /*handle*/ uint64_t callback_data
     );
     void ffi_mobile_bridge_rust_future_cancel_u64(
@@ -439,12 +456,12 @@ extern "C" {
         /*handle*/ uint64_t handle
     );
     uint64_t ffi_mobile_bridge_rust_future_complete_u64(
-        /*handle*/ uint64_t handle,
+        /*handle*/ uint64_t handle, 
         RustCallStatus *uniffi_out_err
     );
     void ffi_mobile_bridge_rust_future_poll_i64(
-        /*handle*/ uint64_t handle,
-        UniffiRustFutureContinuationCallback callback,
+        /*handle*/ uint64_t handle, 
+        UniffiRustFutureContinuationCallback callback, 
         /*handle*/ uint64_t callback_data
     );
     void ffi_mobile_bridge_rust_future_cancel_i64(
@@ -454,12 +471,12 @@ extern "C" {
         /*handle*/ uint64_t handle
     );
     int64_t ffi_mobile_bridge_rust_future_complete_i64(
-        /*handle*/ uint64_t handle,
+        /*handle*/ uint64_t handle, 
         RustCallStatus *uniffi_out_err
     );
     void ffi_mobile_bridge_rust_future_poll_f32(
-        /*handle*/ uint64_t handle,
-        UniffiRustFutureContinuationCallback callback,
+        /*handle*/ uint64_t handle, 
+        UniffiRustFutureContinuationCallback callback, 
         /*handle*/ uint64_t callback_data
     );
     void ffi_mobile_bridge_rust_future_cancel_f32(
@@ -469,12 +486,12 @@ extern "C" {
         /*handle*/ uint64_t handle
     );
     float ffi_mobile_bridge_rust_future_complete_f32(
-        /*handle*/ uint64_t handle,
+        /*handle*/ uint64_t handle, 
         RustCallStatus *uniffi_out_err
     );
     void ffi_mobile_bridge_rust_future_poll_f64(
-        /*handle*/ uint64_t handle,
-        UniffiRustFutureContinuationCallback callback,
+        /*handle*/ uint64_t handle, 
+        UniffiRustFutureContinuationCallback callback, 
         /*handle*/ uint64_t callback_data
     );
     void ffi_mobile_bridge_rust_future_cancel_f64(
@@ -484,12 +501,12 @@ extern "C" {
         /*handle*/ uint64_t handle
     );
     double ffi_mobile_bridge_rust_future_complete_f64(
-        /*handle*/ uint64_t handle,
+        /*handle*/ uint64_t handle, 
         RustCallStatus *uniffi_out_err
     );
     void ffi_mobile_bridge_rust_future_poll_rust_buffer(
-        /*handle*/ uint64_t handle,
-        UniffiRustFutureContinuationCallback callback,
+        /*handle*/ uint64_t handle, 
+        UniffiRustFutureContinuationCallback callback, 
         /*handle*/ uint64_t callback_data
     );
     void ffi_mobile_bridge_rust_future_cancel_rust_buffer(
@@ -499,12 +516,12 @@ extern "C" {
         /*handle*/ uint64_t handle
     );
     RustBuffer ffi_mobile_bridge_rust_future_complete_rust_buffer(
-        /*handle*/ uint64_t handle,
+        /*handle*/ uint64_t handle, 
         RustCallStatus *uniffi_out_err
     );
     void ffi_mobile_bridge_rust_future_poll_void(
-        /*handle*/ uint64_t handle,
-        UniffiRustFutureContinuationCallback callback,
+        /*handle*/ uint64_t handle, 
+        UniffiRustFutureContinuationCallback callback, 
         /*handle*/ uint64_t callback_data
     );
     void ffi_mobile_bridge_rust_future_cancel_void(
@@ -514,7 +531,7 @@ extern "C" {
         /*handle*/ uint64_t handle
     );
     void ffi_mobile_bridge_rust_future_complete_void(
-        /*handle*/ uint64_t handle,
+        /*handle*/ uint64_t handle, 
         RustCallStatus *uniffi_out_err
     );
     uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_cleanup_attachment_upload_cache(
@@ -551,9 +568,15 @@ extern "C" {
     );
     uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_transaction(
     );
+    uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_generate_e2ee_device_enrollment_key(
+    );
     uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_generate_e2ee_recovery_key(
     );
+    uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_device_enrollment_key(
+    );
     uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_recovery_key(
+    );
+    uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_open_e2ee_device_enrollment(
     );
     uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_prepare_attachment_upload(
     );
@@ -858,9 +881,9 @@ namespace uniffi::mobile_bridge::cb::rustfuturecontinuationcallback {
             auto uniffiResult = cb.call(rt, js_data, js_pollResult
             );
 
+            
 
-
-
+            
         } catch (const jsi::JSError &error) {
             std::cout << "Error in callback UniffiRustFutureContinuationCallback: "
                     << error.what() << std::endl;
@@ -885,7 +908,7 @@ namespace uniffi::mobile_bridge::cb::rustfuturecontinuationcallback {
         // The runtime, the actual callback jsi::funtion, and the callInvoker
         // are all in the lambda.
         rsLambda(
-            rs_data,
+            rs_data, 
             rs_pollResult);
     }
 
@@ -922,7 +945,7 @@ namespace uniffi::mobile_bridge::cb::rustfuturecontinuationcallback {
                 };
                 // We'll then call that lambda from the callInvoker which will
                 // look after calling it on the correct thread.
-
+                
                 callInvoker->invokeNonBlocking(rt, jsLambda);
         };
         return callback;
@@ -977,9 +1000,9 @@ namespace uniffi::mobile_bridge::cb::foreignfuturedroppedcallback {
             auto uniffiResult = cb.call(rt, js_handle
             );
 
+            
 
-
-
+            
         } catch (const jsi::JSError &error) {
             std::cout << "Error in callback UniffiForeignFutureDroppedCallback: "
                     << error.what() << std::endl;
@@ -1038,7 +1061,7 @@ namespace uniffi::mobile_bridge::cb::foreignfuturedroppedcallback {
                 };
                 // We'll then call that lambda from the callInvoker which will
                 // look after calling it on the correct thread.
-
+                
                 callInvoker->invokeNonBlocking(rt, jsLambda);
         };
         return callback;
@@ -1094,9 +1117,9 @@ namespace uniffi::mobile_bridge::st::vtablecallbackinterfacequeryeventlistener::
             auto uniffiResult = cb.call(rt, js_handle
             );
 
+            
 
-
-
+            
         } catch (const jsi::JSError &error) {
             std::cout << "Error in callback UniffiCallbackInterfaceFree: "
                     << error.what() << std::endl;
@@ -1155,7 +1178,7 @@ namespace uniffi::mobile_bridge::st::vtablecallbackinterfacequeryeventlistener::
                 };
                 // We'll then call that lambda from the callInvoker which will
                 // look after calling it on the correct thread.
-
+                
                 callInvoker->invokeNonBlocking(rt, jsLambda);
         };
         return callback;
@@ -1272,7 +1295,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteU8> {
         func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiForeignFutureResultU8>::fromJs(rt, callInvoker, args[1])
         );
 
-
+        
         return jsi::Value::undefined();
   }
 };
@@ -1346,7 +1369,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteI8> {
         func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiForeignFutureResultI8>::fromJs(rt, callInvoker, args[1])
         );
 
-
+        
         return jsi::Value::undefined();
   }
 };
@@ -1420,7 +1443,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteU16> {
         func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiForeignFutureResultU16>::fromJs(rt, callInvoker, args[1])
         );
 
-
+        
         return jsi::Value::undefined();
   }
 };
@@ -1494,7 +1517,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteI16> {
         func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiForeignFutureResultI16>::fromJs(rt, callInvoker, args[1])
         );
 
-
+        
         return jsi::Value::undefined();
   }
 };
@@ -1568,7 +1591,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteU32> {
         func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiForeignFutureResultU32>::fromJs(rt, callInvoker, args[1])
         );
 
-
+        
         return jsi::Value::undefined();
   }
 };
@@ -1642,7 +1665,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteI32> {
         func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiForeignFutureResultI32>::fromJs(rt, callInvoker, args[1])
         );
 
-
+        
         return jsi::Value::undefined();
   }
 };
@@ -1716,7 +1739,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteU64> {
         func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiForeignFutureResultU64>::fromJs(rt, callInvoker, args[1])
         );
 
-
+        
         return jsi::Value::undefined();
   }
 };
@@ -1790,7 +1813,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteI64> {
         func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiForeignFutureResultI64>::fromJs(rt, callInvoker, args[1])
         );
 
-
+        
         return jsi::Value::undefined();
   }
 };
@@ -1864,7 +1887,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteF32> {
         func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiForeignFutureResultF32>::fromJs(rt, callInvoker, args[1])
         );
 
-
+        
         return jsi::Value::undefined();
   }
 };
@@ -1938,7 +1961,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteF64> {
         func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiForeignFutureResultF64>::fromJs(rt, callInvoker, args[1])
         );
 
-
+        
         return jsi::Value::undefined();
   }
 };
@@ -2012,7 +2035,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteRustBuffer> {
         func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiForeignFutureResultRustBuffer>::fromJs(rt, callInvoker, args[1])
         );
 
-
+        
         return jsi::Value::undefined();
   }
 };
@@ -2082,7 +2105,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteVoid> {
         func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiForeignFutureResultVoid>::fromJs(rt, callInvoker, args[1])
         );
 
-
+        
         return jsi::Value::undefined();
   }
 };
@@ -2130,9 +2153,9 @@ namespace uniffi::mobile_bridge::cb::callbackinterfaceclone::vtablecallbackinter
             auto uniffiResult = cb.call(rt, js_handle
             );
 
+            
 
-
-
+            
             // Write the direct return value back to the caller.
             if (uniffi_direct_return != nullptr) {
                 *uniffi_direct_return = uniffi_jsi::Bridging<uint64_t>::fromJs(
@@ -2164,7 +2187,7 @@ namespace uniffi::mobile_bridge::cb::callbackinterfaceclone::vtablecallbackinter
         // The runtime, the actual callback jsi::funtion, and the callInvoker
         // are all in the lambda.
         rsLambda(
-            rs_handle,
+            rs_handle, 
             &uniffi_result);
         return uniffi_result;
     }
@@ -2266,7 +2289,7 @@ namespace uniffi::mobile_bridge::cb::callbackinterfacequeryeventlistenermethod0:
                 return;
             }
 
-
+            
         } catch (const jsi::JSError &error) {
             std::cout << "Error in callback UniffiCallbackInterfaceQueryEventListenerMethod0: "
                     << error.what() << std::endl;
@@ -2291,8 +2314,8 @@ namespace uniffi::mobile_bridge::cb::callbackinterfacequeryeventlistenermethod0:
         // The runtime, the actual callback jsi::funtion, and the callInvoker
         // are all in the lambda.
         rsLambda(
-            rs_uniffiHandle,
-            rs_rowsJson,
+            rs_uniffiHandle, 
+            rs_rowsJson, 
             rs_uniffiOutReturn, uniffi_call_status);
     }
 
@@ -2397,7 +2420,7 @@ namespace uniffi::mobile_bridge::cb::callbackinterfacequeryeventlistenermethod1:
                 return;
             }
 
-
+            
         } catch (const jsi::JSError &error) {
             std::cout << "Error in callback UniffiCallbackInterfaceQueryEventListenerMethod1: "
                     << error.what() << std::endl;
@@ -2422,8 +2445,8 @@ namespace uniffi::mobile_bridge::cb::callbackinterfacequeryeventlistenermethod1:
         // The runtime, the actual callback jsi::funtion, and the callInvoker
         // are all in the lambda.
         rsLambda(
-            rs_uniffiHandle,
-            rs_message,
+            rs_uniffiHandle, 
+            rs_message, 
             rs_uniffiOutReturn, uniffi_call_status);
     }
 
@@ -2737,6 +2760,14 @@ NativeMobileBridge::NativeMobileBridge(
             return this->cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute_transaction(rt, thisVal, args, count);
         }
     );
+    props["ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_generate_e2ee_device_enrollment_key"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_generate_e2ee_device_enrollment_key"),
+        1,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_generate_e2ee_device_enrollment_key(rt, thisVal, args, count);
+        }
+    );
     props["ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_generate_e2ee_recovery_key"] = jsi::Function::createFromHostFunction(
         rt,
         jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_generate_e2ee_recovery_key"),
@@ -2745,12 +2776,28 @@ NativeMobileBridge::NativeMobileBridge(
             return this->cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_generate_e2ee_recovery_key(rt, thisVal, args, count);
         }
     );
+    props["ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_inspect_e2ee_device_enrollment_key"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_inspect_e2ee_device_enrollment_key"),
+        2,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_inspect_e2ee_device_enrollment_key(rt, thisVal, args, count);
+        }
+    );
     props["ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_inspect_e2ee_recovery_key"] = jsi::Function::createFromHostFunction(
         rt,
         jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_inspect_e2ee_recovery_key"),
         2,
         [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_inspect_e2ee_recovery_key(rt, thisVal, args, count);
+        }
+    );
+    props["ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_open_e2ee_device_enrollment"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_open_e2ee_device_enrollment"),
+        5,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_open_e2ee_device_enrollment(rt, thisVal, args, count);
         }
     );
     props["ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_prepare_attachment_upload"] = jsi::Function::createFromHostFunction(
@@ -3369,6 +3416,14 @@ NativeMobileBridge::NativeMobileBridge(
             return this->cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_transaction(rt, thisVal, args, count);
         }
     );
+    props["ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_generate_e2ee_device_enrollment_key"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_generate_e2ee_device_enrollment_key"),
+        0,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_generate_e2ee_device_enrollment_key(rt, thisVal, args, count);
+        }
+    );
     props["ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_generate_e2ee_recovery_key"] = jsi::Function::createFromHostFunction(
         rt,
         jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_generate_e2ee_recovery_key"),
@@ -3377,12 +3432,28 @@ NativeMobileBridge::NativeMobileBridge(
             return this->cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_generate_e2ee_recovery_key(rt, thisVal, args, count);
         }
     );
+    props["ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_device_enrollment_key"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_device_enrollment_key"),
+        0,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_device_enrollment_key(rt, thisVal, args, count);
+        }
+    );
     props["ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_recovery_key"] = jsi::Function::createFromHostFunction(
         rt,
         jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_recovery_key"),
         0,
         [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_recovery_key(rt, thisVal, args, count);
+        }
+    );
+    props["ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_open_e2ee_device_enrollment"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_open_e2ee_device_enrollment"),
+        0,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_open_e2ee_device_enrollment(rt, thisVal, args, count);
         }
     );
     props["ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_prepare_attachment_upload"] = jsi::Function::createFromHostFunction(
@@ -3652,297 +3723,327 @@ jsi::Value NativeMobileBridge::cpp_uniffi_internal_fn_func_ffi__read_string_from
 // Methods calling directly into the uniffi generated C API of the Rust crate.
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_clone_mobiledbbridge(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = uniffi_mobile_bridge_fn_clone_mobiledbbridge(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        auto value = uniffi_mobile_bridge_fn_clone_mobiledbbridge(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_free_mobiledbbridge(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        uniffi_mobile_bridge_fn_free_mobiledbbridge(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        uniffi_mobile_bridge_fn_free_mobiledbbridge(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_constructor_mobiledbbridge_open(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = uniffi_mobile_bridge_fn_constructor_mobiledbbridge_open(uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+        auto value = uniffi_mobile_bridge_fn_constructor_mobiledbbridge_open(uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_cleanup_attachment_upload_cache(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_cleanup_attachment_upload_cache(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3])
         );
 
-
+        
         return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_close(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        uniffi_mobile_bridge_fn_method_mobiledbbridge_close(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        uniffi_mobile_bridge_fn_method_mobiledbbridge_close(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_init(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_init(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]),
+        uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_init(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_init(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_init(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+        uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_init(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_set_apikey(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_set_apikey(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+        uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_set_apikey(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_set_token(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_set_token(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+        uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_set_token(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_sync(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_sync(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
+        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_sync(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi::mobile_bridge::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_status(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_status(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_status(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi::mobile_bridge::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_sync_now(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_sync_now(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_sync_now(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi::mobile_bridge::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_version(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_version(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_version(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi::mobile_bridge::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_attachment_storage(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_attachment_storage(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
+        uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_attachment_storage(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_cloudsync(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_cloudsync(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+        uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_cloudsync(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_e2ee_replica(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_e2ee_replica(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[4]),
+        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_e2ee_replica(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[4]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi::mobile_bridge::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_describe_attachment_upload(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_describe_attachment_upload(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2])
         );
 
-
+        
         return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_execute(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
+        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_execute(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi::mobile_bridge::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute_proxy(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_execute_proxy(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]),
+        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_execute_proxy(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi::mobile_bridge::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute_transaction(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_execute_transaction(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_execute_transaction(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
+        
+        return uniffi::mobile_bridge::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_generate_e2ee_device_enrollment_key(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
+        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_generate_e2ee_device_enrollment_key(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
+            &status
+        );
+        uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
+        
         return uniffi::mobile_bridge::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_generate_e2ee_recovery_key(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_generate_e2ee_recovery_key(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_generate_e2ee_recovery_key(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
+        
+        return uniffi::mobile_bridge::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_inspect_e2ee_device_enrollment_key(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
+        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_inspect_e2ee_device_enrollment_key(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), 
+            &status
+        );
+        uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
+        
         return uniffi::mobile_bridge::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_inspect_e2ee_recovery_key(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_inspect_e2ee_recovery_key(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_inspect_e2ee_recovery_key(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
+        
+        return uniffi::mobile_bridge::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_open_e2ee_device_enrollment(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
+        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_open_e2ee_device_enrollment(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[4]), 
+            &status
+        );
+        uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
+        
         return uniffi::mobile_bridge::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_prepare_attachment_upload(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_prepare_attachment_upload(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[4])
         );
 
-
+        
         return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_read_attachment_upload_range(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_read_attachment_upload_range(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]), uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[4]), uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[5])
         );
 
-
+        
         return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_restore_attachment(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_restore_attachment(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1])
         );
 
-
+        
         return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_start_cloudsync(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        uniffi_mobile_bridge_fn_method_mobiledbbridge_start_cloudsync(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        uniffi_mobile_bridge_fn_method_mobiledbbridge_start_cloudsync(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_stop_cloudsync(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        uniffi_mobile_bridge_fn_method_mobiledbbridge_stop_cloudsync(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        uniffi_mobile_bridge_fn_method_mobiledbbridge_stop_cloudsync(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_subscribe(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_subscribe(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[3]),
+        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_subscribe(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[3]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi::mobile_bridge::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_unsubscribe(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        uniffi_mobile_bridge_fn_method_mobiledbbridge_unsubscribe(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+        uniffi_mobile_bridge_fn_method_mobiledbbridge_unsubscribe(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_clone_queryeventlistener(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = uniffi_mobile_bridge_fn_clone_queryeventlistener(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        auto value = uniffi_mobile_bridge_fn_clone_queryeventlistener(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_free_queryeventlistener(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        uniffi_mobile_bridge_fn_free_queryeventlistener(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        uniffi_mobile_bridge_fn_free_queryeventlistener(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_init_callback_vtable_queryeventlistener(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
@@ -3964,603 +4065,624 @@ jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_init_callback_vtable_
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_queryeventlistener_on_result(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        uniffi_mobile_bridge_fn_method_queryeventlistener_on_result(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+        uniffi_mobile_bridge_fn_method_queryeventlistener_on_result(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_queryeventlistener_on_error(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        uniffi_mobile_bridge_fn_method_queryeventlistener_on_error(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+        uniffi_mobile_bridge_fn_method_queryeventlistener_on_error(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_poll_u8(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_poll_u8(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiRustFutureContinuationCallback>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[2])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_cancel_u8(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_cancel_u8(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_free_u8(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_free_u8(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_complete_u8(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = ffi_mobile_bridge_rust_future_complete_u8(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        auto value = ffi_mobile_bridge_rust_future_complete_u8(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi_jsi::Bridging<uint8_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_poll_i8(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_poll_i8(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiRustFutureContinuationCallback>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[2])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_cancel_i8(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_cancel_i8(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_free_i8(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_free_i8(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_complete_i8(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = ffi_mobile_bridge_rust_future_complete_i8(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        auto value = ffi_mobile_bridge_rust_future_complete_i8(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_poll_u16(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_poll_u16(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiRustFutureContinuationCallback>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[2])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_cancel_u16(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_cancel_u16(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_free_u16(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_free_u16(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_complete_u16(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = ffi_mobile_bridge_rust_future_complete_u16(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        auto value = ffi_mobile_bridge_rust_future_complete_u16(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_poll_i16(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_poll_i16(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiRustFutureContinuationCallback>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[2])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_cancel_i16(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_cancel_i16(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_free_i16(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_free_i16(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_complete_i16(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = ffi_mobile_bridge_rust_future_complete_i16(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        auto value = ffi_mobile_bridge_rust_future_complete_i16(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi_jsi::Bridging<int16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_poll_u32(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_poll_u32(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiRustFutureContinuationCallback>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[2])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_cancel_u32(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_cancel_u32(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_free_u32(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_free_u32(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_complete_u32(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = ffi_mobile_bridge_rust_future_complete_u32(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        auto value = ffi_mobile_bridge_rust_future_complete_u32(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_poll_i32(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_poll_i32(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiRustFutureContinuationCallback>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[2])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_cancel_i32(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_cancel_i32(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_free_i32(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_free_i32(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_complete_i32(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = ffi_mobile_bridge_rust_future_complete_i32(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        auto value = ffi_mobile_bridge_rust_future_complete_i32(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi_jsi::Bridging<int32_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_poll_u64(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_poll_u64(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiRustFutureContinuationCallback>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[2])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_cancel_u64(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_cancel_u64(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_free_u64(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_free_u64(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_complete_u64(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = ffi_mobile_bridge_rust_future_complete_u64(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        auto value = ffi_mobile_bridge_rust_future_complete_u64(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi_jsi::Bridging<uint64_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_poll_i64(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_poll_i64(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiRustFutureContinuationCallback>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[2])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_cancel_i64(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_cancel_i64(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_free_i64(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_free_i64(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_complete_i64(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = ffi_mobile_bridge_rust_future_complete_i64(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        auto value = ffi_mobile_bridge_rust_future_complete_i64(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi_jsi::Bridging<int64_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_poll_f32(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_poll_f32(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiRustFutureContinuationCallback>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[2])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_cancel_f32(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_cancel_f32(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_free_f32(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_free_f32(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_complete_f32(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = ffi_mobile_bridge_rust_future_complete_f32(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        auto value = ffi_mobile_bridge_rust_future_complete_f32(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi_jsi::Bridging<float>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_poll_f64(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_poll_f64(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiRustFutureContinuationCallback>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[2])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_cancel_f64(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_cancel_f64(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_free_f64(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_free_f64(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_complete_f64(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = ffi_mobile_bridge_rust_future_complete_f64(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        auto value = ffi_mobile_bridge_rust_future_complete_f64(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi_jsi::Bridging<double>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_poll_rust_buffer(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_poll_rust_buffer(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiRustFutureContinuationCallback>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[2])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_cancel_rust_buffer(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_cancel_rust_buffer(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_free_rust_buffer(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_free_rust_buffer(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_complete_rust_buffer(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = ffi_mobile_bridge_rust_future_complete_rust_buffer(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        auto value = ffi_mobile_bridge_rust_future_complete_rust_buffer(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return uniffi::mobile_bridge::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_poll_void(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_poll_void(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiRustFutureContinuationCallback>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[2])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_cancel_void(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_cancel_void(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_free_void(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_free_void(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0])
         );
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_complete_void(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
-        ffi_mobile_bridge_rust_future_complete_void(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
+        ffi_mobile_bridge_rust_future_complete_void(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), 
             &status
         );
         uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
 
-
+        
         return jsi::Value::undefined();
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cleanup_attachment_upload_cache(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_cleanup_attachment_upload_cache(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_close(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_close(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_init(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_init(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_init(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_init(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_set_apikey(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_set_apikey(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_set_token(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_set_token(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_sync(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_sync(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_status(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_status(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_sync_now(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_sync_now(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_version(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_version(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_attachment_storage(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_attachment_storage(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_cloudsync(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_cloudsync(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_e2ee_replica(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_e2ee_replica(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_describe_attachment_upload(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_describe_attachment_upload(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_proxy(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_proxy(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_transaction(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_transaction(
         );
 
+        
+        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_generate_e2ee_device_enrollment_key(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_generate_e2ee_device_enrollment_key(
+        );
 
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_generate_e2ee_recovery_key(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_generate_e2ee_recovery_key(
         );
 
+        
+        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_device_enrollment_key(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_device_enrollment_key(
+        );
 
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_recovery_key(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_recovery_key(
         );
 
+        
+        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_open_e2ee_device_enrollment(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_open_e2ee_device_enrollment(
+        );
 
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_prepare_attachment_upload(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_prepare_attachment_upload(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_read_attachment_upload_range(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_read_attachment_upload_range(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_restore_attachment(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_restore_attachment(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_start_cloudsync(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_start_cloudsync(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_stop_cloudsync(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_stop_cloudsync(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_subscribe(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_subscribe(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_unsubscribe(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_unsubscribe(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_queryeventlistener_on_result(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_queryeventlistener_on_result(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_queryeventlistener_on_error(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_queryeventlistener_on_error(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_constructor_mobiledbbridge_open(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_constructor_mobiledbbridge_open(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_uniffi_contract_version(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = ffi_mobile_bridge_uniffi_contract_version(
         );
 
-
+        
         return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
 }

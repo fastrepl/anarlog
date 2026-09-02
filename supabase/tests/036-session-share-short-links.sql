@@ -41,6 +41,10 @@ select
 from short_link_test_state
 where name = 'workspace';
 
+select tests.enable_workspace_plan(workspace_id)
+from short_link_test_state
+where name = 'workspace';
+
 select tests.clear_authentication();
 select tests.authenticate_as_hyprnote_pro('short_link_owner');
 

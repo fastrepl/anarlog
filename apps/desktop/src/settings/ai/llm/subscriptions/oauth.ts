@@ -14,7 +14,6 @@ import {
 import { createPkce, randomUrlToken } from "./pkce";
 
 export const SUBSCRIPTION_PROVIDER_IDS = [
-  "claude",
   "chatgpt",
   "grok",
   "github_copilot",
@@ -47,17 +46,6 @@ export type ConnectSession =
   | CodeConnectSession
   | DeviceConnectSession
   | ApiKeyConnectSession;
-
-const CLAUDE = {
-  clientId: "9d1c250a-e61b-44d9-88ed-5944d1962f5e",
-  authorizeUrl: "https://claude.ai/oauth/authorize",
-  tokenUrl: "https://platform.claude.com/v1/oauth/token",
-  redirectUri: "https://platform.claude.com/oauth/code/callback",
-  // Match Claude Code's authorize-time scopes. `user:file_upload` is granted
-  // on the token but rejected if requested here ("Invalid request format").
-  scope:
-    "user:profile user:inference user:sessions:claude_code user:mcp_servers",
-} as const;
 
 export const CHATGPT_CALLBACK_PORT = 1455;
 
@@ -102,15 +90,6 @@ export const COPILOT_REQUEST_HEADERS = {
   "Editor-Version": COPILOT.editorVersion,
   "Editor-Plugin-Version": COPILOT.pluginVersion,
   "Copilot-Integration-Id": "vscode-chat",
-} as const;
-
-export const CLAUDE_OAUTH_HEADERS = {
-  "anthropic-version": "2023-06-01",
-  "anthropic-dangerous-direct-browser-access": "true",
-  "anthropic-beta":
-    "oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,claude-code-20250219",
-  "x-app": "cli",
-  "user-agent": "claude-cli/2.1.81 (external, cli)",
 } as const;
 
 export function isSubscriptionProviderId(
@@ -162,26 +141,6 @@ export function parseAuthorizationInput(input: string): {
   return { code: trimmed };
 }
 
-export function looksLikeAuthorizationInput(input: string): boolean {
-  const trimmed = input.trim();
-  if (!trimmed) {
-    return false;
-  }
-
-  try {
-    const parsed = parseAuthorizationInput(trimmed);
-    if (trimmed.includes("://") && parsed.code) {
-      return true;
-    }
-    if (trimmed.includes("#") && parsed.code && parsed.state) {
-      return true;
-    }
-    return parsed.code.startsWith("ac_");
-  } catch {
-    return false;
-  }
-}
-
 export function subscriptionAuthFromCallback(search: {
   access_token?: string | null;
   refresh_token?: string | null;
@@ -215,22 +174,6 @@ export function encodeAuthorizeQuery(params: Array<[string, string]>) {
     .join("&");
 }
 
-export function claudeAuthorizeUrl(input: {
-  challenge: string;
-  state: string;
-}) {
-  return `${CLAUDE.authorizeUrl}?${encodeAuthorizeQuery([
-    ["code", "true"],
-    ["client_id", CLAUDE.clientId],
-    ["response_type", "code"],
-    ["redirect_uri", CLAUDE.redirectUri],
-    ["scope", CLAUDE.scope],
-    ["code_challenge", input.challenge],
-    ["code_challenge_method", "S256"],
-    ["state", input.state],
-  ])}`;
-}
-
 export function chatgptAuthorizeUrl(input: {
   challenge: string;
   state: string;
@@ -262,8 +205,6 @@ export async function startSubscriptionConnect(
   providerId: SubscriptionProviderId,
 ): Promise<ConnectSession> {
   switch (providerId) {
-    case "claude":
-      return startClaudeConnect();
     case "chatgpt":
       return startChatgptConnect();
     case "github_copilot":
@@ -276,22 +217,11 @@ export async function startSubscriptionConnect(
 }
 
 export async function completeCodeConnect(
-  providerId: Extract<SubscriptionProviderId, "claude" | "chatgpt">,
   session: CodeConnectSession,
   rawCode: string,
 ): Promise<string> {
   const parsed = parseAuthorizationInput(rawCode);
   assertAuthorizationState(session, parsed);
-  if (providerId === "claude") {
-    return serializeOAuthCredential(
-      await exchangeClaudeCode({
-        code: parsed.code,
-        state: parsed.state ?? session.state,
-        verifier: session.verifier,
-      }),
-    );
-  }
-
   return serializeOAuthCredential(
     await exchangeChatgptCode({
       code: parsed.code,
@@ -318,8 +248,6 @@ export async function refreshOAuthCredential(
   credential: OAuthCredential,
 ): Promise<OAuthCredential> {
   switch (providerId) {
-    case "claude":
-      return refreshClaude(credential);
     case "chatgpt":
       return refreshChatgpt(credential);
     case "github_copilot":
@@ -329,20 +257,6 @@ export async function refreshOAuthCredential(
     case "kimi_code":
       throw new Error("Kimi Code uses an API key, not OAuth.");
   }
-}
-
-async function startClaudeConnect(): Promise<CodeConnectSession> {
-  const pkce = await createPkce();
-  const state = randomUrlToken(16);
-  return {
-    kind: "code",
-    url: claudeAuthorizeUrl({
-      challenge: pkce.challenge,
-      state,
-    }),
-    verifier: pkce.verifier,
-    state,
-  };
 }
 
 async function startChatgptConnect(): Promise<CodeConnectSession> {
@@ -409,26 +323,6 @@ async function startGrokConnect(): Promise<DeviceConnectSession> {
     deviceCode,
     intervalMs: (numberField(json, "interval") ?? 5) * 1000,
   };
-}
-
-async function exchangeClaudeCode(input: {
-  code: string;
-  state: string;
-  verifier: string;
-}): Promise<OAuthCredential> {
-  const { status, json } = await postJson(CLAUDE.tokenUrl, {
-    grant_type: "authorization_code",
-    client_id: CLAUDE.clientId,
-    code: input.code,
-    state: input.state,
-    redirect_uri: CLAUDE.redirectUri,
-    code_verifier: input.verifier,
-  });
-  return credentialFromTokenResponse(
-    json,
-    status,
-    "Could not connect Claude subscription.",
-  );
 }
 
 async function exchangeChatgptCode(input: {
@@ -506,22 +400,6 @@ async function pollGrokDevice(
     json,
     status,
     "Grok authorization failed.",
-  );
-}
-
-async function refreshClaude(
-  credential: OAuthCredential,
-): Promise<OAuthCredential> {
-  const { status, json } = await postJson(CLAUDE.tokenUrl, {
-    grant_type: "refresh_token",
-    client_id: CLAUDE.clientId,
-    refresh_token: credential.refresh,
-  });
-  return credentialFromTokenResponse(
-    json,
-    status,
-    "Could not refresh Claude subscription.",
-    credential,
   );
 }
 
@@ -716,20 +594,4 @@ export function chatgptResponsesBody(body: BodyInit | null | undefined) {
   } catch {
     return body;
   }
-}
-
-export function claudeMessagesUrl(url: string): string {
-  try {
-    const parsed = new URL(url);
-    if (
-      parsed.pathname.endsWith("/messages") &&
-      !parsed.searchParams.has("beta")
-    ) {
-      parsed.searchParams.set("beta", "true");
-      return parsed.toString();
-    }
-  } catch {
-    return url;
-  }
-  return url;
 }

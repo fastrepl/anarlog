@@ -19,6 +19,7 @@ vi.mock("@anlg/ui/components/ui/button", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
+  appFloatingMenuPanelClassName: "overflow-hidden p-1.5",
   AppFloatingPanel: ({
     children,
     className,

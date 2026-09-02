@@ -8,13 +8,37 @@ import {
   getItemTimestamp,
   type TimelineBucket,
   type TimelineEventsTable,
+  type TimelineGroupBy,
   type TimelineSessionsTable,
+  type TimelineSortOrder,
 } from "./utils";
 
 export function getFallbackIndicatorIndex(
   buckets: TimelineBucket[],
   nowMs: number,
+  sortOrder: TimelineSortOrder = "newest",
 ) {
+  if (sortOrder === "oldest") {
+    for (let index = 0; index < buckets.length; index++) {
+      const bucket = buckets[index];
+      if (!bucket) {
+        continue;
+      }
+
+      if (isFutureBucketLabel(bucket.label)) {
+        return index;
+      }
+
+      const newestItem = bucket.items[bucket.items.length - 1];
+      const itemDate = newestItem ? getItemTimestamp(newestItem) : null;
+      if (itemDate && itemDate.getTime() >= nowMs) {
+        return index;
+      }
+    }
+
+    return -1;
+  }
+
   let staleFutureBoundary: number | null = null;
 
   for (let index = 0; index < buckets.length; index++) {
@@ -51,18 +75,22 @@ function isFutureBucketLabel(label: string) {
 
 export function useTimelineData({
   folderFilter = null,
+  groupBy = "date",
   isEventIgnored,
   showIgnored,
+  sortOrder = "newest",
   timelineEventsTable,
   timelineSessionsTable,
   timezone,
 }: {
   folderFilter?: string | null;
+  groupBy?: TimelineGroupBy;
   isEventIgnored: (
     trackingId: string | null | undefined,
     recurrenceSeriesId: string | null | undefined,
   ) => boolean;
   showIgnored: boolean;
+  sortOrder?: TimelineSortOrder;
   timelineEventsTable: TimelineEventsTable;
   timelineSessionsTable: TimelineSessionsTable;
   timezone?: string;
@@ -79,17 +107,23 @@ export function useTimelineData({
       }),
     [folderFilter, timelineEventsTable, timelineSessionsTable],
   );
-  const windowData = useMemo(
-    () =>
-      deriveTimelineWindowData({
-        isEventIgnored,
-        showIgnored,
-        timelineEventsTable: folderScopedTables.timelineEventsTable,
+  const windowData = useMemo(() => {
+    if (groupBy === "folder") {
+      return {
+        timelineEventsTable: {},
         timelineSessionsTable: folderScopedTables.timelineSessionsTable,
-        timezone,
-      }),
-    [folderScopedTables, isEventIgnored, showIgnored, timezone],
-  );
+        hasMoreFutureItems: false,
+      };
+    }
+
+    return deriveTimelineWindowData({
+      isEventIgnored,
+      showIgnored,
+      timelineEventsTable: folderScopedTables.timelineEventsTable,
+      timelineSessionsTable: folderScopedTables.timelineSessionsTable,
+      timezone,
+    });
+  }, [folderScopedTables, groupBy, isEventIgnored, showIgnored, timezone]);
   const currentTimeMs = useSmartCurrentTime(
     windowData.timelineEventsTable,
     windowData.timelineSessionsTable,
@@ -97,6 +131,8 @@ export function useTimelineData({
 
   return useMemo(() => {
     const buckets = buildTimelineBuckets({
+      groupBy,
+      sortOrder,
       timelineEventsTable: windowData.timelineEventsTable,
       timelineSessionsTable: windowData.timelineSessionsTable,
       timezone,
@@ -106,5 +142,5 @@ export function useTimelineData({
       buckets,
       hasMoreFutureItems: windowData.hasMoreFutureItems,
     };
-  }, [windowData, currentTimeMs, timezone]);
+  }, [groupBy, sortOrder, windowData, currentTimeMs, timezone]);
 }

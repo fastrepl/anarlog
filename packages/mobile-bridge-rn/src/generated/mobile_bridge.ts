@@ -976,8 +976,16 @@ export interface MobileDbBridgeLike {
     method: string,
   ) /*throws*/ : string;
   executeTransaction(statementsJson: string) /*throws*/ : string;
+  generateE2eeDeviceEnrollmentKey() /*throws*/ : string;
   generateE2eeRecoveryKey() /*throws*/ : string;
+  inspectE2eeDeviceEnrollmentKey(keyCode: string) /*throws*/ : string;
   inspectE2eeRecoveryKey(recoveryKeyCode: string) /*throws*/ : string;
+  openE2eeDeviceEnrollment(
+    accountUserId: string,
+    requestId: string,
+    keyCode: string,
+    packageJson: string,
+  ) /*throws*/ : string;
   prepareAttachmentUpload(
     jobId: string,
     attemptCount: number,
@@ -1512,6 +1520,29 @@ export class MobileDbBridge
     );
   }
 
+  generateE2eeDeviceEnrollmentKey(): string /*throws*/ {
+    return ((__rb: Uint8Array) => {
+      try {
+        return FfiConverterString.lift(__rb);
+      } finally {
+        nativeModule().rustbuffer_free(__rb);
+      }
+    })(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+          FfiConverterTypeBridgeError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_generate_e2ee_device_enrollment_key(
+            uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+      ),
+    );
+  }
+
   generateE2eeRecoveryKey(): string /*throws*/ {
     return ((__rb: Uint8Array) => {
       try {
@@ -1527,6 +1558,30 @@ export class MobileDbBridge
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_generate_e2ee_recovery_key(
             uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+      ),
+    );
+  }
+
+  inspectE2eeDeviceEnrollmentKey(keyCode: string): string /*throws*/ {
+    return ((__rb: Uint8Array) => {
+      try {
+        return FfiConverterString.lift(__rb);
+      } finally {
+        nativeModule().rustbuffer_free(__rb);
+      }
+    })(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+          FfiConverterTypeBridgeError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_inspect_e2ee_device_enrollment_key(
+            uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+            FfiConverterString.lower(keyCode, nativeModule().rustbuffer_alloc),
             callStatus,
           );
         },
@@ -1552,6 +1607,47 @@ export class MobileDbBridge
             uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
             FfiConverterString.lower(
               recoveryKeyCode,
+              nativeModule().rustbuffer_alloc,
+            ),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+      ),
+    );
+  }
+
+  openE2eeDeviceEnrollment(
+    accountUserId: string,
+    requestId: string,
+    keyCode: string,
+    packageJson: string,
+  ): string /*throws*/ {
+    return ((__rb: Uint8Array) => {
+      try {
+        return FfiConverterString.lift(__rb);
+      } finally {
+        nativeModule().rustbuffer_free(__rb);
+      }
+    })(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+          FfiConverterTypeBridgeError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_open_e2ee_device_enrollment(
+            uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+            FfiConverterString.lower(
+              accountUserId,
+              nativeModule().rustbuffer_alloc,
+            ),
+            FfiConverterString.lower(
+              requestId,
+              nativeModule().rustbuffer_alloc,
+            ),
+            FfiConverterString.lower(keyCode, nativeModule().rustbuffer_alloc),
+            FfiConverterString.lower(
+              packageJson,
               nativeModule().rustbuffer_alloc,
             ),
             callStatus,
@@ -2057,6 +2153,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_generate_e2ee_device_enrollment_key() !==
+    44093
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_generate_e2ee_device_enrollment_key",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_generate_e2ee_recovery_key() !==
     32900
   ) {
@@ -2065,11 +2169,27 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_device_enrollment_key() !==
+    1436
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_device_enrollment_key",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_recovery_key() !==
     2453
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_recovery_key",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_open_e2ee_device_enrollment() !==
+    61853
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_open_e2ee_device_enrollment",
     );
   }
   if (

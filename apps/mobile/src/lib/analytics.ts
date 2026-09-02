@@ -69,6 +69,7 @@ async function sendAnalytics(
           $session_id: currentSessionId(),
           ...(accountId ? { $groups: { account: accountId } } : {}),
           surface: "mobile",
+          build_variant: env.appVariant,
           analytics_schema_version: 1,
           app_version: appVersion,
         },

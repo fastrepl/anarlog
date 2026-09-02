@@ -6,6 +6,7 @@ import { cn } from "@anlg/utils";
 import {
   AppFloatingPanel,
   appFloatingContentClassName,
+  appFloatingMenuPanelClassName,
   type FloatingContentVariant,
 } from "./floating-content";
 
@@ -52,6 +53,7 @@ PopoverContent.displayName = PopoverPrimitive.Content.displayName;
 
 export {
   AppFloatingPanel,
+  appFloatingMenuPanelClassName,
   Popover,
   PopoverAnchor,
   PopoverContent,

@@ -81,6 +81,18 @@ export const SETTING_DEFINITIONS = {
     default: "default" as string,
     synced: true,
   },
+  sidebar_show_folder: {
+    type: "boolean",
+    path: ["general", "sidebar_show_folder"],
+    default: true as boolean,
+    synced: true,
+  },
+  sidebar_show_tags: {
+    type: "boolean",
+    path: ["general", "sidebar_show_tags"],
+    default: false as boolean,
+    synced: true,
+  },
   save_recordings: {
     type: "boolean",
     path: ["general", "save_recordings"],

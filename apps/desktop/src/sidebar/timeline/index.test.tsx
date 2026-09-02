@@ -239,6 +239,8 @@ vi.mock("./realtime", async () => {
 
 import { TimelineView } from ".";
 
+import { resetSidebarNotes, useSidebarNotes } from "~/sidebar/note-filter";
+
 describe("TimelineView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -263,6 +265,7 @@ describe("TimelineView", () => {
 
   afterEach(() => {
     cleanup();
+    resetSidebarNotes();
     vi.useRealTimers();
   });
 
@@ -1410,6 +1413,34 @@ describe("TimelineView", () => {
     expect(isBefore(staleTomorrowHeading, staleTomorrowItem)).toBe(true);
     expect(isBefore(staleTomorrowItem, indicator)).toBe(true);
     expect(isBefore(indicator, yesterdayHeading)).toBe(true);
+  });
+
+  it("groups notes by folder and hides the date timeline chrome", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.currentTimeMs = Date.now();
+    mocks.smartCurrentTimeMs = Date.now();
+    mocks.timelineSessionsTable = {
+      later: {
+        title: "Quarterly planning",
+        created_at: "2024-01-17T12:00:00.000Z",
+        folder_id: "work",
+      },
+      notes: {
+        title: "Scratch",
+        created_at: "2024-01-15T11:00:00.000Z",
+        folder_id: "",
+      },
+    };
+    useSidebarNotes.getState().setGroupBy("folder");
+
+    render(<TimelineView topChromeInset />);
+
+    expect(screen.getByText("work")).toBeTruthy();
+    expect(screen.getByText("No folder")).toBeTruthy();
+    expect(screen.queryByText("Today")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Open calendar" })).toBeNull();
+    expect(screen.queryByTestId("current-time-indicator")).toBeNull();
   });
 });
 

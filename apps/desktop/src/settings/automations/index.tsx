@@ -15,6 +15,7 @@ import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
+  appFloatingMenuPanelClassName,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -234,7 +235,7 @@ function AutomationActionsMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent variant="app" align="end">
-        <AppFloatingPanel className="overflow-hidden p-1">
+        <AppFloatingPanel className={appFloatingMenuPanelClassName}>
           <DropdownMenuItem onClick={onAction} className="cursor-pointer">
             {actionLabel}
           </DropdownMenuItem>

@@ -10,11 +10,13 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  billing: {
-    isPro: false,
-    isReady: true,
-    isUpgradingToPro: false,
-    upgradeToPro: vi.fn(),
+  billingCheckout: {
+    buildWebAppUrl: vi.fn(() => Promise.resolve("https://anarlog.so/team")),
+    openUrl: vi.fn(() => Promise.resolve()),
+    openUrlWithInstruction: vi.fn(
+      (_url: string, _kind: string, open: (url: string) => Promise<void>) =>
+        open("https://anarlog.so/team"),
+    ),
   },
   session: { user: { id: "user-1" } } as { user: { id: string } } | null,
   workspaces: {
@@ -23,11 +25,26 @@ const mocks = vi.hoisted(() => ({
       name: string;
       ownerUserId: string;
       shareSlug?: string | null;
+      logoDataUrl?: string | null;
       role: "owner" | "admin" | "member";
     }>,
     isPending: false,
   },
   client: {
+    access: {
+      role: "owner" as const,
+      tier: "team" as "free" | "team" | "enterprise",
+      capabilities: [
+        "team.shared_notes",
+        "team.manage_workspace",
+        "team.manage_members",
+        "team.manage_policies",
+        "team.view_usage",
+        "team.custom_subdomain",
+      ] as string[],
+      seatLimit: 1 as number | null,
+      usedSeats: 1,
+    },
     members: [] as Array<{
       userId: string;
       email: string;
@@ -38,8 +55,21 @@ const mocks = vi.hoisted(() => ({
       email: string;
       expiresAt: string;
     }>,
+    usage: {
+      memberCount: 1,
+      pendingInvitations: 0,
+      enrolledDevices: 0,
+      sharesCreated30d: 0,
+      shareAccessEvents30d: 0,
+      seatLimit: 1 as number | null,
+      usedSeats: 1,
+      isBilled: true,
+    },
     revokeInvitation: vi.fn(() => Promise.resolve()),
     renameWorkspace: vi.fn(() => Promise.resolve()),
+    setWorkspaceLogo: vi.fn(() =>
+      Promise.resolve({ logoDataUrl: "data:image/jpeg;base64,/9j/4AAQ" }),
+    ),
     getWorkspacePolicy: vi.fn(() =>
       Promise.resolve({
         allowedShareScopes: ["restricted", "workspace", "link", "public"],
@@ -80,8 +110,16 @@ vi.mock("~/auth", () => ({
   useAuth: () => ({ session: mocks.session, supabase: {} }),
 }));
 
-vi.mock("~/auth/billing-context", () => ({
-  useBillingAccess: () => mocks.billing,
+vi.mock("@anlg/plugin-opener2", () => ({
+  commands: { openUrl: mocks.billingCheckout.openUrl },
+}));
+
+vi.mock("@anlg/plugin-windows", () => ({
+  openUrlWithInstruction: mocks.billingCheckout.openUrlWithInstruction,
+}));
+
+vi.mock("~/shared/utils", () => ({
+  buildWebAppUrl: mocks.billingCheckout.buildWebAppUrl,
 }));
 
 vi.mock("~/env", () => ({
@@ -110,20 +148,12 @@ vi.mock("./client", () => ({
   listWorkspaceMembers: () => Promise.resolve(mocks.client.members),
   removeMember: vi.fn(() => Promise.resolve()),
   renameWorkspace: mocks.client.renameWorkspace,
+  setWorkspaceLogo: mocks.client.setWorkspaceLogo,
   revokeInvitation: mocks.client.revokeInvitation,
   setMemberRole: vi.fn(() => Promise.resolve()),
   transferOwnership: vi.fn(() => Promise.resolve()),
-  getWorkspaceUsageOverview: () =>
-    Promise.resolve({
-      memberCount: 1,
-      pendingInvitations: 0,
-      enrolledDevices: 0,
-      sharesCreated30d: 0,
-      shareAccessEvents30d: 0,
-      seatLimit: null,
-      usedSeats: 1,
-      isBilled: false,
-    }),
+  getWorkspaceUsageOverview: () => Promise.resolve(mocks.client.usage),
+  getWorkspaceAccess: () => Promise.resolve(mocks.client.access),
   getWorkspacePolicy: mocks.client.getWorkspacePolicy,
   setWorkspacePolicy: vi.fn(() => Promise.resolve()),
   setWorkspaceShareSlug: mocks.client.setWorkspaceShareSlug,
@@ -145,48 +175,70 @@ function renderTeam() {
   );
 }
 
+function openWorkspace(name: string) {
+  fireEvent.click(screen.getByRole("button", { name }));
+}
+
 describe("SettingsTeam", () => {
   beforeEach(() => {
-    mocks.billing.isPro = false;
-    mocks.billing.isReady = true;
-    mocks.billing.isUpgradingToPro = false;
-    mocks.billing.upgradeToPro.mockClear();
     mocks.session = { user: { id: "user-1" } };
     mocks.workspaces.data = [];
     mocks.workspaces.isPending = false;
     mocks.client.members = [];
     mocks.client.invitations = [];
+    mocks.client.usage = {
+      memberCount: 1,
+      pendingInvitations: 0,
+      enrolledDevices: 0,
+      sharesCreated30d: 0,
+      shareAccessEvents30d: 0,
+      seatLimit: 1,
+      usedSeats: 1,
+      isBilled: true,
+    };
+    mocks.client.access = {
+      role: "owner",
+      tier: "team",
+      capabilities: [
+        "team.shared_notes",
+        "team.manage_workspace",
+        "team.manage_members",
+        "team.manage_policies",
+        "team.view_usage",
+        "team.custom_subdomain",
+      ],
+      seatLimit: 1,
+      usedSeats: 1,
+    };
     mocks.client.revokeInvitation.mockClear();
     mocks.client.renameWorkspace.mockClear();
+    mocks.client.setWorkspaceLogo.mockClear();
     mocks.client.getWorkspacePolicy.mockClear();
     mocks.client.setWorkspaceShareSlug.mockClear();
     mocks.invitation.deliverWorkspaceInvitation.mockClear();
+    mocks.billingCheckout.buildWebAppUrl.mockClear();
+    mocks.billingCheckout.openUrl.mockClear();
+    mocks.billingCheckout.openUrlWithInstruction.mockClear();
   });
 
-  afterEach(cleanup);
-
-  it("offers an upgrade instead of Team controls on the free plan", () => {
-    renderTeam();
-
-    expect(screen.getByText("Anarlog Pro required")).toBeTruthy();
-    expect(screen.queryByRole("textbox")).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "Upgrade to Pro" }));
-
-    expect(mocks.billing.upgradeToPro).toHaveBeenCalledOnce();
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
   });
 
-  it("shows workspace creation controls on Pro", () => {
-    mocks.billing.isPro = true;
-
+  it("lets a signed-in account create a Team workspace without personal Pro", () => {
     renderTeam();
 
     expect(screen.getByText("Create a shared workspace")).toBeTruthy();
     expect(screen.getByRole("textbox")).toBeTruthy();
-    expect(screen.queryByText("Anarlog Pro required")).toBeNull();
   });
 
-  it("keeps existing workspaces accessible without Pro", () => {
+  it("keeps an unbilled workspace accessible and offers Team checkout", async () => {
+    mocks.client.usage.isBilled = false;
+    mocks.client.usage.seatLimit = null;
+    mocks.client.access.tier = "free";
+    mocks.client.access.capabilities = [];
+    mocks.client.access.seatLimit = null;
     mocks.workspaces.data = [
       {
         workspaceId: "00000000-0000-4000-8000-000000000001",
@@ -198,17 +250,39 @@ describe("SettingsTeam", () => {
 
     renderTeam();
 
-    expect(screen.getByText("Existing workspace")).toBeTruthy();
-    expect(screen.getByRole("combobox")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Existing workspace" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(
+      screen.queryByRole("textbox", { name: "Workspace name" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Change workspace logo" }),
+    ).toBeNull();
     expect(
       screen.getByRole("button", { name: "Delete workspace" }),
     ).toBeTruthy();
-    expect(screen.queryByText("Anarlog Pro required")).toBeNull();
-    expect(screen.queryByRole("textbox")).toBeNull();
+    const checkout = await screen.findByRole("button", {
+      name: "Continue to Team checkout",
+    });
+    await waitFor(() =>
+      expect((checkout as HTMLButtonElement).disabled).toBe(false),
+    );
+    fireEvent.click(checkout);
+    await waitFor(() =>
+      expect(mocks.billingCheckout.buildWebAppUrl).toHaveBeenCalledWith(
+        "/app/team-checkout",
+        {
+          workspace_id: "00000000-0000-4000-8000-000000000001",
+          period: "monthly",
+          quantity: "1",
+        },
+      ),
+    );
   });
 
-  it("renames the workspace through the edit button", async () => {
-    mocks.billing.isPro = true;
+  it("renames the workspace through the name field", async () => {
     mocks.workspaces.data = [
       {
         workspaceId: "00000000-0000-4000-8000-000000000001",
@@ -220,11 +294,11 @@ describe("SettingsTeam", () => {
 
     renderTeam();
 
-    fireEvent.click(screen.getByRole("button", { name: "Rename workspace" }));
-
-    const input = screen.getByRole("textbox", { name: "Workspace name" });
+    const input = await screen.findByRole("textbox", {
+      name: "Workspace name",
+    });
     fireEvent.change(input, { target: { value: "Fastrepl HQ" } });
-    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.blur(input);
 
     await waitFor(() =>
       expect(mocks.client.renameWorkspace).toHaveBeenCalledWith(
@@ -233,13 +307,95 @@ describe("SettingsTeam", () => {
         "Fastrepl HQ",
       ),
     );
-    expect(
-      screen.queryByRole("textbox", { name: "Workspace name" }),
-    ).toBeNull();
+  });
+
+  it("uploads a workspace logo from the identity tile", async () => {
+    mocks.workspaces.data = [
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        name: "Fastrepl",
+        ownerUserId: "user-1",
+        role: "owner",
+      },
+    ];
+    const jpeg = "data:image/jpeg;base64,/9j/4AAQ";
+    const context = {
+      drawImage: vi.fn(),
+      fillRect: vi.fn(),
+      fillStyle: "",
+      imageSmoothingQuality: "low",
+    };
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:logo"),
+      revokeObjectURL: vi.fn(),
+    });
+    vi.stubGlobal(
+      "Image",
+      class {
+        naturalHeight = 128;
+        naturalWidth = 128;
+        onerror: (() => void) | null = null;
+        onload: (() => void) | null = null;
+
+        set src(_value: string) {
+          queueMicrotask(() => this.onload?.());
+        }
+      },
+    );
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      context as unknown as CanvasRenderingContext2D,
+    );
+    vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue(jpeg);
+
+    const { container } = renderTeam();
+    await screen.findByRole("button", { name: "Change workspace logo" });
+    const input =
+      container.querySelector<HTMLInputElement>('input[type="file"]');
+    expect(input).not.toBeNull();
+    if (!input) return;
+
+    fireEvent.change(input, {
+      target: {
+        files: [new File(["logo"], "logo.png", { type: "image/png" })],
+      },
+    });
+
+    await waitFor(() =>
+      expect(mocks.client.setWorkspaceLogo).toHaveBeenCalledWith(
+        expect.anything(),
+        "00000000-0000-4000-8000-000000000001",
+        jpeg,
+      ),
+    );
+  });
+
+  it("removes a workspace logo from the identity tile", async () => {
+    mocks.workspaces.data = [
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        name: "Fastrepl",
+        ownerUserId: "user-1",
+        logoDataUrl: "data:image/jpeg;base64,/9j/4AAQ",
+        role: "owner",
+      },
+    ];
+
+    renderTeam();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Remove workspace logo" }),
+    );
+
+    await waitFor(() =>
+      expect(mocks.client.setWorkspaceLogo).toHaveBeenCalledWith(
+        expect.anything(),
+        "00000000-0000-4000-8000-000000000001",
+        null,
+      ),
+    );
   });
 
   it("sets the workspace sharing subdomain", async () => {
-    mocks.billing.isPro = true;
     mocks.workspaces.data = [
       {
         workspaceId: "00000000-0000-4000-8000-000000000001",
@@ -268,8 +424,51 @@ describe("SettingsTeam", () => {
     );
   });
 
+  it("keeps Enterprise policy controls hidden on Team", async () => {
+    mocks.workspaces.data = [
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        name: "Fastrepl",
+        ownerUserId: "user-1",
+        role: "owner",
+      },
+    ];
+
+    renderTeam();
+
+    await screen.findByText("Policies");
+    expect(screen.queryByText("Require SSO")).toBeNull();
+    expect(screen.queryByText("Retention (days)")).toBeNull();
+    expect(screen.queryByText("SCIM bearer token")).toBeNull();
+  });
+
+  it("shows Enterprise policy controls only with Enterprise capabilities", async () => {
+    mocks.client.access.tier = "enterprise";
+    mocks.client.access.capabilities = [
+      ...mocks.client.access.capabilities,
+      "enterprise.sso",
+      "enterprise.scim",
+      "enterprise.retention",
+      "enterprise.audit_logs",
+      "enterprise.capture",
+    ];
+    mocks.workspaces.data = [
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        name: "Fastrepl",
+        ownerUserId: "user-1",
+        role: "owner",
+      },
+    ];
+
+    renderTeam();
+
+    expect(await screen.findByText("Require SSO")).toBeTruthy();
+    expect(screen.getByText("Retention (days)")).toBeTruthy();
+    expect(screen.getByText("SCIM bearer token")).toBeTruthy();
+  });
+
   it("resends a pending invitation by delivering a fresh invite", async () => {
-    mocks.billing.isPro = true;
     mocks.workspaces.data = [
       {
         workspaceId: "00000000-0000-4000-8000-000000000001",
@@ -301,5 +500,43 @@ describe("SettingsTeam", () => {
         senderName: "Owner",
       }),
     );
+  });
+
+  it("switches teams from the tab row", async () => {
+    mocks.workspaces.data = [
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        name: "Fastrepl",
+        ownerUserId: "user-1",
+        role: "owner",
+      },
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000002",
+        name: "Acme",
+        ownerUserId: "client-1",
+        role: "member",
+      },
+    ];
+
+    renderTeam();
+
+    expect(screen.getByRole("button", { name: "Fastrepl" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Acme" })).toBeTruthy();
+    expect(
+      await screen.findByRole("textbox", { name: "Workspace name" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Delete workspace" }),
+    ).toBeTruthy();
+
+    openWorkspace("Acme");
+
+    expect(screen.getByRole("button", { name: "Fastrepl" })).toBeTruthy();
+    expect(
+      screen.queryByRole("textbox", { name: "Workspace name" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Leave workspace" }),
+    ).toBeTruthy();
   });
 });

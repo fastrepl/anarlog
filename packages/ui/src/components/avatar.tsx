@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from "react";
 
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
+import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 import {
   AVATAR_RASTER_SIZE,
   avatarFallbackGradient,
@@ -21,6 +22,7 @@ export type AvatarProps = Readonly<{
   sphereCount?: number;
   dither?: number;
   renderStyle?: AvatarRenderStyle;
+  imageUrl?: string | null;
   className?: string;
 }>;
 
@@ -35,6 +37,7 @@ export function Avatar({
   sphereCount = 4,
   dither = 0.3,
   renderStyle = "dithered",
+  imageUrl,
   className,
 }: AvatarProps) {
   const recipe = { seed, colorCount, sphereCount, dither, renderStyle };
@@ -42,9 +45,10 @@ export function Avatar({
 
   return (
     <AvatarImage
-      key={cacheKey}
+      key={`${cacheKey}|${imageUrl ?? ""}`}
       cacheKey={cacheKey}
       className={className}
+      imageUrl={imageUrl}
       label={label}
       recipe={recipe}
       size={size}
@@ -55,12 +59,14 @@ export function Avatar({
 function AvatarImage({
   cacheKey,
   className,
+  imageUrl,
   label,
   recipe,
   size,
 }: {
   cacheKey: string;
   className?: string;
+  imageUrl?: string | null;
   label: string;
   recipe: AvatarRecipe;
   size: number;
@@ -68,6 +74,8 @@ function AvatarImage({
   const [src, setSrc] = useState<string | undefined>(() =>
     imageCache.get(cacheKey),
   );
+  const [imageFailed, setImageFailed] = useState(false);
+  const squircleRef = useSquircleRef<HTMLSpanElement>();
   const dimension = Math.max(1, size);
   const containerStyle = {
     width: dimension,
@@ -78,7 +86,6 @@ function AvatarImage({
     overflow: "hidden",
     boxSizing: "border-box",
     border: "1px solid rgb(0 0 0 / 0.1)",
-    borderRadius: "9999px",
     background: avatarFallbackGradient(recipe.seed),
     boxShadow: "0 1px 2px rgb(0 0 0 / 0.08)",
   } satisfies CSSProperties;
@@ -95,6 +102,8 @@ function AvatarImage({
     letterSpacing: "-0.04em",
     mixBlendMode: "overlay",
   } satisfies CSSProperties;
+  const providerImageUrl = imageFailed ? null : imageUrl;
+  const displayedImageUrl = providerImageUrl ?? src;
 
   useMountEffect(() => {
     const cached = imageCache.get(cacheKey);
@@ -113,12 +122,18 @@ function AvatarImage({
   });
 
   return (
-    <span aria-hidden="true" className={className} style={containerStyle}>
-      {src ? (
+    <span
+      ref={squircleRef}
+      aria-hidden="true"
+      className={className}
+      style={containerStyle}
+    >
+      {displayedImageUrl ? (
         <img
           alt=""
           draggable={false}
-          src={src}
+          src={displayedImageUrl}
+          onError={providerImageUrl ? () => setImageFailed(true) : undefined}
           style={{
             position: "absolute",
             inset: 0,
@@ -128,9 +143,11 @@ function AvatarImage({
           }}
         />
       ) : null}
-      <span aria-hidden="true" style={initialsStyle}>
-        {avatarInitials(label)}
-      </span>
+      {!providerImageUrl && (
+        <span aria-hidden="true" style={initialsStyle}>
+          {avatarInitials(label)}
+        </span>
+      )}
     </span>
   );
 }

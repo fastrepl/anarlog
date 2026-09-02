@@ -6,6 +6,7 @@ import { cn } from "@anlg/utils";
 
 import { useShell } from "~/contexts/shell";
 import { useWindowControlsGutter } from "~/shared/hooks/useWindowControlsGutter";
+import { leaveOverlayTab } from "~/shared/leave-overlay-tab";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function CustomSidebarHeader({ children }: { children?: ReactNode }) {
@@ -13,9 +14,6 @@ export function CustomSidebarHeader({ children }: { children?: ReactNode }) {
   const { chat } = useShell();
   const showWindowControlsGutter = useWindowControlsGutter();
   const currentTab = useTabs((state) => state.currentTab);
-  const tabs = useTabs((state) => state.tabs);
-  const select = useTabs((state) => state.select);
-  const openCurrent = useTabs((state) => state.openCurrent);
 
   const handleBack = useCallback(() => {
     if (currentTab?.type !== "automations" && chat.mode !== "FloatingClosed") {
@@ -23,18 +21,8 @@ export function CustomSidebarHeader({ children }: { children?: ReactNode }) {
       return;
     }
 
-    if (currentTab?.type === "onboarding" || currentTab?.type === "empty") {
-      return;
-    }
-
-    const existingHomeTab = tabs.find((tab) => tab.type === "empty");
-    if (existingHomeTab) {
-      select(existingHomeTab);
-      return;
-    }
-
-    openCurrent({ type: "empty" });
-  }, [chat, currentTab, openCurrent, select, tabs]);
+    leaveOverlayTab();
+  }, [chat, currentTab]);
 
   return (
     <div

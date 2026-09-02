@@ -1,10 +1,11 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import * as React from "react";
 
+import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 import { cn } from "@anlg/utils";
 
 const badgeVariants = cva(
-  "focus:ring-ring inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:ring-2 focus:ring-offset-2 focus:outline-hidden",
+  "focus:outline-ring inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-2 focus:outline-offset-2",
   {
     variants: {
       variant: {
@@ -39,6 +40,7 @@ const badgeVariants = cva(
 export interface BadgeProps
   extends
     React.HTMLAttributes<HTMLDivElement>,
+    React.RefAttributes<HTMLDivElement>,
     VariantProps<typeof badgeVariants> {
   label?: string;
 }
@@ -50,14 +52,17 @@ function Badge({
   disabled,
   label,
   children,
+  ref,
   ...props
 }: BadgeProps) {
+  const squircleRef = useSquircleRef<HTMLDivElement>(ref);
   return (
     <div
       className={cn([badgeVariants({ variant, size, disabled }), className])}
       aria-label={label}
       role="status"
       {...props}
+      ref={squircleRef}
     >
       {children}
     </div>

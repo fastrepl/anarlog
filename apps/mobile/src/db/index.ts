@@ -5,9 +5,12 @@ import { mobileLiveQueryClient, mobileTransactionClient } from "@/db/client";
 export {
   bootstrapE2eeReplica,
   configureE2eeReplica,
+  generateE2eeDeviceEnrollmentKey,
   generateE2eeRecoveryKey,
   getSyncStatus,
+  inspectE2eeDeviceEnrollmentKey,
   inspectE2eeRecoveryKey,
+  openE2eeDeviceEnrollment,
   startSync,
   stopSync,
   syncNow,

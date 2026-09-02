@@ -71,13 +71,30 @@ describe("read_folder_material", () => {
     });
   });
 
-  it("does not extract binary PDFs", async () => {
+  it("extracts text from folder-scoped PDFs", async () => {
+    const { deflateSync } = await import("node:zlib");
+    const compressed = deflateSync(
+      Buffer.from("BT (Office hours) Tj ET", "latin1"),
+    );
+    const pdf = Buffer.concat([
+      Buffer.from(
+        `%PDF-1.1\n1 0 obj\n<< /Length ${compressed.length} /Filter /FlateDecode >>\nstream\n`,
+        "latin1",
+      ),
+      compressed,
+      Buffer.from("\nendstream\nendobj\n", "latin1"),
+    ]);
+
     mocks.loadFolderMaterial.mockResolvedValue({
       id: "mat-2",
       filename: "syllabus.pdf",
       contentType: "application/pdf",
-      sizeBytes: 2048,
+      sizeBytes: pdf.length,
       relativePath: "materials/syllabus.pdf",
+    });
+    mocks.folderAttachmentRead.mockResolvedValue({
+      status: "ok",
+      data: Array.from(pdf),
     });
 
     const tool = buildReadFolderMaterialTool({
@@ -88,7 +105,8 @@ describe("read_folder_material", () => {
     ).resolves.toMatchObject({
       status: "ok",
       filename: "syllabus.pdf",
-      readable: false,
+      readable: true,
+      contextText: "Office hours",
     });
     expect(
       folderMaterialTestInternals.isReadableText(

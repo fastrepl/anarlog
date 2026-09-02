@@ -38,6 +38,7 @@ function dependencies(overrides = {}) {
     }),
     claimIdentity: async () => {},
     getDevice: async () => ({ fingerprint: "device-1234" }),
+    enrollDevice: async () => ({ status: "first_device" }),
     bootstrap: async () => "configured",
     stop: async () => {},
     syncNow: async () => {},
@@ -47,16 +48,33 @@ function dependencies(overrides = {}) {
   };
 }
 
-test("requires explicit recovery-key setup when this account has no key", async () => {
+test("silently establishes encryption for the first device", async () => {
+  let saved;
+  let claimCount = 0;
+  let bootstrapKey;
   const controller = new MobileSyncController(
-    dependencies({ readRecoveryKey: async () => null }),
+    dependencies({
+      readRecoveryKey: async () => null,
+      saveRecoveryKey: async (_accountUserId, recoveryKey) => {
+        saved = recoveryKey;
+      },
+      claimIdentity: async () => {
+        claimCount += 1;
+      },
+      bootstrap: async (_session, recoveryKey) => {
+        bootstrapKey = recoveryKey;
+        return "configured";
+      },
+    }),
     0,
     0,
   );
   controller.activate(session);
 
-  await waitFor(() => controller.getSnapshot().phase === "setup_required");
-  assert.equal(controller.getSnapshot().running, false);
+  await waitFor(() => controller.getSnapshot().phase === "ready");
+  assert.equal(saved, "generated-recovery-key");
+  assert.equal(bootstrapKey, "generated-recovery-key");
+  assert.equal(claimCount, 1);
 });
 
 test("boots the native replica with the stored account key", async () => {
@@ -123,42 +141,29 @@ test("ignores a stale activation before booting the next account", async () => {
   assert.deepEqual(bootstrappedAccounts, ["user-456"]);
 });
 
-test("does not store or claim a generated key until confirmation", async () => {
-  let saved;
+test("keeps working locally while another device approves enrollment", async () => {
+  let saved = null;
   let claimCount = 0;
-  let resolveBootstrap;
   const controller = new MobileSyncController(
     dependencies({
-      readRecoveryKey: async () => saved ?? null,
+      readRecoveryKey: async () => null,
       saveRecoveryKey: async (_accountUserId, recoveryKey) => {
         saved = recoveryKey;
       },
+      enrollDevice: async () => ({ status: "pending" }),
       claimIdentity: async () => {
         claimCount += 1;
       },
-      bootstrap: async () =>
-        await new Promise((resolve) => {
-          resolveBootstrap = resolve;
-        }),
     }),
     0,
     0,
   );
   controller.activate(session);
-  await waitFor(() => controller.getSnapshot().phase === "setup_required");
 
-  const recoveryKey = await controller.generateRecoveryKey();
-  assert.equal(recoveryKey, "generated-recovery-key");
-  assert.equal(saved, undefined);
+  await waitFor(() => controller.getSnapshot().phase === "approval_pending");
+  assert.equal(saved, null);
   assert.equal(claimCount, 0);
-  assert.equal(controller.getSnapshot().phase, "setup_required");
-
-  await controller.confirmRecoveryKey(recoveryKey);
-  assert.equal(saved, recoveryKey);
-  assert.equal(claimCount, 1);
-  await waitFor(() => resolveBootstrap !== undefined);
-  resolveBootstrap("configured");
-  await waitFor(() => controller.getSnapshot().phase === "ready");
+  assert.equal(controller.getSnapshot().running, false);
 });
 
 test("rolls back secure storage when the server rejects a new identity", async () => {
@@ -182,20 +187,17 @@ test("rolls back secure storage when the server rejects a new identity", async (
     0,
   );
   controller.activate(session);
-  await waitFor(() => controller.getSnapshot().phase === "setup_required");
-
-  await assert.rejects(
-    controller.confirmRecoveryKey("generated-recovery-key"),
-    /identity mismatch/,
-  );
+  await waitFor(() => controller.getSnapshot().phase === "error");
   assert.equal(deleted, true);
   assert.equal(saved, null);
 });
 
-test("uses the refreshed session when setup finishes", async () => {
+test("uses the refreshed session when managed enrollment finishes", async () => {
   let saved = null;
   let claimedAccessToken;
   let bootstrappedAccessToken;
+  let firstEnrollmentResolve;
+  let enrollmentCalls = 0;
   const controller = new MobileSyncController(
     dependencies({
       readRecoveryKey: async () => saved,
@@ -204,6 +206,19 @@ test("uses the refreshed session when setup finishes", async () => {
       },
       claimIdentity: async (activeSession) => {
         claimedAccessToken = activeSession.accessToken;
+      },
+      enrollDevice: async () => {
+        enrollmentCalls += 1;
+        if (enrollmentCalls === 1) {
+          return await new Promise((resolve) => {
+            firstEnrollmentResolve = resolve;
+          });
+        }
+        return {
+          status: "recovered",
+          recoveryKey: "approved-recovery-key",
+          completeEnrollment: async () => {},
+        };
       },
       bootstrap: async (activeSession) => {
         bootstrappedAccessToken = activeSession.accessToken;
@@ -214,16 +229,48 @@ test("uses the refreshed session when setup finishes", async () => {
     0,
   );
   controller.activate(session);
-  await waitFor(() => controller.getSnapshot().phase === "setup_required");
-  const recoveryKey = await controller.generateRecoveryKey();
+  await waitFor(() => firstEnrollmentResolve !== undefined);
 
   controller.activate({ ...session, accessToken: "refreshed-token" });
-  await waitFor(() => controller.getSnapshot().phase === "setup_required");
-  await controller.confirmRecoveryKey(recoveryKey);
+  firstEnrollmentResolve({ status: "pending" });
   await waitFor(() => controller.getSnapshot().phase === "ready");
 
+  assert.equal(saved, "approved-recovery-key");
   assert.equal(claimedAccessToken, "refreshed-token");
   assert.equal(bootstrappedAccessToken, "refreshed-token");
+});
+
+test("keeps a recovered enrollment reusable until identity claim succeeds", async () => {
+  let saved = null;
+  let enrollmentCompleted = false;
+  const controller = new MobileSyncController(
+    dependencies({
+      readRecoveryKey: async () => saved,
+      saveRecoveryKey: async (_accountUserId, recoveryKey) => {
+        saved = recoveryKey;
+      },
+      deleteRecoveryKey: async () => {
+        saved = null;
+      },
+      enrollDevice: async () => ({
+        status: "recovered",
+        recoveryKey: "approved-recovery-key",
+        completeEnrollment: async () => {
+          enrollmentCompleted = true;
+        },
+      }),
+      claimIdentity: async () => {
+        throw new Error("identity mismatch");
+      },
+    }),
+    0,
+    0,
+  );
+  controller.activate(session);
+
+  await waitFor(() => controller.getSnapshot().phase === "error");
+  assert.equal(saved, null);
+  assert.equal(enrollmentCompleted, false);
 });
 
 test("does not leave a stale poll interval after re-activation", async () => {

@@ -329,7 +329,7 @@ jobs:
           FILENAME="hyprnote-staging-${TIMESTAMP}-${COMMIT_HASH}-macos-${{ matrix.arch }}.dmg"
           cp "$DMG_FILE" "$FILENAME"
           aws s3 cp "$FILENAME" \
-            "s3://hyprnote-build/desktop/staging/$FILENAME" \
+            "s3://anarlog-build/desktop/staging/$FILENAME" \
             --endpoint-url ${{ secrets.CLOUDFLARE_R2_ENDPOINT_URL }} \
             --region auto
         env:
@@ -561,7 +561,7 @@ jobs:
             done
           done
           aws s3 cp "$upload_dir/" \
-            s3://hyprnote-build/desktop/staging/ \
+            s3://anarlog-build/desktop/staging/ \
             --recursive \
             --endpoint-url ${{ secrets.CLOUDFLARE_R2_ENDPOINT_URL }} \
             --region auto

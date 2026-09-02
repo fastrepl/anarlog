@@ -113,6 +113,10 @@ select
 from session_snapshot_test_state
 where name = 'target_workspace';
 
+select tests.enable_workspace_plan(workspace_id)
+from session_snapshot_test_state
+where name in ('source_workspace', 'target_workspace');
+
 select tests.clear_authentication();
 reset role;
 

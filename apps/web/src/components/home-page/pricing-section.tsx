@@ -22,17 +22,18 @@ export function PricingSection({
         </h2>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
           Start with local meeting notes for free. Upgrade when you want hosted
-          transcription, AI, sync, and sharing.
+          transcription and AI. Choose Team when notes and billing belong to a
+          shared workspace.
         </p>
       </div>
 
-      <div className="relative left-1/2 mt-8 grid w-screen max-w-[760px] -translate-x-1/2 grid-cols-1 gap-4 px-5 text-left md:grid-cols-2 md:px-8">
+      <div className="relative left-1/2 mt-8 grid w-screen max-w-[1100px] -translate-x-1/2 grid-cols-1 gap-4 px-5 text-left md:grid-cols-3 md:px-8">
         {MARKETING_PLAN_TIERS.map((plan) => (
           <PricingCard key={plan.id} plan={plan} />
         ))}
       </div>
 
-      <div className="relative left-1/2 mt-6 w-screen max-w-[760px] -translate-x-1/2 px-5 md:px-8">
+      <div className="relative left-1/2 mt-6 w-screen max-w-[1100px] -translate-x-1/2 px-5 md:px-8">
         <EnterpriseCallout />
       </div>
 
@@ -78,10 +79,13 @@ function PricingCard({ plan }: { plan: MarketingPlanData }) {
             <span className="font-hand text-5xl leading-none font-semibold text-[#181613]">
               ${plan.price.monthly}
             </span>
-            <span className="text-sm text-[#756b5d]">/month</span>
+            <span className="text-sm text-[#756b5d]">
+              {plan.billingUnit === "person" ? "/person/month" : "/month"}
+            </span>
             {plan.price.yearly != null ? (
               <span className="text-sm text-[#756b5d]">
-                or ${plan.price.yearly}/year
+                or ${plan.price.yearly}
+                {plan.billingUnit === "person" ? "/person/year" : "/year"}
               </span>
             ) : null}
           </div>
@@ -109,7 +113,11 @@ function PricingCard({ plan }: { plan: MarketingPlanData }) {
               : "bg-[#f4efe6] text-[#181613] hover:bg-[#eadfce]",
           ])}
         >
-          {plan.price ? "Start your 3-week Pro trial" : "Download for free"}
+          {plan.id === "team"
+            ? "Create a Team workspace"
+            : plan.price
+              ? "Start your 3-week Pro trial"
+              : "Download for free"}
         </Link>
       </div>
     </article>

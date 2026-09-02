@@ -30,6 +30,11 @@ select lives_ok(
   'The owner creates a shared workspace'
 );
 
+select tests.enable_workspace_plan(
+  (select workspace_id from required_sso_test_state where name = 'hq'),
+  'enterprise'
+);
+
 select throws_ok(
   $$
     select * from public.set_workspace_policy(

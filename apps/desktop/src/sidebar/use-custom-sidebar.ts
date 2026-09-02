@@ -8,6 +8,7 @@ const CUSTOM_SIDEBAR_TYPES: Tab["type"][] = [
   "contacts",
   "templates",
   "automations",
+  "folders",
 ];
 
 const LEFT_SURFACE_CUSTOM_SIDEBAR_TYPES: Tab["type"][] = [
@@ -16,6 +17,7 @@ const LEFT_SURFACE_CUSTOM_SIDEBAR_TYPES: Tab["type"][] = [
   "contacts",
   "templates",
   "automations",
+  "folders",
 ];
 
 // Tabs whose sidebar nav renders CustomSidebarHeader in the window chrome row.
@@ -25,6 +27,7 @@ const OWN_SIDEBAR_HEADER_TYPES: Tab["type"][] = [
   "contacts",
   "templates",
   "automations",
+  "folders",
 ];
 
 export function hasCustomSidebarTab(tab: Tab | null): boolean {

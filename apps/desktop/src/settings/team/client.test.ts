@@ -4,6 +4,7 @@ import {
   createWorkspace,
   createWorkspaceInvitation,
   getSeatUsage,
+  getWorkspaceAccess,
   getWorkspacePolicy,
   intersectAllowedShareScopes,
   listWorkspaceInvitations,
@@ -12,6 +13,7 @@ import {
   requireTeamContext,
   resendWorkspaceInvitation,
   sendWorkspaceInvitationEmail,
+  setWorkspaceLogo,
   setWorkspaceShareSlug,
   TeamError,
   type TeamContext,
@@ -46,6 +48,30 @@ describe("requireTeamContext", () => {
 });
 
 describe("workspace reads", () => {
+  it("parses workspace-scoped capabilities and ignores future additions", async () => {
+    const { context: ctx } = context([
+      {
+        workspace_role: "admin",
+        workspace_tier: "enterprise",
+        capabilities: [
+          "team.manage_members",
+          "enterprise.capture",
+          "future.capability",
+        ],
+        seat_limit: 12,
+        used_seats: 4,
+      },
+    ]);
+
+    await expect(getWorkspaceAccess(ctx, WORKSPACE_ID)).resolves.toEqual({
+      role: "admin",
+      tier: "enterprise",
+      capabilities: ["team.manage_members", "enterprise.capture"],
+      seatLimit: 12,
+      usedSeats: 4,
+    });
+  });
+
   it("keeps only active members and normalizes their role", async () => {
     const { context: ctx } = context([
       {
@@ -85,6 +111,37 @@ describe("workspace reads", () => {
     expect(rpc).toHaveBeenCalledWith("set_workspace_share_slug", {
       p_workspace_id: WORKSPACE_ID,
       p_slug: "Fastrepl",
+    });
+  });
+
+  it("sets and clears the workspace logo", async () => {
+    const jpeg = "data:image/jpeg;base64,/9j/4AAQ";
+    const { context: ctx, rpc } = context([
+      {
+        workspace_id: WORKSPACE_ID,
+        workspace_logo_data: jpeg,
+      },
+    ]);
+
+    await expect(setWorkspaceLogo(ctx, WORKSPACE_ID, jpeg)).resolves.toEqual({
+      logoDataUrl: jpeg,
+    });
+    expect(rpc).toHaveBeenCalledWith("set_workspace_logo", {
+      p_workspace_id: WORKSPACE_ID,
+      p_logo_data: jpeg,
+    });
+  });
+
+  it("treats a cleared logo as null rather than a missing row", async () => {
+    const { context: ctx } = context([
+      {
+        workspace_id: WORKSPACE_ID,
+        workspace_logo_data: null,
+      },
+    ]);
+
+    await expect(setWorkspaceLogo(ctx, WORKSPACE_ID, null)).resolves.toEqual({
+      logoDataUrl: null,
     });
   });
 

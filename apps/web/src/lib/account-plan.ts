@@ -99,7 +99,7 @@ export function getAccountPlanCopy({
   if (hasYcPerk) {
     return {
       planLabel,
-      planDetail: "YC founder year is applied.",
+      planDetail: "YC founder year is applied to personal Pro.",
     };
   }
 

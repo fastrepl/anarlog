@@ -56,6 +56,7 @@ vi.mock("@anlg/ui/components/ui/button", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
+  appFloatingMenuPanelClassName: "overflow-hidden p-1.5",
   AppFloatingPanel: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -321,6 +322,10 @@ describe("OverflowButton", () => {
     );
 
     expect(trigger).not.toBeNull();
+    expect(trigger?.className).toContain("[&_svg]:size-4");
+    expect(trigger?.querySelector("svg")?.getAttribute("class")).toContain(
+      "size-4",
+    );
   });
 
   it("mounts the export modal only after export is selected", () => {

@@ -256,6 +256,10 @@ msgstr "Add at least one configured action before enabling."
 msgid "Add at least one example summary."
 msgstr "Add at least one example summary."
 
+#: src/session/folder-instructions.tsx
+msgid "Add context for this folder"
+msgstr "Add context for this folder"
+
 #: src/settings/sync/index.tsx
 msgid "Add device"
 msgstr "Add device"
@@ -263,6 +267,10 @@ msgstr "Add device"
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Add example"
 msgstr "Add example"
+
+#: src/folders/folder-editor.tsx
+msgid "Add file"
+msgstr "Add file"
 
 #: src/settings/general/spoken-languages.tsx
 msgid "Add language"
@@ -275,6 +283,10 @@ msgstr "Add material"
 #: src/automations/starters.tsx
 msgid "Add meeting decisions and follow-ups to a Notion project."
 msgstr "Add meeting decisions and follow-ups to a Notion project."
+
+#: src/settings/team/index.tsx
+msgid "Add members"
+msgstr "Add members"
 
 #: src/settings/dictionary/index.tsx
 msgid "Add names, jargon, or product terms to prefer"
@@ -458,7 +470,6 @@ msgid "Anarlog Pro is required to use cloud sync."
 msgstr "Anarlog Pro is required to use cloud sync."
 
 #: src/main/sync-status.tsx
-#: src/settings/team/index.tsx
 msgid "Anarlog Pro required"
 msgstr "Anarlog Pro required"
 
@@ -809,6 +820,10 @@ msgstr "Change photo"
 msgid "Change speaker"
 msgstr "Change speaker"
 
+#: src/settings/team/index.tsx
+msgid "Change workspace logo"
+msgstr "Change workspace logo"
+
 #: src/main/sync-status.tsx
 msgid "Changes stay on this device until you resume sync"
 msgstr "Changes stay on this device until you resume sync"
@@ -857,6 +872,10 @@ msgstr "Checking…"
 #: src/imports/screen.tsx
 msgid "Choose {0} export files"
 msgstr "Choose {0} export files"
+
+#: src/settings/ai/stt/local-file-model.tsx
+msgid "Choose a .bin model"
+msgstr "Choose a .bin model"
 
 #: src/session-sharing/delivery-panel.tsx
 #: src/settings/automations/starter-config.tsx
@@ -919,6 +938,10 @@ msgstr "Choose custom color"
 msgid "Choose export folder"
 msgstr "Choose export folder"
 
+#: src/settings/appearance/sidebar-item-fields.tsx
+msgid "Choose extra fields to show on each note."
+msgstr "Choose extra fields to show on each note."
+
 #: src/imports/screen.tsx
 msgid "Choose files"
 msgstr "Choose files"
@@ -930,6 +953,10 @@ msgstr "Choose files exported from this app."
 #: src/settings/automations/starter-config.tsx
 msgid "Choose folder"
 msgstr "Choose folder"
+
+#: src/folders/folder-editor.tsx
+msgid "Choose folder icon"
+msgstr "Choose folder icon"
 
 #: src/settings/appearance/app-icon.tsx
 msgid "Choose how Anarlog appears in the Dock."
@@ -950,10 +977,6 @@ msgstr "Choose how long recordings stay on this device."
 #: src/settings/general/summary-length.tsx
 msgid "Choose how much detail generated meeting summaries include."
 msgstr "Choose how much detail generated meeting summaries include."
-
-#: src/settings/ai/stt/local-file-model.tsx
-msgid "Choose model file"
-msgstr "Choose model file"
 
 #: src/onboarding/folder-location.tsx
 msgid "Choose storage location"
@@ -997,6 +1020,7 @@ msgstr "Cleaning up..."
 
 #: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
+#: src/folders/sidebar.tsx
 #: src/settings/ai/shared/provider-search.tsx
 #: src/sidebar/automations.tsx
 #: src/sidebar/settings.tsx
@@ -1182,10 +1206,6 @@ msgstr "comments"
 msgid "Company"
 msgstr "Company"
 
-#: src/settings/general/account.tsx
-msgid "Compare Free and Pro before you sign in."
-msgstr "Compare Free and Pro before you sign in."
-
 #: src/instruction/index.tsx
 msgid "Complete sign-in in your browser, then return to Anarlog."
 msgstr "Complete sign-in in your browser, then return to Anarlog."
@@ -1313,10 +1333,18 @@ msgstr "Contact options"
 msgid "Contacts"
 msgstr "Contacts"
 
+#: src/folders/folder-editor.tsx
+msgid "Context"
+msgstr "Context"
+
 #: src/imports/screen.tsx
 #: src/onboarding/calendar.tsx
 msgid "Continue"
 msgstr "Continue"
+
+#: src/settings/team/index.tsx
+msgid "Continue to Team checkout"
+msgstr "Continue to Team checkout"
 
 #: src/onboarding/account/after-login.tsx
 msgid "Continuing without trial"
@@ -1509,8 +1537,8 @@ msgstr "Could not update this person's access."
 msgid "Could not use the selected model"
 msgstr "Could not use the selected model"
 
+#: src/folders/sidebar.tsx
 #: src/settings/team/index.tsx
-#: src/sidebar/note-filter-menu.tsx
 msgid "Create"
 msgstr "Create"
 
@@ -1579,6 +1607,10 @@ msgstr "Creating brief..."
 msgid "Crisp"
 msgstr "Crisp"
 
+#: src/settings/general/account.tsx
+msgid "Current"
+msgstr "Current"
+
 #: src/settings/general/audio-settings.tsx
 #: src/templates/auto-form.tsx
 msgid "Current default"
@@ -1600,6 +1632,10 @@ msgstr "Dark"
 msgid "Data"
 msgstr "Data"
 
+#: src/sidebar/note-filter-menu.tsx
+msgid "Date"
+msgstr "Date"
+
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Date and time are required"
 msgstr "Date and time are required"
@@ -1617,6 +1653,7 @@ msgid "Default sharing"
 msgstr "Default sharing"
 
 #: src/contacts/contact-page-header.tsx
+#: src/folders/folder-editor.tsx
 #: src/session/components/outer-header/overflow/delete.tsx
 #: src/sidebar/automations.tsx
 #: src/sidebar/timeline/index.tsx
@@ -1652,6 +1689,11 @@ msgstr "Delete comment"
 #: src/sidebar/timeline/item.tsx
 msgid "Delete Event"
 msgstr "Delete Event"
+
+#: src/folders/folder-editor.tsx
+#: src/sidebar/folder-materials.tsx
+msgid "Delete folder"
+msgstr "Delete folder"
 
 #: src/settings/ai/stt/select.tsx
 msgid "Delete model"
@@ -2042,10 +2084,6 @@ msgstr "File each action item as an issue in the selected team."
 msgid "File format"
 msgstr "File format"
 
-#: src/sidebar/note-filter-menu.tsx
-msgid "Filter notes"
-msgstr "Filter notes"
-
 #: src/shared/open-note-dialog.tsx
 msgid "Find a note..."
 msgstr "Find a note..."
@@ -2078,6 +2116,20 @@ msgstr "Flags"
 msgid "Float chat"
 msgstr "Float chat"
 
+#: src/settings/appearance/sidebar-item-fields.tsx
+#: src/sidebar/note-filter-menu.tsx
+msgid "Folder"
+msgstr "Folder"
+
+#: src/folders/folder-editor.tsx
+msgid "Folder actions"
+msgstr "Folder actions"
+
+#: src/session/folder-instructions.tsx
+msgid "Folder context"
+msgstr "Folder context"
+
+#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-name-dialog.tsx
 msgid "Folder name"
 msgstr "Folder name"
@@ -2085,6 +2137,10 @@ msgstr "Folder name"
 #: src/session/components/folder-picker.tsx
 msgid "Folder: {currentPath}"
 msgstr "Folder: {currentPath}"
+
+#: src/sidebar/settings.tsx
+msgid "Folders"
+msgstr "Folders"
 
 #: src/templates/template-icon-picker.tsx
 msgid "Food & Drink"
@@ -2179,6 +2235,14 @@ msgstr "Go to recent"
 #: src/settings/ai/stt/select.tsx
 msgid "Got it"
 msgstr "Got it"
+
+#: src/sidebar/note-filter-menu.tsx
+msgid "Grouping"
+msgstr "Grouping"
+
+#: src/sidebar/note-filter-menu.tsx
+msgid "Grouping, {groupingLabel}"
+msgstr "Grouping, {groupingLabel}"
 
 #: src/settings/developers/index.tsx
 msgid "Guide"
@@ -2364,7 +2428,6 @@ msgid "Invitations sent."
 msgstr "Invitations sent."
 
 #: src/session-sharing/invite-recipients.tsx
-#: src/settings/team/index.tsx
 msgid "Invite"
 msgstr "Invite"
 
@@ -2588,10 +2651,6 @@ msgstr "Loading teams…"
 msgid "Loading..."
 msgstr "Loading..."
 
-#: src/settings/ai/stt/local-file-model.tsx
-msgid "Local transcription models"
-msgstr "Local transcription models"
-
 #: src/settings/privacy/index.tsx
 msgid "Lock app"
 msgstr "Lock app"
@@ -2635,6 +2694,10 @@ msgstr "Make owner"
 msgid "Manage billing"
 msgstr "Manage billing"
 
+#: src/settings/team/index.tsx
+msgid "Manage Team billing"
+msgstr "Manage Team billing"
+
 #: src/settings/sync/index.tsx
 msgid "Manual sync"
 msgstr "Manual sync"
@@ -2655,6 +2718,7 @@ msgstr "Match whole word"
 msgid "Match your device"
 msgstr "Match your device"
 
+#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Materials"
 msgstr "Materials"
@@ -2830,10 +2894,6 @@ msgstr "Move up"
 msgid "My automations"
 msgstr "My automations"
 
-#: src/sidebar/note-filter-menu.tsx
-msgid "My notes"
-msgstr "My notes"
-
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
 msgid "Name"
@@ -2851,7 +2911,7 @@ msgstr "New automation"
 msgid "New chat"
 msgstr "New chat"
 
-#: src/sidebar/note-filter-menu.tsx
+#: src/folders/sidebar.tsx
 msgid "New folder"
 msgstr "New folder"
 
@@ -2866,6 +2926,7 @@ msgstr "New template"
 
 #: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
+#: src/sidebar/note-filter-menu.tsx
 msgid "Newest"
 msgstr "Newest"
 
@@ -2934,8 +2995,7 @@ msgstr "No devices registered yet."
 msgid "No emoji found"
 msgstr "No emoji found"
 
-#: src/session/components/folder-picker.tsx
-#: src/sidebar/note-filter-menu.tsx
+#: src/sidebar/timeline/utils/index.ts
 msgid "No folder"
 msgstr "No folder"
 
@@ -2943,13 +3003,25 @@ msgstr "No folder"
 msgid "No folder selected yet."
 msgstr "No folder selected yet."
 
+#: src/folders/sidebar.tsx
+msgid "No folders found"
+msgstr "No folders found"
+
 #: src/session/components/folder-picker.tsx
 msgid "No folders found."
 msgstr "No folders found."
 
+#: src/folders/sidebar.tsx
+msgid "No folders yet"
+msgstr "No folders yet"
+
 #: src/session/components/folder-picker.tsx
 msgid "No folders yet."
 msgstr "No folders yet."
+
+#: src/folders/index.tsx
+msgid "No folders yet. Create one to group notes and materials."
+msgstr "No folders yet. Create one to group notes and materials."
 
 #: src/templates/template-icon-picker.tsx
 msgid "No icons found"
@@ -3084,6 +3156,16 @@ msgstr "notes"
 msgid "Notes"
 msgstr "Notes"
 
+#: src/settings/appearance/sidebar-item-fields.tsx
+msgid "Notes list"
+msgstr "Notes list"
+
+#. js-lingui-explicit-id
+#: src/folders/folder-editor.tsx
+#: src/sidebar/folder-materials.tsx
+msgid "Notes stay in All notes. Materials in this folder will be deleted."
+msgstr "Notes stay in All notes. This folder, its nested folders, and all their materials will be deleted."
+
 #. placeholder {0}: latestResult.conflicts
 #. placeholder {1}: latestResult.errors
 #: src/imports/screen.tsx
@@ -3118,12 +3200,17 @@ msgstr "Older files that differ from your current data were kept as recovery cop
 
 #: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
+#: src/sidebar/note-filter-menu.tsx
 msgid "Oldest"
 msgstr "Oldest"
 
 #: src/session/components/note-input/enhanced/streaming.tsx
 msgid "On-device models can take a few minutes to warm up before text appears."
 msgstr "On-device models can take a few minutes to warm up before text appears."
+
+#: src/settings/general/account.tsx
+msgid "On-device transcription, recordings, and your own keys."
+msgstr "On-device transcription, recordings, and your own keys."
 
 #: src/settings/general/default-share-access.tsx
 msgid "Only me"
@@ -3231,6 +3318,7 @@ msgid "Opening sign-in…"
 msgstr "Opening sign-in…"
 
 #: src/imports/screen.tsx
+#: src/session-sharing/index.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 #: src/shared-notes/index.tsx
 msgid "Opening…"
@@ -3252,6 +3340,14 @@ msgstr "Opens System Settings and guides you to add Anarlog to the {0} list."
 #: src/settings/todo/provider-content.tsx
 msgid "or"
 msgstr "or"
+
+#: src/sidebar/note-filter-menu.tsx
+msgid "Ordering"
+msgstr "Ordering"
+
+#: src/sidebar/note-filter-menu.tsx
+msgid "Ordering, {orderingLabel}"
+msgstr "Ordering, {orderingLabel}"
 
 #: src/contacts/details.tsx
 msgid "Organization"
@@ -3429,6 +3525,10 @@ msgstr "Pro"
 msgid "Pro features available"
 msgstr "Pro features available"
 
+#: src/settings/team/index.tsx
+msgid "Pro for every member, shared workspaces, roles, policies, and centralized billing. $20 per person monthly or $200 yearly."
+msgstr "Pro for every member, shared workspaces, roles, policies, and centralized billing. $20 per person monthly or $200 yearly."
+
 #: src/settings/general/account.tsx
 msgid "Pro trial"
 msgstr "Pro trial"
@@ -3588,6 +3688,7 @@ msgid "Remove"
 msgstr "Remove"
 
 #. placeholder {0}: material.filename
+#: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Remove {0}"
 msgstr "Remove {0}"
@@ -3613,6 +3714,10 @@ msgstr "Remove photo"
 msgid "Remove repository"
 msgstr "Remove repository"
 
+#: src/settings/team/index.tsx
+msgid "Remove workspace logo"
+msgstr "Remove workspace logo"
+
 #: src/sidebar/folder-materials.tsx
 msgid "Rename"
 msgstr "Rename"
@@ -3628,10 +3733,6 @@ msgstr "Rename folder"
 #: src/settings/sync/index.tsx
 msgid "Rename this device"
 msgstr "Rename this device"
-
-#: src/settings/team/index.tsx
-msgid "Rename workspace"
-msgstr "Rename workspace"
 
 #: src/automations/starters.tsx
 msgid "Render canonical Markdown"
@@ -3874,6 +3975,10 @@ msgstr "Search contacts..."
 msgid "Search emoji..."
 msgstr "Search emoji..."
 
+#: src/folders/sidebar.tsx
+msgid "Search folders..."
+msgstr "Search folders..."
+
 #: src/templates/template-icon-picker.tsx
 msgid "Search icons..."
 msgstr "Search icons..."
@@ -3944,6 +4049,10 @@ msgstr "Section actions"
 #: src/settings/sync/index.tsx
 msgid "Security"
 msgstr "Security"
+
+#: src/session/components/folder-picker.tsx
+msgid "See all folders"
+msgstr "See all folders"
 
 #: src/session/components/note-input/template-picker.tsx
 msgid "See all templates"
@@ -4121,10 +4230,6 @@ msgstr "Share notes with others"
 msgid "Share usage data"
 msgstr "Share usage data"
 
-#: src/sidebar/note-filter-menu.tsx
-msgid "Shared"
-msgstr "Shared"
-
 #: src/shared-notes/index.tsx
 msgid "Shared link · View only"
 msgstr "Shared link · View only"
@@ -4217,6 +4322,14 @@ msgstr "Show sidebar"
 msgid "Show Sidebar"
 msgstr "Show Sidebar"
 
+#: src/settings/appearance/sidebar-item-fields.tsx
+msgid "Show tags under the date and time."
+msgstr "Show tags under the date and time."
+
+#: src/settings/appearance/sidebar-item-fields.tsx
+msgid "Show the folder above the title."
+msgstr "Show the folder above the title."
+
 #: src/settings/general/timezone.tsx
 msgid "Show the timeline in your preferred timezone."
 msgstr "Show the timeline in your preferred timezone."
@@ -4229,8 +4342,8 @@ msgstr "Show This Event"
 msgid "Show tray icon"
 msgstr "Show tray icon"
 
+#: src/session-sharing/index.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
-#: src/settings/general/account.tsx
 #: src/settings/sync/index.tsx
 #: src/shared-notes/index.tsx
 #: src/sidebar/toast/registry.tsx
@@ -4252,10 +4365,6 @@ msgstr "Sign in for cloud transcription, AI models, and sharing."
 #: src/settings/todo/github.tsx
 msgid "Sign in for private repo access."
 msgstr "Sign in for private repo access."
-
-#: src/settings/general/account.tsx
-msgid "Sign in for Pro"
-msgstr "Sign in for Pro"
 
 #: src/settings/general/account.tsx
 msgid "Sign in to Anarlog"
@@ -4287,6 +4396,14 @@ msgstr "Sign in to generate this summary"
 msgid "Sign in to get the most out of Anarlog"
 msgstr "Sign in to get the most out of Anarlog"
 
+#: src/session-sharing/index.tsx
+msgid "Sign in to share"
+msgstr "Sign in to share"
+
+#: src/session-sharing/index.tsx
+msgid "Sign in to share this note with others."
+msgstr "Sign in to share this note with others."
+
 #: src/onboarding/index.tsx
 msgid "Sign in to unlock powerful AI models, sync across devices, and personalization."
 msgstr "Sign in to unlock powerful AI models, sync across devices, and personalization."
@@ -4310,10 +4427,6 @@ msgstr "Sign in with ChatGPT Plus or Pro, then paste the redirect URL from your 
 #: src/settings/ai/llm/subscriptions/connect.tsx
 msgid "Sign in with ChatGPT Plus or Pro. We'll open Anarlog and finish connecting."
 msgstr "Sign in with ChatGPT Plus or Pro. We'll open Anarlog and finish connecting."
-
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Sign in with Claude Pro or Max. After you authorize, we'll pick up the code and finish connecting."
-msgstr "Sign in with Claude Pro or Max. After you authorize, we'll pick up the code and finish connecting."
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
 msgid "Sign in with GitHub Copilot and enter the code below."
@@ -4398,6 +4511,10 @@ msgstr "Something went wrong"
 msgid "Something went wrong while generating the summary."
 msgstr "Something went wrong while generating the summary."
 
+#: src/sidebar/note-filter-menu.tsx
+msgid "Sort notes"
+msgstr "Sort notes"
+
 #: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
 msgid "Sort options"
@@ -4430,6 +4547,10 @@ msgstr "Start listening when a scheduled meeting begins."
 #: src/main/empty.tsx
 msgid "Start Recording"
 msgstr "Start Recording"
+
+#: src/settings/team/index.tsx
+msgid "Start Team"
+msgstr "Start Team"
 
 #: src/chat/components/input/index.tsx
 msgid "Start voice input"
@@ -4659,6 +4780,10 @@ msgstr "System audio"
 msgid "System audio enabled"
 msgstr "System audio enabled"
 
+#: src/settings/appearance/sidebar-item-fields.tsx
+msgid "Tags"
+msgstr "Tags"
+
 #: src/automations/starters.tsx
 msgid "Take the enhanced note with decisions and action items."
 msgstr "Take the enhanced note with decisions and action items."
@@ -4672,13 +4797,17 @@ msgid "Teach coding agents when and how to use the Anarlog CLI and MCP"
 msgstr "Teach coding agents when and how to use the Anarlog CLI and MCP"
 
 #: src/settings/team/index.tsx
-#: src/sidebar/settings.tsx
-msgid "Team"
-msgstr "Team"
+msgid "Team plan"
+msgstr "Team plan"
 
 #: src/settings/team/index.tsx
 msgid "teammate@company.com"
 msgstr "teammate@company.com"
+
+#: src/settings/team/index.tsx
+#: src/sidebar/settings.tsx
+msgid "Teams"
+msgstr "Teams"
 
 #: src/settings/general/meeting-settings.tsx
 msgid "Tell participants when listening starts; this does not confirm consent."
@@ -5034,7 +5163,6 @@ msgstr "Upgrade to enable"
 #: src/session-sharing/index.tsx
 #: src/settings/developers/cloud-api.tsx
 #: src/settings/dictionary/index.tsx
-#: src/settings/team/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Upgrade to Pro"
 msgstr "Upgrade to Pro"
@@ -5224,9 +5352,17 @@ msgstr "Welcome to Anarlog"
 msgid "What are my action items from this meeting?"
 msgstr "What are my action items from this meeting?"
 
+#: src/folders/folder-editor.tsx
+msgid "What these notes are usually about"
+msgstr "What these notes are usually about"
+
 #: src/chat/components/body/empty.tsx
 msgid "What were the key decisions that have been made?"
 msgstr "What were the key decisions that have been made?"
+
+#: src/settings/general/account.tsx
+msgid "What you're missing without Pro."
+msgstr "What you're missing without Pro."
 
 #: src/changelog/index.tsx
 msgid "What's new in {version}?"
@@ -5239,6 +5375,10 @@ msgstr "When this happens"
 #: src/onboarding/index.tsx
 msgid "Where your notes and recordings are stored"
 msgstr "Where your notes and recordings are stored"
+
+#: src/settings/ai/stt/local-file-model.tsx
+msgid "whisper.cpp models"
+msgstr "whisper.cpp models"
 
 #: src/task/tab-content.tsx
 msgid "Work on this task"

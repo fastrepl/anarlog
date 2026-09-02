@@ -28,7 +28,7 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
 
     Anarlog does not publish a live price table for third-party providers because those rates change. [OpenRouter](https://openrouter.ai/models?output_modalities=transcription) is one key that can reach several after-recording models if you want a single bill to compare.
 
-    See [Models and providers](/models-and-providers) and [Transcription and AI](/ai-setup).
+    See [How can I use on-device models?](/help#use-on-device-models), [Models and providers](/models-and-providers), and [Transcription and AI](/ai-setup).
   </Accordion>
 
   <Accordion title="Is there a reliable local model that can handle hour-long calls?" id="local-model-hour-long-calls">
@@ -37,12 +37,12 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
     Other local choices on the same Mac:
 
     - **Soniqo → Parakeet Streaming** shows text during the meeting. Use Batch when you care more about finishing a long recording than seeing live captions.
-    - **Local file** runs a downloaded whisper.cpp `.bin` model after recording. transcribe.cpp `.gguf` files are not supported yet.
+    - **On-device file** runs a downloaded whisper.cpp `.bin` model after recording. transcribe.cpp `.gguf` files are not supported yet.
     - **Apple Speech** is live-only and available when macOS 26 reports compatible system assets. It transcribes one supported language at a time.
 
-    On-device transcription is not available on Windows, Linux, or Intel Macs. On those systems, use Anarlog Cloud or a bring-your-own-key provider. After-recording hosted models handle hour-long audio. Some live models have short session limits — for example, Gemini 3.5 Transcribe Live preview sessions last up to 10 minutes.
+    Built-in on-device transcription is not available on Windows, Linux, or Intel Macs. On those systems, use a Deepgram-compatible local server, Anarlog Cloud, or a bring-your-own-key provider. After-recording hosted models handle hour-long audio. Some live models have short session limits — for example, Gemini 3.5 Transcribe Live preview sessions last up to 10 minutes.
 
-    Quality and speed depend on the computer. Run a short test recording before a long call. See [Use Anarlog offline](/offline).
+    Quality and speed depend on the computer. Run a short test recording before a long call. See [How can I use on-device models?](/help#use-on-device-models) and [Use Anarlog offline](/offline).
   </Accordion>
 
   <Accordion title="Can I replace Granola on Windows?" id="replace-granola-on-windows">
@@ -50,7 +50,7 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
 
     Expect these differences from a Mac setup:
 
-    - On-device transcription is not available. Choose Anarlog Cloud or configure your own provider.
+    - Built-in on-device transcription is not available. Choose Anarlog Cloud, a Deepgram-compatible local server, or another configured provider. See [How can I use on-device models?](/help#use-on-device-models).
     - Microphone detection, auto-stop, and meeting-chat capture are macOS and Linux only.
     - You can [import Granola meeting history](/imports) from an official export.
 
@@ -85,8 +85,25 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
 ## AI, offline use, and privacy
 
 <AccordionGroup>
+  <Accordion title="How can I use on-device models?" id="use-on-device-models">
+    Anarlog can transcribe without sending audio to Anarlog Cloud. Open **Settings → Transcription** and pick the path that matches your computer.
+
+    | Path | What you select | When it runs | Requirements |
+    | --- | --- | --- | --- |
+    | Built-in Soniqo | **Soniqo**, then Parakeet Streaming, Parakeet Batch, or another listed Soniqo model | Live or after recording, depending on the model | Apple Silicon. Download the model first. Prefer **Parakeet Batch** for hour-long calls. |
+    | Apple Speech | **Apple Speech** | During the meeting | macOS 26 with a supported language added in System Settings. One language at a time. |
+    | On-device file | **On-device file**, then **Choose a .bin model** | After recording | Apple Silicon. Use a whisper.cpp `.bin` you already have. transcribe.cpp `.gguf` files are not supported yet. |
+    | Local Deepgram-compatible server | **Custom**, or **Deepgram** with a custom **Base URL** under **Advanced** | Live or after recording, depending on the server | A Deepgram-compatible endpoint on this computer or your local network. Enter that URL and an API key if the server requires one. |
+
+    Soniqo, Apple Speech, and On-device file appear only on a supported Apple Silicon Mac. On Windows, Linux, or Intel Macs, use a local Deepgram-compatible server, Anarlog Cloud, or another configured provider.
+
+    Summaries and chat are a separate setting. For those to stay local too, choose LM Studio, Ollama, Unsloth, or eligible Apple Intelligence under **Settings → Intelligence**.
+
+    See [Models and providers](/models-and-providers), [Use Anarlog offline](/offline), and [Is there a reliable local model that can handle hour-long calls?](/help#local-model-hour-long-calls).
+  </Accordion>
+
   <Accordion title="Can I use Anarlog offline?" id="can-i-use-anarlog-offline">
-    Yes, if you prepare local models before disconnecting. Soniqo, Apple Speech, and Local file transcription require a supported Apple Silicon Mac; Apple Speech also needs macOS 26 to report compatible system assets. LM Studio, Ollama, Unsloth, and eligible Apple Intelligence can provide local Intelligence models. See [Use Anarlog offline](/offline).
+    Yes, if you prepare local models before disconnecting. Soniqo, Apple Speech, and On-device file transcription require a supported Apple Silicon Mac; Apple Speech also needs macOS 26 to report compatible system assets. LM Studio, Ollama, Unsloth, and eligible Apple Intelligence can provide local Intelligence models. See [Use Anarlog offline](/offline) and [How can I use on-device models?](/help#use-on-device-models).
   </Accordion>
 
   <Accordion title="What languages does Anarlog support?" id="supported-languages">
@@ -101,6 +118,7 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
     | Anarlog Cloud | Routes to a provider that supports the languages you selected. The Settings list is the Cloud picker. |
     | Soniqo | Bulgarian, Czech, Danish, German, Greek, English, Spanish, Estonian, Finnish, French, Croatian, Hungarian, Italian, Lithuanian, Latvian, Maltese, Dutch, Polish, Portuguese, Romanian, Russian, Slovak, Slovenian, Swedish, and Ukrainian |
     | Apple Speech | German, English, Spanish, French, Italian, Japanese, Korean, Portuguese, Cantonese, or Chinese — one language at a time |
+    | On-device file | The whisper.cpp `.bin` you select. Check that model's language list. |
     | Your API key | The provider and model you configure. Check that model's language list before a multilingual meeting. |
 
     Summaries and chat use the main language. See [Use multiple languages](/languages).

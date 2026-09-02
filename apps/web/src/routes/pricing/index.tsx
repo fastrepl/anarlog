@@ -1,11 +1,10 @@
 import { CheckCircle, XCircle } from "@phosphor-icons/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
-import { MARKETING_PLAN_TIERS } from "@anlg/pricing";
 import { cn } from "@anlg/utils";
 
 import { AnarlogLogo } from "@/components/anarlog-logo";
-import { EnterpriseCallout } from "@/components/enterprise-callout";
+import { PricingSection } from "@/components/home-page/pricing-section";
 import { SiteFooter } from "@/components/site-footer";
 import {
   ANARLOG_ROW,
@@ -15,11 +14,9 @@ import {
 } from "@/lib/competitors";
 import { getCanonicalUrl } from "@/lib/seo";
 
-const proPlan = MARKETING_PLAN_TIERS.find((plan) => plan.price);
-
 const title = "Pricing · Anarlog";
 const description =
-  "Anarlog is free for unlimited local transcription, with Pro at $15/month. Compare pricing, capture method, and data ownership against Otter, Fireflies, Fathom, Granola, and other AI notetakers.";
+  "Anarlog is free for unlimited local transcription, with Pro at $15/month and Team at $20/person/month. Compare pricing, capture method, and data ownership against other AI notetakers.";
 
 const verifiedOnLabel = new Date(PRICING_VERIFIED_ON).toLocaleDateString(
   "en-US",
@@ -48,30 +45,13 @@ function PricingPage() {
     <main className="min-h-screen bg-white text-[#181613]">
       <div className="mx-auto w-full max-w-[700px] px-5 pt-4 pb-8 md:px-8 md:pt-4 md:pb-12">
         <div className="min-w-0 text-center">
-          <section className="pt-10 pb-4 md:pt-12 md:pb-6">
+          <section className="pt-10 md:pt-12">
             <Link to="/" aria-label="Anarlog home" className="inline-flex">
               <AnarlogLogo className="h-8 w-auto md:h-9" />
             </Link>
-            <h1 className="font-hand mt-12 text-4xl leading-none font-semibold text-[#181613] md:mt-16 md:text-5xl">
-              Simple pricing
-            </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
-              Free forever for unlimited local transcription and your own API
-              keys. Pro is ${proPlan?.price?.monthly}/month
-              {proPlan?.price?.yearly
-                ? ` or $${proPlan.price.yearly}/year`
-                : null}{" "}
-              when you want hosted transcription, AI, sync, and sharing.
-            </p>
-            <div className="mt-8">
-              <Link
-                to="/download/"
-                className="inline-flex h-11 items-center justify-center rounded-full bg-[#181613] px-6 text-sm font-medium text-white transition-all hover:scale-[102%] hover:bg-[#4f4940] active:scale-[98%]"
-              >
-                Download for free
-              </Link>
-            </div>
           </section>
+
+          <PricingSection />
 
           <section className="pt-12 pb-8 md:pt-16 md:pb-10">
             <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
@@ -120,10 +100,6 @@ function PricingPage() {
                 Anarlog pricing is always current.
               </p>
             </div>
-          </section>
-
-          <section className="pt-8 pb-20 md:pt-10 md:pb-24">
-            <EnterpriseCallout centered />
           </section>
         </div>
       </div>

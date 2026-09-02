@@ -66,6 +66,7 @@ function ProviderContext({ providerId }: { providerId: ProviderId }) {
         ? `Use [Deepgram](https://deepgram.com) for transcriptions. \
     If you want to use a [Dedicated](https://developers.deepgram.com/reference/custom-endpoints#deepgram-dedicated-endpoints)
     or [EU](https://developers.deepgram.com/reference/custom-endpoints#eu-endpoints) endpoint,
+    or a Deepgram-compatible server on this computer or your local network,
     you can do that in the **advanced** section.`
         : providerId === "soniox"
           ? `Use [Soniox](https://soniox.com) for transcriptions.`
@@ -104,7 +105,7 @@ function ProviderContext({ providerId }: { providerId: ProviderId }) {
                                           : providerId === "revai"
                                             ? `Use [Rev AI](https://docs.rev.ai/api/asynchronous/get-started) asynchronous transcription. Anarlog uploads the recording, waits for the job, and retrieves word timestamps and speaker labels.`
                                             : providerId === "custom"
-                                              ? `We only support **Deepgram compatible** endpoints for now.`
+                                              ? `Point this at any **Deepgram-compatible** endpoint, including a server on this computer or your local network.`
                                               : "";
 
   if (!content.trim()) {

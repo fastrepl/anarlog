@@ -86,7 +86,7 @@ describe("STT model display labels", () => {
       "3.5 Transcribe Live",
     );
     expect(displayModelLabel("gemini-3.5-transcribe")).toBe("3.5 Transcribe");
-    expect(displayModelLabel("local-file")).toBe("Local model file");
+    expect(displayModelLabel("local-file")).toBe("whisper.cpp .bin");
     expect(displayModelLabel("fast-transcription")).toBe("Fast Transcription");
     expect(displayModelLabel("openai/gpt-4o-mini-transcribe")).toBe(
       "GPT-4o mini Transcribe",
@@ -140,7 +140,11 @@ describe("STT model display labels", () => {
     expect(
       "builtIn" in providers.local_file && providers.local_file.builtIn,
     ).toBe(true);
-    expect(providers.local_file.badge).toBe("Batch only");
+    expect(providers.local_file.displayName).toBe("On-device file");
+    expect(
+      "description" in providers.local_file && providers.local_file.description,
+    ).toBe("whisper.cpp .bin");
+    expect(providers.local_file.badge).toBe("On device");
   });
 
   test("names on-device models instead of collapsing them", () => {

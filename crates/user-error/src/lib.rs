@@ -1,7 +1,8 @@
-//! Classification of failures caused by the end user's own account state
-//! (exhausted credits, expired plans, bad API keys) rather than by a defect in
-//! Anarlog. These are not actionable for engineering, so they are dropped
-//! before reaching Sentry.
+//! Classification of failures that should still be logged locally but must not
+//! be reported to Sentry.
+//!
+//! This includes the end user's own account state (exhausted credits, expired
+//! plans, bad API keys) and issue types that were already archived as solved.
 
 use sentry::protocol::{Context, Event, Value};
 
@@ -25,39 +26,105 @@ const USER_ERROR_MARKERS: &[&str] = &[
     "upgrade or purchase credits",
 ];
 
+// Archived Sentry issue types. Local error logs stay; Sentry should not reopen
+// or bill for issues that were already solved. Keep in sync with
+// `IGNORED_ERROR_MARKERS` in apps/desktop/src/error-reporting.ts.
+const IGNORED_ERROR_MARKERS: &[&str] = &[
+    "[runbatch]",
+    "post-stop transcript repair failed",
+    "[audio-retention]",
+    "batch transcription failed",
+    "connect_async_failed",
+    "acquired connection, but time to acquire exceeded",
+    "slow statement",
+    "samples_dropped",
+    "mic_samples_dropped",
+    "zoom_mic_usage_check_failed",
+    "e2ee recovery key setup is required",
+    "couldn't find callback id",
+    "[sessionpersister]",
+    "update_check_failed",
+    "failed to check for updates",
+    "failed_to_check_for_updates",
+    "listen_ws_connect_failed",
+    "listener_retry_failed",
+    "failed to fetch remote connection ids",
+];
+
+const WEBVIEW_CONSOLE_LOGGERS: &[&str] = &[
+    "anarlog.webview.console",
+    "hyprnote.webview.console",
+    "tauri_plugin_tracing::ext",
+];
+
 pub fn is_user_error_text(text: &str) -> bool {
-    let text = text.to_lowercase();
-    USER_ERROR_MARKERS
-        .iter()
-        .any(|marker| text.contains(marker))
+    contains_marker(text, USER_ERROR_MARKERS)
 }
 
-fn value_is_user_error(value: &Value) -> bool {
+pub fn is_ignored_error_text(text: &str) -> bool {
+    contains_marker(text, IGNORED_ERROR_MARKERS) || is_webview_console_dump(text)
+}
+
+fn contains_marker(text: &str, markers: &[&str]) -> bool {
+    let text = text.to_lowercase();
+    markers.iter().any(|marker| text.contains(marker))
+}
+
+fn is_webview_console_dump(text: &str) -> bool {
+    text.starts_with("[String(") || text.starts_with("[Object {")
+}
+
+fn is_webview_console_logger(logger: Option<&str>) -> bool {
+    logger.is_some_and(|logger| {
+        WEBVIEW_CONSOLE_LOGGERS.contains(&logger) || logger.starts_with("tauri_plugin_tracing")
+    })
+}
+
+fn value_matches(value: &Value, predicate: fn(&str) -> bool) -> bool {
     match value {
-        Value::String(text) => is_user_error_text(text),
-        Value::Array(values) => values.iter().any(value_is_user_error),
-        Value::Object(values) => values.values().any(value_is_user_error),
+        Value::String(text) => predicate(text),
+        Value::Array(values) => values.iter().any(|value| value_matches(value, predicate)),
+        Value::Object(values) => values.values().any(|value| value_matches(value, predicate)),
         _ => false,
     }
 }
 
-pub fn is_user_error_event(event: &Event<'_>) -> bool {
-    let message = event.message.as_deref().is_some_and(is_user_error_text);
+fn event_matches_text(event: &Event<'_>, predicate: fn(&str) -> bool) -> bool {
+    let message = event.message.as_deref().is_some_and(predicate);
     let logentry = event.logentry.as_ref().is_some_and(|entry| {
-        is_user_error_text(&entry.message) || entry.params.iter().any(value_is_user_error)
+        predicate(&entry.message)
+            || entry
+                .params
+                .iter()
+                .any(|value| value_matches(value, predicate))
     });
     let exception = event.exception.iter().any(|exception| {
-        exception.value.as_deref().is_some_and(is_user_error_text)
-            || is_user_error_text(&exception.ty)
+        exception.value.as_deref().is_some_and(predicate) || predicate(&exception.ty)
     });
-    let extra = event.extra.values().any(value_is_user_error);
-    let tags = event.tags.values().any(|tag| is_user_error_text(tag));
+    let extra = event
+        .extra
+        .values()
+        .any(|value| value_matches(value, predicate));
+    let tags = event.tags.values().any(|tag| predicate(tag));
     let contexts = event.contexts.values().any(|context| match context {
-        Context::Other(values) => values.values().any(value_is_user_error),
+        Context::Other(values) => values.values().any(|value| value_matches(value, predicate)),
         _ => false,
     });
 
     message || logentry || exception || extra || tags || contexts
+}
+
+pub fn is_user_error_event(event: &Event<'_>) -> bool {
+    event_matches_text(event, is_user_error_text)
+}
+
+pub fn is_ignored_error_event(event: &Event<'_>) -> bool {
+    is_webview_console_logger(event.logger.as_deref())
+        || event_matches_text(event, is_ignored_error_text)
+}
+
+pub fn should_drop_sentry_event(event: &Event<'_>) -> bool {
+    is_user_error_event(event) || is_ignored_error_event(event)
 }
 
 pub fn drop_user_error_event(event: Event<'static>) -> Option<Event<'static>> {
@@ -136,6 +203,39 @@ mod tests {
     fn keeps_unrelated_events() {
         let event = Event {
             message: Some("database_migration_failed".to_string()),
+            ..Default::default()
+        };
+
+        assert!(drop_user_error_event(event).is_some());
+    }
+
+    #[test]
+    fn drops_archived_operational_noise_and_webview_console() {
+        let from_message = Event {
+            message: Some(
+                r#"[String("[runBatch] error handling batch response"), Object {}]"#.to_string(),
+            ),
+            logger: Some("tauri_plugin_tracing::ext".to_string()),
+            ..Default::default()
+        };
+        let from_repair = Event {
+            message: Some("[listener] post-stop transcript repair failed".to_string()),
+            ..Default::default()
+        };
+        let from_batch = Event {
+            message: Some("batch transcription failed".to_string()),
+            ..Default::default()
+        };
+
+        for event in [from_message, from_repair, from_batch] {
+            assert!(should_drop_sentry_event(&event));
+        }
+    }
+
+    #[test]
+    fn ignored_noise_does_not_change_user_error_drop() {
+        let event = Event {
+            message: Some("batch transcription failed".to_string()),
             ..Default::default()
         };
 

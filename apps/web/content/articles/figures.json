@@ -53,7 +53,16 @@
       "width": 1200
     }
   ],
-  "best-ai-notetakers-google-meet": [],
+  "best-ai-notetakers-google-meet": [
+    {
+      "filename": "google-meet-capture-paths.png",
+      "content": "Title: Four ways an AI note taker captures Google Meet\nNative Meet feature -> Google Doc in Drive\nVisible meeting bot -> Vendor cloud workspace\nBrowser extension -> Live tab transcript\nDesktop audio capture -> Cross-platform meeting record",
+      "context": "A four-row decision map for Google Meet AI note-taking capture architecture. Keep each row neutral and factual. Show the capture point and resulting record. Do not invent product logos, pros and cons, or UI.",
+      "visualQuery": "flowchart",
+      "orientation": "vertical",
+      "width": 1200
+    }
+  ],
   "bot-free-ai-meeting-assistants": [],
   "can-you-transcribe-meetings-without-sending-data-to-cloud": [
     {
@@ -131,6 +140,7 @@
     }
   ],
   "granola-ai-alternatives": [],
+  "granola-ai-complaints": [],
   "hipaa-compliant-ai-notetaker": [
     {
       "filename": "baa-chain.png",

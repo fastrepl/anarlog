@@ -3,7 +3,9 @@ import { parseEventInstant } from "@anlg/utils";
 
 import {
   AUTO_STOP_CONFIRM_TIMEOUT_SECONDS,
+  cancelAutoStopEndedNotification,
   createAutoStopEndedNotificationKey,
+  isAutoStopEndedNotificationKeyActive,
 } from "./auto-stop-notification";
 import {
   BROWSER_AUTO_STOP_APP_IDS,
@@ -13,7 +15,6 @@ import {
 import { loadSessionEvent } from "~/session/queries";
 
 export const AUTO_STOP_CONFIRM_DELAY_MS = 5_000;
-export const AUTO_STOP_CALENDAR_EARLY_END_THRESHOLD_MS = 3 * 60_000;
 export const AUTO_STOP_CALENDAR_EARLY_START_BUFFER_MS = 5 * 60_000;
 export const AUTO_STOP_EVENT_END_GRACE_MS = 10 * 60_000;
 export const AUTO_STOP_NETWORK_HOLD_MS = 8 * 60_000;
@@ -29,39 +30,16 @@ function parseEventTimeMs(value: string | undefined): number | null {
   return parseEventInstant(value)?.getTime() ?? null;
 }
 
-export async function shouldPromptBeforeAutoStopping({
+export function shouldPromptBeforeAutoStopping({
   appIds,
   sessionId,
-  nowMs,
 }: {
   appIds: string[];
   sessionId: string | null;
-  nowMs: number;
-}): Promise<boolean> {
-  if (!appIds.some((id) => BROWSER_AUTO_STOP_APP_IDS.has(id))) {
-    return false;
-  }
-
-  if (!sessionId) {
-    return false;
-  }
-
-  const event = await loadSessionEvent(sessionId);
-  if (!event || event.is_all_day) {
-    return false;
-  }
-
-  const endMs = parseEventTimeMs(event.ended_at);
-  if (!endMs) {
-    return false;
-  }
-
-  const startMs = parseEventTimeMs(event.started_at);
-  if (startMs && nowMs < startMs - AUTO_STOP_CALENDAR_EARLY_START_BUFFER_MS) {
-    return false;
-  }
-
-  return nowMs < endMs - AUTO_STOP_CALENDAR_EARLY_END_THRESHOLD_MS;
+}): boolean {
+  return Boolean(
+    sessionId && appIds.some((id) => BROWSER_AUTO_STOP_APP_IDS.has(id)),
+  );
 }
 
 export async function getNetworkInterruptionDeadlineMs({
@@ -166,20 +144,33 @@ export async function showMeetingEndedPrompt({
   stoppedApps: { id: string; name: string }[];
 }) {
   const app = getPrimaryStoppedApp(stoppedTriggerAppIds, stoppedApps);
+  const key = createAutoStopEndedNotificationKey(sessionId);
+  const icon = app ? await getNotificationIconForApp(app) : null;
 
-  await notificationCommands.showNotification({
-    key: createAutoStopEndedNotificationKey(sessionId),
-    title: "Did your meeting end?",
-    message: `Anarlog will stop listening in ${AUTO_STOP_CONFIRM_TIMEOUT_SECONDS} seconds.`,
-    timeout: { secs: AUTO_STOP_CONFIRM_TIMEOUT_SECONDS, nanos: 0 },
-    source: null,
-    start_time: null,
-    participants: null,
-    event_details: null,
-    action_label: "Stop",
-    action_variant: "destructive",
-    options: null,
-    footer: null,
-    icon: app ? await getNotificationIconForApp(app) : null,
-  });
+  if (!isAutoStopEndedNotificationKeyActive(key)) {
+    return;
+  }
+
+  try {
+    await notificationCommands.showNotification({
+      key,
+      title: "Did your meeting end?",
+      message: `Anarlog will stop listening in ${AUTO_STOP_CONFIRM_TIMEOUT_SECONDS} seconds.`,
+      timeout: { secs: AUTO_STOP_CONFIRM_TIMEOUT_SECONDS, nanos: 0 },
+      source: null,
+      start_time: null,
+      participants: null,
+      event_details: null,
+      action_label: "Stop",
+      action_variant: "destructive",
+      options: null,
+      footer: null,
+      icon,
+    });
+  } catch (error) {
+    if (isAutoStopEndedNotificationKeyActive(key)) {
+      cancelAutoStopEndedNotification(sessionId);
+    }
+    throw error;
+  }
 }

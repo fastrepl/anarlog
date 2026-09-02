@@ -78,7 +78,9 @@ describe("LocalFileModel", () => {
   test("validates and persists a selected whisper.cpp model", async () => {
     renderWithQueryClient(<LocalFileModel healthStatus={null} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Choose model file" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Choose a .bin model" }),
+    );
 
     await waitFor(() =>
       expect(setSettingValuesMock).toHaveBeenCalledWith({
@@ -91,7 +93,7 @@ describe("LocalFileModel", () => {
       expect.objectContaining({
         filters: [
           {
-            name: "Local transcription models",
+            name: "whisper.cpp models",
             extensions: ["bin", "gguf"],
           },
         ],
@@ -110,7 +112,9 @@ describe("LocalFileModel", () => {
     });
 
     renderWithQueryClient(<LocalFileModel healthStatus={null} />);
-    fireEvent.click(screen.getByRole("button", { name: "Choose model file" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Choose a .bin model" }),
+    );
 
     await waitFor(() => expect(sonnerToastErrorMock).toHaveBeenCalled());
     expect(startServerForPathMock).not.toHaveBeenCalled();

@@ -124,11 +124,11 @@ function EditableDateForm({
     <div className="flex flex-col gap-2">
       <form.Field name="createdAt">
         {(field) => (
-          <div className="flex h-7 items-center gap-0">
+          <div className="flex min-w-0 flex-col gap-1">
             <Input
               autoFocus
               type="datetime-local"
-              className="h-7 flex-1 border-0 px-0 py-0 shadow-none focus-visible:ring-0"
+              className="h-7 w-full min-w-0 border-0 px-0 py-0 shadow-none focus-visible:ring-0"
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               onKeyDown={(e) => {
@@ -144,34 +144,36 @@ function EditableDateForm({
               }}
             />
 
-            {onCancel && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground size-7 shrink-0 rounded-full hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/50 dark:hover:text-red-300"
-                onClick={onCancel}
-                aria-label={t`Cancel date edit`}
-              >
-                <X size={16} />
-              </Button>
-            )}
-
-            <form.Subscribe selector={(state) => [state.canSubmit]}>
-              {([canSubmit]) => (
+            <div className="flex shrink-0 items-center justify-end">
+              {onCancel && (
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="text-muted-foreground size-7 shrink-0 rounded-full hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-950/50 dark:hover:text-green-300"
-                  onClick={() => void form.handleSubmit()}
-                  disabled={!canSubmit}
-                  aria-label={t`Save date`}
+                  className="text-muted-foreground size-7 shrink-0 rounded-full hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/50 dark:hover:text-red-300"
+                  onClick={onCancel}
+                  aria-label={t`Cancel date edit`}
                 >
-                  <Check size={16} />
+                  <X size={16} />
                 </Button>
               )}
-            </form.Subscribe>
+
+              <form.Subscribe selector={(state) => [state.canSubmit]}>
+                {([canSubmit]) => (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground size-7 shrink-0 rounded-full hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-950/50 dark:hover:text-green-300"
+                    onClick={() => void form.handleSubmit()}
+                    disabled={!canSubmit}
+                    aria-label={t`Save date`}
+                  >
+                    <Check size={16} />
+                  </Button>
+                )}
+              </form.Subscribe>
+            </div>
           </div>
         )}
       </form.Field>

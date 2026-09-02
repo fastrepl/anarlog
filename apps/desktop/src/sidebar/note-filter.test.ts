@@ -53,4 +53,17 @@ describe("sidebar note filter", () => {
       folderFilter: null,
     });
   });
+
+  it("keeps grouping and sort independent of the ownership filter", () => {
+    useSidebarNotes.getState().setGroupBy("folder");
+    useSidebarNotes.getState().setSortOrder("oldest");
+    useSidebarNotes.getState().setView("shared");
+
+    expect(useSidebarNotes.getState()).toMatchObject({
+      noteFilter: "shared",
+      folderFilter: null,
+      groupBy: "folder",
+      sortOrder: "oldest",
+    });
+  });
 });

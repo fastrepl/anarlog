@@ -65,6 +65,68 @@ begin
 end;
 $$;
 
+create or replace function tests.enable_workspace_plan(
+    workspace_id uuid,
+    plan_name text default 'team',
+    seats integer default 100
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    customer_id text := 'cus_test_' || replace(workspace_id::text, '-', '');
+    subscription_id text := 'sub_test_' || replace(workspace_id::text, '-', '');
+    entitlement_key text;
+begin
+    if plan_name not in ('team', 'enterprise') then
+        raise exception 'unsupported workspace test plan';
+    end if;
+
+    entitlement_key := case plan_name
+        when 'team' then 'hyprnote_team'
+        else 'hyprnote_enterprise'
+    end;
+
+    insert into stripe.customers (id)
+    values (customer_id)
+    on conflict (id) do nothing;
+
+    update public.workspaces
+    set
+        stripe_customer_id = customer_id,
+        seat_limit = seats
+    where id = workspace_id;
+
+    insert into stripe.subscriptions (id, customer, status)
+    values (
+        subscription_id,
+        customer_id,
+        'active'::stripe.subscription_status
+    )
+    on conflict (id) do update set
+        customer = excluded.customer,
+        status = excluded.status;
+
+    insert into stripe.active_entitlements (id, customer, lookup_key)
+    values (
+        'ent_test_' || replace(workspace_id::text, '-', '') || '_' || plan_name,
+        customer_id,
+        entitlement_key
+    )
+    on conflict (customer, lookup_key) do nothing;
+
+    insert into stripe.active_entitlements (id, customer, lookup_key)
+    values (
+        'ent_test_' || replace(workspace_id::text, '-', '') || '_pro',
+        customer_id,
+        'hyprnote_pro'
+    )
+    on conflict (customer, lookup_key) do nothing;
+end;
+$$;
+
 begin;
 select plan(1);
 

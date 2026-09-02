@@ -108,6 +108,10 @@ select lives_ok(
   'A confirmed user can create a shared workspace'
 );
 
+select tests.enable_workspace_plan(
+  (select workspace_id from workspace_lifecycle_test_state where name = 'hq')
+);
+
 select ok(
   exists (
     select 1

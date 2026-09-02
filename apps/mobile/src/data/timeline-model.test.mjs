@@ -41,7 +41,7 @@ test("uses readable relative units instead of unbounded hours", () => {
   );
 });
 
-test("groups upcoming meetings nearest-first and past meetings newest-first", () => {
+test("orders meetings without generic past or upcoming headers", () => {
   const now = new Date(2026, 7, 17, 12).getTime();
   const iso = (offsetHours) =>
     new Date(now + offsetHours * 60 * 60 * 1000).toISOString();
@@ -55,9 +55,13 @@ test("groups upcoming meetings nearest-first and past meetings newest-first", ()
     now,
   );
 
+  assert.equal(
+    items.some((item) => item.type === "group"),
+    false,
+  );
   assert.deepEqual(
-    items.filter((item) => item.type === "group").map((item) => item.label),
-    ["Upcoming", "Past"],
+    items.filter((item) => item.type === "header").map((item) => item.label),
+    ["Today", "Tomorrow", "Today", "Yesterday"],
   );
   assert.deepEqual(
     items
@@ -67,7 +71,7 @@ test("groups upcoming meetings nearest-first and past meetings newest-first", ()
   );
 });
 
-test("omits empty timeline groups", () => {
+test("uses only day headers for a past-only timeline", () => {
   const now = new Date(2026, 7, 17, 12).getTime();
   const items = buildSessionList(
     [
@@ -81,8 +85,8 @@ test("omits empty timeline groups", () => {
   );
 
   assert.deepEqual(
-    items.filter((item) => item.type === "group").map((item) => item.label),
-    ["Past"],
+    items.filter((item) => item.type === "header").map((item) => item.label),
+    ["Today"],
   );
 });
 
@@ -94,6 +98,8 @@ test("prefers canonical event start time and falls back to creation time", () =>
         title: "Scheduled",
         created_at: "2026-08-17T00:00:00.000Z",
         event_json: JSON.stringify({ started_at: "2026-08-18T01:00:00.000Z" }),
+        folder_path: "Work/Planning",
+        tags_json: '["roadmap","planning","roadmap"]',
       },
       {
         id: "local",
@@ -113,31 +119,33 @@ test("prefers canonical event start time and falls back to creation time", () =>
         id: "scheduled",
         title: "Scheduled",
         startedAt: "2026-08-18T01:00:00.000Z",
+        folderPath: "Work/Planning",
+        tags: ["planning", "roadmap"],
       },
       {
         id: "local",
         title: "Local",
         startedAt: "2026-08-17T02:00:00.000Z",
+        folderPath: "",
+        tags: [],
       },
       {
         id: "malformed-event",
         title: "Malformed event",
         startedAt: "2026-08-17T03:00:00.000Z",
+        folderPath: "",
+        tags: [],
       },
     ],
   );
 });
 
-test("retains a session with an invalid date in the past group", () => {
+test("retains a session with an invalid date in the timeline", () => {
   const items = buildSessionList(
     [{ id: "invalid", title: "Invalid", startedAt: "not-a-date" }],
     Date.now(),
   );
 
-  assert.deepEqual(
-    items.filter((item) => item.type === "group").map((item) => item.label),
-    ["Past"],
-  );
   assert.equal(
     items.find((item) => item.type === "header")?.label,
     "Date unavailable",

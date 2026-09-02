@@ -96,11 +96,12 @@ impl RealtimeSttAdapter for GoogleGenerativeAiAdapter {
             );
         }
 
-        // Omitting generationConfig.responseModalities: on the current Live
-        // endpoint that field suppresses final inputTranscription segments.
         let setup = serde_json::json!({
             "setup": {
                 "model": model,
+                "generationConfig": {
+                    "responseModalities": ["TEXT"],
+                },
                 "inputAudioTranscription": input_audio_transcription,
             }
         });
@@ -341,7 +342,10 @@ mod tests {
         let json: serde_json::Value = serde_json::from_str(&payload).unwrap();
 
         assert_eq!(json["setup"]["model"], "models/gemini-3.5-transcribe-live");
-        assert!(json["setup"].get("generationConfig").is_none());
+        assert_eq!(
+            json["setup"]["generationConfig"]["responseModalities"],
+            serde_json::json!(["TEXT"])
+        );
         assert_eq!(
             json["setup"]["inputAudioTranscription"]["languageCodes"][0],
             "en-US"

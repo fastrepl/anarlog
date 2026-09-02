@@ -23,8 +23,14 @@ fn sentry_event_filter(metadata: &tracing::Metadata<'_>) -> EventFilter {
     sentry_event_filter_for(metadata.level(), metadata.target())
 }
 
+fn is_webview_console_target(target: &str) -> bool {
+    target == WEBVIEW_CONSOLE_TARGET
+        || target == "hyprnote.webview.console"
+        || target.starts_with("tauri_plugin_tracing")
+}
+
 fn sentry_event_filter_for(level: &tracing::Level, target: &str) -> EventFilter {
-    if target == WEBVIEW_CONSOLE_TARGET {
+    if is_webview_console_target(target) {
         return EventFilter::Ignore;
     }
 
@@ -171,6 +177,14 @@ mod test {
         );
         assert_eq!(
             sentry_event_filter_for(&tracing::Level::ERROR, WEBVIEW_CONSOLE_TARGET).bits(),
+            EventFilter::Ignore.bits()
+        );
+        assert_eq!(
+            sentry_event_filter_for(&tracing::Level::ERROR, "tauri_plugin_tracing::ext").bits(),
+            EventFilter::Ignore.bits()
+        );
+        assert_eq!(
+            sentry_event_filter_for(&tracing::Level::ERROR, "hyprnote.webview.console").bits(),
             EventFilter::Ignore.bits()
         );
     }

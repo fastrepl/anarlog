@@ -172,10 +172,12 @@ export function TemplateIconPicker({
   value,
   onChange,
   size = "default",
+  label,
 }: {
   value: TemplateIcon;
   onChange: (value: TemplateIcon) => void;
   size?: "default" | "sm";
+  label?: string;
 }) {
   const { t } = useLingui();
   const selected = normalizeTemplateIcon(value);
@@ -266,7 +268,7 @@ export function TemplateIconPicker({
               ? "hover:bg-accent size-7"
               : "border-border bg-muted/60 hover:bg-accent after:border-t-background size-9 border after:absolute after:top-0 after:right-0 after:size-0 after:border-t-[8px] after:border-l-[8px] after:border-l-transparent",
           ])}
-          aria-label={t`Choose template icon`}
+          aria-label={label ?? t`Choose template icon`}
         >
           <TemplateIconGlyph
             icon={selected}

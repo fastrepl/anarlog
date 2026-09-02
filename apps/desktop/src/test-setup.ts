@@ -10,6 +10,14 @@ i18n.activate("en");
 
 Object.defineProperty(globalThis.crypto, "randomUUID", { value: randomUUID });
 
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as typeof ResizeObserver;
+}
+
 Object.defineProperty(globalThis.window, "__TAURI_INTERNALS__", {
   value: {
     metadata: {

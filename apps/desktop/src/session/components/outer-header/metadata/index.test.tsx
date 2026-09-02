@@ -65,6 +65,18 @@ describe("Metadata controls", () => {
     cleanup();
   });
 
+  it("uses a narrow floating panel", () => {
+    render(<MetadataButton sessionId="session-1" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open note metadata" }));
+
+    const content = screen
+      .getByRole("button", { name: "Edit date" })
+      .closest("[data-radix-popper-content-wrapper] > *");
+
+    expect(content?.className.split(/\s+/) ?? []).toContain("w-72");
+  });
+
   it("renders the metadata calendar trigger as a circle", () => {
     render(<MetadataButton sessionId="session-1" />);
 
@@ -74,6 +86,10 @@ describe("Metadata controls", () => {
 
     expect(metadataButton.className).toContain("size-7");
     expect(metadataButton.className).toContain("rounded-full");
+    expect(metadataButton.className).toContain("[&_svg]:size-4");
+    expect(
+      metadataButton.querySelector("svg")?.getAttribute("class"),
+    ).toContain("size-4");
   });
 
   it("renders date edit action buttons as circles", () => {
@@ -87,5 +103,27 @@ describe("Metadata controls", () => {
     expect(
       screen.getByRole("button", { name: "Save date" }).className,
     ).toContain("rounded-full");
+  });
+
+  it("keeps date edit actions available in the narrow panel", () => {
+    render(<MetadataButton sessionId="session-1" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open note metadata" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit date" }));
+
+    const input = document.querySelector('input[type="datetime-local"]');
+    const actions = screen.getByRole("button", {
+      name: "Save date",
+    }).parentElement;
+
+    expect(input).not.toBeNull();
+    expect(input?.className).toContain("w-full");
+    expect(input?.className).toContain("min-w-0");
+    expect(actions?.className).toContain("shrink-0");
+    expect(actions?.className).toContain("justify-end");
+    expect(actions?.parentElement?.className).toContain("flex-col");
+    expect(
+      screen.getByRole("button", { name: "Cancel date edit" }),
+    ).not.toBeNull();
   });
 });

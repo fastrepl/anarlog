@@ -1,7 +1,7 @@
 export type MobileSyncPhase =
   | "inactive"
   | "starting"
-  | "setup_required"
+  | "approval_pending"
   | "ready"
   | "error"
   | "device_limit"
@@ -53,6 +53,18 @@ type ControllerDependencies = {
     fingerprint?: string | null;
     name?: string | null;
   }>;
+  enrollDevice: (
+    session: MobileSyncSession,
+    device: { fingerprint?: string | null; name?: string | null },
+  ) => Promise<
+    | { status: "pending" }
+    | { status: "first_device" }
+    | {
+        status: "recovered";
+        recoveryKey: string;
+        completeEnrollment: () => Promise<void>;
+      }
+  >;
   bootstrap: (
     session: MobileSyncSession,
     recoveryKey: string,
@@ -185,27 +197,6 @@ export class MobileSyncController {
     }
   }
 
-  async generateRecoveryKey(): Promise<string> {
-    const recoveryKey = await this.dependencies.generateRecoveryKey();
-    await this.dependencies.inspectRecoveryKey(recoveryKey);
-    return recoveryKey;
-  }
-
-  async confirmRecoveryKey(recoveryKey: string): Promise<void> {
-    const session = this.requireSession();
-    const identity = await this.dependencies.inspectRecoveryKey(recoveryKey);
-    await this.storeAndClaimIdentity(session, recoveryKey, identity.keyId);
-    this.activateIfCurrentAccount(session.accountUserId);
-  }
-
-  async importRecoveryKey(recoveryKey: string): Promise<void> {
-    const session = this.requireSession();
-    const normalized = recoveryKey.trim();
-    const identity = await this.dependencies.inspectRecoveryKey(normalized);
-    await this.storeAndClaimIdentity(session, normalized, identity.keyId);
-    this.activateIfCurrentAccount(session.accountUserId);
-  }
-
   async syncNow(): Promise<void> {
     if (this.snapshot.phase !== "ready" || this.snapshot.syncingNow) {
       return;
@@ -245,17 +236,47 @@ export class MobileSyncController {
       this.snapshot.accountUserId === session.accountUserId &&
       this.snapshot.hasRecoveryKey;
     try {
-      const recoveryKey = await this.dependencies.readRecoveryKey(
+      let recoveryKey = await this.dependencies.readRecoveryKey(
         session.accountUserId,
       );
       if (generation !== this.generation) return;
       if (!recoveryKey) {
+        const device = await this.dependencies.getDevice();
+        if (generation !== this.generation) return;
+        const enrollment = await this.dependencies.enrollDevice(
+          session,
+          device,
+        );
+        if (generation !== this.generation) return;
+        if (enrollment.status === "pending") {
+          this.update({
+            ...initialSnapshot,
+            phase: "approval_pending",
+            accountUserId: session.accountUserId,
+          });
+          this.scheduleRetry(generation);
+          return;
+        }
+        recoveryKey =
+          enrollment.status === "first_device"
+            ? await this.dependencies.generateRecoveryKey()
+            : enrollment.recoveryKey;
+        if (generation !== this.generation) return;
+        const identity =
+          await this.dependencies.inspectRecoveryKey(recoveryKey);
+        if (generation !== this.generation) return;
+        await this.storeAndClaimIdentity(session, recoveryKey, identity.keyId);
+        if (enrollment.status === "recovered") {
+          await enrollment.completeEnrollment();
+        }
+        if (generation !== this.generation) return;
+        hasRecoveryKey = true;
         this.update({
           ...initialSnapshot,
-          phase: "setup_required",
+          phase: "starting",
           accountUserId: session.accountUserId,
+          hasRecoveryKey: true,
         });
-        return;
       }
       hasRecoveryKey = true;
       this.update({
@@ -352,13 +373,6 @@ export class MobileSyncController {
     }
   }
 
-  private requireSession(): MobileSyncSession {
-    if (!this.session) {
-      throw new Error("Sign in to configure cloud sync.");
-    }
-    return this.session;
-  }
-
   private async storeAndClaimIdentity(
     session: MobileSyncSession,
     recoveryKey: string,
@@ -394,12 +408,6 @@ export class MobileSyncController {
         );
       }
       throw error;
-    }
-  }
-
-  private activateIfCurrentAccount(accountUserId: string): void {
-    if (this.session?.accountUserId === accountUserId) {
-      this.activate(this.session);
     }
   }
 

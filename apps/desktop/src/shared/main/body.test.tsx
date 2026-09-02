@@ -121,7 +121,7 @@ vi.mock("~/main/tab-content", () => ({
 }));
 
 vi.mock("~/sidebar/note-filter-menu", () => ({
-  SidebarNoteFilterMenu: () => <button type="button">Filter notes</button>,
+  SidebarNoteFilterMenu: () => <button type="button">Sort notes</button>,
 }));
 
 vi.mock("~/sidebar/timeline/upcoming-meeting", () => ({
@@ -298,7 +298,7 @@ describe("ClassicMainBody", () => {
 
     fireEvent.click(sidebarToggle);
 
-    expect(screen.queryByRole("button", { name: "Filter notes" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Sort notes" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
     expect(sidebarToggle.className).toContain("pointer-events-auto");
     expect(topArea?.className).toContain("absolute");
@@ -411,7 +411,7 @@ describe("ClassicMainBody", () => {
     const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
     const searchButton = screen.getByRole("button", { name: "Search" });
     const newNoteButton = screen.getByRole("button", { name: "New note" });
-    const filterButton = screen.getByRole("button", { name: "Filter notes" });
+    const filterButton = screen.getByRole("button", { name: "Sort notes" });
     const chrome = sidebarToggle.parentElement?.parentElement;
     const chromeFrame = chrome?.parentElement;
     const timelineHeader = document.querySelector<HTMLElement>(
@@ -443,7 +443,7 @@ describe("ClassicMainBody", () => {
 
     fireEvent.click(sidebarToggle);
 
-    expect(screen.queryByRole("button", { name: "Filter notes" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Sort notes" })).toBeNull();
     expect(mocks.toggleLeftSidebar).toHaveBeenCalledTimes(1);
   });
 

@@ -1,4 +1,3 @@
-import { Icon } from "@iconify-icon/react";
 import { ArrowLeft, Buildings, Envelope } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
@@ -23,6 +22,7 @@ import {
   doSsoAuth,
   fetchUser,
 } from "@/functions/auth";
+import { fetchLastSignInMethod } from "@/functions/auth-last-used";
 import {
   DEFAULT_DESKTOP_SCHEME,
   type DesktopScheme,
@@ -30,10 +30,15 @@ import {
 } from "@/functions/desktop-flow";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { toAuthFlowSearch } from "@/lib/auth-flow-context";
+import type { AuthSignInMethod } from "@/lib/auth-last-sign-in-method";
 import {
   buildPostAuthDestination,
   sanitizeInternalReturnPath,
 } from "@/lib/auth-redirect";
+import {
+  buildDesktopAuthCallbackPath,
+  resolveDesktopAuthCallbackMethod,
+} from "@/lib/desktop-auth-handoff";
 import {
   capturePrivateRouteEvent,
   identifyPrivateRouteUser,
@@ -41,7 +46,8 @@ import {
 
 const commonSearch = {
   redirect: z.string().optional(),
-  provider: z.enum(["azure", "github", "google"]).optional(),
+  provider: z.enum(["apple", "azure", "github", "google"]).optional(),
+  view: z.enum(["email", "sso"]).optional(),
   rra: z.boolean().optional(),
 };
 
@@ -54,7 +60,10 @@ export const Route = createFileRoute("/auth")({
     meta: [{ name: "robots", content: "noindex, nofollow" }],
   }),
   beforeLoad: async ({ search }) => {
-    const user = await fetchUser();
+    const [user, lastSignInMethod] = await Promise.all([
+      fetchUser(),
+      fetchLastSignInMethod(),
+    ]);
 
     if (user) {
       const shouldReauthWithProvider =
@@ -77,18 +86,26 @@ export const Route = createFileRoute("/auth")({
               scheme: search.scheme ?? DEFAULT_DESKTOP_SCHEME,
               access_token: result.access_token,
               refresh_token: result.refresh_token,
+              method: search.provider ?? search.view,
             },
           });
         }
       }
     }
 
-    return { existingUser: user };
+    return { existingUser: user, lastSignInMethod };
   },
 });
 
 type AuthView = "main" | "email" | "sso";
-type OAuthProvider = "azure" | "github" | "google";
+type OAuthProvider = "apple" | "azure" | "github" | "google";
+
+const oauthProviderIcons: Record<OAuthProvider, string> = {
+  apple: "/icons/auth/apple.svg",
+  azure: "/icons/auth/microsoft.svg",
+  github: "/icons/auth/github.svg",
+  google: "/icons/auth/google.svg",
+};
 
 function getOAuthProviderName(provider: OAuthProvider) {
   return provider === "azure"
@@ -97,9 +114,17 @@ function getOAuthProviderName(provider: OAuthProvider) {
 }
 
 function Component() {
-  const { flow, scheme, redirect, provider, rra } = Route.useSearch();
-  const { existingUser } = Route.useRouteContext();
-  const [view, setView] = useState<AuthView>("main");
+  const {
+    flow,
+    scheme,
+    redirect,
+    provider,
+    view: initialView,
+    rra,
+  } = Route.useSearch();
+  const { existingUser, lastSignInMethod } = Route.useRouteContext();
+  const [view, setView] = useState<AuthView>(initialView ?? "main");
+  const autoStartOAuth = flow === "desktop" && provider !== undefined;
 
   if (existingUser && flow === "desktop") {
     return (
@@ -110,6 +135,11 @@ function Component() {
         <DesktopReauthView
           email={existingUser.email}
           scheme={scheme ?? DEFAULT_DESKTOP_SCHEME}
+          callbackMethod={resolveDesktopAuthCallbackMethod(
+            provider ?? initialView,
+            lastSignInMethod,
+          )}
+          lastSignInMethod={lastSignInMethod}
         />
       </AuthShell>
     );
@@ -131,12 +161,14 @@ function Component() {
             provider={provider}
             rra={rra}
             autoStart
+            isLastUsed={lastSignInMethod === provider}
           />
         </div>
       </AuthShell>
     );
   }
 
+  const showApple = !provider || provider === "apple";
   const showGoogle = !provider || provider === "google";
   const showMicrosoft = !provider || provider === "azure";
   const showGithub = !provider || provider === "github";
@@ -147,12 +179,24 @@ function Component() {
       {view === "main" && (
         <>
           <div className="flex flex-col gap-3">
+            {showApple && (
+              <OAuthButton
+                flow={flow}
+                scheme={scheme}
+                redirect={redirect}
+                provider="apple"
+                autoStart={autoStartOAuth}
+                isLastUsed={lastSignInMethod === "apple"}
+              />
+            )}
             {showGoogle && (
               <OAuthButton
                 flow={flow}
                 scheme={scheme}
                 redirect={redirect}
                 provider="google"
+                autoStart={autoStartOAuth}
+                isLastUsed={lastSignInMethod === "google"}
               />
             )}
             {showMicrosoft && (
@@ -161,6 +205,8 @@ function Component() {
                 scheme={scheme}
                 redirect={redirect}
                 provider="azure"
+                autoStart={autoStartOAuth}
+                isLastUsed={lastSignInMethod === "azure"}
               />
             )}
             {showGithub && (
@@ -170,33 +216,41 @@ function Component() {
                 redirect={redirect}
                 provider="github"
                 rra={rra}
+                autoStart={autoStartOAuth}
+                isLastUsed={lastSignInMethod === "github"}
               />
             )}
             {showEmail && (
-              <button
-                onClick={() => setView("email")}
-                className={authSecondaryButtonClassName}
-              >
-                <AuthProviderContent
-                  icon={<Envelope className="size-[18px]" aria-hidden="true" />}
+              <AuthMethodButton isLastUsed={lastSignInMethod === "email"}>
+                <button
+                  onClick={() => setView("email")}
+                  className={authSecondaryButtonClassName}
                 >
-                  Sign in with Email
-                </AuthProviderContent>
-              </button>
+                  <AuthProviderContent
+                    icon={
+                      <Envelope className="size-[18px]" aria-hidden="true" />
+                    }
+                  >
+                    Sign in with Email
+                  </AuthProviderContent>
+                </button>
+              </AuthMethodButton>
             )}
             {showEmail && (
-              <button
-                onClick={() => setView("sso")}
-                className={authSecondaryButtonClassName}
-              >
-                <AuthProviderContent
-                  icon={
-                    <Buildings className="size-[18px]" aria-hidden="true" />
-                  }
+              <AuthMethodButton isLastUsed={lastSignInMethod === "sso"}>
+                <button
+                  onClick={() => setView("sso")}
+                  className={authSecondaryButtonClassName}
                 >
-                  Sign in with SSO
-                </AuthProviderContent>
-              </button>
+                  <AuthProviderContent
+                    icon={
+                      <Buildings className="size-[18px]" aria-hidden="true" />
+                    }
+                  >
+                    Sign in with SSO
+                  </AuthProviderContent>
+                </button>
+              </AuthMethodButton>
             )}
           </div>
           <LegalText />
@@ -225,9 +279,13 @@ function Component() {
 function DesktopReauthView({
   email,
   scheme,
+  callbackMethod,
+  lastSignInMethod,
 }: {
   email: string;
   scheme: DesktopScheme;
+  callbackMethod: AuthSignInMethod | undefined;
+  lastSignInMethod: AuthSignInMethod | null;
 }) {
   const retryMutation = useMutation({
     mutationFn: () => {
@@ -239,12 +297,12 @@ function DesktopReauthView({
     },
     onSuccess: (result) => {
       if (result) {
-        const params = new URLSearchParams();
-        params.set("flow", "desktop");
-        params.set("scheme", scheme);
-        params.set("access_token", result.access_token);
-        params.set("refresh_token", result.refresh_token);
-        window.location.href = `/callback/auth?${params.toString()}`;
+        window.location.href = buildDesktopAuthCallbackPath(
+          result.access_token,
+          result.refresh_token,
+          scheme,
+          callbackMethod,
+        );
       }
     },
     onError: () => {
@@ -283,9 +341,30 @@ function DesktopReauthView({
             </p>
           </div>
           <div className="flex flex-col gap-3">
-            <OAuthButton flow="desktop" scheme={scheme} provider="google" />
-            <OAuthButton flow="desktop" scheme={scheme} provider="azure" />
-            <OAuthButton flow="desktop" scheme={scheme} provider="github" />
+            <OAuthButton
+              flow="desktop"
+              scheme={scheme}
+              provider="apple"
+              isLastUsed={lastSignInMethod === "apple"}
+            />
+            <OAuthButton
+              flow="desktop"
+              scheme={scheme}
+              provider="google"
+              isLastUsed={lastSignInMethod === "google"}
+            />
+            <OAuthButton
+              flow="desktop"
+              scheme={scheme}
+              provider="azure"
+              isLastUsed={lastSignInMethod === "azure"}
+            />
+            <OAuthButton
+              flow="desktop"
+              scheme={scheme}
+              provider="github"
+              isLastUsed={lastSignInMethod === "github"}
+            />
             <SsoAuthView flow="desktop" scheme={scheme} />
           </div>
         </>
@@ -735,12 +814,12 @@ function handlePasswordSuccess(
   newAccount = false,
 ) {
   if (flow === "desktop") {
-    const params = new URLSearchParams();
-    params.set("flow", "desktop");
-    if (scheme) params.set("scheme", scheme);
-    params.set("access_token", accessToken);
-    params.set("refresh_token", refreshToken);
-    window.location.href = `/callback/auth?${params.toString()}`;
+    window.location.href = buildDesktopAuthCallbackPath(
+      accessToken,
+      refreshToken,
+      scheme,
+      "email",
+    );
   } else {
     window.location.href = buildPostAuthDestination({
       newAccount,
@@ -849,12 +928,31 @@ function AuthProviderContent({
   children: ReactNode;
 }) {
   return (
-    <span className="grid w-56 grid-cols-[18px_1fr] items-center gap-3 text-left">
-      <span className="flex size-[18px] items-center justify-center overflow-hidden [&_iconify-icon]:block">
+    <span className="inline-flex items-center gap-3">
+      <span className="flex size-[18px] items-center justify-center overflow-hidden">
         {icon}
       </span>
       <span>{children}</span>
     </span>
+  );
+}
+
+function AuthMethodButton({
+  isLastUsed,
+  children,
+}: {
+  isLastUsed: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cn(["relative", isLastUsed && "pt-1"])}>
+      {children}
+      {isLastUsed && (
+        <span className="border-surface bg-fg text-surface pointer-events-none absolute top-0 right-4 rounded-full border-2 px-2 py-0.5 text-[10px] leading-3 font-medium">
+          Last used
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -865,6 +963,7 @@ function OAuthButton({
   provider,
   rra,
   autoStart = false,
+  isLastUsed = false,
 }: {
   flow: "desktop" | "web";
   scheme?: DesktopScheme;
@@ -872,6 +971,7 @@ function OAuthButton({
   provider: OAuthProvider;
   rra?: boolean;
   autoStart?: boolean;
+  isLastUsed?: boolean;
 }) {
   const oauthMutation = useMutation({
     mutationFn: (provider: OAuthProvider) => {
@@ -922,24 +1022,24 @@ function OAuthButton({
   });
 
   return (
-    <button
-      onClick={() => mutate(provider)}
-      disabled={isPending}
-      className={authSecondaryButtonClassName}
-    >
-      <AuthProviderContent
-        icon={
-          provider === "google" ? (
-            <Icon icon="logos:google-icon" width="18" height="18" />
-          ) : provider === "github" ? (
-            <Icon icon="logos:github-icon" width="18" height="18" />
-          ) : (
-            <Icon icon="logos:microsoft-icon" width="18" height="18" />
-          )
-        }
+    <AuthMethodButton isLastUsed={isLastUsed}>
+      <button
+        onClick={() => mutate(provider)}
+        disabled={isPending}
+        className={authSecondaryButtonClassName}
       >
-        Sign in with {getOAuthProviderName(provider)}
-      </AuthProviderContent>
-    </button>
+        <AuthProviderContent
+          icon={
+            <img
+              src={oauthProviderIcons[provider]}
+              className="size-[18px] object-contain"
+              alt=""
+            />
+          }
+        >
+          Sign in with {getOAuthProviderName(provider)}
+        </AuthProviderContent>
+      </button>
+    </AuthMethodButton>
   );
 }

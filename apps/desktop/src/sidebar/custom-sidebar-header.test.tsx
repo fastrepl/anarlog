@@ -2,12 +2,24 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  canGoBack: false,
   chatMode: "FloatingClosed",
-  currentTab: { type: "settings" } as { type: string } | null,
+  currentTab: { type: "settings" } as {
+    returnToSlotId?: string;
+    returnToTabId?: string;
+    slotId?: string;
+    type: string;
+  } | null,
+  goBack: vi.fn(),
   openCurrent: vi.fn(),
   select: vi.fn(),
   sendEvent: vi.fn(),
-  tabs: [] as { type: string }[],
+  tabs: [] as {
+    returnToSlotId?: string;
+    returnToTabId?: string;
+    slotId?: string;
+    type: string;
+  }[],
 }));
 
 vi.mock("~/contexts/shell", () => ({
@@ -19,15 +31,25 @@ vi.mock("~/contexts/shell", () => ({
   }),
 }));
 
-vi.mock("~/store/zustand/tabs", () => ({
-  useTabs: (selector: (state: unknown) => unknown) =>
-    selector({
-      currentTab: mocks.currentTab,
-      openCurrent: mocks.openCurrent,
-      select: mocks.select,
-      tabs: mocks.tabs,
-    }),
-}));
+vi.mock("~/store/zustand/tabs", () => {
+  const getState = () => ({
+    canGoBack: mocks.canGoBack,
+    currentTab: mocks.currentTab,
+    goBack: mocks.goBack,
+    openCurrent: mocks.openCurrent,
+    select: mocks.select,
+    tabs: mocks.tabs,
+  });
+  const useTabs = Object.assign(
+    (selector: (state: unknown) => unknown) => selector(getState()),
+    { getState },
+  );
+
+  return {
+    uniqueIdfromTab: (tab: { type: string }) => tab.type,
+    useTabs,
+  };
+});
 
 import { CustomSidebarHeader } from "./custom-sidebar-header";
 
@@ -37,8 +59,10 @@ describe("CustomSidebarHeader", () => {
   });
 
   beforeEach(() => {
+    mocks.canGoBack = false;
     mocks.chatMode = "FloatingClosed";
     mocks.currentTab = { type: "settings" };
+    mocks.goBack.mockClear();
     mocks.openCurrent.mockClear();
     mocks.select.mockClear();
     mocks.sendEvent.mockClear();
@@ -64,6 +88,27 @@ describe("CustomSidebarHeader", () => {
     expect(mocks.select).toHaveBeenCalledWith(homeTab);
     expect(mocks.openCurrent).not.toHaveBeenCalled();
   });
+
+  it.each(["folders", "calendar", "contacts", "templates"] as const)(
+    "returns %s to settings when opened from there",
+    (type) => {
+      const settingsTab = { slotId: "slot-settings", type: "settings" };
+      mocks.currentTab = {
+        returnToSlotId: "slot-settings",
+        returnToTabId: "settings",
+        slotId: `slot-${type}`,
+        type,
+      };
+      mocks.tabs = [settingsTab, mocks.currentTab, { type: "empty" }];
+
+      render(<CustomSidebarHeader />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Go home" }));
+
+      expect(mocks.select).toHaveBeenCalledWith(settingsTab);
+      expect(mocks.openCurrent).not.toHaveBeenCalled();
+    },
+  );
 
   it("closes floating chat before opening home", () => {
     mocks.chatMode = "FloatingOpen";

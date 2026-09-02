@@ -64,6 +64,7 @@ export function AuthShell({
                 className={cn([
                   "font-hand text-4xl leading-none font-semibold text-[#181613]",
                   showEyebrow && "mt-3",
+                  !showEyebrow && "text-center",
                 ])}
               >
                 {title}

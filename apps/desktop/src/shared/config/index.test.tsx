@@ -39,6 +39,24 @@ describe("resolveConfigValue", () => {
     ).toBe(false);
   });
 
+  test("shows folders on sidebar notes until explicitly disabled", () => {
+    expect(
+      resolveConfigValue("sidebar_show_folder", {
+        values: {},
+        hasValues: new Set(),
+      }),
+    ).toBe(true);
+  });
+
+  test("keeps sidebar tags hidden until explicitly enabled", () => {
+    expect(
+      resolveConfigValue("sidebar_show_tags", {
+        values: {},
+        hasValues: new Set(),
+      }),
+    ).toBe(false);
+  });
+
   test("keeps automatic updates on until explicitly disabled", () => {
     expect(
       resolveConfigValue("automatic_updates", {

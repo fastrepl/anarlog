@@ -1,23 +1,33 @@
-import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/auth/context";
+import { ActionButtonCard } from "@/components/action-button-card";
 import { SessionCard } from "@/components/session-card";
 import { StartListeningButton } from "@/components/start-listening-button";
-import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
+import { UserAvatarButton } from "@/components/user-avatar";
 import { Colors, ControlSize, Spacing, Typography } from "@/constants/theme";
-import { importVoiceMemos } from "@/data/import-voice-memo";
 import { useSessionSearch } from "@/data/search";
 import { createSession, deleteSession } from "@/data/session";
+import { useSidebarItemPreferences } from "@/data/sidebar-preferences";
 import { useTimelineSessions, type TimelineSession } from "@/data/timeline";
 import { captureAnalytics } from "@/lib/analytics";
 import { confirmDestructive } from "@/lib/confirm";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
+
+const ACTION_BUTTON_CARD_DISMISSED_KEY = "action-button-card-dismissed";
 
 function SearchAnalytics({ resultCount }: { resultCount: number }) {
   useMountEffect(() => {
@@ -34,9 +44,10 @@ export default function HomeScreen() {
   const router = useRouter();
   const auth = useAuth();
   const { items, isLoading } = useTimelineSessions();
-  const [importing, setImporting] = useState(false);
+  const sidebarPreferences = useSidebarItemPreferences();
   const [query, setQuery] = useState<string | null>(null);
   const [settledSearchQuery, setSettledSearchQuery] = useState("");
+  const [showActionButtonCard, setShowActionButtonCard] = useState(false);
   const searching = query !== null;
   const search = useSessionSearch(query ?? "");
   // Ref, not state: two taps in the same frame both pass a state check.
@@ -49,6 +60,26 @@ export default function HomeScreen() {
     if (searchAnalyticsTimerRef.current) {
       clearTimeout(searchAnalyticsTimerRef.current);
     }
+  });
+
+  useMountEffect(() => {
+    if (Platform.OS !== "ios") return;
+    let active = true;
+    void AsyncStorage.getItem(ACTION_BUTTON_CARD_DISMISSED_KEY).then(
+      (dismissed) => {
+        if (active && dismissed !== "1") setShowActionButtonCard(true);
+      },
+      (error) => {
+        if (active) setShowActionButtonCard(true);
+        captureOperationalError(error, {
+          operation: "action_button_card_load",
+          level: "warning",
+        });
+      },
+    );
+    return () => {
+      active = false;
+    };
   });
 
   const handleSearchChange = (value: string) => {
@@ -116,23 +147,16 @@ export default function HomeScreen() {
     }
   };
 
-  const handleImport = async () => {
-    if (busyRef.current) return;
-    busyRef.current = true;
-    setImporting(true);
-    try {
-      const sessionIds = await importVoiceMemos(auth.session?.user.id);
-      if (sessionIds.length === 1) {
-        router.push(`/note/${sessionIds[0]}`);
-      }
-    } catch (error) {
-      captureOperationalError(error, {
-        operation: "voice_memo_picker",
-      });
-    } finally {
-      busyRef.current = false;
-      setImporting(false);
-    }
+  const dismissActionButtonCard = () => {
+    setShowActionButtonCard(false);
+    void AsyncStorage.setItem(ACTION_BUTTON_CARD_DISMISSED_KEY, "1").catch(
+      (error) => {
+        captureOperationalError(error, {
+          operation: "action_button_card_dismiss",
+          level: "warning",
+        });
+      },
+    );
   };
 
   return (
@@ -156,17 +180,23 @@ export default function HomeScreen() {
           </>
         ) : (
           <>
-            <IconButton
+            <UserAvatarButton
               accessibilityLabel="Open settings"
-              icon="person-outline"
               onPress={() => router.push("/settings")}
-              variant="surface"
+              user={auth.session?.user ?? null}
             />
-            <IconButton
-              accessibilityLabel="Search meetings"
-              icon="search"
-              onPress={() => setQuery("")}
-            />
+            <View style={styles.headerActions}>
+              <IconButton
+                accessibilityLabel="Create new note"
+                icon="new-note"
+                onPress={() => void createAndOpen()}
+              />
+              <IconButton
+                accessibilityLabel="Search meetings"
+                icon="search"
+                onPress={() => setQuery("")}
+              />
+            </View>
           </>
         )}
       </View>
@@ -197,6 +227,8 @@ export default function HomeScreen() {
               <SessionCard
                 key={session.id}
                 session={session}
+                showFolder={sidebarPreferences.showFolder}
+                showTags={sidebarPreferences.showTags}
                 onPress={() => {
                   captureAnalytics("search_result_opened", {
                     entry_point: "mobile_home",
@@ -210,22 +242,21 @@ export default function HomeScreen() {
           </>
         ) : (
           <>
+            {showActionButtonCard && (
+              <ActionButtonCard
+                onConfigure={() => router.push("/action-button")}
+                onDismiss={dismissActionButtonCard}
+              />
+            )}
             {!isLoading && items.length === 0 && (
               <View style={styles.empty}>
                 <Text style={styles.emptyTitle}>No meetings yet</Text>
                 <Text style={styles.emptyBody}>
-                  Start listening, create a meeting, or import a recording.
+                  Start listening or create a new note.
                 </Text>
               </View>
             )}
             {items.map((item) => {
-              if (item.type === "group") {
-                return (
-                  <Text key={item.key} style={styles.groupLabel}>
-                    {item.label}
-                  </Text>
-                );
-              }
               if (item.type === "header") {
                 return (
                   <Text key={item.key} style={styles.sectionLabel}>
@@ -237,6 +268,8 @@ export default function HomeScreen() {
                 <SessionCard
                   key={item.key}
                   session={item.session}
+                  showFolder={sidebarPreferences.showFolder}
+                  showTags={sidebarPreferences.showTags}
                   onPress={() => router.push(`/note/${item.session.id}`)}
                   onDelete={() => void handleDelete(item.session)}
                 />
@@ -247,39 +280,10 @@ export default function HomeScreen() {
       </ScrollView>
 
       {!searching && (
-        <>
-          <View style={styles.actions}>
-            <Button
-              label="New meeting"
-              onPress={() => void createAndOpen()}
-              leading={
-                <Ionicons name="create-outline" size={17} color={Colors.ink} />
-              }
-              style={styles.secondaryButton}
-              variant="outline"
-            />
-            <Button
-              label={importing ? "Importing…" : "Import recording"}
-              onPress={handleImport}
-              disabled={importing}
-              leading={
-                <Ionicons
-                  name="cloud-upload-outline"
-                  size={17}
-                  color={Colors.ink}
-                />
-              }
-              loading={importing}
-              style={styles.secondaryButton}
-              variant="outline"
-            />
-          </View>
-
-          <StartListeningButton
-            bottomSpacing={Spacing.xs}
-            onPress={() => void createAndOpen("?listen=1")}
-          />
-        </>
+        <StartListeningButton
+          bottomSpacing={Spacing.xs}
+          onPress={() => void createAndOpen("?listen=1")}
+        />
       )}
     </SafeAreaView>
   );
@@ -298,6 +302,10 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.md,
   },
+  headerActions: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+  },
   searchInput: {
     flex: 1,
     height: ControlSize.compact,
@@ -311,12 +319,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
+    flexGrow: 1,
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.lg,
   },
   empty: {
+    flex: 1,
     alignItems: "center",
-    paddingVertical: Spacing.xl * 2,
+    justifyContent: "center",
+    paddingHorizontal: Spacing.lg,
     gap: Spacing.sm,
   },
   emptyTitle: {
@@ -329,24 +340,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   sectionLabel: {
-    ...Typography.captionStrong,
+    ...Typography.section,
     color: Colors.muted,
-    marginTop: Spacing.xs,
+    marginTop: Spacing.md,
     marginBottom: Spacing.sm,
-  },
-  groupLabel: {
-    ...Typography.title,
-    color: Colors.ink,
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.sm,
-  },
-  actions: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.sm,
-  },
-  secondaryButton: {
-    flex: 1,
   },
 });

@@ -503,6 +503,44 @@ impl MobileDbBridge {
         .map_err(serialization_error)
     }
 
+    pub fn generate_e2ee_device_enrollment_key(&self) -> Result<String, BridgeError> {
+        self.with_state(|_| Ok(()))?;
+        let key = anlg_e2ee::DeviceEnrollmentKey::generate().map_err(cloudsync_error)?;
+        Ok(key.expose_code().to_string())
+    }
+
+    pub fn inspect_e2ee_device_enrollment_key(
+        &self,
+        key_code: String,
+    ) -> Result<String, BridgeError> {
+        self.with_state(|_| Ok(()))?;
+        let key = anlg_e2ee::DeviceEnrollmentKey::parse(&key_code).map_err(cloudsync_error)?;
+        Ok(key.public_key())
+    }
+
+    pub fn open_e2ee_device_enrollment(
+        &self,
+        account_user_id: String,
+        request_id: String,
+        key_code: String,
+        package_json: String,
+    ) -> Result<String, BridgeError> {
+        self.with_state(|_| Ok(()))?;
+        let account_user_id = uuid::Uuid::parse_str(account_user_id.trim())
+            .map(|value| value.to_string())
+            .map_err(cloudsync_error)?;
+        let request_id = uuid::Uuid::parse_str(request_id.trim())
+            .map(|value| value.to_string())
+            .map_err(cloudsync_error)?;
+        let key = anlg_e2ee::DeviceEnrollmentKey::parse(&key_code).map_err(cloudsync_error)?;
+        let package: anlg_e2ee::DeviceEnrollmentPackage =
+            serde_json::from_str(&package_json).map_err(cloudsync_error)?;
+        let recovery_key = key
+            .open_recovery_key(&account_user_id, &request_id, &package)
+            .map_err(cloudsync_error)?;
+        Ok(recovery_key.expose_code().to_string())
+    }
+
     pub fn configure_e2ee_replica(
         &self,
         workspace_id: String,
@@ -1127,6 +1165,36 @@ mod tests {
             .unwrap_err();
 
         assert!(matches!(error, BridgeError::CloudsyncFailed { .. }));
+    }
+
+    #[test]
+    fn device_enrollment_opens_a_recovery_key() {
+        let (_dir, bridge) = new_bridge(None);
+        let account_user_id = "2f5c055c-15d1-4704-8cb9-4caa7aa491f8";
+        let request_id = "72e4b975-e6cb-4c00-a8a0-e61c55272377";
+        let key_code = bridge.generate_e2ee_device_enrollment_key().unwrap();
+        let public_key = bridge
+            .inspect_e2ee_device_enrollment_key(key_code.clone())
+            .unwrap();
+        let recovery_key = anlg_e2ee::RecoveryKey::generate().unwrap();
+        let package = anlg_e2ee::seal_recovery_key_for_device(
+            &recovery_key,
+            &public_key,
+            account_user_id,
+            request_id,
+        )
+        .unwrap();
+
+        let opened = bridge
+            .open_e2ee_device_enrollment(
+                account_user_id.to_string(),
+                request_id.to_string(),
+                key_code,
+                serde_json::to_string(&package).unwrap(),
+            )
+            .unwrap();
+
+        assert_eq!(opened, recovery_key.expose_code().as_str());
     }
 
     #[test]

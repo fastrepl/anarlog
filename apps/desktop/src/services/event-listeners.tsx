@@ -17,7 +17,10 @@ import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
-import { parseAutoStopEndedNotificationKey } from "~/stt/auto-stop-notification";
+import {
+  consumeAutoStopEndedNotificationKey,
+  parseAutoStopEndedNotificationKey,
+} from "~/stt/auto-stop-notification";
 import { parseBatchCompletedNotificationKey } from "~/stt/batch-completed-notification";
 import {
   getLiveTranscriptionConfig,
@@ -90,12 +93,17 @@ function handleAutoStopEndedNotification(
   type: "notification_confirm" | "notification_accept" | "notification_timeout",
   key: string,
 ): boolean {
-  const sessionId = parseAutoStopEndedNotificationKey(key);
-  if (!sessionId) {
+  const parsedSessionId = parseAutoStopEndedNotificationKey(key);
+  if (!parsedSessionId) {
     return false;
   }
 
   if (type === "notification_confirm") {
+    return true;
+  }
+
+  const sessionId = consumeAutoStopEndedNotificationKey(key);
+  if (!sessionId) {
     return true;
   }
 

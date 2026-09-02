@@ -1,4 +1,5 @@
-"11026":
+---
+'11026':
   ID: 11026
   Monitor:
     active: true
@@ -22,7 +23,7 @@
       url: https://api.anarlog.so/health
     retry: 3
     timeout: 45000
-"11027":
+'11027':
   ID: 11027
   Monitor:
     active: true
@@ -46,7 +47,7 @@
       url: https://anarlog.so
     retry: 3
     timeout: 45000
-"11028":
+'11028':
   ID: 11028
   Monitor:
     active: true
@@ -68,5 +69,232 @@
     request:
       method: GET
       url: https://docs.anarlog.so
+    retry: 3
+    timeout: 45000
+'11509':
+  ID: 11509
+  Monitor:
+    active: true
+    assertions:
+    - compare: eq
+      kind: statusCode
+      target: 200
+    - compare: contains
+      kind: textBody
+      target: '"status":"ok"'
+    description: Checks that production CloudSync is configured and ready.
+    frequency: 1m
+    kind: http
+    name: Anarlog Sync API
+    openTelemetry: {}
+    regions:
+    - iad
+    - arn
+    - sin
+    - syd
+    - gru
+    - jnb
+    request:
+      method: GET
+      url: https://api.anarlog.so/health/sync
+    retry: 3
+    timeout: 45000
+'11510':
+  ID: 11510
+  Monitor:
+    active: true
+    assertions:
+    - compare: eq
+      kind: statusCode
+      target: 200
+    - compare: contains
+      kind: textBody
+      target: '"status":"ok"'
+    description: Checks transcription-provider configuration and stream readiness.
+    frequency: 1m
+    kind: http
+    name: Anarlog Transcription API
+    openTelemetry: {}
+    regions:
+    - iad
+    - arn
+    - sin
+    - syd
+    - gru
+    - jnb
+    request:
+      method: GET
+      url: https://api.anarlog.so/health/transcription
+    retry: 3
+    timeout: 45000
+'11511':
+  ID: 11511
+  Monitor:
+    active: true
+    assertions:
+    - compare: eq
+      kind: statusCode
+      target: 200
+    - compare: contains
+      kind: textBody
+      target: '"status":"ok"'
+    description: Checks that the production LLM provider is configured and ready.
+    frequency: 1m
+    kind: http
+    name: Anarlog LLM API
+    openTelemetry: {}
+    regions:
+    - iad
+    - arn
+    - sin
+    - syd
+    - gru
+    - jnb
+    request:
+      method: GET
+      url: https://api.anarlog.so/health/llm
+    retry: 3
+    timeout: 45000
+'11512':
+  ID: 11512
+  Monitor:
+    active: true
+    assertions:
+    - compare: eq
+      kind: statusCode
+      target: 401
+    - compare: eq
+      kind: textBody
+      target: missing_authorization_header
+    description: Verifies that the production LLM route remains protected.
+    frequency: 1m
+    kind: http
+    name: Anarlog LLM Auth Guard
+    openTelemetry: {}
+    regions:
+    - iad
+    - arn
+    - sin
+    - syd
+    - gru
+    - jnb
+    request:
+      body: "{}"
+      headers:
+        Content-Type: application/json
+      method: POST
+      url: https://api.anarlog.so/llm/chat/completions
+    retry: 3
+    timeout: 45000
+'11514':
+  ID: 11514
+  Monitor:
+    active: true
+    assertions:
+    - compare: eq
+      kind: statusCode
+      target: 401
+    - compare: eq
+      kind: textBody
+      target: missing_authorization_header
+    description: Verifies that the production transcription route remains protected.
+    frequency: 1m
+    kind: http
+    name: Anarlog Transcription Auth Guard
+    openTelemetry: {}
+    regions:
+    - iad
+    - arn
+    - sin
+    - syd
+    - gru
+    - jnb
+    request:
+      method: GET
+      url: https://api.anarlog.so/stt/status/openstatus-probe
+    retry: 3
+    timeout: 45000
+'11515':
+  ID: 11515
+  Monitor:
+    active: true
+    assertions:
+    - compare: eq
+      kind: statusCode
+      target: 200
+    - compare: contains
+      kind: textBody
+      target: https://api.anarlog.so/mcp
+    description: Verifies Cloud API and MCP OAuth discovery metadata.
+    frequency: 1m
+    kind: http
+    name: Anarlog Cloud API & MCP
+    openTelemetry: {}
+    regions:
+    - iad
+    - arn
+    - sin
+    - syd
+    - gru
+    - jnb
+    request:
+      method: GET
+      url: https://api.anarlog.so/.well-known/oauth-protected-resource/mcp
+    retry: 3
+    timeout: 45000
+'11518':
+  ID: 11518
+  Monitor:
+    active: true
+    assertions:
+    - compare: eq
+      kind: statusCode
+      target: 200
+    - compare: contains
+      kind: textBody
+      target: '"status":"ok"'
+    description: Verifies the production Stripe webhook and billing service.
+    frequency: 1m
+    kind: http
+    name: Anarlog Billing
+    openTelemetry: {}
+    regions:
+    - iad
+    - arn
+    - sin
+    - syd
+    - gru
+    - jnb
+    request:
+      method: GET
+      url: https://hyprnote-stripe.fly.dev/health
+    retry: 3
+    timeout: 45000
+'11519':
+  ID: 11519
+  Monitor:
+    active: true
+    assertions:
+    - compare: eq
+      kind: statusCode
+      target: 401
+    - compare: eq
+      kind: textBody
+      target: missing_authorization_header
+    description: Verifies that the production sync route remains protected.
+    frequency: 1m
+    kind: http
+    name: Anarlog Sync Auth Guard
+    openTelemetry: {}
+    regions:
+    - iad
+    - arn
+    - sin
+    - syd
+    - gru
+    - jnb
+    request:
+      method: GET
+      url: https://api.anarlog.so/sync/devices
     retry: 3
     timeout: 45000

@@ -47,7 +47,7 @@ export function SessionViewSwitcher({
       data-tauri-drag-region="false"
       className={cn([
         "pointer-events-auto relative z-10 w-fit max-w-full shrink-0 overflow-visible",
-        "bg-foreground/10 dark:bg-accent/55 flex h-[30px] items-center gap-[2px] rounded-full p-[2px] [corner-shape:round]",
+        "bg-foreground/10 dark:bg-accent/55 rounded-pill flex h-[30px] items-center gap-[2px] p-[2px] [corner-shape:round]",
       ])}
     >
       {editorTabs.map((view, index) => {

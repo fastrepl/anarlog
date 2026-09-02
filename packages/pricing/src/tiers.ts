@@ -1,4 +1,5 @@
 export type PlanTier = "free" | "pro";
+export type MarketingPlanTier = PlanTier | "team";
 export type PlanFeature = {
   label: string;
   included: boolean;
@@ -23,9 +24,10 @@ export interface PlanTierData {
 }
 
 export interface MarketingPlanData {
-  id: PlanTier;
+  id: MarketingPlanTier;
   name: string;
   price: { monthly: number; yearly: number | null } | null;
+  billingUnit?: "person";
   description: string;
   popular?: boolean;
   features: PlanFeature[];
@@ -76,7 +78,7 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
       yearly: 150,
     },
     description:
-      "Hosted transcription and AI models, speaker identification, calendar connections, and advanced workflow features.",
+      "Hosted transcription and AI for one person, plus sync, sharing, integrations, and advanced workflows.",
     popular: true,
     features: [
       { label: "Everything in Free", included: true },
@@ -112,9 +114,32 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
       },
     ],
   },
+  {
+    id: "team",
+    name: "Team",
+    price: {
+      monthly: 20,
+      yearly: 200,
+    },
+    billingUnit: "person",
+    description:
+      "A shared workspace with Pro for every member, centralized billing, roles, and organization-wide controls.",
+    features: [
+      { label: "Everything in Pro for every member", included: true },
+      { label: "Shared workspaces and notes", included: true },
+      { label: "Members, roles, and invitations", included: true },
+      { label: "Centralized per-seat billing", included: true },
+      { label: "Workspace sharing policies", included: true },
+      { label: "Workspace usage overview", included: true },
+      { label: "Custom workspace subdomain", included: true },
+    ],
+  },
 ];
 
-export const PLAN_TIERS: PlanTierData[] = MARKETING_PLAN_TIERS.map((plan) => ({
+export const PLAN_TIERS: PlanTierData[] = MARKETING_PLAN_TIERS.filter(
+  (plan): plan is MarketingPlanData & { id: PlanTier } =>
+    plan.id === "free" || plan.id === "pro",
+).map((plan) => ({
   id: plan.id,
   name: plan.name,
   price: plan.price ? `$${plan.price.monthly}` : "$0",

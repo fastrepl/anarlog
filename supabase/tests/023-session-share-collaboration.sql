@@ -119,6 +119,10 @@ select
 from session_share_collaboration_test_state
 where name = 'share';
 
+select tests.enable_workspace_plan(workspace_id)
+from session_share_collaboration_test_state
+where name = 'share';
+
 insert into public.session_shares (
   id,
   workspace_id,

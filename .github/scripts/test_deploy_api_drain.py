@@ -211,6 +211,39 @@ def test_create_replacement_starts_cordoned_in_the_source_region():
     ]
 
 
+def test_create_replacement_retries_until_image_manifest_is_available():
+    machine = {
+        "id": "old",
+        "region": "sjc",
+        "config": {"image": "registry.fly.io/anarlog-ai:old"},
+    }
+    calls = []
+
+    def fake_api_request(method, path, payload=None, query=None):
+        calls.append((method, path, payload, query))
+        if len(calls) == 1:
+            raise FlyApiError(
+                "failed to get manifest: MANIFEST_UNKNOWN manifest unknown",
+                400,
+            )
+        return {"id": "new"}
+
+    with (
+        patch.object(deploy_api_drain, "api_request", fake_api_request),
+        patch.object(deploy_api_drain.time, "sleep") as sleep,
+    ):
+        created = create_replacement_machine(
+            "anarlog-ai",
+            machine,
+            "registry.fly.io/anarlog-ai:new",
+            {"signal": "SIGTERM", "timeout": "300s"},
+        )
+
+    assert created == "new"
+    assert len(calls) == 2
+    sleep.assert_called_once_with(0.5)
+
+
 def test_validate_serving_set_requires_cordoned_replacements():
     machines = [
         {"id": "old", "state": "started", "cordoned": False},
@@ -517,6 +550,7 @@ if __name__ == "__main__":
     test_replacement_config_rejects_volume_mounts()
     test_replacement_config_rejects_unhealthy_hosts()
     test_create_replacement_starts_cordoned_in_the_source_region()
+    test_create_replacement_retries_until_image_manifest_is_available()
     test_validate_serving_set_requires_cordoned_replacements()
     test_cut_over_registers_new_machines_before_cordoning_old_machines()
     test_cut_over_drains_an_attempted_replacement_when_activation_fails()

@@ -1,4 +1,4 @@
-export type OAuthProvider = "azure" | "google" | "github";
+export type OAuthProvider = "apple" | "azure" | "google" | "github";
 
 export function oauthProviderScopes(provider: OAuthProvider, rra?: boolean) {
   if (provider === "github" && rra) {

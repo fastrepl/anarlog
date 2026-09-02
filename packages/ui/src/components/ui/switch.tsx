@@ -5,7 +5,7 @@ import * as React from "react";
 import { cn } from "@anlg/utils";
 
 const switchVariants = cva(
-  "peer border-border focus-visible:ring-ring focus-visible:ring-offset-background data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted inline-flex shrink-0 cursor-pointer items-center rounded-full border-2 transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
+  "peer border-border focus-visible:ring-ring focus-visible:ring-offset-background data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted rounded-pill inline-flex shrink-0 cursor-pointer items-center border-2 transition-colors [corner-shape:round] focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
   {
     variants: {
       size: {
@@ -21,7 +21,7 @@ const switchVariants = cva(
 );
 
 const thumbVariants = cva(
-  "bg-background data-[state=checked]:bg-primary-foreground pointer-events-none block rounded-full shadow-lg ring-0 transition-transform",
+  "bg-background data-[state=checked]:bg-primary-foreground rounded-pill pointer-events-none block shadow-lg ring-0 transition-transform [corner-shape:round]",
   {
     variants: {
       size: {

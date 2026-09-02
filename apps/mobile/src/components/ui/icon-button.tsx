@@ -1,8 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
-import type { ComponentProps } from "react";
 import { Pressable, StyleSheet } from "react-native";
 
 import { Colors, ControlSize, CornerCurve, Radius } from "@/constants/theme";
+
+import { NativeIcon, type NativeIconName } from "./native-icon";
 
 export function IconButton({
   accessibilityLabel,
@@ -15,7 +15,7 @@ export function IconButton({
 }: {
   accessibilityLabel: string;
   disabled?: boolean;
-  icon: ComponentProps<typeof Ionicons>["name"];
+  icon: NativeIconName;
   iconSize?: number;
   onPress: () => void;
   tone?: "default" | "muted" | "destructive";
@@ -33,7 +33,6 @@ export function IconButton({
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
       disabled={disabled}
-      hitSlop={4}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
@@ -42,15 +41,15 @@ export function IconButton({
         disabled && styles.disabled,
       ]}
     >
-      <Ionicons name={icon} size={iconSize} color={color} />
+      <NativeIcon name={icon} size={iconSize} color={color} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    width: ControlSize.compact,
-    height: ControlSize.compact,
+    width: ControlSize.default,
+    height: ControlSize.default,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: Radius.pill,

@@ -30,6 +30,7 @@ type DesktopFlowPath =
   | "/app/account"
   | "/app/integration"
   | "/app/checkout"
+  | "/app/team-checkout"
   | "/app/switch-plan"
   | "/app/portal";
 

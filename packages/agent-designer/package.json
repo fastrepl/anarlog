@@ -19,7 +19,7 @@
     "langsmith": "^0.4.12",
     "pg": "^8.20.0",
     "promptl-ai": "^0.4.12",
-    "zod": "^4.3.6"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@langchain/langgraph-cli": "^1.1.17",

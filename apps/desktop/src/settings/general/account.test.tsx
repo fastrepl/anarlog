@@ -249,9 +249,15 @@ describe("SettingsAccount", () => {
     renderAccount();
 
     expect(screen.queryByRole("button", { name: "Get Pro" })).toBeNull();
-    expect(screen.getByText("Current plan")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Sign in for Pro" }),
+    ).toBeNull();
+    expect(screen.getByText("Current")).toBeTruthy();
+    expect(screen.getByText("What you're missing without Pro.")).toBeTruthy();
+    expect(screen.getByText("Cloud Transcription")).toBeTruthy();
+    expect(screen.queryByText("On-device Transcription")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Sign in for Pro" }));
+    fireEvent.click(screen.getByRole("button", { name: "Get started" }));
 
     await waitFor(() => expect(mocks.signIn).toHaveBeenCalled());
     expect(mocks.buildWebAppUrl).not.toHaveBeenCalledWith(
@@ -276,8 +282,8 @@ describe("SettingsAccount", () => {
     expect(
       screen.queryByRole("button", { name: "Add payment method" }),
     ).toBeNull();
-    expect(screen.getByText("Current plan")).toBeTruthy();
+    expect(screen.getByText("Current")).toBeTruthy();
     expect(screen.queryByText("Cancel")).toBeNull();
-    expect(screen.queryByRole("button", { name: /Current plan/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Current/ })).toBeNull();
   });
 });

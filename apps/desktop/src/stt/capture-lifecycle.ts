@@ -31,7 +31,11 @@ import {
   markSessionAudioTranscriptionComplete,
 } from "~/session/attachments";
 import { enqueueSessionAudioOperation } from "~/session/audio-operations";
-import { useSession, useSessionTranscriptExistence } from "~/session/queries";
+import {
+  isSessionDeleted,
+  useSession,
+  useSessionTranscriptExistence,
+} from "~/session/queries";
 import { requestAppAttention } from "~/shared/app-attention";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
@@ -357,13 +361,42 @@ export function useCaptureLifecycle(sessionId: string) {
         sonnerToast.dismiss("recording-without-transcription");
         sonnerToast.dismiss("live-transcription-stalled");
         sonnerToast.dismiss("meeting-disclosure-send-failed");
-        const notifyFailure = (message: string, id: string) => {
-          if (requestRecoveryOnFailure) {
+        const sessionWasDeleted = async () => {
+          try {
+            return await isSessionDeleted(sessionId);
+          } catch (error) {
+            console.warn(
+              "[listener] failed to check whether the session was deleted",
+              error,
+            );
+            return false;
+          }
+        };
+        const notifyFailure = async (message: string, id: string) => {
+          if (requestRecoveryOnFailure && !(await sessionWasDeleted())) {
             sonnerToast.error(message, { id });
           }
         };
         const requestRecovery = async () => {
           recoveryPending = true;
+          if (await sessionWasDeleted()) {
+            try {
+              await persistTranscriptWrite(() =>
+                clearCaptureLifecycleMarker(sessionId, transcriptId),
+              );
+              recoveryPending = false;
+              recoveryStateCleared = true;
+            } catch (error) {
+              console.error(
+                "[listener] failed to clear deleted session capture state",
+                error,
+              );
+              if (requestRecoveryOnFailure) {
+                await requestCaptureRecoverySafely(sessionId);
+              }
+            }
+            return;
+          }
           if (requestRecoveryOnFailure) {
             await requestCaptureRecoverySafely(sessionId);
           }
@@ -492,12 +525,12 @@ export function useCaptureLifecycle(sessionId: string) {
               failure_stage: "batch_repair",
             });
             if (transcriptWriteError || !details.liveTranscriptionActive) {
-              notifyFailure(
+              await notifyFailure(
                 "Anarlog could not finish saving the transcript. The recording was kept so you can try again.",
                 "post-capture-transcript-incomplete",
               );
             } else {
-              notifyFailure(
+              await notifyFailure(
                 "Post-meeting transcription failed. The recording was kept so you can try again.",
                 "post-capture-batch-failed",
               );
@@ -525,7 +558,7 @@ export function useCaptureLifecycle(sessionId: string) {
           transcriptWriteError &&
           postCaptureAction !== "batch_then_enhance"
         ) {
-          notifyFailure(
+          await notifyFailure(
             details.audioPath
               ? "Anarlog could not finish saving the transcript. The recording was kept so you can try again."
               : "Anarlog could not save part of the live transcript.",
@@ -609,7 +642,7 @@ export function useCaptureLifecycle(sessionId: string) {
                 "[listener] failed to persist summary recovery state",
                 error,
               );
-              notifyFailure(
+              await notifyFailure(
                 "The transcript was saved, but Anarlog could not start the summary. Try generating it again.",
                 "post-capture-summary-failed",
               );
@@ -627,7 +660,7 @@ export function useCaptureLifecycle(sessionId: string) {
           } catch (error) {
             summaryScheduled = false;
             console.error("[listener] failed to schedule summary", error);
-            notifyFailure(
+            await notifyFailure(
               "The transcript was saved, but Anarlog could not start the summary. Try generating it again.",
               "post-capture-summary-failed",
             );

@@ -238,7 +238,7 @@ mod tests {
                 tool.meta.unwrap().get("securitySchemes"),
                 Some(&serde_json::json!([{
                     "type": "oauth2",
-                    "scopes": ["openid", "email"],
+                    "scopes": [],
                 }]))
             );
             assert_eq!(tool.output_schema.unwrap().get("type").unwrap(), "object");

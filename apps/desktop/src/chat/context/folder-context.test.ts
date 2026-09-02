@@ -1,8 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  loadFolderInstructions: vi.fn(),
   loadFolderMaterials: vi.fn(),
   loadSessionSummariesByFolder: vi.fn(),
+}));
+
+vi.mock("~/session/folder-catalog", () => ({
+  loadFolderInstructions: mocks.loadFolderInstructions,
 }));
 
 vi.mock("~/session/folder-attachments", () => ({
@@ -19,7 +24,9 @@ describe("folder chat context", () => {
   beforeEach(() => {
     mocks.loadSessionSummariesByFolder.mockReset();
     mocks.loadFolderMaterials.mockReset();
+    mocks.loadFolderInstructions.mockReset();
     mocks.loadFolderMaterials.mockResolvedValue([]);
+    mocks.loadFolderInstructions.mockResolvedValue("");
   });
 
   it("renders a folder index with session ids", async () => {
@@ -46,6 +53,16 @@ describe("folder chat context", () => {
       ].join("\n"),
     );
     expect(mocks.loadFolderMaterials).toHaveBeenCalledWith("CS 101");
+    expect(mocks.loadFolderInstructions).toHaveBeenCalledWith("CS 101");
+  });
+
+  it("includes saved folder instructions", async () => {
+    mocks.loadSessionSummariesByFolder.mockResolvedValue([]);
+    mocks.loadFolderInstructions.mockResolvedValue("Prefer the syllabus.");
+
+    await expect(renderFolderContext("CS 101")).resolves.toContain(
+      "Folder instructions:\nPrefer the syllabus.",
+    );
   });
 
   it("lists folder materials before notes", async () => {

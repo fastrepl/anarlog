@@ -5,6 +5,7 @@ import { type ReactNode } from "react";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
+  appFloatingMenuPanelClassName,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -58,7 +59,7 @@ export function ContactPageHeader({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent variant="app" align="end" className="w-48">
-            <AppFloatingPanel className="overflow-hidden p-1">
+            <AppFloatingPanel className={appFloatingMenuPanelClassName}>
               <DropdownMenuItem
                 onClick={onTogglePin}
                 className="cursor-pointer"

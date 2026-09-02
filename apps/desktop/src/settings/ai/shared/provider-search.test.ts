@@ -6,6 +6,11 @@ const providers = [
   { id: "moonshot", displayName: "Moonshot AI" },
   { id: "alibaba_cloud", displayName: "Alibaba Cloud Model Studio" },
   { id: "zai", displayName: "Z.AI" },
+  {
+    id: "local_file",
+    displayName: "On-device file",
+    description: "whisper.cpp .bin",
+  },
 ];
 
 describe("filterProviders", () => {
@@ -19,5 +24,10 @@ describe("filterProviders", () => {
 
   test("returns all providers for a blank query", () => {
     expect(filterProviders(providers, "  ")).toEqual(providers);
+  });
+
+  test("matches provider descriptions", () => {
+    expect(filterProviders(providers, "whisper")).toEqual([providers[3]]);
+    expect(filterProviders(providers, ".bin")).toEqual([providers[3]]);
   });
 });

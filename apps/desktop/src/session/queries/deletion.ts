@@ -41,6 +41,15 @@ export async function softDeleteSession(
   };
 }
 
+export async function isSessionDeleted(sessionId: string): Promise<boolean> {
+  await waitForPendingSoftDelete(sessionId);
+  const [session] = await liveQueryClient.execute<SessionIdentitySqlRow>(
+    `SELECT id FROM sessions WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+    [sessionId],
+  );
+  return !session;
+}
+
 export async function isSessionEmpty(sessionId: string): Promise<boolean> {
   const [row] = await liveQueryClient.execute<SessionEmptySqlRow>(
     `

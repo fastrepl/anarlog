@@ -1,17 +1,16 @@
 import { useLingui } from "@lingui/react/macro";
 import { MagnifyingGlass, X } from "@phosphor-icons/react";
 
-export function filterProviders<T extends { id: string; displayName: string }>(
-  providers: readonly T[],
-  query: string,
-): T[] {
+export function filterProviders<
+  T extends { id: string; displayName: string; description?: string },
+>(providers: readonly T[], query: string): T[] {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   if (!normalizedQuery) {
     return [...providers];
   }
 
   return providers.filter((provider) =>
-    `${provider.displayName} ${provider.id}`
+    `${provider.displayName} ${provider.id} ${provider.description ?? ""}`
       .toLocaleLowerCase()
       .includes(normalizedQuery),
   );

@@ -1,4 +1,5 @@
-export const MOBILE_BILLING_RETURN_URL = "anarlog://billing/refresh";
+export const buildMobileBillingReturnUrl = (scheme: string): string =>
+  `${scheme}://billing/refresh`;
 
 export type BillingCallback = {
   checkout: "trial" | "paid" | "canceled" | "failed" | null;
@@ -19,11 +20,14 @@ const isCheckoutType = (
 ): value is NonNullable<BillingCallback["checkoutType"]> =>
   value === "trial" || value === "paid";
 
-export function parseBillingCallbackUrl(url: string): BillingCallback | null {
+export function parseBillingCallbackUrl(
+  url: string,
+  scheme = "anarlog",
+): BillingCallback | null {
   try {
     const parsed = new URL(url);
     if (
-      parsed.protocol !== "anarlog:" ||
+      parsed.protocol !== `${scheme}:` ||
       parsed.hostname !== "billing" ||
       parsed.pathname.replace(/\/+$/, "") !== "/refresh"
     ) {

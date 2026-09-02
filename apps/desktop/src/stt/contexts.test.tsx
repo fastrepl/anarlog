@@ -2,9 +2,13 @@ import { resolveResource } from "@tauri-apps/api/path";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { parseAutoStopEndedNotificationKey } from "./auto-stop-notification";
 import {
-  AUTO_STOP_CALENDAR_EARLY_END_THRESHOLD_MS,
+  cancelAutoStopEndedNotification,
+  consumeAutoStopEndedNotificationKey,
+  createAutoStopEndedNotificationKey,
+  parseAutoStopEndedNotificationKey,
+} from "./auto-stop-notification";
+import {
   AUTO_STOP_CONFIRM_DELAY_MS,
   AUTO_STOP_EVENT_END_GRACE_MS,
   AUTO_STOP_NETWORK_HOLD_MS,
@@ -16,6 +20,7 @@ import { createListenerStore } from "~/store/zustand/listener";
 
 const {
   listMicUsingApplicationsMock,
+  inspectMeetingAccessibilityMock,
   listenMock,
   clearNotificationsMock,
   showNotificationMock,
@@ -25,6 +30,7 @@ const {
   loadSessionEventMock,
 } = vi.hoisted(() => ({
   listMicUsingApplicationsMock: vi.fn(),
+  inspectMeetingAccessibilityMock: vi.fn(),
   listenMock: vi.fn(),
   clearNotificationsMock: vi.fn(),
   showNotificationMock: vi.fn(),
@@ -36,6 +42,7 @@ const {
 
 vi.mock("@anlg/plugin-detect", () => ({
   commands: {
+    inspectMeetingAccessibility: inspectMeetingAccessibilityMock,
     listMicUsingApplications: listMicUsingApplicationsMock,
   },
   events: {
@@ -212,6 +219,7 @@ async function readConfiguredNearbyEvents(nowMs: number, windowMs: number) {
 
 describe("ListenerProvider detect events", () => {
   beforeEach(() => {
+    cancelAutoStopEndedNotification("session-1");
     listenMock.mockReset();
     clearNotificationsMock.mockReset();
     showNotificationMock.mockReset();
@@ -224,6 +232,10 @@ describe("ListenerProvider detect events", () => {
     getNearbyCalendarEventsMock.mockImplementation(readConfiguredNearbyEvents);
     loadSessionEventMock.mockImplementation(readConfiguredSessionEvent);
     listenMock.mockResolvedValue(() => {});
+    inspectMeetingAccessibilityMock.mockReset().mockResolvedValue({
+      status: "ok",
+      data: [],
+    });
     listMicUsingApplicationsMock.mockResolvedValue({ status: "ok", data: [] });
     Object.defineProperty(window.navigator, "onLine", {
       configurable: true,
@@ -238,7 +250,7 @@ describe("ListenerProvider detect events", () => {
     vi.useRealTimers();
   });
 
-  test("clears pending notifications when listening becomes active", async () => {
+  test("invalidates and clears pending notifications when listening becomes active", async () => {
     const store = createListenerStore();
 
     render(
@@ -248,12 +260,14 @@ describe("ListenerProvider detect events", () => {
     );
 
     expect(clearNotificationsMock).not.toHaveBeenCalled();
+    const notificationKey = createAutoStopEndedNotificationKey("session-1");
 
     setStoreActive(store);
 
     await vi.waitFor(() =>
       expect(clearNotificationsMock).toHaveBeenCalledTimes(1),
     );
+    expect(consumeAutoStopEndedNotificationKey(notificationKey)).toBeNull();
   });
 
   test("does not stop listening on MicStopped when no trigger apps are set (manual session — regression: #5120)", async () => {
@@ -412,7 +426,7 @@ describe("ListenerProvider detect events", () => {
     expect(stopSpy).not.toHaveBeenCalled();
     expect(showNotificationMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        key: "auto-stop-ended:session-1",
+        key: expect.stringContaining("auto-stop-ended:session-1"),
       }),
     );
   });
@@ -551,7 +565,7 @@ describe("ListenerProvider detect events", () => {
     expect(stopSpy).not.toHaveBeenCalled();
     expect(showNotificationMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        key: "auto-stop-ended:session-1",
+        key: expect.stringContaining("auto-stop-ended:session-1"),
       }),
     );
   });
@@ -750,7 +764,7 @@ describe("ListenerProvider detect events", () => {
     expect(stopSpy).not.toHaveBeenCalled();
     expect(showNotificationMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        key: "auto-stop-ended:session-1",
+        key: expect.stringContaining("auto-stop-ended:session-1"),
       }),
     );
   });
@@ -1005,7 +1019,7 @@ describe("ListenerProvider detect events", () => {
     expect(stopSpy).toHaveBeenCalledTimes(1);
   });
 
-  test("auto-stops Teams running in a browser when the browser no longer uses the mic (regression: #5436)", async () => {
+  test("asks before stopping Teams running in a browser when the browser no longer uses the mic", async () => {
     const store = createListenerStore();
     const stopSpy = vi.fn();
 
@@ -1037,7 +1051,12 @@ describe("ListenerProvider detect events", () => {
     await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
 
     expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(1);
-    expect(stopSpy).toHaveBeenCalledTimes(1);
+    expect(stopSpy).not.toHaveBeenCalled();
+    expect(showNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: expect.stringContaining("auto-stop-ended:session-1"),
+      }),
+    );
   });
 
   test("keeps direct trigger auto-stop confidence when a later helper stop arrives", async () => {
@@ -2127,7 +2146,7 @@ describe("ListenerProvider detect events", () => {
     expect(stopSpy).toHaveBeenCalledTimes(1);
   });
 
-  test("uses the standard auto-stop grace period for browser meeting triggers without calendar context", async () => {
+  test("asks before stopping a browser meeting without calendar context", async () => {
     const store = createListenerStore();
     const stopSpy = vi.fn();
 
@@ -2156,7 +2175,12 @@ describe("ListenerProvider detect events", () => {
     });
 
     await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
-    expect(stopSpy).toHaveBeenCalledTimes(1);
+    expect(stopSpy).not.toHaveBeenCalled();
+    expect(showNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: expect.stringContaining("auto-stop-ended:session-1"),
+      }),
+    );
   });
 
   test.each([
@@ -2228,13 +2252,10 @@ describe("ListenerProvider detect events", () => {
     },
   );
 
-  test("auto-stops browser meetings inside the scheduled end window", async () => {
+  test("asks before stopping browser meetings near the scheduled end", async () => {
     const store = createListenerStore();
     const stopSpy = vi.fn();
-    const endedAtMs = new Date("2026-05-19T10:30:00.000Z").getTime();
-    const now = new Date(
-      endedAtMs - AUTO_STOP_CALENDAR_EARLY_END_THRESHOLD_MS + 1,
-    );
+    const now = new Date("2026-05-19T10:29:00.000Z");
 
     store.setState({ stop: stopSpy });
     store.getState().setTriggerAppIds(["com.google.Chrome"]);
@@ -2271,7 +2292,132 @@ describe("ListenerProvider detect events", () => {
     await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
 
     expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(1);
-    expect(stopSpy).toHaveBeenCalledTimes(1);
+    expect(stopSpy).not.toHaveBeenCalled();
+    expect(showNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: expect.stringContaining("auto-stop-ended:session-1"),
+      }),
+    );
+  });
+
+  test("rechecks after accessibility confirms the meeting is active", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["com.google.Chrome"]);
+    setStoreActive(store);
+    inspectMeetingAccessibilityMock
+      .mockResolvedValueOnce({
+        status: "ok",
+        data: [
+          {
+            app: { id: "com.google.Chrome", name: "Google Chrome" },
+            pid: 42,
+            platform: "googleMeet",
+            surface: "web",
+            accessibilityTrusted: true,
+            windowTitle: "Team sync - Google Meet",
+            warnings: [],
+          },
+        ],
+      })
+      .mockResolvedValue({ status: "ok", data: [] });
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+    const handler = listenMock.mock.calls[0]?.[0];
+
+    vi.useFakeTimers();
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "com.google.Chrome", name: "Google Chrome" }],
+      },
+    });
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+
+    expect(inspectMeetingAccessibilityMock).toHaveBeenCalledTimes(1);
+    expect(stopSpy).not.toHaveBeenCalled();
+    expect(showNotificationMock).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+
+    expect(inspectMeetingAccessibilityMock).toHaveBeenCalledTimes(2);
+    expect(stopSpy).not.toHaveBeenCalled();
+    expect(showNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: expect.stringContaining("auto-stop-ended:session-1"),
+      }),
+    );
+  });
+
+  test("does not recheck after the meeting resumes during accessibility inspection", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+    let resolveInspection = (
+      _result: Awaited<ReturnType<typeof inspectMeetingAccessibilityMock>>,
+    ) => {};
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["com.google.Chrome"]);
+    setStoreActive(store);
+    inspectMeetingAccessibilityMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveInspection = resolve;
+        }),
+    );
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+    const handler = listenMock.mock.calls[0]?.[0];
+
+    vi.useFakeTimers();
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "com.google.Chrome", name: "Google Chrome" }],
+      },
+    });
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+
+    expect(inspectMeetingAccessibilityMock).toHaveBeenCalledTimes(1);
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-resumed",
+        apps: [{ id: "com.google.Chrome", name: "Google Chrome" }],
+        duration_secs: 15,
+      },
+    });
+    resolveInspection({
+      status: "ok",
+      data: [
+        {
+          app: { id: "com.google.Chrome", name: "Google Chrome" },
+          pid: 42,
+          platform: "googleMeet",
+          surface: "web",
+          accessibilityTrusted: true,
+          windowTitle: "Team sync - Google Meet",
+          warnings: [],
+        },
+      ],
+    });
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+
+    expect(inspectMeetingAccessibilityMock).toHaveBeenCalledTimes(1);
+    expect(stopSpy).not.toHaveBeenCalled();
     expect(showNotificationMock).not.toHaveBeenCalled();
   });
 
@@ -2318,6 +2464,47 @@ describe("ListenerProvider detect events", () => {
     await vi.advanceTimersByTimeAsync(1);
 
     expect(listMicUsingApplicationsMock).not.toHaveBeenCalled();
+    expect(stopSpy).not.toHaveBeenCalled();
+  });
+
+  test("invalidates a browser stop prompt when the meeting resumes", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["com.google.Chrome"]);
+    setStoreActive(store);
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+    clearNotificationsMock.mockClear();
+    const handler = listenMock.mock.calls[0]?.[0];
+
+    vi.useFakeTimers();
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "com.google.Chrome", name: "Google Chrome" }],
+      },
+    });
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+    const notificationKey = showNotificationMock.mock.calls[0]?.[0]?.key;
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-resumed",
+        apps: [{ id: "com.google.Chrome", name: "Google Chrome" }],
+        duration_secs: 15,
+      },
+    });
+
+    expect(clearNotificationsMock).toHaveBeenCalledTimes(1);
+    expect(consumeAutoStopEndedNotificationKey(notificationKey)).toBeNull();
     expect(stopSpy).not.toHaveBeenCalled();
   });
 

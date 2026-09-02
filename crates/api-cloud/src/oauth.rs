@@ -3,7 +3,7 @@ use serde::Serialize;
 
 use crate::state::AppState;
 
-pub(crate) const OAUTH_SCOPES: &[&str] = &["openid", "email"];
+pub(crate) const OAUTH_SCOPES: &[&str] = &[];
 pub(crate) const MCP_RESOURCE: &str = "https://api.anarlog.so/mcp";
 const OPENAI_APPS_CHALLENGE: &str = "Rueo1ui7LUWfrc8duM53jXRiYcaxExDbCNrsLp2VdvU";
 
@@ -18,7 +18,8 @@ pub(crate) struct OAuthResourceConfig {
 struct ProtectedResourceMetadata {
     resource: String,
     authorization_servers: [String; 1],
-    scopes_supported: &'static [&'static str],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    scopes_supported: Option<&'static [&'static str]>,
     bearer_methods_supported: [&'static str; 1],
     resource_documentation: &'static str,
 }
@@ -59,11 +60,10 @@ impl OAuthResourceConfig {
     }
 
     pub(crate) fn challenge(&self, error: Option<(&str, &str)>) -> String {
-        let mut challenge = format!(
-            "Bearer resource_metadata=\"{}\", scope=\"{}\"",
-            self.resource_metadata,
-            OAUTH_SCOPES.join(" ")
-        );
+        let mut challenge = format!("Bearer resource_metadata=\"{}\"", self.resource_metadata);
+        if !OAUTH_SCOPES.is_empty() {
+            challenge.push_str(&format!(", scope=\"{}\"", OAUTH_SCOPES.join(" ")));
+        }
         if let Some((error, description)) = error {
             challenge.push_str(&format!(
                 ", error=\"{error}\", error_description=\"{description}\""
@@ -97,7 +97,7 @@ async fn protected_resource_metadata(
     Json(ProtectedResourceMetadata {
         resource: oauth.resource().to_string(),
         authorization_servers: [oauth.authorization_server().to_string()],
-        scopes_supported: OAUTH_SCOPES,
+        scopes_supported: (!OAUTH_SCOPES.is_empty()).then_some(OAUTH_SCOPES),
         bearer_methods_supported: ["header"],
         resource_documentation: "https://docs.anarlog.so/reference/api-cloud#remote-mcp",
     })
@@ -138,10 +138,7 @@ mod tests {
                 metadata["authorization_servers"][0],
                 "https://auth.example.com/auth/v1"
             );
-            assert_eq!(
-                metadata["scopes_supported"],
-                serde_json::json!(["openid", "email"])
-            );
+            assert!(metadata.get("scopes_supported").is_none());
         }
     }
 
@@ -174,7 +171,7 @@ mod tests {
 
         assert_eq!(
             oauth.challenge(Some(("invalid_token", "Access token is invalid"))),
-            "Bearer resource_metadata=\"https://api.anarlog.so/.well-known/oauth-protected-resource/mcp\", scope=\"openid email\", error=\"invalid_token\", error_description=\"Access token is invalid\""
+            "Bearer resource_metadata=\"https://api.anarlog.so/.well-known/oauth-protected-resource/mcp\", error=\"invalid_token\", error_description=\"Access token is invalid\""
         );
     }
 }

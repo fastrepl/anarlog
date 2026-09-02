@@ -12,6 +12,7 @@ import {
   type TimelineIndicatorPlacement,
   type TimelineItem,
   type TimelinePrecision,
+  type TimelineSortOrder,
 } from "./utils";
 
 export function TimelineBuckets({
@@ -26,6 +27,8 @@ export function TimelineBuckets({
   selectedIds,
   selectedNodeRef,
   selectedSessionId,
+  showCurrentTimeIndicator = true,
+  sortOrder = "newest",
   timezone,
   upcomingMeetingStatus,
   upcomingNodeRef,
@@ -41,6 +44,8 @@ export function TimelineBuckets({
   selectedIds: string[];
   selectedNodeRef: RefCallback<HTMLDivElement>;
   selectedSessionId: string | undefined;
+  showCurrentTimeIndicator?: boolean;
+  sortOrder?: TimelineSortOrder;
   timezone?: string;
   upcomingMeetingStatus: SidebarUpcomingMeetingStatus | null;
   upcomingNodeRef: RefCallback<HTMLDivElement>;
@@ -50,7 +55,7 @@ export function TimelineBuckets({
       {buckets.map((bucket, index) => {
         const isToday = bucket.label === "Today";
         const shouldPlaceIndicatorBefore =
-          !hasToday && indicatorIndex === index;
+          showCurrentTimeIndicator && !hasToday && indicatorIndex === index;
         const shouldRenderIndicatorBefore =
           shouldPlaceIndicatorBefore && !hasActiveVisibleSession;
         const shouldRenderIndicatorAnchorBefore =
@@ -90,6 +95,7 @@ export function TimelineBuckets({
                 registerIndicator={registerIndicator}
                 selectedSessionId={selectedSessionId}
                 selectedNodeRef={selectedNodeRef}
+                sortOrder={sortOrder}
                 suppressCurrentTimeIndicator={hasActiveVisibleSession}
                 timezone={timezone}
                 selectedIds={selectedIds}
@@ -137,7 +143,8 @@ export function TimelineBuckets({
           </div>
         );
       })}
-      {!hasToday &&
+      {showCurrentTimeIndicator &&
+        !hasToday &&
         (indicatorIndex === -1 || indicatorIndex === buckets.length) &&
         (hasActiveVisibleSession ? (
           <CurrentTimeAnchor registerIndicator={registerIndicator} />
@@ -182,6 +189,7 @@ function TodayBucket({
   registerIndicator,
   selectedSessionId,
   selectedNodeRef,
+  sortOrder,
   suppressCurrentTimeIndicator,
   timezone,
   selectedIds,
@@ -197,6 +205,7 @@ function TodayBucket({
   registerIndicator: (node: HTMLDivElement | null) => void;
   selectedSessionId: string | undefined;
   selectedNodeRef: RefCallback<HTMLDivElement>;
+  sortOrder: TimelineSortOrder;
   suppressCurrentTimeIndicator: boolean;
   timezone?: string;
   selectedIds: string[];
@@ -220,8 +229,8 @@ function TodayBucket({
   const indicatorPlacement = useMemo<TimelineIndicatorPlacement>(
     // currentTimeMs in deps triggers updates as time passes,
     // but we use fresh Date() so indicator positions correctly when entries change immediately (new note).
-    () => calculateTodayIndicatorPlacement(entries, new Date()),
-    [entries, currentTimeMs],
+    () => calculateTodayIndicatorPlacement(entries, new Date(), sortOrder),
+    [entries, currentTimeMs, sortOrder],
   );
 
   const renderedEntries = useMemo(() => {

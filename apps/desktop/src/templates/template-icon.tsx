@@ -28,6 +28,7 @@ import {
   FileText,
   Fire,
   Flag,
+  Folder,
   Gear,
   Globe,
   GraduationCap,
@@ -118,6 +119,7 @@ const TEMPLATE_ICON_COMPONENTS: Record<string, Icon> = {
   "file-text": FileText,
   flag: Flag,
   flame: Fire,
+  folder: Folder,
   globe: Globe,
   graduation: GraduationCap,
   hammer: Hammer,
@@ -247,6 +249,7 @@ export function TemplateIconGlyph({
     <Icon
       aria-hidden
       className={cn(["shrink-0", className])}
+      color={normalized.color}
       style={{ color: normalized.color }}
     />
   );

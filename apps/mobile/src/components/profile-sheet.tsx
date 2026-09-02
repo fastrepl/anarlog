@@ -1,18 +1,17 @@
-import { Ionicons } from "@expo/vector-icons";
-import { useState, useSyncExternalStore } from "react";
+import { Host, Switch } from "@expo/ui";
+import { useSyncExternalStore } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 
 import { useAuth } from "@/auth/context";
 import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/user-avatar";
 import {
   Colors,
   CornerCurve,
@@ -21,34 +20,26 @@ import {
   Typography,
 } from "@/constants/theme";
 import {
-  confirmMobileRecoveryKey,
-  generateMobileRecoveryKey,
+  setSidebarItemPreference,
+  useSidebarItemPreferences,
+} from "@/data/sidebar-preferences";
+import { captureOperationalError } from "@/lib/error-reporting";
+import {
   getMobileSyncSnapshot,
-  importMobileRecoveryKey,
   retryMobileSync,
   subscribeMobileSync,
   syncMobileNow,
 } from "@/sync/mobile-sync";
 import { syncStatusPresentation } from "@/sync/status-presentation";
 
-export type SettingsMode = "status" | "choose" | "import" | "generated";
-
-export function SettingsContent({
-  initialMode = "status",
-}: {
-  initialMode?: SettingsMode;
-}) {
+export function SettingsContent() {
   const auth = useAuth();
   const sync = useSyncExternalStore(
     subscribeMobileSync,
     getMobileSyncSnapshot,
     getMobileSyncSnapshot,
   );
-  const [mode, setMode] = useState<SettingsMode>(initialMode);
-  const [recoveryKey, setRecoveryKey] = useState("");
-  const [generatedKey, setGeneratedKey] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const sidebarPreferences = useSidebarItemPreferences();
 
   const planLabel = auth.bypass
     ? "Local dev"
@@ -59,102 +50,20 @@ export function SettingsContent({
         : "Free";
   const presentation = syncStatusPresentation(sync);
 
-  const createRecoveryKey = async () => {
-    setBusy(true);
-    setActionError(null);
-    try {
-      const key = await generateMobileRecoveryKey();
-      setGeneratedKey(key);
-      setMode("generated");
-    } catch (error) {
-      setActionError(
-        error instanceof Error ? error.message : "Could not create the key.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const importRecoveryKey = async () => {
-    if (!recoveryKey.trim()) {
-      setActionError("Enter your recovery key.");
-      return;
-    }
-    setBusy(true);
-    setActionError(null);
-    try {
-      await importMobileRecoveryKey(recoveryKey);
-      setRecoveryKey("");
-      setMode("status");
-    } catch (error) {
-      setActionError(
-        error instanceof Error ? error.message : "Could not use this key.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const shareRecoveryKey = async () => {
-    setActionError(null);
-    try {
-      await Share.share({
-        title: "Anarlog recovery key",
-        message: `Anarlog recovery key\n\n${generatedKey}`,
+  const updateSidebarPreference = (
+    key: "sidebar_show_folder" | "sidebar_show_tags",
+    value: boolean,
+  ) => {
+    void setSidebarItemPreference(key, value).catch((error) => {
+      captureOperationalError(error, {
+        operation: "sidebar_preference_update",
+        tags: { key },
       });
-    } catch (error) {
-      setActionError(
-        error instanceof Error ? error.message : "Could not share the key.",
-      );
-    }
-  };
-
-  const finishRecoveryKey = async () => {
-    setBusy(true);
-    setActionError(null);
-    try {
-      await confirmMobileRecoveryKey(generatedKey);
-      setGeneratedKey("");
-      setMode("status");
-    } catch (error) {
-      setActionError(
-        error instanceof Error ? error.message : "Could not protect the key.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const discardGeneratedKey = () => {
-    setGeneratedKey("");
-    setActionError(null);
-    setMode("status");
+    });
   };
 
   const renderStatusActions = () => {
     if (auth.bypass || sync.phase === "inactive") return null;
-    if (sync.phase === "identity_mismatch") {
-      return (
-        <View style={styles.actions}>
-          <Button
-            label="Use recovery key"
-            onPress={() => setMode("import")}
-            size="small"
-          />
-        </View>
-      );
-    }
-    if (sync.phase === "setup_required") {
-      return (
-        <View style={styles.actions}>
-          <Button
-            label="Set up sync"
-            onPress={() => setMode("choose")}
-            size="small"
-          />
-        </View>
-      );
-    }
     if (sync.phase === "ready") {
       return (
         <View style={styles.actions}>
@@ -218,9 +127,7 @@ export function SettingsContent({
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.accountCard}>
-          <View style={styles.accountIcon}>
-            <Ionicons name="person-outline" size={22} color={Colors.ink} />
-          </View>
+          <UserAvatar user={auth.session?.user ?? null} />
           <View style={styles.accountIdentity}>
             <Text style={styles.accountLabel}>Account</Text>
             <Text style={styles.email} numberOfLines={1}>
@@ -232,139 +139,77 @@ export function SettingsContent({
           </View>
         </View>
 
-        {mode === "status" && (
-          <View style={styles.syncCard}>
-            <View style={styles.statusHeading}>
-              <View
-                style={[
-                  styles.statusDot,
-                  presentation.healthy
-                    ? styles.statusDotReady
-                    : presentation.retrying || presentation.pending
-                      ? styles.statusDotRetrying
-                      : styles.statusDotQuiet,
-                ]}
-              />
-              <Text style={styles.eyebrow}>Cloud sync</Text>
-            </View>
-            <Text style={styles.syncTitle}>{presentation.title}</Text>
-            <Text style={styles.syncDescription}>
-              {presentation.description}
-            </Text>
-            {presentation.detail && (
-              <Text style={styles.syncDetail}>{presentation.detail}</Text>
-            )}
-            {renderStatusActions()}
-          </View>
-        )}
-
-        {mode === "choose" && (
-          <View style={styles.setup}>
-            <Text style={styles.setupTitle}>Set up encrypted sync</Text>
-            <Text style={styles.setupDescription}>
-              Your recovery key protects every synced note. Anarlog cannot
-              recover it for you.
-            </Text>
-            <Button
-              label="Create a recovery key"
-              loading={busy}
-              onPress={() => void createRecoveryKey()}
-            />
-            <Button
-              label="Use an existing key"
-              disabled={busy}
-              onPress={() => {
-                setActionError(null);
-                setMode("import");
-              }}
-              variant="outline"
-            />
-            <Button
-              label="Back"
-              disabled={busy}
-              onPress={() => setMode("status")}
-              size="small"
-              variant="ghost"
-            />
-          </View>
-        )}
-
-        {mode === "import" && (
-          <View style={styles.setup}>
-            <Text style={styles.setupTitle}>Use a recovery key</Text>
-            <Text style={styles.setupDescription}>
-              Enter the key saved from Anarlog on another device.
-            </Text>
-            <TextInput
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!busy}
-              multiline
-              onChangeText={setRecoveryKey}
-              placeholder="Paste recovery key"
-              placeholderTextColor={Colors.muted}
-              style={styles.keyInput}
-              value={recoveryKey}
-            />
-            <Button
-              label="Use this key"
-              loading={busy}
-              onPress={() => void importRecoveryKey()}
-            />
-            <Button
-              label="Back"
-              disabled={busy}
-              onPress={() => {
-                setActionError(null);
-                setMode(
-                  sync.phase === "identity_mismatch" ? "status" : "choose",
-                );
-              }}
-              size="small"
-              variant="ghost"
-            />
-          </View>
-        )}
-
-        {mode === "generated" && (
-          <View style={styles.setup}>
-            <Text style={styles.setupTitle}>Save your recovery key</Text>
-            <Text style={styles.setupDescription}>
-              Keep this in a password manager. You will need it to add another
-              device or recover your synced notes.
-            </Text>
-            <View style={styles.generatedKeyBox}>
-              <Text selectable style={styles.generatedKey}>
-                {generatedKey}
+        <View style={styles.notesListCard}>
+          <Text style={styles.eyebrow}>Notes list</Text>
+          <Text style={styles.notesListDescription}>
+            Choose extra details to show on each note.
+          </Text>
+          <View style={styles.preferenceGroup}>
+            <View>
+              <Host
+                matchContents={{ vertical: true }}
+                seedColor={Colors.primary}
+                style={styles.preferenceControl}
+              >
+                <Switch
+                  label="Folder"
+                  value={sidebarPreferences.showFolder}
+                  onValueChange={(value) =>
+                    updateSidebarPreference("sidebar_show_folder", value)
+                  }
+                  testID="sidebar-show-folder"
+                />
+              </Host>
+              <Text style={styles.preferenceDescription}>
+                Show the folder above the title.
               </Text>
             </View>
-            <Button
-              label="Save recovery key"
-              onPress={() => void shareRecoveryKey()}
-              variant="outline"
-            />
-            <Button
-              label="I saved it"
-              loading={busy}
-              onPress={() => void finishRecoveryKey()}
-            />
-            <Button
-              label="Cancel"
-              disabled={busy}
-              onPress={discardGeneratedKey}
-              size="small"
-              variant="ghost"
-            />
+            <View style={styles.preferenceDivider} />
+            <View>
+              <Host
+                matchContents={{ vertical: true }}
+                seedColor={Colors.primary}
+                style={styles.preferenceControl}
+              >
+                <Switch
+                  label="Tags"
+                  value={sidebarPreferences.showTags}
+                  onValueChange={(value) =>
+                    updateSidebarPreference("sidebar_show_tags", value)
+                  }
+                  testID="sidebar-show-tags"
+                />
+              </Host>
+              <Text style={styles.preferenceDescription}>
+                Show tags under the date and time.
+              </Text>
+            </View>
           </View>
-        )}
+        </View>
 
-        {actionError && (
-          <Text accessibilityLiveRegion="polite" style={styles.error}>
-            {actionError}
-          </Text>
-        )}
+        <View style={styles.syncCard}>
+          <View style={styles.statusHeading}>
+            <View
+              style={[
+                styles.statusDot,
+                presentation.healthy
+                  ? styles.statusDotReady
+                  : presentation.retrying || presentation.pending
+                    ? styles.statusDotRetrying
+                    : styles.statusDotQuiet,
+              ]}
+            />
+            <Text style={styles.eyebrow}>Cloud sync</Text>
+          </View>
+          <Text style={styles.syncTitle}>{presentation.title}</Text>
+          <Text style={styles.syncDescription}>{presentation.description}</Text>
+          {presentation.detail && (
+            <Text style={styles.syncDetail}>{presentation.detail}</Text>
+          )}
+          {renderStatusActions()}
+        </View>
 
-        {!auth.bypass && mode === "status" && (
+        {!auth.bypass && (
           <Button
             label="Sign out"
             onPress={() => void auth.signOut()}
@@ -397,15 +242,6 @@ const styles = StyleSheet.create({
     borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.surface,
     padding: Spacing.md,
-  },
-  accountIcon: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: Radius.pill,
-    borderCurve: CornerCurve.squircle,
-    backgroundColor: Colors.accentSurface,
   },
   accountIdentity: {
     flex: 1,
@@ -440,6 +276,36 @@ const styles = StyleSheet.create({
     borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.surface,
     padding: Spacing.md,
+  },
+  notesListCard: {
+    marginTop: Spacing.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.border,
+    borderRadius: Radius.card,
+    borderCurve: CornerCurve.squircle,
+    backgroundColor: Colors.surface,
+    padding: Spacing.md,
+  },
+  notesListDescription: {
+    marginTop: Spacing.xs,
+    ...Typography.body,
+    color: Colors.muted,
+  },
+  preferenceGroup: {
+    marginTop: Spacing.md,
+    gap: Spacing.md,
+  },
+  preferenceControl: {
+    width: "100%",
+  },
+  preferenceDescription: {
+    marginTop: Spacing.xs,
+    ...Typography.caption,
+    color: Colors.muted,
+  },
+  preferenceDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: Colors.border,
   },
   statusHeading: {
     flexDirection: "row",
@@ -482,50 +348,6 @@ const styles = StyleSheet.create({
   actions: {
     marginTop: Spacing.md,
     flexDirection: "row",
-  },
-  setup: {
-    marginTop: Spacing.lg,
-    gap: Spacing.sm,
-  },
-  setupTitle: {
-    ...Typography.title,
-    color: Colors.ink,
-  },
-  setupDescription: {
-    marginBottom: Spacing.sm,
-    ...Typography.body,
-    color: Colors.muted,
-  },
-  keyInput: {
-    minHeight: 108,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.border,
-    borderRadius: Radius.control,
-    borderCurve: CornerCurve.squircle,
-    backgroundColor: Colors.background,
-    padding: Spacing.md,
-    ...Typography.body,
-    color: Colors.ink,
-    fontFamily: Platform.select({ ios: "Menlo", android: "monospace" }),
-    textAlignVertical: "top",
-  },
-  generatedKeyBox: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.border,
-    borderRadius: Radius.control,
-    borderCurve: CornerCurve.squircle,
-    backgroundColor: Colors.background,
-    padding: Spacing.md,
-  },
-  generatedKey: {
-    ...Typography.body,
-    color: Colors.ink,
-    fontFamily: Platform.select({ ios: "Menlo", android: "monospace" }),
-  },
-  error: {
-    marginTop: Spacing.sm,
-    ...Typography.caption,
-    color: Colors.destructive,
   },
   signOut: {
     marginTop: Spacing.lg,

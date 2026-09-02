@@ -766,7 +766,7 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
                 .unwrap()
                 .to_str()
                 .unwrap(),
-            "Bearer resource_metadata=\"https://api.anarlog.so/.well-known/oauth-protected-resource/mcp\", scope=\"openid email\""
+            "Bearer resource_metadata=\"https://api.anarlog.so/.well-known/oauth-protected-resource/mcp\""
         );
         let body = to_bytes(unauthorized.into_body(), usize::MAX)
             .await
@@ -931,36 +931,12 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
                 .contains("error=\"invalid_token\"")
         );
 
-        let insufficient = app
-            .clone()
-            .oneshot(
-                Request::get("/v1/meetings")
-                    .header(
-                        "authorization",
-                        format!("Bearer {}", oauth_token(&issuer, "openid")),
-                    )
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-        assert_eq!(insufficient.status(), StatusCode::FORBIDDEN);
-        assert!(
-            insufficient
-                .headers()
-                .get("www-authenticate")
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .contains("error=\"insufficient_scope\"")
-        );
-
         let response = app
             .oneshot(
                 Request::get("/v1/meetings")
                     .header(
                         "authorization",
-                        format!("Bearer {}", oauth_token(&issuer, "openid email")),
+                        format!("Bearer {}", oauth_token(&issuer, "email")),
                     )
                     .body(Body::empty())
                     .unwrap(),

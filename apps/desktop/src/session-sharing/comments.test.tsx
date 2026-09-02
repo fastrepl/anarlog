@@ -31,7 +31,15 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("~/auth", () => ({
   useAuth: () => ({
-    session: { user: { id: "viewer-1", is_anonymous: false } },
+    session: {
+      user: {
+        id: "viewer-1",
+        is_anonymous: false,
+        user_metadata: {
+          avatar_url: "https://google.example/viewer.png",
+        },
+      },
+    },
     supabase: {},
   }),
 }));
@@ -233,6 +241,9 @@ describe("desktop shared-note comments", () => {
     fireEvent.click(screen.getByRole("button", { name: "Mount editor" }));
     fireEvent.click(screen.getByRole("button", { name: "Select text" }));
     fireEvent.click(screen.getByRole("button", { name: "Comment" }));
+    expect(
+      document.querySelector('img[src="https://google.example/viewer.png"]'),
+    ).toBeTruthy();
     fireEvent.change(
       await screen.findByRole("textbox", { name: "Comment on selected text" }),
       { target: { value: "  Follow up  " } },

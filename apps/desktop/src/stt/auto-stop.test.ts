@@ -1,11 +1,37 @@
-import { describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
   AUTO_STOP_NETWORK_HOLD_MS,
   AUTO_STOP_RECENT_OFFLINE_MS,
   isRecentNetworkDrop,
   resolveNetworkHoldUntilMs,
+  showMeetingEndedPrompt,
 } from "./auto-stop";
+import { cancelAutoStopEndedNotification } from "./auto-stop-notification";
+
+const { getNotificationIconForAppMock, showNotificationMock } = vi.hoisted(
+  () => ({
+    getNotificationIconForAppMock: vi.fn(),
+    showNotificationMock: vi.fn(),
+  }),
+);
+
+vi.mock("@anlg/plugin-notification", () => ({
+  commands: {
+    showNotification: showNotificationMock,
+  },
+}));
+
+vi.mock("./meeting-apps", async (importOriginal) => ({
+  ...(await importOriginal()),
+  getNotificationIconForApp: getNotificationIconForAppMock,
+}));
+
+beforeEach(() => {
+  cancelAutoStopEndedNotification("session-1");
+  getNotificationIconForAppMock.mockReset();
+  showNotificationMock.mockReset();
+});
 
 describe("resolveNetworkHoldUntilMs", () => {
   test("keeps a future calendar deadline", () => {
@@ -51,5 +77,28 @@ describe("isRecentNetworkDrop", () => {
 
   test("is false when no reconnect was recorded", () => {
     expect(isRecentNetworkDrop(null, 1_000)).toBe(false);
+  });
+});
+
+describe("showMeetingEndedPrompt", () => {
+  test("does not show a prompt cancelled while its icon loads", async () => {
+    let resolveIcon: (value: null) => void = () => {};
+    getNotificationIconForAppMock.mockReturnValue(
+      new Promise<null>((resolve) => {
+        resolveIcon = resolve;
+      }),
+    );
+
+    const prompt = showMeetingEndedPrompt({
+      sessionId: "session-1",
+      stoppedTriggerAppIds: ["com.google.Chrome"],
+      stoppedApps: [{ id: "com.google.Chrome", name: "Google Chrome" }],
+    });
+
+    expect(cancelAutoStopEndedNotification("session-1")).toBe(true);
+    resolveIcon(null);
+    await prompt;
+
+    expect(showNotificationMock).not.toHaveBeenCalled();
   });
 });

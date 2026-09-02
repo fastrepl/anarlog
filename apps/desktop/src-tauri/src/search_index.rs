@@ -4,7 +4,7 @@ use std::time::Duration;
 use chrono::DateTime;
 use serde_json::{Map, Value};
 use sqlx::{Connection, Row, SqlitePool};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tauri_plugin_tantivy::{
     SearchDocument, SearchFilters, SearchOptions, SearchRequest, TantivyPluginExt,
 };
@@ -47,6 +47,9 @@ async fn run(app: AppHandle, db: Arc<anlg_db_core::Db>) {
     let mut changes = db.change_notifier().subscribe();
 
     wait_for_tantivy(&app).await;
+    if !wait_for_database_ready(&app).await {
+        return;
+    }
 
     loop {
         match initialize(&app, db.pool()).await {
@@ -89,6 +92,21 @@ async fn run(app: AppHandle, db: Arc<anlg_db_core::Db>) {
             }
             _ = tokio::time::sleep(RETRY_INTERVAL) => {}
         }
+    }
+}
+
+async fn wait_for_database_ready(app: &AppHandle) -> bool {
+    loop {
+        if let Some(runtime) = app.try_state::<tauri_plugin_db::ManagedState>() {
+            return match runtime.wait_until_ready().await {
+                Ok(()) => true,
+                Err(error) => {
+                    tracing::error!(%error, "search index waiting for database startup failed");
+                    false
+                }
+            };
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
     }
 }
 

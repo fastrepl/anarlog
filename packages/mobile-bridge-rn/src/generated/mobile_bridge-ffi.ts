@@ -280,13 +280,30 @@ interface NativeModuleInterface {
     statementsJson: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_generate_e2ee_device_enrollment_key(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_generate_e2ee_recovery_key(
     uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_inspect_e2ee_device_enrollment_key(
+    uniffiSelf: bigint,
+    keyCode: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_inspect_e2ee_recovery_key(
     uniffiSelf: bigint,
     recoveryKeyCode: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_open_e2ee_device_enrollment(
+    uniffiSelf: bigint,
+    accountUserId: Uint8Array,
+    requestId: Uint8Array,
+    keyCode: Uint8Array,
+    packageJson: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_prepare_attachment_upload(
@@ -357,8 +374,11 @@ interface NativeModuleInterface {
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_proxy(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_transaction(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_generate_e2ee_device_enrollment_key(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_generate_e2ee_recovery_key(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_device_enrollment_key(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_recovery_key(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_open_e2ee_device_enrollment(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_prepare_attachment_upload(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_read_attachment_upload_range(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_restore_attachment(): number;

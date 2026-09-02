@@ -90,7 +90,7 @@ export function iconHeaderViewClassName(
   const heightClassName = size === "tray" ? "h-[26px]" : "h-7";
 
   return cn([
-    "group/header-view flex shrink-0 items-center justify-center rounded-full transition-colors select-none [corner-shape:round] [&>svg]:shrink-0",
+    "group/header-view rounded-pill flex shrink-0 items-center justify-center transition-colors select-none [corner-shape:round] [&>svg]:shrink-0",
     isActive
       ? [
           "text-foreground bg-white shadow-xs",

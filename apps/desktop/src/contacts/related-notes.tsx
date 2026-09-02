@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
+  appFloatingMenuPanelClassName,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
@@ -49,7 +50,7 @@ export function RelatedNotesSection({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent variant="app" align="start">
-              <AppFloatingPanel className="overflow-hidden p-1">
+              <AppFloatingPanel className={appFloatingMenuPanelClassName}>
                 <DropdownMenuRadioGroup
                   value={sortOrder}
                   onValueChange={(value) =>

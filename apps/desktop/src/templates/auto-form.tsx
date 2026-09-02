@@ -16,6 +16,7 @@ import { commands as templateCommands } from "@anlg/plugin-template";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
+  appFloatingMenuPanelClassName,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -196,7 +197,7 @@ export function AutoFormatForm({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent variant="app" align="end" className="w-56">
-                  <AppFloatingPanel className="overflow-hidden p-1">
+                  <AppFloatingPanel className={appFloatingMenuPanelClassName}>
                     <DropdownMenuItem
                       className="cursor-pointer"
                       disabled={

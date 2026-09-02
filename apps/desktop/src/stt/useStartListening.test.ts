@@ -31,6 +31,7 @@ const {
   setBatchTranscriptionPendingMock,
   runBatchMock,
   useListenerMock,
+  isSessionDeletedMock,
   useSessionMock,
   useSessionHasTranscriptMock,
   useSessionParticipantHumanIdsMock,
@@ -83,6 +84,7 @@ const {
   setBatchTranscriptionPendingMock: vi.fn(),
   runBatchMock: vi.fn(),
   useListenerMock: vi.fn(),
+  isSessionDeletedMock: vi.fn(),
   useSessionMock: vi.fn(),
   useSessionHasTranscriptMock: vi.fn(),
   useSessionParticipantHumanIdsMock: vi.fn(),
@@ -231,6 +233,7 @@ vi.mock("~/session/utils", () => ({
 }));
 
 vi.mock("~/session/queries", () => ({
+  isSessionDeleted: isSessionDeletedMock,
   useSession: useSessionMock,
   useSessionTranscriptExistence: useSessionHasTranscriptMock,
 }));
@@ -464,6 +467,7 @@ describe("useStartListening", () => {
     beginCaptureRecoveryFinalizationMock.mockReturnValue(true);
     canStartLiveSessionMock.mockReturnValue(true);
     getSessionModeMock.mockReturnValue("active");
+    isSessionDeletedMock.mockResolvedValue(false);
     useSessionMock.mockReturnValue({
       id: "session-1",
       user_id: "user-1",
@@ -3025,6 +3029,85 @@ describe("useStartListening", () => {
     expect(endCloudsyncActivityMock).not.toHaveBeenCalled();
     expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
+    expect(requestCaptureRecoveryMock).toHaveBeenCalledWith("session-1");
+    consoleError.mockRestore();
+  });
+
+  test("does not surface a summary scheduling failure after the session is deleted", async () => {
+    useSessionHasTranscriptMock.mockReturnValue(true);
+    isSessionDeletedMock.mockResolvedValue(true);
+    queueAutoEnhanceIfSummaryEmptyMock.mockRejectedValueOnce(
+      new Error("Session session-1 no longer exists"),
+    );
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
+    await act(async () => {
+      await onStopped?.("session-1", {
+        durationSeconds: 42,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+      });
+    });
+
+    expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledOnce();
+    expect(sonnerToastErrorMock).not.toHaveBeenCalled();
+    expect(clearCaptureLifecycleMarkerMock).toHaveBeenCalledWith(
+      "session-1",
+      "generated-id",
+    );
+    expect(requestCaptureRecoveryMock).not.toHaveBeenCalled();
+    expect(endCloudsyncActivityMock).toHaveBeenCalledWith(
+      "capture",
+      "session-1:generated-id",
+    );
+    expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
+    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  test("requests recovery when the deleted session is restored during finalization", async () => {
+    useSessionHasTranscriptMock.mockReturnValue(true);
+    isSessionDeletedMock
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    queueAutoEnhanceIfSummaryEmptyMock.mockRejectedValueOnce(
+      new Error("constraint failed"),
+    );
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
+    await act(async () => {
+      await onStopped?.("session-1", {
+        durationSeconds: 42,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+      });
+    });
+
+    expect(isSessionDeletedMock).toHaveBeenCalledTimes(2);
+    expect(sonnerToastErrorMock).not.toHaveBeenCalled();
+    expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
     expect(requestCaptureRecoveryMock).toHaveBeenCalledWith("session-1");
     consoleError.mockRestore();
   });

@@ -13,7 +13,23 @@ const mocks = vi.hoisted(() => ({
   createNamedFolder: vi.fn(() => Promise.resolve("clients")),
   folderId: "",
   folderPaths: [] as string[],
+  icons: {} as Record<string, { type: "icon"; value: string; color: string }>,
+  openNew: vi.fn(),
+  setSelectedPath: vi.fn(),
   updateSession: vi.fn(() => Promise.resolve()),
+}));
+
+vi.mock("~/folders/selection", () => ({
+  useFolderSelection: (
+    selector: (state: {
+      setSelectedPath: typeof mocks.setSelectedPath;
+    }) => unknown,
+  ) => selector({ setSelectedPath: mocks.setSelectedPath }),
+}));
+
+vi.mock("~/store/zustand/tabs", () => ({
+  useTabs: (selector: (state: { openNew: typeof mocks.openNew }) => unknown) =>
+    selector({ openNew: mocks.openNew }),
 }));
 
 vi.mock("~/session/folder-catalog", () => ({
@@ -21,6 +37,7 @@ vi.mock("~/session/folder-catalog", () => ({
 }));
 
 vi.mock("~/session/queries", () => ({
+  useFolderIcons: () => mocks.icons,
   useFolderPaths: () => mocks.folderPaths,
   useSession: () => ({ folder_id: mocks.folderId }),
   useUpdateSession: () => mocks.updateSession,
@@ -30,7 +47,10 @@ describe("FolderPicker", () => {
   beforeEach(() => {
     mocks.folderId = "";
     mocks.folderPaths = ["personal", "work"];
+    mocks.icons = {};
     mocks.createNamedFolder.mockClear();
+    mocks.openNew.mockClear();
+    mocks.setSelectedPath.mockClear();
     mocks.updateSession.mockClear();
     mocks.createNamedFolder.mockResolvedValue("clients");
     globalThis.ResizeObserver = class {
@@ -53,6 +73,7 @@ describe("FolderPicker", () => {
 
     expect(trigger.textContent).toBe("");
     expect(trigger.className).toContain("w-7");
+    expect(trigger.className).toContain("[&_svg]:size-4");
     expect(icons).toHaveLength(1);
     expect(icons[0]?.getAttribute("class")).toContain("size-4");
   });
@@ -77,10 +98,11 @@ describe("FolderPicker", () => {
     const content = input.closest("[data-radix-popper-content-wrapper] > *");
     const classes = content?.className.split(/\s+/) ?? [];
 
-    expect(classes).toContain("w-85");
+    expect(classes).toContain("w-56");
     expect(classes).toContain("p-0.5");
     expect(classes).not.toContain("p-0");
-    expect(input.closest(".p-4")).not.toBeNull();
+    expect(input.closest(".p-4")).toBeNull();
+    expect(input.className).toContain("h-8");
   });
 
   it("lets the user select an existing folder for the current note", async () => {
@@ -107,24 +129,45 @@ describe("FolderPicker", () => {
 
     expect(mocks.createNamedFolder).toHaveBeenCalledWith("clients");
     await waitFor(() => {
+      expect(mocks.setSelectedPath).toHaveBeenCalledWith("clients");
       expect(mocks.updateSession).toHaveBeenCalledWith({
         folder_id: "clients",
       });
     });
   });
 
-  it("rejects nested folder names", async () => {
+  it("creates nested folder names", async () => {
     render(<FolderPicker sessionId="session-1" />);
 
     fireEvent.click(screen.getByRole("combobox", { name: "Select folder" }));
     fireEvent.change(screen.getByPlaceholderText("Search or create folder"), {
       target: { value: "clients/acme" },
     });
+    fireEvent.click(
+      await screen.findByRole("option", { name: 'Create "clients/acme"' }),
+    );
+
+    expect(mocks.createNamedFolder).toHaveBeenCalledWith("clients/acme");
+    await waitFor(() => {
+      expect(mocks.updateSession).toHaveBeenCalledWith({
+        folder_id: "clients/acme",
+      });
+    });
+  });
+
+  it("highlights the current folder and does not offer no folder", () => {
+    mocks.folderId = "work";
+
+    render(<FolderPicker sessionId="session-1" />);
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Folder: work" }));
 
     expect(
-      await screen.findByText("Enter a valid folder name."),
-    ).not.toBeNull();
-    expect(screen.queryByRole("option", { name: /Create/ })).toBeNull();
+      screen
+        .getByRole("option", { name: "work" })
+        .getAttribute("data-selected"),
+    ).toBe("true");
+    expect(screen.queryByRole("option", { name: "No folder" })).toBeNull();
   });
 
   it("can remove the current note from its folder", () => {
@@ -133,20 +176,34 @@ describe("FolderPicker", () => {
     render(<FolderPicker sessionId="session-1" />);
 
     fireEvent.click(screen.getByRole("combobox", { name: "Folder: work" }));
-    fireEvent.click(screen.getByRole("option", { name: "No folder" }));
+    fireEvent.click(screen.getByRole("option", { name: "work" }));
 
     expect(mocks.updateSession).toHaveBeenCalledWith({ folder_id: "" });
   });
 
-  it("flattens a nested stored path when the top-level folder is selected", () => {
+  it("keeps a nested stored path selected and can move the note to the parent", () => {
     mocks.folderId = "work/meetings";
-    mocks.folderPaths = ["work"];
+    mocks.folderPaths = ["work", "work/meetings"];
+
+    render(<FolderPicker sessionId="session-1" />);
+
+    fireEvent.click(
+      screen.getByRole("combobox", { name: "Folder: work/meetings" }),
+    );
+    fireEvent.click(screen.getByRole("option", { name: "work" }));
+
+    expect(mocks.updateSession).toHaveBeenCalledWith({ folder_id: "work" });
+  });
+
+  it("opens the folders workspace from see all folders", () => {
+    mocks.folderId = "work";
 
     render(<FolderPicker sessionId="session-1" />);
 
     fireEvent.click(screen.getByRole("combobox", { name: "Folder: work" }));
-    fireEvent.click(screen.getByRole("option", { name: "work" }));
+    fireEvent.click(screen.getByRole("button", { name: "See all folders" }));
 
-    expect(mocks.updateSession).toHaveBeenCalledWith({ folder_id: "work" });
+    expect(mocks.setSelectedPath).toHaveBeenCalledWith("work");
+    expect(mocks.openNew).toHaveBeenCalledWith({ type: "folders" });
   });
 });
