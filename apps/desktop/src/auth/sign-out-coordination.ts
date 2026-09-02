@@ -4,6 +4,7 @@ import { id } from "~/shared/utils";
 
 export const AUTH_SIGN_OUT_REQUEST_EVENT = "anlg:auth-sign-out-request";
 export const AUTH_SIGN_OUT_RESULT_EVENT = "anlg:auth-sign-out-result";
+export const AUTH_SIGN_OUT_COMMITTED_EVENT = "anlg:auth-sign-out-committed";
 const AUTH_SIGN_OUT_TIMEOUT_MS = 10_000;
 
 export type AuthSignOutRequestPayload = {
@@ -16,6 +17,24 @@ export type AuthSignOutResultPayload = {
   completed: boolean;
   error: string | null;
 };
+
+export type AuthSignOutCommittedPayload = {
+  sourceLabel: string;
+};
+
+export function isAuthSignOutCommittedPayload(
+  payload: unknown,
+): payload is AuthSignOutCommittedPayload {
+  if (!payload || typeof payload !== "object") {
+    return false;
+  }
+
+  const candidate = payload as Partial<AuthSignOutCommittedPayload>;
+  return (
+    typeof candidate.sourceLabel === "string" &&
+    candidate.sourceLabel.length > 0
+  );
+}
 
 export function isAuthSignOutRequestPayload(
   payload: unknown,

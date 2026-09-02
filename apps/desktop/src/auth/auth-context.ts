@@ -12,6 +12,7 @@ type AuthActions = {
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<Session | null>;
+  getSessionForRequest: () => Promise<Session | null>;
 };
 
 type AuthTokenHandlers = {

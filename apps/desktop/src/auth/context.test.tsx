@@ -8,6 +8,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useAuth } from "./auth-context";
@@ -25,13 +26,14 @@ const mocks = vi.hoisted(() => ({
   bindCloudsyncAccountForAuth: vi.fn(),
   clearAuthStorage: vi.fn(),
   currentWebviewWindowLabel: "main",
+  emit: vi.fn(),
   emitTo: vi.fn(),
   eventCallbacks: new Map<string, (event: { payload: unknown }) => void>(),
   focusCallback: null as ((event: { payload: boolean }) => void) | null,
   getSession: vi.fn(),
   handleCloudsyncAuthChange: vi.fn(),
-  isFatalSessionError: vi.fn(),
   persistAuthSession: vi.fn(),
+  readPersistedAuthSession: vi.fn(),
   prepareCloudsyncSignOut: vi.fn(),
   refreshCloudsyncForSession: vi.fn(),
   refreshSession: vi.fn(),
@@ -44,6 +46,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("./client", () => ({
   persistAuthSession: mocks.persistAuthSession,
+  readPersistedAuthSession: mocks.readPersistedAuthSession,
   supabase: {
     auth: {
       getSession: mocks.getSession,
@@ -79,7 +82,6 @@ vi.mock("./cloudsync", () => ({
 
 vi.mock("./errors", () => ({
   clearAuthStorage: mocks.clearAuthStorage,
-  isFatalSessionError: mocks.isFatalSessionError,
 }));
 
 vi.mock("@anlg/plugin-analytics", () => ({
@@ -130,6 +132,7 @@ vi.mock("@tauri-apps/api/app", () => ({
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({
+  emit: mocks.emit,
   emitTo: mocks.emitTo,
   listen: vi.fn(
     (event: string, callback: (event: { payload: unknown }) => void) => {
@@ -196,7 +199,9 @@ function makeSession(userId: string): Session {
 }
 
 function SessionProbe() {
-  const { getHeaders, refreshSession, session, signOut } = useAuth();
+  const { getHeaders, getSessionForRequest, refreshSession, session, signOut } =
+    useAuth();
+  const [requestAccessToken, setRequestAccessToken] = useState("none");
   return (
     <>
       <div data-testid="session">{session?.user.id ?? "none"}</div>
@@ -204,8 +209,18 @@ function SessionProbe() {
       <div data-testid="authorization">
         {getHeaders()?.Authorization ?? "none"}
       </div>
+      <div data-testid="request-access-token">{requestAccessToken}</div>
       <button onClick={() => void refreshSession().catch(() => {})}>
         Refresh
+      </button>
+      <button
+        onClick={() =>
+          void getSessionForRequest().then((requestSession) => {
+            setRequestAccessToken(requestSession?.access_token ?? "none");
+          })
+        }
+      >
+        Get request session
       </button>
       <button onClick={() => void signOut().catch(() => {})}>Sign out</button>
     </>
@@ -242,13 +257,14 @@ describe("AuthProvider", () => {
     mocks.bindCloudsyncAccountForAuth.mockReset();
     mocks.clearAuthStorage.mockReset();
     mocks.currentWebviewWindowLabel = "main";
+    mocks.emit.mockReset();
     mocks.emitTo.mockReset();
     mocks.eventCallbacks.clear();
     mocks.focusCallback = null;
     mocks.getSession.mockReset();
     mocks.handleCloudsyncAuthChange.mockReset();
-    mocks.isFatalSessionError.mockReset();
     mocks.persistAuthSession.mockReset();
+    mocks.readPersistedAuthSession.mockReset();
     mocks.prepareCloudsyncSignOut.mockReset();
     mocks.refreshCloudsyncForSession.mockReset();
     mocks.refreshSession.mockReset();
@@ -259,11 +275,12 @@ describe("AuthProvider", () => {
     mocks.toastError.mockReset();
     mocks.bindCloudsyncAccountForAuth.mockResolvedValue(true);
     mocks.clearAuthStorage.mockResolvedValue(undefined);
+    mocks.emit.mockResolvedValue(undefined);
     mocks.emitTo.mockResolvedValue(undefined);
     mocks.getSession.mockImplementation(() => new Promise(() => {}));
     mocks.handleCloudsyncAuthChange.mockResolvedValue("ok");
-    mocks.isFatalSessionError.mockReturnValue(false);
     mocks.persistAuthSession.mockResolvedValue(undefined);
+    mocks.readPersistedAuthSession.mockResolvedValue(null);
     mocks.prepareCloudsyncSignOut.mockResolvedValue(undefined);
     mocks.refreshCloudsyncForSession.mockResolvedValue("ok");
     mocks.refreshSession.mockResolvedValue({
@@ -312,9 +329,7 @@ describe("AuthProvider", () => {
       );
     });
 
-    act(() => {
-      mocks.authCallback?.("SIGNED_OUT", null);
-    });
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
     await waitFor(() => {
       expect(mocks.analyticsClearGroups).toHaveBeenCalledTimes(1);
@@ -340,9 +355,7 @@ describe("AuthProvider", () => {
       expect(mocks.analyticsIdentify).toHaveBeenCalledTimes(1);
     });
 
-    act(() => {
-      mocks.authCallback?.("SIGNED_OUT", null);
-    });
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
     await waitFor(() => {
       expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
@@ -377,9 +390,7 @@ describe("AuthProvider", () => {
       });
     });
 
-    act(() => {
-      mocks.authCallback?.("SIGNED_OUT", null);
-    });
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
     await waitFor(() => {
       expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
@@ -402,7 +413,7 @@ describe("AuthProvider", () => {
       expect(mocks.focusCallback).not.toBeNull();
     });
 
-    mocks.getSession.mockResolvedValueOnce({
+    mocks.getSession.mockResolvedValue({
       data: { session: currentSession },
       error: null,
     });
@@ -510,6 +521,97 @@ describe("AuthProvider", () => {
       );
     });
     expect(mocks.refreshCloudsyncForSession).not.toHaveBeenCalled();
+  });
+
+  it("refreshes an expiring session before an authenticated request", async () => {
+    const staleSession = makeSession("bound-account");
+    staleSession.expires_at = Math.floor(Date.now() / 1000) + 60;
+    const refreshedSession = makeSession("bound-account");
+    mocks.getSession.mockResolvedValue({
+      data: { session: staleSession },
+      error: null,
+    });
+    mocks.refreshSession.mockResolvedValueOnce({
+      data: { session: refreshedSession },
+      error: null,
+    });
+
+    renderAuthProvider();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Get request session" }),
+    );
+
+    await waitFor(() => {
+      expect(mocks.refreshSession).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("uses the current session when the SDK lookup fails", async () => {
+    const currentSession = makeSession("bound-account");
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        currentSession.user.id,
+      );
+    });
+
+    mocks.getSession.mockRejectedValueOnce(new Error("offline"));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Get request session" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("request-access-token").textContent).toBe(
+        currentSession.access_token,
+      );
+    });
+  });
+
+  it("uses a still-valid session when proactive refresh fails", async () => {
+    const currentSession = makeSession("bound-account");
+    currentSession.expires_at = Math.floor(Date.now() / 1000) + 60;
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        currentSession.user.id,
+      );
+    });
+
+    mocks.getSession.mockResolvedValueOnce({
+      data: { session: currentSession },
+      error: null,
+    });
+    mocks.refreshSession.mockRejectedValueOnce(new Error("offline"));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Get request session" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("request-access-token").textContent).toBe(
+        currentSession.access_token,
+      );
+    });
   });
 
   it("only runs cloudsync from the main window", async () => {
@@ -676,128 +778,7 @@ describe("AuthProvider", () => {
     expect(mocks.emitTo).toHaveBeenCalledTimes(1);
   });
 
-  it("coordinates spontaneous secondary sign-out with main exactly once", async () => {
-    const currentSession = makeSession("bound-account");
-    mocks.currentWebviewWindowLabel = "note-session-id";
-
-    renderAuthProvider();
-
-    await waitFor(() => {
-      expect(mocks.authCallback).not.toBeNull();
-    });
-
-    act(() => {
-      mocks.authCallback?.("SIGNED_IN", currentSession);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId("session").textContent).toBe(
-        currentSession.user.id,
-      );
-    });
-
-    act(() => {
-      mocks.authCallback?.("SIGNED_OUT", null);
-    });
-
-    await waitFor(() => {
-      expect(mocks.emitTo).toHaveBeenCalledWith(
-        "main",
-        "anlg:auth-sign-out-request",
-        {
-          requestId: "request-id",
-          sourceLabel: "note-session-id",
-        },
-      );
-    });
-    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
-    expect(mocks.signOut).not.toHaveBeenCalled();
-
-    act(() => {
-      mocks.authCallback?.("SIGNED_OUT", null);
-      mocks.eventCallbacks.get("anlg:auth-sign-out-result")?.({
-        payload: { requestId: "request-id", completed: true, error: null },
-      });
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId("session").textContent).toBe("none");
-      expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
-    });
-    expect(mocks.emitTo).toHaveBeenCalledTimes(1);
-    expect(mocks.signOut).not.toHaveBeenCalled();
-  });
-
-  it("hides a spontaneous secondary sign-out while retrying incomplete main coordination", async () => {
-    const currentSession = makeSession("bound-account");
-    mocks.currentWebviewWindowLabel = "note-session-id";
-
-    renderAuthProvider();
-
-    await waitFor(() => {
-      expect(mocks.authCallback).not.toBeNull();
-    });
-
-    act(() => {
-      mocks.authCallback?.("SIGNED_IN", currentSession);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId("session").textContent).toBe(
-        currentSession.user.id,
-      );
-      expect(screen.getByTestId("authorization").textContent).toBe(
-        `bearer ${currentSession.access_token}`,
-      );
-    });
-
-    act(() => {
-      mocks.authCallback?.("SIGNED_OUT", null);
-    });
-
-    await waitFor(() => {
-      expect(mocks.emitTo).toHaveBeenCalledTimes(1);
-      expect(screen.getByTestId("session").textContent).toBe("none");
-      expect(screen.getByTestId("authorization").textContent).toBe("none");
-    });
-    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
-    expect(mocks.signOut).not.toHaveBeenCalled();
-
-    act(() => {
-      mocks.eventCallbacks.get("anlg:auth-sign-out-result")?.({
-        payload: { requestId: "request-id", completed: false, error: null },
-      });
-    });
-
-    await waitFor(() => {
-      expect(mocks.eventCallbacks.has("anlg:auth-sign-out-result")).toBe(false);
-    });
-    expect(mocks.analyticsClearGroups).not.toHaveBeenCalled();
-    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
-    expect(screen.getByTestId("session").textContent).toBe("none");
-
-    act(() => {
-      mocks.authCallback?.("SIGNED_OUT", null);
-    });
-
-    await waitFor(() => {
-      expect(mocks.emitTo).toHaveBeenCalledTimes(2);
-    });
-
-    act(() => {
-      mocks.eventCallbacks.get("anlg:auth-sign-out-result")?.({
-        payload: { requestId: "request-id", completed: true, error: null },
-      });
-    });
-
-    await waitFor(() => {
-      expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
-    });
-    expect(mocks.signOut).not.toHaveBeenCalled();
-    expect(screen.getByTestId("session").textContent).toBe("none");
-  });
-
-  it("keeps a spontaneous secondary sign-out hidden after rejected coordination and allows recovery", async () => {
+  it("preserves a secondary-window session after an unsolicited SDK sign-out", async () => {
     const currentSession = makeSession("bound-account");
     const recoveredSession = {
       ...makeSession("bound-account"),
@@ -826,29 +807,15 @@ describe("AuthProvider", () => {
       mocks.authCallback?.("SIGNED_OUT", null);
     });
 
-    await waitFor(() => {
-      expect(mocks.emitTo).toHaveBeenCalledTimes(1);
-      expect(screen.getByTestId("session").textContent).toBe("none");
-      expect(screen.getByTestId("authorization").textContent).toBe("none");
-    });
+    expect(screen.getByTestId("session").textContent).toBe(
+      currentSession.user.id,
+    );
+    expect(screen.getByTestId("authorization").textContent).toBe(
+      `bearer ${currentSession.access_token}`,
+    );
+    expect(mocks.emitTo).not.toHaveBeenCalled();
     expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
     expect(mocks.signOut).not.toHaveBeenCalled();
-
-    act(() => {
-      mocks.eventCallbacks.get("anlg:auth-sign-out-result")?.({
-        payload: {
-          requestId: "request-id",
-          completed: false,
-          error: "cloudsync suspension failed",
-        },
-      });
-    });
-
-    await waitFor(() => {
-      expect(mocks.eventCallbacks.has("anlg:auth-sign-out-result")).toBe(false);
-    });
-    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
-    expect(screen.getByTestId("session").textContent).toBe("none");
 
     act(() => {
       mocks.authCallback?.("TOKEN_REFRESHED", recoveredSession);
@@ -863,6 +830,44 @@ describe("AuthProvider", () => {
       );
     });
     expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+  });
+
+  it("clears a secondary-window session after committed sign-out", async () => {
+    const currentSession = makeSession("bound-account");
+    mocks.currentWebviewWindowLabel = "note-session-id";
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+      expect(mocks.eventCallbacks.has("anlg:auth-sign-out-committed")).toBe(
+        true,
+      );
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        currentSession.user.id,
+      );
+    });
+
+    act(() => {
+      mocks.eventCallbacks.get("anlg:auth-sign-out-committed")?.({
+        payload: { sourceLabel: "main" },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe("none");
+    });
+    expect(mocks.stopAutoRefresh).toHaveBeenCalled();
+    expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
+    expect(mocks.emitTo).not.toHaveBeenCalled();
   });
 
   it("keeps the secondary-window session when main sign-out fails", async () => {
@@ -1013,6 +1018,9 @@ describe("AuthProvider", () => {
       expect.any(Function),
     );
     expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(mocks.emit).toHaveBeenCalledWith("anlg:auth-sign-out-committed", {
+      sourceLabel: "main",
+    });
     expect(
       mocks.prepareCloudsyncSignOut.mock.invocationCallOrder[0],
     ).toBeLessThan(mocks.signOut.mock.invocationCallOrder[0]);
@@ -1101,15 +1109,15 @@ describe("AuthProvider", () => {
     mocks.prepareCloudsyncSignOut.mockRejectedValueOnce(
       new Error("cloudsync suspension failed"),
     );
+    mocks.getSession.mockResolvedValue({
+      data: { session: null },
+      error: null,
+    });
 
     renderAuthProvider();
 
     await waitFor(() => {
       expect(mocks.authCallback).not.toBeNull();
-    });
-
-    act(() => {
-      mocks.authCallback?.("INITIAL_SESSION", null);
     });
 
     await waitFor(() => {
@@ -1490,7 +1498,7 @@ describe("AuthProvider", () => {
     );
   });
 
-  it("fails closed when the local database account cannot be verified", async () => {
+  it("preserves local auth when the database account cannot be verified", async () => {
     const nextSession = makeSession("unverified-account");
     mocks.bindCloudsyncAccountForAuth.mockRejectedValue(
       new Error("database unavailable"),
@@ -1508,9 +1516,11 @@ describe("AuthProvider", () => {
     });
 
     await waitFor(() => {
-      expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("session").textContent).toBe(
+        nextSession.user.id,
+      );
     });
-    expect(screen.getByTestId("session").textContent).toBe("none");
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
     expect(mocks.persistAuthSession).not.toHaveBeenCalled();
     expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalledWith(
       "SIGNED_IN",
@@ -1738,19 +1748,14 @@ describe("AuthProvider", () => {
     );
   });
 
-  it("does not let delayed fatal initial cleanup erase a newer session", async () => {
+  it("does not let failed initial recovery erase a newer session", async () => {
     const fatalError = new Error("invalid refresh token");
     const initialSession = deferred<{
       data: { session: null };
       error: Error;
     }>();
-    const clear = deferred();
     const newSession = makeSession("new-account");
     mocks.getSession.mockReturnValue(initialSession.promise);
-    mocks.isFatalSessionError.mockImplementation(
-      (error: unknown) => error === fatalError,
-    );
-    mocks.clearAuthStorage.mockReturnValue(clear.promise);
 
     renderAuthProvider();
 
@@ -1766,17 +1771,10 @@ describe("AuthProvider", () => {
       await initialSession.promise;
     });
 
-    await waitFor(() => {
-      expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
-    });
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
 
     act(() => {
       mocks.authCallback?.("SIGNED_IN", newSession);
-    });
-
-    await act(async () => {
-      clear.resolve();
-      await clear.promise;
     });
 
     await waitFor(() => {
@@ -1785,32 +1783,27 @@ describe("AuthProvider", () => {
       );
     });
 
-    expect(mocks.persistAuthSession).toHaveBeenCalledWith(newSession);
+    expect(mocks.persistAuthSession).not.toHaveBeenCalled();
     expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalledWith(
       "SIGNED_OUT",
       null,
     );
   });
 
-  it("clears fatal initial storage after the auth subscription initializes", async () => {
+  it("restores stored auth when initial token refresh fails", async () => {
     const fatalError = new Error("invalid refresh token");
     const initialSession = deferred<{
       data: { session: null };
       error: Error;
     }>();
+    const storedSession = makeSession("stored-account");
     mocks.getSession.mockReturnValue(initialSession.promise);
-    mocks.isFatalSessionError.mockImplementation(
-      (error: unknown) => error === fatalError,
-    );
+    mocks.readPersistedAuthSession.mockResolvedValue(storedSession);
 
     renderAuthProvider();
 
     await waitFor(() => {
       expect(mocks.authCallback).not.toBeNull();
-    });
-
-    act(() => {
-      mocks.authCallback?.("INITIAL_SESSION", null);
     });
 
     await act(async () => {
@@ -1822,12 +1815,17 @@ describe("AuthProvider", () => {
     });
 
     await waitFor(() => {
-      expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("session").textContent).toBe(
+        storedSession.user.id,
+      );
     });
 
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+    expect(mocks.persistAuthSession).not.toHaveBeenCalled();
     expect(mocks.handleCloudsyncAuthChange).toHaveBeenCalledWith(
-      "SIGNED_OUT",
-      null,
+      "INITIAL_SESSION",
+      storedSession,
+      expect.any(Function),
     );
   });
 

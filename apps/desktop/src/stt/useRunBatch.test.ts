@@ -22,6 +22,7 @@ const {
   useSessionParticipantsMock,
   useSTTConnectionMock,
   useAuthMock,
+  getSessionForRequestMock,
   refreshSessionMock,
   useBillingAccessMock,
   useConfigValueMock,
@@ -41,6 +42,7 @@ const {
   useSessionParticipantsMock: vi.fn(),
   useSTTConnectionMock: vi.fn(),
   useAuthMock: vi.fn(),
+  getSessionForRequestMock: vi.fn(),
   refreshSessionMock: vi.fn(),
   useBillingAccessMock: vi.fn(),
   useConfigValueMock: vi.fn(),
@@ -614,7 +616,11 @@ describe("useRunBatch", () => {
         access_token: "paid-token",
         user: { id: "user-1" },
       },
+      getSessionForRequest: getSessionForRequestMock,
       refreshSession: refreshSessionMock,
+    });
+    getSessionForRequestMock.mockResolvedValue({
+      access_token: "paid-token",
     });
     refreshSessionMock.mockResolvedValue(null);
     useBillingAccessMock.mockReturnValue({
@@ -1198,6 +1204,60 @@ describe("useRunBatch", () => {
     );
   });
 
+  test("uses a request-ready cloud token before transcription starts", async () => {
+    useSTTConnectionMock.mockReturnValue({
+      conn: {
+        provider: "anarlog",
+        model: "cloud",
+        baseUrl: "https://api.test/stt",
+        apiKey: "stale-token",
+      },
+    });
+    useBillingAccessMock.mockReturnValue({ isPaid: true });
+    getSessionForRequestMock.mockResolvedValue({
+      access_token: "request-ready-token",
+    });
+    startTranscriptionMock.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useRunBatch("session-1"));
+
+    await act(async () => {
+      await result.current("/tmp/session.wav");
+    });
+
+    expect(startTranscriptionMock).toHaveBeenCalledTimes(1);
+    expect(startTranscriptionMock).toHaveBeenCalledWith(
+      expect.objectContaining({ api_key: "request-ready-token" }),
+      expect.any(Object),
+    );
+  });
+
+  test("falls back to the current cloud token when refresh is unavailable", async () => {
+    useSTTConnectionMock.mockReturnValue({
+      conn: {
+        provider: "anarlog",
+        model: "cloud",
+        baseUrl: "https://api.test/stt",
+        apiKey: "stale-token",
+      },
+    });
+    useBillingAccessMock.mockReturnValue({ isPaid: true });
+    getSessionForRequestMock.mockRejectedValue(new Error("offline"));
+    startTranscriptionMock.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useRunBatch("session-1"));
+
+    await act(async () => {
+      await result.current("/tmp/session.wav");
+    });
+
+    expect(startTranscriptionMock).toHaveBeenCalledTimes(1);
+    expect(startTranscriptionMock).toHaveBeenCalledWith(
+      expect.objectContaining({ api_key: "paid-token" }),
+      expect.any(Object),
+    );
+  });
+
   test("refreshes an expired cloud token and retries transcription once", async () => {
     useSTTConnectionMock.mockReturnValue({
       conn: {
@@ -1212,7 +1272,11 @@ describe("useRunBatch", () => {
         access_token: "stale-token",
         user: { id: "user-1" },
       },
+      getSessionForRequest: getSessionForRequestMock,
       refreshSession: refreshSessionMock,
+    });
+    getSessionForRequestMock.mockResolvedValue({
+      access_token: "stale-token",
     });
     refreshSessionMock.mockResolvedValue({ access_token: "fresh-token" });
     startTranscriptionMock

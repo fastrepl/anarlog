@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { arch, platform } from "@tauri-apps/plugin-os";
 import { useCallback } from "react";
 
@@ -589,9 +590,18 @@ export const useRunBatch = (sessionId: string) => {
               languages,
             )
           : false;
+      const requiresCloudSession =
+        billing.isPaid ||
+        (selectedTarget?.provider === "anarlog" &&
+          selectedTarget.model === "cloud");
+      const requestSession = requiresCloudSession
+        ? await auth.getSessionForRequest().catch(() => null)
+        : null;
+      const cloudAccessToken =
+        requestSession?.access_token ?? auth.session?.access_token;
       const fallbackTarget = getBatchFallbackTarget({
         isPaid: billing.isPaid,
-        accessToken: auth?.session?.access_token,
+        accessToken: cloudAccessToken,
         apiBaseUrl: env.VITE_API_URL,
         currentPlatform,
         currentArch,
@@ -599,7 +609,7 @@ export const useRunBatch = (sessionId: string) => {
       const shouldUseSelectedTarget =
         selectedTargetSupported ||
         (fallbackTarget && sameBatchTarget(selectedTarget, fallbackTarget));
-      const target = shouldUseSelectedTarget
+      let target = shouldUseSelectedTarget
         ? (selectedTarget ?? fallbackTarget)
         : fallbackTarget;
 
@@ -609,6 +619,13 @@ export const useRunBatch = (sessionId: string) => {
             ? `${selectedProviderLabel(conn, selectedModel)} is not available for batch transcription with the selected languages. Choose languages it supports, or configure another speech-to-text provider.`
             : `${selectedProviderLabel(conn, selectedModel)} is not available for batch transcription on this platform. Configure a batch-capable speech-to-text provider.`,
         );
+      }
+
+      if (target.provider === "anarlog" && target.model === "cloud") {
+        if (!cloudAccessToken) {
+          throw new Error(t`Transcription failed`);
+        }
+        target = { ...target, apiKey: cloudAccessToken };
       }
 
       if (!shouldUseSelectedTarget) {
@@ -862,7 +879,7 @@ export const useRunBatch = (sessionId: string) => {
     [
       conn,
       auth,
-      auth?.session?.access_token,
+      auth.session?.access_token,
       aiLanguage,
       audioRetention,
       billing.isPaid,

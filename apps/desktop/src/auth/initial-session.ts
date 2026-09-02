@@ -1,28 +1,21 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 
-import { isFatalSessionError } from "./errors";
+import { readPersistedAuthSession } from "./client";
 
 export async function loadInitialSession(
   client: SupabaseClient,
-): Promise<{ clearStorage: boolean; session: Session | null }> {
+): Promise<Session | null> {
+  const storedSession = await readPersistedAuthSession();
+
   try {
     const { data, error } = await client.auth.getSession();
 
     if (error) {
-      return {
-        clearStorage: isFatalSessionError(error),
-        session: null,
-      };
+      return storedSession;
     }
 
-    return {
-      clearStorage: false,
-      session: data.session ?? null,
-    };
-  } catch (error) {
-    return {
-      clearStorage: isFatalSessionError(error),
-      session: null,
-    };
+    return data.session ?? storedSession;
+  } catch {
+    return storedSession;
   }
 }

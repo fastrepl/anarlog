@@ -6,7 +6,7 @@ import {
   type Session,
 } from "@supabase/supabase-js";
 import { useMutation } from "@tanstack/react-query";
-import { emitTo, listen } from "@tauri-apps/api/event";
+import { emit, emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -33,11 +33,14 @@ import {
 import { clearAuthStorage } from "./errors";
 import { loadInitialSession } from "./initial-session";
 import {
+  AUTH_SIGN_OUT_COMMITTED_EVENT,
   AUTH_SIGN_OUT_REQUEST_EVENT,
   AUTH_SIGN_OUT_RESULT_EVENT,
+  type AuthSignOutCommittedPayload,
   type AuthSignOutRequestPayload,
   type AuthSignOutResultPayload,
   getErrorMessage,
+  isAuthSignOutCommittedPayload,
   isAuthSignOutRequestPayload,
   requestMainSignOut,
 } from "./sign-out-coordination";
@@ -63,7 +66,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const initStartedRef = useRef(false);
   const authTransitionRef = useRef(0);
   const authTransitionEventRef = useRef<AuthChangeEvent | null>(null);
-  const nonInitialAuthTransitionRef = useRef(0);
   const authTransitionQueueRef = useRef(Promise.resolve());
   const authAnalyticsQueueRef = useRef(Promise.resolve());
   const authStorageRevisionRef = useRef(0);
@@ -222,8 +224,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         { id: ACCOUNT_MISMATCH_TOAST_ID },
       );
       await rejectAuthChange(transition, true);
+
+      if (managesCloudsync && transition === authTransitionRef.current) {
+        try {
+          await emit(AUTH_SIGN_OUT_COMMITTED_EVENT, {
+            sourceLabel: currentWindowLabel,
+          } satisfies AuthSignOutCommittedPayload);
+        } catch {
+          console.warn("[auth] account rejection could not be synchronized");
+        }
+      }
     },
-    [rejectAuthChange],
+    [currentWindowLabel, managesCloudsync, rejectAuthChange],
   );
 
   const applyAuthChange = useCallback(
@@ -232,13 +244,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       nextSession: Session | null,
       transition: number,
       storageRevision: number,
-      clearStorage: boolean,
     ) => {
       if (transition !== authTransitionRef.current) {
         return;
       }
 
-      if (clearStorage || event === "SIGNED_OUT") {
+      if (event === "SIGNED_OUT") {
         let mainSignOutCompleted = false;
         if (event === "SIGNED_OUT" && !managesCloudsync) {
           resetTrackedAuthIdentity();
@@ -259,11 +270,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        await rejectAuthChange(
-          transition,
-          clearStorage && event !== "SIGNED_OUT",
-          mainSignOutCompleted,
-        );
+        await rejectAuthChange(transition, false, mainSignOutCompleted);
         return;
       }
 
@@ -289,8 +296,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (transition !== authTransitionRef.current) {
             return;
           }
-          console.warn("[auth] local database account verification failed");
-          await rejectAuthChange(transition, true);
+          console.warn(
+            "[auth] local database account verification failed; preserving the local session",
+          );
+          setSession(nextSession);
+          void enqueueAuthAnalytics(() => trackAuthEvent(event, nextSession));
           return;
         }
       }
@@ -352,11 +362,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const enqueueAuthChange = useCallback(
-    (
-      event: AuthChangeEvent,
-      nextSession: Session | null,
-      clearStorage = false,
-    ) => {
+    (event: AuthChangeEvent, nextSession: Session | null) => {
       if (event !== "SIGNED_OUT") {
         coordinatedMainSignOutRef.current = null;
       }
@@ -364,13 +370,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const transition = ++authTransitionRef.current;
       const storageRevision = authStorageRevisionRef.current;
       const apply = () =>
-        applyAuthChange(
-          event,
-          nextSession,
-          transition,
-          storageRevision,
-          clearStorage,
-        );
+        applyAuthChange(event, nextSession, transition, storageRevision);
       const queued =
         event === "SIGNED_OUT"
           ? Promise.resolve().then(apply)
@@ -389,19 +389,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!initStartedRef.current) {
       initStartedRef.current = true;
       const initialTransition = authTransitionRef.current;
-      const initialNonInitialTransition = nonInitialAuthTransitionRef.current;
-      void loadInitialSession(supabase).then((initial) => {
-        if (initial.clearStorage) {
-          if (
-            initialNonInitialTransition === nonInitialAuthTransitionRef.current
-          ) {
-            void enqueueAuthChange("INITIAL_SESSION", null, true);
-          }
-          return;
-        }
-
+      void loadInitialSession(supabase).then((initialSession) => {
         if (initialTransition === authTransitionRef.current) {
-          void enqueueAuthChange("INITIAL_SESSION", initial.session);
+          void enqueueAuthChange("INITIAL_SESSION", initialSession);
         }
       });
     }
@@ -409,9 +399,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event !== "INITIAL_SESSION") {
-        nonInitialAuthTransitionRef.current += 1;
+      if (event === "INITIAL_SESSION") {
+        return;
       }
+      if (event === "SIGNED_OUT") {
+        console.warn("[auth] ignoring unsolicited SDK sign-out");
+        return;
+      }
+
       console.log(
         `[auth] onAuthStateChange: ${event}`,
         session ? `expires_at=${session.expires_at}` : "no session",
@@ -619,8 +614,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     await enqueueAuthChange("SIGNED_OUT", null);
+    if (authTransitionEventRef.current !== "SIGNED_OUT") {
+      return false;
+    }
+
+    try {
+      await emit(AUTH_SIGN_OUT_COMMITTED_EVENT, {
+        sourceLabel: currentWindowLabel,
+      } satisfies AuthSignOutCommittedPayload);
+    } catch {
+      console.warn("[auth] sign-out could not be synchronized");
+    }
     return true;
-  }, [enqueueAuthChange, rejectAccountMismatch, session]);
+  }, [currentWindowLabel, enqueueAuthChange, rejectAccountMismatch, session]);
   const signOutFromMainRef = useLatestRef(signOutFromMain);
 
   useMountEffect(() => {
@@ -677,6 +683,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   });
 
+  useMountEffect(() => {
+    let active = true;
+    let unlisten: (() => void) | null = null;
+
+    void listen<AuthSignOutCommittedPayload>(
+      AUTH_SIGN_OUT_COMMITTED_EVENT,
+      (event) => {
+        if (
+          !active ||
+          !isAuthSignOutCommittedPayload(event.payload) ||
+          event.payload.sourceLabel === currentWindowLabel
+        ) {
+          return;
+        }
+
+        authTransitionEventRef.current = "SIGNED_OUT";
+        const transition = ++authTransitionRef.current;
+        void rejectAuthChange(transition, true, true);
+      },
+    )
+      .then((fn) => {
+        if (active) {
+          unlisten = fn;
+        } else {
+          fn();
+        }
+      })
+      .catch(() => {
+        console.warn("[auth] sign-out synchronization failed to initialize");
+      });
+
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  });
+
   const signOut = useCallback(async () => {
     if (managesCloudsync) {
       await signOutFromMain();
@@ -714,6 +757,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => refreshSessionMutation.mutateAsync(),
     [refreshSessionMutation.mutateAsync],
   );
+
+  const getSessionForRequest =
+    useCallback(async (): Promise<Session | null> => {
+      if (!supabase) {
+        return null;
+      }
+
+      let requestSession = session ?? null;
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (!error && data.session) {
+          requestSession = data.session;
+        }
+      } catch {
+        // Fall back to the in-memory session below.
+      }
+
+      if (!requestSession) {
+        return null;
+      }
+
+      const expiresAt = requestSession.expires_at
+        ? requestSession.expires_at * 1000
+        : null;
+      if (!expiresAt || expiresAt > Date.now() + 120_000) {
+        return requestSession;
+      }
+
+      let refreshedSession: Session | null = null;
+      try {
+        refreshedSession = await refreshSession();
+      } catch {
+        // Fall back to the current session while it remains valid.
+      }
+      if (refreshedSession) {
+        return refreshedSession;
+      }
+
+      return expiresAt > Date.now() ? requestSession : null;
+    }, [refreshSession, session]);
 
   const getHeaders = useCallback(() => {
     if (!session) {
@@ -761,6 +844,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signIn,
       signOut,
       refreshSession,
+      getSessionForRequest,
       isRefreshingSession: refreshSessionMutation.isPending,
       handleAuthCallback,
       setSessionFromTokens,
@@ -772,6 +856,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signIn,
       signOut,
       refreshSession,
+      getSessionForRequest,
       refreshSessionMutation.isPending,
       handleAuthCallback,
       setSessionFromTokens,

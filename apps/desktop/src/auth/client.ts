@@ -11,6 +11,10 @@ import { commands as authCommands } from "@anlg/plugin-auth";
 
 import { env } from "~/env";
 
+const authStorageKey = env.VITE_SUPABASE_URL
+  ? `sb-${new URL(env.VITE_SUPABASE_URL).hostname.split(".")[0]}-auth-token`
+  : null;
+
 export const tauriStorage: SupportedStorage = {
   async getItem(key: string): Promise<string | null> {
     const result = await authCommands.getItem(key);
@@ -26,6 +30,10 @@ export const tauriStorage: SupportedStorage = {
     }
   },
   async removeItem(key: string): Promise<void> {
+    if (key === authStorageKey) {
+      return;
+    }
+
     const result = await authCommands.removeItem(key);
     if (result.status === "error") {
       throw new Error(`auth storage removeItem failed: ${result.error}`);
@@ -33,9 +41,31 @@ export const tauriStorage: SupportedStorage = {
   },
 };
 
-const authStorageKey = env.VITE_SUPABASE_URL
-  ? `sb-${new URL(env.VITE_SUPABASE_URL).hostname.split(".")[0]}-auth-token`
-  : null;
+function parsePersistedSession(value: string | null): Session | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as Partial<Session>;
+    return typeof parsed.access_token === "string" &&
+      typeof parsed.refresh_token === "string" &&
+      typeof parsed.token_type === "string" &&
+      typeof parsed.user?.id === "string"
+      ? (parsed as Session)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function readPersistedAuthSession(): Promise<Session | null> {
+  if (!authStorageKey) {
+    return null;
+  }
+
+  return parsePersistedSession(await tauriStorage.getItem(authStorageKey));
+}
 
 export async function persistAuthSession(session: Session): Promise<void> {
   if (!authStorageKey) {
