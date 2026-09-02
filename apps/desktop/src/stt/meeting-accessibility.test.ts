@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   inspectionsShowActiveMeetingForApps,
   inspectionShowsActiveMeeting,
-} from "~/stt/meeting-accessibility";
+} from "./meeting-accessibility";
 
 const activeInspection = {
   app: { id: "com.google.Chrome", name: "Google Chrome" },

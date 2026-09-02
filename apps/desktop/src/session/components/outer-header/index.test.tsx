@@ -41,7 +41,7 @@ const mocks = vi.hoisted(() => ({
   }>,
   shareSessionIds: [] as string[],
   windowControlsGutter: true,
-  meetingAccessibilityActive: false,
+  meetingMicInUse: false,
 }));
 
 vi.mock("../folder-picker", () => ({
@@ -122,8 +122,8 @@ vi.mock("~/session/hooks/useSessionEvent", () => ({
     mocks.sessionEvents[sessionId] ?? null,
 }));
 
-vi.mock("~/session/hooks/useMeetingAccessibilityActive", () => ({
-  useMeetingAccessibilityActive: () => mocks.meetingAccessibilityActive,
+vi.mock("~/session/hooks/useMeetingMicInUse", () => ({
+  useMeetingMicInUse: () => mocks.meetingMicInUse,
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -207,7 +207,7 @@ describe("OuterHeader", () => {
     mocks.overflowProps = [];
     mocks.shareSessionIds = [];
     mocks.windowControlsGutter = true;
-    mocks.meetingAccessibilityActive = false;
+    mocks.meetingMicInUse = false;
   });
 
   afterEach(() => {
@@ -783,7 +783,7 @@ describe("OuterHeader", () => {
     expect(mocks.startListening).toHaveBeenCalledTimes(1);
   });
 
-  it("switches from join-and-record to record when accessibility sees an active meeting", () => {
+  it("keeps join-and-record when the mic is in use before the meeting starts", () => {
     mocks.sessionEvents = {
       "session-1": {
         title: "Design Review",
@@ -792,7 +792,59 @@ describe("OuterHeader", () => {
         meeting_link: "https://meet.google.com/abc-defg-hij",
       },
     };
-    mocks.meetingAccessibilityActive = true;
+    mocks.nowMs = new Date("2026-06-05T09:55:00.000Z").getTime();
+    mocks.meetingMicInUse = true;
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+      />,
+    );
+
+    const joinButton = screen.getByRole("button", { name: "Join & record" });
+    fireEvent.click(joinButton);
+
+    expect(mocks.openUrl).toHaveBeenCalledWith(
+      "https://meet.google.com/abc-defg-hij",
+      null,
+    );
+    expect(mocks.startListening).toHaveBeenCalledOnce();
+  });
+
+  it("keeps join-and-record after start when the mic is free", () => {
+    mocks.sessionEvents = {
+      "session-1": {
+        title: "Design Review",
+        started_at: "2026-06-05T10:00:00.000Z",
+        ended_at: "2026-06-05T10:30:00.000Z",
+        meeting_link: "https://meet.google.com/abc-defg-hij",
+      },
+    };
+    mocks.nowMs = new Date("2026-06-05T10:05:00.000Z").getTime();
+    mocks.meetingMicInUse = false;
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Join & record" })).toBeTruthy();
+  });
+
+  it("switches from join-and-record to record when the meeting has started and the mic is in use", () => {
+    mocks.sessionEvents = {
+      "session-1": {
+        title: "Design Review",
+        started_at: "2026-06-05T10:00:00.000Z",
+        ended_at: "2026-06-05T10:30:00.000Z",
+        meeting_link: "https://meet.google.com/abc-defg-hij",
+      },
+    };
+    mocks.nowMs = new Date("2026-06-05T10:05:00.000Z").getTime();
+    mocks.meetingMicInUse = true;
 
     render(
       <OuterHeader
@@ -808,6 +860,27 @@ describe("OuterHeader", () => {
 
     expect(mocks.openUrl).not.toHaveBeenCalled();
     expect(mocks.startListening).toHaveBeenCalledOnce();
+  });
+
+  it("keeps join-and-record for the welcome demo even if the mic is in use after start", () => {
+    mocks.sessionEvents = {
+      "session-1": {
+        tracking_id: "anarlog-onboarding-demo-v1",
+        started_at: "2026-06-05T10:00:00.000Z",
+        meeting_link: "https://anarlog.so/onboarding-demo/",
+      },
+    };
+    mocks.nowMs = new Date("2026-06-05T10:05:00.000Z").getTime();
+    mocks.meetingMicInUse = true;
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Join & record" })).toBeTruthy();
   });
 
   it("opens the welcome demo with an automatic completion callback", async () => {

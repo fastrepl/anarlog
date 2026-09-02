@@ -9,7 +9,7 @@ import {
   PopoverAnchor,
   PopoverContent,
 } from "@anlg/ui/components/ui/popover";
-import { cn, safeParseDate } from "@anlg/utils";
+import { cn, parseEventInstant, safeParseDate } from "@anlg/utils";
 
 import { FolderPicker } from "../folder-picker";
 import { TranscriptEditButton } from "../note-input/transcript";
@@ -27,7 +27,7 @@ import {
 } from "~/onboarding/welcome-note.constants";
 import { SessionShareButton } from "~/session-sharing";
 import { useEventCountdown } from "~/session/hooks/useEventCountdown";
-import { useMeetingAccessibilityActive } from "~/session/hooks/useMeetingAccessibilityActive";
+import { useMeetingMicInUse } from "~/session/hooks/useMeetingMicInUse";
 import {
   getRemoteMeeting,
   type RemoteMeeting,
@@ -210,6 +210,11 @@ function HeaderMeetingControl({
   );
 }
 
+function meetingHasStarted(startedAt: string | undefined, now: Date) {
+  const start = parseEventInstant(startedAt);
+  return start != null && now.getTime() >= start.getTime();
+}
+
 function HeaderMeetingActionPill({
   sessionId,
   event,
@@ -221,6 +226,7 @@ function HeaderMeetingActionPill({
   event: {
     meeting_link?: string;
     tracking_id?: string;
+    started_at?: string;
   } | null;
   sessionMode: string;
   hasTranscript: boolean;
@@ -237,8 +243,13 @@ function HeaderMeetingActionPill({
   const canJoinFromHeader = Boolean(
     meetingLink && (remote !== null || isWelcomeDemo),
   );
-  const meetingAccessibilityActive = useMeetingAccessibilityActive(
-    canJoinFromHeader && !isWelcomeDemo && sessionMode === "inactive",
+  const now = useNow();
+  const meetingStarted = meetingHasStarted(event?.started_at, now);
+  const meetingMicInUse = useMeetingMicInUse(
+    canJoinFromHeader &&
+      !isWelcomeDemo &&
+      sessionMode === "inactive" &&
+      meetingStarted,
   );
   const canResume = audioExists || hasTranscript;
   const { t } = useLingui();
@@ -320,7 +331,10 @@ function HeaderMeetingActionPill({
       };
     }
 
-    if (canJoinFromHeader && !meetingAccessibilityActive) {
+    if (
+      canJoinFromHeader &&
+      (isWelcomeDemo || !meetingStarted || !meetingMicInUse)
+    ) {
       return {
         label: t`Join & record`,
         title: t`Join meeting and record`,
