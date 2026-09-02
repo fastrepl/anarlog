@@ -32,8 +32,8 @@ vi.mock("~/stt/contexts", () => ({
   useListener: useListenerMock,
 }));
 
-vi.mock("~/stt/useStartListening", () => ({
-  useStartListening: () => startListeningMock,
+vi.mock("~/stt/useStartListeningWithBatchOverride", () => ({
+  useStartListeningWithBatchOverride: () => startListeningMock,
 }));
 
 vi.mock("~/stt/window-control", () => ({
@@ -74,6 +74,26 @@ describe("Listening", () => {
     expect(requestMainListenerControlMock).not.toHaveBeenCalled();
   });
 
+  it("lets users interrupt batch processing to resume listening", () => {
+    useListenerMock.mockImplementation((selector) =>
+      selector({
+        getSessionMode: () => "running_batch",
+        stop: stopMock,
+      }),
+    );
+
+    render(<Listening sessionId="session-1" resume />);
+
+    const resumeButton = screen.getByRole("button", {
+      name: "Resume listening",
+    });
+    expect(resumeButton.hasAttribute("disabled")).toBe(false);
+
+    fireEvent.click(resumeButton);
+
+    expect(startListeningMock).toHaveBeenCalledTimes(1);
+  });
+
   it("delegates standalone start requests to the main window before transcript exists", () => {
     isMainWebviewWindowMock.mockReturnValue(false);
 
@@ -106,5 +126,25 @@ describe("Listening", () => {
       "session-1",
     );
     expect(stopMock).not.toHaveBeenCalled();
+  });
+
+  it("delegates batch overrides from standalone windows", () => {
+    isMainWebviewWindowMock.mockReturnValue(false);
+    useListenerMock.mockImplementation((selector) =>
+      selector({
+        getSessionMode: () => "running_batch",
+        stop: stopMock,
+      }),
+    );
+
+    render(<Listening sessionId="session-1" resume />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Resume listening" }));
+
+    expect(requestMainListenerControlMock).toHaveBeenCalledWith(
+      "start",
+      "session-1",
+    );
+    expect(startListeningMock).not.toHaveBeenCalled();
   });
 });

@@ -233,7 +233,19 @@ export const createGeneralSlice = <
       return;
     }
 
-    await listenerCommands.stopTranscription(sessionId).catch(console.error);
+    try {
+      const result = await listenerCommands.stopTranscription(sessionId);
+      if (result.status === "error") {
+        console.error(result.error);
+        return;
+      }
+
+      if (get().getSessionMode(sessionId) === "running_batch") {
+        get().handleBatchStopped(sessionId);
+      }
+    } catch (error) {
+      console.error(error);
+    }
   },
   canStartLiveSession: (sessionId) => {
     if (!sessionId) {

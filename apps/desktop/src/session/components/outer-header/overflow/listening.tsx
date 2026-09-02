@@ -3,7 +3,7 @@ import { Microphone, MicrophoneSlash } from "@phosphor-icons/react";
 import { DropdownMenuItem } from "@anlg/ui/components/ui/dropdown-menu";
 
 import { useListener } from "~/stt/contexts";
-import { useStartListening } from "~/stt/useStartListening";
+import { useStartListeningWithBatchOverride } from "~/stt/useStartListeningWithBatchOverride";
 import {
   isMainWebviewWindow,
   requestMainListenerControl,
@@ -23,13 +23,9 @@ export function Listening({
   const isListening = mode === "active" || mode === "finalizing";
   const isFinalizing = mode === "finalizing";
   const isBatching = mode === "running_batch";
-  const startListening = useStartListening(sessionId);
+  const startListening = useStartListeningWithBatchOverride(sessionId);
 
   const handleToggleListening = () => {
-    if (isBatching) {
-      return;
-    }
-
     if (!isMainWebviewWindow()) {
       void requestMainListenerControl(
         isListening ? "stop" : "start",
@@ -41,26 +37,21 @@ export function Listening({
     if (isListening) {
       stop();
     } else {
-      startListening();
+      void startListening();
     }
   };
 
-  const startLabel = resume ? "Resume listening" : "Start listening";
+  const startLabel =
+    resume || isBatching ? "Resume listening" : "Start listening";
 
   return (
     <DropdownMenuItem
       className="cursor-pointer"
       onClick={handleToggleListening}
-      disabled={isFinalizing || isBatching}
+      disabled={isFinalizing}
     >
       {isListening ? <MicrophoneSlash /> : <Microphone />}
-      <span>
-        {isBatching
-          ? "Batch processing"
-          : isListening
-            ? "Stop listening"
-            : startLabel}
-      </span>
+      <span>{isListening ? "Stop listening" : startLabel}</span>
     </DropdownMenuItem>
   );
 }

@@ -24,7 +24,7 @@ import {
   useNativeContextMenu,
 } from "~/shared/hooks/useNativeContextMenu";
 import { useListener } from "~/stt/contexts";
-import { useStartListening } from "~/stt/useStartListening";
+import { useStartListeningWithBatchOverride } from "~/stt/useStartListeningWithBatchOverride";
 import {
   isMainWebviewWindow,
   requestMainListenerControl,
@@ -212,7 +212,7 @@ function HeaderViewTranscriptActive({
   };
 }) {
   const regenerate = useRegenerateTranscript(sessionId);
-  const startListening = useStartListening(sessionId);
+  const startListening = useStartListeningWithBatchOverride(sessionId);
   const sessionEvent = useSessionEvent(sessionId);
   const hasTranscript = useHasTranscript(sessionId);
   const now = useNow();
@@ -289,7 +289,7 @@ function HeaderViewTranscriptActive({
       },
     ];
 
-    if (sessionMode === "inactive") {
+    if (sessionMode === "inactive" || sessionMode === "running_batch") {
       items.push({
         id: `resume-listening-${sessionId}`,
         text: "Resume listening",

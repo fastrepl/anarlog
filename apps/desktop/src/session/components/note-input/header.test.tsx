@@ -295,8 +295,8 @@ vi.mock("~/stt/contexts", () => ({
     }),
 }));
 
-vi.mock("~/stt/useStartListening", () => ({
-  useStartListening: () => hoisted.startListening,
+vi.mock("~/stt/useStartListeningWithBatchOverride", () => ({
+  useStartListeningWithBatchOverride: () => hoisted.startListening,
 }));
 
 vi.mock("~/stt/window-control", () => ({
@@ -672,32 +672,61 @@ describe("Header", () => {
     ).toEqual(["Copy", "Resume listening"]);
   });
 
-  it.each(["finalizing", "running_batch"])(
-    "hides re-transcription actions while the session is %s",
-    (sessionMode) => {
-      hoisted.audioExists = false;
-      hoisted.sessionMode = sessionMode;
+  it("hides re-transcription actions while the session is finalizing", () => {
+    hoisted.audioExists = false;
+    hoisted.sessionMode = "finalizing";
 
-      render(
-        <SessionViewSwitcher
-          sessionId="session-1"
-          editorTabs={[
-            { type: "enhanced", id: "note-1" },
-            { type: "raw" },
-            { type: "transcript" },
-          ]}
-          currentTab={{ type: "transcript" }}
-          handleTabChange={vi.fn()}
-        />,
-      );
+    render(
+      <SessionViewSwitcher
+        sessionId="session-1"
+        editorTabs={[
+          { type: "enhanced", id: "note-1" },
+          { type: "raw" },
+          { type: "transcript" },
+        ]}
+        currentTab={{ type: "transcript" }}
+        handleTabChange={vi.fn()}
+      />,
+    );
 
-      expect(
-        findContextMenu("copy-transcript-session-1").map((item) =>
-          "text" in item ? item.text : "separator",
-        ),
-      ).toEqual(["Copy"]);
-    },
-  );
+    expect(
+      findContextMenu("copy-transcript-session-1").map((item) =>
+        "text" in item ? item.text : "separator",
+      ),
+    ).toEqual(["Copy"]);
+  });
+
+  it("lets transcript menus interrupt batch processing to resume listening", () => {
+    hoisted.audioExists = false;
+    hoisted.sessionMode = "running_batch";
+
+    render(
+      <SessionViewSwitcher
+        sessionId="session-1"
+        editorTabs={[
+          { type: "enhanced", id: "note-1" },
+          { type: "raw" },
+          { type: "transcript" },
+        ]}
+        currentTab={{ type: "transcript" }}
+        handleTabChange={vi.fn()}
+      />,
+    );
+
+    const menu = findContextMenu("copy-transcript-session-1");
+    expect(
+      menu.map((item) => ("text" in item ? item.text : "separator")),
+    ).toEqual(["Copy", "Resume listening"]);
+
+    menu
+      .find(
+        (item): item is Extract<CapturedMenuItem, { id: string }> =>
+          "id" in item && item.id === "resume-listening-session-1",
+      )
+      ?.action();
+
+    expect(hoisted.startListening).toHaveBeenCalledTimes(1);
+  });
 
   it("hides re-transcription while the audio lookup is pending", () => {
     hoisted.audioExists = true;

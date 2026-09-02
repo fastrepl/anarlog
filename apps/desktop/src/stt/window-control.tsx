@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
 
 import { useListener } from "./contexts";
-import { useStartListening } from "./useStartListening";
+import { useStartListeningWithBatchOverride } from "./useStartListeningWithBatchOverride";
 
 import { listenerStore } from "~/store/zustand/listener/instance";
 
@@ -90,7 +90,7 @@ function MainListenerControlRequestRunner({
   onHandled: (requestId: string) => void;
   request: ListenerControlRequest;
 }) {
-  const startListening = useStartListening(request.sessionId);
+  const startListening = useStartListeningWithBatchOverride(request.sessionId);
   const stop = useListener((state) => state.stop);
   const startListeningRef = useRef(startListening);
   startListeningRef.current = startListening;
