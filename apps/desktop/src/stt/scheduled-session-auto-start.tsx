@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 
@@ -68,11 +68,35 @@ function PendingScheduledSessionAutoStart({
 
 function ReadyScheduledSessionAutoStart({ sessionId }: { sessionId: string }) {
   const { connectionReady, startListening } = useStartListeningState(sessionId);
-  const startListeningRef = useLatestRef(startListening);
   const attemptedRef = useRef(false);
 
-  useEffect(() => {
-    if (!connectionReady || attemptedRef.current) {
+  useMountEffect(() => {
+    const timeout = setTimeout(() => clearPendingAutoStart(sessionId), 30_000);
+    return () => clearTimeout(timeout);
+  });
+
+  return connectionReady ? (
+    <StartScheduledSessionAutoStart
+      attemptedRef={attemptedRef}
+      sessionId={sessionId}
+      startListening={startListening}
+    />
+  ) : null;
+}
+
+function StartScheduledSessionAutoStart({
+  attemptedRef,
+  sessionId,
+  startListening,
+}: {
+  attemptedRef: { current: boolean };
+  sessionId: string;
+  startListening: () => Promise<void>;
+}) {
+  const startListeningRef = useLatestRef(startListening);
+
+  useMountEffect(() => {
+    if (attemptedRef.current) {
       return;
     }
     attemptedRef.current = true;
@@ -94,11 +118,6 @@ function ReadyScheduledSessionAutoStart({ sessionId }: { sessionId: string }) {
       .finally(() => {
         finishScheduledAutoStart(sessionId);
       });
-  }, [connectionReady, sessionId, startListeningRef]);
-
-  useMountEffect(() => {
-    const timeout = setTimeout(() => clearPendingAutoStart(sessionId), 30_000);
-    return () => clearTimeout(timeout);
   });
 
   return null;
