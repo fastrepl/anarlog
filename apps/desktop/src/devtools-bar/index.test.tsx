@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { getIdentifier } from "@tauri-apps/api/app";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -71,6 +72,9 @@ function renderBar() {
 describe("DevtoolsStatusBar", () => {
   beforeEach(() => {
     mocks.identifier = "com.hyprnote.staging";
+    vi.mocked(getIdentifier).mockImplementation(() =>
+      Promise.resolve(mocks.identifier),
+    );
     mocks.reactScanAvailable = false;
     mocks.outlinesEnabled = true;
     mocks.toolbarVisible = false;
@@ -112,6 +116,26 @@ describe("DevtoolsStatusBar", () => {
     expect(bar.textContent).toContain("MEM312MB");
     expect(screen.queryByText("renders")).toBeNull();
     expect(mocks.startDevtoolsMetrics).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits for build info before rendering the channel", async () => {
+    let resolveIdentifier: (identifier: string) => void = () => {};
+    vi.mocked(getIdentifier).mockReturnValue(
+      new Promise((resolve) => {
+        resolveIdentifier = resolve;
+      }),
+    );
+
+    renderBar();
+
+    await vi.waitFor(() => expect(getIdentifier).toHaveBeenCalled());
+    expect(screen.queryByTestId("devtools-status-bar")).toBeNull();
+
+    resolveIdentifier("com.hyprnote.staging");
+
+    const bar = await screen.findByTestId("devtools-status-bar");
+    expect(bar.textContent).toContain("staging");
+    expect(bar.className).toContain("bg-amber-900");
   });
 
   it("uses the dev palette for local builds", async () => {

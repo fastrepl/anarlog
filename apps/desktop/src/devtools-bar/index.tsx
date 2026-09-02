@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { getIdentifier, getVersion } from "@tauri-apps/api/app";
-import { useEffect, useReducer, useSyncExternalStore } from "react";
+import { useReducer, useSyncExternalStore } from "react";
 
 import { commands as miscCommands } from "@anlg/plugin-misc";
 import { commands as windowsCommands } from "@anlg/plugin-windows";
@@ -22,6 +22,7 @@ import {
   subscribeReactScanAvailability,
 } from "./react-scan";
 
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { commands } from "~/types/tauri.gen";
 
 export type BuildChannel = "dev" | "staging" | "stable";
@@ -63,7 +64,7 @@ export function DevtoolsStatusBar(props: Record<never, never>) {
 
 function DevtoolsStatusBarContent(props: Record<never, never>) {
   ignoreReactScan(props);
-  useEffect(() => startDevtoolsMetrics(), []);
+  useMountEffect(() => startDevtoolsMetrics());
 
   const metrics = useDevtoolsMetrics();
   const build = useBuildInfo();
@@ -73,7 +74,6 @@ function DevtoolsStatusBarContent(props: Record<never, never>) {
   );
   const [, refresh] = useReducer((tick: number) => tick + 1, 0);
 
-  const channel = build?.channel ?? "stable";
   const fps = last(metrics.fps);
   const invokes = last(metrics.invokes) ?? 0;
   const callbacks = last(metrics.callbacks) ?? 0;
@@ -81,6 +81,12 @@ function DevtoolsStatusBarContent(props: Record<never, never>) {
   const memoryBytes = last(metrics.memoryBytes);
   const outlinesEnabled = reactScanAvailable && areReactScanOutlinesEnabled();
   const toolbarVisible = reactScanAvailable && isReactScanToolbarVisible();
+
+  if (!build) {
+    return null;
+  }
+
+  const channel = build.channel;
 
   return (
     <footer
@@ -99,12 +105,10 @@ function DevtoolsStatusBarContent(props: Record<never, never>) {
         <span className="font-semibold tracking-wider uppercase">
           {channel}
         </span>
-        {build ? (
-          <span className="opacity-70">
-            {build.version}
-            {build.hash ? ` ${build.hash}` : ""}
-          </span>
-        ) : null}
+        <span className="opacity-70">
+          {build.version}
+          {build.hash ? ` ${build.hash}` : ""}
+        </span>
       </BarButton>
 
       <Segment
