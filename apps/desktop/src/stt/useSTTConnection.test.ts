@@ -3,12 +3,32 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { config, readiness, startServerForPathMock } = vi.hoisted(() => ({
+const {
+  authState,
+  billingState,
+  config,
+  getServerForModelMock,
+  isModelDownloadedMock,
+  readiness,
+  startServerForPathMock,
+} = vi.hoisted(() => ({
+  authState: {
+    session: { access_token: "access-token" } as
+      | { access_token: string }
+      | null
+      | undefined,
+  },
+  billingState: {
+    isPaid: true,
+    isReady: true,
+  },
   config: {
     current_stt_provider: "anarlog",
     current_stt_model: "cloud",
     local_stt_model_path: "",
   },
+  getServerForModelMock: vi.fn(),
+  isModelDownloadedMock: vi.fn(),
   readiness: {
     provider: true,
     settings: true,
@@ -18,18 +38,18 @@ const { config, readiness, startServerForPathMock } = vi.hoisted(() => ({
 
 vi.mock("@anlg/plugin-local-stt", () => ({
   commands: {
-    getServerForModel: vi.fn(),
-    isModelDownloaded: vi.fn(),
+    getServerForModel: getServerForModelMock,
+    isModelDownloaded: isModelDownloadedMock,
     startServerForPath: startServerForPathMock,
   },
 }));
 
 vi.mock("~/auth", () => ({
-  useAuth: () => ({ session: { access_token: "access-token" } }),
+  useAuth: () => ({ session: authState.session }),
 }));
 
 vi.mock("~/auth/billing-context", () => ({
-  useBillingAccess: () => ({ isPaid: true }),
+  useBillingAccess: () => billingState,
 }));
 
 vi.mock("~/env", () => ({
@@ -67,8 +87,10 @@ vi.mock("~/stt/capabilities", () => ({
     provider === "anarlog" && model === "cloud",
   isLocalFileSttModel: (provider: string, model: string) =>
     provider === "local_file" && model === "local-file",
-  isOnDeviceSttModel: () => false,
-  isRealtimeLocalModel: () => false,
+  isOnDeviceSttModel: (provider: string, model: string) =>
+    provider === "soniqo" && model === "soniqo-parakeet-streaming",
+  isRealtimeLocalModel: (model: string) =>
+    model === "soniqo-parakeet-streaming",
 }));
 
 import { useSTTConnection } from "./useSTTConnection";
@@ -78,8 +100,13 @@ describe("useSTTConnection", () => {
     config.current_stt_provider = "anarlog";
     config.current_stt_model = "cloud";
     config.local_stt_model_path = "";
+    authState.session = { access_token: "access-token" };
+    billingState.isPaid = true;
+    billingState.isReady = true;
     readiness.provider = true;
     readiness.settings = true;
+    getServerForModelMock.mockReset();
+    isModelDownloadedMock.mockReset();
     startServerForPathMock.mockReset();
   });
 
@@ -140,6 +167,49 @@ describe("useSTTConnection", () => {
     const settingsPending = renderHook(() => useSTTConnection(), { wrapper });
 
     expect(settingsPending.result.current.isReady).toBe(false);
+  });
+
+  it("waits for cloud authentication and billing access", () => {
+    billingState.isReady = false;
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    const billingPending = renderHook(() => useSTTConnection(), { wrapper });
+
+    expect(billingPending.result.current.isReady).toBe(false);
+
+    billingPending.unmount();
+    billingState.isReady = true;
+    authState.session = undefined;
+    const authPending = renderHook(() => useSTTConnection(), { wrapper });
+
+    expect(authPending.result.current.conn).toBeNull();
+    expect(authPending.result.current.isReady).toBe(false);
+  });
+
+  it("waits for an on-device model server to become ready", async () => {
+    config.current_stt_provider = "soniqo";
+    config.current_stt_model = "soniqo-parakeet-streaming";
+    isModelDownloadedMock.mockResolvedValue({ status: "ok", data: true });
+    getServerForModelMock.mockResolvedValue({
+      status: "ok",
+      data: { status: "loading" },
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    const { result } = renderHook(() => useSTTConnection(), { wrapper });
+
+    await waitFor(() => expect(result.current.local.isPending).toBe(false));
+    expect(result.current.conn).toBeNull();
+    expect(result.current.local.data?.status).toBe("loading");
+    expect(result.current.isReady).toBe(false);
   });
 
   it("starts a selected local model file and exposes its local URL", async () => {

@@ -189,7 +189,12 @@ export const useSTTConnection = () => {
     conn: connection,
     isReady:
       settingsReady &&
-      (isLocalModel ? !local.isPending : isCloudModel || providerConfigReady),
+      connection !== null &&
+      (isLocalModel
+        ? !local.isPending
+        : isCloudModel
+          ? billing.isReady
+          : providerConfigReady),
     local,
     localBatchDiarizationAvailable: localBatchModel.data === true,
     isLocalModel,
