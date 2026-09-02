@@ -39,16 +39,6 @@
     "cwd": "${configDir}",
     "commands": [
       {
-        "command": "gofmt",
-        "exts": [
-          "go"
-        ],
-        "cacheKeyFiles": [
-          "go.mod",
-          "go.sum"
-        ]
-      },
-      {
         "command": "rustfmt --edition 2024",
         "exts": [
           "rs"
