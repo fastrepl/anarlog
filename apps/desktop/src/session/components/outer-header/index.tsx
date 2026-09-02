@@ -124,7 +124,7 @@ function HeaderMeetingControl({
     ? safeParseDate(sessionEvent.ended_at)
     : null;
   const ended = !!endedAt && endedAt.getTime() <= now.getTime();
-  if (sessionMode === "finalizing") {
+  if (sessionMode === "finalizing" || sessionMode === "running_batch") {
     return null;
   }
 
@@ -165,10 +165,7 @@ function HeaderMeetingActionPill({
   audioExists: boolean;
 }) {
   const startListening = useStartListening(sessionId);
-  const { stop, stopTranscription } = useListener((state) => ({
-    stop: state.stop,
-    stopTranscription: state.stopTranscription,
-  }));
+  const stop = useListener((state) => state.stop);
   const remote = getRemoteMeeting(event?.meeting_link);
   const meetingLink = event?.meeting_link || null;
   const isWelcomeDemo = event?.tracking_id === WELCOME_NOTE_TRACKING_ID;
@@ -252,17 +249,6 @@ function HeaderMeetingActionPill({
         title: t`Stop listening`,
         icon: <Square className="size-3 text-red-500" weight="fill" />,
         onClick: stopListening,
-      };
-    }
-
-    if (sessionMode === "running_batch") {
-      return {
-        label: t`Stop`,
-        title: t`Stop transcription`,
-        icon: <Square className="size-3 text-red-500" weight="fill" />,
-        onClick: () => {
-          void stopTranscription(sessionId);
-        },
       };
     }
 

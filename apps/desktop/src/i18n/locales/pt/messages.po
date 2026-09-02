@@ -4609,7 +4609,6 @@ msgid "Stop response"
 msgstr ""
 
 #: src/session/components/note-input/transcript/screens/empty.tsx
-#: src/session/components/outer-header/index.tsx
 msgid "Stop transcription"
 msgstr ""
 

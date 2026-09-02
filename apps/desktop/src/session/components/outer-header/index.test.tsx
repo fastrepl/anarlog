@@ -233,6 +233,30 @@ describe("OuterHeader", () => {
     expect(spacer?.className).not.toContain("right-[140px]");
   });
 
+  it("hides the header stop button during post-meeting transcription", () => {
+    mocks.sessionModes = { "session-1": "running_batch" };
+    mocks.sessionEvents = {
+      "session-1": {
+        title: "Design Review",
+        started_at: "2026-06-05T10:00:00.000Z",
+        ended_at: "2026-06-05T10:30:00.000Z",
+        meeting_link: "https://meet.google.com/abc-defg-hij",
+      },
+    };
+    mocks.nowMs = new Date("2026-06-05T10:31:00.000Z").getTime();
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "transcript" } as EditorView}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
+    expect(screen.getByRole("button", { name: "More" })).not.toBeNull();
+  });
+
   it("uses the collapsed sidebar gutter without a title field", () => {
     mocks.leftsidebar.expanded = false;
 
