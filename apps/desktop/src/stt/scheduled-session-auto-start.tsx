@@ -1,11 +1,10 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 
 import { isLockedFlag } from "~/lock/flag";
 import { useAppLock } from "~/lock/store";
 import { useSession } from "~/session/queries";
-import { useAiProvidersState } from "~/settings/providers";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
@@ -15,7 +14,7 @@ import {
   finishScheduledAutoStart,
   takeScheduledAutoJoin,
 } from "~/stt/scheduled-auto-start-state";
-import { useStartListening } from "~/stt/useStartListening";
+import { useStartListeningState } from "~/stt/useStartListening";
 
 export function ScheduledSessionAutoStart({
   sessionId,
@@ -26,7 +25,6 @@ export function ScheduledSessionAutoStart({
     state.canStartLiveSession(sessionId),
   );
   const session = useSession(sessionId);
-  const { isLoading: providerConfigLoading } = useAiProvidersState("stt");
   const revealed = useAppLock((state) =>
     Boolean(state.revealedNoteIds[sessionId]),
   );
@@ -36,7 +34,7 @@ export function ScheduledSessionAutoStart({
     return <AbandonedScheduledSessionAutoStart sessionId={sessionId} />;
   }
 
-  return canStartLiveSession && session && !providerConfigLoading ? (
+  return canStartLiveSession && session ? (
     <ReadyScheduledSessionAutoStart sessionId={sessionId} />
   ) : (
     <PendingScheduledSessionAutoStart sessionId={sessionId} />
@@ -69,12 +67,12 @@ function PendingScheduledSessionAutoStart({
 }
 
 function ReadyScheduledSessionAutoStart({ sessionId }: { sessionId: string }) {
-  const startListening = useStartListening(sessionId);
+  const { connectionReady, startListening } = useStartListeningState(sessionId);
   const startListeningRef = useLatestRef(startListening);
   const attemptedRef = useRef(false);
 
-  useMountEffect(() => {
-    if (attemptedRef.current) {
+  useEffect(() => {
+    if (!connectionReady || attemptedRef.current) {
       return;
     }
     attemptedRef.current = true;
@@ -96,6 +94,11 @@ function ReadyScheduledSessionAutoStart({ sessionId }: { sessionId: string }) {
       .finally(() => {
         finishScheduledAutoStart(sessionId);
       });
+  }, [connectionReady, sessionId, startListeningRef]);
+
+  useMountEffect(() => {
+    const timeout = setTimeout(() => clearPendingAutoStart(sessionId), 30_000);
+    return () => clearTimeout(timeout);
   });
 
   return null;

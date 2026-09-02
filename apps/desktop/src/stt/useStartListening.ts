@@ -35,8 +35,13 @@ export {
 export { useResumeListeningLifecycle } from "./resume-listening";
 
 export function useStartListening(sessionId: string) {
+  return useStartListeningState(sessionId).startListening;
+}
+
+export function useStartListeningState(sessionId: string) {
   const {
     conn,
+    connectionReady,
     createCaptureLifecycle,
     session,
     setStopMeetingChatCapture,
@@ -297,5 +302,5 @@ export function useStartListening(sessionId: string) {
     stopMeetingChatTasks,
   ]);
 
-  return startListening;
+  return { connectionReady, startListening };
 }

@@ -164,7 +164,11 @@ export function useCaptureLifecycle(sessionId: string) {
     useConfigValue("audio_retention"),
   );
   const rememberSpeakers = useConfigValue("remember_speakers") === true;
-  const { conn, localBatchDiarizationAvailable } = useSTTConnection();
+  const {
+    conn,
+    isReady: connectionReady,
+    localBatchDiarizationAvailable,
+  } = useSTTConnection();
   const runBatch = useRunBatch(sessionId);
   const setBatchTranscriptionPending = useListener(
     (state) => state.setBatchTranscriptionPending,
@@ -829,6 +833,7 @@ export function useCaptureLifecycle(sessionId: string) {
 
   return {
     conn,
+    connectionReady,
     createCaptureLifecycle,
     session,
     setStopMeetingChatCapture,

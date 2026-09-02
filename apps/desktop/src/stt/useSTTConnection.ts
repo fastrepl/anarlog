@@ -8,7 +8,8 @@ import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { env } from "~/env";
 import { type ProviderId, PROVIDERS } from "~/settings/ai/stt/shared";
-import { useAiProvider } from "~/settings/providers";
+import { useAiProvidersState } from "~/settings/providers";
+import { useSettingsReady } from "~/settings/queries";
 import { useConfigValues } from "~/shared/config";
 import {
   isAnarlogCloudSttModel,
@@ -21,6 +22,7 @@ import { localSttQueries } from "~/stt/useLocalSttModel";
 export const useSTTConnection = () => {
   const auth = useAuth();
   const billing = useBillingAccess();
+  const settingsReady = useSettingsReady();
   const { current_stt_provider, current_stt_model, local_stt_model_path } =
     useConfigValues([
       "current_stt_provider",
@@ -32,9 +34,11 @@ export const useSTTConnection = () => {
       local_stt_model_path: string | undefined;
     };
 
-  const providerConfig = useAiProvider("stt", current_stt_provider) as
-    | AIProviderStorage
-    | undefined;
+  const { providers, isReady: providerConfigReady } =
+    useAiProvidersState("stt");
+  const providerConfig = (
+    current_stt_provider ? providers[`stt:${current_stt_provider}`] : undefined
+  ) as AIProviderStorage | undefined;
 
   const localModel = isOnDeviceSttModel(current_stt_provider, current_stt_model)
     ? current_stt_model
@@ -183,6 +187,9 @@ export const useSTTConnection = () => {
 
   return {
     conn: connection,
+    isReady:
+      settingsReady &&
+      (isLocalModel ? !local.isPending : isCloudModel || providerConfigReady),
     local,
     localBatchDiarizationAvailable: localBatchModel.data === true,
     isLocalModel,

@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   canStart: true,
   finishScheduledAutoStart: vi.fn(),
   openUrl: vi.fn(),
-  providerConfigLoading: false,
+  connectionReady: true,
   session: {
     id: "session-1",
     user_id: "user-1",
@@ -67,14 +67,6 @@ vi.mock("~/session/queries", () => ({
   useSession: () => mocks.session,
 }));
 
-vi.mock("~/settings/providers", () => ({
-  useAiProvidersState: () => ({
-    isLoading: mocks.providerConfigLoading,
-    isReady: !mocks.providerConfigLoading,
-    providers: {},
-  }),
-}));
-
 vi.mock("~/stt/scheduled-auto-start-state", async () => {
   const actual = await vi.importActual<
     typeof import("./scheduled-auto-start-state")
@@ -87,7 +79,10 @@ vi.mock("~/stt/scheduled-auto-start-state", async () => {
 });
 
 vi.mock("~/stt/useStartListening", () => ({
-  useStartListening: () => mocks.startListening,
+  useStartListeningState: () => ({
+    connectionReady: mocks.connectionReady,
+    startListening: mocks.startListening,
+  }),
 }));
 
 vi.mock("@anlg/plugin-opener2", () => ({
@@ -110,7 +105,7 @@ beforeEach(() => {
   mocks.beginScheduledAutoStart.mockReset();
   mocks.finishScheduledAutoStart.mockReset();
   mocks.openUrl.mockReset();
-  mocks.providerConfigLoading = false;
+  mocks.connectionReady = true;
   mocks.startListening.mockReset().mockResolvedValue(undefined);
   mocks.updateSessionTabState.mockReset();
   takeScheduledAutoJoin("session-1");
@@ -121,7 +116,7 @@ afterEach(() => {
   cleanup();
 });
 
-test("starts scheduled recording without waiting for transcription", async () => {
+test("starts scheduled recording when its connection state is ready", async () => {
   render(<ScheduledSessionAutoStart sessionId="session-1" />);
 
   expect(mocks.startListening).toHaveBeenCalledTimes(1);
@@ -184,16 +179,34 @@ test("starts when the session record becomes available", () => {
   expect(mocks.startListening).toHaveBeenCalledTimes(1);
 });
 
-test("waits for secure provider credentials before auto-starting", () => {
-  mocks.providerConfigLoading = true;
+test("waits for the recording hook's connection before auto-starting", () => {
+  mocks.connectionReady = false;
   const view = render(<ScheduledSessionAutoStart sessionId="session-1" />);
 
   expect(mocks.startListening).not.toHaveBeenCalled();
 
-  mocks.providerConfigLoading = false;
+  mocks.connectionReady = true;
   view.rerender(<ScheduledSessionAutoStart sessionId="session-1" />);
 
   expect(mocks.startListening).toHaveBeenCalledTimes(1);
+});
+
+test("abandons when the recording connection never becomes ready", async () => {
+  vi.useFakeTimers();
+  mocks.connectionReady = false;
+
+  try {
+    render(<ScheduledSessionAutoStart sessionId="session-1" />);
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    expect(mocks.startListening).not.toHaveBeenCalled();
+    expect(mocks.updateSessionTabState).toHaveBeenCalledWith(tab, {
+      view: null,
+      autoStart: null,
+    });
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 test("abandons a scheduled start that never becomes ready", async () => {

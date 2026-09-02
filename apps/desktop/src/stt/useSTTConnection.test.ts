@@ -3,11 +3,15 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { config, startServerForPathMock } = vi.hoisted(() => ({
+const { config, readiness, startServerForPathMock } = vi.hoisted(() => ({
   config: {
     current_stt_provider: "anarlog",
     current_stt_model: "cloud",
     local_stt_model_path: "",
+  },
+  readiness: {
+    provider: true,
+    settings: true,
   },
   startServerForPathMock: vi.fn(),
 }));
@@ -33,11 +37,25 @@ vi.mock("~/env", () => ({
 }));
 
 vi.mock("~/settings/providers", () => ({
-  useAiProvider: () => ({
-    type: "stt",
-    base_url: "   ",
-    api_key: "test-key",
+  useAiProvidersState: () => ({
+    isReady: readiness.provider,
+    providers: {
+      "stt:anarlog": {
+        type: "stt",
+        base_url: "   ",
+        api_key: "test-key",
+      },
+      "stt:deepgram": {
+        type: "stt",
+        base_url: "   ",
+        api_key: "test-key",
+      },
+    },
   }),
+}));
+
+vi.mock("~/settings/queries", () => ({
+  useSettingsReady: () => readiness.settings,
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -60,6 +78,8 @@ describe("useSTTConnection", () => {
     config.current_stt_provider = "anarlog";
     config.current_stt_model = "cloud";
     config.local_stt_model_path = "";
+    readiness.provider = true;
+    readiness.settings = true;
     startServerForPathMock.mockReset();
   });
 
@@ -78,6 +98,7 @@ describe("useSTTConnection", () => {
       baseUrl: "https://api.anarlog.so/stt",
       apiKey: "access-token",
     });
+    expect(result.current.isReady).toBe(true);
   });
 
   it("uses the provider endpoint when only a Deepgram API key is stored", () => {
@@ -97,6 +118,28 @@ describe("useSTTConnection", () => {
       baseUrl: "https://api.deepgram.com/v1",
       apiKey: "test-key",
     });
+  });
+
+  it("waits for stored settings and secure provider configuration", () => {
+    config.current_stt_provider = "deepgram";
+    config.current_stt_model = "nova-3-general";
+    readiness.provider = false;
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    const providerPending = renderHook(() => useSTTConnection(), { wrapper });
+
+    expect(providerPending.result.current.isReady).toBe(false);
+
+    providerPending.unmount();
+    readiness.provider = true;
+    readiness.settings = false;
+    const settingsPending = renderHook(() => useSTTConnection(), { wrapper });
+
+    expect(settingsPending.result.current.isReady).toBe(false);
   });
 
   it("starts a selected local model file and exposes its local URL", async () => {
