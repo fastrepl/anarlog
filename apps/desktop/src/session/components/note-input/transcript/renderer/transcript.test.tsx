@@ -354,6 +354,73 @@ describe("RenderTranscript", () => {
     ).toBe(first);
     expect(document.querySelectorAll("section").length).toBeLessThanOrEqual(30);
   });
+
+  it("preserves an active live segment while trailing words update", () => {
+    const initial = createSegment("live-start:live-end", 0);
+    mocks.useRenderedTranscriptData.mockReturnValue({
+      maxSpeakerNumber: undefined,
+      request: createRenderRequest([initial]),
+      segments: [],
+    });
+    const rendered = render(
+      <RenderTranscript
+        scrollElement={null}
+        isLastTranscript
+        shouldScrollToEnd={false}
+        transcriptId="transcript-1"
+        currentActive
+        liveSegments={[initial]}
+        currentMs={0}
+        seek={vi.fn()}
+        startPlayback={vi.fn()}
+        audioExists
+      />,
+    );
+    const initialNode = document.querySelector(
+      "section[data-transcript-segment-id='segment-live-start:live-end']",
+    );
+    const nextWord = {
+      id: "word-live-next",
+      text: " next",
+      start_ms: 100,
+      end_ms: 200,
+      channel: "MixedCapture" as const,
+      is_final: false,
+    };
+    const updated = {
+      ...initial,
+      id: "segment-live-start:live-next",
+      end_ms: nextWord.end_ms,
+      text: `${initial.text}${nextWord.text}`,
+      words: [...initial.words, nextWord],
+    };
+    mocks.useRenderedTranscriptData.mockReturnValue({
+      maxSpeakerNumber: undefined,
+      request: createRenderRequest([updated]),
+      segments: [],
+    });
+
+    rendered.rerender(
+      <RenderTranscript
+        scrollElement={null}
+        isLastTranscript
+        shouldScrollToEnd={false}
+        transcriptId="transcript-1"
+        currentActive
+        liveSegments={[updated]}
+        currentMs={0}
+        seek={vi.fn()}
+        startPlayback={vi.fn()}
+        audioExists
+      />,
+    );
+
+    expect(
+      document.querySelector(
+        "section[data-transcript-segment-id='segment-live-start:live-next']",
+      ),
+    ).toBe(initialNode);
+  });
 });
 
 function renderTranscript(

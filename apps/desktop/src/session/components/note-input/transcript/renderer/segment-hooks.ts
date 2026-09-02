@@ -29,7 +29,14 @@ export function createSegmentKey(
   transcriptId: string,
   fallbackIndex: number,
 ) {
-  return segment.id || `${transcriptId}-segment-${fallbackIndex}`;
+  const firstWord = segment.words[0];
+  return [
+    transcriptId,
+    segment.key.channel,
+    segment.key.speaker_index ?? "speaker-none",
+    segment.key.speaker_human_id ?? "human-none",
+    firstWord ? `start-${firstWord.start_ms}` : `index-${fallbackIndex}`,
+  ].join(":");
 }
 
 function segmentsEqual(a: Segment, b: Segment) {
