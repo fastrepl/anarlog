@@ -1,4 +1,5 @@
 mod accumulator;
+mod diarize;
 mod progressive;
 mod simple;
 mod upload;
@@ -9,6 +10,8 @@ use owhisper_client::{AdapterKind, OpenAIAdapter};
 
 use crate::{BatchEvent, BatchRuntime};
 
+pub use diarize::KnownSpeaker;
+use diarize::apply_local_diarization;
 use progressive::run_progressive_batch_session;
 use simple::{run_apple_speech_batch, run_direct_batch_for_adapter_kind, run_soniqo_batch};
 
@@ -117,6 +120,10 @@ pub struct BatchParams {
     pub min_speakers: Option<u32>,
     #[serde(default)]
     pub max_speakers: Option<u32>,
+    /// Voiceprints of expected participants; only consulted by on-device
+    /// diarization, never sent to a provider.
+    #[serde(default)]
+    pub known_speakers: Vec<KnownSpeaker>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -171,6 +178,12 @@ pub async fn run_batch(
     }
 
     result
+}
+
+/// Whether this run transcribes on-device, in which case speaker labels come
+/// from the local diarizer and `BatchParams::known_speakers` is consulted.
+pub fn uses_local_diarization(params: &BatchParams) -> bool {
+    diarize::is_local_batch(params)
 }
 
 pub fn expects_progressive_batch(params: &BatchParams) -> bool {
@@ -230,7 +243,8 @@ async fn run_batch_inner(
 
     let listen_params = build_listen_params(&params, metadata.channels, metadata.sample_rate);
 
-    match params.provider {
+    let post_process = (runtime.clone(), params.clone(), listen_params.clone());
+    let mut output = match params.provider {
         BatchProvider::Am => {
             let adapter_kind = resolve_batch_adapter_kind(&params, &listen_params);
             if supports_progressive_batch(adapter_kind, listen_params.model.as_deref()) {
@@ -261,7 +275,11 @@ async fn run_batch_inner(
                 .expect("all non-special BatchProvider variants have an AdapterKind mapping");
             run_direct_batch_for_adapter_kind(adapter_kind, params, listen_params).await
         }
-    }
+    }?;
+
+    let (runtime, params, listen_params) = post_process;
+    apply_local_diarization(runtime, &params, &listen_params, &mut output).await;
+    Ok(output)
 }
 
 fn resolve_batch_adapter_kind(
@@ -378,6 +396,7 @@ mod tests {
             num_speakers: None,
             min_speakers: None,
             max_speakers: None,
+            known_speakers: vec![],
         }
     }
 

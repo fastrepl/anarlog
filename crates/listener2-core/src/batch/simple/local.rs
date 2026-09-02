@@ -29,9 +29,9 @@ const SONIQO_SPEECH_REDEMPTION_TIME: Duration = Duration::from_millis(150);
 pub(super) const LOCAL_BATCH_CANCELLED: &str = "Local transcription was cancelled.";
 
 #[derive(Debug)]
-pub(super) struct ResampledChannelFile {
-    pub(super) file: tempfile::NamedTempFile,
-    pub(super) sample_count: usize,
+pub(in crate::batch) struct ResampledChannelFile {
+    pub(in crate::batch) file: tempfile::NamedTempFile,
+    pub(in crate::batch) sample_count: usize,
 }
 
 #[cfg(test)]
@@ -45,7 +45,7 @@ where
     resample_audio_to_channel_files_until(source_path, source, || false)
 }
 
-pub(super) fn resample_audio_to_channel_files_until<S, F>(
+pub(in crate::batch) fn resample_audio_to_channel_files_until<S, F>(
     source_path: &str,
     source: S,
     mut is_cancelled: F,

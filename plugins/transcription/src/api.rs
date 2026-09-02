@@ -325,6 +325,7 @@ impl From<TranscriptionParams> for listener2::BatchParams {
             num_speakers: value.num_speakers,
             min_speakers: value.min_speakers,
             max_speakers: value.max_speakers,
+            known_speakers: vec![],
         }
     }
 }

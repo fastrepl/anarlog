@@ -334,6 +334,7 @@ async fn oversized_audio_is_uploaded_one_segment_at_a_time() {
         num_speakers: None,
         min_speakers: None,
         max_speakers: None,
+        known_speakers: vec![],
     };
 
     let output = run_direct_batch::<RecordingAdapter>(
@@ -420,6 +421,7 @@ async fn direct_provider_timeout_cancels_non_responding_request() {
         num_speakers: None,
         min_speakers: None,
         max_speakers: None,
+        known_speakers: vec![],
     };
     let request = tokio::spawn(run_direct_batch_with_timeout::<HangingHttpAdapter>(
         "hanging-http",

@@ -364,6 +364,81 @@ pub async fn cleanup_expired_voiceprint_candidates<R: tauri::Runtime>(
     Ok(removed)
 }
 
+/// Confirmed voiceprints of the session's participants, for the on-device
+/// diarizer. Best effort: any storage problem yields an empty list rather than
+/// blocking transcription.
+pub(crate) async fn known_speakers_for_session<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    session_id: &str,
+) -> Vec<anlg_transcription_core::listener2::KnownSpeaker> {
+    let Some(pool) = app
+        .try_state::<tauri_plugin_db::ManagedState>()
+        .map(|state| state.pool().clone())
+    else {
+        return Vec::new();
+    };
+    let participants = match anlg_db_app::list_session_participants(&pool, session_id).await {
+        Ok(participants) => participants,
+        Err(error) => {
+            tracing::warn!(%error, "known_speakers_participants_failed");
+            return Vec::new();
+        }
+    };
+
+    let mut known = Vec::new();
+    let mut seen_humans = HashSet::new();
+    for participant in participants {
+        if participant.human_id.is_empty() || !seen_humans.insert(participant.human_id.clone()) {
+            continue;
+        }
+        let exemplars = match anlg_db_app::list_active_voiceprint_exemplars_for_human(
+            &pool,
+            &participant.workspace_id,
+            &participant.human_id,
+        )
+        .await
+        {
+            Ok(exemplars) => exemplars,
+            Err(error) => {
+                tracing::warn!(%error, "known_speakers_exemplars_failed");
+                continue;
+            }
+        };
+        for exemplar in exemplars {
+            if exemplar.model_provider != MODEL_PROVIDER || exemplar.model_version != MODEL_VERSION
+            {
+                continue;
+            }
+            let Ok(Some(secret_value)) = tauri_plugin_store2::read_secret(
+                app.clone(),
+                exemplar.keyring_scope.clone(),
+                exemplar.keyring_key.clone(),
+            )
+            .await
+            else {
+                continue;
+            };
+            let Some(embedding) = decode_embedding(&secret_value) else {
+                continue;
+            };
+            known.push(anlg_transcription_core::listener2::KnownSpeaker {
+                id: exemplar.human_id,
+                embedding,
+            });
+        }
+    }
+
+    if !known.is_empty() {
+        tracing::info!(
+            session_id,
+            exemplars = known.len(),
+            humans = seen_humans.len(),
+            "known_speakers_loaded"
+        );
+    }
+    known
+}
+
 async fn delete_secret<R: tauri::Runtime>(app: &tauri::AppHandle<R>, scope: String, key: String) {
     let app = app.clone();
     let _ = tauri::async_runtime::spawn_blocking(move || {

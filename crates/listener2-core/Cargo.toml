@@ -15,6 +15,7 @@ anlg-denoise = { workspace = true, features = ["onnx"] }
 anlg-host = { workspace = true }
 anlg-language = { workspace = true }
 anlg-mp3 = { workspace = true }
+anlg-pyannote-local = { workspace = true }
 anlg-transcribe-core = { workspace = true }
 anlg-transcribe-soniqo = { workspace = true }
 anlg-transcribe-speechanalyzer = { workspace = true }
@@ -44,6 +45,7 @@ tracing = { workspace = true }
 aspasia = "0.2.1"
 
 [dev-dependencies]
+anlg-data = { workspace = true }
 axum = { workspace = true }
 reqwest-middleware = { workspace = true }
 rodio = { workspace = true }
