@@ -140,6 +140,9 @@ pub struct DiarizeRequest<'a> {
     pub bounds: SpeakerBounds,
     pub known_speakers: &'a [KnownSpeaker],
     pub is_cancelled: Option<&'a dyn Fn() -> bool>,
+    /// Called after each window with the fraction of windows processed, so
+    /// callers can keep liveness signals flowing during long recordings.
+    pub on_progress: Option<&'a dyn Fn(f32)>,
 }
 
 struct WindowEmbedding {
@@ -223,6 +226,9 @@ impl Diarizer {
                 }
             }
             activities.push(activity);
+            if let Some(on_progress) = request.on_progress {
+                on_progress((index + 1) as f32 / window_count as f32);
+            }
         }
 
         if embeddings.is_empty() {
@@ -238,19 +244,25 @@ impl Diarizer {
             request.bounds,
         );
 
-        let mut diarization = self.reconstruct(total, step, &activities, &embeddings, &labels);
-        diarization.speakers = diarization
-            .speakers
+        let speakers: Vec<DiarizedSpeaker> = centroids
             .into_iter()
-            .map(|speaker| {
-                let original = speaker.index;
-                DiarizedSpeaker {
-                    centroid: centroids[original].clone(),
-                    identity: identities.get(original).cloned().flatten(),
-                    ..speaker
-                }
+            .zip(identities)
+            .enumerate()
+            .map(|(index, (centroid, identity))| DiarizedSpeaker {
+                index,
+                centroid,
+                identity,
             })
             .collect();
+        let mut diarization = reconstruct(
+            &self.config,
+            total,
+            step,
+            &activities,
+            &embeddings,
+            &labels,
+            speakers,
+        );
         renumber_by_first_appearance(&mut diarization);
         Ok(diarization)
     }
@@ -430,76 +442,78 @@ impl Diarizer {
         }
         identities
     }
+}
 
-    fn reconstruct(
-        &self,
-        total: usize,
-        step: usize,
-        activities: &[WindowActivity],
-        embeddings: &[WindowEmbedding],
-        labels: &[usize],
-    ) -> Diarization {
-        let speaker_count = labels.iter().copied().max().map_or(0, |max| max + 1);
-        let frame_count = frames_for_samples(total.max(WINDOW_SAMPLES));
-        let mut votes = vec![vec![0u16; frame_count]; speaker_count];
-        let mut coverage = vec![0u16; frame_count];
+/// Votes every window's local-speaker activity onto the global frame grid
+/// under its cluster label and turns the majority into speaker turns. Speakers
+/// that end up with no turn are dropped.
+fn reconstruct(
+    config: &DiarizationConfig,
+    total: usize,
+    step: usize,
+    activities: &[WindowActivity],
+    embeddings: &[WindowEmbedding],
+    labels: &[usize],
+    speakers: Vec<DiarizedSpeaker>,
+) -> Diarization {
+    let speaker_count = speakers.len();
+    let frame_count = frames_for_samples(total.max(WINDOW_SAMPLES));
+    let mut votes = vec![vec![0u16; frame_count]; speaker_count];
+    let mut coverage = vec![0u16; frame_count];
 
-        for (window, activity) in activities.iter().enumerate() {
-            let offset = window * step / FRAME_SIZE;
-            for frame in 0..activity.frames.len() {
-                if let Some(slot) = coverage.get_mut(offset + frame) {
-                    *slot += 1;
-                }
+    for (window, activity) in activities.iter().enumerate() {
+        let offset = window * step / FRAME_SIZE;
+        for frame in 0..activity.frames.len() {
+            if let Some(slot) = coverage.get_mut(offset + frame) {
+                *slot += 1;
             }
         }
-        for (item, &label) in embeddings.iter().zip(labels) {
-            let activity = &activities[item.window];
-            let offset = item.window * step / FRAME_SIZE;
-            for (frame, active) in activity.frames.iter().enumerate() {
-                if active[item.local_speaker]
-                    && let Some(slot) = votes[label].get_mut(offset + frame)
-                {
-                    *slot += 1;
-                }
-            }
-        }
-
-        let mut segments = Vec::new();
-        for (speaker, track) in votes.iter().enumerate() {
-            let active: Vec<bool> = track
-                .iter()
-                .zip(&coverage)
-                .map(|(votes, coverage)| {
-                    *coverage > 0 && u32::from(*votes) * 2 >= u32::from(*coverage)
-                })
-                .collect();
-            segments.extend(
-                frames_to_segments(
-                    &active,
-                    speaker,
-                    self.config.min_duration_on,
-                    self.config.min_duration_off,
-                )
-                .into_iter()
-                .map(|mut segment| {
-                    segment.end = segment.end.min(total as f64 / SAMPLE_RATE as f64);
-                    segment
-                })
-                .filter(|segment| segment.end > segment.start),
-            );
-        }
-        segments.sort_by(|a, b| a.start.total_cmp(&b.start).then(a.speaker.cmp(&b.speaker)));
-
-        let speakers = (0..speaker_count)
-            .filter(|speaker| segments.iter().any(|segment| segment.speaker == *speaker))
-            .map(|index| DiarizedSpeaker {
-                index,
-                centroid: Vec::new(),
-                identity: None,
-            })
-            .collect();
-        Diarization { segments, speakers }
     }
+    for (item, &label) in embeddings.iter().zip(labels) {
+        let activity = &activities[item.window];
+        let offset = item.window * step / FRAME_SIZE;
+        for (frame, active) in activity.frames.iter().enumerate() {
+            if active[item.local_speaker]
+                && let Some(slot) = votes[label].get_mut(offset + frame)
+            {
+                *slot += 1;
+            }
+        }
+    }
+
+    let mut segments = Vec::new();
+    for (speaker, track) in votes.iter().enumerate() {
+        let active: Vec<bool> = track
+            .iter()
+            .zip(&coverage)
+            .map(|(votes, coverage)| *coverage > 0 && u32::from(*votes) * 2 >= u32::from(*coverage))
+            .collect();
+        segments.extend(
+            frames_to_segments(
+                &active,
+                speaker,
+                config.min_duration_on,
+                config.min_duration_off,
+            )
+            .into_iter()
+            .map(|mut segment| {
+                segment.end = segment.end.min(total as f64 / SAMPLE_RATE as f64);
+                segment
+            })
+            .filter(|segment| segment.end > segment.start),
+        );
+    }
+    segments.sort_by(|a, b| a.start.total_cmp(&b.start).then(a.speaker.cmp(&b.speaker)));
+
+    let speakers = speakers
+        .into_iter()
+        .filter(|speaker| {
+            segments
+                .iter()
+                .any(|segment| segment.speaker == speaker.index)
+        })
+        .collect();
+    Diarization { segments, speakers }
 }
 
 fn seconds_to_frames(seconds: f32) -> usize {
@@ -783,6 +797,28 @@ mod tests {
                 .expect("centroid should match itself");
             assert_eq!(identity.id, format!("human-{}", speaker.index));
         }
+    }
+
+    #[test]
+    fn progress_reaches_one_after_the_last_window() {
+        let audio = pcm_bytes_to_f32(anlg_data::english_1::AUDIO);
+        let seen = std::cell::RefCell::new(Vec::new());
+        let on_progress = |fraction: f32| seen.borrow_mut().push(fraction);
+        let mut diarizer = Diarizer::new(DiarizationConfig::default()).unwrap();
+        diarizer
+            .diarize(
+                &mut audio.as_slice(),
+                &DiarizeRequest {
+                    on_progress: Some(&on_progress),
+                    ..DiarizeRequest::default()
+                },
+            )
+            .unwrap();
+
+        let seen = seen.into_inner();
+        assert!(seen.len() > 1);
+        assert!(seen.windows(2).all(|pair| pair[0] < pair[1]));
+        assert!((seen.last().copied().unwrap() - 1.0).abs() < f32::EPSILON);
     }
 
     #[test]

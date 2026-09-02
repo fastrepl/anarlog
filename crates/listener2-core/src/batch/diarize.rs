@@ -2,21 +2,29 @@
 //! providers, which return words without speaker labels. Cloud providers
 //! diarize server-side, so this only runs when a channel came back unlabeled.
 
+use std::cell::Cell;
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use anlg_pyannote_local::{
     AudioSource, DiarizationConfig, DiarizeRequest, Diarizer, SpeakerBounds, assign_words,
 };
 use owhisper_interface::batch;
+use owhisper_interface::batch_stream::BatchStreamEvent;
 
 use super::simple::{ResampledChannelFile, resample_audio_to_channel_files_until};
 use super::{BatchParams, BatchProvider, BatchRunOutput};
-use crate::BatchRuntime;
+use crate::{BatchEvent, BatchRuntime};
 
 pub(super) const LOCAL_DIARIZATION_PROVIDER: &str = "pyannote-local";
+/// Diarization reports progress from here to 1.0, continuing where local
+/// transcription providers stop.
+pub(super) const DIARIZATION_PROGRESS_START: f64 = 0.95;
+/// Progressive sessions are torn down after 60 s without a streamed event, so
+/// the diarizer emits a progress heartbeat at least this often.
+pub(super) const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 
 /// A participant voiceprint the caller already trusts, forwarded to the
 /// diarizer so fragmented clusters of a known voice can be merged.
@@ -181,6 +189,7 @@ pub(super) async fn apply_local_diarization(
         return;
     }
 
+    let session_id = params.session_id.clone();
     let file_path = params.file_path.clone();
     let listen_params = listen_params.clone();
     let known_speakers: Vec<anlg_pyannote_local::KnownSpeaker> = params
@@ -195,8 +204,10 @@ pub(super) async fn apply_local_diarization(
     let result = tokio::task::spawn_blocking({
         let runtime = runtime.clone();
         move || {
+            let heartbeat = Heartbeat::new(runtime.as_ref(), session_id);
             diarize_channels(
                 runtime.as_ref(),
+                &heartbeat,
                 &file_path,
                 &listen_params,
                 transcript_channels,
@@ -287,19 +298,66 @@ fn apply_labels(response: &mut batch::Response, labels: &[ChannelLabels]) -> Dia
     summary
 }
 
+/// Streams `Progress` events while the diarizer works. Progressive local
+/// sessions have an idle monitor that aborts the run when nothing has been
+/// streamed for a minute; a long recording spends longer than that here,
+/// after transcription has already finished, so silence would throw away a
+/// completed transcript.
+struct Heartbeat<'a> {
+    runtime: &'a dyn BatchRuntime,
+    session_id: String,
+    last_sent: Cell<Option<Instant>>,
+}
+
+impl<'a> Heartbeat<'a> {
+    fn new(runtime: &'a dyn BatchRuntime, session_id: String) -> Self {
+        Self {
+            runtime,
+            session_id,
+            last_sent: Cell::new(None),
+        }
+    }
+
+    /// Emits unless a heartbeat went out within [`HEARTBEAT_INTERVAL`].
+    fn beat(&self, percentage: f64) {
+        let due = self
+            .last_sent
+            .get()
+            .is_none_or(|last| last.elapsed() >= HEARTBEAT_INTERVAL);
+        if due {
+            self.emit(percentage);
+        }
+    }
+
+    fn emit(&self, percentage: f64) {
+        self.last_sent.set(Some(Instant::now()));
+        self.runtime.emit(BatchEvent::BatchResponseStreamed {
+            session_id: self.session_id.clone(),
+            event: BatchStreamEvent::Progress {
+                percentage: percentage.clamp(DIARIZATION_PROGRESS_START, 1.0),
+                partial_text: None,
+            },
+        });
+    }
+}
+
 fn diarize_channels(
     runtime: &dyn BatchRuntime,
+    heartbeat: &Heartbeat<'_>,
     file_path: &str,
     listen_params: &owhisper_interface::ListenParams,
     transcript_channels: usize,
     unlabeled: &[UnlabeledChannel],
     known_speakers: &[anlg_pyannote_local::KnownSpeaker],
 ) -> Result<Vec<ChannelLabels>, String> {
+    heartbeat.emit(DIARIZATION_PROGRESS_START);
     let source = anlg_audio_utils::source_from_path(file_path).map_err(|e| e.to_string())?;
     // A stereo file whose channels were identical collapses to one file, so
     // the recording layout is only known after resampling.
-    let channel_files =
-        resample_audio_to_channel_files_until(file_path, source, || runtime.is_cancelled())?;
+    let channel_files = resample_audio_to_channel_files_until(file_path, source, || {
+        heartbeat.beat(DIARIZATION_PROGRESS_START);
+        runtime.is_cancelled()
+    })?;
     let plans: Vec<(&UnlabeledChannel, ChannelAudio, SpeakerBounds)> = unlabeled
         .iter()
         .filter_map(|channel| {
@@ -316,16 +374,26 @@ fn diarize_channels(
         return Ok(Vec::new());
     }
 
+    // Loading the models can include an accelerator cache rebuild, which is a
+    // full recompile of both; give it a fresh idle window rather than whatever
+    // the last throttled resample beat left over.
+    heartbeat.emit(DIARIZATION_PROGRESS_START);
     let mut diarizer = Diarizer::new(DiarizationConfig::default()).map_err(|e| e.to_string())?;
     let is_cancelled = || runtime.is_cancelled();
+    let plan_count = plans.len() as f64;
+    let progress_span = 1.0 - DIARIZATION_PROGRESS_START;
 
     let mut labels = Vec::new();
-    for (channel, audio, bounds) in plans {
+    for (plan_index, (channel, audio, bounds)) in plans.into_iter().enumerate() {
         let mut audio = match audio {
             ChannelAudio::File(index) => {
                 MixedAudioSource::open(std::slice::from_ref(&channel_files[index]))?
             }
             ChannelAudio::Mix => MixedAudioSource::open(&channel_files)?,
+        };
+        let on_progress = |fraction: f32| {
+            let done = (plan_index as f64 + f64::from(fraction)) / plan_count;
+            heartbeat.beat(DIARIZATION_PROGRESS_START + progress_span * done);
         };
         let diarization = diarizer
             .diarize(
@@ -334,6 +402,7 @@ fn diarize_channels(
                     bounds,
                     known_speakers,
                     is_cancelled: Some(&is_cancelled),
+                    on_progress: Some(&on_progress),
                 },
             )
             .map_err(|e| e.to_string())?;
@@ -380,9 +449,7 @@ impl WavAudioSource {
         let len = reader.len() as usize;
         Ok(Self { reader, len })
     }
-}
 
-impl WavAudioSource {
     fn read_into(
         &mut self,
         start: usize,
@@ -671,6 +738,71 @@ mod tests {
         fn is_cancelled(&self) -> bool {
             false
         }
+    }
+
+    #[derive(Default)]
+    struct RecordingRuntime {
+        progress: std::sync::Mutex<Vec<f64>>,
+    }
+
+    impl BatchRuntime for RecordingRuntime {
+        fn emit(&self, event: crate::BatchEvent) {
+            if let crate::BatchEvent::BatchResponseStreamed {
+                event: BatchStreamEvent::Progress { percentage, .. },
+                ..
+            } = event
+            {
+                self.progress.lock().unwrap().push(percentage);
+            }
+        }
+    }
+
+    #[test]
+    fn heartbeat_throttles_but_forced_emits_always_go_out() {
+        let runtime = RecordingRuntime::default();
+        let heartbeat = Heartbeat::new(&runtime, "s".to_string());
+
+        heartbeat.beat(0.96);
+        heartbeat.beat(0.97);
+        heartbeat.emit(0.98);
+        heartbeat.beat(0.99);
+
+        assert_eq!(*runtime.progress.lock().unwrap(), vec![0.96, 0.98]);
+    }
+
+    #[tokio::test]
+    async fn diarization_streams_progress_so_idle_monitors_stay_quiet() {
+        let runtime = Arc::new(RecordingRuntime::default());
+        let params = params(
+            BatchProvider::WhisperLocal,
+            "http://localhost:1234",
+            anlg_data::english_1::AUDIO_PATH,
+        );
+        let mut output = unlabeled_output(200, 100.0);
+
+        apply_local_diarization(
+            runtime.clone(),
+            &params,
+            &owhisper_interface::ListenParams::default(),
+            &mut output,
+        )
+        .await;
+
+        let progress = runtime.progress.lock().unwrap();
+        // One forced beat before the resample and one before the models load,
+        // so neither phase starts with a partly spent idle window.
+        let start_beats = progress
+            .iter()
+            .filter(|p| **p == DIARIZATION_PROGRESS_START)
+            .count();
+        assert!(start_beats >= 2, "{progress:?}");
+        assert_eq!(progress[0], DIARIZATION_PROGRESS_START);
+        assert!(
+            progress
+                .iter()
+                .all(|p| (DIARIZATION_PROGRESS_START..=1.0).contains(p)),
+            "{progress:?}"
+        );
     }
 
     fn unlabeled_output(word_count: usize, duration: f64) -> BatchRunOutput {
