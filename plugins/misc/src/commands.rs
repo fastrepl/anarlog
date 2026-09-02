@@ -25,6 +25,14 @@ pub async fn get_device_info<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn get_process_memory_bytes<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<u64, String> {
+    app.misc().get_process_memory_bytes()
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn opinionated_md_to_html<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     text: String,

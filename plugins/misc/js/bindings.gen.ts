@@ -30,6 +30,14 @@ async getDeviceInfo(locale: string | null) : Promise<Result<DeviceInfo, string>>
     else return { status: "error", error: e  as any };
 }
 },
+async getProcessMemoryBytes() : Promise<Result<number, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:misc|get_process_memory_bytes") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async opinionatedMdToHtml(text: string) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:misc|opinionated_md_to_html", { text }) };

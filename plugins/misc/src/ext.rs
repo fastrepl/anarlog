@@ -42,6 +42,23 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Misc<'a, R, M> {
         }
     }
 
+    /// Resident set size of the host process. WebKit renders in a separate
+    /// process on macOS, so this reflects the Rust side, not the JS heap.
+    pub fn get_process_memory_bytes(&self) -> Result<u64, String> {
+        let pid = sysinfo::get_current_pid()?;
+        let mut system = sysinfo::System::new();
+        system.refresh_processes_specifics(
+            sysinfo::ProcessesToUpdate::Some(&[pid]),
+            false,
+            sysinfo::ProcessRefreshKind::nothing().with_memory(),
+        );
+
+        system
+            .process(pid)
+            .map(|process| process.memory())
+            .ok_or_else(|| "current process not found".to_string())
+    }
+
     pub fn opinionated_md_to_html(&self, text: impl AsRef<str>) -> Result<String, String> {
         anlg_buffer::opinionated_md_to_html(text.as_ref()).map_err(|e| e.to_string())
     }

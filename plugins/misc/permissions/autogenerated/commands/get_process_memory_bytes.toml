@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-process-memory-bytes"
+description = "Enables the get_process_memory_bytes command without any pre-configured scope."
+commands.allow = ["get_process_memory_bytes"]
+
+[[permission]]
+identifier = "deny-get-process-memory-bytes"
+description = "Denies the get_process_memory_bytes command without any pre-configured scope."
+commands.deny = ["get_process_memory_bytes"]

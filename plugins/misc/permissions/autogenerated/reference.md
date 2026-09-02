@@ -7,6 +7,7 @@ Default permissions for the plugin
 - `allow-get-git-hash`
 - `allow-get-fingerprint`
 - `allow-get-device-info`
+- `allow-get-process-memory-bytes`
 - `allow-opinionated-md-to-html`
 
 ## Permission Table
@@ -248,6 +249,32 @@ Enables the get_git_hash command without any pre-configured scope.
 <td>
 
 Denies the get_git_hash command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`misc:allow-get-process-memory-bytes`
+
+</td>
+<td>
+
+Enables the get_process_memory_bytes command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`misc:deny-get-process-memory-bytes`
+
+</td>
+<td>
+
+Denies the get_process_memory_bytes command without any pre-configured scope.
 
 </td>
 </tr>

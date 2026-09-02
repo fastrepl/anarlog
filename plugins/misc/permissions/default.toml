@@ -4,5 +4,6 @@ permissions = [
     "allow-get-git-hash",
     "allow-get-fingerprint",
     "allow-get-device-info",
+    "allow-get-process-memory-bytes",
     "allow-opinionated-md-to-html",
 ]
