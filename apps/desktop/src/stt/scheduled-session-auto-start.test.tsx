@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   canStart: true,
   finishScheduledAutoStart: vi.fn(),
   openUrl: vi.fn(),
+  providerConfigLoading: false,
   session: {
     id: "session-1",
     user_id: "user-1",
@@ -66,6 +67,14 @@ vi.mock("~/session/queries", () => ({
   useSession: () => mocks.session,
 }));
 
+vi.mock("~/settings/providers", () => ({
+  useAiProvidersState: () => ({
+    isLoading: mocks.providerConfigLoading,
+    isReady: !mocks.providerConfigLoading,
+    providers: {},
+  }),
+}));
+
 vi.mock("~/stt/scheduled-auto-start-state", async () => {
   const actual = await vi.importActual<
     typeof import("./scheduled-auto-start-state")
@@ -101,6 +110,7 @@ beforeEach(() => {
   mocks.beginScheduledAutoStart.mockReset();
   mocks.finishScheduledAutoStart.mockReset();
   mocks.openUrl.mockReset();
+  mocks.providerConfigLoading = false;
   mocks.startListening.mockReset().mockResolvedValue(undefined);
   mocks.updateSessionTabState.mockReset();
   takeScheduledAutoJoin("session-1");
@@ -169,6 +179,18 @@ test("starts when the session record becomes available", () => {
     raw_template_id: "",
     locked: false,
   };
+  view.rerender(<ScheduledSessionAutoStart sessionId="session-1" />);
+
+  expect(mocks.startListening).toHaveBeenCalledTimes(1);
+});
+
+test("waits for secure provider credentials before auto-starting", () => {
+  mocks.providerConfigLoading = true;
+  const view = render(<ScheduledSessionAutoStart sessionId="session-1" />);
+
+  expect(mocks.startListening).not.toHaveBeenCalled();
+
+  mocks.providerConfigLoading = false;
   view.rerender(<ScheduledSessionAutoStart sessionId="session-1" />);
 
   expect(mocks.startListening).toHaveBeenCalledTimes(1);

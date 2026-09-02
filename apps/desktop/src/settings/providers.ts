@@ -30,9 +30,10 @@ export function useAiProviders(
 
 export function useAiProvidersState(type: AiProviderType): {
   providers: Record<string, AiProviderConfig>;
+  isLoading: boolean;
   isReady: boolean;
 } {
-  const { data: rows = EMPTY_ROWS, isLoading } = useLiveQuery<
+  const { data: rows = EMPTY_ROWS, isLoading: rowsLoading } = useLiveQuery<
     AppSettingRow,
     AppSettingRow[]
   >({
@@ -44,7 +45,7 @@ export function useAiProvidersState(type: AiProviderType): {
   const secureApiKeysQuery = useQuery({
     queryKey: ["ai-provider-api-keys", type, providerIds],
     queryFn: () => loadSecureAiProviderApiKeys(providerIds, type),
-    enabled: !isLoading,
+    enabled: !rowsLoading,
     staleTime: Infinity,
   });
   const secureApiKeys = secureApiKeysQuery.data ?? EMPTY_PROVIDER_API_KEYS;
@@ -59,7 +60,8 @@ export function useAiProvidersState(type: AiProviderType): {
         },
       ]),
     ),
-    isReady: !isLoading && secureApiKeysQuery.data !== undefined,
+    isLoading: rowsLoading || secureApiKeysQuery.isPending,
+    isReady: !rowsLoading && secureApiKeysQuery.data !== undefined,
   };
 }
 

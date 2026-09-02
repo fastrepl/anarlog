@@ -100,12 +100,14 @@ describe("SQLite AI providers", () => {
       wrapper,
     });
 
+    expect(result.current.isLoading).toBe(true);
     expect(result.current.isReady).toBe(false);
 
     await waitFor(() => expect(mocks.getSecret).toHaveBeenCalledTimes(1));
     resolveSecret({ status: "ok", data: "deepgram-key" });
 
     await waitFor(() => expect(result.current.isReady).toBe(true));
+    expect(result.current.isLoading).toBe(false);
     expect(result.current.providers["stt:deepgram"]?.api_key).toBe(
       "deepgram-key",
     );

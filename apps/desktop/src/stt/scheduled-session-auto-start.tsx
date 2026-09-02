@@ -5,6 +5,7 @@ import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { isLockedFlag } from "~/lock/flag";
 import { useAppLock } from "~/lock/store";
 import { useSession } from "~/session/queries";
+import { useAiProvidersState } from "~/settings/providers";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
@@ -25,6 +26,7 @@ export function ScheduledSessionAutoStart({
     state.canStartLiveSession(sessionId),
   );
   const session = useSession(sessionId);
+  const { isLoading: providerConfigLoading } = useAiProvidersState("stt");
   const revealed = useAppLock((state) =>
     Boolean(state.revealedNoteIds[sessionId]),
   );
@@ -34,7 +36,7 @@ export function ScheduledSessionAutoStart({
     return <AbandonedScheduledSessionAutoStart sessionId={sessionId} />;
   }
 
-  return canStartLiveSession && session ? (
+  return canStartLiveSession && session && !providerConfigLoading ? (
     <ReadyScheduledSessionAutoStart sessionId={sessionId} />
   ) : (
     <PendingScheduledSessionAutoStart sessionId={sessionId} />
