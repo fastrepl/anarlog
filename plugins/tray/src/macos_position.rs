@@ -2,6 +2,10 @@ pub fn preferred_position_key(autosave_name: &str) -> String {
     format!("NSStatusItem Preferred Position {autosave_name}")
 }
 
+pub fn visibility_key(autosave_name: &str) -> String {
+    format!("NSStatusItem Visible {autosave_name}")
+}
+
 #[cfg(target_os = "macos")]
 pub fn seed_default_position(autosave_name: &str) {
     use objc2_foundation::{NSString, NSUserDefaults};
@@ -20,7 +24,13 @@ pub fn seed_default_position(autosave_name: &str) {
 
 #[cfg(target_os = "macos")]
 pub fn apply_autosave_name(app: &tauri::AppHandle<tauri::Wry>, autosave_name: &'static str) {
-    use objc2_foundation::NSString;
+    use objc2_foundation::{NSString, NSUserDefaults};
+
+    let defaults = NSUserDefaults::standardUserDefaults();
+    // Visibility is owned by show_tray_icon. setAutosaveName also restores
+    // `NSStatusItem Visible`, so a prior set_visible(false) would hide the
+    // item we just created to show.
+    defaults.removeObjectForKey(&NSString::from_str(&visibility_key(autosave_name)));
 
     let Some(tray) = app.tray_by_id(autosave_name) else {
         return;
@@ -31,20 +41,38 @@ pub fn apply_autosave_name(app: &tauri::AppHandle<tauri::Wry>, autosave_name: &'
             return;
         };
         item.setAutosaveName(Some(&NSString::from_str(autosave_name)));
+        item.setVisible(true);
     }) {
         tracing::warn!(%error, "failed to set tray status item autosave name");
+    }
+
+    let app = app.clone();
+    if let Err(error) = app.run_on_main_thread(move || {
+        if let Some(tray) = app.tray_by_id(autosave_name) {
+            let _ = tray.set_visible(true);
+        }
+    }) {
+        tracing::warn!(%error, "failed to force tray icon visible after autosave restore");
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::preferred_position_key;
+    use super::{preferred_position_key, visibility_key};
 
     #[test]
     fn preferred_position_key_matches_appkit_convention() {
         assert_eq!(
             preferred_position_key("anlg-tray"),
             "NSStatusItem Preferred Position anlg-tray"
+        );
+    }
+
+    #[test]
+    fn visibility_key_matches_appkit_convention() {
+        assert_eq!(
+            visibility_key("anlg-tray"),
+            "NSStatusItem Visible anlg-tray"
         );
     }
 }
