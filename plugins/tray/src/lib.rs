@@ -1,5 +1,6 @@
 mod commands;
 mod ext;
+mod macos_position;
 mod menu_items;
 mod schedule;
 mod tray_icon;

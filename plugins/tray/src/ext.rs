@@ -213,7 +213,12 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
                 }
             })
         };
+        #[cfg(target_os = "macos")]
+        crate::macos_position::seed_default_position(TRAY_ID);
+
         builder.build(app)?;
+        #[cfg(target_os = "macos")]
+        crate::macos_position::apply_autosave_name(app, TRAY_ID);
         #[cfg(target_os = "macos")]
         MENU_DIRTY.store(false, Ordering::SeqCst);
 

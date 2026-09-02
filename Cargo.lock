@@ -17341,6 +17341,8 @@ dependencies = [
  "host",
  "intercept",
  "libloading 0.8.9",
+ "objc2-app-kit",
+ "objc2-foundation",
  "open",
  "serde",
  "serde_json",
@@ -17357,6 +17359,7 @@ dependencies = [
  "tauri-specta",
  "tokio",
  "tracing",
+ "tray-icon",
  "unicode-width 0.2.2",
 ]
 
