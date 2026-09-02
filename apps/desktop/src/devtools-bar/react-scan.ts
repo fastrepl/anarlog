@@ -48,6 +48,15 @@ export function drainReactScanRenders(): number {
   return renders;
 }
 
+/**
+ * Call with a component's props object during render to keep that component
+ * out of React Scan outlines and render counts. The bar re-renders every
+ * second, so without this it would outline and count itself.
+ */
+export function ignoreReactScan(props: object): void {
+  reactScan?.ignoredProps.add(props);
+}
+
 export function areReactScanOutlinesEnabled(): boolean {
   const instrumentation = reactScan?.ReactScanInternals.instrumentation;
   return instrumentation ? !instrumentation.isPaused.value : false;

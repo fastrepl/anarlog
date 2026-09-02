@@ -34,6 +34,7 @@ vi.mock("@anlg/plugin-windows", () => ({
 }));
 
 vi.mock("./react-scan", () => ({
+  ignoreReactScan: vi.fn(),
   isReactScanAvailable: () => mocks.reactScanAvailable,
   subscribeReactScanAvailability: () => () => {},
   areReactScanOutlinesEnabled: () => mocks.outlinesEnabled,

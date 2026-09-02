@@ -14,6 +14,7 @@ import {
 } from "./metrics";
 import {
   areReactScanOutlinesEnabled,
+  ignoreReactScan,
   isReactScanAvailable,
   isReactScanToolbarVisible,
   setReactScanOutlinesEnabled,
@@ -37,11 +38,16 @@ const CHANNEL_CLASSES: Record<BuildChannel, string> = {
   stable: "bg-neutral-800 text-neutral-100",
 };
 
+const LABEL_CLASS = "uppercase opacity-60";
+const VALUE_CLASS = "tabular-nums";
+
 /**
  * VS Code-style status bar for dev and staging builds. Stable builds never
  * render it (`show_devtool` is false there), so copy stays English-only.
  */
-export function DevtoolsStatusBar() {
+export function DevtoolsStatusBar(props: Record<never, never>) {
+  ignoreReactScan(props);
+
   const enabledQuery = useQuery({
     queryKey: ["devtools-panel", "enabled"],
     queryFn: commands.showDevtool,
@@ -55,7 +61,8 @@ export function DevtoolsStatusBar() {
   return <DevtoolsStatusBarContent />;
 }
 
-function DevtoolsStatusBarContent() {
+function DevtoolsStatusBarContent(props: Record<never, never>) {
+  ignoreReactScan(props);
   useEffect(() => startDevtoolsMetrics(), []);
 
   const metrics = useDevtoolsMetrics();
@@ -104,7 +111,7 @@ function DevtoolsStatusBarContent() {
         label="FPS"
         title={`Frames per second (avg ${average(metrics.fps)} over ${metrics.fps.length}s)`}
       >
-        <Value>{fps ?? "–"}</Value>
+        <span className={VALUE_CLASS}>{fps ?? "–"}</span>
         <Sparkline values={metrics.fps} floor={60} />
       </Segment>
 
@@ -112,9 +119,9 @@ function DevtoolsStatusBarContent() {
         label="IPC"
         title="Tauri IPC per second: ↑ invokes, ↓ callbacks (responses, events, channels)"
       >
-        <Value>
+        <span className={VALUE_CLASS}>
           ↑{invokes} ↓{callbacks}
-        </Value>
+        </span>
         <Sparkline
           values={metrics.invokes.map(
             (value, index) => value + (metrics.callbacks[index] ?? 0),
@@ -134,8 +141,10 @@ function DevtoolsStatusBarContent() {
             refresh();
           }}
         >
-          <Label>renders</Label>
-          <Value>{outlinesEnabled ? renders : "off"}</Value>
+          <span className={LABEL_CLASS}>renders</span>
+          <span className={VALUE_CLASS}>
+            {outlinesEnabled ? renders : "off"}
+          </span>
           <Sparkline values={metrics.renders} />
         </BarButton>
       ) : null}
@@ -144,9 +153,9 @@ function DevtoolsStatusBarContent() {
         label="MEM"
         title="Host process resident memory (WebKit content process is separate on macOS)"
       >
-        <Value>
+        <span className={VALUE_CLASS}>
           {memoryBytes === undefined ? "–" : formatBytes(memoryBytes)}
-        </Value>
+        </span>
         <Sparkline values={metrics.memoryBytes} relative />
       </Segment>
 
@@ -160,9 +169,9 @@ function DevtoolsStatusBarContent() {
             refresh();
           }}
         >
-          <Value className={cn([!toolbarVisible && "opacity-70"])}>
+          <span className={cn([VALUE_CLASS, !toolbarVisible && "opacity-70"])}>
             {toolbarVisible ? "◉" : "○"} react scan
-          </Value>
+          </span>
         </BarButton>
       ) : null}
     </footer>
@@ -196,62 +205,44 @@ async function openDevtoolsPanel() {
   }
 }
 
-function Segment({
-  children,
-  label,
-  title,
-}: {
+function Segment(props: {
   children: React.ReactNode;
   label: string;
   title: string;
 }) {
+  ignoreReactScan(props);
+
   return (
     <div
-      title={title}
+      title={props.title}
       className="flex items-center gap-1.5 border-l border-white/15 px-2"
     >
-      <Label>{label}</Label>
-      {children}
+      <span className={LABEL_CLASS}>{props.label}</span>
+      {props.children}
     </div>
   );
 }
 
-function BarButton({
-  children,
-  onClick,
-  title,
-}: {
+function BarButton(props: {
   children: React.ReactNode;
   onClick: () => void;
   title: string;
 }) {
+  ignoreReactScan(props);
+
   return (
     <button
       type="button"
-      title={title}
-      onClick={onClick}
+      title={props.title}
+      onClick={props.onClick}
       className={cn([
         "flex items-center gap-1.5 border-l border-white/15 px-2 first:border-l-0",
         "hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-hidden",
       ])}
     >
-      {children}
+      {props.children}
     </button>
   );
-}
-
-function Label({ children }: { children: React.ReactNode }) {
-  return <span className="uppercase opacity-60">{children}</span>;
-}
-
-function Value({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <span className={cn(["tabular-nums", className])}>{children}</span>;
 }
 
 const SPARKLINE_WIDTH = 36;
@@ -262,15 +253,14 @@ const SPARKLINE_HEIGHT = 10;
  * `relative` scales between the window's min and max so slow drifts such as
  * memory growth stay visible instead of flattening against zero.
  */
-function Sparkline({
-  values,
-  floor = 1,
-  relative = false,
-}: {
+function Sparkline(props: {
   values: number[];
   floor?: number;
   relative?: boolean;
 }) {
+  ignoreReactScan(props);
+  const { values, floor = 1, relative = false } = props;
+
   if (values.length < 2) {
     return (
       <svg
