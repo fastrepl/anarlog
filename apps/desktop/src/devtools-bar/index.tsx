@@ -1,11 +1,24 @@
 import { useQuery } from "@tanstack/react-query";
 import { getIdentifier, getVersion } from "@tauri-apps/api/app";
-import { useReducer, useSyncExternalStore } from "react";
+import { useReducer } from "react";
 
 import { commands as miscCommands } from "@anlg/plugin-misc";
-import { commands as windowsCommands } from "@anlg/plugin-windows";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@anlg/ui/components/ui/dropdown-menu";
 import { cn } from "@anlg/utils";
 
+import {
+  DEVTOOLS_MENU,
+  type DevtoolsAction,
+  useDevtoolsActions,
+} from "./actions";
 import {
   formatBytes,
   HISTORY_LENGTH,
@@ -13,14 +26,11 @@ import {
   useDevtoolsMetrics,
 } from "./metrics";
 import {
-  areReactScanOutlinesEnabled,
-  ignoreReactScan,
-  isReactScanAvailable,
-  isReactScanToolbarVisible,
-  setReactScanOutlinesEnabled,
-  setReactScanToolbarVisible,
-  subscribeReactScanAvailability,
-} from "./react-scan";
+  areRenderOutlinesEnabled,
+  getTopRenderedComponents,
+  ignoreRenderTracking,
+  setRenderOutlinesEnabled,
+} from "./render-tracker";
 
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { commands } from "~/types/tauri.gen";
@@ -41,13 +51,21 @@ const CHANNEL_CLASSES: Record<BuildChannel, string> = {
 
 const LABEL_CLASS = "uppercase opacity-60";
 const VALUE_CLASS = "tabular-nums";
+const BAR_ITEM_CLASS =
+  "flex items-center gap-1.5 border-l border-white/15 px-2";
+const BAR_BUTTON_CLASS = cn([
+  BAR_ITEM_CLASS,
+  "first:border-l-0",
+  "hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-hidden",
+  "data-[state=open]:bg-white/10",
+]);
 
 /**
  * VS Code-style status bar for dev and staging builds. Stable builds never
  * render it (`show_devtool` is false there), so copy stays English-only.
  */
 export function DevtoolsStatusBar(props: Record<never, never>) {
-  ignoreReactScan(props);
+  ignoreRenderTracking(props);
 
   const enabledQuery = useQuery({
     queryKey: ["devtools-panel", "enabled"],
@@ -63,24 +81,11 @@ export function DevtoolsStatusBar(props: Record<never, never>) {
 }
 
 function DevtoolsStatusBarContent(props: Record<never, never>) {
-  ignoreReactScan(props);
+  ignoreRenderTracking(props);
   useMountEffect(() => startDevtoolsMetrics());
 
-  const metrics = useDevtoolsMetrics();
   const build = useBuildInfo();
-  const reactScanAvailable = useSyncExternalStore(
-    subscribeReactScanAvailability,
-    isReactScanAvailable,
-  );
-  const [, refresh] = useReducer((tick: number) => tick + 1, 0);
-
-  const fps = last(metrics.fps);
-  const invokes = last(metrics.invokes) ?? 0;
-  const callbacks = last(metrics.callbacks) ?? 0;
-  const renders = last(metrics.renders) ?? 0;
-  const memoryBytes = last(metrics.memoryBytes);
-  const outlinesEnabled = reactScanAvailable && areReactScanOutlinesEnabled();
-  const toolbarVisible = reactScanAvailable && isReactScanToolbarVisible();
+  const { dialogs, run } = useDevtoolsActions();
 
   if (!build) {
     return null;
@@ -89,28 +94,55 @@ function DevtoolsStatusBarContent(props: Record<never, never>) {
   const channel = build.channel;
 
   return (
-    <footer
-      aria-label="Developer status bar"
-      data-testid="devtools-status-bar"
-      className={cn([
-        "flex h-6 shrink-0 items-stretch overflow-hidden select-none",
-        "font-mono text-[11px] leading-none",
-        CHANNEL_CLASSES[channel],
-      ])}
-    >
-      <BarButton
-        title="Open Devtools panel"
-        onClick={() => void openDevtoolsPanel()}
+    <>
+      <footer
+        aria-label="Developer status bar"
+        data-testid="devtools-status-bar"
+        className={cn([
+          "flex h-6 shrink-0 items-stretch overflow-hidden select-none",
+          "font-mono text-[11px] leading-none",
+          CHANNEL_CLASSES[channel],
+        ])}
       >
-        <span className="font-semibold tracking-wider uppercase">
-          {channel}
-        </span>
-        <span className="opacity-70">
-          {build.version}
-          {build.hash ? ` ${build.hash}` : ""}
-        </span>
-      </BarButton>
+        <DevtoolsMenu onAction={run}>
+          <button
+            type="button"
+            title="Devtools actions"
+            className={BAR_BUTTON_CLASS}
+          >
+            <span className="font-semibold tracking-wider uppercase">
+              {channel}
+            </span>
+            <span className="opacity-70">
+              {build.version}
+              {build.hash ? ` ${build.hash}` : ""}
+            </span>
+          </button>
+        </DevtoolsMenu>
+        <LiveMetrics />
+      </footer>
+      {dialogs}
+    </>
+  );
+}
 
+// Isolated so the once-per-second metrics tick does not re-render the menu
+// and dialogs above, which would show up in the render counter itself.
+function LiveMetrics(props: Record<never, never>) {
+  ignoreRenderTracking(props);
+
+  const metrics = useDevtoolsMetrics();
+  const [, refresh] = useReducer((tick: number) => tick + 1, 0);
+
+  const fps = last(metrics.fps);
+  const invokes = last(metrics.invokes) ?? 0;
+  const callbacks = last(metrics.callbacks) ?? 0;
+  const renders = last(metrics.renders) ?? 0;
+  const memoryBytes = last(metrics.memoryBytes);
+  const outlinesEnabled = areRenderOutlinesEnabled();
+
+  return (
+    <>
       <Segment
         label="FPS"
         title={`Frames per second (avg ${average(metrics.fps)} over ${metrics.fps.length}s)`}
@@ -133,25 +165,22 @@ function DevtoolsStatusBarContent(props: Record<never, never>) {
         />
       </Segment>
 
-      {reactScanAvailable ? (
-        <BarButton
-          title={
-            outlinesEnabled
-              ? "React Scan: outlining re-renders (click to pause)"
-              : "React Scan: outlines paused (click to resume)"
-          }
-          onClick={() => {
-            setReactScanOutlinesEnabled(!outlinesEnabled);
-            refresh();
-          }}
-        >
-          <span className={LABEL_CLASS}>renders</span>
-          <span className={VALUE_CLASS}>
-            {outlinesEnabled ? renders : "off"}
-          </span>
-          <Sparkline values={metrics.renders} />
-        </BarButton>
-      ) : null}
+      <button
+        type="button"
+        title={describeRenders(outlinesEnabled)}
+        className={BAR_BUTTON_CLASS}
+        onClick={() => {
+          setRenderOutlinesEnabled(!outlinesEnabled);
+          refresh();
+        }}
+      >
+        <span className={LABEL_CLASS}>renders</span>
+        <span className={VALUE_CLASS}>{renders}</span>
+        <Sparkline values={metrics.renders} />
+        <span className={cn(["opacity-70", !outlinesEnabled && "opacity-40"])}>
+          {outlinesEnabled ? "◉" : "○"} outline
+        </span>
+      </button>
 
       <Segment
         label="MEM"
@@ -162,23 +191,51 @@ function DevtoolsStatusBarContent(props: Record<never, never>) {
         </span>
         <Sparkline values={metrics.memoryBytes} relative />
       </Segment>
+    </>
+  );
+}
 
-      <div className="flex-1" />
+function describeRenders(outlinesEnabled: boolean): string {
+  const top = getTopRenderedComponents()
+    .map(({ name, count }) => `${name} ×${count}`)
+    .join("\n");
 
-      {reactScanAvailable ? (
-        <BarButton
-          title="Toggle the React Scan toolbar (inspector, slowdown notifications)"
-          onClick={() => {
-            setReactScanToolbarVisible(!toolbarVisible);
-            refresh();
-          }}
-        >
-          <span className={cn([VALUE_CLASS, !toolbarVisible && "opacity-70"])}>
-            {toolbarVisible ? "◉" : "○"} react scan
-          </span>
-        </BarButton>
-      ) : null}
-    </footer>
+  return [
+    `React component renders per second. Outlines ${outlinesEnabled ? "on" : "off"} (click to toggle).`,
+    top ? `Most rendered (last 10s):\n${top}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function DevtoolsMenu(props: {
+  children: React.ReactNode;
+  onAction: (action: DevtoolsAction) => void;
+}) {
+  ignoreRenderTracking(props);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>{props.children}</DropdownMenuTrigger>
+      <DropdownMenuContent align="start" side="top" className="w-48">
+        {DEVTOOLS_MENU.map((group) => (
+          <DropdownMenuSub key={group.label}>
+            <DropdownMenuSubTrigger>{group.label}</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-56">
+              {group.items.map((item) => (
+                <DropdownMenuItem
+                  key={item.action}
+                  className={cn([item.destructive && "text-destructive"])}
+                  onSelect={() => props.onAction(item.action)}
+                >
+                  {item.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -202,50 +259,18 @@ function useBuildInfo() {
   }).data;
 }
 
-async function openDevtoolsPanel() {
-  const result = await windowsCommands.devtoolsPanelShow();
-  if (result.status === "error") {
-    console.error("Failed to show Devtools panel:", result.error);
-  }
-}
-
 function Segment(props: {
   children: React.ReactNode;
   label: string;
   title: string;
 }) {
-  ignoreReactScan(props);
+  ignoreRenderTracking(props);
 
   return (
-    <div
-      title={props.title}
-      className="flex items-center gap-1.5 border-l border-white/15 px-2"
-    >
+    <div title={props.title} className={BAR_ITEM_CLASS}>
       <span className={LABEL_CLASS}>{props.label}</span>
       {props.children}
     </div>
-  );
-}
-
-function BarButton(props: {
-  children: React.ReactNode;
-  onClick: () => void;
-  title: string;
-}) {
-  ignoreReactScan(props);
-
-  return (
-    <button
-      type="button"
-      title={props.title}
-      onClick={props.onClick}
-      className={cn([
-        "flex items-center gap-1.5 border-l border-white/15 px-2 first:border-l-0",
-        "hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-hidden",
-      ])}
-    >
-      {props.children}
-    </button>
   );
 }
 
@@ -262,7 +287,7 @@ function Sparkline(props: {
   floor?: number;
   relative?: boolean;
 }) {
-  ignoreReactScan(props);
+  ignoreRenderTracking(props);
   const { values, floor = 1, relative = false } = props;
 
   if (values.length < 2) {

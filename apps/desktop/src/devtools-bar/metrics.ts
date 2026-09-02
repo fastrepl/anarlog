@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 import { commands as miscCommands } from "@anlg/plugin-misc";
 
-import { drainReactScanRenders } from "./react-scan";
+import { startRenderTracker, tickRenderTracker } from "./render-tracker";
 
 export const HISTORY_LENGTH = 30;
 const TICK_MS = 1000;
@@ -150,6 +150,7 @@ export function installIpcCounters() {
 
 export function startDevtoolsMetrics(): () => void {
   const ipc = installIpcCounters();
+  const stopRenderTracker = startRenderTracker();
   let frames = 0;
   let frameHandle: number | null = null;
   if (typeof requestAnimationFrame === "function") {
@@ -181,7 +182,7 @@ export function startDevtoolsMetrics(): () => void {
     const fps = Math.round(frames / elapsedSeconds);
     frames = 0;
     const traffic = ipc.drain();
-    const renders = drainReactScanRenders();
+    const renders = tickRenderTracker();
 
     useDevtoolsMetrics.setState((state) => ({
       fps: pushSample(state.fps, fps),
@@ -204,6 +205,7 @@ export function startDevtoolsMetrics(): () => void {
     if (frameHandle !== null) {
       cancelAnimationFrame(frameHandle);
     }
+    stopRenderTracker();
     ipc.restore();
   };
 }

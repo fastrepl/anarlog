@@ -1,3 +1,6 @@
+// Must be the first import: React only reports commits to a devtools hook that
+// exists before react-dom evaluates.
+import "./devtools-bar/render-hook";
 import "./styles/globals.css";
 import "./styles/cursor.css";
 
@@ -17,7 +20,6 @@ import { Toaster } from "@anlg/ui/components/ui/toast";
 import { AITaskWindowSyncBridge } from "./ai/task-window-sync";
 import { trackAnalyticsEvent } from "./analytics";
 import { createToolRegistry } from "./contexts/tool-registry/core";
-import { startReactScanInDev } from "./devtools-bar/react-scan";
 import {
   captureOperationalError,
   initializeErrorReporting,
@@ -157,21 +159,12 @@ if (isMainWindow) {
 
 const rootElement = document.getElementById("root")!;
 
-async function enableDevInstrumentation() {
-  if (!import.meta.env.DEV) {
-    return;
+async function renderApp() {
+  if (import.meta.env.DEV) {
+    startInteractionProfiler();
   }
 
-  await startReactScanInDev();
-  startInteractionProfiler();
-}
-
-async function renderApp() {
-  await Promise.all([
-    bootstrapThemeFromSettings(),
-    enableDevInstrumentation(),
-    initializeAppStoreBuild(),
-  ]);
+  await Promise.all([bootstrapThemeFromSettings(), initializeAppStoreBuild()]);
   const root = ReactDOM.createRoot(rootElement);
   root.render(
     <StrictMode>

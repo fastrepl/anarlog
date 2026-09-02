@@ -14,8 +14,6 @@ const mocks = vi.hoisted(() => ({
   installEmbeddedCli: vi.fn(),
   listSkillAgents: vi.fn(),
   installAgentSkill: vi.fn(),
-  showDevtool: vi.fn(),
-  devtoolsPanelShow: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
   toastWarning: vi.fn(),
@@ -42,7 +40,6 @@ vi.mock("~/types/tauri.gen", () => ({
     installEmbeddedCli: mocks.installEmbeddedCli,
     listSkillAgents: mocks.listSkillAgents,
     installAgentSkill: mocks.installAgentSkill,
-    showDevtool: mocks.showDevtool,
   },
 }));
 
@@ -69,12 +66,6 @@ vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
   DropdownMenuTrigger: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
-}));
-
-vi.mock("@anlg/plugin-windows", () => ({
-  commands: {
-    devtoolsPanelShow: mocks.devtoolsPanelShow,
-  },
 }));
 
 vi.mock("@anlg/plugin-opener2", () => ({
@@ -167,10 +158,6 @@ describe("SettingsDevelopers", () => {
     mocks.listSkillAgents.mockReset();
     mocks.listSkillAgents.mockResolvedValue({ status: "ok", data: [] });
     mocks.installAgentSkill.mockReset();
-    mocks.showDevtool.mockReset();
-    mocks.showDevtool.mockResolvedValue(false);
-    mocks.devtoolsPanelShow.mockReset();
-    mocks.devtoolsPanelShow.mockResolvedValue({ status: "ok" });
     mocks.toastError.mockReset();
     mocks.toastSuccess.mockReset();
     mocks.toastWarning.mockReset();
@@ -610,62 +597,6 @@ describe("SettingsDevelopers", () => {
       expect(mocks.toastSuccess).toHaveBeenCalledWith(
         "Anarlog skill added to Codex",
       ),
-    );
-  });
-
-  it("hides the devtools section when devtools are disabled", async () => {
-    mocks.checkEmbeddedCli.mockResolvedValue({
-      status: "ok",
-      data: {
-        supported: false,
-        commandName: "anarlog",
-        installPath: "/Users/test/.local/bin/anarlog",
-        state: "unsupported",
-        details: "Unavailable.",
-      },
-    });
-
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    render(
-      <QueryClientProvider client={queryClient}>
-        <SettingsDevelopers />
-      </QueryClientProvider>,
-    );
-
-    await waitFor(() => expect(mocks.showDevtool).toHaveBeenCalled());
-    expect(screen.queryByText("Devtools panel")).toBeNull();
-  });
-
-  it("opens the devtools panel from the settings button when enabled", async () => {
-    mocks.checkEmbeddedCli.mockResolvedValue({
-      status: "ok",
-      data: {
-        supported: false,
-        commandName: "anarlog",
-        installPath: "/Users/test/.local/bin/anarlog",
-        state: "unsupported",
-        details: "Unavailable.",
-      },
-    });
-    mocks.showDevtool.mockResolvedValue(true);
-
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    render(
-      <QueryClientProvider client={queryClient}>
-        <SettingsDevelopers />
-      </QueryClientProvider>,
-    );
-
-    expect(await screen.findByText("Devtools panel")).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "Open panel" }));
-
-    await waitFor(() =>
-      expect(mocks.devtoolsPanelShow).toHaveBeenCalledTimes(1),
     );
   });
 });

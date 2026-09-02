@@ -6,7 +6,6 @@ import { Button } from "@anlg/ui/components/ui/button";
 
 import { CliSettingsSections } from "./cli";
 import { CloudApiSection } from "./cloud-api";
-import { DevtoolsSection } from "./devtools";
 import { WebhooksSection } from "./webhooks";
 
 import { SettingsPageTitle } from "~/settings/page-title";
@@ -35,7 +34,6 @@ export function SettingsDevelopers() {
       <CliSettingsSections />
       <CloudApiSection />
       <WebhooksSection />
-      <DevtoolsSection />
     </div>
   );
 }

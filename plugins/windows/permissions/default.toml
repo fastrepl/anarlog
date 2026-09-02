@@ -25,6 +25,4 @@ permissions = [
     "allow-live-caption-hide",
     "allow-live-caption-update",
     "allow-live-caption-current-state",
-    "allow-devtools-panel-show",
-    "allow-devtools-panel-hide",
 ]

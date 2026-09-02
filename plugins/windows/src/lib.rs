@@ -236,7 +236,6 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             events::FloatingBarOverlayAmplitude,
             events::LiveCaptionOverlayState,
             events::FloatingBarSettingsChange,
-            events::DevtoolsPanelAction,
         ])
         .commands(tauri_specta::collect_commands![
             commands::window_show,
@@ -263,8 +262,6 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::live_caption_hide,
             commands::live_caption_update,
             commands::live_caption_current_state,
-            commands::devtools_panel_show,
-            commands::devtools_panel_hide,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
@@ -279,11 +276,6 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
 
             crate::window::floating_bar::set_app_handle(app.clone());
             crate::window::live_caption::set_app_handle(app.clone());
-
-            #[cfg(target_os = "macos")]
-            {
-                crate::window::devtools_panel::set_app_handle(app.clone());
-            }
 
             {
                 let ready_state = WindowReadyState::default();

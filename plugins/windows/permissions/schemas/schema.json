@@ -295,30 +295,6 @@
       "type": "string",
       "oneOf": [
         {
-          "description": "Enables the devtools_panel_hide command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-devtools-panel-hide",
-          "markdownDescription": "Enables the devtools_panel_hide command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the devtools_panel_hide command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-devtools-panel-hide",
-          "markdownDescription": "Denies the devtools_panel_hide command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the devtools_panel_show command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-devtools-panel-show",
-          "markdownDescription": "Enables the devtools_panel_show command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the devtools_panel_show command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-devtools-panel-show",
-          "markdownDescription": "Denies the devtools_panel_show command without any pre-configured scope."
-        },
-        {
           "description": "Enables the floating_bar_current_state command without any pre-configured scope.",
           "type": "string",
           "const": "allow-floating-bar-current-state",
@@ -631,10 +607,10 @@
           "markdownDescription": "Denies the window_show command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-window-show`\n- `allow-window-hide`\n- `allow-window-destroy`\n- `allow-window-navigate`\n- `allow-window-emit-navigate`\n- `allow-window-is-exists`\n- `allow-window-is-occluded`\n- `allow-webview-health-ack`\n- `allow-webview-health-ready`\n- `allow-window-set-frame-animated`\n- `allow-window-save-frame`\n- `allow-window-restore-frame-animated`\n- `allow-window-expand-width`\n- `allow-window-restore-width`\n- `allow-set-show-app-in-dock`\n- `allow-floating-bar-show`\n- `allow-floating-bar-hide`\n- `allow-floating-bar-update`\n- `allow-floating-bar-update-amplitude`\n- `allow-floating-bar-current-state`\n- `allow-live-caption-show`\n- `allow-live-caption-hide`\n- `allow-live-caption-update`\n- `allow-live-caption-current-state`\n- `allow-devtools-panel-show`\n- `allow-devtools-panel-hide`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-window-show`\n- `allow-window-hide`\n- `allow-window-destroy`\n- `allow-window-navigate`\n- `allow-window-emit-navigate`\n- `allow-window-is-exists`\n- `allow-window-is-occluded`\n- `allow-webview-health-ack`\n- `allow-webview-health-ready`\n- `allow-window-set-frame-animated`\n- `allow-window-save-frame`\n- `allow-window-restore-frame-animated`\n- `allow-window-expand-width`\n- `allow-window-restore-width`\n- `allow-set-show-app-in-dock`\n- `allow-floating-bar-show`\n- `allow-floating-bar-hide`\n- `allow-floating-bar-update`\n- `allow-floating-bar-update-amplitude`\n- `allow-floating-bar-current-state`\n- `allow-live-caption-show`\n- `allow-live-caption-hide`\n- `allow-live-caption-update`\n- `allow-live-caption-current-state`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-window-show`\n- `allow-window-hide`\n- `allow-window-destroy`\n- `allow-window-navigate`\n- `allow-window-emit-navigate`\n- `allow-window-is-exists`\n- `allow-window-is-occluded`\n- `allow-webview-health-ack`\n- `allow-webview-health-ready`\n- `allow-window-set-frame-animated`\n- `allow-window-save-frame`\n- `allow-window-restore-frame-animated`\n- `allow-window-expand-width`\n- `allow-window-restore-width`\n- `allow-set-show-app-in-dock`\n- `allow-floating-bar-show`\n- `allow-floating-bar-hide`\n- `allow-floating-bar-update`\n- `allow-floating-bar-update-amplitude`\n- `allow-floating-bar-current-state`\n- `allow-live-caption-show`\n- `allow-live-caption-hide`\n- `allow-live-caption-update`\n- `allow-live-caption-current-state`\n- `allow-devtools-panel-show`\n- `allow-devtools-panel-hide`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-window-show`\n- `allow-window-hide`\n- `allow-window-destroy`\n- `allow-window-navigate`\n- `allow-window-emit-navigate`\n- `allow-window-is-exists`\n- `allow-window-is-occluded`\n- `allow-webview-health-ack`\n- `allow-webview-health-ready`\n- `allow-window-set-frame-animated`\n- `allow-window-save-frame`\n- `allow-window-restore-frame-animated`\n- `allow-window-expand-width`\n- `allow-window-restore-width`\n- `allow-set-show-app-in-dock`\n- `allow-floating-bar-show`\n- `allow-floating-bar-hide`\n- `allow-floating-bar-update`\n- `allow-floating-bar-update-amplitude`\n- `allow-floating-bar-current-state`\n- `allow-live-caption-show`\n- `allow-live-caption-hide`\n- `allow-live-caption-update`\n- `allow-live-caption-current-state`"
         }
       ]
     }

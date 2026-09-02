@@ -5,12 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   identifier: "com.hyprnote.staging",
-  reactScanAvailable: false,
   outlinesEnabled: true,
-  toolbarVisible: false,
-  setReactScanOutlinesEnabled: vi.fn(),
-  setReactScanToolbarVisible: vi.fn(),
-  devtoolsPanelShow: vi.fn().mockResolvedValue({ status: "ok", data: null }),
+  topComponents: [] as Array<{ name: string; count: number }>,
+  setRenderOutlinesEnabled: vi.fn(),
+  runAction: vi.fn(),
   startDevtoolsMetrics: vi.fn(() => vi.fn()),
 }));
 
@@ -28,20 +26,63 @@ vi.mock("@anlg/plugin-misc", () => ({
   },
 }));
 
-vi.mock("@anlg/plugin-windows", () => ({
-  commands: {
-    devtoolsPanelShow: mocks.devtoolsPanelShow,
-  },
+vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
+  DropdownMenu: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuTrigger: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+  DropdownMenuContent: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="devtools-menu">{children}</div>
+  ),
+  DropdownMenuSub: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuSubTrigger: ({ children }: { children: React.ReactNode }) => (
+    <span>{children}</span>
+  ),
+  DropdownMenuSubContent: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuItem: ({
+    children,
+    onSelect,
+  }: {
+    children: React.ReactNode;
+    onSelect?: () => void;
+  }) => (
+    <button type="button" onClick={onSelect}>
+      {children}
+    </button>
+  ),
 }));
 
-vi.mock("./react-scan", () => ({
-  ignoreReactScan: vi.fn(),
-  isReactScanAvailable: () => mocks.reactScanAvailable,
-  subscribeReactScanAvailability: () => () => {},
-  areReactScanOutlinesEnabled: () => mocks.outlinesEnabled,
-  isReactScanToolbarVisible: () => mocks.toolbarVisible,
-  setReactScanOutlinesEnabled: mocks.setReactScanOutlinesEnabled,
-  setReactScanToolbarVisible: mocks.setReactScanToolbarVisible,
+vi.mock("./actions", () => ({
+  DEVTOOLS_MENU: [
+    {
+      label: "Toasts",
+      items: [
+        { label: "Language model", action: "toasts:preview:language-model" },
+        {
+          label: "Clear all toasts",
+          action: "toasts:clear",
+          destructive: true,
+        },
+      ],
+    },
+  ],
+  useDevtoolsActions: () => ({
+    dialogs: <div data-testid="devtools-dialogs" />,
+    run: mocks.runAction,
+  }),
+}));
+
+vi.mock("./render-tracker", () => ({
+  ignoreRenderTracking: vi.fn(),
+  areRenderOutlinesEnabled: () => mocks.outlinesEnabled,
+  setRenderOutlinesEnabled: mocks.setRenderOutlinesEnabled,
+  getTopRenderedComponents: () => mocks.topComponents,
 }));
 
 vi.mock("./metrics", async (importOriginal) => {
@@ -75,9 +116,8 @@ describe("DevtoolsStatusBar", () => {
     vi.mocked(getIdentifier).mockImplementation(() =>
       Promise.resolve(mocks.identifier),
     );
-    mocks.reactScanAvailable = false;
     mocks.outlinesEnabled = true;
-    mocks.toolbarVisible = false;
+    mocks.topComponents = [];
     vi.mocked(commands.showDevtool).mockResolvedValue(true);
     useDevtoolsMetrics.setState({
       fps: [58, 60],
@@ -113,8 +153,9 @@ describe("DevtoolsStatusBar", () => {
     expect(bar.className).toContain("bg-amber-900");
     expect(bar.textContent).toContain("FPS60");
     expect(bar.textContent).toContain("↑12 ↓15");
+    expect(bar.textContent).toContain("renders41");
     expect(bar.textContent).toContain("MEM312MB");
-    expect(screen.queryByText("renders")).toBeNull();
+    expect(screen.getByTestId("devtools-dialogs")).toBeTruthy();
     expect(mocks.startDevtoolsMetrics).toHaveBeenCalledTimes(1);
   });
 
@@ -148,42 +189,37 @@ describe("DevtoolsStatusBar", () => {
     expect(bar.textContent).toContain("dev");
   });
 
-  it("opens the devtools panel from the channel badge", async () => {
+  it("runs devtools actions from the channel menu", async () => {
     renderBar();
 
-    fireEvent.click(await screen.findByTitle("Open Devtools panel"));
+    await screen.findByTestId("devtools-status-bar");
+    fireEvent.click(screen.getByRole("button", { name: "Clear all toasts" }));
 
-    expect(mocks.devtoolsPanelShow).toHaveBeenCalledTimes(1);
+    expect(mocks.runAction).toHaveBeenCalledWith("toasts:clear");
   });
 
-  it("exposes react-scan controls when it is running", async () => {
-    mocks.reactScanAvailable = true;
+  it("toggles render outlines and lists the most rendered components", async () => {
+    mocks.topComponents = [{ name: "Sidebar", count: 12 }];
 
     renderBar();
 
     const bar = await screen.findByTestId("devtools-status-bar");
-    expect(bar.textContent).toContain("renders41");
+    expect(bar.textContent).toContain("◉ outline");
 
-    fireEvent.click(
-      screen.getByTitle("React Scan: outlining re-renders (click to pause)"),
-    );
-    expect(mocks.setReactScanOutlinesEnabled).toHaveBeenCalledWith(false);
+    const rendersButton = screen.getByTitle(/Outlines on \(click to toggle\)/);
+    expect(rendersButton.title).toContain("Sidebar ×12");
 
-    fireEvent.click(
-      screen.getByTitle(
-        "Toggle the React Scan toolbar (inspector, slowdown notifications)",
-      ),
-    );
-    expect(mocks.setReactScanToolbarVisible).toHaveBeenCalledWith(true);
+    fireEvent.click(rendersButton);
+    expect(mocks.setRenderOutlinesEnabled).toHaveBeenCalledWith(false);
   });
 
-  it("shows renders as off while outlines are paused", async () => {
-    mocks.reactScanAvailable = true;
+  it("shows outlines as off when paused", async () => {
     mocks.outlinesEnabled = false;
 
     renderBar();
 
     const bar = await screen.findByTestId("devtools-status-bar");
-    expect(bar.textContent).toContain("rendersoff");
+    expect(bar.textContent).toContain("○ outline");
+    expect(screen.getByTitle(/Outlines off/)).toBeTruthy();
   });
 });

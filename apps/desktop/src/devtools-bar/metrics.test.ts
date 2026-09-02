@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("./react-scan", () => ({
-  drainReactScanRenders: vi.fn(() => 0),
+vi.mock("./render-tracker", () => ({
+  startRenderTracker: vi.fn(() => vi.fn()),
+  tickRenderTracker: vi.fn(() => 0),
 }));
 
 vi.mock("@anlg/plugin-misc", () => ({
@@ -21,6 +22,7 @@ import {
   startDevtoolsMetrics,
   useDevtoolsMetrics,
 } from "./metrics";
+import { startRenderTracker, tickRenderTracker } from "./render-tracker";
 
 const internals = () =>
   (window as unknown as { __TAURI_INTERNALS__: Record<string, unknown> })
@@ -147,6 +149,10 @@ describe("startDevtoolsMetrics", () => {
   });
 
   it("samples once per second and polls memory", async () => {
+    const stopRenderTracker = vi.fn();
+    vi.mocked(startRenderTracker).mockReturnValue(stopRenderTracker);
+    vi.mocked(tickRenderTracker).mockReturnValue(7);
+
     const stop = startDevtoolsMetrics();
 
     await vi.advanceTimersByTimeAsync(2000);
@@ -155,11 +161,12 @@ describe("startDevtoolsMetrics", () => {
     expect(state.fps).toHaveLength(2);
     expect(state.invokes).toHaveLength(2);
     expect(state.callbacks).toHaveLength(2);
-    expect(state.renders).toHaveLength(2);
+    expect(state.renders).toEqual([7, 7]);
     expect(state.memoryBytes).toEqual([512 * 1024 ** 2, 512 * 1024 ** 2]);
     expect(miscCommands.getProcessMemoryBytes).toHaveBeenCalledTimes(2);
 
     stop();
+    expect(stopRenderTracker).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(2000);
     expect(useDevtoolsMetrics.getState().fps).toHaveLength(2);
   });

@@ -1767,14 +1767,6 @@ msgstr ""
 msgid "Devices"
 msgstr ""
 
-#: src/settings/developers/devtools.tsx
-msgid "Devtools"
-msgstr ""
-
-#: src/settings/developers/devtools.tsx
-msgid "Devtools panel"
-msgstr ""
-
 #: src/settings/dictionary/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Dictionary"
@@ -3276,10 +3268,6 @@ msgstr ""
 msgid "Open on GitHub"
 msgstr ""
 
-#: src/settings/developers/devtools.tsx
-msgid "Open panel"
-msgstr ""
-
 #: src/settings/todo/github.tsx
 msgid "Open repository on GitHub"
 msgstr ""
@@ -3482,10 +3470,6 @@ msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Preview"
-msgstr ""
-
-#: src/settings/developers/devtools.tsx
-msgid "Preview notifications, toasts, updates, and billing dialogs. Only available in dev and staging builds."
 msgstr ""
 
 #: src/session/components/note-input/search/bar.tsx

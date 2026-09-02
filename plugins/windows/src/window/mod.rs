@@ -1,5 +1,4 @@
 pub(crate) mod composer;
-pub(crate) mod devtools_panel;
 pub(crate) mod floating_bar;
 pub(crate) mod live_caption;
 mod v1;

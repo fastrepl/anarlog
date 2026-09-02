@@ -58,15 +58,3 @@ public func _liveCaptionUpdate(json: SRString) -> Bool {
   LiveCaptionManager.shared.update(state: payload)
   return true
 }
-
-@_cdecl("_devtools_panel_show")
-public func _devtoolsPanelShow() -> Bool {
-  DevtoolsPanelManager.shared.show()
-  return true
-}
-
-@_cdecl("_devtools_panel_hide")
-public func _devtoolsPanelHide() -> Bool {
-  DevtoolsPanelManager.shared.hide()
-  return true
-}

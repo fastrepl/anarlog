@@ -23,8 +23,6 @@ const COMMANDS: &[&str] = &[
     "live_caption_hide",
     "live_caption_update",
     "live_caption_current_state",
-    "devtools_panel_show",
-    "devtools_panel_hide",
 ];
 
 fn main() {

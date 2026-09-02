@@ -333,34 +333,11 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
-  async devtoolsPanelShow(): Promise<Result<null, string>> {
-    try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("plugin:windows|devtools_panel_show"),
-      };
-    } catch (e) {
-      if (e instanceof Error) throw e;
-      else return { status: "error", error: e as any };
-    }
-  },
-  async devtoolsPanelHide(): Promise<Result<null, string>> {
-    try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("plugin:windows|devtools_panel_hide"),
-      };
-    } catch (e) {
-      if (e instanceof Error) throw e;
-      else return { status: "error", error: e as any };
-    }
-  },
 };
 
 /** user-defined events **/
 
 export const events = __makeEvents__<{
-  devtoolsPanelAction: DevtoolsPanelAction;
   floatingBarOpenMain: FloatingBarOpenMain;
   floatingBarOverlayAmplitude: FloatingBarOverlayAmplitude;
   floatingBarOverlayState: FloatingBarOverlayState;
@@ -373,7 +350,6 @@ export const events = __makeEvents__<{
   webviewHealthCheck: WebviewHealthCheck;
   windowDestroyed: WindowDestroyed;
 }>({
-  devtoolsPanelAction: "plugin:windows:devtools-panel-action",
   floatingBarOpenMain: "plugin:windows:floating-bar-open-main",
   floatingBarOverlayAmplitude: "plugin:windows:floating-bar-overlay-amplitude",
   floatingBarOverlayState: "plugin:windows:floating-bar-overlay-state",
@@ -406,7 +382,6 @@ export type ContactsSelection =
   | { type: "person"; id: string }
   | { type: "organization"; id: string };
 export type ContactsState = { selected: ContactsSelection | null };
-export type DevtoolsPanelAction = { action: string };
 export type EditorView =
   | { type: "raw" }
   | { type: "transcript" }
