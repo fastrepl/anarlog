@@ -22,3 +22,7 @@ export function getMainContentMinWidth(tab: Pick<Tab, "type"> | null) {
   }
   return usesNoteSurfaceMinWidth(tab) ? NOTE_SURFACE_MIN_WIDTH_PX : undefined;
 }
+
+export function boundedMinWidthPx(px: number): string {
+  return `min(${px}px, 100%)`;
+}

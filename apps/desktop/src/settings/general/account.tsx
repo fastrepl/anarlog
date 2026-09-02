@@ -124,7 +124,7 @@ export function SettingsAccount() {
       <div className="flex flex-col gap-8">
         <SettingsPageTitle title={<Trans>Account</Trans>} />
         <section className="pb-4">
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-col gap-6 @sm:flex-row @sm:items-center @sm:justify-between">
             <div className="flex min-w-0 flex-1 flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <h3 className="text-sm font-medium">
@@ -360,7 +360,7 @@ function PlanBillingSection({
 
   return (
     <div>
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex min-w-0 items-center justify-between gap-3">
         <h2 className="font-sans text-lg font-semibold">
           <Trans>Plan & Billing</Trans>
         </h2>
@@ -586,7 +586,7 @@ function Container({
 }) {
   return (
     <section>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex min-w-0 flex-col gap-4 @sm:flex-row @sm:items-start @sm:justify-between">
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <h3 className="text-sm font-medium">{title}</h3>
           {description && (

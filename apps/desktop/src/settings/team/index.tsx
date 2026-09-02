@@ -742,8 +742,8 @@ function WorkspacePanel({
         </section>
       ) : null}
 
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-muted-foreground text-xs">
+      <div className="flex min-w-0 items-center justify-between gap-4">
+        <p className="text-muted-foreground min-w-0 text-xs">
           {viewerRole === "owner" ? (
             <Trans>
               Deleting removes the workspace for everyone. Transfer ownership

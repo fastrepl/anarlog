@@ -722,7 +722,7 @@ describe("ClassicMainBody", () => {
     expect(panels[1]?.dataset.minWidth).toBe("500");
   });
 
-  it("keeps the settings content panel at least 700px wide", () => {
+  it("prefers a 700px settings panel without overflowing a narrower window", () => {
     mocks.currentTab = {
       active: true,
       pinned: false,
@@ -734,7 +734,7 @@ describe("ClassicMainBody", () => {
     render(<ClassicMainBody />);
 
     const panels = screen.getAllByTestId("panel");
-    expect(panels[1]?.dataset.minWidth).toBe("700");
+    expect(panels[1]?.dataset.minWidth).toBe("min(700px, 100%)");
   });
 
   it("unmounts hidden sidebar content when the panel is collapsed", () => {

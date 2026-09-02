@@ -16,7 +16,7 @@ export function SettingsHydrationBoundary({
   }
   if (isLoading || !data) {
     return (
-      <div className="flex min-h-48 items-center justify-center">
+      <div className="flex h-full min-h-0 min-w-0 flex-1 items-center justify-center">
         <CircleNotch
           aria-label={t`Loading settings`}
           className="text-muted-foreground size-5 animate-spin"
@@ -25,5 +25,9 @@ export function SettingsHydrationBoundary({
     );
   }
 
-  return children;
+  return (
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      {children}
+    </div>
+  );
 }

@@ -40,7 +40,10 @@ import {
   usesWindowsStyleTitleBar,
   useWindowControlsGutter,
 } from "~/shared/hooks/useWindowControlsGutter";
-import { getMainContentMinWidth } from "~/shared/main/layout-widths";
+import {
+  boundedMinWidthPx,
+  getMainContentMinWidth,
+} from "~/shared/main/layout-widths";
 import { useOpenNoteDialog } from "~/shared/open-note-dialog";
 import { useNewNote } from "~/shared/useNewNote";
 import { useSidebarNotes } from "~/sidebar/note-filter";
@@ -87,7 +90,11 @@ export function ClassicMainBody({
   leftSidebarPanelConstraintsRef.current = leftSidebarPanelConstraints;
 
   const isOnboarding = currentTab?.type === "onboarding";
-  const mainContentMinWidth = getMainContentMinWidth(currentTab);
+  const mainContentMinWidthPx = getMainContentMinWidth(currentTab);
+  const mainContentMinWidth =
+    currentTab?.type === "settings" && mainContentMinWidthPx != null
+      ? boundedMinWidthPx(mainContentMinWidthPx)
+      : mainContentMinWidthPx;
   const hasCustomSidebar = hasCustomSidebarTab(currentTab);
   const hasLeftSurfaceCustomSidebar =
     hasLeftSurfaceCustomSidebarTab(currentTab);
@@ -545,7 +552,7 @@ export function ClassicMainBody({
         <ResizablePanel
           id="classic-main-content"
           order={2}
-          className="min-h-0 flex-1 overflow-hidden"
+          className="min-h-0 min-w-0 flex-1 overflow-hidden"
           style={{ minWidth: mainContentMinWidth }}
         >
           <div

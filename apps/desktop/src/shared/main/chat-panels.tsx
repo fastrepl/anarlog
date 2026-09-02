@@ -10,6 +10,7 @@ import {
 
 import {
   AUTOMATIONS_SURFACE_MIN_WIDTH_PX,
+  boundedMinWidthPx,
   NOTE_SURFACE_MIN_WIDTH_PX,
   SETTINGS_SURFACE_MIN_WIDTH_PX,
   usesNoteSurfaceMinWidth,
@@ -44,11 +45,15 @@ export function MainChatPanels({
   const collapseLeftSidebar = useCallback(() => {
     leftsidebar.setExpanded(false);
   }, [leftsidebar.setExpanded]);
-  const bodyMinWidth = getMainBodyMinWidth({
+  const bodyMinWidthPx = getMainBodyMinWidth({
     currentTab,
     leftSidebarExpanded,
     noteSurfaceMinWidth,
   });
+  const bodyMinWidth =
+    currentTab?.type === "settings" && bodyMinWidthPx != null
+      ? boundedMinWidthPx(bodyMinWidthPx)
+      : bodyMinWidthPx;
 
   useNoteSurfaceWindowWidthGuard({
     bodyPanelContainerRef,
@@ -70,7 +75,7 @@ export function MainChatPanels({
             className="flex min-h-0 flex-1 overflow-hidden"
           >
             <ResizablePanel
-              className="min-h-0 flex-1 overflow-hidden"
+              className="min-h-0 min-w-0 flex-1 overflow-hidden"
               style={{ minWidth: bodyMinWidth }}
             >
               <div

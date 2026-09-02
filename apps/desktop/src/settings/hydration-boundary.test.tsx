@@ -48,6 +48,8 @@ describe("SettingsHydrationBoundary", () => {
       </SettingsHydrationBoundary>,
     );
 
-    expect(screen.getByText("Notification controls")).toBeTruthy();
+    const controls = screen.getByText("Notification controls");
+    expect(controls.parentElement?.className).toContain("min-h-0");
+    expect(controls.parentElement?.className).toContain("min-w-0");
   });
 });

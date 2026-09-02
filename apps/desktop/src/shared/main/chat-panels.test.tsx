@@ -244,7 +244,7 @@ describe("MainChatPanels", () => {
     expect(screen.getAllByTestId("panel")[0]?.dataset.minWidth).toBe("800");
   });
 
-  it("reserves enough main-body width for a 700px settings surface beside the sidebar", () => {
+  it("prefers a 700px settings surface beside the sidebar without overflowing", () => {
     mocks.currentTab = { type: "settings" };
     mocks.leftSidebarExpanded = true;
 
@@ -254,7 +254,9 @@ describe("MainChatPanels", () => {
       </MainChatPanels>,
     );
 
-    expect(screen.getAllByTestId("panel")[0]?.dataset.minWidth).toBe("900");
+    expect(screen.getAllByTestId("panel")[0]?.dataset.minWidth).toBe(
+      "min(900px, 100%)",
+    );
   });
 
   it("reserves enough main-body width for a 500px note surface beside the sidebar", () => {
