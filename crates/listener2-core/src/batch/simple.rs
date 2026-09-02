@@ -3,7 +3,8 @@ mod local;
 
 pub(super) use direct::run_direct_batch_for_adapter_kind;
 pub(super) use local::{
-    resample_audio_to_channel_files_until, run_apple_speech_batch, run_soniqo_batch,
+    ResampledChannelFile, resample_audio_to_channel_files_until, run_apple_speech_batch,
+    run_soniqo_batch,
 };
 
 #[cfg(test)]
