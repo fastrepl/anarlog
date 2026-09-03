@@ -4,8 +4,8 @@ use tauri_plugin_settings::SettingsPluginExt;
 use tauri_specta::Event;
 
 use crate::{
-    CaptureDataEvent, CaptureLifecycleEvent, CaptureStatusEvent, SessionStateCache,
-    SessionStateSnapshot,
+    CaptureDataEvent, CaptureLifecycleEvent, CaptureStatusEvent, MicIsolationCache,
+    SessionStateCache, SessionStateSnapshot,
 };
 use anlg_transcription_core::listener::State as RootState;
 use anlg_transcription_core::listener::actors::{RootActor, RootMsg};
@@ -15,6 +15,7 @@ const LIVE_SEGMENT_SNAPSHOT_LIMIT: usize = 200;
 pub struct TauriRuntime {
     pub app: tauri::AppHandle,
     pub session_state_cache: SessionStateCache,
+    pub mic_isolation_cache: MicIsolationCache,
 }
 
 impl anlg_storage::StorageRuntime for TauriRuntime {
@@ -95,11 +96,13 @@ impl ListenerRuntime for TauriRuntime {
                 audio_path,
                 error,
             } => {
-                let (requested_live_transcription, live_transcription_active) = self
+                let snapshot = self
                     .session_state_cache
                     .lock()
                     .ok()
-                    .and_then(|mut cache| cache.remove(&session_id))
+                    .and_then(|mut cache| cache.remove(&session_id));
+                let (requested_live_transcription, live_transcription_active) = snapshot
+                    .as_ref()
                     .map(|state| {
                         (
                             state.requested_live_transcription,
@@ -107,6 +110,18 @@ impl ListenerRuntime for TauriRuntime {
                         )
                     })
                     .unwrap_or((false, false));
+                let mic_isolated = snapshot.and_then(|state| state.mic_isolated);
+                if let Ok(mut isolation) = self.mic_isolation_cache.lock() {
+                    match mic_isolated {
+                        Some(value) => {
+                            isolation.insert(session_id.clone(), value);
+                        }
+                        None => {
+                            isolation.remove(&session_id);
+                        }
+                    }
+                }
+                crate::voiceprint::persist_mic_isolation(&self.app, &session_id, mic_isolated);
 
                 CaptureLifecycleEvent::Stopped {
                     session_id,
@@ -136,22 +151,42 @@ impl ListenerRuntime for TauriRuntime {
     }
 
     fn emit_data(&self, event: anlg_transcription_core::listener::SessionDataEvent) {
-        if let anlg_transcription_core::listener::SessionDataEvent::TranscriptSegmentDelta {
-            session_id,
-            delta,
-        } = &event
-            && let Ok(mut cache) = self.session_state_cache.lock()
-        {
-            let state = cache
-                .entry(session_id.clone())
-                .or_insert_with(SessionStateSnapshot::default);
-            apply_segment_delta(&mut state.live_segments, delta);
+        match &event {
+            anlg_transcription_core::listener::SessionDataEvent::TranscriptSegmentDelta {
+                session_id,
+                delta,
+            } => {
+                if let Ok(mut cache) = self.session_state_cache.lock() {
+                    let state = cache
+                        .entry(session_id.clone())
+                        .or_insert_with(SessionStateSnapshot::default);
+                    apply_segment_delta(&mut state.live_segments, delta);
+                }
+            }
+            anlg_transcription_core::listener::SessionDataEvent::MicIsolated {
+                session_id,
+                value,
+            } => {
+                if let Ok(mut cache) = self.session_state_cache.lock() {
+                    let state = cache
+                        .entry(session_id.clone())
+                        .or_insert_with(SessionStateSnapshot::default);
+                    state.mic_isolated = Some(merge_mic_isolation(state.mic_isolated, *value));
+                }
+            }
+            _ => {}
         }
 
         if let Err(error) = CaptureDataEvent::from(event).emit(&self.app) {
             tracing::error!(?error, "failed_to_emit_data_event");
         }
     }
+}
+
+/// A recording is isolated only if every stream was. Unplugging headphones mid-meeting flips it
+/// to false for good, so no far-end speech can be mistaken for the local user later.
+fn merge_mic_isolation(previous: Option<bool>, value: bool) -> bool {
+    previous.unwrap_or(true) && value
 }
 
 fn apply_segment_delta(
@@ -182,7 +217,16 @@ mod tests {
     use anlg_transcript::{ChannelProfile, SegmentKey};
     use anlg_transcription_core::listener::{LiveTranscriptSegment, LiveTranscriptSegmentDelta};
 
-    use super::{LIVE_SEGMENT_SNAPSHOT_LIMIT, apply_segment_delta};
+    use super::{LIVE_SEGMENT_SNAPSHOT_LIMIT, apply_segment_delta, merge_mic_isolation};
+
+    #[test]
+    fn mic_isolation_sticks_to_false_once_any_stream_was_shared() {
+        assert!(merge_mic_isolation(None, true));
+        assert!(!merge_mic_isolation(None, false));
+        assert!(merge_mic_isolation(Some(true), true));
+        assert!(!merge_mic_isolation(Some(true), false));
+        assert!(!merge_mic_isolation(Some(false), true));
+    }
 
     fn segment(id: &str, start_ms: i64) -> LiveTranscriptSegment {
         LiveTranscriptSegment {

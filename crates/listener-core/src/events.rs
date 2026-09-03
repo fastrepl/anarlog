@@ -71,6 +71,10 @@ pub enum SessionDataEvent {
     },
     #[serde(rename = "mic_muted")]
     MicMuted { session_id: String, value: bool },
+    /// Whether the microphone can only hear the local user: true when the default output is a
+    /// headphone, so no far-end audio reaches the mic. Emitted each time capture (re)starts.
+    #[serde(rename = "mic_isolated")]
+    MicIsolated { session_id: String, value: bool },
     #[serde(rename = "transcript_delta")]
     TranscriptDelta {
         session_id: String,

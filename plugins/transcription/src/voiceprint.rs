@@ -8,11 +8,17 @@ use anlg_voiceprint::{
 };
 use base64::Engine;
 use tauri::Manager;
+use tauri_plugin_store2::Store2PluginExt;
 
 const MODEL_PROVIDER: &str = "pyannote";
 const MODEL_VERSION: &str = "wespeaker-embedding-onnx-1";
 const CANDIDATE_TTL_DAYS: i64 = 45;
 const EMBEDDING_SAMPLE_RATE: u32 = anlg_embedding::SAMPLE_RATE_HZ;
+const DIRECT_MIC_CHANNEL: i64 = 0;
+const ISOLATED_MIC_CONFIRMATION_SOURCE: &str = "isolated_mic_capture";
+// Below a manual assignment: someone else could still lean into the laptop mic.
+const ISOLATED_MIC_LABEL_CONFIDENCE: f64 = 0.9;
+const MIC_ISOLATION_STORE_SCOPE: &str = "transcription.mic_isolation";
 
 #[derive(Debug, serde::Deserialize)]
 struct StoredWord {
@@ -82,13 +88,18 @@ pub async fn extract_voiceprint_candidates<R: tauri::Runtime>(
     };
 
     // Repair and re-transcription flows can finalize the same transcript
-    // more than once; extract only for transcripts we have not seen.
+    // more than once; extract only for transcripts we have not seen. Promotion
+    // tombstones candidates, so exemplars sourced here count as seen too.
     let already_extracted: bool = sqlx::query_scalar(
         "SELECT EXISTS(
            SELECT 1 FROM voiceprint_candidates
            WHERE source_transcript_id = ? AND deleted_at IS NULL
+         ) OR EXISTS(
+           SELECT 1 FROM voiceprint_exemplars
+           WHERE source_transcript_id = ? AND deleted_at IS NULL
          )",
     )
+    .bind(&transcript_id)
     .bind(&transcript_id)
     .fetch_one(&pool)
     .await
@@ -188,6 +199,24 @@ pub async fn extract_voiceprint_candidates<R: tauri::Runtime>(
         "voiceprint_candidates_extracted"
     );
 
+    if stored > 0 && mic_isolated_for_session(&app, &session_id) == Some(true) {
+        let promoted = confirm_isolated_mic_candidates(
+            &app,
+            &pool,
+            &session_id,
+            &transcript_id,
+            &workspace_id,
+            &embeddings,
+        )
+        .await;
+        tracing::info!(
+            session_id = %session_id,
+            transcript_id = %transcript_id,
+            promoted,
+            "isolated_mic_self_exemplars_confirmed"
+        );
+    }
+
     if let Err(error) = maybe_assign_speakers_from_voiceprints(
         &app,
         &pool,
@@ -229,39 +258,80 @@ pub async fn promote_voiceprint_candidates<R: tauri::Runtime>(
         return Ok(0);
     };
 
+    promote_speaker_candidates(
+        &app,
+        &pool,
+        SpeakerPromotion {
+            workspace_id: &workspace_id,
+            transcript_id: &transcript_id,
+            speaker_channel: i64::from(speaker_channel),
+            speaker_index: speaker_index.map(i64::from),
+            human_id: &human_id,
+            confirmation_source: "manual_speaker_assignment",
+            label_confidence: 1.0,
+        },
+    )
+    .await
+}
+
+struct SpeakerPromotion<'a> {
+    workspace_id: &'a str,
+    transcript_id: &'a str,
+    speaker_channel: i64,
+    speaker_index: Option<i64>,
+    human_id: &'a str,
+    confirmation_source: &'static str,
+    label_confidence: f64,
+}
+
+async fn promote_speaker_candidates<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    pool: &sqlx::SqlitePool,
+    promotion: SpeakerPromotion<'_>,
+) -> Result<u32, String> {
+    let SpeakerPromotion {
+        workspace_id,
+        transcript_id,
+        speaker_channel,
+        speaker_index,
+        human_id,
+        confirmation_source,
+        label_confidence,
+    } = promotion;
+
     let label = speaker_label(&SelectedSpan {
-        channel: speaker_channel as i64,
-        speaker_index: speaker_index.map(i64::from),
+        channel: speaker_channel,
+        speaker_index,
         start_ms: 0,
         end_ms: 0,
         quality_score: 0.0,
     });
 
     let stale = anlg_db_app::tombstone_voiceprint_exemplars_for_source_speaker(
-        &pool,
-        &workspace_id,
-        &transcript_id,
+        pool,
+        workspace_id,
+        transcript_id,
         &label,
-        &human_id,
+        human_id,
     )
     .await
     .map_err(|error| error.to_string())?;
     for secret in stale {
-        delete_secret(&app, secret.keyring_scope, secret.keyring_key.clone()).await;
+        delete_secret(app, secret.keyring_scope, secret.keyring_key.clone()).await;
         let _ = anlg_db_app::purge_tombstoned_voiceprint_exemplar(
-            &pool,
-            &workspace_id,
+            pool,
+            workspace_id,
             &secret.keyring_key,
         )
         .await;
     }
 
     let candidates = anlg_db_app::list_active_voiceprint_candidates_for_speaker(
-        &pool,
-        &workspace_id,
-        &transcript_id,
-        speaker_channel as i64,
-        speaker_index.map(i64::from),
+        pool,
+        workspace_id,
+        transcript_id,
+        speaker_channel,
+        speaker_index,
     )
     .await
     .map_err(|error| error.to_string())?;
@@ -294,13 +364,13 @@ pub async fn promote_voiceprint_candidates<R: tauri::Runtime>(
         }
 
         match anlg_db_app::promote_voiceprint_candidate(
-            &pool,
+            pool,
             anlg_db_app::PromoteVoiceprintCandidate {
                 candidate_id: &candidate.id,
-                workspace_id: &workspace_id,
-                human_id: &human_id,
-                confirmation_source: "manual_speaker_assignment",
-                label_confidence: 1.0,
+                workspace_id,
+                human_id,
+                confirmation_source,
+                label_confidence,
             },
         )
         .await
@@ -308,7 +378,7 @@ pub async fn promote_voiceprint_candidates<R: tauri::Runtime>(
             Ok((_, candidate_secret)) => {
                 promoted += 1;
                 delete_secret(
-                    &app,
+                    app,
                     candidate_secret.keyring_scope,
                     candidate_secret.keyring_key,
                 )
@@ -317,7 +387,7 @@ pub async fn promote_voiceprint_candidates<R: tauri::Runtime>(
             Err(error) => {
                 tracing::warn!(%error, "voiceprint_candidate_promotion_failed");
                 delete_secret(
-                    &app,
+                    app,
                     anlg_db_app::VOICEPRINT_KEYRING_SCOPE.to_string(),
                     candidate.id.clone(),
                 )
@@ -329,10 +399,122 @@ pub async fn promote_voiceprint_candidates<R: tauri::Runtime>(
     tracing::info!(
         transcript_id = %transcript_id,
         speaker_channel,
+        confirmation_source,
         promoted,
         "voiceprint_candidates_promoted"
     );
     Ok(promoted)
+}
+
+/// With headphone output the direct-mic channel can only carry the session owner, so its
+/// candidates are confirmed self exemplars without waiting for a manual speaker assignment.
+/// Returns the number of promoted candidates; storage problems are logged, never fatal.
+async fn confirm_isolated_mic_candidates<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    pool: &sqlx::SqlitePool,
+    session_id: &str,
+    transcript_id: &str,
+    workspace_id: &str,
+    embeddings: &[SpanEmbedding],
+) -> u32 {
+    let speakers = direct_mic_speakers(embeddings);
+    if speakers.is_empty() {
+        return 0;
+    }
+
+    let owner = match sqlx::query_scalar::<_, String>(
+        "SELECT owner_user_id FROM sessions WHERE id = ? AND deleted_at IS NULL LIMIT 1",
+    )
+    .bind(session_id)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(Some(owner)) if !owner.is_empty() => owner,
+        Ok(_) => return 0,
+        Err(error) => {
+            tracing::warn!(%error, "isolated_mic_owner_lookup_failed");
+            return 0;
+        }
+    };
+
+    let mut promoted = 0;
+    for speaker_index in speakers {
+        match promote_speaker_candidates(
+            app,
+            pool,
+            SpeakerPromotion {
+                workspace_id,
+                transcript_id,
+                speaker_channel: DIRECT_MIC_CHANNEL,
+                speaker_index,
+                human_id: &owner,
+                confirmation_source: ISOLATED_MIC_CONFIRMATION_SOURCE,
+                label_confidence: ISOLATED_MIC_LABEL_CONFIDENCE,
+            },
+        )
+        .await
+        {
+            Ok(count) => promoted += count,
+            Err(error) => tracing::warn!(%error, "isolated_mic_promotion_failed"),
+        }
+    }
+    promoted
+}
+
+/// Remembers a stopped session's mic isolation on disk so extraction after a relaunch or crash
+/// recovery still sees it; the in-memory cache alone dies with the process.
+pub(crate) fn persist_mic_isolation<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    session_id: &str,
+    value: Option<bool>,
+) {
+    let store = match app
+        .store2()
+        .scoped_store::<String>(MIC_ISOLATION_STORE_SCOPE)
+    {
+        Ok(store) => store,
+        Err(error) => {
+            tracing::warn!(%error, "mic_isolation_store_unavailable");
+            return;
+        }
+    };
+    let result = match value {
+        Some(value) => store.set(session_id.to_string(), value),
+        None => store.delete(session_id.to_string()),
+    };
+    if let Err(error) = result {
+        tracing::warn!(%error, "mic_isolation_persist_failed");
+    }
+}
+
+fn mic_isolated_for_session<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    session_id: &str,
+) -> Option<bool> {
+    let cached = app
+        .try_state::<crate::MicIsolationCache>()
+        .and_then(|cache| cache.lock().ok()?.get(session_id).copied());
+    if cached.is_some() {
+        return cached;
+    }
+    app.store2()
+        .scoped_store::<String>(MIC_ISOLATION_STORE_SCOPE)
+        .ok()?
+        .get::<bool>(session_id.to_string())
+        .ok()
+        .flatten()
+}
+
+/// Distinct provider speaker indices seen on the direct-mic channel. Hosted providers may still
+/// split an isolated mic into several "speakers"; every one of them is the owner.
+fn direct_mic_speakers(embeddings: &[SpanEmbedding]) -> Vec<Option<i64>> {
+    let mut speakers: Vec<Option<i64>> = Vec::new();
+    for (span, _) in embeddings {
+        if span.channel == DIRECT_MIC_CHANNEL && !speakers.contains(&span.speaker_index) {
+            speakers.push(span.speaker_index);
+        }
+    }
+    speakers
 }
 
 #[tauri::command]
@@ -1115,6 +1297,32 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
+
+    #[test]
+    fn direct_mic_speakers_dedupes_and_ignores_other_channels() {
+        let span = |channel: i64, speaker_index: Option<i64>| {
+            (
+                SelectedSpan {
+                    channel,
+                    speaker_index,
+                    start_ms: 0,
+                    end_ms: 2_000,
+                    quality_score: 0.5,
+                },
+                vec![0.0_f32; 4],
+            )
+        };
+        let embeddings = vec![
+            span(0, None),
+            span(1, Some(0)),
+            span(0, Some(2)),
+            span(0, None),
+            span(2, None),
+        ];
+
+        assert_eq!(direct_mic_speakers(&embeddings), vec![None, Some(2)]);
+        assert!(direct_mic_speakers(&[span(1, Some(0))]).is_empty());
+    }
 
     #[test]
     fn spans_use_provider_hints_over_word_speaker_index() {

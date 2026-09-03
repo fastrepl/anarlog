@@ -111,6 +111,8 @@ pub enum CaptureDataEvent {
     },
     #[serde(rename = "mic_muted")]
     MicMuted { session_id: String, value: bool },
+    #[serde(rename = "mic_isolated")]
+    MicIsolated { session_id: String, value: bool },
     #[serde(rename = "transcript_delta")]
     TranscriptDelta {
         session_id: String,
@@ -300,6 +302,9 @@ impl From<listener::SessionDataEvent> for CaptureDataEvent {
             },
             listener::SessionDataEvent::MicMuted { session_id, value } => {
                 Self::MicMuted { session_id, value }
+            }
+            listener::SessionDataEvent::MicIsolated { session_id, value } => {
+                Self::MicIsolated { session_id, value }
             }
             listener::SessionDataEvent::TranscriptDelta { session_id, delta } => {
                 Self::TranscriptDelta { session_id, delta }

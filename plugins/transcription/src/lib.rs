@@ -43,9 +43,16 @@ pub struct SessionStateSnapshot {
     pub requested_live_transcription: bool,
     pub live_transcription_active: bool,
     pub live_segments: Vec<anlg_transcription_core::listener::LiveTranscriptSegment>,
+    /// `Some(true)` only if every capture stream of this recording ran with the mic isolated
+    /// (headphone output). One shared-speaker stretch pins it to `Some(false)`.
+    pub mic_isolated: Option<bool>,
 }
 
 pub type SessionStateCache = Arc<StdMutex<HashMap<String, SessionStateSnapshot>>>;
+
+/// Final mic isolation per session, kept after the session snapshot is dropped on stop so
+/// voiceprint extraction, which runs after the recording ends, can still read it.
+pub type MicIsolationCache = Arc<StdMutex<HashMap<String, bool>>>;
 
 pub struct BatchSessionRegistry {
     pub sessions: StdMutex<HashMap<String, BatchSessionEntry>>,
@@ -129,9 +136,12 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             let audio = app.state::<Arc<dyn AudioProvider>>().inner().clone();
             let session_state_cache: SessionStateCache = Arc::new(StdMutex::new(HashMap::new()));
             app.manage(session_state_cache.clone());
+            let mic_isolation_cache: MicIsolationCache = Arc::new(StdMutex::new(HashMap::new()));
+            app.manage(mic_isolation_cache.clone());
             let runtime = Arc::new(listener::TauriRuntime {
                 app: app_handle.clone(),
                 session_state_cache,
+                mic_isolation_cache,
             });
 
             tauri::async_runtime::spawn(async move {
