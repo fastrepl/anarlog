@@ -232,6 +232,11 @@ export const SETTING_DEFINITIONS = {
     type: "string",
     path: ["ai", "current_llm_model"],
   },
+  current_llm_reasoning_effort: {
+    type: "string",
+    path: ["ai", "current_llm_reasoning_effort"],
+    default: "default" as string,
+  },
   current_stt_provider: {
     type: "string",
     path: ["ai", "current_stt_provider"],

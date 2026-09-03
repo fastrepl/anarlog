@@ -5,7 +5,11 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
-import { extractReasoningMiddleware, wrapLanguageModel } from "ai";
+import {
+  defaultSettingsMiddleware,
+  extractReasoningMiddleware,
+  wrapLanguageModel,
+} from "ai";
 import { useMemo, useRef } from "react";
 
 import type { CharTask } from "@anlg/api-client";
@@ -13,6 +17,11 @@ import type { AIProviderStorage } from "@anlg/store";
 
 import { createAppleFoundationModel } from "../apple-foundation-model";
 import { createAuthFetch } from "../auth-fetch";
+import {
+  normalizeReasoningEffort,
+  type ReasoningEffort,
+  reasoningProviderOptions,
+} from "../reasoning-effort";
 import { streamOnlyGenerationMiddleware } from "../stream-only-generation";
 import { createTracedFetch, tracedFetch } from "../traced-fetch";
 
@@ -39,6 +48,7 @@ type LLMConnectionInfo = {
   modelId: string;
   baseUrl: string;
   apiKey: string;
+  reasoningEffort: ReasoningEffort;
 };
 
 export type LLMConnectionStatus =
@@ -94,9 +104,14 @@ export const useLLMConnection = (): LLMConnectionResult => {
   const auth = useAuth();
   const billing = useBillingAccess();
 
-  const { current_llm_provider, current_llm_model } = useConfigValues([
+  const {
+    current_llm_provider,
+    current_llm_model,
+    current_llm_reasoning_effort,
+  } = useConfigValues([
     "current_llm_provider",
     "current_llm_model",
+    "current_llm_reasoning_effort",
   ] as const);
   const providerConfig = useAiProvider("llm", current_llm_provider) as
     | AIProviderStorage
@@ -107,6 +122,7 @@ export const useLLMConnection = (): LLMConnectionResult => {
       resolveLLMConnection({
         providerId: current_llm_provider,
         modelId: current_llm_model,
+        reasoningEffort: normalizeReasoningEffort(current_llm_reasoning_effort),
         providerConfig,
         session: auth?.session,
         isPaid: billing.isPaid,
@@ -116,6 +132,7 @@ export const useLLMConnection = (): LLMConnectionResult => {
       billing.isPaid,
       current_llm_model,
       current_llm_provider,
+      current_llm_reasoning_effort,
       providerConfig,
     ],
   );
@@ -129,6 +146,7 @@ export const useLLMConnectionStatus = (): LLMConnectionStatus => {
 const resolveLLMConnection = (params: {
   providerId: string | undefined;
   modelId: string | undefined;
+  reasoningEffort: ReasoningEffort;
   providerConfig: AIProviderStorage | undefined;
   session: { access_token: string } | null | undefined;
   isPaid: boolean;
@@ -136,6 +154,7 @@ const resolveLLMConnection = (params: {
   const {
     providerId: rawProviderId,
     modelId,
+    reasoningEffort,
     providerConfig,
     session,
     isPaid,
@@ -221,13 +240,14 @@ const resolveLLMConnection = (params: {
         modelId,
         baseUrl: baseUrl ?? new URL("/llm", env.VITE_API_URL).toString(),
         apiKey: session.access_token,
+        reasoningEffort,
       },
       status: { status: "success", providerId, isHosted: true },
     };
   }
 
   return {
-    conn: { providerId, modelId, baseUrl, apiKey },
+    conn: { providerId, modelId, baseUrl, apiKey, reasoningEffort },
     status: { status: "success", providerId, isHosted: false },
   };
 };
@@ -245,6 +265,27 @@ const wrapWithThinkingMiddleware = (
 };
 
 const createLanguageModel = (
+  conn: LLMConnectionInfo,
+  task?: CharTask,
+  hostedFetch?: typeof fetch,
+): LanguageModelV3 => {
+  const model = createProviderModel(conn, task, hostedFetch);
+  const providerOptions = reasoningProviderOptions(
+    conn.providerId,
+    conn.modelId,
+    conn.reasoningEffort,
+  );
+  if (!providerOptions) {
+    return model;
+  }
+
+  return wrapLanguageModel({
+    model,
+    middleware: defaultSettingsMiddleware({ settings: { providerOptions } }),
+  });
+};
+
+const createProviderModel = (
   conn: LLMConnectionInfo,
   task?: CharTask,
   hostedFetch?: typeof fetch,

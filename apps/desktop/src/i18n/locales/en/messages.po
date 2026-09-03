@@ -1628,6 +1628,7 @@ msgstr "Date and time are required"
 msgid "Decline"
 msgstr "Decline"
 
+#: src/settings/ai/llm/select.tsx
 #: src/settings/appearance/app-icon.tsx
 msgid "Default"
 msgstr "Default"
@@ -2275,11 +2276,19 @@ msgstr "Hide Sidebar"
 msgid "Hide sync log"
 msgstr "Hide sync log"
 
+#: src/settings/ai/llm/select.tsx
+msgid "High"
+msgstr "High"
+
 #. placeholder {0}: history.position
 #. placeholder {1}: history.total
 #: src/chat/components/input/index.tsx
 msgid "History {0}/{1}"
 msgstr "History {0}/{1}"
+
+#: src/settings/ai/llm/select.tsx
+msgid "How much the model thinks before answering. Default leaves it to the provider."
+msgstr "How much the model thinks before answering. Default leaves it to the provider."
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
 msgid "How to get a Kimi Code key"
@@ -2635,6 +2644,10 @@ msgstr "Locked note"
 msgid "Login"
 msgstr "Login"
 
+#: src/settings/ai/llm/select.tsx
+msgid "Low"
+msgstr "Low"
+
 #: src/settings/appearance/theme.tsx
 msgid "Low-light canvas"
 msgstr "Low-light canvas"
@@ -2705,6 +2718,10 @@ msgstr "MCP configuration copied"
 #: src/settings/developers/cli.tsx
 msgid "MCP server"
 msgstr "MCP server"
+
+#: src/settings/ai/llm/select.tsx
+msgid "Medium"
+msgstr "Medium"
 
 #: src/sidebar/timeline/index.tsx
 msgid "Meeting"
@@ -3527,6 +3544,10 @@ msgstr "Read meeting controls and visible chat."
 #: src/onboarding/index.tsx
 msgid "Ready to go"
 msgstr "Ready to go"
+
+#: src/settings/ai/llm/select.tsx
+msgid "Reasoning effort"
+msgstr "Reasoning effort"
 
 #: src/session/components/note-input/enhanced/streaming.tsx
 msgid "Reasoning models think through the transcript before writing."

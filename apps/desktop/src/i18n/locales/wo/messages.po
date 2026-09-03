@@ -1628,6 +1628,7 @@ msgstr ""
 msgid "Decline"
 msgstr ""
 
+#: src/settings/ai/llm/select.tsx
 #: src/settings/appearance/app-icon.tsx
 msgid "Default"
 msgstr ""
@@ -2275,10 +2276,18 @@ msgstr ""
 msgid "Hide sync log"
 msgstr ""
 
+#: src/settings/ai/llm/select.tsx
+msgid "High"
+msgstr ""
+
 #. placeholder {0}: history.position
 #. placeholder {1}: history.total
 #: src/chat/components/input/index.tsx
 msgid "History {0}/{1}"
+msgstr ""
+
+#: src/settings/ai/llm/select.tsx
+msgid "How much the model thinks before answering. Default leaves it to the provider."
 msgstr ""
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
@@ -2635,6 +2644,10 @@ msgstr ""
 msgid "Login"
 msgstr ""
 
+#: src/settings/ai/llm/select.tsx
+msgid "Low"
+msgstr ""
+
 #: src/settings/appearance/theme.tsx
 msgid "Low-light canvas"
 msgstr ""
@@ -2704,6 +2717,10 @@ msgstr ""
 
 #: src/settings/developers/cli.tsx
 msgid "MCP server"
+msgstr ""
+
+#: src/settings/ai/llm/select.tsx
+msgid "Medium"
 msgstr ""
 
 #: src/sidebar/timeline/index.tsx
@@ -3526,6 +3543,10 @@ msgstr ""
 
 #: src/onboarding/index.tsx
 msgid "Ready to go"
+msgstr ""
+
+#: src/settings/ai/llm/select.tsx
+msgid "Reasoning effort"
 msgstr ""
 
 #: src/session/components/note-input/enhanced/streaming.tsx

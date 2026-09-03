@@ -25,6 +25,10 @@ import {
   listSubscriptionModels,
 } from "./subscriptions";
 
+import {
+  normalizeReasoningEffort,
+  supportsReasoningEffort,
+} from "~/ai/reasoning-effort";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import {
@@ -64,7 +68,12 @@ import {
   getVisibleModelSelection,
 } from "~/settings/ai/shared/selection";
 import { useAiProvidersState } from "~/settings/providers";
-import { setSettingValues, useSettingsReady } from "~/settings/queries";
+import {
+  setSettingValues,
+  useSetSettingValue,
+  useSettingsReady,
+} from "~/settings/queries";
+import { SETTING_CONTROL_CLASS, SettingRow } from "~/settings/setting-row";
 import { useConfigValues } from "~/shared/config";
 import { SettingsAlertToast } from "~/shared/ui/settings-alert";
 
@@ -84,10 +93,16 @@ export function SelectProviderAndModel() {
   } | null>(null);
   const [isResolvingProvider, setIsResolvingProvider] = useState(false);
 
-  const { current_llm_model, current_llm_provider } = useConfigValues([
+  const {
+    current_llm_model,
+    current_llm_provider,
+    current_llm_reasoning_effort,
+  } = useConfigValues([
     "current_llm_model",
     "current_llm_provider",
+    "current_llm_reasoning_effort",
   ] as const);
+  const setReasoningEffort = useSetSettingValue("current_llm_reasoning_effort");
   const selectedProviderConfigured = current_llm_provider
     ? (configuredProviders[current_llm_provider]?.configured ?? false)
     : false;
@@ -140,9 +155,12 @@ export function SelectProviderAndModel() {
     model: string,
     requestId: number,
   ) => {
+    // Effort support differs per model, so a stale level would break
+    // requests against a model that rejects the parameter.
     void setSettingValues({
       current_llm_provider: provider,
       current_llm_model: model,
+      current_llm_reasoning_effort: "default",
     }).catch((error) => {
       console.error("[settings] failed to update LLM selection", error);
       if (selectionRequestRef.current === requestId) {
@@ -429,6 +447,46 @@ export function SelectProviderAndModel() {
           />
         </div>
       </div>
+
+      {effectiveSelection.provider &&
+      supportsReasoningEffort(effectiveSelection.provider) ? (
+        <SettingRow
+          title={<Trans>Reasoning effort</Trans>}
+          description={
+            <Trans>
+              How much the model thinks before answering. Default leaves it to
+              the provider.
+            </Trans>
+          }
+        >
+          {(labelProps) => (
+            <Select
+              value={normalizeReasoningEffort(current_llm_reasoning_effort)}
+              onValueChange={(value) =>
+                setReasoningEffort(normalizeReasoningEffort(value))
+              }
+            >
+              <SelectTrigger {...labelProps} className={SETTING_CONTROL_CLASS}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">
+                  <Trans>Default</Trans>
+                </SelectItem>
+                <SelectItem value="low">
+                  <Trans>Low</Trans>
+                </SelectItem>
+                <SelectItem value="medium">
+                  <Trans>Medium</Trans>
+                </SelectItem>
+                <SelectItem value="high">
+                  <Trans>High</Trans>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        </SettingRow>
+      ) : null}
     </div>
   );
 }
