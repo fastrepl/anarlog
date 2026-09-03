@@ -193,6 +193,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // Cleanup is about to clear storage and sign the account out. Any token
+      // that arrives meanwhile must re-run admission instead of fast-pathing
+      // past this rejection.
+      admittedUserIdRef.current = null;
+
       if (
         invalidateClientSession &&
         !managesCloudsync &&
@@ -312,35 +317,88 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [managesCloudsync, rejectAccountMismatch],
   );
 
+  // Runs once an account is admitted: write the session back if storage was
+  // cleared since the event was enqueued, and make sure the SDK refresh ticker
+  // is running (a preceding sign-out or rejection may have stopped it).
+  const restoreAdmittedSession = useCallback(
+    async (
+      nextSession: Session,
+      transition: number,
+      storageRevision: number,
+    ) => {
+      if (storageRevision !== authStorageRevisionRef.current) {
+        try {
+          await persistAuthSession(nextSession);
+        } catch {
+          console.warn("[auth] accepted session could not be restored");
+        }
+
+        if (transition !== authTransitionRef.current) {
+          return false;
+        }
+      }
+
+      if (supabase) {
+        try {
+          await supabase.auth.startAutoRefresh();
+        } catch {
+          console.warn("[auth] session refresh could not be started");
+        }
+
+        if (transition !== authTransitionRef.current) {
+          return false;
+        }
+      }
+
+      return true;
+    },
+    [],
+  );
+
   const finishLateAdmission = useCallback(
     (
       event: AuthChangeEvent,
       nextSession: Session,
       transition: number,
+      storageRevision: number,
       admission: Promise<boolean>,
     ) => {
-      void admission.then(
-        (claimed) => {
-          if (transition !== authTransitionRef.current) {
-            return;
-          }
-          if (!claimed) {
-            console.warn("[auth] local database belongs to another account");
-            void rejectAccountMismatch(transition);
-            return;
-          }
-          sonnerToast.dismiss(ACCOUNT_MISMATCH_TOAST_ID);
-          commitSession(nextSession, true);
-          void applyCloudsyncAuthChange(event, nextSession, transition).catch(
-            () => {
-              console.warn("[cloudsync] late admission could not start sync");
-            },
-          );
-        },
-        () => {},
-      );
+      void admission
+        .then(
+          async (claimed) => {
+            if (transition !== authTransitionRef.current) {
+              return;
+            }
+            if (!claimed) {
+              console.warn("[auth] local database belongs to another account");
+              await rejectAccountMismatch(transition);
+              return;
+            }
+            sonnerToast.dismiss(ACCOUNT_MISMATCH_TOAST_ID);
+            if (
+              !(await restoreAdmittedSession(
+                nextSession,
+                transition,
+                storageRevision,
+              ))
+            ) {
+              return;
+            }
+            commitSession(nextSession, true);
+            await applyCloudsyncAuthChange(event, nextSession, transition);
+          },
+          () => {},
+        )
+        .catch(() => {
+          console.warn("[cloudsync] late admission could not start sync");
+        });
     },
-    [applyCloudsyncAuthChange, commitSession, rejectAccountMismatch],
+    [
+      applyCloudsyncAuthChange,
+      commitSession,
+      rejectAccountMismatch,
+      restoreAdmittedSession,
+    ],
   );
 
   const applyAuthChange = useCallback(
@@ -400,7 +458,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             );
             commitSession(nextSession);
             void enqueueAuthAnalytics(() => trackAuthEvent(event, nextSession));
-            finishLateAdmission(event, nextSession, transition, admission);
+            void supabase?.auth.startAutoRefresh().catch(() => {
+              console.warn("[auth] session refresh could not be started");
+            });
+            finishLateAdmission(
+              event,
+              nextSession,
+              transition,
+              storageRevision,
+              admission,
+            );
             return;
           }
           claimed = settled.value;
@@ -421,28 +488,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         sonnerToast.dismiss(ACCOUNT_MISMATCH_TOAST_ID);
-      }
-
-      if (nextSession && storageRevision !== authStorageRevisionRef.current) {
-        try {
-          await persistAuthSession(nextSession);
-        } catch {
-          console.warn("[auth] accepted session could not be restored");
-        }
-
-        if (transition !== authTransitionRef.current) {
-          return;
-        }
-      }
-
-      if (nextSession && supabase) {
-        try {
-          await supabase.auth.startAutoRefresh();
-        } catch {
-          console.warn("[auth] session refresh could not be started");
-        }
-
-        if (transition !== authTransitionRef.current) {
+        if (
+          !(await restoreAdmittedSession(
+            nextSession,
+            transition,
+            storageRevision,
+          ))
+        ) {
           return;
         }
       }
@@ -460,6 +512,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       managesCloudsync,
       rejectAccountMismatch,
       rejectAuthChange,
+      restoreAdmittedSession,
     ],
   );
 
