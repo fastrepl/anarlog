@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 
 import { commands as deeplinkCommands } from "@anlg/plugin-deeplink2";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { Button } from "@anlg/ui/components/ui/button";
 import {
   Popover,
   PopoverAnchor,
@@ -148,7 +149,7 @@ function HeaderMeetingControl({
   }
 
   return (
-    <HeaderMeetingActionPill
+    <HeaderMeetingAction
       sessionId={sessionId}
       event={sessionEvent}
       eventEnded={ended}
@@ -164,7 +165,7 @@ function meetingHasStarted(startedAt: string | undefined, now: Date) {
   return start != null && now.getTime() >= start.getTime();
 }
 
-function HeaderMeetingActionPill({
+function HeaderMeetingAction({
   sessionId,
   event,
   eventEnded,
@@ -317,30 +318,26 @@ function HeaderMeetingActionPill({
     <Popover open={showWelcomeDemoPrompt}>
       <div className="relative mr-1 flex min-w-0 shrink-0 items-center">
         <PopoverAnchor asChild>
-          <button
+          <Button
             type="button"
+            size="sm"
+            variant={isPrimaryCta ? "default" : "outline"}
             data-tauri-drag-region="false"
             aria-label={action.label}
             title={action.title}
             disabled={disabled}
             onClick={action.onClick}
             className={cn([
-              "flex h-7 max-w-56 shrink-0 items-center gap-1.5 overflow-hidden rounded-full border pr-2.5 pl-1.5",
-              "text-sm font-medium",
-              "transition-colors",
+              "max-w-56 shrink-0 gap-1.5 overflow-hidden border pr-2.5 pl-1.5 text-sm",
               isPrimaryCta
-                ? "border-primary bg-primary text-primary-foreground shadow-sm dark:border-white dark:bg-white dark:text-black"
+                ? "border-primary shadow-sm dark:border-white dark:bg-white dark:text-black dark:hover:bg-white/90"
                 : "border-border bg-card text-foreground",
-              !disabled &&
-                (isPrimaryCta
-                  ? "hover:bg-primary/90 dark:hover:bg-white/90"
-                  : "hover:bg-accent"),
               disabled && "cursor-default opacity-60",
             ])}
           >
             {action.icon}
             <span className="truncate">{action.label}</span>
-          </button>
+          </Button>
         </PopoverAnchor>
         {showWelcomeDemoPrompt ? (
           <PopoverContent

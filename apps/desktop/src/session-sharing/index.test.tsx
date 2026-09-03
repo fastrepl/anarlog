@@ -711,6 +711,7 @@ describe("SessionShareButton", () => {
 
     const trigger = screen.getByRole("button", { name: "Share note" });
     expect(trigger.textContent).toContain("Share");
+    expect(trigger.className).toContain("rounded-full");
     expect(trigger.className).toContain("bg-primary");
     expect(trigger.className).toContain("dark:bg-white");
     expect(trigger.querySelector("svg")?.getAttribute("class")).toContain(

@@ -1211,6 +1211,7 @@ describe("OuterHeader", () => {
 
     const recordButton = screen.getByRole("button", { name: "Record" });
 
+    expect(recordButton.className).toContain("rounded-full");
     expect(recordButton.className).toContain("bg-primary");
     expect(recordButton.className).toContain("dark:bg-white");
     expect(recordButton.className).toContain("dark:text-black");
