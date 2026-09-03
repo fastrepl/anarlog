@@ -4539,23 +4539,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac6b926516df9c60bfa16e107b21086399f8285a44ca9711344b9e553c5146e2"
 
 [[package]]
-name = "denoise"
-version = "0.1.0"
-dependencies = [
- "approx",
- "audio-snapshot",
- "criterion",
- "dasp",
- "data",
- "hound",
- "onnx",
- "realfft",
- "rodio",
- "serde",
- "thiserror 2.0.18",
-]
-
-[[package]]
 name = "der"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10125,7 +10108,6 @@ dependencies = [
  "axum",
  "bytes",
  "data",
- "denoise",
  "futures-util",
  "host",
  "hound",

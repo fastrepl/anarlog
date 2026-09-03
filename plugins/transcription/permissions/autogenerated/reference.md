@@ -19,7 +19,6 @@ Default permissions for the plugin
 - `allow-render-transcript-segments`
 - `allow-start-transcription`
 - `allow-stop-transcription`
-- `allow-run-denoise`
 - `allow-extract-voiceprint-candidates`
 - `allow-promote-voiceprint-candidates`
 - `allow-cleanup-expired-voiceprint-candidates`
@@ -453,32 +452,6 @@ Enables the render_transcript_segments command without any pre-configured scope.
 <td>
 
 Denies the render_transcript_segments command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`transcription:allow-run-denoise`
-
-</td>
-<td>
-
-Enables the run_denoise command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`transcription:deny-run-denoise`
-
-</td>
-<td>
-
-Denies the run_denoise command without any pre-configured scope.
 
 </td>
 </tr>

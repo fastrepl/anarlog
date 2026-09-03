@@ -18,10 +18,9 @@ pub use anlg_transcription_core::listener::{
     LiveTranscriptSegment, LiveTranscriptSegmentDelta, LiveTranscriptUpdate,
 };
 pub use anlg_transcription_core::listener2::{
-    DenoiseEvent, DenoiseParams, DenoiseRuntime, Error as Listener2Error,
-    Result as Listener2Result, Subtitle, Token, VttWord, export_words_to_vtt_file,
-    is_supported_languages_batch, list_documented_language_codes_batch, parse_subtitle_from_path,
-    run_denoise, suggest_providers_for_languages_batch,
+    Error as Listener2Error, Result as Listener2Result, Subtitle, Token, VttWord,
+    export_words_to_vtt_file, is_supported_languages_batch, list_documented_language_codes_batch,
+    parse_subtitle_from_path, suggest_providers_for_languages_batch,
 };
 pub use api::*;
 pub use error::{Error, Result};
@@ -92,7 +91,6 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::render_transcript_segments,
             listener2::commands::start_transcription::<tauri::Wry>,
             listener2::commands::stop_transcription::<tauri::Wry>,
-            listener2::commands::run_denoise::<tauri::Wry>,
             listener2::commands::parse_subtitle::<tauri::Wry>,
             listener2::commands::export_to_vtt::<tauri::Wry>,
             listener2::commands::is_supported_languages_batch::<tauri::Wry>,
@@ -106,8 +104,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             CaptureLifecycleEvent,
             CaptureStatusEvent,
             CaptureDataEvent,
-            TranscriptionEvent,
-            DenoiseEvent
+            TranscriptionEvent
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

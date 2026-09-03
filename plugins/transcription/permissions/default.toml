@@ -16,7 +16,6 @@ permissions = [
     "allow-render-transcript-segments",
     "allow-start-transcription",
     "allow-stop-transcription",
-    "allow-run-denoise",
     "allow-extract-voiceprint-candidates",
     "allow-promote-voiceprint-candidates",
     "allow-cleanup-expired-voiceprint-candidates",
