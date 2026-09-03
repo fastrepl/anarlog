@@ -203,6 +203,7 @@ fn prepare_swift_package(swift_build_dir: &Path) {
     run_command(command, "resolving Soniqo Swift dependencies");
 
     patch_speech_swift_manifest(swift_build_dir);
+    patch_huggingface_downloader_anonymous_hub_api(swift_build_dir);
     patch_parakeet_streaming_offline_mode(swift_build_dir);
 }
 
@@ -254,6 +255,60 @@ fn patch_speech_swift_manifest(swift_build_dir: &Path) {
         panic!(
             "failed to patch Soniqo speech-swift manifest {}: {error}",
             manifest.display()
+        )
+    });
+}
+
+#[cfg(target_os = "macos")]
+include!("src/hub_anonymous.rs");
+
+#[cfg(target_os = "macos")]
+fn patch_huggingface_downloader_anonymous_hub_api(swift_build_dir: &Path) {
+    let path = swift_build_dir
+        .join("checkouts")
+        .join("speech-swift")
+        .join("Sources")
+        .join("AudioCommon")
+        .join("HuggingFaceDownloader.swift");
+    let contents = fs::read_to_string(&path).unwrap_or_else(|error| {
+        panic!(
+            "failed to read Soniqo HuggingFace downloader source {}: {error}",
+            path.display()
+        )
+    });
+    let patched = patch_huggingface_downloader_source(&contents).unwrap_or_else(|error| {
+        panic!(
+            "failed to patch Soniqo HuggingFace downloader anonymous Hub API in {}: {error}",
+            path.display()
+        )
+    });
+
+    if patched == contents {
+        return;
+    }
+
+    let mut permissions = fs::metadata(&path)
+        .unwrap_or_else(|error| {
+            panic!(
+                "failed to read permissions for Soniqo HuggingFace downloader source {}: {error}",
+                path.display()
+            )
+        })
+        .permissions();
+    if permissions.readonly() {
+        permissions.set_readonly(false);
+        fs::set_permissions(&path, permissions).unwrap_or_else(|error| {
+            panic!(
+                "failed to make Soniqo HuggingFace downloader source writable {}: {error}",
+                path.display()
+            )
+        });
+    }
+
+    fs::write(&path, patched).unwrap_or_else(|error| {
+        panic!(
+            "failed to patch Soniqo HuggingFace downloader source {}: {error}",
+            path.display()
         )
     });
 }

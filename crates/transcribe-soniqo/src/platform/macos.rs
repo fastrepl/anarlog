@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use swift_rs::{Bool, SRData, SRString, swift};
 
+use crate::download_error::user_facing_download_error;
 use crate::{
     DiarizationSegment, Error, FileTranscript, LivePartial, ModelDownloadState, Result,
     SoniqoModel, TranscriptSource,
@@ -92,7 +93,8 @@ pub(crate) fn diarization_cache_dir() -> Result<PathBuf> {
 pub(crate) fn model_download_state(model: SoniqoModel) -> Result<ModelDownloadState> {
     let model_id = sr_string(model.as_str());
     let payload = unsafe { _soniqo_model_download_state(&model_id) };
-    let state: ModelDownloadState = serde_json::from_str(payload.as_str())?;
+    let mut state: ModelDownloadState = serde_json::from_str(payload.as_str())?;
+    state.error = state.error.as_deref().map(user_facing_download_error);
 
     Ok(state)
 }
@@ -133,7 +135,7 @@ pub(crate) fn transcribe_file(
     let result: FileTranscriptionPayload = serde_json::from_str(payload.as_str())?;
 
     if let Some(error) = result.error {
-        return Err(Error::Bridge(error));
+        return Err(Error::Bridge(user_facing_download_error(&error)));
     }
 
     Ok(FileTranscript {
@@ -156,7 +158,7 @@ pub(crate) fn diarize_samples(
     let result: DiarizationPayload = serde_json::from_str(payload.as_str())?;
 
     if let Some(error) = result.error {
-        return Err(Error::Bridge(error));
+        return Err(Error::Bridge(user_facing_download_error(&error)));
     }
     if result.num_speakers != exact_speakers {
         return Err(Error::Bridge(format!(
@@ -182,9 +184,11 @@ fn live_start_result(result: StatusPayload) -> Result<String> {
             Error::Bridge("Soniqo live session started without a session token".to_string())
         })
     } else {
-        Err(Error::Bridge(result.error.unwrap_or_else(|| {
-            "failed to start Soniqo live session".to_string()
-        })))
+        Err(Error::Bridge(user_facing_download_error(
+            &result
+                .error
+                .unwrap_or_else(|| "failed to start Soniqo live session".to_string()),
+        )))
     }
 }
 
@@ -200,7 +204,7 @@ pub(crate) fn live_append(
     let result: LiveAppendPayload = serde_json::from_str(payload.as_str())?;
 
     if let Some(error) = result.error {
-        return Err(Error::Bridge(error));
+        return Err(Error::Bridge(user_facing_download_error(&error)));
     }
 
     Ok(result.partials)
@@ -216,7 +220,7 @@ pub(crate) fn live_finalize(
     let result: LiveAppendPayload = serde_json::from_str(payload.as_str())?;
 
     if let Some(error) = result.error {
-        return Err(Error::Bridge(error));
+        return Err(Error::Bridge(user_facing_download_error(&error)));
     }
 
     Ok(result.partials)
@@ -228,7 +232,7 @@ pub(crate) fn live_stop(session_token: &str) -> Result<()> {
     let result: StatusPayload = serde_json::from_str(payload.as_str())?;
 
     if let Some(error) = result.error {
-        return Err(Error::Bridge(error));
+        return Err(Error::Bridge(user_facing_download_error(&error)));
     }
 
     Ok(())
@@ -274,6 +278,22 @@ mod tests {
         .unwrap();
 
         assert_eq!(token, "42");
+    }
+
+    #[test]
+    fn live_start_rewrites_huggingface_auth_errors() {
+        let result = live_start_result(StatusPayload {
+            running: false,
+            session_token: None,
+            error: Some(
+                "Authentication required. Please provide a valid Hugging Face token.".to_string(),
+            ),
+        });
+
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Soniqo bridge failed: Couldn't download this on-device model. Check your internet connection and try again."
+        );
     }
 
     #[test]

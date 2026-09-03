@@ -1,7 +1,10 @@
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+mod download_error;
 mod error;
+#[cfg(test)]
+mod hub_anonymous;
 mod model;
 mod platform;
 mod responses;
@@ -41,7 +44,12 @@ pub fn model_cache_dir(model: SoniqoModel) -> Result<PathBuf> {
 
 pub fn model_download_state(model: SoniqoModel) -> Result<ModelDownloadState> {
     ensure_supported_platform(model)?;
-    platform::model_download_state(model)
+    let mut state = platform::model_download_state(model)?;
+    state.error = state
+        .error
+        .as_deref()
+        .map(download_error::user_facing_download_error);
+    Ok(state)
 }
 
 pub fn start_model_download(model: SoniqoModel) -> Result<()> {
