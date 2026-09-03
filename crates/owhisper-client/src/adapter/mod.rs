@@ -2,13 +2,13 @@ pub mod parsing;
 mod url_builder;
 
 mod anarlog;
-mod aquavoice;
+pub(crate) mod aquavoice;
 mod argmax;
 pub(crate) mod assemblyai;
 mod aws_transcribe;
 mod azure_speech;
 pub(crate) mod cartesia;
-mod cohere;
+pub(crate) mod cohere;
 mod dashscope;
 pub mod deepgram;
 mod deepgram_compat;
@@ -686,7 +686,7 @@ impl AdapterKind {
             Self::Argmax => ArgmaxAdapter::language_support_batch(languages, model),
             Self::Mistral => MistralAdapter::language_support_batch(languages),
             Self::Pyannote => PyannoteAdapter::language_support_batch(languages, model),
-            Self::Cohere => CohereAdapter::language_support_batch(languages),
+            Self::Cohere => CohereAdapter::language_support_batch(languages, model),
             Self::AwsTranscribe => AwsTranscribeAdapter::language_support_batch(languages),
             Self::AzureSpeech => AzureSpeechAdapter::language_support_batch(languages),
             Self::GoogleCloud => GoogleCloudAdapter::language_support_batch(languages),

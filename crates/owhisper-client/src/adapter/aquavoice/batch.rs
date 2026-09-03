@@ -10,8 +10,7 @@ use crate::error::Error;
 
 use super::AquaVoiceAdapter;
 
-const DEFAULT_API_BASE: &str = "https://api.aquavoice.com/api/v1";
-const DEFAULT_MODEL: &str = "avalon-v1-en";
+const DEFAULT_API_BASE: &str = "https://api.aquavoice.com/v1";
 
 impl BatchSttAdapter for AquaVoiceAdapter {
     fn provider_name(&self) -> &'static str {
@@ -47,10 +46,18 @@ async fn do_transcribe_file(
     file_path: PathBuf,
 ) -> Result<BatchResponse, Error> {
     let file_part = build_file_part(&file_path).await?;
-    let model = params.model.as_deref().unwrap_or(DEFAULT_MODEL);
-    let form = Form::new()
+    let model = AquaVoiceAdapter::resolve_model(params.model.as_deref());
+    let mut form = Form::new()
         .part("file", file_part)
         .text("model", model.to_string());
+
+    // The API pins one ISO 639-1 code or auto-detects when it is omitted.
+    if let [language] = params.languages.as_slice() {
+        form = form.text("language", language.iso639_code().to_string());
+    }
+    if !params.keywords.is_empty() {
+        form = form.text("prompt", params.keywords.join(", "));
+    }
 
     let url = transcription_url(api_base)?;
 

@@ -136,10 +136,14 @@ struct Utterance {
 impl AssemblyAIAdapter {
     fn resolve_batch_speech_models(params: &ListenParams) -> Vec<String> {
         match params.model.as_deref() {
-            Some("u3-rt-pro" | "universal-3-pro") => {
-                vec!["universal-3-pro".to_string(), "universal-2".to_string()]
-            }
-            Some("universal-3-5-pro" | "universal-3-5-pro-realtime") => {
+            // universal-3-pro was removed from the API on 2026-09-02; u3-rt-pro
+            // is redirected to universal-3-5-pro and rejected from late September.
+            Some(
+                "u3-rt-pro"
+                | "universal-3-pro"
+                | "universal-3-5-pro"
+                | "universal-3-5-pro-realtime",
+            ) => {
                 vec!["universal-3-5-pro".to_string(), "universal-2".to_string()]
             }
             Some(m) if !m.is_empty() && !crate::providers::is_meta_model(m) => {
@@ -415,7 +419,7 @@ mod tests {
     }
 
     #[test]
-    fn batch_explicit_u3_models_expand_to_legacy_model_stack() {
+    fn batch_retired_u3_models_expand_to_current_model_stack() {
         for model in ["u3-rt-pro", "universal-3-pro"] {
             let params = ListenParams {
                 model: Some(model.to_string()),
@@ -424,7 +428,7 @@ mod tests {
 
             assert_eq!(
                 AssemblyAIAdapter::resolve_batch_speech_models(&params),
-                vec!["universal-3-pro".to_string(), "universal-2".to_string()]
+                vec!["universal-3-5-pro".to_string(), "universal-2".to_string()]
             );
         }
     }

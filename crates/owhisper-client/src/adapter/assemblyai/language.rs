@@ -6,9 +6,6 @@ pub(super) const U35_STREAMING_LANGUAGES: &[&str] = &[
     "ja", "zh",
 ];
 
-// https://www.assemblyai.com/docs/api-reference/streaming-api/universal-3-pro-streaming/universal-3-pro-streaming
-pub(super) const U3_STREAMING_LANGUAGES: &[&str] = &["en", "es", "fr", "de", "it", "pt"];
-
 // https://www.assemblyai.com/docs/pre-recorded-audio/supported-languages
 pub(super) const BATCH_LANGUAGES: &[&str] = &[
     // High

@@ -11,7 +11,6 @@ use crate::error::Error;
 use super::CohereAdapter;
 
 const DEFAULT_API_BASE: &str = "https://api.cohere.com/v2";
-const DEFAULT_MODEL: &str = "cohere-transcribe-03-2026";
 
 impl BatchSttAdapter for CohereAdapter {
     fn provider_name(&self) -> &'static str {
@@ -21,9 +20,9 @@ impl BatchSttAdapter for CohereAdapter {
     fn is_supported_languages(
         &self,
         languages: &[anlg_language::Language],
-        _model: Option<&str>,
+        model: Option<&str>,
     ) -> bool {
-        CohereAdapter::language_support_batch(languages).is_supported()
+        CohereAdapter::language_support_batch(languages, model).is_supported()
     }
 
     fn transcribe_file<'a, P: AsRef<Path> + Send + 'a>(
@@ -47,11 +46,9 @@ async fn do_transcribe_file(
     file_path: PathBuf,
 ) -> Result<BatchResponse, Error> {
     let language = language_code(params)?;
+    let model = CohereAdapter::resolve_model(params.model.as_deref());
     let form = Form::new()
-        .text(
-            "model",
-            params.model.as_deref().unwrap_or(DEFAULT_MODEL).to_string(),
-        )
+        .text("model", model.to_string())
         .text("language", language.to_string())
         .part("file", streaming_file_part(&file_path).await?);
 
@@ -72,7 +69,9 @@ struct CohereResponse {
 }
 
 fn language_code(params: &ListenParams) -> Result<&str, Error> {
-    if !CohereAdapter::language_support_batch(&params.languages).is_supported() {
+    if !CohereAdapter::language_support_batch(&params.languages, params.model.as_deref())
+        .is_supported()
+    {
         return Err(Error::AudioProcessing(
             "Cohere Transcribe requires one supported language".to_string(),
         ));

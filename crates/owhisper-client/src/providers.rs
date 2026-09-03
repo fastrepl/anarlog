@@ -345,7 +345,7 @@ impl Provider {
 
     pub fn default_api_base(&self) -> &'static str {
         match self {
-            Self::AquaVoice => "https://api.aquavoice.com/api/v1",
+            Self::AquaVoice => "https://api.aquavoice.com/v1",
             Self::Cartesia => "https://api.cartesia.ai",
             Self::Deepgram => "https://api.deepgram.com/v1",
             Self::AssemblyAI => "https://api.assemblyai.com/v2",
@@ -453,7 +453,7 @@ impl Provider {
 
     pub fn default_live_model(&self) -> &'static str {
         match self {
-            Self::AquaVoice => "avalon-v1-en",
+            Self::AquaVoice => crate::adapter::aquavoice::DEFAULT_MODEL,
             Self::Cartesia => "ink-2",
             Self::Deepgram => "nova-3",
             Self::Soniox => "stt-rt-v5",
@@ -465,7 +465,7 @@ impl Provider {
             Self::DashScope => "qwen3-asr-flash-realtime",
             Self::Mistral => "voxtral-mini-transcribe-realtime-2602",
             Self::Pyannote => "parakeet-tdt-0.6b-v3",
-            Self::Cohere => "cohere-transcribe-03-2026",
+            Self::Cohere => crate::adapter::cohere::DEFAULT_MODEL,
             Self::AwsTranscribe => "amazon-transcribe",
             Self::AzureSpeech => "fast-transcription",
             Self::GoogleCloud => "latest_long",
@@ -503,7 +503,7 @@ impl Provider {
 
     pub fn default_batch_model(&self) -> &'static str {
         match self {
-            Self::AquaVoice => "avalon-v1-en",
+            Self::AquaVoice => crate::adapter::aquavoice::DEFAULT_MODEL,
             Self::Cartesia => cartesia::DEFAULT_MODEL,
             Self::Deepgram => "nova-3",
             Self::Soniox => "stt-async-v5",
@@ -515,7 +515,7 @@ impl Provider {
             Self::DashScope => "qwen3-asr-flash-filetrans",
             Self::Mistral => "voxtral-mini-2602",
             Self::Pyannote => "parakeet-tdt-0.6b-v3",
-            Self::Cohere => "cohere-transcribe-03-2026",
+            Self::Cohere => crate::adapter::cohere::DEFAULT_MODEL,
             Self::AwsTranscribe => "amazon-transcribe",
             Self::AzureSpeech => "fast-transcription",
             Self::GoogleCloud => "latest_long",
