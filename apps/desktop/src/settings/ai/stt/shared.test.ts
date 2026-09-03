@@ -207,24 +207,35 @@ describe("STT model deprecation", () => {
     ]);
   });
 
-  test("marks superseded hosted models as deprecated", () => {
-    expect(isDeprecatedSttModel("assemblyai", "universal-3-5-pro")).toBe(false);
-    expect(
-      isDeprecatedSttModel("assemblyai", "universal-3-5-pro-realtime"),
-    ).toBe(false);
-    expect(isDeprecatedSttModel("openai", "gpt-4o-transcribe")).toBe(true);
+  test("only keeps deprecated models that have no replacement", () => {
     expect(isDeprecatedSttModel("openai", "gpt-4o-transcribe-diarize")).toBe(
       true,
     );
     expect(isDeprecatedSttModel("openai", "whisper-1")).toBe(true);
     expect(isDeprecatedSttModel("openai", "gpt-transcribe")).toBe(false);
-    expect(
-      isDeprecatedSttModel("openrouter", "openai/gpt-4o-mini-transcribe"),
-    ).toBe(true);
     expect(isDeprecatedSttModel("openrouter", "openai/gpt-transcribe")).toBe(
       false,
     );
-    expect(isDeprecatedSttModel("soniox", "stt-rt-v4")).toBe(true);
     expect(isDeprecatedSttModel("soniox", "stt-rt-v5")).toBe(false);
+  });
+
+  test("drops superseded models from the pickers", () => {
+    const providers = Object.fromEntries(
+      PROVIDERS.map((provider) => [provider.id, provider]),
+    );
+
+    expect(providers.openai.models).toEqual([
+      "gpt-live-transcribe",
+      "gpt-transcribe",
+      "gpt-4o-transcribe-diarize",
+      "whisper-1",
+    ]);
+    expect(providers.openrouter.models).not.toContain(
+      "openai/gpt-4o-transcribe",
+    );
+    expect(providers.openrouter.models).not.toContain(
+      "openai/gpt-4o-mini-transcribe",
+    );
+    expect(providers.soniox.models).toEqual(["stt-rt-v5"]);
   });
 });

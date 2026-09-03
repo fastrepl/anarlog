@@ -24,6 +24,15 @@ describe("normalizeStoredSttModel", () => {
     expect(normalizeStoredSttModel("aquavoice", "avalon-v1.5")).toBe(
       "avalon-v1.5",
     );
+    expect(normalizeStoredSttModel("soniox", "stt-rt-v4")).toBe("stt-rt-v5");
+    expect(normalizeStoredSttModel("soniox", "stt-async-v3")).toBe("stt-rt-v5");
+    expect(normalizeStoredSttModel("openai", "gpt-4o-mini-transcribe")).toBe(
+      "gpt-transcribe",
+    );
+    expect(
+      normalizeStoredSttModel("openrouter", "openai/gpt-4o-transcribe"),
+    ).toBe("openai/gpt-transcribe");
+    expect(normalizeStoredSttModel("openai", "whisper-1")).toBe("whisper-1");
     expect(normalizeStoredSttModel("deepgram", "nova-3-general")).toBe(
       "nova-3-general",
     );
@@ -149,29 +158,27 @@ describe("getPreferredProviderModel", () => {
     ).toBe("avalon-v1.5");
   });
 
-  test("migrates Soniox aliases to explicit realtime models", () => {
-    expect(
-      getPreferredProviderModel("stt-v5", [
-        { id: "stt-rt-v5" },
-        { id: "stt-rt-v4" },
-      ]),
-    ).toBe("stt-rt-v5");
-
-    expect(
-      getPreferredProviderModel("stt-async-v4", [
-        { id: "stt-rt-v5" },
-        { id: "stt-rt-v4" },
-      ]),
-    ).toBe("stt-rt-v4");
+  test("migrates every Soniox alias to the v5 realtime model", () => {
+    for (const saved of ["stt-v5", "stt-async-v4", "stt-rt-v4", "stt-rt-v3"]) {
+      expect(getPreferredProviderModel(saved, [{ id: "stt-rt-v5" }])).toBe(
+        "stt-rt-v5",
+      );
+    }
   });
 
-  test("migrates removed Soniox v3 aliases to v4 realtime", () => {
+  test("migrates the superseded OpenAI transcribe models to gpt-transcribe", () => {
+    const openai = [{ id: "gpt-transcribe" }, { id: "whisper-1" }];
+    expect(getPreferredProviderModel("gpt-4o-transcribe", openai)).toBe(
+      "gpt-transcribe",
+    );
+    expect(getPreferredProviderModel("gpt-4o-mini-transcribe", openai)).toBe(
+      "gpt-transcribe",
+    );
     expect(
-      getPreferredProviderModel("stt-rt-v3", [
-        { id: "stt-rt-v5" },
-        { id: "stt-rt-v4" },
+      getPreferredProviderModel("openai/gpt-4o-mini-transcribe", [
+        { id: "openai/gpt-transcribe" },
       ]),
-    ).toBe("stt-rt-v4");
+    ).toBe("openai/gpt-transcribe");
   });
 
   test("keeps the remembered value when the provider does not expose a static list", () => {

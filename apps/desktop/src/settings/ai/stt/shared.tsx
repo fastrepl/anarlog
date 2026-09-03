@@ -113,10 +113,6 @@ export const displayModelId = (model: string): string => {
     return "Universal 3 Pro";
   }
 
-  if (model === "whisper-rt") {
-    return "Whisper RT";
-  }
-
   if (model === "stt-v5" || model === "stt-rt-v5" || model === "stt-async-v5") {
     return "Soniox 5";
   }
@@ -331,16 +327,11 @@ export const displayModelId = (model: string): string => {
   return model;
 };
 
-// OpenAI retires the gpt-4o transcribe family and whisper-1 on 2027-02-26.
+// OpenAI retires these on 2027-02-26. They stay listed because they are the
+// only OpenAI models with speaker labels (diarize) and word timestamps
+// (whisper-1); the superseded gpt-4o transcribe pair is migrated instead.
 const DEPRECATED_STT_MODELS: Record<string, readonly string[]> = {
-  openai: [
-    "gpt-4o-transcribe",
-    "gpt-4o-mini-transcribe",
-    "gpt-4o-transcribe-diarize",
-    "whisper-1",
-  ],
-  openrouter: ["openai/gpt-4o-transcribe", "openai/gpt-4o-mini-transcribe"],
-  soniox: ["stt-rt-v4", "stt-async-v4", "stt-v4"],
+  openai: ["gpt-4o-transcribe-diarize", "whisper-1"],
 };
 
 export function isDeprecatedSttModel(
@@ -482,8 +473,6 @@ const _PROVIDERS = [
       "gpt-live-transcribe",
       "gpt-transcribe",
       "gpt-4o-transcribe-diarize",
-      "gpt-4o-transcribe",
-      "gpt-4o-mini-transcribe",
       "whisper-1",
     ],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
@@ -507,8 +496,6 @@ const _PROVIDERS = [
     baseUrl: "https://openrouter.ai/api/v1",
     models: [
       "openai/gpt-transcribe",
-      "openai/gpt-4o-mini-transcribe",
-      "openai/gpt-4o-transcribe",
       "mistralai/voxtral-mini-transcribe",
       "openai/whisper-large-v3-turbo",
       "openai/whisper-large-v3",
@@ -889,7 +876,7 @@ const _PROVIDERS = [
       />
     ),
     baseUrl: "https://api.soniox.com",
-    models: ["stt-rt-v5", "stt-rt-v4"],
+    models: ["stt-rt-v5"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
       models: {
@@ -1036,16 +1023,6 @@ const _PROVIDERS = [
     baseUrl: "https://api.fireworks.ai",
     models: ["whisper-v3-turbo"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
-    links: {
-      models: {
-        label: "Available models",
-        url: "https://docs.fireworks.ai/guides/querying-asr-models",
-      },
-      setup: {
-        label: "API setup",
-        url: "https://fireworks.ai/account/api-keys",
-      },
-    },
   },
 ] as const satisfies readonly Provider[];
 
