@@ -226,10 +226,10 @@ mod tests {
         };
     }
 
-    test_non_streaming!(non_streaming_lfm, "liquid/lfm-2.2-6b");
-    test_non_streaming!(non_streaming_gpt_oss, "openai/gpt-oss-120b:exacto", 200);
-    test_streaming!(streaming_lfm, "liquid/lfm-2.2-6b");
-    test_streaming!(streaming_gpt_oss, "openai/gpt-oss-120b:exacto", 200);
+    test_non_streaming!(non_streaming_lfm, "liquid/lfm-2.5-2.6b:free");
+    test_non_streaming!(non_streaming_gpt_oss, "openai/gpt-oss-120b", 200);
+    test_streaming!(streaming_lfm, "liquid/lfm-2.5-2.6b:free");
+    test_streaming!(streaming_gpt_oss, "openai/gpt-oss-120b", 200);
     test_tool_calling_non_streaming!(
         tool_calling_non_streaming_haiku,
         "anthropic/claude-haiku-4.5"

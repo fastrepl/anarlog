@@ -75,7 +75,33 @@ describe("isOldModel", () => {
 
     expect(isOldModel("gpt-5.4-mini")).toBe(false);
     expect(isOldModel("gpt-5.5")).toBe(false);
+    expect(isOldModel("gpt-5.6-sol")).toBe(false);
     expect(isOldModel("chat-latest")).toBe(false);
+  });
+
+  test("filters retired xAI, DeepSeek, Moonshot, Z.AI, and Cohere ids", () => {
+    expect(isOldModel("grok-3")).toBe(true);
+    expect(isOldModel("grok-4")).toBe(true);
+    expect(isOldModel("grok-4-fast-reasoning")).toBe(true);
+    expect(isOldModel("deepseek-chat")).toBe(true);
+    expect(isOldModel("deepseek-reasoner")).toBe(true);
+    expect(isOldModel("kimi-k2.5")).toBe(true);
+    expect(isOldModel("moonshot-v1-128k")).toBe(true);
+    expect(isOldModel("glm-4.7")).toBe(true);
+    expect(isOldModel("glm-5.1")).toBe(true);
+    expect(isOldModel("command-r-plus")).toBe(true);
+    expect(isOldModel("llama-3.3-70b-versatile")).toBe(true);
+    expect(isOldModel("qwen3-235b-a22b")).toBe(true);
+    expect(isOldModel("qwen-max")).toBe(true);
+
+    expect(isOldModel("grok-4.6")).toBe(false);
+    expect(isOldModel("deepseek-v4-pro")).toBe(false);
+    expect(isOldModel("kimi-k3")).toBe(false);
+    expect(isOldModel("kimi-k2.7-code")).toBe(false);
+    expect(isOldModel("glm-5.3")).toBe(false);
+    expect(isOldModel("command-a-plus-05-2026")).toBe(false);
+    expect(isOldModel("command-r7b-12-2024")).toBe(false);
+    expect(isOldModel("qwen3.8-max")).toBe(false);
   });
 
   test("filters older Claude families without hiding current pinned IDs", () => {
@@ -85,6 +111,7 @@ describe("isOldModel", () => {
     expect(isOldModel("claude-sonnet-4-6")).toBe(true);
 
     expect(isOldModel("claude-fable-5")).toBe(false);
+    expect(isOldModel("claude-fable-5-1")).toBe(false);
     expect(isOldModel("claude-opus-5")).toBe(false);
     expect(isOldModel("claude-opus-4-8")).toBe(false);
     expect(isOldModel("claude-sonnet-5")).toBe(false);
@@ -94,10 +121,16 @@ describe("isOldModel", () => {
 
   test("filters older Gemini and Mistral families", () => {
     expect(isOldModel("gemini-2.5-pro")).toBe(true);
+    expect(isOldModel("gemini-3-flash-preview")).toBe(true);
     expect(isOldModel("mistral-small-2506")).toBe(true);
     expect(isOldModel("mistral-medium-3.1")).toBe(true);
+    expect(isOldModel("mistral-medium-2508")).toBe(true);
+    expect(isOldModel("devstral-2512")).toBe(true);
+    expect(isOldModel("magistral-medium-2509")).toBe(true);
 
+    expect(isOldModel("gemini-3.8-flash")).toBe(false);
     expect(isOldModel("gemini-3.6-flash")).toBe(false);
+    expect(isOldModel("magistral-small-latest")).toBe(false);
     expect(isOldModel("gemini-3.5-flash-lite")).toBe(false);
     expect(isOldModel("gemini-3.1-pro-preview")).toBe(false);
     expect(isOldModel("mistral-medium-3-5")).toBe(false);
@@ -110,23 +143,29 @@ describe("sortModelsByRecency", () => {
     expect(
       sortModelsByRecency([
         "openai/gpt-5.4-mini",
-        "anthropic/claude-sonnet-4.6",
         "anthropic/claude-opus-5",
         "anthropic/claude-sonnet-5",
         "openai/gpt-5.5",
         "google/gemini-3.6-flash",
+        "google/gemini-3.8-flash",
         "google/gemini-3.5-flash-lite",
         "openai/chat-latest",
+        "anthropic/claude-fable-5.1",
+        "openai/gpt-5.6-sol",
+        "x-ai/grok-4.6",
       ]),
     ).toEqual([
+      "openai/gpt-5.6-sol",
       "openai/gpt-5.5",
       "openai/chat-latest",
+      "anthropic/claude-fable-5.1",
       "anthropic/claude-opus-5",
       "anthropic/claude-sonnet-5",
       "openai/gpt-5.4-mini",
-      "anthropic/claude-sonnet-4.6",
+      "google/gemini-3.8-flash",
       "google/gemini-3.6-flash",
       "google/gemini-3.5-flash-lite",
+      "x-ai/grok-4.6",
     ]);
   });
 
