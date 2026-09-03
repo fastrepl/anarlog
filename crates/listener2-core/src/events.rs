@@ -51,18 +51,3 @@ pub enum BatchEvent {
         error: String,
     },
 }
-
-#[derive(serde::Serialize, Clone)]
-#[cfg_attr(feature = "specta", derive(specta::Type))]
-#[cfg_attr(feature = "tauri-event", derive(tauri_specta::Event))]
-#[serde(tag = "type")]
-pub enum DenoiseEvent {
-    #[serde(rename = "denoiseStarted")]
-    DenoiseStarted { session_id: String },
-    #[serde(rename = "denoiseProgress")]
-    DenoiseProgress { session_id: String, percentage: f64 },
-    #[serde(rename = "denoiseCompleted")]
-    DenoiseCompleted { session_id: String },
-    #[serde(rename = "denoiseFailed")]
-    DenoiseFailed { session_id: String, error: String },
-}

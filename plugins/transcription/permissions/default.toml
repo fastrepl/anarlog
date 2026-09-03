@@ -2,7 +2,6 @@
 description = "Default permissions for the plugin"
 permissions = [
     "allow-list-microphone-devices",
-    "allow-list-speaker-devices",
     "allow-get-current-microphone-device",
     "allow-start-capture",
     "allow-stop-capture",
@@ -16,7 +15,6 @@ permissions = [
     "allow-render-transcript-segments",
     "allow-start-transcription",
     "allow-stop-transcription",
-    "allow-run-denoise",
     "allow-extract-voiceprint-candidates",
     "allow-promote-voiceprint-candidates",
     "allow-cleanup-expired-voiceprint-candidates",

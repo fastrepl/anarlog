@@ -22,6 +22,14 @@ pub(super) const LOCAL_DIARIZATION_PROVIDER: &str = "pyannote-local";
 /// Diarization reports progress from here to 1.0, continuing where local
 /// transcription providers stop.
 pub(super) const DIARIZATION_PROGRESS_START: f64 = 0.95;
+/// Word timings in a batch response are seconds; recorded audio is 16 kHz.
+pub(super) const SAMPLE_RATE: usize = anlg_pyannote_local::SAMPLE_RATE as usize;
+/// A system-audio channel with no more speech than this carried no call:
+/// a stray word or two of noise, not a remote participant.
+pub(super) const REMOTE_SILENCE_MAX_SECONDS: f64 = 3.0;
+/// Word channel for a microphone shared by several people in the room. The
+/// renderer names its speakers instead of folding them into "You".
+pub(super) const SHARED_MIC_CHANNEL: i32 = 2;
 /// Progressive sessions are torn down after 60 s without a streamed event, so
 /// the diarizer emits a progress heartbeat at least this often.
 pub(super) const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
@@ -68,20 +76,101 @@ pub(super) enum ChannelAudio {
 /// (the user alone) and channel 1 carries every remote participant, so
 /// participant counts shift by one. Progressive local providers collapse a
 /// stereo recording into one transcript channel; that channel is scored on
-/// the mix with the full participant count. `None` means skip the channel.
+/// the mix with the full participant count. In an in-person meeting the mic
+/// is shared by everyone, so channel 0 takes the full count too. `None`
+/// means skip the channel.
 pub(super) fn plan_channel(
     listen_params: &owhisper_interface::ListenParams,
     transcript_channels: usize,
     recording_channels: usize,
     channel_index: usize,
+    in_person: bool,
 ) -> Option<(ChannelAudio, SpeakerBounds)> {
-    let (audio, shift) = match (transcript_channels, recording_channels, channel_index) {
-        (1, 1, 0) => (ChannelAudio::File(0), 0),
-        (1, 2, 0) => (ChannelAudio::Mix, 0),
-        (2, 2, 1) => (ChannelAudio::File(1), 1),
-        _ => return None,
-    };
+    let (audio, shift) = channel_audio(
+        transcript_channels,
+        recording_channels,
+        channel_index,
+        in_person,
+    )?;
     channel_speaker_bounds(listen_params, shift).map(|bounds| (audio, bounds))
+}
+
+/// Which recorded audio a transcript channel was heard from, and how many of the
+/// session's participants that audio cannot contain (the direct-mic user on a
+/// stereo capture). `None` for the direct-mic channel of a call and for
+/// layouts the pipeline does not produce.
+pub(super) fn channel_audio(
+    transcript_channels: usize,
+    recording_channels: usize,
+    channel_index: usize,
+    in_person: bool,
+) -> Option<(ChannelAudio, usize)> {
+    match (transcript_channels, recording_channels, channel_index) {
+        (1, 1, 0) => Some((ChannelAudio::File(0), 0)),
+        (1, 2, 0) => Some((ChannelAudio::Mix, 0)),
+        (2, 2, 0) if in_person => Some((ChannelAudio::File(0), 0)),
+        (2, 2, 1) => Some((ChannelAudio::File(1), 1)),
+        _ => None,
+    }
+}
+
+/// Whether a stereo capture was an in-person meeting: the session expected
+/// several participants, yet the system-audio channel stayed silent, so they
+/// were all in the room sharing the microphone. Headphones are not a factor;
+/// they keep the far end out of the mic, not the people beside it. Unknown
+/// participant counts stay closed: a solo memo and a two-person meeting sound
+/// the same to the recorder.
+pub(super) fn in_person_capture(
+    listen_params: &owhisper_interface::ListenParams,
+    response: &batch::Response,
+) -> bool {
+    let channels = &response.results.channels;
+    if channels.len() != 2 {
+        return false;
+    }
+    let several_participants = listen_params.num_speakers.is_some_and(|count| count >= 2)
+        || listen_params.min_speakers.is_some_and(|count| count >= 2);
+    several_participants && channel_speech_seconds(&channels[1]) <= REMOTE_SILENCE_MAX_SECONDS
+}
+
+fn channel_speech_seconds(channel: &batch::Channel) -> f64 {
+    channel
+        .alternatives
+        .first()
+        .map(|alternative| {
+            alternative
+                .words
+                .iter()
+                .map(|word| (word.end - word.start).max(0.0))
+                .sum()
+        })
+        .unwrap_or(0.0)
+}
+
+/// Upper bound on distinct speakers a channel should carry, from the session's
+/// participant hints. Unlike [`channel_speaker_bounds`] this keeps a cap of one:
+/// a provider that split a single remote voice in two still has to be collapsed.
+pub(super) fn expected_speaker_cap(
+    listen_params: &owhisper_interface::ListenParams,
+    shift: usize,
+) -> Option<usize> {
+    let adjust = |value: Option<u32>| -> Option<usize> {
+        value.map(|value| {
+            usize::try_from(value)
+                .unwrap_or(usize::MAX)
+                .saturating_sub(shift)
+        })
+    };
+    let cap = match (
+        adjust(listen_params.num_speakers),
+        adjust(listen_params.max_speakers),
+    ) {
+        (Some(num), Some(max)) => num.min(max),
+        (Some(num), None) => num,
+        (None, Some(max)) => max,
+        (None, None) => return None,
+    };
+    Some(cap.max(1))
 }
 
 /// Whether any recording layout the resampler can produce would let
@@ -93,6 +182,7 @@ pub(super) fn could_plan_channel(
     listen_params: &owhisper_interface::ListenParams,
     transcript_channels: usize,
     channel_index: usize,
+    in_person: bool,
 ) -> bool {
     let declared = usize::from(listen_params.channels);
     let layouts: &[usize] = match declared {
@@ -106,6 +196,7 @@ pub(super) fn could_plan_channel(
             transcript_channels,
             *recording_channels,
             channel_index,
+            in_person,
         )
         .is_some()
     })
@@ -156,6 +247,7 @@ pub(super) async fn apply_local_diarization(
         return;
     }
     let transcript_channels = output.response.results.channels.len();
+    let in_person = in_person_capture(listen_params, &output.response);
     // Only word timings cross into the blocking task; the transcript itself
     // stays here so a panic in the diarizer cannot lose it. Channels that no
     // recording layout could plan are dropped now, before the recording is
@@ -168,7 +260,7 @@ pub(super) async fn apply_local_diarization(
         .enumerate()
         .filter(|(index, channel)| {
             channel_needs_diarization(channel)
-                && could_plan_channel(listen_params, transcript_channels, *index)
+                && could_plan_channel(listen_params, transcript_channels, *index, in_person)
         })
         .map(|(index, channel)| UnlabeledChannel {
             index,
@@ -208,11 +300,14 @@ pub(super) async fn apply_local_diarization(
             diarize_channels(
                 runtime.as_ref(),
                 &heartbeat,
-                &file_path,
-                &listen_params,
-                transcript_channels,
-                &unlabeled,
-                &known_speakers,
+                &DiarizeJob {
+                    file_path: &file_path,
+                    listen_params: &listen_params,
+                    transcript_channels,
+                    in_person,
+                    unlabeled: &unlabeled,
+                    known_speakers: &known_speakers,
+                },
             )
         }
     })
@@ -227,6 +322,7 @@ pub(super) async fn apply_local_diarization(
                 diarization.channels = summary.channel_speakers.len(),
                 diarization.speakers = ?summary.channel_speakers,
                 diarization.identified = summary.identified,
+                diarization.shared_mic = summary.shared_mic,
                 "local_diarization_completed"
             );
         }
@@ -250,18 +346,31 @@ struct UnlabeledChannel {
     alternatives: Vec<Vec<(f64, f64)>>,
 }
 
+struct DiarizeJob<'a> {
+    file_path: &'a str,
+    listen_params: &'a owhisper_interface::ListenParams,
+    transcript_channels: usize,
+    in_person: bool,
+    unlabeled: &'a [UnlabeledChannel],
+    known_speakers: &'a [anlg_pyannote_local::KnownSpeaker],
+}
+
 struct ChannelLabels {
     index: usize,
     /// Speaker per word, per alternative, aligned with `UnlabeledChannel`.
     alternatives: Vec<Vec<Option<usize>>>,
     speaker_count: usize,
     identified: usize,
+    /// The direct mic of an in-person meeting: its words move to the shared
+    /// channel when more than one person turned out to be speaking into it.
+    shared_mic: bool,
 }
 
 #[derive(Debug, Default)]
 struct DiarizationSummary {
     channel_speakers: Vec<(usize, usize)>,
     identified: usize,
+    shared_mic: bool,
 }
 
 fn apply_labels(response: &mut batch::Response, labels: &[ChannelLabels]) -> DiarizationSummary {
@@ -270,6 +379,7 @@ fn apply_labels(response: &mut batch::Response, labels: &[ChannelLabels]) -> Dia
         let Some(channel) = response.results.channels.get_mut(channel_labels.index) else {
             continue;
         };
+        let share_mic = channel_labels.shared_mic && channel_labels.speaker_count >= 2;
         for (alternative, speakers) in channel
             .alternatives
             .iter_mut()
@@ -277,12 +387,16 @@ fn apply_labels(response: &mut batch::Response, labels: &[ChannelLabels]) -> Dia
         {
             for (word, speaker) in alternative.words.iter_mut().zip(speakers) {
                 word.speaker = *speaker;
+                if share_mic {
+                    word.channel = SHARED_MIC_CHANNEL;
+                }
             }
         }
         summary
             .channel_speakers
             .push((channel_labels.index, channel_labels.speaker_count));
         summary.identified += channel_labels.identified;
+        summary.shared_mic |= share_mic;
     }
 
     if let Some(metadata) = response.metadata.as_object_mut() {
@@ -292,6 +406,7 @@ fn apply_labels(response: &mut batch::Response, labels: &[ChannelLabels]) -> Dia
                 "provider": LOCAL_DIARIZATION_PROVIDER,
                 "channel_speakers": summary.channel_speakers,
                 "identified": summary.identified,
+                "shared_mic": summary.shared_mic,
             }),
         );
     }
@@ -303,14 +418,14 @@ fn apply_labels(response: &mut batch::Response, labels: &[ChannelLabels]) -> Dia
 /// streamed for a minute; a long recording spends longer than that here,
 /// after transcription has already finished, so silence would throw away a
 /// completed transcript.
-struct Heartbeat<'a> {
+pub(super) struct Heartbeat<'a> {
     runtime: &'a dyn BatchRuntime,
     session_id: String,
     last_sent: Cell<Option<Instant>>,
 }
 
 impl<'a> Heartbeat<'a> {
-    fn new(runtime: &'a dyn BatchRuntime, session_id: String) -> Self {
+    pub(super) fn new(runtime: &'a dyn BatchRuntime, session_id: String) -> Self {
         Self {
             runtime,
             session_id,
@@ -319,7 +434,7 @@ impl<'a> Heartbeat<'a> {
     }
 
     /// Emits unless a heartbeat went out within [`HEARTBEAT_INTERVAL`].
-    fn beat(&self, percentage: f64) {
+    pub(super) fn beat(&self, percentage: f64) {
         let due = self
             .last_sent
             .get()
@@ -329,7 +444,7 @@ impl<'a> Heartbeat<'a> {
         }
     }
 
-    fn emit(&self, percentage: f64) {
+    pub(super) fn emit(&self, percentage: f64) {
         self.last_sent.set(Some(Instant::now()));
         self.runtime.emit(BatchEvent::BatchResponseStreamed {
             session_id: self.session_id.clone(),
@@ -344,12 +459,16 @@ impl<'a> Heartbeat<'a> {
 fn diarize_channels(
     runtime: &dyn BatchRuntime,
     heartbeat: &Heartbeat<'_>,
-    file_path: &str,
-    listen_params: &owhisper_interface::ListenParams,
-    transcript_channels: usize,
-    unlabeled: &[UnlabeledChannel],
-    known_speakers: &[anlg_pyannote_local::KnownSpeaker],
+    job: &DiarizeJob<'_>,
 ) -> Result<Vec<ChannelLabels>, String> {
+    let DiarizeJob {
+        file_path,
+        listen_params,
+        transcript_channels,
+        in_person,
+        unlabeled,
+        known_speakers,
+    } = *job;
     heartbeat.emit(DIARIZATION_PROGRESS_START);
     let source = anlg_audio_utils::source_from_path(file_path).map_err(|e| e.to_string())?;
     // A stereo file whose channels were identical collapses to one file, so
@@ -366,6 +485,7 @@ fn diarize_channels(
                 transcript_channels,
                 channel_files.len(),
                 channel.index,
+                in_person,
             )
             .map(|(audio, bounds)| (channel, audio, bounds))
         })
@@ -385,12 +505,7 @@ fn diarize_channels(
 
     let mut labels = Vec::new();
     for (plan_index, (channel, audio, bounds)) in plans.into_iter().enumerate() {
-        let mut audio = match audio {
-            ChannelAudio::File(index) => {
-                MixedAudioSource::open(std::slice::from_ref(&channel_files[index]))?
-            }
-            ChannelAudio::Mix => MixedAudioSource::open(&channel_files)?,
-        };
+        let mut audio = MixedAudioSource::for_audio(&channel_files, audio)?;
         let on_progress = |fraction: f32| {
             let done = (plan_index as f64 + f64::from(fraction)) / plan_count;
             heartbeat.beat(DIARIZATION_PROGRESS_START + progress_span * done);
@@ -423,6 +538,7 @@ fn diarize_channels(
                 .iter()
                 .filter(|speaker| speaker.identity.is_some())
                 .count(),
+            shared_mic: in_person && channel.index == 0 && transcript_channels == 2,
         });
     }
     Ok(labels)
@@ -477,13 +593,13 @@ impl WavAudioSource {
 
 /// One or more resampled channel files read in lockstep and averaged, so a
 /// downmixed transcript can be diarized on the same mix the provider heard.
-struct MixedAudioSource {
+pub(super) struct MixedAudioSource {
     channels: Vec<WavAudioSource>,
     scratch: Vec<f32>,
 }
 
 impl MixedAudioSource {
-    fn open(files: &[ResampledChannelFile]) -> Result<Self, String> {
+    pub(super) fn open(files: &[ResampledChannelFile]) -> Result<Self, String> {
         if files.is_empty() {
             return Err("no channel files to diarize".to_string());
         }
@@ -495,6 +611,21 @@ impl MixedAudioSource {
             channels,
             scratch: Vec::new(),
         })
+    }
+
+    pub(super) fn for_audio(
+        files: &[ResampledChannelFile],
+        audio: ChannelAudio,
+    ) -> Result<Self, String> {
+        match audio {
+            ChannelAudio::File(index) => {
+                let file = files
+                    .get(index)
+                    .ok_or_else(|| format!("recording has no channel {index}"))?;
+                Self::open(std::slice::from_ref(file))
+            }
+            ChannelAudio::Mix => Self::open(files),
+        }
     }
 }
 
@@ -534,8 +665,6 @@ impl AudioSource for MixedAudioSource {
 
 #[cfg(test)]
 mod tests {
-    use anlg_transcribe_core::TARGET_SAMPLE_RATE;
-
     use super::*;
 
     fn listen_params(
@@ -575,30 +704,53 @@ mod tests {
 
     #[test]
     fn mono_recording_uses_participant_counts_directly() {
-        let (audio, bounds) = plan_channel(&listen_params(Some(3), None, None), 1, 1, 0).unwrap();
+        let (audio, bounds) =
+            plan_channel(&listen_params(Some(3), None, None), 1, 1, 0, false).unwrap();
         assert_eq!(audio, ChannelAudio::File(0));
         assert_eq!(bounds, SpeakerBounds::exact(3));
 
-        let (_, free) = plan_channel(&listen_params(None, None, None), 1, 1, 0).unwrap();
+        let (_, free) = plan_channel(&listen_params(None, None, None), 1, 1, 0, false).unwrap();
         assert_eq!(free, SpeakerBounds::default());
     }
 
     #[test]
     fn stereo_remote_channel_drops_the_direct_mic_speaker() {
         let params = listen_params(Some(3), None, None);
-        assert!(plan_channel(&params, 2, 2, 0).is_none());
+        assert!(plan_channel(&params, 2, 2, 0, false).is_none());
         assert_eq!(
-            plan_channel(&params, 2, 2, 1).unwrap(),
+            plan_channel(&params, 2, 2, 1, false).unwrap(),
             (ChannelAudio::File(1), SpeakerBounds::exact(2))
         );
 
         // A 1:1 call has a single remote voice: nothing to separate.
-        assert!(plan_channel(&listen_params(Some(2), None, None), 2, 2, 1).is_none());
-        assert!(plan_channel(&listen_params(None, None, Some(2)), 2, 2, 1).is_none());
+        assert!(plan_channel(&listen_params(Some(2), None, None), 2, 2, 1, false).is_none());
+        assert!(plan_channel(&listen_params(None, None, Some(2)), 2, 2, 1, false).is_none());
 
-        let (_, range) = plan_channel(&listen_params(None, Some(2), Some(5)), 2, 2, 1).unwrap();
+        let (_, range) =
+            plan_channel(&listen_params(None, Some(2), Some(5)), 2, 2, 1, false).unwrap();
         assert_eq!(range.min_speakers, None);
         assert_eq!(range.max_speakers, Some(4));
+    }
+
+    #[test]
+    fn in_person_meeting_opens_the_direct_mic_with_the_full_count() {
+        // Everyone was in the room, so the mic carried all three people and
+        // the system-audio channel has nothing to plan.
+        let params = listen_params(Some(3), None, None);
+        assert_eq!(
+            plan_channel(&params, 2, 2, 0, true).unwrap(),
+            (ChannelAudio::File(0), SpeakerBounds::exact(3))
+        );
+        // An in-person 1:1 still has two voices on the mic.
+        assert_eq!(
+            plan_channel(&listen_params(Some(2), None, None), 2, 2, 0, true).unwrap(),
+            (ChannelAudio::File(0), SpeakerBounds::exact(2))
+        );
+        // The remote channel keeps its call-shaped budget either way.
+        assert_eq!(
+            plan_channel(&params, 2, 2, 1, true).unwrap(),
+            (ChannelAudio::File(1), SpeakerBounds::exact(2))
+        );
     }
 
     #[test]
@@ -606,23 +758,25 @@ mod tests {
         // Whisper/Argmax collapse a stereo capture into one transcript
         // channel; its words come from mic and system audio together, so the
         // direct mic file alone would miss every remote turn.
-        let (audio, bounds) = plan_channel(&listen_params(Some(3), None, None), 1, 2, 0).unwrap();
+        let (audio, bounds) =
+            plan_channel(&listen_params(Some(3), None, None), 1, 2, 0, false).unwrap();
         assert_eq!(audio, ChannelAudio::Mix);
         assert_eq!(bounds, SpeakerBounds::exact(3));
 
         // A 1:1 call still has two voices in the mix.
-        let (audio, bounds) = plan_channel(&listen_params(Some(2), None, None), 1, 2, 0).unwrap();
+        let (audio, bounds) =
+            plan_channel(&listen_params(Some(2), None, None), 1, 2, 0, false).unwrap();
         assert_eq!(audio, ChannelAudio::Mix);
         assert_eq!(bounds, SpeakerBounds::exact(2));
     }
 
     #[test]
     fn single_speaker_and_unexpected_layouts_are_skipped() {
-        assert!(plan_channel(&listen_params(Some(1), None, None), 1, 1, 0).is_none());
-        assert!(plan_channel(&listen_params(None, None, None), 3, 3, 2).is_none());
+        assert!(plan_channel(&listen_params(Some(1), None, None), 1, 1, 0, false).is_none());
+        assert!(plan_channel(&listen_params(None, None, None), 3, 3, 2, false).is_none());
         // Identical stereo channels collapse to one file; the transcript's
         // remote channel then has no audio of its own.
-        assert!(plan_channel(&listen_params(None, None, None), 2, 1, 1).is_none());
+        assert!(plan_channel(&listen_params(None, None, None), 2, 1, 1, false).is_none());
     }
 
     #[test]
@@ -631,29 +785,103 @@ mod tests {
             channels: 2,
             ..listen_params(None, None, None)
         };
-        // The direct-mic channel of a stereo capture is never diarized, so a
+        // The direct-mic channel of a call is never diarized, so a
         // Soniqo/Apple Speech batch whose remote channel is already labeled
         // must not pay for a second resample.
-        assert!(!could_plan_channel(&stereo, 2, 0));
-        assert!(could_plan_channel(&stereo, 2, 1));
+        assert!(!could_plan_channel(&stereo, 2, 0, false));
+        assert!(could_plan_channel(&stereo, 2, 1, false));
         // A 1:1 call: one remote voice, nothing to separate.
         let one_on_one = owhisper_interface::ListenParams {
             channels: 2,
             ..listen_params(Some(2), None, None)
         };
-        assert!(!could_plan_channel(&one_on_one, 2, 1));
+        assert!(!could_plan_channel(&one_on_one, 2, 1, false));
+        // In person, the same 1:1 puts both voices on the mic.
+        assert!(could_plan_channel(&one_on_one, 2, 0, true));
 
         // Downmixed transcripts stay eligible whether the stereo file keeps
         // both channels or collapses to one.
-        assert!(could_plan_channel(&stereo, 1, 0));
+        assert!(could_plan_channel(&stereo, 1, 0, false));
         let mono = owhisper_interface::ListenParams {
             channels: 1,
             ..listen_params(None, None, None)
         };
-        assert!(could_plan_channel(&mono, 1, 0));
-        assert!(!could_plan_channel(&mono, 2, 1));
+        assert!(could_plan_channel(&mono, 1, 0, false));
+        assert!(!could_plan_channel(&mono, 2, 1, false));
         // Unknown channel count stays permissive.
-        assert!(could_plan_channel(&listen_params(None, None, None), 1, 0));
+        assert!(could_plan_channel(
+            &listen_params(None, None, None),
+            1,
+            0,
+            false
+        ));
+    }
+
+    fn two_channel_response(remote_words: Vec<batch::Word>) -> batch::Response {
+        batch::Response {
+            metadata: serde_json::json!({}),
+            results: batch::Results {
+                channels: vec![channel(vec![word(None)]), channel(remote_words)],
+            },
+        }
+    }
+
+    #[test]
+    fn in_person_needs_several_participants_and_a_silent_remote_channel() {
+        let silent = two_channel_response(vec![]);
+        assert!(in_person_capture(
+            &listen_params(Some(2), None, None),
+            &silent
+        ));
+        assert!(in_person_capture(
+            &listen_params(None, Some(2), None),
+            &silent
+        ));
+        // A solo memo and a two-person meeting sound the same to the recorder.
+        assert!(!in_person_capture(
+            &listen_params(None, None, None),
+            &silent
+        ));
+        assert!(!in_person_capture(
+            &listen_params(Some(1), None, None),
+            &silent
+        ));
+
+        // A stray word of noise on system audio is still silence.
+        let noise = two_channel_response(vec![batch::Word {
+            start: 10.0,
+            end: 11.5,
+            channel: 1,
+            ..word(None)
+        }]);
+        assert!(in_person_capture(
+            &listen_params(Some(2), None, None),
+            &noise
+        ));
+
+        // Real far-end speech means a call, however many people were invited.
+        let call = two_channel_response(vec![batch::Word {
+            start: 10.0,
+            end: 20.0,
+            channel: 1,
+            ..word(Some(0))
+        }]);
+        assert!(!in_person_capture(
+            &listen_params(Some(3), None, None),
+            &call
+        ));
+
+        // Downmixed transcripts have no remote channel to judge by.
+        let downmixed = batch::Response {
+            metadata: serde_json::json!({}),
+            results: batch::Results {
+                channels: vec![channel(vec![word(None)])],
+            },
+        };
+        assert!(!in_person_capture(
+            &listen_params(Some(3), None, None),
+            &downmixed
+        ));
     }
 
     #[test]
@@ -669,22 +897,7 @@ mod tests {
         assert!(!channel_needs_diarization(&channel(vec![])));
     }
 
-    fn params(provider: BatchProvider, base_url: &str, file_path: &str) -> BatchParams {
-        BatchParams {
-            session_id: "s".to_string(),
-            provider,
-            file_path: file_path.to_string(),
-            model: None,
-            base_url: base_url.to_string(),
-            api_key: String::new(),
-            languages: vec![],
-            keywords: vec![],
-            num_speakers: None,
-            min_speakers: None,
-            max_speakers: None,
-            known_speakers: vec![],
-        }
-    }
+    use super::super::test_fixtures::{NeverCancelled, in_person_fixture, params, stereo_fixture};
 
     #[test]
     fn local_providers_are_detected() {
@@ -727,16 +940,6 @@ mod tests {
             "http://127.0.0.2",
         ] {
             assert!(!is_loopback_url(url), "{url}");
-        }
-    }
-
-    struct NeverCancelled;
-
-    impl BatchRuntime for NeverCancelled {
-        fn emit(&self, _event: crate::BatchEvent) {}
-
-        fn is_cancelled(&self) -> bool {
-            false
         }
     }
 
@@ -863,54 +1066,6 @@ mod tests {
         );
     }
 
-    /// Splits the two-speaker `english_1` fixture into a stereo file with one
-    /// speaker per channel, the shape of a mic + system-audio capture.
-    fn stereo_fixture() -> tempfile::NamedTempFile {
-        #[derive(serde::Deserialize)]
-        struct Turn {
-            start: u64,
-            end: u64,
-            speaker: String,
-        }
-        let turns: Vec<Turn> =
-            serde_json::from_str(anlg_data::english_1::DIARIZATION_JSON).unwrap();
-        let mono: Vec<f32> = anlg_data::english_1::AUDIO
-            .chunks_exact(2)
-            .map(|chunk| i16::from_le_bytes([chunk[0], chunk[1]]) as f32 / 32768.0)
-            .collect();
-        let rate = TARGET_SAMPLE_RATE as usize;
-        let mut left = vec![0.0f32; mono.len()];
-        let mut right = vec![0.0f32; mono.len()];
-        for turn in turns {
-            let start = (turn.start as usize * rate / 1000).min(mono.len());
-            let end = (turn.end as usize * rate / 1000).min(mono.len());
-            let target = if turn.speaker == "speaker0" {
-                &mut left
-            } else {
-                &mut right
-            };
-            target[start..end].copy_from_slice(&mono[start..end]);
-        }
-
-        let file = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
-        let mut writer = hound::WavWriter::create(
-            file.path(),
-            hound::WavSpec {
-                channels: 2,
-                sample_rate: TARGET_SAMPLE_RATE,
-                bits_per_sample: 32,
-                sample_format: hound::SampleFormat::Float,
-            },
-        )
-        .unwrap();
-        for (l, r) in left.iter().zip(&right) {
-            writer.write_sample(*l).unwrap();
-            writer.write_sample(*r).unwrap();
-        }
-        writer.finalize().unwrap();
-        file
-    }
-
     #[tokio::test]
     async fn downmixed_stereo_transcript_hears_both_channels() {
         let file = stereo_fixture();
@@ -943,6 +1098,88 @@ mod tests {
             speakers.len() >= 2,
             "expected both channels' speakers, got {speakers:?}"
         );
+    }
+
+    /// A stereo transcript whose remote channel is empty: every word came
+    /// from the mic.
+    fn in_person_output(word_count: usize, duration: f64) -> BatchRunOutput {
+        let mut output = unlabeled_output(word_count, duration);
+        output.response.results.channels.push(channel(vec![]));
+        output
+    }
+
+    #[tokio::test]
+    async fn in_person_meeting_separates_the_people_sharing_the_mic() {
+        let file = in_person_fixture();
+        let mut params = params(
+            BatchProvider::WhisperLocal,
+            "http://localhost:1234",
+            file.path().to_str().unwrap(),
+        );
+        params.num_speakers = Some(2);
+        let listen_params = owhisper_interface::ListenParams {
+            channels: 2,
+            num_speakers: Some(2),
+            ..Default::default()
+        };
+        let mut output = in_person_output(300, 153.0);
+
+        apply_local_diarization(
+            Arc::new(NeverCancelled),
+            &params,
+            &listen_params,
+            &mut output,
+        )
+        .await;
+
+        let words = &output.response.results.channels[0].alternatives[0].words;
+        assert!(words.iter().all(|word| word.speaker.is_some()));
+        assert!(
+            words.iter().all(|word| word.channel == SHARED_MIC_CHANNEL),
+            "mic words should move to the shared channel"
+        );
+        let speakers = words
+            .iter()
+            .filter_map(|word| word.speaker)
+            .collect::<std::collections::HashSet<_>>();
+        assert_eq!(speakers.len(), 2, "expected both people, got {speakers:?}");
+        assert_eq!(output.response.metadata["diarization"]["shared_mic"], true);
+    }
+
+    #[tokio::test]
+    async fn call_with_far_end_speech_keeps_the_mic_as_the_user() {
+        // Same recording layout, but the remote channel carried a voice, so
+        // this was a call and the mic stays the local user's alone.
+        let file = in_person_fixture();
+        let mut params = params(
+            BatchProvider::WhisperLocal,
+            "http://localhost:1234",
+            file.path().to_str().unwrap(),
+        );
+        params.num_speakers = Some(2);
+        let listen_params = owhisper_interface::ListenParams {
+            channels: 2,
+            num_speakers: Some(2),
+            ..Default::default()
+        };
+        let mut output = in_person_output(300, 153.0);
+        output.response.results.channels[1] = channel(vec![batch::Word {
+            start: 100.0,
+            end: 110.0,
+            channel: 1,
+            ..word(Some(0))
+        }]);
+        let before = output.response.clone();
+
+        apply_local_diarization(
+            Arc::new(NeverCancelled),
+            &params,
+            &listen_params,
+            &mut output,
+        )
+        .await;
+
+        assert_eq!(output.response, before);
     }
 
     #[tokio::test]

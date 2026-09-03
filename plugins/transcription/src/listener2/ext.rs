@@ -68,10 +68,8 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener2<'a, R, M> {
             let app = app.clone();
             async move {
                 let mut batch_params: core::BatchParams = params.into();
-                if core::uses_local_diarization(&batch_params) {
-                    batch_params.known_speakers =
-                        crate::voiceprint::known_speakers_for_session(&app, &session_id).await;
-                }
+                batch_params.known_speakers =
+                    crate::voiceprint::known_speakers_for_session(&app, &session_id).await;
                 let _ = core::run_batch(runtime, batch_params).await;
                 finish_batch_session(&registry, &session_id, &control);
             }
@@ -145,16 +143,6 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener2<'a, R, M> {
         stop_batch_session(&app, &registry, &session_id);
     }
 
-    pub async fn run_denoise(&self, params: core::DenoiseParams) -> Result<(), core::Error> {
-        let state = self.manager.state::<crate::SharedState>();
-        let guard = state.lock().await;
-        let app = guard.app.clone();
-        drop(guard);
-
-        let runtime = Arc::new(TauriDenoiseRuntime { app });
-        core::run_denoise(runtime, params).await
-    }
-
     pub fn parse_subtitle(&self, path: String) -> Result<core::Subtitle, String> {
         core::parse_subtitle_from_path(path)
     }
@@ -226,16 +214,6 @@ impl core::BatchRuntime for TauriBatchRuntime {
 
     fn is_cancelled(&self) -> bool {
         self.control.cancellation_token.is_cancelled()
-    }
-}
-
-struct TauriDenoiseRuntime {
-    app: tauri::AppHandle,
-}
-
-impl core::DenoiseRuntime for TauriDenoiseRuntime {
-    fn emit(&self, event: core::DenoiseEvent) {
-        let _ = event.emit(&self.app);
     }
 }
 

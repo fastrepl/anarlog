@@ -178,6 +178,70 @@ async fn voiceprint_insert_requires_confirmed_provenance_and_matching_audio() {
         insert_voiceprint_exemplar(db.pool(), invalid_quality).await,
         Err(VoiceprintExemplarError::InvalidField("quality score"))
     ));
+
+    let mut isolated_mic = exemplar(
+        "voiceprint-isolated-mic",
+        "voiceprint-isolated-mic",
+        "direct_mic",
+    );
+    isolated_mic.confirmation_source = "isolated_mic_capture";
+    let inserted = insert_voiceprint_exemplar(db.pool(), isolated_mic)
+        .await
+        .unwrap();
+    assert_eq!(inserted.confirmation_source, "isolated_mic_capture");
+}
+
+#[tokio::test]
+async fn widening_confirmation_sources_keeps_existing_exemplars() {
+    let rebuild_index = APP_MIGRATION_STEPS
+        .iter()
+        .position(|step| step.id == "20260903120000_voiceprint_exemplars_isolated_mic")
+        .unwrap();
+    let db = Db::connect_memory_plain().await.unwrap();
+    anlg_db_migrate::migrate(
+        &db,
+        anlg_db_migrate::DbSchema {
+            steps: &APP_MIGRATION_STEPS[..rebuild_index],
+            validate_cloudsync_table: cloudsync_alter_guard_required,
+        },
+    )
+    .await
+    .unwrap();
+    insert_source(&db).await;
+    insert_voiceprint_exemplar(
+        db.pool(),
+        exemplar("voiceprint-before", "voiceprint-before", "system_audio"),
+    )
+    .await
+    .unwrap();
+
+    anlg_db_migrate::migrate(&db, schema()).await.unwrap();
+
+    let exemplars = list_active_voiceprint_exemplars_for_human(db.pool(), "workspace-1", "human-1")
+        .await
+        .unwrap();
+    assert_eq!(exemplars.len(), 1);
+    assert_eq!(exemplars[0].id, "voiceprint-before");
+    assert_eq!(
+        exemplars[0].confirmation_source,
+        "manual_speaker_assignment"
+    );
+
+    let indexes: Vec<String> = sqlx::query_scalar(
+        "SELECT name FROM sqlite_master
+         WHERE type = 'index' AND tbl_name = 'voiceprint_exemplars' AND name LIKE 'idx_%'
+         ORDER BY name",
+    )
+    .fetch_all(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(
+        indexes,
+        vec![
+            "idx_voiceprint_exemplars_human".to_string(),
+            "idx_voiceprint_exemplars_source_session".to_string(),
+        ]
+    );
 }
 
 fn candidate<'a>(id: &'a str, expires_at: &'a str) -> NewVoiceprintCandidate<'a> {

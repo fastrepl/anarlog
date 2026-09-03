@@ -1,5 +1,6 @@
 use crate::{DeviceEvent, DeviceSwitch, DeviceUpdate};
 use libpulse_binding::{
+    callbacks::ListResult,
     context::{
         Context, FlagSet as ContextFlagSet,
         subscribe::{Facility, InterestMaskSet, Operation},
@@ -24,13 +25,37 @@ struct DefaultDeviceChanges {
 struct DefaultDevices {
     source: Option<String>,
     sink: Option<String>,
+    // Plugging or unplugging an analog jack switches the default sink's active port without
+    // changing its name, so the port's headphone verdict is tracked as its own output change.
+    sink_headphone: Option<bool>,
 }
 
 impl DefaultDevices {
     fn observe(&mut self, source: Option<&str>, sink: Option<&str>) -> DefaultDeviceChanges {
-        DefaultDeviceChanges {
+        let changes = DefaultDeviceChanges {
             source_changed: Self::observe_name(&mut self.source, source),
             sink_changed: Self::observe_name(&mut self.sink, sink),
+        };
+        if changes.sink_changed {
+            self.sink_headphone = None;
+        }
+        changes
+    }
+
+    fn observe_sink_headphone(&mut self, headphone: Option<bool>) -> bool {
+        let Some(headphone) = headphone else {
+            return false;
+        };
+        match self.sink_headphone {
+            Some(previous) if previous != headphone => {
+                self.sink_headphone = Some(headphone);
+                true
+            }
+            None => {
+                self.sink_headphone = Some(headphone);
+                false
+            }
+            Some(_) => false,
         }
     }
 
@@ -155,6 +180,7 @@ fn refresh_default_devices(
     };
     let tracker = Rc::clone(tracker);
     let emit = Rc::clone(emit);
+    let context = Rc::clone(context);
     ctx.introspect().get_server_info(move |info| {
         let source = info.default_source_name.as_deref();
         let sink = info.default_sink_name.as_deref();
@@ -174,6 +200,39 @@ fn refresh_default_devices(
             emit(DeviceSwitch::DefaultOutputChanged {
                 headphone: is_headphone_from_default_output_device(),
             });
+        }
+        if let Some(sink) = sink {
+            refresh_default_sink_port(&context, &tracker, &emit, sink);
+        }
+    });
+}
+
+fn refresh_default_sink_port(
+    context: &Rc<RefCell<Context>>,
+    tracker: &Rc<RefCell<DefaultDevices>>,
+    emit: &DeviceSwitchEmit,
+    sink: &str,
+) {
+    let Ok(ctx) = context.try_borrow() else {
+        return;
+    };
+    let tracker = Rc::clone(tracker);
+    let emit = Rc::clone(emit);
+    ctx.introspect().get_sink_info_by_name(sink, move |result| {
+        let ListResult::Item(info) = result else {
+            return;
+        };
+        let headphone = info
+            .active_port
+            .as_ref()
+            .and_then(|port| port.name.as_deref())
+            .map(anlg_audio_device::linux::is_headphone_port);
+        if tracker.borrow_mut().observe_sink_headphone(headphone) {
+            tracing::info!(
+                anarlog.audio.default_sink_headphone = headphone,
+                "default_sink_port_changed"
+            );
+            emit(DeviceSwitch::DefaultOutputChanged { headphone });
         }
     });
 }
@@ -370,5 +429,31 @@ mod tests {
                 sink_changed: false,
             }
         );
+    }
+
+    #[test]
+    fn jack_port_flip_on_same_sink_counts_as_output_change() {
+        let mut devices = DefaultDevices::default();
+        devices.observe(Some("qa_mic_bus.monitor"), Some("alsa_output.pci"));
+
+        assert!(!devices.observe_sink_headphone(Some(false)));
+        assert!(!devices.observe_sink_headphone(Some(false)));
+        assert!(devices.observe_sink_headphone(Some(true)));
+        assert!(!devices.observe_sink_headphone(None));
+        assert!(devices.observe_sink_headphone(Some(false)));
+    }
+
+    #[test]
+    fn new_default_sink_resets_port_baseline() {
+        let mut devices = DefaultDevices::default();
+        devices.observe(Some("qa_mic_bus.monitor"), Some("alsa_output.pci"));
+        devices.observe_sink_headphone(Some(false));
+
+        assert!(
+            devices
+                .observe(Some("qa_mic_bus.monitor"), Some("alsa_output.usb"))
+                .sink_changed
+        );
+        assert!(!devices.observe_sink_headphone(Some(true)));
     }
 }

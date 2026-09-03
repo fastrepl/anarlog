@@ -3312,28 +3312,6 @@ describe("useStartListening", () => {
     });
   });
 
-  test("starts capture with the selected speakers", async () => {
-    useConfigValueMock.mockImplementation((key) =>
-      key === "ai_language"
-        ? "en"
-        : key === "speaker_device"
-          ? "External Speakers"
-          : key === "consent_auto_send_chat" || key === "capture_meeting_chat"
-            ? false
-            : [],
-    );
-
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
-      speaker_device: "External Speakers",
-    });
-  });
-
   test("keeps supported non-English realtime local models live", async () => {
     useConfigValueMock.mockImplementation((key) =>
       key === "ai_language"

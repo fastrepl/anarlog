@@ -32,10 +32,14 @@ pub(super) async fn normalize_replica_payload_hashes(
         }
         let mut query = QueryBuilder::<Sqlite>::new(
             "SELECT replica.id, replica.workspace_id, replica.payload
-             FROM e2ee_records AS replica
+             FROM e2ee_replica_pending AS pending
+             INDEXED BY idx_e2ee_replica_pending_workspace_record
+             INNER JOIN e2ee_records AS replica
+               ON replica.id = pending.record_id
+              AND replica.workspace_id = pending.workspace_id
              LEFT JOIN e2ee_replica_payload_hashes AS replica_hash
                ON replica_hash.record_id = replica.id
-             WHERE replica.workspace_id IN (",
+             WHERE pending.workspace_id IN (",
         );
         {
             let mut separated = query.separated(", ");
@@ -51,7 +55,7 @@ pub(super) async fn normalize_replica_payload_hashes(
                OR replica_hash.payload_hash = ''
              )
              AND replica.payload != ''
-             ORDER BY replica.workspace_id, replica.id
+             ORDER BY pending.workspace_id, pending.record_id
              LIMIT 64",
         );
         let records: Vec<(String, String, String)> =

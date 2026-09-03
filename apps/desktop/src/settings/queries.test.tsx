@@ -232,16 +232,6 @@ describe("SQLite settings", () => {
     ]);
   });
 
-  it("persists the selected speakers in SQLite settings", async () => {
-    await setSettingValues({ speaker_device: "External Speakers" });
-
-    const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.params.slice(0, 2)).toEqual([
-      "speaker_device",
-      JSON.stringify("External Speakers"),
-    ]);
-  });
-
   it("persists and restores the summary length mode", async () => {
     await setSettingValues({ summary_length: "crisp" });
 

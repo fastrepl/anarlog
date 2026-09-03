@@ -136,6 +136,32 @@ fn is_unique_best(best: f32, second: f32, min_score: f32, min_margin: f32) -> bo
     best >= min_score && (second.is_infinite() || best - second >= min_margin)
 }
 
+/// When a channel holds exactly as many speakers as there are people who could
+/// be on it, and every speaker but one and every person but one is already
+/// paired, the last speaker is the last person. The count must match exactly:
+/// a no-show or an uninvited guest breaks the inference, so nothing is guessed.
+pub fn complete_by_elimination(
+    speakers: &[VoiceprintSpeakerKey],
+    people: &[String],
+    assigned_speakers: &[VoiceprintSpeakerKey],
+    assigned_people: &[&str],
+) -> Option<(VoiceprintSpeakerKey, String)> {
+    if speakers.is_empty() || speakers.len() != people.len() {
+        return None;
+    }
+    let mut open_speakers = speakers
+        .iter()
+        .filter(|speaker| !assigned_speakers.contains(speaker));
+    let mut open_people = people
+        .iter()
+        .filter(|person| !assigned_people.contains(&person.as_str()));
+    let (speaker, person) = (open_speakers.next()?, open_people.next()?);
+    if open_speakers.next().is_some() || open_people.next().is_some() {
+        return None;
+    }
+    Some((*speaker, person.clone()))
+}
+
 pub fn remote_participant_human_ids<'a>(
     participants: impl IntoIterator<Item = (&'a str, &'a str)>,
     owner_user_id: &str,
@@ -271,6 +297,59 @@ mod tests {
             )
             .is_empty()
         );
+    }
+
+    #[test]
+    fn elimination_names_the_last_speaker_when_counts_match() {
+        let speakers = [speaker(1, 0), speaker(1, 1), speaker(1, 2)];
+        let people = ["ada".to_string(), "bob".to_string(), "cy".to_string()];
+
+        assert_eq!(
+            complete_by_elimination(
+                &speakers,
+                &people,
+                &[speaker(1, 0), speaker(1, 2)],
+                &["cy", "ada"],
+            ),
+            Some((speaker(1, 1), "bob".to_string()))
+        );
+    }
+
+    #[test]
+    fn elimination_needs_exactly_one_open_speaker_and_person() {
+        let speakers = [speaker(1, 0), speaker(1, 1), speaker(1, 2)];
+        let people = ["ada".to_string(), "bob".to_string(), "cy".to_string()];
+
+        assert_eq!(
+            complete_by_elimination(&speakers, &people, &[speaker(1, 0)], &["ada"]),
+            None
+        );
+        assert_eq!(
+            complete_by_elimination(&speakers, &people, &speakers, &["ada", "bob", "cy"]),
+            None
+        );
+    }
+
+    #[test]
+    fn elimination_refuses_when_speaker_and_participant_counts_differ() {
+        let people = ["ada".to_string(), "bob".to_string()];
+
+        // A no-show: two invited, one spoke.
+        assert_eq!(
+            complete_by_elimination(&[speaker(1, 0)], &people, &[], &[]),
+            None
+        );
+        // An uninvited guest: two invited, three spoke, one already named.
+        assert_eq!(
+            complete_by_elimination(
+                &[speaker(1, 0), speaker(1, 1), speaker(1, 2)],
+                &people,
+                &[speaker(1, 0)],
+                &["ada"],
+            ),
+            None
+        );
+        assert_eq!(complete_by_elimination(&[], &[], &[], &[]), None);
     }
 
     #[test]

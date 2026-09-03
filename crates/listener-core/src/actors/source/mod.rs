@@ -54,7 +54,6 @@ pub enum ListenerRouting {
 
 pub struct SourceArgs {
     pub mic_device: Option<String>,
-    pub speaker_device: Option<String>,
     pub onboarding: bool,
     pub runtime: Arc<dyn ListenerRuntime>,
     pub audio: Arc<dyn AudioProvider>,
@@ -68,7 +67,6 @@ pub struct SourceState {
     pub(super) audio: Arc<dyn AudioProvider>,
     pub(super) session_id: String,
     pub(super) mic_device: Option<String>,
-    pub(super) speaker_device: Option<String>,
     pub(super) onboarding: bool,
     pub(super) mic_muted: Arc<AtomicBool>,
     pub(super) run_task: Option<tokio::task::JoinHandle<()>>,
@@ -87,6 +85,10 @@ pub struct SourceActor;
 
 const MAX_CAPTURE_FRAMES_PER_TICK: usize = 4;
 const RECORDER_BACKPRESSURE_RETRY_DELAY: Duration = Duration::from_millis(10);
+const OUTPUT_ROUTING_POLL_INTERVAL: Duration = Duration::from_secs(2);
+// Only the macOS backend reports which outputs are running; elsewhere the verdict can only move
+// with the default output, which already restarts the source.
+const POLLS_OUTPUT_ROUTING: bool = cfg!(target_os = "macos");
 
 struct DeviceChangeWatcher {
     _handle: DeviceMonitorHandle,
@@ -94,10 +96,11 @@ struct DeviceChangeWatcher {
 }
 
 impl DeviceChangeWatcher {
-    fn spawn(actor: ActorRef<SourceMsg>) -> Self {
+    fn spawn(actor: ActorRef<SourceMsg>, headphone_output: bool) -> Self {
         let (event_tx, event_rx) = mpsc::sync_channel(1);
         let handle = DeviceSwitchMonitor::spawn_debounced_bounded(event_tx);
-        let thread = std::thread::spawn(move || Self::event_loop(event_rx, actor));
+        let routing = POLLS_OUTPUT_ROUTING.then(|| OutputRoutingTracker::new(headphone_output));
+        let thread = std::thread::spawn(move || Self::event_loop(event_rx, actor, routing));
 
         Self {
             _handle: handle,
@@ -105,17 +108,79 @@ impl DeviceChangeWatcher {
         }
     }
 
-    fn event_loop(event_rx: Receiver<DeviceSwitch>, actor: ActorRef<SourceMsg>) {
+    fn event_loop(
+        event_rx: Receiver<DeviceSwitch>,
+        actor: ActorRef<SourceMsg>,
+        mut routing: Option<OutputRoutingTracker>,
+    ) {
         loop {
-            match event_rx.recv() {
+            let event = match routing {
+                Some(_) => event_rx.recv_timeout(OUTPUT_ROUTING_POLL_INTERVAL),
+                None => event_rx
+                    .recv()
+                    .map_err(|_| mpsc::RecvTimeoutError::Disconnected),
+            };
+            match event {
                 Ok(DeviceSwitch::DefaultInputChanged) => {
                     tracing::info!("default_input_changed_restarting_source");
                     actor.stop(Some("device_change".to_string()));
                 }
-                Ok(_) => {}
-                Err(_) => break,
+                Ok(DeviceSwitch::DefaultOutputChanged { .. }) => {
+                    tracing::info!("default_output_changed_restarting_source");
+                    actor.stop(Some("device_change".to_string()));
+                }
+                Ok(DeviceSwitch::DeviceListChanged) => {}
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    let Some(routing) = routing.as_mut() else {
+                        continue;
+                    };
+                    let observed = headphone_only_output();
+                    if routing.observe(observed) {
+                        tracing::info!(
+                            headphone_output = observed,
+                            "output_routing_changed_restarting_source"
+                        );
+                        actor.stop(Some("device_change".to_string()));
+                    }
+                }
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
             }
         }
+    }
+}
+
+fn headphone_only_output() -> bool {
+    anlg_audio_device::headphone_only_output().is_some()
+}
+
+// A meeting app can start playing through speakers after capture began, flipping the AEC and
+// mic-isolation verdict the streams were opened with. Requiring two consecutive polls keeps a
+// one-off system sound from bouncing the source.
+struct OutputRoutingTracker {
+    expected: bool,
+    pending: Option<bool>,
+}
+
+impl OutputRoutingTracker {
+    fn new(expected: bool) -> Self {
+        Self {
+            expected,
+            pending: None,
+        }
+    }
+
+    fn observe(&mut self, observed: bool) -> bool {
+        if observed == self.expected {
+            self.pending = None;
+            return false;
+        }
+        if self.pending == Some(observed) {
+            self.expected = observed;
+            self.pending = None;
+            return true;
+        }
+        self.pending = Some(observed);
+        false
     }
 }
 
@@ -145,12 +210,9 @@ impl Actor for SourceActor {
                     session_id: session_id.clone(),
                 });
 
-            let device_watcher = DeviceChangeWatcher::spawn(myself.clone());
-
             let silence_stream_tx = Some(args.audio.play_silence());
             let mic_device = args.mic_device;
-            let speaker_device = args.speaker_device;
-            tracing::info!(mic_device = ?mic_device, speaker_device = ?speaker_device);
+            tracing::info!(mic_device = ?mic_device);
 
             let pipeline = Pipeline::new(args.runtime.clone(), args.session_id.clone());
 
@@ -159,14 +221,13 @@ impl Actor for SourceActor {
                 audio: args.audio,
                 session_id: args.session_id,
                 mic_device,
-                speaker_device,
                 onboarding: args.onboarding,
                 mic_muted: Arc::new(AtomicBool::new(false)),
                 run_task: None,
                 stream_cancel_token: None,
                 capture_frames: None,
                 capture_wake_pending: Arc::new(AtomicBool::new(false)),
-                _device_watcher: Some(device_watcher),
+                _device_watcher: None,
                 _silence_stream_tx: silence_stream_tx,
                 current_mode: ChannelMode::MicAndSpeaker,
                 pipeline,
@@ -174,7 +235,13 @@ impl Actor for SourceActor {
                 recorder: args.recorder,
             };
 
-            start_source_loop(&myself, &mut st).await?;
+            // The watcher's baseline is the verdict the streams opened with, sampled after the
+            // silence stream started, so it cannot read startup skew as a routing change.
+            let capture = start_source_loop(&myself, &mut st).await?;
+            st._device_watcher = Some(DeviceChangeWatcher::spawn(
+                myself.clone(),
+                capture.mic_isolated,
+            ));
             Ok(st)
         }
         .instrument(span)
@@ -381,7 +448,7 @@ mod tests {
     }
 
     struct TestAudio {
-        capture_tx: mpsc::UnboundedSender<(Option<String>, Option<String>)>,
+        capture_tx: mpsc::UnboundedSender<Option<String>>,
         default_device_name_calls: AtomicUsize,
         end_immediately: bool,
         emit_frame: bool,
@@ -389,9 +456,7 @@ mod tests {
 
     impl AudioProvider for TestAudio {
         fn open_capture(&self, config: CaptureConfig) -> Result<CaptureStream, Error> {
-            let _ = self
-                .capture_tx
-                .send((config.mic_device, config.speaker_device));
+            let _ = self.capture_tx.send(config.mic_device);
             if self.end_immediately {
                 Ok(CaptureStream::new(stream::empty()))
             } else if self.emit_frame {
@@ -410,7 +475,6 @@ mod tests {
 
         fn open_speaker_capture(
             &self,
-            _device: Option<String>,
             _sample_rate: u32,
             _chunk_size: usize,
         ) -> Result<CaptureStream, Error> {
@@ -433,10 +497,6 @@ mod tests {
         }
 
         fn list_mic_devices(&self) -> Vec<String> {
-            vec![]
-        }
-
-        fn list_speaker_devices(&self) -> Vec<String> {
             vec![]
         }
 
@@ -474,7 +534,6 @@ mod tests {
             SourceActor,
             SourceArgs {
                 mic_device: expected.clone(),
-                speaker_device: None,
                 onboarding: false,
                 runtime: Arc::new(TestRuntime {
                     progress_tx,
@@ -493,7 +552,7 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(captured, (expected.clone(), None));
+        assert_eq!(captured, expected);
 
         let ready_device = loop {
             let event = tokio::time::timeout(std::time::Duration::from_secs(1), progress_rx.recv())
@@ -511,6 +570,35 @@ mod tests {
         let _ = handle.await;
     }
 
+    #[test]
+    fn output_routing_restart_needs_two_consecutive_flipped_polls() {
+        let mut tracker = OutputRoutingTracker::new(true);
+
+        assert!(!tracker.observe(true));
+        assert!(!tracker.observe(false));
+        assert!(tracker.observe(false));
+    }
+
+    #[test]
+    fn output_routing_blip_does_not_restart() {
+        let mut tracker = OutputRoutingTracker::new(true);
+
+        assert!(!tracker.observe(false));
+        assert!(!tracker.observe(true));
+        assert!(!tracker.observe(false));
+    }
+
+    #[test]
+    fn output_routing_tracks_the_new_verdict_after_firing() {
+        let mut tracker = OutputRoutingTracker::new(true);
+
+        assert!(!tracker.observe(false));
+        assert!(tracker.observe(false));
+        assert!(!tracker.observe(false));
+        assert!(!tracker.observe(true));
+        assert!(tracker.observe(true));
+    }
+
     #[tokio::test]
     async fn unspecified_mic_uses_capture_provider_default() {
         assert_source_uses_mic_device(None).await;
@@ -519,57 +607,6 @@ mod tests {
     #[tokio::test]
     async fn explicit_mic_selection_is_preserved() {
         assert_source_uses_mic_device(Some("external-mic")).await;
-    }
-
-    #[tokio::test]
-    async fn explicit_speaker_selection_is_preserved() {
-        let (progress_tx, mut progress_rx) = mpsc::unbounded_channel();
-        let (capture_tx, mut capture_rx) = mpsc::unbounded_channel();
-        let audio = Arc::new(TestAudio {
-            capture_tx,
-            default_device_name_calls: AtomicUsize::new(0),
-            end_immediately: false,
-            emit_frame: false,
-        });
-        let (actor, handle) = Actor::spawn(
-            None,
-            SourceActor,
-            SourceArgs {
-                mic_device: None,
-                speaker_device: Some("External Speakers".to_string()),
-                onboarding: false,
-                runtime: Arc::new(TestRuntime {
-                    progress_tx,
-                    error_tx: None,
-                }),
-                audio: audio.clone(),
-                session_id: "test-session".to_string(),
-                listener_routing: ListenerRouting::Dropped,
-                recorder: None,
-            },
-        )
-        .await
-        .unwrap();
-
-        let captured = tokio::time::timeout(std::time::Duration::from_secs(1), capture_rx.recv())
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(captured.1.as_deref(), Some("External Speakers"));
-
-        loop {
-            let event = tokio::time::timeout(std::time::Duration::from_secs(1), progress_rx.recv())
-                .await
-                .unwrap()
-                .unwrap();
-            if matches!(event, SessionProgressEvent::AudioReady { .. }) {
-                break;
-            }
-        }
-        assert_eq!(audio.default_device_name_calls.load(Ordering::Relaxed), 0);
-
-        actor.stop(None);
-        let _ = handle.await;
     }
 
     #[tokio::test]
@@ -588,7 +625,6 @@ mod tests {
             SourceActor,
             SourceArgs {
                 mic_device: None,
-                speaker_device: None,
                 onboarding: false,
                 runtime: Arc::new(TestRuntime {
                     progress_tx,
@@ -695,7 +731,6 @@ mod tests {
                         SourceActor,
                         SourceArgs {
                             mic_device: None,
-                            speaker_device: None,
                             onboarding: false,
                             runtime: Arc::new(TestRuntime {
                                 progress_tx,

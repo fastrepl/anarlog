@@ -419,6 +419,11 @@ pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
         scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260831120000_folder_icons.sql"),
     },
+    anlg_db_migrate::MigrationStep {
+        id: "20260903120000_voiceprint_exemplars_isolated_mic",
+        scope: anlg_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260903120000_voiceprint_exemplars_isolated_mic.sql"),
+    },
 ];
 
 pub fn schema() -> anlg_db_migrate::DbSchema {

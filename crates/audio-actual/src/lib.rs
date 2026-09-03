@@ -99,20 +99,15 @@ impl AudioInput {
         MicInput::list_devices()
     }
 
-    pub fn list_speaker_devices() -> Vec<String> {
-        SpeakerInput::list_devices()
-    }
-
     pub fn from_mic_and_speaker(config: CaptureConfig) -> Result<CaptureStream, Error> {
         capture::open_capture(config)
     }
 
     pub fn from_speaker_capture(
-        device: Option<String>,
         sample_rate: u32,
         chunk_size: usize,
     ) -> Result<CaptureStream, Error> {
-        capture::open_speaker_capture(device, sample_rate, chunk_size)
+        capture::open_speaker_capture(sample_rate, chunk_size)
     }
 
     pub fn from_mic_capture(
@@ -135,8 +130,8 @@ impl AudioInput {
         })
     }
 
-    pub fn from_speaker(device: Option<String>) -> Result<Self, Error> {
-        let speaker = SpeakerInput::new(device)
+    pub fn from_speaker() -> Result<Self, Error> {
+        let speaker = SpeakerInput::new()
             .map_err(|error| Error::SpeakerStreamInitializationFailed(error.to_string()))?;
         let speaker_sample_rate = speaker.sample_rate();
 
@@ -238,11 +233,10 @@ impl AudioProvider for ActualAudio {
 
     fn open_speaker_capture(
         &self,
-        device: Option<String>,
         sample_rate: u32,
         chunk_size: usize,
     ) -> Result<CaptureStream, Error> {
-        capture::open_speaker_capture(device, sample_rate, chunk_size)
+        capture::open_speaker_capture(sample_rate, chunk_size)
     }
 
     fn open_mic_capture(
@@ -262,10 +256,6 @@ impl AudioProvider for ActualAudio {
         AudioInput::list_mic_devices()
     }
 
-    fn list_speaker_devices(&self) -> Vec<String> {
-        AudioInput::list_speaker_devices()
-    }
-
     fn play_silence(&self) -> std::sync::mpsc::Sender<()> {
         AudioOutput::silence()
     }
@@ -281,7 +271,7 @@ impl AudioProvider for ActualAudio {
     }
 
     fn probe_speaker(&self) -> Result<(), Error> {
-        let speaker = SpeakerInput::new(None)
+        let speaker = SpeakerInput::new()
             .map_err(|error| Error::SpeakerStreamInitializationFailed(error.to_string()))?;
         let _stream = speaker
             .stream()

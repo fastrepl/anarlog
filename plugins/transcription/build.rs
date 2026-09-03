@@ -1,6 +1,5 @@
 const COMMANDS: &[&str] = &[
     "list_microphone_devices",
-    "list_speaker_devices",
     "get_current_microphone_device",
     "get_mic_muted",
     "set_mic_muted",
@@ -14,7 +13,6 @@ const COMMANDS: &[&str] = &[
     "render_transcript_segments",
     "start_transcription",
     "stop_transcription",
-    "run_denoise",
     "extract_voiceprint_candidates",
     "promote_voiceprint_candidates",
     "cleanup_expired_voiceprint_candidates",

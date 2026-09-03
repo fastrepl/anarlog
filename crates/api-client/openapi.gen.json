@@ -3341,6 +3341,9 @@
           "401": {
             "description": "Unauthorized"
           },
+          "424": {
+            "description": "Calendar connection requires reconnect"
+          },
           "500": {
             "description": "Internal server error"
           }
@@ -3381,6 +3384,9 @@
           },
           "401": {
             "description": "Unauthorized"
+          },
+          "424": {
+            "description": "Calendar connection requires reconnect"
           },
           "500": {
             "description": "Internal server error"
@@ -3423,6 +3429,9 @@
           "401": {
             "description": "Unauthorized"
           },
+          "424": {
+            "description": "Calendar connection requires reconnect"
+          },
           "500": {
             "description": "Internal server error"
           }
@@ -3463,6 +3472,9 @@
           },
           "401": {
             "description": "Unauthorized"
+          },
+          "424": {
+            "description": "Calendar connection requires reconnect"
           },
           "500": {
             "description": "Internal server error"
@@ -4433,6 +4445,9 @@
           },
           "403": {
             "description": ""
+          },
+          "429": {
+            "description": "Cloud API rate limit exceeded"
           }
         },
         "security": [
@@ -4469,8 +4484,17 @@
             },
             "description": ""
           },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
           "404": {
             "description": ""
+          },
+          "429": {
+            "description": "Cloud API rate limit exceeded"
           }
         },
         "security": [
@@ -4512,8 +4536,17 @@
           "400": {
             "description": ""
           },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
           "404": {
             "description": ""
+          },
+          "429": {
+            "description": "Cloud API rate limit exceeded"
           }
         },
         "security": [
@@ -4570,8 +4603,17 @@
             },
             "description": ""
           },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
           "404": {
             "description": ""
+          },
+          "429": {
+            "description": "Cloud API rate limit exceeded"
           }
         },
         "security": [
@@ -4628,8 +4670,17 @@
             },
             "description": ""
           },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
           "404": {
             "description": ""
+          },
+          "429": {
+            "description": "Cloud API rate limit exceeded"
           }
         },
         "security": [

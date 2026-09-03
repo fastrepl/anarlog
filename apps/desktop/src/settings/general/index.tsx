@@ -189,7 +189,6 @@ function SettingsSectionContent({
     "microphone_device",
     storedSettings,
   );
-  const speakerDevice = resolveConfigValue("speaker_device", storedSettings);
   const microphoneDevicesQuery = useQuery({
     queryKey: ["microphone-devices"],
     queryFn: async () => {
@@ -202,19 +201,6 @@ function SettingsSectionContent({
     enabled: section === "meetings",
     refetchInterval: 3_000,
   });
-  const speakerDevicesQuery = useQuery({
-    queryKey: ["speaker-devices"],
-    queryFn: async () => {
-      const result = await listenerCommands.listSpeakerDevices();
-      if (result.status === "error") {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-    enabled: section === "meetings",
-    refetchInterval: 3_000,
-  });
-
   return (
     <div className="flex flex-col gap-8">
       <SettingsPageTitle
@@ -365,12 +351,6 @@ function SettingsSectionContent({
                 devices: microphoneDevicesQuery.data ?? [],
                 onChange: (value) =>
                   setSettingValues({ microphone_device: value }),
-              }}
-              speakerDevice={{
-                value: speakerDevice,
-                devices: speakerDevicesQuery.data ?? [],
-                onChange: (value) =>
-                  setSettingValues({ speaker_device: value }),
               }}
               rememberSpeakers={{
                 value: rememberSpeakers,

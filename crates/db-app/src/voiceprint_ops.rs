@@ -6,7 +6,9 @@ use crate::{
     VoiceprintCandidate, VoiceprintExemplar, VoiceprintExemplarError, VoiceprintSecretRef,
 };
 
-const CONFIRMATION_SOURCES: &[&str] = &["manual_speaker_assignment"];
+// `isolated_mic_capture`: the recording ran with headphone output, so the direct-mic channel
+// could only carry the local user. That is the one automatic signal strong enough to confirm.
+const CONFIRMATION_SOURCES: &[&str] = &["manual_speaker_assignment", "isolated_mic_capture"];
 
 pub async fn insert_voiceprint_exemplar(
     pool: &SqlitePool,

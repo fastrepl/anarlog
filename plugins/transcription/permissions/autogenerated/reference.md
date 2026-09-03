@@ -5,7 +5,6 @@ Default permissions for the plugin
 #### This default permission set includes the following:
 
 - `allow-list-microphone-devices`
-- `allow-list-speaker-devices`
 - `allow-get-current-microphone-device`
 - `allow-start-capture`
 - `allow-stop-capture`
@@ -19,7 +18,6 @@ Default permissions for the plugin
 - `allow-render-transcript-segments`
 - `allow-start-transcription`
 - `allow-stop-transcription`
-- `allow-run-denoise`
 - `allow-extract-voiceprint-candidates`
 - `allow-promote-voiceprint-candidates`
 - `allow-cleanup-expired-voiceprint-candidates`
@@ -356,32 +354,6 @@ Denies the list_microphone_devices command without any pre-configured scope.
 <tr>
 <td>
 
-`transcription:allow-list-speaker-devices`
-
-</td>
-<td>
-
-Enables the list_speaker_devices command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`transcription:deny-list-speaker-devices`
-
-</td>
-<td>
-
-Denies the list_speaker_devices command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
 `transcription:allow-parse-subtitle`
 
 </td>
@@ -453,32 +425,6 @@ Enables the render_transcript_segments command without any pre-configured scope.
 <td>
 
 Denies the render_transcript_segments command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`transcription:allow-run-denoise`
-
-</td>
-<td>
-
-Enables the run_denoise command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`transcription:deny-run-denoise`
-
-</td>
-<td>
-
-Denies the run_denoise command without any pre-configured scope.
 
 </td>
 </tr>

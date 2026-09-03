@@ -18,10 +18,9 @@ pub use anlg_transcription_core::listener::{
     LiveTranscriptSegment, LiveTranscriptSegmentDelta, LiveTranscriptUpdate,
 };
 pub use anlg_transcription_core::listener2::{
-    DenoiseEvent, DenoiseParams, DenoiseRuntime, Error as Listener2Error,
-    Result as Listener2Result, Subtitle, Token, VttWord, export_words_to_vtt_file,
-    is_supported_languages_batch, list_documented_language_codes_batch, parse_subtitle_from_path,
-    run_denoise, suggest_providers_for_languages_batch,
+    Error as Listener2Error, Result as Listener2Result, Subtitle, Token, VttWord,
+    export_words_to_vtt_file, is_supported_languages_batch, list_documented_language_codes_batch,
+    parse_subtitle_from_path, suggest_providers_for_languages_batch,
 };
 pub use api::*;
 pub use error::{Error, Result};
@@ -44,9 +43,16 @@ pub struct SessionStateSnapshot {
     pub requested_live_transcription: bool,
     pub live_transcription_active: bool,
     pub live_segments: Vec<anlg_transcription_core::listener::LiveTranscriptSegment>,
+    /// `Some(true)` only if every capture stream of this recording ran with the mic isolated
+    /// (headphone output). One shared-speaker stretch pins it to `Some(false)`.
+    pub mic_isolated: Option<bool>,
 }
 
 pub type SessionStateCache = Arc<StdMutex<HashMap<String, SessionStateSnapshot>>>;
+
+/// Final mic isolation per session, kept after the session snapshot is dropped on stop so
+/// voiceprint extraction, which runs after the recording ends, can still read it.
+pub type MicIsolationCache = Arc<StdMutex<HashMap<String, bool>>>;
 
 pub struct BatchSessionRegistry {
     pub sessions: StdMutex<HashMap<String, BatchSessionEntry>>,
@@ -77,7 +83,6 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .plugin_name(PLUGIN_NAME)
         .commands(tauri_specta::collect_commands![
             listener::commands::list_microphone_devices::<tauri::Wry>,
-            listener::commands::list_speaker_devices::<tauri::Wry>,
             listener::commands::get_current_microphone_device::<tauri::Wry>,
             listener::commands::get_mic_muted::<tauri::Wry>,
             listener::commands::set_mic_muted::<tauri::Wry>,
@@ -92,7 +97,6 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::render_transcript_segments,
             listener2::commands::start_transcription::<tauri::Wry>,
             listener2::commands::stop_transcription::<tauri::Wry>,
-            listener2::commands::run_denoise::<tauri::Wry>,
             listener2::commands::parse_subtitle::<tauri::Wry>,
             listener2::commands::export_to_vtt::<tauri::Wry>,
             listener2::commands::is_supported_languages_batch::<tauri::Wry>,
@@ -106,8 +110,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             CaptureLifecycleEvent,
             CaptureStatusEvent,
             CaptureDataEvent,
-            TranscriptionEvent,
-            DenoiseEvent
+            TranscriptionEvent
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
@@ -132,9 +135,12 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             let audio = app.state::<Arc<dyn AudioProvider>>().inner().clone();
             let session_state_cache: SessionStateCache = Arc::new(StdMutex::new(HashMap::new()));
             app.manage(session_state_cache.clone());
+            let mic_isolation_cache: MicIsolationCache = Arc::new(StdMutex::new(HashMap::new()));
+            app.manage(mic_isolation_cache.clone());
             let runtime = Arc::new(listener::TauriRuntime {
                 app: app_handle.clone(),
                 session_state_cache,
+                mic_isolation_cache,
             });
 
             tauri::async_runtime::spawn(async move {

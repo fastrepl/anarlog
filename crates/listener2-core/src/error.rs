@@ -78,14 +78,6 @@ pub enum Error {
     BatchError(String),
     #[error(transparent)]
     BatchFailed(#[from] BatchFailure),
-    #[error("denoise error: {0}")]
-    DenoiseError(String),
-}
-
-impl From<anlg_audio_utils::Error> for Error {
-    fn from(error: anlg_audio_utils::Error) -> Self {
-        Self::DenoiseError(error.to_string())
-    }
 }
 
 impl Serialize for Error {

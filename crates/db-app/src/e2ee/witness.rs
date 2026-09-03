@@ -640,7 +640,14 @@ async fn load_bounded_e2ee_witness_repairs(
            COALESCE(
              LENGTH(CAST(witness.workspace_id AS BLOB))
                + LENGTH(CAST(witness.record_id AS BLOB))
-               + LENGTH(CAST(witness.payload AS BLOB))
+               + LENGTH(CAST(
+                   CASE
+                     WHEN replica.workspace_id = witness.workspace_id
+                       AND replica_hash.payload_hash = witness.payload_hash
+                       THEN replica.payload
+                     ELSE archive.payload
+                   END AS BLOB
+                 ))
                + 256,
              0
            ) AS record_bytes,
@@ -661,7 +668,7 @@ async fn load_bounded_e2ee_witness_repairs(
                )
              ) AS needs_repair
          FROM page
-         LEFT JOIN e2ee_witness_records_resolved AS witness
+         LEFT JOIN e2ee_witness_records AS witness
            ON witness.workspace_id = page.workspace_id
           AND witness.record_id = page.record_id
          LEFT JOIN e2ee_records AS replica
@@ -669,6 +676,10 @@ async fn load_bounded_e2ee_witness_repairs(
          LEFT JOIN e2ee_replica_payload_hashes AS replica_hash
            ON replica_hash.record_id = replica.id
           AND replica_hash.workspace_id = replica.workspace_id
+         LEFT JOIN e2ee_ciphertext_archive AS archive
+           ON archive.workspace_id = witness.workspace_id
+          AND archive.record_id = witness.record_id
+          AND archive.payload_hash = witness.payload_hash
          ORDER BY page.workspace_id, page.record_id",
         );
     let metadata: Vec<(String, String, i64, i64, bool)> =
@@ -720,13 +731,27 @@ async fn finish_e2ee_witness_repair_selection(
            witness.revision,
            witness.writer_id,
            witness.payload_hash,
-           witness.payload,
+           CASE
+             WHEN replica.workspace_id = witness.workspace_id
+               AND replica_hash.payload_hash = witness.payload_hash
+               THEN replica.payload
+             ELSE archive.payload
+           END AS payload,
            witness.sequence,
            wanted.generation
          FROM wanted
-         INNER JOIN e2ee_witness_records_resolved AS witness
+         INNER JOIN e2ee_witness_records AS witness
            ON witness.workspace_id = wanted.workspace_id
           AND witness.record_id = wanted.record_id
+         LEFT JOIN e2ee_records AS replica
+           ON replica.id = witness.record_id
+         LEFT JOIN e2ee_replica_payload_hashes AS replica_hash
+           ON replica_hash.record_id = replica.id
+          AND replica_hash.workspace_id = replica.workspace_id
+         LEFT JOIN e2ee_ciphertext_archive AS archive
+           ON archive.workspace_id = witness.workspace_id
+          AND archive.record_id = witness.record_id
+          AND archive.payload_hash = witness.payload_hash
          ORDER BY witness.workspace_id, witness.record_id",
     );
     let records: Vec<WitnessRepairRow> = query.build_query_as().fetch_all(pool).await?;
@@ -789,9 +814,28 @@ async fn persist_e2ee_witness_repairs(
             return Err(error);
         }
         let current_witness: Option<(i64, String, String, String, i64)> = sqlx::query_as(
-            "SELECT revision, writer_id, payload_hash, payload, sequence
-             FROM e2ee_witness_records_resolved
-             WHERE workspace_id = ? AND record_id = ?",
+            "SELECT
+               witness.revision,
+               witness.writer_id,
+               witness.payload_hash,
+               CASE
+                 WHEN replica.workspace_id = witness.workspace_id
+                   AND replica_hash.payload_hash = witness.payload_hash
+                   THEN replica.payload
+                 ELSE archive.payload
+               END AS payload,
+               witness.sequence
+             FROM e2ee_witness_records AS witness
+             LEFT JOIN e2ee_records AS replica
+               ON replica.id = witness.record_id
+             LEFT JOIN e2ee_replica_payload_hashes AS replica_hash
+               ON replica_hash.record_id = replica.id
+              AND replica_hash.workspace_id = replica.workspace_id
+             LEFT JOIN e2ee_ciphertext_archive AS archive
+               ON archive.workspace_id = witness.workspace_id
+              AND archive.record_id = witness.record_id
+              AND archive.payload_hash = witness.payload_hash
+             WHERE witness.workspace_id = ? AND witness.record_id = ?",
         )
         .bind(&record.workspace_id)
         .bind(&record.record_id)

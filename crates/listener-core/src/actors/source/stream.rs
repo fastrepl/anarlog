@@ -3,7 +3,7 @@ use ractor::{ActorProcessingErr, ActorRef};
 use std::sync::atomic::Ordering;
 use tokio_util::sync::CancellationToken;
 
-use crate::{SessionProgressEvent, actors::ChannelMode};
+use crate::{SessionDataEvent, SessionProgressEvent, actors::ChannelMode};
 use anlg_audio::{AudioProvider, CaptureConfig, CaptureFrame, CaptureStream};
 use anlg_audio_utils::chunk_size_for_stt;
 
@@ -11,10 +11,12 @@ use super::{SourceFrame, SourceMsg, SourceState};
 
 const CAPTURE_FRAME_QUEUE_CAPACITY: usize = 32;
 
+/// Returns the settings the streams opened with so the routing watcher can start from the same
+/// verdict instead of sampling its own.
 pub(super) async fn start_source_loop(
     myself: &ActorRef<SourceMsg>,
     st: &mut SourceState,
-) -> Result<(), ActorProcessingErr> {
+) -> Result<CaptureSettings, ActorProcessingErr> {
     let new_mode = ChannelMode::determine(st.onboarding);
 
     let mode_changed = st.current_mode != new_mode;
@@ -24,27 +26,66 @@ pub(super) async fn start_source_loop(
 
     st.pipeline.reset();
 
-    let result = start_streams(myself, st).await;
+    let capture = capture_settings();
+    let result = start_streams(myself, st, capture).await;
 
     if result.is_ok() {
         st.runtime.emit_progress(SessionProgressEvent::AudioReady {
             session_id: st.session_id.clone(),
             device: st.mic_device.clone(),
         });
+        if new_mode == ChannelMode::MicAndSpeaker {
+            st.runtime.emit_data(SessionDataEvent::MicIsolated {
+                session_id: st.session_id.clone(),
+                value: capture.mic_isolated,
+            });
+        }
     }
 
-    result
+    result.map(|()| capture)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct CaptureSettings {
+    enable_aec: bool,
+    /// Headphones keep speaker output out of the mic, so whatever the mic hears is the local
+    /// user. Re-evaluated per stream because the source restarts on default output changes.
+    pub(super) mic_isolated: bool,
+}
+
+// Headphones make AEC pure cost: it burns CPU and can degrade near-end speech. The check covers
+// every output that is playing, not just the default, because meeting apps pick their own speaker.
+fn capture_settings() -> CaptureSettings {
+    let headphone_output = anlg_audio_device::headphone_only_output();
+    if let Some(device) = &headphone_output {
+        tracing::info!(
+            device = %device.name,
+            transport = ?device.transport_type,
+            "aec_disabled_headphone_output"
+        );
+    }
+    resolve_capture_settings(
+        std::env::var("NO_AEC").as_deref() == Ok("1"),
+        headphone_output.is_some(),
+    )
+}
+
+fn resolve_capture_settings(no_aec_override: bool, headphone_output: bool) -> CaptureSettings {
+    CaptureSettings {
+        enable_aec: !no_aec_override && !headphone_output,
+        mic_isolated: headphone_output,
+    }
 }
 
 async fn start_streams(
     myself: &ActorRef<SourceMsg>,
     st: &mut SourceState,
+    capture: CaptureSettings,
 ) -> Result<(), ActorProcessingErr> {
     let mode = st.current_mode;
     let myself2 = myself.clone();
     let mic_muted = st.mic_muted.clone();
     let mic_device = st.mic_device.clone();
-    let speaker_device = st.speaker_device.clone();
     let audio = st.audio.clone();
     let (frame_tx, frame_rx) = tokio::sync::mpsc::channel(CAPTURE_FRAME_QUEUE_CAPACITY);
     let wake_pending = st.capture_wake_pending.clone();
@@ -60,7 +101,7 @@ async fn start_streams(
             cancel_token: stream_cancel_token,
             mic_muted,
             mic_device,
-            speaker_device,
+            enable_aec: capture.enable_aec,
             audio,
             frame_tx,
             wake_pending,
@@ -78,7 +119,7 @@ struct StreamContext {
     cancel_token: CancellationToken,
     mic_muted: std::sync::Arc<std::sync::atomic::AtomicBool>,
     mic_device: Option<String>,
-    speaker_device: Option<String>,
+    enable_aec: bool,
     audio: std::sync::Arc<dyn AudioProvider>,
     frame_tx: tokio::sync::mpsc::Sender<SourceFrame>,
     wake_pending: std::sync::Arc<std::sync::atomic::AtomicBool>,
@@ -114,15 +155,11 @@ async fn run_stream_loop(ctx: StreamContext, mode: ChannelMode) {
                 sample_rate,
                 chunk_size,
                 mic_device: ctx.mic_device.clone(),
-                speaker_device: ctx.speaker_device.clone(),
-                enable_aec: std::env::var("NO_AEC").as_deref() != Ok("1"),
+                enable_aec: ctx.enable_aec,
             };
             ctx.audio.open_capture(config)
         }
-        ChannelMode::SpeakerOnly => {
-            ctx.audio
-                .open_speaker_capture(ctx.speaker_device.clone(), sample_rate, chunk_size)
-        }
+        ChannelMode::SpeakerOnly => ctx.audio.open_speaker_capture(sample_rate, chunk_size),
         ChannelMode::MicOnly => {
             ctx.audio
                 .open_mic_capture(ctx.mic_device.clone(), sample_rate, chunk_size)
@@ -190,5 +227,43 @@ async fn handle_capture_item(
             ctx.report_failure("capture stream ended unexpectedly");
             StreamResult::Stop
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CaptureSettings, resolve_capture_settings};
+
+    #[test]
+    fn headphones_disable_aec_and_isolate_the_mic() {
+        assert_eq!(
+            resolve_capture_settings(false, true),
+            CaptureSettings {
+                enable_aec: false,
+                mic_isolated: true,
+            }
+        );
+    }
+
+    #[test]
+    fn speakers_keep_aec_and_leave_the_mic_shared() {
+        assert_eq!(
+            resolve_capture_settings(false, false),
+            CaptureSettings {
+                enable_aec: true,
+                mic_isolated: false,
+            }
+        );
+    }
+
+    #[test]
+    fn no_aec_override_does_not_imply_isolation() {
+        assert_eq!(
+            resolve_capture_settings(true, false),
+            CaptureSettings {
+                enable_aec: false,
+                mic_isolated: false,
+            }
+        );
     }
 }

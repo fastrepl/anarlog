@@ -10,6 +10,7 @@ tauri-event = ["specta", "dep:tauri-specta"]
 
 [dependencies]
 anlg-audio = { workspace = true }
+anlg-audio-device = { workspace = true }
 anlg-audio-utils = { workspace = true }
 anlg-device-monitor = { workspace = true }
 anlg-host = { workspace = true }

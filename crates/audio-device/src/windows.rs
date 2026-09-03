@@ -1,3 +1,4 @@
+use crate::device::name_suggests_speaker;
 use crate::{AudioDevice, AudioDeviceBackend, AudioDirection, DeviceId, Error, TransportType};
 use std::ffi::OsString;
 use std::os::windows::ffi::OsStringExt;
@@ -377,7 +378,9 @@ impl AudioDeviceBackend for WindowsBackend {
             return false;
         }
 
-        is_headphone_from_name(&device.name) || device.transport_type == TransportType::Bluetooth
+        is_headphone_from_name(&device.name)
+            || (device.transport_type == TransportType::Bluetooth
+                && !name_suggests_speaker(&device.name))
     }
 
     fn get_device_volume(&self, device_id: &DeviceId) -> Result<f32, Error> {
