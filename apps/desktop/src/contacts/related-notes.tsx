@@ -12,6 +12,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
+import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 
 import type { HumanSessionRecord } from "./queries";
 
@@ -24,6 +25,7 @@ export function RelatedNotesSection({
 }) {
   const { t } = useLingui();
   const [search, setSearch] = useState("");
+  const searchRef = useSquircleRef<HTMLDivElement>();
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const visibleSessions = sortAndFilterRelatedNotes(
     sessions,
@@ -69,7 +71,10 @@ export function RelatedNotesSection({
           </DropdownMenu>
         )}
 
-        <div className="border-border bg-muted/50 focus-within:bg-accent ml-auto flex h-8 w-52 max-w-[48%] items-center gap-2 rounded-lg border px-2.5 transition-colors">
+        <div
+          ref={searchRef}
+          className="border-border bg-muted/50 focus-within:bg-accent ml-auto flex h-8 w-52 max-w-[48%] items-center gap-2 rounded-lg border px-2.5 transition-colors"
+        >
           <MagnifyingGlass className="text-muted-foreground size-3.5 shrink-0" />
           <input
             type="text"

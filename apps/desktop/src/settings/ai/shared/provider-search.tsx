@@ -1,6 +1,8 @@
 import { useLingui } from "@lingui/react/macro";
 import { MagnifyingGlass, X } from "@phosphor-icons/react";
 
+import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
+
 export function filterProviders<
   T extends { id: string; displayName: string; description?: string },
 >(providers: readonly T[], query: string): T[] {
@@ -24,9 +26,13 @@ export function ProviderSearch({
   onChange: (value: string) => void;
 }) {
   const { t } = useLingui();
+  const ref = useSquircleRef<HTMLDivElement>();
 
   return (
-    <div className="border-border bg-muted/50 focus-within:bg-accent ml-auto flex h-8 w-56 max-w-[55%] items-center gap-2 rounded-lg border px-2.5 transition-colors">
+    <div
+      ref={ref}
+      className="border-border bg-muted/50 focus-within:bg-accent ml-auto flex h-8 w-56 max-w-[55%] items-center gap-2 rounded-lg border px-2.5 transition-colors"
+    >
       <MagnifyingGlass className="text-muted-foreground size-3.5 shrink-0" />
       <input
         type="search"

@@ -18,6 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
+import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 import { cn } from "@anlg/utils";
 
 import { type WebTemplate } from "./codec";
@@ -39,6 +40,7 @@ export function TemplatesSidebarContent({
 }) {
   const { t } = useLingui();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const searchRef = useSquircleRef<HTMLDivElement>();
   const [search, setSearch] = useState("");
   const [sortOption, setSortOption] = useState<SortOption>("alphabetical");
   const autoPrompt = useConfigValue("auto_summary_prompt");
@@ -379,6 +381,7 @@ export function TemplatesSidebarContent({
 
         <div className="pb-2">
           <div
+            ref={searchRef}
             className={cn([
               "border-border bg-accent/50 flex h-8 w-full shrink-0 items-center gap-2 rounded-lg border px-3",
               "focus-within:bg-accent transition-colors",

@@ -3,6 +3,7 @@ import { FolderSimple, MagnifyingGlass, Plus, X } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
+import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 import { cn } from "@anlg/utils";
 
 import { useActiveFolderPath, useFolderSelection } from "./selection";
@@ -23,6 +24,7 @@ export function FoldersSidebar() {
   const activeFolder = useActiveFolderPath(folders);
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState("");
+  const searchRef = useSquircleRef<HTMLDivElement>();
 
   const filteredFolders = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -52,6 +54,7 @@ export function FoldersSidebar() {
 
         <div className="pb-2">
           <div
+            ref={searchRef}
             className={cn([
               "border-border bg-accent/50 flex h-8 w-full shrink-0 items-center gap-2 rounded-lg border px-3",
               "focus-within:bg-accent transition-colors",

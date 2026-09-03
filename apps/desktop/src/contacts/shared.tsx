@@ -13,6 +13,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
+import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 
 import { CustomSidebarHeader } from "~/sidebar/custom-sidebar-header";
 
@@ -107,6 +108,7 @@ export function ColumnHeader({
   searchInputRef?: RefObject<HTMLInputElement | null>;
 }) {
   const { t } = useLingui();
+  const searchRef = useSquircleRef<HTMLDivElement>();
   const handleSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {
       onSearchChange?.("");
@@ -138,7 +140,10 @@ export function ColumnHeader({
       </CustomSidebarHeader>
       {onSearchChange && (
         <div className="pb-2">
-          <div className="border-border bg-muted focus-within:bg-accent flex h-8 w-full items-center gap-2 rounded-lg border px-3 transition-colors">
+          <div
+            ref={searchRef}
+            className="border-border bg-muted focus-within:bg-accent flex h-8 w-full items-center gap-2 rounded-lg border px-3 transition-colors"
+          >
             <MagnifyingGlass className="text-muted-foreground h-4 w-4 shrink-0" />
             <input
               ref={searchInputRef}
