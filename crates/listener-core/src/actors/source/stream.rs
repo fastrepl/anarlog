@@ -78,16 +78,21 @@ fn resolve_capture_settings(no_aec_override: bool, headphone_output: bool) -> Ca
     }
 }
 
+// The mic opens by the provider's device name, which only matches the device layer's name on
+// macOS and Windows. On Linux the mic goes through cpal/ALSA, whose names are ALSA PCM hints and
+// never match PulseAudio source names, so a replacement could not be opened; avoiding HFP there
+// needs a PulseAudio/PipeWire mic capture path.
+const SWAPS_BLUETOOTH_DEFAULT_MIC: bool = cfg!(any(target_os = "macos", target_os = "windows"));
+
 // Opening a Bluetooth headset's mic forces it into HFP: the headset gates the mic to silence
 // between words and the wearer's audio drops to 16 kHz. Only the system default is swapped; an
 // explicit selection is respected.
 fn active_mic_device(explicit: Option<String>, audio: &dyn AudioProvider) -> Option<String> {
-    if explicit.is_some() {
+    if explicit.is_some() || !SWAPS_BLUETOOTH_DEFAULT_MIC {
         return explicit;
     }
 
     let replacement = anlg_audio_device::wired_input_replacing_bluetooth_default()?;
-    // The provider enumerates by name, and only macOS/Windows share names with the device layer.
     let active = audio
         .list_mic_devices()
         .into_iter()

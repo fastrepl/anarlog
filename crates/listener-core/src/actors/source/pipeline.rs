@@ -561,9 +561,14 @@ impl ReplayHistory {
 // Real microphones never produce exact zeros; a run of them means the device or its driver stopped
 // delivering audio. Bluetooth headsets in call mode do this between words. Reported once per
 // stream so the UI can warn without being spammed.
+//
+// Dual capture pads the mic with zeros while the speaker stream leads it, which is routine until
+// the mic delivers its first samples. Counting starts at the first non-zero sample so a slow mic
+// start is not mistaken for gating; padding after that means the mic stalled, which is a dropout.
 struct DropoutMonitor {
     runtime: Arc<dyn ListenerRuntime>,
     session_id: String,
+    mic_started: bool,
     zero_samples: usize,
     total_samples: usize,
     reported: bool,
@@ -574,6 +579,7 @@ impl DropoutMonitor {
         Self {
             runtime,
             session_id,
+            mic_started: false,
             zero_samples: 0,
             total_samples: 0,
             reported: false,
@@ -581,6 +587,7 @@ impl DropoutMonitor {
     }
 
     fn reset(&mut self) {
+        self.mic_started = false;
         self.zero_samples = 0;
         self.total_samples = 0;
         self.reported = false;
@@ -591,7 +598,15 @@ impl DropoutMonitor {
             return;
         }
 
-        self.zero_samples += raw_mic.iter().filter(|sample| **sample == 0.0).count();
+        let zero_samples = raw_mic.iter().filter(|sample| **sample == 0.0).count();
+        if !self.mic_started {
+            if zero_samples == raw_mic.len() {
+                return;
+            }
+            self.mic_started = true;
+        }
+
+        self.zero_samples += zero_samples;
         self.total_samples += raw_mic.len();
         if self.total_samples < DROPOUT_WINDOW_SAMPLES {
             return;
@@ -1586,6 +1601,19 @@ mod tests {
         let mut monitor = DropoutMonitor::new(runtime.clone(), "session".to_string());
 
         feed_window(&mut monitor, 0.1);
+        feed_window(&mut monitor, 0.0);
+
+        assert!(runtime.0.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn dropout_monitor_ignores_silence_before_the_mic_starts() {
+        let runtime = Arc::new(DropoutRuntime::default());
+        let mut monitor = DropoutMonitor::new(runtime.clone(), "session".to_string());
+
+        for _ in 0..20 {
+            monitor.observe(&[0.0; 1_600]);
+        }
         feed_window(&mut monitor, 0.0);
 
         assert!(runtime.0.lock().unwrap().is_empty());

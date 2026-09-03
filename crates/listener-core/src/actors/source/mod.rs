@@ -358,7 +358,7 @@ impl Actor for SourceActor {
                     st.runtime.emit_error(SessionErrorEvent::AudioError {
                         session_id: st.session_id.clone(),
                         error: reason.clone(),
-                        device: st.mic_device.clone(),
+                        device: st.active_mic_device.clone(),
                         is_fatal: true,
                     });
                     myself.stop(Some(reason));
@@ -393,7 +393,7 @@ fn recorder_failure(state: &SourceState, reason: String) -> Result<(), ActorProc
     state.runtime.emit_error(SessionErrorEvent::AudioError {
         session_id: state.session_id.clone(),
         error: reason.clone(),
-        device: state.mic_device.clone(),
+        device: state.active_mic_device.clone(),
         is_fatal: true,
     });
     Err(std::io::Error::other(reason).into())
