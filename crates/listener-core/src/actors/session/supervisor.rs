@@ -299,6 +299,7 @@ async fn update_config(
     state.ctx.params.languages = update.languages;
     state.ctx.params.participant_human_ids = update.participant_human_ids;
     state.ctx.params.self_human_id = update.self_human_id;
+    state.ctx.params.speaker_assignments = update.speaker_assignments;
 
     if should_refresh_listener {
         refresh_listener(myself, state).await;
@@ -311,6 +312,7 @@ async fn update_config(
             languages: state.ctx.params.languages.clone(),
             participant_human_ids: state.ctx.params.participant_human_ids.clone(),
             self_human_id: state.ctx.params.self_human_id.clone(),
+            speaker_assignments: state.ctx.params.speaker_assignments.clone(),
         })) {
             tracing::warn!(?error, "failed_to_cast_listener_config_update");
         }
@@ -687,6 +689,7 @@ mod tests {
                 mic_device: None,
                 participant_human_ids: vec![],
                 self_human_id: None,
+                speaker_assignments: vec![],
             },
             app_dir: std::env::temp_dir(),
             started_at_instant: Instant::now(),
@@ -721,7 +724,29 @@ mod tests {
                 .map(ToString::to_string)
                 .collect(),
             self_human_id: self_human_id.map(ToString::to_string),
+            speaker_assignments: vec![],
         }
+    }
+
+    #[test]
+    fn config_update_does_not_refresh_for_speaker_assignments() {
+        let mut ctx = test_ctx();
+        ctx.params.participant_human_ids = vec!["self".to_string(), "remote-a".to_string()];
+        ctx.params.self_human_id = Some("self".to_string());
+        let state = test_state(ctx);
+        let mut update = test_update(vec![], vec!["self", "remote-a"], Some("self"));
+        update.speaker_assignments = vec![anlg_transcript::IdentityAssignment {
+            human_id: "remote-a".to_string(),
+            scope: anlg_transcript::IdentityScope::ChannelSpeaker {
+                channel: anlg_transcript::ChannelProfile::RemoteParty,
+                speaker_index: 0,
+            },
+        }];
+
+        assert!(!update_requires_listener_refresh(
+            &state.ctx.params,
+            &update
+        ));
     }
 
     #[test]

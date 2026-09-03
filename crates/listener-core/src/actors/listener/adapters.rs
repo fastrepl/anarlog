@@ -670,6 +670,7 @@ mod tests {
             session_id: "session".to_string(),
             participant_human_ids: vec![],
             self_human_id: None,
+            speaker_assignments: vec![],
         }
     }
 

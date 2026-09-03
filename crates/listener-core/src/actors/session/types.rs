@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::{Instant, SystemTime};
 
 use anlg_audio::AudioProvider;
+use anlg_transcript::IdentityAssignment;
 
 use crate::{ListenerRuntime, TranscriptionMode};
 
@@ -30,6 +31,10 @@ pub struct SessionParams {
     pub participant_human_ids: Vec<String>,
     #[serde(default)]
     pub self_human_id: Option<String>,
+    /// Persisted speaker identities of the transcript being captured, so the
+    /// live segments name speakers the same way the settled render does.
+    #[serde(default)]
+    pub speaker_assignments: Vec<IdentityAssignment>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -41,6 +46,8 @@ pub struct SessionConfigUpdate {
     pub participant_human_ids: Vec<String>,
     #[serde(default)]
     pub self_human_id: Option<String>,
+    #[serde(default)]
+    pub speaker_assignments: Vec<IdentityAssignment>,
 }
 
 // The single requested-to-effective transcription mode policy: every capture
@@ -159,6 +166,7 @@ mod tests {
             mic_device: None,
             participant_human_ids: vec![],
             self_human_id: None,
+            speaker_assignments: vec![],
         }
     }
 

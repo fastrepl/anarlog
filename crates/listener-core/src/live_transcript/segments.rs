@@ -15,30 +15,40 @@ const MAX_RENDERED_WINDOW_MS: i64 = 30 * 60 * 1_000;
 #[derive(Default)]
 pub(super) struct RenderedSegmentState {
     words: Vec<FinalizedWord>,
+    partials: Vec<PartialWord>,
     segment_revisions: BTreeMap<String, u64>,
     channel_assignments: Vec<IdentityAssignment>,
+    speaker_assignments: Vec<IdentityAssignment>,
     segment_options: Option<SegmentBuilderOptions>,
 }
 
 impl RenderedSegmentState {
     pub(super) fn new(
         channel_assignments: Vec<IdentityAssignment>,
+        speaker_assignments: Vec<IdentityAssignment>,
         segment_options: SegmentBuilderOptions,
     ) -> Self {
         Self {
             channel_assignments,
+            speaker_assignments,
             segment_options: Some(segment_options),
             ..Default::default()
         }
     }
 
-    pub(super) fn update_participants(
+    /// Replaces the identity inputs and re-renders the retained window so
+    /// segments already on screen pick up the new names without waiting for
+    /// the next stream response.
+    pub(super) fn update_identities(
         &mut self,
         channel_assignments: Vec<IdentityAssignment>,
+        speaker_assignments: Vec<IdentityAssignment>,
         segment_options: SegmentBuilderOptions,
-    ) {
+    ) -> Option<LiveTranscriptSegmentDelta> {
         self.channel_assignments = channel_assignments;
+        self.speaker_assignments = speaker_assignments;
         self.segment_options = Some(segment_options);
+        self.render()
     }
 
     pub(super) fn apply_delta(
@@ -72,17 +82,30 @@ impl RenderedSegmentState {
             .max()
             .unwrap_or_default();
         prune_rendered_words(&mut self.words, latest_end_ms);
-        let partials = bounded_partials(
+        self.partials = bounded_partials(
             &delta.partials,
             latest_end_ms,
             MAX_RENDERED_WORDS.saturating_sub(self.words.len()),
             MAX_RENDERED_TEXT_BYTES.saturating_sub(rendered_text_bytes(&self.words)),
         );
 
+        self.render()
+    }
+
+    fn render(&mut self) -> Option<LiveTranscriptSegmentDelta> {
+        // Mirrors `render_transcript_segments`: participant channel defaults
+        // are appended after the persisted hints so both paths resolve the
+        // same identity for the same word.
+        let assignments = self
+            .speaker_assignments
+            .iter()
+            .chain(self.channel_assignments.iter())
+            .cloned()
+            .collect::<Vec<_>>();
         let next_segments = build_live_segments(
             &self.words,
-            &partials,
-            &self.channel_assignments,
+            &self.partials,
+            &assignments,
             self.segment_options.as_ref(),
         );
         let mut next_revisions = BTreeMap::new();
@@ -290,7 +313,10 @@ fn build_live_segments(
 
 #[cfg(test)]
 mod tests {
-    use anlg_transcript::{FinalizedWord, PartialWord, SegmentBuilderOptions, WordState};
+    use anlg_transcript::{
+        ChannelProfile, FinalizedWord, IdentityAssignment, IdentityScope, PartialWord,
+        SegmentBuilderOptions, WordState,
+    };
 
     use super::{
         LiveTranscriptDelta, MAX_RENDERED_TEXT_BYTES, MAX_RENDERED_WINDOW_MS, MAX_RENDERED_WORDS,
@@ -309,8 +335,122 @@ mod tests {
         }
     }
 
+    fn remote_word(id: &str, text: &str, start_ms: i64, speaker_index: i32) -> FinalizedWord {
+        FinalizedWord {
+            channel: 1,
+            speaker_index: Some(speaker_index),
+            ..finalized_word(id, text.to_string(), start_ms)
+        }
+    }
+
+    fn speaker_assignment(human_id: &str, speaker_index: i32) -> IdentityAssignment {
+        IdentityAssignment {
+            human_id: human_id.to_string(),
+            scope: IdentityScope::ChannelSpeaker {
+                channel: ChannelProfile::RemoteParty,
+                speaker_index,
+            },
+        }
+    }
+
+    #[test]
+    fn identity_update_relabels_rendered_segments_and_keeps_partials() {
+        let mut state = state();
+        let partial = PartialWord {
+            text: " again".to_string(),
+            start_ms: 5_100,
+            end_ms: 5_200,
+            channel: 1,
+            speaker_index: Some(1),
+        };
+        state.apply_delta(&LiveTranscriptDelta {
+            new_words: vec![
+                remote_word("a", " hello", 0, 0),
+                remote_word("b", " there", 100, 0),
+                remote_word("c", " hi", 5_000, 1),
+            ],
+            replaced_ids: Vec::new(),
+            partials: vec![partial.clone()],
+        });
+
+        let update = state
+            .update_identities(
+                Vec::new(),
+                vec![speaker_assignment("artem", 0)],
+                SegmentBuilderOptions {
+                    max_gap_ms: Some(500),
+                    complete_channels: None,
+                    min_segment_words: None,
+                    min_segment_ms: None,
+                },
+            )
+            .expect("assignment should change the rendered segments");
+
+        let named = update
+            .upserts
+            .iter()
+            .filter(|segment| segment.key.speaker_human_id.as_deref() == Some("artem"))
+            .collect::<Vec<_>>();
+        assert_eq!(named.len(), 1);
+        assert_eq!(named[0].text, "hello there");
+        assert!(
+            update
+                .upserts
+                .iter()
+                .all(|segment| segment.key.speaker_index != Some(1)),
+            "the unassigned speaker's segment must not be re-emitted"
+        );
+        assert_eq!(
+            update.removed_ids.len(),
+            1,
+            "the old unnamed segment goes away"
+        );
+
+        let next = state
+            .apply_delta(&LiveTranscriptDelta {
+                new_words: vec![remote_word("d", " later", 9_000, 0)],
+                replaced_ids: Vec::new(),
+                partials: vec![partial],
+            })
+            .expect("new words should render");
+        assert_eq!(
+            next.upserts.len(),
+            1,
+            "unchanged segments are not re-emitted"
+        );
+        assert_eq!(next.upserts[0].text, "later");
+        assert_eq!(
+            next.upserts[0].key.speaker_human_id.as_deref(),
+            Some("artem")
+        );
+    }
+
+    #[test]
+    fn identity_update_without_changes_emits_nothing() {
+        let mut state = state();
+        state.apply_delta(&LiveTranscriptDelta {
+            new_words: vec![remote_word("a", " hello", 0, 0)],
+            replaced_ids: Vec::new(),
+            partials: Vec::new(),
+        });
+
+        let update = state.update_identities(
+            Vec::new(),
+            vec![speaker_assignment("artem", 3)],
+            SegmentBuilderOptions {
+                max_gap_ms: Some(500),
+                complete_channels: None,
+                min_segment_words: None,
+                min_segment_ms: None,
+            },
+        );
+
+        assert!(update.is_none());
+    }
+
     fn state() -> RenderedSegmentState {
         RenderedSegmentState::new(
+            Vec::new(),
             Vec::new(),
             SegmentBuilderOptions {
                 max_gap_ms: Some(500),

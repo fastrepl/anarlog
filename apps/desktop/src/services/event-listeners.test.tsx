@@ -106,6 +106,17 @@ vi.mock("~/store/zustand/listener/instance", () => ({
   },
 }));
 
+function findLiveQueryHandlers(sqlFragment: string) {
+  const call = liveQuerySubscribeMock.mock.calls.find(([sql]) =>
+    String(sql).includes(sqlFragment),
+  );
+  expect(call).toBeDefined();
+  return call![2] as {
+    onData: (rows: unknown[]) => void;
+    onError: (error: unknown) => void;
+  };
+}
+
 describe("EventListeners notification events", () => {
   beforeEach(() => {
     cancelAutoStopEndedNotification("session-1");
@@ -275,9 +286,9 @@ describe("EventListeners notification events", () => {
     render(<EventListeners />);
 
     await vi.waitFor(() =>
-      expect(liveQuerySubscribeMock).toHaveBeenCalledTimes(1),
+      expect(liveQuerySubscribeMock).toHaveBeenCalledTimes(2),
     );
-    const handlers = liveQuerySubscribeMock.mock.calls[0]?.[2];
+    const handlers = findLiveQueryHandlers("session_participants");
     handlers.onData([
       {
         session_id: "session-1",
@@ -292,6 +303,148 @@ describe("EventListeners notification events", () => {
       languages: ["ko"],
       participant_human_ids: ["human-remote"],
       self_human_id: "human-self",
+      speaker_assignments: [],
+    });
+  });
+
+  test("live capture config sync waits for the transcript snapshot before pushing", async () => {
+    vi.useFakeTimers();
+    useConfigValuesMock.mockReturnValue({
+      ai_language: "ko",
+      spoken_languages: ["ko"],
+      current_stt_provider: "soniox",
+      current_stt_model: "stt-v4",
+    });
+    // The transcript query answers later than the participant query here.
+    liveQuerySubscribeMock.mockImplementation(
+      async (sql, _params, handlers) => {
+        if (!String(sql).includes("FROM transcripts")) {
+          handlers.onData([]);
+        }
+        return async () => {};
+      },
+    );
+
+    render(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(liveQuerySubscribeMock).toHaveBeenCalledTimes(2),
+    );
+    findLiveQueryHandlers("session_participants").onData([
+      {
+        session_id: "session-1",
+        owner_user_id: "human-self",
+        human_id: "human-remote",
+      },
+    ]);
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(updateCaptureConfigMock).not.toHaveBeenCalled();
+
+    findLiveQueryHandlers("FROM transcripts").onData([]);
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(updateCaptureConfigMock).toHaveBeenCalledTimes(1);
+    expect(updateCaptureConfigMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        session_id: "session-1",
+        speaker_assignments: [],
+      }),
+    );
+  });
+
+  test("live capture config sync pushes the active transcript's speaker assignments", async () => {
+    vi.useFakeTimers();
+    useConfigValuesMock.mockReturnValue({
+      ai_language: "en",
+      spoken_languages: ["en"],
+      current_stt_provider: "soniox",
+      current_stt_model: "stt-v4",
+    });
+
+    render(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(liveQuerySubscribeMock).toHaveBeenCalledTimes(2),
+    );
+    const transcriptCall = liveQuerySubscribeMock.mock.calls.find(([sql]) =>
+      String(sql).includes("FROM transcripts"),
+    );
+    expect(transcriptCall?.[1]).toEqual(["session-1"]);
+
+    findLiveQueryHandlers("session_participants").onData([
+      {
+        session_id: "session-1",
+        owner_user_id: "human-self",
+        human_id: "human-artem",
+      },
+      {
+        session_id: "session-1",
+        owner_user_id: "human-self",
+        human_id: "human-guest",
+      },
+    ]);
+    findLiveQueryHandlers("FROM transcripts").onData([
+      {
+        id: "transcript-1",
+        started_at_ms: 1_000,
+        words_json: JSON.stringify([
+          { id: "w1", text: " hello", start_ms: 0, end_ms: 100, channel: 1 },
+          { id: "w2", text: " there", start_ms: 100, end_ms: 200, channel: 1 },
+        ]),
+        speaker_hints_json: JSON.stringify([
+          {
+            id: "w1:provider_speaker_index",
+            word_id: "w1",
+            type: "provider_speaker_index",
+            value: JSON.stringify({ channel: 1, speaker_index: 0 }),
+          },
+          {
+            id: "w1:user_speaker_assignment",
+            word_id: "w1",
+            type: "user_speaker_assignment",
+            value: JSON.stringify({
+              human_id: "human-artem",
+              scope: "speaker",
+              channel: 1,
+              speaker_index: 0,
+            }),
+          },
+          {
+            id: "w2:user_speaker_assignment:segment",
+            word_id: "w2",
+            type: "user_speaker_assignment",
+            value: JSON.stringify({
+              human_id: "human-guest",
+              scope: "segment",
+              word_ids: ["w2"],
+            }),
+          },
+        ]),
+      },
+    ]);
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(updateCaptureConfigMock).toHaveBeenCalledTimes(1);
+    expect(updateCaptureConfigMock).toHaveBeenCalledWith({
+      session_id: "session-1",
+      languages: ["en"],
+      participant_human_ids: ["human-artem", "human-guest"],
+      self_human_id: "human-self",
+      speaker_assignments: [
+        {
+          human_id: "human-artem",
+          scope: {
+            kind: "channel_speaker",
+            channel: "RemoteParty",
+            speaker_index: 0,
+          },
+        },
+        {
+          human_id: "human-guest",
+          scope: { kind: "words", word_ids: ["w2"] },
+        },
+      ],
     });
   });
 

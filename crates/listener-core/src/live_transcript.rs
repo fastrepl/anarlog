@@ -1,6 +1,6 @@
 use anlg_transcript::{
-    FinalizedWord, PartialWord, SegmentKey, SegmentWord, TranscriptDelta, TranscriptProcessor,
-    channel_assignments_for_participants, segment_options_for_participants,
+    FinalizedWord, IdentityAssignment, PartialWord, SegmentKey, SegmentWord, TranscriptDelta,
+    TranscriptProcessor, channel_assignments_for_participants, segment_options_for_participants,
 };
 use owhisper_interface::stream::StreamResponse;
 
@@ -75,6 +75,23 @@ impl LiveTranscriptEngine {
         participant_human_ids: &[String],
         self_human_id: Option<&str>,
     ) -> Self {
+        Self::with_speaker_assignments(
+            provider_name,
+            participant_human_ids,
+            self_human_id,
+            Vec::new(),
+        )
+    }
+
+    /// `speaker_assignments` are the persisted identity hints of the transcript
+    /// being captured (user picks and automatic matches), so segments the
+    /// engine emits carry the same names the settled render will.
+    pub fn with_speaker_assignments(
+        provider_name: &str,
+        participant_human_ids: &[String],
+        self_human_id: Option<&str>,
+        speaker_assignments: Vec<IdentityAssignment>,
+    ) -> Self {
         let channel_assignments =
             channel_assignments_for_participants(participant_human_ids, self_human_id);
         let segment_options =
@@ -89,7 +106,11 @@ impl LiveTranscriptEngine {
                 .with_partial_finalization(normalizer.finalize_partials())
                 .with_flush_partial_finalization(normalizer.flush_partials()),
             normalizer,
-            rendered_segments: RenderedSegmentState::new(channel_assignments, segment_options),
+            rendered_segments: RenderedSegmentState::new(
+                channel_assignments,
+                speaker_assignments,
+                segment_options,
+            ),
             max_speaker_index,
         }
     }
@@ -106,17 +127,22 @@ impl LiveTranscriptEngine {
         })
     }
 
-    pub fn update_participants(
+    /// Returns the segments whose labels changed so they can be pushed to
+    /// listeners right away; a user naming a speaker mid-meeting should not
+    /// wait for the next stream response to see it.
+    pub fn update_identities(
         &mut self,
         participant_human_ids: &[String],
         self_human_id: Option<&str>,
-    ) {
-        self.rendered_segments.update_participants(
-            channel_assignments_for_participants(participant_human_ids, self_human_id),
-            segment_options_for_participants(participant_human_ids, self_human_id),
-        );
+        speaker_assignments: Vec<IdentityAssignment>,
+    ) -> Option<LiveTranscriptSegmentDelta> {
         self.max_speaker_index =
             max_speaker_index_for_participants(participant_human_ids, self_human_id);
+        self.rendered_segments.update_identities(
+            channel_assignments_for_participants(participant_human_ids, self_human_id),
+            speaker_assignments,
+            segment_options_for_participants(participant_human_ids, self_human_id),
+        )
     }
 
     pub fn flush(&mut self) -> Option<LiveTranscriptUpdate> {

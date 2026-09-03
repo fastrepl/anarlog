@@ -664,6 +664,78 @@ fn clamps_single_remote_speaker_to_zero() {
 }
 
 #[test]
+fn speaker_assignment_names_later_segments_from_the_same_speaker() {
+    let participants = ["self".to_string(), "artem".to_string(), "guest".to_string()];
+    let mut engine = LiveTranscriptEngine::new("deepgram", &participants, Some("self"));
+    let spoken = |text: &str, start: f64, speaker: i32| {
+        let mut words = words_from_text(text, start, 1.0);
+        for word in &mut words {
+            word.speaker = Some(speaker);
+        }
+        transcript_response_at(text, words, true, 1, start, 1.0)
+    };
+
+    let first = engine
+        .process(&spoken("ah okay it is this week", 0.0, 0))
+        .expect("first update");
+    let first_segments = first.segment_delta.expect("first segments").upserts;
+    assert_eq!(first_segments.len(), 1);
+    assert_eq!(first_segments[0].key.speaker_index, Some(0));
+    assert_eq!(first_segments[0].key.speaker_human_id, None);
+
+    let relabeled = engine
+        .update_identities(
+            &participants,
+            Some("self"),
+            vec![IdentityAssignment {
+                human_id: "artem".to_string(),
+                scope: anlg_transcript::IdentityScope::ChannelSpeaker {
+                    channel: anlg_transcript::ChannelProfile::RemoteParty,
+                    speaker_index: 0,
+                },
+            }],
+        )
+        .expect("assignment relabels the segment already on screen");
+    assert_eq!(relabeled.upserts.len(), 1);
+    assert_eq!(
+        relabeled.upserts[0].key.speaker_human_id.as_deref(),
+        Some("artem")
+    );
+    assert_eq!(relabeled.removed_ids, vec![first_segments[0].id.clone()]);
+
+    let later = engine
+        .process(&spoken("yeah let us discuss it", 10.0, 0))
+        .expect("later update");
+    let later_segments = later.segment_delta.expect("later segments").upserts;
+    assert_eq!(later_segments.len(), 1);
+    assert_eq!(
+        later_segments[0].key.speaker_human_id.as_deref(),
+        Some("artem")
+    );
+    assert!(later_segments[0].text.ends_with("yeah let us discuss it"));
+
+    // The processor holds the newest words as partials until the stream moves
+    // on, so flush to settle the other speaker's turn.
+    engine
+        .process(&spoken("nice", 20.0, 1))
+        .expect("other speaker update");
+    let settled = engine.flush().expect("flush update");
+    let settled_segments = settled.segment_delta.expect("settled segments").upserts;
+    let other = settled_segments
+        .iter()
+        .find(|segment| segment.text == "nice")
+        .expect("the other speaker gets a segment of their own");
+    assert_eq!(other.key.speaker_index, Some(1));
+    assert_eq!(other.key.speaker_human_id, None);
+    assert!(
+        settled_segments
+            .iter()
+            .filter(|segment| segment.key.speaker_human_id.as_deref() == Some("artem"))
+            .all(|segment| !segment.text.contains("nice"))
+    );
+}
+
+#[test]
 fn live_transcript_delta_keeps_speaker_index_on_words() {
     let delta = TranscriptDelta {
         new_words: vec![FinalizedWord {

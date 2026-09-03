@@ -49,6 +49,8 @@ pub struct CaptureConfigUpdate {
     pub participant_human_ids: Vec<String>,
     #[serde(default)]
     pub self_human_id: Option<String>,
+    #[serde(default)]
+    pub speaker_assignments: Vec<anlg_transcript::IdentityAssignment>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, specta::Type, tauri_specta::Event)]
@@ -202,6 +204,9 @@ impl From<CaptureParams> for listener::actors::SessionParams {
             mic_device: value.mic_device,
             participant_human_ids: value.participant_human_ids,
             self_human_id: value.self_human_id,
+            // The desktop config sync pushes the transcript's persisted hints
+            // once the capture is active; a new transcript has none yet.
+            speaker_assignments: Vec::new(),
         }
     }
 }
@@ -213,6 +218,7 @@ impl From<CaptureConfigUpdate> for listener::actors::SessionConfigUpdate {
             languages: value.languages,
             participant_human_ids: value.participant_human_ids,
             self_human_id: value.self_human_id,
+            speaker_assignments: value.speaker_assignments,
         }
     }
 }

@@ -9,6 +9,7 @@ use ractor::{Actor, ActorName, ActorProcessingErr, ActorRef, RpcReplyPort, Super
 use tokio::time::error::Elapsed;
 use tracing::Instrument;
 
+use anlg_transcript::IdentityAssignment;
 use owhisper_interface::stream::StreamResponse;
 use owhisper_interface::{ControlMessage, MixedMessage};
 
@@ -48,6 +49,7 @@ pub struct ListenerConfigUpdate {
     pub languages: Vec<anlg_language::Language>,
     pub participant_human_ids: Vec<String>,
     pub self_human_id: Option<String>,
+    pub speaker_assignments: Vec<IdentityAssignment>,
 }
 
 #[derive(Clone)]
@@ -67,6 +69,7 @@ pub struct ListenerArgs {
     pub session_id: String,
     pub participant_human_ids: Vec<String>,
     pub self_human_id: Option<String>,
+    pub speaker_assignments: Vec<IdentityAssignment>,
 }
 
 pub struct ListenerState {
@@ -160,10 +163,11 @@ impl Actor for ListenerActor {
                 adapter: adapter_name.clone(),
             });
 
-            let transcript = LiveTranscriptEngine::new(
+            let transcript = LiveTranscriptEngine::with_speaker_assignments(
                 &adapter_name,
                 &args.participant_human_ids,
                 args.self_human_id.as_deref(),
+                args.speaker_assignments.clone(),
             );
 
             let state = ListenerState {
@@ -288,10 +292,20 @@ impl Actor for ListenerActor {
                 state.args.languages = update.languages;
                 state.args.participant_human_ids = update.participant_human_ids;
                 state.args.self_human_id = update.self_human_id;
-                state.transcript.update_participants(
+                state.args.speaker_assignments = update.speaker_assignments;
+                if let Some(segment_delta) = state.transcript.update_identities(
                     &state.args.participant_human_ids,
                     state.args.self_human_id.as_deref(),
-                );
+                    state.args.speaker_assignments.clone(),
+                ) {
+                    state
+                        .args
+                        .runtime
+                        .emit_data(SessionDataEvent::TranscriptSegmentDelta {
+                            session_id: state.args.session_id.clone(),
+                            delta: Box::new(segment_delta),
+                        });
+                }
             }
 
             ListenerMsg::StreamResponse(response, reply) => {

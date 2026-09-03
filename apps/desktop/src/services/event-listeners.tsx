@@ -1,6 +1,10 @@
 import { type UnlistenFn } from "@tauri-apps/api/event";
 
 import { events as notificationEvents } from "@anlg/plugin-notification";
+import type {
+  CaptureConfigUpdate,
+  IdentityAssignment,
+} from "@anlg/plugin-transcription";
 import {
   commands as updaterCommands,
   events as updaterEvents,
@@ -26,11 +30,19 @@ import {
   getLiveTranscriptionConfig,
   getTranscriptionLanguages,
 } from "~/stt/capabilities";
+import { buildRenderTranscriptRequestFromRows } from "~/stt/render-transcript";
 
 type CaptureIdentitySqlRow = {
   session_id: string;
   owner_user_id: string;
   human_id: string | null;
+};
+
+type LiveTranscriptIdentitySqlRow = {
+  id: string;
+  started_at_ms: number | string;
+  words_json: string;
+  speaker_hints_json: string;
 };
 
 const CAPTURE_IDENTITY_SQL = `
@@ -46,6 +58,21 @@ const CAPTURE_IDENTITY_SQL = `
     AND participant.deleted_at IS NULL
   WHERE session.deleted_at IS NULL
   ORDER BY session.id, participant.human_id
+`;
+
+// The capture writes into the session's newest transcript. Speaker hints for
+// live words are only materialized into speaker_hints_json by transcript
+// mutations (assignments, flushes), so this does not need the delta journal.
+const LIVE_TRANSCRIPT_IDENTITY_SQL = `
+  SELECT
+    transcript.id,
+    transcript.started_at_ms,
+    transcript.words_json,
+    transcript.speaker_hints_json
+  FROM transcripts AS transcript
+  WHERE transcript.session_id = ? AND transcript.deleted_at IS NULL
+  ORDER BY transcript.started_at_ms DESC, transcript.created_at DESC
+  LIMIT 1
 `;
 
 const LIVE_CAPTURE_CONFIG_DEBOUNCE_MS = 750;
@@ -138,12 +165,34 @@ function getSessionParticipantHumanIds(
   return participantHumanIds;
 }
 
-function createCaptureConfigSignature(config: {
-  session_id: string;
-  languages: string[];
-  participant_human_ids: string[];
-  self_human_id: string | null;
-}) {
+function getLiveSpeakerAssignments(
+  rows: LiveTranscriptIdentitySqlRow[],
+): IdentityAssignment[] {
+  const row = rows[0];
+  if (!row) {
+    return [];
+  }
+
+  const request = buildRenderTranscriptRequestFromRows([
+    {
+      started_at: Number(row.started_at_ms),
+      words: parseJsonArray(row.words_json),
+      speaker_hints: parseJsonArray(row.speaker_hints_json),
+    },
+  ]);
+  return request?.transcripts[0]?.assignments ?? [];
+}
+
+function parseJsonArray<T>(value: string): T[] {
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function createCaptureConfigSignature(config: CaptureConfigUpdate) {
   return JSON.stringify(config);
 }
 
@@ -205,8 +254,12 @@ function LiveCaptureConfigSyncReady({
     let lastSignature: string | null = null;
     let rows: CaptureIdentitySqlRow[] = [];
     let hasSnapshot = false;
+    let transcriptRows: LiveTranscriptIdentitySqlRow[] = [];
+    let hasTranscriptSnapshot = false;
+    let transcriptSessionId: string | null = null;
     let cancelled = false;
     let unsubscribeDatabase: (() => Promise<void>) | null = null;
+    let unsubscribeTranscript: (() => Promise<void>) | null = null;
 
     const pushConfig = async () => {
       if (!hasSnapshot) {
@@ -215,6 +268,12 @@ function LiveCaptureConfigSyncReady({
 
       const live = listenerStore.getState().live;
       if (live.status !== "active" || !live.sessionId) {
+        return;
+      }
+
+      // An empty assignment list is not a no-op: the engine drops the names it
+      // holds. Wait for the transcript query's first rows before pushing.
+      if (transcriptSessionId === live.sessionId && !hasTranscriptSnapshot) {
         return;
       }
 
@@ -233,7 +292,7 @@ function LiveCaptureConfigSyncReady({
       }
 
       const session = rows.find((row) => row.session_id === live.sessionId);
-      const nextConfig = {
+      const nextConfig: CaptureConfigUpdate = {
         session_id: live.sessionId,
         languages: liveConfig.languages,
         participant_human_ids: getSessionParticipantHumanIds(
@@ -241,6 +300,10 @@ function LiveCaptureConfigSyncReady({
           live.sessionId,
         ),
         self_human_id: session?.owner_user_id || null,
+        speaker_assignments:
+          transcriptSessionId === live.sessionId
+            ? getLiveSpeakerAssignments(transcriptRows)
+            : [],
       };
       const signature = createCaptureConfigSignature(nextConfig);
       if (signature === lastSignature) {
@@ -266,7 +329,65 @@ function LiveCaptureConfigSyncReady({
       }, LIVE_CAPTURE_CONFIG_DEBOUNCE_MS);
     };
 
-    const unsubscribeListener = listenerStore.subscribe(schedulePush);
+    // Speaker hints live on the transcript row, so follow whichever session is
+    // being captured instead of watching every transcript in the database.
+    const syncTranscriptSubscription = () => {
+      const live = listenerStore.getState().live;
+      const sessionId = live.status === "active" ? live.sessionId : null;
+      if (sessionId === transcriptSessionId) {
+        return;
+      }
+
+      transcriptSessionId = sessionId;
+      transcriptRows = [];
+      hasTranscriptSnapshot = false;
+      void unsubscribeTranscript?.();
+      unsubscribeTranscript = null;
+      if (!sessionId) {
+        return;
+      }
+
+      void liveQueryClient
+        .subscribe<LiveTranscriptIdentitySqlRow>(
+          LIVE_TRANSCRIPT_IDENTITY_SQL,
+          [sessionId],
+          {
+            onData: (nextRows) => {
+              if (transcriptSessionId !== sessionId) {
+                return;
+              }
+              transcriptRows = nextRows;
+              hasTranscriptSnapshot = true;
+              schedulePush();
+            },
+            onError: (error) => {
+              console.error(
+                "[listener] failed to read live transcript speakers",
+                error,
+              );
+            },
+          },
+        )
+        .then((unsubscribe) => {
+          if (cancelled || transcriptSessionId !== sessionId) {
+            void unsubscribe();
+          } else {
+            unsubscribeTranscript = unsubscribe;
+          }
+        })
+        .catch((error) => {
+          console.error(
+            "[listener] failed to subscribe to live transcript speakers",
+            error,
+          );
+        });
+    };
+
+    const unsubscribeListener = listenerStore.subscribe(() => {
+      syncTranscriptSubscription();
+      schedulePush();
+    });
+    syncTranscriptSubscription();
     void liveQueryClient
       .subscribe<CaptureIdentitySqlRow>(CAPTURE_IDENTITY_SQL, [], {
         onData: (nextRows) => {
@@ -302,6 +423,7 @@ function LiveCaptureConfigSyncReady({
       }
       unsubscribeListener();
       void unsubscribeDatabase?.();
+      void unsubscribeTranscript?.();
     };
   });
 
