@@ -71,12 +71,13 @@ fn resolve_headphone_only_output(
     }
 }
 
-/// When the default input is a Bluetooth device, returns a wired input to use instead.
+/// When the default input is a Bluetooth device, returns a wired microphone to use instead.
 ///
 /// Opening a Bluetooth headset's mic forces it into the HFP call profile: the headset gates the
 /// mic to silence between words and the wearer's audio drops to 8–16 kHz. Any wired input avoids
 /// both, so built-in mics are preferred, then USB. Linux reports onboard mics as PCI rather than
-/// built-in, so PCI ranks with built-in.
+/// built-in, so PCI ranks with built-in. Line-in jacks and output loopbacks are capture endpoints
+/// too but never microphones, so they are skipped.
 pub fn wired_input_replacing_bluetooth_default() -> Option<AudioDevice> {
     let backend = backend();
     let default = backend.get_default_input_device().ok().flatten()?;
@@ -95,8 +96,11 @@ fn resolve_wired_input_replacement(
     inputs
         .into_iter()
         .filter(|device| device.direction == AudioDirection::Input && device.id != default.id)
+        .filter(|device| !name_suggests_non_microphone(&device.name))
         .filter_map(|device| wired_input_rank(device.transport_type).map(|rank| (rank, device)))
-        .min_by_key(|(rank, _)| *rank)
+        // Within a transport, a device that calls itself a microphone beats one that does not;
+        // `min_by_key` keeps list order for full ties.
+        .min_by_key(|(rank, device)| (*rank, !name_suggests_microphone(&device.name)))
         .map(|(_, device)| device)
 }
 
@@ -253,6 +257,62 @@ mod tests {
         let result =
             resolve_wired_input_replacement(&input("headset", TransportType::Bluetooth), inputs);
         assert_eq!(result.map(|d| d.id.0), Some("onboard".to_string()));
+    }
+
+    fn named_input(id: &str, name: &str, transport: TransportType) -> AudioDevice {
+        AudioDevice::new(id, name, AudioDirection::Input, transport)
+    }
+
+    #[test]
+    fn line_in_and_loopback_inputs_never_replace_bluetooth() {
+        let headset = input("headset", TransportType::Bluetooth);
+        let inputs = vec![
+            headset.clone(),
+            named_input(
+                "mix",
+                "Stereo Mix (Realtek(R) Audio)",
+                TransportType::BuiltIn,
+            ),
+            named_input("line", "Line In (Realtek(R) Audio)", TransportType::BuiltIn),
+            named_input(
+                "array",
+                "Microphone Array (Realtek(R) Audio)",
+                TransportType::BuiltIn,
+            ),
+        ];
+        let result = resolve_wired_input_replacement(&headset, inputs);
+        assert_eq!(result.map(|d| d.id.0), Some("array".to_string()));
+
+        let inputs = vec![
+            headset.clone(),
+            named_input(
+                "mix",
+                "Stereo Mix (Realtek(R) Audio)",
+                TransportType::BuiltIn,
+            ),
+            named_input("line", "Line In (Realtek(R) Audio)", TransportType::BuiltIn),
+        ];
+        assert!(resolve_wired_input_replacement(&headset, inputs).is_none());
+    }
+
+    #[test]
+    fn microphone_wins_ties_within_a_transport_but_not_across() {
+        let headset = input("headset", TransportType::Bluetooth);
+        let inputs = vec![
+            headset.clone(),
+            named_input("jack", "Built-in Input", TransportType::BuiltIn),
+            named_input("mic", "Built-in Microphone", TransportType::BuiltIn),
+        ];
+        let result = resolve_wired_input_replacement(&headset, inputs);
+        assert_eq!(result.map(|d| d.id.0), Some("mic".to_string()));
+
+        let inputs = vec![
+            headset.clone(),
+            named_input("yeti", "Yeti Stereo Microphone", TransportType::Usb),
+            named_input("jack", "Built-in Input", TransportType::BuiltIn),
+        ];
+        let result = resolve_wired_input_replacement(&headset, inputs);
+        assert_eq!(result.map(|d| d.id.0), Some("jack".to_string()));
     }
 
     #[test]

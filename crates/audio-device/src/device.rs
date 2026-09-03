@@ -66,6 +66,33 @@ pub(crate) fn name_suggests_speaker(name: &str) -> bool {
         .any(|marker| name_lower.contains(marker))
 }
 
+/// Capture endpoints that are not microphones: loopbacks of the output mix and analog or digital
+/// jacks. Opening one instead of a mic records the far end or nothing at all. Generic USB mics
+/// enumerate as "USB Digital Audio" and the like, so a name that says "mic" always wins.
+pub(crate) fn name_suggests_non_microphone(name: &str) -> bool {
+    const NON_MIC_MARKERS: &[&str] = &[
+        "line in",
+        "line-in",
+        "stereo mix",
+        "wave out mix",
+        "what u hear",
+        "loopback",
+        "monitor of",
+        "s/pdif",
+        "spdif",
+    ];
+
+    let name_lower = name.to_lowercase();
+    !name_lower.contains("mic")
+        && NON_MIC_MARKERS
+            .iter()
+            .any(|marker| name_lower.contains(marker))
+}
+
+pub(crate) fn name_suggests_microphone(name: &str) -> bool {
+    name.to_lowercase().contains("mic")
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 pub struct AudioDevice {
     pub id: DeviceId,
@@ -115,7 +142,38 @@ impl AudioDevice {
 
 #[cfg(test)]
 mod tests {
-    use super::name_suggests_speaker;
+    use super::{name_suggests_microphone, name_suggests_non_microphone, name_suggests_speaker};
+
+    #[test]
+    fn loopbacks_and_jacks_are_not_microphones() {
+        for name in [
+            "Stereo Mix (Realtek(R) Audio)",
+            "Line In (Realtek(R) Audio)",
+            "What U Hear (Sound Blaster)",
+            "Monitor of Built-in Audio Analog Stereo",
+            "Digital Audio (S/PDIF) (Realtek(R) Audio)",
+        ] {
+            assert!(name_suggests_non_microphone(name), "{name}");
+        }
+        for name in [
+            "Microphone Array (Realtek(R) Audio)",
+            "MacBook Pro Microphone",
+            "External Microphone",
+            "Microphone (USB Digital Audio)",
+            "Microphone (USB PnP Audio Device)",
+            "Blue Yeti",
+        ] {
+            assert!(!name_suggests_non_microphone(name), "{name}");
+        }
+    }
+
+    #[test]
+    fn microphone_names_are_recognized() {
+        assert!(name_suggests_microphone("MacBook Pro Microphone"));
+        assert!(name_suggests_microphone("Mic Array (Intel SST)"));
+        assert!(!name_suggests_microphone("Built-in Input"));
+        assert!(!name_suggests_microphone("Blue Yeti"));
+    }
 
     #[test]
     fn bluetooth_speakers_are_recognized_by_name() {
