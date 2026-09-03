@@ -6,21 +6,39 @@ runs:
     - shell: bash
       run: |
         set -euo pipefail
-        shopt -s nullglob
-        candidates=(
-          /Users/runner/runners/*/bin/Runner.Listener
-          /Users/runner/runner/bin/Runner.Listener
-        )
         listener=""
-        for candidate in "${candidates[@]}"; do
-          if [[ -f "$candidate" ]]; then
-            listener=$candidate
+        pid=$$
+        while [[ "$pid" -gt 1 ]]; do
+          cmd=$(ps -p "$pid" -o command= 2>/dev/null) || break
+          exe=${cmd%% *}
+          if [[ "$exe" == */Runner.Listener && -f "$exe" ]]; then
+            listener=$exe
             break
           fi
+          next=$(ps -p "$pid" -o ppid= 2>/dev/null) || break
+          next=${next// /}
+          [[ -z "$next" || "$next" == "$pid" ]] && break
+          pid=$next
         done
         if [[ -z "$listener" ]]; then
-          echo "::error::Could not locate Runner.Listener under /Users/runner/runners or /Users/runner/runner"
+          shopt -s nullglob
+          candidates=(
+            /Users/runner/actions-runner/cached/bin/Runner.Listener
+            /Users/runner/actions-runner/cached/*/bin/Runner.Listener
+            /Users/runner/runners/*/bin/Runner.Listener
+            /Users/runner/runner/bin/Runner.Listener
+          )
+          for candidate in "${candidates[@]}"; do
+            if [[ -f "$candidate" ]]; then
+              listener=$candidate
+              break
+            fi
+          done
+        fi
+        if [[ -z "$listener" ]]; then
+          echo "::error::Could not locate Runner.Listener"
           exit 1
         fi
         listener=$(realpath "$listener")
+        echo "Granting AppleEvents (Finder) to $listener"
         sudo sqlite3 "$HOME/Library/Application Support/com.apple.TCC/TCC.db" "INSERT OR IGNORE INTO access VALUES('kTCCServiceAppleEvents','$listener',1,2,3,1,NULL,NULL,0,'com.apple.finder',X'fade0c000000002c00000001000000060000000200000010636f6d2e6170706c652e66696e64657200000003',NULL,1592919552,NULL,NULL,'UNUSED',1592919552)"
