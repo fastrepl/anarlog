@@ -293,6 +293,7 @@ describe("AuthProvider", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     cleanup();
   });
 
@@ -1418,7 +1419,7 @@ describe("AuthProvider", () => {
     );
   });
 
-  it("keeps a refreshed session hidden until admission succeeds", async () => {
+  it("applies a refreshed token for the admitted account without re-admission", async () => {
     const currentSession = makeSession("bound-account");
     const refreshedSession = {
       ...currentSession,
@@ -1440,14 +1441,108 @@ describe("AuthProvider", () => {
       );
     });
 
-    const claim = deferred<boolean>();
-    mocks.bindCloudsyncAccountForAuth.mockReturnValueOnce(claim.promise);
-    mocks.refreshSession.mockImplementationOnce(async () => {
+    mocks.bindCloudsyncAccountForAuth.mockReturnValueOnce(
+      new Promise<boolean>(() => {}),
+    );
+
+    act(() => {
       mocks.authCallback?.("TOKEN_REFRESHED", refreshedSession);
-      return { data: { session: refreshedSession }, error: null };
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("access-token").textContent).toBe(
+        refreshedSession.access_token,
+      );
+    });
+    expect(screen.getByTestId("authorization").textContent).toBe(
+      `bearer ${refreshedSession.access_token}`,
+    );
+    expect(mocks.bindCloudsyncAccountForAuth).toHaveBeenCalledTimes(1);
+    expect(mocks.handleCloudsyncAuthChange).toHaveBeenCalledWith(
+      "TOKEN_REFRESHED",
+      refreshedSession,
+      expect.any(Function),
+    );
+  });
+
+  it("applies a refreshed token while an earlier auth transition is still blocked", async () => {
+    const currentSession = makeSession("bound-account");
+    const refreshedSession = {
+      ...currentSession,
+      access_token: "refreshed-access-token",
+    };
+    // The SIGNED_IN transition never finishes its CloudSync handshake, which
+    // would previously have held every later auth event in the queue.
+    mocks.handleCloudsyncAuthChange.mockImplementation(
+      (event: AuthChangeEvent) =>
+        event === "SIGNED_IN" ? new Promise(() => {}) : Promise.resolve("ok"),
+    );
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+    });
+    await waitFor(() => {
+      expect(mocks.handleCloudsyncAuthChange).toHaveBeenCalledWith(
+        "SIGNED_IN",
+        currentSession,
+        expect.any(Function),
+      );
+    });
+
+    act(() => {
+      mocks.authCallback?.("TOKEN_REFRESHED", refreshedSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("access-token").textContent).toBe(
+        refreshedSession.access_token,
+      );
+    });
+    expect(mocks.handleCloudsyncAuthChange).toHaveBeenCalledWith(
+      "TOKEN_REFRESHED",
+      refreshedSession,
+      expect.any(Function),
+    );
+  });
+
+  it("keeps re-admitting refreshes for a session preserved without verification", async () => {
+    const currentSession = makeSession("unverified-account");
+    const refreshedSession = {
+      ...currentSession,
+      access_token: "refreshed-access-token",
+    };
+    mocks.bindCloudsyncAccountForAuth.mockRejectedValueOnce(
+      new Error("database unavailable"),
+    );
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("access-token").textContent).toBe(
+        currentSession.access_token,
+      );
+    });
+
+    const claim = deferred<boolean>();
+    mocks.bindCloudsyncAccountForAuth.mockReturnValueOnce(claim.promise);
+
+    act(() => {
+      mocks.authCallback?.("TOKEN_REFRESHED", refreshedSession);
+    });
 
     await waitFor(() => {
       expect(mocks.bindCloudsyncAccountForAuth).toHaveBeenCalledTimes(2);
@@ -1465,6 +1560,79 @@ describe("AuthProvider", () => {
         refreshedSession.access_token,
       );
     });
+  });
+
+  it("preserves the local session when account admission stalls and finishes it late", async () => {
+    const nextSession = makeSession("bound-account");
+    const claim = deferred<boolean>();
+    mocks.bindCloudsyncAccountForAuth.mockReturnValue(claim.promise);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    vi.useFakeTimers();
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", nextSession);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(14_000);
+    });
+    expect(screen.getByTestId("session").textContent).toBe("none");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    expect(screen.getByTestId("session").textContent).toBe(nextSession.user.id);
+    expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalled();
+
+    await act(async () => {
+      claim.resolve(true);
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(mocks.handleCloudsyncAuthChange).toHaveBeenCalledWith(
+      "SIGNED_IN",
+      nextSession,
+      expect.any(Function),
+    );
+  });
+
+  it("rejects a stalled admission that later reports another account", async () => {
+    const foreignSession = makeSession("foreign-account");
+    const claim = deferred<boolean>();
+    mocks.bindCloudsyncAccountForAuth.mockReturnValue(claim.promise);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    vi.useFakeTimers();
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", foreignSession);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_000);
+    });
+    expect(screen.getByTestId("session").textContent).toBe(
+      foreignSession.user.id,
+    );
+
+    await act(async () => {
+      claim.resolve(false);
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("session").textContent).toBe("none");
+    expect(mocks.toastError).toHaveBeenCalledWith(
+      "The notes on this device are linked to another Anarlog account. Sign in with the account previously used here.",
+      { id: "auth-account-mismatch" },
+    );
   });
 
   it("rejects a different local database account before admission", async () => {
