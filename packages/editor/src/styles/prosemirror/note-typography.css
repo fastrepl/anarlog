@@ -349,7 +349,7 @@
 
 /* In the editor, the hover-row rule (higher specificity than the element
  * rules above) would drag these blocks into the -0.75rem row inset. Their
- * visible left edge — quote border, code background — belongs at the text
+ * visible left edge — quote border, code background, hr — belongs at the text
  * column, aligned with plain text. That rule's radius also rounds off the ends
  * of the quote border, so it is reset here too. */
 .note-typography.prosemirror-editor blockquote {
@@ -361,6 +361,11 @@
 .note-typography.prosemirror-editor pre {
   margin-inline: 0;
   padding-inline: 0.75em;
+}
+
+.note-typography.prosemirror-editor hr {
+  margin-inline: 0;
+  border-radius: 0;
 }
 
 .note-typography a {
