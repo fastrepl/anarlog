@@ -252,6 +252,7 @@ function LiveCaptureConfigSyncReady({
   useMountEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let lastSignature: string | null = null;
+    let lastCaptureGeneration: number | null = null;
     let rows: CaptureIdentitySqlRow[] = [];
     let hasSnapshot = false;
     let transcriptRows: LiveTranscriptIdentitySqlRow[] = [];
@@ -305,6 +306,15 @@ function LiveCaptureConfigSyncReady({
             ? getLiveSpeakerAssignments(transcriptRows)
             : [],
       };
+      // Every capture starts its engine without speaker assignments, so a
+      // config identical to the previous capture's still has to be pushed.
+      const captureGeneration =
+        live.captureGenerationBySession[live.sessionId] ?? null;
+      if (captureGeneration !== lastCaptureGeneration) {
+        lastCaptureGeneration = captureGeneration;
+        lastSignature = null;
+      }
+
       const signature = createCaptureConfigSignature(nextConfig);
       if (signature === lastSignature) {
         return;

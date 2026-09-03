@@ -164,7 +164,11 @@ describe("EventListeners notification events", () => {
       setTriggerAppIds: setTriggerAppIdsMock,
       stop: stopMock,
       updateCaptureConfig: updateCaptureConfigMock,
-      live: { status: "active", sessionId: "session-1" },
+      live: {
+        status: "active",
+        sessionId: "session-1",
+        captureGenerationBySession: { "session-1": 1 },
+      },
     });
   });
 
@@ -443,6 +447,123 @@ describe("EventListeners notification events", () => {
         {
           human_id: "human-guest",
           scope: { kind: "words", word_ids: ["w2"] },
+        },
+      ],
+    });
+  });
+
+  test("live capture config sync pushes again after a restart on the same session", async () => {
+    vi.useFakeTimers();
+    useConfigValuesMock.mockReturnValue({
+      ai_language: "en",
+      spoken_languages: ["en"],
+      current_stt_provider: "soniox",
+      current_stt_model: "stt-v4",
+    });
+    liveQuerySubscribeMock.mockImplementation(
+      async (sql, _params, handlers) => {
+        if (!String(sql).includes("FROM transcripts")) {
+          handlers.onData([]);
+        }
+        return async () => {};
+      },
+    );
+    const setLive = (live: Record<string, unknown>) =>
+      getListenerStateMock.mockReturnValue({
+        setTriggerAppIds: setTriggerAppIdsMock,
+        stop: stopMock,
+        updateCaptureConfig: updateCaptureConfigMock,
+        live,
+      });
+    const latestTranscriptHandlers = () => {
+      const calls = liveQuerySubscribeMock.mock.calls.filter(([sql]) =>
+        String(sql).includes("FROM transcripts"),
+      );
+      const call = calls[calls.length - 1];
+      expect(call).toBeDefined();
+      return call![2] as { onData: (rows: unknown[]) => void };
+    };
+    const transcriptRows = [
+      {
+        id: "transcript-1",
+        started_at_ms: 1_000,
+        words_json: JSON.stringify([
+          { id: "w1", text: " hello", start_ms: 0, end_ms: 100, channel: 1 },
+        ]),
+        speaker_hints_json: JSON.stringify([
+          {
+            id: "w1:provider_speaker_index",
+            word_id: "w1",
+            type: "provider_speaker_index",
+            value: JSON.stringify({ channel: 1, speaker_index: 0 }),
+          },
+          {
+            id: "w1:user_speaker_assignment",
+            word_id: "w1",
+            type: "user_speaker_assignment",
+            value: JSON.stringify({
+              human_id: "human-artem",
+              scope: "speaker",
+              channel: 1,
+              speaker_index: 0,
+            }),
+          },
+        ]),
+      },
+    ];
+
+    render(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(liveQuerySubscribeMock).toHaveBeenCalledTimes(2),
+    );
+    const storeListener = listenerSubscribeMock.mock.calls[0]?.[0];
+    expect(storeListener).toBeTypeOf("function");
+
+    findLiveQueryHandlers("session_participants").onData([
+      {
+        session_id: "session-1",
+        owner_user_id: "human-self",
+        human_id: "human-artem",
+      },
+    ]);
+    latestTranscriptHandlers().onData(transcriptRows);
+    await vi.runOnlyPendingTimersAsync();
+    expect(updateCaptureConfigMock).toHaveBeenCalledTimes(1);
+
+    setLive({
+      status: "inactive",
+      sessionId: null,
+      captureGenerationBySession: {},
+    });
+    storeListener();
+    await vi.runOnlyPendingTimersAsync();
+
+    setLive({
+      status: "active",
+      sessionId: "session-1",
+      captureGenerationBySession: { "session-1": 2 },
+    });
+    storeListener();
+    await vi.waitFor(() =>
+      expect(liveQuerySubscribeMock).toHaveBeenCalledTimes(3),
+    );
+    latestTranscriptHandlers().onData(transcriptRows);
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(updateCaptureConfigMock).toHaveBeenCalledTimes(2);
+    expect(updateCaptureConfigMock.mock.calls[1]?.[0]).toEqual(
+      updateCaptureConfigMock.mock.calls[0]?.[0],
+    );
+    expect(updateCaptureConfigMock.mock.calls[1]?.[0]).toMatchObject({
+      speaker_assignments: [
+        {
+          human_id: "human-artem",
+          scope: {
+            kind: "channel_speaker",
+            channel: "RemoteParty",
+            speaker_index: 0,
+          },
         },
       ],
     });
