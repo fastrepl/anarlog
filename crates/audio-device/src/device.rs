@@ -39,6 +39,33 @@ pub enum TransportType {
     Unknown,
 }
 
+/// Bluetooth outputs default to "headphone" because most Bluetooth audio on a laptop is, and
+/// popular headphones (Sony WH-*, Bose QC*) carry no headphone keyword in their name. This
+/// denylist catches the common Bluetooth speakers so they keep echo cancellation.
+pub(crate) fn name_suggests_speaker(name: &str) -> bool {
+    const SPEAKER_MARKERS: &[&str] = &[
+        "speaker",
+        "soundbar",
+        "sound bar",
+        "soundlink",
+        "boombox",
+        "homepod",
+        "sonos",
+        "megaboom",
+        "wonderboom",
+        "jbl flip",
+        "jbl charge",
+        "jbl clip",
+        "jbl go",
+        "jbl xtreme",
+    ];
+
+    let name_lower = name.to_lowercase();
+    SPEAKER_MARKERS
+        .iter()
+        .any(|marker| name_lower.contains(marker))
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 pub struct AudioDevice {
     pub id: DeviceId,
@@ -83,5 +110,30 @@ impl AudioDevice {
     pub fn with_muted(mut self, is_muted: bool) -> Self {
         self.is_muted = Some(is_muted);
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::name_suggests_speaker;
+
+    #[test]
+    fn bluetooth_speakers_are_recognized_by_name() {
+        for name in [
+            "Bose SoundLink Flex",
+            "JBL Flip 6",
+            "Sonos Roam",
+            "HomePod mini",
+            "Living Room Speaker",
+        ] {
+            assert!(name_suggests_speaker(name), "{name}");
+        }
+    }
+
+    #[test]
+    fn bluetooth_headphones_without_keywords_are_not_speakers() {
+        for name in ["WH-1000XM5", "Bose QC45", "AirPods Pro", "Jabra Elite 85t"] {
+            assert!(!name_suggests_speaker(name), "{name}");
+        }
     }
 }

@@ -371,11 +371,8 @@ impl AudioDeviceBackend for LinuxBackend {
             if let pulse::callbacks::ListResult::Item(sink_info) = list_result {
                 if let Some(active_port) = &sink_info.active_port {
                     if let Some(name) = active_port.name.as_ref() {
-                        let name_lower = name.to_lowercase();
-                        let is_headphone =
-                            name_lower.contains("headphone") || name_lower.contains("headset");
                         if let Ok(mut r) = result_clone.lock() {
-                            *r = is_headphone;
+                            *r = is_headphone_port(name);
                         }
                     }
                 }
@@ -558,6 +555,12 @@ impl AudioDeviceBackend for LinuxBackend {
     }
 }
 
+/// PulseAudio names analog jack ports after what is plugged in, e.g. `analog-output-headphones`.
+pub fn is_headphone_port(port_name: &str) -> bool {
+    let name_lower = port_name.to_lowercase();
+    name_lower.contains("headphone") || name_lower.contains("headset")
+}
+
 pub fn is_headphone_from_default_output_device() -> Option<bool> {
     let mut mainloop = Mainloop::new()?;
 
@@ -594,11 +597,8 @@ pub fn is_headphone_from_default_output_device() -> Option<bool> {
             if let pulse::callbacks::ListResult::Item(sink_info) = list_result {
                 if let Some(active_port) = &sink_info.active_port {
                     if let Some(name) = active_port.name.as_ref() {
-                        let name_lower = name.to_lowercase();
-                        let is_headphone =
-                            name_lower.contains("headphone") || name_lower.contains("headset");
                         if let Ok(mut r) = result.lock() {
-                            *r = if is_headphone { Some(true) } else { None };
+                            *r = is_headphone_port(name).then_some(true);
                         }
                     }
                 }

@@ -112,7 +112,11 @@ impl DeviceChangeWatcher {
                     tracing::info!("default_input_changed_restarting_source");
                     actor.stop(Some("device_change".to_string()));
                 }
-                Ok(_) => {}
+                Ok(DeviceSwitch::DefaultOutputChanged { .. }) => {
+                    tracing::info!("default_output_changed_restarting_source");
+                    actor.stop(Some("device_change".to_string()));
+                }
+                Ok(DeviceSwitch::DeviceListChanged) => {}
                 Err(_) => break,
             }
         }

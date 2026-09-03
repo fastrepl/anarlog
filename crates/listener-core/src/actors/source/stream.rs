@@ -115,7 +115,7 @@ async fn run_stream_loop(ctx: StreamContext, mode: ChannelMode) {
                 chunk_size,
                 mic_device: ctx.mic_device.clone(),
                 speaker_device: ctx.speaker_device.clone(),
-                enable_aec: std::env::var("NO_AEC").as_deref() != Ok("1"),
+                enable_aec: aec_enabled(),
             };
             ctx.audio.open_capture(config)
         }
@@ -146,6 +146,26 @@ async fn run_stream_loop(ctx: StreamContext, mode: ChannelMode) {
         if matches!(result, StreamResult::Stop) {
             return;
         }
+    }
+}
+
+// Headphones keep speaker output out of the mic, so AEC only costs CPU and can degrade near-end
+// speech. The source restarts on default output changes, so this is re-evaluated per stream.
+fn aec_enabled() -> bool {
+    if std::env::var("NO_AEC").as_deref() == Ok("1") {
+        return false;
+    }
+
+    match anlg_audio_device::default_output_headphone() {
+        Some(device) => {
+            tracing::info!(
+                device = %device.name,
+                transport = ?device.transport_type,
+                "aec_disabled_headphone_output"
+            );
+            false
+        }
+        None => true,
     }
 }
 

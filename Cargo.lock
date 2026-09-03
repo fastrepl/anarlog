@@ -10063,6 +10063,7 @@ name = "listener-core"
 version = "0.1.0"
 dependencies = [
  "audio",
+ "audio-device",
  "audio-utils",
  "bytes",
  "data",

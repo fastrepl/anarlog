@@ -1,5 +1,6 @@
 use cidre::{cf, core_audio as ca, io};
 
+use crate::device::name_suggests_speaker;
 use crate::{AudioDevice, AudioDeviceBackend, AudioDirection, DeviceId, Error, TransportType};
 
 pub struct MacOSBackend;
@@ -233,7 +234,7 @@ impl AudioDeviceBackend for MacOSBackend {
         }
 
         match device.transport_type {
-            TransportType::Bluetooth => true,
+            TransportType::Bluetooth => !name_suggests_speaker(&device.name),
             TransportType::Usb => {
                 let name_lower = device.name.to_lowercase();
                 name_lower.contains("headphone")

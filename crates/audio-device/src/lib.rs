@@ -35,6 +35,16 @@ pub fn backend() -> impl AudioDeviceBackend {
     }
 }
 
+/// Returns the default output device when it is classified as a headphone.
+pub fn default_output_headphone() -> Option<AudioDevice> {
+    let backend = backend();
+    backend
+        .get_default_output_device()
+        .ok()
+        .flatten()
+        .filter(|device| backend.is_headphone(device))
+}
+
 pub trait AudioDeviceBackend {
     fn list_devices(&self) -> Result<Vec<AudioDevice>, Error>;
 
