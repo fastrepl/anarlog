@@ -5,8 +5,8 @@ mod matching;
 
 pub use matching::{
     MIN_UNIQUE_MARGIN, MIN_UNIQUE_SCORE, VoiceprintAssignment, VoiceprintSpeakerKey,
-    collect_match_scores, cosine_similarity, pick_unique_voiceprint_assignments,
-    remote_participant_human_ids,
+    collect_match_scores, complete_by_elimination, cosine_similarity,
+    pick_unique_voiceprint_assignments, remote_participant_human_ids,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

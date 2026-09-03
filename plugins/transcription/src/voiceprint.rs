@@ -3,8 +3,8 @@ use std::path::PathBuf;
 
 use anlg_voiceprint::{
     MIN_UNIQUE_MARGIN, MIN_UNIQUE_SCORE, SelectedSpan, SpanConfig, SpanWord, VoiceprintAssignment,
-    VoiceprintSpeakerKey, collect_match_scores, pick_unique_voiceprint_assignments,
-    remote_participant_human_ids, select_speaker_spans,
+    VoiceprintSpeakerKey, collect_match_scores, complete_by_elimination,
+    pick_unique_voiceprint_assignments, remote_participant_human_ids, select_speaker_spans,
 };
 use base64::Engine;
 use tauri::Manager;
@@ -15,6 +15,8 @@ const MODEL_VERSION: &str = "wespeaker-embedding-onnx-1";
 const CANDIDATE_TTL_DAYS: i64 = 45;
 const EMBEDDING_SAMPLE_RATE: u32 = anlg_embedding::SAMPLE_RATE_HZ;
 const DIRECT_MIC_CHANNEL: i64 = 0;
+/// System-audio channel of a stereo capture: every remote participant, nobody else.
+const REMOTE_CHANNEL: i64 = 1;
 const ISOLATED_MIC_CONFIRMATION_SOURCE: &str = "isolated_mic_capture";
 // Below a manual assignment: someone else could still lean into the laptop mic.
 const ISOLATED_MIC_LABEL_CONFIDENCE: f64 = 0.9;
@@ -964,9 +966,6 @@ async fn maybe_assign_speakers_from_voiceprints<R: tauri::Runtime>(
             exemplars.push((exemplar.human_id, exemplar.capture_domain, embedding));
         }
     }
-    if exemplars.is_empty() {
-        return Ok(());
-    }
 
     let samples: Vec<_> = embeddings
         .iter()
@@ -989,20 +988,36 @@ async fn maybe_assign_speakers_from_voiceprints<R: tauri::Runtime>(
         })
         .collect();
     let scores = collect_match_scores(&samples, &exemplars);
-    let assignments = pick_unique_voiceprint_assignments(
+    let voiceprint_namings: Vec<SpeakerNaming> = pick_unique_voiceprint_assignments(
         &scores
             .iter()
             .map(|(speaker, human_id, score)| (*speaker, human_id.as_str(), *score))
             .collect::<Vec<_>>(),
         MIN_UNIQUE_SCORE,
         MIN_UNIQUE_MARGIN,
-    );
-    if assignments.is_empty() {
-        return Ok(());
-    }
+    )
+    .into_iter()
+    .map(SpeakerNaming::from_voiceprint)
+    .collect();
 
     for attempt in 0..2 {
-        let Some(next_json) = assignment_hints_json(&hints_json, &index, &assignments)? else {
+        // Elimination depends on which pairs the current hints leave open, so
+        // it is redone against the hints a retry reloads rather than carried over.
+        let mut namings: Vec<SpeakerNaming> = voiceprint_namings
+            .iter()
+            .filter(|naming| {
+                !index.assigned_speakers.contains(&naming.speaker)
+                    && !index.assigned_human_ids.contains(&naming.human_id)
+            })
+            .cloned()
+            .collect();
+        if let Some(naming) = eliminate_last_remote_speaker(&index, &remote_human_ids, &namings) {
+            namings.push(naming);
+        }
+        if namings.is_empty() {
+            return Ok(());
+        }
+        let Some(next_json) = assignment_hints_json(&hints_json, &index, &namings)? else {
             return Ok(());
         };
         if write_speaker_assignment_hints(
@@ -1018,7 +1033,11 @@ async fn maybe_assign_speakers_from_voiceprints<R: tauri::Runtime>(
             tracing::info!(
                 session_id,
                 transcript_id,
-                assigned = assignments.len(),
+                assigned = namings.len(),
+                by_elimination = namings
+                    .iter()
+                    .filter(|naming| naming.basis == NamingBasis::Elimination)
+                    .count(),
                 "voiceprint_speakers_assigned"
             );
             return Ok(());
@@ -1105,28 +1124,94 @@ async fn embeddings_from_stored_candidates<R: tauri::Runtime>(
     Ok(embeddings)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum NamingBasis {
+    Voiceprint { score: f32 },
+    Elimination,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct SpeakerNaming {
+    speaker: VoiceprintSpeakerKey,
+    human_id: String,
+    basis: NamingBasis,
+}
+
+impl SpeakerNaming {
+    fn from_voiceprint(assignment: VoiceprintAssignment) -> Self {
+        Self {
+            speaker: assignment.speaker,
+            human_id: assignment.human_id,
+            basis: NamingBasis::Voiceprint {
+                score: assignment.score,
+            },
+        }
+    }
+}
+
+/// Once voiceprints have named all remote speakers but one, and the remote
+/// channel holds exactly one speaker per remote participant, the remaining
+/// pair is implied. Existing hints count as named; a speaker with no clean
+/// speech to embed still counts as a speaker.
+fn eliminate_last_remote_speaker(
+    index: &SpeakerIndex,
+    remote_human_ids: &[String],
+    namings: &[SpeakerNaming],
+) -> Option<SpeakerNaming> {
+    let mut remote_speakers: Vec<VoiceprintSpeakerKey> = index
+        .first_word_id
+        .keys()
+        .filter(|speaker| speaker.channel == REMOTE_CHANNEL)
+        .copied()
+        .collect();
+    remote_speakers.sort_by_key(|speaker| speaker.speaker_index);
+    let assigned_speakers: Vec<VoiceprintSpeakerKey> = index
+        .assigned_speakers
+        .iter()
+        .copied()
+        .chain(namings.iter().map(|naming| naming.speaker))
+        .collect();
+    let assigned_people: Vec<&str> = index
+        .assigned_human_ids
+        .iter()
+        .map(String::as_str)
+        .chain(namings.iter().map(|naming| naming.human_id.as_str()))
+        .collect();
+    complete_by_elimination(
+        &remote_speakers,
+        remote_human_ids,
+        &assigned_speakers,
+        &assigned_people,
+    )
+    .map(|(speaker, human_id)| SpeakerNaming {
+        speaker,
+        human_id,
+        basis: NamingBasis::Elimination,
+    })
+}
+
 fn assignment_hints_json(
     hints_json: &str,
     index: &SpeakerIndex,
-    assignments: &[VoiceprintAssignment],
+    namings: &[SpeakerNaming],
 ) -> Result<Option<String>, String> {
     let Ok(mut hints) = serde_json::from_str::<Vec<serde_json::Value>>(hints_json) else {
         return Ok(None);
     };
     let mut assigned = 0u32;
-    for assignment in assignments {
-        if index.assigned_speakers.contains(&assignment.speaker)
-            || index.assigned_human_ids.contains(&assignment.human_id)
+    for naming in namings {
+        if index.assigned_speakers.contains(&naming.speaker)
+            || index.assigned_human_ids.contains(&naming.human_id)
         {
             continue;
         }
-        let Some(word_id) = index.first_word_id.get(&assignment.speaker) else {
+        let Some(word_id) = index.first_word_id.get(&naming.speaker) else {
             continue;
         };
-        hints.push(automatic_voiceprint_hint(
+        hints.push(automatic_speaker_hint(
             word_id,
-            &assignment.human_id,
-            assignment.score,
+            &naming.human_id,
+            naming.basis,
         ));
         assigned += 1;
     }
@@ -1277,17 +1362,23 @@ fn hint_value_object(value: &serde_json::Value) -> Option<serde_json::Value> {
     }
 }
 
-fn automatic_voiceprint_hint(word_id: &str, human_id: &str, score: f32) -> serde_json::Value {
+fn automatic_speaker_hint(word_id: &str, human_id: &str, basis: NamingBasis) -> serde_json::Value {
+    let value = match basis {
+        NamingBasis::Voiceprint { score } => serde_json::json!({
+            "human_id": human_id,
+            "confidence": score,
+            "source": "voiceprint",
+        }),
+        NamingBasis::Elimination => serde_json::json!({
+            "human_id": human_id,
+            "source": "elimination",
+        }),
+    };
     serde_json::json!({
         "id": format!("{word_id}:automatic_speaker_assignment"),
         "word_id": word_id,
         "type": "automatic_speaker_assignment",
-        "value": serde_json::json!({
-            "human_id": human_id,
-            "confidence": score,
-            "source": "voiceprint",
-        })
-        .to_string(),
+        "value": value.to_string(),
     })
 }
 
@@ -1557,13 +1648,40 @@ mod tests {
 
     #[test]
     fn unique_voiceprint_hint_uses_voiceprint_source() {
-        let hint = automatic_voiceprint_hint("w1", "marco", 0.84);
+        let hint = automatic_speaker_hint("w1", "marco", NamingBasis::Voiceprint { score: 0.84 });
         assert_eq!(hint["type"], "automatic_speaker_assignment");
         assert_eq!(hint["word_id"], "w1");
         let value: serde_json::Value =
             serde_json::from_str(hint["value"].as_str().unwrap()).unwrap();
         assert_eq!(value["human_id"], "marco");
         assert_eq!(value["source"], "voiceprint");
+        assert!((value["confidence"].as_f64().unwrap() - 0.84).abs() < 1e-6);
+    }
+
+    #[test]
+    fn elimination_hint_carries_its_own_source_and_no_score() {
+        let hint = automatic_speaker_hint("w2", "ada", NamingBasis::Elimination);
+        assert_eq!(hint["type"], "automatic_speaker_assignment");
+        let value: serde_json::Value =
+            serde_json::from_str(hint["value"].as_str().unwrap()).unwrap();
+        assert_eq!(value["human_id"], "ada");
+        assert_eq!(value["source"], "elimination");
+        assert!(value.get("confidence").is_none());
+    }
+
+    fn remote_speaker(index: i64) -> VoiceprintSpeakerKey {
+        VoiceprintSpeakerKey {
+            channel: REMOTE_CHANNEL,
+            speaker_index: Some(index),
+        }
+    }
+
+    fn voiceprint_naming(speaker: VoiceprintSpeakerKey, human_id: &str) -> SpeakerNaming {
+        SpeakerNaming {
+            speaker,
+            human_id: human_id.to_string(),
+            basis: NamingBasis::Voiceprint { score: 0.9 },
+        }
     }
 
     #[test]
@@ -1580,22 +1698,8 @@ mod tests {
             hints,
             &index,
             &[
-                VoiceprintAssignment {
-                    speaker: VoiceprintSpeakerKey {
-                        channel: 1,
-                        speaker_index: Some(0),
-                    },
-                    human_id: "marco".to_string(),
-                    score: 0.9,
-                },
-                VoiceprintAssignment {
-                    speaker: VoiceprintSpeakerKey {
-                        channel: 1,
-                        speaker_index: Some(1),
-                    },
-                    human_id: "ada".to_string(),
-                    score: 0.88,
-                },
+                voiceprint_naming(remote_speaker(0), "marco"),
+                voiceprint_naming(remote_speaker(1), "ada"),
             ],
         )
         .unwrap()
@@ -1608,6 +1712,81 @@ mod tests {
             .map(|hint| hint["word_id"].as_str().unwrap().to_string())
             .collect();
         assert_eq!(assigned, vec!["w1".to_string(), "w2".to_string()]);
+    }
+
+    const THREE_REMOTE_SPEAKERS: &str = r#"[
+        {"id": "w1", "text": "hello", "start_ms": 0, "end_ms": 2000, "channel": 1, "speaker_index": 0},
+        {"id": "w2", "text": "there", "start_ms": 2100, "end_ms": 4000, "channel": 1, "speaker_index": 1},
+        {"id": "w3", "text": "hi", "start_ms": 4100, "end_ms": 4400, "channel": 1, "speaker_index": 2},
+        {"id": "w4", "text": "yes", "start_ms": 4500, "end_ms": 5000, "channel": 0, "speaker_index": null}
+    ]"#;
+
+    fn people(ids: &[&str]) -> Vec<String> {
+        ids.iter().map(|id| id.to_string()).collect()
+    }
+
+    #[test]
+    fn elimination_names_the_last_remote_speaker_from_prior_hints_and_new_matches() {
+        // Marco was named by hand earlier; Ada was just matched by voiceprint.
+        // Speaker 2 never had enough clean speech to embed, but three remote
+        // speakers for three remote participants leaves only Cy.
+        let hints = r#"[
+            {"word_id": "w1", "type": "user_speaker_assignment", "value": {"human_id": "marco"}}
+        ]"#;
+        let index = speaker_index_from_transcript(THREE_REMOTE_SPEAKERS, hints).unwrap();
+        let namings = vec![voiceprint_naming(remote_speaker(1), "ada")];
+
+        let naming =
+            eliminate_last_remote_speaker(&index, &people(&["ada", "marco", "cy"]), &namings);
+
+        assert_eq!(
+            naming,
+            Some(SpeakerNaming {
+                speaker: remote_speaker(2),
+                human_id: "cy".to_string(),
+                basis: NamingBasis::Elimination,
+            })
+        );
+    }
+
+    #[test]
+    fn elimination_ignores_the_direct_mic_and_refuses_on_count_mismatch() {
+        let index = speaker_index_from_transcript(THREE_REMOTE_SPEAKERS, "[]").unwrap();
+        let namings = vec![
+            voiceprint_naming(remote_speaker(0), "marco"),
+            voiceprint_naming(remote_speaker(1), "ada"),
+        ];
+
+        // Four invited remotes, three remote speakers: someone did not show.
+        assert_eq!(
+            eliminate_last_remote_speaker(&index, &people(&["ada", "marco", "cy", "di"]), &namings),
+            None
+        );
+        // Two invited remotes, three remote speakers: someone extra joined.
+        assert_eq!(
+            eliminate_last_remote_speaker(&index, &people(&["ada", "marco"]), &namings),
+            None
+        );
+        // Exact count: the direct-mic word is not a remote speaker.
+        assert_eq!(
+            eliminate_last_remote_speaker(&index, &people(&["ada", "marco", "cy"]), &namings)
+                .map(|naming| naming.human_id),
+            Some("cy".to_string())
+        );
+    }
+
+    #[test]
+    fn elimination_needs_a_single_open_pair() {
+        let index = speaker_index_from_transcript(THREE_REMOTE_SPEAKERS, "[]").unwrap();
+
+        assert_eq!(
+            eliminate_last_remote_speaker(
+                &index,
+                &people(&["ada", "marco", "cy"]),
+                &[voiceprint_naming(remote_speaker(0), "marco")],
+            ),
+            None
+        );
     }
 
     struct SyntheticStereoSource {
