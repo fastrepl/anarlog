@@ -7,6 +7,7 @@ import {
 } from "./meeting-disclosure";
 import { getSessionKeywords } from "./useKeywords";
 import {
+  CLOUDSYNC_CAPTURE_LEASE_ATTEMPTS,
   getPostCaptureAction,
   getPostCaptureRepairReasons,
   sendMeetingRecordingDisclosure,
@@ -726,9 +727,7 @@ describe("useStartListening", () => {
   });
 
   test("does not write a durable marker when capture sync deferral cannot start", async () => {
-    beginCloudsyncActivityMock.mockRejectedValueOnce(
-      new Error("cloudsync busy"),
-    );
+    beginCloudsyncActivityMock.mockRejectedValue(new Error("cloudsync busy"));
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
@@ -739,6 +738,9 @@ describe("useStartListening", () => {
       await result.current();
     });
 
+    expect(beginCloudsyncActivityMock).toHaveBeenCalledTimes(
+      CLOUDSYNC_CAPTURE_LEASE_ATTEMPTS,
+    );
     expect(startMock).not.toHaveBeenCalled();
     expect(saveCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
     expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
@@ -751,6 +753,24 @@ describe("useStartListening", () => {
       { id: "capture-state-persist-failed" },
     );
     consoleError.mockRestore();
+    consoleWarn.mockRestore();
+  });
+
+  test("retries capture sync deferral after a transient drain timeout", async () => {
+    beginCloudsyncActivityMock.mockRejectedValueOnce(
+      new Error("CloudSync activity could not drain the in-flight operation"),
+    );
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(beginCloudsyncActivityMock).toHaveBeenCalledTimes(2);
+    expect(saveCaptureLifecycleMarkerMock).toHaveBeenCalledOnce();
+    expect(startMock).toHaveBeenCalledOnce();
+    expect(sonnerToastErrorMock).not.toHaveBeenCalled();
     consoleWarn.mockRestore();
   });
 

@@ -34,6 +34,31 @@ export {
 } from "./meeting-disclosure";
 export { useResumeListeningLifecycle } from "./resume-listening";
 
+export const CLOUDSYNC_CAPTURE_LEASE_ATTEMPTS = 3;
+
+// Each attempt is bounded natively (the drain gives up after a couple of
+// seconds). Starting capture right after the app was focused or a session was
+// created usually lands on a sync round that is still yielding; that first
+// timeout is transient, so retry instead of refusing to record.
+export async function acquireCloudsyncLeaseWithRetry(lifecycle: {
+  acquireCloudsyncLease: () => Promise<void>;
+}) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await lifecycle.acquireCloudsyncLease();
+      return;
+    } catch (error) {
+      if (attempt >= CLOUDSYNC_CAPTURE_LEASE_ATTEMPTS) {
+        throw error;
+      }
+      console.warn(
+        `[listener] CloudSync capture deferral attempt ${attempt} failed, retrying`,
+        error,
+      );
+    }
+  }
+}
+
 export function useStartListening(sessionId: string) {
   return useStartListeningState(sessionId).startListening;
 }
@@ -88,7 +113,7 @@ export function useStartListeningState(sessionId: string) {
       return;
     }
     try {
-      await lifecycle.acquireCloudsyncLease();
+      await acquireCloudsyncLeaseWithRetry(lifecycle);
     } catch (error) {
       console.error("[listener] failed to defer CloudSync for capture", error);
       trackAnalyticsEvent("session_start_failed", {
