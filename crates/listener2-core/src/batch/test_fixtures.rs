@@ -56,13 +56,17 @@ pub(super) fn english_1_coalesced_turns() -> Vec<Turn> {
     turns
 }
 
+fn english_1_mono() -> Vec<f32> {
+    anlg_data::english_1::AUDIO
+        .chunks_exact(2)
+        .map(|chunk| i16::from_le_bytes([chunk[0], chunk[1]]) as f32 / 32768.0)
+        .collect()
+}
+
 /// Splits the two-speaker `english_1` fixture into a stereo file with one
 /// speaker per channel, the shape of a mic + system-audio capture.
 pub(super) fn stereo_fixture() -> tempfile::NamedTempFile {
-    let mono: Vec<f32> = anlg_data::english_1::AUDIO
-        .chunks_exact(2)
-        .map(|chunk| i16::from_le_bytes([chunk[0], chunk[1]]) as f32 / 32768.0)
-        .collect();
+    let mono = english_1_mono();
     let rate = TARGET_SAMPLE_RATE as usize;
     let mut left = vec![0.0f32; mono.len()];
     let mut right = vec![0.0f32; mono.len()];
@@ -76,7 +80,18 @@ pub(super) fn stereo_fixture() -> tempfile::NamedTempFile {
         };
         target[start..end].copy_from_slice(&mono[start..end]);
     }
+    write_stereo_wav(&left, &right)
+}
 
+/// Both `english_1` speakers on the mic channel and silence on system audio:
+/// the shape of an in-person meeting recorded from one laptop.
+pub(super) fn in_person_fixture() -> tempfile::NamedTempFile {
+    let left = english_1_mono();
+    let right = vec![0.0f32; left.len()];
+    write_stereo_wav(&left, &right)
+}
+
+fn write_stereo_wav(left: &[f32], right: &[f32]) -> tempfile::NamedTempFile {
     let file = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
     let mut writer = hound::WavWriter::create(
         file.path(),
@@ -88,7 +103,7 @@ pub(super) fn stereo_fixture() -> tempfile::NamedTempFile {
         },
     )
     .unwrap();
-    for (l, r) in left.iter().zip(&right) {
+    for (l, r) in left.iter().zip(right) {
         writer.write_sample(*l).unwrap();
         writer.write_sample(*r).unwrap();
     }

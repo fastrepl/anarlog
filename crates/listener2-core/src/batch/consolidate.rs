@@ -18,7 +18,7 @@ use owhisper_interface::batch;
 
 use super::diarize::{
     ChannelAudio, DIARIZATION_PROGRESS_START, Heartbeat, MixedAudioSource, SAMPLE_RATE,
-    channel_audio, expected_speaker_cap, is_local_batch,
+    SHARED_MIC_CHANNEL, channel_audio, expected_speaker_cap, in_person_capture, is_local_batch,
 };
 use super::simple::resample_audio_to_channel_files_until;
 use super::{BatchParams, BatchRunOutput, KnownSpeaker};
@@ -59,32 +59,40 @@ pub(super) async fn consolidate_hosted_speakers(
     let transcript_channels = output.response.results.channels.len();
     let recording_channels = usize::from(listen_params.channels).max(1);
     let has_known = !params.known_speakers.is_empty();
+    let in_person = in_person_capture(listen_params, &output.response);
 
-    let work: Vec<ChannelWork> = output
-        .response
-        .results
-        .channels
-        .iter()
-        .enumerate()
-        .filter_map(|(index, channel)| {
-            let (audio, shift) = channel_audio(transcript_channels, recording_channels, index)?;
-            let labels = distinct_labels(channel);
-            if labels.len() < 2 && !has_known {
-                return None;
-            }
-            let cap = expected_speaker_cap(listen_params, shift);
-            let over_cap = cap.is_some_and(|cap| labels.len() > cap);
-            if !over_cap && !has_known {
-                return None;
-            }
-            Some(ChannelWork {
-                index,
-                audio,
-                cap,
-                words: word_timings(channel),
-            })
-        })
-        .collect();
+    let mut work: Vec<ChannelWork> = Vec::new();
+    let mut settled_shared_mic = false;
+    for (index, channel) in output.response.results.channels.iter().enumerate() {
+        let Some((audio, shift)) =
+            channel_audio(transcript_channels, recording_channels, index, in_person)
+        else {
+            continue;
+        };
+        let shared_mic = in_person && index == 0;
+        let labels = distinct_labels(channel);
+        if labels.len() < 2 && !has_known {
+            continue;
+        }
+        let cap = expected_speaker_cap(listen_params, shift);
+        let over_cap = cap.is_some_and(|cap| labels.len() > cap);
+        if !over_cap && !has_known {
+            // The provider already split the room mic correctly; only the
+            // channel needs to change so those people stop rendering as "You".
+            settled_shared_mic |= shared_mic && labels.len() >= 2;
+            continue;
+        }
+        work.push(ChannelWork {
+            index,
+            audio,
+            cap,
+            shared_mic,
+            words: word_timings(channel),
+        });
+    }
+    if settled_shared_mic {
+        share_mic_channel(&mut output.response);
+    }
     if work.is_empty() {
         return;
     }
@@ -130,6 +138,8 @@ struct ChannelWork {
     index: usize,
     audio: ChannelAudio,
     cap: Option<usize>,
+    /// The direct mic of an in-person meeting.
+    shared_mic: bool,
     /// `(start, end, speaker)` per word, per alternative.
     words: Vec<Vec<(f64, f64, Option<usize>)>>,
 }
@@ -139,6 +149,24 @@ struct ChannelRelabel {
     /// Old provider label → new label.
     mapping: Vec<(usize, usize)>,
     identified: usize,
+    shared_mic: bool,
+}
+
+/// Moves the direct-mic words of an in-person meeting to the shared channel so
+/// each person on it renders as their own speaker.
+fn share_mic_channel(response: &mut batch::Response) {
+    if let Some(channel) = response.results.channels.first_mut() {
+        for word in channel
+            .alternatives
+            .iter_mut()
+            .flat_map(|alternative| alternative.words.iter_mut())
+        {
+            word.channel = SHARED_MIC_CHANNEL;
+        }
+    }
+    if let Some(metadata) = response.metadata.as_object_mut() {
+        metadata.insert("shared_mic".to_string(), serde_json::json!(true));
+    }
 }
 
 fn distinct_labels(channel: &batch::Channel) -> Vec<usize> {
@@ -208,6 +236,7 @@ fn consolidate_channels(
             index: channel.index,
             mapping: plan.mapping,
             identified: plan.identified,
+            shared_mic: channel.shared_mic,
         });
     }
     Ok(relabels)
@@ -551,6 +580,7 @@ fn apply_relabels(
     relabels: &[ChannelRelabel],
 ) -> Vec<ChannelConsolidation> {
     let mut summary = Vec::new();
+    let mut shared_mic = false;
     for relabel in relabels {
         let Some(channel) = response.results.channels.get_mut(relabel.index) else {
             continue;
@@ -572,12 +602,16 @@ fn apply_relabels(
                 word.speaker = Some(*new);
             }
         }
+        shared_mic |= relabel.shared_mic && after >= 2;
         summary.push(ChannelConsolidation {
             index: relabel.index,
             before: relabel.mapping.len(),
             after,
             identified: relabel.identified,
         });
+    }
+    if shared_mic {
+        share_mic_channel(response);
     }
 
     if let Some(metadata) = response.metadata.as_object_mut() {
@@ -603,7 +637,7 @@ fn apply_relabels(
 #[cfg(test)]
 mod tests {
     use super::super::test_fixtures::{
-        NeverCancelled, Turn, english_1_coalesced_turns, params, stereo_fixture,
+        NeverCancelled, Turn, english_1_coalesced_turns, in_person_fixture, params, stereo_fixture,
     };
     use super::*;
     use crate::batch::{BatchProvider, BatchRunMode};
@@ -948,6 +982,146 @@ mod tests {
         assert_eq!(speaker0.len(), 1, "speaker0 labels: {speaker0:?}");
         assert_eq!(speaker1.len(), 1, "speaker1 labels: {speaker1:?}");
         assert_ne!(speaker0, speaker1);
+    }
+
+    /// The mic channel of an in-person meeting as a hosted provider labels
+    /// it: speaker0's turns over `speaker0_labels` alternating labels, speaker1
+    /// on the next label.
+    fn in_person_mic_channel(speaker0_labels: usize) -> batch::Channel {
+        let turns = english_1_coalesced_turns();
+        let mut speaker0_index = 0;
+        channel(words_for_turns(&turns, 0, |_, turn| {
+            if turn.speaker == "speaker0" {
+                speaker0_index += 1;
+                Some((speaker0_index - 1) % speaker0_labels)
+            } else {
+                Some(speaker0_labels)
+            }
+        }))
+    }
+
+    fn labels_by_speaker(
+        words: &[batch::Word],
+        turns: &[Turn],
+    ) -> (
+        std::collections::BTreeSet<usize>,
+        std::collections::BTreeSet<usize>,
+    ) {
+        let label_at = |time_ms: u64| {
+            let time = time_ms as f64 / 1000.0;
+            words
+                .iter()
+                .find(|word| word.start <= time && time < word.end)
+                .and_then(|word| word.speaker)
+                .unwrap_or_else(|| panic!("no word at {time_ms} ms"))
+        };
+        let collect = |speaker: &str| {
+            turns
+                .iter()
+                .filter(|turn| turn.speaker == speaker && turn.end - turn.start >= 2_000)
+                .map(|turn| label_at((turn.start + turn.end) / 2))
+                .collect()
+        };
+        (collect("speaker0"), collect("speaker1"))
+    }
+
+    #[tokio::test]
+    async fn in_person_mic_is_consolidated_to_the_room_and_shared() {
+        let file = in_person_fixture();
+        let mut params = params(
+            BatchProvider::Deepgram,
+            "https://api.deepgram.com/v1",
+            file.path().to_str().unwrap(),
+        );
+        params.num_speakers = Some(2);
+        let listen_params = owhisper_interface::ListenParams {
+            channels: 2,
+            num_speakers: Some(2),
+            ..Default::default()
+        };
+        let mut output = output(vec![in_person_mic_channel(2), channel(vec![])]);
+
+        consolidate_hosted_speakers(
+            Arc::new(NeverCancelled),
+            &params,
+            &listen_params,
+            &mut output,
+        )
+        .await;
+
+        let words = &output.response.results.channels[0].alternatives[0].words;
+        assert!(words.iter().all(|word| word.channel == SHARED_MIC_CHANNEL));
+        let (speaker0, speaker1) = labels_by_speaker(words, &english_1_coalesced_turns());
+        assert_eq!(speaker0.len(), 1, "speaker0 labels: {speaker0:?}");
+        assert_eq!(speaker1.len(), 1, "speaker1 labels: {speaker1:?}");
+        assert_ne!(speaker0, speaker1);
+        assert_eq!(output.response.metadata["shared_mic"], true);
+    }
+
+    #[tokio::test]
+    async fn in_person_mic_already_within_count_is_shared_without_decoding() {
+        // Two labels for two people: nothing to merge, so the recording is
+        // never opened, but the words still have to leave the "You" channel.
+        let params = params(
+            BatchProvider::Deepgram,
+            "https://api.deepgram.com/v1",
+            "/nonexistent/recording.wav",
+        );
+        let listen_params = owhisper_interface::ListenParams {
+            channels: 2,
+            num_speakers: Some(2),
+            ..Default::default()
+        };
+        let mut output = output(vec![in_person_mic_channel(1), channel(vec![])]);
+        let before_labels = distinct_labels(&output.response.results.channels[0]);
+
+        consolidate_hosted_speakers(
+            Arc::new(NeverCancelled),
+            &params,
+            &listen_params,
+            &mut output,
+        )
+        .await;
+
+        let mic = &output.response.results.channels[0];
+        assert_eq!(distinct_labels(mic), before_labels);
+        assert!(
+            mic.alternatives[0]
+                .words
+                .iter()
+                .all(|word| word.channel == SHARED_MIC_CHANNEL)
+        );
+    }
+
+    #[tokio::test]
+    async fn call_mic_labels_are_left_alone_even_when_over_split() {
+        // Far-end speech on the remote channel makes this a call; whatever the
+        // provider did to the mic channel, it stays the local user's.
+        let params = params(
+            BatchProvider::Deepgram,
+            "https://api.deepgram.com/v1",
+            "/nonexistent/recording.wav",
+        );
+        let listen_params = owhisper_interface::ListenParams {
+            channels: 2,
+            num_speakers: Some(2),
+            ..Default::default()
+        };
+        let mut output = output(vec![
+            in_person_mic_channel(2),
+            channel(vec![word(100.0, 110.0, 1, Some(0))]),
+        ]);
+        let before = output.response.clone();
+
+        consolidate_hosted_speakers(
+            Arc::new(NeverCancelled),
+            &params,
+            &listen_params,
+            &mut output,
+        )
+        .await;
+
+        assert_eq!(output.response, before);
     }
 
     #[tokio::test]
