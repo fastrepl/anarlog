@@ -8,16 +8,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@anlg/ui/components/ui/tooltip";
 import { cn } from "@anlg/utils";
 
 import {
@@ -26,6 +18,8 @@ import {
   useDevtoolsActions,
 } from "./actions";
 import { copyDiagnostics } from "./diagnostics";
+import { Hint } from "./hint";
+import { MenuGroup, MenuHint } from "./menu";
 import {
   type DevtoolsMetrics,
   formatBytes,
@@ -197,7 +191,7 @@ function DevtoolsStatusBarContent(props: Record<never, never>) {
           <LiveMetrics />
         </div>
 
-        <BarTooltip content="Copy a diagnostics snapshot (build, device, metrics, top commands and components, sync) as JSON">
+        <Hint content="Copy a diagnostics snapshot (build, device, metrics, top commands and components, sync) as JSON">
           <button
             type="button"
             aria-label="Copy diagnostics"
@@ -206,8 +200,8 @@ function DevtoolsStatusBarContent(props: Record<never, never>) {
           >
             ↓
           </button>
-        </BarTooltip>
-        <BarTooltip content="Collapse the developer bar">
+        </Hint>
+        <Hint content="Collapse the developer bar">
           <button
             type="button"
             aria-label="Collapse developer bar"
@@ -216,7 +210,7 @@ function DevtoolsStatusBarContent(props: Record<never, never>) {
           >
             _
           </button>
-        </BarTooltip>
+        </Hint>
       </footer>
       {dialogs}
     </>
@@ -253,7 +247,7 @@ function PlanBadge() {
         : billing.plan;
 
   return (
-    <BarTooltip
+    <Hint
       content={
         <Rows
           rows={[
@@ -266,7 +260,7 @@ function PlanBadge() {
       }
     >
       <div className={cn([ITEM_CLASS, "text-neutral-400"])}>{label}</div>
-    </BarTooltip>
+    </Hint>
   );
 }
 
@@ -460,7 +454,7 @@ function Metric(props: {
   );
 
   return (
-    <BarTooltip content={props.tooltip}>
+    <Hint content={props.tooltip}>
       {as === "button" ? (
         <button type="button" className={BUTTON_CLASS} onClick={onClick}>
           {content}
@@ -468,7 +462,7 @@ function Metric(props: {
       ) : (
         <div className={ITEM_CLASS}>{content}</div>
       )}
-    </BarTooltip>
+    </Hint>
   );
 }
 
@@ -502,27 +496,6 @@ function Rows(props: {
   );
 }
 
-function BarTooltip(props: {
-  children: React.ReactNode;
-  content: React.ReactNode;
-}) {
-  return (
-    <Tooltip delayDuration={200}>
-      <TooltipTrigger asChild>{props.children}</TooltipTrigger>
-      <TooltipContent
-        side="top"
-        sideOffset={6}
-        className={cn([
-          "border-neutral-700 bg-neutral-900/95 text-neutral-200 shadow-xl backdrop-blur",
-          "px-2.5 py-1.5 font-mono text-[11px] leading-4",
-        ])}
-      >
-        {props.content}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
 function DevtoolsMenu(props: {
   children: React.ReactNode;
   onAction: (action: DevtoolsAction) => void;
@@ -534,20 +507,22 @@ function DevtoolsMenu(props: {
         <QuickSettingsMenu />
         <DropdownMenuSeparator />
         {DEVTOOLS_MENU.map((group) => (
-          <DropdownMenuSub key={group.label}>
-            <DropdownMenuSubTrigger>{group.label}</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-56">
-              {group.items.map((item) => (
+          <MenuGroup
+            key={group.label}
+            label={group.label}
+            description={group.description}
+          >
+            {group.items.map((item) => (
+              <MenuHint key={item.action} description={item.description}>
                 <DropdownMenuItem
-                  key={item.action}
                   className={cn([item.destructive && "text-destructive"])}
                   onSelect={() => props.onAction(item.action)}
                 >
                   {item.label}
                 </DropdownMenuItem>
-              ))}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
+              </MenuHint>
+            ))}
+          </MenuGroup>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>

@@ -54,87 +54,229 @@ export type DevtoolsAction =
 
 export type DevtoolsMenuItem = {
   label: string;
+  description: string;
   action: DevtoolsAction;
   destructive?: boolean;
 };
 
-export const DEVTOOLS_MENU: Array<{
+export type DevtoolsMenuGroup = {
   label: string;
+  description: string;
   items: DevtoolsMenuItem[];
-}> = [
+};
+
+export const DEVTOOLS_MENU: DevtoolsMenuGroup[] = [
   {
     label: "Navigation",
+    description: "Reopen flows that are normally only reachable once.",
     items: [
-      { label: "Onboarding", action: "navigation:onboarding" },
-      { label: "Instruction: sign-in", action: "instruction:sign-in" },
-      { label: "Instruction: billing", action: "instruction:billing" },
-      { label: "Instruction: integration", action: "instruction:integration" },
+      {
+        label: "Onboarding",
+        description: "Open the onboarding tab as a first-time user sees it.",
+        action: "navigation:onboarding",
+      },
+      {
+        label: "Instruction: sign-in",
+        description:
+          "Show the continue-in-browser instruction screen used for signing in.",
+        action: "instruction:sign-in",
+      },
+      {
+        label: "Instruction: billing",
+        description:
+          "Show the continue-in-browser instruction screen used for billing.",
+        action: "instruction:billing",
+      },
+      {
+        label: "Instruction: integration",
+        description:
+          "Show the continue-in-browser instruction screen used for integrations.",
+        action: "instruction:integration",
+      },
     ],
   },
   {
     label: "Toasts",
+    description:
+      "Preview each sidebar toast without meeting its real trigger condition.",
     items: [
-      { label: "Language model", action: "toasts:preview:language-model" },
+      {
+        label: "Language model",
+        description: "Preview the toast asking for a language model provider.",
+        action: "toasts:preview:language-model",
+      },
       {
         label: "Transcription model",
+        description:
+          "Preview the toast asking for a transcription provider or model.",
         action: "toasts:preview:transcription-model",
       },
       {
         label: "Transcription error",
+        description: "Preview the toast shown when transcription fails.",
         action: "toasts:preview:transcription-error",
       },
-      { label: "Download", action: "toasts:preview:download" },
-      { label: "Pro", action: "toasts:preview:pro" },
-      { label: "Clear all toasts", action: "toasts:clear", destructive: true },
+      {
+        label: "Download",
+        description: "Preview the model download progress toast.",
+        action: "toasts:preview:download",
+      },
+      {
+        label: "Pro",
+        description: "Preview the Pro upsell toast.",
+        action: "toasts:preview:pro",
+      },
+      {
+        label: "Clear all toasts",
+        description: "Dismiss every previewed toast.",
+        action: "toasts:clear",
+        destructive: true,
+      },
     ],
   },
   {
     label: "OTA",
+    description: "Simulate updater states without publishing a release.",
     items: [
-      { label: "Available", action: "ota:available" },
-      { label: "Downloading", action: "ota:downloading" },
-      { label: "Ready", action: "ota:ready" },
-      { label: "Failed", action: "ota:failed" },
-      { label: "Clear", action: "ota:clear", destructive: true },
+      {
+        label: "Available",
+        description:
+          "Show the banner for a new version that can be downloaded.",
+        action: "ota:available",
+      },
+      {
+        label: "Downloading",
+        description: "Show the banner with download progress.",
+        action: "ota:downloading",
+      },
+      {
+        label: "Ready",
+        description: "Show the banner asking to restart and install.",
+        action: "ota:ready",
+      },
+      {
+        label: "Failed",
+        description: "Show the banner for a failed update.",
+        action: "ota:failed",
+      },
+      {
+        label: "Clear",
+        description: "Remove the simulated update state.",
+        action: "ota:clear",
+        destructive: true,
+      },
     ],
   },
   {
     label: "Notifications",
+    description: "Fire each native notification with sample data.",
     items: [
-      { label: "Calendar", action: "notifications:calendar" },
-      { label: "Mic detected", action: "notifications:mic-detected" },
-      { label: "Mic options", action: "notifications:mic-options" },
-      { label: "Auto-stop", action: "notifications:auto-stop" },
-      { label: "Batch done", action: "notifications:batch-done" },
-      { label: "Clear", action: "notifications:clear", destructive: true },
+      {
+        label: "Calendar",
+        description:
+          "Insert a sample event starting in 5 minutes and show its reminder.",
+        action: "notifications:calendar",
+      },
+      {
+        label: "Mic detected",
+        description:
+          'Show the "Are you in a meeting?" notification for a detected app.',
+        action: "notifications:mic-detected",
+      },
+      {
+        label: "Mic options",
+        description:
+          "Show the meeting-detected notification with the ignore-these-apps footer.",
+        action: "notifications:mic-options",
+      },
+      {
+        label: "Auto-stop",
+        description:
+          'Show the "Did your meeting end?" countdown for the live session.',
+        action: "notifications:auto-stop",
+      },
+      {
+        label: "Batch done",
+        description:
+          "Show the notification for a finished batch transcription.",
+        action: "notifications:batch-done",
+      },
+      {
+        label: "Clear",
+        description: "Dismiss all native notifications.",
+        action: "notifications:clear",
+        destructive: true,
+      },
     ],
   },
   {
     label: "Billing",
+    description: "Open the billing dialogs users see around a trial.",
     items: [
-      { label: "Trial started", action: "billing:trial-started" },
-      { label: "Trial ended", action: "billing:trial-ended" },
+      {
+        label: "Trial started",
+        description: 'Open the "Your Pro trial just started" dialog.',
+        action: "billing:trial-started",
+      },
+      {
+        label: "Trial ended",
+        description: "Open the dialog shown when a trial ends without payment.",
+        action: "billing:trial-ended",
+      },
     ],
   },
   {
     label: "Countdown",
+    description:
+      "Create a note for a meeting that starts soon, to exercise pre-meeting flows.",
     items: [
-      { label: "Note 1m", action: "countdown:note-60" },
-      { label: "Note 5m", action: "countdown:note-300" },
-      { label: "Zoom 1m", action: "countdown:zoom-60" },
-      { label: "Zoom 5m", action: "countdown:zoom-300" },
+      {
+        label: "Note 1m",
+        description: "Create a note whose meeting starts in 1 minute.",
+        action: "countdown:note-60",
+      },
+      {
+        label: "Note 5m",
+        description: "Create a note whose meeting starts in 5 minutes.",
+        action: "countdown:note-300",
+      },
+      {
+        label: "Zoom 1m",
+        description:
+          "Create a note with a Zoom link whose meeting starts in 1 minute.",
+        action: "countdown:zoom-60",
+      },
+      {
+        label: "Zoom 5m",
+        description:
+          "Create a note with a Zoom link whose meeting starts in 5 minutes.",
+        action: "countdown:zoom-300",
+      },
     ],
   },
   {
     label: "Data",
+    description: "Seed sample data into the local database.",
     items: [
-      { label: "Seed recurring meeting notes", action: "data:recurring-notes" },
+      {
+        label: "Seed recurring meeting notes",
+        description:
+          "Create a recurring series with three past notes and key facts to exercise the Insights tab. Needs a CloudSync workspace.",
+        action: "data:recurring-notes",
+      },
     ],
   },
   {
     label: "Error",
+    description: "Break the UI on purpose to check error handling.",
     items: [
-      { label: "Trigger error", action: "error:trigger", destructive: true },
+      {
+        label: "Trigger error",
+        description:
+          "Throw from the bar to show the error screen. Reload to recover.",
+        action: "error:trigger",
+        destructive: true,
+      },
     ],
   },
 ];

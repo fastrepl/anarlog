@@ -48,15 +48,6 @@ vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
     <div data-testid="devtools-menu">{children}</div>
   ),
   DropdownMenuSeparator: () => <hr />,
-  DropdownMenuSub: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  DropdownMenuSubTrigger: ({ children }: { children: React.ReactNode }) => (
-    <span>{children}</span>
-  ),
-  DropdownMenuSubContent: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
   DropdownMenuItem: ({
     children,
     onSelect,
@@ -70,12 +61,32 @@ vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
   ),
 }));
 
-vi.mock("@anlg/ui/components/ui/tooltip", () => ({
-  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  TooltipTrigger: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
+vi.mock("./hint", () => ({
+  Hint: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+vi.mock("./menu", () => ({
+  MenuGroup: ({
+    label,
+    description,
+    children,
+  }: {
+    label: string;
+    description: string;
+    children: React.ReactNode;
+  }) => (
+    <section aria-label={label}>
+      <p>{description}</p>
+      {children}
+    </section>
   ),
-  TooltipContent: () => null,
+  MenuHint: ({
+    description,
+    children,
+  }: {
+    description: string;
+    children: React.ReactNode;
+  }) => <div data-hint={description}>{children}</div>,
 }));
 
 vi.mock("~/auth", () => ({
@@ -90,10 +101,16 @@ vi.mock("./actions", () => ({
   DEVTOOLS_MENU: [
     {
       label: "Toasts",
+      description: "Preview each sidebar toast.",
       items: [
-        { label: "Language model", action: "toasts:preview:language-model" },
+        {
+          label: "Language model",
+          description: "Preview the language model toast.",
+          action: "toasts:preview:language-model",
+        },
         {
           label: "Clear all toasts",
+          description: "Dismiss every previewed toast.",
           action: "toasts:clear",
           destructive: true,
         },
@@ -258,6 +275,20 @@ describe("DevtoolsStatusBar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear all toasts" }));
 
     expect(mocks.runAction).toHaveBeenCalledWith("toasts:clear");
+  });
+
+  it("describes menu groups and items", async () => {
+    renderBar();
+
+    await screen.findByTestId("devtools-status-bar");
+    const group = screen.getByRole("region", { name: "Toasts" });
+    expect(group.textContent).toContain("Preview each sidebar toast.");
+    expect(
+      screen
+        .getByRole("button", { name: "Clear all toasts" })
+        .closest("[data-hint]")
+        ?.getAttribute("data-hint"),
+    ).toBe("Dismiss every previewed toast.");
   });
 
   it("toggles render outlines from the renders metric", async () => {
