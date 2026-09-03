@@ -50,13 +50,7 @@ struct Ctx {
 use super::{BUFFER_SIZE, CHUNK_SIZE};
 
 impl SpeakerInput {
-    pub fn new(device: Option<String>) -> Result<Self> {
-        if device.as_deref().is_some_and(|name| !name.is_empty()) {
-            tracing::debug!(
-                preferred = device.as_deref(),
-                "macos_speaker_device_selection_ignored_global_tap"
-            );
-        }
+    pub fn new() -> Result<Self> {
         let tap_desc = ca::TapDesc::with_mono_global_tap_excluding_processes(&ns::Array::new());
         let tap = tap_desc.create_process_tap()?;
         let tap_uid = tap.uid()?;
@@ -89,34 +83,6 @@ impl SpeakerInput {
             agg_desc,
             sample_rate,
         })
-    }
-
-    pub fn list_devices() -> Vec<String> {
-        let Ok(ca_devices) = ca::System::devices() else {
-            return Vec::new();
-        };
-
-        let mut names = Vec::new();
-        for device in ca_devices {
-            let Ok(name) = device.name() else {
-                continue;
-            };
-            let name = name.to_string();
-            if name.contains(crate::TAP_DEVICE_NAME) {
-                continue;
-            }
-
-            let addr =
-                ca::PropSelector::DEVICE_STREAMS.addr(ca::PropScope::OUTPUT, ca::PropElement::MAIN);
-            let has_output = device
-                .prop_size(&addr)
-                .map(|size| size > 0)
-                .unwrap_or(false);
-            if has_output {
-                names.push(name);
-            }
-        }
-        names
     }
 
     pub fn sample_rate(&self) -> u32 {

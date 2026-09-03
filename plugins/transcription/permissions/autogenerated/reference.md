@@ -5,7 +5,6 @@ Default permissions for the plugin
 #### This default permission set includes the following:
 
 - `allow-list-microphone-devices`
-- `allow-list-speaker-devices`
 - `allow-get-current-microphone-device`
 - `allow-start-capture`
 - `allow-stop-capture`
@@ -348,32 +347,6 @@ Enables the list_microphone_devices command without any pre-configured scope.
 <td>
 
 Denies the list_microphone_devices command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`transcription:allow-list-speaker-devices`
-
-</td>
-<td>
-
-Enables the list_speaker_devices command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`transcription:deny-list-speaker-devices`
-
-</td>
-<td>
-
-Denies the list_speaker_devices command without any pre-configured scope.
 
 </td>
 </tr>

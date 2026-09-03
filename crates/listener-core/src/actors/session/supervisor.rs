@@ -563,7 +563,6 @@ mod tests {
         }
         fn open_speaker_capture(
             &self,
-            _device: Option<String>,
             _sample_rate: u32,
             _chunk_size: usize,
         ) -> Result<CaptureStream, anlg_audio::Error> {
@@ -581,9 +580,6 @@ mod tests {
             "test".to_string()
         }
         fn list_mic_devices(&self) -> Vec<String> {
-            vec![]
-        }
-        fn list_speaker_devices(&self) -> Vec<String> {
             vec![]
         }
         fn play_silence(&self) -> std::sync::mpsc::Sender<()> {
@@ -689,7 +685,6 @@ mod tests {
                 api_key: "test-key".to_string(),
                 keywords: vec![],
                 mic_device: None,
-                speaker_device: None,
                 participant_human_ids: vec![],
                 self_human_id: None,
             },

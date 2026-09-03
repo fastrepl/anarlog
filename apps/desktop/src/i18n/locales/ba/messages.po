@@ -982,10 +982,6 @@ msgstr ""
 msgid "Choose the microphone that captures your voice."
 msgstr ""
 
-#: src/settings/general/audio-settings.tsx
-msgid "Choose the speakers that play other participants so Anarlog records them."
-msgstr ""
-
 #: src/settings/general/week-start.tsx
 msgid "Choose which day begins your calendar week."
 msgstr ""
@@ -4481,10 +4477,6 @@ msgstr ""
 #: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
 msgid "Sort options"
-msgstr ""
-
-#: src/settings/general/audio-settings.tsx
-msgid "Speakers"
 msgstr ""
 
 #: src/settings/general/storage/legacy-cleanup.tsx

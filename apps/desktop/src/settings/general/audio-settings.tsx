@@ -18,7 +18,6 @@ import {
 export function AudioSettingsView({
   audioRetention,
   microphoneDevice,
-  speakerDevice,
   rememberSpeakers,
 }: {
   audioRetention: {
@@ -26,11 +25,6 @@ export function AudioSettingsView({
     onChange: (value: string) => void;
   };
   microphoneDevice: {
-    value: string;
-    devices: string[];
-    onChange: (value: string) => void;
-  };
-  speakerDevice: {
     value: string;
     devices: string[];
     onChange: (value: string) => void;
@@ -50,18 +44,6 @@ export function AudioSettingsView({
         value={microphoneDevice.value}
         devices={microphoneDevice.devices}
         onChange={microphoneDevice.onChange}
-      />
-      <AudioDeviceRow
-        title={<Trans>Speakers</Trans>}
-        description={
-          <Trans>
-            Choose the speakers that play other participants so Anarlog records
-            them.
-          </Trans>
-        }
-        value={speakerDevice.value}
-        devices={speakerDevice.devices}
-        onChange={speakerDevice.onChange}
       />
       <AudioRetentionRow
         value={audioRetention.value}

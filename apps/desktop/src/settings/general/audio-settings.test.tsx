@@ -9,11 +9,6 @@ function renderAudioSettings({
     devices: ["External Microphone"],
     onChange: vi.fn(),
   },
-  speakerDevice = {
-    value: "",
-    devices: ["External Speakers"],
-    onChange: vi.fn(),
-  },
   rememberSpeakers = {
     value: false,
     onChange: vi.fn(),
@@ -23,7 +18,6 @@ function renderAudioSettings({
     <AudioSettingsView
       audioRetention={{ value: "forever", onChange: vi.fn() }}
       microphoneDevice={microphoneDevice}
-      speakerDevice={speakerDevice}
       rememberSpeakers={rememberSpeakers}
     />,
   );
@@ -32,17 +26,15 @@ function renderAudioSettings({
 describe("AudioSettingsView", () => {
   afterEach(cleanup);
 
-  it("puts the microphone and speaker selectors first and selects the system default", () => {
+  it("puts the microphone selector first and selects the system default", () => {
     renderAudioSettings();
 
     const controls = screen.getAllByRole("combobox");
     expect(controls[0]).toBe(
       screen.getByRole("combobox", { name: "Microphone" }),
     );
-    expect(controls[1]).toBe(
-      screen.getByRole("combobox", { name: "Speakers" }),
-    );
-    expect(screen.getAllByText("Current default")).toHaveLength(2);
+    expect(screen.queryByRole("combobox", { name: "Speakers" })).toBeNull();
+    expect(screen.getAllByText("Current default")).toHaveLength(1);
   });
 
   it("shows when the selected microphone is unavailable and will fall back", () => {
@@ -59,20 +51,6 @@ describe("AudioSettingsView", () => {
     ).toContain(
       "Disconnected Microphone (Unavailable — using current default)",
     );
-  });
-
-  it("shows when the selected speakers are unavailable and will fall back", () => {
-    renderAudioSettings({
-      speakerDevice: {
-        value: "Disconnected Speakers",
-        devices: ["External Speakers"],
-        onChange: vi.fn(),
-      },
-    });
-
-    expect(
-      screen.getByRole("combobox", { name: "Speakers" }).textContent,
-    ).toContain("Disconnected Speakers (Unavailable — using current default)");
   });
 
   it("toggles remember speakers through its switch", () => {

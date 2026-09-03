@@ -1,6 +1,5 @@
 const COMMANDS: &[&str] = &[
     "list_microphone_devices",
-    "list_speaker_devices",
     "get_current_microphone_device",
     "get_mic_muted",
     "set_mic_muted",

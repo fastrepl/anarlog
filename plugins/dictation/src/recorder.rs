@@ -198,7 +198,6 @@ mod tests {
 
         fn open_speaker_capture(
             &self,
-            _device: Option<String>,
             _sample_rate: u32,
             _chunk_size: usize,
         ) -> Result<CaptureStream, anlg_audio::Error> {
@@ -231,10 +230,6 @@ mod tests {
 
         fn list_mic_devices(&self) -> Vec<String> {
             vec![self.default_device_name()]
-        }
-
-        fn list_speaker_devices(&self) -> Vec<String> {
-            vec![]
         }
 
         fn play_silence(&self) -> std::sync::mpsc::Sender<()> {

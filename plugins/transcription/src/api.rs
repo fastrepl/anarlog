@@ -34,8 +34,6 @@ pub struct CaptureParams {
     #[serde(default)]
     pub mic_device: Option<String>,
     #[serde(default)]
-    pub speaker_device: Option<String>,
-    #[serde(default)]
     pub transcription_mode: Option<listener::TranscriptionMode>,
     #[serde(default)]
     pub participant_human_ids: Vec<String>,
@@ -202,7 +200,6 @@ impl From<CaptureParams> for listener::actors::SessionParams {
             api_key: value.api_key,
             keywords: value.keywords,
             mic_device: value.mic_device,
-            speaker_device: value.speaker_device,
             participant_human_ids: value.participant_human_ids,
             self_human_id: value.self_human_id,
         }
@@ -368,7 +365,6 @@ mod tests {
             api_key: "test-key".to_string(),
             keywords: vec![],
             mic_device: None,
-            speaker_device: None,
             transcription_mode: None,
             participant_human_ids: vec![],
             self_human_id: None,
@@ -390,16 +386,6 @@ mod tests {
         let session: anlg_transcription_core::listener::actors::SessionParams = params.into();
 
         assert_eq!(session.mic_device.as_deref(), Some("External Microphone"));
-    }
-
-    #[test]
-    fn preserves_selected_speaker_for_listener_session() {
-        let mut params = capture_params("https://api.deepgram.com/v1", "nova-3-general");
-        params.speaker_device = Some("External Speakers".to_string());
-
-        let session: anlg_transcription_core::listener::actors::SessionParams = params.into();
-
-        assert_eq!(session.speaker_device.as_deref(), Some("External Speakers"));
     }
 
     #[test]
