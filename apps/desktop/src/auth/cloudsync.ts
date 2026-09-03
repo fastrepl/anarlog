@@ -223,9 +223,15 @@ function scheduleCloudsyncSessionEvictionRetry(activeGeneration: number) {
   }, EVICTION_RETRY_DELAY_MS);
 }
 
+/**
+ * `superseded` means a newer CloudSync transition started before the local
+ * bind ran, so nothing was verified; callers must not treat it as admission.
+ */
+export type CloudsyncAccountAdmission = "claimed" | "mismatch" | "superseded";
+
 export async function bindCloudsyncAccountForAuth(
   accountUserId: string,
-): Promise<boolean> {
+): Promise<CloudsyncAccountAdmission> {
   const activeGeneration = beginTransition();
   signedOutGeneration = null;
   currentCloudsyncReactivation = null;
@@ -247,7 +253,7 @@ export async function bindCloudsyncAccountForAuth(
       clearTimeout(timeout);
     }
     if (activeGeneration !== generation) {
-      return true;
+      return "superseded";
     }
     if (result === "timed_out") {
       teardownTimedOut = true;
@@ -264,7 +270,7 @@ export async function bindCloudsyncAccountForAuth(
       suspendCloudsyncPreemptivelyForGeneration(activeGeneration),
     );
     if (activeGeneration !== generation) {
-      return true;
+      return "superseded";
     }
     if (cleanup.status === "timed_out" || !cleanup.value) {
       throw new Error("cloudsync cleanup unavailable");
@@ -287,15 +293,18 @@ export async function bindCloudsyncAccountForAuth(
         claimed: await bindCloudsyncAccount(accountUserId),
       };
     });
-    if (activeGeneration !== generation || queuedBinding.status === "stale") {
-      return true;
+    if (queuedBinding.status === "stale") {
+      return "superseded";
     }
     if (queuedBinding.status === "cleanup_required") {
+      if (activeGeneration !== generation) {
+        return "superseded";
+      }
       const cleanup = await settleCloudsyncOperationWithin(
         suspendCloudsyncPreemptivelyForGeneration(activeGeneration),
       );
       if (activeGeneration !== generation) {
-        return true;
+        return "superseded";
       }
       if (cleanup.status === "timed_out" || !cleanup.value) {
         throw new Error("cloudsync cleanup unavailable");
@@ -305,8 +314,11 @@ export async function bindCloudsyncAccountForAuth(
       claimed = queuedBinding.claimed;
     }
   }
+  // The local bind ran, so its answer stands even if CloudSync moved on; only
+  // the generation-bound cleanup below is skipped.
+  const admission: CloudsyncAccountAdmission = claimed ? "claimed" : "mismatch";
   if (activeGeneration !== generation) {
-    return true;
+    return admission;
   }
 
   if (isCleanupSuspendRequired()) {
@@ -314,14 +326,14 @@ export async function bindCloudsyncAccountForAuth(
       suspendCloudsyncPreemptivelyForGeneration(activeGeneration),
     );
     if (activeGeneration !== generation) {
-      return true;
+      return admission;
     }
     if (cleanup.status === "timed_out" || !cleanup.value) {
       throw new Error("cloudsync cleanup unavailable");
     }
   }
 
-  return claimed;
+  return admission;
 }
 
 async function suspendCloudsyncNow() {

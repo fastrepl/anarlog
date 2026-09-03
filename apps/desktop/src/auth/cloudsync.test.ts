@@ -292,7 +292,9 @@ describe("CloudSync auth lifecycle", () => {
   });
 
   test("binds the local account without a token exchange", async () => {
-    await expect(bindCloudsyncAccountForAuth("user-id")).resolves.toBe(true);
+    await expect(bindCloudsyncAccountForAuth("user-id")).resolves.toBe(
+      "claimed",
+    );
 
     expect(bindCloudsyncAccount).toHaveBeenCalledWith("user-id");
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
@@ -1659,7 +1661,7 @@ describe("CloudSync auth lifecycle", () => {
     const binding = bindCloudsyncAccountForAuth("user-id");
     await vi.advanceTimersByTimeAsync(0);
 
-    await expect(binding).resolves.toBe(true);
+    await expect(binding).resolves.toBe("claimed");
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
     expect(bindCloudsyncAccount).toHaveBeenCalledTimes(1);
     expect(
@@ -1743,7 +1745,7 @@ describe("CloudSync auth lifecycle", () => {
     status.resolve(cloudsyncStatus());
     await status.promise;
     await activation;
-    await expect(binding).resolves.toBe(true);
+    await expect(binding).resolves.toBe("claimed");
 
     expect(bindCloudsyncAccount).toHaveBeenCalledTimes(1);
   });
@@ -1764,9 +1766,21 @@ describe("CloudSync auth lifecycle", () => {
     status.resolve(cloudsyncStatus());
     await status.promise;
     await activation;
-    await expect(binding).resolves.toBe(true);
+    await expect(binding).resolves.toBe("superseded");
 
     expect(bindCloudsyncAccount).not.toHaveBeenCalled();
+  });
+
+  test("reports a mismatch even when CloudSync moved on after the bind ran", async () => {
+    vi.mocked(bindCloudsyncAccount).mockImplementationOnce(async () => {
+      await handleCloudsyncAuthChange("SIGNED_OUT", null);
+      return false;
+    });
+
+    await expect(bindCloudsyncAccountForAuth("user-id")).resolves.toBe(
+      "mismatch",
+    );
+    expect(bindCloudsyncAccount).toHaveBeenCalledTimes(1);
   });
 
   test("suspends a configuration superseded while it is in flight", async () => {
@@ -1913,7 +1927,9 @@ describe("CloudSync auth lifecycle", () => {
     expect(getE2eeIdentityStatus).toHaveBeenCalledTimes(1);
 
     await handleCloudsyncAuthChange("SIGNED_OUT", null);
-    await expect(bindCloudsyncAccountForAuth("user-id")).resolves.toBe(true);
+    await expect(bindCloudsyncAccountForAuth("user-id")).resolves.toBe(
+      "claimed",
+    );
     expect(bindCloudsyncAccount).toHaveBeenCalledTimes(1);
 
     await vi.advanceTimersByTimeAsync(25 * 1000);

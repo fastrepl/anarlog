@@ -26,6 +26,7 @@ import { AuthContext } from "./auth-context";
 import { persistAuthSession, supabase } from "./client";
 import {
   bindCloudsyncAccountForAuth,
+  type CloudsyncAccountAdmission,
   handleCloudsyncAuthChange,
   prepareCloudsyncSignOut,
   refreshCloudsyncForSession,
@@ -59,6 +60,9 @@ const ACCOUNT_MISMATCH_TOAST_ID = "auth-account-mismatch";
 // Account admission runs behind the CloudSync plugin queue. If that queue is
 // jammed, auth must not stay hidden forever; admission finishes late instead.
 const ACCOUNT_ADMISSION_TIMEOUT_MS = 15_000;
+// A CloudSync refresh (e.g. on window focus) can preempt the bind before it
+// runs. Retry a few times; each attempt itself supersedes that refresh.
+const ACCOUNT_ADMISSION_MAX_ATTEMPTS = 3;
 
 async function settleWithin<T>(
   operation: Promise<T>,
@@ -355,23 +359,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const admitAccount = useCallback(
+    async (
+      accountUserId: string,
+      transition: number,
+    ): Promise<CloudsyncAccountAdmission> => {
+      let admission: CloudsyncAccountAdmission = "superseded";
+      for (
+        let attempt = 0;
+        attempt < ACCOUNT_ADMISSION_MAX_ATTEMPTS &&
+        transition === authTransitionRef.current;
+        attempt += 1
+      ) {
+        admission = await bindCloudsyncAccountForAuth(accountUserId);
+        if (admission !== "superseded") {
+          break;
+        }
+      }
+      return admission;
+    },
+    [],
+  );
+
   const finishLateAdmission = useCallback(
     (
       event: AuthChangeEvent,
       nextSession: Session,
       transition: number,
       storageRevision: number,
-      admission: Promise<boolean>,
+      admission: Promise<CloudsyncAccountAdmission>,
     ) => {
       void admission
         .then(
-          async (claimed) => {
+          async (outcome) => {
             if (transition !== authTransitionRef.current) {
               return;
             }
-            if (!claimed) {
+            if (outcome === "mismatch") {
               console.warn("[auth] local database belongs to another account");
               await rejectAccountMismatch(transition);
+              return;
+            }
+            if (outcome === "superseded") {
+              console.warn(
+                "[auth] local database account verification was superseded; keeping the local session unadmitted",
+              );
               return;
             }
             sonnerToast.dismiss(ACCOUNT_MISMATCH_TOAST_ID);
@@ -442,8 +474,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (nextSession) {
-        const admission = bindCloudsyncAccountForAuth(nextSession.user.id);
-        let claimed: boolean;
+        const admission = admitAccount(nextSession.user.id, transition);
+        let outcome: CloudsyncAccountAdmission;
         try {
           const settled = await settleWithin(
             admission,
@@ -470,7 +502,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             );
             return;
           }
-          claimed = settled.value;
+          outcome = settled.value;
         } catch {
           if (transition !== authTransitionRef.current) {
             return;
@@ -482,9 +514,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           void enqueueAuthAnalytics(() => trackAuthEvent(event, nextSession));
           return;
         }
-        if (!claimed) {
+        if (outcome === "mismatch") {
           console.warn("[auth] local database belongs to another account");
           await rejectAccountMismatch(transition);
+          return;
+        }
+        if (outcome === "superseded") {
+          console.warn(
+            "[auth] local database account verification was superseded; preserving the local session",
+          );
+          commitSession(nextSession);
+          void enqueueAuthAnalytics(() => trackAuthEvent(event, nextSession));
           return;
         }
         sonnerToast.dismiss(ACCOUNT_MISMATCH_TOAST_ID);
@@ -504,6 +544,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await applyCloudsyncAuthChange(event, nextSession, transition);
     },
     [
+      admitAccount,
       applyCloudsyncAuthChange,
       commitSession,
       coordinateMainSignOut,

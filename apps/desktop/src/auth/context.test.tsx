@@ -12,6 +12,7 @@ import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useAuth } from "./auth-context";
+import type { CloudsyncAccountAdmission } from "./cloudsync";
 import * as authProviderModule from "./context";
 
 const { AuthProvider } = authProviderModule;
@@ -273,7 +274,7 @@ describe("AuthProvider", () => {
     mocks.stopAutoRefresh.mockReset();
     mocks.toastDismiss.mockReset();
     mocks.toastError.mockReset();
-    mocks.bindCloudsyncAccountForAuth.mockResolvedValue(true);
+    mocks.bindCloudsyncAccountForAuth.mockResolvedValue("claimed");
     mocks.clearAuthStorage.mockResolvedValue(undefined);
     mocks.emit.mockResolvedValue(undefined);
     mocks.emitTo.mockResolvedValue(undefined);
@@ -647,7 +648,7 @@ describe("AuthProvider", () => {
   it("routes secondary-window account rejection through the main window", async () => {
     const foreignSession = makeSession("foreign-account");
     mocks.currentWebviewWindowLabel = "note-session-id";
-    mocks.bindCloudsyncAccountForAuth.mockResolvedValue(false);
+    mocks.bindCloudsyncAccountForAuth.mockResolvedValue("mismatch");
     vi.spyOn(console, "warn").mockImplementation(() => {});
 
     renderAuthProvider();
@@ -688,7 +689,7 @@ describe("AuthProvider", () => {
   it("preserves shared auth when main rejects secondary cleanup", async () => {
     const foreignSession = makeSession("foreign-account");
     mocks.currentWebviewWindowLabel = "note-session-id";
-    mocks.bindCloudsyncAccountForAuth.mockResolvedValue(false);
+    mocks.bindCloudsyncAccountForAuth.mockResolvedValue("mismatch");
     vi.spyOn(console, "warn").mockImplementation(() => {});
 
     renderAuthProvider();
@@ -1332,7 +1333,7 @@ describe("AuthProvider", () => {
 
   it("keeps a session hidden until its local account claim succeeds", async () => {
     const nextSession = makeSession("bound-account");
-    const claim = deferred<boolean>();
+    const claim = deferred<CloudsyncAccountAdmission>();
     mocks.bindCloudsyncAccountForAuth.mockReturnValue(claim.promise);
 
     renderAuthProvider();
@@ -1359,7 +1360,7 @@ describe("AuthProvider", () => {
     );
 
     await act(async () => {
-      claim.resolve(true);
+      claim.resolve("claimed");
       await claim.promise;
     });
 
@@ -1372,7 +1373,7 @@ describe("AuthProvider", () => {
 
   it("keeps a rapid sign-out then sign-in hidden until the new account is claimed", async () => {
     const nextSession = makeSession("new-account");
-    const claim = deferred<boolean>();
+    const claim = deferred<CloudsyncAccountAdmission>();
     mocks.bindCloudsyncAccountForAuth.mockReturnValue(claim.promise);
 
     renderAuthProvider();
@@ -1403,7 +1404,7 @@ describe("AuthProvider", () => {
     );
 
     await act(async () => {
-      claim.resolve(true);
+      claim.resolve("claimed");
       await claim.promise;
     });
 
@@ -1442,7 +1443,7 @@ describe("AuthProvider", () => {
     });
 
     mocks.bindCloudsyncAccountForAuth.mockReturnValueOnce(
-      new Promise<boolean>(() => {}),
+      new Promise<CloudsyncAccountAdmission>(() => {}),
     );
 
     act(() => {
@@ -1537,7 +1538,7 @@ describe("AuthProvider", () => {
       );
     });
 
-    const claim = deferred<boolean>();
+    const claim = deferred<CloudsyncAccountAdmission>();
     mocks.bindCloudsyncAccountForAuth.mockReturnValueOnce(claim.promise);
 
     act(() => {
@@ -1552,7 +1553,7 @@ describe("AuthProvider", () => {
     );
 
     await act(async () => {
-      claim.resolve(true);
+      claim.resolve("claimed");
       await claim.promise;
     });
     await waitFor(() => {
@@ -1562,9 +1563,109 @@ describe("AuthProvider", () => {
     });
   });
 
+  it("re-runs admission when a CloudSync refresh supersedes the local bind", async () => {
+    const nextSession = makeSession("bound-account");
+    mocks.bindCloudsyncAccountForAuth
+      .mockResolvedValueOnce("superseded")
+      .mockResolvedValueOnce("claimed");
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", nextSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        nextSession.user.id,
+      );
+    });
+    expect(mocks.bindCloudsyncAccountForAuth).toHaveBeenCalledTimes(2);
+    expect(mocks.handleCloudsyncAuthChange).toHaveBeenCalledWith(
+      "SIGNED_IN",
+      nextSession,
+      expect.any(Function),
+    );
+  });
+
+  it("does not admit an account whose bind keeps being superseded", async () => {
+    const nextSession = makeSession("bound-account");
+    const refreshedSession = {
+      ...nextSession,
+      access_token: "refreshed-access-token",
+    };
+    mocks.bindCloudsyncAccountForAuth.mockResolvedValue("superseded");
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", nextSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        nextSession.user.id,
+      );
+    });
+    expect(mocks.bindCloudsyncAccountForAuth).toHaveBeenCalledTimes(3);
+    expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalled();
+
+    // Still unadmitted: the next refresh must go back through admission.
+    mocks.bindCloudsyncAccountForAuth.mockResolvedValue("mismatch");
+    act(() => {
+      mocks.authCallback?.("TOKEN_REFRESHED", refreshedSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe("none");
+    });
+    expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not admit late when the stalled bind resolves as superseded", async () => {
+    const nextSession = makeSession("bound-account");
+    const claim = deferred<CloudsyncAccountAdmission>();
+    mocks.bindCloudsyncAccountForAuth
+      .mockReturnValueOnce(claim.promise)
+      .mockResolvedValue("superseded");
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    vi.useFakeTimers();
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", nextSession);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_000);
+    });
+    expect(screen.getByTestId("session").textContent).toBe(nextSession.user.id);
+
+    await act(async () => {
+      claim.resolve("superseded");
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(mocks.bindCloudsyncAccountForAuth).toHaveBeenCalledTimes(3);
+    expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalled();
+    expect(screen.getByTestId("session").textContent).toBe(nextSession.user.id);
+  });
+
   it("preserves the local session when account admission stalls and finishes it late", async () => {
     const nextSession = makeSession("bound-account");
-    const claim = deferred<boolean>();
+    const claim = deferred<CloudsyncAccountAdmission>();
     mocks.bindCloudsyncAccountForAuth.mockReturnValue(claim.promise);
     vi.spyOn(console, "warn").mockImplementation(() => {});
 
@@ -1597,7 +1698,7 @@ describe("AuthProvider", () => {
     const refreshStartsBeforeAdmission =
       mocks.startAutoRefresh.mock.calls.length;
     await act(async () => {
-      claim.resolve(true);
+      claim.resolve("claimed");
       await vi.advanceTimersByTimeAsync(0);
     });
     expect(mocks.startAutoRefresh.mock.calls.length).toBeGreaterThan(
@@ -1640,7 +1741,7 @@ describe("AuthProvider", () => {
       expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
     });
 
-    const claim = deferred<boolean>();
+    const claim = deferred<CloudsyncAccountAdmission>();
     mocks.bindCloudsyncAccountForAuth.mockReturnValueOnce(claim.promise);
     vi.useFakeTimers();
     act(() => {
@@ -1661,7 +1762,7 @@ describe("AuthProvider", () => {
     expect(mocks.persistAuthSession).not.toHaveBeenCalled();
 
     await act(async () => {
-      claim.resolve(true);
+      claim.resolve("claimed");
       await vi.advanceTimersByTimeAsync(0);
     });
     expect(mocks.persistAuthSession).toHaveBeenCalledWith(refreshedSession);
@@ -1699,7 +1800,7 @@ describe("AuthProvider", () => {
       boundSession.access_token,
     );
 
-    mocks.bindCloudsyncAccountForAuth.mockResolvedValue(false);
+    mocks.bindCloudsyncAccountForAuth.mockResolvedValue("mismatch");
     act(() => {
       mocks.authCallback?.("TOKEN_REFRESHED", refreshedSession);
     });
@@ -1727,7 +1828,7 @@ describe("AuthProvider", () => {
 
   it("rejects a stalled admission that later reports another account", async () => {
     const foreignSession = makeSession("foreign-account");
-    const claim = deferred<boolean>();
+    const claim = deferred<CloudsyncAccountAdmission>();
     mocks.bindCloudsyncAccountForAuth.mockReturnValue(claim.promise);
     vi.spyOn(console, "warn").mockImplementation(() => {});
 
@@ -1749,7 +1850,7 @@ describe("AuthProvider", () => {
     );
 
     await act(async () => {
-      claim.resolve(false);
+      claim.resolve("mismatch");
       await vi.advanceTimersByTimeAsync(0);
     });
     expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
@@ -1762,7 +1863,7 @@ describe("AuthProvider", () => {
 
   it("rejects a different local database account before admission", async () => {
     const foreignSession = makeSession("foreign-account");
-    mocks.bindCloudsyncAccountForAuth.mockResolvedValue(false);
+    mocks.bindCloudsyncAccountForAuth.mockResolvedValue("mismatch");
     vi.spyOn(console, "warn").mockImplementation(() => {});
 
     renderAuthProvider();
