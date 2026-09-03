@@ -26,13 +26,14 @@ pub(super) async fn start_source_loop(
 
     st.pipeline.reset();
 
+    st.active_mic_device = active_mic_device(st.mic_device.clone(), st.audio.as_ref());
     let capture = capture_settings();
     let result = start_streams(myself, st, capture).await;
 
     if result.is_ok() {
         st.runtime.emit_progress(SessionProgressEvent::AudioReady {
             session_id: st.session_id.clone(),
-            device: st.mic_device.clone(),
+            device: st.active_mic_device.clone(),
         });
         if new_mode == ChannelMode::MicAndSpeaker {
             st.runtime.emit_data(SessionDataEvent::MicIsolated {
@@ -77,6 +78,30 @@ fn resolve_capture_settings(no_aec_override: bool, headphone_output: bool) -> Ca
     }
 }
 
+// Opening a Bluetooth headset's mic forces it into HFP: the headset gates the mic to silence
+// between words and the wearer's audio drops to 16 kHz. Only the system default is swapped; an
+// explicit selection is respected.
+fn active_mic_device(explicit: Option<String>, audio: &dyn AudioProvider) -> Option<String> {
+    if explicit.is_some() {
+        return explicit;
+    }
+
+    let replacement = anlg_audio_device::wired_input_replacing_bluetooth_default()?;
+    // The provider enumerates by name, and only macOS/Windows share names with the device layer.
+    let active = audio
+        .list_mic_devices()
+        .into_iter()
+        .find(|name| *name == replacement.name);
+    match &active {
+        Some(device) => tracing::info!(device = %device, "bluetooth_default_mic_replaced"),
+        None => tracing::warn!(
+            device = %replacement.name,
+            "bluetooth_default_mic_replacement_unavailable"
+        ),
+    }
+    active
+}
+
 async fn start_streams(
     myself: &ActorRef<SourceMsg>,
     st: &mut SourceState,
@@ -85,7 +110,7 @@ async fn start_streams(
     let mode = st.current_mode;
     let myself2 = myself.clone();
     let mic_muted = st.mic_muted.clone();
-    let mic_device = st.mic_device.clone();
+    let mic_device = st.active_mic_device.clone();
     let audio = st.audio.clone();
     let (frame_tx, frame_rx) = tokio::sync::mpsc::channel(CAPTURE_FRAME_QUEUE_CAPACITY);
     let wake_pending = st.capture_wake_pending.clone();

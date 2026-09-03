@@ -30,6 +30,8 @@ const LISTENER_BACKPRESSURE_RETRY_DELAY: Duration = Duration::from_millis(10);
 const MAX_BACKLOG_DISPATCH_PER_FRAME: usize = 2;
 const RECORDER_BACKPRESSURE_TIMEOUT: Duration = Duration::from_secs(2);
 const RECORDER_RPC_TIMEOUT: Duration = Duration::from_millis(100);
+const DROPOUT_WINDOW_SAMPLES: usize = SAMPLE_RATE as usize * 5;
+const DROPOUT_RATIO_THRESHOLD: f32 = 0.15;
 
 #[derive(Clone)]
 struct BufferedAudio {
@@ -57,6 +59,7 @@ pub(super) enum DispatchFrameResult {
 pub(in crate::actors) struct Pipeline {
     vad_mask: VadMask,
     amplitude: AmplitudeEmitter,
+    dropouts: DropoutMonitor,
     audio_buffer: AudioBuffer,
     replay_history: ReplayHistory,
     listener_dispatcher: ListenerDispatcher,
@@ -67,7 +70,8 @@ pub(in crate::actors) struct Pipeline {
 impl Pipeline {
     pub(super) fn new(runtime: Arc<dyn ListenerRuntime>, session_id: String) -> Self {
         Self {
-            amplitude: AmplitudeEmitter::new(runtime, session_id),
+            amplitude: AmplitudeEmitter::new(runtime.clone(), session_id.clone()),
+            dropouts: DropoutMonitor::new(runtime, session_id),
             audio_buffer: AudioBuffer::new(MAX_BUFFER_CHUNKS),
             replay_history: ReplayHistory::new(SAMPLE_RATE as usize * REPLAY_HISTORY_SECS),
             listener_dispatcher: ListenerDispatcher::new(),
@@ -79,6 +83,7 @@ impl Pipeline {
 
     pub(super) fn reset(&mut self) {
         self.amplitude.reset();
+        self.dropouts.reset();
         self.audio_buffer.clear();
         self.replay_history.clear();
         self.listener_dispatcher.reset();
@@ -168,6 +173,10 @@ impl Pipeline {
     ) -> Result<DispatchFrameResult, String> {
         if self.pending_recorder_item.is_some() {
             return Err("recorder audio must be retried before dispatching another frame".into());
+        }
+
+        if mode != ChannelMode::SpeakerOnly {
+            self.dropouts.observe(&frame.capture.raw_mic);
         }
 
         let (mut processed_mic, processed_spk) = Self::select_tracks(frame, mode);
@@ -549,6 +558,61 @@ impl ReplayHistory {
     }
 }
 
+// Real microphones never produce exact zeros; a run of them means the device or its driver stopped
+// delivering audio. Bluetooth headsets in call mode do this between words. Reported once per
+// stream so the UI can warn without being spammed.
+struct DropoutMonitor {
+    runtime: Arc<dyn ListenerRuntime>,
+    session_id: String,
+    zero_samples: usize,
+    total_samples: usize,
+    reported: bool,
+}
+
+impl DropoutMonitor {
+    fn new(runtime: Arc<dyn ListenerRuntime>, session_id: String) -> Self {
+        Self {
+            runtime,
+            session_id,
+            zero_samples: 0,
+            total_samples: 0,
+            reported: false,
+        }
+    }
+
+    fn reset(&mut self) {
+        self.zero_samples = 0;
+        self.total_samples = 0;
+        self.reported = false;
+    }
+
+    fn observe(&mut self, raw_mic: &[f32]) {
+        if self.reported {
+            return;
+        }
+
+        self.zero_samples += raw_mic.iter().filter(|sample| **sample == 0.0).count();
+        self.total_samples += raw_mic.len();
+        if self.total_samples < DROPOUT_WINDOW_SAMPLES {
+            return;
+        }
+
+        let ratio = self.zero_samples as f32 / self.total_samples as f32;
+        self.zero_samples = 0;
+        self.total_samples = 0;
+        if ratio < DROPOUT_RATIO_THRESHOLD {
+            return;
+        }
+
+        tracing::warn!(ratio, "mic_dropouts_detected");
+        self.runtime.emit_data(SessionDataEvent::MicDropouts {
+            session_id: self.session_id.clone(),
+            ratio,
+        });
+        self.reported = true;
+    }
+}
+
 struct AmplitudeEmitter {
     runtime: Arc<dyn ListenerRuntime>,
     session_id: String,
@@ -666,6 +730,33 @@ mod tests {
         fn emit_error(&self, _event: SessionErrorEvent) {}
 
         fn emit_data(&self, _event: SessionDataEvent) {}
+    }
+
+    #[derive(Default)]
+    struct DropoutRuntime(std::sync::Mutex<Vec<f32>>);
+
+    impl anlg_storage::StorageRuntime for DropoutRuntime {
+        fn global_base(&self) -> Result<PathBuf, anlg_storage::Error> {
+            Ok(std::env::temp_dir())
+        }
+
+        fn vault_base(&self) -> Result<PathBuf, anlg_storage::Error> {
+            Ok(std::env::temp_dir())
+        }
+    }
+
+    impl ListenerRuntime for DropoutRuntime {
+        fn emit_lifecycle(&self, _event: SessionLifecycleEvent) {}
+
+        fn emit_progress(&self, _event: SessionProgressEvent) {}
+
+        fn emit_error(&self, _event: SessionErrorEvent) {}
+
+        fn emit_data(&self, event: SessionDataEvent) {
+            if let SessionDataEvent::MicDropouts { ratio, .. } = event {
+                self.0.lock().unwrap().push(ratio);
+            }
+        }
     }
 
     enum ProbeEvent {
@@ -1464,5 +1555,51 @@ mod tests {
         let (mic, speaker) = Pipeline::select_tracks(source_frame(false), ChannelMode::SpeakerOnly);
         assert_eq!(mic, vec![0.0, 0.0, 0.0, 0.0]);
         assert_eq!(&*speaker, &[0.75, -0.75, 1.0, -1.0]);
+    }
+
+    fn feed_window(monitor: &mut DropoutMonitor, zero_ratio: f32) {
+        let chunk = 1_600;
+        let zeros = (chunk as f32 * zero_ratio) as usize;
+        let mut frame = vec![0.01_f32; chunk];
+        frame[..zeros].fill(0.0);
+        for _ in 0..DROPOUT_WINDOW_SAMPLES.div_ceil(chunk) {
+            monitor.observe(&frame);
+        }
+    }
+
+    #[test]
+    fn dropout_monitor_reports_gated_mic_once_per_stream() {
+        let runtime = Arc::new(DropoutRuntime::default());
+        let mut monitor = DropoutMonitor::new(runtime.clone(), "session".to_string());
+
+        feed_window(&mut monitor, 0.3);
+        feed_window(&mut monitor, 0.3);
+
+        let reported = runtime.0.lock().unwrap().clone();
+        assert_eq!(reported.len(), 1);
+        assert!((reported[0] - 0.3).abs() < 0.01, "ratio {}", reported[0]);
+    }
+
+    #[test]
+    fn dropout_monitor_ignores_healthy_mic() {
+        let runtime = Arc::new(DropoutRuntime::default());
+        let mut monitor = DropoutMonitor::new(runtime.clone(), "session".to_string());
+
+        feed_window(&mut monitor, 0.1);
+        feed_window(&mut monitor, 0.0);
+
+        assert!(runtime.0.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn dropout_monitor_reports_again_after_reset() {
+        let runtime = Arc::new(DropoutRuntime::default());
+        let mut monitor = DropoutMonitor::new(runtime.clone(), "session".to_string());
+
+        feed_window(&mut monitor, 0.5);
+        monitor.reset();
+        feed_window(&mut monitor, 0.5);
+
+        assert_eq!(runtime.0.lock().unwrap().len(), 2);
     }
 }

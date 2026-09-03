@@ -66,7 +66,11 @@ pub struct SourceState {
     pub(super) runtime: Arc<dyn ListenerRuntime>,
     pub(super) audio: Arc<dyn AudioProvider>,
     pub(super) session_id: String,
+    /// The user's explicit choice; `None` defers to the system default.
     pub(super) mic_device: Option<String>,
+    /// The device the current stream actually opened. Differs from `mic_device` when a Bluetooth
+    /// default input was swapped for a wired one.
+    pub(super) active_mic_device: Option<String>,
     pub(super) onboarding: bool,
     pub(super) mic_muted: Arc<AtomicBool>,
     pub(super) run_task: Option<tokio::task::JoinHandle<()>>,
@@ -221,6 +225,7 @@ impl Actor for SourceActor {
                 audio: args.audio,
                 session_id: args.session_id,
                 mic_device,
+                active_mic_device: None,
                 onboarding: args.onboarding,
                 mic_muted: Arc::new(AtomicBool::new(false)),
                 run_task: None,
@@ -267,7 +272,7 @@ impl Actor for SourceActor {
                 }
                 SourceMsg::GetMicDevice(reply) => {
                     if !reply.is_closed() {
-                        let _ = reply.send(st.mic_device.clone());
+                        let _ = reply.send(st.active_mic_device.clone());
                     }
                 }
                 SourceMsg::PrepareListenerRefresh(reply) => {

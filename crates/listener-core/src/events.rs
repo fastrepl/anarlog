@@ -75,6 +75,11 @@ pub enum SessionDataEvent {
     /// headphone, so no far-end audio reaches the mic. Emitted each time capture (re)starts.
     #[serde(rename = "mic_isolated")]
     MicIsolated { session_id: String, value: bool },
+    /// The mic delivered exact digital silence for `ratio` of the last few seconds. Bluetooth
+    /// headsets in call mode gate their mic between words, and those words never reach the
+    /// transcript. Emitted at most once per capture stream.
+    #[serde(rename = "mic_dropouts")]
+    MicDropouts { session_id: String, ratio: f32 },
     #[serde(rename = "transcript_delta")]
     TranscriptDelta {
         session_id: String,
