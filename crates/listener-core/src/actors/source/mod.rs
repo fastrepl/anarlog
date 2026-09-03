@@ -85,6 +85,10 @@ pub struct SourceActor;
 
 const MAX_CAPTURE_FRAMES_PER_TICK: usize = 4;
 const RECORDER_BACKPRESSURE_RETRY_DELAY: Duration = Duration::from_millis(10);
+const OUTPUT_ROUTING_POLL_INTERVAL: Duration = Duration::from_secs(2);
+// Only the macOS backend reports which outputs are running; elsewhere the verdict can only move
+// with the default output, which already restarts the source.
+const POLLS_OUTPUT_ROUTING: bool = cfg!(target_os = "macos");
 
 struct DeviceChangeWatcher {
     _handle: DeviceMonitorHandle,
@@ -95,7 +99,11 @@ impl DeviceChangeWatcher {
     fn spawn(actor: ActorRef<SourceMsg>) -> Self {
         let (event_tx, event_rx) = mpsc::sync_channel(1);
         let handle = DeviceSwitchMonitor::spawn_debounced_bounded(event_tx);
-        let thread = std::thread::spawn(move || Self::event_loop(event_rx, actor));
+        // Sampled here, right before the streams open with the same verdict, so the watcher and
+        // the capture settings start from one view of the world.
+        let routing =
+            POLLS_OUTPUT_ROUTING.then(|| OutputRoutingTracker::new(headphone_only_output()));
+        let thread = std::thread::spawn(move || Self::event_loop(event_rx, actor, routing));
 
         Self {
             _handle: handle,
@@ -103,9 +111,19 @@ impl DeviceChangeWatcher {
         }
     }
 
-    fn event_loop(event_rx: Receiver<DeviceSwitch>, actor: ActorRef<SourceMsg>) {
+    fn event_loop(
+        event_rx: Receiver<DeviceSwitch>,
+        actor: ActorRef<SourceMsg>,
+        mut routing: Option<OutputRoutingTracker>,
+    ) {
         loop {
-            match event_rx.recv() {
+            let event = match routing {
+                Some(_) => event_rx.recv_timeout(OUTPUT_ROUTING_POLL_INTERVAL),
+                None => event_rx
+                    .recv()
+                    .map_err(|_| mpsc::RecvTimeoutError::Disconnected),
+            };
+            match event {
                 Ok(DeviceSwitch::DefaultInputChanged) => {
                     tracing::info!("default_input_changed_restarting_source");
                     actor.stop(Some("device_change".to_string()));
@@ -115,9 +133,57 @@ impl DeviceChangeWatcher {
                     actor.stop(Some("device_change".to_string()));
                 }
                 Ok(DeviceSwitch::DeviceListChanged) => {}
-                Err(_) => break,
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    let Some(routing) = routing.as_mut() else {
+                        continue;
+                    };
+                    let observed = headphone_only_output();
+                    if routing.observe(observed) {
+                        tracing::info!(
+                            headphone_output = observed,
+                            "output_routing_changed_restarting_source"
+                        );
+                        actor.stop(Some("device_change".to_string()));
+                    }
+                }
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
             }
         }
+    }
+}
+
+fn headphone_only_output() -> bool {
+    anlg_audio_device::headphone_only_output().is_some()
+}
+
+// A meeting app can start playing through speakers after capture began, flipping the AEC and
+// mic-isolation verdict the streams were opened with. Requiring two consecutive polls keeps a
+// one-off system sound from bouncing the source.
+struct OutputRoutingTracker {
+    expected: bool,
+    pending: Option<bool>,
+}
+
+impl OutputRoutingTracker {
+    fn new(expected: bool) -> Self {
+        Self {
+            expected,
+            pending: None,
+        }
+    }
+
+    fn observe(&mut self, observed: bool) -> bool {
+        if observed == self.expected {
+            self.pending = None;
+            return false;
+        }
+        if self.pending == Some(observed) {
+            self.expected = observed;
+            self.pending = None;
+            return true;
+        }
+        self.pending = Some(observed);
+        false
     }
 }
 
@@ -501,6 +567,35 @@ mod tests {
 
         actor.stop(None);
         let _ = handle.await;
+    }
+
+    #[test]
+    fn output_routing_restart_needs_two_consecutive_flipped_polls() {
+        let mut tracker = OutputRoutingTracker::new(true);
+
+        assert!(!tracker.observe(true));
+        assert!(!tracker.observe(false));
+        assert!(tracker.observe(false));
+    }
+
+    #[test]
+    fn output_routing_blip_does_not_restart() {
+        let mut tracker = OutputRoutingTracker::new(true);
+
+        assert!(!tracker.observe(false));
+        assert!(!tracker.observe(true));
+        assert!(!tracker.observe(false));
+    }
+
+    #[test]
+    fn output_routing_tracks_the_new_verdict_after_firing() {
+        let mut tracker = OutputRoutingTracker::new(true);
+
+        assert!(!tracker.observe(false));
+        assert!(tracker.observe(false));
+        assert!(!tracker.observe(false));
+        assert!(!tracker.observe(true));
+        assert!(tracker.observe(true));
     }
 
     #[tokio::test]
