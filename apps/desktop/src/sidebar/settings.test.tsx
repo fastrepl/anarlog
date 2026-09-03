@@ -144,6 +144,10 @@ describe("SettingsNav", () => {
       "Account",
       "Teams",
       "Notifications",
+      "AI",
+      "Transcription",
+      "Intelligence",
+      "Dictionary",
       "Workspace",
       "Meetings",
       "Folders",
@@ -151,10 +155,6 @@ describe("SettingsNav", () => {
       "Contacts",
       "Templates",
       "Automations",
-      "AI",
-      "Transcription",
-      "Intelligence",
-      "Dictionary",
       "Data",
       "Sync",
       "Imports",
@@ -165,6 +165,22 @@ describe("SettingsNav", () => {
     ].forEach((label) => {
       expect(screen.getByText(label)).toBeTruthy();
     });
+  });
+
+  it("places the AI section above Workspace", () => {
+    const { container } = render(<SettingsNav />);
+
+    const sectionLabels = Array.from(
+      container.querySelectorAll("span.uppercase"),
+    ).map((node) => node.textContent);
+
+    expect(sectionLabels).toEqual([
+      "App",
+      "AI",
+      "Workspace",
+      "Data",
+      "Advanced",
+    ]);
   });
 
   it.each([

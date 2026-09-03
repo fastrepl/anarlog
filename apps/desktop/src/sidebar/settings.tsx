@@ -93,6 +93,19 @@ export function SettingsNav() {
       ],
     },
     {
+      label: "AI",
+      items: [
+        { id: "transcription", label: t`Transcription`, icon: Sparkle },
+        { id: "intelligence", label: t`Intelligence`, icon: Sparkle },
+        {
+          id: "dictionary",
+          label: t`Dictionary`,
+          icon: BookOpen,
+          requiresPro: true,
+        },
+      ],
+    },
+    {
       label: t`Workspace`,
       items: [
         { id: "meetings", label: t`Meetings`, icon: VideoCamera },
@@ -125,19 +138,6 @@ export function SettingsNav() {
           label: t`Automations`,
           icon: Lightning,
           destination: { type: "automations" },
-          requiresPro: true,
-        },
-      ],
-    },
-    {
-      label: "AI",
-      items: [
-        { id: "transcription", label: t`Transcription`, icon: Sparkle },
-        { id: "intelligence", label: t`Intelligence`, icon: Sparkle },
-        {
-          id: "dictionary",
-          label: t`Dictionary`,
-          icon: BookOpen,
           requiresPro: true,
         },
       ],
