@@ -15,6 +15,7 @@ const hoisted = vi.hoisted(() => ({
   onBeforeTabChange: vi.fn(),
   rawEditorProps: [] as Record<string, unknown>[],
   registerCanonicalSessionEditor: vi.fn(),
+  searchVisible: false,
   sessionMode: "inactive",
   unregisterCanonicalSessionEditor: vi.fn(),
   updateSessionTabState: vi.fn(),
@@ -93,7 +94,13 @@ vi.mock("./search/bar", () => ({
 }));
 
 vi.mock("./search/context", () => ({
-  useSearch: () => null,
+  useSearch: () =>
+    hoisted.searchVisible
+      ? {
+          isVisible: true,
+          close: vi.fn(),
+        }
+      : null,
 }));
 
 vi.mock("./transcript", () => ({
@@ -217,6 +224,7 @@ describe("NoteInput tab selection", () => {
     hoisted.onBeforeTabChange.mockClear();
     hoisted.rawEditorProps = [];
     hoisted.registerCanonicalSessionEditor.mockClear();
+    hoisted.searchVisible = false;
     hoisted.sessionMode = "inactive";
     hoisted.unregisterCanonicalSessionEditor.mockClear();
     hoisted.updateSessionTabState.mockClear();
@@ -439,5 +447,19 @@ describe("NoteInput tab selection", () => {
 
     expect(wasNotCancelled).toBe(true);
     expect(hoisted.focusAtTrailingEmptyLine).not.toHaveBeenCalled();
+  });
+
+  it("shows the keyword search bar on the transcript tab", () => {
+    hoisted.searchVisible = true;
+
+    renderNoteInput({ currentTab: { type: "transcript" } });
+
+    expect(screen.getByTestId("search-bar")).toBeTruthy();
+  });
+
+  it("hides the search bar until find is opened", () => {
+    renderNoteInput({ currentTab: { type: "transcript" } });
+
+    expect(screen.queryByTestId("search-bar")).toBeNull();
   });
 });

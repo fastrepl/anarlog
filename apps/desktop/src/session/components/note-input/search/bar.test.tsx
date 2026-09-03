@@ -89,4 +89,11 @@ describe("SearchBar", () => {
 
     expect(container.textContent).toContain("Ctrl H");
   });
+
+  it("hides replace controls for find-only surfaces", () => {
+    const { container } = render(<SearchBar allowReplace={false} />);
+
+    expect(container.textContent).not.toContain("Replace");
+    expect(container.textContent).not.toContain("⌘ H");
+  });
 });

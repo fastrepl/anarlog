@@ -111,7 +111,7 @@ export function SpeakerAssignPopover({
         align="start"
         sideOffset={8}
         collisionPadding={16}
-        className="max-h-[min(var(--radix-popover-content-available-height),28rem)] w-80"
+        className="w-80"
       >
         <SpeakerParticipantPicker
           sessionId={sessionId}
@@ -500,62 +500,64 @@ export function SpeakerParticipantPicker({
             />
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-auto py-1">
-          {groups.map((group) => (
-            <div key={group.title}>
-              <div className="text-muted-foreground px-3 pt-2 pb-1 text-[11px] font-medium uppercase">
-                {group.title === "Participants" ? (
-                  <Trans>Participants</Trans>
-                ) : (
-                  <Trans>People</Trans>
-                )}
+        <div className="min-h-0 flex-1 overflow-auto">
+          <div className="py-1 pb-3">
+            {groups.map((group) => (
+              <div key={group.title}>
+                <div className="text-muted-foreground px-3 pt-2 pb-1 text-[11px] font-medium uppercase">
+                  {group.title === "Participants" ? (
+                    <Trans>Participants</Trans>
+                  ) : (
+                    <Trans>People</Trans>
+                  )}
+                </div>
+                {group.options.map((option) => (
+                  <ParticipantOptionButton
+                    key={option.id}
+                    option={option}
+                    selected={selectedOption === option}
+                    onSelect={handleSelect}
+                  />
+                ))}
               </div>
-              {group.options.map((option) => (
+            ))}
+
+            {createOption && (
+              <div>
+                {!hasPeopleGroup && (
+                  <div className="text-muted-foreground px-3 pt-2 pb-1 text-[11px] font-medium uppercase">
+                    <Trans>People</Trans>
+                  </div>
+                )}
                 <ParticipantOptionButton
-                  key={option.id}
-                  option={option}
-                  selected={selectedOption === option}
+                  option={createOption}
+                  selected={selectedOption === createOption}
                   onSelect={handleSelect}
                 />
-              ))}
-            </div>
-          ))}
+              </div>
+            )}
 
-          {createOption && (
-            <div>
-              {!hasPeopleGroup && (
-                <div className="text-muted-foreground px-3 pt-2 pb-1 text-[11px] font-medium uppercase">
-                  <Trans>People</Trans>
-                </div>
-              )}
-              <ParticipantOptionButton
-                option={createOption}
-                selected={selectedOption === createOption}
-                onSelect={handleSelect}
-              />
-            </div>
-          )}
+            {!createOption && groups.length === 0 && (
+              <p className="text-muted-foreground px-3 py-2 text-xs">
+                {query.trim() ? (
+                  <Trans>No matching people</Trans>
+                ) : (
+                  <Trans>No people</Trans>
+                )}
+              </p>
+            )}
 
-          {!createOption && groups.length === 0 && (
-            <p className="text-muted-foreground px-3 py-2 text-xs">
-              {query.trim() ? (
-                <Trans>No matching people</Trans>
-              ) : (
-                <Trans>No people</Trans>
-              )}
-            </p>
-          )}
-
-          {!query.trim() && (
-            <button
-              type="button"
-              className="hover:bg-accent flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm"
-              onClick={() => searchInputRef.current?.focus()}
-            >
-              <Plus className="size-4" />
-              <Trans>Create new speaker</Trans>
-            </button>
-          )}
+            {!query.trim() && (
+              <button
+                type="button"
+                className="hover:bg-accent flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm"
+                onClick={() => searchInputRef.current?.focus()}
+              >
+                <Plus className="size-4" />
+                <Trans>Create new speaker</Trans>
+              </button>
+            )}
+          </div>
         </div>
       </AppFloatingPanel>
       <div className="flex items-center justify-end gap-3 py-1 pl-2">
