@@ -688,6 +688,18 @@ mod tests {
     }
 
     #[test]
+    fn expected_speakers_is_unknown_without_remote_participants() {
+        let mut args = listener_args("https://api.assemblyai.com", "u3-rt-pro");
+        args.self_human_id = Some("self".to_string());
+
+        assert_eq!(expected_speakers(&args), None);
+
+        args.participant_human_ids = vec!["self".to_string()];
+
+        assert_eq!(expected_speakers(&args), None);
+    }
+
+    #[test]
     fn build_extra_prefers_explicit_stream_offset() {
         let mut args = listener_args("https://api.deepgram.com", "nova-3");
         args.stream_offset_secs = Some(12.5);
