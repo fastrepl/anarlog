@@ -123,28 +123,24 @@ export function SettingsAccount() {
     return (
       <div className="flex flex-col gap-8">
         <SettingsPageTitle title={<Trans>Account</Trans>} />
-        <section className="pb-4">
-          <div className="flex min-w-0 flex-col gap-6 @sm:flex-row @sm:items-center @sm:justify-between">
-            <div className="flex min-w-0 flex-1 flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium">
-                  <Trans>Sign in to Anarlog</Trans>
-                </h3>
-                <div className="text-muted-foreground text-sm">
-                  <Trans>
-                    Sign in for cloud transcription, AI models, and sharing.
-                  </Trans>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleSignIn}
-                className="border-primary bg-primary text-primary-foreground hover:bg-primary/90 rounded-pill h-10 w-fit border-2 px-6 text-sm font-medium shadow-[0_4px_14px_rgba(87,83,78,0.4)] transition-all duration-200 [corner-shape:round]"
-              >
-                <Trans>Get started</Trans>
-              </button>
+        <section className="flex min-w-0 flex-col items-start gap-4 pb-4">
+          <div className="flex flex-col gap-2">
+            <h3 className="text-sm font-medium">
+              <Trans>Sign in to Anarlog</Trans>
+            </h3>
+            <div className="text-muted-foreground text-sm">
+              <Trans>
+                Sign in for cloud transcription, AI models, and sharing.
+              </Trans>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={handleSignIn}
+            className="border-primary bg-primary text-primary-foreground hover:bg-primary/90 rounded-pill h-10 border-2 px-6 text-sm font-medium shadow-[0_4px_14px_rgba(87,83,78,0.4)] transition-all duration-200 [corner-shape:round]"
+          >
+            <Trans>Get started</Trans>
+          </button>
         </section>
 
         <GuestPlanSection />
