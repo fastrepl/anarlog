@@ -21,16 +21,26 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          for _ in 1 2 3 4 5 6; do
-            if gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/status" \
-              --jq '.statuses[] | select(.context=="license/cla") | .state' \
-              | grep -q .; then
-              break
+          set -euo pipefail
+          deadline=$((SECONDS + 120))
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            state="$(
+              gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/status" \
+                --jq '[.statuses[] | select(.context=="license/cla") | .state] | first // empty' \
+                || true
+            )"
+            if [ "$state" != "success" ]; then
+              gh api "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \
+                -f state=success \
+                -f context=license/cla \
+                -f description="Skipped for maintainers" \
+                >/dev/null \
+                || true
             fi
             sleep 10
           done
-
           gh api "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \
             -f state=success \
             -f context=license/cla \
-            -f description="Skipped for maintainers"
+            -f description="Skipped for maintainers" \
+            >/dev/null

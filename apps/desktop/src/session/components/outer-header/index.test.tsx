@@ -382,8 +382,6 @@ describe("OuterHeader", () => {
   });
 
   it("places the record and overflow controls in order", () => {
-    mocks.hasTranscriptBySession = { "session-1": true };
-
     const { container } = render(
       <OuterHeader
         sessionId="session-1"
@@ -1216,7 +1214,7 @@ describe("OuterHeader", () => {
     expect(screen.getByRole("button", { name: "More" })).not.toBeNull();
   });
 
-  it("shows record for an inactive ad hoc session with a transcript", () => {
+  it("hides record for an inactive ad hoc session with a transcript", () => {
     mocks.hasTranscriptBySession = { "session-1": true };
 
     render(
@@ -1226,12 +1224,12 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Record" })).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
     expect(screen.getByRole("button", { name: "More" })).not.toBeNull();
     expect(mocks.startListening).not.toHaveBeenCalled();
   });
 
-  it("shows record for an inactive ad hoc session with audio", () => {
+  it("hides record for an inactive ad hoc session with audio", () => {
     mocks.audioExists = true;
 
     render(
@@ -1241,7 +1239,7 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Record" })).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
     expect(screen.getByRole("button", { name: "More" })).not.toBeNull();
     expect(mocks.startListening).not.toHaveBeenCalled();
   });
@@ -1341,7 +1339,7 @@ describe("OuterHeader", () => {
     expect(mocks.stopListening).toHaveBeenCalledTimes(1);
   });
 
-  it("shows record and overflow after the meeting is over", () => {
+  it("hides record and keeps overflow after the meeting is over", () => {
     mocks.sessionEvents = {
       "session-1": {
         title: "Design Review",
@@ -1362,12 +1360,12 @@ describe("OuterHeader", () => {
     const moreButton = screen.getByRole("button", { name: "More" });
 
     expect(screen.queryByRole("button", { name: "Join & record" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Record" })).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
     expect(moreButton).not.toBeNull();
     expect(mocks.startListening).not.toHaveBeenCalled();
   });
 
-  it("shows record instead of rejoining when a recorded event has no ended_at", () => {
+  it("hides record instead of rejoining when a recorded event has no ended_at", () => {
     mocks.sessionEvents = {
       "session-1": {
         title: "Design Review",
@@ -1386,7 +1384,7 @@ describe("OuterHeader", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Join & record" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Record" })).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
     expect(screen.getByRole("button", { name: "More" })).not.toBeNull();
     expect(mocks.startListening).not.toHaveBeenCalled();
   });
@@ -1402,6 +1400,6 @@ describe("OuterHeader", () => {
 
     expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Done" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Record" })).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
   });
 });

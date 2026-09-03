@@ -24,12 +24,9 @@ const mocks = vi.hoisted(() => ({
   resizeListeners: [] as Array<() => void>,
   startDragging: vi.fn().mockResolvedValue(undefined),
   toggleMaximize: vi.fn().mockResolvedValue(undefined),
-  devtoolsPanelActionListeners: [] as Array<
-    (event: { payload: { action: string } }) => void
-  >,
   windowsCommands: {
-    devtoolsPanelHide: vi.fn(async () => ({ status: "ok" as const })),
-    devtoolsPanelShow: vi.fn(async () => ({ status: "ok" as const })),
+    windowExpandWidth: vi.fn(async () => ({ status: "ok" as const })),
+    windowRestoreWidth: vi.fn(async () => ({ status: "ok" as const })),
   },
   canGoBack: false,
   canGoNext: false,
@@ -80,21 +77,6 @@ vi.mock("@tauri-apps/plugin-os", () => ({
 
 vi.mock("@anlg/plugin-windows", () => ({
   commands: mocks.windowsCommands,
-  events: {
-    devtoolsPanelAction: {
-      listen: vi.fn(
-        async (listener: (event: { payload: { action: string } }) => void) => {
-          mocks.devtoolsPanelActionListeners.push(listener);
-          return () => {
-            mocks.devtoolsPanelActionListeners =
-              mocks.devtoolsPanelActionListeners.filter(
-                (candidate) => candidate !== listener,
-              );
-          };
-        },
-      ),
-    },
-  },
 }));
 
 vi.mock("~/main/useShortcuts", () => ({
@@ -195,9 +177,8 @@ describe("ClassicMainBody", () => {
     mocks.resizeListeners = [];
     mocks.startDragging.mockClear();
     mocks.toggleMaximize.mockClear();
-    mocks.devtoolsPanelActionListeners = [];
-    mocks.windowsCommands.devtoolsPanelHide.mockClear();
-    mocks.windowsCommands.devtoolsPanelShow.mockClear();
+    mocks.windowsCommands.windowExpandWidth.mockClear();
+    mocks.windowsCommands.windowRestoreWidth.mockClear();
     mocks.canGoBack = false;
     mocks.canGoNext = false;
     mocks.upcomingMeetingStatus = null;

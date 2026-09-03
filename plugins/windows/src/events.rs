@@ -156,12 +156,6 @@ pub struct FloatingBarSettingsChange {
     pub live_caption_minimized: Option<bool>,
 }
 
-common_event_derives! {
-    pub struct DevtoolsPanelAction {
-        pub action: String,
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;

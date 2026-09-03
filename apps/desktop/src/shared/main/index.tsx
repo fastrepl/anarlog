@@ -26,9 +26,16 @@ export function StandardContentWrapper({
   noBorder?: boolean;
 }) {
   return (
-    <div className="flex h-full flex-col">
-      <ResizablePanelGroup direction="vertical" className="min-h-0 flex-1">
-        <ResizablePanel defaultSize={100} minSize={35} className="min-h-0">
+    <div className="flex h-full w-full min-w-0 flex-col">
+      <ResizablePanelGroup
+        direction="vertical"
+        className="min-h-0 min-w-0 flex-1"
+      >
+        <ResizablePanel
+          defaultSize={100}
+          minSize={35}
+          className="min-h-0 min-w-0"
+        >
           <MainPanel fill floatingButton={floatingButton} noBorder={noBorder}>
             {children}
           </MainPanel>
@@ -54,14 +61,14 @@ function MainPanel({
   return (
     <div
       className={cn([
-        "relative flex min-h-0 flex-1 flex-col",
+        "relative flex min-h-0 min-w-0 flex-1 flex-col",
         fill && "h-full",
       ])}
     >
       <div
         data-chat-floating-anchor
         className={cn([
-          "bg-card @container relative flex min-h-0 flex-1 flex-col overflow-hidden",
+          "bg-card @container relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
           isMacos && "rounded-xl",
           !noBorder && "border-border border",
         ])}

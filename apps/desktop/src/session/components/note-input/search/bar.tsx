@@ -97,8 +97,10 @@ function IconButton({
 
 export function SearchBar({
   editorRef,
+  allowReplace = true,
 }: {
-  editorRef: React.RefObject<NoteEditorRef | null>;
+  editorRef?: React.RefObject<NoteEditorRef | null>;
+  allowReplace?: boolean;
 }) {
   const { t } = useLingui();
   const search = useSearch();
@@ -109,15 +111,15 @@ export function SearchBar({
   useMountEffect(() => {
     searchInputRef.current?.focus();
 
-    const editor = editorRef.current;
+    const editor = editorRef?.current;
     return () => editor?.commands.setSearch("", false);
   });
 
   useEffect(() => {
-    if (search?.showReplace) {
+    if (allowReplace && search?.showReplace) {
       replaceInputRef.current?.focus();
     }
-  }, [search?.showReplace]);
+  }, [allowReplace, search?.showReplace]);
 
   if (!search) {
     return null;
@@ -138,7 +140,7 @@ export function SearchBar({
     setReplaceQuery,
   } = search;
 
-  const commands = editorRef.current?.commands;
+  const commands = editorRef?.current?.commands;
 
   const setQuery = (q: string) => {
     search.setQuery(q);
@@ -231,20 +233,22 @@ export function SearchBar({
           >
             <Textbox className="size-3.5" />
           </ToggleButton>
-          <ToggleButton
-            active={showReplace}
-            onClick={toggleReplace}
-            tooltip={
-              <>
-                <span>
-                  <Trans>Replace</Trans>
-                </span>
-                <Kbd className="animate-kbd-press">{primaryModifier} H</Kbd>
-              </>
-            }
-          >
-            <Swap className="size-3.5" />
-          </ToggleButton>
+          {allowReplace && (
+            <ToggleButton
+              active={showReplace}
+              onClick={toggleReplace}
+              tooltip={
+                <>
+                  <span>
+                    <Trans>Replace</Trans>
+                  </span>
+                  <Kbd className="animate-kbd-press">{primaryModifier} H</Kbd>
+                </>
+              }
+            >
+              <Swap className="size-3.5" />
+            </ToggleButton>
+          )}
         </div>
         <span className="text-muted-foreground text-[10px] whitespace-nowrap tabular-nums">
           {displayCount}
@@ -294,7 +298,7 @@ export function SearchBar({
         </IconButton>
       </div>
 
-      {showReplace && (
+      {allowReplace && showReplace && (
         <div className="bg-muted flex h-7 items-center gap-1.5 rounded-lg px-2">
           <input
             ref={replaceInputRef}

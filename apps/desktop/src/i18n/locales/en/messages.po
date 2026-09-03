@@ -1767,14 +1767,6 @@ msgstr "Device name"
 msgid "Devices"
 msgstr "Devices"
 
-#: src/settings/developers/devtools.tsx
-msgid "Devtools"
-msgstr "Devtools"
-
-#: src/settings/developers/devtools.tsx
-msgid "Devtools panel"
-msgstr "Devtools panel"
-
 #: src/settings/dictionary/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Dictionary"
@@ -3276,10 +3268,6 @@ msgstr "Open in right panel"
 msgid "Open on GitHub"
 msgstr "Open on GitHub"
 
-#: src/settings/developers/devtools.tsx
-msgid "Open panel"
-msgstr "Open panel"
-
 #: src/settings/todo/github.tsx
 msgid "Open repository on GitHub"
 msgstr "Open repository on GitHub"
@@ -3483,10 +3471,6 @@ msgstr "Prevent selected apps from triggering meeting detection."
 #: src/settings/automations/index.tsx
 msgid "Preview"
 msgstr "Preview"
-
-#: src/settings/developers/devtools.tsx
-msgid "Preview notifications, toasts, updates, and billing dialogs. Only available in dev and staging builds."
-msgstr "Preview notifications, toasts, updates, and billing dialogs. Only available in dev and staging builds."
 
 #: src/session/components/note-input/search/bar.tsx
 msgid "Previous match"

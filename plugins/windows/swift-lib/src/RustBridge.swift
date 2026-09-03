@@ -9,9 +9,6 @@ private func rustOnFloatingBarOpenMain()
 @_silgen_name("rust_on_floating_bar_settings_change")
 private func rustOnFloatingBarSettingsChange(_ settingsPtr: UnsafePointer<CChar>)
 
-@_silgen_name("rust_on_devtools_panel_action")
-private func rustOnDevtoolsPanelAction(_ actionPtr: UnsafePointer<CChar>)
-
 enum RustBridge {
   static func stopListening() {
     rustOnFloatingBarStop()
@@ -31,12 +28,6 @@ enum RustBridge {
 
     json.withCString { settingsPtr in
       rustOnFloatingBarSettingsChange(settingsPtr)
-    }
-  }
-
-  static func devtoolsPanelAction(_ action: String) {
-    action.withCString { actionPtr in
-      rustOnDevtoolsPanelAction(actionPtr)
     }
   }
 }

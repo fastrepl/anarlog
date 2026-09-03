@@ -98,7 +98,11 @@ export function OuterHeader({
         data-tauri-drag-region
         className="relative z-10 flex shrink-0 items-center pr-1"
       >
-        <HeaderMeetingControl sessionId={sessionId} sessionMode={sessionMode} />
+        <HeaderMeetingControl
+          sessionId={sessionId}
+          sessionMode={sessionMode}
+          meetingOver={meetingOver}
+        />
         <OverflowButton
           standaloneWindow={standaloneWindow}
           sessionId={sessionId}
@@ -112,9 +116,11 @@ export function OuterHeader({
 function HeaderMeetingControl({
   sessionId,
   sessionMode,
+  meetingOver,
 }: {
   sessionId: string;
   sessionMode: string;
+  meetingOver: boolean;
 }) {
   const sessionEvent = useSessionEvent(sessionId);
   const hasTranscript = useHasTranscript(sessionId);
@@ -124,7 +130,11 @@ function HeaderMeetingControl({
     ? safeParseDate(sessionEvent.ended_at)
     : null;
   const ended = !!endedAt && endedAt.getTime() <= now.getTime();
-  if (sessionMode === "finalizing" || sessionMode === "running_batch") {
+  if (
+    sessionMode === "finalizing" ||
+    sessionMode === "running_batch" ||
+    meetingOver
+  ) {
     return null;
   }
 

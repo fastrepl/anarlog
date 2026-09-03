@@ -271,6 +271,8 @@ const NoteInputContent = forwardRef<
     const isEditableTab =
       renderedCurrentTab.type === "enhanced" ||
       renderedCurrentTab.type === "raw";
+    const isSearchableTab =
+      isEditableTab || renderedCurrentTab.type === "transcript";
 
     useEffect(() => {
       search?.close();
@@ -345,9 +347,12 @@ const NoteInputContent = forwardRef<
           </div>
         )}
 
-        {showSearchBar && isEditableTab && (
+        {showSearchBar && isSearchableTab && (
           <div className="px-3 pt-1">
-            <SearchBar editorRef={internalEditorRef} />
+            <SearchBar
+              editorRef={internalEditorRef}
+              allowReplace={isEditableTab}
+            />
           </div>
         )}
 

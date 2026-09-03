@@ -69,6 +69,13 @@ describe("StandardContentWrapper", () => {
     expect(screen.getAllByTestId("panel")).toHaveLength(1);
     expect(screen.getByTestId("panel").dataset.defaultSize).toBe("100");
     expect(screen.getByTestId("panel").dataset.minSize).toBe("35");
+    expect(screen.getByTestId("panel").dataset.className).toContain("min-w-0");
+    expect(
+      screen.getByTestId("panel-group").parentElement?.className,
+    ).toContain("min-w-0");
+    expect(
+      screen.getByTestId("panel-group").parentElement?.className,
+    ).toContain("w-full");
     expect(screen.getByTestId("main-area")).toBeTruthy();
     expect(
       document.querySelector("[data-chat-floating-anchor]")?.className,

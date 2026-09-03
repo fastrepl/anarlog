@@ -224,6 +224,11 @@ describe("SpeakerAssignPopover", () => {
     }).parentElement;
     expect(footer?.className).toContain("py-1");
     expect(footer?.className).not.toContain("pb-3");
+    const list = screen.getByRole("button", {
+      name: "Create new speaker",
+    }).parentElement;
+    expect(list?.className).toContain("py-1");
+    expect(list?.className).toContain("pb-3");
     const aliceOption = screen.getByRole("button", { name: "Alice" });
     expect(aliceOption.querySelector("img")?.getAttribute("src")).toBe(
       "data:image/jpeg;base64,alice",
