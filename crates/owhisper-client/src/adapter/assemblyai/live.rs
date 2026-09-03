@@ -57,13 +57,13 @@ impl RealtimeSttAdapter for AssemblyAIAdapter {
                 query_pairs.append_pair("max_turn_silence", max_silence);
             }
 
+            // Diarization is always on, as with every other live provider and the
+            // AssemblyAI batch path; participant hints only bound the speaker count.
             if matches!(
                 resolved_model,
                 ResolvedLiveModel::Universal35Pro | ResolvedLiveModel::U3RtPro
             ) {
-                if Self::streaming_speaker_labels_enabled(params) {
-                    query_pairs.append_pair("speaker_labels", "true");
-                }
+                query_pairs.append_pair("speaker_labels", "true");
 
                 if let Some(max_speakers) = Self::streaming_max_speakers(params) {
                     query_pairs.append_pair("max_speakers", &max_speakers.to_string());
@@ -234,17 +234,6 @@ impl AssemblyAIAdapter {
         } else {
             ResolvedLiveModel::WhisperRt
         }
-    }
-
-    fn streaming_speaker_labels_enabled(params: &ListenParams) -> bool {
-        params.num_speakers.is_some()
-            || params.min_speakers.is_some()
-            || params.max_speakers.is_some()
-            || params
-                .custom_query
-                .as_ref()
-                .and_then(|custom| custom.get("speaker_labels"))
-                .is_some_and(|value| value == "true")
     }
 
     fn streaming_max_speakers(params: &ListenParams) -> Option<u32> {
@@ -488,6 +477,24 @@ mod tests {
             &owhisper_interface::ListenParams {
                 model: Some("universal-3-5-pro-realtime".to_string()),
                 min_speakers: Some(2),
+                ..Default::default()
+            },
+            1,
+        );
+
+        let query = url.query().expect("query string");
+        assert!(query.contains("speaker_labels=true"));
+        assert!(!query.contains("max_speakers"));
+    }
+
+    #[test]
+    fn test_streaming_diarization_stays_on_without_speaker_hints() {
+        // An ad-hoc meeting has no participant list; remote speakers must
+        // still be told apart, just without a cap.
+        let url = AssemblyAIAdapter.build_ws_url(
+            API_BASE,
+            &owhisper_interface::ListenParams {
+                model: Some("universal-3-5-pro-realtime".to_string()),
                 ..Default::default()
             },
             1,
