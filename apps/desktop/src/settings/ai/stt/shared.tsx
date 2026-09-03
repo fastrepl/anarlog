@@ -1027,10 +1027,11 @@ const _PROVIDERS = [
     ],
   },
   {
-    disabled: false,
+    // Fireworks discontinued its audio inference API in June 2026.
+    disabled: true,
     id: "fireworks",
     displayName: "Fireworks",
-    badge: null,
+    badge: "Discontinued",
     icon: <ProviderLobeIcon icon={Fireworks} />,
     baseUrl: "https://api.fireworks.ai",
     models: ["whisper-v3-turbo"],

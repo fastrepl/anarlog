@@ -36,12 +36,13 @@ describe("STT providers", () => {
       "cartesia",
       "cloudflare_workers_ai",
       "together",
-      "fireworks",
       "xai",
       "smallestai",
       "pyannote",
       "cohere",
       "aquavoice",
+      // Disabled providers sort after every ordered provider.
+      "fireworks",
       "custom",
     ]);
   });
@@ -121,8 +122,8 @@ describe("STT model display labels", () => {
       PROVIDERS.map((provider) => [provider.id, provider]),
     );
 
-    expect(providers.fireworks.disabled).toBe(false);
-    expect(providers.fireworks.models).toEqual(["whisper-v3-turbo"]);
+    expect(providers.fireworks.disabled).toBe(true);
+    expect(providers.fireworks.badge).toBe("Discontinued");
     expect(providers.xai.badge).toBeNull();
     expect(providers.smallestai.badge).toBeNull();
     expect(providers.smallestai.models).toEqual(["pulse", "pulse-pro"]);
