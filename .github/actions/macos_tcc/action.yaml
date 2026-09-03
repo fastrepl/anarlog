@@ -6,22 +6,19 @@ runs:
     - shell: bash
       run: |
         set -euo pipefail
-        listener=$(ps -axo command= | awk '$1 ~ /\/Runner\.Listener$/ { print $1; exit }')
-        if [[ -z "${listener:-}" || ! -f "$listener" ]]; then
-          shopt -s nullglob
-          candidates=(
-            /Users/runner/runners/*/bin/Runner.Listener
-            /Users/runner/runner/bin/Runner.Listener
-          )
-          listener=""
-          for candidate in "${candidates[@]}"; do
-            if [[ -f "$candidate" ]]; then
-              listener=$candidate
-              break
-            fi
-          done
-        fi
-        if [[ -z "${listener:-}" ]]; then
+        shopt -s nullglob
+        candidates=(
+          /Users/runner/runners/*/bin/Runner.Listener
+          /Users/runner/runner/bin/Runner.Listener
+        )
+        listener=""
+        for candidate in "${candidates[@]}"; do
+          if [[ -f "$candidate" ]]; then
+            listener=$candidate
+            break
+          fi
+        done
+        if [[ -z "$listener" ]]; then
           echo "::error::Could not locate Runner.Listener under /Users/runner/runners or /Users/runner/runner"
           exit 1
         fi
