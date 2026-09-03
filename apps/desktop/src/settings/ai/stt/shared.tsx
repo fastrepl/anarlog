@@ -217,6 +217,14 @@ export const displayModelId = (model: string): string => {
     return "xAI Speech to Text";
   }
 
+  if (model === "pulse") {
+    return "Pulse";
+  }
+
+  if (model === "pulse-pro") {
+    return "Pulse Pro";
+  }
+
   if (
     model === "gemini-3.5-transcribe-live" ||
     model === "gemini-3.5-transcribe-live-preview"
@@ -594,6 +602,28 @@ const _PROVIDERS = [
       setup: {
         label: "API setup",
         url: "https://console.x.ai/",
+      },
+    },
+  },
+  {
+    disabled: false,
+    id: "smallestai",
+    displayName: "Smallest AI",
+    badge: null,
+    icon: (
+      <ProviderBrandImage src="/assets/smallestai-mark.svg" alt="Smallest AI" />
+    ),
+    baseUrl: "https://api.smallest.ai",
+    models: ["pulse", "pulse-pro"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Available models",
+        url: "https://docs.smallest.ai/models/documentation/speech-to-text-pulse/overview",
+      },
+      setup: {
+        label: "API setup",
+        url: "https://app.smallest.ai/dashboard/api-keys",
       },
     },
   },
@@ -1007,6 +1037,7 @@ const PROVIDER_ORDER = [
   "together",
   "fireworks",
   "xai",
+  "smallestai",
   "pyannote",
   "cohere",
   "aquavoice",

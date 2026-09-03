@@ -120,6 +120,9 @@ describe("getSttModelTranscriptionMode", () => {
     expect(
       getSttModelTranscriptionMode("cohere", "cohere-transcribe-03-2026"),
     ).toBe("batch");
+    expect(getSttModelTranscriptionMode("smallestai", "pulse-pro")).toBe(
+      "batch",
+    );
     for (const [provider, model] of [
       ["groq", "whisper-large-v3-turbo"],
       ["openrouter", "openai/gpt-4o-mini-transcribe"],
@@ -139,6 +142,7 @@ describe("getSttModelTranscriptionMode", () => {
       undefined,
     );
     expect(getSttModelTranscriptionMode("xai", "xai-stt")).toBeUndefined();
+    expect(getSttModelTranscriptionMode("smallestai", "pulse")).toBeUndefined();
   });
 });
 

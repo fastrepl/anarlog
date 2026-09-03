@@ -38,6 +38,7 @@ describe("STT providers", () => {
       "together",
       "fireworks",
       "xai",
+      "smallestai",
       "pyannote",
       "cohere",
       "aquavoice",
@@ -82,6 +83,8 @@ describe("STT model display labels", () => {
       "Whisper Large V3 Turbo",
     );
     expect(displayModelLabel("xai-stt")).toBe("xAI Speech to Text");
+    expect(displayModelLabel("pulse")).toBe("Pulse");
+    expect(displayModelLabel("pulse-pro")).toBe("Pulse Pro");
     expect(displayModelLabel("gemini-3.5-transcribe-live")).toBe(
       "3.5 Transcribe Live",
     );
@@ -111,6 +114,8 @@ describe("STT model display labels", () => {
     expect(providers.fireworks.disabled).toBe(false);
     expect(providers.fireworks.models).toEqual(["whisper-v3-turbo"]);
     expect(providers.xai.badge).toBeNull();
+    expect(providers.smallestai.badge).toBeNull();
+    expect(providers.smallestai.models).toEqual(["pulse", "pulse-pro"]);
     expect(providers.google_generative_ai.badge).toBeNull();
     expect(providers.google_generative_ai.models).toEqual([
       "gemini-3.5-transcribe-live",

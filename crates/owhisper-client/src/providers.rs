@@ -111,10 +111,12 @@ pub enum Provider {
     Together,
     #[strum(serialize = "xai")]
     Xai,
+    #[strum(serialize = "smallestai")]
+    SmallestAI,
 }
 
 impl Provider {
-    const ALL: [Provider; 22] = [
+    const ALL: [Provider; 23] = [
         Self::AquaVoice,
         Self::Cartesia,
         Self::Deepgram,
@@ -137,6 +139,7 @@ impl Provider {
         Self::Speechmatics,
         Self::Together,
         Self::Xai,
+        Self::SmallestAI,
     ];
 
     pub fn from_host(host: &str) -> Option<Self> {
@@ -212,7 +215,8 @@ impl Provider {
             | Self::RevAi
             | Self::Speechmatics
             | Self::Together
-            | Self::Xai => Auth::Header {
+            | Self::Xai
+            | Self::SmallestAI => Auth::Header {
                 name: "Authorization",
                 prefix: Some("Bearer "),
             },
@@ -251,6 +255,7 @@ impl Provider {
             Self::Speechmatics => "eu1.asr.api.speechmatics.com",
             Self::Together => "api.together.xyz",
             Self::Xai => "api.x.ai",
+            Self::SmallestAI => "api.smallest.ai",
         }
     }
 
@@ -278,6 +283,7 @@ impl Provider {
             Self::Speechmatics => "eu2.rt.speechmatics.com",
             Self::Together => "api.together.xyz",
             Self::Xai => "api.x.ai",
+            Self::SmallestAI => "api.smallest.ai",
         }
     }
 
@@ -297,6 +303,7 @@ impl Provider {
             Self::Pyannote => "/v1/diarize",
             Self::Cohere => "",
             Self::Xai => "/v1/stt",
+            Self::SmallestAI => crate::adapter::smallestai::LIVE_PATH,
             Self::GoogleGenerativeAi => crate::adapter::google_generative_ai::WS_PATH,
             Self::AwsTranscribe
             | Self::AzureSpeech
@@ -331,7 +338,8 @@ impl Provider {
             | Self::RevAi
             | Self::Speechmatics
             | Self::Together
-            | Self::Xai => None,
+            | Self::Xai
+            | Self::SmallestAI => None,
         }
     }
 
@@ -359,6 +367,7 @@ impl Provider {
             Self::Speechmatics => "https://eu1.asr.api.speechmatics.com/v2",
             Self::Together => "https://api.together.xyz/v1",
             Self::Xai => "https://api.x.ai/v1",
+            Self::SmallestAI => "https://api.smallest.ai",
         }
     }
 
@@ -386,6 +395,7 @@ impl Provider {
             Self::Speechmatics => "speechmatics.com",
             Self::Together => "together.xyz",
             Self::Xai => "x.ai",
+            Self::SmallestAI => "smallest.ai",
         }
     }
 
@@ -437,6 +447,7 @@ impl Provider {
             Self::Speechmatics => "SPEECHMATICS_API_KEY",
             Self::Together => "TOGETHER_API_KEY",
             Self::Xai => "XAI_API_KEY",
+            Self::SmallestAI => "SMALLEST_API_KEY",
         }
     }
 
@@ -464,6 +475,7 @@ impl Provider {
             Self::Speechmatics => "enhanced",
             Self::Together => "openai/whisper-large-v3",
             Self::Xai => "xai-stt",
+            Self::SmallestAI => crate::adapter::smallestai::DEFAULT_MODEL,
         }
     }
 
@@ -483,7 +495,8 @@ impl Provider {
             | Self::RevAi
             | Self::Speechmatics
             | Self::Together
-            | Self::Xai => 16000,
+            | Self::Xai
+            | Self::SmallestAI => 16000,
             _ => 16000,
         }
     }
@@ -512,6 +525,7 @@ impl Provider {
             Self::Speechmatics => "enhanced",
             Self::Together => "openai/whisper-large-v3",
             Self::Xai => "xai-stt",
+            Self::SmallestAI => crate::adapter::smallestai::DEFAULT_MODEL,
         }
     }
 
@@ -531,7 +545,8 @@ impl Provider {
             | Self::RevAi
             | Self::Speechmatics
             | Self::Together
-            | Self::Xai => &[],
+            | Self::Xai
+            | Self::SmallestAI => &[],
             _ => &[],
         }
     }
@@ -557,7 +572,8 @@ impl Provider {
             | Self::Groq
             | Self::RevAi
             | Self::Speechmatics
-            | Self::Together => false,
+            | Self::Together
+            | Self::SmallestAI => false,
         }
     }
 
@@ -576,6 +592,7 @@ impl Provider {
             Self::OpenAI => &[],
             Self::Gladia => &[],
             Self::ElevenLabs => &["commit"],
+            Self::SmallestAI => &["finalize", "close_stream"],
             Self::DashScope
             | Self::Mistral
             | Self::Pyannote
@@ -619,7 +636,8 @@ impl Provider {
             | Self::RevAi
             | Self::Speechmatics
             | Self::Together
-            | Self::Xai => None,
+            | Self::Xai
+            | Self::SmallestAI => None,
             _ => None,
         }
     }
@@ -662,6 +680,7 @@ impl Provider {
             Self::Pyannote => None,
             Self::Cohere => None,
             Self::Xai => from_adapter(&crate::adapter::XaiAdapter::default(), msg),
+            Self::SmallestAI => from_adapter(&crate::adapter::SmallestAIAdapter, msg),
             Self::GoogleGenerativeAi => {
                 from_adapter(&crate::adapter::GoogleGenerativeAiAdapter, msg)
             }
@@ -698,7 +717,8 @@ impl Provider {
             | Self::RevAi
             | Self::Speechmatics
             | Self::Together
-            | Self::Xai => None,
+            | Self::Xai
+            | Self::SmallestAI => None,
         }
     }
 

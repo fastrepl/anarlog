@@ -18,6 +18,7 @@ describe("getDefaultSttModel", () => {
     expect(getDefaultSttModel("groq")).toBe("whisper-large-v3-turbo");
     expect(getDefaultSttModel("openrouter")).toBe("openai/gpt-transcribe");
     expect(getDefaultSttModel("xai")).toBe("xai-stt");
+    expect(getDefaultSttModel("smallestai")).toBe("pulse");
     expect(getDefaultSttModel("google_generative_ai")).toBe(
       "gemini-3.5-transcribe-live",
     );

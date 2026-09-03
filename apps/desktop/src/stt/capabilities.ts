@@ -181,6 +181,10 @@ export function getSttModelTranscriptionMode(
     return "batch";
   }
 
+  if (provider === "smallestai" && model === "pulse-pro") {
+    return "batch";
+  }
+
   if (
     provider === "groq" ||
     provider === "openrouter" ||

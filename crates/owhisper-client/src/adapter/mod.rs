@@ -28,7 +28,7 @@ mod owhisper;
 mod pyannote;
 mod revai;
 mod siliconflow;
-mod smallestai;
+pub(crate) mod smallestai;
 pub(crate) mod soniox;
 mod speechmatics;
 mod together;
@@ -129,6 +129,7 @@ pub fn documented_language_codes_live() -> Vec<String> {
     codes.extend(elevenlabs::documented_language_codes());
     codes.extend(argmax::PARAKEET_V3_LANGS.iter().copied());
     codes.extend(google_generative_ai::GoogleGenerativeAiAdapter::documented_language_codes());
+    codes.extend(smallestai::documented_language_codes_live().iter().copied());
 
     simple_documented_language_codes(codes)
 }
@@ -150,6 +151,11 @@ pub fn documented_language_codes_batch() -> Vec<String> {
     codes.extend(pyannote::documented_language_codes());
     codes.extend(cohere::documented_language_codes().iter().copied());
     codes.extend(google_generative_ai::GoogleGenerativeAiAdapter::documented_language_codes());
+    codes.extend(
+        smallestai::documented_language_codes_batch()
+            .iter()
+            .copied(),
+    );
 
     simple_documented_language_codes(codes)
 }
@@ -496,6 +502,8 @@ pub enum AdapterKind {
     Together,
     #[strum(serialize = "xai")]
     Xai,
+    #[strum(serialize = "smallestai")]
+    SmallestAI,
     #[strum(serialize = "anarlog")]
     Anarlog,
 }
@@ -569,6 +577,9 @@ impl AdapterKind {
             Self::GoogleGenerativeAi => (20 * 1024 * 1024, Duration::from_secs(15 * 60)),
             Self::Zai => (OPENAI_COMPATIBLE_MAX_UPLOAD_BYTES, Duration::from_secs(25)),
             Self::SiliconFlow => (50 * 1024 * 1024, Duration::from_secs(50 * 60)),
+            // Pre-recorded requests cap at 250 MB and time out after 10 minutes,
+            // and the docs recommend splitting anything longer.
+            Self::SmallestAI => (250 * 1024 * 1024, Duration::from_secs(10 * 60)),
             _ => return None,
         };
 
@@ -605,6 +616,7 @@ impl AdapterKind {
             | Self::DashScope
             | Self::Mistral
             | Self::Xai
+            | Self::SmallestAI
             | Self::GoogleGenerativeAi
             | Self::Anarlog => true,
         }
@@ -643,6 +655,7 @@ impl AdapterKind {
             | Self::Speechmatics
             | Self::Together => LanguageSupport::NotSupported,
             Self::Xai => XaiAdapter::language_support_live(languages),
+            Self::SmallestAI => SmallestAIAdapter::language_support_live(languages, model),
             Self::GoogleGenerativeAi => GoogleGenerativeAiAdapter::language_support_live(languages),
             Self::Anarlog => AnarlogAdapter::language_support_live(languages, model),
         }
@@ -682,6 +695,7 @@ impl AdapterKind {
             Self::Speechmatics => SpeechmaticsAdapter::language_support_batch(languages),
             Self::Together => TogetherAdapter::language_support_batch(languages),
             Self::Xai => XaiAdapter::language_support_batch(languages),
+            Self::SmallestAI => SmallestAIAdapter::language_support_batch(languages, model),
             Self::GoogleGenerativeAi => {
                 GoogleGenerativeAiAdapter::language_support_batch(languages)
             }
@@ -752,6 +766,7 @@ impl From<crate::providers::Provider> for AdapterKind {
             Provider::Speechmatics => Self::Speechmatics,
             Provider::Together => Self::Together,
             Provider::Xai => Self::Xai,
+            Provider::SmallestAI => Self::SmallestAI,
         }
     }
 }

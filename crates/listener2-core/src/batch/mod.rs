@@ -62,6 +62,7 @@ pub enum BatchProvider {
     Speechmatics,
     Together,
     Xai,
+    SmallestAI,
 }
 
 impl BatchProvider {
@@ -93,6 +94,7 @@ impl BatchProvider {
             Self::Speechmatics => Some(AdapterKind::Speechmatics),
             Self::Together => Some(AdapterKind::Together),
             Self::Xai => Some(AdapterKind::Xai),
+            Self::SmallestAI => Some(AdapterKind::SmallestAI),
             Self::Am | Self::WhisperLocal | Self::Soniqo | Self::AppleSpeech | Self::DashScope => {
                 None
             }

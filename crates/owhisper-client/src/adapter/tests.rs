@@ -240,6 +240,7 @@ fn test_has_live_mode() {
         AdapterKind::DashScope,
         AdapterKind::Mistral,
         AdapterKind::Xai,
+        AdapterKind::SmallestAI,
         AdapterKind::GoogleGenerativeAi,
         AdapterKind::Anarlog,
     ];
@@ -487,6 +488,10 @@ fn test_direct_provider_urls_not_affected() {
     assert_eq!(
         AdapterKind::from_url_and_languages("https://api.x.ai/v1", &en, None),
         AdapterKind::Xai,
+    );
+    assert_eq!(
+        AdapterKind::from_url_and_languages("https://api.smallest.ai", &en, None),
+        AdapterKind::SmallestAI,
     );
     assert_eq!(
         AdapterKind::from_url_and_languages(

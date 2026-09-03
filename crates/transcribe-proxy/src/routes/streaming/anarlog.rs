@@ -71,6 +71,7 @@ fn build_upstream_url_with_adapter(
         | Provider::Speechmatics
         | Provider::Together
         | Provider::Xai
+        | Provider::SmallestAI
         | Provider::GoogleGenerativeAi => {
             unreachable!("direct BYOK provider is not configured in the proxy")
         }
@@ -113,6 +114,7 @@ fn build_initial_message_with_adapter(
         | Provider::Speechmatics
         | Provider::Together
         | Provider::Xai
+        | Provider::SmallestAI
         | Provider::GoogleGenerativeAi => {
             unreachable!("direct BYOK provider is not configured in the proxy")
         }
@@ -158,6 +160,7 @@ fn build_response_transformer(
             | Provider::Speechmatics
             | Provider::Together
             | Provider::Xai
+            | Provider::SmallestAI
             | Provider::GoogleGenerativeAi => {
                 unreachable!("direct BYOK provider is not configured in the proxy")
             }
