@@ -21,8 +21,11 @@ const DEFAULT_EXTERNAL_STT_MODELS: Record<string, string> = {
   elevenlabs: "scribe_v2",
   mistral: "voxtral-mini-2602",
   pyannote: "parakeet-tdt-0.6b-v3",
-  aquavoice: "avalon-v1-en",
+  aquavoice: "avalon-v1.5",
   cohere: "cohere-transcribe-03-2026",
+  dashscope: "qwen3-asr-flash-realtime",
+  zai: "glm-asr-2512",
+  siliconflow: "FunAudioLLM/SenseVoiceSmall",
   fireworks: "whisper-v3-turbo",
   groq: "whisper-large-v3-turbo",
   xai: "xai-stt",
@@ -44,8 +47,17 @@ export function normalizeStoredSttModel(
   provider: string | undefined,
   model: string | undefined,
 ) {
-  if (provider === "assemblyai" && model === "universal") {
-    return "universal-3-5-pro";
+  if (provider === "assemblyai") {
+    if (model === "universal" || model === "universal-3-pro") {
+      return "universal-3-5-pro";
+    }
+    if (model === "u3-rt-pro") {
+      return "universal-3-5-pro-realtime";
+    }
+  }
+
+  if (provider === "aquavoice" && model === "avalon-v1-en") {
+    return "avalon-v1.5";
   }
 
   if (provider === "soniox") {
@@ -80,18 +92,25 @@ const normalizeSavedModel = (
   savedModel: string | undefined,
   models: ModelEntry[],
 ) => {
-  if (savedModel === "universal") {
-    if (models.some((model) => model.id === "universal-3-5-pro")) {
-      return "universal-3-5-pro";
-    }
+  if (
+    (savedModel === "universal" || savedModel === "universal-3-pro") &&
+    models.some((model) => model.id === "universal-3-5-pro")
+  ) {
+    return "universal-3-5-pro";
+  }
 
-    if (models.some((model) => model.id === "universal-3-pro")) {
-      return "universal-3-pro";
-    }
+  if (
+    savedModel === "u3-rt-pro" &&
+    models.some((model) => model.id === "universal-3-5-pro-realtime")
+  ) {
+    return "universal-3-5-pro-realtime";
+  }
 
-    if (models.some((model) => model.id === "u3-rt-pro")) {
-      return "u3-rt-pro";
-    }
+  if (
+    savedModel === "avalon-v1-en" &&
+    models.some((model) => model.id === "avalon-v1.5")
+  ) {
+    return "avalon-v1.5";
   }
 
   const sonioxRealtimeAlias = savedModel?.match(

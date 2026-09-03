@@ -132,6 +132,9 @@ describe("getSttModelTranscriptionMode", () => {
       ["google_cloud", "latest_long"],
       ["aws_transcribe", "amazon-transcribe"],
       ["revai", "machine"],
+      ["pyannote", "parakeet-tdt-0.6b-v3"],
+      ["aquavoice", "avalon-v1.5"],
+      ["cohere", "cohere-transcribe-arabic-07-2026"],
     ]) {
       expect(getSttModelTranscriptionMode(provider, model)).toBe("batch");
     }

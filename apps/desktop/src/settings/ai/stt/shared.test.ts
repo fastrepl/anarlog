@@ -63,8 +63,6 @@ describe("STT model display labels", () => {
 
   test("uses product-facing labels for hosted provider models", () => {
     expect(displayModelLabel("stt-rt-v5")).toBe("Soniox 5");
-    expect(displayModelLabel("u3-rt-pro")).toBe("Universal 3 Pro Realtime");
-    expect(displayModelLabel("universal-3-pro")).toBe("Universal 3 Pro");
     expect(displayModelLabel("universal-3-5-pro")).toBe("Universal 3.5 Pro");
     expect(displayModelLabel("universal-3-5-pro-realtime")).toBe(
       "Universal 3.5 Pro Realtime",
@@ -81,6 +79,18 @@ describe("STT model display labels", () => {
     );
     expect(displayModelLabel("whisper-large-v3-turbo")).toBe(
       "Whisper Large V3 Turbo",
+    );
+    expect(displayModelLabel("whisper-v3-turbo")).toBe("Whisper V3 Turbo");
+    expect(displayModelLabel("avalon-v1.5")).toBe("Avalon 1.5");
+    expect(displayModelLabel("cohere-transcribe-arabic-07-2026")).toBe(
+      "Cohere Transcribe Arabic",
+    );
+    expect(displayModelLabel("standard")).toBe("Standard");
+    expect(displayModelLabel("nvidia/nemotron-3.5-asr-streaming-0.6b")).toBe(
+      "Nemotron 3.5 ASR 0.6B",
+    );
+    expect(displayModelLabel("mistralai/voxtral-small-24b-2507-stt")).toBe(
+      "Voxtral Small 24B",
     );
     expect(displayModelLabel("xai-stt")).toBe("xAI Speech to Text");
     expect(displayModelLabel("pulse")).toBe("Pulse");
@@ -133,6 +143,15 @@ describe("STT model display labels", () => {
     ]) {
       expect(providers[provider]?.badge).toBe("Batch only");
     }
+    expect(providers.aquavoice.baseUrl).toBe("https://api.aquavoice.com/v1");
+    expect(providers.aquavoice.models).toEqual(["avalon-v1.5"]);
+    expect(providers.cohere.models).toEqual([
+      "cohere-transcribe-03-2026",
+      "cohere-transcribe-arabic-07-2026",
+    ]);
+    expect(providers.speechmatics.models).toEqual(["enhanced", "standard"]);
+    expect(providers.together.models).toContain("nvidia/parakeet-tdt-0.6b-v3");
+    expect(providers.openrouter.models).toContain("qwen/qwen3-asr-1.7b");
     expect(providers.google_cloud.badge).toBe("Short batch");
     expect(providers.aws_transcribe.badge).toBe("Gateway");
     expect(providers.dashscope.badge).toBeNull();
@@ -176,7 +195,7 @@ describe("STT model display labels", () => {
 });
 
 describe("STT model deprecation", () => {
-  test("lists current AssemblyAI models ahead of the Universal 3 pair", () => {
+  test("only lists the AssemblyAI models the API still accepts", () => {
     const assemblyai = PROVIDERS.find(
       (provider) => provider.id === "assemblyai",
     );
@@ -184,19 +203,19 @@ describe("STT model deprecation", () => {
     expect(assemblyai?.models).toEqual([
       "universal-3-5-pro",
       "universal-3-5-pro-realtime",
-      "universal-3-pro",
-      "u3-rt-pro",
     ]);
   });
 
   test("marks superseded hosted models as deprecated", () => {
-    expect(isDeprecatedSttModel("assemblyai", "universal-3-pro")).toBe(true);
-    expect(isDeprecatedSttModel("assemblyai", "u3-rt-pro")).toBe(true);
     expect(isDeprecatedSttModel("assemblyai", "universal-3-5-pro")).toBe(false);
     expect(
       isDeprecatedSttModel("assemblyai", "universal-3-5-pro-realtime"),
     ).toBe(false);
     expect(isDeprecatedSttModel("openai", "gpt-4o-transcribe")).toBe(true);
+    expect(isDeprecatedSttModel("openai", "gpt-4o-transcribe-diarize")).toBe(
+      true,
+    );
+    expect(isDeprecatedSttModel("openai", "whisper-1")).toBe(true);
     expect(isDeprecatedSttModel("openai", "gpt-transcribe")).toBe(false);
     expect(
       isDeprecatedSttModel("openrouter", "openai/gpt-4o-mini-transcribe"),

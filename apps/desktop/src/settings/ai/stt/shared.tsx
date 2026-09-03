@@ -59,8 +59,16 @@ const OPENROUTER_MODEL_LABELS: Record<string, string> = {
   "deepgram/nova-3": "Nova 3",
   "microsoft/mai-transcribe-1.5": "MAI Transcribe 1.5",
   "nvidia/parakeet-tdt-0.6b-v3": "Parakeet TDT 0.6B V3",
+  "nvidia/nemotron-3-asr-streaming-0.6b": "Nemotron 3 ASR 0.6B",
+  "nvidia/nemotron-3.5-asr-streaming-0.6b": "Nemotron 3.5 ASR 0.6B",
+  "nvidia/nemotron-3.5-asr-streaming-multilingual-0.6b":
+    "Nemotron 3.5 ASR Multilingual 0.6B",
   "mistralai/voxtral-mini-transcribe": "Voxtral Mini Transcribe",
+  "mistralai/voxtral-mini-3b-2507": "Voxtral Mini 3B",
+  "mistralai/voxtral-small-24b-2507-stt": "Voxtral Small 24B",
   "qwen/qwen3-asr-flash-2026-02-10": "Qwen3 ASR Flash",
+  "qwen/qwen3-asr-0.6b": "Qwen3 ASR 0.6B",
+  "qwen/qwen3-asr-1.7b": "Qwen3 ASR 1.7B",
   "google/chirp-3": "Chirp 3",
 };
 
@@ -177,6 +185,10 @@ export const displayModelId = (model: string): string => {
     return "Qwen3 ASR Flash Realtime";
   }
 
+  if (model === "qwen3-asr-flash-realtime-2026-02-10") {
+    return "Qwen3 ASR Flash Realtime (2026-02-10)";
+  }
+
   if (model === "glm-asr-2512") {
     return "GLM ASR";
   }
@@ -193,6 +205,10 @@ export const displayModelId = (model: string): string => {
     return "Voxtral Mini Transcribe 2";
   }
 
+  if (model === "avalon-v1.5") {
+    return "Avalon 1.5";
+  }
+
   if (model === "avalon-v1-en") {
     return "Avalon V1";
   }
@@ -201,8 +217,16 @@ export const displayModelId = (model: string): string => {
     return "Cohere Transcribe";
   }
 
+  if (model === "cohere-transcribe-arabic-07-2026") {
+    return "Cohere Transcribe Arabic";
+  }
+
   if (model === "whisper-large-v3-turbo") {
     return "Whisper Large V3 Turbo";
+  }
+
+  if (model === "whisper-v3-turbo") {
+    return "Whisper V3 Turbo";
   }
 
   if (model === "whisper-large-v3") {
@@ -241,6 +265,10 @@ export const displayModelId = (model: string): string => {
 
   if (model === "enhanced") {
     return "Enhanced";
+  }
+
+  if (model === "standard") {
+    return "Standard";
   }
 
   if (model === "fast-transcription") {
@@ -303,9 +331,14 @@ export const displayModelId = (model: string): string => {
   return model;
 };
 
+// OpenAI retires the gpt-4o transcribe family and whisper-1 on 2027-02-26.
 const DEPRECATED_STT_MODELS: Record<string, readonly string[]> = {
-  assemblyai: ["universal-3-pro", "u3-rt-pro"],
-  openai: ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"],
+  openai: [
+    "gpt-4o-transcribe",
+    "gpt-4o-mini-transcribe",
+    "gpt-4o-transcribe-diarize",
+    "whisper-1",
+  ],
   openrouter: ["openai/gpt-4o-transcribe", "openai/gpt-4o-mini-transcribe"],
   soniox: ["stt-rt-v4", "stt-async-v4", "stt-v4"],
 };
@@ -425,12 +458,7 @@ const _PROVIDERS = [
     badge: null,
     icon: <ProviderLobeIcon icon={AssemblyAI} />,
     baseUrl: "https://api.assemblyai.com",
-    models: [
-      "universal-3-5-pro",
-      "universal-3-5-pro-realtime",
-      "universal-3-pro",
-      "u3-rt-pro",
-    ],
+    models: ["universal-3-5-pro", "universal-3-5-pro-realtime"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
       models: {
@@ -490,6 +518,11 @@ const _PROVIDERS = [
       "microsoft/mai-transcribe-1.5",
       "nvidia/parakeet-tdt-0.6b-v3",
       "qwen/qwen3-asr-flash-2026-02-10",
+      "qwen/qwen3-asr-1.7b",
+      "qwen/qwen3-asr-0.6b",
+      "nvidia/nemotron-3.5-asr-streaming-multilingual-0.6b",
+      "mistralai/voxtral-small-24b-2507-stt",
+      "mistralai/voxtral-mini-3b-2507",
       "google/chirp-3",
       "openai/whisper-1",
     ],
@@ -512,7 +545,7 @@ const _PROVIDERS = [
     badge: null,
     icon: <ProviderLobeIcon icon={AlibabaCloud} />,
     baseUrl: "https://dashscope-intl.aliyuncs.com",
-    models: ["qwen3-asr-flash-realtime"],
+    models: ["qwen3-asr-flash-realtime", "qwen3-asr-flash-realtime-2026-02-10"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
       models: {
@@ -634,12 +667,17 @@ const _PROVIDERS = [
     badge: "Batch only",
     icon: <ProviderLobeIcon icon={Together} />,
     baseUrl: "https://api.together.xyz/v1",
-    models: ["openai/whisper-large-v3"],
+    models: [
+      "openai/whisper-large-v3",
+      "nvidia/parakeet-tdt-0.6b-v3",
+      "nvidia/nemotron-3.5-asr-streaming-0.6b",
+      "nvidia/nemotron-3-asr-streaming-0.6b",
+    ],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
       models: {
         label: "Available models",
-        url: "https://docs.together.ai/docs/inference-transcription",
+        url: "https://docs.together.ai/docs/inference/transcription/overview",
       },
       setup: {
         label: "API setup",
@@ -659,7 +697,7 @@ const _PROVIDERS = [
       />
     ),
     baseUrl: "https://eu1.asr.api.speechmatics.com/v2",
-    models: ["enhanced"],
+    models: ["enhanced", "standard"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
       models: {
@@ -941,8 +979,8 @@ const _PROVIDERS = [
         className="rounded-xs"
       />
     ),
-    baseUrl: "https://api.aquavoice.com/api/v1",
-    models: ["avalon-v1-en"],
+    baseUrl: "https://api.aquavoice.com/v1",
+    models: ["avalon-v1.5"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
       models: {
@@ -962,7 +1000,7 @@ const _PROVIDERS = [
     badge: "Batch only",
     icon: <ProviderLobeIcon icon={Cohere} />,
     baseUrl: "https://api.cohere.com/v2",
-    models: ["cohere-transcribe-03-2026"],
+    models: ["cohere-transcribe-03-2026", "cohere-transcribe-arabic-07-2026"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
       models: {

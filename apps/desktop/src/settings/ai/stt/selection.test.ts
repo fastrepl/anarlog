@@ -8,6 +8,28 @@ import {
   resolveLiveLanguageSupportMode,
 } from "./selection";
 
+import { normalizeStoredSttModel } from "~/stt/model-selection";
+
+describe("normalizeStoredSttModel", () => {
+  test("rewrites retired provider model ids to their replacements", () => {
+    expect(normalizeStoredSttModel("assemblyai", "universal-3-pro")).toBe(
+      "universal-3-5-pro",
+    );
+    expect(normalizeStoredSttModel("assemblyai", "u3-rt-pro")).toBe(
+      "universal-3-5-pro-realtime",
+    );
+    expect(normalizeStoredSttModel("aquavoice", "avalon-v1-en")).toBe(
+      "avalon-v1.5",
+    );
+    expect(normalizeStoredSttModel("aquavoice", "avalon-v1.5")).toBe(
+      "avalon-v1.5",
+    );
+    expect(normalizeStoredSttModel("deepgram", "nova-3-general")).toBe(
+      "nova-3-general",
+    );
+  });
+});
+
 describe("getDefaultSttModel", () => {
   test("repairs external providers with their first supported model", () => {
     expect(getDefaultSttModel("local_file")).toBe("local-file");
@@ -15,6 +37,12 @@ describe("getDefaultSttModel", () => {
     expect(getDefaultSttModel("assemblyai")).toBe("universal-3-5-pro");
     expect(getDefaultSttModel("soniox")).toBe("stt-rt-v5");
     expect(getDefaultSttModel("cohere")).toBe("cohere-transcribe-03-2026");
+    expect(getDefaultSttModel("aquavoice")).toBe("avalon-v1.5");
+    expect(getDefaultSttModel("dashscope")).toBe("qwen3-asr-flash-realtime");
+    expect(getDefaultSttModel("zai")).toBe("glm-asr-2512");
+    expect(getDefaultSttModel("siliconflow")).toBe(
+      "FunAudioLLM/SenseVoiceSmall",
+    );
     expect(getDefaultSttModel("groq")).toBe("whisper-large-v3-turbo");
     expect(getDefaultSttModel("openrouter")).toBe("openai/gpt-transcribe");
     expect(getDefaultSttModel("xai")).toBe("xai-stt");
@@ -98,13 +126,27 @@ describe("getPreferredProviderModel", () => {
     ).toBe("");
   });
 
-  test("migrates AssemblyAI universal to universal-3-5-pro when available", () => {
+  test("migrates retired AssemblyAI models to Universal 3.5 Pro", () => {
+    const models = [
+      { id: "universal-3-5-pro" },
+      { id: "universal-3-5-pro-realtime" },
+    ];
+
+    expect(getPreferredProviderModel("universal", models)).toBe(
+      "universal-3-5-pro",
+    );
+    expect(getPreferredProviderModel("universal-3-pro", models)).toBe(
+      "universal-3-5-pro",
+    );
+    expect(getPreferredProviderModel("u3-rt-pro", models)).toBe(
+      "universal-3-5-pro-realtime",
+    );
+  });
+
+  test("migrates the retired AquaVoice model to Avalon 1.5", () => {
     expect(
-      getPreferredProviderModel("universal", [
-        { id: "universal-3-5-pro" },
-        { id: "universal-3-pro" },
-      ]),
-    ).toBe("universal-3-5-pro");
+      getPreferredProviderModel("avalon-v1-en", [{ id: "avalon-v1.5" }]),
+    ).toBe("avalon-v1.5");
   });
 
   test("migrates Soniox aliases to explicit realtime models", () => {
