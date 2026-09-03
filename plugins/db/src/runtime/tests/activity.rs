@@ -1,5 +1,22 @@
 use super::*;
 
+#[test]
+fn local_write_activities_wait_longer_than_capture_to_drain() {
+    assert_eq!(
+        cloudsync_activity_drain_timeout("capture"),
+        CLOUDSYNC_ACTIVITY_DRAIN_TIMEOUT
+    );
+    assert_eq!(
+        cloudsync_activity_drain_timeout("enhance"),
+        CLOUDSYNC_LOCAL_WRITE_DRAIN_TIMEOUT
+    );
+    assert_eq!(
+        cloudsync_activity_drain_timeout("chat"),
+        CLOUDSYNC_LOCAL_WRITE_DRAIN_TIMEOUT
+    );
+    assert!(CLOUDSYNC_LOCAL_WRITE_DRAIN_TIMEOUT > CLOUDSYNC_ACTIVITY_DRAIN_TIMEOUT);
+}
+
 #[tokio::test]
 async fn cloudsync_activity_leases_are_idempotent_and_preserved_by_identity_clear() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());

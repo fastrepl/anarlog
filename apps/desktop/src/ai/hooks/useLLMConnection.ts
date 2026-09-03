@@ -65,12 +65,14 @@ export const normalizeLLMProviderId = (providerId: string): string =>
 
 export const useLanguageModel = (task?: CharTask): LanguageModelV3 | null => {
   const { conn } = useLLMConnection();
-  const { session } = useAuth();
+  const auth = useAuth();
 
   // Auth is resolved at fetch time (not model construction) so token
   // refreshes take effect without recreating the chat transport chain.
-  const accessTokenRef = useRef(session?.access_token);
-  accessTokenRef.current = session?.access_token;
+  const getSessionForRequestRef = useRef(auth.getSessionForRequest);
+  getSessionForRequestRef.current = auth.getSessionForRequest;
+  const refreshSessionRef = useRef(auth.refreshSession);
+  refreshSessionRef.current = auth.refreshSession;
 
   return useMemo(() => {
     if (!conn) return null;
@@ -79,7 +81,8 @@ export const useLanguageModel = (task?: CharTask): LanguageModelV3 | null => {
       conn.providerId === "anarlog"
         ? createAuthFetch(
             task ? createTracedFetch(task) : tracedFetch,
-            () => accessTokenRef.current,
+            async () => (await getSessionForRequestRef.current())?.access_token,
+            async () => (await refreshSessionRef.current())?.access_token,
           )
         : undefined;
 

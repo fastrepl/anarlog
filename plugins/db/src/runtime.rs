@@ -42,6 +42,7 @@ const DEFAULT_CLOUDSYNC_INTERVAL_MS: u64 = 30_000;
 const CLOUDSYNC_STATUS_POOL_RETURN_GRACE: std::time::Duration =
     std::time::Duration::from_millis(10);
 const CLOUDSYNC_ACTIVITY_DRAIN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
+const CLOUDSYNC_LOCAL_WRITE_DRAIN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
 const CLOUDSYNC_AUTH_LOCK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
 const E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT: i64 = 64;
 const CLOUDSYNC_WRITE_FILTER: &str =
@@ -378,7 +379,8 @@ impl PluginDbRuntime {
     }
 
     pub async fn begin_cloudsync_activity(&self, activity: String, key: String) -> Result<()> {
-        self.begin_cloudsync_activity_with_timeout(activity, key, CLOUDSYNC_ACTIVITY_DRAIN_TIMEOUT)
+        let drain_timeout = cloudsync_activity_drain_timeout(&activity);
+        self.begin_cloudsync_activity_with_timeout(activity, key, drain_timeout)
             .await
     }
 
@@ -1708,6 +1710,17 @@ async fn wait_until_cloudsync_auth_generation_changes(
             return;
         }
         generation_changed.await;
+    }
+}
+
+fn cloudsync_activity_drain_timeout(activity: &str) -> std::time::Duration {
+    // Capture start retries drain in the background and must not block recording.
+    // Summary/chat persistence waits for the current app-pool recovery query,
+    // which sqlite3_interrupt cannot abort and often exceeds two seconds.
+    if activity.trim() == CLOUDSYNC_CAPTURE_ACTIVITY {
+        CLOUDSYNC_ACTIVITY_DRAIN_TIMEOUT
+    } else {
+        CLOUDSYNC_LOCAL_WRITE_DRAIN_TIMEOUT
     }
 }
 
