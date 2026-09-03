@@ -17,9 +17,6 @@ export function getMainContentMinWidth(tab: Pick<Tab, "type"> | null) {
   if (tab?.type === "automations") {
     return AUTOMATIONS_SURFACE_MIN_WIDTH_PX;
   }
-  if (tab?.type === "settings") {
-    return SETTINGS_SURFACE_MIN_WIDTH_PX;
-  }
   return usesNoteSurfaceMinWidth(tab) ? NOTE_SURFACE_MIN_WIDTH_PX : undefined;
 }
 

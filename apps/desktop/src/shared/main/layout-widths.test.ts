@@ -7,10 +7,11 @@ import {
 } from "./layout-widths";
 
 describe("layout-widths", () => {
-  it("keeps a settings surface preference without overflowing its parent", () => {
-    expect(getMainContentMinWidth({ type: "settings" })).toBe(
-      SETTINGS_SURFACE_MIN_WIDTH_PX,
-    );
+  it("does not force a 700px inner settings panel beside the sidebar", () => {
+    expect(getMainContentMinWidth({ type: "settings" })).toBeUndefined();
+  });
+
+  it("caps a preferred min-width so it cannot exceed its parent", () => {
     expect(boundedMinWidthPx(SETTINGS_SURFACE_MIN_WIDTH_PX)).toBe(
       "min(700px, 100%)",
     );

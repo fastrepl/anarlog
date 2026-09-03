@@ -45,10 +45,17 @@ describe("AppSettingsView", () => {
   it("lets switch descriptions use the available row width", () => {
     renderAppSettings();
 
-    expect(
-      screen.getByRole("switch", { name: "Start Anarlog at login" })
-        .parentElement?.className,
-    ).not.toContain("w-48");
+    const loginSwitch = screen.getByRole("switch", {
+      name: "Start Anarlog at login",
+    });
+
+    expect(loginSwitch.parentElement?.className).not.toContain("w-48");
+    expect(loginSwitch.parentElement?.parentElement?.className).toContain(
+      "min-w-0",
+    );
+    expect(loginSwitch.parentElement?.parentElement?.className).toContain(
+      "w-full",
+    );
   });
 
   it("hides macOS-only Dock controls outside macOS", () => {

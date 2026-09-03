@@ -40,10 +40,7 @@ import {
   usesWindowsStyleTitleBar,
   useWindowControlsGutter,
 } from "~/shared/hooks/useWindowControlsGutter";
-import {
-  boundedMinWidthPx,
-  getMainContentMinWidth,
-} from "~/shared/main/layout-widths";
+import { getMainContentMinWidth } from "~/shared/main/layout-widths";
 import { useOpenNoteDialog } from "~/shared/open-note-dialog";
 import { useNewNote } from "~/shared/useNewNote";
 import { useSidebarNotes } from "~/sidebar/note-filter";
@@ -90,11 +87,7 @@ export function ClassicMainBody({
   leftSidebarPanelConstraintsRef.current = leftSidebarPanelConstraints;
 
   const isOnboarding = currentTab?.type === "onboarding";
-  const mainContentMinWidthPx = getMainContentMinWidth(currentTab);
-  const mainContentMinWidth =
-    currentTab?.type === "settings" && mainContentMinWidthPx != null
-      ? boundedMinWidthPx(mainContentMinWidthPx)
-      : mainContentMinWidthPx;
+  const mainContentMinWidth = getMainContentMinWidth(currentTab);
   const hasCustomSidebar = hasCustomSidebarTab(currentTab);
   const hasLeftSurfaceCustomSidebar =
     hasLeftSurfaceCustomSidebarTab(currentTab);

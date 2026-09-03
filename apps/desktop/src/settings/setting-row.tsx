@@ -24,7 +24,7 @@ export function SettingRow({
   const descriptionId = useId();
 
   return (
-    <div className="flex items-center justify-between gap-4">
+    <div className="flex w-full min-w-0 items-center justify-between gap-4">
       <div className="min-w-0 flex-1">
         <h3 id={titleId} className="mb-1 text-sm font-medium">
           {title}
@@ -37,8 +37,9 @@ export function SettingRow({
       </div>
       <div
         className={cn([
-          "flex shrink-0 justify-end",
-          controlWidth === "fixed" && "w-48",
+          "flex justify-end",
+          controlWidth === "fixed" && "w-48 max-w-full min-w-0",
+          controlWidth !== "fixed" && "shrink-0",
         ])}
       >
         {children({
