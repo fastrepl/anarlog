@@ -113,6 +113,37 @@ describe("SQLite AI providers", () => {
     );
   });
 
+  it("keeps provider objects referentially stable across renders", async () => {
+    const rows = [
+      {
+        id: "ai_provider:llm:openai",
+        value_json: JSON.stringify({
+          type: "llm",
+          base_url: "https://api.openai.com/v1",
+          api_key: "",
+        }),
+      },
+    ];
+    mocks.useLiveQuery.mockReturnValue({ data: rows, isLoading: false });
+    mocks.getSecret.mockResolvedValue({ status: "ok", data: "openai-key" });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    const { result, rerender } = renderHook(() => useAiProvidersState("llm"), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+    const before = result.current.providers;
+
+    rerender();
+
+    expect(result.current.providers).toBe(before);
+    expect(result.current.providers["llm:openai"]?.api_key).toBe("openai-key");
+  });
+
   it("uses direct provider rows over imported legacy configuration", () => {
     const providers = parseAiProviders(
       [

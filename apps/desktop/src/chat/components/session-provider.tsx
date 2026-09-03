@@ -210,14 +210,29 @@ function ChatSessionLifecycle({
     [persistedMessages],
   );
   initialMessagesRef.current = persistedVisibleMessages;
+  const latestTransportRef = useRef(transport);
+  latestTransportRef.current = transport;
 
+  // The Chat instance must live for the whole session. useChat swaps to any
+  // new instance it is handed, which resets status to "ready" and detaches
+  // the UI from an in-flight stream, so the transport is resolved per request
+  // instead of being baked into the memo.
   const chat = useMemo(
     () =>
       new Chat<AnlgUIMessage>({
         id: sessionId,
         messages: initialMessagesRef.current,
         transport: guardChatTransport(
-          transport ?? unavailableChatTransport,
+          {
+            sendMessages: (options) =>
+              (
+                latestTransportRef.current ?? unavailableChatTransport
+              ).sendMessages(options),
+            reconnectToStream: (options) =>
+              (
+                latestTransportRef.current ?? unavailableChatTransport
+              ).reconnectToStream(options),
+          },
           chatCloudsyncActivity,
           { beforeSend: takeTransportPreflight },
         ),
@@ -385,7 +400,7 @@ function ChatSessionLifecycle({
           }
         },
       }),
-    [chatCloudsyncActivity, sessionId, takeTransportPreflight, transport],
+    [chatCloudsyncActivity, sessionId, takeTransportPreflight],
   );
 
   const {

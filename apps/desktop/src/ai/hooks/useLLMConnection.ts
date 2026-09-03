@@ -102,6 +102,9 @@ export const useLanguageModel = (task?: CharTask): LanguageModelV3 | null => {
 
 export const useLLMConnection = (): LLMConnectionResult => {
   const auth = useAuth();
+  // Only the session feeds the connection; the auth object itself changes
+  // identity on refresh-mutation state and would churn the model chain.
+  const session = auth?.session;
   const billing = useBillingAccess();
 
   const {
@@ -124,11 +127,11 @@ export const useLLMConnection = (): LLMConnectionResult => {
         modelId: current_llm_model,
         reasoningEffort: normalizeReasoningEffort(current_llm_reasoning_effort),
         providerConfig,
-        session: auth?.session,
+        session,
         isPaid: billing.isPaid,
       }),
     [
-      auth,
+      session,
       billing.isPaid,
       current_llm_model,
       current_llm_provider,

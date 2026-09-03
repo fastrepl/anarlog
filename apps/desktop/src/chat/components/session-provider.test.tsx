@@ -1183,13 +1183,17 @@ describe("ChatSession", () => {
     expect(mocks.beginCloudsyncActivity).toHaveBeenCalledOnce();
   });
 
-  it("recreates the SDK chat when transport becomes ready", () => {
+  it("keeps one SDK chat and sends through the latest transport", async () => {
     const initialTransport = {
       sendMessages: vi.fn(),
       reconnectToStream: vi.fn(),
     };
     const readyTransport = {
-      sendMessages: vi.fn(),
+      sendMessages: vi
+        .fn()
+        .mockResolvedValue(
+          new ReadableStream({ start: (controller) => controller.close() }),
+        ),
       reconnectToStream: vi.fn(),
     };
     mocks.transport = initialTransport;
@@ -1207,16 +1211,30 @@ describe("ChatSession", () => {
       </ChatSession>,
     );
 
-    expect(mocks.chatInits).toHaveLength(2);
-    expect((mocks.chatInits[0] as { transport: unknown }).transport).not.toBe(
-      initialTransport,
-    );
-    expect((mocks.chatInits[1] as { transport: unknown }).transport).not.toBe(
-      readyTransport,
-    );
-    expect((mocks.chatInits[0] as { transport: unknown }).transport).not.toBe(
-      (mocks.chatInits[1] as { transport: unknown }).transport,
-    );
+    expect(mocks.chatInits).toHaveLength(1);
+    const init = mocks.chatInits[0] as {
+      transport: {
+        sendMessages: (options: {
+          trigger: "submit-message";
+          chatId: string;
+          messageId: undefined;
+          messages: AnlgUIMessage[];
+          abortSignal: AbortSignal;
+        }) => Promise<ReadableStream>;
+      };
+    };
+    await init.transport.sendMessages({
+      trigger: "submit-message",
+      chatId: "session-1",
+      messageId: undefined,
+      messages: [
+        { id: "user-1", role: "user", parts: [{ type: "text", text: "Q" }] },
+      ],
+      abortSignal: new AbortController().signal,
+    });
+
+    expect(readyTransport.sendMessages).toHaveBeenCalledOnce();
+    expect(initialTransport.sendMessages).not.toHaveBeenCalled();
   });
 
   it("syncs SDK messages when SQLite rows load later", async () => {

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 import { commands as store2Commands } from "@anlg/plugin-store2";
 
@@ -40,7 +41,7 @@ export function useAiProvidersState(type: AiProviderType): {
     sql: `SELECT id, value_json FROM app_settings ORDER BY id`,
     mapRows: (rows) => rows,
   });
-  const providers = parseAiProviders(rows, type);
+  const providers = useMemo(() => parseAiProviders(rows, type), [rows, type]);
   const providerIds = Object.keys(providers).sort();
   const secureApiKeysQuery = useQuery({
     queryKey: ["ai-provider-api-keys", type, providerIds],
@@ -49,17 +50,24 @@ export function useAiProvidersState(type: AiProviderType): {
     staleTime: Infinity,
   });
   const secureApiKeys = secureApiKeysQuery.data ?? EMPTY_PROVIDER_API_KEYS;
+  // Consumers memoize model/transport chains on these objects, so they must
+  // keep their identity across renders when nothing changed.
+  const resolvedProviders = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(providers).map(([rowId, provider]) => [
+          rowId,
+          {
+            ...provider,
+            api_key: secureApiKeys[rowId] ?? provider.api_key,
+          },
+        ]),
+      ),
+    [providers, secureApiKeys],
+  );
 
   return {
-    providers: Object.fromEntries(
-      Object.entries(providers).map(([rowId, provider]) => [
-        rowId,
-        {
-          ...provider,
-          api_key: secureApiKeys[rowId] ?? provider.api_key,
-        },
-      ]),
-    ),
+    providers: resolvedProviders,
     isLoading: rowsLoading || secureApiKeysQuery.isPending,
     isReady: !rowsLoading && secureApiKeysQuery.data !== undefined,
   };

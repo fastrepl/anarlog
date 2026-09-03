@@ -1,4 +1,5 @@
 import { cleanup, render, waitFor } from "@testing-library/react";
+import type { UIMessageChunk } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { beginCloudsyncActivity, endCloudsyncActivity } from "@anlg/plugin-db";
@@ -27,6 +28,7 @@ const mocks = vi.hoisted(() => ({
     sendMessages: ReturnType<typeof vi.fn>;
     reconnectToStream: ReturnType<typeof vi.fn>;
   },
+  transportIdentityChangesEveryRender: false,
   upsertChatMessage: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -58,7 +60,9 @@ vi.mock("~/chat/store/queries", () => ({
 
 vi.mock("~/chat/transport/use-transport", () => ({
   useTransport: () => ({
-    transport: mocks.transport,
+    transport: mocks.transportIdentityChangesEveryRender
+      ? { ...mocks.transport }
+      : mocks.transport,
     isSystemPromptReady: true,
   }),
 }));
@@ -198,12 +202,63 @@ describe("ChatSession real SDK CloudSync activity", () => {
       sendMessages: mocks.sendMessages,
       reconnectToStream: vi.fn().mockResolvedValue(null),
     };
+    mocks.transportIdentityChangesEveryRender = false;
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
+  });
+
+  it("keeps the in-flight response visible when upstream hooks hand over a new transport object", async () => {
+    // Model/provider hooks can return fresh objects on every render; the chat
+    // instance must survive that or the UI silently detaches from the stream.
+    mocks.transportIdentityChangesEveryRender = true;
+    let controller!: ReadableStreamDefaultController<UIMessageChunk>;
+    mocks.sendMessages.mockResolvedValue(
+      new ReadableStream<UIMessageChunk>({
+        start: (streamController) => {
+          controller = streamController;
+        },
+      }),
+    );
+    const harness = renderHarness();
+
+    harness.props.sendMessage(userMessage, {
+      chatGroupId: "group-1",
+      beforeSend: vi.fn().mockResolvedValue(undefined),
+    });
+
+    await waitFor(() => expect(harness.props.status).toBe("submitted"));
+    expect(harness.props.messages.map((message) => message.id)).toEqual([
+      userMessage.id,
+    ]);
+
+    await waitFor(() => expect(mocks.sendMessages).toHaveBeenCalledOnce());
+    controller.enqueue({ type: "start", messageId: "assistant-1" });
+    controller.enqueue({ type: "text-start", id: "text-1" });
+    controller.enqueue({ type: "text-delta", id: "text-1", delta: "Hello" });
+
+    await waitFor(() => {
+      expect(harness.props.status).toBe("streaming");
+      const { messages } = harness.props;
+      expect(messages[messages.length - 1]).toMatchObject({
+        id: "assistant-1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Hello" }],
+      });
+    });
+
+    controller.enqueue({ type: "text-end", id: "text-1" });
+    controller.enqueue({ type: "finish" });
+    controller.close();
+
+    await waitFor(() => expect(harness.props.status).toBe("ready"));
+    expect(harness.props.messages.map((message) => message.id)).toEqual([
+      userMessage.id,
+      "assistant-1",
+    ]);
   });
 
   it("persists after unmount when deferred acquisition later succeeds", async () => {
