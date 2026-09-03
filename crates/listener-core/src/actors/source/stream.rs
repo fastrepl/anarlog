@@ -11,10 +11,12 @@ use super::{SourceFrame, SourceMsg, SourceState};
 
 const CAPTURE_FRAME_QUEUE_CAPACITY: usize = 32;
 
+/// Returns the settings the streams opened with so the routing watcher can start from the same
+/// verdict instead of sampling its own.
 pub(super) async fn start_source_loop(
     myself: &ActorRef<SourceMsg>,
     st: &mut SourceState,
-) -> Result<(), ActorProcessingErr> {
+) -> Result<CaptureSettings, ActorProcessingErr> {
     let new_mode = ChannelMode::determine(st.onboarding);
 
     let mode_changed = st.current_mode != new_mode;
@@ -40,15 +42,15 @@ pub(super) async fn start_source_loop(
         }
     }
 
-    result
+    result.map(|()| capture)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct CaptureSettings {
+pub(super) struct CaptureSettings {
     enable_aec: bool,
     /// Headphones keep speaker output out of the mic, so whatever the mic hears is the local
     /// user. Re-evaluated per stream because the source restarts on default output changes.
-    mic_isolated: bool,
+    pub(super) mic_isolated: bool,
 }
 
 // Headphones make AEC pure cost: it burns CPU and can degrade near-end speech. The check covers

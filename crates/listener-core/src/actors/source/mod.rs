@@ -96,13 +96,10 @@ struct DeviceChangeWatcher {
 }
 
 impl DeviceChangeWatcher {
-    fn spawn(actor: ActorRef<SourceMsg>) -> Self {
+    fn spawn(actor: ActorRef<SourceMsg>, headphone_output: bool) -> Self {
         let (event_tx, event_rx) = mpsc::sync_channel(1);
         let handle = DeviceSwitchMonitor::spawn_debounced_bounded(event_tx);
-        // Sampled here, right before the streams open with the same verdict, so the watcher and
-        // the capture settings start from one view of the world.
-        let routing =
-            POLLS_OUTPUT_ROUTING.then(|| OutputRoutingTracker::new(headphone_only_output()));
+        let routing = POLLS_OUTPUT_ROUTING.then(|| OutputRoutingTracker::new(headphone_output));
         let thread = std::thread::spawn(move || Self::event_loop(event_rx, actor, routing));
 
         Self {
@@ -213,8 +210,6 @@ impl Actor for SourceActor {
                     session_id: session_id.clone(),
                 });
 
-            let device_watcher = DeviceChangeWatcher::spawn(myself.clone());
-
             let silence_stream_tx = Some(args.audio.play_silence());
             let mic_device = args.mic_device;
             tracing::info!(mic_device = ?mic_device);
@@ -232,7 +227,7 @@ impl Actor for SourceActor {
                 stream_cancel_token: None,
                 capture_frames: None,
                 capture_wake_pending: Arc::new(AtomicBool::new(false)),
-                _device_watcher: Some(device_watcher),
+                _device_watcher: None,
                 _silence_stream_tx: silence_stream_tx,
                 current_mode: ChannelMode::MicAndSpeaker,
                 pipeline,
@@ -240,7 +235,13 @@ impl Actor for SourceActor {
                 recorder: args.recorder,
             };
 
-            start_source_loop(&myself, &mut st).await?;
+            // The watcher's baseline is the verdict the streams opened with, sampled after the
+            // silence stream started, so it cannot read startup skew as a routing change.
+            let capture = start_source_loop(&myself, &mut st).await?;
+            st._device_watcher = Some(DeviceChangeWatcher::spawn(
+                myself.clone(),
+                capture.mic_isolated,
+            ));
             Ok(st)
         }
         .instrument(span)

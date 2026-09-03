@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use cidre::{cf, core_audio as ca, io};
 
 use crate::device::name_suggests_speaker;
@@ -116,34 +118,46 @@ impl MacOSBackend {
 
 const TAP_DEVICE_NAME: &str = "anarlog-audio-tap";
 
-const DEVICE_IS_RUNNING_SOMEWHERE: ca::PropAddr = ca::PropAddr {
-    selector: ca::PropSelector::DEVICE_IS_RUNNING_SOMEWHERE,
-    scope: ca::PropScope::GLOBAL,
+const PROCESS_OUTPUT_DEVICES: ca::PropAddr = ca::PropAddr {
+    selector: ca::PropSelector::PROCESS_DEVICES,
+    scope: ca::PropScope::OUTPUT,
     element: ca::PropElement::MAIN,
 };
 
-fn is_running_somewhere(device: &ca::Device) -> bool {
-    device
-        .prop::<u32>(&DEVICE_IS_RUNNING_SOMEWHERE)
-        .map(|value| value != 0)
-        .unwrap_or(false)
+// Devices other processes are rendering to. Our own playback is skipped: the silence stream that
+// keeps the default output awake would otherwise count as speaker output. A process whose pid
+// cannot be read is skipped too, since counting ourselves is the worse failure.
+fn foreign_running_output_device_ids() -> Result<HashSet<u32>, Error> {
+    let self_pid = std::process::id() as i32;
+    let processes =
+        ca::System::processes().map_err(|e| Error::EnumerationFailed(format!("{:?}", e)))?;
+
+    Ok(processes
+        .iter()
+        .filter(|process| process.pid().ok().is_some_and(|pid| pid != self_pid))
+        .filter(|process| process.is_running_output().unwrap_or(false))
+        .filter_map(|process| process.prop_vec::<ca::Device>(&PROCESS_OUTPUT_DEVICES).ok())
+        .flatten()
+        .map(|device| device.0.0)
+        .collect())
 }
 
 impl AudioDeviceBackend for MacOSBackend {
     fn running_output_devices(&self) -> Result<Vec<AudioDevice>, Error> {
+        let running = foreign_running_output_device_ids()?;
         let ca_devices =
             ca::System::devices().map_err(|e| Error::EnumerationFailed(format!("{:?}", e)))?;
         let default_output_id = ca::System::default_output_device().ok().map(|d| d.0.0);
 
         Ok(ca_devices
             .iter()
+            .filter(|device| running.contains(&device.0.0))
             .filter(|device| {
                 device
                     .name()
                     .map(|name| !name.to_string().contains(TAP_DEVICE_NAME))
                     .unwrap_or(true)
             })
-            .filter(|device| is_running_somewhere(device))
             .filter_map(|device| {
                 Self::create_audio_device(device, AudioDirection::Output, default_output_id)
             })
