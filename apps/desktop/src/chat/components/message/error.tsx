@@ -9,6 +9,14 @@ import { env } from "~/env";
 
 const WEB_APP_BASE_URL = env.VITE_APP_URL ?? "http://localhost:3000";
 
+// `useChat().error` is typed as Error but holds whatever the transport threw.
+export function getChatErrorText(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return typeof error === "string" ? error : String(error);
+}
+
 function isContextLengthError(message: string): boolean {
   const lowerMessage = message.toLowerCase();
   return (
@@ -23,11 +31,12 @@ export function ErrorMessage({
   error,
   onRetry,
 }: {
-  error: Error;
+  error: unknown;
   onRetry?: () => void;
 }) {
   const { t } = useLingui();
-  const showContextLengthHelp = isContextLengthError(error.message);
+  const message = getChatErrorText(error);
+  const showContextLengthHelp = isContextLengthError(message);
 
   const handleOpenFaq = () => {
     void openerCommands.openUrl(
@@ -39,7 +48,7 @@ export function ErrorMessage({
   return (
     <MessageContainer align="start">
       <MessageBubble variant="error" withActionButton={!!onRetry}>
-        <p className="text-sm">{error.message}</p>
+        <p className="text-sm">{message}</p>
         {showContextLengthHelp && (
           <button
             onClick={handleOpenFaq}

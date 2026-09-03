@@ -215,6 +215,64 @@ describe("chat CloudSync activity", () => {
     expect(end).toHaveBeenCalledWith("chat", "turn-1:attempt-1");
   });
 
+  it("wraps a non-Error lease acquisition rejection so useChat gets an Error", async () => {
+    // Tauri `invoke` rejects with the serialized Rust error, a bare string.
+    const begin = vi.fn().mockRejectedValue("cloudsync_activity_drain_timeout");
+    const activity = createChatCloudsyncActivityController({
+      begin,
+      end: vi.fn().mockResolvedValue(undefined),
+      createAttemptKey: sequentialAttemptKeys(),
+    });
+    const transport = guardChatTransport(
+      {
+        sendMessages: vi.fn(),
+        reconnectToStream: vi.fn().mockResolvedValue(null),
+      },
+      activity,
+    );
+
+    const rejection = transport.sendMessages({
+      trigger: "submit-message",
+      chatId: "chat-1",
+      messageId: undefined,
+      messages: [{ id: "turn-1", role: "user", parts: [] }],
+      abortSignal: new AbortController().signal,
+    });
+
+    await expect(rejection).rejects.toBeInstanceOf(Error);
+    await expect(rejection).rejects.toMatchObject({
+      message: "cloudsync_activity_drain_timeout",
+    });
+  });
+
+  it("wraps a non-Error transport rejection so useChat gets an Error", async () => {
+    const activity = createChatCloudsyncActivityController({
+      begin: vi.fn().mockResolvedValue(undefined),
+      end: vi.fn().mockResolvedValue(undefined),
+      createAttemptKey: sequentialAttemptKeys(),
+    });
+    const transport = guardChatTransport(
+      {
+        sendMessages: vi.fn().mockRejectedValue("template render failed"),
+        reconnectToStream: vi.fn().mockResolvedValue(null),
+      },
+      activity,
+    );
+
+    const rejection = transport.sendMessages({
+      trigger: "submit-message",
+      chatId: "chat-1",
+      messageId: undefined,
+      messages: [{ id: "turn-1", role: "user", parts: [] }],
+      abortSignal: new AbortController().signal,
+    });
+
+    await expect(rejection).rejects.toBeInstanceOf(Error);
+    await expect(rejection).rejects.toMatchObject({
+      message: "template render failed",
+    });
+  });
+
   it("releases the exact attempt when transport rejects before streaming", async () => {
     const transportError = new Error("transport unavailable");
     const end = vi.fn().mockResolvedValue(undefined);

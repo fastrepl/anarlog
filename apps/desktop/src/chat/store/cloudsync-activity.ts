@@ -622,6 +622,16 @@ export type ChatCloudsyncActivityController = ReturnType<
   typeof createChatCloudsyncActivityController
 >;
 
+// Tauri `invoke` rejects with the serialized Rust error (a bare string), and
+// the AI SDK stores whatever `sendMessages` throws as `useChat().error`
+// without checking it is an Error. Normalize so the UI can rely on `.message`.
+export function toChatTransportError(error: unknown): Error {
+  if (error instanceof Error) {
+    return error;
+  }
+  return new Error(typeof error === "string" ? error : String(error));
+}
+
 export function guardChatTransport<UI_MESSAGE extends UIMessage>(
   transport: ChatTransport<UI_MESSAGE>,
   activity: ChatCloudsyncActivityController,
@@ -658,7 +668,7 @@ export function guardChatTransport<UI_MESSAGE extends UIMessage>(
             .runWithLease(key, () => undefined)
             .catch(() => undefined);
         }
-        throw error;
+        throw toChatTransportError(error);
       }
 
       if (!attempt) {
@@ -674,15 +684,10 @@ export function guardChatTransport<UI_MESSAGE extends UIMessage>(
           throw error;
         }
 
-        if (options.abortSignal?.aborted) {
-          const error = new Error("Chat request aborted");
-          error.name = "AbortError";
-          throw error;
-        }
         return await transport.sendMessages(options);
       } catch (error) {
         attempt.finish();
-        throw error;
+        throw toChatTransportError(error);
       }
     },
     reconnectToStream: (options) => transport.reconnectToStream(options),
