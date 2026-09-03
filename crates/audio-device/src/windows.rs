@@ -5,8 +5,8 @@ use std::os::windows::ffi::OsStringExt;
 use windows::Win32::Devices::FunctionDiscovery::PKEY_Device_FriendlyName;
 use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
 use windows::Win32::Media::Audio::{
-    DEVICE_STATE_ACTIVE, IMMDevice, IMMDeviceEnumerator, MMDeviceEnumerator, eAll, eCapture,
-    eConsole, eRender,
+    DEVICE_STATE_ACTIVE, IDeviceTopology, IMMDevice, IMMDeviceEnumerator, MMDeviceEnumerator, eAll,
+    eCapture, eConsole, eRender,
 };
 use windows::Win32::System::Com::{
     CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx, CoUninitialize, STGM_READ,
@@ -98,22 +98,62 @@ impl Drop for ComGuard {
     }
 }
 
-fn get_device_id(device: &IMMDevice) -> Result<String, Error> {
-    unsafe {
-        let id: PWSTR = device
-            .GetId()
-            .map_err(|e| Error::EnumerationFailed(format!("Failed to get device ID: {}", e)))?;
-
-        let len = (0..).take_while(|&i| *id.0.add(i) != 0).count();
-        let slice = std::slice::from_raw_parts(id.0, len);
-        let os_string = OsString::from_wide(slice);
-
-        windows::Win32::System::Com::CoTaskMemFree(Some(id.0 as *const _));
-
-        os_string
-            .into_string()
-            .map_err(|_| Error::EnumerationFailed("Invalid device ID encoding".into()))
+fn take_co_task_string(value: PWSTR) -> Option<String> {
+    if value.is_null() {
+        return None;
     }
+    unsafe {
+        let string = value.to_string().ok();
+        windows::Win32::System::Com::CoTaskMemFree(Some(value.0 as *const _));
+        string
+    }
+}
+
+fn get_device_id(device: &IMMDevice) -> Result<String, Error> {
+    let id: PWSTR = unsafe { device.GetId() }
+        .map_err(|e| Error::EnumerationFailed(format!("Failed to get device ID: {}", e)))?;
+
+    take_co_task_string(id)
+        .ok_or_else(|| Error::EnumerationFailed("Invalid device ID encoding".into()))
+}
+
+// The endpoint's first connector leads to the adapter device, whose ID is a device path such as
+// `{2}.\\?\bthhfenum#bthhfpaudio#...`. Fails for endpoints with a software connection.
+fn get_adapter_device_id(device: &IMMDevice) -> Option<String> {
+    unsafe {
+        let topology: IDeviceTopology = device.Activate(CLSCTX_ALL, None).ok()?;
+        let connector = topology.GetConnector(0).ok()?;
+        take_co_task_string(connector.GetDeviceIdConnectedTo().ok()?)
+    }
+}
+
+fn adapter_enumerator(device_id: &str) -> Option<&str> {
+    let path = &device_id[device_id.find("\\\\?\\")? + 4..];
+    path.split('#')
+        .next()
+        .filter(|enumerator| !enumerator.is_empty())
+}
+
+// Windows' in-box Bluetooth driver labels its endpoints "Headset (X Hands-Free AG Audio)" and
+// never says "Bluetooth", so the bus enumerator in the adapter path is the reliable signal. Both
+// HFP (BTHHFENUM) and A2DP/LE (BTHENUM, BTHLEENUM) enumerators start with "bth".
+fn transport_type_from_enumerator(enumerator: &str) -> Option<TransportType> {
+    match enumerator.to_ascii_lowercase().as_str() {
+        bus if bus.starts_with("bth") => Some(TransportType::Bluetooth),
+        "usb" => Some(TransportType::Usb),
+        "hdaudio" | "intelaudio" => Some(TransportType::BuiltIn),
+        "pci" => Some(TransportType::Pci),
+        "swd" | "root" => Some(TransportType::Virtual),
+        _ => None,
+    }
+}
+
+fn get_transport_type(device: &IMMDevice, name: &str) -> TransportType {
+    get_adapter_device_id(device)
+        .as_deref()
+        .and_then(adapter_enumerator)
+        .and_then(transport_type_from_enumerator)
+        .unwrap_or_else(|| get_transport_type_from_name(name))
 }
 
 fn get_device_name(device: &IMMDevice) -> Result<String, Error> {
@@ -143,7 +183,7 @@ fn get_device_name(device: &IMMDevice) -> Result<String, Error> {
 
 fn get_transport_type_from_name(name: &str) -> TransportType {
     let name_lower = name.to_lowercase();
-    if name_lower.contains("bluetooth") {
+    if name_lower.contains("bluetooth") || name_lower.contains("hands-free") {
         TransportType::Bluetooth
     } else if name_lower.contains("usb") {
         TransportType::Usb
@@ -228,7 +268,7 @@ impl AudioDeviceBackend for WindowsBackend {
                     _ => continue,
                 };
 
-                let transport_type = get_transport_type_from_name(&name);
+                let transport_type = get_transport_type(&device, &name);
 
                 let is_default = match direction {
                     AudioDirection::Input => {
@@ -286,7 +326,7 @@ impl AudioDeviceBackend for WindowsBackend {
 
             let id = get_device_id(&device)?;
             let name = get_device_name(&device)?;
-            let transport_type = get_transport_type_from_name(&name);
+            let transport_type = get_transport_type(&device, &name);
 
             Ok(Some(AudioDevice {
                 id: DeviceId::new(id),
@@ -316,7 +356,7 @@ impl AudioDeviceBackend for WindowsBackend {
 
             let id = get_device_id(&device)?;
             let name = get_device_name(&device)?;
-            let transport_type = get_transport_type_from_name(&name);
+            let transport_type = get_transport_type(&device, &name);
 
             let mut audio_device = AudioDevice {
                 id: DeviceId::new(id),
@@ -516,6 +556,65 @@ impl AudioDeviceBackend for WindowsBackend {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn adapter_path_classifies_bluetooth_usb_and_onboard() {
+        let cases = [
+            (
+                "{2}.\\\\?\\bthhfenum#bthhfpaudio#8&2f0a1b2c&0&97#{6994ad04-93ef-11d0-a3cc-00a0c9223196}\\hfpaudio",
+                TransportType::Bluetooth,
+            ),
+            (
+                "{2}.\\\\?\\bthenum#{0000110b-0000-1000-8000-00805f9b34fb}_vid&0001004c#{6994ad04-93ef-11d0-a3cc-00a0c9223196}\\a2dp",
+                TransportType::Bluetooth,
+            ),
+            (
+                "{2}.\\\\?\\usb#vid_046d&pid_0825&mi_02#7&1f2e3d4c&0&0002#{6994ad04-93ef-11d0-a3cc-00a0c9223196}\\global",
+                TransportType::Usb,
+            ),
+            (
+                "{2}.\\\\?\\hdaudio#func_01&ven_10ec&dev_0295#4&7f7f8f0&0&0001#{6994ad04-93ef-11d0-a3cc-00a0c9223196}\\topo",
+                TransportType::BuiltIn,
+            ),
+            (
+                "{2}.\\\\?\\root#vbaudiovirtualcable#0000#{6994ad04-93ef-11d0-a3cc-00a0c9223196}\\wave",
+                TransportType::Virtual,
+            ),
+        ];
+        for (path, expected) in cases {
+            let transport = adapter_enumerator(path).and_then(transport_type_from_enumerator);
+            assert_eq!(transport, Some(expected), "{path}");
+        }
+    }
+
+    #[test]
+    fn unrecognized_adapter_path_defers_to_the_name() {
+        assert_eq!(
+            adapter_enumerator("{2}.\\\\?\\acpaudio#func_01#4&1#{guid}\\topo")
+                .and_then(transport_type_from_enumerator),
+            None
+        );
+        assert_eq!(adapter_enumerator("{0.0.1.00000000}.{guid}"), None);
+    }
+
+    #[test]
+    fn in_box_bluetooth_endpoint_names_are_bluetooth() {
+        for name in [
+            "Headset (WH-1000XM5 Hands-Free AG Audio)",
+            "Headset Microphone (Jabra Elite 85t Hands-Free)",
+            "Bluetooth Hands-free Audio",
+        ] {
+            assert_eq!(
+                get_transport_type_from_name(name),
+                TransportType::Bluetooth,
+                "{name}"
+            );
+        }
+        assert_eq!(
+            get_transport_type_from_name("Microphone Array (Realtek(R) Audio)"),
+            TransportType::BuiltIn
+        );
+    }
 
     #[test]
     fn test_list_devices() {
