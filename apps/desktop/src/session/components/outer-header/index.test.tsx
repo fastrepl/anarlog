@@ -756,11 +756,10 @@ describe("OuterHeader", () => {
     const joinButton = screen.getByRole("button", { name: "Join & record" });
     const moreButton = screen.getByRole("button", { name: "More" });
 
-    expect(joinButton.className).toContain("bg-primary");
-    expect(joinButton.className).toContain("dark:bg-white");
-    expect(joinButton.className).toContain("dark:text-black");
-    expect(joinButton.className).toContain("hover:bg-primary/90");
-    expect(joinButton.className).toContain("dark:hover:bg-white/90");
+    expect(joinButton.className).toContain("border-border");
+    expect(joinButton.className).toContain("bg-transparent");
+    expect(joinButton.className).toContain("text-foreground");
+    expect(joinButton.className).toContain("shadow-none");
     expect(joinButton.querySelector("img")?.className).toContain("size-3.5");
     expect(joinButton.getAttribute("aria-label")).toBe("Join & record");
     expect(joinButton.textContent).toContain("Join & record");
@@ -1213,11 +1212,10 @@ describe("OuterHeader", () => {
     const recordButton = screen.getByRole("button", { name: "Record" });
 
     expect(recordButton.className).toContain("rounded-full");
-    expect(recordButton.className).toContain("bg-primary");
-    expect(recordButton.className).toContain("dark:bg-white");
-    expect(recordButton.className).toContain("dark:text-black");
-    expect(recordButton.className).toContain("hover:bg-primary/90");
-    expect(recordButton.className).toContain("dark:hover:bg-white/90");
+    expect(recordButton.className).toContain("border-border");
+    expect(recordButton.className).toContain("bg-transparent");
+    expect(recordButton.className).toContain("text-foreground");
+    expect(recordButton.className).toContain("shadow-none");
     expect(recordButton.querySelector("span")?.className).not.toContain(
       "@max-[480px]:sr-only",
     );

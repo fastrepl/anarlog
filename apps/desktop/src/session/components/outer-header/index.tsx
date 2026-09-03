@@ -323,7 +323,7 @@ function HeaderMeetingAction({
           <Button
             type="button"
             size="sm"
-            variant={isPrimaryCta ? "default" : "outline"}
+            variant="outline"
             data-tauri-drag-region="false"
             aria-label={action.label}
             title={action.title}
@@ -332,7 +332,7 @@ function HeaderMeetingAction({
             className={cn([
               "max-w-56 shrink-0 gap-1.5 overflow-hidden border pr-2.5 pl-1.5 text-sm",
               isPrimaryCta
-                ? "border-primary shadow-sm dark:border-white dark:bg-white dark:text-black dark:hover:bg-white/90"
+                ? "border-border text-foreground bg-transparent shadow-none"
                 : "border-border bg-card text-foreground",
               disabled && "cursor-default opacity-60",
             ])}

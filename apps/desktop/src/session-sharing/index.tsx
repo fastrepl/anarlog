@@ -625,7 +625,7 @@ export function SessionShareButton({
           key={accountUserId ?? "signed-out"}
           type="button"
           size={variant === "cta" ? "sm" : "icon"}
-          variant={variant === "cta" ? "default" : "ghost"}
+          variant={variant === "cta" ? "outline" : "ghost"}
           data-tauri-drag-region="false"
           aria-label={t`Share note`}
           aria-expanded={sharePopoverOpen}
@@ -634,9 +634,8 @@ export function SessionShareButton({
           className={cn([
             variant === "cta"
               ? [
-                  "max-w-56 gap-1.5 overflow-hidden border pr-2.5 pl-1.5 text-sm shadow-sm",
-                  "border-primary dark:border-white dark:bg-white dark:text-black",
-                  "dark:hover:bg-white/90",
+                  "max-w-56 gap-1.5 overflow-hidden border pr-2.5 pl-1.5 text-sm shadow-none",
+                  "border-border text-foreground bg-transparent",
                 ]
               : [
                   "text-muted-foreground hover:text-foreground rounded-full [&_svg]:size-4",
