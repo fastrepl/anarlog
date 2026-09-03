@@ -22,6 +22,11 @@ pub(super) const DIRECT_BATCH_TIMEOUT_CEILING: Duration = Duration::from_secs(6 
 const DIRECT_BATCH_TIMEOUT_BUFFER: Duration = Duration::from_secs(5 * 60);
 const DIRECT_BATCH_AUDIO_DURATION_MULTIPLIER: u32 = 2;
 const ANARLOG_PROXY_MAX_AUDIO_BYTES: u64 = 512 * 1024 * 1024;
+// Provider quotas are mostly per-minute windows. Segmented uploads fire several
+// requests back to back, so a 429 usually clears within the next minute.
+const RATE_LIMIT_MAX_RETRIES: u32 = 3;
+pub(super) const RATE_LIMIT_BASE_DELAY: Duration = Duration::from_secs(15);
+pub(super) const RATE_LIMIT_MAX_DELAY: Duration = Duration::from_secs(90);
 
 pub(super) enum PreparedBatchUpload {
     Original(PathBuf),
@@ -365,35 +370,39 @@ pub(super) async fn run_direct_batch_with_timeout<A: BatchSttAdapter>(
             .build();
 
         tracing::debug!("transcribing file: {}", params.file_path);
-        let response =
-            match tokio::time::timeout(timeout, client.transcribe_file(&params.file_path)).await {
-                Ok(Ok(response)) => response,
-                Ok(Err(err)) => {
-                    let raw_error = format!("{err:?}");
-                    let message = format_user_friendly_error(&raw_error);
-                    tracing::error!(
-                        error = %raw_error,
-                        anarlog.error.user_message = %message,
-                        "batch transcription failed"
-                    );
-                    return Err(crate::BatchFailure::DirectRequestFailed {
-                        provider: provider.to_string(),
-                        message,
-                    }
-                    .into());
+        let response = match tokio::time::timeout(
+            timeout,
+            transcribe_with_rate_limit_retry(&client, &params.file_path),
+        )
+        .await
+        {
+            Ok(Ok(response)) => response,
+            Ok(Err(err)) => {
+                let raw_error = format!("{err:?}");
+                let message = format_user_friendly_error(&raw_error);
+                tracing::error!(
+                    error = %raw_error,
+                    anarlog.error.user_message = %message,
+                    "batch transcription failed"
+                );
+                return Err(crate::BatchFailure::DirectRequestFailed {
+                    provider: provider.to_string(),
+                    message,
                 }
-                Err(_) => {
-                    tracing::error!(
-                        timeout_seconds = timeout.as_secs(),
-                        "batch transcription timed out"
-                    );
-                    return Err(crate::BatchFailure::DirectRequestTimedOut {
-                        provider: provider.to_string(),
-                        timeout_seconds: timeout.as_secs(),
-                    }
-                    .into());
+                .into());
+            }
+            Err(_) => {
+                tracing::error!(
+                    timeout_seconds = timeout.as_secs(),
+                    "batch transcription timed out"
+                );
+                return Err(crate::BatchFailure::DirectRequestTimedOut {
+                    provider: provider.to_string(),
+                    timeout_seconds: timeout.as_secs(),
                 }
-            };
+                .into());
+            }
+        };
         tracing::info!("batch transcription completed");
 
         Ok(BatchRunOutput {
@@ -404,6 +413,67 @@ pub(super) async fn run_direct_batch_with_timeout<A: BatchSttAdapter>(
     }
     .instrument(span)
     .await
+}
+
+async fn transcribe_with_rate_limit_retry<A: BatchSttAdapter>(
+    client: &owhisper_client::BatchClient<A>,
+    file_path: &str,
+) -> Result<Response, owhisper_client::Error> {
+    let mut attempt = 0;
+    loop {
+        let error = match client.transcribe_file(file_path).await {
+            Ok(response) => return Ok(response),
+            Err(error) => error,
+        };
+        if attempt >= RATE_LIMIT_MAX_RETRIES {
+            return Err(error);
+        }
+        let Some(delay) = rate_limit_retry_delay(&error, attempt) else {
+            return Err(error);
+        };
+        attempt += 1;
+        tracing::warn!(
+            attempt,
+            delay_seconds = delay.as_secs(),
+            "batch transcription rate limited, retrying"
+        );
+        tokio::time::sleep(delay).await;
+    }
+}
+
+pub(super) fn rate_limit_retry_delay(
+    error: &owhisper_client::Error,
+    attempt: u32,
+) -> Option<Duration> {
+    let body = match error {
+        owhisper_client::Error::UnexpectedStatus { status, body } if status.as_u16() == 429 => {
+            Some(body.as_str())
+        }
+        owhisper_client::Error::ProviderFailure {
+            status: Some(status),
+            ..
+        } if status.as_u16() == 429 => None,
+        _ => return None,
+    };
+    let backoff = RATE_LIMIT_BASE_DELAY.saturating_mul(2u32.saturating_pow(attempt));
+    let delay = body.and_then(server_retry_delay).unwrap_or(backoff);
+    Some(delay.min(RATE_LIMIT_MAX_DELAY))
+}
+
+/// Google APIs return `google.rpc.RetryInfo` in the 429 body, e.g.
+/// `{"error":{"details":[{"retryDelay":"37s"}]}}`.
+fn server_retry_delay(body: &str) -> Option<Duration> {
+    let payload: serde_json::Value = serde_json::from_str(body).ok()?;
+    payload
+        .pointer("/error/details")?
+        .as_array()?
+        .iter()
+        .find_map(|detail| detail.get("retryDelay"))
+        .and_then(serde_json::Value::as_str)
+        .and_then(|value| value.strip_suffix('s'))
+        .and_then(|value| value.trim().parse::<f64>().ok())
+        .filter(|seconds| seconds.is_finite() && *seconds > 0.0)
+        .map(Duration::from_secs_f64)
 }
 
 pub(super) fn direct_batch_timeout_for_audio(audio_duration: Option<Duration>) -> Duration {

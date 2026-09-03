@@ -346,7 +346,7 @@ pub(super) fn format_user_friendly_error(error: &str) -> String {
             .to_string();
     }
     if error_lower.contains("429") || error_lower.contains("rate limit") {
-        return "Rate limit exceeded. Please wait a moment and try again.".to_string();
+        return "Rate limit exceeded. Wait a few minutes or check your provider plan's quota, then try again.".to_string();
     }
     if error_lower.contains("timeout") {
         return "Connection timed out. Please check your internet connection and try again."

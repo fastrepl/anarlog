@@ -105,6 +105,60 @@ impl BatchSttAdapter for RecordingAdapter {
     }
 }
 
+static RATE_LIMITED_CALLS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+const RATE_LIMITED_FAILURES: usize = 2;
+
+#[derive(Clone, Default)]
+struct RateLimitedAdapter;
+
+impl BatchSttAdapter for RateLimitedAdapter {
+    fn provider_name(&self) -> &'static str {
+        "rate-limited"
+    }
+
+    fn is_supported_languages(
+        &self,
+        _languages: &[anlg_language::Language],
+        _model: Option<&str>,
+    ) -> bool {
+        true
+    }
+
+    fn transcribe_file<'a, P: AsRef<Path> + Send + 'a>(
+        &'a self,
+        _client: &'a reqwest_middleware::ClientWithMiddleware,
+        _api_base: &'a str,
+        _api_key: &'a str,
+        _params: &'a owhisper_interface::ListenParams,
+        _file_path: P,
+    ) -> Pin<
+        Box<dyn Future<Output = std::result::Result<Response, owhisper_client::Error>> + Send + 'a>,
+    > {
+        Box::pin(async move {
+            let call = RATE_LIMITED_CALLS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            if call < RATE_LIMITED_FAILURES {
+                return Err(owhisper_client::Error::UnexpectedStatus {
+                    status: reqwest_middleware::reqwest::StatusCode::TOO_MANY_REQUESTS,
+                    body: r#"{"error":{"code":429,"status":"RESOURCE_EXHAUSTED","details":[{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"7s"}]}}"#.to_string(),
+                });
+            }
+
+            Ok(Response {
+                metadata: serde_json::json!({ "provider": "rate-limited" }),
+                results: owhisper_interface::batch::Results {
+                    channels: vec![owhisper_interface::batch::Channel {
+                        alternatives: vec![owhisper_interface::batch::Alternatives {
+                            transcript: "recovered".to_string(),
+                            confidence: 1.0,
+                            words: vec![],
+                        }],
+                    }],
+                },
+            })
+        })
+    }
+}
+
 #[derive(Clone)]
 struct HangingProviderState {
     request_started: Arc<Notify>,
@@ -459,6 +513,115 @@ async fn direct_provider_timeout_cancels_non_responding_request() {
         .expect("provider request was not cancelled");
 
     server.abort();
+}
+
+#[tokio::test(start_paused = true)]
+async fn rate_limited_direct_request_is_retried_until_it_succeeds() {
+    RATE_LIMITED_CALLS.store(0, std::sync::atomic::Ordering::SeqCst);
+    let audio = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
+    write_test_wav(audio.path());
+    let params = BatchParams {
+        session_id: "rate-limit-test".to_string(),
+        provider: super::super::BatchProvider::GoogleGenerativeAi,
+        file_path: audio.path().to_string_lossy().into_owned(),
+        model: None,
+        base_url: "https://generativelanguage.googleapis.com/v1beta".to_string(),
+        api_key: "test".to_string(),
+        languages: vec![anlg_language::ISO639::En.into()],
+        keywords: vec![],
+        num_speakers: None,
+        min_speakers: None,
+        max_speakers: None,
+        known_speakers: vec![],
+    };
+
+    let started = tokio::time::Instant::now();
+    let output = run_direct_batch_with_timeout::<RateLimitedAdapter>(
+        "rate-limited",
+        params,
+        owhisper_interface::ListenParams::default(),
+        DIRECT_BATCH_TIMEOUT_FLOOR,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+        RATE_LIMITED_CALLS.load(std::sync::atomic::Ordering::SeqCst),
+        RATE_LIMITED_FAILURES + 1
+    );
+    assert_eq!(
+        output.response.results.channels[0].alternatives[0].transcript,
+        "recovered"
+    );
+    assert_eq!(
+        started.elapsed(),
+        Duration::from_secs(7 * RATE_LIMITED_FAILURES as u64),
+        "waits the server-provided retryDelay before each retry"
+    );
+}
+
+#[test]
+fn rate_limit_retry_delay_backs_off_and_honors_server_hint() {
+    let rate_limited = |body: &str| owhisper_client::Error::UnexpectedStatus {
+        status: reqwest_middleware::reqwest::StatusCode::TOO_MANY_REQUESTS,
+        body: body.to_string(),
+    };
+
+    assert_eq!(
+        rate_limit_retry_delay(&rate_limited("slow down"), 0),
+        Some(RATE_LIMIT_BASE_DELAY)
+    );
+    assert_eq!(
+        rate_limit_retry_delay(&rate_limited("slow down"), 1),
+        Some(RATE_LIMIT_BASE_DELAY * 2)
+    );
+    assert_eq!(
+        rate_limit_retry_delay(&rate_limited("slow down"), 2),
+        Some(RATE_LIMIT_BASE_DELAY * 4)
+    );
+    assert_eq!(
+        rate_limit_retry_delay(&rate_limited("slow down"), 10),
+        Some(RATE_LIMIT_MAX_DELAY)
+    );
+    assert_eq!(
+        rate_limit_retry_delay(
+            &rate_limited(r#"{"error":{"details":[{"retryDelay":"42.5s"}]}}"#),
+            0
+        ),
+        Some(Duration::from_secs_f64(42.5))
+    );
+    assert_eq!(
+        rate_limit_retry_delay(
+            &rate_limited(r#"{"error":{"details":[{"retryDelay":"600s"}]}}"#),
+            0
+        ),
+        Some(RATE_LIMIT_MAX_DELAY)
+    );
+    assert_eq!(
+        rate_limit_retry_delay(
+            &owhisper_client::Error::provider_failure_with_status(
+                reqwest_middleware::reqwest::StatusCode::TOO_MANY_REQUESTS,
+                "quota",
+                true,
+            ),
+            0
+        ),
+        Some(RATE_LIMIT_BASE_DELAY)
+    );
+    assert_eq!(
+        rate_limit_retry_delay(
+            &owhisper_client::Error::UnexpectedStatus {
+                status: reqwest_middleware::reqwest::StatusCode::BAD_REQUEST,
+                body: "rate limit".to_string(),
+            },
+            0
+        ),
+        None
+    );
+    assert_eq!(
+        rate_limit_retry_delay(&owhisper_client::Error::AudioProcessing("429".into()), 0),
+        None
+    );
 }
 
 #[test]
