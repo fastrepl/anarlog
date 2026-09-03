@@ -27,7 +27,8 @@ pub(super) async fn start_source_loop(
     st.pipeline.reset();
 
     st.active_mic_device = active_mic_device(st.mic_device.clone(), st.audio.as_ref());
-    let capture = capture_settings();
+    let mic_swapped = st.mic_device.is_none() && st.active_mic_device.is_some();
+    let capture = capture_settings(mic_swapped);
     let result = start_streams(myself, st, capture).await;
 
     if result.is_ok() {
@@ -49,14 +50,18 @@ pub(super) async fn start_source_loop(
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct CaptureSettings {
     enable_aec: bool,
+    /// Every playing output is a headphone. Re-evaluated per stream because the source restarts
+    /// on default output changes; the routing watcher starts from this verdict.
+    pub(super) headphone_output: bool,
     /// Headphones keep speaker output out of the mic, so whatever the mic hears is the local
-    /// user. Re-evaluated per stream because the source restarts on default output changes.
+    /// user. Not claimed when the mic was swapped away from the user's Bluetooth headset: the
+    /// headset mic sat on their head, the replacement is a room mic as far as we know.
     pub(super) mic_isolated: bool,
 }
 
 // Headphones make AEC pure cost: it burns CPU and can degrade near-end speech. The check covers
 // every output that is playing, not just the default, because meeting apps pick their own speaker.
-fn capture_settings() -> CaptureSettings {
+fn capture_settings(mic_swapped: bool) -> CaptureSettings {
     let headphone_output = anlg_audio_device::headphone_only_output();
     if let Some(device) = &headphone_output {
         tracing::info!(
@@ -68,13 +73,19 @@ fn capture_settings() -> CaptureSettings {
     resolve_capture_settings(
         std::env::var("NO_AEC").as_deref() == Ok("1"),
         headphone_output.is_some(),
+        mic_swapped,
     )
 }
 
-fn resolve_capture_settings(no_aec_override: bool, headphone_output: bool) -> CaptureSettings {
+fn resolve_capture_settings(
+    no_aec_override: bool,
+    headphone_output: bool,
+    mic_swapped: bool,
+) -> CaptureSettings {
     CaptureSettings {
         enable_aec: !no_aec_override && !headphone_output,
-        mic_isolated: headphone_output,
+        headphone_output,
+        mic_isolated: headphone_output && !mic_swapped,
     }
 }
 
@@ -267,9 +278,10 @@ mod tests {
     #[test]
     fn headphones_disable_aec_and_isolate_the_mic() {
         assert_eq!(
-            resolve_capture_settings(false, true),
+            resolve_capture_settings(false, true, false),
             CaptureSettings {
                 enable_aec: false,
+                headphone_output: true,
                 mic_isolated: true,
             }
         );
@@ -278,9 +290,10 @@ mod tests {
     #[test]
     fn speakers_keep_aec_and_leave_the_mic_shared() {
         assert_eq!(
-            resolve_capture_settings(false, false),
+            resolve_capture_settings(false, false, false),
             CaptureSettings {
                 enable_aec: true,
+                headphone_output: false,
                 mic_isolated: false,
             }
         );
@@ -289,9 +302,22 @@ mod tests {
     #[test]
     fn no_aec_override_does_not_imply_isolation() {
         assert_eq!(
-            resolve_capture_settings(true, false),
+            resolve_capture_settings(true, false, false),
             CaptureSettings {
                 enable_aec: false,
+                headphone_output: false,
+                mic_isolated: false,
+            }
+        );
+    }
+
+    #[test]
+    fn swapped_mic_is_not_isolated_but_headphones_still_skip_aec() {
+        assert_eq!(
+            resolve_capture_settings(false, true, true),
+            CaptureSettings {
+                enable_aec: false,
+                headphone_output: true,
                 mic_isolated: false,
             }
         );

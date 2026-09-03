@@ -245,7 +245,7 @@ impl Actor for SourceActor {
             let capture = start_source_loop(&myself, &mut st).await?;
             st._device_watcher = Some(DeviceChangeWatcher::spawn(
                 myself.clone(),
-                capture.mic_isolated,
+                capture.headphone_output,
             ));
             Ok(st)
         }
