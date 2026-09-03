@@ -61,6 +61,7 @@ import {
 import { waitForSessionSearchIndex } from "~/stt/search-index-consistency";
 
 const CLOUDSYNC_CAPTURE_ACTIVITY = "capture";
+export const CLOUDSYNC_CAPTURE_LEASE_ATTEMPTS = 3;
 
 export async function getAudioDurationMs(audioPath: string) {
   try {
@@ -245,6 +246,7 @@ export function useCaptureLifecycle(sessionId: string) {
       let cloudsyncLeaseActive = false;
       let cloudsyncLeaseAcquire: Promise<void> | null = null;
       let cloudsyncLeaseRelease: Promise<void> | null = null;
+      let cloudsyncLeaseRetired = false;
       let recoveryPending = Boolean(recoveredMarker);
       let recoveryStateCleared = false;
       let batchTranscriptionPending = false;
@@ -256,36 +258,49 @@ export function useCaptureLifecycle(sessionId: string) {
         setBatchTranscriptionPending(sessionId, pending);
       };
       const handoffCloudsyncLease = () => {
+        cloudsyncLeaseRetired = true;
         cloudsyncLeaseActive = false;
         cloudsyncLeaseAcquire = null;
         cloudsyncLeaseRelease = null;
       };
-      const releaseCloudsyncLease = () => {
+      const endCloudsyncLease = () => {
         if (cloudsyncLeaseRelease) {
           return cloudsyncLeaseRelease;
         }
         if (!cloudsyncLeaseActive) {
           return Promise.resolve();
         }
-        cloudsyncLeaseRelease = releaseCloudsyncActivityEventually(
-          CLOUDSYNC_CAPTURE_ACTIVITY,
-          cloudsyncLeaseKey,
-        ).then(
-          () => {
-            cloudsyncLeaseActive = false;
-            cloudsyncLeaseAcquire = null;
-            cloudsyncLeaseRelease = null;
-          },
-          (error) => {
-            cloudsyncLeaseRelease = null;
-            console.warn(
-              "[listener] failed to release capture CloudSync deferral",
-              error,
-            );
-            throw error;
-          },
-        );
+        // A release racing an in-flight acquisition would end the lease before
+        // the native side registers it and leave CloudSync paused for good.
+        const acquisitionSettled =
+          cloudsyncLeaseAcquire?.catch(() => undefined) ?? Promise.resolve();
+        cloudsyncLeaseRelease = acquisitionSettled
+          .then(() =>
+            releaseCloudsyncActivityEventually(
+              CLOUDSYNC_CAPTURE_ACTIVITY,
+              cloudsyncLeaseKey,
+            ),
+          )
+          .then(
+            () => {
+              cloudsyncLeaseActive = false;
+              cloudsyncLeaseAcquire = null;
+              cloudsyncLeaseRelease = null;
+            },
+            (error) => {
+              cloudsyncLeaseRelease = null;
+              console.warn(
+                "[listener] failed to release capture CloudSync deferral",
+                error,
+              );
+              throw error;
+            },
+          );
         return cloudsyncLeaseRelease;
+      };
+      const releaseCloudsyncLease = () => {
+        cloudsyncLeaseRetired = true;
+        return endCloudsyncLease();
       };
       const acquireCloudsyncLease = async () => {
         if (cloudsyncLeaseRelease) {
@@ -302,9 +317,40 @@ export function useCaptureLifecycle(sessionId: string) {
         } catch (error) {
           if (cloudsyncLeaseAcquire === acquisition) {
             cloudsyncLeaseAcquire = null;
-            await releaseCloudsyncLease();
+            await endCloudsyncLease();
           }
           throw error;
+        }
+      };
+      // Deferring CloudSync is bookkeeping around the capture, not a
+      // prerequisite for it. The native drain is bounded and its first timeout
+      // is usually a sync round that is still yielding, so keep trying in the
+      // background while the capture is alive; recording never waits on this.
+      const deferCloudsync = async () => {
+        for (let attempt = 1; ; attempt += 1) {
+          if (cloudsyncLeaseRetired) {
+            return;
+          }
+          try {
+            await acquireCloudsyncLease();
+            return;
+          } catch (error) {
+            if (cloudsyncLeaseRetired) {
+              return;
+            }
+            if (attempt >= CLOUDSYNC_CAPTURE_LEASE_ATTEMPTS) {
+              console.error(
+                "[listener] failed to defer CloudSync for capture",
+                error,
+              );
+              trackAnalyticsEvent("capture_cloudsync_deferral_failed");
+              return;
+            }
+            console.warn(
+              `[listener] CloudSync capture deferral attempt ${attempt} failed, retrying`,
+              error,
+            );
+          }
         }
       };
       const transcriptPersistence = createTranscriptPersistenceWorker(
@@ -797,6 +843,7 @@ export function useCaptureLifecycle(sessionId: string) {
 
       return {
         acquireCloudsyncLease,
+        deferCloudsync,
         handlePersist,
         onStopped,
         recoverStopped,

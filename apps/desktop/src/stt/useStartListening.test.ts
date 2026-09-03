@@ -726,7 +726,7 @@ describe("useStartListening", () => {
     consoleError.mockRestore();
   });
 
-  test("does not write a durable marker when capture sync deferral cannot start", async () => {
+  test("keeps recording when capture sync deferral cannot be acquired", async () => {
     beginCloudsyncActivityMock.mockRejectedValue(new Error("cloudsync busy"));
     const consoleError = vi
       .spyOn(console, "error")
@@ -737,21 +737,15 @@ describe("useStartListening", () => {
     await act(async () => {
       await result.current();
     });
+    await waitFor(() =>
+      expect(beginCloudsyncActivityMock).toHaveBeenCalledTimes(
+        CLOUDSYNC_CAPTURE_LEASE_ATTEMPTS,
+      ),
+    );
 
-    expect(beginCloudsyncActivityMock).toHaveBeenCalledTimes(
-      CLOUDSYNC_CAPTURE_LEASE_ATTEMPTS,
-    );
-    expect(startMock).not.toHaveBeenCalled();
-    expect(saveCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
-    expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
-    expect(endCloudsyncActivityMock).toHaveBeenCalledWith(
-      "capture",
-      "session-1:generated-id",
-    );
-    expect(sonnerToastErrorMock).toHaveBeenCalledWith(
-      "Anarlog could not safely start recording. Please try again.",
-      { id: "capture-state-persist-failed" },
-    );
+    expect(saveCaptureLifecycleMarkerMock).toHaveBeenCalledOnce();
+    expect(startMock).toHaveBeenCalledOnce();
+    expect(sonnerToastErrorMock).not.toHaveBeenCalled();
     consoleError.mockRestore();
     consoleWarn.mockRestore();
   });
@@ -766,15 +760,16 @@ describe("useStartListening", () => {
     await act(async () => {
       await result.current();
     });
+    await waitFor(() =>
+      expect(beginCloudsyncActivityMock).toHaveBeenCalledTimes(2),
+    );
 
-    expect(beginCloudsyncActivityMock).toHaveBeenCalledTimes(2);
-    expect(saveCaptureLifecycleMarkerMock).toHaveBeenCalledOnce();
     expect(startMock).toHaveBeenCalledOnce();
     expect(sonnerToastErrorMock).not.toHaveBeenCalled();
     consoleWarn.mockRestore();
   });
 
-  test("waits for capture sync deferral before writing the durable marker", async () => {
+  test("starts capture without waiting for the sync deferral to settle", async () => {
     let resolveDeferral: (() => void) | undefined;
     beginCloudsyncActivityMock.mockReturnValueOnce(
       new Promise<void>((resolve) => {
@@ -782,24 +777,59 @@ describe("useStartListening", () => {
       }),
     );
     const { result } = renderHook(() => useStartListening("session-1"));
-    let starting: Promise<void>;
 
-    act(() => {
-      starting = result.current();
+    await act(async () => {
+      await result.current();
     });
-    await waitFor(() =>
-      expect(beginCloudsyncActivityMock).toHaveBeenCalledOnce(),
-    );
-    expect(saveCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
-    expect(startMock).not.toHaveBeenCalled();
+
+    expect(beginCloudsyncActivityMock).toHaveBeenCalledOnce();
+    expect(saveCaptureLifecycleMarkerMock).toHaveBeenCalledOnce();
+    expect(startMock).toHaveBeenCalledOnce();
 
     await act(async () => {
       resolveDeferral?.();
-      await starting;
+    });
+  });
+
+  test("stops retrying the sync deferral once the capture has ended", async () => {
+    let rejectDeferral: ((error: Error) => void) | undefined;
+    beginCloudsyncActivityMock.mockReturnValueOnce(
+      new Promise<void>((_, reject) => {
+        rejectDeferral = reject;
+      }),
+    );
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+    expect(startMock).toHaveBeenCalledOnce();
+
+    const [, options] = startMock.mock.calls[0];
+    const stopped = options.onStopped("session-1", {
+      durationSeconds: 1,
+      audioPath: null,
+      requestedLiveTranscription: true,
+      liveTranscriptionActive: true,
+      needsBatchRepair: false,
+    });
+    // Finalization reaches the lease release right after the retention step;
+    // the pending acquisition must not be retried once release was requested.
+    await waitFor(() =>
+      expect(deleteProcessedAudioForRetentionMock).toHaveBeenCalled(),
+    );
+    await act(async () => {
+      rejectDeferral?.(new Error("activity ended before idle"));
+      await stopped;
     });
 
-    expect(saveCaptureLifecycleMarkerMock).toHaveBeenCalledOnce();
-    expect(startMock).toHaveBeenCalledOnce();
+    expect(beginCloudsyncActivityMock).toHaveBeenCalledOnce();
+    expect(endCloudsyncActivityMock).toHaveBeenCalledWith(
+      "capture",
+      "session-1:generated-id",
+    );
+    consoleWarn.mockRestore();
   });
 
   test("releases capture sync deferral when native recording start throws", async () => {
@@ -852,8 +882,8 @@ describe("useStartListening", () => {
     });
 
     expect(calls).toEqual([
-      "keywords",
       "begin-cloudsync-deferral",
+      "keywords",
       "persist-marker",
       "start",
     ]);
