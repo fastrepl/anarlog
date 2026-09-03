@@ -3,7 +3,7 @@ use owhisper_interface::ListenParams;
 use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse};
 use serde::Deserialize;
 
-use super::SmallestAIAdapter;
+use super::{DEFAULT_MODEL, SmallestAIAdapter};
 use crate::adapter::RealtimeSttAdapter;
 use crate::adapter::parsing::{WordBuilder, calculate_time_span, parse_speaker_id};
 
@@ -33,15 +33,20 @@ impl RealtimeSttAdapter for SmallestAIAdapter {
                 query_pairs.append_pair(key, value);
             }
 
+            // Pulse is the only streaming model; Pulse Pro is pre-recorded only.
+            query_pairs.append_pair("model", DEFAULT_MODEL);
+            query_pairs.append_pair(
+                "language",
+                &SmallestAIAdapter::live_language_query_value(&params.languages),
+            );
             query_pairs.append_pair("encoding", "linear16");
             query_pairs.append_pair("sample_rate", &params.sample_rate.to_string());
             query_pairs.append_pair("word_timestamps", "true");
             query_pairs.append_pair("diarize", "true");
-            query_pairs.append_pair("full_transcript", "true");
-            query_pairs.append_pair(
-                "language",
-                &SmallestAIAdapter::language_query_value(&params.languages),
-            );
+
+            if let Some(keywords) = SmallestAIAdapter::keywords_query_value(&params.keywords) {
+                query_pairs.append_pair("keywords", &keywords);
+            }
         }
 
         url
@@ -83,8 +88,7 @@ impl RealtimeSttAdapter for SmallestAIAdapter {
         let transcript = msg
             .transcript
             .clone()
-            .or(msg.text.clone())
-            .or(msg.full_transcript.clone())
+            .or(msg.transcription.clone())
             .unwrap_or_default();
 
         if transcript.is_empty() && msg.words.is_empty() && msg.utterances.is_empty() {
@@ -136,20 +140,18 @@ impl RealtimeSttAdapter for SmallestAIAdapter {
     }
 }
 
+// The WebSocket DTO emits both `transcript` and `transcription`, so they must
+// stay separate fields rather than a serde alias.
 #[derive(Debug, Default, Deserialize)]
 struct SmallestRealtimeMessage {
     #[serde(default, rename = "type")]
     message_type: Option<String>,
     #[serde(default)]
     status: Option<String>,
-    #[serde(default, rename = "session_id")]
-    _session_id: Option<String>,
     #[serde(default)]
     transcript: Option<String>,
     #[serde(default)]
-    text: Option<String>,
-    #[serde(default)]
-    full_transcript: Option<String>,
+    transcription: Option<String>,
     #[serde(default)]
     is_final: bool,
     #[serde(default)]
@@ -178,12 +180,15 @@ impl SmallestRealtimeMessage {
             return Some(error.to_message());
         }
 
-        if matches!(self.status.as_deref(), Some("error" | "failed")) {
-            return self
-                .message
-                .clone()
-                .or(self.detail.clone())
-                .or_else(|| self.message_type.clone());
+        let is_error = self.message_type.as_deref() == Some("error")
+            || matches!(self.status.as_deref(), Some("error" | "failed"));
+        if is_error {
+            return Some(
+                self.message
+                    .clone()
+                    .or(self.detail.clone())
+                    .unwrap_or_else(|| "provider error".to_string()),
+            );
         }
 
         None
@@ -298,6 +303,7 @@ mod tests {
             &ListenParams {
                 sample_rate: 16_000,
                 languages: vec![ISO639::En.into()],
+                keywords: vec!["Anarlog".to_string(), "Pulse".to_string()],
                 ..Default::default()
             },
             1,
@@ -306,30 +312,48 @@ mod tests {
         let query: std::collections::HashMap<_, _> = url.query_pairs().into_owned().collect();
         assert_eq!(
             url.as_str().split('?').next().unwrap(),
-            "wss://api.smallest.ai/waves/v1/pulse/get_text"
+            "wss://api.smallest.ai/waves/v1/stt/live"
         );
+        assert_eq!(query.get("model"), Some(&"pulse".to_string()));
+        assert_eq!(query.get("language"), Some(&"en".to_string()));
         assert_eq!(query.get("encoding"), Some(&"linear16".to_string()));
         assert_eq!(query.get("sample_rate"), Some(&"16000".to_string()));
         assert_eq!(query.get("word_timestamps"), Some(&"true".to_string()));
         assert_eq!(query.get("diarize"), Some(&"true".to_string()));
-        assert_eq!(query.get("full_transcript"), Some(&"true".to_string()));
-        assert_eq!(query.get("language"), Some(&"en".to_string()));
+        assert_eq!(query.get("keywords"), Some(&"Anarlog,Pulse".to_string()));
+        assert!(!query.contains_key("full_transcript"));
     }
 
     #[test]
-    fn test_build_ws_url_auto_detect() {
+    fn test_build_ws_url_english_code_switching() {
         let url = SmallestAIAdapter.build_ws_url(
             API_BASE,
             &ListenParams {
                 sample_rate: 16_000,
-                languages: vec![ISO639::En.into(), ISO639::Fr.into()],
+                languages: vec![ISO639::En.into(), ISO639::Hi.into()],
                 ..Default::default()
             },
             1,
         );
 
         let query: std::collections::HashMap<_, _> = url.query_pairs().into_owned().collect();
-        assert_eq!(query.get("language"), Some(&"multi".to_string()));
+        assert_eq!(query.get("language"), Some(&"hi".to_string()));
+        assert!(!query.contains_key("keywords"));
+    }
+
+    #[test]
+    fn test_build_ws_url_ignores_pro_model_for_streaming() {
+        let url = SmallestAIAdapter.build_ws_url(
+            API_BASE,
+            &ListenParams {
+                model: Some("pulse-pro".to_string()),
+                ..Default::default()
+            },
+            1,
+        );
+
+        let query: std::collections::HashMap<_, _> = url.query_pairs().into_owned().collect();
+        assert_eq!(query.get("model"), Some(&"pulse".to_string()));
     }
 
     #[test]
@@ -348,6 +372,7 @@ mod tests {
                 "status": "success",
                 "session_id": "sess_123",
                 "transcript": "Hello",
+                "transcription": "Hello",
                 "is_final": false,
                 "is_last": false
             }"#,
@@ -384,8 +409,8 @@ mod tests {
                 "language": "en",
                 "languages": ["en"],
                 "words": [
-                    {"word": "Hello", "start": 0.0, "end": 0.4, "confidence": 0.99, "speaker": 0, "language": "en"},
-                    {"word": "world", "start": 0.5, "end": 0.9, "confidence": 0.98, "speaker": "speaker_1", "language": "en"}
+                    {"word": "Hello", "start": 0.0, "end": 0.4, "confidence": 0.99, "speaker": 0, "speaker_confidence": 0.9},
+                    {"word": "world", "start": 0.5, "end": 0.9, "confidence": 0.98, "speaker": "speaker_1"}
                 ]
             }"#,
         );
@@ -415,6 +440,20 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_transcription_only_field() {
+        let responses = SmallestAIAdapter.parse_response(
+            r#"{"type": "transcription", "transcription": "Only here", "is_final": true}"#,
+        );
+
+        match &responses[0] {
+            StreamResponse::TranscriptResponse { channel, .. } => {
+                assert_eq!(channel.alternatives[0].transcript, "Only here");
+            }
+            other => panic!("unexpected response: {other:?}"),
+        }
+    }
+
+    #[test]
     fn test_parse_last_response_marks_finalize() {
         let responses = SmallestAIAdapter.parse_response(
             r#"{
@@ -423,8 +462,7 @@ mod tests {
                 "session_id": "sess_123",
                 "transcript": "Goodbye!",
                 "is_final": true,
-                "is_last": true,
-                "full_transcript": "Hello world Goodbye!"
+                "is_last": true
             }"#,
         );
 
@@ -441,6 +479,15 @@ mod tests {
             }
             other => panic!("unexpected response: {other:?}"),
         }
+    }
+
+    #[test]
+    fn test_parse_vad_events_are_ignored() {
+        assert!(
+            SmallestAIAdapter
+                .parse_response(r#"{"type": "speech_started", "timestamp": 1.2}"#)
+                .is_empty()
+        );
     }
 
     #[test]
@@ -461,6 +508,19 @@ mod tests {
             } => {
                 assert_eq!(error_message, "invalid request");
                 assert_eq!(provider, "smallestai");
+            }
+            other => panic!("unexpected response: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_error_type_without_status() {
+        let responses = SmallestAIAdapter
+            .parse_response(r#"{"type": "error", "message": "LANGUAGE_NOT_ENABLED_IN_REGION"}"#);
+
+        match &responses[0] {
+            StreamResponse::ErrorResponse { error_message, .. } => {
+                assert_eq!(error_message, "LANGUAGE_NOT_ENABLED_IN_REGION");
             }
             other => panic!("unexpected response: {other:?}"),
         }

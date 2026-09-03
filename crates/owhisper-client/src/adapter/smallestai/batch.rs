@@ -61,6 +61,7 @@ impl SmallestAIAdapter {
             .map_err(|error| Error::AudioProcessing(error.to_string()))?
             .len();
 
+        let model = SmallestAIAdapter::batch_model(params.model.as_deref());
         let (mut url, existing_params) = SmallestAIAdapter::batch_api_url(api_base);
         {
             let mut query_pairs = url.query_pairs_mut();
@@ -69,12 +70,13 @@ impl SmallestAIAdapter {
                 query_pairs.append_pair(key, value);
             }
 
-            query_pairs.append_pair("word_timestamps", "true");
-            query_pairs.append_pair("diarize", "true");
+            query_pairs.append_pair("model", model);
             query_pairs.append_pair(
                 "language",
-                &SmallestAIAdapter::language_query_value(&params.languages),
+                &SmallestAIAdapter::batch_language_query_value(&params.languages, model),
             );
+            query_pairs.append_pair("word_timestamps", "true");
+            query_pairs.append_pair("diarize", "true");
         }
 
         let response = client
@@ -98,10 +100,9 @@ impl SmallestAIAdapter {
 
     fn to_batch_response(response: SmallestBatchResponse) -> BatchResponse {
         let transcript = response
-            .transcript
+            .transcription
             .clone()
-            .or(response.text.clone())
-            .or(response.full_transcript.clone())
+            .or(response.transcript.clone())
             .unwrap_or_default();
 
         let words: Vec<BatchWord> = response
@@ -131,18 +132,14 @@ impl SmallestAIAdapter {
 
 #[derive(Debug, Default, Deserialize)]
 struct SmallestBatchResponse {
-    #[serde(default, rename = "type")]
-    message_type: Option<String>,
     #[serde(default)]
     status: Option<String>,
     #[serde(default)]
-    session_id: Option<String>,
-    #[serde(default, alias = "transcription")]
+    request_id: Option<String>,
+    #[serde(default)]
+    transcription: Option<String>,
+    #[serde(default)]
     transcript: Option<String>,
-    #[serde(default)]
-    text: Option<String>,
-    #[serde(default)]
-    full_transcript: Option<String>,
     #[serde(default)]
     language: Option<String>,
     #[serde(default)]
@@ -152,20 +149,18 @@ struct SmallestBatchResponse {
     #[serde(default)]
     utterances: Vec<SmallestBatchUtterance>,
     #[serde(default)]
-    redacted_entities: Option<Vec<String>>,
+    metadata: Option<serde_json::Value>,
 }
 
 impl SmallestBatchResponse {
     fn metadata(&self) -> serde_json::Value {
         serde_json::json!({
-            "type": self.message_type,
             "status": self.status,
-            "session_id": self.session_id,
-            "full_transcript": self.full_transcript,
+            "request_id": self.request_id,
             "language": self.language,
             "languages": self.languages,
             "utterances": self.utterances,
-            "redacted_entities": self.redacted_entities,
+            "provider_metadata": self.metadata,
         })
     }
 }
@@ -236,15 +231,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_to_batch_response_uses_transcript_and_words() {
+    fn test_to_batch_response_uses_transcription_and_words() {
         let response: SmallestBatchResponse = serde_json::from_value(serde_json::json!({
-            "type": "transcription",
             "status": "success",
-            "transcript": "Hello there",
+            "transcription": "Hello there",
             "language": "en",
-            "languages": ["en"],
+            "metadata": {"duration": 5.28, "processing_time_ms": 172.11},
             "words": [
-                {"word": "Hello", "start": 0.0, "end": 0.4, "confidence": 0.99, "speaker": 0},
+                {"word": "Hello", "start": 0.0, "end": 0.4, "confidence": 0.99, "speaker": 0, "speaker_confidence": 0.8},
                 {"word": "there", "start": 0.5, "end": 0.9, "confidence": 0.98, "speaker": "speaker_1"}
             ]
         }))
@@ -260,13 +254,14 @@ mod tests {
         assert_eq!(alternative.words[1].speaker, Some(1));
         assert_eq!(alternative.words[1].channel, MIXED_CAPTURE_CHANNEL);
         assert_eq!(batch.metadata["language"], "en");
+        assert_eq!(batch.metadata["provider_metadata"]["duration"], 5.28);
     }
 
     #[test]
-    fn test_to_batch_response_falls_back_to_text() {
+    fn test_to_batch_response_falls_back_to_transcript_field() {
         let response: SmallestBatchResponse = serde_json::from_value(serde_json::json!({
             "status": "success",
-            "text": "Fallback transcript",
+            "transcript": "Fallback transcript",
             "utterances": [
                 {"text": "Fallback transcript", "start": 0.0, "end": 1.2, "speaker": 0}
             ]
