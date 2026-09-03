@@ -26,6 +26,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@anlg/ui/components/ui/tooltip";
+import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 import { cn } from "@anlg/utils";
 
 import { useSync } from "./context";
@@ -98,6 +99,7 @@ export function CalendarView() {
     startOfDay(now),
   );
   const containerRef = useRef<HTMLDivElement>(null);
+  const navGroupRef = useSquircleRef<HTMLDivElement>();
   const compactScrollRef = useRef<HTMLDivElement>(null);
   const compactBaseRef = useRef(startOfDay(now));
   const cols = useVisibleCols(containerRef);
@@ -244,15 +246,18 @@ export function CalendarView() {
           <CalendarSyncHeaderControls />
         </div>
         <ButtonGroup
+          ref={navGroupRef}
           data-tauri-drag-region="false"
           className={cn([
             "border-border h-7 overflow-hidden rounded-full border",
             "bg-card",
           ])}
         >
+          {/* The group carries the squircle; segments must not clip themselves. */}
           <Button
             variant="ghost"
             size="icon"
+            smoothCorners={false}
             className="hover:bg-accent h-full w-7 rounded-none border-0 bg-transparent shadow-none"
             onClick={goToPrev}
           >
@@ -262,6 +267,7 @@ export function CalendarView() {
           <Button
             variant="ghost"
             size="sm"
+            smoothCorners={false}
             className={cn([
               "h-full rounded-none border-0",
               "hover:bg-accent bg-transparent px-2 text-xs shadow-none",
@@ -274,6 +280,7 @@ export function CalendarView() {
           <Button
             variant="ghost"
             size="icon"
+            smoothCorners={false}
             className="hover:bg-accent h-full w-7 rounded-none border-0 bg-transparent shadow-none"
             onClick={goToNext}
           >
