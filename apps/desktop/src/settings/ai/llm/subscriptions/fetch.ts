@@ -5,6 +5,8 @@ import {
   CHATGPT_REQUEST_HEADERS,
   chatgptCodexUrl,
   chatgptResponsesBody,
+  CLAUDE_OAUTH_HEADERS,
+  claudeMessagesBody,
   COPILOT_REQUEST_HEADERS,
   parseChatgptAccountId,
   parseChatgptResidency,
@@ -20,6 +22,19 @@ export function createSubscriptionFetch(
       providerId,
       storedApiKey,
     );
+
+    if (providerId === "claude") {
+      headers.delete("x-api-key");
+      headers.delete("anthropic-dangerous-direct-browser-access");
+      headers.set("Authorization", `Bearer ${token}`);
+      for (const [key, value] of Object.entries(CLAUDE_OAUTH_HEADERS)) {
+        headers.set(key, value);
+      }
+      const body = requestUrl(input).includes("/messages")
+        ? claudeMessagesBody(init?.body)
+        : init?.body;
+      return tauriFetch(input as RequestInfo | URL, { ...init, headers, body });
+    }
 
     headers.set("Authorization", `Bearer ${token}`);
     if (providerId === "github_copilot") {

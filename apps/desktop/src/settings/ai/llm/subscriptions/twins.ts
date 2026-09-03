@@ -2,6 +2,7 @@ import { type SubscriptionProviderId } from "./oauth";
 
 export const API_SUBSCRIPTION_TWINS = {
   openai: "chatgpt",
+  anthropic: "claude",
   xai: "grok",
   moonshot: "kimi_code",
 } as const satisfies Record<string, SubscriptionProviderId>;

@@ -16,6 +16,7 @@ describe("LLM providers", () => {
   test("orders providers by popularity", () => {
     expect(PROVIDERS.map(({ id }) => id)).toEqual([
       "anarlog",
+      "claude",
       "chatgpt",
       "grok",
       "github_copilot",
@@ -84,7 +85,7 @@ describe("getLlmProviderStatus", () => {
     expect(status.listModels).toBeTypeOf("function");
   });
 
-  test.each(["chatgpt", "grok", "github_copilot", "kimi_code"])(
+  test.each(["claude", "chatgpt", "grok", "github_copilot", "kimi_code"])(
     "treats %s as a subscription provider that needs a saved credential",
     (id) => {
       const definition = provider(id);

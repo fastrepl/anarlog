@@ -9,6 +9,7 @@ import {
   type SubscriptionProviderId,
 } from "./oauth";
 
+import { listAnthropicModels } from "~/settings/ai/shared/list-anthropic";
 import {
   DEFAULT_RESULT,
   extractMetadataMap,
@@ -22,6 +23,7 @@ import {
 } from "~/settings/ai/shared/list-openai";
 
 const FALLBACK_MODELS: Record<SubscriptionProviderId, string[]> = {
+  claude: ["claude-sonnet-5", "claude-opus-5", "claude-haiku-4-5"],
   chatgpt: [],
   grok: ["grok-4.6", "grok-4.5", "grok-4.3"],
   github_copilot: ["gpt-5.5", "claude-sonnet-5", "gemini-3.6-flash"],
@@ -85,6 +87,13 @@ export async function listSubscriptionModels(
     providerId,
     apiKey,
   );
+
+  if (providerId === "claude") {
+    return withFallback(
+      providerId,
+      await listAnthropicModels(baseUrl, token, { authorization: "bearer" }),
+    );
+  }
 
   if (providerId === "github_copilot") {
     return withFallback(providerId, await listCopilotModels(baseUrl, token));

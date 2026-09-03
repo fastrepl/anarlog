@@ -69,6 +69,22 @@ const _PROVIDERS = [
     ],
   },
   {
+    id: "claude",
+    displayName: "Claude",
+    badge: "Subscription",
+    icon: <ProviderLobeIcon icon={Anthropic} />,
+    baseUrl: "https://api.anthropic.com/v1",
+    authKind: "subscription",
+    hideAdvanced: true,
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      setup: {
+        label: "Claude Pro / Max",
+        url: "https://claude.ai/upgrade",
+      },
+    },
+  },
+  {
     id: "chatgpt",
     displayName: "ChatGPT",
     badge: "Subscription",
@@ -614,6 +630,7 @@ const _PROVIDERS = [
 ] as const satisfies readonly Provider[];
 
 const PROVIDER_ORDER = [
+  "claude",
   "chatgpt",
   "grok",
   "github_copilot",

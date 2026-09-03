@@ -4412,6 +4412,10 @@ msgstr ""
 msgid "Sign in with SuperGrok or X Premium+ and enter the code below."
 msgstr ""
 
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "Sign in with your Claude account. After you authorize, copy the code and we'll finish connecting."
+msgstr ""
+
 #: src/settings/general/account.tsx
 msgid "Sign out"
 msgstr ""

@@ -312,6 +312,21 @@ const createProviderModel = (
       return wrapWithThinkingMiddleware(provider(conn.modelId));
     }
 
+    case "claude": {
+      const oauth = usesSubscriptionFetch(conn.providerId, conn.apiKey);
+      const provider = createAnthropic({
+        fetch: oauth
+          ? createSubscriptionFetch(conn.providerId, conn.apiKey)
+          : tauriFetch,
+        apiKey: oauth ? "oauth" : conn.apiKey,
+        headers: {
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
+      });
+      return wrapWithThinkingMiddleware(provider(conn.modelId));
+    }
+
     case "chatgpt": {
       const oauth = usesSubscriptionFetch(conn.providerId, conn.apiKey);
       const provider = createOpenAI({

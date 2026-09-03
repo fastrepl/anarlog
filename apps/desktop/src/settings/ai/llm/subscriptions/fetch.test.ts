@@ -14,6 +14,71 @@ vi.mock("./access", () => ({
 }));
 
 import { createSubscriptionFetch } from "./fetch";
+import { CLAUDE_CODE_IDENTITY } from "./oauth";
+
+describe("createSubscriptionFetch claude", () => {
+  beforeEach(() => {
+    mocks.tauriFetch.mockReset();
+    mocks.resolveSubscriptionAccess.mockReset();
+    mocks.tauriFetch.mockResolvedValue(new Response("ok"));
+    mocks.resolveSubscriptionAccess.mockResolvedValue({
+      token: "sk-ant-oat01-token",
+      credential: {},
+    });
+  });
+
+  test("swaps the API key for a bearer token and honest OAuth headers", async () => {
+    const fetchImpl = createSubscriptionFetch("claude", "stored-credential");
+
+    await fetchImpl("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": "oauth",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-5",
+        system: [{ type: "text", text: "Summarize the meeting." }],
+      }),
+    });
+
+    expect(mocks.tauriFetch).toHaveBeenCalledWith(
+      "https://api.anthropic.com/v1/messages",
+      expect.objectContaining({
+        headers: expect.any(Headers),
+        body: JSON.stringify({
+          model: "claude-sonnet-5",
+          system: [
+            { type: "text", text: CLAUDE_CODE_IDENTITY },
+            { type: "text", text: "Summarize the meeting." },
+          ],
+        }),
+      }),
+    );
+    const headers = mocks.tauriFetch.mock.calls[0]?.[1]?.headers as Headers;
+    expect(headers.get("x-api-key")).toBeNull();
+    expect(headers.get("Authorization")).toBe("Bearer sk-ant-oat01-token");
+    expect(headers.get("anthropic-beta")).toContain("oauth-2025-04-20");
+    expect(headers.get("user-agent")).toBeNull();
+    expect(headers.get("x-app")).toBeNull();
+    // Consumer orgs refuse CORS, so the request must not read as a browser
+    // call: no browser-access header, and an empty Origin for the HTTP plugin
+    // to strip.
+    expect(headers.get("anthropic-dangerous-direct-browser-access")).toBeNull();
+    expect(headers.get("Origin")).toBe("");
+  });
+
+  test("leaves non-message requests alone", async () => {
+    const fetchImpl = createSubscriptionFetch("claude", "stored-credential");
+
+    await fetchImpl("https://api.anthropic.com/v1/models", { method: "GET" });
+
+    expect(mocks.tauriFetch).toHaveBeenCalledWith(
+      "https://api.anthropic.com/v1/models",
+      expect.objectContaining({ body: undefined }),
+    );
+  });
+});
 
 describe("createSubscriptionFetch chatgpt", () => {
   beforeEach(() => {

@@ -14,6 +14,7 @@ import {
 import { createPkce, randomUrlToken } from "./pkce";
 
 export const SUBSCRIPTION_PROVIDER_IDS = [
+  "claude",
   "chatgpt",
   "grok",
   "github_copilot",
@@ -46,6 +47,16 @@ export type ConnectSession =
   | CodeConnectSession
   | DeviceConnectSession
   | ApiKeyConnectSession;
+
+const CLAUDE = {
+  clientId: "9d1c250a-e61b-44d9-88ed-5944d1962f5e",
+  authorizeUrl: "https://claude.ai/oauth/authorize",
+  tokenUrl: "https://platform.claude.com/v1/oauth/token",
+  redirectUri: "https://platform.claude.com/oauth/code/callback",
+  // Only what inference needs; asking for Claude Code-specific scopes here is
+  // both unnecessary for a third-party app and rejected by Anthropic.
+  scope: "user:profile user:inference",
+} as const;
 
 export const CHATGPT_CALLBACK_PORT = 1455;
 
@@ -90,6 +101,16 @@ export const COPILOT_REQUEST_HEADERS = {
   "Editor-Version": COPILOT.editorVersion,
   "Editor-Plugin-Version": COPILOT.pluginVersion,
   "Copilot-Integration-Id": "vscode-chat",
+} as const;
+
+// Consumer (claude.ai) orgs reject CORS requests outright, so the request must
+// not look like one: the empty Origin makes tauri-plugin-http (unsafe-headers)
+// drop the webview origin it would otherwise attach, and the browser-access
+// header stays off. No Claude Code user agent is needed; see claudeMessagesBody.
+export const CLAUDE_OAUTH_HEADERS = {
+  "anthropic-version": "2023-06-01",
+  "anthropic-beta": "oauth-2025-04-20,interleaved-thinking-2025-05-14",
+  Origin: "",
 } as const;
 
 export function isSubscriptionProviderId(
@@ -141,6 +162,26 @@ export function parseAuthorizationInput(input: string): {
   return { code: trimmed };
 }
 
+export function looksLikeAuthorizationInput(input: string): boolean {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  try {
+    const parsed = parseAuthorizationInput(trimmed);
+    if (trimmed.includes("://") && parsed.code) {
+      return true;
+    }
+    if (trimmed.includes("#") && parsed.code && parsed.state) {
+      return true;
+    }
+    return parsed.code.startsWith("ac_");
+  } catch {
+    return false;
+  }
+}
+
 export function subscriptionAuthFromCallback(search: {
   access_token?: string | null;
   refresh_token?: string | null;
@@ -174,6 +215,22 @@ export function encodeAuthorizeQuery(params: Array<[string, string]>) {
     .join("&");
 }
 
+export function claudeAuthorizeUrl(input: {
+  challenge: string;
+  state: string;
+}) {
+  return `${CLAUDE.authorizeUrl}?${encodeAuthorizeQuery([
+    ["code", "true"],
+    ["client_id", CLAUDE.clientId],
+    ["response_type", "code"],
+    ["redirect_uri", CLAUDE.redirectUri],
+    ["scope", CLAUDE.scope],
+    ["code_challenge", input.challenge],
+    ["code_challenge_method", "S256"],
+    ["state", input.state],
+  ])}`;
+}
+
 export function chatgptAuthorizeUrl(input: {
   challenge: string;
   state: string;
@@ -205,6 +262,8 @@ export async function startSubscriptionConnect(
   providerId: SubscriptionProviderId,
 ): Promise<ConnectSession> {
   switch (providerId) {
+    case "claude":
+      return startClaudeConnect();
     case "chatgpt":
       return startChatgptConnect();
     case "github_copilot":
@@ -217,11 +276,22 @@ export async function startSubscriptionConnect(
 }
 
 export async function completeCodeConnect(
+  providerId: Extract<SubscriptionProviderId, "claude" | "chatgpt">,
   session: CodeConnectSession,
   rawCode: string,
 ): Promise<string> {
   const parsed = parseAuthorizationInput(rawCode);
   assertAuthorizationState(session, parsed);
+  if (providerId === "claude") {
+    return serializeOAuthCredential(
+      await exchangeClaudeCode({
+        code: parsed.code,
+        state: parsed.state ?? session.state,
+        verifier: session.verifier,
+      }),
+    );
+  }
+
   return serializeOAuthCredential(
     await exchangeChatgptCode({
       code: parsed.code,
@@ -248,6 +318,8 @@ export async function refreshOAuthCredential(
   credential: OAuthCredential,
 ): Promise<OAuthCredential> {
   switch (providerId) {
+    case "claude":
+      return refreshClaude(credential);
     case "chatgpt":
       return refreshChatgpt(credential);
     case "github_copilot":
@@ -257,6 +329,21 @@ export async function refreshOAuthCredential(
     case "kimi_code":
       throw new Error("Kimi Code uses an API key, not OAuth.");
   }
+}
+
+async function startClaudeConnect(): Promise<CodeConnectSession> {
+  const pkce = await createPkce();
+  // Anthropic rejects shorter states with "Invalid request format".
+  const state = randomUrlToken(32);
+  return {
+    kind: "code",
+    url: claudeAuthorizeUrl({
+      challenge: pkce.challenge,
+      state,
+    }),
+    verifier: pkce.verifier,
+    state,
+  };
 }
 
 async function startChatgptConnect(): Promise<CodeConnectSession> {
@@ -323,6 +410,26 @@ async function startGrokConnect(): Promise<DeviceConnectSession> {
     deviceCode,
     intervalMs: (numberField(json, "interval") ?? 5) * 1000,
   };
+}
+
+async function exchangeClaudeCode(input: {
+  code: string;
+  state: string;
+  verifier: string;
+}): Promise<OAuthCredential> {
+  const { status, json } = await postJson(CLAUDE.tokenUrl, {
+    grant_type: "authorization_code",
+    client_id: CLAUDE.clientId,
+    code: input.code,
+    state: input.state,
+    redirect_uri: CLAUDE.redirectUri,
+    code_verifier: input.verifier,
+  });
+  return credentialFromTokenResponse(
+    json,
+    status,
+    "Could not connect Claude subscription.",
+  );
 }
 
 async function exchangeChatgptCode(input: {
@@ -400,6 +507,22 @@ async function pollGrokDevice(
     json,
     status,
     "Grok authorization failed.",
+  );
+}
+
+async function refreshClaude(
+  credential: OAuthCredential,
+): Promise<OAuthCredential> {
+  const { status, json } = await postJson(CLAUDE.tokenUrl, {
+    grant_type: "refresh_token",
+    client_id: CLAUDE.clientId,
+    refresh_token: credential.refresh,
+  });
+  return credentialFromTokenResponse(
+    json,
+    status,
+    "Could not refresh Claude subscription.",
+    credential,
   );
 }
 
@@ -591,6 +714,39 @@ export function chatgptResponsesBody(body: BodyInit | null | undefined) {
     // Codex rejects platform Responses defaults: store must be false, stream
     // must be true, and max_output_tokens is unsupported.
     return JSON.stringify({ ...rest, store: false, stream: true });
+  } catch {
+    return body;
+  }
+}
+
+export const CLAUDE_CODE_IDENTITY =
+  "You are Claude Code, Anthropic's official CLI for Claude.";
+
+// Anthropic serves Sonnet/Opus on a subscription token only when the system
+// prompt opens with Claude Code's identity line (Haiku works without it);
+// headers and scopes make no difference. Every subscription client does this.
+export function claudeMessagesBody(body: BodyInit | null | undefined) {
+  if (typeof body !== "string") {
+    return body;
+  }
+
+  try {
+    const parsed = JSON.parse(body) as Record<string, unknown>;
+    const system = parsed.system;
+    const blocks: unknown[] =
+      typeof system === "string"
+        ? [{ type: "text", text: system }]
+        : Array.isArray(system)
+          ? system
+          : [];
+    const first = blocks[0] as { type?: unknown; text?: unknown } | undefined;
+    if (first?.type === "text" && first.text === CLAUDE_CODE_IDENTITY) {
+      return body;
+    }
+    return JSON.stringify({
+      ...parsed,
+      system: [{ type: "text", text: CLAUDE_CODE_IDENTITY }, ...blocks],
+    });
   } catch {
     return body;
   }

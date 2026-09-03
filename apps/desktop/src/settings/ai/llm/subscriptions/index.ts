@@ -10,6 +10,7 @@ export {
   CHATGPT_CALLBACK_PORT,
   completeCodeConnect,
   isSubscriptionProviderId,
+  looksLikeAuthorizationInput,
   subscriptionAuthFromCallback,
   type ConnectSession,
   pollDeviceConnect,

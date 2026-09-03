@@ -7,8 +7,13 @@ import {
   chatgptCodexUrl,
   chatgptResponsesBody,
   CHATGPT_CALLBACK_PORT,
+  CLAUDE_CODE_IDENTITY,
+  CLAUDE_OAUTH_HEADERS,
+  claudeAuthorizeUrl,
+  claudeMessagesBody,
   encodeAuthorizeQuery,
   isSubscriptionProviderId,
+  looksLikeAuthorizationInput,
   parseAuthorizationInput,
   parseChatgptAccountId,
   parseChatgptResidency,
@@ -18,10 +23,10 @@ import {
 
 describe("subscription OAuth helpers", () => {
   test("recognizes subscription provider ids", () => {
+    expect(isSubscriptionProviderId("claude")).toBe(true);
     expect(isSubscriptionProviderId("chatgpt")).toBe(true);
     expect(isSubscriptionProviderId("github_copilot")).toBe(true);
     expect(isSubscriptionProviderId("anthropic")).toBe(false);
-    expect(isSubscriptionProviderId("claude")).toBe(false);
   });
 
   test("encodes authorize query spaces as %20 so macOS open does not split the URL", () => {
@@ -31,6 +36,81 @@ describe("subscription OAuth helpers", () => {
     expect(
       encodeAuthorizeQuery([["scope", "user:profile user:inference"]]),
     ).not.toContain("+");
+  });
+
+  test("builds a Claude authorize URL Anthropic accepts before showing a code", () => {
+    const href = claudeAuthorizeUrl({
+      challenge: "pkce-challenge",
+      state: "oauth-state",
+    });
+    const url = new URL(href);
+    expect(
+      href.startsWith("https://claude.ai/oauth/authorize?code=true&"),
+    ).toBe(true);
+    expect(href).not.toContain("+");
+    expect(href).toContain("scope=user%3Aprofile%20user%3Ainference&");
+    expect(url.searchParams.get("scope")).toBe("user:profile user:inference");
+    // Anthropic answers "Invalid request format" to states shorter than this.
+    expect(url.searchParams.get("state")).toBe("oauth-state");
+    expect(url.searchParams.get("code")).toBe("true");
+    expect(url.searchParams.get("client_id")).toBe(
+      "9d1c250a-e61b-44d9-88ed-5944d1962f5e",
+    );
+    expect(url.searchParams.get("response_type")).toBe("code");
+    expect(url.searchParams.get("redirect_uri")).toBe(
+      "https://platform.claude.com/oauth/code/callback",
+    );
+    expect(url.searchParams.get("code_challenge")).toBe("pkce-challenge");
+    expect(url.searchParams.get("code_challenge_method")).toBe("S256");
+    expect(url.searchParams.get("state")).toBe("oauth-state");
+  });
+
+  test("sends Claude OAuth requests as a native client without a spoofed user agent", () => {
+    expect(CLAUDE_OAUTH_HEADERS["anthropic-beta"]).toContain(
+      "oauth-2025-04-20",
+    );
+    expect(CLAUDE_OAUTH_HEADERS.Origin).toBe("");
+    expect(CLAUDE_OAUTH_HEADERS).not.toHaveProperty("user-agent");
+    expect(CLAUDE_OAUTH_HEADERS).not.toHaveProperty("x-app");
+  });
+
+  test("opens Claude message bodies with the identity line Anthropic gates Sonnet and Opus on", () => {
+    const identity = { type: "text", text: CLAUDE_CODE_IDENTITY };
+
+    expect(
+      JSON.parse(
+        claudeMessagesBody(
+          JSON.stringify({
+            model: "claude-opus-5",
+            system: [{ type: "text", text: "Be brief." }],
+          }),
+        ) as string,
+      ),
+    ).toEqual({
+      model: "claude-opus-5",
+      system: [identity, { type: "text", text: "Be brief." }],
+    });
+
+    expect(
+      JSON.parse(
+        claudeMessagesBody(
+          JSON.stringify({ model: "claude-opus-5", system: "Be brief." }),
+        ) as string,
+      ).system,
+    ).toEqual([identity, { type: "text", text: "Be brief." }]);
+
+    expect(
+      JSON.parse(
+        claudeMessagesBody(
+          JSON.stringify({ model: "claude-opus-5" }),
+        ) as string,
+      ).system,
+    ).toEqual([identity]);
+
+    const already = JSON.stringify({ system: [identity] });
+    expect(claudeMessagesBody(already)).toBe(already);
+    expect(claudeMessagesBody("not json")).toBe("not json");
+    expect(claudeMessagesBody(undefined)).toBeUndefined();
   });
 
   test("builds a ChatGPT authorize URL that returns to the Codex loopback port", () => {
@@ -53,6 +133,13 @@ describe("subscription OAuth helpers", () => {
     expect(url.searchParams.get("codex_cli_simplified_flow")).toBe("true");
   });
 
+  test("parses Claude code#state values", () => {
+    expect(parseAuthorizationInput("abc123#xyz")).toEqual({
+      code: "abc123",
+      state: "xyz",
+    });
+  });
+
   test("parses ChatGPT redirect URLs", () => {
     expect(
       parseAuthorizationInput(
@@ -66,6 +153,18 @@ describe("subscription OAuth helpers", () => {
 
   test("rejects empty authorization input", () => {
     expect(() => parseAuthorizationInput("  ")).toThrow(/authorization code/);
+  });
+
+  test("recognizes browser callback values without treating random clipboard text as a code", () => {
+    expect(
+      looksLikeAuthorizationInput(
+        "http://localhost:1455/auth/callback?code=ac_nf5hq&state=s1",
+      ),
+    ).toBe(true);
+    expect(looksLikeAuthorizationInput("abc123#xyz")).toBe(true);
+    expect(looksLikeAuthorizationInput("ac_nf5hq659_token")).toBe(true);
+    expect(looksLikeAuthorizationInput("sk-not-an-oauth-code")).toBe(false);
+    expect(looksLikeAuthorizationInput("just some notes")).toBe(false);
   });
 
   test("turns a callback payload into a code#state value the exchanger already accepts", () => {
@@ -123,9 +222,10 @@ describe("subscription OAuth helpers", () => {
       access: "a",
       expires: 1,
     });
+    expect(usesSubscriptionFetch("claude", oauth)).toBe(true);
     expect(usesSubscriptionFetch("chatgpt", oauth)).toBe(true);
     expect(usesSubscriptionFetch("kimi_code", oauth)).toBe(false);
-    expect(usesSubscriptionFetch("chatgpt", "sk-test")).toBe(false);
+    expect(usesSubscriptionFetch("claude", "sk-test")).toBe(false);
     expect(usesSubscriptionFetch("anthropic", oauth)).toBe(false);
   });
 
