@@ -4,8 +4,7 @@ import {
   beginScheduledAutoStart,
   finishScheduledAutoStart,
   hasScheduledAutoStartInFlight,
-  queueScheduledAutoJoin,
-  takeScheduledAutoJoin,
+  isScheduledAutoStartInFlight,
 } from "./scheduled-auto-start-state";
 
 const SESSION_IDS = ["session-1", "session-2"];
@@ -13,7 +12,6 @@ const SESSION_IDS = ["session-1", "session-2"];
 afterEach(() => {
   for (const sessionId of SESSION_IDS) {
     finishScheduledAutoStart(sessionId);
-    takeScheduledAutoJoin(sessionId);
   }
 });
 
@@ -31,16 +29,14 @@ describe("scheduled auto-start state", () => {
     expect(hasScheduledAutoStartInFlight()).toBe(false);
   });
 
-  test("hands the queued meeting link to the session that starts listening", () => {
-    queueScheduledAutoJoin(SESSION_IDS[0], "https://meet.example/one");
-    queueScheduledAutoJoin(SESSION_IDS[1], "https://meet.example/two");
+  test("tracks in-flight starts per session", () => {
+    beginScheduledAutoStart(SESSION_IDS[0]);
 
-    expect(takeScheduledAutoJoin(SESSION_IDS[0])).toBe(
-      "https://meet.example/one",
-    );
-    expect(takeScheduledAutoJoin(SESSION_IDS[0])).toBeUndefined();
-    expect(takeScheduledAutoJoin(SESSION_IDS[1])).toBe(
-      "https://meet.example/two",
-    );
+    expect(isScheduledAutoStartInFlight(SESSION_IDS[0])).toBe(true);
+    expect(isScheduledAutoStartInFlight(SESSION_IDS[1])).toBe(false);
+
+    finishScheduledAutoStart(SESSION_IDS[0]);
+
+    expect(isScheduledAutoStartInFlight(SESSION_IDS[0])).toBe(false);
   });
 });

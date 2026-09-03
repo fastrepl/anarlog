@@ -44,7 +44,7 @@ export function MeetingSettingsView({
       <SettingSwitchRow
         title={<Trans>Join scheduled meetings</Trans>}
         description={
-          <Trans>Open the meeting link when listening starts.</Trans>
+          <Trans>Open the meeting link when a scheduled meeting begins.</Trans>
         }
         checked={autoJoinScheduledMeetings.value}
         onChange={autoJoinScheduledMeetings.onChange}

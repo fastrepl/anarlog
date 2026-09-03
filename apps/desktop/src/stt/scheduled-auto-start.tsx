@@ -1,5 +1,6 @@
 import { useCallback, useRef } from "react";
 
+import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
 import { parseEventInstant } from "@anlg/utils";
 
@@ -12,11 +13,7 @@ import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import type { LiveSessionStatus } from "~/store/zustand/listener/general-shared";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
-import {
-  hasScheduledAutoStartInFlight,
-  queueScheduledAutoJoin,
-  takeScheduledAutoJoin,
-} from "~/stt/scheduled-auto-start-state";
+import { hasScheduledAutoStartInFlight } from "~/stt/scheduled-auto-start-state";
 
 // A meeting that started while the app was asleep or quit is still worth
 // recording, but only briefly — reopening hours later must not start capturing
@@ -100,7 +97,7 @@ export function getScheduledAutoStartAction(
   return "start";
 }
 
-async function startScheduledMeeting(
+export async function startScheduledMeeting(
   row: ScheduledMeetingRow,
   autoJoin: boolean,
 ): Promise<"started" | "ignored" | "blocked"> {
@@ -117,10 +114,11 @@ async function startScheduledMeeting(
     return "blocked";
   }
 
-  // Defer opening the meeting until listening starts. Opening it here first
-  // lets the meeting app take audio devices before capture begins.
+  // Joining and listening are independent: the link opens as soon as the
+  // meeting is due, while listening still has to wait for the session tab,
+  // the STT connection, and capture readiness (and may be abandoned).
   if (autoJoin) {
-    queueScheduledAutoJoin(sessionId, row.meeting_link);
+    void openerCommands.openUrl(row.meeting_link, null);
   }
 
   useTabs.getState().openNew({
@@ -192,6 +190,13 @@ export function ScheduledMeetingAutoStart() {
     };
 
     const tick = () => {
+      // The live query can deliver rows after cleanup (StrictMode remounts the
+      // effect before the subscription resolves); a torn-down instance must
+      // not arm a deadline and start the same meeting a second time.
+      if (cancelled) {
+        return;
+      }
+
       // Deadlines and state updates can coincide; without this a second tick
       // could open another meeting mid-start.
       if (starting) {
@@ -213,7 +218,6 @@ export function ScheduledMeetingAutoStart() {
           ...tab.state,
           autoStart: null,
         });
-        takeScheduledAutoJoin(tab.id);
       }
 
       const due = selectDueMeetings({
@@ -298,6 +302,7 @@ export function ScheduledMeetingAutoStart() {
     void liveQueryClient
       .subscribe<ScheduledMeetingRow>(SCHEDULED_MEETINGS_SQL, [], {
         onData: (nextRows) => {
+          if (cancelled) return;
           rows = nextRows;
           tick();
         },

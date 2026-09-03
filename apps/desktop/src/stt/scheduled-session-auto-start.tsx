@@ -1,7 +1,5 @@
 import { useRef } from "react";
 
-import { commands as openerCommands } from "@anlg/plugin-opener2";
-
 import { isLockedFlag } from "~/lock/flag";
 import { useAppLock } from "~/lock/store";
 import { useSession } from "~/session/queries";
@@ -12,7 +10,7 @@ import { useListener } from "~/stt/contexts";
 import {
   beginScheduledAutoStart,
   finishScheduledAutoStart,
-  takeScheduledAutoJoin,
+  isScheduledAutoStartInFlight,
 } from "~/stt/scheduled-auto-start-state";
 import { useStartListeningState } from "~/stt/useStartListening";
 
@@ -100,15 +98,15 @@ function StartScheduledSessionAutoStart({
       return;
     }
     attemptedRef.current = true;
-    beginScheduledAutoStart(sessionId);
-    const meetingLink = clearPendingAutoStart(sessionId);
+    clearPendingAutoStart(sessionId);
 
-    // Match Join & record: start capture together with opening the meeting.
-    // Opening the link first lets the meeting app take audio devices before we
-    // listen, which is what the scheduled-time path was doing.
-    if (meetingLink) {
-      void openerCommands.openUrl(meetingLink, null);
+    // Re-arming a session whose start is still in flight (a second trigger
+    // before capture becomes active) must not start a second lifecycle: the
+    // two would race for the same capture marker and one fails with a toast.
+    if (isScheduledAutoStartInFlight(sessionId)) {
+      return;
     }
+    beginScheduledAutoStart(sessionId);
 
     void startListeningRef
       .current()
@@ -124,19 +122,17 @@ function StartScheduledSessionAutoStart({
 }
 
 function clearPendingAutoStart(sessionId: string) {
-  const meetingLink = takeScheduledAutoJoin(sessionId);
   const tabsState = useTabs.getState();
   const currentTab = tabsState.tabs.find(
     (candidate): candidate is Extract<Tab, { type: "sessions" }> =>
       candidate.type === "sessions" && candidate.id === sessionId,
   );
   if (!currentTab?.state.autoStart) {
-    return meetingLink;
+    return;
   }
 
   tabsState.updateSessionTabState(currentTab, {
     ...currentTab.state,
     autoStart: null,
   });
-  return meetingLink;
 }

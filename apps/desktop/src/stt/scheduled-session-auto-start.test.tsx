@@ -4,16 +4,12 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { ScheduledSessionAutoStart } from "./scheduled-session-auto-start";
 
 import { useAppLock } from "~/lock/store";
-import {
-  queueScheduledAutoJoin,
-  takeScheduledAutoJoin,
-} from "~/stt/scheduled-auto-start-state";
 
 const mocks = vi.hoisted(() => ({
   beginScheduledAutoStart: vi.fn(),
   canStart: true,
   finishScheduledAutoStart: vi.fn(),
-  openUrl: vi.fn(),
+  inFlight: false,
   connectionReady: true,
   session: {
     id: "session-1",
@@ -67,16 +63,11 @@ vi.mock("~/session/queries", () => ({
   useSession: () => mocks.session,
 }));
 
-vi.mock("~/stt/scheduled-auto-start-state", async () => {
-  const actual = await vi.importActual<
-    typeof import("./scheduled-auto-start-state")
-  >("./scheduled-auto-start-state");
-  return {
-    ...actual,
-    beginScheduledAutoStart: mocks.beginScheduledAutoStart,
-    finishScheduledAutoStart: mocks.finishScheduledAutoStart,
-  };
-});
+vi.mock("~/stt/scheduled-auto-start-state", () => ({
+  beginScheduledAutoStart: mocks.beginScheduledAutoStart,
+  finishScheduledAutoStart: mocks.finishScheduledAutoStart,
+  isScheduledAutoStartInFlight: () => mocks.inFlight,
+}));
 
 vi.mock("~/stt/useStartListening", () => ({
   useStartListeningState: () => ({
@@ -85,12 +76,9 @@ vi.mock("~/stt/useStartListening", () => ({
   }),
 }));
 
-vi.mock("@anlg/plugin-opener2", () => ({
-  commands: { openUrl: mocks.openUrl },
-}));
-
 beforeEach(() => {
   mocks.canStart = true;
+  mocks.inFlight = false;
   mocks.session = {
     id: "session-1",
     user_id: "user-1",
@@ -104,11 +92,9 @@ beforeEach(() => {
   };
   mocks.beginScheduledAutoStart.mockReset();
   mocks.finishScheduledAutoStart.mockReset();
-  mocks.openUrl.mockReset();
   mocks.connectionReady = true;
   mocks.startListening.mockReset().mockResolvedValue(undefined);
   mocks.updateSessionTabState.mockReset();
-  takeScheduledAutoJoin("session-1");
   useAppLock.setState({ revealedNoteIds: {} });
 });
 
@@ -120,7 +106,7 @@ test("starts scheduled recording when its connection state is ready", async () =
   render(<ScheduledSessionAutoStart sessionId="session-1" />);
 
   expect(mocks.startListening).toHaveBeenCalledTimes(1);
-  expect(mocks.openUrl).not.toHaveBeenCalled();
+  expect(mocks.beginScheduledAutoStart).toHaveBeenCalledWith("session-1");
   expect(mocks.updateSessionTabState).toHaveBeenCalledWith(tab, {
     view: null,
     autoStart: null,
@@ -130,19 +116,17 @@ test("starts scheduled recording when its connection state is ready", async () =
   );
 });
 
-test("opens a queued meeting link when listening starts", async () => {
-  queueScheduledAutoJoin("session-1", "https://meet.google.com/abc-defg-hij");
+test("does not start a second lifecycle while a scheduled start is in flight", () => {
+  mocks.inFlight = true;
 
   render(<ScheduledSessionAutoStart sessionId="session-1" />);
 
-  expect(mocks.startListening).toHaveBeenCalledTimes(1);
-  expect(mocks.openUrl).toHaveBeenCalledWith(
-    "https://meet.google.com/abc-defg-hij",
-    null,
-  );
-  await vi.waitFor(() =>
-    expect(mocks.finishScheduledAutoStart).toHaveBeenCalledWith("session-1"),
-  );
+  expect(mocks.startListening).not.toHaveBeenCalled();
+  expect(mocks.beginScheduledAutoStart).not.toHaveBeenCalled();
+  expect(mocks.updateSessionTabState).toHaveBeenCalledWith(tab, {
+    view: null,
+    autoStart: null,
+  });
 });
 
 test("starts when capture readiness becomes available", () => {
@@ -218,7 +202,6 @@ test("abandons a scheduled start that never becomes ready", async () => {
     await vi.advanceTimersByTimeAsync(30_000);
 
     expect(mocks.startListening).not.toHaveBeenCalled();
-    expect(mocks.openUrl).not.toHaveBeenCalled();
     expect(mocks.updateSessionTabState).toHaveBeenCalledWith(tab, {
       view: null,
       autoStart: null,
@@ -233,17 +216,14 @@ test("abandons when the session loads locked so later meetings can start", () =>
     ...mocks.session!,
     locked: true,
   };
-  queueScheduledAutoJoin("session-1", "https://meet.google.com/abc-defg-hij");
 
   render(<ScheduledSessionAutoStart sessionId="session-1" />);
 
   expect(mocks.startListening).not.toHaveBeenCalled();
-  expect(mocks.openUrl).not.toHaveBeenCalled();
   expect(mocks.updateSessionTabState).toHaveBeenCalledWith(tab, {
     view: null,
     autoStart: null,
   });
-  expect(takeScheduledAutoJoin("session-1")).toBeUndefined();
 });
 
 test("abandons when a pending session becomes locked", () => {
@@ -282,20 +262,4 @@ test("starts a locked session after it has been revealed", () => {
   render(<ScheduledSessionAutoStart sessionId="session-1" />);
 
   expect(mocks.startListening).toHaveBeenCalledTimes(1);
-});
-
-test("discards a queued meeting link when the start is abandoned", async () => {
-  vi.useFakeTimers();
-  mocks.canStart = false;
-  queueScheduledAutoJoin("session-1", "https://meet.google.com/abc-defg-hij");
-
-  try {
-    render(<ScheduledSessionAutoStart sessionId="session-1" />);
-    await vi.advanceTimersByTimeAsync(30_000);
-
-    expect(mocks.openUrl).not.toHaveBeenCalled();
-    expect(takeScheduledAutoJoin("session-1")).toBeUndefined();
-  } finally {
-    vi.useRealTimers();
-  }
 });

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
   getScheduledAutoStartAction,
@@ -6,9 +6,47 @@ import {
   SCHEDULED_AUTO_START_GRACE_MS,
   type ScheduledMeetingRow,
   selectDueMeetings,
+  startScheduledMeeting,
 } from "./scheduled-auto-start";
 
 import type { Tab } from "~/store/zustand/tabs";
+
+const mocks = vi.hoisted(() => ({
+  canStart: true,
+  getIgnoredEventSets: vi.fn(),
+  getOrCreateSessionForEventId: vi.fn(),
+  openNew: vi.fn(),
+  openUrl: vi.fn(),
+}));
+
+vi.mock("@anlg/plugin-opener2", () => ({
+  commands: { openUrl: mocks.openUrl },
+}));
+
+vi.mock("~/calendar/ignored-events", () => ({
+  getIgnoredEventSets: mocks.getIgnoredEventSets,
+}));
+
+vi.mock("~/session/queries", () => ({
+  getOrCreateSessionForEventId: mocks.getOrCreateSessionForEventId,
+}));
+
+vi.mock("~/store/zustand/listener/instance", () => ({
+  listenerStore: {
+    getState: () => ({
+      canStartLiveSession: () => mocks.canStart,
+      live: { status: "inactive" },
+    }),
+    subscribe: () => () => {},
+  },
+}));
+
+vi.mock("~/store/zustand/tabs", () => ({
+  useTabs: {
+    getState: () => ({ openNew: mocks.openNew }),
+    subscribe: () => () => {},
+  },
+}));
 
 const NOW = new Date("2026-05-15T12:00:00.000Z").getTime();
 
@@ -128,6 +166,68 @@ describe("hasPendingAutoStart", () => {
     expect(
       hasPendingAutoStart([{ ...sessionTab("inactive", true), active: false }]),
     ).toBe(false);
+  });
+});
+
+describe("startScheduledMeeting", () => {
+  beforeEach(() => {
+    mocks.canStart = true;
+    mocks.getIgnoredEventSets.mockReset().mockResolvedValue({
+      ignoredIds: new Set<string>(),
+      ignoredSeriesIds: new Set<string>(),
+    });
+    mocks.getOrCreateSessionForEventId
+      .mockReset()
+      .mockResolvedValue("session-a");
+    mocks.openNew.mockReset();
+    mocks.openUrl.mockReset().mockResolvedValue({ status: "ok", data: null });
+  });
+
+  test("opens the meeting link and arms the session when the meeting is due", async () => {
+    await expect(startScheduledMeeting(meeting("a", 0), true)).resolves.toBe(
+      "started",
+    );
+
+    expect(mocks.openUrl).toHaveBeenCalledWith("https://zoom.us/j/a", null);
+    expect(mocks.openNew).toHaveBeenCalledWith({
+      type: "sessions",
+      id: "session-a",
+      state: { view: null, autoStart: true },
+    });
+  });
+
+  test("only arms the session when auto-join is off", async () => {
+    await expect(startScheduledMeeting(meeting("a", 0), false)).resolves.toBe(
+      "started",
+    );
+
+    expect(mocks.openUrl).not.toHaveBeenCalled();
+    expect(mocks.openNew).toHaveBeenCalledTimes(1);
+  });
+
+  test("does not open the link while the session cannot start yet", async () => {
+    mocks.canStart = false;
+
+    await expect(startScheduledMeeting(meeting("a", 0), true)).resolves.toBe(
+      "blocked",
+    );
+
+    expect(mocks.openUrl).not.toHaveBeenCalled();
+    expect(mocks.openNew).not.toHaveBeenCalled();
+  });
+
+  test("skips ignored events entirely", async () => {
+    mocks.getIgnoredEventSets.mockResolvedValue({
+      ignoredIds: new Set(["tracking-a"]),
+      ignoredSeriesIds: new Set<string>(),
+    });
+
+    await expect(startScheduledMeeting(meeting("a", 0), true)).resolves.toBe(
+      "ignored",
+    );
+
+    expect(mocks.openUrl).not.toHaveBeenCalled();
+    expect(mocks.openNew).not.toHaveBeenCalled();
   });
 });
 

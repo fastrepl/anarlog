@@ -3289,7 +3289,7 @@ msgid "Open Settings"
 msgstr ""
 
 #: src/settings/general/meeting-settings.tsx
-msgid "Open the meeting link when listening starts."
+msgid "Open the meeting link when a scheduled meeting begins."
 msgstr ""
 
 #: src/session-sharing/management-panel.tsx
