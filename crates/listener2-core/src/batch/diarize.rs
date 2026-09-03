@@ -22,6 +22,8 @@ pub(super) const LOCAL_DIARIZATION_PROVIDER: &str = "pyannote-local";
 /// Diarization reports progress from here to 1.0, continuing where local
 /// transcription providers stop.
 pub(super) const DIARIZATION_PROGRESS_START: f64 = 0.95;
+/// Word timings in a batch response are seconds; recorded audio is 16 kHz.
+pub(super) const SAMPLE_RATE: usize = anlg_pyannote_local::SAMPLE_RATE as usize;
 /// Progressive sessions are torn down after 60 s without a streamed event, so
 /// the diarizer emits a progress heartbeat at least this often.
 pub(super) const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
@@ -75,13 +77,51 @@ pub(super) fn plan_channel(
     recording_channels: usize,
     channel_index: usize,
 ) -> Option<(ChannelAudio, SpeakerBounds)> {
-    let (audio, shift) = match (transcript_channels, recording_channels, channel_index) {
-        (1, 1, 0) => (ChannelAudio::File(0), 0),
-        (1, 2, 0) => (ChannelAudio::Mix, 0),
-        (2, 2, 1) => (ChannelAudio::File(1), 1),
-        _ => return None,
-    };
+    let (audio, shift) = channel_audio(transcript_channels, recording_channels, channel_index)?;
     channel_speaker_bounds(listen_params, shift).map(|bounds| (audio, bounds))
+}
+
+/// Which recorded audio a transcript channel was heard from, and how many of the
+/// session's participants that audio cannot contain (the direct-mic user on a
+/// stereo capture). `None` for the direct-mic channel itself and for layouts
+/// the pipeline does not produce.
+pub(super) fn channel_audio(
+    transcript_channels: usize,
+    recording_channels: usize,
+    channel_index: usize,
+) -> Option<(ChannelAudio, usize)> {
+    match (transcript_channels, recording_channels, channel_index) {
+        (1, 1, 0) => Some((ChannelAudio::File(0), 0)),
+        (1, 2, 0) => Some((ChannelAudio::Mix, 0)),
+        (2, 2, 1) => Some((ChannelAudio::File(1), 1)),
+        _ => None,
+    }
+}
+
+/// Upper bound on distinct speakers a channel should carry, from the session's
+/// participant hints. Unlike [`channel_speaker_bounds`] this keeps a cap of one:
+/// a provider that split a single remote voice in two still has to be collapsed.
+pub(super) fn expected_speaker_cap(
+    listen_params: &owhisper_interface::ListenParams,
+    shift: usize,
+) -> Option<usize> {
+    let adjust = |value: Option<u32>| -> Option<usize> {
+        value.map(|value| {
+            usize::try_from(value)
+                .unwrap_or(usize::MAX)
+                .saturating_sub(shift)
+        })
+    };
+    let cap = match (
+        adjust(listen_params.num_speakers),
+        adjust(listen_params.max_speakers),
+    ) {
+        (Some(num), Some(max)) => num.min(max),
+        (Some(num), None) => num,
+        (None, Some(max)) => max,
+        (None, None) => return None,
+    };
+    Some(cap.max(1))
 }
 
 /// Whether any recording layout the resampler can produce would let
@@ -303,14 +343,14 @@ fn apply_labels(response: &mut batch::Response, labels: &[ChannelLabels]) -> Dia
 /// streamed for a minute; a long recording spends longer than that here,
 /// after transcription has already finished, so silence would throw away a
 /// completed transcript.
-struct Heartbeat<'a> {
+pub(super) struct Heartbeat<'a> {
     runtime: &'a dyn BatchRuntime,
     session_id: String,
     last_sent: Cell<Option<Instant>>,
 }
 
 impl<'a> Heartbeat<'a> {
-    fn new(runtime: &'a dyn BatchRuntime, session_id: String) -> Self {
+    pub(super) fn new(runtime: &'a dyn BatchRuntime, session_id: String) -> Self {
         Self {
             runtime,
             session_id,
@@ -319,7 +359,7 @@ impl<'a> Heartbeat<'a> {
     }
 
     /// Emits unless a heartbeat went out within [`HEARTBEAT_INTERVAL`].
-    fn beat(&self, percentage: f64) {
+    pub(super) fn beat(&self, percentage: f64) {
         let due = self
             .last_sent
             .get()
@@ -329,7 +369,7 @@ impl<'a> Heartbeat<'a> {
         }
     }
 
-    fn emit(&self, percentage: f64) {
+    pub(super) fn emit(&self, percentage: f64) {
         self.last_sent.set(Some(Instant::now()));
         self.runtime.emit(BatchEvent::BatchResponseStreamed {
             session_id: self.session_id.clone(),
@@ -385,12 +425,7 @@ fn diarize_channels(
 
     let mut labels = Vec::new();
     for (plan_index, (channel, audio, bounds)) in plans.into_iter().enumerate() {
-        let mut audio = match audio {
-            ChannelAudio::File(index) => {
-                MixedAudioSource::open(std::slice::from_ref(&channel_files[index]))?
-            }
-            ChannelAudio::Mix => MixedAudioSource::open(&channel_files)?,
-        };
+        let mut audio = MixedAudioSource::for_audio(&channel_files, audio)?;
         let on_progress = |fraction: f32| {
             let done = (plan_index as f64 + f64::from(fraction)) / plan_count;
             heartbeat.beat(DIARIZATION_PROGRESS_START + progress_span * done);
@@ -477,13 +512,13 @@ impl WavAudioSource {
 
 /// One or more resampled channel files read in lockstep and averaged, so a
 /// downmixed transcript can be diarized on the same mix the provider heard.
-struct MixedAudioSource {
+pub(super) struct MixedAudioSource {
     channels: Vec<WavAudioSource>,
     scratch: Vec<f32>,
 }
 
 impl MixedAudioSource {
-    fn open(files: &[ResampledChannelFile]) -> Result<Self, String> {
+    pub(super) fn open(files: &[ResampledChannelFile]) -> Result<Self, String> {
         if files.is_empty() {
             return Err("no channel files to diarize".to_string());
         }
@@ -495,6 +530,21 @@ impl MixedAudioSource {
             channels,
             scratch: Vec::new(),
         })
+    }
+
+    pub(super) fn for_audio(
+        files: &[ResampledChannelFile],
+        audio: ChannelAudio,
+    ) -> Result<Self, String> {
+        match audio {
+            ChannelAudio::File(index) => {
+                let file = files
+                    .get(index)
+                    .ok_or_else(|| format!("recording has no channel {index}"))?;
+                Self::open(std::slice::from_ref(file))
+            }
+            ChannelAudio::Mix => Self::open(files),
+        }
     }
 }
 
@@ -534,8 +584,6 @@ impl AudioSource for MixedAudioSource {
 
 #[cfg(test)]
 mod tests {
-    use anlg_transcribe_core::TARGET_SAMPLE_RATE;
-
     use super::*;
 
     fn listen_params(
@@ -669,22 +717,7 @@ mod tests {
         assert!(!channel_needs_diarization(&channel(vec![])));
     }
 
-    fn params(provider: BatchProvider, base_url: &str, file_path: &str) -> BatchParams {
-        BatchParams {
-            session_id: "s".to_string(),
-            provider,
-            file_path: file_path.to_string(),
-            model: None,
-            base_url: base_url.to_string(),
-            api_key: String::new(),
-            languages: vec![],
-            keywords: vec![],
-            num_speakers: None,
-            min_speakers: None,
-            max_speakers: None,
-            known_speakers: vec![],
-        }
-    }
+    use super::super::test_fixtures::{NeverCancelled, params, stereo_fixture};
 
     #[test]
     fn local_providers_are_detected() {
@@ -727,16 +760,6 @@ mod tests {
             "http://127.0.0.2",
         ] {
             assert!(!is_loopback_url(url), "{url}");
-        }
-    }
-
-    struct NeverCancelled;
-
-    impl BatchRuntime for NeverCancelled {
-        fn emit(&self, _event: crate::BatchEvent) {}
-
-        fn is_cancelled(&self) -> bool {
-            false
         }
     }
 
@@ -861,54 +884,6 @@ mod tests {
             output.response.metadata["diarization"]["provider"],
             LOCAL_DIARIZATION_PROVIDER
         );
-    }
-
-    /// Splits the two-speaker `english_1` fixture into a stereo file with one
-    /// speaker per channel, the shape of a mic + system-audio capture.
-    fn stereo_fixture() -> tempfile::NamedTempFile {
-        #[derive(serde::Deserialize)]
-        struct Turn {
-            start: u64,
-            end: u64,
-            speaker: String,
-        }
-        let turns: Vec<Turn> =
-            serde_json::from_str(anlg_data::english_1::DIARIZATION_JSON).unwrap();
-        let mono: Vec<f32> = anlg_data::english_1::AUDIO
-            .chunks_exact(2)
-            .map(|chunk| i16::from_le_bytes([chunk[0], chunk[1]]) as f32 / 32768.0)
-            .collect();
-        let rate = TARGET_SAMPLE_RATE as usize;
-        let mut left = vec![0.0f32; mono.len()];
-        let mut right = vec![0.0f32; mono.len()];
-        for turn in turns {
-            let start = (turn.start as usize * rate / 1000).min(mono.len());
-            let end = (turn.end as usize * rate / 1000).min(mono.len());
-            let target = if turn.speaker == "speaker0" {
-                &mut left
-            } else {
-                &mut right
-            };
-            target[start..end].copy_from_slice(&mono[start..end]);
-        }
-
-        let file = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
-        let mut writer = hound::WavWriter::create(
-            file.path(),
-            hound::WavSpec {
-                channels: 2,
-                sample_rate: TARGET_SAMPLE_RATE,
-                bits_per_sample: 32,
-                sample_format: hound::SampleFormat::Float,
-            },
-        )
-        .unwrap();
-        for (l, r) in left.iter().zip(&right) {
-            writer.write_sample(*l).unwrap();
-            writer.write_sample(*r).unwrap();
-        }
-        writer.finalize().unwrap();
-        file
     }
 
     #[tokio::test]

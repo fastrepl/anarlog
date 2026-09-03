@@ -1,7 +1,10 @@
 mod accumulator;
+mod consolidate;
 mod diarize;
 mod progressive;
 mod simple;
+#[cfg(test)]
+mod test_fixtures;
 mod upload;
 
 use std::sync::Arc;
@@ -10,6 +13,7 @@ use owhisper_client::{AdapterKind, OpenAIAdapter};
 
 use crate::{BatchEvent, BatchRuntime};
 
+use consolidate::consolidate_hosted_speakers;
 pub use diarize::KnownSpeaker;
 use diarize::apply_local_diarization;
 use progressive::run_progressive_batch_session;
@@ -120,8 +124,9 @@ pub struct BatchParams {
     pub min_speakers: Option<u32>,
     #[serde(default)]
     pub max_speakers: Option<u32>,
-    /// Voiceprints of expected participants; only consulted by on-device
-    /// diarization, never sent to a provider.
+    /// Voiceprints of expected participants; consulted on device to label
+    /// local transcripts and to consolidate hosted ones, never sent to a
+    /// provider.
     #[serde(default)]
     pub known_speakers: Vec<KnownSpeaker>,
 }
@@ -181,7 +186,7 @@ pub async fn run_batch(
 }
 
 /// Whether this run transcribes on-device, in which case speaker labels come
-/// from the local diarizer and `BatchParams::known_speakers` is consulted.
+/// from the local diarizer.
 pub fn uses_local_diarization(params: &BatchParams) -> bool {
     diarize::is_local_batch(params)
 }
@@ -278,7 +283,8 @@ async fn run_batch_inner(
     }?;
 
     let (runtime, params, listen_params) = post_process;
-    apply_local_diarization(runtime, &params, &listen_params, &mut output).await;
+    apply_local_diarization(runtime.clone(), &params, &listen_params, &mut output).await;
+    consolidate_hosted_speakers(runtime, &params, &listen_params, &mut output).await;
     Ok(output)
 }
 

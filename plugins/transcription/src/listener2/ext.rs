@@ -68,10 +68,8 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener2<'a, R, M> {
             let app = app.clone();
             async move {
                 let mut batch_params: core::BatchParams = params.into();
-                if core::uses_local_diarization(&batch_params) {
-                    batch_params.known_speakers =
-                        crate::voiceprint::known_speakers_for_session(&app, &session_id).await;
-                }
+                batch_params.known_speakers =
+                    crate::voiceprint::known_speakers_for_session(&app, &session_id).await;
                 let _ = core::run_batch(runtime, batch_params).await;
                 finish_batch_session(&registry, &session_id, &control);
             }

@@ -10108,6 +10108,7 @@ dependencies = [
  "axum",
  "bytes",
  "data",
+ "embedding",
  "futures-util",
  "host",
  "hound",
@@ -10132,6 +10133,7 @@ dependencies = [
  "transcribe-core",
  "transcribe-soniqo",
  "transcribe-speechanalyzer",
+ "voiceprint",
 ]
 
 [[package]]
