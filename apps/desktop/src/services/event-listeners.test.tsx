@@ -357,6 +357,93 @@ describe("EventListeners notification events", () => {
     );
   });
 
+  test("live capture config sync runs without names when the transcript read fails", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    useConfigValuesMock.mockReturnValue({
+      ai_language: "ko",
+      spoken_languages: ["ko"],
+      current_stt_provider: "soniox",
+      current_stt_model: "stt-v4",
+    });
+    liveQuerySubscribeMock.mockImplementation(
+      async (sql, _params, handlers) => {
+        if (String(sql).includes("FROM transcripts")) {
+          handlers.onError("no such table: transcripts");
+        } else {
+          handlers.onData([]);
+        }
+        return async () => {};
+      },
+    );
+
+    render(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(liveQuerySubscribeMock).toHaveBeenCalledTimes(2),
+    );
+    findLiveQueryHandlers("session_participants").onData([
+      {
+        session_id: "session-1",
+        owner_user_id: "human-self",
+        human_id: "human-remote",
+      },
+    ]);
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(updateCaptureConfigMock).toHaveBeenCalledTimes(1);
+    expect(updateCaptureConfigMock).toHaveBeenCalledWith({
+      session_id: "session-1",
+      languages: ["ko"],
+      participant_human_ids: ["human-remote"],
+      self_human_id: "human-self",
+      speaker_assignments: [],
+    });
+  });
+
+  test("live capture config sync runs without names when the transcript subscription rejects", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    useConfigValuesMock.mockReturnValue({
+      ai_language: "ko",
+      spoken_languages: ["ko"],
+      current_stt_provider: "soniox",
+      current_stt_model: "stt-v4",
+    });
+    liveQuerySubscribeMock.mockImplementation(
+      async (sql, _params, handlers) => {
+        if (String(sql).includes("FROM transcripts")) {
+          throw new Error("subscribe failed");
+        }
+        handlers.onData([]);
+        return async () => {};
+      },
+    );
+
+    render(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(liveQuerySubscribeMock).toHaveBeenCalledTimes(2),
+    );
+    findLiveQueryHandlers("session_participants").onData([
+      {
+        session_id: "session-1",
+        owner_user_id: "human-self",
+        human_id: "human-remote",
+      },
+    ]);
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(updateCaptureConfigMock).toHaveBeenCalledTimes(1);
+    expect(updateCaptureConfigMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        session_id: "session-1",
+        participant_human_ids: ["human-remote"],
+        speaker_assignments: [],
+      }),
+    );
+  });
+
   test("live capture config sync pushes the active transcript's speaker assignments", async () => {
     vi.useFakeTimers();
     useConfigValuesMock.mockReturnValue({

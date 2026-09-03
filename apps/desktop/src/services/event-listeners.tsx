@@ -357,6 +357,20 @@ function LiveCaptureConfigSyncReady({
         return;
       }
 
+      // A read that fails before the first rows would otherwise hold every
+      // participant and language update for the session. Run without names
+      // instead; a failure after the first rows keeps the last known ones.
+      const onTranscriptUnavailable = (message: string, error: unknown) => {
+        console.error(message, error);
+        if (cancelled || transcriptSessionId !== sessionId) {
+          return;
+        }
+        if (!hasTranscriptSnapshot) {
+          hasTranscriptSnapshot = true;
+          schedulePush();
+        }
+      };
+
       void liveQueryClient
         .subscribe<LiveTranscriptIdentitySqlRow>(
           LIVE_TRANSCRIPT_IDENTITY_SQL,
@@ -371,7 +385,7 @@ function LiveCaptureConfigSyncReady({
               schedulePush();
             },
             onError: (error) => {
-              console.error(
+              onTranscriptUnavailable(
                 "[listener] failed to read live transcript speakers",
                 error,
               );
@@ -386,7 +400,7 @@ function LiveCaptureConfigSyncReady({
           }
         })
         .catch((error) => {
-          console.error(
+          onTranscriptUnavailable(
             "[listener] failed to subscribe to live transcript speakers",
             error,
           );
