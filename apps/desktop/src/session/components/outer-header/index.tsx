@@ -22,6 +22,7 @@ import {
   buildWelcomeNoteDemoUrl,
   WELCOME_NOTE_TRACKING_ID,
 } from "~/onboarding/welcome-note.constants";
+import { SessionShareButton } from "~/session-sharing";
 import { useEventCountdown } from "~/session/hooks/useEventCountdown";
 import { useMeetingMicInUse } from "~/session/hooks/useMeetingMicInUse";
 import {
@@ -130,12 +131,20 @@ function HeaderMeetingControl({
     ? safeParseDate(sessionEvent.ended_at)
     : null;
   const ended = !!endedAt && endedAt.getTime() <= now.getTime();
-  if (
-    sessionMode === "finalizing" ||
-    sessionMode === "running_batch" ||
-    meetingOver
-  ) {
+  if (sessionMode === "finalizing" || sessionMode === "running_batch") {
     return null;
+  }
+
+  if (meetingOver) {
+    return (
+      <div className="relative mr-1 flex min-w-0 shrink-0 items-center">
+        <SessionShareButton
+          key={sessionId}
+          sessionId={sessionId}
+          variant="cta"
+        />
+      </div>
+    );
   }
 
   return (

@@ -696,6 +696,28 @@ describe("SessionShareButton", () => {
     expect(mocks.markSessionShareActivated).not.toHaveBeenCalled();
   });
 
+  it("renders a labeled share CTA for the session header", () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SessionShareButton sessionId="session-1" variant="cta" />
+      </QueryClientProvider>,
+    );
+
+    const trigger = screen.getByRole("button", { name: "Share note" });
+    expect(trigger.textContent).toContain("Share");
+    expect(trigger.className).toContain("bg-primary");
+    expect(trigger.className).toContain("dark:bg-white");
+    expect(trigger.querySelector("svg")?.getAttribute("class")).toContain(
+      "size-3.5",
+    );
+  });
+
   it("shows existing share controls while access is still loading", async () => {
     let resolveManagement!: (
       value: ReturnType<typeof defaultManagement>,

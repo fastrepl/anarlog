@@ -4163,6 +4163,7 @@ msgid "Settings"
 msgstr "Settings"
 
 #: src/session-sharing/draft-panel.tsx
+#: src/session-sharing/index.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Share"
 msgstr "Share"

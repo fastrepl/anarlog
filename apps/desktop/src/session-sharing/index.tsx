@@ -73,7 +73,13 @@ import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export { sessionShareManagementQueryKey };
 
-export function SessionShareButton({ sessionId }: { sessionId: string }) {
+export function SessionShareButton({
+  sessionId,
+  variant = "icon",
+}: {
+  sessionId: string;
+  variant?: "icon" | "cta";
+}) {
   const auth = useAuth();
   const latestAuthRef = useRef(auth);
   latestAuthRef.current = auth;
@@ -618,19 +624,33 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
         <Button
           key={accountUserId ?? "signed-out"}
           type="button"
-          size="icon"
-          variant="ghost"
+          size={variant === "cta" ? "sm" : "icon"}
+          variant={variant === "cta" ? "default" : "ghost"}
           data-tauri-drag-region="false"
           aria-label={t`Share note`}
           aria-expanded={sharePopoverOpen}
           title={t`Share note`}
           onClick={handleShare}
           className={cn([
-            "text-muted-foreground hover:text-foreground rounded-full [&_svg]:size-4",
-            sharePopoverOpen && "bg-accent text-foreground",
+            variant === "cta"
+              ? [
+                  "max-w-56 gap-1.5 overflow-hidden border pr-2.5 pl-1.5 text-sm shadow-sm",
+                  "border-primary dark:border-white dark:bg-white dark:text-black",
+                  "dark:hover:bg-white/90",
+                ]
+              : [
+                  "text-muted-foreground hover:text-foreground rounded-full [&_svg]:size-4",
+                  sharePopoverOpen && "bg-accent text-foreground",
+                ],
           ])}
         >
-          <ShareNetwork className="size-4" aria-hidden="true" />
+          <ShareNetwork
+            className={variant === "cta" ? "size-3.5" : "size-4"}
+            aria-hidden="true"
+          />
+          {variant === "cta" ? (
+            <span className="truncate">{t`Share`}</span>
+          ) : null}
         </Button>
       </PopoverTrigger>
       {showUpgradePrompt ? (
