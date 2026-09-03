@@ -364,7 +364,7 @@ describe("OuterHeader", () => {
     expect(container.firstElementChild?.className).not.toContain("pl-[108px]");
   });
 
-  it("keeps the session header at 48px tall", () => {
+  it("keeps the session header at 48px tall and centers controls on the sidebar toggle row", () => {
     const { container } = render(
       <OuterHeader
         sessionId="session-1"
@@ -373,6 +373,7 @@ describe("OuterHeader", () => {
     );
 
     expect(container.firstElementChild?.className).toContain("h-12");
+    expect(container.firstElementChild?.className).toContain("pb-0.5");
   });
 
   it("marks the spacer and action strip as draggable", () => {

@@ -78,7 +78,9 @@ export function OuterHeader({
       data-tauri-drag-region
       className={cn([
         "relative flex w-full items-center gap-[2px]",
-        "h-12",
+        // 46px content box centers the 28px controls at 23px, matching the
+        // sidebar toggle row (pt-[9px] + size-7).
+        "h-12 pb-0.5",
         standaloneWindow && (showWindowControlsGutter ? "pl-[76px]" : "pl-2"),
         !standaloneWindow && leftsidebar.expanded && "pl-2",
         showSidebarTimelineHeaderGutter &&

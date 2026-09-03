@@ -95,7 +95,7 @@ export function iconHeaderViewClassName(
   size: "tray" | "standalone" = "tray",
   className?: string,
 ) {
-  const heightClassName = size === "tray" ? "h-[26px]" : "h-7";
+  const heightClassName = size === "tray" ? "h-6" : "h-7";
 
   return cn([
     "group/header-view rounded-pill flex shrink-0 items-center justify-center transition-colors select-none [corner-shape:round] [&>svg]:shrink-0",
