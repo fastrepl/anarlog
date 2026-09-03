@@ -6,7 +6,7 @@ import { OnboardingButton } from "../shared";
 
 import { useAuth } from "~/auth";
 
-export function BeforeLogin({ onContinue: _ }: { onContinue: () => void }) {
+export function BeforeLogin() {
   const auth = useAuth();
   const [isOpening, setIsOpening] = useState(false);
 
@@ -28,15 +28,6 @@ export function BeforeLogin({ onContinue: _ }: { onContinue: () => void }) {
             <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
           ) : null}
           <Trans>Get started</Trans>
-        </OnboardingButton>
-
-        <OnboardingButton
-          variant="secondary"
-          onClick={handleSignIn}
-          disabled={isOpening}
-          className="px-6 py-2"
-        >
-          <Trans>Login</Trans>
         </OnboardingButton>
       </div>
     </div>

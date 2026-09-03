@@ -2640,10 +2640,6 @@ msgstr "Lock Note"
 msgid "Locked note"
 msgstr "Locked note"
 
-#: src/onboarding/account/before-login.tsx
-msgid "Login"
-msgstr "Login"
-
 #: src/settings/ai/llm/select.tsx
 msgid "Low"
 msgstr "Low"

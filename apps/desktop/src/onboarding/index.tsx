@@ -277,10 +277,7 @@ function OnboardingScreenContent({
               if (next) setCurrentStep(next);
             }}
           >
-            <LoginSection
-              onContinue={goNext}
-              onSkip={() => setDidSkipLogin(true)}
-            />
+            <LoginSection onContinue={goNext} />
           </OnboardingSection>
 
           <OnboardingSection
