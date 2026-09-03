@@ -116,7 +116,40 @@ impl MacOSBackend {
 
 const TAP_DEVICE_NAME: &str = "anarlog-audio-tap";
 
+const DEVICE_IS_RUNNING_SOMEWHERE: ca::PropAddr = ca::PropAddr {
+    selector: ca::PropSelector::DEVICE_IS_RUNNING_SOMEWHERE,
+    scope: ca::PropScope::GLOBAL,
+    element: ca::PropElement::MAIN,
+};
+
+fn is_running_somewhere(device: &ca::Device) -> bool {
+    device
+        .prop::<u32>(&DEVICE_IS_RUNNING_SOMEWHERE)
+        .map(|value| value != 0)
+        .unwrap_or(false)
+}
+
 impl AudioDeviceBackend for MacOSBackend {
+    fn running_output_devices(&self) -> Result<Vec<AudioDevice>, Error> {
+        let ca_devices =
+            ca::System::devices().map_err(|e| Error::EnumerationFailed(format!("{:?}", e)))?;
+        let default_output_id = ca::System::default_output_device().ok().map(|d| d.0.0);
+
+        Ok(ca_devices
+            .iter()
+            .filter(|device| {
+                device
+                    .name()
+                    .map(|name| !name.to_string().contains(TAP_DEVICE_NAME))
+                    .unwrap_or(true)
+            })
+            .filter(|device| is_running_somewhere(device))
+            .filter_map(|device| {
+                Self::create_audio_device(device, AudioDirection::Output, default_output_id)
+            })
+            .collect())
+    }
+
     fn list_devices(&self) -> Result<Vec<AudioDevice>, Error> {
         let ca_devices =
             ca::System::devices().map_err(|e| Error::EnumerationFailed(format!("{:?}", e)))?;

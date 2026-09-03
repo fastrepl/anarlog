@@ -35,18 +35,49 @@ pub fn backend() -> impl AudioDeviceBackend {
     }
 }
 
-/// Returns the default output device when it is classified as a headphone.
-pub fn default_output_headphone() -> Option<AudioDevice> {
+/// Returns a headphone when every output device that is currently playing audio is one.
+///
+/// Meeting apps can play through a device other than the system default, so the default alone
+/// does not tell us whether speaker output can reach the mic. When nothing is playing yet, the
+/// default output decides. Backends without running-device support fall back to the default.
+pub fn headphone_only_output() -> Option<AudioDevice> {
     let backend = backend();
-    backend
-        .get_default_output_device()
-        .ok()
-        .flatten()
-        .filter(|device| backend.is_headphone(device))
+    let default = backend.get_default_output_device().ok().flatten();
+    let running = backend.running_output_devices().unwrap_or_default();
+    resolve_headphone_only_output(default, running, |device| backend.is_headphone(device))
+}
+
+fn resolve_headphone_only_output(
+    default: Option<AudioDevice>,
+    running: Vec<AudioDevice>,
+    is_headphone: impl Fn(&AudioDevice) -> bool,
+) -> Option<AudioDevice> {
+    if running.is_empty() {
+        return default.filter(|device| is_headphone(device));
+    }
+
+    if !running.iter().all(&is_headphone) {
+        return None;
+    }
+
+    let default_is_running = default
+        .as_ref()
+        .is_some_and(|default| running.iter().any(|device| device.id == default.id));
+
+    if default_is_running {
+        default
+    } else {
+        running.into_iter().next()
+    }
 }
 
 pub trait AudioDeviceBackend {
     fn list_devices(&self) -> Result<Vec<AudioDevice>, Error>;
+
+    /// Output devices that some process is actively playing through right now.
+    fn running_output_devices(&self) -> Result<Vec<AudioDevice>, Error> {
+        Ok(Vec::new())
+    }
 
     fn list_input_devices(&self) -> Result<Vec<AudioDevice>, Error> {
         Ok(self
@@ -86,6 +117,71 @@ pub trait AudioDeviceBackend {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn output(id: &str, headphone: bool) -> AudioDevice {
+        let name = if headphone { "Headphones" } else { "Speakers" };
+        AudioDevice::new(id, name, AudioDirection::Output, TransportType::Unknown)
+    }
+
+    fn is_headphone(device: &AudioDevice) -> bool {
+        device.name == "Headphones"
+    }
+
+    #[test]
+    fn falls_back_to_default_output_when_nothing_is_playing() {
+        let result =
+            resolve_headphone_only_output(Some(output("hp", true)), Vec::new(), is_headphone);
+        assert_eq!(result.map(|d| d.id.0), Some("hp".to_string()));
+
+        let result =
+            resolve_headphone_only_output(Some(output("spk", false)), Vec::new(), is_headphone);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn any_running_speaker_disqualifies_headphone_default() {
+        let result = resolve_headphone_only_output(
+            Some(output("hp", true)),
+            vec![output("hp", true), output("spk", false)],
+            is_headphone,
+        );
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn running_headphones_win_over_speaker_default() {
+        let result = resolve_headphone_only_output(
+            Some(output("spk", false)),
+            vec![output("hp", true)],
+            is_headphone,
+        );
+        assert_eq!(result.map(|d| d.id.0), Some("hp".to_string()));
+    }
+
+    #[test]
+    fn prefers_default_among_running_headphones() {
+        let result = resolve_headphone_only_output(
+            Some(output("hp-default", true)),
+            vec![output("hp-other", true), output("hp-default", true)],
+            is_headphone,
+        );
+        assert_eq!(result.map(|d| d.id.0), Some("hp-default".to_string()));
+    }
+
+    #[test]
+    fn test_headphone_only_output() {
+        let backend = backend();
+        println!(
+            "running outputs: {:?}",
+            backend
+                .running_output_devices()
+                .map(|devices| devices.into_iter().map(|d| d.name).collect::<Vec<_>>())
+        );
+        println!(
+            "headphone_only_output: {:?}",
+            headphone_only_output().map(|d| d.name)
+        );
+    }
 
     #[test]
     fn test_list_devices() {

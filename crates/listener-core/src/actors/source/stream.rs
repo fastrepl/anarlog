@@ -51,9 +51,10 @@ struct CaptureSettings {
     mic_isolated: bool,
 }
 
-// Headphones make AEC pure cost: it burns CPU and can degrade near-end speech.
+// Headphones make AEC pure cost: it burns CPU and can degrade near-end speech. The check covers
+// every output that is playing, not just the default, because meeting apps pick their own speaker.
 fn capture_settings() -> CaptureSettings {
-    let headphone_output = anlg_audio_device::default_output_headphone();
+    let headphone_output = anlg_audio_device::headphone_only_output();
     if let Some(device) = &headphone_output {
         tracing::info!(
             device = %device.name,

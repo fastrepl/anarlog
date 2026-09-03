@@ -653,6 +653,7 @@ fn wait_for_stream_ready(mainloop: &mut Mainloop, stream: &PaStream) -> Result<(
 
 #[derive(Clone, Debug)]
 struct SinkTarget {
+    index: u32,
     name: String,
     description: String,
     monitor: String,
@@ -673,32 +674,52 @@ impl SinkTarget {
 }
 
 fn list_sink_targets() -> Vec<SinkTarget> {
-    let Some(mut mainloop) = Mainloop::new() else {
-        return Vec::new();
-    };
-    let Some(mut context) = PaContext::new(&mainloop, "anarlog-speaker-list") else {
-        return Vec::new();
-    };
+    with_pulse_context("anarlog-speaker-list", query_sink_targets).unwrap_or_default()
+}
+
+// PipeWire systems serve this API through pipewire-pulse, so one introspection path covers both
+// backends.
+fn with_pulse_context<T>(
+    name: &str,
+    query: impl FnOnce(&mut Mainloop, &PaContext) -> T,
+) -> Option<T> {
+    let mut mainloop = Mainloop::new()?;
+    let mut context = PaContext::new(&mainloop, name)?;
     if context
         .connect(None, ContextFlagSet::NOFLAGS, None)
         .is_err()
     {
-        return Vec::new();
+        return None;
     }
     if mainloop.start().is_err() {
-        return Vec::new();
+        return None;
     }
     if wait_for_context_ready(&mut mainloop, &context).is_err() {
         mainloop.stop();
-        return Vec::new();
+        return None;
     }
 
-    let sinks = query_sink_targets(&mut mainloop, &context);
+    let result = query(&mut mainloop, &context);
     mainloop.lock();
     context.disconnect();
     mainloop.unlock();
     mainloop.stop();
-    sinks
+    Some(result)
+}
+
+fn collect_list<T>(rx: &std::sync::mpsc::Receiver<Option<T>>) -> Vec<T> {
+    let mut items = Vec::new();
+    let timeout = Duration::from_secs(2);
+    let start = std::time::Instant::now();
+    while start.elapsed() < timeout {
+        match rx.recv_timeout(Duration::from_millis(50)) {
+            Ok(Some(item)) => items.push(item),
+            Ok(None) => break,
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+        }
+    }
+    items
 }
 
 fn query_sink_targets(mainloop: &mut Mainloop, context: &PaContext) -> Vec<SinkTarget> {
@@ -724,6 +745,7 @@ fn query_sink_targets(mainloop: &mut Mainloop, context: &PaContext) -> Vec<SinkT
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| format!("{name}.monitor"));
             let _ = tx.send(Some(SinkTarget {
+                index: sink_info.index,
                 name: name.to_string(),
                 description,
                 monitor,
@@ -735,26 +757,99 @@ fn query_sink_targets(mainloop: &mut Mainloop, context: &PaContext) -> Vec<SinkT
     });
     mainloop.unlock();
 
-    let mut sinks = Vec::new();
-    let timeout = Duration::from_secs(2);
-    let start = std::time::Instant::now();
-    while start.elapsed() < timeout {
-        match rx.recv_timeout(Duration::from_millis(50)) {
-            Ok(Some(sink)) => sinks.push(sink),
-            Ok(None) => break,
-            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
-            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+    collect_list(&rx)
+}
+
+// Sink indices that some other process is actively playing into.
+fn query_sinks_in_use(mainloop: &mut Mainloop, context: &PaContext) -> Vec<u32> {
+    use std::sync::mpsc;
+
+    let (tx, rx) = mpsc::channel();
+    let self_pid = std::process::id().to_string();
+
+    mainloop.lock();
+    let introspector = context.introspect();
+    introspector.get_sink_input_info_list(move |list_result| match list_result {
+        pulse::callbacks::ListResult::Item(input) => {
+            let foreign = input
+                .proplist
+                .get_str(pulse::proplist::properties::APPLICATION_PROCESS_ID)
+                .is_none_or(|pid| pid != self_pid);
+            if !input.corked && foreign {
+                let _ = tx.send(Some(input.sink));
+            }
         }
+        pulse::callbacks::ListResult::End | pulse::callbacks::ListResult::Error => {
+            let _ = tx.send(None);
+        }
+    });
+    mainloop.unlock();
+
+    collect_list(&rx)
+}
+
+// Meeting apps often play through a sink that is not the default. Follow whichever sink another
+// process is rendering to; the default wins ties so unrelated playback elsewhere does not pull us
+// away from a meeting on the default sink.
+fn sink_in_use(mainloop: &mut Mainloop, context: &PaContext) -> Option<SinkTarget> {
+    let sinks = query_sink_targets(mainloop, context);
+    let in_use = query_sinks_in_use(mainloop, context);
+    let default_sink = get_default_sink_name(mainloop, context);
+    pick_sink_in_use(sinks, &in_use, default_sink.as_deref())
+}
+
+fn pick_sink_in_use(
+    sinks: Vec<SinkTarget>,
+    in_use: &[u32],
+    default_sink: Option<&str>,
+) -> Option<SinkTarget> {
+    let mut candidates: Vec<SinkTarget> = sinks
+        .into_iter()
+        .filter(|sink| in_use.contains(&sink.index))
+        .collect();
+    if candidates.is_empty() {
+        return None;
     }
-    sinks
+
+    let default_position = candidates
+        .iter()
+        .position(|sink| Some(sink.name.as_str()) == default_sink);
+    let sink = match default_position {
+        Some(position) => candidates.swap_remove(position),
+        None => {
+            let sink = candidates.swap_remove(0);
+            tracing::info!(
+                anarlog.audio.device = %sink.name,
+                "speaker_capture_following_active_sink"
+            );
+            sink
+        }
+    };
+    Some(sink)
 }
 
 fn resolve_sink_name(preferred: Option<&str>) -> Option<String> {
-    let preferred = preferred.filter(|name| !name.is_empty())?;
-    list_sink_targets()
-        .into_iter()
-        .find(|sink| sink.matches(preferred))
-        .map(|sink| sink.name)
+    with_pulse_context("anarlog-speaker-list", |mainloop, context| {
+        resolve_sink_target(mainloop, context, preferred).map(|sink| sink.name)
+    })
+    .flatten()
+}
+
+fn resolve_sink_target(
+    mainloop: &mut Mainloop,
+    context: &PaContext,
+    preferred: Option<&str>,
+) -> Option<SinkTarget> {
+    if let Some(preferred) = preferred.filter(|name| !name.is_empty()) {
+        if let Some(sink) = query_sink_targets(mainloop, context)
+            .into_iter()
+            .find(|sink| sink.matches(preferred))
+        {
+            return Some(sink);
+        }
+        tracing::warn!(preferred, "speaker_device_unavailable_using_default");
+    }
+    sink_in_use(mainloop, context)
 }
 
 fn resolve_monitor_device(
@@ -762,19 +857,12 @@ fn resolve_monitor_device(
     context: &PaContext,
     preferred: Option<&str>,
 ) -> Option<String> {
-    if let Some(preferred) = preferred.filter(|name| !name.is_empty()) {
-        if let Some(sink) = query_sink_targets(mainloop, context)
-            .into_iter()
-            .find(|sink| sink.matches(preferred))
-        {
-            return Some(sink.monitor);
-        }
-        tracing::warn!(preferred, "speaker_device_unavailable_using_default");
-    }
-    get_default_monitor_device(mainloop, context)
+    resolve_sink_target(mainloop, context, preferred)
+        .map(|sink| sink.monitor)
+        .or_else(|| get_default_sink_name(mainloop, context).map(|name| format!("{name}.monitor")))
 }
 
-fn get_default_monitor_device(mainloop: &mut Mainloop, context: &PaContext) -> Option<String> {
+fn get_default_sink_name(mainloop: &mut Mainloop, context: &PaContext) -> Option<String> {
     use std::sync::mpsc;
 
     let (tx, rx) = mpsc::channel();
@@ -782,12 +870,7 @@ fn get_default_monitor_device(mainloop: &mut Mainloop, context: &PaContext) -> O
     mainloop.lock();
     let introspector = context.introspect();
     introspector.get_server_info(move |info| {
-        if let Some(sink_name) = &info.default_sink_name {
-            let monitor_name = format!("{}.monitor", sink_name);
-            let _ = tx.send(Some(monitor_name));
-        } else {
-            let _ = tx.send(None);
-        }
+        let _ = tx.send(info.default_sink_name.as_ref().map(|name| name.to_string()));
     });
     mainloop.unlock();
 
@@ -839,11 +922,21 @@ impl PinnedDrop for SpeakerStream {
 
 #[cfg(test)]
 mod tests {
-    use super::SinkTarget;
+    use super::{SinkTarget, pick_sink_in_use};
+
+    fn sink(index: u32, name: &str) -> SinkTarget {
+        SinkTarget {
+            index,
+            name: name.to_string(),
+            description: String::new(),
+            monitor: format!("{name}.monitor"),
+        }
+    }
 
     #[test]
     fn sink_target_matches_description_or_name() {
         let sink = SinkTarget {
+            index: 0,
             name: "alsa_output.pci-0000_00_1f.3.analog-stereo".to_string(),
             description: "Built-in Audio Analog Stereo".to_string(),
             monitor: "alsa_output.pci-0000_00_1f.3.analog-stereo.monitor".to_string(),
@@ -853,5 +946,26 @@ mod tests {
         assert!(sink.matches("alsa_output.pci-0000_00_1f.3.analog-stereo"));
         assert!(!sink.matches("HDMI"));
         assert_eq!(sink.display_name(), "Built-in Audio Analog Stereo");
+    }
+
+    #[test]
+    fn no_sink_in_use_falls_through_to_default() {
+        let sinks = vec![sink(1, "builtin"), sink(2, "usb")];
+        assert!(pick_sink_in_use(sinks, &[], Some("builtin")).is_none());
+    }
+
+    #[test]
+    fn follows_the_only_sink_in_use() {
+        let sinks = vec![sink(1, "builtin"), sink(2, "usb")];
+        let picked = pick_sink_in_use(sinks, &[2], Some("builtin")).unwrap();
+        assert_eq!(picked.name, "usb");
+        assert_eq!(picked.monitor, "usb.monitor");
+    }
+
+    #[test]
+    fn default_wins_when_several_sinks_are_in_use() {
+        let sinks = vec![sink(1, "hdmi"), sink(2, "builtin"), sink(3, "usb")];
+        let picked = pick_sink_in_use(sinks, &[1, 2, 3], Some("builtin")).unwrap();
+        assert_eq!(picked.name, "builtin");
     }
 }

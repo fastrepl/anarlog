@@ -14,7 +14,8 @@ use std::thread;
 use std::time::Duration;
 use tracing::error;
 use wasapi::{
-    DeviceEnumerator, Direction, SampleType, ShareMode, StreamMode, WaveFormat, initialize_mta,
+    AudioClient, DeviceEnumerator, Direction, SampleType, SessionState, ShareMode, StreamMode,
+    WaveFormat, initialize_mta,
 };
 
 use crate::async_ring::RingbufAsyncReader;
@@ -167,28 +168,19 @@ fn capture_audio_loop(
             .ok()
             .context("Failed to initialize WASAPI COM apartment")?;
 
-        let enumerator =
-            DeviceEnumerator::new().context("Failed to create WASAPI device enumerator")?;
-        let device = open_render_device(&enumerator, preferred_device.as_deref())?;
-        let mut audio_client = device
-            .get_iaudioclient()
-            .context("Failed to get IAudioClient")?;
-
-        let mix_format = audio_client
-            .get_mixformat()
-            .context("Failed to get WASAPI mix format")?;
-        let desired_format = WaveFormat::new(
-            32,
-            32,
-            &SampleType::Float,
-            mix_format.get_samplespersec() as usize,
-            mix_format.get_nchannels() as usize,
-            Some(mix_format.get_dwchannelmask()),
-        );
-        let accepted_format = audio_client
-            .is_supported(&desired_format, &ShareMode::Shared)
-            .context("Failed to query WASAPI shared-mode support")?
-            .unwrap_or(desired_format);
+        let (mut audio_client, accepted_format, buffer_duration_hns, source) =
+            match open_process_loopback_client() {
+                Ok((client, format)) => (client, format, 0, "process"),
+                Err(error) => {
+                    tracing::info!(
+                        error = %error,
+                        "wasapi_process_loopback_unavailable_using_endpoint"
+                    );
+                    let (client, format, period) =
+                        open_endpoint_loopback_client(preferred_device.as_deref())?;
+                    (client, format, period, "endpoint")
+                }
+            };
 
         let capture_format = WasapiCaptureFormat {
             sample_rate: accepted_format.get_samplespersec(),
@@ -199,12 +191,9 @@ fn capture_audio_loop(
             bits_per_sample: accepted_format.get_bitspersample(),
         };
 
-        let (_default_period, min_period) = audio_client
-            .get_device_period()
-            .context("Failed to get WASAPI device period")?;
         let mode = StreamMode::EventsShared {
             autoconvert: true,
-            buffer_duration_hns: min_period,
+            buffer_duration_hns,
         };
 
         audio_client
@@ -222,10 +211,10 @@ fn capture_audio_loop(
             .start_stream()
             .context("Failed to start WASAPI loopback stream")?;
 
-        Ok((audio_client, event, capture_client, capture_format))
+        Ok((audio_client, event, capture_client, capture_format, source))
     })();
 
-    let (audio_client, event, capture_client, capture_format) = match setup_result {
+    let (audio_client, event, capture_client, capture_format, source) = match setup_result {
         Ok(values) => values,
         Err(err) => {
             let _ = init_tx.send(Err(anyhow::anyhow!(err.to_string())));
@@ -236,6 +225,7 @@ fn capture_audio_loop(
     current_sample_rate.store(capture_format.sample_rate, Ordering::Release);
     tracing::info!(
         anarlog.audio.sample_rate_hz = capture_format.sample_rate,
+        source,
         "wasapi_loopback_initialized"
     );
     let _ = init_tx.send(Ok(()));
@@ -249,10 +239,7 @@ fn capture_audio_loop(
         }
 
         temp_queue.clear();
-        if let Err(err) = capture_client.read_from_device_to_deque(&mut temp_queue) {
-            error!("Failed to read audio data: {}", err);
-            continue;
-        }
+        drain_packets(&capture_client, &mut temp_queue);
 
         if temp_queue.is_empty() {
             continue;
@@ -281,6 +268,77 @@ fn capture_audio_loop(
     Ok(())
 }
 
+// Process loopback captures every other process's render streams no matter which endpoint each one
+// plays through, so the user never has to tell us which speakers the meeting app uses. Requires
+// Windows 11 (build 20348+); older builds fail activation and we fall back to endpoint loopback.
+//
+// `include_tree = false` selects PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE: everything
+// except our own process tree. The wasapi crate's doc comment describes this flag backwards.
+fn open_process_loopback_client() -> Result<(AudioClient, WaveFormat)> {
+    let client = AudioClient::new_application_loopback_client(std::process::id(), false)
+        .context("Failed to activate WASAPI process loopback")?;
+    let format = WaveFormat::new(
+        32,
+        32,
+        &SampleType::Float,
+        DEFAULT_SAMPLE_RATE as usize,
+        2,
+        None,
+    );
+    Ok((client, format))
+}
+
+fn open_endpoint_loopback_client(
+    preferred: Option<&str>,
+) -> Result<(AudioClient, WaveFormat, i64)> {
+    let enumerator =
+        DeviceEnumerator::new().context("Failed to create WASAPI device enumerator")?;
+    let device = open_render_device(&enumerator, preferred)?;
+    let audio_client = device
+        .get_iaudioclient()
+        .context("Failed to get IAudioClient")?;
+
+    let mix_format = audio_client
+        .get_mixformat()
+        .context("Failed to get WASAPI mix format")?;
+    let desired_format = WaveFormat::new(
+        32,
+        32,
+        &SampleType::Float,
+        mix_format.get_samplespersec() as usize,
+        mix_format.get_nchannels() as usize,
+        Some(mix_format.get_dwchannelmask()),
+    );
+    let accepted_format = audio_client
+        .is_supported(&desired_format, &ShareMode::Shared)
+        .context("Failed to query WASAPI shared-mode support")?
+        .unwrap_or(desired_format);
+
+    let (_default_period, min_period) = audio_client
+        .get_device_period()
+        .context("Failed to get WASAPI device period")?;
+
+    Ok((audio_client, accepted_format, min_period))
+}
+
+fn drain_packets(capture_client: &wasapi::AudioCaptureClient, queue: &mut VecDeque<u8>) {
+    loop {
+        match capture_client.get_next_packet_size() {
+            Ok(Some(frames)) if frames > 0 => {
+                if let Err(err) = capture_client.read_from_device_to_deque(queue) {
+                    error!("Failed to read audio data: {}", err);
+                    return;
+                }
+            }
+            Ok(_) => return,
+            Err(err) => {
+                error!("Failed to query WASAPI packet size: {}", err);
+                return;
+            }
+        }
+    }
+}
+
 fn open_render_device(
     enumerator: &DeviceEnumerator,
     preferred: Option<&str>,
@@ -301,9 +359,58 @@ fn open_render_device(
         }
     }
 
-    enumerator
+    let default = enumerator
         .get_default_device(&Direction::Render)
-        .context("Failed to get default render device")
+        .context("Failed to get default render device")?;
+
+    Ok(render_device_in_use(enumerator, &default).unwrap_or(default))
+}
+
+// Meeting apps often play through an endpoint that is not the system default. When another process
+// is actively rendering somewhere, follow it; the default wins ties so unrelated playback on a
+// secondary device does not pull us away from a meeting on the default one.
+fn render_device_in_use(
+    enumerator: &DeviceEnumerator,
+    default: &wasapi::Device,
+) -> Option<wasapi::Device> {
+    if has_foreign_active_session(default) {
+        return None;
+    }
+
+    let collection = enumerator.get_device_collection(&Direction::Render).ok()?;
+    let device = collection
+        .into_iter()
+        .filter_map(|device| device.ok())
+        .find(has_foreign_active_session)?;
+
+    tracing::info!(
+        device = ?device.get_friendlyname().ok(),
+        "wasapi_loopback_following_active_render_endpoint"
+    );
+    Some(device)
+}
+
+fn has_foreign_active_session(device: &wasapi::Device) -> bool {
+    let self_pid = std::process::id();
+    let Ok(manager) = device.get_iaudiosessionmanager() else {
+        return false;
+    };
+    let Ok(sessions) = manager.get_audiosessionenumerator() else {
+        return false;
+    };
+    let Ok(count) = sessions.get_count() else {
+        return false;
+    };
+
+    (0..count).any(|index| {
+        sessions.get_session(index).ok().is_some_and(|session| {
+            session.get_state().ok() == Some(SessionState::Active)
+                && session
+                    .get_process_id()
+                    .ok()
+                    .is_some_and(|pid| pid != 0 && pid != self_pid)
+        })
+    })
 }
 
 fn push_wasapi_bytes(
