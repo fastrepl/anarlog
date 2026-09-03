@@ -7,6 +7,11 @@ export const controlSquircle = {
   smoothing: APPLE_SMOOTHING,
 } satisfies SmoothCornerOptions;
 
+export const chipSquircle = {
+  radius: DesignRadius.md,
+  smoothing: APPLE_SMOOTHING,
+} satisfies SmoothCornerOptions;
+
 export const panelSquircle = {
   radius: DesignRadius.panel,
   smoothing: APPLE_SMOOTHING,

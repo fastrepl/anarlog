@@ -1,5 +1,11 @@
 import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { extendTailwindMerge } from "tailwind-merge";
+
+// `rounded-pill` is a custom radius token (`--radius-pill`); register it so it
+// conflicts with the built-in `rounded-*` classes instead of stacking with them.
+const twMerge = extendTailwindMerge({
+  extend: { theme: { borderRadius: ["pill"] } },
+});
 
 /**
  * Combines multiple class names using clsx and merges Tailwind CSS classes intelligently.

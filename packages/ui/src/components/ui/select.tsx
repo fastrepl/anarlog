@@ -2,6 +2,8 @@ import { CaretDown, CaretUp, Check } from "@phosphor-icons/react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import * as React from "react";
 
+import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
+import { squircleFocusVisibleClassName } from "@anlg/ui/lib/squircle";
 import { cn } from "@anlg/utils";
 
 import { appFloatingItemClassName } from "./floating-content";
@@ -13,21 +15,25 @@ const SelectValue = SelectPrimitive.Value;
 const SelectTrigger = React.forwardRef<
   React.ComponentRef<typeof SelectPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
-  <SelectPrimitive.Trigger
-    ref={ref}
-    className={cn([
-      "border-input ring-offset-background data-placeholder:text-muted-foreground focus:ring-ring rounded-pill flex h-9 w-full items-center justify-between border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs [corner-shape:round] focus:ring-1 focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
-      className,
-    ])}
-    {...props}
-  >
-    {children}
-    <SelectPrimitive.Icon asChild>
-      <CaretDown className="-mr-1 h-4 w-4 shrink-0 opacity-50" />
-    </SelectPrimitive.Icon>
-  </SelectPrimitive.Trigger>
-));
+>(({ className, children, ...props }, ref) => {
+  const squircleRef = useSquircleRef(ref);
+  return (
+    <SelectPrimitive.Trigger
+      ref={squircleRef}
+      className={cn([
+        squircleFocusVisibleClassName,
+        "border-input data-placeholder:text-muted-foreground flex h-9 w-full items-center justify-between rounded-full border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
+        className,
+      ])}
+      {...props}
+    >
+      {children}
+      <SelectPrimitive.Icon asChild>
+        <CaretDown className="-mr-1 h-4 w-4 shrink-0 opacity-50" />
+      </SelectPrimitive.Icon>
+    </SelectPrimitive.Trigger>
+  );
+});
 SelectTrigger.displayName = SelectPrimitive.Trigger.displayName;
 
 const SelectScrollUpButton = React.forwardRef<

@@ -29,6 +29,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@anlg/ui/components/ui/tooltip";
+import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
+import { chipSquircle } from "@anlg/ui/lib/squircle";
 import { cn } from "@anlg/utils";
 
 import type { ListModelsResult, ModelIgnoreReason } from "./list-common";
@@ -359,8 +361,10 @@ export function ModelCombobox({
 }
 
 function DeprecatedBadge() {
+  const ref = useSquircleRef<HTMLSpanElement>(undefined, chipSquircle);
   return (
     <span
+      ref={ref}
       className={cn([
         "shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium",
         "bg-amber-50 text-amber-800",

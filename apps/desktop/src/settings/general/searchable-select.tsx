@@ -88,8 +88,7 @@ export function SearchableSelect({
           aria-labelledby={ariaLabelledBy}
           aria-describedby={ariaDescribedBy}
           className={cn([
-            "bg-card justify-between font-normal shadow-none focus-visible:ring-0",
-            "rounded-pill px-3 [corner-shape:round]",
+            "bg-card justify-between px-3 font-normal shadow-none focus-visible:ring-0",
             className,
           ])}
         >

@@ -370,7 +370,7 @@ export function SelectProviderAndModel() {
             value={effectiveSelection.provider}
             onValueChange={handleProviderChange}
           >
-            <SelectTrigger className="bg-card shadow-none focus:ring-0">
+            <SelectTrigger className="bg-card shadow-none">
               <SelectValue placeholder={t`Select a provider`} />
             </SelectTrigger>
             <SelectContent>
