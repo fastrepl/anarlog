@@ -250,11 +250,6 @@ mod passthrough {
         passthrough_live_test!(soniox, owhisper_client::SonioxAdapter, Provider::Soniox);
         passthrough_live_test!(gladia, owhisper_client::GladiaAdapter, Provider::Gladia);
         passthrough_live_test!(
-            fireworks,
-            owhisper_client::FireworksAdapter,
-            Provider::Fireworks
-        );
-        passthrough_live_test!(
             elevenlabs,
             owhisper_client::ElevenLabsAdapter,
             Provider::ElevenLabs
@@ -274,7 +269,6 @@ mod passthrough {
         passthrough_batch_test!(assemblyai, Provider::AssemblyAI);
         passthrough_batch_test!(soniox, Provider::Soniox);
         passthrough_batch_test!(gladia, Provider::Gladia);
-        passthrough_batch_test!(fireworks, Provider::Fireworks);
         passthrough_batch_test!(openai, Provider::OpenAI);
         passthrough_batch_test!(elevenlabs, Provider::ElevenLabs);
         passthrough_batch_test!(mistral, Provider::Mistral);
@@ -291,7 +285,6 @@ mod anarlog {
         anarlog_live_test!(assemblyai, Provider::AssemblyAI);
         anarlog_live_test!(soniox, Provider::Soniox);
         anarlog_live_test!(gladia, Provider::Gladia);
-        anarlog_live_test!(fireworks, Provider::Fireworks);
         anarlog_live_test!(elevenlabs, Provider::ElevenLabs);
         anarlog_live_test!(mistral, Provider::Mistral);
         anarlog_live_test!(dashscope, Provider::DashScope);
@@ -304,7 +297,6 @@ mod anarlog {
         anarlog_batch_test!(assemblyai, Provider::AssemblyAI);
         anarlog_batch_test!(soniox, Provider::Soniox);
         anarlog_batch_test!(gladia, Provider::Gladia);
-        anarlog_batch_test!(fireworks, Provider::Fireworks);
         anarlog_batch_test!(openai, Provider::OpenAI);
         anarlog_batch_test!(elevenlabs, Provider::ElevenLabs);
         anarlog_batch_test!(mistral, Provider::Mistral);

@@ -129,11 +129,6 @@ mod record {
     record_fixture_test!(soniox, owhisper_client::SonioxAdapter, Provider::Soniox);
     record_fixture_test!(gladia, owhisper_client::GladiaAdapter, Provider::Gladia);
     record_fixture_test!(
-        fireworks,
-        owhisper_client::FireworksAdapter,
-        Provider::Fireworks
-    );
-    record_fixture_test!(
         elevenlabs,
         owhisper_client::ElevenLabsAdapter,
         Provider::ElevenLabs

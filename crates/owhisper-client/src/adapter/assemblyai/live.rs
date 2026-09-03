@@ -4,7 +4,6 @@ use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse
 use serde::Deserialize;
 
 use super::AssemblyAIAdapter;
-use super::language::U35_STREAMING_LANGUAGES;
 use crate::adapter::RealtimeSttAdapter;
 use crate::adapter::parsing::{WordBuilder, calculate_time_span, ms_to_secs};
 
@@ -29,7 +28,6 @@ impl RealtimeSttAdapter for AssemblyAIAdapter {
 
     fn build_ws_url(&self, api_base: &str, params: &ListenParams, _channels: u8) -> url::Url {
         let (mut url, existing_params) = Self::streaming_ws_url(api_base);
-        let resolved_model = Self::resolve_live_model(params);
 
         {
             let mut query_pairs = url.query_pairs_mut();
@@ -41,14 +39,9 @@ impl RealtimeSttAdapter for AssemblyAIAdapter {
             let sample_rate = params.sample_rate.to_string();
             query_pairs.append_pair("sample_rate", &sample_rate);
             query_pairs.append_pair("encoding", "pcm_s16le");
-            let (speech_model, language_detection) = resolved_model.query_config(params);
-
-            query_pairs.append_pair("speech_model", speech_model);
-            if language_detection {
+            query_pairs.append_pair("speech_model", LIVE_SPEECH_MODEL);
+            if params.languages.len() > 1 {
                 query_pairs.append_pair("language_detection", "true");
-            }
-            if matches!(resolved_model, ResolvedLiveModel::WhisperRt) {
-                query_pairs.append_pair("format_turns", "true");
             }
 
             if let Some(custom) = &params.custom_query
@@ -59,12 +52,9 @@ impl RealtimeSttAdapter for AssemblyAIAdapter {
 
             // Diarization is always on, as with every other live provider and the
             // AssemblyAI batch path; participant hints only bound the speaker count.
-            if matches!(resolved_model, ResolvedLiveModel::Universal35Pro) {
-                query_pairs.append_pair("speaker_labels", "true");
-
-                if let Some(max_speakers) = Self::streaming_max_speakers(params) {
-                    query_pairs.append_pair("max_speakers", &max_speakers.to_string());
-                }
+            query_pairs.append_pair("speaker_labels", "true");
+            if let Some(max_speakers) = Self::streaming_max_speakers(params) {
+                query_pairs.append_pair("max_speakers", &max_speakers.to_string());
             }
 
             if !params.keywords.is_empty() {
@@ -205,34 +195,12 @@ struct AssemblyAIWord {
     word_is_final: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ResolvedLiveModel {
-    Universal35Pro,
-    WhisperRt,
-}
+// The streaming API only accepts universal-3-5-pro and the cheaper
+// universal-streaming-* tiers; retired u3-rt-pro / universal-3-pro selections
+// and the removed whisper-rt fallback all land here.
+const LIVE_SPEECH_MODEL: &str = "universal-3-5-pro";
 
 impl AssemblyAIAdapter {
-    fn resolve_live_model(params: &ListenParams) -> ResolvedLiveModel {
-        // Retired u3-rt-pro / universal-3-pro selections fall through to
-        // universal-3-5-pro, which is where AssemblyAI redirects them anyway.
-        let requested = match params.model.as_deref() {
-            Some("whisper-rt") => return ResolvedLiveModel::WhisperRt,
-            _ => ResolvedLiveModel::Universal35Pro,
-        };
-        let supported_languages = requested.streaming_languages();
-
-        if params.languages.is_empty()
-            || params
-                .languages
-                .iter()
-                .all(|language| supported_languages.contains(&language.iso639().code()))
-        {
-            requested
-        } else {
-            ResolvedLiveModel::WhisperRt
-        }
-    }
-
     fn streaming_max_speakers(params: &ListenParams) -> Option<u32> {
         params.max_speakers.or(params.num_speakers).or_else(|| {
             params
@@ -339,29 +307,12 @@ impl AssemblyAIAdapter {
     }
 }
 
-impl ResolvedLiveModel {
-    fn streaming_languages(self) -> &'static [&'static str] {
-        match self {
-            Self::Universal35Pro => U35_STREAMING_LANGUAGES,
-            Self::WhisperRt => &[],
-        }
-    }
-
-    fn query_config(self, params: &ListenParams) -> (&'static str, bool) {
-        match self {
-            Self::Universal35Pro => ("universal-3-5-pro", params.languages.len() > 1),
-            Self::WhisperRt => ("whisper-rt", params.languages.len() > 1),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use anlg_language::ISO639;
-    use owhisper_interface::ListenParams;
     use owhisper_interface::stream::StreamResponse;
 
-    use super::{AssemblyAIAdapter, AssemblyAIWord, ResolvedLiveModel, TurnMessage};
+    use super::{AssemblyAIAdapter, AssemblyAIWord, TurnMessage};
     use crate::ListenClient;
     use crate::adapter::RealtimeSttAdapter;
     use crate::test_utils::{UrlTestCase, run_dual_test, run_single_test, run_url_test_cases};
@@ -432,22 +383,11 @@ mod tests {
                     not_contains: &["format_turns", "language=", "speech_model=whisper-rt"],
                 },
                 UrlTestCase {
-                    name: "unsupported_single_language_falls_back_to_whisper",
-                    model: None,
-                    languages: &[ISO639::Ko],
-                    contains: &["speech_model=whisper-rt", "format_turns=true"],
-                    not_contains: &["language=", "speaker_labels", "max_speakers"],
-                },
-                UrlTestCase {
-                    name: "mixed_supported_and_unsupported_languages_fall_back_to_whisper",
-                    model: None,
-                    languages: &[ISO639::En, ISO639::Ko],
-                    contains: &[
-                        "speech_model=whisper-rt",
-                        "format_turns=true",
-                        "language_detection=true",
-                    ],
-                    not_contains: &["language=", "speaker_labels", "max_speakers"],
+                    name: "removed_whisper_rt_selection_routes_to_u35",
+                    model: Some("whisper-rt"),
+                    languages: &[ISO639::En],
+                    contains: &["speech_model=universal-3-5-pro"],
+                    not_contains: &["format_turns", "speech_model=whisper-rt"],
                 },
             ],
         );
@@ -506,75 +446,22 @@ mod tests {
     }
 
     #[test]
-    fn test_streaming_diarization_hints_skip_whisper_fallback() {
-        let url = AssemblyAIAdapter.build_ws_url(
-            API_BASE,
-            &owhisper_interface::ListenParams {
-                num_speakers: Some(3),
-                languages: vec![ISO639::Ko.into()],
-                ..Default::default()
-            },
-            1,
-        );
-
-        let query = url.query().expect("query string");
-        assert!(query.contains("speech_model=whisper-rt"));
-        assert!(!query.contains("speaker_labels"));
-        assert!(!query.contains("max_speakers"));
-    }
-
-    #[test]
-    fn test_language_support_uses_whisper_fallback() {
-        assert!(AssemblyAIAdapter::language_support_live(&[ISO639::Ko.into()]).is_supported());
+    fn test_language_support_live_is_limited_to_universal_3_5_pro_languages() {
+        assert!(AssemblyAIAdapter::language_support_live(&[]).is_supported());
+        assert!(AssemblyAIAdapter::language_support_live(&[ISO639::Ja.into()]).is_supported());
         assert!(
-            AssemblyAIAdapter::language_support_live(&[ISO639::En.into(), ISO639::Ko.into(),])
+            AssemblyAIAdapter::language_support_live(&[ISO639::En.into(), ISO639::Es.into()])
                 .is_supported()
         );
-    }
 
-    #[test]
-    fn test_resolve_live_model_prefers_u35_then_whisper_fallback() {
-        assert_eq!(
-            AssemblyAIAdapter::resolve_live_model(&ListenParams::default()),
-            ResolvedLiveModel::Universal35Pro
+        // Korean is batch-only (Universal-2); without whisper-rt there is no
+        // streaming model for it, so live must report unsupported.
+        assert!(!AssemblyAIAdapter::language_support_live(&[ISO639::Ko.into()]).is_supported());
+        assert!(
+            !AssemblyAIAdapter::language_support_live(&[ISO639::En.into(), ISO639::Ko.into()])
+                .is_supported()
         );
-        assert_eq!(
-            AssemblyAIAdapter::resolve_live_model(&ListenParams {
-                languages: vec![ISO639::Es.into()],
-                ..Default::default()
-            }),
-            ResolvedLiveModel::Universal35Pro
-        );
-        assert_eq!(
-            AssemblyAIAdapter::resolve_live_model(&ListenParams {
-                languages: vec![ISO639::Ja.into()],
-                ..Default::default()
-            }),
-            ResolvedLiveModel::Universal35Pro
-        );
-        assert_eq!(
-            AssemblyAIAdapter::resolve_live_model(&ListenParams {
-                model: Some("u3-rt-pro".to_string()),
-                languages: vec![ISO639::Ja.into()],
-                ..Default::default()
-            }),
-            ResolvedLiveModel::Universal35Pro
-        );
-        assert_eq!(
-            AssemblyAIAdapter::resolve_live_model(&ListenParams {
-                languages: vec![ISO639::Ko.into()],
-                ..Default::default()
-            }),
-            ResolvedLiveModel::WhisperRt
-        );
-        assert_eq!(
-            AssemblyAIAdapter::resolve_live_model(&ListenParams {
-                model: Some("whisper-rt".to_string()),
-                languages: vec![ISO639::En.into()],
-                ..Default::default()
-            }),
-            ResolvedLiveModel::WhisperRt
-        );
+        assert!(AssemblyAIAdapter::language_support_batch(&[ISO639::Ko.into()]).is_supported());
     }
 
     #[test]
@@ -659,10 +546,10 @@ mod tests {
     single_test!(
         test_single_multi_lang_2,
         owhisper_interface::ListenParams {
-            model: Some("whisper-rt".to_string()),
+            model: Some("universal-3-5-pro".to_string()),
             languages: vec![
                 anlg_language::ISO639::En.into(),
-                anlg_language::ISO639::Ko.into(),
+                anlg_language::ISO639::Ja.into(),
             ],
             ..Default::default()
         }

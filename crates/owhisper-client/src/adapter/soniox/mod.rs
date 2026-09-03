@@ -7,22 +7,19 @@ mod words;
 
 use super::LanguageSupport;
 
+// v4 was removed on 2026-06-30 and only survives as a server-side alias for
+// v5; v3 and the preview ids were removed earlier and no longer resolve, so
+// every legacy id is sent as v5.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, strum::EnumString, strum::AsRefStr)]
 pub enum SonioxModel {
     #[default]
     #[strum(
         serialize = "stt-v5",
         serialize = "stt-rt-v5",
-        serialize = "stt-async-v5"
-    )]
-    V5,
-    #[strum(
+        serialize = "stt-async-v5",
         serialize = "stt-v4",
         serialize = "stt-rt-v4",
-        serialize = "stt-async-v4"
-    )]
-    V4,
-    #[strum(
+        serialize = "stt-async-v4",
         serialize = "stt-v3",
         serialize = "stt-rt-v3",
         serialize = "stt-async-v3",
@@ -31,24 +28,16 @@ pub enum SonioxModel {
         serialize = "stt-async-preview-v1",
         serialize = "stt-async-preview"
     )]
-    V3,
+    V5,
 }
 
 impl SonioxModel {
     pub fn live_model(&self) -> &'static str {
-        match self {
-            Self::V5 => "stt-rt-v5",
-            Self::V4 => "stt-rt-v4",
-            Self::V3 => "stt-rt-v3",
-        }
+        "stt-rt-v5"
     }
 
     pub fn batch_model(&self) -> &'static str {
-        match self {
-            Self::V5 => "stt-async-v5",
-            Self::V4 => "stt-async-v4",
-            Self::V3 => "stt-async-v3",
-        }
+        "stt-async-v5"
     }
 }
 
@@ -152,6 +141,21 @@ mod tests {
         assert_eq!(SonioxAdapter::resolve_model(Some("cloud")), SonioxModel::V5);
         assert_eq!(SonioxAdapter::resolve_model(Some("auto")), SonioxModel::V5);
         assert_eq!(SonioxAdapter::resolve_model(None), SonioxModel::V5);
+    }
+
+    #[test]
+    fn removed_versions_are_sent_as_v5() {
+        for legacy in [
+            "stt-v3",
+            "stt-rt-v3",
+            "stt-async-v4",
+            "stt-rt-v4",
+            "stt-async-preview",
+        ] {
+            let model = SonioxAdapter::resolve_model(Some(legacy));
+            assert_eq!(model.live_model(), "stt-rt-v5", "{legacy}");
+            assert_eq!(model.batch_model(), "stt-async-v5", "{legacy}");
+        }
     }
 
     #[test]

@@ -36,7 +36,6 @@ impl Default for AnarlogRoutingConfig {
                 Provider::AssemblyAI,
                 Provider::Gladia,
                 Provider::ElevenLabs,
-                Provider::Fireworks,
                 Provider::OpenAI,
                 Provider::Mistral,
                 Provider::DashScope,
