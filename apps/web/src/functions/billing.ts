@@ -35,10 +35,12 @@ import { captureServerAnalytics } from "@/lib/server-analytics";
 import {
   getStripeCustomerIdentityMetadata,
   getStripeCustomerOwnership,
+  isUnavailableStripeCustomerError,
 } from "@/lib/stripe-customer";
 import {
   getPlanSwitchRoute,
   selectCurrentSubscription,
+  selectPersonalPlanReplacement,
 } from "@/lib/subscription-selection";
 import { WEB_TRIAL_CHECKOUT_FIELDS } from "@/lib/trial-policy";
 import {
@@ -196,6 +198,19 @@ async function getCurrentSubscription(
   });
 
   return selectCurrentSubscription(subscriptions.data);
+}
+
+async function getPersonalPlanReplacementSubscription(
+  stripe: Stripe,
+  stripeCustomerId: string,
+): Promise<Stripe.Subscription | null> {
+  const subscriptions = await stripe.subscriptions.list({
+    customer: stripeCustomerId,
+    status: "all",
+    limit: 10,
+  });
+
+  return selectPersonalPlanReplacement(subscriptions.data);
 }
 
 async function ensureStripeCustomerId(
@@ -634,6 +649,23 @@ export const createTeamCheckoutSession = createServerFn({ method: "POST" })
     const cancelUrl = data.scheme
       ? `${getBillingReturnUrl(data.scheme)}&checkout=canceled&checkout_type=paid`
       : toAbsoluteInternalReturnUrl(appOrigin, cancelReturnPath);
+    const personalCustomerId = await getStripeCustomerIdForUser(
+      supabase,
+      stripe,
+      user,
+    ).catch((error) => {
+      if (!isUnavailableStripeCustomerError(error)) throw error;
+      return null;
+    });
+    const personalSubscription = personalCustomerId
+      ? await getPersonalPlanReplacementSubscription(stripe, personalCustomerId)
+      : null;
+    const personalPlanReplacement = personalSubscription
+      ? {
+          subscriptionId: personalSubscription.id,
+          userId: user.id,
+        }
+      : undefined;
 
     return startWorkspaceCheckout(
       {
@@ -643,6 +675,7 @@ export const createTeamCheckoutSession = createServerFn({ method: "POST" })
         successUrl,
         cancelUrl,
         returnUrl,
+        personalPlanReplacement,
       },
       {
         async getContext(workspaceId) {
@@ -705,6 +738,16 @@ export const createTeamCheckoutSession = createServerFn({ method: "POST" })
           return subscriptions.data;
         },
         async createCheckoutSession(input) {
+          const metadata: Record<string, string> = {
+            checkout_type: "team",
+            workspace_id: input.workspaceId,
+          };
+          if (input.personalPlanReplacement) {
+            metadata.replaces_personal_subscription_id =
+              input.personalPlanReplacement.subscriptionId;
+            metadata.replaces_personal_user_id =
+              input.personalPlanReplacement.userId;
+          }
           return stripe.checkout.sessions.create({
             customer: input.customerId,
             success_url: input.successUrl,
@@ -722,15 +765,9 @@ export const createTeamCheckoutSession = createServerFn({ method: "POST" })
               },
             ],
             mode: "subscription",
-            metadata: {
-              checkout_type: "team",
-              workspace_id: input.workspaceId,
-            },
+            metadata,
             subscription_data: {
-              metadata: {
-                checkout_type: "team",
-                workspace_id: input.workspaceId,
-              },
+              metadata,
             },
           });
         },

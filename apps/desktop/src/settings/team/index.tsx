@@ -577,7 +577,12 @@ function WorkspacePanel({
         <section className="flex max-w-xl flex-col gap-3 rounded-lg border p-4">
           <div>
             <h2 className="text-sm font-medium">
-              {hasPaidWorkspacePlan ? (
+              {access.isPending ? (
+                <span
+                  className="bg-muted block h-5 w-20 animate-pulse rounded"
+                  aria-hidden="true"
+                />
+              ) : hasPaidWorkspacePlan ? (
                 <Trans>Team plan</Trans>
               ) : (
                 <Trans>Start Team</Trans>
@@ -597,10 +602,14 @@ function WorkspacePanel({
             disabled={access.isPending || isOpeningBilling}
             onClick={() => void openTeamBilling()}
           >
-            {isOpeningBilling ? (
+            {access.isPending || isOpeningBilling ? (
               <CircleNotch className="size-4 animate-spin" />
             ) : null}
-            {hasPaidWorkspacePlan ? (
+            {access.isPending ? (
+              <span className="sr-only">
+                <Trans>Team plan</Trans>
+              </span>
+            ) : hasPaidWorkspacePlan ? (
               <Trans>Manage Team billing</Trans>
             ) : (
               <Trans>Continue to Team checkout</Trans>

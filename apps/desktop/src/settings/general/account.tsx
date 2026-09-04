@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowsClockwise, PencilSimple } from "@phosphor-icons/react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueries } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useRef, useState } from "react";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
@@ -11,7 +11,6 @@ import {
   type MarketingPlanTier,
   PlanFeatureList,
   PLAN_TIERS,
-  type PlanTier,
   type TierAction,
 } from "@anlg/pricing";
 import { Button } from "@anlg/ui/components/ui/button";
@@ -21,6 +20,8 @@ import { cn } from "@anlg/utils";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { SettingsPageTitle } from "~/settings/page-title";
+import { getWorkspaceAccess, requireTeamContext } from "~/settings/team/client";
+import { useMyWorkspacesWithMirror } from "~/settings/team/mirror";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { DestructiveConfirmationDialog } from "~/shared/ui/destructive-confirmation-dialog";
 import { buildWebAppUrl } from "~/shared/utils";
@@ -44,6 +45,15 @@ export function SettingsAccount() {
     useBillingAccess();
 
   const isAuthenticated = !!auth?.session;
+  const workspaces = useMyWorkspacesWithMirror();
+  const workspaceAccess = useQueries({
+    queries: (workspaces.data ?? []).map((workspace) => ({
+      queryKey: ["team-access", workspace.workspaceId],
+      queryFn: () =>
+        getWorkspaceAccess(requireTeamContext(auth), workspace.workspaceId),
+      retry: false,
+    })),
+  });
   const [isPending, setIsPending] = useState(false);
   const [isSignOutDialogOpen, setIsSignOutDialogOpen] = useState(false);
 
@@ -140,7 +150,17 @@ export function SettingsAccount() {
     );
   }
 
-  const currentTier = plan === "free" ? "free" : "pro";
+  const workspaceTier = workspaceAccess.some(
+    (query) => query.data?.tier === "enterprise",
+  )
+    ? "enterprise"
+    : workspaceAccess.some((query) => query.data?.tier === "team")
+      ? "team"
+      : null;
+  const currentTier: MarketingPlanTier =
+    workspaceTier ?? (plan === "free" ? "free" : "pro");
+  const isCurrentTierPending =
+    workspaces.isPending || workspaceAccess.some((query) => query.isPending);
 
   return (
     <div className="flex flex-col gap-8">
@@ -190,6 +210,7 @@ export function SettingsAccount() {
         isPaused={isPaused}
         trialDaysRemaining={trialDaysRemaining}
         isPaid={isPaid}
+        isCurrentTierPending={isCurrentTierPending}
       />
     </div>
   );
@@ -201,12 +222,14 @@ function PlanBillingSection({
   isPaused,
   trialDaysRemaining,
   isPaid,
+  isCurrentTierPending,
 }: {
-  currentTier: PlanTier;
+  currentTier: MarketingPlanTier;
   isTrialing: boolean;
   isPaused: boolean;
   trialDaysRemaining: number | null;
   isPaid: boolean;
+  isCurrentTierPending: boolean;
 }) {
   const { t } = useLingui();
   const { canStartTrial: canStartTrialQuery, hasPaymentMethod } =
@@ -217,7 +240,8 @@ function PlanBillingSection({
 
   // A cardless trial pauses at the end unless a card is added, so replace the
   // static current-plan status with an explicit payment-method action.
-  const needsPaymentMethod = isTrialing && !hasPaymentMethod;
+  const needsPaymentMethod =
+    currentTier === "pro" && isTrialing && !hasPaymentMethod;
 
   const openBillingUrl = useCallback(
     async (buildUrl: () => Promise<string>) => {
@@ -234,19 +258,27 @@ function PlanBillingSection({
     [],
   );
 
-  const planLabel = currentTier === "free" ? t`Free` : "Pro";
+  const planLabel =
+    currentTier === "free"
+      ? t`Free`
+      : (PLAN_TIERS.find((tier) => tier.id === currentTier)?.name ?? "Pro");
   const trialDaysText =
     trialDaysRemaining == null
       ? null
       : trialDaysRemaining === 1
         ? t`${trialDaysRemaining} day left`
         : t`${trialDaysRemaining} days left`;
-  const statusText = isTrialing ? (
+  const statusText = isCurrentTierPending ? (
+    <span
+      className="bg-muted block h-5 w-40 animate-pulse rounded"
+      aria-hidden="true"
+    />
+  ) : currentTier === "pro" && isTrialing ? (
     <>
       <Trans>Pro trial</Trans>
       {trialDaysText != null && ` - ${trialDaysText}`}
     </>
-  ) : isPaused ? (
+  ) : currentTier !== "team" && currentTier !== "enterprise" && isPaused ? (
     <Trans>Your Pro trial has ended</Trans>
   ) : (
     <Trans>
@@ -387,7 +419,7 @@ function PlanBillingSection({
         <h2 className="font-sans text-lg font-semibold">
           <Trans>Plan & Billing</Trans>
         </h2>
-        {isPaid && (
+        {!isCurrentTierPending && isPaid && currentTier === "pro" && (
           <button
             type="button"
             onClick={handleOpenBillingPortal}
@@ -405,7 +437,7 @@ function PlanBillingSection({
       </div>
 
       <PlanTierList
-        currentTier={currentTier}
+        currentTier={isCurrentTierPending ? null : currentTier}
         isTrialing={isTrialing}
         canStartTrial={canStartTrialQuery.data}
         renderAction={renderAction}
@@ -462,7 +494,7 @@ function PlanTierList({
   canStartTrial,
   renderAction,
 }: {
-  currentTier: PlanTier;
+  currentTier: MarketingPlanTier | null;
   isTrialing: boolean;
   canStartTrial: boolean;
   renderAction?: (tierId: MarketingPlanTier, action: TierAction) => ReactNode;
@@ -493,7 +525,8 @@ function PlanTierList({
           const isCurrent = tier.id === currentTier;
           const isPro = tier.id === "pro";
           const action =
-            tier.id === "free" || tier.id === "pro"
+            (tier.id === "free" || tier.id === "pro") &&
+            (currentTier === "free" || currentTier === "pro")
               ? getActionForTier(tier.id, currentTier, canStartTrial)
               : null;
           const chips = (
@@ -503,7 +536,7 @@ function PlanTierList({
                   <Trans>Current</Trans>
                 </PlanStatusChip>
               )}
-              {isCurrent && isTrialing && (
+              {isCurrent && isPro && isTrialing && (
                 <PlanStatusChip emphasis>
                   <Trans>Trial</Trans>
                 </PlanStatusChip>

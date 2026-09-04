@@ -5,6 +5,7 @@ import type Stripe from "stripe";
 import {
   getPlanSwitchRoute,
   selectCurrentSubscription,
+  selectPersonalPlanReplacement,
 } from "./subscription-selection.ts";
 
 const subscription = (id: string, status: Stripe.Subscription.Status) => ({
@@ -83,6 +84,35 @@ test("ignores subscriptions that cannot be reused", () => {
     selectCurrentSubscription([
       subscription("sub_canceled", "canceled"),
       subscription("sub_expired", "incomplete_expired"),
+    ]),
+    null,
+  );
+});
+
+test("selects personal plans that Stripe may still renew", () => {
+  const subscriptions = [
+    { ...subscription("sub_unpaid", "unpaid"), cancel_at_period_end: false },
+    {
+      ...subscription("sub_past_due", "past_due"),
+      cancel_at_period_end: false,
+    },
+  ];
+
+  assert.equal(
+    selectPersonalPlanReplacement(subscriptions)?.id,
+    "sub_past_due",
+  );
+});
+
+test("ignores paused and already-ending personal plans", () => {
+  assert.equal(
+    selectPersonalPlanReplacement([
+      { ...subscription("sub_paused", "paused"), cancel_at_period_end: false },
+      { ...subscription("sub_ending", "active"), cancel_at_period_end: true },
+      {
+        ...subscription("sub_canceled", "canceled"),
+        cancel_at_period_end: false,
+      },
     ]),
     null,
   );

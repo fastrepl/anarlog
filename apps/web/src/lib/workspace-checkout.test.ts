@@ -78,6 +78,33 @@ test("provisions a workspace customer and starts per-seat checkout", async () =>
       quantity: 3,
       minimumQuantity: 2,
       workspaceId,
+      personalPlanReplacement: undefined,
+      successUrl: input.successUrl,
+      cancelUrl: input.cancelUrl,
+    },
+  ]);
+});
+
+test("carries a personal plan replacement into Team checkout", async () => {
+  const deps = dependencies();
+  const personalPlanReplacement = {
+    subscriptionId: "sub_personal123",
+    userId: "user-123",
+  };
+
+  await startWorkspaceCheckout(
+    { ...input, personalPlanReplacement },
+    deps.value,
+  );
+
+  assert.deepEqual(deps.checkoutInputs, [
+    {
+      customerId: "cus_team123",
+      priceId: "price_team_monthly",
+      quantity: 3,
+      minimumQuantity: 2,
+      workspaceId,
+      personalPlanReplacement,
       successUrl: input.successUrl,
       cancelUrl: input.cancelUrl,
     },

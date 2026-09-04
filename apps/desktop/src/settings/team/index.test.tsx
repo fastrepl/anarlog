@@ -91,6 +91,7 @@ const mocks = vi.hoisted(() => ({
     checkWorkspaceShareSlugAvailability: vi.fn(() =>
       Promise.resolve("available" as "available" | "taken" | "invalid"),
     ),
+    getWorkspaceAccess: vi.fn(),
   },
   invitation: {
     deliverWorkspaceInvitation: vi.fn(() =>
@@ -177,7 +178,7 @@ vi.mock("./client", () => ({
   setMemberRole: vi.fn(() => Promise.resolve()),
   transferOwnership: vi.fn(() => Promise.resolve()),
   getWorkspaceUsageOverview: () => Promise.resolve(mocks.client.usage),
-  getWorkspaceAccess: () => Promise.resolve(mocks.client.access),
+  getWorkspaceAccess: mocks.client.getWorkspaceAccess,
   getWorkspacePolicy: mocks.client.getWorkspacePolicy,
   setWorkspacePolicy: vi.fn(() => Promise.resolve()),
   setWorkspaceShareSlug: mocks.client.setWorkspaceShareSlug,
@@ -237,6 +238,10 @@ describe("SettingsTeam", () => {
       seatLimit: 1,
       usedSeats: 1,
     };
+    mocks.client.getWorkspaceAccess.mockReset();
+    mocks.client.getWorkspaceAccess.mockImplementation(() =>
+      Promise.resolve(mocks.client.access),
+    );
     mocks.client.revokeInvitation.mockClear();
     mocks.client.deleteWorkspace.mockClear();
     mocks.client.renameWorkspace.mockClear();
@@ -327,6 +332,24 @@ describe("SettingsTeam", () => {
         },
       ),
     );
+  });
+
+  it("does not present a paid workspace as unbilled while access loads", () => {
+    mocks.client.getWorkspaceAccess.mockReturnValue(new Promise(() => {}));
+    mocks.workspaces.data = [
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        name: "Fastrepl",
+        ownerUserId: "user-1",
+        role: "owner",
+      },
+    ];
+
+    renderTeam();
+
+    expect(screen.queryByText("Start Team")).toBeNull();
+    const button = screen.getByRole("button", { name: "Team plan" });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("renames the workspace through the name field", async () => {

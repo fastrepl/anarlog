@@ -4,7 +4,29 @@ import test from "node:test";
 import {
   getStripeCustomerIdentityMetadata,
   getStripeCustomerOwnership,
+  isUnavailableStripeCustomerError,
 } from "./stripe-customer.ts";
+
+test("recognizes stale personal Stripe customer references", () => {
+  assert.equal(
+    isUnavailableStripeCustomerError({ code: "resource_missing" }),
+    true,
+  );
+  assert.equal(
+    isUnavailableStripeCustomerError({ raw: { code: "resource_missing" } }),
+    true,
+  );
+  assert.equal(
+    isUnavailableStripeCustomerError(
+      new Error("Stripe customer does not belong to authenticated user"),
+    ),
+    true,
+  );
+  assert.equal(
+    isUnavailableStripeCustomerError(new Error("Stripe is unavailable")),
+    false,
+  );
+});
 
 test("Stripe metadata must belong to the authenticated user", () => {
   assert.equal(

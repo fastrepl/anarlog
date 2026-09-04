@@ -4,6 +4,11 @@ export type WorkspaceCheckoutContext = {
   usedSeats: number;
 };
 
+export type PersonalPlanReplacement = {
+  subscriptionId: string;
+  userId: string;
+};
+
 type WorkspaceCustomer = {
   id: string;
   deleted?: boolean;
@@ -34,6 +39,7 @@ type WorkspaceCheckoutDependencies = {
     quantity: number;
     minimumQuantity: number;
     workspaceId: string;
+    personalPlanReplacement?: PersonalPlanReplacement;
     successUrl: string;
     cancelUrl: string;
   }) => Promise<{ url: string | null }>;
@@ -60,6 +66,7 @@ export async function startWorkspaceCheckout(
     successUrl: string;
     cancelUrl: string;
     returnUrl: string;
+    personalPlanReplacement?: PersonalPlanReplacement;
   },
   dependencies: WorkspaceCheckoutDependencies,
 ) {
@@ -136,6 +143,7 @@ export async function startWorkspaceCheckout(
     quantity: input.quantity,
     minimumQuantity: context.usedSeats,
     workspaceId: input.workspaceId,
+    personalPlanReplacement: input.personalPlanReplacement,
     successUrl: input.successUrl,
     cancelUrl: input.cancelUrl,
   });

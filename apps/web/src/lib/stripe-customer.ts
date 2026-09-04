@@ -1,5 +1,26 @@
 export type StripeCustomerOwnership = "owned" | "claimable" | "unowned";
 
+const UNAVAILABLE_CUSTOMER_MESSAGES = new Set([
+  "Stripe customer is unavailable",
+  "Stripe customer does not belong to authenticated user",
+]);
+
+export function isUnavailableStripeCustomerError(error: unknown) {
+  if (typeof error !== "object" || error === null) return false;
+
+  const raw = Reflect.get(error, "raw");
+  const rawCode =
+    typeof raw === "object" && raw !== null
+      ? Reflect.get(raw, "code")
+      : undefined;
+
+  return (
+    Reflect.get(error, "code") === "resource_missing" ||
+    rawCode === "resource_missing" ||
+    UNAVAILABLE_CUSTOMER_MESSAGES.has(Reflect.get(error, "message"))
+  );
+}
+
 export function getStripeCustomerOwnership(
   customer: {
     email?: string | null;

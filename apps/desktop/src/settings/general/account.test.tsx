@@ -28,9 +28,14 @@ const mocks = vi.hoisted(() => ({
     plan: "free",
     trialDaysRemaining: null as number | null,
   },
-  session: { user: { email: "john@example.com" } } as {
-    user: { email: string };
+  session: { user: { id: "user-1", email: "john@example.com" } } as {
+    user: { id: string; email: string };
   } | null,
+  workspaces: {
+    data: [] as Array<{ workspaceId: string }>,
+    isPending: false,
+  },
+  getWorkspaceAccess: vi.fn(),
 }));
 
 vi.mock("@anlg/plugin-analytics", () => ({
@@ -53,9 +58,19 @@ vi.mock("~/auth", () => ({
     isRefreshingSession: false,
     refreshSession: vi.fn(),
     session: mocks.session,
+    supabase: {},
     signIn: mocks.signIn,
     signOut: mocks.signOut,
   }),
+}));
+
+vi.mock("~/settings/team/client", () => ({
+  getWorkspaceAccess: mocks.getWorkspaceAccess,
+  requireTeamContext: (auth: unknown) => auth,
+}));
+
+vi.mock("~/settings/team/mirror", () => ({
+  useMyWorkspacesWithMirror: () => mocks.workspaces,
 }));
 
 vi.mock("~/auth/billing-context", () => ({
@@ -86,7 +101,13 @@ const renderAccount = () => {
 describe("SettingsAccount", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.session = { user: { email: "john@example.com" } };
+    mocks.session = { user: { id: "user-1", email: "john@example.com" } };
+    mocks.workspaces.data = [];
+    mocks.workspaces.isPending = false;
+    mocks.getWorkspaceAccess.mockResolvedValue({
+      tier: "free",
+      capabilities: [],
+    });
     mocks.billing = {
       canStartTrial: { data: false, isPending: false },
       hasPaymentMethod: false,
@@ -148,6 +169,43 @@ describe("SettingsAccount", () => {
       null,
     );
   });
+
+  it.each([
+    { personalState: "trialing", isTrialing: true, isPaused: false },
+    { personalState: "paused", isTrialing: false, isPaused: true },
+  ])(
+    "shows Team as current without the $personalState Pro status",
+    async ({ isTrialing, isPaused }) => {
+      mocks.billing = {
+        canStartTrial: { data: false, isPending: false },
+        hasPaymentMethod: true,
+        isPaid: true,
+        isTrialing,
+        isPaused,
+        plan: "pro",
+        trialDaysRemaining: null,
+      };
+      mocks.workspaces.data = [
+        { workspaceId: "00000000-0000-4000-8000-000000000001" },
+      ];
+      mocks.getWorkspaceAccess.mockResolvedValue({
+        tier: "team",
+        capabilities: ["team.shared_notes"],
+      });
+
+      renderAccount();
+
+      expect(
+        await screen.findByText(/You're on the .*Team.* plan/),
+      ).toBeTruthy();
+      expect(screen.queryByText("Your Pro trial has ended")).toBeNull();
+      expect(screen.queryByText("Trial")).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: "Manage billing" }),
+      ).toBeNull();
+      expect(screen.getAllByText("Current")).toHaveLength(1);
+    },
+  );
 
   it("offers to add a payment method during a cardless trial", async () => {
     mocks.billing = {
