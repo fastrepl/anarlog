@@ -194,18 +194,19 @@ function EnterprisePage() {
               className="flex items-center justify-center pb-4 select-none"
               aria-hidden="true"
             >
-              <span className="partner-hand-left inline-flex">
-                <PartnerHandSvg
-                  sleeve="#181613"
-                  className="h-12 w-auto md:h-14"
-                />
-              </span>
-              <span className="partner-hand-right mt-2.5 -ml-12 inline-flex md:-ml-14">
-                <PartnerHandSvg
-                  sleeve="#eadfce"
-                  className="h-12 w-auto -scale-x-100 md:h-14"
-                />
-              </span>
+              <video
+                className="h-24 w-auto md:h-32"
+                src="/videos/partner-handshake.webm"
+                autoPlay
+                loop
+                muted
+                playsInline
+                ref={(el) => {
+                  if (el && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+                    el.pause();
+                  }
+                }}
+              />
             </div>
             <h2 className="font-hand text-3xl leading-none font-semibold text-[#181613]">
               How an evaluation works
@@ -242,55 +243,6 @@ function EnterprisePage() {
 
       <SiteFooter />
     </main>
-  );
-}
-
-function PartnerHandSvg({
-  sleeve,
-  className,
-}: {
-  sleeve: string;
-  className?: string;
-}) {
-  return (
-    <svg
-      viewBox="0 0 128 60"
-      fill="none"
-      className={className}
-      aria-hidden="true"
-    >
-      <path
-        d="M30 20 H78 C98 20 114 27 117 38 C119 47 108 52 92 51 L38 51 C32 51 28 46 28 40 Z"
-        fill="#fffaf0"
-        stroke="#181613"
-        strokeWidth="2.5"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M82 22 C88 12 102 13 106 21 C109 27 103 31 95 30"
-        fill="#fffaf0"
-        stroke="#181613"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M104 33 C109 34 113 37 115 41 M96 48 C101 48 106 47 110 45"
-        stroke="#181613"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <rect
-        x="2"
-        y="12"
-        width="26"
-        height="42"
-        rx="7"
-        fill={sleeve}
-        stroke="#181613"
-        strokeWidth="2.5"
-      />
-    </svg>
   );
 }
 

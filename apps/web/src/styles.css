@@ -522,68 +522,7 @@
     animation-name: ai-card-shuffle-chip;
   }
 
-  @keyframes partner-hand-left {
-    0% {
-      transform: translateX(-3.5rem) rotate(-9deg);
-    }
-    55% {
-      transform: translateX(0) rotate(0deg);
-    }
-    70% {
-      transform: translateX(0) translateY(-0.2rem) rotate(-1.5deg);
-    }
-    85% {
-      transform: translateX(0) translateY(0.15rem) rotate(1deg);
-    }
-    100% {
-      transform: translateX(0) translateY(0) rotate(0deg);
-    }
-  }
-
-  @keyframes partner-hand-right {
-    0% {
-      transform: translateX(3.5rem) rotate(9deg);
-    }
-    55% {
-      transform: translateX(0) rotate(0deg);
-    }
-    70% {
-      transform: translateX(0) translateY(0.2rem) rotate(1.5deg);
-    }
-    85% {
-      transform: translateX(0) translateY(-0.15rem) rotate(-1deg);
-    }
-    100% {
-      transform: translateX(0) translateY(0) rotate(0deg);
-    }
-  }
-
-  /* Scroll-linked: hands meet as the section scrolls in, wiggle while
-     scrolling continues. Without support they stay statically clasped. */
-  @supports (animation-timeline: view()) {
-    .partner-hand-left,
-    .partner-hand-right {
-      animation-timing-function: linear;
-      animation-fill-mode: both;
-      animation-timeline: view();
-      animation-range: entry 0% cover 45%;
-    }
-
-    .partner-hand-left {
-      animation-name: partner-hand-left;
-    }
-
-    .partner-hand-right {
-      animation-name: partner-hand-right;
-    }
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .partner-hand-left,
-    .partner-hand-right {
-      animation: none;
-    }
-
     .meeting-audio-bar {
       animation: none;
       transform: scaleY(0.7);
