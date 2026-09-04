@@ -44,4 +44,4 @@ libloading = { workspace = true }
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-app-kit = { workspace = true, features = ["NSStatusItem"] }
 objc2-foundation = { workspace = true, features = ["NSString", "NSUserDefaults"] }
-tray-icon = { version = "0.21.3", default-features = false }
+tray-icon = { version = "0.24.2", default-features = false }

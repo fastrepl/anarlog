@@ -8,8 +8,6 @@ const WEBVIEW_HEALTH_CHECK_TIMEOUT: std::time::Duration = std::time::Duration::f
 #[cfg(target_os = "macos")]
 const WEBVIEW_HEALTH_CHECK_RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(500);
 #[cfg(target_os = "macos")]
-const WEBVIEW_HEALTH_MONITOR_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
-#[cfg(target_os = "macos")]
 const WEBVIEW_HEALTH_CHECK_ATTEMPTS: u8 = 2;
 
 #[cfg(target_os = "macos")]
@@ -66,25 +64,6 @@ fn webview_is_visible(app: &AppHandle<tauri::Wry>, label: &str) -> bool {
 }
 
 #[cfg(target_os = "macos")]
-pub(crate) fn start_webview_health_monitor(app: AppHandle<tauri::Wry>) {
-    tauri::async_runtime::spawn(async move {
-        let mut interval = tokio::time::interval(WEBVIEW_HEALTH_MONITOR_INTERVAL);
-        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        interval.tick().await;
-
-        loop {
-            interval.tick().await;
-            let Some(window) = AppWindow::Main.get(&app) else {
-                continue;
-            };
-            if window.is_visible().unwrap_or(false) {
-                AppWindow::Main.request_webview_health_check(&app, &window);
-            }
-        }
-    });
-}
-
-#[cfg(target_os = "macos")]
 pub(crate) fn run_on_main_thread<R: Send + 'static>(
     app: &AppHandle<tauri::Wry>,
     f: impl FnOnce() -> R + Send + 'static,
@@ -100,16 +79,12 @@ pub(crate) fn run_on_main_thread<R: Send + 'static>(
 
 impl AppWindow {
     #[cfg(target_os = "macos")]
-    fn restart_unresponsive_app(app: &AppHandle<tauri::Wry>, label: &str, request_id: &str) {
-        if !webview_is_visible(app, label) {
-            return;
-        }
-
+    fn prepare_clean_restart(app: &AppHandle<tauri::Wry>, label: &str) -> bool {
         let Some(state) = app.try_state::<WebviewHealthState>() else {
-            return;
+            return false;
         };
         if !state.begin_recovery(label) {
-            return;
+            return false;
         }
 
         use tauri_plugin_window_state::AppHandleExt;
@@ -117,12 +92,17 @@ impl AppWindow {
             tracing::warn!(%error, "failed to save window state before webview recovery");
         }
 
-        tracing::error!(
-            %request_id,
-            attempts = WEBVIEW_HEALTH_CHECK_ATTEMPTS,
-            "restarting app after repeated main webview health check failures"
-        );
-        app.request_restart();
+        true
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn recover_terminated_webview(webview: &tauri::Webview<tauri::Wry>) {
+        let app = webview.app_handle();
+        let label = webview.label();
+        if Self::prepare_clean_restart(app, label) {
+            tracing::error!(webview = %label, "restarting app after web content process termination");
+            app.request_restart();
+        }
     }
 
     pub fn request_webview_health_check(
@@ -165,7 +145,17 @@ impl AppWindow {
                 }
 
                 if let Some(request_id) = last_request_id {
-                    Self::restart_unresponsive_app(&app, &label, &request_id);
+                    if !webview_is_visible(&app, &label) {
+                        return;
+                    }
+                    if Self::prepare_clean_restart(&app, &label) {
+                        tracing::error!(
+                            %request_id,
+                            attempts = WEBVIEW_HEALTH_CHECK_ATTEMPTS,
+                            "restarting app after repeated main webview health check failures"
+                        );
+                        app.request_restart();
+                    }
                 }
             });
         }

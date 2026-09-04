@@ -284,9 +284,6 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 app.manage(health_state);
             }
 
-            #[cfg(target_os = "macos")]
-            crate::ext::start_webview_health_monitor(app.clone());
-
             {
                 let dock_visibility_state = DockVisibilityState::default();
                 app.manage(dock_visibility_state);
@@ -319,6 +316,9 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
 }
 
 pub fn extend_builder(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
+    #[cfg(target_os = "macos")]
+    let builder = builder.on_web_content_process_terminate(AppWindow::recover_terminated_webview);
+
     #[cfg(all(target_os = "macos", feature = "macos-private-api"))]
     {
         builder.plugin(tauri_nspanel::init())

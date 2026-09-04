@@ -164,8 +164,8 @@ owhisper-client = { path = "crates/owhisper-client", package = "owhisper-client"
 owhisper-interface = { path = "crates/owhisper-interface", package = "owhisper-interface" }
 soniox = { path = "crates/soniox", package = "soniox" }
 
-tauri = "2.10"
-tauri-build = "2.5"
+tauri = "2.11.5"
+tauri-build = "2.6.3"
 tauri-plugin = "2.5"
 tauri-plugin-autostart = "2.5"
 tauri-plugin-clipboard-manager = "2.3"
