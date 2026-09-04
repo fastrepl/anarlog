@@ -88,6 +88,9 @@ const mocks = vi.hoisted(() => ({
         shareBaseUrl: "https://fastrepl.anarlog.so",
       }),
     ),
+    checkWorkspaceShareSlugAvailability: vi.fn(() =>
+      Promise.resolve("available" as "available" | "taken" | "invalid"),
+    ),
   },
   invitation: {
     deliverWorkspaceInvitation: vi.fn(() =>
@@ -178,6 +181,8 @@ vi.mock("./client", () => ({
   getWorkspacePolicy: mocks.client.getWorkspacePolicy,
   setWorkspacePolicy: vi.fn(() => Promise.resolve()),
   setWorkspaceShareSlug: mocks.client.setWorkspaceShareSlug,
+  checkWorkspaceShareSlugAvailability:
+    mocks.client.checkWorkspaceShareSlugAvailability,
   claimWorkspaceDomain: vi.fn(() => Promise.resolve()),
   rotateWorkspaceScimToken: vi.fn(() => Promise.resolve()),
 }));
@@ -217,6 +222,10 @@ describe("SettingsTeam", () => {
       usedSeats: 1,
       isBilled: true,
     };
+    mocks.client.checkWorkspaceShareSlugAvailability.mockReset();
+    mocks.client.checkWorkspaceShareSlugAvailability.mockResolvedValue(
+      "available",
+    );
     mocks.client.access = {
       role: "owner",
       tier: "team",
@@ -473,7 +482,17 @@ describe("SettingsTeam", () => {
     expect(input.parentElement?.contains(screen.getByText(".anarlog.so"))).toBe(
       true,
     );
+    expect(screen.getByText("Current domain")).toBeTruthy();
     fireEvent.change(input, { target: { value: "Fastrepl-HQ" } });
+
+    expect(await screen.findByText("Available")).toBeTruthy();
+    expect(
+      mocks.client.checkWorkspaceShareSlugAvailability,
+    ).toHaveBeenCalledWith(
+      expect.anything(),
+      "00000000-0000-4000-8000-000000000001",
+      "fastrepl-hq",
+    );
     fireEvent.click(screen.getByRole("button", { name: "Save subdomain" }));
 
     await waitFor(() =>
@@ -483,6 +502,63 @@ describe("SettingsTeam", () => {
         "fastrepl-hq",
       ),
     );
+  });
+
+  it("prevents saving a workspace sharing subdomain that is already taken", async () => {
+    mocks.client.access.tier = "enterprise";
+    mocks.client.access.capabilities.push("team.custom_subdomain");
+    mocks.client.checkWorkspaceShareSlugAvailability.mockResolvedValue("taken");
+    mocks.workspaces.data = [
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        name: "Fastrepl",
+        ownerUserId: "user-1",
+        role: "owner",
+      },
+    ];
+
+    renderTeam();
+
+    const input = await screen.findByRole("textbox", {
+      name: "Workspace subdomain",
+    });
+    fireEvent.change(input, { target: { value: "already-taken" } });
+
+    expect(await screen.findByText("Already taken")).toBeTruthy();
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Save subdomain",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+  });
+
+  it("validates a workspace sharing subdomain before checking availability", async () => {
+    mocks.client.access.tier = "enterprise";
+    mocks.client.access.capabilities.push("team.custom_subdomain");
+    mocks.workspaces.data = [
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        name: "Fastrepl",
+        ownerUserId: "user-1",
+        role: "owner",
+      },
+    ];
+
+    renderTeam();
+
+    const input = await screen.findByRole("textbox", {
+      name: "Workspace subdomain",
+    });
+    fireEvent.change(input, { target: { value: "a" } });
+
+    expect(
+      screen.getByText("Use 3–63 lowercase letters, numbers, or hyphens."),
+    ).toBeTruthy();
+    expect(
+      mocks.client.checkWorkspaceShareSlugAvailability,
+    ).not.toHaveBeenCalled();
   });
 
   it("opens a dialog to invite workspace members", async () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  checkWorkspaceShareSlugAvailability,
   createWorkspace,
   createWorkspaceInvitation,
   getSeatUsage,
@@ -112,6 +113,29 @@ describe("workspace reads", () => {
       p_workspace_id: WORKSPACE_ID,
       p_slug: "Fastrepl",
     });
+  });
+
+  it("checks workspace sharing subdomain availability", async () => {
+    const { context: ctx, rpc } = context("available");
+
+    await expect(
+      checkWorkspaceShareSlugAvailability(ctx, WORKSPACE_ID, "fastrepl"),
+    ).resolves.toBe("available");
+    expect(rpc).toHaveBeenCalledWith(
+      "check_workspace_share_slug_availability",
+      {
+        p_workspace_id: WORKSPACE_ID,
+        p_slug: "fastrepl",
+      },
+    );
+  });
+
+  it("rejects an unknown workspace sharing subdomain availability", async () => {
+    const { context: ctx } = context("unknown");
+
+    await expect(
+      checkWorkspaceShareSlugAvailability(ctx, WORKSPACE_ID, "fastrepl"),
+    ).rejects.toThrow(TeamError);
   });
 
   it("sets and clears the workspace logo", async () => {

@@ -379,6 +379,10 @@ msgstr ""
 msgid "Allow public indexing"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Already taken"
+msgstr ""
+
 #: src/shared/control.tsx
 msgid "An unexpected error occurred."
 msgstr ""
@@ -686,6 +690,10 @@ msgstr ""
 msgid "Automations"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Available"
+msgstr ""
+
 #: src/calendar/components/apple/permission.tsx
 #: src/instruction/index.tsx
 #: src/session-sharing/delivery-panel.tsx
@@ -840,6 +848,10 @@ msgstr ""
 
 #: src/chat/components/input/use-dictation.ts
 msgid "Check microphone permission and the selected input device, then try again."
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Checking availability…"
 msgstr ""
 
 #: src/imports/screen.tsx
@@ -1551,6 +1563,10 @@ msgstr ""
 msgid "Could not use the selected model"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Couldn’t check availability. You can still try Save."
+msgstr ""
+
 #: src/folders/sidebar.tsx
 #: src/settings/team/index.tsx
 msgid "Create"
@@ -1628,6 +1644,10 @@ msgstr ""
 #: src/settings/general/audio-settings.tsx
 #: src/templates/auto-form.tsx
 msgid "Current default"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Current domain"
 msgstr ""
 
 #: src/templates/template-sidebar.tsx
@@ -5269,6 +5289,10 @@ msgstr ""
 
 #: src/settings/team/index.tsx
 msgid "Usage"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Use 3–63 lowercase letters, numbers, or hyphens."
 msgstr ""
 
 #: src/automations/starters.tsx

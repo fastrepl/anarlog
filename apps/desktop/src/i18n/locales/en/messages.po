@@ -379,6 +379,10 @@ msgstr "Allow anyone-with-the-link sharing"
 msgid "Allow public indexing"
 msgstr "Allow public indexing"
 
+#: src/settings/team/index.tsx
+msgid "Already taken"
+msgstr "Already taken"
+
 #: src/shared/control.tsx
 msgid "An unexpected error occurred."
 msgstr "An unexpected error occurred."
@@ -686,6 +690,10 @@ msgstr "Automation removed"
 msgid "Automations"
 msgstr "Automations"
 
+#: src/settings/team/index.tsx
+msgid "Available"
+msgstr "Available"
+
 #: src/calendar/components/apple/permission.tsx
 #: src/instruction/index.tsx
 #: src/session-sharing/delivery-panel.tsx
@@ -841,6 +849,10 @@ msgstr "Chat history"
 #: src/chat/components/input/use-dictation.ts
 msgid "Check microphone permission and the selected input device, then try again."
 msgstr "Check microphone permission and the selected input device, then try again."
+
+#: src/settings/team/index.tsx
+msgid "Checking availability…"
+msgstr "Checking availability…"
 
 #: src/imports/screen.tsx
 msgid "Checking connection"
@@ -1551,6 +1563,10 @@ msgstr "Could not update this person's access."
 msgid "Could not use the selected model"
 msgstr "Could not use the selected model"
 
+#: src/settings/team/index.tsx
+msgid "Couldn’t check availability. You can still try Save."
+msgstr "Couldn’t check availability. You can still try Save."
+
 #: src/folders/sidebar.tsx
 #: src/settings/team/index.tsx
 msgid "Create"
@@ -1629,6 +1645,10 @@ msgstr "Current"
 #: src/templates/auto-form.tsx
 msgid "Current default"
 msgstr "Current default"
+
+#: src/settings/team/index.tsx
+msgid "Current domain"
+msgstr "Current domain"
 
 #: src/templates/template-sidebar.tsx
 msgid "Customized"
@@ -5270,6 +5290,10 @@ msgstr "Uploads meeting content for remote access while Anarlog is closed."
 #: src/settings/team/index.tsx
 msgid "Usage"
 msgstr "Usage"
+
+#: src/settings/team/index.tsx
+msgid "Use 3–63 lowercase letters, numbers, or hyphens."
+msgstr "Use 3–63 lowercase letters, numbers, or hyphens."
 
 #: src/automations/starters.tsx
 msgid "Use a stable filename in the configured export directory."

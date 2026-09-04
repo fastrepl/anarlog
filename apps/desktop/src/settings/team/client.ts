@@ -50,6 +50,8 @@ export type WorkspaceAccess = {
   usedSeats: number;
 };
 
+export type WorkspaceShareSlugAvailability = "available" | "taken" | "invalid";
+
 export class TeamError extends Error {
   constructor(message = "Workspace request failed") {
     super(message);
@@ -526,6 +528,30 @@ export async function setWorkspaceShareSlug(
     shareSlug: text(row.workspace_share_slug),
     shareBaseUrl: text(row.share_base_url),
   };
+}
+
+export async function checkWorkspaceShareSlugAvailability(
+  context: TeamContext,
+  workspaceId: string,
+  slug: string,
+): Promise<WorkspaceShareSlugAvailability> {
+  assertWorkspaceId(workspaceId);
+  const availability = await callRpc(
+    context,
+    "check_workspace_share_slug_availability",
+    {
+      p_workspace_id: workspaceId,
+      p_slug: slug,
+    },
+  );
+  if (
+    availability !== "available" &&
+    availability !== "taken" &&
+    availability !== "invalid"
+  ) {
+    throw new TeamError();
+  }
+  return availability;
 }
 
 export async function rotateWorkspaceScimToken(

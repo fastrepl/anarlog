@@ -8,6 +8,7 @@ import {
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useDebounceValue } from "usehooks-ts";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { openUrlWithInstruction } from "@anlg/plugin-windows";
@@ -36,6 +37,7 @@ import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 import { cn } from "@anlg/utils";
 
 import {
+  checkWorkspaceShareSlugAvailability,
   claimWorkspaceDomain,
   createWorkspace,
   deleteWorkspace,
@@ -1197,6 +1199,7 @@ function WorkspaceShareDomainForm({
 }) {
   const auth = useAuth();
   const inputId = `workspace-share-slug-${workspaceId}`;
+  const statusId = `${inputId}-status`;
   const [shareSlug, setShareSlug] = useState(workspaceShareSlug ?? "");
   const inputGroupRef = useSquircleRef<HTMLDivElement>();
   const save = useMutation({
@@ -1207,13 +1210,59 @@ function WorkspaceShareDomainForm({
       onSaved();
     },
   });
+  const normalizedShareSlug = shareSlug.trim().toLowerCase();
+  const currentShareSlug = save.data?.shareSlug ?? workspaceShareSlug ?? "";
+  const isCurrentShareSlug = normalizedShareSlug === currentShareSlug;
+  const isValidShareSlug =
+    WORKSPACE_SHARE_SLUG_PATTERN.test(normalizedShareSlug);
+  const [debouncedShareSlug] = useDebounceValue(normalizedShareSlug, 300);
+  const shouldCheckAvailability =
+    isValidShareSlug &&
+    !isCurrentShareSlug &&
+    debouncedShareSlug !== "" &&
+    debouncedShareSlug === normalizedShareSlug;
+  const availability = useQuery({
+    queryKey: [
+      "workspace-share-slug-availability",
+      workspaceId,
+      debouncedShareSlug,
+    ],
+    queryFn: () =>
+      checkWorkspaceShareSlugAvailability(
+        requireTeamContext(auth),
+        workspaceId,
+        debouncedShareSlug,
+      ),
+    enabled: shouldCheckAvailability,
+    retry: false,
+  });
+  const availabilityStatus =
+    normalizedShareSlug === ""
+      ? null
+      : !isValidShareSlug
+        ? "invalid"
+        : isCurrentShareSlug
+          ? "current"
+          : normalizedShareSlug !== debouncedShareSlug ||
+              availability.isFetching ||
+              (availability.isPending && !availability.isError)
+            ? "checking"
+            : availability.isError
+              ? "error"
+              : availability.data;
+  const canSave =
+    isValidShareSlug &&
+    !isCurrentShareSlug &&
+    availabilityStatus !== "checking" &&
+    availabilityStatus !== "taken" &&
+    availabilityStatus !== "invalid";
 
   return (
     <form
       className="flex flex-col gap-3"
       onSubmit={(event) => {
         event.preventDefault();
-        if (shareSlug.trim()) save.mutate(shareSlug.trim());
+        if (canSave) save.mutate(normalizedShareSlug);
       }}
     >
       <h3 className="text-sm font-medium">
@@ -1233,7 +1282,16 @@ function WorkspaceShareDomainForm({
           <InputGroupInput
             id={inputId}
             value={shareSlug}
-            onChange={(event) => setShareSlug(event.target.value.toLowerCase())}
+            onChange={(event) => {
+              setShareSlug(event.target.value.toLowerCase());
+              save.reset();
+            }}
+            aria-invalid={
+              availabilityStatus === "invalid" || availabilityStatus === "taken"
+                ? true
+                : undefined
+            }
+            aria-describedby={availabilityStatus ? statusId : undefined}
             placeholder="company"
             minLength={3}
             maxLength={63}
@@ -1251,12 +1309,44 @@ function WorkspaceShareDomainForm({
           </InputGroupAddon>
         </InputGroup>
       </div>
+      {availabilityStatus ? (
+        <p
+          id={statusId}
+          role="status"
+          aria-live="polite"
+          className={cn([
+            "text-xs",
+            availabilityStatus === "available" && "text-emerald-600",
+            (availabilityStatus === "taken" ||
+              availabilityStatus === "invalid") &&
+              "text-destructive",
+            (availabilityStatus === "checking" ||
+              availabilityStatus === "current" ||
+              availabilityStatus === "error") &&
+              "text-muted-foreground",
+          ])}
+        >
+          {availabilityStatus === "checking" ? (
+            <Trans>Checking availability…</Trans>
+          ) : availabilityStatus === "available" ? (
+            <Trans>Available</Trans>
+          ) : availabilityStatus === "taken" ? (
+            <Trans>Already taken</Trans>
+          ) : availabilityStatus === "invalid" ? (
+            <Trans>Use 3–63 lowercase letters, numbers, or hyphens.</Trans>
+          ) : availabilityStatus === "current" ? (
+            <Trans>Current domain</Trans>
+          ) : (
+            <Trans>Couldn’t check availability. You can still try Save.</Trans>
+          )}
+        </p>
+      ) : null}
       <Button
         type="submit"
         size="sm"
         variant="outline"
         className="w-fit"
-        disabled={!shareSlug.trim() || save.isPending}
+        disabled={!canSave || save.isPending}
       >
         {save.isPending ? (
           <CircleNotch className="size-4 animate-spin" />
@@ -1269,6 +1359,8 @@ function WorkspaceShareDomainForm({
     </form>
   );
 }
+
+const WORKSPACE_SHARE_SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/;
 
 function MemberRow({
   member,
