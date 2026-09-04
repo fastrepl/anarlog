@@ -346,13 +346,18 @@ function WorkspacePanel({
   });
   const hasCapability = (capability: WorkspaceCapability) =>
     access.data?.capabilities.includes(capability) === true;
+  const isEnterpriseWorkspace = access.data?.tier === "enterprise";
   const canManageWorkspace =
     isManager && hasCapability("team.manage_workspace");
   const canManageMembers = isManager && hasCapability("team.manage_members");
-  const canManagePolicies = isManager && hasCapability("team.manage_policies");
-  const canViewUsage = isManager && hasCapability("team.view_usage");
+  const canManagePolicies =
+    isManager && isEnterpriseWorkspace && hasCapability("team.manage_policies");
+  const canViewUsage =
+    isManager && isEnterpriseWorkspace && hasCapability("team.view_usage");
   const canUseCustomSubdomain =
-    isManager && hasCapability("team.custom_subdomain");
+    isManager &&
+    isEnterpriseWorkspace &&
+    hasCapability("team.custom_subdomain");
   const canConfigureSso = isManager && hasCapability("enterprise.sso");
   const canConfigureScim = isManager && hasCapability("enterprise.scim");
   const canConfigureRetention =
@@ -578,8 +583,8 @@ function WorkspacePanel({
             </h2>
             <p className="text-muted-foreground mt-1 text-xs leading-5">
               <Trans>
-                Pro for every member, shared workspaces, roles, policies, and
-                centralized billing. $20 per person monthly or $200 yearly.
+                Pro for every member, shared workspaces, roles, and centralized
+                billing. $20 per person monthly or $200 yearly.
               </Trans>
             </p>
           </div>

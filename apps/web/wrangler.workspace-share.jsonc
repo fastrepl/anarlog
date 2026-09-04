@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "anarlog-workspace-share-router",
+  "main": "src/cloudflare/workspace-share-router.ts",
+  "compatibility_date": "2026-09-04",
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "*.anarlog.so/*",
+      "zone_name": "anarlog.so",
+    },
+  ],
+  "observability": {
+    "enabled": true,
+  },
+}

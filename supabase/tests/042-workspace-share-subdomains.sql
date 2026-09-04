@@ -1,5 +1,5 @@
 begin;
-select plan(10);
+select plan(12);
 
 select tests.create_supabase_user('subdomain_owner', 'subdomain-owner@example.com');
 select tests.create_supabase_user('subdomain_other', 'subdomain-other@example.com');
@@ -30,7 +30,8 @@ select 'owner', workspace_id
 from public.create_workspace('Fastrepl');
 
 select tests.enable_workspace_plan(
-  (select workspace_id from workspace_subdomain_test_state where name = 'owner')
+  (select workspace_id from workspace_subdomain_test_state where name = 'owner'),
+  'enterprise'
 );
 
 select lives_ok(
@@ -65,6 +66,18 @@ select results_eq(
   $$,
   $$values ('fastrepl'::text, 'https://fastrepl.anarlog.so'::text)$$,
   'The setter returns the canonical enterprise sharing origin'
+);
+
+select is(
+  public.workspace_share_slug_is_active('fastrepl'),
+  true,
+  'A claimed Enterprise slug is active for edge routing'
+);
+
+select is(
+  public.workspace_share_slug_is_active('unclaimed'),
+  false,
+  'An unclaimed slug is inactive for edge routing'
 );
 
 select throws_ok(
@@ -136,7 +149,8 @@ select 'other', workspace_id
 from public.create_workspace('Other Company');
 
 select tests.enable_workspace_plan(
-  (select workspace_id from workspace_subdomain_test_state where name = 'other')
+  (select workspace_id from workspace_subdomain_test_state where name = 'other'),
+  'enterprise'
 );
 
 select throws_ok(

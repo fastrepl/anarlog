@@ -42,9 +42,6 @@ const mocks = vi.hoisted(() => ({
         "team.shared_notes",
         "team.manage_workspace",
         "team.manage_members",
-        "team.manage_policies",
-        "team.view_usage",
-        "team.custom_subdomain",
       ] as string[],
       seatLimit: 1 as number | null,
       usedSeats: 1,
@@ -227,9 +224,6 @@ describe("SettingsTeam", () => {
         "team.shared_notes",
         "team.manage_workspace",
         "team.manage_members",
-        "team.manage_policies",
-        "team.view_usage",
-        "team.custom_subdomain",
       ],
       seatLimit: 1,
       usedSeats: 1,
@@ -458,6 +452,8 @@ describe("SettingsTeam", () => {
   });
 
   it("sets the workspace sharing subdomain", async () => {
+    mocks.client.access.tier = "enterprise";
+    mocks.client.access.capabilities.push("team.custom_subdomain");
     mocks.workspaces.data = [
       {
         workspaceId: "00000000-0000-4000-8000-000000000001",
@@ -529,7 +525,12 @@ describe("SettingsTeam", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
-  it("shows Enterprise policy controls on Team without allowing them", async () => {
+  it("hides every Admin control from Team workspaces", async () => {
+    mocks.client.access.capabilities.push(
+      "team.manage_policies",
+      "team.view_usage",
+      "team.custom_subdomain",
+    );
     mocks.workspaces.data = [
       {
         workspaceId: "00000000-0000-4000-8000-000000000001",
@@ -541,22 +542,21 @@ describe("SettingsTeam", () => {
 
     renderTeam();
 
-    expect(await screen.findByText("Require SSO")).toBeTruthy();
-    expect(screen.getByText("Retention (days)")).toBeTruthy();
-    expect(screen.getByText("SCIM bearer token")).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("switch", { name: "Require SSO" }));
-
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Enterprise",
-      {},
-    );
+    expect(await screen.findByText("Members")).toBeTruthy();
+    expect(screen.queryByText("Admin")).toBeNull();
+    expect(screen.queryByText("Sharing domain")).toBeNull();
+    expect(screen.queryByText("Usage")).toBeNull();
+    expect(screen.queryByText("Require SSO")).toBeNull();
+    expect(mocks.client.getWorkspacePolicy).not.toHaveBeenCalled();
   });
 
   it("shows Enterprise policy controls with Enterprise capabilities", async () => {
     mocks.client.access.tier = "enterprise";
     mocks.client.access.capabilities = [
       ...mocks.client.access.capabilities,
+      "team.manage_policies",
+      "team.view_usage",
+      "team.custom_subdomain",
       "enterprise.sso",
       "enterprise.scim",
       "enterprise.retention",

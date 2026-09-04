@@ -3542,8 +3542,8 @@ msgid "Pro features available"
 msgstr "Pro features available"
 
 #: src/settings/team/index.tsx
-msgid "Pro for every member, shared workspaces, roles, policies, and centralized billing. $20 per person monthly or $200 yearly."
-msgstr "Pro for every member, shared workspaces, roles, policies, and centralized billing. $20 per person monthly or $200 yearly."
+msgid "Pro for every member, shared workspaces, roles, and centralized billing. $20 per person monthly or $200 yearly."
+msgstr "Pro for every member, shared workspaces, roles, and centralized billing. $20 per person monthly or $200 yearly."
 
 #: src/settings/general/account.tsx
 msgid "Pro trial"

@@ -65,6 +65,19 @@ export const getSupabaseDesktopFlowClient = createServerOnlyFn(() => {
   );
 });
 
+export const getSupabasePublicServerClient = createServerOnlyFn(() => {
+  return createClient(
+    requireEnv(env.SUPABASE_URL, "SUPABASE_URL"),
+    requireEnv(env.SUPABASE_ANON_KEY, "SUPABASE_ANON_KEY"),
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    },
+  );
+});
+
 export const getSupabaseAdminClient = createServerOnlyFn(() => {
   return createClient(
     requireEnv(env.SUPABASE_URL, "SUPABASE_URL"),

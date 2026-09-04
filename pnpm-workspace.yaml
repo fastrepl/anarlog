@@ -49,3 +49,4 @@ allowBuilds:
   sharp: true
   supabase: true
   unix-dgram: true
+  workerd: true

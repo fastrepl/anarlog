@@ -1,5 +1,5 @@
 begin;
-select plan(13);
+select plan(18);
 
 select tests.create_supabase_user(
   'capability_owner',
@@ -7,7 +7,8 @@ select tests.create_supabase_user(
 );
 
 create temporary table workspace_capability_test_state (
-  workspace_id uuid primary key
+  workspace_id uuid primary key,
+  share_id uuid
 );
 
 grant all on workspace_capability_test_state to authenticated, service_role;
@@ -130,6 +131,9 @@ select results_eq(
     select
       workspace_tier,
       'team.manage_members' = any (capabilities),
+      'team.manage_policies' = any (capabilities),
+      'team.view_usage' = any (capabilities),
+      'team.custom_subdomain' = any (capabilities),
       'enterprise.sso' = any (capabilities),
       seat_limit,
       used_seats
@@ -137,8 +141,8 @@ select results_eq(
       (select workspace_id from workspace_capability_test_state)
     )
   $$,
-  $$ values ('team'::text, true, false, 3, 1) $$,
-  'Team returns workspace-scoped capabilities and seat usage'
+  $$ values ('team'::text, true, false, false, false, false, 3, 1) $$,
+  'Team returns collaboration capabilities without Enterprise Admin controls'
 );
 
 select results_eq(
@@ -160,6 +164,53 @@ select lives_ok(
     )
   $$,
   'Team capability unlocks shared note publication'
+);
+
+select tests.clear_authentication();
+select tests.authenticate_as_service_role();
+
+update workspace_capability_test_state
+set share_id = (
+  select id
+  from public.session_shares
+  where session_id = 'session-team'
+);
+
+select tests.clear_authentication();
+select tests.authenticate_as('capability_owner');
+
+select throws_ok(
+  $$
+    select * from public.set_workspace_share_slug(
+      (select workspace_id from workspace_capability_test_state),
+      'team-domain'
+    )
+  $$,
+  '42501',
+  'workspace capability required: team.custom_subdomain',
+  'Team cannot claim a workspace sharing subdomain'
+);
+
+select throws_ok(
+  $$
+    select * from public.get_workspace_usage_overview(
+      (select workspace_id from workspace_capability_test_state)
+    )
+  $$,
+  '42501',
+  'workspace capability required: team.view_usage',
+  'Team cannot read the Enterprise Admin usage report'
+);
+
+select results_eq(
+  $$
+    select workspace_share_slug
+    from public.get_session_share_workspace_slug(
+      (select share_id from workspace_capability_test_state)
+    )
+  $$,
+  $$values (null::text)$$,
+  'Team share links use the canonical apex instead of a retained subdomain'
 );
 
 select throws_ok(
@@ -187,8 +238,8 @@ select throws_ok(
     )
   $$,
   '42501',
-  'workspace capability required: enterprise.retention',
-  'Team cannot enable Enterprise retention'
+  'workspace capability required: team.manage_policies',
+  'Team cannot change Enterprise Admin policies'
 );
 
 select tests.clear_authentication();
@@ -209,14 +260,17 @@ select results_eq(
     select
       workspace_tier,
       'team.manage_workspace' = any (capabilities),
+      'team.manage_policies' = any (capabilities),
+      'team.view_usage' = any (capabilities),
+      'team.custom_subdomain' = any (capabilities),
       'enterprise.capture' = any (capabilities),
       'enterprise.retention' = any (capabilities)
     from public.get_workspace_access(
       (select workspace_id from workspace_capability_test_state)
     )
   $$,
-  $$ values ('enterprise'::text, true, true, true) $$,
-  'Enterprise inherits Team and adds Enterprise capabilities'
+  $$ values ('enterprise'::text, true, true, true, true, true, true) $$,
+  'Enterprise inherits Team and adds every Admin capability'
 );
 
 select lives_ok(
@@ -224,6 +278,13 @@ select lives_ok(
     select * from public.claim_workspace_domain(
       (select workspace_id from workspace_capability_test_state),
       'example.com'
+    );
+    select * from public.set_workspace_share_slug(
+      (select workspace_id from workspace_capability_test_state),
+      'enterprise-domain'
+    );
+    select * from public.get_workspace_usage_overview(
+      (select workspace_id from workspace_capability_test_state)
     );
     select * from public.set_workspace_policy(
       (select workspace_id from workspace_capability_test_state),
@@ -235,7 +296,39 @@ select lives_ok(
       true
     )
   $$,
-  'Enterprise capability unlocks domain, SSO, and retention controls'
+  'Enterprise unlocks sharing domain, usage, SSO, and policy controls'
+);
+
+select tests.clear_authentication();
+reset role;
+
+delete from stripe.active_entitlements
+where id = 'ent_capability_enterprise';
+
+select tests.authenticate_as('capability_owner');
+
+select results_eq(
+  $$
+    select
+      workspace_tier,
+      public.workspace_share_slug_is_active('enterprise-domain')
+    from public.get_workspace_access(
+      (select workspace_id from workspace_capability_test_state)
+    )
+  $$,
+  $$ values ('team'::text, false) $$,
+  'Downgrading to Team immediately deactivates the retained sharing domain'
+);
+
+select results_eq(
+  $$
+    select workspace_share_slug
+    from public.get_session_share_workspace_slug(
+      (select share_id from workspace_capability_test_state)
+    )
+  $$,
+  $$values (null::text)$$,
+  'Downgraded Team links fall back to the canonical apex'
 );
 
 select tests.clear_authentication();

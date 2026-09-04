@@ -9,6 +9,7 @@ const RESERVED_WORKSPACE_SHARE_HOSTS = new Set([
   "dev",
   "docs",
   "mail",
+  "models",
   "staging",
   "static",
   "status",
@@ -16,12 +17,15 @@ const RESERVED_WORKSPACE_SHARE_HOSTS = new Set([
   "www",
 ]);
 
-export const isWorkspaceShareHostname = (hostname: string) => {
+export const getWorkspaceShareSlug = (hostname: string) => {
   const suffix = ".anarlog.so";
-  if (!hostname.endsWith(suffix)) return false;
+  if (!hostname.endsWith(suffix)) return null;
   const slug = hostname.slice(0, -suffix.length);
-  return (
-    /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(slug) &&
+  return /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(slug) &&
     !RESERVED_WORKSPACE_SHARE_HOSTS.has(slug)
-  );
+    ? slug
+    : null;
 };
+
+export const isWorkspaceShareHostname = (hostname: string) =>
+  getWorkspaceShareSlug(hostname) !== null;
