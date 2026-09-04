@@ -3,11 +3,10 @@ import { Link } from "@tanstack/react-router";
 import {
   MARKETING_PLAN_TIERS,
   type MarketingPlanData,
+  type MarketingPlanPrice,
   PlanFeatureList,
 } from "@anlg/pricing";
 import { cn } from "@anlg/utils";
-
-import { EnterpriseCallout } from "@/components/enterprise-callout";
 
 export function PricingSection({
   compareLink = false,
@@ -17,31 +16,27 @@ export function PricingSection({
   return (
     <section id="pricing" className="pt-24 pb-8 md:pt-28 md:pb-10">
       <div>
-        <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+        <h2 className="text-color-muted font-mono text-3xl leading-none font-semibold">
           Simple pricing
         </h2>
-        <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
-          Start with local meeting notes for free. Upgrade when you want hosted
-          transcription and AI. Choose Team when notes and billing belong to a
-          shared workspace.
+        <p className="text-color-secondary mx-auto mt-6 max-w-2xl text-lg leading-8">
+          Start local for free, add personal cloud features with Pro, put
+          collaboration on Team, and reserve organization-wide controls for
+          Enterprise.
         </p>
       </div>
 
-      <div className="relative left-1/2 mt-8 grid w-screen max-w-[1100px] -translate-x-1/2 grid-cols-1 gap-4 px-5 text-left md:grid-cols-3 md:px-8">
+      <div className="relative left-1/2 mt-8 grid w-screen max-w-[1380px] -translate-x-1/2 grid-cols-1 gap-4 px-5 text-left md:grid-cols-2 md:px-8 lg:grid-cols-4">
         {MARKETING_PLAN_TIERS.map((plan) => (
           <PricingCard key={plan.id} plan={plan} />
         ))}
-      </div>
-
-      <div className="relative left-1/2 mt-6 w-screen max-w-[1100px] -translate-x-1/2 px-5 md:px-8">
-        <EnterpriseCallout />
       </div>
 
       {compareLink ? (
         <div className="mt-8">
           <Link
             to="/pricing/"
-            className="text-sm text-[#756b5d] underline decoration-[#d9cdb8] underline-offset-4 transition-colors hover:text-[#181613]"
+            className="text-color-muted hover:text-color text-sm underline decoration-current underline-offset-4 transition-colors"
           >
             Compare with other AI notetakers
           </Link>
@@ -57,46 +52,24 @@ function PricingCard({ plan }: { plan: MarketingPlanData }) {
   return (
     <article
       className={cn([
-        "flex min-h-[30rem] flex-col rounded-3xl border bg-white p-6 transition-all duration-200 [corner-shape:squircle]",
+        "surface border-color-subtle flex min-h-[32rem] flex-col rounded-3xl border p-6 shadow-sm transition-all duration-200 [corner-shape:squircle]",
         plan.popular
-          ? "border-[#181613]/30 shadow-[0_22px_60px_rgba(24,22,19,0.14)] ring-1 ring-[#181613]/10"
-          : "border-neutral-200 opacity-[0.58] shadow-[0_10px_32px_rgba(24,22,19,0.05)] focus-within:opacity-100 focus-within:shadow-[0_16px_46px_rgba(24,22,19,0.08)] hover:opacity-100 hover:shadow-[0_16px_46px_rgba(24,22,19,0.08)]",
+          ? "border-color-bright ring-fg/10 shadow-lg ring-1"
+          : "hover:border-color-brand hover:shadow-md",
       ])}
     >
       <div className="flex items-start">
-        <h3 className="font-hand text-3xl leading-none font-semibold text-[#181613]">
+        <h3 className="text-color font-mono text-2xl leading-none font-semibold">
           {plan.name}
         </h3>
       </div>
 
-      <p className="mt-4 min-h-[4.5rem] text-sm leading-6 text-[#4f4940]">
+      <p className="text-color-secondary mt-4 min-h-[4.5rem] text-sm leading-6">
         {plan.description}
       </p>
 
       <div className="mt-5 min-h-[4rem]">
-        {plan.price ? (
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span className="font-hand text-5xl leading-none font-semibold text-[#181613]">
-              ${plan.price.monthly}
-            </span>
-            <span className="text-sm text-[#756b5d]">
-              {plan.billingUnit === "person" ? "/person/month" : "/month"}
-            </span>
-            {plan.price.yearly != null ? (
-              <span className="text-sm text-[#756b5d]">
-                or ${plan.price.yearly}
-                {plan.billingUnit === "person" ? "/person/year" : "/year"}
-              </span>
-            ) : null}
-          </div>
-        ) : (
-          <div className="flex items-baseline gap-2">
-            <span className="font-hand text-5xl leading-none font-semibold text-[#181613]">
-              $0
-            </span>
-            <span className="text-sm text-[#756b5d]">/month</span>
-          </div>
-        )}
+        <PlanPrice price={plan.price} />
       </div>
 
       <div className="mt-5">
@@ -105,21 +78,71 @@ function PricingCard({ plan }: { plan: MarketingPlanData }) {
 
       <div className="mt-auto pt-6">
         <Link
-          to="/download/"
+          to={plan.id === "enterprise" ? "/enterprise/" : "/download/"}
           className={cn([
-            "flex h-11 w-full items-center justify-center rounded-full text-sm font-medium transition-all hover:scale-[102%] active:scale-[98%]",
+            "flex h-11 w-full items-center justify-center rounded-full font-mono text-sm font-medium transition-all hover:scale-[102%] active:scale-[98%]",
             plan.popular
-              ? "bg-[#181613] text-white hover:bg-[#4f4940]"
-              : "bg-[#f4efe6] text-[#181613] hover:bg-[#eadfce]",
+              ? "bg-linear-to-t from-stone-600 to-stone-500 text-white"
+              : "surface-subtle text-color hover:bg-page",
           ])}
         >
-          {plan.id === "team"
-            ? "Create a Team workspace"
-            : plan.price
-              ? "Start your 3-week Pro trial"
-              : "Download for free"}
+          {getPlanActionLabel(plan)}
         </Link>
       </div>
     </article>
   );
+}
+
+function PlanPrice({ price }: { price: MarketingPlanPrice }) {
+  if (price.kind === "custom") {
+    return (
+      <div className="flex flex-col gap-1">
+        <span className="text-color font-mono text-4xl leading-none font-semibold">
+          Custom
+        </span>
+        <span className="text-color-muted text-sm">Founder-led rollout</span>
+      </div>
+    );
+  }
+
+  if (price.kind === "free") {
+    return (
+      <div className="flex items-baseline gap-2">
+        <span className="text-color font-mono text-4xl leading-none font-semibold">
+          $0
+        </span>
+        <span className="text-color-muted text-sm">/month</span>
+      </div>
+    );
+  }
+
+  const unit = price.billingUnit === "person" ? "/person" : "";
+
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+      <span className="text-color font-mono text-4xl leading-none font-semibold">
+        ${price.monthly}
+      </span>
+      <span className="text-color-muted text-sm">{unit}/month</span>
+      {price.yearly != null ? (
+        <span className="text-color-muted text-sm">
+          or ${price.yearly}
+          {unit}/year
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function getPlanActionLabel(plan: MarketingPlanData) {
+  switch (plan.id) {
+    case "free":
+      return "Download for free";
+    case "pro":
+      return "Start your 3-week Pro trial";
+    case "team":
+      return "Create a Team workspace";
+    case "enterprise":
+      return "Talk to sales";
+  }
 }

@@ -1,10 +1,21 @@
 export type PlanTier = "free" | "pro";
-export type MarketingPlanTier = PlanTier | "team";
+export type MarketingPlanTier = PlanTier | "team" | "enterprise";
 export type PlanFeature = {
   label: string;
   included: boolean;
   tooltip?: string;
+  availability?: "comingSoon";
 };
+
+export type MarketingPlanPrice =
+  | { kind: "free" }
+  | {
+      kind: "fixed";
+      monthly: number;
+      yearly: number | null;
+      billingUnit?: "person";
+    }
+  | { kind: "custom" };
 
 // Behavioral variants only: consumers render their own (translated) labels,
 // so no navigation or analytics decision can depend on display copy.
@@ -15,19 +26,19 @@ export type TierAction =
   | null;
 
 export interface PlanTierData {
-  id: PlanTier;
+  id: MarketingPlanTier;
   name: string;
   price: string;
   period: string;
   subtitle: string | null;
+  description: string;
   features: PlanFeature[];
 }
 
 export interface MarketingPlanData {
   id: MarketingPlanTier;
   name: string;
-  price: { monthly: number; yearly: number | null } | null;
-  billingUnit?: "person";
+  price: MarketingPlanPrice;
   description: string;
   popular?: boolean;
   features: PlanFeature[];
@@ -37,116 +48,136 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
   {
     id: "free",
     name: "Free",
-    price: null,
+    price: { kind: "free" },
     description:
-      "Fully functional with your own API keys. Perfect for individuals who want complete control.",
+      "Private, local meeting notes with on-device models or your own API keys.",
     features: [
-      { label: "On-device Transcription", included: true },
-      { label: "Save Audio Recordings", included: true },
-      { label: "Audio Player", included: true },
-      { label: "Bring Your Own Key (STT & LLM)", included: true },
-      { label: "Export to Various Formats", included: true },
+      { label: "Unlimited on-device transcription", included: true },
+      { label: "Local recordings and audio player", included: true },
+      { label: "Bring your own keys for STT and AI", included: true },
+      { label: "Notes, folders, and templates", included: true },
+      { label: "Chat and exports", included: true },
       {
-        label: "Custom Default Folder",
+        label: "Local API, CLI, MCP, and webhooks",
         included: true,
-        tooltip: "Move your default folder location to anywhere you prefer.",
       },
-      { label: "Chat", included: true },
-      { label: "Contacts View", included: true },
-      { label: "Calendar View", included: true },
-      { label: "Templates", included: true },
-      { label: "CLI", included: true },
-      { label: "MCP", included: true },
-      {
-        label: "Webhooks",
-        included: true,
-        tooltip:
-          "Signed webhooks when meetings finish and summaries are generated.",
-      },
-      { label: "Transcript Editor", included: true },
-      { label: "Shortcuts", included: true },
       { label: "Manual Speaker Labeling", included: true },
-      { label: "Cloud Transcription", included: false },
-      { label: "Cloud LLM", included: false },
     ],
   },
   {
     id: "pro",
     name: "Pro",
     price: {
+      kind: "fixed",
       monthly: 15,
       yearly: 150,
     },
     description:
-      "Hosted transcription and AI for one person, plus sync, sharing, integrations, and advanced workflows.",
+      "Hosted transcription, AI, sync, and personal workflows for one person.",
     popular: true,
     features: [
       { label: "Everything in Free", included: true },
       { label: "Cloud Transcription", included: true },
       { label: "Cloud LLM", included: true },
       { label: "Better Speaker Identification", included: true },
-      { label: "Custom Transcription Dictionary", included: true },
-      { label: "Custom Auto Summary Format", included: true },
-      { label: "Custom App Icons (macOS)", included: true },
+      { label: "End-to-end encrypted Cloud Sync", included: true },
       {
-        label: "Integrations",
+        label: "Share individual notes",
         included: true,
         tooltip:
-          "Slack, Notion, Linear, GitHub, Google Calendar, and Outlook Calendar.",
+          "Share with specific people or create a revocable public link.",
       },
       {
-        label: "Automations",
+        label: "Integrations and personal automations",
         included: true,
         tooltip:
           "Run follow-up work automatically when a meeting ends — post a recap, update a page, or create issues.",
       },
-      { label: "Cloud Sync", included: true },
       {
-        label: "Shareable Links",
+        label: "Folder sharing with access controls",
         included: true,
-        tooltip: "DocSend-like: view tracking, expiration, revocation",
+        availability: "comingSoon",
       },
-      {
-        label: "Cloud API, MCP & Webhooks",
-        included: true,
-        tooltip:
-          "Hosted API, MCP connectors for Claude and ChatGPT, and signed webhooks — no desktop app required.",
-      },
+      { label: "Custom dictionaries and summary formats", included: true },
     ],
   },
   {
     id: "team",
     name: "Team",
     price: {
+      kind: "fixed",
       monthly: 20,
       yearly: 200,
+      billingUnit: "person",
     },
-    billingUnit: "person",
     description:
-      "A shared workspace with Pro for every member, centralized billing, roles, and organization-wide controls.",
+      "A paid shared workspace with Pro for every member; each workspace has its own per-seat billing.",
     features: [
       { label: "Everything in Pro for every member", included: true },
       { label: "Shared workspaces and notes", included: true },
       { label: "Members, roles, and invitations", included: true },
       { label: "Centralized per-seat billing", included: true },
-      { label: "Workspace sharing policies", included: true },
-      { label: "Workspace usage overview", included: true },
+      {
+        label: "Shared team folders",
+        included: true,
+        availability: "comingSoon",
+      },
+      {
+        label: "Shared team templates",
+        included: true,
+        availability: "comingSoon",
+      },
+      {
+        label: "Shared team automations",
+        included: true,
+        availability: "comingSoon",
+      },
+    ],
+  },
+  {
+    id: "enterprise",
+    name: "Enterprise",
+    price: { kind: "custom" },
+    description:
+      "Organization-wide security, policy, and deployment controls with a founder-led rollout.",
+    features: [
+      { label: "Everything in Team", included: true },
+      { label: "Domain SSO and SCIM", included: true },
+      { label: "Sharing, retention, and consent policies", included: true },
+      { label: "Usage and audit visibility", included: true },
       { label: "Custom workspace subdomain", included: true },
+      { label: "Customer-hosted capture and data plane", included: true },
+      { label: "Founder-led security review and rollout", included: true },
     ],
   },
 ];
 
-export const PLAN_TIERS: PlanTierData[] = MARKETING_PLAN_TIERS.filter(
-  (plan): plan is MarketingPlanData & { id: PlanTier } =>
-    plan.id === "free" || plan.id === "pro",
-).map((plan) => ({
-  id: plan.id,
-  name: plan.name,
-  price: plan.price ? `$${plan.price.monthly}` : "$0",
-  period: "/month",
-  subtitle: plan.price?.yearly ? `or $${plan.price.yearly}/year` : null,
-  features: plan.features.filter((feature) => feature.included),
-}));
+export const PLAN_TIERS: PlanTierData[] = MARKETING_PLAN_TIERS.map((plan) => {
+  if (plan.price.kind === "fixed") {
+    const billingUnit = plan.price.billingUnit === "person" ? "/person" : "";
+    return {
+      id: plan.id,
+      name: plan.name,
+      price: `$${plan.price.monthly}`,
+      period: `${billingUnit}/month`,
+      subtitle: plan.price.yearly
+        ? `or $${plan.price.yearly}${billingUnit}/year`
+        : null,
+      description: plan.description,
+      features: plan.features.filter((feature) => feature.included),
+    };
+  }
+
+  return {
+    id: plan.id,
+    name: plan.name,
+    price: plan.price.kind === "free" ? "$0" : "Custom",
+    period: plan.price.kind === "free" ? "/month" : "",
+    subtitle: plan.price.kind === "custom" ? "Founder-led rollout" : null,
+    description: plan.description,
+    features: plan.features.filter((feature) => feature.included),
+  };
+});
 
 export const TIER_ORDER: Record<PlanTier, number> = {
   free: 0,

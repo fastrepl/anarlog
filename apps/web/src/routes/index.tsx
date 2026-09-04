@@ -25,9 +25,11 @@ const featureList = [
   "Open source foundations",
 ];
 
-const monthlyPrices = MARKETING_PLAN_TIERS.map(
-  (plan) => plan.price?.monthly ?? 0,
-);
+const monthlyPrices = MARKETING_PLAN_TIERS.flatMap((plan) => {
+  if (plan.price.kind === "free") return [0];
+  if (plan.price.kind === "fixed") return [plan.price.monthly];
+  return [];
+});
 const aggregateOffer = {
   lowPrice: Math.min(...monthlyPrices),
   highPrice: Math.max(...monthlyPrices),

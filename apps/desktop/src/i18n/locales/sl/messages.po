@@ -1212,6 +1212,10 @@ msgstr ""
 msgid "Company"
 msgstr ""
 
+#: src/settings/general/account.tsx
+msgid "Compare Free, Pro, Team, and Enterprise."
+msgstr ""
+
 #: src/instruction/index.tsx
 msgid "Complete sign-in in your browser, then return to Anarlog."
 msgstr ""
@@ -3324,6 +3328,10 @@ msgstr ""
 msgid "Open Settings"
 msgstr ""
 
+#: src/settings/general/account.tsx
+msgid "Open Teams"
+msgstr ""
+
 #: src/settings/general/meeting-settings.tsx
 msgid "Open the meeting link when a scheduled meeting begins."
 msgstr ""
@@ -4845,6 +4853,10 @@ msgstr ""
 msgid "Take the enhanced note with decisions and follow-ups."
 msgstr ""
 
+#: src/settings/general/account.tsx
+msgid "Talk to sales"
+msgstr ""
+
 #: src/settings/developers/skills.tsx
 msgid "Teach coding agents when and how to use the Anarlog CLI and MCP"
 msgstr ""
@@ -5386,10 +5398,6 @@ msgstr ""
 
 #: src/chat/components/body/empty.tsx
 msgid "What were the key decisions that have been made?"
-msgstr ""
-
-#: src/settings/general/account.tsx
-msgid "What you're missing without Pro."
 msgstr ""
 
 #: src/changelog/index.tsx

@@ -57,6 +57,11 @@ export function PlanFeatureList({
                 >
                   {feature.label}
                 </span>
+                {feature.availability === "comingSoon" ? (
+                  <span className="rounded-pill bg-neutral-100 px-1.5 py-0.5 text-[9px] leading-none font-medium text-neutral-500 [corner-shape:round] dark:bg-neutral-800 dark:text-neutral-400">
+                    Soon
+                  </span>
+                ) : null}
               </div>
               {feature.tooltip && !dense && (
                 <div className="text-muted-foreground mt-0.5 text-xs italic">

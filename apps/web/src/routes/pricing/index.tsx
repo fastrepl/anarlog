@@ -16,7 +16,7 @@ import { getCanonicalUrl } from "@/lib/seo";
 
 const title = "Pricing · Anarlog";
 const description =
-  "Anarlog is free for unlimited local transcription, with Pro at $15/month and Team at $20/person/month. Compare pricing, capture method, and data ownership against other AI notetakers.";
+  "Compare Anarlog Free, Pro, Team, and Enterprise. Pro is $15/month for personal cloud features, Team is $20/person/month for shared workspaces, and Enterprise is custom.";
 
 const verifiedOnLabel = new Date(PRICING_VERIFIED_ON).toLocaleDateString(
   "en-US",

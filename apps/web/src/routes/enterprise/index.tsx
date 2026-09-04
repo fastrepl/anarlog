@@ -21,7 +21,7 @@ import { proofStatus, shipsToday, shipsWithPartners } from "@/lib/trust-center";
 
 const title = "Enterprise · Anarlog";
 const description =
-  "Anarlog for teams: local-first, bot-free meeting notes with end-to-end encrypted sync. Encryption, retention, training, and subprocessors — written so IT, security, and legal can review without a founder call.";
+  "Anarlog Enterprise adds organization-wide security, policy, and deployment controls to local-first, bot-free Team workspaces, with a founder-led rollout.";
 
 export const Route = createFileRoute("/enterprise/")({
   component: EnterprisePage,
@@ -88,13 +88,13 @@ function EnterprisePage() {
               <AnarlogLogo className="h-8 w-auto md:h-9" />
             </Link>
             <h1 className="font-hand mt-12 text-4xl leading-none font-semibold text-[#181613] md:mt-16 md:text-5xl">
-              Meeting memory your company owns
+              Enterprise meeting memory your company owns
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
-              Bring Anarlog to your team without handing conversations to
-              another cloud. Notes stay on employee machines, Cloud Sync is
-              end-to-end encrypted, and no bot joins the call. This page is
-              written so you can forward it to IT, security, and legal.
+              Enterprise adds organization-wide security, policy, and deployment
+              controls to Anarlog Team. Notes stay on employee machines, Cloud
+              Sync is end-to-end encrypted, and no bot joins the call. This page
+              is written so you can forward it to IT, security, and legal.
             </p>
             <div className="mt-8 flex flex-col items-center gap-3">
               <BookFounderCall location="hero" page="enterprise" />
@@ -114,7 +114,7 @@ function EnterprisePage() {
 
           <section className="pt-12 pb-4 md:pt-16 md:pb-6">
             <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
-              Why teams pick Anarlog
+              Why organizations pick Anarlog
             </h2>
             <div className="relative left-1/2 mt-6 w-screen max-w-[1120px] -translate-x-1/2">
               <div className="flex flex-col gap-4 md:gap-8">

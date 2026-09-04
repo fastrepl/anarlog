@@ -3,6 +3,7 @@ export {
   MARKETING_PLAN_TIERS,
   PLAN_TIERS,
   type MarketingPlanData,
+  type MarketingPlanPrice,
   type MarketingPlanTier,
   type PlanFeature,
   type PlanTier,

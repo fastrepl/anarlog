@@ -8,6 +8,7 @@ const footerGroups = [
     title: "Product",
     links: [
       { label: "Download", to: "/download/" },
+      { label: "Pricing", to: "/pricing/" },
       { label: "Enterprise", to: "/enterprise/" },
     ],
   },

@@ -1,19 +1,14 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowsClockwise, PencilSimple } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode, useCallback, useRef, useState } from "react";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { openUrlWithInstruction } from "@anlg/plugin-windows";
 import {
   getActionForTier,
+  type MarketingPlanTier,
   PlanFeatureList,
   PLAN_TIERS,
   type PlanTier,
@@ -26,8 +21,10 @@ import { cn } from "@anlg/utils";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { SettingsPageTitle } from "~/settings/page-title";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { DestructiveConfirmationDialog } from "~/shared/ui/destructive-confirmation-dialog";
 import { buildWebAppUrl } from "~/shared/utils";
+import { useTabs } from "~/store/zustand/tabs";
 
 function tierActionLabel(action: NonNullable<TierAction>): string {
   switch (action.kind) {
@@ -50,12 +47,6 @@ export function SettingsAccount() {
   const [isPending, setIsPending] = useState(false);
   const [isSignOutDialogOpen, setIsSignOutDialogOpen] = useState(false);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      setIsPending(false);
-    }
-  }, [isAuthenticated]);
-
   const handleSignIn = useCallback(async () => {
     setIsPending(true);
     try {
@@ -70,6 +61,7 @@ export function SettingsAccount() {
       await auth?.signOut();
     },
     onSuccess: () => {
+      setIsPending(false);
       setIsSignOutDialogOpen(false);
       void analyticsCommands.event({
         event: "user_signed_out",
@@ -219,6 +211,7 @@ function PlanBillingSection({
   const { t } = useLingui();
   const { canStartTrial: canStartTrialQuery, hasPaymentMethod } =
     useBillingAccess();
+  const openNew = useTabs((state) => state.openNew);
 
   const [actionPending, setActionPending] = useState(false);
 
@@ -276,7 +269,41 @@ function PlanBillingSection({
     );
   }, [openBillingUrl, trialDaysRemaining]);
 
-  const renderAction = (action: TierAction) => {
+  const handleOpenEnterprise = useCallback(async () => {
+    setActionPending(true);
+    try {
+      await openerCommands.openUrl("https://anarlog.so/enterprise/", null);
+    } finally {
+      setActionPending(false);
+    }
+  }, []);
+
+  const renderAction = (tierId: MarketingPlanTier, action: TierAction) => {
+    if (tierId === "team") {
+      return (
+        <button
+          type="button"
+          onClick={() => openNew({ type: "settings", state: { tab: "team" } })}
+          className="bg-muted text-muted-foreground hover:text-foreground rounded-pill px-2 py-0.5 text-[10px] font-medium transition-colors [corner-shape:round]"
+        >
+          <Trans>Open Teams</Trans>
+        </button>
+      );
+    }
+
+    if (tierId === "enterprise") {
+      return (
+        <button
+          type="button"
+          onClick={handleOpenEnterprise}
+          disabled={actionPending}
+          className="bg-muted text-muted-foreground hover:text-foreground rounded-pill px-2 py-0.5 text-[10px] font-medium transition-colors [corner-shape:round] disabled:opacity-50"
+        >
+          <Trans>Talk to sales</Trans>
+        </button>
+      );
+    }
+
     if (action == null) return null;
 
     if (action.kind === "current") {
@@ -395,7 +422,7 @@ function GuestPlanSection() {
           <Trans>Plans</Trans>
         </h2>
         <p className="text-muted-foreground text-sm">
-          <Trans>What you're missing without Pro.</Trans>
+          <Trans>Compare Free, Pro, Team, and Enterprise.</Trans>
         </p>
       </div>
 
@@ -438,13 +465,13 @@ function PlanTierList({
   currentTier: PlanTier;
   isTrialing: boolean;
   canStartTrial: boolean;
-  renderAction?: (action: TierAction) => ReactNode;
+  renderAction?: (tierId: MarketingPlanTier, action: TierAction) => ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isWide, setIsWide] = useState(true);
   const highlightPro = currentTier === "free";
 
-  useEffect(() => {
+  useMountEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
@@ -453,17 +480,22 @@ function PlanTierList({
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  });
 
   return (
     <div ref={containerRef}>
       <div
-        className={cn([isWide ? "grid grid-cols-2 gap-x-10" : "flex flex-col"])}
+        className={cn([
+          isWide ? "grid grid-cols-2 gap-x-10 gap-y-8" : "flex flex-col",
+        ])}
       >
         {PLAN_TIERS.map((tier) => {
           const isCurrent = tier.id === currentTier;
           const isPro = tier.id === "pro";
-          const action = getActionForTier(tier.id, currentTier, canStartTrial);
+          const action =
+            tier.id === "free" || tier.id === "pro"
+              ? getActionForTier(tier.id, currentTier, canStartTrial)
+              : null;
           const chips = (
             <>
               {isCurrent && (
@@ -476,18 +508,23 @@ function PlanTierList({
                   <Trans>Trial</Trans>
                 </PlanStatusChip>
               )}
-              {renderAction?.(action)}
+              {renderAction?.(tier.id, action)}
             </>
           );
           const details =
-            highlightPro && !isPro ? (
+            highlightPro && tier.id === "free" ? (
               <p className="text-muted-foreground text-xs">
                 <Trans>
                   On-device transcription, recordings, and your own keys.
                 </Trans>
               </p>
             ) : (
-              <PlanFeatureList features={tier.features} dense />
+              <div className="flex flex-col gap-3">
+                <p className="text-muted-foreground text-xs leading-5">
+                  {tier.description}
+                </p>
+                <PlanFeatureList features={tier.features} dense />
+              </div>
             );
 
           if (!isWide) {

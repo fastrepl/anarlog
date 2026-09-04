@@ -249,6 +249,29 @@ describe("SettingsAccount", () => {
     });
   });
 
+  it("shows all four offers and opens the Enterprise page", async () => {
+    renderAccount();
+
+    expect(screen.getByText("Free")).toBeTruthy();
+    expect(screen.getByText("Pro")).toBeTruthy();
+    expect(screen.getByText("Team")).toBeTruthy();
+    expect(screen.getByText("Enterprise")).toBeTruthy();
+    expect(screen.getByText("$20")).toBeTruthy();
+    expect(screen.getByText("Custom")).toBeTruthy();
+    expect(screen.getAllByText("Soon")).toHaveLength(4);
+    expect(screen.getByText("Domain SSO and SCIM")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Open Teams" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Talk to sales" }));
+
+    await waitFor(() =>
+      expect(mocks.openUrl).toHaveBeenCalledWith(
+        "https://anarlog.so/enterprise/",
+        null,
+      ),
+    );
+  });
+
   it("asks guests to sign in instead of opening checkout", async () => {
     mocks.session = null;
 
@@ -259,7 +282,9 @@ describe("SettingsAccount", () => {
       screen.queryByRole("button", { name: "Sign in for Pro" }),
     ).toBeNull();
     expect(screen.getByText("Current")).toBeTruthy();
-    expect(screen.getByText("What you're missing without Pro.")).toBeTruthy();
+    expect(
+      screen.getByText("Compare Free, Pro, Team, and Enterprise."),
+    ).toBeTruthy();
     expect(screen.getByText("Cloud Transcription")).toBeTruthy();
     expect(screen.queryByText("On-device Transcription")).toBeNull();
 
