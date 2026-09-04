@@ -20,6 +20,7 @@
     "@anlg/pricing": "workspace:^",
     "@anlg/supabase": "workspace:*",
     "@anlg/ui": "workspace:*",
+    "@anlg/user-error": "workspace:*",
     "@anlg/utils": "workspace:*",
     "@chenglou/pretext": "^0.0.4",
     "@deepgram/sdk": "^4.11.3",

@@ -1,5 +1,7 @@
 import * as Sentry from "@sentry/tanstackstart-react";
 
+import { isUserErrorEvent } from "@anlg/user-error";
+
 function sanitizeUrl(value) {
   return value?.split(/[?#]/, 1)[0];
 }
@@ -12,6 +14,8 @@ Sentry.init({
     : undefined,
   sendDefaultPii: false,
   beforeSend(event) {
+    if (isUserErrorEvent(event)) return null;
+
     if (event.user) {
       event.user = event.user.id ? { id: event.user.id } : undefined;
     }

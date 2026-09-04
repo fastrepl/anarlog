@@ -206,6 +206,9 @@ importers:
       '@anlg/ui':
         specifier: workspace:^
         version: link:../../packages/ui
+      '@anlg/user-error':
+        specifier: workspace:*
+        version: link:../../packages/user-error
       '@anlg/utils':
         specifier: workspace:^
         version: link:../../packages/utils
@@ -447,6 +450,9 @@ importers:
       '@anlg/supabase':
         specifier: workspace:*
         version: link:../../packages/supabase
+      '@anlg/user-error':
+        specifier: workspace:*
+        version: link:../../packages/user-error
       '@expo/material-symbols':
         specifier: ^0.1.1
         version: 0.1.1
@@ -583,6 +589,9 @@ importers:
       '@anlg/supabase':
         specifier: workspace:*
         version: link:../../packages/supabase
+      '@anlg/user-error':
+        specifier: workspace:*
+        version: link:../../packages/user-error
       '@sentry/bun':
         specifier: ^10.48.0
         version: 10.48.0(@opentelemetry/exporter-trace-otlp-http@0.203.0(@opentelemetry/api@1.9.1))
@@ -647,6 +656,9 @@ importers:
       '@anlg/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@anlg/user-error':
+        specifier: workspace:*
+        version: link:../../packages/user-error
       '@anlg/utils':
         specifier: workspace:*
         version: link:../../packages/utils
@@ -1419,6 +1431,8 @@ importers:
       typescript:
         specifier: ~5.6.3
         version: 5.6.3
+
+  packages/user-error: {}
 
   packages/utils:
     dependencies:

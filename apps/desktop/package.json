@@ -71,6 +71,7 @@
     "@anlg/store": "workspace:*",
     "@anlg/supabase": "workspace:*",
     "@anlg/ui": "workspace:^",
+    "@anlg/user-error": "workspace:*",
     "@anlg/utils": "workspace:^",
     "@iconify-icon/react": "^3.0.3",
     "@lingui/core": "^6.0.1",

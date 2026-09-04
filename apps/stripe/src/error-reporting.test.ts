@@ -38,6 +38,8 @@ describe("sanitizeErrorEvent", () => {
       ],
     });
 
+    expect(event).not.toBeNull();
+    if (!event) throw new Error("expected sanitized event");
     expect(event.message).toBeUndefined();
     expect(event.logentry).toBeUndefined();
     expect(event.extra).toBeUndefined();
@@ -66,5 +68,16 @@ describe("sanitizeErrorEvent", () => {
         },
       },
     ]);
+  });
+
+  it("drops user-caused provider failures", () => {
+    expect(
+      sanitizeErrorEvent({
+        type: undefined,
+        exception: {
+          values: [{ type: "ProviderError", value: "insufficient_quota" }],
+        },
+      }),
+    ).toBeNull();
   });
 });

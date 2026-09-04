@@ -1,6 +1,8 @@
 import * as Sentry from "@sentry/tanstackstart-react";
 import type { ErrorEvent, SeverityLevel } from "@sentry/tanstackstart-react";
 
+import { isUserError, isUserErrorEvent } from "@anlg/user-error";
+
 type ErrorContextValue = null | boolean | number | string;
 const SAFE_IDENTIFIER_RE = /^[a-zA-Z0-9_.:/-]{1,128}$/;
 
@@ -136,6 +138,8 @@ export function createErrorEventFilter() {
   let reportedStacklessUnhandledRejection = false;
 
   return (event: ErrorEvent): ErrorEvent | null => {
+    if (isUserErrorEvent(event)) return null;
+
     const sanitized = sanitizeErrorEvent(event);
     if (!isStacklessUnhandledRejection(sanitized)) return sanitized;
     if (reportedStacklessUnhandledRejection) return null;
@@ -164,6 +168,8 @@ export function captureOperationalError(
     context?: Record<string, ErrorContextValue>;
   },
 ) {
+  if (isUserError(error)) return;
+
   const metadata = operationalErrorMetadata(error);
   const exception = normalizeOperationalError(error, operation);
 

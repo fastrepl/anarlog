@@ -1,6 +1,8 @@
 import * as Sentry from "@sentry/bun";
 import type { SeverityLevel } from "@sentry/bun";
 
+import { isUserError, isUserErrorEvent } from "@anlg/user-error";
+
 type ErrorContextValue = null | boolean | number | string;
 
 function sanitizeUrl(value: string | undefined) {
@@ -9,7 +11,9 @@ function sanitizeUrl(value: string | undefined) {
 
 export function sanitizeErrorEvent(
   event: Sentry.ErrorEvent,
-): Sentry.ErrorEvent {
+): Sentry.ErrorEvent | null {
+  if (isUserErrorEvent(event)) return null;
+
   if (event.user) {
     event.user = event.user.id ? { id: event.user.id } : undefined;
   }
@@ -67,6 +71,8 @@ export function captureOperationalError(
     context?: Record<string, ErrorContextValue>;
   },
 ) {
+  if (isUserError(error)) return;
+
   const exception =
     error instanceof Error ? error : new Error(`${operation} failed`);
 

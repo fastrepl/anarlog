@@ -6,8 +6,11 @@
 
 use sentry::protocol::{Context, Event, Value};
 
+// Keep in sync with packages/user-error/src/index.js.
 const USER_ERROR_MARKERS: &[&str] = &[
     "billing_hard_limit_reached",
+    "api key is invalid",
+    "apikey is invalid",
     "credit balance is too low",
     "exceeded your current quota",
     "incorrect api key",
@@ -16,9 +19,11 @@ const USER_ERROR_MARKERS: &[&str] = &[
     "insufficient funds",
     "insufficient_quota",
     "invalid api key",
+    "invalid apikey",
     "invalid x-api-key",
     "invalid_api_key",
     "not enough credits",
+    "no quota",
     "payment required",
     "plans & billing",
     "plans and billing",
@@ -144,6 +149,8 @@ mod tests {
         assert!(is_user_error_text(
             "{\"code\":\"insufficient_quota\",\"type\":\"invalid_request_error\"}"
         ));
+        assert!(is_user_error_text("API key is invalid"));
+        assert!(is_user_error_text("Invalid APIKEY"));
         assert!(!is_user_error_text("failed to open database"));
     }
 

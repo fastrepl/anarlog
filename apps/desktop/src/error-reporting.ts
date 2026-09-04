@@ -2,6 +2,8 @@ import * as Sentry from "@sentry/react";
 import type { ErrorEvent, SeverityLevel } from "@sentry/react";
 import { emit, listen } from "@tauri-apps/api/event";
 
+import { isUserError, isUserErrorEvent } from "@anlg/user-error";
+
 import { env } from "./env";
 import { commands as desktopCommands } from "./types/tauri.gen";
 
@@ -10,29 +12,6 @@ const SAFE_IDENTIFIER_RE = /^[a-zA-Z0-9_.:/-]{1,128}$/;
 const ERROR_REPORTING_CONSENT_EVENT = "anlg:error-reporting-consent-changed";
 let errorReportingEnabled = false;
 let errorReportingConsentRevision = 0;
-
-// Failures caused by the user's own account state (exhausted credits, expired
-// plans, bad API keys) are not actionable for engineering, so they never reach
-// Sentry. Keep in sync with `crates/user-error`.
-const USER_ERROR_MARKERS = [
-  "billing_hard_limit_reached",
-  "credit balance is too low",
-  "exceeded your current quota",
-  "incorrect api key",
-  "insufficient balance",
-  "insufficient credits",
-  "insufficient funds",
-  "insufficient_quota",
-  "invalid api key",
-  "invalid x-api-key",
-  "invalid_api_key",
-  "not enough credits",
-  "payment required",
-  "plans & billing",
-  "plans and billing",
-  "quota exceeded",
-  "upgrade or purchase credits",
-];
 
 // Archived Sentry issue types. Local error logs stay; Sentry should not reopen
 // or bill for issues that were already solved. Keep in sync with
@@ -77,10 +56,6 @@ function textMatchesMarkers(value: unknown, markers: readonly string[]) {
   return markers.some((marker) => text.includes(marker));
 }
 
-export function isUserError(value: unknown): boolean {
-  return textMatchesMarkers(value, USER_ERROR_MARKERS);
-}
-
 export function isIgnoredError(value: unknown): boolean {
   const text = serializeForUserErrorMatch(value);
   return (
@@ -103,8 +78,11 @@ function isDroppedErrorEvent(event: ErrorEvent): boolean {
     return true;
   }
 
-  return [event.message, event.logentry, event.exception, event.extra].some(
-    (value) => isUserError(value) || isIgnoredError(value),
+  return (
+    isUserErrorEvent(event) ||
+    [event.message, event.logentry, event.exception, event.extra].some(
+      isIgnoredError,
+    )
   );
 }
 

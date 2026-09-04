@@ -7,6 +7,8 @@ import type {
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
+import { isUserError, isUserErrorEvent } from "@anlg/user-error";
+
 import { env } from "@/lib/env";
 import {
   normalizeOperationalError,
@@ -44,7 +46,8 @@ export function initializeErrorReporting() {
     dist: appDist(),
     sendDefaultPii: false,
     attachStacktrace: true,
-    beforeSend: sanitizeErrorEvent,
+    beforeSend: (event) =>
+      isUserErrorEvent(event) ? null : sanitizeErrorEvent(event),
     beforeBreadcrumb: (breadcrumb) =>
       sanitizeBreadcrumb(breadcrumb as Breadcrumb),
     enableAutoSessionTracking: true,
@@ -82,6 +85,8 @@ export function captureOperationalError(
     context?: Record<string, ErrorContextValue>;
   },
 ) {
+  if (isUserError(error)) return;
+
   if (error && typeof error === "object") {
     if (capturedErrors.has(error)) return;
     capturedErrors.add(error);

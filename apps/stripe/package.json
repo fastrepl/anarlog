@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@anlg/supabase": "workspace:*",
+    "@anlg/user-error": "workspace:*",
     "@sentry/bun": "^10.48.0",
     "@supabase/stripe-sync-engine": "^0.45.0",
     "@supabase/supabase-js": "^2.103.0",

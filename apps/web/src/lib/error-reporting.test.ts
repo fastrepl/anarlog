@@ -98,6 +98,27 @@ test("reports one grouped signal for repeated stackless promise rejections", () 
   assert.equal(filter(event()), null);
 });
 
+test("drops user-caused provider failures without inspecting breadcrumbs", () => {
+  const filter = createErrorEventFilter();
+  assert.equal(
+    filter({
+      type: undefined,
+      exception: {
+        values: [{ type: "ProviderError", value: "insufficient_quota" }],
+      },
+    }),
+    null,
+  );
+  assert.notEqual(
+    filter({
+      type: undefined,
+      exception: { values: [{ type: "RouteError", value: "socket hang up" }] },
+      breadcrumbs: [{ message: "quota exceeded" }],
+    }),
+    null,
+  );
+});
+
 test("does not rate-limit promise rejections with stack traces", () => {
   const filter = createErrorEventFilter();
   const event = () => ({
