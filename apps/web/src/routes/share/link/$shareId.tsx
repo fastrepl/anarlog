@@ -5,6 +5,7 @@ import { useCallback } from "react";
 import { useShareRouteContinuation } from "@/components/share-route-continuation";
 import { LinkSharedNoteActions } from "@/components/shared-note-actions";
 import { SharedNoteChatPanel } from "@/components/shared-note-chat-panel";
+import { SharedNoteCollaboration } from "@/components/shared-note-collaboration";
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
 import { SharedNoteEditableViewer } from "@/components/shared-note-editable-viewer";
 import {
@@ -238,6 +239,15 @@ export function LinkSharedNoteClient({
           shouldUseAuthenticatedSharedNoteAccessLabel(authenticatedNote)
             ? formatAuthenticatedSharedNoteAccessLabel(authenticatedNote)
             : "Anyone with the link · View only"
+        }
+        collaboration={
+          <SharedNoteCollaboration
+            capability={authenticatedNote?.capability ?? "viewer"}
+            currentUserId={currentUserId}
+            manageAccess={authenticatedNote?.manageAccess ?? false}
+            returnPath={returnPath}
+            shareId={validShareId.data}
+          />
         }
         actions={
           <LinkSharedNoteActions

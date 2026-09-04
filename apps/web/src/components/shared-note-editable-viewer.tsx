@@ -32,6 +32,7 @@ export function SharedNoteEditableViewer({
   actions,
   authenticatedNote,
   chat,
+  collaboration,
   fallbackAccessLabel,
   fallbackSnapshot,
   meetingMetadata,
@@ -47,6 +48,7 @@ export function SharedNoteEditableViewer({
   // always answers about the content currently on screen, and lives inside
   // this shareId-keyed subtree so its state resets on navigation.
   chat?: (snapshot: SharedNoteSnapshot) => React.ReactNode;
+  collaboration?: React.ReactNode;
   fallbackAccessLabel?: string;
   fallbackSnapshot?: SharedNoteSnapshot | null;
   meetingMetadata?: {
@@ -150,6 +152,7 @@ export function SharedNoteEditableViewer({
             : accessLabel
       }
       actions={actions}
+      collaboration={collaborationActive ? collaboration : undefined}
       documentContent={
         <SharedNoteReader
           canCompose={canComposeComments}

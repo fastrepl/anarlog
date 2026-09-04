@@ -46,6 +46,7 @@ export const sharedSecondaryButtonClassName = cn([
 export function SharedNoteViewer({
   accessLabel,
   actions,
+  collaboration,
   documentContent,
   headerActions,
   meetingMetadata,
@@ -56,6 +57,7 @@ export function SharedNoteViewer({
 }: {
   accessLabel: string;
   actions?: React.ReactNode;
+  collaboration?: React.ReactNode;
   documentContent?: React.ReactNode;
   headerActions?: React.ReactNode;
   meetingMetadata?: Pick<
@@ -143,6 +145,7 @@ export function SharedNoteViewer({
           )}
         </div>
       </article>
+      {collaboration}
     </SharedNoteShell>
   );
 }

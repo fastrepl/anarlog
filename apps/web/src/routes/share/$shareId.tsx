@@ -6,6 +6,7 @@ import {
   StableSharedNoteActions,
 } from "@/components/shared-note-actions";
 import { SharedNoteChatPanel } from "@/components/shared-note-chat-panel";
+import { SharedNoteCollaboration } from "@/components/shared-note-collaboration";
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
 import { SharedNoteEditableViewer } from "@/components/shared-note-editable-viewer";
 import {
@@ -168,6 +169,15 @@ function Component() {
         revokedBehavior="read-only"
         signedIn={user !== null}
         accessLabel={accessLabel}
+        collaboration={
+          <SharedNoteCollaboration
+            capability={authenticatedNote?.capability ?? "viewer"}
+            currentUserId={user?.id ?? null}
+            manageAccess={authenticatedNote?.manageAccess ?? false}
+            returnPath={returnPath}
+            shareId={snapshot.shareId}
+          />
+        }
         actions={
           authenticatedNote ? (
             <AccountSharedNoteActions
