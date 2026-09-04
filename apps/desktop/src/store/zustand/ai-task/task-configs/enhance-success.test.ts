@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   beginCloudsyncActivity: vi.fn().mockResolvedValue(undefined),
   endCloudsyncActivity: vi.fn().mockResolvedValue(undefined),
   loadSessionContentSnapshot: vi.fn(),
+  playCompletionSound: vi.fn(),
   persistGeneratedEnhancedNote: vi.fn().mockResolvedValue(undefined),
   persistGeneratedTitle: vi.fn().mockResolvedValue(true),
 }));
@@ -25,6 +26,14 @@ vi.mock("@anlg/plugin-db", async (importOriginal) => ({
 
 vi.mock("~/session/content-queries", () => ({
   loadSessionContentSnapshot: mocks.loadSessionContentSnapshot,
+}));
+
+vi.mock("~/shared/completion-sound", () => ({
+  playCompletionSound: mocks.playCompletionSound,
+}));
+
+vi.mock("~/shared/notification-policy", () => ({
+  shouldShowNotification: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("~/cloud-api/client", () => ({

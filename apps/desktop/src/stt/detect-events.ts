@@ -70,12 +70,17 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
   const stop = useStore(store, (state) => state.stop);
   const setMuted = useStore(store, (state) => state.setMuted);
   const autoStopMeetings = useConfigValue("auto_stop_meetings");
+  const notificationsDisabled = useConfigValue("notification_disabled");
   const notificationDetect = useConfigValue("notification_detect");
+  const notificationRecording = useConfigValue("notification_recording");
 
   const autoStopMeetingsRef = useRef(autoStopMeetings);
   autoStopMeetingsRef.current = autoStopMeetings;
   const notificationDetectRef = useRef(notificationDetect);
-  notificationDetectRef.current = notificationDetect;
+  notificationDetectRef.current = notificationDetect && !notificationsDisabled;
+  const notificationRecordingRef = useRef(notificationRecording);
+  notificationRecordingRef.current =
+    notificationRecording && !notificationsDisabled;
   const isOnlineRef = useRef(true);
   const lastReconnectAtMsRef = useRef<number | null>(null);
   const pendingAutoStopRef = useRef<PendingAutoStop | null>(null);
@@ -287,6 +292,7 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
             sessionId: pending.sessionId,
             stoppedTriggerAppIds: candidateAppIds,
             stoppedApps,
+            notificationEnabled: notificationRecordingRef.current,
           });
         }
         return;
@@ -305,6 +311,7 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
             sessionId: pending.sessionId,
             stoppedTriggerAppIds: candidateAppIds,
             stoppedApps,
+            notificationEnabled: notificationRecordingRef.current,
           });
         }
         return;

@@ -138,13 +138,19 @@ export async function showMeetingEndedPrompt({
   sessionId,
   stoppedTriggerAppIds,
   stoppedApps,
+  notificationEnabled = true,
 }: {
   sessionId: string;
   stoppedTriggerAppIds: string[];
   stoppedApps: { id: string; name: string }[];
+  notificationEnabled?: boolean;
 }) {
-  const app = getPrimaryStoppedApp(stoppedTriggerAppIds, stoppedApps);
+  if (!notificationEnabled) {
+    return;
+  }
+
   const key = createAutoStopEndedNotificationKey(sessionId);
+  const app = getPrimaryStoppedApp(stoppedTriggerAppIds, stoppedApps);
   const icon = app ? await getNotificationIconForApp(app) : null;
 
   if (!isAutoStopEndedNotificationKeyActive(key)) {

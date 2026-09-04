@@ -26,6 +26,7 @@ import { persistGeneratedEnhancedNote } from "~/session/content-mutations";
 import { loadSessionContentSnapshot } from "~/session/content-queries";
 import { ensureMarkdownFirstLineTitle } from "~/session/title-content";
 import { requestAppAttention } from "~/shared/app-attention";
+import { playCompletionSound } from "~/shared/completion-sound";
 import { id } from "~/shared/utils";
 import { hasLiveSessionTitleDraft } from "~/store/zustand/live-title";
 
@@ -181,6 +182,7 @@ export const runEnhanceSuccess = async ({
       void runNoteEnhancedAutomations(args.sessionId);
       syncCloudApiSnapshotBestEffort(args.sessionId);
       void showSummaryReadyNotification(args.sessionId, trimmedTitle);
+      void playCompletionSound();
       void requestAppAttention();
     }
   } finally {

@@ -44,6 +44,7 @@ export function TaskManager() {
   const manager = useTaskScheduler();
 
   const notificationEvent = useConfigValue("notification_event");
+  const notificationsDisabled = useConfigValue("notification_disabled");
   const audioRetention = normalizeAudioRetention(
     useConfigValue("audio_retention"),
   );
@@ -101,7 +102,7 @@ export function TaskManager() {
     EVENT_NOTIFICATION_TASK_ID,
     async () => {
       await checkEventNotifications(
-        notificationEvent,
+        notificationEvent && !notificationsDisabled,
         notifiedEventsRef.current,
       );
     },

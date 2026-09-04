@@ -81,6 +81,18 @@ describe("isRecentNetworkDrop", () => {
 });
 
 describe("showMeetingEndedPrompt", () => {
+  test("does not show a prompt when recording notifications are disabled", async () => {
+    await showMeetingEndedPrompt({
+      sessionId: "session-1",
+      stoppedTriggerAppIds: ["com.google.Chrome"],
+      stoppedApps: [{ id: "com.google.Chrome", name: "Google Chrome" }],
+      notificationEnabled: false,
+    });
+
+    expect(getNotificationIconForAppMock).not.toHaveBeenCalled();
+    expect(showNotificationMock).not.toHaveBeenCalled();
+  });
+
   test("does not show a prompt cancelled while its icon loads", async () => {
     let resolveIcon: (value: null) => void = () => {};
     getNotificationIconForAppMock.mockReturnValue(

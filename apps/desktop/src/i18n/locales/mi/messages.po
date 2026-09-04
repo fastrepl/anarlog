@@ -596,6 +596,10 @@ msgstr ""
 msgid "Ask anything"
 msgstr ""
 
+#: src/settings/general/notification.tsx
+msgid "Ask before stopping when a meeting may have ended. When alerts are off, Anarlog keeps listening."
+msgstr ""
+
 #: src/task/resource-view.tsx
 msgid "Assignees:"
 msgstr ""
@@ -708,6 +712,10 @@ msgstr ""
 
 #: src/chat/components/body/empty.tsx
 msgid "Beta"
+msgstr ""
+
+#: src/settings/general/notification.tsx
+msgid "Bloom"
 msgstr ""
 
 #: src/settings/appearance/app-icon.tsx
@@ -861,6 +869,10 @@ msgstr ""
 msgid "Checking…"
 msgstr ""
 
+#: src/settings/general/notification.tsx
+msgid "Chime"
+msgstr ""
+
 #. placeholder {0}: provider.name
 #: src/imports/screen.tsx
 msgid "Choose {0} export files"
@@ -949,6 +961,10 @@ msgstr ""
 
 #: src/folders/folder-editor.tsx
 msgid "Choose folder icon"
+msgstr ""
+
+#: src/settings/general/notification.tsx
+msgid "Choose from five completion sounds."
 msgstr ""
 
 #: src/settings/appearance/app-icon.tsx
@@ -1093,6 +1109,10 @@ msgstr ""
 msgid "Cloud sync and {cloudStorageService} can both change the same files, which can create conflicted copies and incomplete recordings. Move your Anarlog storage location to a folder that {cloudStorageService} does not sync."
 msgstr ""
 
+#: src/settings/general/notification.tsx
+msgid "Cloud sync complete"
+msgstr ""
+
 #: src/main/sync-status.tsx
 msgid "Cloud sync could not start on this device. Open Sync settings to try again."
 msgstr ""
@@ -1193,6 +1213,10 @@ msgstr ""
 
 #: src/instruction/index.tsx
 msgid "Complete sign-in in your browser, then return to Anarlog."
+msgstr ""
+
+#: src/settings/general/notification.tsx
+msgid "Completion sound"
 msgstr ""
 
 #: src/composer/index.tsx
@@ -1778,6 +1802,10 @@ msgstr ""
 msgid "Disable"
 msgstr ""
 
+#: src/settings/general/notification.tsx
+msgid "Disable all notifications"
+msgstr ""
+
 #: src/calendar/components/oauth/provider-content.tsx
 #: src/calendar/components/sidebar.tsx
 #: src/imports/screen.tsx
@@ -2260,6 +2288,10 @@ msgstr ""
 
 #: src/chat/components/body/empty.tsx
 msgid "Hi, I'm Anarlog AI. Set up a language model and I'll be ready to help."
+msgstr ""
+
+#: src/settings/general/notification.tsx
+msgid "Hide all notification panels, Dock alerts, and completion sounds."
 msgstr ""
 
 #: src/sidebar/timeline/index.tsx
@@ -3443,6 +3475,10 @@ msgstr ""
 msgid "Plans"
 msgstr ""
 
+#: src/settings/general/notification.tsx
+msgid "Play a sound when transcription, summaries, or cloud sync finish."
+msgstr ""
+
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 msgid "Play from here"
 msgstr ""
@@ -3484,6 +3520,7 @@ msgid "Prevent selected apps from triggering meeting detection."
 msgstr ""
 
 #: src/settings/automations/index.tsx
+#: src/settings/general/notification.tsx
 msgid "Preview"
 msgstr ""
 
@@ -3541,6 +3578,10 @@ msgstr ""
 
 #: src/settings/general/permissions.tsx
 msgid "Read meeting controls and visible chat."
+msgstr ""
+
+#: src/settings/general/notification.tsx
+msgid "Ready"
 msgstr ""
 
 #: src/onboarding/index.tsx
@@ -3618,6 +3659,10 @@ msgstr ""
 
 #: src/session/components/note-input/transcript/actions.ts
 msgid "Recording not found. It may have been deleted."
+msgstr ""
+
+#: src/settings/general/notification.tsx
+msgid "Recording status prompts"
 msgstr ""
 
 #: src/main/windows-title-bar.tsx
@@ -4321,6 +4366,18 @@ msgstr ""
 msgid "Show tray icon"
 msgstr ""
 
+#: src/settings/general/notification.tsx
+msgid "Show when a summary is ready."
+msgstr ""
+
+#: src/settings/general/notification.tsx
+msgid "Show when a transcript is ready."
+msgstr ""
+
+#: src/settings/general/notification.tsx
+msgid "Show when initial cloud sync finishes."
+msgstr ""
+
 #: src/session-sharing/index.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 #: src/settings/sync/index.tsx
@@ -4503,6 +4560,14 @@ msgstr ""
 msgid "Sort options"
 msgstr ""
 
+#: src/settings/general/notification.tsx
+msgid "Sound"
+msgstr ""
+
+#: src/settings/general/notification.tsx
+msgid "Sparkle"
+msgstr ""
+
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "SQLite migration verification is incomplete"
 msgstr ""
@@ -4638,6 +4703,10 @@ msgstr ""
 msgid "Submit callback URL"
 msgstr ""
 
+#: src/settings/general/notification.tsx
+msgid "Success"
+msgstr ""
+
 #: src/main/windows-title-bar.tsx
 msgid "Suggest a Feature"
 msgstr ""
@@ -4658,6 +4727,10 @@ msgstr ""
 #: src/edit/tab-content.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Summary"
+msgstr ""
+
+#: src/settings/general/notification.tsx
+msgid "Summary complete"
 msgstr ""
 
 #: src/templates/auto-form.tsx
@@ -4964,6 +5037,7 @@ msgstr ""
 msgid "Transcription"
 msgstr ""
 
+#: src/settings/general/notification.tsx
 #: src/store/zustand/listener/general-batch.ts
 msgid "Transcription complete"
 msgstr ""

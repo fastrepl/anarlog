@@ -15,21 +15,40 @@ const {
   isFocusedMock,
   isVisibleMock,
   listenMock,
+  playCompletionSoundMock,
+  requestAppAttentionMock,
+  shouldShowNotificationMock,
   showNotificationMock,
   startTranscriptionMock,
 } = vi.hoisted(() => ({
   isFocusedMock: vi.fn(),
   isVisibleMock: vi.fn(),
   listenMock: vi.fn(),
+  playCompletionSoundMock: vi.fn(),
+  requestAppAttentionMock: vi.fn(),
+  shouldShowNotificationMock: vi.fn(),
   showNotificationMock: vi.fn(),
   startTranscriptionMock: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/api/window", () => ({
+  UserAttentionType: { Critical: 1, Informational: 2 },
   getCurrentWindow: () => ({
     isFocused: isFocusedMock,
     isVisible: isVisibleMock,
   }),
+}));
+
+vi.mock("~/shared/completion-sound", () => ({
+  playCompletionSound: playCompletionSoundMock,
+}));
+
+vi.mock("~/shared/app-attention", () => ({
+  requestAppAttention: requestAppAttentionMock,
+}));
+
+vi.mock("~/shared/notification-policy", () => ({
+  shouldShowNotification: shouldShowNotificationMock,
 }));
 
 vi.mock("@anlg/plugin-notification", () => ({
@@ -55,6 +74,9 @@ describe("runBatchSession", () => {
     isFocusedMock.mockResolvedValue(true);
     isVisibleMock.mockResolvedValue(true);
     showNotificationMock.mockResolvedValue({ status: "ok", data: null });
+    playCompletionSoundMock.mockResolvedValue(undefined);
+    requestAppAttentionMock.mockResolvedValue(undefined);
+    shouldShowNotificationMock.mockResolvedValue(true);
   });
 
   test("uses synthetic progress only for blocking batch providers", () => {
@@ -501,11 +523,15 @@ describe("runBatchSession", () => {
   });
 
   test.each([
-    { notifyOnCompletion: undefined, expectedNotifications: 1 },
-    { notifyOnCompletion: false, expectedNotifications: 0 },
+    {
+      notifyOnCompletion: undefined,
+      expectedNotifications: 1,
+      expectedSounds: 1,
+    },
+    { notifyOnCompletion: false, expectedNotifications: 0, expectedSounds: 0 },
   ])(
     "shows $expectedNotifications completion notifications when notifyOnCompletion is $notifyOnCompletion",
-    async ({ notifyOnCompletion, expectedNotifications }) => {
+    async ({ notifyOnCompletion, expectedNotifications, expectedSounds }) => {
       isFocusedMock.mockResolvedValue(false);
 
       const handleBatchStarted = vi.fn();
@@ -586,6 +612,7 @@ describe("runBatchSession", () => {
       );
 
       expect(showNotificationMock).toHaveBeenCalledTimes(expectedNotifications);
+      expect(playCompletionSoundMock).toHaveBeenCalledTimes(expectedSounds);
       if (expectedNotifications === 0) {
         return;
       }

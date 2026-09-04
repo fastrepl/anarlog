@@ -113,6 +113,11 @@ export const SETTING_DEFINITIONS = {
     path: ["general", "microphone_device"],
     default: "" as string,
   },
+  notification_disabled: {
+    type: "boolean",
+    path: ["notification", "disabled"],
+    default: false as boolean,
+  },
   notification_event: {
     type: "boolean",
     path: ["notification", "event"],
@@ -122,6 +127,36 @@ export const SETTING_DEFINITIONS = {
     type: "boolean",
     path: ["notification", "detect"],
     default: true as boolean,
+  },
+  notification_transcription_complete: {
+    type: "boolean",
+    path: ["notification", "transcription_complete"],
+    default: true as boolean,
+  },
+  notification_summary_complete: {
+    type: "boolean",
+    path: ["notification", "summary_complete"],
+    default: true as boolean,
+  },
+  notification_cloudsync_complete: {
+    type: "boolean",
+    path: ["notification", "cloudsync_complete"],
+    default: true as boolean,
+  },
+  notification_recording: {
+    type: "boolean",
+    path: ["notification", "recording"],
+    default: true as boolean,
+  },
+  notification_completion_sound: {
+    type: "boolean",
+    path: ["notification", "completion_sound"],
+    default: true as boolean,
+  },
+  notification_completion_sound_name: {
+    type: "string",
+    path: ["notification", "completion_sound_name"],
+    default: "ready" as string,
   },
   respect_dnd: {
     type: "boolean",

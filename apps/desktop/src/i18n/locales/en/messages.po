@@ -596,6 +596,10 @@ msgstr "Ask Anarlog anything"
 msgid "Ask anything"
 msgstr "Ask anything"
 
+#: src/settings/general/notification.tsx
+msgid "Ask before stopping when a meeting may have ended. When alerts are off, Anarlog keeps listening."
+msgstr "Ask before stopping when a meeting may have ended. When alerts are off, Anarlog keeps listening."
+
 #: src/task/resource-view.tsx
 msgid "Assignees:"
 msgstr "Assignees:"
@@ -709,6 +713,10 @@ msgstr "Best for this Mac"
 #: src/chat/components/body/empty.tsx
 msgid "Beta"
 msgstr "Beta"
+
+#: src/settings/general/notification.tsx
+msgid "Bloom"
+msgstr "Bloom"
 
 #: src/settings/appearance/app-icon.tsx
 msgid "Blueprint"
@@ -861,6 +869,10 @@ msgstr "Checking trial eligibility..."
 msgid "Checking…"
 msgstr "Checking…"
 
+#: src/settings/general/notification.tsx
+msgid "Chime"
+msgstr "Chime"
+
 #. placeholder {0}: provider.name
 #: src/imports/screen.tsx
 msgid "Choose {0} export files"
@@ -950,6 +962,10 @@ msgstr "Choose folder"
 #: src/folders/folder-editor.tsx
 msgid "Choose folder icon"
 msgstr "Choose folder icon"
+
+#: src/settings/general/notification.tsx
+msgid "Choose from five completion sounds."
+msgstr "Choose from five completion sounds."
 
 #: src/settings/appearance/app-icon.tsx
 msgid "Choose how Anarlog appears in the Dock."
@@ -1093,6 +1109,10 @@ msgstr "Cloud sync"
 msgid "Cloud sync and {cloudStorageService} can both change the same files, which can create conflicted copies and incomplete recordings. Move your Anarlog storage location to a folder that {cloudStorageService} does not sync."
 msgstr "Cloud sync and {cloudStorageService} can both change the same files, which can create conflicted copies and incomplete recordings. Move your Anarlog storage location to a folder that {cloudStorageService} does not sync."
 
+#: src/settings/general/notification.tsx
+msgid "Cloud sync complete"
+msgstr "Cloud sync complete"
+
 #: src/main/sync-status.tsx
 msgid "Cloud sync could not start on this device. Open Sync settings to try again."
 msgstr "Cloud sync could not start on this device. Open Sync settings to try again."
@@ -1194,6 +1214,10 @@ msgstr "Company"
 #: src/instruction/index.tsx
 msgid "Complete sign-in in your browser, then return to Anarlog."
 msgstr "Complete sign-in in your browser, then return to Anarlog."
+
+#: src/settings/general/notification.tsx
+msgid "Completion sound"
+msgstr "Completion sound"
 
 #: src/composer/index.tsx
 msgid "Composer"
@@ -1778,6 +1802,10 @@ msgstr "Direct connection is not available yet. You can still bring your history
 msgid "Disable"
 msgstr "Disable"
 
+#: src/settings/general/notification.tsx
+msgid "Disable all notifications"
+msgstr "Disable all notifications"
+
 #: src/calendar/components/oauth/provider-content.tsx
 #: src/calendar/components/sidebar.tsx
 #: src/imports/screen.tsx
@@ -2261,6 +2289,10 @@ msgstr "Help improve Anarlog with anonymous usage data."
 #: src/chat/components/body/empty.tsx
 msgid "Hi, I'm Anarlog AI. Set up a language model and I'll be ready to help."
 msgstr "Hi, I'm Anarlog AI. Set up a language model and I'll be ready to help."
+
+#: src/settings/general/notification.tsx
+msgid "Hide all notification panels, Dock alerts, and completion sounds."
+msgstr "Hide all notification panels, Dock alerts, and completion sounds."
 
 #: src/sidebar/timeline/index.tsx
 msgid "Hide Deleted Events"
@@ -3443,6 +3475,10 @@ msgstr "Plan & Billing"
 msgid "Plans"
 msgstr "Plans"
 
+#: src/settings/general/notification.tsx
+msgid "Play a sound when transcription, summaries, or cloud sync finish."
+msgstr "Play a sound when transcription, summaries, or cloud sync finish."
+
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 msgid "Play from here"
 msgstr "Play from here"
@@ -3484,6 +3520,7 @@ msgid "Prevent selected apps from triggering meeting detection."
 msgstr "Prevent selected apps from triggering meeting detection."
 
 #: src/settings/automations/index.tsx
+#: src/settings/general/notification.tsx
 msgid "Preview"
 msgstr "Preview"
 
@@ -3542,6 +3579,10 @@ msgstr "Read meeting controls and visible chat"
 #: src/settings/general/permissions.tsx
 msgid "Read meeting controls and visible chat."
 msgstr "Read meeting controls and visible chat."
+
+#: src/settings/general/notification.tsx
+msgid "Ready"
+msgstr "Ready"
 
 #: src/onboarding/index.tsx
 msgid "Ready to go"
@@ -3619,6 +3660,10 @@ msgstr "Record your voice in meetings and calls."
 #: src/session/components/note-input/transcript/actions.ts
 msgid "Recording not found. It may have been deleted."
 msgstr "Recording not found. It may have been deleted."
+
+#: src/settings/general/notification.tsx
+msgid "Recording status prompts"
+msgstr "Recording status prompts"
 
 #: src/main/windows-title-bar.tsx
 msgid "Redo"
@@ -4321,6 +4366,18 @@ msgstr "Show This Event"
 msgid "Show tray icon"
 msgstr "Show tray icon"
 
+#: src/settings/general/notification.tsx
+msgid "Show when a summary is ready."
+msgstr "Show when a summary is ready."
+
+#: src/settings/general/notification.tsx
+msgid "Show when a transcript is ready."
+msgstr "Show when a transcript is ready."
+
+#: src/settings/general/notification.tsx
+msgid "Show when initial cloud sync finishes."
+msgstr "Show when initial cloud sync finishes."
+
 #: src/session-sharing/index.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 #: src/settings/sync/index.tsx
@@ -4503,6 +4560,14 @@ msgstr "Sort notes"
 msgid "Sort options"
 msgstr "Sort options"
 
+#: src/settings/general/notification.tsx
+msgid "Sound"
+msgstr "Sound"
+
+#: src/settings/general/notification.tsx
+msgid "Sparkle"
+msgstr "Sparkle"
+
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "SQLite migration verification is incomplete"
 msgstr "SQLite migration verification is incomplete"
@@ -4638,6 +4703,10 @@ msgstr "Storage Updated"
 msgid "Submit callback URL"
 msgstr "Submit callback URL"
 
+#: src/settings/general/notification.tsx
+msgid "Success"
+msgstr "Success"
+
 #: src/main/windows-title-bar.tsx
 msgid "Suggest a Feature"
 msgstr "Suggest a Feature"
@@ -4659,6 +4728,10 @@ msgstr "Summaries"
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Summary"
 msgstr "Summary"
+
+#: src/settings/general/notification.tsx
+msgid "Summary complete"
+msgstr "Summary complete"
 
 #: src/templates/auto-form.tsx
 msgid "Summary format"
@@ -4964,6 +5037,7 @@ msgstr "Transcript"
 msgid "Transcription"
 msgstr "Transcription"
 
+#: src/settings/general/notification.tsx
 #: src/store/zustand/listener/general-batch.ts
 msgid "Transcription complete"
 msgstr "Transcription complete"

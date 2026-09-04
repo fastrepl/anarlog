@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getCloudsyncStatus: vi.fn(),
+  playCompletionSound: vi.fn(),
+  shouldShowNotification: vi.fn(),
   showNotification: vi.fn(),
 }));
 
@@ -13,6 +15,14 @@ vi.mock("@anlg/plugin-notification", () => ({
   commands: {
     showNotification: mocks.showNotification,
   },
+}));
+
+vi.mock("~/shared/completion-sound", () => ({
+  playCompletionSound: mocks.playCompletionSound,
+}));
+
+vi.mock("~/shared/notification-policy", () => ({
+  shouldShowNotification: mocks.shouldShowNotification,
 }));
 
 import {
@@ -53,6 +63,8 @@ describe("CloudSync initial sync progress", () => {
     mocks.getCloudsyncStatus.mockReset();
     mocks.showNotification.mockReset();
     mocks.showNotification.mockResolvedValue({ status: "ok", data: null });
+    mocks.playCompletionSound.mockResolvedValue(undefined);
+    mocks.shouldShowNotification.mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -83,6 +95,7 @@ describe("CloudSync initial sync progress", () => {
         message: "Your Anarlog data is ready on this device.",
       }),
     );
+    expect(mocks.playCompletionSound).toHaveBeenCalledOnce();
   });
 
   it("does not restart monitoring after completion was persisted", () => {

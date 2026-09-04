@@ -247,6 +247,10 @@ vi.mock("~/shared/config", () => ({
   useConfigValue: useConfigValueMock,
 }));
 
+vi.mock("~/shared/completion-sound", () => ({
+  playCompletionSound: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock("~/shared/utils", () => ({
   id: idMock,
 }));

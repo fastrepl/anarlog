@@ -2,6 +2,7 @@ import { t } from "@lingui/core/macro";
 
 import { commands as notificationCommands } from "@anlg/plugin-notification";
 
+import { shouldShowNotification } from "~/shared/notification-policy";
 import { isAppWindowInactive } from "~/shared/window-activity";
 
 const SUMMARY_READY_NOTIFICATION_TIMEOUT_SECONDS = 15;
@@ -17,6 +18,9 @@ export async function showSummaryReadyNotification(
   sessionTitle?: string,
 ) {
   if (!(await isAppWindowInactive())) {
+    return;
+  }
+  if (!(await shouldShowNotification("notification_summary_complete"))) {
     return;
   }
 

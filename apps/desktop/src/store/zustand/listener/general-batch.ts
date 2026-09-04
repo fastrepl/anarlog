@@ -17,6 +17,8 @@ import {
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { requestAppAttention } from "~/shared/app-attention";
+import { playCompletionSound } from "~/shared/completion-sound";
+import { shouldShowNotification } from "~/shared/notification-policy";
 import { isAppWindowInactive } from "~/shared/window-activity";
 import { createBatchCompletedNotificationKey } from "~/stt/batch-completed-notification";
 import { BatchResponseProcessingError } from "~/stt/batch-response-processing-error";
@@ -39,8 +41,15 @@ export async function showBatchCompletedNotification(
   sessionId: string,
   options?: { force?: boolean },
 ) {
-  if (!options?.force && !(await isAppWindowInactive())) {
-    return;
+  if (!options?.force) {
+    if (!(await isAppWindowInactive())) {
+      return;
+    }
+    if (
+      !(await shouldShowNotification("notification_transcription_complete"))
+    ) {
+      return;
+    }
   }
 
   try {
@@ -275,6 +284,7 @@ export const runBatchSession = async <T extends BatchStore>(
 
   if (options?.notifyOnCompletion !== false) {
     await showBatchCompletedNotification(sessionId);
+    void playCompletionSound();
     void requestAppAttention();
   }
 };

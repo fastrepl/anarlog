@@ -37,6 +37,7 @@ import {
   useSessionTranscriptExistence,
 } from "~/session/queries";
 import { requestAppAttention } from "~/shared/app-attention";
+import { playCompletionSound } from "~/shared/completion-sound";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
 import type {
@@ -648,6 +649,7 @@ export function useCaptureLifecycle(sessionId: string) {
           !pendingSummaryMode &&
           (transcriptTouched || preserveExistingTranscript)
         ) {
+          void playCompletionSound();
           void requestAppAttention();
         }
 

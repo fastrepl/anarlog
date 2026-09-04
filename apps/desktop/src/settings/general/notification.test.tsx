@@ -1,10 +1,17 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   clearNotifications: vi.fn(),
   currentPlatform: "macos",
+  previewCompletionSound: vi.fn(),
   setSettingValues: vi.fn(),
   useConfigValues: vi.fn(),
   useQuery: vi.fn(),
@@ -47,11 +54,23 @@ vi.mock("~/shared/config", () => ({
   useConfigValues: mocks.useConfigValues,
 }));
 
+vi.mock("~/shared/completion-sound", () => ({
+  normalizeCompletionSoundName: (value: string) => value,
+  previewCompletionSound: mocks.previewCompletionSound,
+}));
+
 import { NotificationSettingsView } from "./notification";
 
 const baseConfig = {
+  notification_disabled: false,
   notification_event: false,
   notification_detect: true,
+  notification_transcription_complete: true,
+  notification_summary_complete: true,
+  notification_cloudsync_complete: true,
+  notification_recording: true,
+  notification_completion_sound: true,
+  notification_completion_sound_name: "ready",
   notification_bounce: true,
   show_app_in_dock: true,
   respect_dnd: false,
@@ -65,6 +84,7 @@ describe("NotificationSettingsView", () => {
     mocks.clearNotifications.mockReset();
     mocks.currentPlatform = "macos";
     mocks.setSettingValues.mockReset();
+    mocks.previewCompletionSound.mockReset();
     mocks.useConfigValues.mockReset();
     mocks.useConfigValues.mockReturnValue(baseConfig);
     mocks.useQuery.mockImplementation(
@@ -133,5 +153,39 @@ describe("NotificationSettingsView", () => {
     render(<NotificationSettingsView />);
 
     expect(screen.queryByText("Bounce app icon")).toBeNull();
+  });
+
+  it("offers five completion sounds and previews the selected sound", () => {
+    render(<NotificationSettingsView />);
+
+    expect(
+      screen.getByRole("combobox", { name: "Sound" }).textContent,
+    ).toContain("Ready");
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+
+    expect(mocks.previewCompletionSound).toHaveBeenCalledWith("ready");
+  });
+
+  it("disables every notification control with the master switch", () => {
+    render(<NotificationSettingsView />);
+
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Disable all notifications" }),
+    );
+
+    expect(
+      screen
+        .getByRole("switch", { name: "Transcription complete" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
+    expect(
+      screen
+        .getByRole("switch", { name: "Completion sound" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
+    expect(
+      screen.getByRole("combobox", { name: "Sound" }).hasAttribute("disabled"),
+    ).toBe(true);
+    expect(mocks.clearNotifications).toHaveBeenCalled();
   });
 });

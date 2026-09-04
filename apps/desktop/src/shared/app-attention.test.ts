@@ -51,6 +51,16 @@ describe("requestAppAttention", () => {
     expect(mocks.requestUserAttention).not.toHaveBeenCalled();
   });
 
+  it("skips when all notifications are disabled", async () => {
+    mocks.getStoredSettingValues.mockResolvedValue({
+      values: { notification_disabled: true },
+      hasValues: new Set(["notification_disabled"]),
+    });
+
+    await requestAppAttention();
+    expect(mocks.requestUserAttention).not.toHaveBeenCalled();
+  });
+
   it("skips when the app is hidden from the Dock", async () => {
     mocks.getStoredSettingValues.mockResolvedValue({
       values: { show_app_in_dock: false },

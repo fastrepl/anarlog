@@ -8,6 +8,9 @@ import { getStoredSettingValues } from "~/settings/queries";
 export async function requestAppAttention() {
   try {
     const stored = await getStoredSettingValues();
+    if (resolveConfigValue("notification_disabled", stored)) {
+      return;
+    }
     if (!resolveConfigValue("notification_bounce", stored)) {
       return;
     }

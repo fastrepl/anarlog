@@ -1,6 +1,9 @@
 import { getCloudsyncStatus } from "@anlg/plugin-db";
 import { commands as notificationCommands } from "@anlg/plugin-notification";
 
+import { playCompletionSound } from "~/shared/completion-sound";
+import { shouldShowNotification } from "~/shared/notification-policy";
+
 const POLL_INTERVAL_MS = 2_000;
 const COMPLETED_KEY_PREFIX = "anarlog:cloudsync_initial_sync_completed:";
 
@@ -32,7 +35,13 @@ function sleep(ms: number) {
 }
 
 async function showCompletionNotification(userId: string) {
+  void playCompletionSound();
+
   try {
+    if (!(await shouldShowNotification("notification_cloudsync_complete"))) {
+      return;
+    }
+
     const result = await notificationCommands.showNotification({
       key: `cloudsync-initial-sync-complete-${userId}`,
       title: "Cloud sync complete",

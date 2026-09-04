@@ -35,7 +35,7 @@ const {
   clearNotificationsMock: vi.fn(),
   showNotificationMock: vi.fn(),
   useStoreMock: vi.fn(() => null),
-  useConfigValueMock: vi.fn((_key: string) => true),
+  useConfigValueMock: vi.fn((key: string) => key !== "notification_disabled"),
   getNearbyCalendarEventsMock: vi.fn(),
   loadSessionEventMock: vi.fn(),
 }));
@@ -228,7 +228,9 @@ describe("ListenerProvider detect events", () => {
     getNearbyCalendarEventsMock.mockReset();
     loadSessionEventMock.mockReset();
     useStoreMock.mockReturnValue(null);
-    useConfigValueMock.mockReturnValue(true);
+    useConfigValueMock.mockImplementation(
+      (key: string) => key !== "notification_disabled",
+    );
     getNearbyCalendarEventsMock.mockImplementation(readConfiguredNearbyEvents);
     loadSessionEventMock.mockImplementation(readConfiguredSessionEvent);
     listenMock.mockResolvedValue(() => {});
