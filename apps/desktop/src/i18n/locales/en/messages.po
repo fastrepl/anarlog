@@ -785,6 +785,7 @@ msgstr "Can view"
 #: src/settings/general/e2ee-setup.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
 #: src/settings/sync/index.tsx
+#: src/settings/team/index.tsx
 #: src/settings/todo/github.tsx
 #: src/shared/ui/destructive-confirmation-dialog.tsx
 #: src/sidebar/folder-name-dialog.tsx
@@ -3614,6 +3615,7 @@ msgid "Recent activity from this app session."
 msgstr "Recent activity from this app session."
 
 #: src/session-sharing/delivery-panel.tsx
+#: src/settings/team/index.tsx
 msgid "Recipient email"
 msgstr "Recipient email"
 

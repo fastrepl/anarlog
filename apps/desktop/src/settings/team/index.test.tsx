@@ -486,6 +486,46 @@ describe("SettingsTeam", () => {
     );
   });
 
+  it("opens a dialog to invite workspace members", async () => {
+    mocks.workspaces.data = [
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        name: "Fastrepl",
+        ownerUserId: "user-1",
+        role: "owner",
+      },
+    ];
+
+    renderTeam();
+
+    const addMembers = await screen.findByRole("button", {
+      name: "Add members",
+    });
+    expect(screen.queryByPlaceholderText("teammate@company.com")).toBeNull();
+
+    fireEvent.click(addMembers);
+
+    const dialog = screen.getByRole("dialog");
+    const input = within(dialog).getByRole("textbox", {
+      name: "Recipient email",
+    });
+    fireEvent.change(input, { target: { value: "teammate@company.com" } });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Add members" }),
+    );
+
+    await waitFor(() =>
+      expect(mocks.invitation.deliverWorkspaceInvitation).toHaveBeenCalledWith({
+        context: expect.anything(),
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        workspaceName: "Fastrepl",
+        email: "teammate@company.com",
+        senderName: "Owner",
+      }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
   it("shows Enterprise policy controls on Team without allowing them", async () => {
     mocks.workspaces.data = [
       {

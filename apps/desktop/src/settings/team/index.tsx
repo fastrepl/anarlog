@@ -12,6 +12,13 @@ import { useState } from "react";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { openUrlWithInstruction } from "@anlg/plugin-windows";
 import { Button } from "@anlg/ui/components/ui/button";
+import {
+  Dialog,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@anlg/ui/components/ui/dialog";
 import { Input } from "@anlg/ui/components/ui/input";
 import {
   Select,
@@ -66,6 +73,10 @@ import { SettingsPageTitle } from "~/settings/page-title";
 import { PlanGate } from "~/settings/plan-gate";
 import { SettingSwitchRow } from "~/settings/setting-row";
 import { DestructiveConfirmationDialog } from "~/shared/ui/destructive-confirmation-dialog";
+import {
+  GlassDialogCancelButton,
+  GlassDialogContent,
+} from "~/shared/ui/glass-dialog";
 import { buildWebAppUrl } from "~/shared/utils";
 
 export function SettingsTeam() {
@@ -317,6 +328,7 @@ function WorkspacePanel({
   const [email, setEmail] = useState("");
   const [nameDraft, setNameDraft] = useState(workspaceName);
   const [isOpeningBilling, setIsOpeningBilling] = useState(false);
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [isDeleteWorkspaceDialogOpen, setIsDeleteWorkspaceDialogOpen] =
     useState(false);
   const isManager = workspaceRole === "owner" || workspaceRole === "admin";
@@ -400,6 +412,7 @@ function WorkspacePanel({
       }),
     onSuccess: (result) => {
       setEmail("");
+      setIsInviteDialogOpen(false);
       refresh();
       reportWorkspaceInvitation(result.deliveredBy);
     },
@@ -475,7 +488,6 @@ function WorkspacePanel({
     canViewUsage ||
     (canUseEnterpriseCapture && Boolean(env.VITE_ENTERPRISE_API_URL));
   const actionError =
-    invite.error?.message ??
     changeRole.error?.message ??
     remove.error?.message ??
     cancelInvite.error?.message ??
@@ -590,31 +602,17 @@ function WorkspacePanel({
             <Trans>Members</Trans>
           </h2>
           {canManageMembers ? (
-            <form
-              className="flex items-center gap-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (trimmedEmail) invite.mutate(trimmedEmail);
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                invite.reset();
+                setIsInviteDialogOpen(true);
               }}
             >
-              <Input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder={t`teammate@company.com`}
-                className="bg-card h-9 w-56 shadow-none"
-              />
-              <Button
-                type="submit"
-                size="sm"
-                disabled={!trimmedEmail || invite.isPending}
-              >
-                {invite.isPending ? (
-                  <CircleNotch className="size-4 animate-spin" />
-                ) : null}
-                <Trans>Add members</Trans>
-              </Button>
-            </form>
+              <Plus className="size-4" />
+              <Trans>Add members</Trans>
+            </Button>
           ) : null}
         </div>
 
@@ -810,6 +808,78 @@ function WorkspacePanel({
         isPending={destroy.isPending}
         onConfirm={() => destroy.mutate()}
       />
+      <Dialog
+        open={isInviteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && invite.isPending) return;
+          setIsInviteDialogOpen(open);
+          if (!open) {
+            setEmail("");
+            invite.reset();
+          }
+        }}
+      >
+        <GlassDialogContent>
+          <DialogHeader className="items-center gap-2 text-center sm:text-center">
+            <DialogTitle className="text-foreground text-[13px] leading-5 font-semibold tracking-normal">
+              <Trans>Add members</Trans>
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              <Trans>
+                Invite teammates, share notes across the workspace, and manage
+                who has access. Your personal notes stay private.
+              </Trans>
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (trimmedEmail) invite.mutate(trimmedEmail);
+            }}
+          >
+            <Input
+              autoFocus
+              type="email"
+              value={email}
+              disabled={invite.isPending}
+              aria-label={t`Recipient email`}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                invite.reset();
+              }}
+              placeholder={t`teammate@company.com`}
+            />
+            {invite.error ? (
+              <p className="text-destructive pt-2 text-center text-xs">
+                {invite.error.message}
+              </p>
+            ) : null}
+            <DialogFooter className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-2 sm:justify-normal">
+              <GlassDialogCancelButton
+                type="button"
+                disabled={invite.isPending}
+                onClick={() => {
+                  setEmail("");
+                  invite.reset();
+                  setIsInviteDialogOpen(false);
+                }}
+              >
+                <Trans>Cancel</Trans>
+              </GlassDialogCancelButton>
+              <Button
+                type="submit"
+                className="h-8 rounded-full px-4 text-xs font-medium shadow-sm"
+                disabled={!trimmedEmail || invite.isPending}
+              >
+                {invite.isPending ? (
+                  <CircleNotch className="size-4 animate-spin" />
+                ) : null}
+                <Trans>Add members</Trans>
+              </Button>
+            </DialogFooter>
+          </form>
+        </GlassDialogContent>
+      </Dialog>
     </div>
   );
 }
