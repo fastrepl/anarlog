@@ -9,8 +9,10 @@ import { commands as desktopCommands } from "./types/tauri.gen";
 
 type ErrorContextValue = null | boolean | number | string;
 const SAFE_IDENTIFIER_RE = /^[a-zA-Z0-9_.:/-]{1,128}$/;
+const SAFE_STACK_FUNCTION_RE = /^[a-zA-Z0-9_$.[\]<>-]{1,128}$/;
 const ERROR_REPORTING_CONSENT_EVENT = "anlg:error-reporting-consent-changed";
 let errorReportingEnabled = false;
+let sessionReplayAnalyticsEnabled = false;
 let errorReportingConsentRevision = 0;
 
 // Archived Sentry issue types. Local error logs stay; Sentry should not reopen
@@ -92,6 +94,12 @@ function safeIdentifier(value: unknown): string | undefined {
     : undefined;
 }
 
+function safeStackFunction(value: unknown): string | undefined {
+  return typeof value === "string" && SAFE_STACK_FUNCTION_RE.test(value)
+    ? value
+    : undefined;
+}
+
 export function operationalErrorMetadata(error: unknown) {
   if (!error || typeof error !== "object") {
     return { type: "Error" };
@@ -119,75 +127,78 @@ export function normalizeOperationalError(
   error: unknown,
   operation: string,
 ): Error {
-  if (error instanceof Error) return error;
+  const normalized = new Error(`${operation} failed`);
+  const metadata = operationalErrorMetadata(error);
+  normalized.name = metadata.type;
 
-  if (
-    typeof error === "string" ||
-    typeof error === "number" ||
-    typeof error === "boolean"
-  ) {
-    return new Error(`${operation} failed: ${String(error).slice(0, 256)}`);
-  }
-
-  if (error && typeof error === "object") {
-    const record = error as Record<string, unknown>;
-    const details = ["status", "statusCode", "code", "message"]
-      .flatMap((key) => {
-        const value = record[key];
-        return typeof value === "string" ||
-          typeof value === "number" ||
-          typeof value === "boolean"
-          ? [`${key}=${String(value).slice(0, 256)}`]
-          : [];
-      })
-      .join(", ");
-
-    if (details) {
-      return new Error(`${operation} failed (${details})`);
-    }
-  }
-
-  return new Error(`${operation} failed`);
+  return normalized;
 }
 
-function sanitizeUrl(value: string | undefined) {
-  if (!value) return value;
+const SAFE_TAGS = new Set([
+  "anarlog.error.stage",
+  "anarlog.operation",
+  "anarlog.surface",
+  "error.code",
+  "error.type",
+  "http.response.status_code",
+  "service.name",
+  "service.namespace",
+]);
 
-  try {
-    const url = new URL(value);
-    url.search = "";
-    url.hash = "";
-    return url.toString();
-  } catch {
-    return value.split(/[?#]/, 1)[0];
-  }
+type ErrorException = NonNullable<
+  NonNullable<ErrorEvent["exception"]>["values"]
+>[number];
+type ErrorStacktrace = NonNullable<ErrorException["stacktrace"]>;
+
+function sanitizeStacktrace(stacktrace: ErrorStacktrace) {
+  stacktrace.frames = stacktrace.frames?.map((frame) => ({
+    colno: frame.colno,
+    filename: "source",
+    function: safeStackFunction(frame.function),
+    in_app: frame.in_app,
+    lineno: frame.lineno,
+  }));
+  return stacktrace;
 }
 
 export function sanitizeErrorEvent(event: ErrorEvent): ErrorEvent | null {
   if (isDroppedErrorEvent(event)) return null;
 
-  if (event.user) {
-    event.user = event.user.id ? { id: event.user.id } : undefined;
-  }
-
-  if (event.request) {
-    event.request = {
-      method: event.request.method,
-      url: sanitizeUrl(event.request.url),
-    };
-  }
-
+  delete event.user;
+  delete event.request;
+  delete event.contexts;
   delete event.extra;
   delete event.message;
   delete event.logentry;
+  delete event.transaction;
+  event.tags = Object.fromEntries(
+    Object.entries(event.tags ?? {}).filter(
+      ([key, value]) =>
+        SAFE_TAGS.has(key) &&
+        (typeof value === "number" || safeIdentifier(value) !== undefined),
+    ),
+  );
   if (event.exception?.values) {
     event.exception.values = event.exception.values.map((exception) => {
       const sanitized = {
         ...exception,
         value: exception.type ? `${exception.type} captured` : "Error captured",
       };
+      delete sanitized.module;
+      if (sanitized.stacktrace) {
+        sanitized.stacktrace = sanitizeStacktrace(sanitized.stacktrace);
+      }
       if (sanitized.mechanism) {
-        delete sanitized.mechanism.data;
+        const original = sanitized.mechanism;
+        sanitized.mechanism = {
+          type: safeIdentifier(original.type) ?? "generic",
+          ...(original.handled === undefined
+            ? {}
+            : { handled: original.handled }),
+          ...(original.synthetic === undefined
+            ? {}
+            : { synthetic: original.synthetic }),
+        };
       }
       return sanitized;
     });
@@ -197,14 +208,6 @@ export function sanitizeErrorEvent(event: ErrorEvent): ErrorEvent | null {
     level: breadcrumb.level,
     timestamp: breadcrumb.timestamp,
     type: breadcrumb.type,
-    ...(breadcrumb.category === "navigation"
-      ? {
-          data: {
-            from: sanitizeUrl(String(breadcrumb.data?.from ?? "")),
-            to: sanitizeUrl(String(breadcrumb.data?.to ?? "")),
-          },
-        }
-      : {}),
   }));
 
   return event;
@@ -266,11 +269,16 @@ function applyErrorReportingConsent(enabled: boolean) {
   errorReportingEnabled = enabled;
   Sentry.getCurrentScope().clearBreadcrumbs();
 
-  if (enabled) {
+  if (enabled && sessionReplayAnalyticsEnabled) {
     startSessionReplay();
   } else {
     stopSessionReplay();
   }
+}
+
+export function setSessionReplayAnalyticsEnabled(enabled: boolean) {
+  sessionReplayAnalyticsEnabled = enabled;
+  applyErrorReportingConsent(errorReportingEnabled);
 }
 
 function startSessionReplay() {
@@ -366,6 +374,6 @@ export function captureOperationalError(
   });
 }
 
-export function setErrorReportingUser(userId: string | null) {
-  Sentry.setUser(userId ? { id: userId } : null);
+export function setErrorReportingUser(_userId: string | null) {
+  Sentry.setUser(null);
 }

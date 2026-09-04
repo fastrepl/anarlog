@@ -18,21 +18,22 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tracing<'a, R, M> {
     }
 
     pub fn do_log(&self, level: Level, data: Vec<serde_json::Value>) -> Result<(), crate::Error> {
+        let argument_count = data.len();
         match level {
             Level::Trace => {
-                tracing::trace!(target: super::WEBVIEW_CONSOLE_TARGET, "{:?}", data);
+                tracing::trace!(target: super::WEBVIEW_CONSOLE_TARGET, argument_count, "webview_console_event");
             }
             Level::Debug => {
-                tracing::debug!(target: super::WEBVIEW_CONSOLE_TARGET, "{:?}", data);
+                tracing::debug!(target: super::WEBVIEW_CONSOLE_TARGET, argument_count, "webview_console_event");
             }
             Level::Info => {
-                tracing::info!(target: super::WEBVIEW_CONSOLE_TARGET, "{:?}", data);
+                tracing::info!(target: super::WEBVIEW_CONSOLE_TARGET, argument_count, "webview_console_event");
             }
             Level::Warn => {
-                tracing::warn!(target: super::WEBVIEW_CONSOLE_TARGET, "{:?}", data);
+                tracing::warn!(target: super::WEBVIEW_CONSOLE_TARGET, argument_count, "webview_console_event");
             }
             Level::Error => {
-                tracing::error!(target: super::WEBVIEW_CONSOLE_TARGET, "{:?}", data);
+                tracing::error!(target: super::WEBVIEW_CONSOLE_TARGET, argument_count, "webview_console_event");
             }
         }
         Ok(())

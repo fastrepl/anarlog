@@ -59,7 +59,40 @@ export function isUserError(value) {
 export function isUserErrorEvent(event) {
   if (typeof event !== "object" || event === null) return isUserError(event);
 
-  return ["message", "logentry", "exception", "extra", "tags", "contexts"].some(
-    (key) => isUserError(Reflect.get(event, key)),
+  const logentry = Reflect.get(event, "logentry");
+  const exception = Reflect.get(event, "exception");
+  const exceptionValues =
+    typeof exception === "object" && exception !== null
+      ? Reflect.get(exception, "values")
+      : undefined;
+  const tags = Reflect.get(event, "tags");
+  const contexts = Reflect.get(event, "contexts");
+
+  return (
+    [
+      Reflect.get(event, "message"),
+      typeof logentry === "object" && logentry !== null
+        ? Reflect.get(logentry, "message")
+        : undefined,
+      typeof logentry === "object" && logentry !== null
+        ? Reflect.get(logentry, "params")
+        : undefined,
+      Reflect.get(event, "extra"),
+      typeof tags === "object" && tags !== null
+        ? Object.values(tags)
+        : undefined,
+      typeof contexts === "object" && contexts !== null
+        ? Reflect.get(contexts, "anarlog.operation")
+        : undefined,
+    ].some(isUserError) ||
+    (Array.isArray(exceptionValues) &&
+      exceptionValues.some(
+        (value) =>
+          typeof value === "object" &&
+          value !== null &&
+          [Reflect.get(value, "type"), Reflect.get(value, "value")].some(
+            isUserError,
+          ),
+      ))
   );
 }

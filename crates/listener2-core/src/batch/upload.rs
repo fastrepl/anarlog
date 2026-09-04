@@ -45,8 +45,11 @@ pub(super) async fn split_batch_upload(
         message: message.to_string(),
     };
 
-    let temp_dir = tempfile::tempdir().map_err(|error| {
-        tracing::error!(%error, "batch_audio_segment_temp_dir_failed");
+    let temp_dir = tempfile::tempdir().map_err(|_error| {
+        tracing::error!(
+            error.type = "temp_dir_create_failed",
+            "batch_audio_segment_temp_dir_failed"
+        );
         failure("Anarlog couldn't prepare this recording for transcription.")
     })?;
 
@@ -56,12 +59,18 @@ pub(super) async fn split_batch_upload(
         anlg_mp3::encode_mono_segments(&source, &output_dir, segment_duration)
     })
     .await
-    .map_err(|error| {
-        tracing::error!(%error, "batch_audio_segment_task_failed");
+    .map_err(|_error| {
+        tracing::error!(
+            error.type = "local_task_join_failed",
+            "batch_audio_segment_task_failed"
+        );
         failure("Anarlog couldn't prepare this recording for transcription.")
     })?
-    .map_err(|error| {
-        tracing::error!(%error, "batch_audio_segment_failed");
+    .map_err(|_error| {
+        tracing::error!(
+            error.type = "audio_encode_failed",
+            "batch_audio_segment_failed"
+        );
         failure("Anarlog couldn't split this recording for transcription.")
     })?;
 

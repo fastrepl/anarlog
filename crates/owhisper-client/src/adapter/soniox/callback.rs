@@ -39,10 +39,12 @@ async fn process(
         .await
         .map_err(|e| Error::provider_failure(e.message, e.is_retryable))?;
 
-    if let Err(e) = soniox::delete_transcription(client, &callback.id, api_key).await {
+    if soniox::delete_transcription(client, &callback.id, api_key)
+        .await
+        .is_err()
+    {
         tracing::warn!(
-            anarlog.stt.job.id = %callback.id,
-            error = %e,
+            error.type = "provider_cleanup_failed",
             "failed_to_delete_soniox_transcription"
         );
     }

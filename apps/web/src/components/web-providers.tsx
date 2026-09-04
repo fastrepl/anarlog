@@ -58,7 +58,13 @@ function GoogleAnalyticsScript() {
           analyticsWindow.dataLayer?.push(arguments);
         };
       analyticsWindow.gtag("js", new Date());
-      analyticsWindow.gtag("config", GOOGLE_ANALYTICS_ID);
+      analyticsWindow.gtag("config", GOOGLE_ANALYTICS_ID, {
+        send_page_view: false,
+      });
+      analyticsWindow.gtag("event", "page_view", {
+        page_location: `${window.location.origin}${window.location.pathname}`,
+        page_path: window.location.pathname,
+      });
 
       const script = document.createElement("script");
       script.id = GOOGLE_TAG_ID;

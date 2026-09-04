@@ -38,12 +38,7 @@ async fn spawn_argmax_progressive_batch_task(
 > {
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
-    let span = tracing::info_span!(
-        "argmax_progressive_batch",
-        anarlog.session.id = %args.session_id,
-        url.full = %args.base_url,
-        anarlog.file.path = %args.file_path,
-    );
+    let span = tracing::info_span!("argmax_progressive_batch");
 
     let rx_task = tokio::spawn(
         async move {
@@ -102,12 +97,7 @@ async fn spawn_whispercpp_batch_task(
 > {
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
-    let span = tracing::info_span!(
-        "whispercpp_progressive_batch",
-        anarlog.session.id = %args.session_id,
-        url.full = %args.base_url,
-        anarlog.file.path = %args.file_path,
-    );
+    let span = tracing::info_span!("whispercpp_progressive_batch");
 
     let rx_task = tokio::spawn(
         async move {
@@ -161,12 +151,7 @@ async fn spawn_openai_batch_task(
 > {
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
-    let span = tracing::info_span!(
-        "openai_progressive_batch",
-        anarlog.session.id = %args.session_id,
-        url.full = %args.base_url,
-        anarlog.file.path = %args.file_path,
-    );
+    let span = tracing::info_span!("openai_progressive_batch");
 
     let rx_task = tokio::spawn(
         async move {

@@ -34,7 +34,6 @@ impl AnalyticsReporter for AnalyticsClient {
                 .with("$ai_input_tokens", event.input_tokens)
                 .with("$ai_output_tokens", event.output_tokens)
                 .with("$ai_latency", event.latency)
-                .with("$ai_trace_id", event.generation_id.clone())
                 .with("$ai_http_status", event.http_status)
                 .with("$ai_base_url", event.base_url.clone());
 
@@ -53,14 +52,11 @@ impl AnalyticsReporter for AnalyticsClient {
             };
 
             let distinct_id = event.fingerprint.unwrap_or_else(|| {
-                tracing::warn!(
-                    gen_ai.response.id = %event.generation_id,
-                    "device_fingerprint missing, falling back to generation_id for distinct_id"
-                );
+                tracing::warn!("device_fingerprint missing, using an ephemeral analytics id");
                 event.generation_id.clone()
             });
-            if let Err(e) = self.event(distinct_id, payload.build()).await {
-                tracing::warn!("analytics event error: {e}");
+            if self.event(distinct_id, payload.build()).await.is_err() {
+                tracing::warn!(error.type = "analytics_delivery_failed", "analytics event failed");
             }
         })
     }

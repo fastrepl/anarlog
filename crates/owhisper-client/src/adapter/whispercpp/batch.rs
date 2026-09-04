@@ -23,11 +23,7 @@ impl WhisperCppAdapter {
         file_path: impl AsRef<Path>,
     ) -> Result<StreamingBatchStream, Error> {
         let path = file_path.as_ref().to_path_buf();
-        tracing::info!(
-            anarlog.file.path = %path.display(),
-            url.full = %api_base,
-            "starting_whispercpp_batch_stream"
-        );
+        tracing::info!("starting_whispercpp_batch_stream");
 
         let metadata_path = path.clone();
         let (content_type, audio_duration_secs) =
@@ -312,10 +308,11 @@ impl<S> SseParserState<S> {
             BATCH_EVENT => {
                 let msg: BatchSseMessage = match serde_json::from_str(&data) {
                     Ok(m) => m,
-                    Err(e) => {
+                    Err(_error) => {
                         tracing::warn!(
-                            raw_data = %data,
-                            "failed to parse batch SSE event: {e}"
+                            error.type = "invalid_provider_payload",
+                            anarlog.payload.size_bytes = data.len() as u64,
+                            "whispercpp_batch_event_parse_failed"
                         );
                         return None;
                     }
@@ -326,7 +323,7 @@ impl<S> SseParserState<S> {
                     BatchSseMessage::Segment { response } => self.handle_segment(response),
                     BatchSseMessage::Result { response } => self.handle_result(response),
                     BatchSseMessage::Error { detail, .. } => {
-                        tracing::error!(detail = %detail, "server returned error event");
+                        crate::log_provider_failure("whispercpp", "provider_error", None, &detail);
                         Some(Err(Error::WebSocket(format!("server error: {}", detail))))
                     }
                 }
@@ -334,8 +331,12 @@ impl<S> SseParserState<S> {
             "progress" => {
                 let progress: InferenceProgress = match serde_json::from_str(&data) {
                     Ok(p) => p,
-                    Err(e) => {
-                        tracing::warn!(raw_data = %data, "failed to parse progress event: {e}");
+                    Err(_error) => {
+                        tracing::warn!(
+                            error.type = "invalid_provider_payload",
+                            anarlog.payload.size_bytes = data.len() as u64,
+                            "whispercpp_progress_event_parse_failed"
+                        );
                         return None;
                     }
                 };
@@ -344,8 +345,12 @@ impl<S> SseParserState<S> {
             "segment" => {
                 let response: StreamResponse = match serde_json::from_str(&data) {
                     Ok(r) => r,
-                    Err(e) => {
-                        tracing::warn!(raw_data = %data, "failed to parse segment event: {e}");
+                    Err(_error) => {
+                        tracing::warn!(
+                            error.type = "invalid_provider_payload",
+                            anarlog.payload.size_bytes = data.len() as u64,
+                            "whispercpp_segment_event_parse_failed"
+                        );
                         return None;
                     }
                 };
@@ -355,10 +360,14 @@ impl<S> SseParserState<S> {
                 let batch_response: owhisper_interface::batch::Response =
                     match serde_json::from_str(&data) {
                         Ok(r) => r,
-                        Err(e) => {
-                            tracing::error!(raw_data = %data, "failed to parse result event: {e}");
+                        Err(error) => {
+                            tracing::error!(
+                                error.type = "invalid_provider_payload",
+                                anarlog.payload.size_bytes = data.len() as u64,
+                                "whispercpp_result_event_parse_failed"
+                            );
                             return Some(Err(Error::WebSocket(format!(
-                                "failed to parse result: {e}"
+                                "failed to parse result: {error}"
                             ))));
                         }
                     };
@@ -371,7 +380,7 @@ impl<S> SseParserState<S> {
                     .get("detail")
                     .and_then(|v| v.as_str())
                     .unwrap_or("unknown error");
-                tracing::error!(detail = %detail, raw_data = %data, "server returned error event");
+                crate::log_provider_failure("whispercpp", "provider_error", None, detail);
                 Some(Err(Error::WebSocket(format!("server error: {}", detail))))
             }
             _ => None,

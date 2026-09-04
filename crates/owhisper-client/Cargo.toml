@@ -14,6 +14,7 @@ anlg-language = { workspace = true }
 anlg-observability = { workspace = true }
 anlg-transcribe-soniqo = { workspace = true, optional = true }
 anlg-transcribe-speechanalyzer = { workspace = true, optional = true }
+anlg-user-error = { workspace = true }
 anlg-ws-client = { workspace = true }
 soniox = { workspace = true }
 

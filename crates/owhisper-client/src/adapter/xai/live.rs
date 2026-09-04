@@ -94,9 +94,9 @@ impl RealtimeSttAdapter for XaiAdapter {
     fn parse_response(&self, raw: &str) -> Vec<StreamResponse> {
         let event: XaiEvent = match serde_json::from_str(raw) {
             Ok(event) => event,
-            Err(error) => {
+            Err(_error) => {
                 tracing::warn!(
-                    error = ?error,
+                    error.type = "invalid_provider_payload",
                     anarlog.payload.size_bytes = raw.len() as u64,
                     "xai_json_parse_failed"
                 );

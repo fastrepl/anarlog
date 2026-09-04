@@ -25,18 +25,17 @@ impl SonioxAdapter {
             .unwrap_or("audio.wav")
             .to_string();
 
-        tracing::info!(anarlog.file.path = %file_path.display(), "uploading_file_to_soniox");
+        tracing::info!("uploading_file_to_soniox");
         let file_id = upload_file(&client, file_path, file_name, api_key).await?;
 
-        tracing::info!(anarlog.file.id = %file_id, "soniox_file_uploaded");
+        tracing::info!("soniox_file_uploaded");
         let result = Self::transcribe_and_fetch(&client, api_key, params, &file_id).await;
 
-        if let Err(e) = soniox::delete_file(&client, &file_id, api_key).await {
-            tracing::warn!(
-                anarlog.file.id = %file_id,
-                error = %e,
-                "failed_to_delete_soniox_file"
-            );
+        if soniox::delete_file(&client, &file_id, api_key)
+            .await
+            .is_err()
+        {
+            tracing::warn!(error.type = "provider_cleanup_failed", "failed_to_delete_soniox_file");
         }
 
         result
@@ -72,19 +71,13 @@ impl SonioxAdapter {
         let transcription_id = soniox::create_transcription(client, &body, api_key)
             .await
             .map_err(soniox_err)?;
-        tracing::info!(
-            anarlog.stt.job.id = %transcription_id,
-            "soniox_transcription_created"
-        );
+        tracing::info!("soniox_transcription_created");
 
         let result = async {
             soniox::wait_for_completion(client, &transcription_id, api_key)
                 .await
                 .map_err(soniox_err)?;
-            tracing::info!(
-                anarlog.stt.job.id = %transcription_id,
-                "soniox_transcription_completed"
-            );
+            tracing::info!("soniox_transcription_completed");
 
             let transcript = soniox::fetch_transcript(client, &transcription_id, api_key)
                 .await
@@ -95,10 +88,12 @@ impl SonioxAdapter {
         }
         .await;
 
-        if let Err(e) = soniox::delete_transcription(client, &transcription_id, api_key).await {
+        if soniox::delete_transcription(client, &transcription_id, api_key)
+            .await
+            .is_err()
+        {
             tracing::warn!(
-                anarlog.stt.job.id = %transcription_id,
-                error = %e,
+                error.type = "provider_cleanup_failed",
                 "failed_to_delete_soniox_transcription"
             );
         }

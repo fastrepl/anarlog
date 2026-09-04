@@ -14,7 +14,8 @@ use anlg_audio_utils::Source;
 use anlg_transcribe_core::TARGET_SAMPLE_RATE;
 
 use super::super::{
-    BatchParams, BatchRunMode, BatchRunOutput, format_user_friendly_error, session_span,
+    BatchParams, BatchRunMode, BatchRunOutput, format_user_friendly_error, log_batch_failure,
+    session_span,
 };
 use crate::{BatchEvent, BatchRuntime};
 
@@ -196,12 +197,7 @@ pub(in crate::batch) async fn run_apple_speech_batch(
         })?
         .map_err(|e| {
             let message = format_user_friendly_error(&e);
-            tracing::error!(
-                anarlog.stt.provider.name = "apple-speech",
-                error = %e,
-                anarlog.error.user_message = %message,
-                "apple_speech_batch_failed"
-            );
+            log_batch_failure("apple_speech_batch", &e);
             crate::BatchFailure::DirectRequestFailed {
                 provider: "apple-speech".to_string(),
                 message,
@@ -325,27 +321,21 @@ pub(in crate::batch) async fn run_soniqo_batch(
             )
         })
         .await
-        .map_err(|e| {
+        .map_err(|_e| {
             tracing::error!(
                 anarlog.stt.provider.name = "soniqo",
                 anarlog.stt.model = %model,
-                error = %e,
+                error.type = "local_task_join_failed",
                 "soniqo_batch_task_join_failed"
             );
             crate::BatchFailure::DirectRequestFailed {
                 provider: "soniqo".to_string(),
-                message: format!("Soniqo transcription task failed: {e}"),
+                message: "Soniqo transcription task failed.".to_string(),
             }
         })?
         .map_err(|e| {
             let message = format_user_friendly_error(&e);
-            tracing::error!(
-                anarlog.stt.provider.name = "soniqo",
-                anarlog.stt.model = %model,
-                error = %e,
-                anarlog.error.user_message = %message,
-                "soniqo_batch_failed"
-            );
+            log_batch_failure("soniqo_batch", &e);
             crate::BatchFailure::DirectRequestFailed {
                 provider: "soniqo".to_string(),
                 message,
@@ -730,11 +720,11 @@ where
                 successful_channels += 1;
                 output.push(transcript);
             }
-            Err(error) => {
+            Err(_error) => {
                 failed_channels += 1;
                 tracing::warn!(
                     anarlog.stt.provider.name = "soniqo",
-                    error = %error,
+                    error.type = "channel_transcription_failed",
                     "soniqo_channel_transcription_failed"
                 );
                 output.push(anlg_transcribe_soniqo::FileTranscript::new(
@@ -873,14 +863,14 @@ fn diarize_soniqo_channel(
             );
             segments
         }
-        Err(error) => {
+        Err(_error) => {
             tracing::warn!(
                 anarlog.stt.provider.name = "soniqo",
                 anarlog.stt.model = %model,
                 channel.index = channel_index,
                 speaker.count = speaker_count,
                 elapsed_ms = started_at.elapsed().as_millis() as u64,
-                error = %error,
+                error.type = "local_diarization_failed",
                 "soniqo_channel_diarization_failed"
             );
             Vec::new()
@@ -978,7 +968,7 @@ where
                 successful_chunks += 1;
                 transcript.text
             }
-            Err(e) => {
+            Err(_error) => {
                 failed_chunks += 1;
                 tracing::warn!(
                     anarlog.stt.provider.name = "soniqo",
@@ -986,7 +976,7 @@ where
                     channel.index = channel_index,
                     chunk.index = chunk_index,
                     elapsed_ms = chunk_started_at.elapsed().as_millis() as u64,
-                    error = %e,
+                    error.type = "local_inference_failed",
                     "soniqo_chunk_native_inference_failed"
                 );
                 continue;

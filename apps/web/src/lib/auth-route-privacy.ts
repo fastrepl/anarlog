@@ -17,6 +17,7 @@ const AUTH_PRIVATE_PATHS = new Set([
   "/reset-password",
   "/update-password",
 ]);
+const TELEMETRY_PRIVATE_PREFIXES = ["/app", "/oauth"] as const;
 
 type SearchValue =
   | string
@@ -31,7 +32,12 @@ export function isTelemetryPrivateLocation(
   const canonicalPathname = canonicalPath(pathname);
   if (
     isShareRoutePathname(canonicalPathname) ||
-    AUTH_PRIVATE_PATHS.has(canonicalPathname)
+    AUTH_PRIVATE_PATHS.has(canonicalPathname) ||
+    TELEMETRY_PRIVATE_PREFIXES.some(
+      (prefix) =>
+        canonicalPathname === prefix ||
+        canonicalPathname.startsWith(`${prefix}/`),
+    )
   ) {
     return true;
   }
@@ -63,15 +69,6 @@ export function prepareAuthRoutePrivacy(now = Date.now()) {
     return;
   }
 
-  try {
-    window.sessionStorage.setItem(
-      AUTH_HANDOFF_STORAGE_KEY,
-      JSON.stringify({ accessToken, refreshToken, storedAt: now }),
-    );
-  } catch {
-    return;
-  }
-
   params.set("handoff", "stored");
   for (const key of AUTH_HANDOFF_SEARCH_KEYS) {
     params.delete(key);
@@ -83,6 +80,13 @@ export function prepareAuthRoutePrivacy(now = Date.now()) {
     "",
     `${pathname}${sanitizedSearch ? `?${sanitizedSearch}` : ""}${hash}`,
   );
+
+  try {
+    window.sessionStorage.setItem(
+      AUTH_HANDOFF_STORAGE_KEY,
+      JSON.stringify({ accessToken, refreshToken, storedAt: now }),
+    );
+  } catch {}
 }
 
 export function consumeDesktopAuthHandoff(now = Date.now()) {

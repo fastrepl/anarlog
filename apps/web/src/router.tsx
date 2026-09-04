@@ -34,13 +34,7 @@ export function getRouter() {
         : undefined,
       sendDefaultPii: false,
       tracePropagationTargets: [],
-      beforeSend: (event) =>
-        isTelemetryPrivateLocation(
-          window.location.pathname,
-          window.location.search,
-        )
-          ? null
-          : filterErrorEvent(event),
+      beforeSend: filterErrorEvent,
       beforeSendTransaction: (event) =>
         isTelemetryPrivateLocation(
           window.location.pathname,

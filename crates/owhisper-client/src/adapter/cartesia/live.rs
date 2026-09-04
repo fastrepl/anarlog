@@ -59,9 +59,9 @@ impl RealtimeSttAdapter for CartesiaAdapter {
     fn parse_response(&self, raw: &str) -> Vec<StreamResponse> {
         let event: CartesiaEvent = match serde_json::from_str(raw) {
             Ok(event) => event,
-            Err(error) => {
+            Err(_error) => {
                 tracing::warn!(
-                    error = ?error,
+                    error.type = "invalid_provider_payload",
                     anarlog.payload.size_bytes = raw.len() as u64,
                     "cartesia_json_parse_failed"
                 );
@@ -70,8 +70,8 @@ impl RealtimeSttAdapter for CartesiaAdapter {
         };
 
         match event {
-            CartesiaEvent::Connected { request_id } => {
-                tracing::debug!(request.id = %request_id, "cartesia_connected");
+            CartesiaEvent::Connected { request_id: _ } => {
+                tracing::debug!("cartesia_connected");
                 vec![]
             }
             CartesiaEvent::TurnStart { .. } => vec![StreamResponse::SpeechStartedResponse {

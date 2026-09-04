@@ -9,7 +9,9 @@ use ractor::{
 use tracing::Instrument;
 
 use super::super::accumulator::StreamBatchAccumulator;
-use super::super::{BatchParams, BatchRunOutput, format_user_friendly_error, session_span};
+use super::super::{
+    BatchParams, BatchRunOutput, format_user_friendly_error, log_batch_failure, session_span,
+};
 use super::ProgressiveProvider;
 use super::bootstrap::{notify_start_result, spawn_progressive_batch_task};
 use crate::{BatchEvent, BatchRuntime};
@@ -55,11 +57,7 @@ pub(super) async fn run_progressive_batch(
             Err(err) => {
                 let raw_error = format!("{err:?}");
                 let message = format_user_friendly_error(&raw_error);
-                tracing::error!(
-                    error = %raw_error,
-                    anarlog.error.user_message = %message,
-                    "batch supervisor spawn failed"
-                );
+                log_batch_failure("progressive_actor_spawn", &raw_error);
                 return Err(crate::BatchFailure::ProgressiveActorSpawnFailed {
                     provider: provider_label.clone(),
                     message,
@@ -83,7 +81,7 @@ pub(super) async fn run_progressive_batch(
         match start_rx.await {
             Ok(Ok(())) => {}
             Ok(Err(err)) => {
-                tracing::error!("batch actor reported start failure: {err}");
+                log_batch_failure("progressive_actor_start", &err.to_string());
                 return Err(err);
             }
             Err(_) => {
@@ -245,12 +243,12 @@ impl Actor for BatchActor {
                 let _ = reply.send(());
             }
             BatchMsg::StreamStartFailed(error) => {
-                tracing::error!("batch_stream_start_failed: {}", error);
+                log_batch_failure("progressive_stream_start", &error.to_string());
                 state.final_result = Some(Err(error.clone().into()));
-                myself.stop(Some(format!("batch_stream_start_failed: {}", error)));
+                myself.stop(Some("batch_stream_start_failed".to_string()));
             }
             BatchMsg::StreamError(error) => {
-                tracing::error!("batch_stream_error: {}", error);
+                log_batch_failure("progressive_stream", &error.to_string());
                 state.final_result = Some(Err(error.clone().into()));
                 myself.stop(None);
             }
@@ -304,11 +302,7 @@ pub(super) fn report_stream_start_failure(
         message: message.clone(),
     };
 
-    tracing::error!(
-        error = %raw_error,
-        anarlog.error.user_message = %message,
-        "{context}"
-    );
+    log_batch_failure(context, &raw_error);
     report_start_failure(myself, notifier, failure.into(), context);
 }
 
@@ -320,7 +314,7 @@ pub(super) fn report_start_failure(
     error: crate::Error,
     context: &str,
 ) {
-    tracing::error!(error = %error, "{context}");
+    log_batch_failure(context, &error.to_string());
 
     let failure = match error {
         crate::Error::BatchFailed(failure) => failure,
@@ -407,13 +401,8 @@ async fn process_stream_loop<S, Item, E, F>(
                         if let Some((provider, error_message, error_code)) =
                             provider_error_from_event(&event)
                         {
-                            tracing::error!(
-                                anarlog.stt.provider.name = %provider,
-                                error.code = ?error_code,
-                                error = %error_message,
-                                anarlog.response.count = response_count,
-                                "{context} received provider error response"
-                            );
+                            let _ = error_code;
+                            log_batch_failure(context, error_message);
                             let message = format_user_friendly_error(error_message);
                             send_actor_message(
                                 &myself,
@@ -468,12 +457,7 @@ async fn process_stream_loop<S, Item, E, F>(
                     Ok(Some(Err(err))) => {
                         let raw_error = format!("{err:?}");
                         let message = format_user_friendly_error(&raw_error);
-                        tracing::error!(
-                            error = %raw_error,
-                            anarlog.error.user_message = %message,
-                            anarlog.response.count = response_count,
-                            "{context} stream error"
-                        );
+                        log_batch_failure(context, &raw_error);
                         send_actor_message(
                             &myself,
                             BatchMsg::StreamError(crate::BatchFailure::ProgressiveStreamError {
@@ -541,10 +525,12 @@ fn send_actor_message(
     context: &str,
     message_kind: &str,
 ) {
-    if let Err(err) = myself.send_message(message) {
+    if let Err(_error) = myself.send_message(message) {
         tracing::error!(
-            "{context}: failed to send {message_kind} message: {:?}",
-            err
+            anarlog.operation = context,
+            anarlog.message.kind = message_kind,
+            error.type = "actor_message_delivery_failed",
+            "progressive_actor_message_delivery_failed"
         );
     }
 }

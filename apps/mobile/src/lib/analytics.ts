@@ -12,11 +12,34 @@ const DISTINCT_ID_KEY = "anarlog:analytics:distinct-id";
 const SESSION_TIMEOUT_MS = 30 * 60 * 1_000;
 const appVersion = Constants.expoConfig?.version ?? "unknown";
 const enabled = Boolean(env.posthogApiKey) && !__DEV__;
+const SENSITIVE_PROPERTY_KEYS = new Set([
+  "account_id",
+  "body",
+  "content",
+  "email",
+  "error",
+  "file_path",
+  "full_name",
+  "message",
+  "name",
+  "note_title",
+  "path",
+  "prompt",
+  "query",
+  "request",
+  "response",
+  "team_id",
+  "text",
+  "transcript",
+  "url",
+  "user_id",
+]);
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const SAFE_EVENT_NAME_PATTERN = /^[a-z0-9_$.-]+$/i;
 
 let anonymousIdPromise: Promise<string> | null = null;
-let identifiedUserId: string | null = null;
-let accountId: string | null = null;
-let identityGeneration = 0;
 let sessionId = randomUUID();
 let lastEventAt = Date.now();
 let lifecycleStarted = false;
@@ -44,6 +67,52 @@ function currentSessionId() {
   return sessionId;
 }
 
+function sanitizeAnalyticsProperties(properties: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(properties).filter(([key, value]) => {
+      const normalizedKey = key.toLowerCase();
+      return (
+        !SENSITIVE_PROPERTY_KEYS.has(normalizedKey) &&
+        !normalizedKey.endsWith("_email") &&
+        !normalizedKey.endsWith("_id") &&
+        !normalizedKey.endsWith("_path") &&
+        !normalizedKey.endsWith("_url") &&
+        isSafeAnalyticsValue(key, value)
+      );
+    }),
+  );
+}
+
+function isSafeAnalyticsValue(key: string, value: unknown): boolean {
+  if (value === null || typeof value === "boolean") return true;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "string") {
+    const allowsPath = key === "$screen_name";
+    return (
+      value.length > 0 &&
+      value.length <= 96 &&
+      !EMAIL_PATTERN.test(value) &&
+      !UUID_PATTERN.test(value) &&
+      (allowsPath
+        ? /^[a-z0-9_.:{}<>/-]+$/i.test(value)
+        : /^[a-z0-9_.:{}<>-]+$/i.test(value)) &&
+      !(value.length >= 32 && /^[a-z0-9_-]+$/i.test(value))
+    );
+  }
+  if (Array.isArray(value)) {
+    return value.every((item) => isSafeAnalyticsValue(key, item));
+  }
+  return false;
+}
+
+function sanitizeAnalyticsEventName(event: string) {
+  return event.length > 0 &&
+    event.length <= 64 &&
+    SAFE_EVENT_NAME_PATTERN.test(event)
+    ? event
+    : "analytics_event";
+}
+
 async function sendAnalytics(
   event: string,
   properties: Record<string, unknown> = {},
@@ -54,20 +123,18 @@ async function sendAnalytics(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 1_000);
   try {
-    const resolvedDistinctId =
-      distinctId ?? identifiedUserId ?? (await getAnonymousId());
+    const resolvedDistinctId = distinctId ?? (await getAnonymousId());
     await fetch(`${env.posthogHost.replace(/\/+$/, "")}/capture/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: controller.signal,
       body: JSON.stringify({
         api_key: env.posthogApiKey,
-        event,
+        event: sanitizeAnalyticsEventName(event),
         properties: {
-          ...properties,
+          ...sanitizeAnalyticsProperties(properties),
           distinct_id: resolvedDistinctId,
           $session_id: currentSessionId(),
-          ...(accountId ? { $groups: { account: accountId } } : {}),
           surface: "mobile",
           build_variant: env.appVariant,
           analytics_schema_version: 1,
@@ -90,46 +157,31 @@ export function captureAnalytics(
 
 export function screenAnalytics(pathname: string) {
   captureAnalytics("$screen", {
-    $screen_name: pathname,
+    $screen_name: pathname
+      .split("/")
+      .map((segment) => {
+        let decoded = segment;
+        try {
+          decoded = decodeURIComponent(segment);
+        } catch {
+          return ":id";
+        }
+        return UUID_PATTERN.test(decoded) ||
+          EMAIL_PATTERN.test(decoded) ||
+          /^\d{6,}$/.test(decoded) ||
+          decoded.length > 32
+          ? ":id"
+          : segment;
+      })
+      .join("/"),
   });
 }
 
-export function identifyAnalytics(userId: string) {
-  if (identifiedUserId === userId) return;
-
-  const generation = ++identityGeneration;
-  identifiedUserId = userId;
-  accountId = userId;
-  void getAnonymousId().then((resolvedAnonymousId) => {
-    if (generation !== identityGeneration || identifiedUserId !== userId) {
-      return;
-    }
-
-    void sendAnalytics(
-      "$identify",
-      { $anon_distinct_id: resolvedAnonymousId },
-      userId,
-    );
-    void sendAnalytics(
-      "$groupidentify",
-      {
-        $group_type: "account",
-        $group_key: userId,
-        $group_set: {},
-      },
-      userId,
-    );
-  });
+export function identifyAnalytics(_userId: string) {
+  // Mobile analytics intentionally remain install-scoped and anonymous.
 }
 
 export function resetAnalytics() {
-  if (!identifiedUserId && !accountId) {
-    return;
-  }
-
-  identityGeneration += 1;
-  identifiedUserId = null;
-  accountId = null;
   sessionId = randomUUID();
   lastEventAt = Date.now();
   const nextAnonymousId = randomUUID();

@@ -1,15 +1,11 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { jwtDecode } from "jwt-decode";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { z } from "zod";
-
-import { deriveBillingInfo, type SupabaseJwtPayload } from "@anlg/supabase";
 
 import { AnarlogLogo } from "@/components/anarlog-logo";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import { getSupabaseBrowserClient } from "@/functions/supabase";
-import { useAnalytics } from "@/hooks/use-posthog";
 import {
   ACCOUNT_SECTIONS,
   type AccountSectionId,
@@ -19,6 +15,7 @@ import {
   sectionsForAccountTab,
 } from "@/lib/account-tabs";
 import { checkoutSourceSchema } from "@/lib/checkout-source";
+import { capturePrivateRouteEvent } from "@/lib/private-route-analytics";
 
 import { AccountTabs } from "./-account-nav";
 import { accountSessionQueryKey } from "./-account-session";
@@ -125,7 +122,6 @@ function Component() {
   const { user } = Route.useLoaderData();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const { identify: identifyPosthog, track } = useAnalytics();
   const queryClient = useQueryClient();
   const [hash, setHash] = useState("");
   const [optimisticTab, setOptimisticTab] = useState<AccountTabId | null>(null);
@@ -135,7 +131,7 @@ function Component() {
   useEffect(() => {
     if (!search.success && search.trial !== "started") {
       if (search.checkout === "canceled" || search.checkout === "failed") {
-        track(`checkout_${search.checkout}`, {
+        capturePrivateRouteEvent(`checkout_${search.checkout}`, {
           checkout_type: search.checkout_type ?? "unknown",
           entry_source: search.source ?? "unknown",
         });
@@ -150,31 +146,14 @@ function Component() {
 
     const syncBillingAnalytics = async () => {
       const supabase = getSupabaseBrowserClient();
-      const { data } = await supabase.auth.refreshSession();
+      await supabase.auth.refreshSession();
       // The refreshed JWT carries the post-checkout billing claims; cached
       // account-session data is stale until it re-reads the session.
       void queryClient.invalidateQueries({ queryKey: accountSessionQueryKey });
-      const accessToken = data.session?.access_token;
-      const userId = data.session?.user.id;
-
-      if (!accessToken || !userId) {
-        return;
-      }
-
-      const billing = deriveBillingInfo(
-        jwtDecode<SupabaseJwtPayload>(accessToken),
-      );
-
-      identifyPosthog(userId, {
-        ...(data.session?.user.email ? { email: data.session.user.email } : {}),
-        plan: billing.plan,
-        trial_end_date: billing.trialEnd?.toISOString() ?? null,
-      });
     };
 
     void syncBillingAnalytics();
   }, [
-    identifyPosthog,
     queryClient,
     search.checkout,
     search.checkout_type,
@@ -182,7 +161,6 @@ function Component() {
     search.source,
     search.success,
     search.trial,
-    track,
   ]);
 
   useEffect(() => {

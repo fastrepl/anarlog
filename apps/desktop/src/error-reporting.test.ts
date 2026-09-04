@@ -83,7 +83,7 @@ beforeEach(() => {
 });
 
 describe("normalizeOperationalError", () => {
-  it("preserves useful fields from structured API failures", () => {
+  it("removes structured API failure messages", () => {
     expect(
       normalizeOperationalError(
         {
@@ -94,15 +94,13 @@ describe("normalizeOperationalError", () => {
         },
         "integration_connect",
       ).message,
-    ).toBe(
-      "integration_connect failed (status=403, code=subscription_required, message=A Pro subscription is required)",
-    );
+    ).toBe("integration_connect failed");
   });
 
-  it("keeps primitive failures and ignores arbitrary object data", () => {
+  it("removes primitive failures and arbitrary object data", () => {
     expect(
       normalizeOperationalError("connection refused", "sync").message,
-    ).toBe("sync failed: connection refused");
+    ).toBe("sync failed");
     expect(
       normalizeOperationalError({ transcript: "private transcript" }, "sync")
         .message,
@@ -168,6 +166,17 @@ describe("sanitizeErrorEvent", () => {
               handled: false,
               data: { token: "secret" },
             },
+            module: "/Users/alice/private.ts",
+            stacktrace: {
+              frames: [
+                {
+                  filename: "https://anarlog.so/app?token=secret",
+                  function: "saveSession",
+                  lineno: 42,
+                  vars: { transcript: "private transcript" },
+                },
+              ],
+            },
           },
         ],
       },
@@ -188,11 +197,8 @@ describe("sanitizeErrorEvent", () => {
       ],
     });
 
-    expect(event?.user).toEqual({ id: "user-1" });
-    expect(event?.request).toEqual({
-      method: "POST",
-      url: "https://anarlog.so/note/123",
-    });
+    expect(event?.user).toBeUndefined();
+    expect(event?.request).toBeUndefined();
     expect(event?.extra).toBeUndefined();
     expect(event?.message).toBeUndefined();
     expect(event?.logentry).toBeUndefined();
@@ -203,6 +209,17 @@ describe("sanitizeErrorEvent", () => {
         mechanism: {
           type: "generic",
           handled: false,
+        },
+        stacktrace: {
+          frames: [
+            {
+              colno: undefined,
+              filename: "source",
+              function: "saveSession",
+              in_app: undefined,
+              lineno: 42,
+            },
+          ],
         },
       },
     ]);
@@ -218,10 +235,6 @@ describe("sanitizeErrorEvent", () => {
         level: undefined,
         timestamp: undefined,
         type: undefined,
-        data: {
-          from: "https://anarlog.so/",
-          to: "https://anarlog.so/app/",
-        },
       },
     ]);
   });
@@ -317,10 +330,14 @@ describe("archived operational noise", () => {
 describe("session replay consent", () => {
   it("broadcasts revocation and stops the local replay", async () => {
     vi.resetModules();
-    const { initializeErrorReporting, setErrorReportingEnabled } =
-      await import("./error-reporting");
+    const {
+      initializeErrorReporting,
+      setErrorReportingEnabled,
+      setSessionReplayAnalyticsEnabled,
+    } = await import("./error-reporting");
 
     initializeErrorReporting();
+    setSessionReplayAnalyticsEnabled(true);
     await vi.waitFor(() => expect(mocks.addIntegration).toHaveBeenCalledOnce());
 
     await setErrorReportingEnabled(false);
@@ -339,9 +356,11 @@ describe("session replay consent", () => {
 
   it("stops replay when another webview revokes consent", async () => {
     vi.resetModules();
-    const { initializeErrorReporting } = await import("./error-reporting");
+    const { initializeErrorReporting, setSessionReplayAnalyticsEnabled } =
+      await import("./error-reporting");
 
     initializeErrorReporting();
+    setSessionReplayAnalyticsEnabled(true);
     await vi.waitFor(() => expect(mocks.addIntegration).toHaveBeenCalledOnce());
 
     mocks.listener?.({ payload: { enabled: false } });
@@ -351,10 +370,14 @@ describe("session replay consent", () => {
 
   it("restarts replay when Sentry consent is restored", async () => {
     vi.resetModules();
-    const { initializeErrorReporting, setErrorReportingEnabled } =
-      await import("./error-reporting");
+    const {
+      initializeErrorReporting,
+      setErrorReportingEnabled,
+      setSessionReplayAnalyticsEnabled,
+    } = await import("./error-reporting");
 
     initializeErrorReporting();
+    setSessionReplayAnalyticsEnabled(true);
     await vi.waitFor(() => expect(mocks.addIntegration).toHaveBeenCalledOnce());
 
     await setErrorReportingEnabled(false);
@@ -371,9 +394,11 @@ describe("session replay consent", () => {
         resolveConsent = resolve;
       }),
     );
-    const { initializeErrorReporting } = await import("./error-reporting");
+    const { initializeErrorReporting, setSessionReplayAnalyticsEnabled } =
+      await import("./error-reporting");
 
     initializeErrorReporting();
+    setSessionReplayAnalyticsEnabled(true);
     await vi.waitFor(() =>
       expect(mocks.isCrashReportingEnabled).toHaveBeenCalledOnce(),
     );

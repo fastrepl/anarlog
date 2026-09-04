@@ -53,20 +53,53 @@ test("removes private error content while preserving exception diagnostics", () 
             handled: false,
             data: { token: "secret" },
           },
+          module: "/Users/alice/private.ts",
+          stacktrace: {
+            frames: [
+              {
+                filename: "https://anarlog.so/app?token=secret",
+                function: "saveSession",
+                lineno: 42,
+                vars: { transcript: "private transcript" },
+              },
+            ],
+          },
         },
       ],
     },
     extra: { transcript: "private transcript" },
+    user: { id: "user-1", email: "private@example.com" },
+    request: { method: "POST", url: "https://example.com/app/note-1?token=x" },
+    contexts: { private: { type: "private", content: "patient note" } },
+    tags: {
+      "anarlog.operation": "session_save",
+      "anarlog.note_id": "note-1",
+    },
   });
 
   assert.equal(event.message, undefined);
   assert.equal(event.logentry, undefined);
   assert.equal(event.extra, undefined);
+  assert.equal(event.user, undefined);
+  assert.equal(event.request, undefined);
+  assert.equal(event.contexts, undefined);
+  assert.deepEqual(event.tags, { "anarlog.operation": "session_save" });
   assert.deepEqual(event.exception?.values, [
     {
       type: "RouteError",
       value: "RouteError captured",
       mechanism: { type: "generic", handled: false },
+      stacktrace: {
+        frames: [
+          {
+            colno: undefined,
+            filename: "source",
+            function: "saveSession",
+            in_app: undefined,
+            lineno: 42,
+          },
+        ],
+      },
     },
   ]);
 });

@@ -19,6 +19,7 @@ anlg-pyannote-local = { workspace = true }
 anlg-transcribe-core = { workspace = true }
 anlg-transcribe-soniqo = { workspace = true }
 anlg-transcribe-speechanalyzer = { workspace = true }
+anlg-user-error = { workspace = true }
 anlg-voiceprint = { workspace = true }
 
 bytes = { workspace = true }

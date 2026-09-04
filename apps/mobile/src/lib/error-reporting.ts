@@ -138,6 +138,6 @@ export function addNavigationBreadcrumb(from: string | null, to: string) {
   });
 }
 
-export function setErrorReportingUser(userId: string | null) {
-  Sentry.setUser(userId ? { id: userId } : null);
+export function setErrorReportingUser(_userId: string | null) {
+  Sentry.setUser(null);
 }

@@ -1,6 +1,7 @@
 import { env } from "@/env";
 import { hasGlobalPrivacyControl } from "@/lib/global-privacy-control";
 
+import { sanitizeAnalyticsEventName } from "./analytics-sanitization";
 import type { AnalyticsIdentity } from "./private-route-analytics-identity";
 import {
   ANALYTICS_IDENTITY_COOKIE,
@@ -10,6 +11,7 @@ import {
   parsePostHogDistinctId,
   serializeAnalyticsIdentity,
 } from "./private-route-analytics-identity";
+import { sanitizePrivateRouteAnalyticsProperties } from "./private-route-analytics-sanitization";
 
 function readCookie(name: string) {
   const prefix = `${name}=`;
@@ -97,9 +99,9 @@ export function capturePrivateRouteEvent(
       keepalive: true,
       body: JSON.stringify({
         api_key: env.VITE_POSTHOG_API_KEY,
-        event,
+        event: sanitizeAnalyticsEventName(event),
         properties: {
-          ...properties,
+          ...sanitizePrivateRouteAnalyticsProperties(properties),
           distinct_id: distinctId,
           $session_id: distinctId,
           surface: "web",
@@ -140,39 +142,8 @@ export function resetPrivateRouteAnalyticsIdentity() {
  * person and any funnel crossing signup silently under-reports.
  */
 export function identifyPrivateRouteUser(
-  userId: string | undefined | null,
-  properties: Record<string, unknown> = {},
+  _userId: string | undefined | null,
+  _properties: Record<string, unknown> = {},
 ) {
-  if (!userId || analyticsSuppressed()) {
-    return;
-  }
-
-  try {
-    const anonDistinctId = privateRouteIdentity.anonymousIdForIdentify(
-      userId,
-      readPostHogDistinctId(),
-    );
-    if (!anonDistinctId) {
-      return;
-    }
-
-    const host = env.VITE_POSTHOG_HOST.replace(/\/+$/, "");
-    void fetch(`${host}/capture/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      keepalive: true,
-      body: JSON.stringify({
-        api_key: env.VITE_POSTHOG_API_KEY,
-        event: "$identify",
-        properties: {
-          ...properties,
-          distinct_id: userId,
-          $anon_distinct_id: anonDistinctId,
-          surface: "web",
-          analytics_schema_version: 1,
-          app_version: env.VITE_APP_VERSION ?? "unknown",
-        },
-      }),
-    }).catch(() => undefined);
-  } catch {}
+  // Private-route analytics stay browser-scoped and anonymous.
 }

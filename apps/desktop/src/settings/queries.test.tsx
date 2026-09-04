@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   getTemplateSource: vi.fn(),
   setDisabled: vi.fn(async () => ({ status: "ok", data: null })),
   setErrorReportingEnabled: vi.fn(async () => undefined),
+  setSessionReplayAnalyticsEnabled: vi.fn(),
   setAutomaticUpdatesEnabled: vi.fn(async () => undefined),
   setProperties: vi.fn(async () => undefined),
   executeTransaction: vi.fn(
@@ -23,6 +24,7 @@ vi.mock("@anlg/plugin-analytics", () => ({
 
 vi.mock("~/error-reporting", () => ({
   setErrorReportingEnabled: mocks.setErrorReportingEnabled,
+  setSessionReplayAnalyticsEnabled: mocks.setSessionReplayAnalyticsEnabled,
 }));
 
 vi.mock("@anlg/plugin-detect", () => ({

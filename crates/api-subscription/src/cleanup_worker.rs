@@ -560,11 +560,7 @@ impl CleanupWorker {
             }
             Ok(RetrieveCustomerReturned::DeletedCustomer(_))
             | Err(stripe::StripeError::Stripe(_, 404)) => {
-                tracing::info!(
-                    enduser.id = %owner_user_id,
-                    anarlog.billing.customer.id = %customer_id,
-                    "account_deletion_stripe_customer_already_deleted"
-                );
+                tracing::info!("account_deletion_stripe_customer_already_deleted");
                 return Ok(());
             }
             Err(error) => return Err(SubscriptionError::Stripe(error.to_string())),
@@ -572,19 +568,11 @@ impl CleanupWorker {
 
         match DeleteCustomer::new(customer_id).send(&self.stripe).await {
             Ok(_) => {
-                tracing::info!(
-                    enduser.id = %owner_user_id,
-                    anarlog.billing.customer.id = %customer_id,
-                    "account_deletion_stripe_customer_deleted"
-                );
+                tracing::info!("account_deletion_stripe_customer_deleted");
                 Ok(())
             }
             Err(stripe::StripeError::Stripe(_, 404)) => {
-                tracing::info!(
-                    enduser.id = %owner_user_id,
-                    anarlog.billing.customer.id = %customer_id,
-                    "account_deletion_stripe_customer_already_deleted"
-                );
+                tracing::info!("account_deletion_stripe_customer_already_deleted");
                 Ok(())
             }
             Err(error) => Err(SubscriptionError::Stripe(error.to_string())),

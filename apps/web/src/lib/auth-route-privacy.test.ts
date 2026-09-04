@@ -14,6 +14,10 @@ test("keeps auth, callback, recovery, and share routes telemetry private", () =>
     "/confirm-auth/",
     "/reset-password/",
     "/update-password/",
+    "/app/",
+    "/app/account/",
+    "/app/integration/",
+    "/oauth/consent/",
     "/share/link/example/",
     "/t/example/",
   ]) {
@@ -21,6 +25,8 @@ test("keeps auth, callback, recovery, and share routes telemetry private", () =>
   }
 
   assert.equal(isTelemetryPrivateLocation("/blog/auth/"), false);
+  assert.equal(isTelemetryPrivateLocation("/application/"), false);
+  assert.equal(isTelemetryPrivateLocation("/oauth-guide/"), false);
   assert.equal(isTelemetryPrivateLocation("/"), false);
 });
 
@@ -140,7 +146,7 @@ test("does not rewrite one-time verification URLs before the router exchanges th
   }
 });
 
-test("keeps desktop handoff tokens in the URL when storage is unavailable", () => {
+test("scrubs desktop handoff tokens even when storage is unavailable", () => {
   let replacedUrl = "";
   Object.defineProperty(globalThis, "window", {
     configurable: true,
@@ -167,7 +173,7 @@ test("keeps desktop handoff tokens in the URL when storage is unavailable", () =
 
   try {
     prepareAuthRoutePrivacy();
-    assert.equal(replacedUrl, "");
+    assert.equal(replacedUrl, "/callback/auth/?handoff=stored");
     assert.equal(consumeDesktopAuthHandoff(), null);
   } finally {
     Reflect.deleteProperty(globalThis, "window");

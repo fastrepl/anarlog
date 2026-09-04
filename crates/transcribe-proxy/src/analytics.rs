@@ -38,14 +38,13 @@ impl SttAnalyticsReporter for AnalyticsClient {
             let distinct_id = event.fingerprint.unwrap_or_else(|| {
                 let fallback_id = uuid::Uuid::new_v4().to_string();
                 tracing::warn!(
-                    anarlog.analytics.fallback_distinct_id = %fallback_id,
                     anarlog.stt.provider.name = %event.provider,
-                    "device_fingerprint missing, falling back to random UUID for distinct_id"
+                    "device_fingerprint missing, using an ephemeral analytics id"
                 );
                 fallback_id
             });
-            if let Err(e) = self.event(distinct_id, payload.build()).await {
-                tracing::warn!("analytics event error: {e}");
+            if self.event(distinct_id, payload.build()).await.is_err() {
+                tracing::warn!(error.type = "analytics_delivery_failed", "analytics event failed");
             }
         })
     }

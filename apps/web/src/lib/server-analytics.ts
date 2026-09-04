@@ -8,6 +8,10 @@ import {
 import { env } from "@/env";
 import { getRequestAppOrigin } from "@/functions/app-origin";
 
+import {
+  sanitizeAnalyticsEventName,
+  sanitizeAnalyticsProperties,
+} from "./analytics-sanitization";
 import type { AnalyticsIdentity } from "./private-route-analytics-identity";
 import {
   ANALYTICS_IDENTITY_COOKIE,
@@ -17,11 +21,18 @@ import {
   serializeAnalyticsIdentity,
 } from "./private-route-analytics-identity";
 
+const SERVER_ANALYTICS_PROPERTY_KEYS = new Set([
+  "checkout_type",
+  "entry_point",
+  "period",
+  "plan",
+]);
+
 export async function captureServerAnalytics({
   event,
-  userId,
+  userId: _userId,
   properties = {},
-  insertId,
+  insertId: _insertId,
 }: {
   event: string;
   userId: string;
@@ -40,12 +51,16 @@ export async function captureServerAnalytics({
       signal: AbortSignal.timeout(1_000),
       body: JSON.stringify({
         api_key: env.VITE_POSTHOG_API_KEY,
-        event,
+        event: sanitizeAnalyticsEventName(event),
         properties: {
-          ...properties,
-          distinct_id: userId,
-          $groups: { account: userId },
-          ...(insertId ? { $insert_id: insertId } : {}),
+          ...sanitizeAnalyticsProperties(
+            Object.fromEntries(
+              Object.entries(properties).filter(([key]) =>
+                SERVER_ANALYTICS_PROPERTY_KEYS.has(key),
+              ),
+            ),
+          ),
+          distinct_id: crypto.randomUUID(),
           surface: "api",
           analytics_schema_version: 1,
           app_version: env.VITE_APP_VERSION ?? "unknown",
@@ -148,50 +163,8 @@ export function clearServerAnalyticsIdentity() {
  * along on the request cookie, so the merge can be emitted from here.
  */
 export async function identifyServerUserFromRequest(
-  userId: string,
-  properties: Record<string, unknown> = {},
+  _userId: string,
+  _properties: Record<string, unknown> = {},
 ) {
-  if (!env.VITE_POSTHOG_API_KEY || process.env.NODE_ENV !== "production") {
-    return;
-  }
-
-  // A direct `/auth` visit mints its own anonymous id when posthog-js never ran
-  // before it, so the funnel identity can live in our cookie alone. Nothing
-  // recorded in either place means no analytics happened here (GPC, opt-out),
-  // leaving no merge to make and no identity worth recording.
-  const identityStore = createRequestIdentityStore();
-  const postHogDistinctId = readPostHogAnonIdFromRequest();
-  const identity = identityStore.read();
-  if (!postHogDistinctId && !identity.anonymousId && !identity.userId) {
-    return;
-  }
-
-  const anonDistinctId = createPrivateRouteIdentity(
-    identityStore,
-  ).anonymousIdForIdentify(userId, postHogDistinctId);
-  if (!anonDistinctId) {
-    return;
-  }
-
-  try {
-    await fetch(`${env.VITE_POSTHOG_HOST.replace(/\/+$/, "")}/capture/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(1_000),
-      body: JSON.stringify({
-        api_key: env.VITE_POSTHOG_API_KEY,
-        event: "$identify",
-        properties: {
-          ...properties,
-          distinct_id: userId,
-          $anon_distinct_id: anonDistinctId,
-          surface: "api",
-          analytics_schema_version: 1,
-          app_version: env.VITE_APP_VERSION ?? "unknown",
-        },
-      }),
-    });
-  } catch {
-    // identity stitching is best-effort and must never block auth
-  }
+  // Server auth flows intentionally do not stitch browser activity to an account.
 }

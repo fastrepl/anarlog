@@ -326,16 +326,19 @@ pub(super) async fn apply_local_diarization(
                 "local_diarization_completed"
             );
         }
-        Ok(Err(error)) => {
+        Ok(Err(_error)) => {
             tracing::warn!(
                 anarlog.stt.provider.name = LOCAL_DIARIZATION_PROVIDER,
                 elapsed_ms = started_at.elapsed().as_millis() as u64,
-                error = %error,
+                error.type = "local_diarization_failed",
                 "local_diarization_failed"
             );
         }
-        Err(error) => {
-            tracing::error!(error = %error, "local_diarization_task_join_failed");
+        Err(_error) => {
+            tracing::error!(
+                error.type = "local_task_join_failed",
+                "local_diarization_task_join_failed"
+            );
         }
     }
 }

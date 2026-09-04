@@ -89,10 +89,8 @@ impl SupabaseClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().await.unwrap_or_default();
             return Err(crate::error::NangoError::Internal(format!(
-                "ownership check failed: {} - {}",
-                status, body
+                "ownership check failed: {status}"
             )));
         }
 
@@ -121,10 +119,8 @@ impl SupabaseClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().await.unwrap_or_default();
             return Err(crate::error::NangoError::Internal(format!(
-                "lookup query failed: {} - {}",
-                status, body
+                "lookup query failed: {status}"
             )));
         }
 
@@ -151,10 +147,8 @@ impl SupabaseClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().await.unwrap_or_default();
             return Err(crate::error::NangoError::Internal(format!(
-                "query failed: {} - {}",
-                status, body
+                "query failed: {status}"
             )));
         }
 
@@ -204,10 +198,8 @@ impl SupabaseClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().await.unwrap_or_default();
             return Err(crate::error::NangoError::Internal(format!(
-                "upsert failed: {} - {}",
-                status, body
+                "upsert failed: {status}"
             )));
         }
 
@@ -239,10 +231,8 @@ impl SupabaseClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().await.unwrap_or_default();
             return Err(crate::error::NangoError::Internal(format!(
-                "delete failed: {} - {}",
-                status, body
+                "delete failed: {status}"
             )));
         }
 
@@ -274,10 +264,8 @@ impl SupabaseClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().await.unwrap_or_default();
             return Err(crate::error::NangoError::Internal(format!(
-                "delete by connection failed: {} - {}",
-                status, body
+                "delete by connection failed: {status}"
             )));
         }
 
@@ -321,10 +309,8 @@ impl SupabaseClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().await.unwrap_or_default();
             return Err(crate::error::NangoError::Internal(format!(
-                "mark refresh failed failed: {} - {}",
-                status, body
+                "mark refresh failed: {status}"
             )));
         }
 

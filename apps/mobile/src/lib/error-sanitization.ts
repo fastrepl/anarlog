@@ -12,14 +12,29 @@ type ExceptionLike = {
     data?: Record<string, unknown>;
     [key: string]: unknown;
   };
+  module?: string;
+  stacktrace?: StacktraceLike;
   type?: string;
   value?: string;
+};
+
+type StacktraceLike = {
+  frames?: Array<{
+    colno?: number;
+    filename?: string;
+    function?: string;
+    in_app?: boolean;
+    lineno?: number;
+    [key: string]: unknown;
+  }>;
+  [key: string]: unknown;
 };
 
 export type MobileErrorEvent = {
   breadcrumbs?: BreadcrumbLike[];
   exception?: { values?: ExceptionLike[] };
   extra?: Record<string, unknown>;
+  contexts?: Record<string, unknown>;
   logentry?: unknown;
   message?: string;
   platform?: string;
@@ -43,7 +58,7 @@ type SafeErrorMetadata = {
 };
 
 const SAFE_IDENTIFIER_RE = /^[a-zA-Z0-9_.:/-]{1,128}$/;
-const STACK_FRAME_RE = /^(?:\s*at\s|.*@.*:\d+:\d+$)/;
+const SAFE_STACK_FUNCTION_RE = /^[a-zA-Z0-9_$.[\]<>-]{1,128}$/;
 
 function safeIdentifier(value: unknown): string | undefined {
   if (typeof value !== "string" || !SAFE_IDENTIFIER_RE.test(value)) {
@@ -52,99 +67,96 @@ function safeIdentifier(value: unknown): string | undefined {
   return value;
 }
 
-function safeBreadcrumbData(
-  data: Record<string, unknown> | undefined,
-): Record<string, boolean | number | string> | undefined {
-  const safe: Record<string, boolean | number | string> = {};
-  for (const [key, value] of Object.entries(data ?? {})) {
-    if (!safeIdentifier(key)) continue;
-    if (typeof value === "boolean" || typeof value === "number") {
-      safe[key] = value;
-      continue;
-    }
-    const identifier = safeIdentifier(value);
-    if (identifier !== undefined) {
-      safe[key] = identifier;
-    }
-  }
+function safeStackFunction(value: unknown): string | undefined {
+  return typeof value === "string" && SAFE_STACK_FUNCTION_RE.test(value)
+    ? value
+    : undefined;
+}
+
+const SAFE_TAGS = new Set([
+  "anarlog.error.stage",
+  "anarlog.mobile.app_variant",
+  "anarlog.mobile.execution_environment",
+  "anarlog.mobile.os",
+  "anarlog.operation",
+  "anarlog.surface",
+  "error.code",
+  "error.type",
+  "http.response.status_code",
+  "service.name",
+  "service.namespace",
+]);
+
+function sanitizeTags(tags: Record<string, unknown> | undefined) {
+  if (!tags) return undefined;
+  const safe = Object.fromEntries(
+    Object.entries(tags).filter(
+      ([key, value]) =>
+        SAFE_TAGS.has(key) &&
+        (typeof value === "number" || safeIdentifier(value) !== undefined),
+    ),
+  );
   return Object.keys(safe).length > 0 ? safe : undefined;
 }
 
-export function sanitizeUrl(value: string | undefined) {
-  if (!value) return value;
-
-  try {
-    const url = new URL(value);
-    url.search = "";
-    url.hash = "";
-    return url.toString();
-  } catch {
-    return value.split(/[?#]/, 1)[0];
-  }
+function sanitizeStacktrace(stacktrace: StacktraceLike): StacktraceLike {
+  return {
+    frames: stacktrace.frames?.map((frame) => ({
+      colno: frame.colno,
+      filename: "source",
+      function: safeStackFunction(frame.function),
+      in_app: frame.in_app,
+      lineno: frame.lineno,
+    })),
+  };
 }
 
 export function sanitizeBreadcrumb<T extends BreadcrumbLike>(breadcrumb: T): T {
-  if (breadcrumb.category === "anarlog.operation") {
-    return {
-      category: breadcrumb.category,
-      level: breadcrumb.level,
-      message: safeIdentifier(breadcrumb.message),
-      timestamp: breadcrumb.timestamp,
-      type: breadcrumb.type,
-      data: safeBreadcrumbData(breadcrumb.data),
-    } as T;
-  }
-
   return {
     category: breadcrumb.category,
     level: breadcrumb.level,
+    ...(breadcrumb.category === "anarlog.operation"
+      ? { message: safeIdentifier(breadcrumb.message) }
+      : {}),
     timestamp: breadcrumb.timestamp,
     type: breadcrumb.type,
-    ...(breadcrumb.category === "navigation"
-      ? {
-          data: {
-            from: sanitizeUrl(String(breadcrumb.data?.from ?? "")),
-            to: sanitizeUrl(String(breadcrumb.data?.to ?? "")),
-          },
-        }
-      : {}),
   } as T;
 }
 
 export function sanitizeMobileErrorEvent<T extends MobileErrorEvent>(event: T) {
-  if (event.user) {
-    event.user = event.user.id ? { id: event.user.id } : undefined;
-  }
-
-  if (event.request) {
-    event.request = {
-      method: event.request.method,
-      url: sanitizeUrl(event.request.url),
-    };
-  }
-
+  delete event.user;
+  delete event.request;
+  delete event.contexts;
   delete event.extra;
+  event.tags = sanitizeTags(event.tags);
   event.breadcrumbs = event.breadcrumbs?.map(sanitizeBreadcrumb);
 
   const operation =
     typeof event.tags?.["anarlog.operation"] === "string"
       ? event.tags["anarlog.operation"]
       : undefined;
-  if (event.platform === "javascript" || operation) {
-    const value = operation
-      ? `${operation} failed`
-      : "Mobile application error";
-    for (const exception of event.exception?.values ?? []) {
-      exception.value = value;
-      if (exception.mechanism) {
-        delete exception.mechanism.data;
-      }
+  const value = operation ? `${operation} failed` : "Mobile application error";
+  for (const exception of event.exception?.values ?? []) {
+    exception.value = value;
+    delete exception.module;
+    if (exception.stacktrace) {
+      exception.stacktrace = sanitizeStacktrace(exception.stacktrace);
     }
-    if (event.message) {
-      event.message = value;
+    if (exception.mechanism) {
+      const original = exception.mechanism;
+      exception.mechanism = {
+        type: safeIdentifier(original.type) ?? "generic",
+        ...(original.handled === undefined
+          ? {}
+          : { handled: original.handled }),
+        ...(original.synthetic === undefined
+          ? {}
+          : { synthetic: original.synthetic }),
+      };
     }
-    delete event.logentry;
   }
+  if (event.message) event.message = value;
+  delete event.logentry;
 
   return event;
 }
@@ -179,18 +191,6 @@ export function normalizeOperationalError(
   const normalized = new Error(`${operation} failed`);
   const metadata = operationalErrorMetadata(error);
   normalized.name = metadata.type;
-
-  if (error instanceof Error && error.stack) {
-    const frames = error.stack
-      .split("\n")
-      .filter((line) => STACK_FRAME_RE.test(line));
-    if (frames.length > 0) {
-      normalized.stack = [
-        `${normalized.name}: ${normalized.message}`,
-        ...frames,
-      ].join("\n");
-    }
-  }
 
   return normalized;
 }

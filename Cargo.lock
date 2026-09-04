@@ -352,6 +352,7 @@ dependencies = [
  "posthog-rs",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "specta",
  "thiserror 2.0.18",
  "tokio",
@@ -10215,6 +10216,7 @@ dependencies = [
  "transcribe-core",
  "transcribe-soniqo",
  "transcribe-speechanalyzer",
+ "user-error",
  "voiceprint",
 ]
 
@@ -10262,6 +10264,7 @@ dependencies = [
  "tower",
  "tracing",
  "tracing-subscriber",
+ "user-error",
  "utoipa",
  "wiremock",
 ]
@@ -12270,6 +12273,7 @@ dependencies = [
  "transcribe-soniqo",
  "transcribe-speechanalyzer",
  "url",
+ "user-error",
  "wiremock",
  "ws-client",
 ]
@@ -19609,6 +19613,7 @@ dependencies = [
  "tracing-subscriber",
  "url",
  "urlencoding",
+ "user-error",
  "utoipa",
  "uuid",
 ]

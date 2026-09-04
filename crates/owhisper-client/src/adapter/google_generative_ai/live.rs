@@ -115,9 +115,9 @@ impl RealtimeSttAdapter for GoogleGenerativeAiAdapter {
     fn parse_response(&self, raw: &str) -> Vec<StreamResponse> {
         let event: serde_json::Value = match serde_json::from_str(raw) {
             Ok(event) => event,
-            Err(error) => {
+            Err(_error) => {
                 tracing::warn!(
-                    error = ?error,
+                    error.type = "invalid_provider_payload",
                     anarlog.payload.size_bytes = raw.len() as u64,
                     "google_generative_ai_json_parse_failed"
                 );

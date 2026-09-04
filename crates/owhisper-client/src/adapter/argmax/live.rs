@@ -59,11 +59,7 @@ impl RealtimeSttAdapter for ArgmaxAdapter {
             Ok(response) => vec![response],
             Err(_) => {
                 if let Ok(error) = serde_json::from_str::<ArgmaxError>(raw) {
-                    tracing::error!(
-                        error.type = %error.error_type,
-                        error = %error.message,
-                        "argmax_error"
-                    );
+                    crate::log_provider_failure("argmax", &error.error_type, None, &error.message);
                     vec![StreamResponse::ErrorResponse {
                         error_code: None,
                         error_message: format!("{}: {}", error.error_type, error.message),

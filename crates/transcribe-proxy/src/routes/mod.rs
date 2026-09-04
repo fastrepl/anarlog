@@ -98,13 +98,12 @@ impl AppState {
             None => None,
         };
 
-        self.selector.select(requested).map_err(|e| {
+        self.selector.select(requested).map_err(|_e| {
             tracing::warn!(
-                error = %e,
                 anarlog.stt.requested_provider = ?requested,
                 "provider_selection_failed"
             );
-            (StatusCode::BAD_REQUEST, e.to_string()).into_response()
+            (StatusCode::BAD_REQUEST, "provider unavailable").into_response()
         })
     }
 
@@ -126,13 +125,12 @@ impl AppState {
             "anarlog_routing"
         );
 
-        self.selector.select(routed_provider).map_err(|e| {
+        self.selector.select(routed_provider).map_err(|_e| {
             tracing::warn!(
-                error = %e,
                 anarlog.stt.language_codes = ?languages,
                 "anarlog_routing_failed"
             );
-            (StatusCode::BAD_REQUEST, e.to_string()).into_response()
+            (StatusCode::BAD_REQUEST, "provider unavailable").into_response()
         })
     }
 

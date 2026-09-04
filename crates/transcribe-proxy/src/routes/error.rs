@@ -27,8 +27,12 @@ impl IntoResponse for RouteError {
             Self::NotFound(m) => (StatusCode::NOT_FOUND, m.into()),
             Self::BadGateway(m) => (StatusCode::BAD_GATEWAY, m),
             Self::Internal(m) => {
-                tracing::error!(detail = %m, "route_error_internal");
-                (StatusCode::INTERNAL_SERVER_ERROR, m)
+                let _ = m;
+                tracing::error!(error.type = "internal_route_error", "route_error_internal");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal server error".to_string(),
+                )
             }
         };
         (status, msg).into_response()

@@ -25,7 +25,7 @@ pub(super) async fn handle_stream_response(
     let provider = state.config.provider.clone();
 
     span.record("http.response.status_code", http_status as i64);
-    if status.is_client_error() || status.is_server_error() {
+    if status.is_server_error() {
         anlg_observability::mark_span_as_error(&span, &http_status.to_string());
     }
 
@@ -61,8 +61,13 @@ pub(super) async fn handle_stream_response(
                     }
                     yield Ok::<_, std::io::Error>(chunk);
                 }
-                Err(e) => {
-                    yield Err(std::io::Error::other(e));
+                Err(_e) => {
+                    anlg_observability::mark_span_as_error(&stream_span, "upstream_stream_failed");
+                    tracing::error!(
+                        error.type = "upstream_stream_failed",
+                        "llm_completion_stream_failed"
+                    );
+                    yield Err(std::io::Error::other("upstream stream failed"));
                     break;
                 }
             }
@@ -73,7 +78,6 @@ pub(super) async fn handle_stream_response(
         }
 
         if let Some(generation_id) = accumulator.generation_id {
-                stream_span.record("gen_ai.response.id", generation_id.as_str());
                 if let Some(model) = accumulator.model.as_deref() {
                     stream_span.record("gen_ai.response.model", model);
                 }

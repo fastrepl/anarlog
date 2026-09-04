@@ -117,8 +117,6 @@ pub(crate) async fn handle_auth_webhook(state: &AppState, payload: NangoAuthWebh
     tracing::info!(
         webhook_type = ?payload.r#type,
         operation = ?payload.operation,
-        connection_id = %payload.connection_id,
-        end_user_id = payload.end_user_id().unwrap_or("unknown"),
         "nango webhook received"
     );
 
@@ -128,30 +126,19 @@ pub(crate) async fn handle_auth_webhook(state: &AppState, payload: NangoAuthWebh
     }
 
     if payload.operation == AuthOperation::Refresh && !payload.success {
-        let error_type = payload.error.as_ref().map(|e| e.r#type.as_str());
-        let error_description = payload.error.as_ref().map(|e| e.description.as_str());
-
         state
             .supabase
             .mark_connection_refresh_failed(
                 &payload.provider_config_key,
                 &payload.connection_id,
-                error_type,
-                error_description,
+                Some("provider_auth"),
+                None,
             )
             .await
-            .map_err(|e| {
-                tracing::error!(error = %e, "failed_to_persist_nango_refresh_failure_state");
-                NangoError::Internal(e.to_string())
+            .map_err(|_| {
+                tracing::error!("failed_to_persist_nango_refresh_failure_state");
+                NangoError::Internal("failed to persist refresh state".to_string())
             })?;
-
-        tracing::warn!(
-            anarlog.connection.id = %payload.connection_id,
-            anarlog.integration.id = %payload.provider_config_key,
-            error.type = error_type,
-            error = error_description,
-            "nango token refresh failed"
-        );
 
         return Ok(());
     }
@@ -161,27 +148,19 @@ pub(crate) async fn handle_auth_webhook(state: &AppState, payload: NangoAuthWebh
             .supabase
             .delete_connection_by_connection(&payload.provider_config_key, &payload.connection_id)
             .await
-            .map_err(|e| {
-                tracing::error!(error = %e, "failed_to_delete_nango_connection");
-                NangoError::Internal(e.to_string())
+            .map_err(|_| {
+                tracing::error!("failed_to_delete_nango_connection");
+                NangoError::Internal("failed to delete connection".to_string())
             })?;
 
-        tracing::info!(
-            anarlog.integration.id = %payload.provider_config_key,
-            anarlog.connection.id = %payload.connection_id,
-            "nango connection deleted locally from webhook"
-        );
+        tracing::info!("nango connection deleted locally from webhook");
 
         return Ok(());
     }
 
     if payload.success && payload.operation != AuthOperation::Deletion {
         let Some(end_user_id) = payload.end_user_id() else {
-            tracing::warn!(
-                anarlog.connection.id = %payload.connection_id,
-                anarlog.integration.id = %payload.provider_config_key,
-                "nango auth webhook missing end user id, skipping persistence"
-            );
+            tracing::warn!("nango auth webhook missing end user id, skipping persistence");
             return Ok(());
         };
 
@@ -194,15 +173,12 @@ pub(crate) async fn handle_auth_webhook(state: &AppState, payload: NangoAuthWebh
                 &payload.provider,
             )
             .await
-            .map_err(|e| {
-                tracing::error!(error = %e, "failed_to_upsert_nango_connection");
-                NangoError::Internal(e.to_string())
+            .map_err(|_| {
+                tracing::error!("failed_to_upsert_nango_connection");
+                NangoError::Internal("failed to store connection".to_string())
             })?;
 
         tracing::info!(
-            enduser.id = end_user_id,
-            anarlog.integration.id = %payload.provider_config_key,
-            anarlog.connection.id = %payload.connection_id,
             anarlog.auth.operation = ?payload.operation,
             "nango connection upserted"
         );

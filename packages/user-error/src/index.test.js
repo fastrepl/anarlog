@@ -37,6 +37,43 @@ test("matches the current event without inspecting breadcrumbs", () => {
   );
 });
 
+test("ignores stack source and built-in context text", () => {
+  assert.equal(
+    isUserErrorEvent({
+      exception: {
+        values: [
+          {
+            type: "TypeError",
+            value: "Cannot read properties of undefined",
+            stacktrace: {
+              frames: [{ context_line: 'throw new Error("quota exceeded")' }],
+            },
+          },
+        ],
+      },
+      contexts: {
+        trace: { data: { request: "quota exceeded" } },
+      },
+    }),
+    false,
+  );
+});
+
+test("matches explicit tags and operation context", () => {
+  assert.equal(
+    isUserErrorEvent({ tags: { "provider.error": "insufficient_quota" } }),
+    true,
+  );
+  assert.equal(
+    isUserErrorEvent({
+      contexts: {
+        "anarlog.operation": { providerError: "invalid api key" },
+      },
+    }),
+    true,
+  );
+});
+
 test("handles cyclic error metadata", () => {
   /** @type {Record<string, unknown>} */
   const value = { message: "connection failed" };

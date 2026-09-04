@@ -93,9 +93,9 @@ impl RealtimeSttAdapter for SonioxAdapter {
     fn parse_response(&self, raw: &str) -> Vec<StreamResponse> {
         let msg: soniox::StreamMessage = match serde_json::from_str(raw) {
             Ok(m) => m,
-            Err(e) => {
+            Err(_e) => {
                 tracing::warn!(
-                    error = ?e,
+                    error.type = "invalid_provider_payload",
                     anarlog.payload.size_bytes = raw.len() as u64,
                     "soniox_json_parse_failed"
                 );
@@ -104,10 +104,12 @@ impl RealtimeSttAdapter for SonioxAdapter {
         };
 
         if let Some(error_msg) = &msg.error_message {
-            tracing::error!(
-                error.code = ?msg.error_code,
-                error = %error_msg,
-                "soniox_error"
+            let error_code = msg.error_code.as_ref().map(ToString::to_string);
+            crate::log_provider_failure(
+                "soniox",
+                "provider_error",
+                error_code.as_deref(),
+                error_msg,
             );
             return vec![StreamResponse::ErrorResponse {
                 error_code: msg.error_code,

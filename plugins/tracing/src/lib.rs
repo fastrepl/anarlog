@@ -104,7 +104,11 @@ impl Builder {
                         tracing_subscriber::Registry::default()
                             .with(env_filter)
                             .with(sentry_layer)
-                            .with(fmt::layer())
+                            .with(
+                                fmt::layer().with_writer(|| {
+                                    redaction::RedactingWriter::new(std::io::stderr())
+                                }),
+                            )
                             .with(fmt::layer().with_ansi(false).with_writer(file_writer))
                             .init();
                         app.manage(guard);
@@ -114,7 +118,11 @@ impl Builder {
                         tracing_subscriber::Registry::default()
                             .with(env_filter)
                             .with(sentry_layer)
-                            .with(fmt::layer())
+                            .with(
+                                fmt::layer().with_writer(|| {
+                                    redaction::RedactingWriter::new(std::io::stderr())
+                                }),
+                            )
                             .init();
                     }
                 }

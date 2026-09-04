@@ -81,9 +81,9 @@ impl RealtimeSttAdapter for AssemblyAIAdapter {
     fn parse_response(&self, raw: &str) -> Vec<StreamResponse> {
         let msg: AssemblyAIMessage = match serde_json::from_str(raw) {
             Ok(m) => m,
-            Err(e) => {
+            Err(_e) => {
                 tracing::warn!(
-                    error = ?e,
+                    error.type = "invalid_provider_payload",
                     anarlog.payload.size_bytes = raw.len() as u64,
                     "assemblyai_json_parse_failed"
                 );
@@ -92,9 +92,8 @@ impl RealtimeSttAdapter for AssemblyAIAdapter {
         };
 
         match msg {
-            AssemblyAIMessage::Begin { id, expires_at } => {
+            AssemblyAIMessage::Begin { id: _, expires_at } => {
                 tracing::debug!(
-                    anarlog.stt.provider_session.id = %id,
                     anarlog.stt.provider_session.expires_at = %expires_at,
                     "assemblyai_session_began"
                 );
@@ -118,7 +117,7 @@ impl RealtimeSttAdapter for AssemblyAIAdapter {
                 }]
             }
             AssemblyAIMessage::Error { error } => {
-                tracing::error!(error = %error, "assemblyai_error");
+                crate::log_provider_failure("assemblyai", "provider_error", None, &error);
                 vec![StreamResponse::ErrorResponse {
                     error_code: None,
                     error_message: error,
@@ -227,8 +226,8 @@ impl AssemblyAIAdapter {
 
     fn parse_turn(turn: TurnMessage) -> Vec<StreamResponse> {
         tracing::debug!(
-            transcript = %turn.transcript,
-            utterance = ?turn.utterance,
+            transcript_chars = turn.transcript.chars().count(),
+            utterance_chars = turn.utterance.as_deref().map(str::len).unwrap_or_default(),
             words_len = turn.words.len(),
             turn_is_formatted = turn.turn_is_formatted,
             end_of_turn = turn.end_of_turn,

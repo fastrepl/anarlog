@@ -97,14 +97,15 @@ impl WebSocketProxy {
                 );
                 Ok(stream)
             }
-            Ok(Err(e)) => {
+            Ok(Err(_e)) => {
                 tracing::error!(
                     error.type = "upstream_connect_failed",
-                    error = %e,
                     anarlog.duration_ms = connect_start.elapsed().as_millis() as u64,
                     "upstream_connect_failed"
                 );
-                Err(crate::ProxyError::ConnectionFailed(e.to_string()))
+                Err(crate::ProxyError::ConnectionFailed(
+                    "provider connection failed".to_string(),
+                ))
             }
             Err(_) => {
                 tracing::error!(
@@ -146,12 +147,8 @@ impl WebSocketProxy {
         ws.on_upgrade(move |socket| {
             async move {
                 let _guard = guard;
-                if let Err(e) = proxy.handle(socket).await {
-                    tracing::error!(
-                        error = %e,
-                        "websocket_proxy_error: {}",
-                        e
-                    );
+                if let Err(_e) = proxy.handle(socket).await {
+                    tracing::error!(error.type = "websocket_proxy_error", "websocket_proxy_error");
                 }
             }
             .bind_hub(sentry::Hub::new_from_top(hub))
@@ -228,7 +225,7 @@ impl WebSocketProxy {
 
         if let Err(reason) = pending.enqueue(queued, is_control) {
             tracing::warn!(
-                error = %reason,
+                error.type = "pending_queue_full",
                 anarlog.payload.size_bytes = %size,
                 anarlog.ws.is_control_message = %is_control,
                 "pending_queue_enqueue_failed"
@@ -283,11 +280,11 @@ impl WebSocketProxy {
         let mut pending = PendingState::default();
 
         if let Some(msg) = initial_message {
-            if let Err(e) = upstream_sender
+            if let Err(_e) = upstream_sender
                 .send(TungsteniteMessage::Text(msg.as_str().into()))
                 .await
             {
-                tracing::error!(error = ?e, "initial_message_send_failed");
+                tracing::error!(error.type = "upstream_send_failed", "initial_message_send_failed");
                 let _ = shutdown_tx.send(ShutdownSignal::Abort);
                 return;
             }
@@ -317,12 +314,10 @@ impl WebSocketProxy {
 
                     let msg = match msg_result {
                         Ok(m) => m,
-                        Err(e) => {
+                        Err(_e) => {
                             tracing::error!(
                                 error.type = "ws_client_receive_error",
-                                error = %e,
-                                "client_receive_error: {}",
-                                e
+                                "client_receive_error"
                             );
                             let _ = shutdown_tx.send(ShutdownSignal::Close {
                                 code: DEFAULT_CLOSE_CODE,
@@ -443,12 +438,10 @@ impl WebSocketProxy {
 
                     let msg = match msg_result {
                         Ok(m) => m,
-                        Err(e) => {
+                        Err(_e) => {
                             tracing::error!(
                                 error.type = "ws_upstream_receive_error",
-                                error = %e,
-                                "upstream_receive_error: {}",
-                                e
+                                "upstream_receive_error"
                             );
                             let signal = pending_error
                                 .take()
@@ -468,13 +461,13 @@ impl WebSocketProxy {
                                 tracing::warn!(
                                     http.response.status_code = upstream_err.http_code,
                                     anarlog.stt.provider.error_code = ?upstream_err.provider_code,
-                                    error = %upstream_err.message,
+                                    error.type = "provider_rejected_stream",
                                     "upstream_error_detected"
                                 );
 
                                 pending_error = Some((
                                     upstream_err.to_ws_close_code(),
-                                    upstream_err.message.clone(),
+                                    "provider error".to_string(),
                                 ));
                             }
 

@@ -2,6 +2,10 @@ import { useCallback } from "react";
 
 import { env } from "@/env";
 import {
+  sanitizeAnalyticsEventName,
+  sanitizeAnalyticsProperties,
+} from "@/lib/analytics-sanitization";
+import {
   usePostHogClient,
   usePostHogOperation,
   usePostHogReady,
@@ -19,8 +23,8 @@ export function useAnalytics() {
   const track = useCallback(
     (eventName: string, properties?: Record<string, any>) => {
       runOrQueue((client) => {
-        client.capture(eventName, {
-          ...properties,
+        client.capture(sanitizeAnalyticsEventName(eventName), {
+          ...sanitizeAnalyticsProperties(properties ?? {}),
           surface: "web",
           analytics_schema_version: 1,
           app_version: env.VITE_APP_VERSION ?? "unknown",
@@ -31,10 +35,8 @@ export function useAnalytics() {
   );
 
   const identify = useCallback(
-    (userId: string, properties?: Record<string, any>) => {
-      runOrQueue((client) => client.identify(userId, properties));
-    },
-    [runOrQueue],
+    (_userId: string, _properties?: Record<string, any>) => undefined,
+    [],
   );
 
   const reset = useCallback(() => {

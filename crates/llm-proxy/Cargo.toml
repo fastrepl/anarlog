@@ -8,6 +8,7 @@ anlg-analytics = { workspace = true }
 anlg-api-env = { workspace = true }
 anlg-observability = { workspace = true }
 anlg-openrouter = { workspace = true }
+anlg-user-error = { workspace = true }
 
 async-stream = { workspace = true }
 axum = { workspace = true }

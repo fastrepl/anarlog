@@ -173,9 +173,9 @@ impl RealtimeSttAdapter for OpenAIAdapter {
     fn parse_response(&self, raw: &str) -> Vec<StreamResponse> {
         let event: ServerEvent = match serde_json::from_str(raw) {
             Ok(event) => event,
-            Err(error) => {
+            Err(_error) => {
                 tracing::warn!(
-                    error = ?error,
+                    error.type = "invalid_provider_payload",
                     anarlog.payload.size_bytes = raw.len() as u64,
                     "openai_json_parse_failed"
                 );
@@ -184,22 +184,16 @@ impl RealtimeSttAdapter for OpenAIAdapter {
         };
 
         match event {
-            ServerEvent::SessionCreated { session, .. } => {
-                tracing::debug!(
-                    anarlog.stt.provider_session.id = %session.id,
-                    "openai_session_created"
-                );
+            ServerEvent::SessionCreated { .. } => {
+                tracing::debug!("openai_session_created");
                 vec![]
             }
-            ServerEvent::SessionUpdated { session, .. } => {
-                tracing::debug!(
-                    anarlog.stt.provider_session.id = %session.id,
-                    "openai_session_updated"
-                );
+            ServerEvent::SessionUpdated { .. } => {
+                tracing::debug!("openai_session_updated");
                 vec![]
             }
             ServerEvent::InputAudioBufferCommitted { item_id, .. } => {
-                tracing::debug!(anarlog.stt.item.id = %item_id, "openai_audio_buffer_committed");
+                tracing::debug!("openai_audio_buffer_committed");
                 Self::finish_state_update(self.ensure_item(&item_id))
             }
             ServerEvent::InputAudioBufferCleared { .. } => {
@@ -212,7 +206,6 @@ impl RealtimeSttAdapter for OpenAIAdapter {
                 ..
             } => {
                 tracing::debug!(
-                    anarlog.stt.item.id = %item_id,
                     anarlog.stt.audio_start_ms = audio_start_ms,
                     "openai_speech_started"
                 );
@@ -224,7 +217,6 @@ impl RealtimeSttAdapter for OpenAIAdapter {
                 ..
             } => {
                 tracing::debug!(
-                    anarlog.stt.item.id = %item_id,
                     anarlog.stt.audio_end_ms = audio_end_ms,
                     "openai_speech_stopped"
                 );
@@ -237,7 +229,6 @@ impl RealtimeSttAdapter for OpenAIAdapter {
                 ..
             } => {
                 tracing::debug!(
-                    anarlog.stt.item.id = %item_id,
                     anarlog.stt.audio_start_ms = audio_start_ms,
                     anarlog.stt.audio_end_ms = audio_end_ms,
                     "openai_audio_buffer_timeout_triggered"
@@ -255,7 +246,6 @@ impl RealtimeSttAdapter for OpenAIAdapter {
                 ..
             } => {
                 tracing::debug!(
-                    anarlog.stt.item.id = %item_id,
                     anarlog.stt.content_index = content_index,
                     anarlog.transcript.char_count = transcript.chars().count() as u64,
                     "openai_transcription_completed"
@@ -269,18 +259,14 @@ impl RealtimeSttAdapter for OpenAIAdapter {
                 item_id,
                 content_index,
                 delta,
-                obfuscation,
+                obfuscation: _,
                 ..
             } => {
                 tracing::debug!(
-                    anarlog.stt.item.id = %item_id,
                     anarlog.stt.content_index = content_index.unwrap_or_default(),
                     anarlog.transcript.char_count = delta.chars().count() as u64,
                     "openai_transcription_delta"
                 );
-                if let Some(obfuscation) = obfuscation {
-                    tracing::trace!(anarlog.stt.obfuscation = %obfuscation);
-                }
                 match self.append_item_delta(&item_id, &delta) {
                     Ok((transcript, start_ms, end_ms)) => {
                         Self::build_transcript_response(&transcript, false, false, start_ms, end_ms)
@@ -294,12 +280,7 @@ impl RealtimeSttAdapter for OpenAIAdapter {
                 let completed = self.discard_item(&item_id);
                 let error_type = error.error_type.as_deref().unwrap_or("unknown_error");
                 let message = error.message.as_deref().unwrap_or("unknown error");
-                tracing::error!(
-                    anarlog.stt.item.id = %item_id,
-                    error.type = %error_type,
-                    error = %message,
-                    "openai_transcription_failed"
-                );
+                crate::log_provider_failure("openai", error_type, None, message);
                 completed
                     .into_iter()
                     .flat_map(|(transcript, start_ms, end_ms)| {
@@ -313,12 +294,7 @@ impl RealtimeSttAdapter for OpenAIAdapter {
                 let provider_code = error.code.as_deref().unwrap_or("unknown_code");
                 let message = error.message.as_deref().unwrap_or("unknown error");
                 let error_code = openai_error_status(error_type, error.code.as_deref());
-                tracing::warn!(
-                    error.type = %error_type,
-                    error.code = %provider_code,
-                    error.message = %message,
-                    "openai_error"
-                );
+                crate::log_provider_failure("openai", error_type, Some(provider_code), message);
                 vec![StreamResponse::ErrorResponse {
                     error_code,
                     error_message: format!("{error_type}: {message}"),

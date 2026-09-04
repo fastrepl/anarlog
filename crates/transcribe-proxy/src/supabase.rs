@@ -37,6 +37,8 @@ pub struct TranscriptionJob {
 pub struct JobUpdate {
     pub status: PipelineStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_request_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub raw_result: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
@@ -92,7 +94,6 @@ impl SupabaseClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().await.unwrap_or_default();
             tracing::error!(
                 service.peer.name = "supabase",
                 anarlog.supabase.operation = "insert_job",
@@ -100,7 +101,7 @@ impl SupabaseClient {
                 error.type = "supabase_api_error",
                 "supabase_request_failed"
             );
-            return Err(Error::Api(format!("failed to insert job: {status} {body}")));
+            return Err(Error::Api(format!("failed to insert job: {status}")));
         }
 
         Ok(())
@@ -127,7 +128,6 @@ impl SupabaseClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().await.unwrap_or_default();
             tracing::error!(
                 service.peer.name = "supabase",
                 anarlog.supabase.operation = "update_job",
@@ -135,7 +135,7 @@ impl SupabaseClient {
                 error.type = "supabase_api_error",
                 "supabase_request_failed"
             );
-            return Err(Error::Api(format!("failed to update job: {status} {body}")));
+            return Err(Error::Api(format!("failed to update job: {status}")));
         }
 
         Ok(())
@@ -161,7 +161,6 @@ impl SupabaseClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().await.unwrap_or_default();
             tracing::error!(
                 service.peer.name = "supabase",
                 anarlog.supabase.operation = "get_job",
@@ -169,10 +168,83 @@ impl SupabaseClient {
                 error.type = "supabase_api_error",
                 "supabase_request_failed"
             );
-            return Err(Error::Api(format!("failed to get job: {status} {body}")));
+            return Err(Error::Api(format!("failed to get job: {status}")));
         }
 
         let jobs: Vec<TranscriptionJob> = response.json().await?;
         Ok(jobs.into_iter().next())
+    }
+
+    pub async fn get_job_for_user(
+        &self,
+        id: &str,
+        user_id: &str,
+    ) -> Result<Option<TranscriptionJob>, Error> {
+        let encoded_id = urlencoding::encode(id);
+        let encoded_user_id = urlencoding::encode(user_id);
+        let url = format!(
+            "{}?id=eq.{encoded_id}&user_id=eq.{encoded_user_id}&select=*",
+            self.rest_url()
+        );
+
+        let start = Instant::now();
+        let response = self
+            .auth_headers(self.client.get(&url))
+            .header("Accept", "application/json")
+            .send()
+            .await?;
+        tracing::info!(
+            service.peer.name = "supabase",
+            anarlog.supabase.operation = "get_job_for_user",
+            http.response.status_code = response.status().as_u16(),
+            anarlog.duration_ms = start.elapsed().as_millis() as u64,
+            "supabase_request_finished"
+        );
+
+        if !response.status().is_success() {
+            let status = response.status();
+            tracing::error!(
+                service.peer.name = "supabase",
+                anarlog.supabase.operation = "get_job_for_user",
+                http.response.status_code = status.as_u16(),
+                error.type = "supabase_api_error",
+                "supabase_request_failed"
+            );
+            return Err(Error::Api(format!("failed to get job: {status}")));
+        }
+
+        let jobs: Vec<TranscriptionJob> = response.json().await?;
+        Ok(jobs.into_iter().next())
+    }
+}
+
+pub(crate) fn user_owns_object_path(user_id: &str, object_path: &str) -> bool {
+    let mut segments = object_path.split('/');
+    matches!(segments.next(), Some(owner) if owner == user_id)
+        && segments.next().is_some_and(|segment| !segment.is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::user_owns_object_path;
+
+    #[test]
+    fn accepts_only_objects_nested_under_the_exact_user_id() {
+        let user_id = "00000000-0000-4000-8000-000000000001";
+
+        assert!(user_owns_object_path(
+            user_id,
+            &format!("{user_id}/audio.m4a")
+        ));
+        assert!(!user_owns_object_path(user_id, "audio.m4a"));
+        assert!(!user_owns_object_path(user_id, &format!("{user_id}/")));
+        assert!(!user_owns_object_path(
+            user_id,
+            "00000000-0000-4000-8000-000000000002/audio.m4a"
+        ));
+        assert!(!user_owns_object_path(
+            user_id,
+            &format!("{user_id}%2Faudio.m4a")
+        ));
     }
 }

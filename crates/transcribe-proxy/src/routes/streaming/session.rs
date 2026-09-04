@@ -54,21 +54,19 @@ pub async fn init_session(
     .json(&config)
     .send()
     .await
-    .map_err(|e| format!("session init request failed: {}", e))?;
+    .map_err(|_| "session init request failed".to_string())?;
 
     if !resp.status().is_success() {
         let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
-        return Err(format!("session init failed: {} - {}", status, body));
+        return Err(format!("session init failed: {status}"));
     }
 
     let init: InitResponse = resp
         .json()
         .await
-        .map_err(|e| format!("session init parse failed: {}", e))?;
+        .map_err(|_| "session init parse failed".to_string())?;
 
     tracing::debug!(
-        anarlog.stt.session.id = %init.id,
         anarlog.stt.provider.name = ?provider,
         "session_initialized"
     );

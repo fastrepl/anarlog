@@ -122,9 +122,9 @@ impl RealtimeSttAdapter for DashScopeAdapter {
     fn parse_response(&self, raw: &str) -> Vec<StreamResponse> {
         let event: DashScopeEvent = match serde_json::from_str(raw) {
             Ok(e) => e,
-            Err(e) => {
+            Err(_e) => {
                 tracing::warn!(
-                    error = ?e,
+                    error.type = "invalid_provider_payload",
                     anarlog.payload.size_bytes = raw.len() as u64,
                     "dashscope_json_parse_failed"
                 );
@@ -133,72 +133,48 @@ impl RealtimeSttAdapter for DashScopeAdapter {
         };
 
         match event {
-            DashScopeEvent::SessionCreated { session } => {
-                tracing::debug!(
-                    anarlog.stt.provider_session.id = %session.id,
-                    "dashscope_session_created"
-                );
+            DashScopeEvent::SessionCreated { .. } => {
+                tracing::debug!("dashscope_session_created");
                 vec![]
             }
-            DashScopeEvent::SessionUpdated { session } => {
-                tracing::debug!(
-                    anarlog.stt.provider_session.id = %session.id,
-                    "dashscope_session_updated"
-                );
+            DashScopeEvent::SessionUpdated { .. } => {
+                tracing::debug!("dashscope_session_updated");
                 vec![]
             }
-            DashScopeEvent::InputAudioBufferCommitted { item_id } => {
-                tracing::debug!(
-                    anarlog.stt.item.id = %item_id,
-                    "dashscope_audio_buffer_committed"
-                );
+            DashScopeEvent::InputAudioBufferCommitted { .. } => {
+                tracing::debug!("dashscope_audio_buffer_committed");
                 vec![]
             }
             DashScopeEvent::InputAudioBufferCleared => {
                 tracing::debug!("dashscope_audio_buffer_cleared");
                 vec![]
             }
-            DashScopeEvent::InputAudioBufferSpeechStarted { item_id } => {
-                tracing::debug!(anarlog.stt.item.id = %item_id, "dashscope_speech_started");
+            DashScopeEvent::InputAudioBufferSpeechStarted { .. } => {
+                tracing::debug!("dashscope_speech_started");
                 vec![]
             }
-            DashScopeEvent::InputAudioBufferSpeechStopped { item_id } => {
-                tracing::debug!(anarlog.stt.item.id = %item_id, "dashscope_speech_stopped");
+            DashScopeEvent::InputAudioBufferSpeechStopped { .. } => {
+                tracing::debug!("dashscope_speech_stopped");
                 vec![]
             }
             DashScopeEvent::ConversationItemInputAudioTranscriptionCompleted {
-                item_id,
-                transcript,
-                ..
+                transcript, ..
             } => {
                 tracing::debug!(
-                    anarlog.stt.item.id = %item_id,
                     anarlog.transcript.char_count = transcript.chars().count() as u64,
                     "dashscope_transcription_completed"
                 );
                 Self::build_transcript_response(&transcript, true, true)
             }
-            DashScopeEvent::ConversationItemInputAudioTranscriptionText {
-                item_id, text, ..
-            } => {
+            DashScopeEvent::ConversationItemInputAudioTranscriptionText { text, .. } => {
                 tracing::debug!(
-                    anarlog.stt.item.id = %item_id,
                     anarlog.transcript.char_count = text.chars().count() as u64,
                     "dashscope_transcription_text"
                 );
                 Self::build_transcript_response(&text, false, false)
             }
-            DashScopeEvent::ConversationItemInputAudioTranscriptionFailed {
-                item_id,
-                error,
-                ..
-            } => {
-                tracing::error!(
-                    anarlog.stt.item.id = %item_id,
-                    error.type = %error.error_type,
-                    error = %error.message,
-                    "dashscope_transcription_failed"
-                );
+            DashScopeEvent::ConversationItemInputAudioTranscriptionFailed { error, .. } => {
+                crate::log_provider_failure("dashscope", &error.error_type, None, &error.message);
                 vec![StreamResponse::ErrorResponse {
                     error_code: None,
                     error_message: format!("{}: {}", error.error_type, error.message),
@@ -206,11 +182,7 @@ impl RealtimeSttAdapter for DashScopeAdapter {
                 }]
             }
             DashScopeEvent::Error { error } => {
-                tracing::error!(
-                    error.type = %error.error_type,
-                    error = %error.message,
-                    "dashscope_error"
-                );
+                crate::log_provider_failure("dashscope", &error.error_type, None, &error.message);
                 vec![StreamResponse::ErrorResponse {
                     error_code: None,
                     error_message: format!("{}: {}", error.error_type, error.message),

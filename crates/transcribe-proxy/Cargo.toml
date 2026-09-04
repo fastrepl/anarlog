@@ -11,6 +11,7 @@ anlg-audio-mime = { workspace = true }
 anlg-language = { workspace = true }
 anlg-observability = { workspace = true }
 anlg-supabase-storage = { workspace = true }
+anlg-user-error = { workspace = true }
 owhisper-client = { workspace = true }
 owhisper-interface = { workspace = true, features = ["openapi"] }
 

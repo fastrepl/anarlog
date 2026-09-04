@@ -59,7 +59,6 @@ export async function trackAuthEvent(
     const billing = await getBillingAnalytics(session.access_token);
     const identifySignature = JSON.stringify({
       userId: session.user.id,
-      email: session.user.email ?? null,
       plan: billing.plan,
       trialEndDate: billing.trialEndDate,
       appVersion,
@@ -69,7 +68,6 @@ export async function trackAuthEvent(
       trackedIdentifySignature = identifySignature;
 
       await analyticsCommands.identify(session.user.id, {
-        email: session.user.email,
         set: {
           account_created_date: session.user.created_at,
           is_signed_up: true,
@@ -83,8 +81,6 @@ export async function trackAuthEvent(
           type: "account",
           key: session.user.id,
           properties: {
-            name: session.user.email ?? session.user.id,
-            email: session.user.email ?? null,
             created_at: session.user.created_at,
             plan: billing.plan,
             trial_end_date: billing.trialEndDate,

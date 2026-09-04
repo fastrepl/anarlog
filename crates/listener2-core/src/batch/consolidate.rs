@@ -120,16 +120,19 @@ pub(super) async fn consolidate_hosted_speakers(
                 "speaker_consolidation_completed"
             );
         }
-        Ok(Err(error)) => {
+        Ok(Err(_error)) => {
             tracing::warn!(
                 anarlog.stt.provider.name = CONSOLIDATION_PROVIDER,
                 elapsed_ms = started_at.elapsed().as_millis() as u64,
-                error = %error,
+                error.type = "speaker_consolidation_failed",
                 "speaker_consolidation_failed"
             );
         }
-        Err(error) => {
-            tracing::error!(error = %error, "speaker_consolidation_task_join_failed");
+        Err(_error) => {
+            tracing::error!(
+                error.type = "local_task_join_failed",
+                "speaker_consolidation_task_join_failed"
+            );
         }
     }
 }

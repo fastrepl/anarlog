@@ -22,10 +22,6 @@ pub(super) async fn handle_non_stream_response(
     let span = tracing::Span::current();
 
     span.record("http.response.status_code", http_status as i64);
-    if status.is_client_error() || status.is_server_error() {
-        anlg_observability::mark_span_as_error(&span, &http_status.to_string());
-    }
-
     tracing::info!(
         http.response.status_code = %http_status,
         anarlog.gen_ai.request.streaming = false,
@@ -42,8 +38,13 @@ pub(super) async fn handle_non_stream_response(
         Err(e) => return ProxyError::BodyRead(e).into_response(),
     };
 
+    let user_error = status.is_client_error()
+        || anlg_user_error::is_user_error_text(&String::from_utf8_lossy(&body_bytes));
+    if (status.is_client_error() || status.is_server_error()) && !user_error {
+        anlg_observability::mark_span_as_error(&span, &http_status.to_string());
+    }
+
     if let Ok(metadata) = state.config.provider.parse_response(&body_bytes) {
-        span.record("gen_ai.response.id", metadata.generation_id.as_str());
         if let Some(model) = metadata.model.as_deref() {
             span.record("gen_ai.response.model", model);
         }
@@ -51,10 +52,6 @@ pub(super) async fn handle_non_stream_response(
         span.record("gen_ai.usage.output_tokens", metadata.output_tokens as i64);
         sentry::configure_scope(|scope| {
             let mut ctx = BTreeMap::new();
-            ctx.insert(
-                "gen_ai.response.id".into(),
-                metadata.generation_id.clone().into(),
-            );
             if let Some(ref model) = metadata.model {
                 ctx.insert("gen_ai.response.model".into(), model.clone().into());
             }

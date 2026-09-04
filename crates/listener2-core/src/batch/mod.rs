@@ -227,9 +227,8 @@ async fn run_batch_inner(
 
     let metadata_result = match metadata_joined {
         Ok(result) => result,
-        Err(err) => {
-            let raw_error = format!("{err:?}");
-            tracing::error!(error = %raw_error, "audio_metadata_task_join_failed");
+        Err(_err) => {
+            tracing::error!(error.type = "audio_metadata_task_join_failed", "audio_metadata_task_join_failed");
             return Err(crate::BatchFailure::AudioMetadataJoinFailed.into());
         }
     };
@@ -239,11 +238,7 @@ async fn run_batch_inner(
         Err(err) => {
             let raw_error = err.to_string();
             let message = format_user_friendly_error(&raw_error);
-            tracing::error!(
-                error = %raw_error,
-                anarlog.error.user_message = %message,
-                "failed_to_read_audio_metadata"
-            );
+            log_batch_failure("audio_metadata_read", &raw_error);
             return Err(crate::BatchFailure::AudioMetadataReadFailed { message }.into());
         }
     };
@@ -332,7 +327,24 @@ pub(super) fn batch_provider_label(provider: BatchProvider) -> String {
 }
 
 pub(super) fn session_span(session_id: &str) -> tracing::Span {
-    tracing::info_span!("session", anarlog.session.id = %session_id)
+    let _ = session_id;
+    tracing::info_span!("session")
+}
+
+pub(super) fn log_batch_failure(operation: &str, error: &str) {
+    if anlg_user_error::is_user_error_text(error) {
+        tracing::warn!(
+            anarlog.operation = operation,
+            error.type = "user_error",
+            "batch_operation_rejected"
+        );
+    } else {
+        tracing::error!(
+            anarlog.operation = operation,
+            error.type = "batch_operation_failed",
+            "batch_operation_failed"
+        );
+    }
 }
 
 pub(super) fn format_user_friendly_error(error: &str) -> String {

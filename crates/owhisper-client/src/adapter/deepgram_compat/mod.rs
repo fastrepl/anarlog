@@ -14,8 +14,11 @@ use super::url_builder::{QueryParamBuilder, resolve_model_for_languages};
 pub fn listen_endpoint_url(api_base: &str) -> (url::Url, Vec<(String, String)>) {
     let mut url: url::Url = match api_base.parse() {
         Ok(url) => url,
-        Err(error) => {
-            tracing::error!(%error, "invalid api_base for deepgram adapter; using default API base");
+        Err(_error) => {
+            tracing::warn!(
+                error.type = "invalid_api_base",
+                "deepgram_invalid_api_base_using_default"
+            );
             crate::providers::Provider::Deepgram
                 .default_api_base()
                 .parse()

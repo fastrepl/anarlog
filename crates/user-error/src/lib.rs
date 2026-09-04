@@ -1,5 +1,4 @@
-//! Classification of failures that should still be logged locally but must not
-//! be reported to Sentry.
+//! Classification of failures that must not be emitted to error telemetry.
 //!
 //! This includes the end user's own account state (exhausted credits, expired
 //! plans, bad API keys) and issue types that were already archived as solved.
@@ -136,10 +135,126 @@ pub fn drop_user_error_event(event: Event<'static>) -> Option<Event<'static>> {
     (!is_user_error_event(&event)).then_some(event)
 }
 
+fn is_safe_identifier(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 128
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"_.:/-".contains(&byte))
+}
+
+fn is_safe_frame_symbol(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 160
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"_:.$<>-[]".contains(&byte))
+}
+
+fn sanitize_stacktrace(stacktrace: &mut sentry::protocol::Stacktrace) {
+    stacktrace.registers.clear();
+    for frame in &mut stacktrace.frames {
+        frame.function = frame
+            .function
+            .take()
+            .filter(|value| is_safe_frame_symbol(value));
+        frame.filename = Some("source".to_string());
+        frame.abs_path = None;
+        frame.module = None;
+        frame.package = None;
+        frame.symbol = None;
+        frame.pre_context.clear();
+        frame.context_line = None;
+        frame.post_context.clear();
+        frame.vars.clear();
+        frame.addr_mode = None;
+    }
+}
+
+pub fn sanitize_sentry_event(mut event: Event<'static>) -> Option<Event<'static>> {
+    if should_drop_sentry_event(&event) {
+        return None;
+    }
+
+    let operation = event
+        .message
+        .as_deref()
+        .filter(|value| is_safe_identifier(value))
+        .map(str::to_owned);
+    event.user = None;
+    event.request = None;
+    event.contexts.clear();
+    event.breadcrumbs = Default::default();
+    event.extra.clear();
+    event.message = None;
+    event.logentry = None;
+    event.transaction = None;
+    event.culprit = None;
+    event.fingerprint = Default::default();
+    event.tags.retain(|key, value| {
+        matches!(
+            key.as_str(),
+            "anarlog.error.stage"
+                | "anarlog.honeycomb.span_id"
+                | "anarlog.honeycomb.trace_id"
+                | "anarlog.operation"
+                | "anarlog.surface"
+                | "error.code"
+                | "error.type"
+                | "http.response.status_code"
+                | "service.name"
+                | "service.namespace"
+        ) && is_safe_identifier(value)
+    });
+
+    if let Some(stacktrace) = &mut event.stacktrace {
+        sanitize_stacktrace(stacktrace);
+    }
+    for exception in &mut event.exception {
+        if !is_safe_identifier(&exception.ty) {
+            exception.ty = "Error".to_string();
+        }
+        exception.value = Some(format!("{} captured", exception.ty));
+        exception.module = None;
+        if let Some(stacktrace) = &mut exception.stacktrace {
+            sanitize_stacktrace(stacktrace);
+        }
+        if let Some(stacktrace) = &mut exception.raw_stacktrace {
+            sanitize_stacktrace(stacktrace);
+        }
+        if let Some(mechanism) = &mut exception.mechanism {
+            mechanism.description = None;
+            mechanism.help_link = None;
+            mechanism.data.clear();
+        }
+    }
+    for thread in &mut event.threads {
+        thread.id = None;
+        thread.name = None;
+        if let Some(stacktrace) = &mut thread.stacktrace {
+            sanitize_stacktrace(stacktrace);
+        }
+        if let Some(stacktrace) = &mut thread.raw_stacktrace {
+            sanitize_stacktrace(stacktrace);
+        }
+    }
+
+    if event.exception.is_empty() && event.stacktrace.is_none() {
+        let grouping_key = operation.unwrap_or_else(|| "server_error".to_string());
+        event.message = Some(grouping_key.clone());
+        event
+            .tags
+            .insert("anarlog.operation".to_string(), grouping_key.clone());
+        event.fingerprint = vec!["server_error".into(), grouping_key.into()].into();
+    }
+
+    Some(event)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sentry::protocol::{Breadcrumb, Exception, LogEntry};
+    use sentry::protocol::{Breadcrumb, Exception, Frame, LogEntry, Stacktrace};
 
     const ANTHROPIC_CREDIT_ERROR: &str = "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.";
 
@@ -217,6 +332,33 @@ mod tests {
     }
 
     #[test]
+    fn sanitizer_replaces_stack_paths_with_a_fixed_source_name() {
+        let event = Event {
+            exception: vec![Exception {
+                ty: "IoError".to_string(),
+                stacktrace: Some(Stacktrace {
+                    frames: vec![Frame {
+                        filename: Some("private@example.com.rs".to_string()),
+                        abs_path: Some("/Users/alice/private.rs".to_string()),
+                        module: Some("private.module".to_string()),
+                        ..Default::default()
+                    }],
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }]
+            .into(),
+            ..Default::default()
+        };
+
+        let event = sanitize_sentry_event(event).unwrap();
+        let frame = &event.exception[0].stacktrace.as_ref().unwrap().frames[0];
+        assert_eq!(frame.filename.as_deref(), Some("source"));
+        assert!(frame.abs_path.is_none());
+        assert!(frame.module.is_none());
+    }
+
+    #[test]
     fn drops_archived_operational_noise_and_webview_console() {
         let from_message = Event {
             message: Some(
@@ -247,5 +389,63 @@ mod tests {
         };
 
         assert!(drop_user_error_event(event).is_some());
+    }
+
+    #[test]
+    fn sanitizer_removes_identity_and_free_text_but_keeps_safe_diagnostics() {
+        let event = Event {
+            message: Some("patient@example.com".to_string()),
+            user: Some(sentry::User {
+                id: Some("user-1".to_string()),
+                email: Some("patient@example.com".to_string()),
+                ..Default::default()
+            }),
+            tags: [
+                ("error.type".to_string(), "database_error".to_string()),
+                ("enduser.id".to_string(), "user-1".to_string()),
+            ]
+            .into_iter()
+            .collect(),
+            exception: vec![Exception {
+                ty: "DatabaseError".to_string(),
+                value: Some("patient@example.com".to_string()),
+                ..Default::default()
+            }]
+            .into(),
+            ..Default::default()
+        };
+
+        let sanitized = sanitize_sentry_event(event).unwrap();
+        assert!(sanitized.user.is_none());
+        assert!(sanitized.message.is_none());
+        assert_eq!(sanitized.tags.get("error.type").unwrap(), "database_error");
+        assert!(!sanitized.tags.contains_key("enduser.id"));
+        assert_eq!(
+            sanitized.exception[0].value.as_deref(),
+            Some("DatabaseError captured")
+        );
+    }
+
+    #[test]
+    fn sanitizer_keeps_safe_grouping_for_stackless_events() {
+        let event = Event {
+            message: Some("database_write_failed".to_string()),
+            ..Default::default()
+        };
+
+        let sanitized = sanitize_sentry_event(event).unwrap();
+        assert_eq!(sanitized.message.as_deref(), Some("database_write_failed"));
+        assert_eq!(
+            sanitized.tags.get("anarlog.operation").map(String::as_str),
+            Some("database_write_failed")
+        );
+        assert_eq!(
+            sanitized
+                .fingerprint
+                .iter()
+                .map(|value| value.as_ref())
+                .collect::<Vec<_>>(),
+            vec!["server_error", "database_write_failed"]
+        );
     }
 }

@@ -311,7 +311,9 @@ async fn stop_after_finalize(
 ) {
     match result {
         Ok(session) => stop_session(session).await,
-        Err(error) => tracing::warn!(error.message = %error, "soniqo_live_finalize_failed"),
+        Err(_error) => {
+            tracing::warn!(error.type = "local_finalize_failed", "soniqo_live_finalize_failed")
+        }
     }
 }
 

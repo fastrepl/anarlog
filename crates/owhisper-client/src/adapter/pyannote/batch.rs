@@ -148,9 +148,8 @@ impl PyannoteAdapter {
 
         let job = Self::submit_job(client, &base_url, api_key, params, &media_url).await?;
         tracing::info!(
-            anarlog.stt.job.id = %job.job_id,
             status = %job.status,
-            warning = ?job.warning,
+            has_warning = job.warning.is_some(),
             "pyannote_job_created"
         );
 

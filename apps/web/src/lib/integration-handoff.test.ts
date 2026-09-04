@@ -7,6 +7,7 @@ import { createRoot } from "react-dom/client";
 import {
   getNangoSessionToken,
   isDesktopIntegrationHandoff,
+  prepareNangoSessionHandoff,
   useNangoSessionHandoffToken,
 } from "./integration-handoff.ts";
 
@@ -65,9 +66,33 @@ test("reads the scoped Nango token from the URL fragment", () => {
   assert.equal(getNangoSessionToken(""), null);
 });
 
+test("scrubs a Nango token before telemetry startup", () => {
+  const dom = new JSDOM("", {
+    url: "https://anarlog.so/app/integration?flow=desktop&action=connect&handoff=nango#session_token=nango.token",
+  });
+  const previousWindow = globalThis.window;
+
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: dom.window,
+  });
+
+  try {
+    prepareNangoSessionHandoff();
+    assert.equal(dom.window.location.hash, "");
+    assert.equal(
+      dom.window.location.href,
+      "https://anarlog.so/app/integration?flow=desktop&action=connect&handoff=nango",
+    );
+  } finally {
+    dom.window.close();
+    restoreGlobal("window", previousWindow);
+  }
+});
+
 test("preserves the handoff token across StrictMode effect replay", async () => {
   const dom = new JSDOM('<div id="root"></div>', {
-    url: "https://anarlog.so/app/integration?flow=desktop#session_token=nango.token",
+    url: "https://anarlog.so/app/integration?flow=desktop&action=connect&handoff=nango#session_token=nango.token",
   });
   const previousWindow = globalThis.window;
   const previousDocument = globalThis.document;
@@ -114,7 +139,7 @@ test("preserves the handoff token across StrictMode effect replay", async () => 
     assert.equal(dom.window.location.hash, "");
     assert.equal(
       dom.window.location.href,
-      "https://anarlog.so/app/integration?flow=desktop",
+      "https://anarlog.so/app/integration?flow=desktop&action=connect&handoff=nango",
     );
   } finally {
     await act(async () => {

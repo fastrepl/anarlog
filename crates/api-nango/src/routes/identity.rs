@@ -320,26 +320,16 @@ pub(crate) async fn fetch_and_store_account_identity(
 ) -> Option<String> {
     let identity = match fetch_identity(nango, integration_id, connection_id).await {
         Ok((identity, _display_name)) => identity?,
-        Err(e) => {
-            tracing::warn!(
-                anarlog.connection.id = %connection_id,
-                anarlog.integration.id = %integration_id,
-                error = %e,
-                "failed to fetch identity for account_identity tag"
-            );
+        Err(_) => {
+            tracing::warn!("failed to fetch identity for account_identity tag");
             return None;
         }
     };
 
     let mut tags = match nango.get_connection(connection_id, integration_id).await {
         Ok(connection) => connection.tags.unwrap_or_default(),
-        Err(e) => {
-            tracing::warn!(
-                anarlog.connection.id = %connection_id,
-                anarlog.integration.id = %integration_id,
-                error = %e,
-                "failed to fetch connection before patching account_identity tag"
-            );
+        Err(_) => {
+            tracing::warn!("failed to fetch connection before patching account_identity tag");
             return Some(identity);
         }
     };
@@ -355,20 +345,10 @@ pub(crate) async fn fetch_and_store_account_identity(
         .await
     {
         Ok(()) => {
-            tracing::info!(
-                anarlog.connection.id = %connection_id,
-                anarlog.integration.id = %integration_id,
-                account_identity = %identity,
-                "account_identity tag set"
-            );
+            tracing::info!("account_identity tag set");
         }
-        Err(e) => {
-            tracing::warn!(
-                anarlog.connection.id = %connection_id,
-                anarlog.integration.id = %integration_id,
-                error = %e,
-                "failed to patch account_identity tag"
-            );
+        Err(_) => {
+            tracing::warn!("failed to patch account_identity tag");
         }
     }
 

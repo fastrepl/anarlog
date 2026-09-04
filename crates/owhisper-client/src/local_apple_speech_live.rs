@@ -249,7 +249,9 @@ async fn finalize_dual(
 async fn stop_after_finalize(result: Result<Session, LocalAppleSpeechLiveError>) {
     match result {
         Ok(session) => stop_session(session).await,
-        Err(error) => tracing::warn!(error.message = %error, "apple_speech_live_finalize_failed"),
+        Err(_error) => {
+            tracing::warn!(error.type = "local_finalize_failed", "apple_speech_live_finalize_failed")
+        }
     }
 }
 

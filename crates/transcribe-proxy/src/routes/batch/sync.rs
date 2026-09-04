@@ -41,13 +41,17 @@ impl BatchAttemptError {
         }
     }
 
-    fn kind(&self) -> &'static str {
+    pub(super) fn kind(&self) -> &'static str {
         match self {
             Self::Auth(_) => "auth",
             Self::Client(_) => "client",
             Self::Retryable(_) => "retryable",
             Self::Unsupported(_) => "unsupported",
         }
+    }
+
+    pub(super) fn is_user_error(&self) -> bool {
+        matches!(self, Self::Auth(_) | Self::Client(_) | Self::Unsupported(_))
     }
 }
 
@@ -74,7 +78,7 @@ struct BatchRoutingAttempt {
     result: String,
 }
 
-fn log_batch_routing_trace(trace: &BatchRoutingTrace, success: bool) {
+fn log_batch_routing_trace(trace: &BatchRoutingTrace, success: bool, user_error: bool) {
     let trace_json = serde_json::to_string(trace).unwrap_or_else(|e| {
         serde_json::json!({
             "trace_serialization_error": e.to_string(),
@@ -83,6 +87,8 @@ fn log_batch_routing_trace(trace: &BatchRoutingTrace, success: bool) {
     });
     if success {
         tracing::info!(trace_json = %trace_json, "anarlog_batch_routing_trace");
+    } else if user_error {
+        tracing::warn!(trace_json = %trace_json, "anarlog_batch_routing_trace");
     } else {
         tracing::error!(trace_json = %trace_json, "anarlog_batch_routing_trace");
     }
@@ -135,6 +141,7 @@ pub(super) async fn handle_anarlog_batch(
     );
 
     let mut last_error: Option<String> = None;
+    let mut last_error_is_user = false;
     let mut providers_tried = Vec::new();
     let mut trace = BatchRoutingTrace {
         request_model: listen_params.model.clone(),
@@ -173,14 +180,14 @@ pub(super) async fn handle_anarlog_batch(
                     result: "success".to_string(),
                 });
                 trace.outcome = "success".to_string();
-                log_batch_routing_trace(&trace, true);
+                log_batch_routing_trace(&trace, true, false);
 
                 return super::bounded_json_response(response, max_response_bytes);
             }
             Err((e, retries)) => {
                 tracing::warn!(
                     anarlog.stt.provider.name = ?provider,
-                    error = %e,
+                    error.type = e.kind(),
                     anarlog.attempt.number = attempt + 1,
                     anarlog.remaining_provider_count = provider_chain.len() - attempt - 1,
                     "provider_failed_trying_next"
@@ -189,15 +196,16 @@ pub(super) async fn handle_anarlog_batch(
                     provider: provider.to_string(),
                     resolved_model,
                     retries,
-                    result: format!("{}: {}", e.kind(), e.message()),
+                    result: e.kind().to_string(),
                 });
                 last_error = Some(e.message().to_string());
+                last_error_is_user = e.is_user_error();
             }
         }
     }
 
     trace.outcome = "all_providers_failed".to_string();
-    log_batch_routing_trace(&trace, false);
+    log_batch_routing_trace(&trace, false, last_error_is_user);
 
     (
         StatusCode::BAD_GATEWAY,
@@ -247,7 +255,7 @@ pub(super) async fn transcribe_with_retry(
             .notify(|err, dur| {
                 tracing::warn!(
                     anarlog.stt.provider.name = ?selected.provider(),
-                    error = %err,
+                    error.type = err.kind(),
                     anarlog.retry.delay_ms = dur.as_millis(),
                     "retrying_transcription"
                 );
@@ -329,16 +337,15 @@ pub(super) async fn transcribe_with_provider(
 
 fn map_provider_error(error: owhisper_client::Error) -> BatchAttemptError {
     match error {
-        owhisper_client::Error::UnexpectedStatus { status, body } => classify_http_status(
-            status.as_u16(),
-            format!("unexpected response status {status}: {body}"),
-        ),
-        owhisper_client::Error::Http(err) => map_http_error(err),
-        owhisper_client::Error::HttpMiddleware(err) => {
-            BatchAttemptError::Retryable(format!("http middleware error: {err}"))
+        owhisper_client::Error::UnexpectedStatus { status, body } => {
+            classify_http_status(status.as_u16(), &body)
         }
-        owhisper_client::Error::Task(err) => {
-            BatchAttemptError::Retryable(format!("task join error: {err}"))
+        owhisper_client::Error::Http(err) => map_http_error(err),
+        owhisper_client::Error::HttpMiddleware(_) => {
+            BatchAttemptError::Retryable("provider transport unavailable".to_string())
+        }
+        owhisper_client::Error::Task(_) => {
+            BatchAttemptError::Retryable("provider task unavailable".to_string())
         }
         owhisper_client::Error::ProviderFailure {
             message,
@@ -346,42 +353,47 @@ fn map_provider_error(error: owhisper_client::Error) -> BatchAttemptError {
             status,
         } => {
             if let Some(status) = status {
-                classify_http_status(status.as_u16(), message)
+                classify_http_status(status.as_u16(), &message)
+            } else if anlg_user_error::is_user_error_text(&message) {
+                BatchAttemptError::Client("provider account action required".to_string())
             } else if retryable {
-                BatchAttemptError::Retryable(message)
+                BatchAttemptError::Retryable("provider unavailable".to_string())
             } else {
-                BatchAttemptError::Client(message)
+                BatchAttemptError::Client("provider request rejected".to_string())
             }
         }
-        owhisper_client::Error::ProviderConfiguration { provider, message } => {
-            BatchAttemptError::Client(format!(
-                "invalid realtime endpoint configuration for {provider}: {message}"
-            ))
+        owhisper_client::Error::ProviderConfiguration { provider, .. } => {
+            BatchAttemptError::Client(format!("invalid endpoint configuration for {provider}"))
         }
         owhisper_client::Error::AudioProcessing(msg) => classify_audio_processing_message(msg),
-        owhisper_client::Error::WebSocket(msg) => BatchAttemptError::Retryable(msg),
+        owhisper_client::Error::WebSocket(_) => {
+            BatchAttemptError::Retryable("provider websocket unavailable".to_string())
+        }
     }
 }
 
 fn map_http_error(err: reqwest::Error) -> BatchAttemptError {
     if err.is_timeout() || err.is_connect() {
-        return BatchAttemptError::Retryable(err.to_string());
+        return BatchAttemptError::Retryable("provider transport unavailable".to_string());
     }
 
     if let Some(status) = err.status() {
-        return classify_http_status(status.as_u16(), err.to_string());
+        return classify_http_status(status.as_u16(), "");
     }
 
-    BatchAttemptError::Retryable(err.to_string())
+    BatchAttemptError::Retryable("provider transport unavailable".to_string())
 }
 
-fn classify_http_status(status: u16, message: String) -> BatchAttemptError {
+fn classify_http_status(status: u16, body: &str) -> BatchAttemptError {
     match status {
-        401 | 403 => BatchAttemptError::Auth(message),
-        429 => BatchAttemptError::Retryable(message),
-        400..=499 => BatchAttemptError::Client(message),
-        500..=599 => BatchAttemptError::Retryable(message),
-        _ => BatchAttemptError::Retryable(message),
+        401 | 403 => BatchAttemptError::Auth("invalid api key".to_string()),
+        429 if anlg_user_error::is_user_error_text(body) => {
+            BatchAttemptError::Client("quota exceeded".to_string())
+        }
+        429 => BatchAttemptError::Retryable("provider rate limited".to_string()),
+        400..=499 => BatchAttemptError::Client("provider request rejected".to_string()),
+        500..=599 => BatchAttemptError::Retryable("provider unavailable".to_string()),
+        _ => BatchAttemptError::Retryable("unexpected provider response".to_string()),
     }
 }
 
@@ -396,11 +408,11 @@ fn classify_audio_processing_message(message: String) -> BatchAttemptError {
     let is_client_error = error_lower.contains("400") || error_lower.contains("invalid");
 
     if is_auth_error {
-        return BatchAttemptError::Auth(message);
+        return BatchAttemptError::Auth("invalid api key".to_string());
     }
 
     if is_client_error {
-        return BatchAttemptError::Client(message);
+        return BatchAttemptError::Client("invalid audio request".to_string());
     }
 
     let is_retryable = error_lower.contains("timeout")
@@ -416,9 +428,9 @@ fn classify_audio_processing_message(message: String) -> BatchAttemptError {
         || error_lower.contains("too many requests");
 
     if is_retryable {
-        BatchAttemptError::Retryable(message)
+        BatchAttemptError::Retryable("provider unavailable".to_string())
     } else {
-        BatchAttemptError::Client(message)
+        BatchAttemptError::Client("audio processing failed".to_string())
     }
 }
 
@@ -475,6 +487,30 @@ mod tests {
             status: Some(reqwest::StatusCode::UNAUTHORIZED),
         });
         assert!(matches!(err, BatchAttemptError::Auth(_)));
+    }
+
+    #[test]
+    fn provider_response_body_is_not_retained() {
+        let secret = "patient@example.com transcript text";
+        let err = map_provider_error(owhisper_client::Error::UnexpectedStatus {
+            status: reqwest::StatusCode::BAD_REQUEST,
+            body: secret.to_string(),
+        });
+
+        assert!(!err.message().contains(secret));
+        assert_eq!(err.message(), "provider request rejected");
+    }
+
+    #[test]
+    fn quota_failures_remain_user_errors_without_retaining_the_body() {
+        let err = map_provider_error(owhisper_client::Error::UnexpectedStatus {
+            status: reqwest::StatusCode::TOO_MANY_REQUESTS,
+            body: "insufficient_quota for patient@example.com".to_string(),
+        });
+
+        assert!(matches!(err, BatchAttemptError::Client(_)));
+        assert_eq!(err.message(), "quota exceeded");
+        assert!(anlg_user_error::is_user_error_text(err.message()));
     }
 
     #[test]

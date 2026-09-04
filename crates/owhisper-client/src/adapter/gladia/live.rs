@@ -204,16 +204,16 @@ impl RealtimeSttAdapter for GladiaAdapter {
                 .json(&body)
                 .send()
                 .await
-                .map_err(|e| {
-                    tracing::error!(error = ?e, "gladia_init_request_failed");
+                .map_err(|_e| {
+                    tracing::error!(error.type = "provider_request_failed", "gladia_init_request_failed");
                 })
                 .ok()?;
 
             let init: InitResponse = resp
                 .json()
                 .await
-                .map_err(|e| {
-                    tracing::error!(error = ?e, "gladia_init_parse_failed");
+                .map_err(|_e| {
+                    tracing::error!(error.type = "invalid_provider_payload", "gladia_init_parse_failed");
                 })
                 .ok()?;
 
@@ -221,13 +221,9 @@ impl RealtimeSttAdapter for GladiaAdapter {
                 InitResponse::Success { id, url } => (id, url),
                 InitResponse::Error {
                     message,
-                    validation_errors,
+                    validation_errors: _,
                 } => {
-                    tracing::error!(
-                        error = %message,
-                        anarlog.validation.errors = ?validation_errors,
-                        "gladia_init_failed"
-                    );
+                    crate::log_provider_failure("gladia", "session_init_failed", None, &message);
                     return None;
                 }
             };
@@ -262,9 +258,9 @@ impl RealtimeSttAdapter for GladiaAdapter {
     fn parse_response(&self, raw: &str) -> Vec<StreamResponse> {
         let msg: GladiaMessage = match serde_json::from_str(raw) {
             Ok(m) => m,
-            Err(e) => {
+            Err(_e) => {
                 tracing::warn!(
-                    error = ?e,
+                    error.type = "invalid_provider_payload",
                     anarlog.payload.size_bytes = raw.len() as u64,
                     "gladia_json_parse_failed"
                 );
@@ -275,19 +271,16 @@ impl RealtimeSttAdapter for GladiaAdapter {
         match msg {
             GladiaMessage::Transcript(transcript) => Self::parse_transcript(transcript),
             GladiaMessage::StartSession { id } => {
-                tracing::debug!(anarlog.stt.provider_session.id = %id, "gladia_session_started");
+                tracing::debug!("gladia_session_started");
+                let _ = id;
                 vec![]
             }
             GladiaMessage::EndSession { id } => {
                 let channels = SessionChannels::remove(&id).unwrap_or_else(|| {
-                    tracing::warn!(
-                        anarlog.stt.provider_session.id = %id,
-                        "gladia_session_channels_not_found"
-                    );
+                    tracing::warn!("gladia_session_channels_not_found");
                     1
                 });
                 tracing::debug!(
-                    anarlog.stt.provider_session.id = %id,
                     anarlog.audio.channel_count = channels,
                     "gladia_session_ended"
                 );
@@ -310,7 +303,7 @@ impl RealtimeSttAdapter for GladiaAdapter {
                 if let Some(session_id) = session_id {
                     SessionChannels::remove(&session_id);
                 }
-                tracing::error!(error = %message, error.code = ?code, "gladia_error");
+                crate::log_provider_failure("gladia", "provider_error", None, &message);
                 vec![StreamResponse::ErrorResponse {
                     error_code: code,
                     error_message: message,

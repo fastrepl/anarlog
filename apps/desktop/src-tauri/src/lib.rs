@@ -15,7 +15,7 @@ use ext::*;
 use store::*;
 
 use std::sync::{
-    Arc, Mutex,
+    Arc,
     atomic::{AtomicBool, Ordering},
 };
 
@@ -29,65 +29,24 @@ const STAGING_BUNDLE_ID: &str = "com.hyprnote.staging";
 const APP_EXIT_REQUESTED_EVENT: &str = "app-exit-requested";
 static EXIT_FLUSH_COMPLETE: AtomicBool = AtomicBool::new(false);
 static EXIT_FLUSH_REQUESTED: AtomicBool = AtomicBool::new(false);
-static CRASH_REPORTING_ENABLED: AtomicBool = AtomicBool::new(true);
+static CRASH_REPORTING_ENABLED: AtomicBool = AtomicBool::new(false);
 const EXIT_FLUSH_FALLBACK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 const EXIT_HARD_FALLBACK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(12);
 
-pub(crate) struct CrashReportingState {
-    client: Option<sentry::Client>,
-    minidump: Mutex<Option<tauri_plugin_sentry::minidump::Handle>>,
-}
+pub(crate) struct CrashReportingState;
 
 impl CrashReportingState {
-    fn new(client: Option<sentry::Client>, enabled: bool) -> Self {
+    fn new(enabled: bool) -> Self {
         CRASH_REPORTING_ENABLED.store(enabled, Ordering::SeqCst);
-        let minidump = enabled
-            .then(|| client.as_ref().and_then(start_minidump_reporting))
-            .flatten();
-        Self {
-            client,
-            minidump: Mutex::new(minidump),
-        }
+        Self
     }
 
     fn set_enabled(&self, enabled: bool) {
         CRASH_REPORTING_ENABLED.store(enabled, Ordering::SeqCst);
-        let mut minidump = self.minidump.lock().unwrap();
-        if enabled {
-            if minidump.is_none() {
-                *minidump = self.client.as_ref().and_then(start_minidump_reporting);
-            }
-        } else {
-            minidump.take();
-        }
-    }
-}
-
-fn start_minidump_reporting(
-    client: &sentry::Client,
-) -> Option<tauri_plugin_sentry::minidump::Handle> {
-    match tauri_plugin_sentry::minidump::init(client) {
-        Ok(handle) => Some(handle),
-        Err(error) => {
-            tracing::warn!(%error, "failed to initialize Sentry minidump reporting");
-            None
-        }
     }
 }
 
 fn run_crash_reporter_process() -> ! {
-    let client = sentry::init(sentry::ClientOptions {
-        dsn: option_env!("SENTRY_DSN")
-            .filter(|_| std::env::var_os("ANARLOG_DISABLE_SENTRY").is_none())
-            .and_then(|dsn| dsn.parse().ok()),
-        release: option_env!("APP_VERSION").map(|v| format!("anarlog-desktop@{}", v).into()),
-        auto_session_tracking: false,
-        before_send: Some(Arc::new(|event| {
-            tauri_plugin_tracing::redaction::sanitize_sentry_event(event)
-        })),
-        ..Default::default()
-    });
-    let _ = tauri_plugin_sentry::minidump::init(&client);
     std::process::exit(0);
 }
 
@@ -112,7 +71,7 @@ fn crash_reporting_consent_from_rows(rows: &[(String, String)]) -> bool {
 
     read("crash_reporting_consent")
         .or_else(|| read("telemetry_consent"))
-        .unwrap_or(true)
+        .unwrap_or(false)
 }
 
 fn mark_exit_flush_complete() {
@@ -245,11 +204,6 @@ pub fn main() {
             sentry::configure_scope(|scope| {
                 scope.set_tag("service.namespace", "anarlog");
                 scope.set_tag("service.name", "desktop");
-                scope.set_tag("enduser.pseudo.id", anlg_host::fingerprint());
-                scope.set_user(Some(sentry::User {
-                    id: Some(anlg_host::fingerprint()),
-                    ..Default::default()
-                }));
             });
 
             Some(client)
@@ -257,8 +211,7 @@ pub fn main() {
             None
         }
     };
-    let crash_reporting_state =
-        CrashReportingState::new(sentry_client.as_deref().cloned(), crash_reporting_enabled);
+    let crash_reporting_state = CrashReportingState::new(crash_reporting_enabled);
 
     let audio: std::sync::Arc<dyn anlg_audio_actual::AudioProvider> =
         create_audio_provider(&context.config().identifier);
@@ -605,11 +558,10 @@ fn startup_failure_message(error: &impl std::fmt::Display) -> String {
 }
 
 fn exit_after_startup_failure(identifier: &str, error: &impl std::fmt::Display) -> ! {
-    let message = startup_failure_message(error);
+    let message = tauri_plugin_tracing::redaction::redact_text(&startup_failure_message(error));
     eprintln!("{message}");
-    tracing::error!(error = %error, "desktop startup failed");
+    tracing::error!(error.type = "desktop_startup_failed", "desktop startup failed");
     append_startup_failure_to_log(identifier, &message);
-    report_startup_failure_to_sentry(&message);
 
     #[cfg(target_os = "macos")]
     {
@@ -658,36 +610,6 @@ fn append_startup_failure_to_log(identifier: &str, message: &str) {
     {
         let _ = (identifier, message);
     }
-}
-
-// The main Sentry client is initialized after the database opens, so database
-// startup failures need their own short-lived client to be reported at all.
-fn report_startup_failure_to_sentry(message: &str) {
-    if let Some(client) = sentry::Hub::current().client() {
-        sentry::capture_message(message, sentry::Level::Error);
-        client.flush(Some(std::time::Duration::from_secs(3)));
-        return;
-    }
-
-    if std::env::var_os("ANARLOG_DISABLE_SENTRY").is_some() {
-        return;
-    }
-    let Some(dsn) = option_env!("SENTRY_DSN") else {
-        return;
-    };
-    let guard = sentry::init((
-        dsn,
-        sentry::ClientOptions {
-            release: option_env!("APP_VERSION").map(|v| format!("anarlog-desktop@{}", v).into()),
-            auto_session_tracking: false,
-            before_send: Some(Arc::new(|event| {
-                tauri_plugin_tracing::redaction::sanitize_sentry_event(event)
-            })),
-            ..Default::default()
-        },
-    ));
-    sentry::capture_message(message, sentry::Level::Error);
-    guard.flush(Some(std::time::Duration::from_secs(3)));
 }
 
 fn get_onboarding_flag() -> Option<bool> {
@@ -808,7 +730,7 @@ mod test {
 
         assert!(crash_reporting_consent_from_rows(&rows));
         assert!(!crash_reporting_consent_from_rows(&rows[..1]));
-        assert!(crash_reporting_consent_from_rows(&[]));
+        assert!(!crash_reporting_consent_from_rows(&[]));
     }
 
     #[test]

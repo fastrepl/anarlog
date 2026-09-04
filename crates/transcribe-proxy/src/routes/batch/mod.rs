@@ -109,11 +109,13 @@ pub async fn handler(
     match sync::transcribe_with_retry(&selected, listen_params, audio.path(), &retry_config).await {
         Ok((response, _retries)) => bounded_json_response(response, max_response_bytes),
         Err((e, _retries)) => {
-            tracing::error!(
-                error = %e,
-                anarlog.stt.provider.name = ?selected.provider(),
-                "batch_transcription_failed"
-            );
+            if !e.is_user_error() {
+                tracing::error!(
+                    error.type = e.kind(),
+                    anarlog.stt.provider.name = ?selected.provider(),
+                    "batch_transcription_failed"
+                );
+            }
             (
                 StatusCode::BAD_GATEWAY,
                 Json(serde_json::json!({
@@ -169,11 +171,12 @@ fn missing_audio_response() -> Response {
 }
 
 fn body_read_error_response(error: axum::Error) -> Response {
+    let _ = error;
     (
         StatusCode::BAD_REQUEST,
         Json(serde_json::json!({
             "error": "invalid_request_body",
-            "detail": error.to_string()
+            "detail": "Unable to read request body"
         })),
     )
         .into_response()

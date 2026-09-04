@@ -1,4 +1,5 @@
-use axum::{Json, extract::Path};
+use anlg_api_auth::AuthContext;
+use axum::{Extension, Json, extract::Path};
 use serde::Serialize;
 
 use super::RouteError;
@@ -32,19 +33,20 @@ pub struct SttStatusResponse {
     tag = "stt",
 )]
 pub async fn handler(
+    Extension(auth): Extension<AuthContext>,
     supabase: SupabaseClient,
     Path(pipeline_id): Path<String>,
 ) -> Result<Json<SttStatusResponse>, RouteError> {
     let job = supabase
-        .get_job(&pipeline_id)
+        .get_job_for_user(&pipeline_id, &auth.claims.sub)
         .await
         .map_err(|e| {
             tracing::error!(
-                anarlog.stt.job.id = %pipeline_id,
-                error = %e,
+                error.type = "job_lookup_failed",
                 "failed_to_query_job"
             );
-            RouteError::Internal(format!("failed to query job: {e}"))
+            let _ = e;
+            RouteError::Internal("failed to query job".into())
         })?
         .ok_or(RouteError::NotFound("job not found"))?;
 

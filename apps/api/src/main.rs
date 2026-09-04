@@ -76,10 +76,6 @@ fn request_server_endpoint(request: &Request<Body>, scheme: &str) -> (Option<Str
     (host, port)
 }
 
-fn request_client_address(request: &Request<Body>) -> Option<String> {
-    forwarded_header_value(request.headers(), "x-forwarded-for")
-}
-
 fn build_sync_routes(
     state: Option<anlg_api_sync::AppState>,
     replica_state: anlg_api_sync::ReplicaState,
@@ -528,11 +524,10 @@ async fn app_with_session_gate(
                                 .extensions()
                                 .get::<MatchedPath>()
                                 .map(MatchedPath::as_str)
-                                .unwrap_or(path);
+                                .unwrap_or("<unmatched>");
                             let scheme = request_scheme(request);
                             let (server_address, server_port) =
                                 request_server_endpoint(request, &scheme);
-                            let client_address = request_client_address(request);
                             let span_op = match path {
                                 p if p.starts_with("/llm")
                                     || p.starts_with("/chat/completions") =>
@@ -549,15 +544,11 @@ async fn app_with_session_gate(
                                 "http_request",
                                 http.request.method = %method,
                                 http.route = %matched_path,
-                                url.path = %path,
                                 url.scheme = %scheme,
                                 http.response.status_code = tracing::field::Empty,
                                 server.address = tracing::field::Empty,
                                 server.port = tracing::field::Empty,
-                                client.address = tracing::field::Empty,
                                 anarlog.subsystem = "edge",
-                                enduser.id = tracing::field::Empty,
-                                enduser.pseudo.id = tracing::field::Empty,
                                 anarlog.stt.provider.name = tracing::field::Empty,
                                 anarlog.stt.routing_strategy = tracing::field::Empty,
                                 anarlog.stt.model = tracing::field::Empty,
@@ -567,7 +558,6 @@ async fn app_with_session_gate(
                                 gen_ai.provider.name = tracing::field::Empty,
                                 anarlog.gen_ai.request.streaming = tracing::field::Empty,
                                 anarlog.gen_ai.request.message_count = tracing::field::Empty,
-                                anarlog.request.id = tracing::field::Empty,
                                 error.type = tracing::field::Empty,
                                 otel.status_code = tracing::field::Empty,
                                 otel.kind = "server",
@@ -580,9 +570,6 @@ async fn app_with_session_gate(
                             if let Some(server_port) = server_port {
                                 span.record("server.port", server_port as i64);
                             }
-                            if let Some(client_address) = client_address.as_deref() {
-                                span.record("client.address", client_address);
-                            }
                             anlg_observability::set_remote_parent(&span, request.headers());
                             span
                         })
@@ -593,18 +580,10 @@ async fn app_with_session_gate(
                             {
                                 return;
                             }
-                            if let Some(request_id) = request
-                                .headers()
-                                .get(REQUEST_ID_HEADER)
-                                .and_then(|v| v.to_str().ok())
-                            {
-                                span.record("anarlog.request.id", request_id);
-                            }
                             configure_sentry_trace_scope(span, env, SystemTime::now());
                             tracing::info!(
                                 parent: span,
                                 http.request.method = %request.method(),
-                                url.path = %request.uri().path(),
                                 "http_request_started"
                             );
                         })
@@ -652,7 +631,6 @@ async fn app_with_session_gate(
                                 tracing::error!(
                                     parent: span,
                                     error.type = %error_type,
-                                    error = %failure_class,
                                     anarlog.duration_ms = %latency.as_millis(),
                                     "http_request_failed"
                                 );
@@ -703,7 +681,7 @@ fn main() -> std::io::Result<()> {
         session_mode: sentry::SessionMode::Request,
         attach_stacktrace: true,
         max_breadcrumbs: 100,
-        before_send: Some(Arc::new(anlg_user_error::drop_user_error_event)),
+        before_send: Some(Arc::new(anlg_user_error::sanitize_sentry_event)),
         ..Default::default()
     });
 

@@ -159,7 +159,11 @@ export function ApiKeysSection() {
         </div>
       )}
       {createdKey && (
-        <div className="border-b border-[#ede7dc] bg-[#fffaf0] px-6 py-4 sm:px-8">
+        <div
+          className="border-b border-[#ede7dc] bg-[#fffaf0] px-6 py-4 sm:px-8"
+          data-ph-mask
+          data-ph-no-capture
+        >
           <p className="text-sm font-medium text-[#181613]">
             {createdKey.name} is ready. Copy the key now; it won't be shown
             again.

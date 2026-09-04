@@ -6,7 +6,7 @@ use owhisper_client::{CallbackResult, CallbackSttAdapter};
 use serde::Deserialize;
 
 use super::{AppState, RouteError, parse_async_provider};
-use crate::supabase::{JobUpdate, PipelineStatus, SupabaseClient};
+use crate::supabase::{JobUpdate, PipelineStatus, SupabaseClient, user_owns_object_path};
 
 #[derive(Deserialize)]
 pub(crate) struct CallbackQuery {
@@ -32,8 +32,8 @@ pub async fn handler(
         _ => return Err(RouteError::Unauthorized("invalid callback secret")),
     }
 
-    let payload: serde_json::Value = serde_json::from_slice(&body).map_err(|e| {
-        tracing::warn!(error = %e, "invalid callback payload");
+    let payload: serde_json::Value = serde_json::from_slice(&body).map_err(|_| {
+        tracing::warn!(error.type = "invalid_callback_payload", "invalid callback payload");
         RouteError::BadRequest("invalid JSON payload".into())
     })?;
 
@@ -63,31 +63,37 @@ pub async fn handler(
     }
     .map_err(|e| {
         tracing::error!(
-            anarlog.stt.job.id = %id,
             anarlog.stt.provider.name = %provider,
-            error = %e,
+            error.type = "callback_processing_failed",
             "callback processing failed"
         );
-        RouteError::Internal(format!("callback processing failed: {e}"))
+        let _ = e;
+        RouteError::Internal("callback processing failed".into())
     })?;
 
     let update = match &outcome {
         CallbackResult::Done(raw_result) => JobUpdate {
             status: PipelineStatus::Done,
+            provider_request_id: None,
             raw_result: Some(raw_result.clone()),
             error: None,
         },
         CallbackResult::ProviderError(message) => JobUpdate {
             status: PipelineStatus::Error,
+            provider_request_id: None,
             raw_result: None,
-            error: Some(message.clone()),
+            error: Some(if anlg_user_error::is_user_error_text(message) {
+                "provider account action required".to_string()
+            } else {
+                "provider callback failed".to_string()
+            }),
         },
     };
 
     supabase
         .update_job(&id, &update)
         .await
-        .map_err(|e| RouteError::Internal(format!("failed to update job: {e}")))?;
+        .map_err(|_| RouteError::Internal("failed to update job".into()))?;
 
     cleanup_audio(&supabase, &id).await;
 
@@ -100,13 +106,21 @@ async fn cleanup_audio(supabase: &SupabaseClient, job_id: &str) {
         Ok(None) => return,
         Err(e) => {
             tracing::warn!(
-                anarlog.stt.job.id = %job_id,
-                error = %e,
+                error.type = "job_cleanup_lookup_failed",
                 "failed to fetch job for cleanup"
             );
+            let _ = e;
             return;
         }
     };
+
+    if !user_owns_object_path(&job.user_id, &job.file_id) {
+        tracing::error!(
+            error.type = "job_audio_owner_mismatch",
+            "refusing to delete audio for an invalid job path"
+        );
+        return;
+    }
 
     if let Err(e) = supabase
         .storage()
@@ -114,10 +128,9 @@ async fn cleanup_audio(supabase: &SupabaseClient, job_id: &str) {
         .await
     {
         tracing::warn!(
-            anarlog.stt.job.id = %job_id,
-            anarlog.file.id = %job.file_id,
-            error = %e,
+            error.type = "audio_cleanup_failed",
             "failed to delete audio file"
         );
+        let _ = e;
     }
 }

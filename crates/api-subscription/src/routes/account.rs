@@ -75,11 +75,10 @@ pub async fn delete_account(
         .await
     {
         tracing::error!(
-            enduser.id = %user_id,
-            error = %error,
+            error.type = "account_deletion_handoff_failed",
             "account_deletion_handoff_failed"
         );
-        sentry::capture_message(&error.to_string(), sentry::Level::Error);
+        let _ = error;
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(DeleteAccountResponse {
@@ -91,19 +90,18 @@ pub async fn delete_account(
             .into_response();
     }
 
-    try_delete_loops_contact(&state, &auth.token, &user_id).await;
+    try_delete_loops_contact(&state, &auth.token).await;
     let _ = (|| state.supabase.revoke_user_sessions(&auth.token))
         .retry(retry_policy())
         .sleep(tokio::time::sleep)
         .await
-        .inspect_err(|error| {
+        .inspect_err(|_error| {
             tracing::warn!(
-                enduser.id = %user_id,
-                error = %error,
+                error.type = "account_session_revocation_failed",
                 "account_session_revocation_failed"
             )
         });
-    tracing::info!(enduser.id = %user_id, "account_deletion_accepted");
+    tracing::info!("account_deletion_accepted");
     (
         StatusCode::ACCEPTED,
         Json(DeleteAccountResponse {
@@ -365,7 +363,7 @@ mod tests {
     }
 }
 
-async fn try_delete_loops_contact(state: &AppState, token: &str, user_id: &str) {
+async fn try_delete_loops_contact(state: &AppState, token: &str) {
     let email = match (|| state.supabase.get_user_email(token))
         .retry(retry_policy())
         .sleep(tokio::time::sleep)
@@ -373,13 +371,12 @@ async fn try_delete_loops_contact(state: &AppState, token: &str, user_id: &str) 
     {
         Ok(Some(email)) => email,
         Ok(None) => {
-            tracing::warn!(enduser.id = %user_id, "no_email_for_loops_deletion");
+            tracing::warn!("no_email_for_loops_deletion");
             return;
         }
-        Err(e) => {
+        Err(_e) => {
             tracing::warn!(
-                enduser.id = %user_id,
-                error = %e,
+                error.type = "loops_email_lookup_failed",
                 "failed_to_get_email_for_loops"
             );
             return;
@@ -390,10 +387,9 @@ async fn try_delete_loops_contact(state: &AppState, token: &str, user_id: &str) 
         .retry(retry_policy())
         .sleep(tokio::time::sleep)
         .await
-        .inspect_err(|e| {
+        .inspect_err(|_e| {
             tracing::warn!(
-                enduser.id = %user_id,
-                error = %e,
+                error.type = "loops_contact_deletion_failed",
                 "loops_contact_deletion_failed"
             )
         });

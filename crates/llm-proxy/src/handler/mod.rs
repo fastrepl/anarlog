@@ -85,7 +85,6 @@ impl IntoResponse for ProxyError {
                 }
                 tracing::error!(
                     error.type = %error_type,
-                    error = %e,
                     anarlog.upstream.status_code = ?status_code,
                     anarlog.error.is_timeout = %is_timeout,
                     anarlog.error.is_connect = %is_connect,
@@ -96,7 +95,10 @@ impl IntoResponse for ProxyError {
                         scope.set_tag("http.response.status_code", code.to_string());
                     }
                 });
-                (StatusCode::BAD_GATEWAY, e.to_string())
+                (
+                    StatusCode::BAD_GATEWAY,
+                    "Upstream request failed".to_string(),
+                )
             }
             Self::Timeout => {
                 anlg_observability::mark_current_span_as_error("llm_upstream_timeout");
@@ -112,7 +114,6 @@ impl IntoResponse for ProxyError {
                 anlg_observability::mark_current_span_as_error("response_body_read_failed");
                 tracing::error!(
                     error.type = "response_body_read_failed",
-                    error = %e,
                     anarlog.error.is_timeout = %is_timeout,
                     anarlog.error.is_decode = %is_decode,
                     "response_body_read_failed"
@@ -199,17 +200,13 @@ where
         gen_ai.provider.name = tracing::field::Empty,
         gen_ai.request.model = tracing::field::Empty,
         gen_ai.response.model = tracing::field::Empty,
-        gen_ai.response.id = tracing::field::Empty,
         gen_ai.usage.input_tokens = tracing::field::Empty,
         gen_ai.usage.output_tokens = tracing::field::Empty,
         server.address = tracing::field::Empty,
         server.port = tracing::field::Empty,
-        url.full = tracing::field::Empty,
         anarlog.gen_ai.request.streaming = tracing::field::Empty,
         anarlog.gen_ai.request.message_count = tracing::field::Empty,
         anarlog.task.name = tracing::field::Empty,
-        enduser.id = tracing::field::Empty,
-        enduser.pseudo.id = tracing::field::Empty,
         error.type = tracing::field::Empty,
         otel.kind = "client",
         otel.name = tracing::field::Empty,
@@ -263,19 +260,12 @@ async fn completions_handler(
     if let Some(task_name) = task_name.as_deref() {
         span.record("anarlog.task.name", task_name);
     }
-    if let Some(user_id) = analytics_ctx.user_id.as_deref() {
-        span.record("enduser.id", user_id);
-    }
-    if let Some(fingerprint) = analytics_ctx.fingerprint.as_deref() {
-        span.record("enduser.pseudo.id", fingerprint);
-    }
     if let Some(server_address) = server_address.as_deref() {
         span.record("server.address", server_address);
     }
     if let Some(server_port) = server_port {
         span.record("server.port", server_port as i64);
     }
-    span.record("url.full", provider_base_url);
 
     tracing::info!(
         anarlog.gen_ai.request.streaming = %stream,
@@ -327,14 +317,8 @@ async fn completions_handler(
 
     let provider_request = match provider.build_request(&request, models, stream) {
         Ok(req) => req,
-        Err(e) => {
-            anlg_observability::mark_current_span_as_error("provider_request_build_failed");
-            tracing::error!(
-                error.type = "provider_request_build_failed",
-                error = %e,
-                "failed_to_build_provider_request"
-            );
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Invalid request").into_response();
+        Err(_e) => {
+            return (StatusCode::BAD_REQUEST, "Invalid request").into_response();
         }
     };
 
@@ -371,9 +355,9 @@ async fn completions_handler(
                 .await
         })
         .retry(backoff)
-        .notify(|err, dur: Duration| {
+        .notify(|_err, dur: Duration| {
             tracing::warn!(
-                error = %err,
+                error.type = "llm_upstream_retryable",
                 anarlog.retry.delay_ms = dur.as_millis(),
                 gen_ai.provider.name = %provider.name(),
                 "retrying_llm_request"
@@ -403,7 +387,6 @@ async fn completions_handler(
             tracing::error!(
                 error.type = %error_type,
                 service.peer.name = %provider_name,
-                error = %e,
                 "llm_upstream_request_failed"
             );
             return ProxyError::UpstreamRequest(e).into_response();

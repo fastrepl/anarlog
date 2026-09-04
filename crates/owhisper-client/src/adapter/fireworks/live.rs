@@ -62,9 +62,9 @@ impl RealtimeSttAdapter for FireworksAdapter {
     fn parse_response(&self, raw: &str) -> Vec<StreamResponse> {
         let msg: FireworksMessage = match serde_json::from_str(raw) {
             Ok(m) => m,
-            Err(e) => {
+            Err(_e) => {
                 tracing::warn!(
-                    error = ?e,
+                    error.type = "invalid_provider_payload",
                     anarlog.payload.size_bytes = raw.len() as u64,
                     "fireworks_json_parse_failed"
                 );
@@ -73,11 +73,7 @@ impl RealtimeSttAdapter for FireworksAdapter {
         };
 
         if let Some(error) = msg.error {
-            tracing::error!(
-                error = %error.message,
-                error.code = ?error.code,
-                "fireworks_error"
-            );
+            crate::log_provider_failure("fireworks", "provider_error", None, &error.message);
             return vec![StreamResponse::ErrorResponse {
                 error_code: None,
                 error_message: error.message,

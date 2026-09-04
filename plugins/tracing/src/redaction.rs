@@ -2,7 +2,7 @@ use std::io::{self, Write};
 use std::sync::LazyLock;
 
 use regex::Regex;
-use sentry::protocol::{Context, Event, Stacktrace, User, Value};
+use sentry::protocol::{Context, Event, Stacktrace, Value};
 
 static EMAIL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").expect("Invalid regex")
@@ -10,6 +10,17 @@ static EMAIL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 
 static IP_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\b(?:\d{1,3}\.){3}\d{1,3}\b").expect("Invalid regex"));
+static IPV6_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\b(?:[0-9a-fA-F]{1,4}:){2,7}[0-9a-fA-F]{1,4}\b").expect("Invalid regex")
+});
+static UUID_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b")
+        .expect("Invalid regex")
+});
+static SECRET_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)\b(bearer\s+|api[_ -]?key[=:]\s*|token[=:]\s*)[a-z0-9._~+/=-]{8,}")
+        .expect("Invalid regex")
+});
 
 const SAFE_TAGS: &[&str] = &[
     "anarlog.error.stage",
@@ -17,7 +28,6 @@ const SAFE_TAGS: &[&str] = &[
     "anarlog.session.type",
     "anarlog.stt.provider.name",
     "anarlog.surface",
-    "enduser.pseudo.id",
     "error.code",
     "error.type",
     "http.response.status_code",
@@ -33,6 +43,15 @@ fn safe_identifier(value: &str) -> Option<&str> {
         && value
             .chars()
             .all(|character| character.is_ascii_alphanumeric() || "_.:/-".contains(character)))
+    .then_some(value)
+}
+
+fn safe_frame_symbol(value: String) -> Option<String> {
+    (!value.is_empty()
+        && value.len() <= 160
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"_:.$<>-[]".contains(&byte)))
     .then_some(value)
 }
 
@@ -71,25 +90,38 @@ fn redact_sensitive_text(value: &str, home_dir: Option<&str>) -> String {
     redacted = EMAIL_REGEX
         .replace_all(&redacted, "[EMAIL_REDACTED]")
         .into_owned();
-    IP_REGEX
+    redacted = IP_REGEX
         .replace_all(&redacted, "[IP_REDACTED]")
+        .into_owned();
+    redacted = IPV6_REGEX
+        .replace_all(&redacted, "[IP_REDACTED]")
+        .into_owned();
+    redacted = UUID_REGEX
+        .replace_all(&redacted, "[ID_REDACTED]")
+        .into_owned();
+    SECRET_REGEX
+        .replace_all(&redacted, "$1[SECRET_REDACTED]")
         .into_owned()
 }
 
-fn sanitize_stacktrace(stacktrace: &mut Stacktrace, home_dir: Option<&str>) {
+pub fn redact_text(value: &str) -> String {
+    let home_dir = dirs::home_dir().map(|path| path.to_string_lossy().into_owned());
+    redact_sensitive_text(value, home_dir.as_deref())
+}
+
+fn sanitize_stacktrace(stacktrace: &mut Stacktrace) {
     for frame in &mut stacktrace.frames {
-        frame.filename = frame
-            .filename
-            .take()
-            .map(|path| redact_sensitive_text(&path, home_dir));
-        frame.abs_path = frame
-            .abs_path
-            .take()
-            .map(|path| redact_sensitive_text(&path, home_dir));
+        frame.function = frame.function.take().and_then(safe_frame_symbol);
+        frame.filename = Some("source".to_string());
+        frame.abs_path = None;
+        frame.module = None;
+        frame.package = None;
+        frame.symbol = None;
         frame.pre_context.clear();
         frame.context_line = None;
         frame.post_context.clear();
         frame.vars.clear();
+        frame.addr_mode = None;
     }
 }
 
@@ -113,7 +145,7 @@ fn sanitize_context(key: &str, context: &mut Context, home_dir: Option<&str>) ->
         Context::Gpu(gpu) => gpu.other.clear(),
         Context::Other(values) if key == "Rust Tracing Location" => {
             values.retain(|field, value| match field.as_str() {
-                "module_path" | "file" => {
+                "module_path" => {
                     let Value::String(text) = value else {
                         return false;
                     };
@@ -178,12 +210,7 @@ fn sanitize_sentry_event_with_home(
     event.extra.clear();
     event.tags.extend(safe_extra_tags);
 
-    if let Some(user) = event.user.take() {
-        event.user = user.id.map(|id| User {
-            id: Some(id),
-            ..Default::default()
-        });
-    }
+    event.user = None;
 
     for breadcrumb in &mut event.breadcrumbs {
         breadcrumb.message = None;
@@ -199,32 +226,26 @@ fn sanitize_sentry_event_with_home(
             mechanism.data.clear();
         }
         if let Some(stacktrace) = &mut exception.stacktrace {
-            sanitize_stacktrace(stacktrace, home_dir);
+            sanitize_stacktrace(stacktrace);
         }
         if let Some(stacktrace) = &mut exception.raw_stacktrace {
-            sanitize_stacktrace(stacktrace, home_dir);
+            sanitize_stacktrace(stacktrace);
         }
     }
     if let Some(stacktrace) = &mut event.stacktrace {
-        sanitize_stacktrace(stacktrace, home_dir);
+        sanitize_stacktrace(stacktrace);
     }
     for thread in &mut event.threads {
         if let Some(stacktrace) = &mut thread.stacktrace {
-            sanitize_stacktrace(stacktrace, home_dir);
+            sanitize_stacktrace(stacktrace);
         }
         if let Some(stacktrace) = &mut thread.raw_stacktrace {
-            sanitize_stacktrace(stacktrace, home_dir);
+            sanitize_stacktrace(stacktrace);
         }
     }
     if let Some(template) = &mut event.template {
-        template.filename = template
-            .filename
-            .take()
-            .map(|path| redact_sensitive_text(&path, home_dir));
-        template.abs_path = template
-            .abs_path
-            .take()
-            .map(|path| redact_sensitive_text(&path, home_dir));
+        template.filename = Some("source".to_string());
+        template.abs_path = None;
         template.pre_context.clear();
         template.context_line = None;
         template.post_context.clear();
@@ -293,6 +314,9 @@ impl<W: Write> RedactingWriter<W> {
     }
 
     fn redact_line(&self, line: &str) -> String {
+        if anlg_user_error::is_user_error_text(line) {
+            return String::new();
+        }
         redact_sensitive_text(line, self.home_dir.as_deref())
     }
 
@@ -344,7 +368,7 @@ impl<W: Write> Drop for RedactingWriter<W> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sentry::protocol::{Breadcrumb, Exception, Frame, LogEntry, OsContext, Request};
+    use sentry::protocol::{Breadcrumb, Exception, Frame, LogEntry, OsContext, Request, User};
     use serde_json::json;
     use std::io::Write;
 
@@ -380,7 +404,20 @@ mod tests {
     redact_test!(redact_ip_multiple, home = None, "From 10.0.0.1 to 192.168.0.100" => "From [IP_REDACTED] to [IP_REDACTED]");
     redact_test!(redact_ip_localhost, home = None, "Listening on 127.0.0.1:8080" => "Listening on [IP_REDACTED]:8080");
     redact_test!(redact_mixed_content, home = Some("/home/alice"), "User alice@test.com at /home/alice connected from 192.168.1.50" => "User [EMAIL_REDACTED] at [HOME] connected from [IP_REDACTED]");
+    redact_test!(redact_uuid, home = None, "session 550e8400-e29b-41d4-a716-446655440000 failed" => "session [ID_REDACTED] failed");
+    redact_test!(redact_bearer, home = None, "authorization Bearer abcdefghijklmnop" => "authorization Bearer [SECRET_REDACTED]");
     redact_test!(redact_no_sensitive_data, home = None, "Application started successfully" => "Application started successfully");
+
+    #[test]
+    fn writer_drops_user_account_errors() {
+        let mut output = Vec::new();
+        {
+            let mut writer = RedactingWriter::with_home_dir(&mut output, None);
+            writeln!(writer, "provider rejected request: insufficient_quota").unwrap();
+            writer.flush().unwrap();
+        }
+        assert!(output.is_empty());
+    }
 
     #[test]
     fn writer_buffers_partial_lines() {
@@ -538,13 +575,7 @@ mod tests {
         assert!(event.logentry.is_none());
         assert!(event.request.is_none());
         assert!(event.extra.is_empty());
-        assert_eq!(
-            event.user,
-            Some(User {
-                id: Some("pseudonymous-id".to_string()),
-                ..Default::default()
-            })
-        );
+        assert!(event.user.is_none());
         assert!(event.breadcrumbs[0].message.is_none());
         assert!(event.breadcrumbs[0].data.is_empty());
         assert_eq!(
@@ -552,7 +583,8 @@ mod tests {
             Some("IoError captured")
         );
         let frame = &event.exception[0].stacktrace.as_ref().unwrap().frames[0];
-        assert_eq!(frame.abs_path.as_deref(), Some("[HOME]/private.wav"));
+        assert_eq!(frame.filename.as_deref(), Some("source"));
+        assert!(frame.abs_path.is_none());
         assert!(frame.vars.is_empty());
         assert_eq!(
             event.tags,
@@ -617,10 +649,7 @@ mod tests {
         let Context::Other(location) = &event.contexts["Rust Tracing Location"] else {
             panic!("expected tracing location context");
         };
-        assert_eq!(
-            location.get("file"),
-            Some(&Value::String("[HOME]/src/download_task.rs".to_string()))
-        );
+        assert!(!location.contains_key("file"));
         assert!(!location.contains_key("private"));
     }
 

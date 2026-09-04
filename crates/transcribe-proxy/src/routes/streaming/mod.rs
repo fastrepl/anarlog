@@ -132,8 +132,6 @@ where
         anarlog.stt.language_codes = tracing::field::Empty,
         anarlog.audio.sample_rate_hz = tracing::field::Empty,
         anarlog.audio.channel_count = tracing::field::Empty,
-        enduser.id = tracing::field::Empty,
-        enduser.pseudo.id = tracing::field::Empty,
         error.type = tracing::field::Empty,
         otel.status_code = tracing::field::Empty
     )
@@ -188,12 +186,6 @@ pub async fn handler(
     span.record("anarlog.stt.model", model);
     span.record("anarlog.audio.sample_rate_hz", sample_rate);
     span.record("anarlog.audio.channel_count", channels as i64);
-    if let Some(user_id) = analytics_ctx.user_id.as_deref() {
-        span.record("enduser.id", user_id);
-    }
-    if let Some(fingerprint) = analytics_ctx.fingerprint.as_deref() {
-        span.record("enduser.pseudo.id", fingerprint);
-    }
     if !languages_str.is_empty() {
         span.record("anarlog.stt.language_codes", languages_str.as_str());
     }
@@ -252,7 +244,7 @@ pub async fn handler(
 
     let proxy = match proxy_result {
         Ok(p) => p,
-        Err(ProxyBuildError::SessionInitFailed(e)) => {
+        Err(ProxyBuildError::SessionInitFailed(_e)) => {
             span.record(
                 "http.response.status_code",
                 StatusCode::BAD_GATEWAY.as_u16() as i64,
@@ -261,32 +253,20 @@ pub async fn handler(
             tracing::error!(
                 parent: &span,
                 error.type = "session_init_failed",
-                error = %e,
                 anarlog.stt.provider.name = ?selected.provider(),
                 "session_init_failed"
             );
             sentry::configure_scope(|scope| {
                 scope.set_tag("error.type", "session_init_failed");
             });
-            return (StatusCode::BAD_GATEWAY, e).into_response();
+            return (StatusCode::BAD_GATEWAY, "provider session unavailable").into_response();
         }
-        Err(ProxyBuildError::ProxyError(e)) => {
+        Err(ProxyBuildError::ProxyError(_e)) => {
             span.record(
                 "http.response.status_code",
                 StatusCode::BAD_REQUEST.as_u16() as i64,
             );
-            anlg_observability::mark_span_as_error(&span, "proxy_build_failed");
-            tracing::error!(
-                parent: &span,
-                error.type = "proxy_build_failed",
-                error = %e,
-                anarlog.stt.provider.name = ?provider,
-                "proxy_build_failed"
-            );
-            sentry::configure_scope(|scope| {
-                scope.set_tag("error.type", "proxy_build_failed");
-            });
-            return (StatusCode::BAD_REQUEST, format!("{}", e)).into_response();
+            return (StatusCode::BAD_REQUEST, "invalid provider request").into_response();
         }
     };
 

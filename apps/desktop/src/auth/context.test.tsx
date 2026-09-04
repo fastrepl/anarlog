@@ -298,7 +298,7 @@ describe("AuthProvider", () => {
     cleanup();
   });
 
-  it("associates signed-in analytics with the account group", async () => {
+  it("associates signed-in analytics without account contact details", async () => {
     const currentSession = makeSession("account-id");
     currentSession.user.email = "person@example.com";
 
@@ -320,14 +320,15 @@ describe("AuthProvider", () => {
             type: "account",
             key: "account-id",
             properties: {
-              name: "person@example.com",
-              email: "person@example.com",
               created_at: "2026-01-01T00:00:00.000Z",
               plan: "free",
               trial_end_date: null,
             },
           },
         }),
+      );
+      expect(JSON.stringify(mocks.analyticsIdentify.mock.calls)).not.toContain(
+        "person@example.com",
       );
     });
 

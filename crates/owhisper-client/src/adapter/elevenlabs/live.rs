@@ -88,9 +88,9 @@ impl RealtimeSttAdapter for ElevenLabsAdapter {
     fn parse_response(&self, raw: &str) -> Vec<StreamResponse> {
         let msg: ElevenLabsMessage = match serde_json::from_str(raw) {
             Ok(m) => m,
-            Err(e) => {
+            Err(_e) => {
                 tracing::warn!(
-                    error = ?e,
+                    error.type = "invalid_provider_payload",
                     anarlog.payload.size_bytes = raw.len() as u64,
                     "elevenlabs_json_parse_failed"
                 );
@@ -99,11 +99,8 @@ impl RealtimeSttAdapter for ElevenLabsAdapter {
         };
 
         match msg {
-            ElevenLabsMessage::SessionStarted { session_id, .. } => {
-                tracing::debug!(
-                    anarlog.stt.provider_session.id = %session_id,
-                    "elevenlabs_session_started"
-                );
+            ElevenLabsMessage::SessionStarted { .. } => {
+                tracing::debug!("elevenlabs_session_started");
                 vec![]
             }
             ElevenLabsMessage::PartialTranscript { text } => {
@@ -128,11 +125,7 @@ impl RealtimeSttAdapter for ElevenLabsAdapter {
                 error_type,
                 message,
             } => {
-                tracing::error!(
-                    error.type = %error_type,
-                    error = %message,
-                    "elevenlabs_error"
-                );
+                crate::log_provider_failure("elevenlabs", &error_type, None, &message);
                 vec![StreamResponse::ErrorResponse {
                     error_code: None,
                     error_message: format!("{}: {}", error_type, message),

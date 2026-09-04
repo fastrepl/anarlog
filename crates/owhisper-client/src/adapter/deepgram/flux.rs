@@ -20,8 +20,11 @@ impl DeepgramFluxAdapter {
     }
 
     fn endpoint_url(api_base: &str) -> (url::Url, Vec<(String, String)>) {
-        let mut url: url::Url = api_base.parse().unwrap_or_else(|error| {
-            tracing::error!(%error, "invalid api_base for Deepgram Flux; using default API base");
+        let mut url: url::Url = api_base.parse().unwrap_or_else(|_error| {
+            tracing::warn!(
+                error.type = "invalid_api_base",
+                "deepgram_flux_invalid_api_base_using_default"
+            );
             "https://api.deepgram.com/v1"
                 .parse()
                 .expect("invalid_default_deepgram_api_base")
@@ -177,9 +180,9 @@ impl RealtimeSttAdapter for DeepgramFluxAdapter {
     fn parse_response(&self, raw: &str) -> Vec<StreamResponse> {
         let message: FluxMessage = match serde_json::from_str(raw) {
             Ok(message) => message,
-            Err(error) => {
+            Err(_error) => {
                 tracing::warn!(
-                    %error,
+                    error.type = "invalid_provider_payload",
                     anarlog.payload.size_bytes = raw.len(),
                     "deepgram_flux_response_parse_failed"
                 );

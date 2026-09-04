@@ -103,9 +103,9 @@ impl RealtimeSttAdapter for MistralAdapter {
     fn parse_response(&self, raw: &str) -> Vec<StreamResponse> {
         let event: MistralEvent = match serde_json::from_str(raw) {
             Ok(e) => e,
-            Err(e) => {
+            Err(_e) => {
                 tracing::warn!(
-                    error = ?e,
+                    error.type = "invalid_provider_payload",
                     anarlog.payload.size_bytes = raw.len() as u64,
                     "mistral_json_parse_failed"
                 );
@@ -153,10 +153,12 @@ impl RealtimeSttAdapter for MistralAdapter {
                 vec![]
             }
             MistralEvent::Error { error } => {
-                tracing::error!(
-                    error.code = error.code,
-                    error = %error.message,
-                    "mistral_error"
+                let error_code = error.code.to_string();
+                crate::log_provider_failure(
+                    "mistral",
+                    "provider_error",
+                    Some(&error_code),
+                    &error.message,
                 );
                 vec![StreamResponse::ErrorResponse {
                     error_code: Some(error.code),

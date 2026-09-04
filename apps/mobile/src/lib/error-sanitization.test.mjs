@@ -30,7 +30,18 @@ test("removes user content while preserving safe diagnostics", () => {
         {
           type: "Error",
           value: "private note",
-          mechanism: { data: { token: "secret" } },
+          mechanism: { data: { token: "secret" }, type: "generic" },
+          module: "/Users/alice/private.ts",
+          stacktrace: {
+            frames: [
+              {
+                filename: "https://anarlog.so/app?token=secret",
+                function: "saveSession",
+                lineno: 42,
+                vars: { transcript: "private transcript" },
+              },
+            ],
+          },
         },
       ],
     },
@@ -58,16 +69,25 @@ test("removes user content while preserving safe diagnostics", () => {
     ],
   });
 
-  assert.deepEqual(event.user, { id: "user-1" });
-  assert.deepEqual(event.request, {
-    method: "POST",
-    url: "https://api.anarlog.so/stt/listen",
-  });
+  assert.equal(event.user, undefined);
+  assert.equal(event.request, undefined);
   assert.equal(event.extra, undefined);
   assert.equal(event.message, "session_save failed");
   assert.equal(event.logentry, undefined);
   assert.equal(event.exception?.values?.[0]?.value, "session_save failed");
   assert.equal(event.exception?.values?.[0]?.mechanism?.data, undefined);
+  assert.equal(event.exception?.values?.[0]?.module, undefined);
+  assert.deepEqual(event.exception?.values?.[0]?.stacktrace, {
+    frames: [
+      {
+        colno: undefined,
+        filename: "source",
+        function: "saveSession",
+        in_app: undefined,
+        lineno: 42,
+      },
+    ],
+  });
   assert.deepEqual(event.breadcrumbs, [
     {
       category: "anarlog.operation",
@@ -75,9 +95,6 @@ test("removes user content while preserving safe diagnostics", () => {
       message: "auth_session_restore",
       timestamp: undefined,
       type: undefined,
-      data: {
-        outcome: "persisted_fallback",
-      },
     },
     {
       category: "console",
@@ -90,15 +107,11 @@ test("removes user content while preserving safe diagnostics", () => {
       level: undefined,
       timestamp: undefined,
       type: undefined,
-      data: {
-        from: "anarlog://note/123",
-        to: "https://anarlog.so/app/",
-      },
     },
   ]);
 });
 
-test("normalizes messages but retains stack frames and safe error fields", () => {
+test("normalizes messages without copying source paths", () => {
   const source = Object.assign(new Error("private@example.com token=secret"), {
     code: "refresh_token_not_found",
     stage: "auth_bootstrap",
@@ -113,7 +126,7 @@ test("normalizes messages but retains stack frames and safe error fields", () =>
 
   assert.equal(normalized.message, "auth_session_restore failed");
   assert.equal(normalized.stack?.includes("private@example.com"), false);
-  assert.equal(normalized.stack?.includes("auth.ts:42:3"), true);
+  assert.equal(normalized.stack?.includes("auth.ts:42:3"), false);
   assert.deepEqual(operationalErrorMetadata(source), {
     type: "Error",
     code: "refresh_token_not_found",

@@ -303,8 +303,8 @@ fn linear16_file_stream(
                 bytes.truncate(read);
                 Some((MixedMessage::Audio(bytes.into()), file))
             }
-            Err(error) => {
-                tracing::warn!(error.message = %error, "argmax_linear16_spool_read_failed");
+            Err(_error) => {
+                tracing::warn!(error.type = "audio_spool_read_failed", "argmax_linear16_spool_read_failed");
                 None
             }
         }

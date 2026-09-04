@@ -121,13 +121,9 @@ pub async fn create_session(
                             connection_id: Some(existing.connection_id),
                         }));
                     }
-                    Err(anlg_nango::Error::Api(404, response_body)) => {
+                    Err(anlg_nango::Error::Api(404, _response_body)) => {
                         tracing::warn!(
-                            enduser.id = %user_id,
-                            anarlog.integration.id = %body.integration_id,
-                            anarlog.connection.id = %existing.connection_id,
                             anarlog.connection.status = %existing.status,
-                            anarlog.http.response.body = %response_body,
                             "reconnect session failed with not found, cleaning stale local row"
                         );
                         state

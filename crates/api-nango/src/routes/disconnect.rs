@@ -45,12 +45,7 @@ pub async fn delete_connection(
         .await?;
 
     if !owns {
-        tracing::warn!(
-            enduser.id = %auth.claims.sub,
-            anarlog.connection.id = %body.connection_id,
-            anarlog.integration.id = %body.integration_id,
-            "disconnect denied: connection not owned by user"
-        );
+        tracing::warn!("disconnect denied: connection not owned by user");
         return Err(crate::error::NangoError::Forbidden(
             "connection not found or not owned by user".to_string(),
         ));
@@ -62,14 +57,8 @@ pub async fn delete_connection(
         .await
     {
         Ok(()) => {}
-        Err(anlg_nango::Error::Api(404, response_body)) => {
-            tracing::warn!(
-                enduser.id = %auth.claims.sub,
-                anarlog.connection.id = %body.connection_id,
-                anarlog.integration.id = %body.integration_id,
-                anarlog.http.response.body = %response_body,
-                "nango connection already deleted, cleaning local row"
-            );
+        Err(anlg_nango::Error::Api(404, _response_body)) => {
+            tracing::warn!("nango connection already deleted, cleaning local row");
         }
         Err(err) => return Err(err.into()),
     }
