@@ -36,25 +36,6 @@ const aggregateOffer = {
   offerCount: MARKETING_PLAN_TIERS.length,
 };
 
-const softwareReviews = [
-  {
-    author: "Tobi Lutke",
-    reviewBody: "Anarlog is great and local.",
-    url: "https://x.com/tobi/status/1983892259230699921",
-  },
-  {
-    author: "James Koshigoe",
-    reviewBody: "Anarlog is one of my favorite AI secret weapons.",
-    url: "https://x.com/JamesKoshigoe/status/2024676687980671195",
-  },
-  {
-    author: "Tom Yang",
-    reviewBody:
-      "I love the flexibility that Anarlog gives me to integrate personal notes with AI summaries.",
-    url: "https://twitter.com/tomyang11_/status/1956395933538902092",
-  },
-];
-
 const authCallbackSearchSchema = z.object({
   code: z.string().optional(),
   token_hash: z.string().optional(),
@@ -135,7 +116,6 @@ export const Route = createFileRoute("/")({
               description: ROOT_DESCRIPTION,
               featureList,
               aggregateOffer,
-              reviews: softwareReviews,
             }),
           ]),
         ),

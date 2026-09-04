@@ -12,7 +12,7 @@ export function getCanonicalUrl(path = "/") {
   const withSlash = normalized.endsWith("/") ? normalized : `${normalized}/`;
   return `${ANARLOG_SITE_URL}${withSlash}`;
 }
-export const ROOT_TITLE = "AI notepad for private meetings.";
+export const ROOT_TITLE = "Private AI Meeting Notetaker | Anarlog";
 export const ROOT_DESCRIPTION =
   "Anarlog is the open-source, privacy-first, local-first alternative to Granola AI. Take notes during private meetings, turn them into editable summaries, and keep your local meeting data and AI stack under your control.";
 export const ROOT_KEYWORDS =
@@ -48,12 +48,6 @@ export function getShortLinkSharedNoteOgImageUrl(linkId: string) {
 
 type StructuredDataNode = Record<string, unknown>;
 
-type SoftwareReview = {
-  author: string;
-  reviewBody: string;
-  url: string;
-};
-
 export function getStructuredDataGraph(nodes: StructuredDataNode[]) {
   return {
     "@context": "https://schema.org",
@@ -75,7 +69,6 @@ export function getSoftwareApplicationJsonLd({
   description,
   featureList,
   aggregateOffer,
-  reviews,
 }: {
   url?: string;
   description: string;
@@ -85,7 +78,6 @@ export function getSoftwareApplicationJsonLd({
     highPrice: number;
     offerCount: number;
   };
-  reviews?: SoftwareReview[];
 }) {
   return {
     "@type": "SoftwareApplication",
@@ -97,19 +89,6 @@ export function getSoftwareApplicationJsonLd({
     downloadUrl: getCanonicalUrl("/download"),
     publisher: getOrganizationJsonLd(),
     ...(featureList ? { featureList } : {}),
-    ...(reviews
-      ? {
-          review: reviews.map(({ author, reviewBody, url: reviewUrl }) => ({
-            "@type": "Review",
-            author: {
-              "@type": "Person",
-              name: author,
-            },
-            reviewBody,
-            url: reviewUrl,
-          })),
-        }
-      : {}),
     ...(aggregateOffer
       ? {
           offers: {

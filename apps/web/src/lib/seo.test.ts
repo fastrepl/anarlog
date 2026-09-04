@@ -49,28 +49,6 @@ test("emits offers when pricing is supplied", () => {
   });
 });
 
-test("emits source-backed software reviews", () => {
-  const jsonLd = getSoftwareApplicationJsonLd({
-    description: "Anarlog",
-    reviews: [
-      {
-        author: "Ada Lovelace",
-        reviewBody: "A useful local app.",
-        url: "https://example.com/review",
-      },
-    ],
-  });
-
-  assert.deepEqual(jsonLd.review, [
-    {
-      "@type": "Review",
-      author: { "@type": "Person", name: "Ada Lovelace" },
-      reviewBody: "A useful local app.",
-      url: "https://example.com/review",
-    },
-  ]);
-});
-
 test("builds blog posting metadata with typed authors", () => {
   const url = getCanonicalUrl("/blog/local-ai-meeting-notes");
   const jsonLd = getBlogPostingJsonLd({
