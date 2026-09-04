@@ -828,6 +828,7 @@ msgid "Capture meeting chat in Memos"
 msgstr "Capture meeting chat in Memos"
 
 #: src/onboarding/folder-location.tsx
+#: src/settings/general/storage/index.tsx
 msgid "Change"
 msgstr "Change"
 
@@ -1011,6 +1012,7 @@ msgid "Choose how much detail generated meeting summaries include."
 msgstr "Choose how much detail generated meeting summaries include."
 
 #: src/onboarding/folder-location.tsx
+#: src/settings/general/storage/index.tsx
 msgid "Choose storage location"
 msgstr "Choose storage location"
 
@@ -5540,6 +5542,7 @@ msgid "When this happens"
 msgstr "When this happens"
 
 #: src/onboarding/index.tsx
+#: src/settings/general/storage/index.tsx
 msgid "Where your notes and recordings are stored"
 msgstr "Where your notes and recordings are stored"
 
