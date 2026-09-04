@@ -188,12 +188,18 @@ function SharedNoteMeetingMetadata({
   );
 }
 
-export function SharedNoteLoading() {
+export function SharedNoteLoading({
+  headerLabel = "Shared with Anarlog",
+  loadingLabel = "Loading shared note",
+}: {
+  headerLabel?: string;
+  loadingLabel?: string;
+} = {}) {
   return (
-    <SharedNoteShell>
+    <SharedNoteShell headerLabel={headerLabel}>
       <div
         className="surface border-color-subtle rounded-3xl border px-6 py-8 sm:px-10"
-        aria-label="Loading shared note"
+        aria-label={loadingLabel}
       >
         <CircleNotch
           className="text-color-muted mb-6 size-5 animate-spin"
@@ -240,16 +246,18 @@ export function SharedNoteTransientError({ retry }: { retry?: () => void }) {
 export function SharedNotePrompt({
   actions,
   description,
+  headerLabel = "Shared with Anarlog",
   icon,
   title,
 }: {
   actions?: React.ReactNode;
   description: string;
+  headerLabel?: string;
   icon?: React.ReactNode;
   title: string;
 }) {
   return (
-    <SharedNoteShell>
+    <SharedNoteShell headerLabel={headerLabel}>
       <section className="surface border-color-subtle rounded-3xl border px-6 py-12 text-center sm:px-10">
         {icon && (
           <div className="text-color-muted mx-auto mb-4 flex justify-center">
@@ -272,9 +280,11 @@ export function SharedNotePrompt({
 
 function SharedNoteShell({
   children,
+  headerLabel = "Shared with Anarlog",
   topActions,
 }: {
   children: React.ReactNode;
+  headerLabel?: string;
   topActions?: React.ReactNode;
 }) {
   const headerHidden = useSyncExternalStore(
@@ -296,7 +306,7 @@ function SharedNoteShell({
           <AnarlogLogo className="h-7 w-auto" />
         </a>
         {topActions ?? (
-          <span className="text-xs text-stone-500">Shared with Anarlog</span>
+          <span className="text-xs text-stone-500">{headerLabel}</span>
         )}
       </header>
       <div

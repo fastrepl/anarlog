@@ -1,9 +1,11 @@
 import {
+  ArrowsClockwise,
   CheckCircle,
   Clock,
   EnvelopeOpen,
   Prohibit,
   SignIn,
+  WarningCircle,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ClientOnly, createFileRoute } from "@tanstack/react-router";
@@ -15,8 +17,6 @@ import {
   sharedSecondaryButtonClassName,
   SharedNoteLoading,
   SharedNotePrompt,
-  SharedNoteTransientError,
-  SharedNoteUnavailable,
 } from "@/components/shared-note-viewer";
 import { fetchUser } from "@/functions/auth";
 import { clearShareRouteContinuation } from "@/functions/share-route-continuation";
@@ -48,7 +48,7 @@ export const Route = createFileRoute("/team/invite/$invitationId")({
     ],
   }),
   headers: () => privateShareHeaders,
-  pendingComponent: SharedNoteLoading,
+  pendingComponent: WorkspaceInvitationLoading,
   component: Component,
 });
 
@@ -56,7 +56,7 @@ function Component() {
   const { user } = Route.useLoaderData();
   const { invitationId } = Route.useParams();
   return (
-    <ClientOnly fallback={<SharedNoteLoading />}>
+    <ClientOnly fallback={<WorkspaceInvitationLoading />}>
       <InvitationClient invitationId={invitationId} signedIn={Boolean(user)} />
     </ClientOnly>
   );
@@ -116,12 +116,12 @@ function InvitationClient({
   });
 
   if (continuation.isPending) {
-    return <SharedNoteLoading />;
+    return <WorkspaceInvitationLoading />;
   }
 
   if (continuation.isError) {
     return (
-      <SharedNoteTransientError
+      <WorkspaceInvitationTransientError
         retry={() => {
           void continuation.retry();
         }}
@@ -130,7 +130,7 @@ function InvitationClient({
   }
 
   if (!continuation.token || !parsedInvitationId) {
-    return <SharedNoteUnavailable />;
+    return <WorkspaceInvitationUnavailable />;
   }
 
   if (!signedIn) {
@@ -140,6 +140,7 @@ function InvitationClient({
     });
     return (
       <SharedNotePrompt
+        headerLabel="Team invitation"
         icon={<SignIn className="size-6" aria-hidden="true" />}
         title="Sign in to accept this invitation"
         description="Use the email address this workspace invitation was sent to. Your invitation stays in this browser tab while you sign in."
@@ -156,7 +157,17 @@ function InvitationClient({
   }
 
   if (invitationQuery.isPending) {
-    return <SharedNoteLoading />;
+    return <WorkspaceInvitationLoading />;
+  }
+
+  if (invitationQuery.isError || invitationQuery.data?.status === "error") {
+    return (
+      <WorkspaceInvitationTransientError
+        retry={() => {
+          void invitationQuery.refetch();
+        }}
+      />
+    );
   }
 
   const invitationFailure = getInvitationRouteFailure({
@@ -168,7 +179,7 @@ function InvitationClient({
     invitationFailure === "unavailable" ||
     invitationQuery.data?.status !== "ready"
   ) {
-    return <SharedNoteUnavailable />;
+    return <WorkspaceInvitationUnavailable />;
   }
 
   const invitation = invitationQuery.data.invitation;
@@ -176,6 +187,7 @@ function InvitationClient({
   if (invitation.status === "accepted" || acceptMutation.isSuccess) {
     return (
       <SharedNotePrompt
+        headerLabel="Team invitation"
         icon={<CheckCircle className="size-6" aria-hidden="true" />}
         title={`You've joined ${invitation.workspaceName}`}
         description="Open Anarlog on your computer to start collaborating in this workspace."
@@ -191,6 +203,7 @@ function InvitationClient({
   if (invitation.status === "revoked") {
     return (
       <SharedNotePrompt
+        headerLabel="Team invitation"
         icon={<Prohibit className="size-6" aria-hidden="true" />}
         title="This invitation was revoked"
         description="Ask a workspace admin to send a new invitation."
@@ -201,6 +214,7 @@ function InvitationClient({
   if (invitation.status === "expired") {
     return (
       <SharedNotePrompt
+        headerLabel="Team invitation"
         icon={<Clock className="size-6" aria-hidden="true" />}
         title="This invitation has expired"
         description="Ask a workspace admin to send a new invitation."
@@ -210,6 +224,7 @@ function InvitationClient({
 
   return (
     <SharedNotePrompt
+      headerLabel="Team invitation"
       icon={<EnvelopeOpen className="size-6" aria-hidden="true" />}
       title={`Join ${invitation.workspaceName}`}
       description="Accept the invitation to become a member of this Anarlog workspace."
@@ -240,6 +255,47 @@ function InvitationClient({
             </p>
           )}
         </>
+      }
+    />
+  );
+}
+
+function WorkspaceInvitationLoading() {
+  return (
+    <SharedNoteLoading
+      headerLabel="Team invitation"
+      loadingLabel="Loading team invitation"
+    />
+  );
+}
+
+function WorkspaceInvitationUnavailable() {
+  return (
+    <SharedNotePrompt
+      headerLabel="Team invitation"
+      icon={<WarningCircle className="size-6" aria-hidden="true" />}
+      title="This team invitation isn’t available"
+      description="Sign in with the email address that received this invitation, or ask the workspace admin for a new invitation."
+    />
+  );
+}
+
+function WorkspaceInvitationTransientError({ retry }: { retry: () => void }) {
+  return (
+    <SharedNotePrompt
+      headerLabel="Team invitation"
+      icon={<WarningCircle className="size-6" aria-hidden="true" />}
+      title="We couldn’t load this team invitation"
+      description="Anarlog had a temporary problem loading the invitation. Please try again."
+      actions={
+        <button
+          type="button"
+          className={sharedPrimaryButtonClassName}
+          onClick={retry}
+        >
+          <ArrowsClockwise className="mr-2 size-4" aria-hidden="true" />
+          Try again
+        </button>
       }
     />
   );
