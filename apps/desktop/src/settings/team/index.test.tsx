@@ -474,6 +474,9 @@ describe("SettingsTeam", () => {
       name: "Workspace subdomain",
     });
     expect((input as HTMLInputElement).value).toBe("fastrepl");
+    expect(input.parentElement?.contains(screen.getByText(".anarlog.so"))).toBe(
+      true,
+    );
     fireEvent.change(input, { target: { value: "Fastrepl-HQ" } });
     fireEvent.click(screen.getByRole("button", { name: "Save subdomain" }));
 

@@ -21,12 +21,18 @@ import {
 } from "@anlg/ui/components/ui/dialog";
 import { Input } from "@anlg/ui/components/ui/input";
 import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@anlg/ui/components/ui/input-group";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@anlg/ui/components/ui/select";
+import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 import { cn } from "@anlg/utils";
 
 import {
@@ -1187,6 +1193,7 @@ function WorkspaceShareDomainForm({
   const auth = useAuth();
   const inputId = `workspace-share-slug-${workspaceId}`;
   const [shareSlug, setShareSlug] = useState(workspaceShareSlug ?? "");
+  const inputGroupRef = useSquircleRef<HTMLDivElement>();
   const save = useMutation({
     mutationFn: (value: string) =>
       setWorkspaceShareSlug(requireTeamContext(auth), workspaceId, value),
@@ -1210,26 +1217,34 @@ function WorkspaceShareDomainForm({
       <p className="text-muted-foreground text-xs">
         <Trans>Use this domain for links shared from this workspace.</Trans>
       </p>
-      <label htmlFor={inputId} className="text-xs font-medium">
+      <label htmlFor={inputId} className="sr-only">
         <Trans>Workspace subdomain</Trans>
       </label>
-      <div className="flex min-w-0 items-center">
-        <Input
-          id={inputId}
-          value={shareSlug}
-          onChange={(event) => setShareSlug(event.target.value.toLowerCase())}
-          placeholder="company"
-          minLength={3}
-          maxLength={63}
-          pattern="[a-z0-9][a-z0-9-]{1,61}[a-z0-9]"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          className="bg-card h-9 min-w-0 rounded-r-none shadow-none"
-        />
-        <span className="border-input bg-muted text-muted-foreground flex h-9 shrink-0 items-center rounded-r-md border border-l-0 px-3 text-xs">
-          .anarlog.so
-        </span>
+      <div className="has-[input:focus-visible]:ring-ring rounded-xl has-[input:focus-visible]:ring-1">
+        <InputGroup
+          ref={inputGroupRef}
+          className="bg-card overflow-hidden shadow-none has-[[data-slot=input-group-control]:focus-visible]:ring-0"
+        >
+          <InputGroupInput
+            id={inputId}
+            value={shareSlug}
+            onChange={(event) => setShareSlug(event.target.value.toLowerCase())}
+            placeholder="company"
+            minLength={3}
+            maxLength={63}
+            pattern="[a-z0-9][a-z0-9-]{1,61}[a-z0-9]"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            className="h-full min-w-0"
+          />
+          <InputGroupAddon
+            align="inline-end"
+            className="border-input bg-muted h-full shrink-0 border-l px-3 py-0 text-xs font-normal"
+          >
+            .anarlog.so
+          </InputGroupAddon>
+        </InputGroup>
       </div>
       <Button
         type="submit"
