@@ -5,9 +5,12 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { completeDestructiveButtonHold } from "~/test-utils/destructive-button";
 
 const mocks = vi.hoisted(() => ({
   billingCheckout: {
@@ -67,6 +70,7 @@ const mocks = vi.hoisted(() => ({
       isBilled: true,
     },
     revokeInvitation: vi.fn(() => Promise.resolve()),
+    deleteWorkspace: vi.fn(() => Promise.resolve()),
     renameWorkspace: vi.fn(() => Promise.resolve()),
     setWorkspaceLogo: vi.fn(() =>
       Promise.resolve({ logoDataUrl: "data:image/jpeg;base64,/9j/4AAQ" }),
@@ -160,7 +164,7 @@ vi.mock("./mirror", () => ({
 vi.mock("./client", () => ({
   requireTeamContext: (auth: unknown) => auth,
   createWorkspace: mocks.createWorkspace,
-  deleteWorkspace: vi.fn(() => Promise.resolve()),
+  deleteWorkspace: mocks.client.deleteWorkspace,
   getSeatUsage: () =>
     Promise.resolve({ seatLimit: null, usedSeats: 1, isBilled: false }),
   leaveWorkspace: vi.fn(() => Promise.resolve()),
@@ -231,6 +235,7 @@ describe("SettingsTeam", () => {
       usedSeats: 1,
     };
     mocks.client.revokeInvitation.mockClear();
+    mocks.client.deleteWorkspace.mockClear();
     mocks.client.renameWorkspace.mockClear();
     mocks.client.setWorkspaceLogo.mockClear();
     mocks.client.getWorkspacePolicy.mockClear();
@@ -601,5 +606,41 @@ describe("SettingsTeam", () => {
     expect(
       screen.getByRole("button", { name: "Leave workspace" }),
     ).toBeTruthy();
+  });
+
+  it("confirms before deleting a workspace", async () => {
+    mocks.workspaces.data = [
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        name: "Fastrepl",
+        ownerUserId: "user-1",
+        role: "owner",
+      },
+    ];
+
+    renderTeam();
+
+    completeDestructiveButtonHold(
+      await screen.findByRole("button", { name: "Delete workspace" }),
+    );
+
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("heading", {
+        name: "Delete Fastrepl for everyone?",
+      }),
+    ).toBeTruthy();
+    expect(mocks.client.deleteWorkspace).not.toHaveBeenCalled();
+
+    completeDestructiveButtonHold(
+      within(dialog).getByRole("button", { name: "Delete workspace" }),
+    );
+
+    await waitFor(() =>
+      expect(mocks.client.deleteWorkspace).toHaveBeenCalledWith(
+        expect.anything(),
+        "00000000-0000-4000-8000-000000000001",
+      ),
+    );
   });
 });

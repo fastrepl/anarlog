@@ -65,6 +65,7 @@ import { env } from "~/env";
 import { SettingsPageTitle } from "~/settings/page-title";
 import { PlanGate } from "~/settings/plan-gate";
 import { SettingSwitchRow } from "~/settings/setting-row";
+import { DestructiveConfirmationDialog } from "~/shared/ui/destructive-confirmation-dialog";
 import { buildWebAppUrl } from "~/shared/utils";
 
 export function SettingsTeam() {
@@ -316,6 +317,8 @@ function WorkspacePanel({
   const [email, setEmail] = useState("");
   const [nameDraft, setNameDraft] = useState(workspaceName);
   const [isOpeningBilling, setIsOpeningBilling] = useState(false);
+  const [isDeleteWorkspaceDialogOpen, setIsDeleteWorkspaceDialogOpen] =
+    useState(false);
   const isManager = workspaceRole === "owner" || workspaceRole === "admin";
 
   const access = useQuery({
@@ -456,7 +459,11 @@ function WorkspacePanel({
   });
   const destroy = useMutation({
     mutationFn: () => deleteWorkspace(requireTeamContext(auth), workspaceId),
-    onSuccess: onWorkspaceLeft,
+    onSuccess: () => {
+      setIsDeleteWorkspaceDialogOpen(false);
+      onWorkspaceLeft();
+    },
+    onError: () => setIsDeleteWorkspaceDialogOpen(false),
   });
 
   const viewerId = auth.session?.user.id;
@@ -771,11 +778,7 @@ function WorkspacePanel({
             variant="destructive"
             className="shrink-0"
             disabled={destroy.isPending}
-            onClick={() => {
-              if (confirm(t`Delete ${workspaceName} for everyone?`)) {
-                destroy.mutate();
-              }
-            }}
+            onClick={() => setIsDeleteWorkspaceDialogOpen(true)}
           >
             <Trans>Delete workspace</Trans>
           </Button>
@@ -793,6 +796,20 @@ function WorkspacePanel({
           </Button>
         )}
       </div>
+      <DestructiveConfirmationDialog
+        open={isDeleteWorkspaceDialogOpen}
+        onOpenChange={setIsDeleteWorkspaceDialogOpen}
+        title={t`Delete ${workspaceName} for everyone?`}
+        description={
+          <Trans>
+            Deleting removes the workspace for everyone. Transfer ownership
+            first if you only want to leave.
+          </Trans>
+        }
+        confirmLabel={<Trans>Delete workspace</Trans>}
+        isPending={destroy.isPending}
+        onConfirm={() => destroy.mutate()}
+      />
     </div>
   );
 }

@@ -115,7 +115,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 
           onAnimationEnd?.(event);
           event.stopPropagation();
-          if (!requiresHold || !isHolding) return;
+          if (!requiresHold || holdInputRef.current === null) return;
 
           cancelHold();
           allowClickRef.current = true;
