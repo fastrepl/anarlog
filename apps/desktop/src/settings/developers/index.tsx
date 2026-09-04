@@ -16,7 +16,7 @@ const DEVELOPERS_GUIDE_URL = "https://docs.anarlog.so/agents/overview";
 
 export function SettingsDevelopers() {
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-10">
       <div className="flex items-center justify-between gap-4">
         <SettingsPageTitle title={t`Developers`} />
         <Button

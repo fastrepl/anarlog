@@ -124,12 +124,12 @@ function CliSection({
   const isInstalled = status?.state === "installed";
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex flex-col gap-5">
       <h2 className="font-sans text-lg font-semibold">{t`CLI & MCP`}</h2>
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-6">
+        <div className="flex min-h-10 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h3 className="flex items-center gap-1.5 text-sm font-medium">
+            <h3 className="flex items-center gap-1.5 text-base font-medium">
               <Trans>Anarlog CLI</Trans>
               {isInstalled && (
                 <CheckCircle
@@ -227,9 +227,9 @@ function McpRow({ status }: { status: EmbeddedCliStatus | undefined }) {
   );
 
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex min-h-10 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <h3 className="text-sm font-medium">{t`MCP server`}</h3>
+        <h3 className="text-base font-medium">{t`MCP server`}</h3>
       </div>
       <div className="flex shrink-0 gap-2">
         <Button

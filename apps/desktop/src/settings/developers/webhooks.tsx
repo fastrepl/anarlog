@@ -83,7 +83,7 @@ export function WebhooksSection() {
   const webhooks = webhooksQuery.data ?? [];
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex flex-col gap-5">
       <h2 className="font-sans text-lg font-semibold">{t`Webhooks`}</h2>
       <div>
         <form
@@ -97,7 +97,7 @@ export function WebhooksSection() {
           <form.Field name="url">
             {(field) => (
               <Input
-                className="h-8 max-w-md text-sm"
+                className="h-9 max-w-md text-sm"
                 placeholder="https://example.com/webhooks/anarlog"
                 value={field.state.value}
                 onChange={(event) => field.handleChange(event.target.value)}
@@ -115,8 +115,8 @@ export function WebhooksSection() {
         </form>
 
         {createdWebhook && (
-          <div className="border-border bg-muted/30 mt-3 rounded-xl border p-3">
-            <p className="text-muted-foreground text-xs">
+          <div className="border-border bg-muted/30 mt-4 rounded-xl border p-4">
+            <p className="text-muted-foreground text-sm">
               <Trans>
                 Copy this signing secret now — it is only shown once.
               </Trans>
@@ -149,7 +149,7 @@ export function WebhooksSection() {
         )}
 
         {webhooks.length > 0 && (
-          <ul className="mt-3 flex flex-col gap-1.5">
+          <ul className="mt-4 flex flex-col gap-2">
             {webhooks.map((webhook) => (
               <WebhookRow
                 key={webhook.id}

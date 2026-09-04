@@ -113,12 +113,12 @@ export function SkillsRow() {
   const detected = agents.filter((agent) => agent.detected);
 
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex min-h-10 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <h3 className="text-sm font-medium">
+        <h3 className="text-base font-medium">
           <Trans>Agent skills</Trans>
         </h3>
-        <p className="text-muted-foreground mt-1 text-xs">
+        <p className="text-muted-foreground mt-1 text-sm leading-5">
           <Trans>
             Teach coding agents when and how to use the Anarlog CLI and MCP
           </Trans>

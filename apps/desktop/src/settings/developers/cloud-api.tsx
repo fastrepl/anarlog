@@ -87,7 +87,7 @@ export function CloudApiSection() {
   }
 
   const endpoints = (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
       <CloudEndpoint
         label={t`REST API`}
         value={CLOUD_API_BASE_URL}
@@ -104,7 +104,7 @@ export function CloudApiSection() {
   if (!billing.isPro) {
     return (
       <PlanGate plan="pro" allowed={false}>
-        <section className="flex flex-col gap-4">
+        <section className="flex flex-col gap-5">
           <div className="flex items-start justify-between gap-4">
             <CloudApiHeading />
             <Switch
@@ -119,7 +119,7 @@ export function CloudApiSection() {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex flex-col gap-5">
       <div className="flex items-start justify-between gap-4">
         <CloudApiHeading error={settingsQuery.error?.message} />
         <Switch
@@ -150,7 +150,7 @@ function CloudApiHeading({ error }: { error?: string }) {
       <h2 className="font-sans text-lg font-semibold">
         <Trans>Cloud API & Connectors</Trans>
       </h2>
-      <p className="text-muted-foreground mt-1 text-xs">
+      <p className="text-muted-foreground mt-1 text-sm leading-5">
         <Trans>
           Uploads meeting content for remote access while Anarlog is closed.
         </Trans>
@@ -171,9 +171,9 @@ function CloudEndpoint({
 }) {
   return (
     <div className="min-w-0">
-      <p className="text-muted-foreground text-xs font-medium">{label}</p>
+      <p className="text-muted-foreground text-sm font-medium">{label}</p>
       <div className="mt-1 flex items-center gap-1">
-        <code className="bg-muted scrollbar-hide min-w-0 overflow-x-auto rounded-md px-1.5 py-0.5 text-xs">
+        <code className="bg-muted scrollbar-hide min-w-0 overflow-x-auto rounded-md px-2 py-1 text-sm">
           {value}
         </code>
         <Button
@@ -221,9 +221,9 @@ function CloudApiKeys() {
 
   return (
     <div>
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-4 flex items-center gap-2">
         <Key className="text-muted-foreground size-4" />
-        <h4 className="text-sm font-medium">
+        <h4 className="text-base font-medium">
           <Trans>Cloud API keys</Trans>
         </h4>
       </div>
@@ -238,7 +238,7 @@ function CloudApiKeys() {
         <form.Field name="name">
           {(field) => (
             <Input
-              className="h-8 max-w-64 text-sm"
+              className="h-9 max-w-64 text-sm"
               placeholder={t`Key name (e.g. Claude Code)`}
               value={field.state.value}
               onChange={(event) => field.handleChange(event.target.value)}
@@ -256,8 +256,8 @@ function CloudApiKeys() {
       </form>
 
       {createdKey && (
-        <div className="border-border bg-muted/30 mt-3 rounded-xl border p-3">
-          <p className="text-muted-foreground text-xs">
+        <div className="border-border bg-muted/30 mt-4 rounded-xl border p-4">
+          <p className="text-muted-foreground text-sm">
             <Trans>Copy this key now — it is only shown once.</Trans>
           </p>
           <div className="mt-2 flex items-center gap-2">
@@ -283,7 +283,7 @@ function CloudApiKeys() {
       )}
 
       {keys.length > 0 && (
-        <ul className="mt-3 flex flex-col gap-1.5">
+        <ul className="mt-4 flex flex-col gap-2">
           {keys.map((key) => (
             <CloudApiKeyRow
               key={key.id}
