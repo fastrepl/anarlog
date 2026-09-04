@@ -8,9 +8,8 @@ pub fn render_prompt<T: Template + Default>(
         .render()
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-    Ok(GetPromptResult::new(vec![PromptMessage::new_text(
-        PromptMessageRole::Assistant,
-        content,
-    )])
-    .with_description(description))
+    Ok(
+        GetPromptResult::new(vec![PromptMessage::new_text(Role::Assistant, content)])
+            .with_description(description),
+    )
 }

@@ -167,12 +167,18 @@ Launch the exact desktop candidate and add a temporary receiver under
 Start `anarlog mcp` through a real MCP client over stdio. Do not validate this
 lane by invoking server handlers directly.
 
-1. Initialize the protocol and run `tools/list`.
+1. Connect with the current MCP lifecycle and run `tools/list`. Repeat the handshake with a legacy `2025-11-25` client.
 2. Require exactly these tools:
    - `list_meetings`
    - `get_meeting`
    - `get_meeting_transcript`
    - `get_recurring_meeting_history`
+   - `export_meeting`
+   - `propose_summary_edit`
+   - `propose_memo_edit`
+   - `list_proposals`
+   - `get_proposal`
+   - `decline_proposal`
 3. Call every tool against the fixture. Verify query and series filters,
    two-page transcript/history traversal, missing IDs, and invalid arguments.
 4. Run `resources/list`, `resources/templates/list`, and `resources/read` for a
@@ -215,9 +221,12 @@ Begin with **Cloud API & Connectors** disabled.
 
 Connect a real Streamable HTTP MCP client to the deployed `/mcp` endpoint.
 
-1. Initialize a session, list tools, and require the same four-tool contract as
-   local MCP. Hosts that only support stateless JSON discovery must still list
-   the four tools without establishing a session first.
+1. Use `server/discover` with MCP `2026-07-28`, list tools without creating a
+   session, and require exactly `list_meetings`, `get_meeting`,
+   `get_meeting_transcript`, `get_recurring_meeting_history`, and
+   `export_meeting`. Verify the required protocol metadata and standard HTTP
+   headers on every modern request. Repeat discovery with a legacy
+   `2025-11-25` stateless client to prove compatibility.
 2. Call every tool and traverse at least two transcript/history pages.
 3. Compare its structured results with the hosted REST responses.
 4. Repeat initialization or a tool call with no credential, a malformed key, a

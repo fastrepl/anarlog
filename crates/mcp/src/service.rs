@@ -33,7 +33,7 @@ where
         factory,
         StreamableHttpServerConfig::default()
             .with_allowed_hosts(ALLOWED_HTTP_HOSTS)
-            .with_stateful_mode(false)
+            .with_legacy_session_mode(false)
             .with_json_response(true),
     )
 }

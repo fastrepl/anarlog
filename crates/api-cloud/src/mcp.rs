@@ -177,7 +177,7 @@ impl CloudMcpServer {
 impl ServerHandler for CloudMcpServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
-            .with_protocol_version(ProtocolVersion::LATEST)
+            .with_protocol_version(ProtocolVersion::V_2026_07_28)
             .with_server_info(Implementation::new(
                 "anarlog",
                 env!("CARGO_PKG_VERSION"),
@@ -205,8 +205,8 @@ fn user_id(auth: Option<anlg_api_auth::AuthContext>) -> Option<String> {
     auth.map(|auth| auth.claims.sub)
 }
 
-fn oauth_security_meta() -> Meta {
-    let mut meta = Meta::new();
+fn oauth_security_meta() -> MetaObject {
+    let mut meta = MetaObject::new();
     meta.insert(
         "securitySchemes".to_string(),
         serde_json::json!([{
@@ -218,7 +218,7 @@ fn oauth_security_meta() -> Meta {
 }
 
 fn authentication_required(state: &AppState) -> CallToolResult {
-    let mut meta = Meta::new();
+    let mut meta = MetaObject::new();
     meta.insert(
         "mcp/www_authenticate".to_string(),
         serde_json::json!([state.oauth().challenge(Some((
@@ -226,7 +226,7 @@ fn authentication_required(state: &AppState) -> CallToolResult {
             "Connect your Anarlog account to use this tool",
         )))]),
     );
-    CallToolResult::error(vec![Content::text(
+    CallToolResult::error(vec![ContentBlock::text(
         "Connect your Anarlog account to use this tool.",
     )])
     .with_meta(Some(meta))
@@ -251,6 +251,18 @@ fn command_error(error: crate::CloudApiError) -> McpError {
 mod tests {
     use super::*;
     use crate::CloudApiConfig;
+
+    #[test]
+    fn server_advertises_the_current_protocol() {
+        let state = AppState::new(
+            CloudApiConfig::new("https://auth.example.com", "service-role-key").unwrap(),
+        );
+
+        assert_eq!(
+            CloudMcpServer { state }.get_info().protocol_version,
+            ProtocolVersion::V_2026_07_28
+        );
+    }
 
     #[test]
     fn every_hosted_tool_declares_oauth_security() {

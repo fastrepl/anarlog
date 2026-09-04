@@ -12,6 +12,11 @@ pub use cli::Args;
 pub use error::{Error, Result};
 pub use output::JSON_SCHEMA_VERSION;
 
+pub const VERSION: &str = match option_env!("APP_VERSION") {
+    Some(version) => version,
+    None => env!("CARGO_PKG_VERSION"),
+};
+
 pub async fn run(mut args: Args) -> Result<u8> {
     if let cli::Command::Auth { command } = &args.command {
         commands::auth::run(command, args.json).await?;

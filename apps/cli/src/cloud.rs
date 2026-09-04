@@ -45,7 +45,7 @@ impl CloudClient {
     fn new(base_url: &str, access_token: String) -> Result<Self> {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
-            .user_agent(format!("anarlog-cli/{}", env!("CARGO_PKG_VERSION")))
+            .user_agent(format!("anarlog-cli/{}", crate::VERSION))
             .build()
             .map_err(|error| Error::operation("create Cloud API client", error.to_string()))?;
         Ok(Self {

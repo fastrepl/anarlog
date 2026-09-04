@@ -60,7 +60,7 @@ async fn inspect(args: &Args) -> Result<DoctorReport> {
     }
 
     Ok(DoctorReport {
-        cli_version: env!("CARGO_PKG_VERSION"),
+        cli_version: crate::VERSION,
         ready: database.opened_read_only && database.schema_ready,
         database,
     })

@@ -712,7 +712,7 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
     }
 
     #[tokio::test]
-    async fn mcp_supports_stateless_tool_discovery_on_the_public_api_host() {
+    async fn mcp_supports_current_stateless_tool_discovery_on_the_public_api_host() {
         let server = MockServer::start().await;
         let key = format!("anl_{}", "a".repeat(64));
         let key_hash = Sha256::digest(key.as_bytes())
@@ -728,7 +728,7 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
                     "status": "ok",
                 }])),
             )
-            .expect(1)
+            .expect(2)
             .mount(&server)
             .await;
         let state =
@@ -739,19 +739,59 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
         ));
 
         let response = app
+            .clone()
             .oneshot(
                 Request::post("/mcp")
                     .header("host", "api.anarlog.so")
                     .header("authorization", format!("Bearer {key}"))
                     .header("content-type", "application/json")
                     .header("accept", "application/json, text/event-stream")
-                    .header("mcp-protocol-version", "2025-06-18")
+                    .header("mcp-protocol-version", "2026-07-28")
+                    .header("mcp-method", "server/discover")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "jsonrpc": "2.0",
+                            "id": 1,
+                            "method": "server/discover",
+                            "params": {
+                                "_meta": current_mcp_meta(),
+                            },
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = serde_json::from_slice::<serde_json::Value>(&body).unwrap();
+        assert!(
+            body["result"]["supportedVersions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|version| version == "2026-07-28")
+        );
+
+        let response = app
+            .oneshot(
+                Request::post("/mcp")
+                    .header("host", "api.anarlog.so")
+                    .header("authorization", format!("Bearer {key}"))
+                    .header("content-type", "application/json")
+                    .header("accept", "application/json, text/event-stream")
+                    .header("mcp-protocol-version", "2026-07-28")
+                    .header("mcp-method", "tools/list")
                     .body(Body::from(
                         serde_json::json!({
                             "jsonrpc": "2.0",
                             "id": 1,
                             "method": "tools/list",
-                            "params": {},
+                            "params": {
+                                "_meta": current_mcp_meta(),
+                            },
                         })
                         .to_string(),
                     ))
@@ -782,6 +822,17 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
                 .iter()
                 .any(|tool| tool["name"] == "export_meeting")
         );
+    }
+
+    fn current_mcp_meta() -> serde_json::Value {
+        serde_json::json!({
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientInfo": {
+                "name": "anarlog-test",
+                "version": "1.0.0",
+            },
+            "io.modelcontextprotocol/clientCapabilities": {},
+        })
     }
 
     #[tokio::test]

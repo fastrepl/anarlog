@@ -12,5 +12,5 @@ pub(crate) async fn read_url(
         .await
         .map_err(|e: anlg_jina::Error| McpError::internal_error(e.to_string(), None))?;
 
-    Ok(CallToolResult::success(vec![Content::text(text)]))
+    Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
 }

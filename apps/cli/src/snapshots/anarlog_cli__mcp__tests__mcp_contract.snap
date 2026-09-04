@@ -4,7 +4,7 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
 ---
 {
   "instructions": "Local access to Anarlog meeting data. Start with list_meetings to resolve a meeting_id, then call get_meeting for notes, summaries, participants, and action items. Request transcript pages with get_meeting_transcript and continue with pagination.next_offset; each page is capped at 500 words. Use get_recurring_meeting_history for series context. Use export_meeting only when the task needs the complete record including transcripts. To persist an edit, call propose_summary_edit or propose_memo_edit; the result stays pending until a human applies it in the desktop app. List or inspect staged work with list_proposals and get_proposal. decline_proposal discards a pending proposal without changing the meeting. Never invent meeting titles, dates, or ids. If list_meetings returns no meetings, say so. Never access SQLite directly, or claim a proposal was applied. Documentation: https://docs.anarlog.so",
-  "protocol_version": "2025-11-25",
+  "protocol_version": "2026-07-28",
   "resource_templates": [
     {
       "description": "Meeting metadata, note, summaries, people, and action items",
@@ -45,7 +45,6 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
         "required": [
           "proposal_id"
         ],
-        "title": "DeclineProposalInput",
         "type": "object"
       },
       "name": "decline_proposal",
@@ -127,7 +126,6 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
         "required": [
           "meeting_id"
         ],
-        "title": "GetMeetingInput",
         "type": "object"
       },
       "name": "export_meeting",
@@ -410,7 +408,6 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
         "required": [
           "meeting_id"
         ],
-        "title": "GetMeetingInput",
         "type": "object"
       },
       "name": "get_meeting",
@@ -648,7 +645,6 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
         "required": [
           "meeting_id"
         ],
-        "title": "GetMeetingTranscriptInput",
         "type": "object"
       },
       "name": "get_meeting_transcript",
@@ -742,7 +738,6 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
         "required": [
           "proposal_id"
         ],
-        "title": "GetProposalInput",
         "type": "object"
       },
       "name": "get_proposal",
@@ -843,7 +838,6 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
         "required": [
           "meeting_id"
         ],
-        "title": "GetRecurringMeetingHistoryInput",
         "type": "object"
       },
       "name": "get_recurring_meeting_history",
@@ -1000,7 +994,6 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
             ]
           }
         },
-        "title": "ListMeetingsInput",
         "type": "object"
       },
       "name": "list_meetings",
@@ -1157,7 +1150,6 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
             ]
           }
         },
-        "title": "ListProposalsInput",
         "type": "object"
       },
       "name": "list_proposals",
@@ -1303,7 +1295,6 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
           "meeting_id",
           "content"
         ],
-        "title": "ProposeMemoInput",
         "type": "object"
       },
       "name": "propose_memo_edit",
@@ -1394,7 +1385,6 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
           "meeting_id",
           "content"
         ],
-        "title": "ProposeSummaryInput",
         "type": "object"
       },
       "name": "propose_summary_edit",

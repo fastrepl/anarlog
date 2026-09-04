@@ -7,7 +7,7 @@ use anlg_agent_access::{DEFAULT_TRANSCRIPT_LIMIT, MAX_TRANSCRIPT_LIMIT};
 #[derive(Debug, Parser)]
 #[command(
     name = "anarlog",
-    version,
+    version = crate::VERSION,
     about = "Access Anarlog from the command line"
 )]
 pub struct Args {
@@ -393,6 +393,11 @@ mod tests {
         let contract: serde_json::Value =
             serde_json::from_str(&cli_docs::generate_json(&Args::command())).unwrap();
         insta::assert_json_snapshot!("cli_contract", canonicalize_json(contract));
+    }
+
+    #[test]
+    fn version_uses_the_build_version() {
+        assert_eq!(Args::command().get_version(), Some(crate::VERSION));
     }
 
     fn canonicalize_json(value: serde_json::Value) -> serde_json::Value {

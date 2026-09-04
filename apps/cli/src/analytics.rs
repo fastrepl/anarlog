@@ -29,7 +29,7 @@ pub fn capture_command_completed(command: &str, outcome: &str, duration: Duratio
             "$session_id": new_id(),
             "surface": "cli",
             "analytics_schema_version": 1,
-            "app_version": env!("CARGO_PKG_VERSION"),
+            "app_version": anarlog_cli::VERSION,
             "command": command,
             "outcome": outcome,
             "duration_ms": duration.as_millis(),

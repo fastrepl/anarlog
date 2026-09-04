@@ -42,7 +42,7 @@ test("plugin manifests use one stable identity and version", async () => {
   for (const manifestPath of PLUGIN_MANIFESTS) {
     const manifest = await readJson(manifestPath);
     assert.equal(manifest.name, "anarlog");
-    assert.equal(manifest.version, "1.1.0");
+    assert.equal(manifest.version, "1.2.0");
     assert.equal(manifest.license, "MIT");
   }
 

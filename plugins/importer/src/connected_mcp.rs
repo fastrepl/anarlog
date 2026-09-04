@@ -168,10 +168,10 @@ pub async fn begin_connection(
         .await
         .map_err(|error| auth_error(provider, error))?;
     let metadata = manager
-        .discover_metadata()
+        .resolve_metadata()
         .await
         .map_err(|error| auth_error(provider, error))?;
-    manager.set_metadata(metadata);
+    manager.set_metadata(metadata.metadata);
     let scopes = manager.select_scopes(None, &[]);
     let scope_refs = scopes.iter().map(String::as_str).collect::<Vec<_>>();
     let client = manager

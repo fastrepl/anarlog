@@ -12,7 +12,7 @@ pub(crate) async fn search(
         .await
         .map_err(|e: anlg_exa::Error| McpError::internal_error(e.to_string(), None))?;
 
-    Ok(CallToolResult::success(vec![Content::text(
+    Ok(CallToolResult::success(vec![ContentBlock::text(
         serde_json::to_string(&response)
             .map_err(|e| McpError::internal_error(e.to_string(), None))?,
     )]))

@@ -216,7 +216,7 @@ async fn verify_and_build_session(tokens: CallbackTokens) -> Result<Session> {
     let claims = decode_token_claims(&tokens.access_token)?;
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(15))
-        .user_agent(format!("anarlog-cli/{}", env!("CARGO_PKG_VERSION")))
+        .user_agent(format!("anarlog-cli/{}", crate::VERSION))
         .build()
         .map_err(|error| Error::operation("verify login", error.to_string()))?;
     let response = client

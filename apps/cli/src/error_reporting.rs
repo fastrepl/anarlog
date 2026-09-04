@@ -12,7 +12,7 @@ pub fn init() -> Option<sentry::ClientInitGuard> {
         .or_else(|| option_env!("SENTRY_DSN").map(ToOwned::to_owned))?;
     let guard = sentry::init(sentry::ClientOptions {
         dsn: dsn.parse().ok(),
-        release: Some(format!("anarlog-cli@{}", env!("CARGO_PKG_VERSION")).into()),
+        release: Some(format!("anarlog-cli@{}", anarlog_cli::VERSION).into()),
         environment: Some(if cfg!(debug_assertions) {
             "development".into()
         } else {

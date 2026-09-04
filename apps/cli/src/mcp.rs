@@ -292,11 +292,8 @@ impl ServerHandler for AnarlogMcpServer {
                 .enable_resources()
                 .build(),
         )
-        .with_protocol_version(ProtocolVersion::LATEST)
-        .with_server_info(Implementation::new(
-            "anarlog",
-            env!("CARGO_PKG_VERSION"),
-        ))
+        .with_protocol_version(ProtocolVersion::V_2026_07_28)
+        .with_server_info(Implementation::new("anarlog", crate::VERSION))
         .with_instructions(
             "Local access to Anarlog meeting data. Start with list_meetings to resolve a meeting_id, then call get_meeting for notes, summaries, participants, and action items. Request transcript pages with get_meeting_transcript and continue with pagination.next_offset; each page is capped at 500 words. Use get_recurring_meeting_history for series context. Use export_meeting only when the task needs the complete record including transcripts. To persist an edit, call propose_summary_edit or propose_memo_edit; the result stays pending until a human applies it in the desktop app. List or inspect staged work with list_proposals and get_proposal. decline_proposal discards a pending proposal without changing the meeting. Never invent meeting titles, dates, or ids. If list_meetings returns no meetings, say so. Never access SQLite directly, or claim a proposal was applied. Documentation: https://docs.anarlog.so",
         )
@@ -307,8 +304,6 @@ impl ServerHandler for AnarlogMcpServer {
         params: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> std::result::Result<ListResourcesResult, McpError> {
-        use rmcp::model::AnnotateAble;
-
         let offset = params
             .and_then(|params| params.cursor)
             .map(|cursor| {
@@ -339,18 +334,15 @@ impl ServerHandler for AnarlogMcpServer {
                 } else {
                     meeting.title
                 };
-                RawResource::new(format!("anarlog://meetings/{}", meeting.id), name)
+                Resource::new(format!("anarlog://meetings/{}", meeting.id), name)
                     .with_description("Anarlog meeting context")
                     .with_mime_type("text/markdown")
-                    .no_annotation()
             })
             .collect();
 
-        Ok(ListResourcesResult {
-            meta: None,
-            next_cursor,
-            resources,
-        })
+        let mut result = ListResourcesResult::with_all_items(resources);
+        result.next_cursor = next_cursor;
+        Ok(result)
     }
 
     async fn list_resource_templates(
@@ -358,24 +350,19 @@ impl ServerHandler for AnarlogMcpServer {
         _params: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> std::result::Result<ListResourceTemplatesResult, McpError> {
-        use rmcp::model::AnnotateAble;
-
         Ok(ListResourceTemplatesResult::with_all_items(vec![
-            RawResourceTemplate::new("anarlog://meetings/{meeting_id}", "Anarlog meeting")
+            ResourceTemplate::new("anarlog://meetings/{meeting_id}", "Anarlog meeting")
                 .with_description("Meeting metadata, note, summaries, people, and action items")
-                .with_mime_type("text/markdown")
-                .no_annotation(),
-            RawResourceTemplate::new(
+                .with_mime_type("text/markdown"),
+            ResourceTemplate::new(
                 "anarlog://meetings/{meeting_id}/transcript{?offset,limit}",
                 "Anarlog meeting transcript",
             )
             .with_description("A bounded page of meeting transcript text")
-            .with_mime_type("text/plain")
-            .no_annotation(),
-            RawResourceTemplate::new("anarlog://series/{series_id}", "Anarlog meeting series")
+            .with_mime_type("text/plain"),
+            ResourceTemplate::new("anarlog://series/{series_id}", "Anarlog meeting series")
                 .with_description("Recurring meeting history")
-                .with_mime_type("text/markdown")
-                .no_annotation(),
+                .with_mime_type("text/markdown"),
         ]))
     }
 
@@ -383,7 +370,7 @@ impl ServerHandler for AnarlogMcpServer {
         &self,
         params: ReadResourceRequestParams,
         _context: RequestContext<RoleServer>,
-    ) -> std::result::Result<ReadResourceResult, McpError> {
+    ) -> std::result::Result<ReadResourceResponse, McpError> {
         let request = parse_resource_uri(&params.uri)?;
         let contents = match request {
             ResourceRequest::Meeting { meeting_id } => {
@@ -445,7 +432,7 @@ impl ServerHandler for AnarlogMcpServer {
             }
         };
 
-        Ok(ReadResourceResult::new(vec![contents]))
+        Ok(ReadResourceResult::new(vec![contents]).into())
     }
 }
 
@@ -542,6 +529,7 @@ fn command_error(error: access::Error) -> McpError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rmcp::transport::{IntoTransport, Transport};
     use serde_json::Value;
 
     #[test]
@@ -568,6 +556,7 @@ mod tests {
     async fn server_advertises_tools_and_resources() {
         let db = Arc::new(anlg_db_core::Db::connect_memory_plain().await.unwrap());
         let info = AnarlogMcpServer::new(db).get_info();
+        assert_eq!(info.protocol_version, ProtocolVersion::V_2026_07_28);
         assert!(info.capabilities.tools.is_some());
         assert!(info.capabilities.resources.is_some());
         let instructions = info.instructions.unwrap();
@@ -702,8 +691,8 @@ mod tests {
             .iter()
             .map(|template| {
                 (
-                    template.raw.name.clone(),
-                    template.raw.uri_template.clone(),
+                    template.name.clone(),
+                    template.uri_template.clone(),
                     template.annotations.clone(),
                 )
             })
@@ -734,13 +723,72 @@ mod tests {
             assert!(mcp_skill.contains(uri), "Anarlog skill is missing `{uri}`");
         }
         assert_eq!(resources.len(), 1);
-        assert_eq!(resources[0].raw.name, "Planning");
-        assert_eq!(resources[0].raw.uri, "anarlog://meetings/meeting-1");
+        assert_eq!(resources[0].name, "Planning");
+        assert_eq!(resources[0].uri, "anarlog://meetings/meeting-1");
         assert!(resources[0].annotations.is_none());
 
         client.cancel().await.unwrap();
         let server = server_handle.await.unwrap().unwrap();
         server.cancel().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn current_client_discovers_and_lists_tools_without_initialize() {
+        let db = Arc::new(anlg_db_core::Db::connect_memory_plain().await.unwrap());
+        anlg_db_app::prepare_schema(&db).await.unwrap();
+        let (server_transport, client_transport) = tokio::io::duplex(64 * 1024);
+        let server = AnarlogMcpServer::new(db);
+        let server_task =
+            tokio::spawn(async move { server.serve(server_transport).await.unwrap() });
+        let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+        let mut discover = DiscoverRequest::new(DiscoverRequestParams {});
+        discover.extensions.insert(current_client_meta());
+        client
+            .send(ClientJsonRpcMessage::request(
+                ClientRequest::DiscoverRequest(discover),
+                RequestId::Number(1),
+            ))
+            .await
+            .unwrap();
+        let discover = client.receive().await.unwrap();
+        let discover = serde_json::to_value(discover).unwrap();
+        assert!(
+            discover["result"]["supportedVersions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|version| version == "2026-07-28")
+        );
+
+        let mut list_tools = ListToolsRequest {
+            method: Default::default(),
+            params: None,
+            extensions: Default::default(),
+        };
+        list_tools.extensions.insert(current_client_meta());
+        client
+            .send(ClientJsonRpcMessage::request(
+                ClientRequest::ListToolsRequest(list_tools),
+                RequestId::Number(2),
+            ))
+            .await
+            .unwrap();
+        let tools = client.receive().await.unwrap();
+        let tools = serde_json::to_value(tools).unwrap();
+        assert_eq!(tools["result"]["resultType"], "complete");
+        assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 10);
+
+        drop(client);
+        server_task.await.unwrap().cancel().await.unwrap();
+    }
+
+    fn current_client_meta() -> RequestMetaObject {
+        RequestMetaObject::with_client_context(
+            ProtocolVersion::V_2026_07_28,
+            Implementation::new("anarlog-test", "1.0.0"),
+            ClientCapabilities::default(),
+        )
     }
 
     fn canonicalize_json(value: Value) -> Value {

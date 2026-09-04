@@ -76,7 +76,7 @@ impl ServerHandler for ResearchMcpServer {
                 .enable_prompts()
                 .build(),
         )
-        .with_protocol_version(ProtocolVersion::V_2024_11_05)
+        .with_protocol_version(ProtocolVersion::V_2026_07_28)
         .with_server_info(Implementation::new(
             "anarlog-research",
             env!("CARGO_PKG_VERSION"),
@@ -91,24 +91,20 @@ impl ServerHandler for ResearchMcpServer {
         _params: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListPromptsResult, McpError> {
-        Ok(ListPromptsResult {
-            prompts: vec![Prompt::new(
-                "research_chat",
-                Some("System prompt for the Char research chat"),
-                None::<Vec<PromptArgument>>,
-            )],
-            next_cursor: None,
-            meta: None,
-        })
+        Ok(ListPromptsResult::with_all_items(vec![Prompt::new(
+            "research_chat",
+            Some("System prompt for the Char research chat"),
+            None::<Vec<PromptArgument>>,
+        )]))
     }
 
     async fn get_prompt(
         &self,
         params: GetPromptRequestParams,
         _context: RequestContext<RoleServer>,
-    ) -> Result<GetPromptResult, McpError> {
+    ) -> Result<GetPromptResponse, McpError> {
         match params.name.as_str() {
-            "research_chat" => prompts::research_chat(),
+            "research_chat" => prompts::research_chat().map(Into::into),
             _ => Err(McpError::invalid_params(
                 format!("Unknown prompt: {}", params.name),
                 None,
