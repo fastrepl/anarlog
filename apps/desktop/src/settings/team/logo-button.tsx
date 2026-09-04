@@ -7,23 +7,32 @@ import { compressWorkspaceLogo } from "./logo";
 
 export function WorkspaceLogoMark({
   logoDataUrl,
+  className,
 }: {
   logoDataUrl: string | null;
+  className?: string;
 }) {
+  const markClassName = cn(["size-10 rounded-xl", className]);
+
   if (logoDataUrl) {
     return (
       <img
         src={logoDataUrl}
         alt=""
         draggable={false}
-        className="size-10 rounded-xl object-cover"
+        className={cn([markClassName, "object-cover"])}
       />
     );
   }
 
   return (
-    <div className="bg-primary/10 text-primary flex size-10 items-center justify-center rounded-xl">
-      <Buildings className="size-5" />
+    <div
+      className={cn([
+        "bg-primary/10 text-primary flex items-center justify-center",
+        markClassName,
+      ])}
+    >
+      <Buildings className="size-1/2" />
     </div>
   );
 }

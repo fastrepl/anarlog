@@ -52,7 +52,7 @@ import {
   getTeamSenderName,
   reportWorkspaceInvitation,
 } from "./invitation";
-import { WorkspaceLogoButton } from "./logo-button";
+import { WorkspaceLogoButton, WorkspaceLogoMark } from "./logo-button";
 import { MY_WORKSPACES_QUERY_KEY, useMyWorkspacesWithMirror } from "./mirror";
 
 import { useAuth } from "~/auth";
@@ -179,7 +179,11 @@ function WorkspaceTabs({
   onSelect,
   onCreate,
 }: {
-  workspaces: { workspaceId: string; name: string }[];
+  workspaces: {
+    workspaceId: string;
+    name: string;
+    logoDataUrl?: string | null;
+  }[];
   selectedId: string | null;
   isCreating: boolean;
   canCreate: boolean;
@@ -200,13 +204,17 @@ function WorkspaceTabs({
             aria-pressed={selected}
             onClick={() => onSelect(workspace.workspaceId)}
             className={cn([
-              "rounded-full px-3 py-1.5 text-sm transition-colors",
+              "flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-colors",
               selected
                 ? "bg-muted text-foreground font-medium"
                 : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
             ])}
           >
-            {workspace.name}
+            <WorkspaceLogoMark
+              logoDataUrl={workspace.logoDataUrl ?? null}
+              className="size-5 rounded-md"
+            />
+            <span>{workspace.name}</span>
           </button>
         );
       })}

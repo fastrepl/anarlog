@@ -348,6 +348,24 @@ describe("SettingsTeam", () => {
     );
   });
 
+  it("shows the workspace logo in its tab", () => {
+    const logoDataUrl = "data:image/jpeg;base64,/9j/4AAQ";
+    mocks.workspaces.data = [
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        name: "Fastrepl",
+        ownerUserId: "user-1",
+        logoDataUrl,
+        role: "owner",
+      },
+    ];
+
+    renderTeam();
+
+    const tab = screen.getByRole("button", { name: "Fastrepl" });
+    expect(tab.querySelector("img")?.getAttribute("src")).toBe(logoDataUrl);
+  });
+
   it("uploads a workspace logo from the identity tile", async () => {
     mocks.workspaces.data = [
       {
