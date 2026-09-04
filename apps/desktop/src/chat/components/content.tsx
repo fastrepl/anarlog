@@ -3,7 +3,6 @@ import type { ChatStatus } from "ai";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ChatBody } from "./body";
-import { ContextBar } from "./context-bar";
 import { ChatMessageInput } from "./input";
 
 import type { useLanguageModel } from "~/ai/hooks";
@@ -36,9 +35,7 @@ export function ChatContent({
   error,
   model,
   handleSendMessage,
-  contextEntities,
   pendingRefs,
-  onRemoveContextEntity,
   onAddContextEntity,
   onDraftContentChange,
   onDraftContextRefsChange,
@@ -227,10 +224,6 @@ export function ChatContent({
       )}
       {isModelConfigured && (
         <>
-          <ContextBar
-            entities={contextEntities}
-            onRemoveEntity={onRemoveContextEntity}
-          />
           <ChatQueue
             messages={queuedMessages}
             onRemoveMessage={removeQueuedMessage}

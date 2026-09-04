@@ -115,6 +115,50 @@ describe("ChatContent", () => {
     expect(content?.className).not.toContain("shrink-0");
   });
 
+  it("hides context chips without removing context from new messages", () => {
+    const handleSendMessage = vi.fn();
+    const sendMessage = vi.fn();
+    const contextRef = {
+      kind: "human" as const,
+      key: "human:manual:artem",
+      humanId: "artem",
+    };
+
+    render(
+      <ChatContent
+        sessionId="active-session"
+        messages={[]}
+        sendMessage={sendMessage}
+        regenerate={vi.fn()}
+        stop={vi.fn()}
+        status="ready"
+        model={{} as never}
+        handleSendMessage={handleSendMessage}
+        contextEntities={[
+          {
+            ...contextRef,
+            source: "manual",
+            name: "Artem",
+            pending: true,
+          },
+        ]}
+        pendingRefs={[contextRef]}
+        isSystemPromptReady
+      />,
+    );
+
+    expect(screen.queryByTestId("context-bar")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("chat-input"));
+
+    expect(handleSendMessage).toHaveBeenCalledWith(
+      "Queued follow-up",
+      [{ type: "text", text: "Queued follow-up" }],
+      sendMessage,
+      [contextRef],
+    );
+  });
+
   it("adds dropped session refs to chat context", () => {
     const onAddContextEntity = vi.fn();
     const container = renderContent(onAddContextEntity);

@@ -96,20 +96,25 @@ export function ChatBody({
         </div>
       </div>
       {messages.length > 0 && showGoToRecent && !isAtBottom && (
-        <Button
-          onClick={scrollToBottom}
-          size="sm"
-          className={cn([
-            "absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 transform items-center gap-1 rounded-full border shadow-xs",
-            chatFloatingControlClassNames(),
-          ])}
-          variant="outline"
+        <div
+          data-chat-go-to-recent-anchor
+          className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2"
         >
-          <CaretDown size={12} />
-          <span className="text-xs">
-            <Trans>Go to recent</Trans>
-          </span>
-        </Button>
+          <Button
+            onClick={scrollToBottom}
+            size="sm"
+            className={cn([
+              "flex items-center gap-1 rounded-full border shadow-xs",
+              chatFloatingControlClassNames(),
+            ])}
+            variant="outline"
+          >
+            <CaretDown size={12} />
+            <span className="text-xs">
+              <Trans>Go to recent</Trans>
+            </span>
+          </Button>
+        </div>
       )}
     </div>
   );
