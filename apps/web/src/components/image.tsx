@@ -15,6 +15,7 @@ function isGifSource(src: ImageProps["src"]) {
 export const Image = ({
   layout = "constrained",
   background,
+  breakpoints,
   objectFit,
   src,
   ...props
@@ -33,6 +34,8 @@ export const Image = ({
         src={src}
         alt={props.alt}
         title={title}
+        loading={imgProps.loading ?? "lazy"}
+        decoding={imgProps.decoding ?? "async"}
         style={{
           objectFit,
           ...(imgProps.style || {}),
@@ -52,6 +55,7 @@ export const Image = ({
       {...(isExternalUrl ? {} : { transformer: transform })}
       layout={layout}
       background={background}
+      breakpoints={breakpoints}
       title={title}
       style={{
         objectFit: objectFit,

@@ -1,20 +1,37 @@
 import type { ComponentType } from "react";
 
+import { cn } from "@anlg/utils";
+
+import { Image as OptimizedImage } from "@/components/image";
+
+const BLOG_IMAGE_WIDTH = 796;
+const BLOG_IMAGE_BREAKPOINTS = [320, 480, 640, 796, 1080, 1280, 1592];
+const BLOG_IMAGE_SIZES =
+  "(min-width: 860px) 796px, (min-width: 768px) calc(100vw - 64px), calc(100vw - 40px)";
+
 function Image({
   src,
   alt,
+  className,
+  width = BLOG_IMAGE_WIDTH,
   ...rest
 }: {
   src: string;
   alt?: string;
+  className?: string;
+  width?: number;
   [k: string]: any;
 }) {
   return (
-    <img
+    <OptimizedImage
+      {...rest}
       src={src}
       alt={alt ?? ""}
-      className="my-6 w-full rounded-md"
-      {...rest}
+      className={cn(["my-6 w-full rounded-md", className])}
+      layout="constrained"
+      width={width}
+      breakpoints={BLOG_IMAGE_BREAKPOINTS}
+      sizes={BLOG_IMAGE_SIZES}
     />
   );
 }
