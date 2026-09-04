@@ -1,5 +1,5 @@
 begin;
-select plan(4);
+select plan(6);
 
 insert into stripe.customers (id, email)
 values ('cus_existing', 'existing@example.com')
@@ -11,6 +11,36 @@ select results_eq(
   $$select stripe_customer_id from public.profiles where id = tests.get_supabase_uid('with_stripe')$$,
   array['cus_existing'::text],
   'New user with matching stripe email gets auto-linked'
+);
+
+insert into stripe.customers (id, email)
+values ('cus_mixed_case', 'Mixed.Case@Example.com')
+on conflict (id) do nothing;
+
+select tests.create_supabase_user('mixed_case', 'mixed.case@example.com');
+
+select results_eq(
+  $$select stripe_customer_id from public.profiles where id = tests.get_supabase_uid('mixed_case')$$,
+  array['cus_mixed_case'::text],
+  'New user links a Stripe customer with differently cased email'
+);
+
+insert into stripe.customers (id, email, created)
+values
+  ('cus_duplicate_empty', 'duplicate@example.com', 100),
+  ('cus_duplicate_paid', 'DUPLICATE@example.com', 200)
+on conflict (id) do nothing;
+
+insert into stripe.subscriptions (id, customer, status)
+values ('sub_duplicate_paid', 'cus_duplicate_paid', 'active')
+on conflict (id) do nothing;
+
+select tests.create_supabase_user('duplicate_customer', 'duplicate@example.com');
+
+select results_eq(
+  $$select stripe_customer_id from public.profiles where id = tests.get_supabase_uid('duplicate_customer')$$,
+  array['cus_duplicate_paid'::text],
+  'New user prefers the matching customer with an active subscription'
 );
 
 select tests.create_supabase_user('no_stripe', 'new@example.com');
