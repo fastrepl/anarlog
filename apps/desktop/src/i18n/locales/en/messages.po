@@ -1858,13 +1858,10 @@ msgid "Each example must be 12,000 characters or fewer."
 msgstr "Each example must be 12,000 characters or fewer."
 
 #: src/main/windows-title-bar.tsx
+#: src/settings/dictionary/index.tsx
 #: src/sidebar/automations.tsx
 msgid "Edit"
 msgstr "Edit"
-
-#: src/settings/dictionary/index.tsx
-msgid "Edit {term}"
-msgstr "Edit {term}"
 
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Edit date"
