@@ -11,11 +11,13 @@ FROM node-base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/stripe/package.json apps/stripe/package.json
 COPY packages/supabase/package.json packages/supabase/package.json
+COPY packages/user-error/package.json packages/user-error/package.json
 RUN pnpm fetch --prod --filter @anlg/stripe
 
 FROM deps AS build
 COPY apps/stripe apps/stripe
 COPY packages/supabase packages/supabase
+COPY packages/user-error packages/user-error
 RUN pnpm install --filter @anlg/stripe --frozen-lockfile
 RUN pnpm deploy --filter @anlg/stripe --prod --legacy /runtime
 
