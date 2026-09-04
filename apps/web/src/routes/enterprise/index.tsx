@@ -202,7 +202,11 @@ function EnterprisePage() {
                 muted
                 playsInline
                 ref={(el) => {
-                  if (el && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+                  if (
+                    el &&
+                    window.matchMedia("(prefers-reduced-motion: reduce)")
+                      .matches
+                  ) {
                     el.pause();
                   }
                 }}
