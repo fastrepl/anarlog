@@ -26,12 +26,14 @@ import {
 import type { Segment } from "~/stt/live-segment";
 
 const {
+  assignSessionTranscriptSpeakerMock,
   assignTranscriptSpeakerMock,
   addSessionParticipantMock,
   createHumanMock,
   useHumansMock,
   useSessionParticipantsMock,
 } = vi.hoisted(() => ({
+  assignSessionTranscriptSpeakerMock: vi.fn(),
   assignTranscriptSpeakerMock: vi.fn(),
   addSessionParticipantMock: vi.fn(),
   createHumanMock: vi.fn(),
@@ -133,12 +135,14 @@ vi.mock("~/session/queries", () => ({
 }));
 
 vi.mock("~/stt/queries", () => ({
+  assignSessionTranscriptSpeaker: assignSessionTranscriptSpeakerMock,
   assignTranscriptSpeaker: assignTranscriptSpeakerMock,
 }));
 
 beforeEach(() => {
   cleanup();
   vi.clearAllMocks();
+  assignSessionTranscriptSpeakerMock.mockResolvedValue(undefined);
   assignTranscriptSpeakerMock.mockResolvedValue(undefined);
   addSessionParticipantMock.mockResolvedValue(undefined);
   createHumanMock.mockResolvedValue("human-new");
@@ -192,6 +196,7 @@ describe("SpeakerAssignPopover", () => {
           ],
         } as Segment,
         transcriptId: "transcript-1",
+        sessionId: "session-1",
         color: "red",
         label: "Speaker 2",
       }),
@@ -239,7 +244,8 @@ describe("SpeakerAssignPopover", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
 
     await waitFor(() => {
-      expect(assignTranscriptSpeakerMock).toHaveBeenCalledWith({
+      expect(assignSessionTranscriptSpeakerMock).toHaveBeenCalledWith({
+        sessionId: "session-1",
         transcriptId: "transcript-1",
         segmentKey: {
           channel: "RemoteParty",
@@ -248,8 +254,6 @@ describe("SpeakerAssignPopover", () => {
         },
         humanId: "human-1",
         anchorWordId: "word-1",
-        mode: "all",
-        wordIds: ["word-1"],
       });
     });
   });

@@ -4,6 +4,7 @@ import type { LiveTranscriptDelta } from "@anlg/plugin-transcription";
 
 import {
   createTranscriptAccumulator,
+  findSpeakerAssignmentAnchorWordId,
   mergeTranscriptSegmentAssignments,
   updateTranscriptHints,
   upsertSpeakerAssignment,
@@ -704,6 +705,46 @@ function remoteSpeakerKey(speakerIndex: number | null): SegmentKey {
     speaker_human_id: null,
   } as SegmentKey;
 }
+
+describe("findSpeakerAssignmentAnchorWordId", () => {
+  it("finds the matching speaker in a resumed transcript", () => {
+    expect(
+      findSpeakerAssignmentAnchorWordId(
+        [
+          {
+            id: "speaker-1-word",
+            text: "First",
+            start_ms: 0,
+            end_ms: 100,
+            channel: 1,
+          },
+          {
+            id: "speaker-2-word",
+            text: "Second",
+            start_ms: 100,
+            end_ms: 200,
+            channel: 1,
+          },
+        ],
+        [
+          {
+            id: "speaker-1-word:provider_speaker_index",
+            word_id: "speaker-1-word",
+            type: "provider_speaker_index",
+            value: JSON.stringify({ channel: 1, speaker_index: 1 }),
+          },
+          {
+            id: "speaker-2-word:provider_speaker_index",
+            word_id: "speaker-2-word",
+            type: "provider_speaker_index",
+            value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+          },
+        ],
+        remoteSpeakerKey(2),
+      ),
+    ).toBe("speaker-2-word");
+  });
+});
 
 describe("upsertSpeakerAssignment", () => {
   it("removes a conflicting automatic assignment when a user assigns the speaker", () => {

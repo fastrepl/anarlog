@@ -49,6 +49,7 @@ vi.mock("~/db", () => ({
 import {
   applyLiveTranscriptDeltaToDatabase,
   appendTranscriptWordsAndHints,
+  assignSessionTranscriptSpeaker,
   assignTranscriptSpeaker,
   createLiveTranscript,
   createTranscript,
@@ -609,6 +610,115 @@ describe("transcript SQLite queries", () => {
     expect(JSON.parse(String(statement?.params[1]))).toEqual([
       expect.objectContaining({
         word_id: "word-1",
+        type: "user_speaker_assignment",
+      }),
+    ]);
+  });
+
+  it("applies matching speaker assignments across resumed transcripts", async () => {
+    mocks.execute
+      .mockResolvedValueOnce([
+        { id: "transcript-1" },
+        { id: "transcript-2" },
+        { id: "transcript-3" },
+      ])
+      .mockResolvedValueOnce([
+        {
+          words_json: JSON.stringify([
+            {
+              id: "word-1",
+              text: "First",
+              start_ms: 0,
+              end_ms: 500,
+              channel: 1,
+            },
+          ]),
+          speaker_hints_json: JSON.stringify([
+            {
+              id: "word-1:provider_speaker_index",
+              word_id: "word-1",
+              type: "provider_speaker_index",
+              value: JSON.stringify({ channel: 1, speaker_index: 0 }),
+            },
+          ]),
+          content_revision: 0,
+          pending_deltas_json: "[]",
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          words_json: JSON.stringify([
+            {
+              id: "word-2",
+              text: "Resumed",
+              start_ms: 0,
+              end_ms: 500,
+              channel: 1,
+            },
+          ]),
+          speaker_hints_json: JSON.stringify([
+            {
+              id: "word-2:provider_speaker_index",
+              word_id: "word-2",
+              type: "provider_speaker_index",
+              value: JSON.stringify({ channel: 1, speaker_index: 0 }),
+            },
+          ]),
+          content_revision: 0,
+          pending_deltas_json: "[]",
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          words_json: "[]",
+          speaker_hints_json: "[]",
+          content_revision: 0,
+          pending_deltas_json: JSON.stringify([
+            liveDelta([
+              {
+                id: "word-3",
+                text: "Local",
+                start_ms: 0,
+                end_ms: 500,
+                channel: 0,
+                state: "final",
+              },
+            ]),
+          ]),
+        },
+      ]);
+
+    await assignSessionTranscriptSpeaker({
+      sessionId: "session-1",
+      transcriptId: "transcript-1",
+      segmentKey: {
+        channel: "RemoteParty",
+        speaker_index: 0,
+        speaker_human_id: null,
+      },
+      humanId: "human-1",
+      anchorWordId: "word-1",
+    });
+
+    const updates = mocks.executeTransaction.mock.calls.map(
+      ([statements]) => statements[0],
+    );
+    expect(updates.map((statement) => statement.params[3])).toEqual([
+      "transcript-1",
+      "transcript-2",
+    ]);
+    expect(mocks.executeTransaction).toHaveBeenCalledTimes(2);
+    expect(
+      updates.map((statement) =>
+        JSON.parse(String(statement.params[1])).at(-1),
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        word_id: "word-1",
+        type: "user_speaker_assignment",
+      }),
+      expect.objectContaining({
+        word_id: "word-2",
         type: "user_speaker_assignment",
       }),
     ]);

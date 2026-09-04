@@ -332,6 +332,27 @@ export function upsertSpeakerAssignment(
   updateTranscriptHints(store, transcriptId, nextHints);
 }
 
+export function findSpeakerAssignmentAnchorWordId(
+  words: WordWithId[],
+  hints: SpeakerHintWithId[],
+  segmentKey: SegmentKey,
+): string | undefined {
+  const channel =
+    segmentKey.channel === "DirectMic"
+      ? 0
+      : segmentKey.channel === "RemoteParty"
+        ? 1
+        : 2;
+  const speakerIndex = segmentKey.speaker_index;
+
+  return words.find(
+    (word) =>
+      word.channel === channel &&
+      (typeof speakerIndex !== "number" ||
+        findSpeakerIndexForWord(hints, word.id) === speakerIndex),
+  )?.id;
+}
+
 export function mergeTranscriptSegmentAssignments(
   store: TranscriptStore,
   transcriptId: string,

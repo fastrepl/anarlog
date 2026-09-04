@@ -25,7 +25,10 @@ import {
   useSessionParticipants,
 } from "~/session/queries";
 import type { Segment } from "~/stt/live-segment";
-import { assignTranscriptSpeaker } from "~/stt/queries";
+import {
+  assignSessionTranscriptSpeaker,
+  assignTranscriptSpeaker,
+} from "~/stt/queries";
 
 export type AssignmentMode = "all" | "segment";
 
@@ -62,16 +65,24 @@ export function SpeakerAssignPopover({
         triggerRef.current?.closest<HTMLElement>(
           "[data-transcript-container]",
         ) ?? null;
-      void preserveScrollPosition(scrollContainer, () =>
-        assignTranscriptSpeaker({
-          transcriptId,
-          segmentKey: segment.key,
-          humanId,
-          anchorWordId,
-          mode: assignmentMode,
-          wordIds: getAssignmentWordIds(segment),
-        }),
-      )
+      const assign = () =>
+        assignmentMode === "all" && sessionId
+          ? assignSessionTranscriptSpeaker({
+              sessionId,
+              transcriptId,
+              segmentKey: segment.key,
+              humanId,
+              anchorWordId,
+            })
+          : assignTranscriptSpeaker({
+              transcriptId,
+              segmentKey: segment.key,
+              humanId,
+              anchorWordId,
+              mode: assignmentMode,
+              wordIds: getAssignmentWordIds(segment),
+            });
+      void preserveScrollPosition(scrollContainer, assign)
         .then(() => {
           trackAnalyticsEvent("participant_assigned", {
             assignment_scope: assignmentMode,
@@ -84,7 +95,7 @@ export function SpeakerAssignPopover({
           console.error("[transcript] failed to assign speaker", error);
         });
     },
-    [handleOpenChange, onAssigned, transcriptId, segment],
+    [handleOpenChange, onAssigned, sessionId, transcriptId, segment],
   );
 
   return (

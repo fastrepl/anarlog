@@ -12,6 +12,7 @@ import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 import {
   applyLiveTranscriptDelta,
   createTranscriptAccumulator,
+  findSpeakerAssignmentAnchorWordId,
   parseTranscriptWords,
   parseTranscriptHints,
   updateTranscriptHints,
@@ -514,43 +515,119 @@ export function assignTranscriptSpeaker({
   mode?: "all" | "segment";
   wordIds?: string[];
 }): Promise<void> {
-  return mutateTranscript(transcriptId, (store) => {
+  return assignSpeakerInTranscript({
+    transcriptId,
+    segmentKey,
+    humanId,
+    anchorWordId,
+    mode,
+    wordIds,
+  });
+}
+
+export async function assignSessionTranscriptSpeaker({
+  sessionId,
+  transcriptId,
+  segmentKey,
+  humanId,
+  anchorWordId,
+}: {
+  sessionId: string;
+  transcriptId: string;
+  segmentKey: SegmentKey;
+  humanId: string;
+  anchorWordId: string;
+}): Promise<void> {
+  const transcripts = await liveQueryClient.execute<{ id: string }>(
+    `
+      SELECT id
+      FROM transcripts
+      WHERE session_id = ? AND deleted_at IS NULL
+      ORDER BY started_at_ms, created_at, id
+    `,
+    [sessionId],
+  );
+
+  await Promise.all(
+    transcripts.map((transcript) =>
+      assignSpeakerInTranscript({
+        transcriptId: transcript.id,
+        segmentKey,
+        humanId,
+        anchorWordId: transcript.id === transcriptId ? anchorWordId : undefined,
+        mode: "all",
+      }),
+    ),
+  );
+}
+
+async function assignSpeakerInTranscript({
+  transcriptId,
+  segmentKey,
+  humanId,
+  anchorWordId,
+  mode,
+  wordIds,
+}: {
+  transcriptId: string;
+  segmentKey: SegmentKey;
+  humanId: string;
+  anchorWordId?: string;
+  mode?: "all" | "segment";
+  wordIds?: string[];
+}): Promise<void> {
+  let assigned = false;
+  await mutateTranscript(transcriptId, (store) => {
+    const resolvedAnchorWordId =
+      anchorWordId ??
+      findSpeakerAssignmentAnchorWordId(
+        parseTranscriptWords(store, transcriptId),
+        parseTranscriptHints(store, transcriptId),
+        segmentKey,
+      );
+    if (!resolvedAnchorWordId) {
+      return false;
+    }
+
     upsertSpeakerAssignment(
       store,
       transcriptId,
       segmentKey,
       humanId,
-      anchorWordId,
+      resolvedAnchorWordId,
       { mode, wordIds },
     );
-  }).then(() => {
-    if ((mode ?? "all") !== "all") {
-      return;
-    }
-    const channel =
-      segmentKey.channel === "DirectMic"
-        ? 0
-        : segmentKey.channel === "RemoteParty"
-          ? 1
-          : 2;
-    transcriptionCommands
-      .promoteVoiceprintCandidates(
-        transcriptId,
-        channel,
-        typeof segmentKey.speaker_index === "number"
-          ? segmentKey.speaker_index
-          : null,
-        humanId,
-      )
-      .then((result) => {
-        if (result.status === "error") {
-          console.error("[voiceprint] promotion failed", result.error);
-        }
-      })
-      .catch((error) => {
-        console.error("[voiceprint] promotion failed", error);
-      });
+    assigned = true;
+    return true;
   });
+
+  if (!assigned || (mode ?? "all") !== "all") {
+    return;
+  }
+
+  const channel =
+    segmentKey.channel === "DirectMic"
+      ? 0
+      : segmentKey.channel === "RemoteParty"
+        ? 1
+        : 2;
+  void transcriptionCommands
+    .promoteVoiceprintCandidates(
+      transcriptId,
+      channel,
+      typeof segmentKey.speaker_index === "number"
+        ? segmentKey.speaker_index
+        : null,
+      humanId,
+    )
+    .then((result) => {
+      if (result.status === "error") {
+        console.error("[voiceprint] promotion failed", result.error);
+      }
+    })
+    .catch((error) => {
+      console.error("[voiceprint] promotion failed", error);
+    });
 }
 
 export function updateTranscriptSegmentText({
@@ -684,7 +761,7 @@ function parseJsonArray<T>(value: string, rowId: string, field: string): T[] {
 
 async function mutateTranscript(
   transcriptId: string,
-  mutation?: (store: MemoryTranscriptStore) => void,
+  mutation?: (store: MemoryTranscriptStore) => boolean | void,
 ): Promise<void> {
   return enqueueDatabaseWrite(`transcript:${transcriptId}`, async () => {
     for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -733,14 +810,18 @@ async function mutateTranscript(
         transcriptId,
         current.pending_deltas_json,
       );
+      let shouldPersist = true;
       const next = mutation
         ? mutateTranscriptSnapshot(
             materialized.wordsJson,
             materialized.hintsJson,
             transcriptId,
-            mutation,
+            (store) => {
+              shouldPersist = mutation(store) !== false;
+            },
           )
         : materialized;
+      if (!shouldPersist) return;
       const now = new Date().toISOString();
       const [updated = 0] = await executeTransaction([
         {
