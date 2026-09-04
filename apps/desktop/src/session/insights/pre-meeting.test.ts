@@ -1,3 +1,4 @@
+import { NoObjectGeneratedError } from "ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PastSessionNote } from "./past-notes";
@@ -354,10 +355,67 @@ describe("streamPreMeetingBrief", () => {
     expect(hoisted.streamText).toHaveBeenCalledWith(
       expect.objectContaining({
         model: { id: "model-1" },
-        maxOutputTokens: 200,
+        maxOutputTokens: 512,
         output: expect.objectContaining({}),
       }),
     );
     expect(hoisted.renderCustom).toHaveBeenCalled();
+  });
+
+  it("accepts a complete Markdown brief when the model ignores the object schema", async () => {
+    const markdown = `**Follow up with Ada on launch timing.**
+
+- Ada still owns the prototype.
+- John will confirm the launch date.
+- Listen for a decision on CI cost gating.`;
+    const error = new NoObjectGeneratedError({
+      text: markdown,
+      response: {},
+      usage: {},
+      finishReason: "stop",
+    } as never);
+    hoisted.streamText.mockReturnValue({
+      partialOutputStream: (async function* () {})(),
+      get output() {
+        return Promise.reject(error);
+      },
+    });
+
+    await expect(
+      streamPreMeetingBrief({
+        model: { id: "model-1" } as never,
+        language: "en",
+        event: { title: "Weekly Product Sync" },
+        notes: [makeNote({ sessionId: "previous" })],
+      }),
+    ).resolves.toBe(markdown);
+  });
+
+  it("rejects truncated Markdown instead of saving an incomplete brief", async () => {
+    const error = new NoObjectGeneratedError({
+      text: `**Follow up with Ada on launch timing.**
+
+- Ada still owns the prototype.
+- John will confirm the launch date.
+- Listen for a decision on`,
+      response: {},
+      usage: {},
+      finishReason: "length",
+    } as never);
+    hoisted.streamText.mockReturnValue({
+      partialOutputStream: (async function* () {})(),
+      get output() {
+        return Promise.reject(error);
+      },
+    });
+
+    await expect(
+      streamPreMeetingBrief({
+        model: { id: "model-1" } as never,
+        language: "en",
+        event: { title: "Weekly Product Sync" },
+        notes: [makeNote({ sessionId: "previous" })],
+      }),
+    ).rejects.toBe(error);
   });
 });

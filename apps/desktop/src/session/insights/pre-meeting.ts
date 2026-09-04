@@ -1,4 +1,9 @@
-import { Output, streamText, type LanguageModel } from "ai";
+import {
+  NoObjectGeneratedError,
+  Output,
+  streamText,
+  type LanguageModel,
+} from "ai";
 import { z } from "zod";
 
 import {
@@ -21,7 +26,7 @@ const MAX_PROMPT_FACTS = 4;
 const MAX_BRIEF_BULLETS = 3;
 const MAX_SUMMARY_LENGTH = 320;
 const BRIEF_GENERATION_TIMEOUT_MS = 45_000;
-const BRIEF_MAX_OUTPUT_TOKENS = 200;
+const BRIEF_MAX_OUTPUT_TOKENS = 512;
 const briefSchema = z.object({
   opener: z.string(),
   bullets: z.array(z.string()).min(1).max(MAX_BRIEF_BULLETS),
@@ -325,7 +330,23 @@ export async function streamPreMeetingBrief({
     }
   }
 
-  return formatPreMeetingBrief((await result.output) ?? {});
+  try {
+    return formatPreMeetingBrief((await result.output) ?? {});
+  } catch (error) {
+    if (
+      !NoObjectGeneratedError.isInstance(error) ||
+      error.finishReason === "length"
+    ) {
+      throw error;
+    }
+
+    const brief = trimPreMeetingBrief(error.text ?? "");
+    const bulletCount = brief.match(/^- /gm)?.length ?? 0;
+    if (bulletCount !== MAX_BRIEF_BULLETS) {
+      throw error;
+    }
+    return brief;
+  }
 }
 
 type TemplateContext = Partial<{ [key: string]: JsonValue }>;
