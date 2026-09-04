@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   cleanup,
   fireEvent,
@@ -88,6 +89,17 @@ function FoldersWorkspace() {
   );
 }
 
+function renderFoldersWorkspace() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <FoldersWorkspace />
+    </QueryClientProvider>,
+  );
+}
+
 describe("Folders workspace", () => {
   beforeEach(() => {
     mocks.createNamedFolder.mockReset();
@@ -123,7 +135,7 @@ describe("Folders workspace", () => {
   });
 
   it("shows an empty state until a folder is created", async () => {
-    render(<FoldersWorkspace />);
+    renderFoldersWorkspace();
 
     expect(
       screen.getByText(
@@ -154,7 +166,7 @@ describe("Folders workspace", () => {
       },
     ];
 
-    render(<FoldersWorkspace />);
+    renderFoldersWorkspace();
 
     expect(screen.getByRole("textbox", { name: "Folder name" })).toHaveProperty(
       "value",
@@ -196,7 +208,7 @@ describe("Folders workspace", () => {
   it("filters the sidebar by folder name", () => {
     mocks.folders = ["CS 101", "Work"];
 
-    render(<FoldersWorkspace />);
+    renderFoldersWorkspace();
 
     fireEvent.change(screen.getByPlaceholderText("Search folders..."), {
       target: { value: "work" },
@@ -209,7 +221,7 @@ describe("Folders workspace", () => {
   it("shows parent paths for nested folders", () => {
     mocks.folders = ["Work/Sales", "Personal/Sales"];
 
-    render(<FoldersWorkspace />);
+    renderFoldersWorkspace();
 
     expect(screen.getByText("Work/Sales")).toBeTruthy();
     expect(screen.getByText("Personal/Sales")).toBeTruthy();
@@ -218,7 +230,7 @@ describe("Folders workspace", () => {
   it("renames the folder from the title field", async () => {
     mocks.folders = ["Work"];
 
-    render(<FoldersWorkspace />);
+    renderFoldersWorkspace();
 
     expect(screen.getByRole("button", { name: "Add file" })).toBeTruthy();
     expect(
@@ -241,7 +253,7 @@ describe("Folders workspace", () => {
     mocks.folders = ["Work"];
     useFolderSelection.setState({ selectedPath: "New Folder" });
 
-    render(<FoldersWorkspace />);
+    renderFoldersWorkspace();
 
     expect(screen.getByRole("textbox", { name: "Folder name" })).toHaveProperty(
       "value",
@@ -253,7 +265,7 @@ describe("Folders workspace", () => {
     mocks.folders = ["Courses/Algorithms"];
     mocks.renameNamedFolder.mockResolvedValue("Courses/Data Structures");
 
-    render(<FoldersWorkspace />);
+    renderFoldersWorkspace();
 
     const title = screen.getByRole("textbox", { name: "Folder name" });
     fireEvent.change(title, { target: { value: "Data Structures" } });
@@ -270,7 +282,7 @@ describe("Folders workspace", () => {
   it("deletes the folder from the actions menu", async () => {
     mocks.folders = ["Work", "Personal"];
 
-    render(<FoldersWorkspace />);
+    renderFoldersWorkspace();
 
     fireEvent.pointerDown(
       screen.getByRole("button", { name: "Folder actions" }),
@@ -297,7 +309,7 @@ describe("Folders workspace", () => {
   it("saves a folder icon from the header picker", async () => {
     mocks.folders = ["Work"];
 
-    render(<FoldersWorkspace />);
+    renderFoldersWorkspace();
 
     fireEvent.click(screen.getByRole("button", { name: "Choose folder icon" }));
     fireEvent.click(screen.getByRole("button", { name: "target" }));
@@ -323,7 +335,7 @@ describe("Folders workspace", () => {
       .spyOn(console, "error")
       .mockImplementation(() => {});
 
-    render(<FoldersWorkspace />);
+    renderFoldersWorkspace();
 
     fireEvent.click(screen.getByRole("button", { name: "Choose folder icon" }));
     fireEvent.click(screen.getByRole("button", { name: "target" }));

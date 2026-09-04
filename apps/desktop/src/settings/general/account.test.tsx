@@ -258,7 +258,7 @@ describe("SettingsAccount", () => {
     expect(screen.getByText("Enterprise")).toBeTruthy();
     expect(screen.getByText("$20")).toBeTruthy();
     expect(screen.getByText("Custom")).toBeTruthy();
-    expect(screen.getAllByText("Soon")).toHaveLength(4);
+    expect(screen.queryByText("Soon")).toBeNull();
     expect(screen.getByText("Domain SSO and SCIM")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Open Teams" })).toBeTruthy();
 

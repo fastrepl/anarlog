@@ -58,6 +58,10 @@ import {
   useAutomationWorkflows,
 } from "~/automations/workflows";
 import { useChatGroup } from "~/chat/store/queries";
+import {
+  ResourceShareButton,
+  sharedAutomationPayload,
+} from "~/resource-sharing";
 import { SettingsHydrationBoundary } from "~/settings/hydration-boundary";
 import { SettingsPageTitle } from "~/settings/page-title";
 import { useNotifyPlanRequired } from "~/settings/plan-gate";
@@ -324,6 +328,12 @@ function CustomWorkflowDetails({
       description={description}
       actions={
         <div className="flex items-center gap-2">
+          <ResourceShareButton
+            resourceType="automation"
+            sourceId={workflow.id}
+            title={workflow.title.trim() || t`Untitled automation`}
+            buildPayload={() => sharedAutomationPayload(workflow)}
+          />
           {workflow.enabled ? (
             <Button
               type="button"

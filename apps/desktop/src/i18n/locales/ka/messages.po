@@ -124,6 +124,10 @@ msgstr ""
 msgid "A folder with this name already exists."
 msgstr ""
 
+#: src/resource-sharing/share-dialog.tsx
+msgid "A guest can access one shared item for free. Add them to your Team when they need more."
+msgstr ""
+
 #: src/automations/starters.tsx
 msgid "A Markdown file with the note, summary, and transcript."
 msgstr ""
@@ -183,6 +187,7 @@ msgid "Activity"
 msgstr ""
 
 #: src/contacts/shared.tsx
+#: src/resource-sharing/share-dialog.tsx
 #: src/settings/dictionary/index.tsx
 #: src/settings/todo/github.tsx
 #: src/sidebar/toast/registry.tsx
@@ -202,6 +207,10 @@ msgstr ""
 #. placeholder {0}: formatLanguageList(needsSystemSettings)
 #: src/settings/ai/stt/select.tsx
 msgid "Add {0} in System Settings > General > Language & Region to transcribe with {model}, or choose another model."
+msgstr ""
+
+#: src/resource-sharing/library.tsx
+msgid "Add a copy"
 msgstr ""
 
 #: src/automations/starters.tsx
@@ -787,6 +796,7 @@ msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
 #: src/imports/screen.tsx
+#: src/resource-sharing/library.tsx
 #: src/session-sharing/comments.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
 #: src/settings/dictionary/index.tsx
@@ -1588,6 +1598,10 @@ msgstr ""
 msgid "Create a shared workspace"
 msgstr ""
 
+#: src/resource-sharing/share-dialog.tsx
+msgid "Create a Team to share a library"
+msgstr ""
+
 #: src/onboarding/index.tsx
 msgid "Create account"
 msgstr ""
@@ -1852,6 +1866,7 @@ msgstr ""
 msgid "Don't save"
 msgstr ""
 
+#: src/resource-sharing/share-dialog.tsx
 #: src/settings/sync/index.tsx
 msgid "Done"
 msgstr ""
@@ -2019,13 +2034,19 @@ msgstr ""
 msgid "Event notifications"
 msgstr ""
 
+#. placeholder {0}: owned.workspaceName
 #. placeholder {0}: workspace.name
+#: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/general-access.tsx
 msgid "Everyone in {0}"
 msgstr ""
 
 #: src/settings/general/default-share-access.tsx
 msgid "Everyone in {workspaceLabel}"
+msgstr ""
+
+#: src/resource-sharing/share-dialog.tsx
+msgid "Everyone in the Team"
 msgstr ""
 
 #: src/settings/general/default-share-access.tsx
@@ -2156,6 +2177,10 @@ msgstr ""
 msgid "Folder"
 msgstr ""
 
+#: src/resource-sharing/share-dialog.tsx
+msgid "Folder access controls and reusable sharing are included with Pro."
+msgstr ""
+
 #: src/folders/folder-editor.tsx
 msgid "Folder actions"
 msgstr ""
@@ -2273,6 +2298,18 @@ msgstr ""
 
 #: src/sidebar/note-filter-menu.tsx
 msgid "Grouping, {groupingLabel}"
+msgstr ""
+
+#: src/resource-sharing/share-dialog.tsx
+msgid "Guest access"
+msgstr ""
+
+#: src/resource-sharing/share-dialog.tsx
+msgid "Guest email"
+msgstr ""
+
+#: src/resource-sharing/share-dialog.tsx
+msgid "guest@company.com"
 msgstr ""
 
 #: src/settings/developers/index.tsx
@@ -2466,6 +2503,7 @@ msgstr ""
 msgid "Invitations sent."
 msgstr ""
 
+#: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/invite-recipients.tsx
 msgid "Invite"
 msgstr ""
@@ -3183,6 +3221,10 @@ msgstr ""
 msgid "not receiving events"
 msgstr ""
 
+#: src/resource-sharing/share-dialog.tsx
+msgid "Not shared with a Team"
+msgstr ""
+
 #: src/sidebar/toast/undo-delete-toast.tsx
 msgid "note"
 msgstr ""
@@ -3348,6 +3390,7 @@ msgstr ""
 msgid "Open Settings"
 msgstr ""
 
+#: src/resource-sharing/share-dialog.tsx
 #: src/settings/general/account.tsx
 msgid "Open Teams"
 msgstr ""
@@ -3739,6 +3782,7 @@ msgstr ""
 msgid "Remote MCP URL copied"
 msgstr ""
 
+#: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/access-management.tsx
 #: src/sidebar/automations.tsx
 msgid "Remove"
@@ -4253,10 +4297,15 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
+#: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/index.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Share"
+msgstr ""
+
+#: src/resource-sharing/share-dialog.tsx
+msgid "Share {title}"
 msgstr ""
 
 #: src/automations/starters.tsx
@@ -4278,6 +4327,10 @@ msgstr ""
 
 #: src/session-sharing/index.tsx
 msgid "Share notes with others"
+msgstr ""
+
+#: src/resource-sharing/share-dialog.tsx
+msgid "Share one item with a guest, or add it to a Team for everyone."
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
@@ -4303,6 +4356,10 @@ msgstr ""
 
 #: src/shared-notes/index.tsx
 msgid "Shared notes are tied to the account they were shared with."
+msgstr ""
+
+#: src/resource-sharing/library.tsx
+msgid "Shared with me"
 msgstr ""
 
 #: src/shared-notes/index.tsx
@@ -4408,6 +4465,7 @@ msgstr ""
 msgid "Show when initial cloud sync finishes."
 msgstr ""
 
+#: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/index.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 #: src/settings/sync/index.tsx
@@ -4430,6 +4488,10 @@ msgstr ""
 
 #: src/settings/todo/github.tsx
 msgid "Sign in for private repo access."
+msgstr ""
+
+#: src/folders/sidebar.tsx
+msgid "Sign in to add this folder"
 msgstr ""
 
 #: src/settings/general/account.tsx
@@ -4464,6 +4526,10 @@ msgstr ""
 
 #: src/session-sharing/index.tsx
 msgid "Sign in to share"
+msgstr ""
+
+#: src/resource-sharing/share-dialog.tsx
+msgid "Sign in to share folders, templates, and automations."
 msgstr ""
 
 #: src/session-sharing/index.tsx
@@ -4704,6 +4770,10 @@ msgstr ""
 msgid "Stop response"
 msgstr ""
 
+#: src/resource-sharing/share-dialog.tsx
+msgid "Stop sharing"
+msgstr ""
+
 #: src/session/components/note-input/transcript/screens/empty.tsx
 msgid "Stop transcription"
 msgstr ""
@@ -4881,6 +4951,14 @@ msgstr ""
 msgid "Teach coding agents when and how to use the Anarlog CLI and MCP"
 msgstr ""
 
+#: src/resource-sharing/share-dialog.tsx
+msgid "Team"
+msgstr ""
+
+#: src/resource-sharing/share-dialog.tsx
+msgid "Team library"
+msgstr ""
+
 #: src/settings/team/index.tsx
 msgid "Team plan"
 msgstr ""
@@ -4967,12 +5045,20 @@ msgstr ""
 msgid "These rules apply to every member. Sharing changes fail closed on the server."
 msgstr ""
 
+#: src/resource-sharing/share-dialog.tsx
+msgid "They already have another shared item. Invite them to your Team for folders, templates, and automations."
+msgstr ""
+
 #: src/chat/components/message/loading.tsx
 msgid "Thinking..."
 msgstr ""
 
 #: src/main/sync-status.tsx
 msgid "This account already syncs on 5 devices. Remove another device to sync here."
+msgstr ""
+
+#: src/resource-sharing/library.tsx
+msgid "This adds a copy you can edit without changing the shared item."
 msgstr ""
 
 #: src/settings/sync/index.tsx
@@ -4989,6 +5075,10 @@ msgstr ""
 
 #: src/edit/tab-content.tsx
 msgid "This edit is no longer pending."
+msgstr ""
+
+#: src/resource-sharing/share-dialog.tsx
+msgid "This guest needs Team access"
 msgstr ""
 
 #: src/session/components/outer-header/index.tsx
@@ -5171,6 +5261,10 @@ msgstr ""
 msgid "Unlock sync"
 msgstr ""
 
+#: src/resource-sharing/share-dialog.tsx
+msgid "Unlock the Team library"
+msgstr ""
+
 #: src/settings/ai/shared/index.tsx
 msgid "Unlock your login Keychain in the macOS prompt. Anarlog will retry saving this API key automatically."
 msgstr ""
@@ -5215,12 +5309,20 @@ msgstr ""
 msgid "Untitled session"
 msgstr ""
 
+#: src/templates/template-form.tsx
+msgid "Untitled template"
+msgstr ""
+
 #: src/settings/team/index.tsx
 msgid "Upcoming bot attendance"
 msgstr ""
 
 #: src/services/event-notification/index.ts
 msgid "Upcoming Event"
+msgstr ""
+
+#: src/resource-sharing/share-dialog.tsx
+msgid "Update"
 msgstr ""
 
 #: src/automations/starters.tsx
@@ -5240,8 +5342,13 @@ msgstr ""
 msgid "Upgrade"
 msgstr ""
 
+#: src/resource-sharing/share-dialog.tsx
+msgid "Upgrade this workspace to share folders, templates, and automations with everyone on the Team."
+msgstr ""
+
 #: src/billing/trial-ended-dialog.tsx
 #: src/instruction/index.tsx
+#: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/index.tsx
 msgid "Upgrade to Pro"
 msgstr ""

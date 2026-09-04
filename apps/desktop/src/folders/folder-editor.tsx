@@ -1,5 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { DotsThree, File, Plus, X } from "@phosphor-icons/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
@@ -16,6 +17,17 @@ import { cn } from "@anlg/utils";
 
 import { useFolderSelection } from "./selection";
 
+import { useOptionalAuth } from "~/auth";
+import { ResourceShareButton, sharedFolderPayload } from "~/resource-sharing";
+import {
+  deleteSharedResource,
+  moveSharedResource,
+  requireResourceSharingContext,
+} from "~/resource-sharing/client";
+import {
+  sharedResourcesQueryKey,
+  useSharedResources,
+} from "~/resource-sharing/hooks";
 import {
   deleteLocalFolderMaterial,
   diskAttachmentId,
@@ -36,6 +48,13 @@ import { TemplateIconPicker } from "~/templates/template-icon-picker";
 
 export function FolderEditor({ folderPath }: { folderPath: string }) {
   const { t } = useLingui();
+  const auth = useOptionalAuth();
+  const queryClient = useQueryClient();
+  const sharedFolders = useSharedResources("folder");
+  const ownedShare = sharedFolders.data?.find(
+    (resource) =>
+      resource.accessKind === "owner" && resource.sourceId === folderPath,
+  );
   const setSelectedPath = useFolderSelection((state) => state.setSelectedPath);
   const markFolderDeleted = useFolderSelection(
     (state) => state.markFolderDeleted,
@@ -87,6 +106,22 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
     setBusy(true);
     try {
       const renamed = await renameNamedFolder(folderPath, renamedPath);
+      if (ownedShare && auth) {
+        try {
+          await moveSharedResource(requireResourceSharingContext(auth), {
+            shareId: ownedShare.shareId,
+            sourceId: renamed,
+            title: folderDisplayName(renamed),
+            payload: await sharedFolderPayload(renamed),
+          });
+        } catch (error) {
+          await renameNamedFolder(renamed, folderPath);
+          throw error;
+        }
+        void queryClient.invalidateQueries({
+          queryKey: sharedResourcesQueryKey(auth.session?.user.id, "folder"),
+        });
+      }
       rekeyIconOverride(folderPath, renamed);
       setSelectedPath(renamed);
     } catch {
@@ -94,7 +129,16 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
     } finally {
       setBusy(false);
     }
-  }, [displayName, draft, folderPath, rekeyIconOverride, setSelectedPath]);
+  }, [
+    auth,
+    displayName,
+    draft,
+    folderPath,
+    ownedShare,
+    queryClient,
+    rekeyIconOverride,
+    setSelectedPath,
+  ]);
 
   return (
     <section className="flex h-full flex-1 flex-col" aria-label={folderPath}>
@@ -142,34 +186,42 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
             />
           </div>
         </div>
-        <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              disabled={busy}
-              className={cn([
-                "text-muted-foreground hover:text-foreground",
-                actionsOpen && "bg-muted text-foreground hover:bg-accent",
-              ])}
-              aria-label={t`Folder actions`}
-            >
-              <DotsThree className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent variant="app" align="end">
-            <AppFloatingPanel className={appFloatingMenuPanelClassName}>
-              <DropdownMenuItem
+        <div className="flex items-center gap-0.5">
+          <ResourceShareButton
+            resourceType="folder"
+            sourceId={folderPath}
+            title={displayName}
+            buildPayload={() => sharedFolderPayload(folderPath)}
+          />
+          <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
                 disabled={busy}
-                onClick={() => setDeleting(true)}
-                className="cursor-pointer text-red-600 focus:text-red-600"
+                className={cn([
+                  "text-muted-foreground hover:text-foreground",
+                  actionsOpen && "bg-muted text-foreground hover:bg-accent",
+                ])}
+                aria-label={t`Folder actions`}
               >
-                <Trans>Delete</Trans>
-              </DropdownMenuItem>
-            </AppFloatingPanel>
-          </DropdownMenuContent>
-        </DropdownMenu>
+                <DotsThree className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent variant="app" align="end">
+              <AppFloatingPanel className={appFloatingMenuPanelClassName}>
+                <DropdownMenuItem
+                  disabled={busy}
+                  onClick={() => setDeleting(true)}
+                  className="cursor-pointer text-red-600 focus:text-red-600"
+                >
+                  <Trans>Delete</Trans>
+                </DropdownMenuItem>
+              </AppFloatingPanel>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       <div className="scrollbar-hide flex-1 overflow-y-auto px-3 pt-3 pb-6">
@@ -288,9 +340,23 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
           void (async () => {
             setBusy(true);
             try {
+              if (ownedShare && auth) {
+                await deleteSharedResource(
+                  requireResourceSharingContext(auth),
+                  ownedShare.shareId,
+                );
+              }
               await deleteNamedFolder(folderPath);
               setDeleting(false);
               markFolderDeleted(folderPath);
+              if (ownedShare) {
+                void queryClient.invalidateQueries({
+                  queryKey: sharedResourcesQueryKey(
+                    auth?.session?.user.id,
+                    "folder",
+                  ),
+                });
+              }
             } finally {
               setBusy(false);
             }

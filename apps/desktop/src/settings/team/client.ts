@@ -27,6 +27,7 @@ export type WorkspaceSeatUsage = {
 
 export const WORKSPACE_CAPABILITIES = [
   "team.shared_notes",
+  "team.shared_resources",
   "team.manage_workspace",
   "team.manage_members",
   "team.manage_policies",

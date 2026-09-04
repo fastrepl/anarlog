@@ -96,7 +96,6 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
       {
         label: "Folder sharing with access controls",
         included: true,
-        availability: "comingSoon",
       },
       { label: "Custom dictionaries and summary formats", included: true },
     ],
@@ -120,17 +119,14 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
       {
         label: "Shared team folders",
         included: true,
-        availability: "comingSoon",
       },
       {
         label: "Shared team templates",
         included: true,
-        availability: "comingSoon",
       },
       {
         label: "Shared team automations",
         included: true,
-        availability: "comingSoon",
       },
     ],
   },

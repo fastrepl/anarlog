@@ -28,6 +28,11 @@ import {
   useAutomationWorkflows,
 } from "~/automations/workflows";
 import { type ChatGroupRecord, useChatGroups } from "~/chat/store/queries";
+import {
+  importSharedAutomation,
+  parseSharedAutomationPayload,
+  SharedResourceLibrarySection,
+} from "~/resource-sharing";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 
 export function AutomationsNav() {
@@ -230,6 +235,18 @@ export function AutomationsNav() {
                 ))}
               </div>
             ) : null}
+            <SharedResourceLibrarySection
+              resourceType="automation"
+              search={search}
+              onImport={async (resource) => {
+                const workflow = parseSharedAutomationPayload(resource.payload);
+                const workflowId = await importSharedAutomation({
+                  version: 1,
+                  workflow,
+                });
+                selectWorkflow(workflowId);
+              }}
+            />
           </>
         )}
       </div>
