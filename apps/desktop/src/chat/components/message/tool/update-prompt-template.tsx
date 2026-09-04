@@ -1,4 +1,4 @@
-import { MagicWand } from "@phosphor-icons/react";
+import { MagicWand } from "@anlg/ui/components/icons";
 
 import { defineTool } from "./define-tool";
 import { ToolCardBody, ToolCardFooterError, ToolCardFooters } from "./shared";

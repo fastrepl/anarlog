@@ -1,4 +1,3 @@
-import { CircleNotch, File, Image } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -30,6 +29,7 @@ import {
   setCommentAnchors,
 } from "@anlg/editor/note";
 import { Avatar } from "@anlg/ui/components/avatar";
+import { CircleNotch, File, Image } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import {

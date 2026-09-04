@@ -1,5 +1,6 @@
 import { Trans } from "@lingui/react/macro";
-import { CircleNotch } from "@phosphor-icons/react";
+
+import { CircleNotch } from "@anlg/ui/components/icons";
 
 import { MessageBubble, MessageContainer } from "./shared";
 

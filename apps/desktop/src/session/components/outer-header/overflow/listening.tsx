@@ -1,5 +1,4 @@
-import { Microphone, MicrophoneSlash } from "@phosphor-icons/react";
-
+import { Microphone, MicrophoneSlash } from "@anlg/ui/components/icons";
 import { DropdownMenuItem } from "@anlg/ui/components/ui/dropdown-menu";
 
 import { useListener } from "~/stt/contexts";

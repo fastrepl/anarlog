@@ -1,6 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
-import { MagnifyingGlass, X } from "@phosphor-icons/react";
 
+import { MagnifyingGlass, X } from "@anlg/ui/components/icons";
 import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 
 export function filterProviders<

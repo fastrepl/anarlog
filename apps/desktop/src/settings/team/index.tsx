@@ -1,17 +1,17 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import {
-  CircleNotch,
-  Crown,
-  PaperPlaneTilt,
-  Plus,
-  Trash,
-} from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useDebounceValue } from "usehooks-ts";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { openUrlWithInstruction } from "@anlg/plugin-windows";
+import {
+  CircleNotch,
+  Crown,
+  PaperPlaneTilt,
+  Plus,
+  Trash,
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Dialog,

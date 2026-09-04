@@ -1,5 +1,4 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ArrowsClockwise, PencilSimple } from "@phosphor-icons/react";
 import { useMutation, useQueries } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useRef, useState } from "react";
 
@@ -13,6 +12,7 @@ import {
   PLAN_TIERS,
   type TierAction,
 } from "@anlg/pricing";
+import { ArrowsClockwise, PencilSimple } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";

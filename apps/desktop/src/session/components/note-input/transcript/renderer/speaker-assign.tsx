@@ -1,8 +1,8 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { MagnifyingGlass, Plus } from "@phosphor-icons/react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import type { EventParticipant } from "@anlg/store";
+import { MagnifyingGlass, Plus } from "@anlg/ui/components/icons";
 import { Checkbox } from "@anlg/ui/components/ui/checkbox";
 import {
   AppFloatingPanel,

@@ -1,8 +1,8 @@
 import { useLingui } from "@lingui/react/macro";
-import { Check, Pencil, X } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
 
+import { Check, Pencil, X } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";

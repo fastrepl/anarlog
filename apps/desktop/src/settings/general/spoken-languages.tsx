@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { MagnifyingGlass, X } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 
+import { MagnifyingGlass, X } from "@anlg/ui/components/icons";
 import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
 import { cn } from "@anlg/utils";

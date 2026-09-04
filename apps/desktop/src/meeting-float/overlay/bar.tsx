@@ -1,15 +1,15 @@
-import {
-  ArrowsInSimple,
-  ArrowsOutSimple,
-  CaretDown,
-  Square,
-} from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 
 import type {
   FloatingBarState,
   FloatingTranscriptBubble,
 } from "@anlg/plugin-windows";
+import {
+  ArrowsInSimple,
+  ArrowsOutSimple,
+  CaretDown,
+  Square,
+} from "@anlg/ui/components/icons";
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 import { cn } from "@anlg/utils";
 

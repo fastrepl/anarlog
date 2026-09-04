@@ -1,14 +1,14 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { useMutation } from "@tanstack/react-query";
+import { useRef, useState } from "react";
+
 import {
   CircleNotch,
   FileText,
   Plus,
   Trash,
   UploadSimple,
-} from "@phosphor-icons/react";
-import { useMutation } from "@tanstack/react-query";
-import { useRef, useState } from "react";
-
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Dialog,

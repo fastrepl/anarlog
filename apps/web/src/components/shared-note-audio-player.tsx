@@ -1,7 +1,12 @@
-import { CircleNotch, Pause, Play, SpeakerHigh } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
 
+import {
+  CircleNotch,
+  Pause,
+  Play,
+  SpeakerHigh,
+} from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";

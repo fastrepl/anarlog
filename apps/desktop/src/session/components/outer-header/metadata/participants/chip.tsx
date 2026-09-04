@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { CircleNotch, Sparkle, X } from "@phosphor-icons/react";
 import { useCallback, useState } from "react";
 
+import { CircleNotch, Sparkle, X } from "@anlg/ui/components/icons";
 import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
 import {

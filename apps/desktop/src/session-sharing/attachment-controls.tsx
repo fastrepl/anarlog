@@ -1,6 +1,6 @@
 import { t } from "@lingui/core/macro";
-import { CircleNotch, Waveform } from "@phosphor-icons/react";
 
+import { CircleNotch, Waveform } from "@anlg/ui/components/icons";
 import { Switch } from "@anlg/ui/components/ui/switch";
 
 import {

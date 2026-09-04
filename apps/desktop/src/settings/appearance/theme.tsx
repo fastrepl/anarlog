@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Check } from "@phosphor-icons/react";
 
+import { Check } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { useSetSettingValue } from "~/settings/queries";

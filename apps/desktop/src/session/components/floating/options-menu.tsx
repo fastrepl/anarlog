@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { DotsThreeVertical } from "@phosphor-icons/react";
 import { useCallback, useState } from "react";
 
+import { DotsThreeVertical } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { appFloatingItemClassName } from "@anlg/ui/components/ui/floating-content";
 import {

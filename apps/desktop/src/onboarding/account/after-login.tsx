@@ -1,7 +1,7 @@
 import { Trans } from "@lingui/react/macro";
-import { CheckCircle } from "@phosphor-icons/react";
 
 import { PRO_TRIAL_DAYS } from "@anlg/pricing";
+import { CheckCircle } from "@anlg/ui/components/icons";
 
 import { StepRow } from "../shared";
 import { type TrialPhase, useTrialFlow } from "./trial";

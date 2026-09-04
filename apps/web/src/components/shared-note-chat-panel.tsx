@@ -1,8 +1,13 @@
-import { ArrowUp, CircleNotch, SignIn, Sparkle } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Streamdown } from "streamdown";
 
+import {
+  ArrowUp,
+  CircleNotch,
+  SignIn,
+  Sparkle,
+} from "@anlg/ui/components/icons";
 import {
   Dialog,
   DialogContent,

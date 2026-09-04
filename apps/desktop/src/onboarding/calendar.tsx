@@ -1,10 +1,10 @@
 import { Trans } from "@lingui/react/macro";
-import { CircleNotch } from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
 import { motion } from "motion/react";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 
 import type { ConnectionItem } from "@anlg/api-client";
+import { CircleNotch } from "@anlg/ui/components/icons";
 
 import { OnboardingButton } from "./shared";
 

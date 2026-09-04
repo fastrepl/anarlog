@@ -1,6 +1,7 @@
 import { Icon } from "@iconify-icon/react";
-import { ArrowSquareOut, DownloadSimple } from "@phosphor-icons/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+
+import { ArrowSquareOut, DownloadSimple } from "@anlg/ui/components/icons";
 
 import { SiteFooter } from "@/components/site-footer";
 import { useAnalytics } from "@/hooks/use-posthog";

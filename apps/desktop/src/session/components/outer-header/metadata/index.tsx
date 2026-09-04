@@ -1,7 +1,7 @@
-import { CalendarBlank, MapPin, VideoCamera } from "@phosphor-icons/react";
 import { forwardRef, useState } from "react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { CalendarBlank, MapPin, VideoCamera } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,

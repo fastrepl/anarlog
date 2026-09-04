@@ -1,8 +1,8 @@
 import { t } from "@lingui/core/macro";
-import { CircleNotch } from "@phosphor-icons/react";
 import { useCallback, useMemo } from "react";
 
 import type { ConnectionItem } from "@anlg/api-client";
+import { CircleNotch } from "@anlg/ui/components/icons";
 import {
   Tooltip,
   TooltipContent,

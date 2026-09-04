@@ -1,4 +1,3 @@
-import { ArrowLeft, ArrowRight } from "@phosphor-icons/react";
 import useEmblaCarousel, {
   type UseEmblaCarouselType,
 } from "embla-carousel-react";
@@ -6,6 +5,7 @@ import * as React from "react";
 
 import { cn } from "@anlg/utils";
 
+import { ArrowLeft, ArrowRight } from "../icons";
 import { Button } from "./button";
 
 type CarouselApi = UseEmblaCarouselType[1];

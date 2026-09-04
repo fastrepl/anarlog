@@ -1,11 +1,4 @@
 import { t } from "@lingui/core/macro";
-import {
-  ArrowUp,
-  ArrowUpRight,
-  GearSix,
-  Sparkle,
-  X,
-} from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
 import { useEffect, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -13,6 +6,13 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { ChatEditor, type ChatEditorHandle } from "@anlg/editor/chat";
 import type { PlaceholderFunction } from "@anlg/editor/plugins";
 import { commands as windowsCommands } from "@anlg/plugin-windows";
+import {
+  ArrowUp,
+  ArrowUpRight,
+  GearSix,
+  Sparkle,
+  X,
+} from "@anlg/ui/components/icons";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 

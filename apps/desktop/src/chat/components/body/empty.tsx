@@ -1,12 +1,12 @@
 import { t } from "@lingui/core/macro";
+import { useCallback } from "react";
+
 import {
   Envelope,
   ListChecks,
   MagnifyingGlass,
   Sparkle,
-} from "@phosphor-icons/react";
-import { useCallback } from "react";
-
+} from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import type { ContextRef } from "~/chat/context/entities";

@@ -1,11 +1,11 @@
 import { useLingui } from "@lingui/react/macro";
-import { FolderSimple } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { homeDir } from "@tauri-apps/api/path";
 import { message, open as selectFolder } from "@tauri-apps/plugin-dialog";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { commands as settingsCommands } from "@anlg/plugin-settings";
+import { FolderSimple } from "@anlg/ui/components/icons";
 
 import { ObsidianVaultList } from "~/settings/general/storage/obsidian-vault-list";
 import { displayPath } from "~/settings/general/storage/path-utils";

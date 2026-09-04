@@ -1,10 +1,3 @@
-import {
-  CircleNotch,
-  File,
-  Image,
-  Paperclip,
-  WarningCircle,
-} from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import {
   type ComponentProps,
@@ -24,6 +17,13 @@ import {
   schema,
   setCommentAnchors,
 } from "@anlg/editor/note";
+import {
+  CircleNotch,
+  File,
+  Image,
+  Paperclip,
+  WarningCircle,
+} from "@anlg/ui/components/icons";
 
 import {
   collectSharedNoteComments,

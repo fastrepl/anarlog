@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { PencilSimple, Plus, Trash, X } from "@phosphor-icons/react";
 import { useRef, useState } from "react";
 
+import { PencilSimple, Plus, Trash, X } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { FolderNameDialog } from "./folder-name-dialog";

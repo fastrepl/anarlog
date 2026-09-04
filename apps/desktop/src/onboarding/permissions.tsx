@@ -1,4 +1,8 @@
 import { useLingui } from "@lingui/react/macro";
+import { platform } from "@tauri-apps/plugin-os";
+import { useRef } from "react";
+
+import { type PermissionStatus } from "@anlg/plugin-permissions";
 import {
   ArrowRight,
   Check,
@@ -6,11 +10,7 @@ import {
   type Icon,
   Microphone,
   SpeakerHigh,
-} from "@phosphor-icons/react";
-import { platform } from "@tauri-apps/plugin-os";
-import { useRef } from "react";
-
-import { type PermissionStatus } from "@anlg/plugin-permissions";
+} from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { useMountEffect } from "~/shared/hooks/useMountEffect";

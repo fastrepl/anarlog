@@ -1,13 +1,13 @@
 import { useLingui } from "@lingui/react/macro";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Streamdown } from "streamdown";
+
 import {
   ArrowCounterClockwise,
   Brain,
   Check,
   Copy,
-} from "@phosphor-icons/react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Streamdown } from "streamdown";
-
+} from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { Disclosure, MessageBubble, MessageContainer } from "./shared";

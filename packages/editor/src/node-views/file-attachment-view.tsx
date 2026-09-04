@@ -2,6 +2,10 @@ import {
   type NodeViewComponentProps,
   useEditorEventCallback,
 } from "@handlewithcare/react-prosemirror";
+import type { NodeSpec } from "prosemirror-model";
+import { forwardRef } from "react";
+
+import { commands as openerCommands } from "@anlg/plugin-opener2";
 import {
   ArrowSquareOut,
   File,
@@ -9,11 +13,7 @@ import {
   FileXls,
   Image,
   X,
-} from "@phosphor-icons/react";
-import type { NodeSpec } from "prosemirror-model";
-import { forwardRef } from "react";
-
-import { commands as openerCommands } from "@anlg/plugin-opener2";
+} from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import {

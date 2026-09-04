@@ -1,7 +1,10 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ArrowCounterClockwise, ArrowSquareOut } from "@phosphor-icons/react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
+import {
+  ArrowCounterClockwise,
+  ArrowSquareOut,
+} from "@anlg/ui/components/icons";
 
 import { ActionButton, MessageBubble, MessageContainer } from "./shared";
 

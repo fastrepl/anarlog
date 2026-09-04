@@ -1,5 +1,4 @@
 import { t } from "@lingui/core/macro";
-import { ArrowDown, ArrowUp } from "@phosphor-icons/react";
 import {
   type MouseEvent as ReactMouseEvent,
   type RefObject,
@@ -11,6 +10,7 @@ import {
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
+import { ArrowDown, ArrowUp } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import {

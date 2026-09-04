@@ -7,10 +7,10 @@ import {
   size,
   useFloating,
 } from "@floating-ui/react";
-import { CircleNotch } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useMemo, useRef, useState } from "react";
 
+import { CircleNotch } from "@anlg/ui/components/icons";
 import { Badge } from "@anlg/ui/components/ui/badge";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 

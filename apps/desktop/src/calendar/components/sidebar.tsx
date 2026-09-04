@@ -1,10 +1,4 @@
 import { useLingui } from "@lingui/react/macro";
-import {
-  CaretRight,
-  CircleNotch,
-  DotsThree,
-  Plus,
-} from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
 import {
   useCallback,
@@ -16,6 +10,12 @@ import {
 } from "react";
 
 import type { ConnectionItem } from "@anlg/api-client";
+import {
+  CaretRight,
+  CircleNotch,
+  DotsThree,
+  Plus,
+} from "@anlg/ui/components/icons";
 import {
   Accordion,
   AccordionContent,

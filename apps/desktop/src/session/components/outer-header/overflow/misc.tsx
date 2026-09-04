@@ -1,9 +1,9 @@
-import { CircleNotch, FolderOpen } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { platform } from "@tauri-apps/plugin-os";
 
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { CircleNotch, FolderOpen } from "@anlg/ui/components/icons";
 import { DropdownMenuItem } from "@anlg/ui/components/ui/dropdown-menu";
 
 export function ShowInFolder({ sessionId }: { sessionId: string }) {

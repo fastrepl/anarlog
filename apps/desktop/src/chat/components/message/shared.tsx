@@ -1,6 +1,6 @@
-import { CaretRight, CircleNotch } from "@phosphor-icons/react";
 import { type ReactNode } from "react";
 
+import { CaretRight, CircleNotch } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";

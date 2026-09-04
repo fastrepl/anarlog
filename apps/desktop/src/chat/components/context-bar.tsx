@@ -1,6 +1,6 @@
-import { CaretUp, XCircle } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 
+import { CaretUp, XCircle } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { type ContextChipProps, renderChip } from "~/chat/context/registry";

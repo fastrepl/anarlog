@@ -1,10 +1,10 @@
 import { Icon } from "@iconify-icon/react";
-import { DotsThree, PuzzlePiece } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import { listConnections } from "@anlg/api-client";
+import { DotsThree, PuzzlePiece } from "@anlg/ui/components/icons";
 import { OutlookIcon } from "@anlg/ui/components/icons/outlook";
 import {
   AppFloatingPanel,

@@ -1,10 +1,4 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import {
-  CircleNotch,
-  FolderOpen,
-  LockSimple,
-  MagnifyingGlass,
-} from "@phosphor-icons/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { open as selectFolder } from "@tauri-apps/plugin-dialog";
 import { type ReactNode, useState } from "react";
@@ -15,6 +9,12 @@ import {
   notionSearchPages,
 } from "@anlg/api-client";
 import { createClient } from "@anlg/api-client/client";
+import {
+  CircleNotch,
+  FolderOpen,
+  LockSimple,
+  MagnifyingGlass,
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Select,

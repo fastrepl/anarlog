@@ -1,5 +1,4 @@
 import { useLingui } from "@lingui/react/macro";
-import { Plus } from "@phosphor-icons/react";
 import type { EditorView } from "prosemirror-view";
 import { forwardRef, useCallback, useMemo, useRef, useState } from "react";
 
@@ -11,6 +10,7 @@ import {
   normalizePortableAttachmentUrls,
 } from "@anlg/editor/note";
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
+import { Plus } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { AudioDropTarget } from "./audio-drop-target";

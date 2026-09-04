@@ -1,8 +1,8 @@
-import { DotsThree } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
+import { DotsThree } from "@anlg/ui/components/icons";
 import {
   AppFloatingPanel,
   appFloatingMenuPanelClassName,

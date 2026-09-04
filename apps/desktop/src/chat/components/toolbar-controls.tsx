@@ -1,4 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { useState } from "react";
+
 import {
   CaretDown,
   ChatCircle,
@@ -7,9 +9,7 @@ import {
   Plus,
   SidebarSimple,
   X,
-} from "@phosphor-icons/react";
-import { useState } from "react";
-
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,

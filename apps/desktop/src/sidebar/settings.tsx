@@ -1,4 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { useCallback, useState } from "react";
+
 import {
   ArrowUpRight,
   ArrowsClockwise,
@@ -22,9 +24,7 @@ import {
   UsersThree,
   VideoCamera,
   X,
-} from "@phosphor-icons/react";
-import { useCallback, useState } from "react";
-
+} from "@anlg/ui/components/icons";
 import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 import { cn } from "@anlg/utils";
 

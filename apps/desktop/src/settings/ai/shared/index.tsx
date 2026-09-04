@@ -1,9 +1,4 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import {
-  ArrowSquareOut,
-  CircleNotch,
-  WarningCircle,
-} from "@phosphor-icons/react";
 import { type AnyFieldApi, useForm } from "@tanstack/react-form";
 import { useMutation, useQueries } from "@tanstack/react-query";
 import { type ComponentType, type ReactNode, useMemo, useState } from "react";
@@ -12,6 +7,11 @@ import { Streamdown } from "streamdown";
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import type { AIProvider } from "@anlg/store";
 import { aiProviderSchema } from "@anlg/store";
+import {
+  ArrowSquareOut,
+  CircleNotch,
+  WarningCircle,
+} from "@anlg/ui/components/icons";
 import {
   AccordionContent,
   AccordionItem,

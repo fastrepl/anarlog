@@ -1,5 +1,6 @@
-import { ArrowRight } from "@phosphor-icons/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+
+import { ArrowRight } from "@anlg/ui/components/icons";
 
 import { SiteFooter } from "@/components/site-footer";
 import { changelogEntries, formatChangelogDate } from "@/lib/changelog";

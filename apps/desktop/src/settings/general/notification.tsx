@@ -1,5 +1,4 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { X } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { platform } from "@tauri-apps/plugin-os";
@@ -11,6 +10,7 @@ import {
   type Result,
 } from "@anlg/plugin-detect";
 import { commands as notificationCommands } from "@anlg/plugin-notification";
+import { X } from "@anlg/ui/components/icons";
 import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
 import {

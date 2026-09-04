@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Users } from "@phosphor-icons/react";
 import { useMemo } from "react";
 
+import { Users } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { useAuth } from "~/auth";

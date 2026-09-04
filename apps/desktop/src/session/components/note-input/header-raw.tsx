@@ -1,6 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
-import { TextAlignLeft } from "@phosphor-icons/react";
 import { useMemo } from "react";
+
+import { TextAlignLeft } from "@anlg/ui/components/icons";
 
 import {
   IconHeaderView,

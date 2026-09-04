@@ -1,8 +1,9 @@
-import { ShieldCheck } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
+
+import { ShieldCheck } from "@anlg/ui/components/icons";
 
 import {
   AuthShell,

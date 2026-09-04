@@ -1,13 +1,13 @@
+import { useSyncExternalStore } from "react";
+
+import { Avatar } from "@anlg/ui/components/avatar";
 import {
   ArrowsClockwise,
   CalendarDots,
   CircleNotch,
   Users,
   WarningCircle,
-} from "@phosphor-icons/react";
-import { useSyncExternalStore } from "react";
-
-import { Avatar } from "@anlg/ui/components/avatar";
+} from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { AnarlogLogo } from "@/components/anarlog-logo";

@@ -1,5 +1,4 @@
-import { Waveform } from "@phosphor-icons/react";
-
+import { Waveform } from "@anlg/ui/components/icons";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
 
 export function TranscriptListeningState({

@@ -1,8 +1,8 @@
-import { CircleNotch } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useCallback, useMemo } from "react";
 
+import { CircleNotch } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,

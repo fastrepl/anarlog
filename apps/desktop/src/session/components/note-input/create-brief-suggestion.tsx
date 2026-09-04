@@ -1,6 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
-import { Sparkle } from "@phosphor-icons/react";
 
+import { Sparkle } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 export function CreateBriefSuggestion({ onCreate }: { onCreate: () => void }) {

@@ -1,6 +1,6 @@
-import { Waveform } from "@phosphor-icons/react";
 import type { HTMLAttributes, ReactNode } from "react";
 
+import { Waveform } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { AUDIO_EXTENSIONS } from "~/stt/useUploadFile";

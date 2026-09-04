@@ -1,7 +1,7 @@
-import { CircleNotch, XCircle } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { Streamdown } from "streamdown";
 
+import { CircleNotch, XCircle } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { extractMcpOutputText } from "~/chat/mcp/mcp-output-parser";

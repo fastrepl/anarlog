@@ -1,4 +1,3 @@
-import { MagnifyingGlass } from "@phosphor-icons/react";
 import { type DialogProps } from "@radix-ui/react-dialog";
 import { Command as CommandPrimitive } from "cmdk";
 import * as React from "react";
@@ -6,6 +5,7 @@ import * as React from "react";
 import { Dialog, DialogContent } from "@anlg/ui/components/ui/dialog";
 import { cn } from "@anlg/utils";
 
+import { MagnifyingGlass } from "../icons";
 import { appFloatingItemClassName } from "./floating-content";
 
 const Command = React.forwardRef<

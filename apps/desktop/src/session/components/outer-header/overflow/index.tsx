@@ -1,4 +1,6 @@
 import { Trans } from "@lingui/react/macro";
+import { useState } from "react";
+
 import {
   AppWindow,
   ArrowsClockwise,
@@ -8,9 +10,7 @@ import {
   FileText,
   PictureInPicture,
   Waveform,
-} from "@phosphor-icons/react";
-import { useState } from "react";
-
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,

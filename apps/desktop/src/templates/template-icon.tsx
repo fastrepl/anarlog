@@ -79,8 +79,7 @@ import {
   VideoCamera,
   WarningCircle,
   Wrench,
-} from "@phosphor-icons/react";
-
+} from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 export type TemplateIcon =

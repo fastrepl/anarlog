@@ -1,6 +1,6 @@
-import { Camera } from "@phosphor-icons/react";
 import { type ChangeEvent, type ReactNode, useRef } from "react";
 
+import { Camera } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { updateContactAvatar } from "./queries";

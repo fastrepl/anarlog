@@ -1,7 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
-import { CaretDown, Check } from "@phosphor-icons/react";
 import { useCallback, useMemo, useState } from "react";
 
+import { CaretDown, Check } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Command,

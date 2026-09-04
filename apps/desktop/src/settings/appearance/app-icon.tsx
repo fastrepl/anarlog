@@ -1,9 +1,9 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { CircleNotch, LockSimple } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { getIdentifier } from "@tauri-apps/api/app";
 import { platform } from "@tauri-apps/plugin-os";
 
+import { CircleNotch, LockSimple } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { useBillingAccess } from "~/auth/billing-context";

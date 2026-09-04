@@ -1,4 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { useForm } from "@tanstack/react-form";
+import { useState } from "react";
+
 import {
   BookOpen,
   Check,
@@ -6,10 +9,7 @@ import {
   PencilSimple,
   Plus,
   X,
-} from "@phosphor-icons/react";
-import { useForm } from "@tanstack/react-form";
-import { useState } from "react";
-
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
 import {

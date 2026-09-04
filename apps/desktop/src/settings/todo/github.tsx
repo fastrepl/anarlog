@@ -1,10 +1,15 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ArrowSquareOut, CircleNotch, Plus, X } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { fetch } from "@tauri-apps/plugin-http";
 import { useEffect, useMemo, useState } from "react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
+import {
+  ArrowSquareOut,
+  CircleNotch,
+  Plus,
+  X,
+} from "@anlg/ui/components/icons";
 import { Input } from "@anlg/ui/components/ui/input";
 import {
   Popover,

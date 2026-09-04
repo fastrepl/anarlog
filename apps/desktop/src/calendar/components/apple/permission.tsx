@@ -1,13 +1,13 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { useState } from "react";
+
+import { type PermissionStatus } from "@anlg/plugin-permissions";
 import {
   ArrowLeft,
   ArrowRight,
   Check,
   WarningCircle,
-} from "@phosphor-icons/react";
-import { useState } from "react";
-
-import { type PermissionStatus } from "@anlg/plugin-permissions";
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Dialog,

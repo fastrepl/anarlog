@@ -1,4 +1,8 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSyncExternalStore } from "react";
+
+import { getCloudsyncStatus, syncCloudsyncNow } from "@anlg/plugin-db";
 import {
   ArrowsClockwise,
   CheckCircle,
@@ -9,11 +13,7 @@ import {
   HardDrive,
   Pause,
   Play,
-} from "@phosphor-icons/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSyncExternalStore } from "react";
-
-import { getCloudsyncStatus, syncCloudsyncNow } from "@anlg/plugin-db";
+} from "@anlg/ui/components/icons";
 import {
   DropdownMenu,
   DropdownMenuContent,

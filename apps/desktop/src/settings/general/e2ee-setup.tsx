@@ -1,5 +1,4 @@
 import { Trans } from "@lingui/react/macro";
-import { CircleNotch, Copy, DownloadSimple, Key } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { downloadDir, join } from "@tauri-apps/api/path";
@@ -12,6 +11,12 @@ import {
 } from "@anlg/plugin-db";
 import { commands as fs2Commands } from "@anlg/plugin-fs2";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
+import {
+  CircleNotch,
+  Copy,
+  DownloadSimple,
+  Key,
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Dialog,

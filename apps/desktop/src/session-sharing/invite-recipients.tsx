@@ -1,8 +1,8 @@
 import { Trans } from "@lingui/react/macro";
-import { CircleNotch, X } from "@phosphor-icons/react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
+import { CircleNotch, X } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { cn } from "@anlg/utils";
 

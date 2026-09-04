@@ -1,6 +1,7 @@
 import { Trans } from "@lingui/react/macro";
-import { CircleNotch } from "@phosphor-icons/react";
 import { useState } from "react";
+
+import { CircleNotch } from "@anlg/ui/components/icons";
 
 import { OnboardingButton } from "../shared";
 

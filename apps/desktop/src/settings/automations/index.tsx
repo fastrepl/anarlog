@@ -1,4 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { useMutation } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+
 import {
   ArrowRight,
   DotsThree,
@@ -7,10 +10,7 @@ import {
   Lightning,
   Play,
   Sparkle,
-} from "@phosphor-icons/react";
-import { useMutation } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
-
+} from "@anlg/ui/components/icons";
 import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
 import {

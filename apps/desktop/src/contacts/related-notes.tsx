@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ArrowsDownUp, MagnifyingGlass, X } from "@phosphor-icons/react";
 import { useState } from "react";
 
+import { ArrowsDownUp, MagnifyingGlass, X } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,

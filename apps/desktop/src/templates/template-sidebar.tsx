@@ -1,4 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 import {
   ArrowsDownUp,
   BookOpenText,
@@ -6,9 +8,7 @@ import {
   Plus,
   Sparkle,
   X,
-} from "@phosphor-icons/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,

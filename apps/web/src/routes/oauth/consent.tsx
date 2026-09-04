@@ -1,7 +1,8 @@
-import { Check, CircleNotch } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { z } from "zod";
+
+import { Check, CircleNotch } from "@anlg/ui/components/icons";
 
 import {
   AuthShell,

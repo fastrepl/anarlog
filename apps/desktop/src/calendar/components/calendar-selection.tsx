@@ -1,13 +1,13 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { type MouseEvent, useRef, useState } from "react";
+
 import {
   ArrowsClockwise,
   CalendarSlash,
   Check,
   CircleNotch,
   DotsThree,
-} from "@phosphor-icons/react";
-import { type MouseEvent, useRef, useState } from "react";
-
+} from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import {

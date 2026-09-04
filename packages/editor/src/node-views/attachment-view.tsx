@@ -2,9 +2,10 @@ import {
   type NodeViewComponentProps,
   useEditorEventCallback,
 } from "@handlewithcare/react-prosemirror";
-import { File, X } from "@phosphor-icons/react";
 import type { NodeSpec } from "prosemirror-model";
 import { forwardRef } from "react";
+
+import { File, X } from "@anlg/ui/components/icons";
 
 import { getSafeNodePos } from "./error-boundary";
 

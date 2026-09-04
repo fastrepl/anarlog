@@ -1,9 +1,9 @@
-import { Check, Copy } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { createKey, listKeys, revokeKey } from "@anlg/api-client";
 import type { CreatedApiKey } from "@anlg/api-client";
+import { Check, Copy } from "@anlg/ui/components/icons";
 
 import { authInputClassName } from "@/components/auth-shell";
 

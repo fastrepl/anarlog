@@ -1,4 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { useCallback, useMemo, useState } from "react";
+
 import {
   ArrowsCounterClockwise,
   CaretDown,
@@ -6,9 +8,7 @@ import {
   Eye,
   EyeSlash,
   PlusCircle,
-} from "@phosphor-icons/react";
-import { useCallback, useMemo, useState } from "react";
-
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Command,

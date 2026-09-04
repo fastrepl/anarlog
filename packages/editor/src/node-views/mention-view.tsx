@@ -1,9 +1,9 @@
 import { type NodeViewComponentProps } from "@handlewithcare/react-prosemirror";
-import { Buildings, Note, User } from "@phosphor-icons/react";
 import { Facehash, stringHash } from "facehash";
 import type { NodeSpec } from "prosemirror-model";
 import { forwardRef, useCallback } from "react";
 
+import { Buildings, Note, User } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 export const mentionNodeSpec: NodeSpec = {

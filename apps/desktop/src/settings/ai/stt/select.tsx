@@ -1,12 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
-  Check,
-  CircleNotch,
-  FolderOpen,
-  Trash,
-  Warning,
-} from "@phosphor-icons/react";
-import {
   useMutation,
   useQueries,
   useQuery,
@@ -21,6 +14,13 @@ import {
 import { commands as miscCommands } from "@anlg/plugin-misc";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import type { AIProviderStorage } from "@anlg/store";
+import {
+  Check,
+  CircleNotch,
+  FolderOpen,
+  Trash,
+  Warning,
+} from "@anlg/ui/components/icons";
 import { Input } from "@anlg/ui/components/ui/input";
 import {
   Select,

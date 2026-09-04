@@ -1,16 +1,16 @@
 import "./chat-input.css";
 
 import { useLingui } from "@lingui/react/macro";
+import { useMemo, useRef } from "react";
+
+import { ChatEditor, type ChatEditorHandle } from "@anlg/editor/chat";
+import type { PlaceholderFunction } from "@anlg/editor/plugins";
 import {
   ArrowUp,
   CircleNotch,
   Microphone,
   Square,
-} from "@phosphor-icons/react";
-import { useMemo, useRef } from "react";
-
-import { ChatEditor, type ChatEditorHandle } from "@anlg/editor/chat";
-import type { PlaceholderFunction } from "@anlg/editor/plugins";
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";

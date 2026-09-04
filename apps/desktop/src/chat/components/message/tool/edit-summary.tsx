@@ -1,5 +1,4 @@
-import { Pencil } from "@phosphor-icons/react";
-
+import { Pencil } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 
 import { defineTool } from "./define-tool";

@@ -1,7 +1,8 @@
-import { DotsSixVertical } from "@phosphor-icons/react";
 import * as ResizablePrimitive from "react-resizable-panels";
 
 import { cn } from "@anlg/utils";
+
+import { DotsSixVertical } from "../icons";
 
 const ResizablePanelGroup = ({
   className,

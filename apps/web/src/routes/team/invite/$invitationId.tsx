@@ -1,3 +1,7 @@
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { ClientOnly, createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
+
 import {
   ArrowsClockwise,
   CheckCircle,
@@ -6,10 +10,7 @@ import {
   Prohibit,
   SignIn,
   WarningCircle,
-} from "@phosphor-icons/react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { ClientOnly, createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
+} from "@anlg/ui/components/icons";
 
 import { useShareRouteContinuation } from "@/components/share-route-continuation";
 import {

@@ -1,20 +1,4 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import {
-  ArrowsClockwise,
-  CaretDown,
-  CheckCircle,
-  CircleNotch,
-  CloudSlash,
-  Desktop,
-  DeviceMobile,
-  PencilSimple,
-  Plugs,
-  Plus,
-  Shield,
-  ShieldCheck,
-  Warning,
-  Watch,
-} from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { platform } from "@tauri-apps/plugin-os";
@@ -30,6 +14,22 @@ import {
 import type { CloudsyncActivityEntry } from "@anlg/plugin-db";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { commands as settingsCommands } from "@anlg/plugin-settings";
+import {
+  ArrowsClockwise,
+  CaretDown,
+  CheckCircle,
+  CircleNotch,
+  CloudSlash,
+  Desktop,
+  DeviceMobile,
+  PencilSimple,
+  Plugs,
+  Plus,
+  Shield,
+  ShieldCheck,
+  Warning,
+  Watch,
+} from "@anlg/ui/components/icons";
 import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
 import {

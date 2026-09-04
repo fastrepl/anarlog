@@ -1,7 +1,12 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
-import { Buildings, CircleNotch, Globe, LockKey } from "@phosphor-icons/react";
 
+import {
+  Buildings,
+  CircleNotch,
+  Globe,
+  LockKey,
+} from "@anlg/ui/components/icons";
 import {
   Select,
   SelectContent,

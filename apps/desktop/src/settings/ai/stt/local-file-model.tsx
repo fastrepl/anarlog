@@ -1,9 +1,9 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Check, CircleNotch, FolderOpen, X } from "@phosphor-icons/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { open as selectFile } from "@tauri-apps/plugin-dialog";
 
 import { commands as localSttCommands } from "@anlg/plugin-local-stt";
+import { Check, CircleNotch, FolderOpen, X } from "@anlg/ui/components/icons";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import type { HealthStatus } from "./health";

@@ -19,10 +19,10 @@ import {
   XAI,
   ZAI,
 } from "@lobehub/icons";
-import { FolderOpen, Shuffle, Waveform } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
 import type { LocalModel } from "@anlg/plugin-local-stt";
+import { FolderOpen, Shuffle, Waveform } from "@anlg/ui/components/icons";
 
 import { env } from "~/env";
 import {

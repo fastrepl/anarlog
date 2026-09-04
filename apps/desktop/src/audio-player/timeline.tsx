@@ -1,6 +1,6 @@
-import { Pause, Play } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { Pause, Play } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { useAudioPlayer, useAudioTime } from "./provider";

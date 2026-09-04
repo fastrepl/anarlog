@@ -1,6 +1,7 @@
-import { Check, Copy } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+
+import { Check, Copy } from "@anlg/ui/components/icons";
 
 import { getReferralInvites } from "@/functions/referrals";
 import { useAnalytics } from "@/hooks/use-posthog";

@@ -1,6 +1,7 @@
-import { ArrowElbowDownRight, Trash } from "@phosphor-icons/react";
 import type { ChatStatus } from "ai";
 import { useCallback, useEffect, useRef, useState } from "react";
+
+import { ArrowElbowDownRight, Trash } from "@anlg/ui/components/icons";
 
 import { ChatBody } from "./body";
 import { ChatMessageInput } from "./input";

@@ -1,5 +1,4 @@
-import { Check } from "@phosphor-icons/react";
-
+import { Check } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { useTranscriptSelectionState } from "./selection-context";

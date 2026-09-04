@@ -25,8 +25,9 @@ import {
   XAI,
   ZAI,
 } from "@lobehub/icons";
-import { Shuffle } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
+
+import { Shuffle } from "@anlg/ui/components/icons";
 
 import { env } from "~/env";
 import { AnarlogProviderIcon, ProviderLobeIcon } from "~/settings/ai/shared";

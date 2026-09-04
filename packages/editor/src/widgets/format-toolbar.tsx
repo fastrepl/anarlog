@@ -11,6 +11,13 @@ import {
   useEditorEventCallback,
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
+import { toggleMark } from "prosemirror-commands";
+import type { MarkType } from "prosemirror-model";
+import type { EditorState } from "prosemirror-state";
+import type { EditorView } from "prosemirror-view";
+import { useRef } from "react";
+import { createPortal } from "react-dom";
+
 import {
   ChatCenteredDots,
   Code,
@@ -19,14 +26,7 @@ import {
   TextItalic,
   TextStrikethrough,
   TextUnderline,
-} from "@phosphor-icons/react";
-import { toggleMark } from "prosemirror-commands";
-import type { MarkType } from "prosemirror-model";
-import type { EditorState } from "prosemirror-state";
-import type { EditorView } from "prosemirror-view";
-import { useRef } from "react";
-import { createPortal } from "react-dom";
-
+} from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { schema } from "../note/schema";

@@ -1,8 +1,8 @@
 import { Trans } from "@lingui/react/macro";
-import { CircleNotch, Trash } from "@phosphor-icons/react";
 import { useCallback } from "react";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
+import { CircleNotch, Trash } from "@anlg/ui/components/icons";
 import { DropdownMenuItem } from "@anlg/ui/components/ui/dropdown-menu";
 import { cn } from "@anlg/utils";
 

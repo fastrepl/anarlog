@@ -1,8 +1,8 @@
 import { Icon } from "@iconify-icon/react";
-import { ArrowRight, CaretDown } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 
+import { ArrowRight, CaretDown } from "@anlg/ui/components/icons";
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
 import { cn } from "@anlg/utils";

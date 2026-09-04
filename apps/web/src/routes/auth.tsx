@@ -1,9 +1,9 @@
-import { ArrowLeft, Buildings, Envelope } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useRef, useState, type ReactNode } from "react";
 import { z } from "zod";
 
+import { ArrowLeft, Buildings, Envelope } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import {

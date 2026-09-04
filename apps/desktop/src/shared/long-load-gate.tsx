@@ -1,4 +1,3 @@
-import { ArrowClockwise } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { useEffect, useState, type ReactNode } from "react";
@@ -8,6 +7,7 @@ import {
   waitUntilReady,
   type StartupStatus,
 } from "@anlg/plugin-db";
+import { ArrowClockwise } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { cn } from "@anlg/utils";
 

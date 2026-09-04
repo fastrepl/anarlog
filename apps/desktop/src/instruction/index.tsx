@@ -1,10 +1,14 @@
 import { Icon } from "@iconify-icon/react";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ArrowSquareOut, CaretLeft, GithubLogo } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
+import {
+  ArrowSquareOut,
+  CaretLeft,
+  GithubLogo,
+} from "@anlg/ui/components/icons";
 import { OutlookIcon } from "@anlg/ui/components/icons/outlook";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";

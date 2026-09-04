@@ -1,5 +1,4 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { CalendarDots } from "@phosphor-icons/react";
 import {
   memo,
   type RefCallback,
@@ -11,6 +10,7 @@ import {
   useState,
 } from "react";
 
+import { CalendarDots } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { useAnchor, useAutoScrollToAnchor } from "./anchor";

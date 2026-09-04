@@ -1,9 +1,9 @@
 import { useLingui } from "@lingui/react/macro";
-import { Headset, Square, VideoCamera } from "@phosphor-icons/react";
 import { useCallback, useRef, useState } from "react";
 
 import { commands as deeplinkCommands } from "@anlg/plugin-deeplink2";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { Headset, Square, VideoCamera } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Popover,

@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { DotsThree, Heart, Plus } from "@phosphor-icons/react";
 import { useState } from "react";
 
+import { DotsThree, Heart, Plus } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,

@@ -1,6 +1,7 @@
 import { Icon } from "@iconify-icon/react";
-import { ArrowRight } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
+
+import { ArrowRight } from "@anlg/ui/components/icons";
 
 import { SiteFooter } from "@/components/site-footer";
 import { getResizedImageSrcSet, getResizedImageUrl } from "@/lib/image-cdn";

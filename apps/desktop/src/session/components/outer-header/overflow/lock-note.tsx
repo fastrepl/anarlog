@@ -1,7 +1,7 @@
 import { Trans } from "@lingui/react/macro";
-import { Lock, LockOpen } from "@phosphor-icons/react";
 import { useCallback } from "react";
 
+import { Lock, LockOpen } from "@anlg/ui/components/icons";
 import { DropdownMenuItem } from "@anlg/ui/components/ui/dropdown-menu";
 
 import { isLockedFlag } from "~/lock/flag";

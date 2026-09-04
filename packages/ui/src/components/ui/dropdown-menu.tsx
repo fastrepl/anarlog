@@ -1,9 +1,9 @@
-import { CaretRight, Check, Circle } from "@phosphor-icons/react";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import * as React from "react";
 
 import { cn } from "@anlg/utils";
 
+import { CaretRight, Check, Circle } from "../icons";
 import {
   AppFloatingPanel,
   appFloatingContentClassName,

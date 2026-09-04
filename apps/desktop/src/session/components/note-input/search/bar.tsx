@@ -1,4 +1,8 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { platform } from "@tauri-apps/plugin-os";
+import { useEffect, useRef } from "react";
+
+import type { NoteEditorRef } from "@anlg/editor/note";
 import {
   CaretDown,
   CaretUp,
@@ -7,11 +11,7 @@ import {
   TextAa,
   Textbox,
   X,
-} from "@phosphor-icons/react";
-import { platform } from "@tauri-apps/plugin-os";
-import { useEffect, useRef } from "react";
-
-import type { NoteEditorRef } from "@anlg/editor/note";
+} from "@anlg/ui/components/icons";
 import { Kbd } from "@anlg/ui/components/ui/kbd";
 import {
   Tooltip,

@@ -1,5 +1,4 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { FileText, MagnifyingGlass, Users, X } from "@phosphor-icons/react";
 import { Command as CommandPrimitive } from "cmdk";
 import {
   createContext,
@@ -11,6 +10,7 @@ import {
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
+import { FileText, MagnifyingGlass, Users, X } from "@anlg/ui/components/icons";
 import {
   Dialog,
   DialogContent,

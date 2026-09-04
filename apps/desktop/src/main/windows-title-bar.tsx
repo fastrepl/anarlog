@@ -1,9 +1,9 @@
 import { t } from "@lingui/core/macro";
-import { Sidebar, SidebarSimple } from "@phosphor-icons/react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useRef, useState } from "react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { Sidebar, SidebarSimple } from "@anlg/ui/components/icons";
 import {
   DropdownMenu,
   DropdownMenuContent,

@@ -1,13 +1,13 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import React, { useCallback, useState } from "react";
+
 import {
   Buildings,
   CircleNotch,
   MagnifyingGlass,
   MinusCircle,
   Plus,
-} from "@phosphor-icons/react";
-import React, { useCallback, useState } from "react";
-
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
 import {

@@ -1,4 +1,9 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { useQuery } from "@tanstack/react-query";
+import { defaultRehypePlugins, Streamdown } from "streamdown";
+
+import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { commands as todoCommands } from "@anlg/plugin-todo";
 import {
   ArrowSquareOut,
   Chat,
@@ -6,12 +11,7 @@ import {
   GitPullRequest,
   RadioButton,
   XCircle,
-} from "@phosphor-icons/react";
-import { useQuery } from "@tanstack/react-query";
-import { defaultRehypePlugins, Streamdown } from "streamdown";
-
-import { commands as openerCommands } from "@anlg/plugin-opener2";
-import { commands as todoCommands } from "@anlg/plugin-todo";
+} from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { streamdownComponents } from "~/session/components/streamdown";

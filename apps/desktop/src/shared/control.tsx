@@ -1,11 +1,5 @@
 import { t } from "@lingui/core/macro";
 import {
-  ArrowClockwise,
-  House,
-  MagnifyingGlass,
-  Warning,
-} from "@phosphor-icons/react";
-import {
   type ErrorRouteComponent,
   NotFoundRouteComponent,
   useNavigate,
@@ -13,6 +7,12 @@ import {
 import { relaunch } from "@tauri-apps/plugin-process";
 import { motion } from "motion/react";
 
+import {
+  ArrowClockwise,
+  House,
+  MagnifyingGlass,
+  Warning,
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 
 import { captureOperationalError } from "~/error-reporting";

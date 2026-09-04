@@ -1,7 +1,7 @@
-import { ArrowUp, CircleNotch, DotsThree } from "@phosphor-icons/react";
 import { useRef, useState } from "react";
 
 import { Avatar } from "@anlg/ui/components/avatar";
+import { ArrowUp, CircleNotch, DotsThree } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import {

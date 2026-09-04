@@ -1,12 +1,4 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import {
-  ArrowCounterClockwise,
-  CheckCircle,
-  CircleNotch,
-  Info,
-  Trash,
-  Warning,
-} from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -16,6 +8,14 @@ import {
   getLegacyImportReport,
   runLegacyImport,
 } from "@anlg/plugin-db";
+import {
+  ArrowCounterClockwise,
+  CheckCircle,
+  CircleNotch,
+  Info,
+  Trash,
+  Warning,
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Dialog,

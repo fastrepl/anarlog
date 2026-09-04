@@ -1,8 +1,13 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ArrowsDownUp, MagnifyingGlass, Plus, X } from "@phosphor-icons/react";
 import type { KeyboardEvent, RefObject } from "react";
 
 import { Avatar } from "@anlg/ui/components/avatar";
+import {
+  ArrowsDownUp,
+  MagnifyingGlass,
+  Plus,
+  X,
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,

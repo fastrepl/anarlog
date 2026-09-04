@@ -1,6 +1,5 @@
-import { Chat } from "@phosphor-icons/react";
-
 import { Avatar } from "@anlg/ui/components/avatar";
+import { Chat } from "@anlg/ui/components/icons";
 import {
   Dialog,
   DialogContent,

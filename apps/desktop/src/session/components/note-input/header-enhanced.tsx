@@ -1,6 +1,6 @@
-import { CaretDown, Sparkle } from "@phosphor-icons/react";
 import { useCallback, useMemo } from "react";
 
+import { CaretDown, Sparkle } from "@anlg/ui/components/icons";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
 import { cn } from "@anlg/utils";
 

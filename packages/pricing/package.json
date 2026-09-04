@@ -15,7 +15,6 @@
     "@types/react": "^19.2.14"
   },
   "peerDependencies": {
-    "@phosphor-icons/react": ">=2.1.0",
     "react": "^19.0.0"
   },
   "scripts": {

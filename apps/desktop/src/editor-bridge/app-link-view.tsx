@@ -3,7 +3,6 @@ import {
   useEditorEventCallback,
 } from "@handlewithcare/react-prosemirror";
 import { Figma, Github, Google, Notion } from "@lobehub/icons";
-import { Check } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { forwardRef } from "react";
 
@@ -16,6 +15,7 @@ import {
 import { getSafeNodePos } from "@anlg/editor/node-views";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { commands as todoCommands } from "@anlg/plugin-todo";
+import { Check } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { collectSiblingResources, openTaskTab } from "~/task/open-task-tab";

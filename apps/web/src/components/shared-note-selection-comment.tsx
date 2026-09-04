@@ -5,10 +5,10 @@ import {
   offset,
   shift,
 } from "@floating-ui/dom";
-import { ChatCenteredDots } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { ChatCenteredDots } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 export type SelectionRect = {

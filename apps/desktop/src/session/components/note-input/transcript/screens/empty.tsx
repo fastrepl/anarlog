@@ -1,11 +1,11 @@
 import { t } from "@lingui/core/macro";
+
 import {
   ArrowsClockwise,
   Square,
   WarningCircle,
   Waveform,
-} from "@phosphor-icons/react";
-
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
 

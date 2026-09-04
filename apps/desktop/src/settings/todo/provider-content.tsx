@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { CircleNotch } from "@phosphor-icons/react";
 import { useCallback, useMemo } from "react";
 
+import { CircleNotch } from "@anlg/ui/components/icons";
 import {
   Tooltip,
   TooltipContent,

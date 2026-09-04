@@ -1,6 +1,6 @@
-import { PushPin } from "@phosphor-icons/react";
 import React, { useCallback } from "react";
 
+import { PushPin } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { ContactImage } from "~/contacts/contact-avatar";

@@ -1,7 +1,7 @@
 import { Trans } from "@lingui/react/macro";
-import { ArrowSquareOut } from "@phosphor-icons/react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { ArrowSquareOut } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 
 import { MeetingImportScreen } from "~/imports/screen";

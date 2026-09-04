@@ -1,4 +1,3 @@
-import { Check, CircleNotch, Clock, SignIn, X } from "@phosphor-icons/react";
 import {
   useInfiniteQuery,
   useMutation,
@@ -6,6 +5,13 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 
+import {
+  Check,
+  CircleNotch,
+  Clock,
+  SignIn,
+  X,
+} from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import {

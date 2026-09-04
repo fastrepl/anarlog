@@ -1,9 +1,9 @@
 import { Icon } from "@iconify-icon/react";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Buildings, Envelope } from "@phosphor-icons/react";
 import { useState } from "react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { Buildings, Envelope } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
 

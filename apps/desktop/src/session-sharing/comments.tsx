@@ -1,5 +1,4 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { CircleNotch, Trash } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { EditorView } from "prosemirror-view";
@@ -16,6 +15,7 @@ import {
 } from "@anlg/editor/note";
 import { getProviderProfileImageUrl } from "@anlg/supabase/profile";
 import { Avatar } from "@anlg/ui/components/avatar";
+import { CircleNotch, Trash } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Popover,

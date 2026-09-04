@@ -1,4 +1,3 @@
-import { ArrowsClockwise, CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addDays,
@@ -15,6 +14,11 @@ import {
 } from "date-fns";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import {
+  ArrowsClockwise,
+  CaretLeft,
+  CaretRight,
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   ButtonGroup,

@@ -1,13 +1,13 @@
 import { Trans } from "@lingui/react/macro";
+import { useMutation } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+
 import {
   CirclesThreePlus,
   FileText,
   FolderSimple,
   Lightning,
-} from "@phosphor-icons/react";
-import { useMutation } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Dialog,

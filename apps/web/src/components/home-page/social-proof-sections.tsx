@@ -1,7 +1,7 @@
-import { ArrowRight, XLogo } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { type CSSProperties, useState } from "react";
 
+import { ArrowRight, XLogo } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { getResizedImageSrcSet, getResizedImageUrl } from "@/lib/image-cdn";

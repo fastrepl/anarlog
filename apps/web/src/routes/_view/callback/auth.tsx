@@ -1,7 +1,8 @@
-import { Check, Copy } from "@phosphor-icons/react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
+
+import { Check, Copy } from "@anlg/ui/components/icons";
 
 import {
   AuthShell,

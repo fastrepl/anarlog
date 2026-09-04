@@ -1,4 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+
 import {
   CalendarBlank,
   Check,
@@ -6,8 +7,7 @@ import {
   FunnelSimple,
   SortAscending,
   SortDescending,
-} from "@phosphor-icons/react";
-
+} from "@anlg/ui/components/icons";
 import {
   AppFloatingPanel,
   appFloatingMenuPanelClassName,

@@ -13,6 +13,13 @@ import {
   useEditorEventListener,
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
+import { setBlockType } from "prosemirror-commands";
+import { wrapInList } from "prosemirror-schema-list";
+import type { EditorState, Transaction } from "prosemirror-state";
+import type { EditorView } from "prosemirror-view";
+import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
+
 import {
   Code,
   ListBullets,
@@ -24,14 +31,7 @@ import {
   TextHThree,
   TextHTwo,
   TextT,
-} from "@phosphor-icons/react";
-import { setBlockType } from "prosemirror-commands";
-import { wrapInList } from "prosemirror-schema-list";
-import type { EditorState, Transaction } from "prosemirror-state";
-import type { EditorView } from "prosemirror-view";
-import { useRef, useState } from "react";
-import { createPortal } from "react-dom";
-
+} from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { schema } from "../note/schema";

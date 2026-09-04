@@ -1,11 +1,11 @@
 import { Trans } from "@lingui/react/macro";
-import { SpeakerHigh, SpeakerX } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { platform } from "@tauri-apps/plugin-os";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { commands as sfxCommands } from "@anlg/plugin-sfx";
+import { SpeakerHigh, SpeakerX } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { LoginSection } from "./account";

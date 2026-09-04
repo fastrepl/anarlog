@@ -13,7 +13,6 @@ import {
   useEditorEventListener,
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
-import { Buildings, Note, User } from "@phosphor-icons/react";
 import {
   type EditorState,
   NodeSelection,
@@ -23,6 +22,8 @@ import {
 } from "prosemirror-state";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+
+import { Buildings, Note, User } from "@anlg/ui/components/icons";
 
 export interface MentionItem {
   id: string;

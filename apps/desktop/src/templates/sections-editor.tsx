@@ -1,9 +1,9 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { DotsSixVertical, DotsThree, Plus } from "@phosphor-icons/react";
 import { Reorder, useDragControls } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { TemplateSection } from "@anlg/store";
+import { DotsSixVertical, DotsThree, Plus } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,

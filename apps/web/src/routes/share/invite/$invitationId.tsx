@@ -1,12 +1,13 @@
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { ClientOnly, createFileRoute } from "@tanstack/react-router";
+
 import {
   CheckCircle,
   Clock,
   EnvelopeOpen,
   Prohibit,
   SignIn,
-} from "@phosphor-icons/react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { ClientOnly, createFileRoute } from "@tanstack/react-router";
+} from "@anlg/ui/components/icons";
 
 import { useShareRouteContinuation } from "@/components/share-route-continuation";
 import {

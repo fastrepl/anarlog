@@ -1,11 +1,11 @@
+import { memo, type ReactNode } from "react";
+
 import {
   MagnifyingGlass,
   NotePencil,
   Sidebar,
   SidebarSimple,
-} from "@phosphor-icons/react";
-import { memo, type ReactNode } from "react";
-
+} from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { SidebarNoteFilterMenu } from "~/sidebar/note-filter-menu";

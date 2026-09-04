@@ -1,6 +1,6 @@
-import { ArrowDown, ArrowUp, Sun } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
+import { ArrowDown, ArrowUp, Sun } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { cn } from "@anlg/utils";
 

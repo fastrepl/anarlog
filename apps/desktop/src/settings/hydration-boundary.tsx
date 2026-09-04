@@ -1,6 +1,7 @@
 import { t } from "@lingui/core/macro";
-import { CircleNotch } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
+
+import { CircleNotch } from "@anlg/ui/components/icons";
 
 import { useStoredSettingValuesQuery } from "~/settings/queries";
 

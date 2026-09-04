@@ -1,8 +1,8 @@
-import { ArrowUpRight, Check, CircleNotch } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 
+import { ArrowUpRight, Check, CircleNotch } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { AnarlogLogo } from "@/components/anarlog-logo";

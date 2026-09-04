@@ -1,11 +1,16 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Check, DotsThree, MagicWand, Sparkle } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 
 import { PromptEditor, type PromptEditorHandle } from "@anlg/editor/prompt";
 import { commands as templateCommands } from "@anlg/plugin-template";
+import {
+  Check,
+  DotsThree,
+  MagicWand,
+  Sparkle,
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,

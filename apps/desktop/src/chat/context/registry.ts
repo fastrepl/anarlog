@@ -5,7 +5,7 @@ import {
   MagnifyingGlass,
   Monitor,
   User,
-} from "@phosphor-icons/react";
+} from "@anlg/ui/components/icons";
 
 import type { ContextEntity, ContextEntityKind } from "./entities";
 

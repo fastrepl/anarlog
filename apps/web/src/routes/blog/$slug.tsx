@@ -1,5 +1,4 @@
 import { MDXContent } from "@content-collections/mdx/react";
-import { ArrowRight } from "@phosphor-icons/react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import type { Article, ArticleSummary } from "content-collections";
 import {
@@ -10,6 +9,8 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+
+import { ArrowRight } from "@anlg/ui/components/icons";
 
 import { mdxComponents } from "@/components/mdx-components";
 import { SiteFooter } from "@/components/site-footer";

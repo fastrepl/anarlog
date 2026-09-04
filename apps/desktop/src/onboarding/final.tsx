@@ -1,16 +1,16 @@
 import { useLingui } from "@lingui/react";
 import { Trans } from "@lingui/react/macro";
-import {
-  CircleNotch,
-  DiscordLogo,
-  GithubLogo,
-  XLogo,
-} from "@phosphor-icons/react";
 import { useRef, useState } from "react";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { commands as sfxCommands } from "@anlg/plugin-sfx";
+import {
+  CircleNotch,
+  DiscordLogo,
+  GithubLogo,
+  XLogo,
+} from "@anlg/ui/components/icons";
 
 import { OnboardingButton } from "./shared";
 import {

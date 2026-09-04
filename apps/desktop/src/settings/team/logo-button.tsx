@@ -1,6 +1,6 @@
-import { Buildings, Camera, CircleNotch, X } from "@phosphor-icons/react";
 import { type ChangeEvent, useRef } from "react";
 
+import { Buildings, Camera, CircleNotch, X } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { compressWorkspaceLogo } from "./logo";

@@ -1,11 +1,4 @@
 import { useLingui } from "@lingui/react/macro";
-import {
-  FolderSimple,
-  Lock,
-  LockOpen,
-  Square,
-  Users,
-} from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
 import {
   createContext,
@@ -20,6 +13,13 @@ import {
 
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
+import {
+  FolderSimple,
+  Lock,
+  LockOpen,
+  Square,
+  Users,
+} from "@anlg/ui/components/icons";
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
 import { cn, format, getYear, safeParseDate, TZDate } from "@anlg/utils";

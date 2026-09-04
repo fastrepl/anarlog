@@ -1,6 +1,6 @@
-import { CheckCircle, XCircle } from "@phosphor-icons/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
+import { CheckCircle, XCircle } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { AnarlogLogo } from "@/components/anarlog-logo";

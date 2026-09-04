@@ -1,7 +1,7 @@
 import { Trans } from "@lingui/react/macro";
-import { ArrowsClockwise, WarningCircle } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 
+import { ArrowsClockwise, WarningCircle } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 
 import { useAITask } from "~/ai/contexts";

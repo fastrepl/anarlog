@@ -1,4 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { AnimatePresence, motion } from "motion/react";
+import { type ReactNode, useEffect, useRef } from "react";
+
 import {
   CaretLeft,
   CaretRight,
@@ -6,10 +9,7 @@ import {
   CheckCircle,
   CircleNotch,
   XCircle,
-} from "@phosphor-icons/react";
-import { AnimatePresence, motion } from "motion/react";
-import { type ReactNode, useEffect, useRef } from "react";
-
+} from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 const SCROLL_DELAY_MS = 350;

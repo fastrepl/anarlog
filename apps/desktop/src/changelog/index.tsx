@@ -1,8 +1,8 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { X } from "@phosphor-icons/react";
 
 import { ChangelogContent } from "@anlg/changelog";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { X } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { cn } from "@anlg/utils";
 

@@ -1,5 +1,4 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { CircleNotch, Copy } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { readText as readClipboardText } from "@tauri-apps/plugin-clipboard-manager";
 import { useEffect, useRef, useState } from "react";
@@ -10,6 +9,7 @@ import {
   events as deeplink2Events,
 } from "@anlg/plugin-deeplink2";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { CircleNotch, Copy } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Dialog,

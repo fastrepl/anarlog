@@ -1,4 +1,4 @@
-import { Wrench } from "@phosphor-icons/react";
+import { Wrench } from "@anlg/ui/components/icons";
 
 import { useToolState } from "./shared";
 

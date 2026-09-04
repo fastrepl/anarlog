@@ -1,6 +1,6 @@
-import { ArrowElbowDownLeft } from "@phosphor-icons/react";
 import { type CSSProperties, useEffect, useRef } from "react";
 
+import { ArrowElbowDownLeft } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 type DropdownOption = {

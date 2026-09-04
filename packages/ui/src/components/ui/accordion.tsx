@@ -1,8 +1,9 @@
-import { CaretDown } from "@phosphor-icons/react";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
 import * as React from "react";
 
 import { cn } from "@anlg/utils";
+
+import { CaretDown } from "../icons";
 
 const Accordion = AccordionPrimitive.Root;
 const AccordionHeader = AccordionPrimitive.Header;

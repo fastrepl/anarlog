@@ -1,9 +1,9 @@
 import emojiData, { type Emoji, type EmojiMartData } from "@emoji-mart/data";
 import { useLingui } from "@lingui/react/macro";
-import { Check, MagnifyingGlass, X } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import { HexColorInput, HexColorPicker } from "react-colorful";
 
+import { Check, MagnifyingGlass, X } from "@anlg/ui/components/icons";
 import {
   AppFloatingPanel,
   Popover,

@@ -1,8 +1,9 @@
-import { Check, Copy } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
+
+import { Check, Copy } from "@anlg/ui/components/icons";
 
 import {
   AuthShell,

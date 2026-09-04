@@ -1,7 +1,7 @@
 import { Trans } from "@lingui/react/macro";
-import { CaretDown } from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
 
+import { CaretDown } from "@anlg/ui/components/icons";
 import {
   Accordion,
   AccordionContent,

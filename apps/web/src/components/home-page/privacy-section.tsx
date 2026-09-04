@@ -3,8 +3,7 @@ import {
   Cpu,
   type Icon as PhosphorIcon,
   Key,
-} from "@phosphor-icons/react";
-
+} from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 const privacyCommitments = [

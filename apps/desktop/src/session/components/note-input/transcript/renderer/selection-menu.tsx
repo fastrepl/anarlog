@@ -8,7 +8,6 @@ import {
 } from "@floating-ui/react";
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
-import { ArrowsMerge, Play, UserSwitch, X } from "@phosphor-icons/react";
 import {
   type MouseEvent,
   useCallback,
@@ -19,6 +18,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
+import { ArrowsMerge, Play, UserSwitch, X } from "@anlg/ui/components/icons";
 import {
   Popover,
   PopoverContent,

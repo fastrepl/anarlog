@@ -1,6 +1,6 @@
-import { MagnifyingGlass } from "@phosphor-icons/react";
 import { useCallback, useMemo } from "react";
 
+import { MagnifyingGlass } from "@anlg/ui/components/icons";
 import { Card, CardContent } from "@anlg/ui/components/ui/card";
 import {
   Carousel,

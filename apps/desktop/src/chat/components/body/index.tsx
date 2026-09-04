@@ -1,7 +1,7 @@
 import { Trans } from "@lingui/react/macro";
-import { CaretDown } from "@phosphor-icons/react";
 import type { ChatStatus } from "ai";
 
+import { CaretDown } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { cn } from "@anlg/utils";
 

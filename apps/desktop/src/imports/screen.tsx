@@ -1,12 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
-  ArrowsClockwise,
-  CaretDown,
-  CircleNotch,
-  DownloadSimple,
-  PlugsConnected,
-} from "@phosphor-icons/react";
-import {
   useMutation,
   useQueries,
   useQuery,
@@ -16,6 +9,13 @@ import { open as selectFiles } from "@tauri-apps/plugin-dialog";
 import { type ReactNode, useEffect, useRef } from "react";
 
 import { commands as importerCommands } from "@anlg/plugin-importer";
+import {
+  ArrowsClockwise,
+  CaretDown,
+  CircleNotch,
+  DownloadSimple,
+  PlugsConnected,
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { ButtonGroup } from "@anlg/ui/components/ui/button-group";
 import {

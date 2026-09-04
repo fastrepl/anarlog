@@ -1,11 +1,11 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { CircleNotch, FolderSimple } from "@phosphor-icons/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { homeDir } from "@tauri-apps/api/path";
 import { open as selectFolder } from "@tauri-apps/plugin-dialog";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { commands as settingsCommands } from "@anlg/plugin-settings";
+import { CircleNotch, FolderSimple } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 
 import {

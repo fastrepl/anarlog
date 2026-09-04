@@ -1,7 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
-import { ArrowLeft } from "@phosphor-icons/react";
 import { type ReactNode, useCallback } from "react";
 
+import { ArrowLeft } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { useShell } from "~/contexts/shell";

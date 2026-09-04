@@ -1,7 +1,12 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { DotsThree, MinusCircle, PushPin, Trash } from "@phosphor-icons/react";
 import { type ReactNode } from "react";
 
+import {
+  DotsThree,
+  MinusCircle,
+  PushPin,
+  Trash,
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,

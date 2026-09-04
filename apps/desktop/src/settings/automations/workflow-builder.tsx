@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ArrowRight, Plus, Trash } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 
+import { ArrowRight, Plus, Trash } from "@anlg/ui/components/icons";
 import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
 import {

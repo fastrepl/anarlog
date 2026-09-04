@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Lightning, MagnifyingGlass, Plus, X } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 
+import { Lightning, MagnifyingGlass, Plus, X } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 import { cn, formatDistanceToNow } from "@anlg/utils";

@@ -1,15 +1,15 @@
 import { Icon } from "@iconify-icon/react";
 import { Trans, useLingui } from "@lingui/react/macro";
+import { useQuery } from "@tanstack/react-query";
+import { useState, type ReactNode } from "react";
+
 import {
   CaretLeft,
   CircleNotch,
   DotsThree,
   EnvelopeSimple,
   LockSimple,
-} from "@phosphor-icons/react";
-import { useQuery } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
-
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,

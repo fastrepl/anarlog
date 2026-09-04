@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Lock } from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
 
+import { Lock } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { cn } from "@anlg/utils";
 

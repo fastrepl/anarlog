@@ -1,5 +1,4 @@
-import { CheckCircle, XCircle } from "@phosphor-icons/react";
-
+import { CheckCircle, XCircle } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import type { PlanFeature } from "./tiers";

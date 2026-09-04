@@ -1,8 +1,8 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ArrowRight, Check, WarningCircle } from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
 
 import type { PermissionStatus } from "@anlg/plugin-permissions";
+import { ArrowRight, Check, WarningCircle } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { cn } from "@anlg/utils";
 

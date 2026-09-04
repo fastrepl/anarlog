@@ -1,16 +1,16 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
+import { useMutation } from "@tanstack/react-query";
+import { type MutableRefObject, useState } from "react";
+
+import { commands as openerCommands } from "@anlg/plugin-opener2";
 import {
   ArrowsClockwise,
   ArrowSquareOut,
   CircleNotch,
   Copy,
   Warning,
-} from "@phosphor-icons/react";
-import { useMutation } from "@tanstack/react-query";
-import { type MutableRefObject, useState } from "react";
-
-import { commands as openerCommands } from "@anlg/plugin-opener2";
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,

@@ -1,4 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
+import { useCallback, useMemo, useRef, useState } from "react";
+
 import {
   ArrowClockwise,
   CaretRight,
@@ -6,9 +8,7 @@ import {
   MagnifyingGlass,
   Plus,
   X,
-} from "@phosphor-icons/react";
-import { useCallback, useMemo, useRef, useState } from "react";
-
+} from "@anlg/ui/components/icons";
 import {
   AppFloatingPanel,
   Popover,
