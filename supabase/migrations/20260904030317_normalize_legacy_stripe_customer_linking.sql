@@ -29,6 +29,11 @@ BEGIN
       FROM public.profiles AS linked_profile
       WHERE linked_profile.stripe_customer_id = customer.id
     )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.workspaces AS linked_workspace
+      WHERE linked_workspace.stripe_customer_id = customer.id
+    )
   ORDER BY
     CASE
       WHEN EXISTS (
@@ -41,7 +46,7 @@ BEGIN
         SELECT 1
         FROM stripe.subscriptions AS subscription
         WHERE subscription.customer = customer.id
-          AND subscription.status = 'trialing'
+          AND subscription.status IN ('trialing', 'paused')
       ) THEN 1
       WHEN EXISTS (
         SELECT 1
@@ -99,6 +104,11 @@ BEGIN
           FROM public.profiles AS linked_profile
           WHERE linked_profile.stripe_customer_id = customer.id
         )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM public.workspaces AS linked_workspace
+          WHERE linked_workspace.stripe_customer_id = customer.id
+        )
       ORDER BY
         CASE
           WHEN EXISTS (
@@ -111,7 +121,7 @@ BEGIN
             SELECT 1
             FROM stripe.subscriptions AS subscription
             WHERE subscription.customer = customer.id
-              AND subscription.status = 'trialing'
+              AND subscription.status IN ('trialing', 'paused')
           ) THEN 1
           WHEN EXISTS (
             SELECT 1
@@ -179,7 +189,7 @@ ranked_candidates AS (
             SELECT 1
             FROM stripe.subscriptions AS subscription
             WHERE subscription.customer = customer.id
-              AND subscription.status = 'trialing'
+              AND subscription.status IN ('trialing', 'paused')
           ) THEN 1
           WHEN EXISTS (
             SELECT 1
@@ -210,6 +220,11 @@ ranked_candidates AS (
       SELECT 1
       FROM public.profiles AS linked_profile
       WHERE linked_profile.stripe_customer_id = customer.id
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.workspaces AS linked_workspace
+      WHERE linked_workspace.stripe_customer_id = customer.id
     )
 )
 UPDATE public.profiles AS profile
