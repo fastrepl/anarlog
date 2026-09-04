@@ -11,6 +11,8 @@ import {
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { completeDestructiveButtonHold } from "~/test-utils/destructive-button";
+
 const mocks = vi.hoisted(() => ({
   cleanupLegacyFiles: vi.fn(),
   getLegacyCleanupStatus: vi.fn(),
@@ -125,7 +127,7 @@ describe("LegacyMigrationCleanupRow", () => {
       name: "Clean Up",
     });
 
-    fireEvent.click(openButton);
+    completeDestructiveButtonHold(openButton);
 
     expect(screen.getByText("Clean up legacy files?")).toBeTruthy();
     expect(
@@ -135,7 +137,7 @@ describe("LegacyMigrationCleanupRow", () => {
     ).toBeTruthy();
     expect(mocks.cleanupLegacyFiles).not.toHaveBeenCalled();
 
-    fireEvent.click(
+    completeDestructiveButtonHold(
       within(screen.getByRole("dialog")).getByRole("button", {
         name: "Clean Up",
       }),

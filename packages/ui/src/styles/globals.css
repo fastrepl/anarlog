@@ -133,6 +133,16 @@
     }
   }
 
+  @keyframes destructive-button-hold {
+    from {
+      transform: scaleX(1);
+    }
+
+    to {
+      transform: scaleX(0);
+    }
+  }
+
   @keyframes marquee {
     from {
       transform: translateX(0);

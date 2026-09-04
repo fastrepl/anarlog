@@ -8,6 +8,8 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { completeDestructiveButtonHold } from "~/test-utils/destructive-button";
+
 const mocks = vi.hoisted(() => ({
   analyticsEvent: vi.fn(() => Promise.resolve()),
   analyticsSetProperties: vi.fn(() => Promise.resolve()),
@@ -106,7 +108,9 @@ describe("SettingsAccount", () => {
   it("confirms sign-out before ending the session", async () => {
     renderAccount();
 
-    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    completeDestructiveButtonHold(
+      screen.getByRole("button", { name: "Sign out" }),
+    );
 
     expect(mocks.signOut).not.toHaveBeenCalled();
     expect(
@@ -119,9 +123,11 @@ describe("SettingsAccount", () => {
     expect(mocks.signOut).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    completeDestructiveButtonHold(
+      screen.getByRole("button", { name: "Sign out" }),
+    );
     const signOutButtons = screen.getAllByRole("button", { name: "Sign out" });
-    fireEvent.click(signOutButtons[signOutButtons.length - 1]!);
+    completeDestructiveButtonHold(signOutButtons[signOutButtons.length - 1]!);
 
     await waitFor(() => expect(mocks.signOut).toHaveBeenCalledOnce());
     expect(mocks.analyticsEvent).toHaveBeenCalledWith({

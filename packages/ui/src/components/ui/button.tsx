@@ -39,6 +39,8 @@ const buttonVariants = cva(
   },
 );
 
+const DESTRUCTIVE_HOLD_ANIMATION = "destructive-button-hold";
+
 export interface ButtonProps
   extends
     React.ButtonHTMLAttributes<HTMLButtonElement>,
@@ -55,15 +57,134 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       size,
       asChild = false,
       smoothCorners = true,
+      onBlur,
+      disabled,
+      onAnimationEnd,
+      onAnimationEndCapture,
+      onClick,
+      onKeyDown,
+      onKeyUp,
+      onPointerCancel,
+      onPointerDown,
+      onPointerLeave,
+      onPointerUp,
       ...props
     },
     ref,
   ) => {
+    const [isHolding, setIsHolding] = React.useState(false);
+    const allowClickRef = React.useRef(false);
+    const holdInputRef = React.useRef<"keyboard" | "pointer" | null>(null);
     const Comp = asChild ? Slot : "button";
     const squircleRef = useSquircleRef(ref);
+    const requiresHold = variant === "destructive" && !disabled;
+
+    const cancelHold = () => {
+      holdInputRef.current = null;
+      setIsHolding(false);
+    };
+
     return (
       <Comp
-        className={cn([buttonVariants({ variant, size, className })])}
+        className={cn([
+          buttonVariants({ variant, size, className }),
+          variant === "destructive" && [
+            "relative overflow-hidden",
+            "before:bg-destructive-foreground/80 before:pointer-events-none before:absolute before:inset-x-0 before:bottom-0 before:h-0.5 before:origin-left before:content-['']",
+            isHolding
+              ? "before:animate-[destructive-button-hold_1.2s_linear_forwards] before:opacity-100"
+              : "before:opacity-0",
+          ],
+        ])}
+        data-hold-state={
+          variant === "destructive"
+            ? isHolding
+              ? "holding"
+              : "idle"
+            : undefined
+        }
+        onBlur={(event) => {
+          onBlur?.(event);
+          if (holdInputRef.current === "keyboard") cancelHold();
+        }}
+        disabled={disabled}
+        onAnimationEnd={onAnimationEnd}
+        onAnimationEndCapture={(event) => {
+          onAnimationEndCapture?.(event);
+          if (event.animationName !== DESTRUCTIVE_HOLD_ANIMATION) return;
+
+          onAnimationEnd?.(event);
+          event.stopPropagation();
+          if (!requiresHold || !isHolding) return;
+
+          cancelHold();
+          allowClickRef.current = true;
+          try {
+            event.currentTarget.click();
+          } finally {
+            allowClickRef.current = false;
+          }
+        }}
+        onClick={(event) => {
+          if (!requiresHold || allowClickRef.current) {
+            onClick?.(event);
+            return;
+          }
+
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+        onKeyDown={(event) => {
+          onKeyDown?.(event);
+          if (
+            event.defaultPrevented ||
+            !requiresHold ||
+            event.repeat ||
+            (event.key !== "Enter" && event.key !== " ")
+          ) {
+            return;
+          }
+
+          event.preventDefault();
+          holdInputRef.current = "keyboard";
+          setIsHolding(true);
+        }}
+        onKeyUp={(event) => {
+          onKeyUp?.(event);
+          if (
+            holdInputRef.current === "keyboard" &&
+            (event.key === "Enter" || event.key === " ")
+          ) {
+            event.preventDefault();
+            cancelHold();
+          }
+        }}
+        onPointerCancel={(event) => {
+          onPointerCancel?.(event);
+          if (holdInputRef.current === "pointer") cancelHold();
+        }}
+        onPointerDown={(event) => {
+          onPointerDown?.(event);
+          if (
+            event.defaultPrevented ||
+            !requiresHold ||
+            !event.isPrimary ||
+            event.button !== 0
+          ) {
+            return;
+          }
+
+          holdInputRef.current = "pointer";
+          setIsHolding(true);
+        }}
+        onPointerLeave={(event) => {
+          onPointerLeave?.(event);
+          if (holdInputRef.current === "pointer") cancelHold();
+        }}
+        onPointerUp={(event) => {
+          onPointerUp?.(event);
+          if (holdInputRef.current === "pointer") cancelHold();
+        }}
         {...props}
         ref={smoothCorners ? squircleRef : ref}
       />
