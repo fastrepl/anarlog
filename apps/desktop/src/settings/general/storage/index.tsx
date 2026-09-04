@@ -14,7 +14,10 @@ import {
 } from "./legacy-cleanup";
 import { displayPath } from "./path-utils";
 
-import { scheduleAutomaticRelaunch } from "~/shared/relaunch";
+import {
+  flushApplicationState,
+  scheduleAutomaticRelaunch,
+} from "~/shared/relaunch";
 
 function StorageLocationRow() {
   const { t } = useLingui();
@@ -31,14 +34,11 @@ function StorageLocationRow() {
   });
   const changeMutation = useMutation({
     mutationFn: async (newPath: string) => {
-      const copyResult = await settingsCommands.copyVault(newPath);
-      if (copyResult.status === "error") {
-        throw new Error(copyResult.error);
-      }
+      await flushApplicationState();
 
-      const setResult = await settingsCommands.setVaultBase(newPath);
-      if (setResult.status === "error") {
-        throw new Error(setResult.error);
+      const moveResult = await settingsCommands.moveVault(newPath);
+      if (moveResult.status === "error") {
+        throw new Error(moveResult.error);
       }
 
       await scheduleAutomaticRelaunch();

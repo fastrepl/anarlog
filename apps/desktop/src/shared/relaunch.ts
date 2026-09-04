@@ -9,7 +9,7 @@ let pendingAutomaticRelaunch = false;
 let automaticRelaunchTimeout: ReturnType<typeof setTimeout> | null = null;
 const APPLICATION_STATE_FLUSH_TIMEOUT_MS = 5000;
 
-async function saveApplicationState(): Promise<void> {
+export async function flushApplicationState(): Promise<void> {
   const results = await Promise.allSettled([
     flushDatabaseWritesWithin(APPLICATION_STATE_FLUSH_TIMEOUT_MS),
     store2Commands.save(),
@@ -20,7 +20,7 @@ async function saveApplicationState(): Promise<void> {
 
 async function relaunch(): Promise<void> {
   try {
-    await saveApplicationState();
+    await flushApplicationState();
   } catch (error) {
     console.error("Failed to flush application data before relaunch", error);
   }

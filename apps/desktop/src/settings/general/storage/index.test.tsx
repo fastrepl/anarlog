@@ -10,12 +10,12 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  copyVault: vi.fn(),
+  flushApplicationState: vi.fn(),
   homeDir: vi.fn(),
+  moveVault: vi.fn(),
   openPath: vi.fn(),
   scheduleAutomaticRelaunch: vi.fn(),
   selectFolder: vi.fn(),
-  setVaultBase: vi.fn(),
   vaultBase: vi.fn(),
 }));
 
@@ -40,12 +40,12 @@ vi.mock("@anlg/plugin-opener2", () => ({
 }));
 vi.mock("@anlg/plugin-settings", () => ({
   commands: {
-    copyVault: mocks.copyVault,
-    setVaultBase: mocks.setVaultBase,
+    moveVault: mocks.moveVault,
     vaultBase: mocks.vaultBase,
   },
 }));
 vi.mock("~/shared/relaunch", () => ({
+  flushApplicationState: mocks.flushApplicationState,
   scheduleAutomaticRelaunch: mocks.scheduleAutomaticRelaunch,
 }));
 vi.mock("./legacy-cleanup", () => ({
@@ -75,8 +75,8 @@ describe("StorageSettingsView", () => {
       status: "ok",
       data: "/Users/test/Google Drive/Anarlog",
     });
-    mocks.copyVault.mockResolvedValue({ status: "ok", data: null });
-    mocks.setVaultBase.mockResolvedValue({ status: "ok", data: null });
+    mocks.flushApplicationState.mockResolvedValue(undefined);
+    mocks.moveVault.mockResolvedValue({ status: "ok", data: null });
     mocks.scheduleAutomaticRelaunch.mockResolvedValue("scheduled");
     mocks.selectFolder.mockResolvedValue(null);
   });
@@ -94,7 +94,7 @@ describe("StorageSettingsView", () => {
     expect(screen.queryByText("Legacy cleanup")).toBeNull();
   });
 
-  it("copies the vault, updates the location, and relaunches", async () => {
+  it("flushes pending writes, moves the vault, and relaunches", async () => {
     mocks.selectFolder.mockResolvedValue("/Users/test/Anarlog");
     renderView();
 
@@ -102,25 +102,45 @@ describe("StorageSettingsView", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Change" }));
 
     await waitFor(() => {
-      expect(mocks.copyVault).toHaveBeenCalledWith("/Users/test/Anarlog");
-      expect(mocks.setVaultBase).toHaveBeenCalledWith("/Users/test/Anarlog");
+      expect(mocks.flushApplicationState).toHaveBeenCalledTimes(1);
+      expect(mocks.moveVault).toHaveBeenCalledWith("/Users/test/Anarlog");
       expect(mocks.scheduleAutomaticRelaunch).toHaveBeenCalledTimes(1);
     });
+
+    expect(
+      mocks.flushApplicationState.mock.invocationCallOrder[0],
+    ).toBeLessThan(mocks.moveVault.mock.invocationCallOrder[0]);
   });
 
-  it("does not update the location when copying fails", async () => {
+  it("does not relaunch when moving the vault fails", async () => {
     mocks.selectFolder.mockResolvedValue("/Users/test/Anarlog");
-    mocks.copyVault.mockResolvedValue({
+    mocks.moveVault.mockResolvedValue({
       status: "error",
-      error: "Could not copy storage",
+      error: "Could not move storage",
     });
     renderView();
 
     await screen.findByText("~/Google Drive/Anarlog");
     fireEvent.click(await screen.findByRole("button", { name: "Change" }));
 
-    expect(await screen.findByText("Could not copy storage")).toBeTruthy();
-    expect(mocks.setVaultBase).not.toHaveBeenCalled();
+    expect(await screen.findByText("Could not move storage")).toBeTruthy();
+    expect(mocks.scheduleAutomaticRelaunch).not.toHaveBeenCalled();
+  });
+
+  it("does not move the vault when pending writes fail to flush", async () => {
+    mocks.selectFolder.mockResolvedValue("/Users/test/Anarlog");
+    mocks.flushApplicationState.mockRejectedValue(
+      new Error("Could not save pending changes"),
+    );
+    renderView();
+
+    await screen.findByText("~/Google Drive/Anarlog");
+    fireEvent.click(await screen.findByRole("button", { name: "Change" }));
+
+    expect(
+      await screen.findByText("Could not save pending changes"),
+    ).toBeTruthy();
+    expect(mocks.moveVault).not.toHaveBeenCalled();
     expect(mocks.scheduleAutomaticRelaunch).not.toHaveBeenCalled();
   });
 });
