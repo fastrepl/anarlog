@@ -662,8 +662,31 @@ async fn load_bounded_e2ee_witness_repairs(
                  replica.id IS NOT NULL
                  AND (
                    replica.workspace_id != witness.workspace_id
-                   OR replica_hash.record_id IS NULL
-                   OR replica_hash.payload_hash != witness.payload_hash
+                   OR (
+                     (
+                       replica_hash.record_id IS NULL
+                       OR replica_hash.payload_hash != witness.payload_hash
+                     )
+                     AND NOT EXISTS (
+                       SELECT 1
+                       FROM e2ee_local_state AS local
+                       WHERE local.record_id = replica.id
+                         AND local.workspace_id = replica.workspace_id
+                         AND local.payload_hash = replica_hash.payload_hash
+                         AND (
+                           local.revision > witness.revision
+                           OR (
+                             local.revision = witness.revision
+                             AND local.writer_id > witness.writer_id
+                           )
+                           OR (
+                             local.revision = witness.revision
+                             AND local.writer_id = witness.writer_id
+                             AND local.payload_hash > witness.payload_hash
+                           )
+                         )
+                     )
+                   )
                  )
                )
              ) AS needs_repair

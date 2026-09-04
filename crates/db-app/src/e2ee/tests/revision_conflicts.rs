@@ -105,6 +105,126 @@ async fn rejects_and_repairs_replayed_older_field_revisions() {
 }
 
 #[tokio::test]
+async fn stale_witness_repair_keeps_newer_local_replica_pending_for_upload() {
+    let db = test_db().await;
+    let workspace_keys = keys("workspace-a");
+    let key = &workspace_keys["workspace-a"];
+    sqlx::query(
+        "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session-1', 'workspace-a', 'user-a', 'First')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    encrypt_e2ee_replica_changes(db.pool(), &workspace_keys)
+        .await
+        .unwrap();
+
+    let initial = pending_e2ee_witness_uploads(db.pool(), "workspace-a", key, 128, usize::MAX)
+        .await
+        .unwrap();
+    let title_record_id = key.blind_field_id("sessions", "session-1", "title");
+    let stale_title = initial
+        .iter()
+        .find(|upload| upload.record_id == title_record_id)
+        .unwrap()
+        .clone();
+    let initial_events = initial
+        .iter()
+        .enumerate()
+        .map(|(index, upload)| E2eeWitnessEvent {
+            sequence: u64::try_from(index + 1).unwrap(),
+            record_id: upload.record_id.clone(),
+            workspace_id: upload.workspace_id.clone(),
+            payload_hash: upload.payload_hash.clone(),
+            payload: upload.payload.clone(),
+        })
+        .collect::<Vec<_>>();
+    merge_e2ee_witness_events(db.pool(), key, "workspace-a", &initial_events)
+        .await
+        .unwrap();
+    let initial_stats =
+        apply_received_e2ee_replica_changes_with_witness(db.pool(), &workspace_keys, true)
+            .await
+            .unwrap();
+    assert!(!initial_stats.remaining_replica_changes);
+
+    sqlx::query("UPDATE sessions SET title = 'Second' WHERE id = 'session-1'")
+        .execute(db.pool())
+        .await
+        .unwrap();
+    encrypt_e2ee_replica_changes(db.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    let current_payload: String =
+        sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+            .bind(&title_record_id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+
+    merge_e2ee_witness_events(
+        db.pool(),
+        key,
+        "workspace-a",
+        &[E2eeWitnessEvent {
+            sequence: u64::try_from(initial.len() + 1).unwrap(),
+            record_id: stale_title.record_id,
+            workspace_id: stale_title.workspace_id,
+            payload_hash: stale_title.payload_hash,
+            payload: stale_title.payload,
+        }],
+    )
+    .await
+    .unwrap();
+
+    let stats = apply_received_e2ee_replica_changes_with_witness(db.pool(), &workspace_keys, true)
+        .await
+        .unwrap();
+    let title: String = sqlx::query_scalar("SELECT title FROM sessions WHERE id = 'session-1'")
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    let replica_payload: String =
+        sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+            .bind(&title_record_id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    let replica_pending: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_replica_pending WHERE record_id = ?")
+            .bind(&title_record_id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    let repair_pending: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_witness_repair_pending WHERE record_id = ?")
+            .bind(&title_record_id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    let witness_pending: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_witness_pending WHERE record_id = ?")
+            .bind(&title_record_id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+
+    assert!(!stats.remaining_replica_changes);
+    assert_eq!(title, "Second");
+    assert_eq!(replica_payload, current_payload);
+    assert_eq!(replica_pending, 0);
+    assert_eq!(repair_pending, 0);
+    assert_eq!(witness_pending, 1);
+
+    let repeated =
+        apply_received_e2ee_replica_changes_with_witness(db.pool(), &workspace_keys, true)
+            .await
+            .unwrap();
+    assert!(!repeated.remaining_replica_changes);
+}
+
+#[tokio::test]
 async fn equal_revision_payloads_converge_and_repair_the_replica() {
     let db = test_db().await;
     let workspace_keys = keys("workspace-a");
