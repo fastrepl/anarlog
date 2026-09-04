@@ -11,12 +11,11 @@ pub use ext::{Windows, WindowsPluginExt};
 pub use tab::*;
 pub use window::*;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{
     Mutex,
     atomic::{AtomicBool, AtomicU64, Ordering},
 };
-use std::time::{Duration, Instant};
 
 const PLUGIN_NAME: &str = "windows";
 
@@ -24,8 +23,6 @@ pub fn persisted_window_state_flags() -> tauri_plugin_window_state::StateFlags {
     use tauri_plugin_window_state::StateFlags;
     StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED
 }
-
-const WEBVIEW_RECOVERY_GRACE_PERIOD: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Copy)]
 pub struct SavedFrame {
@@ -103,28 +100,26 @@ pub struct WindowReadyState {
 struct WebviewHealthState {
     next_registration_id: AtomicU64,
     pending: Mutex<HashMap<String, (u64, String, oneshot::Sender<()>)>>,
-    recovering_since: Mutex<HashMap<String, Instant>>,
+    recovering: Mutex<HashSet<String>>,
 }
 
 impl WebviewHealthState {
     fn register(&self, label: String) -> Option<(u64, String, oneshot::Receiver<()>)> {
-        let mut recovering_since = self.recovering_since.lock().unwrap();
-        if recovering_since
-            .get(&label)
-            .is_some_and(|started_at| started_at.elapsed() < WEBVIEW_RECOVERY_GRACE_PERIOD)
-        {
+        let recovering = self.recovering.lock().unwrap();
+        if recovering.contains(&label) {
             return None;
         }
-        recovering_since.remove(&label);
+
+        let mut pending = self.pending.lock().unwrap();
+        if pending.contains_key(&label) {
+            return None;
+        }
 
         let (tx, rx) = oneshot::channel();
         let registration_id = self.next_registration_id.fetch_add(1, Ordering::Relaxed);
         let request_id = uuid::Uuid::new_v4().to_string();
-        self.pending
-            .lock()
-            .unwrap()
-            .insert(label, (registration_id, request_id.clone(), tx));
-        drop(recovering_since);
+        pending.insert(label, (registration_id, request_id.clone(), tx));
+        drop(recovering);
 
         Some((registration_id, request_id, rx))
     }
@@ -157,19 +152,21 @@ impl WebviewHealthState {
         is_match
     }
 
-    fn begin_recovery(&self, label: &str) {
-        let mut recovering_since = self.recovering_since.lock().unwrap();
-        recovering_since.insert(label.to_string(), Instant::now());
+    fn begin_recovery(&self, label: &str) -> bool {
+        let mut recovering = self.recovering.lock().unwrap();
+        if !recovering.insert(label.to_string()) {
+            return false;
+        }
         self.pending.lock().unwrap().remove(label);
+        true
     }
 
     fn ready(&self, label: &str) {
-        self.recovering_since.lock().unwrap().remove(label);
+        self.recovering.lock().unwrap().remove(label);
     }
 
     fn remove(&self, label: &str) {
-        let mut recovering_since = self.recovering_since.lock().unwrap();
-        recovering_since.remove(label);
+        self.recovering.lock().unwrap().remove(label);
         self.pending.lock().unwrap().remove(label);
     }
 }
@@ -287,6 +284,9 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 app.manage(health_state);
             }
 
+            #[cfg(target_os = "macos")]
+            crate::ext::start_webview_health_monitor(app.clone());
+
             {
                 let dock_visibility_state = DockVisibilityState::default();
                 app.manage(dock_visibility_state);
@@ -356,34 +356,32 @@ mod test {
     async fn webview_health_acknowledges_only_the_current_request() {
         let state = WebviewHealthState::default();
         let (first_id, first_request_id, first_rx) = state.register("main".into()).unwrap();
-        let (second_id, second_request_id, second_rx) = state.register("main".into()).unwrap();
 
-        assert!(first_rx.await.is_err());
-        assert!(!state.acknowledge("main", &first_request_id));
+        assert!(!state.acknowledge("main", "stale-request"));
+        assert!(!state.unregister("main", first_id + 1));
+        assert!(state.acknowledge("main", &first_request_id));
+        assert!(first_rx.await.is_ok());
         assert!(!state.unregister("main", first_id));
-        assert!(state.acknowledge("main", &second_request_id));
-        assert!(second_rx.await.is_ok());
-        assert!(!state.unregister("main", second_id));
         assert!(state.pending.lock().unwrap().is_empty());
     }
 
     #[test]
-    fn webview_health_timeout_unregisters_only_the_current_request() {
+    fn webview_health_allows_only_one_probe_per_window() {
         let state = WebviewHealthState::default();
         let (first_id, _, _) = state.register("main".into()).unwrap();
-        let (second_id, _, _) = state.register("main".into()).unwrap();
 
-        assert!(!state.unregister("main", first_id));
-        assert!(state.unregister("main", second_id));
-        assert!(state.pending.lock().unwrap().is_empty());
+        assert!(state.register("main".into()).is_none());
+        assert!(state.unregister("main", first_id));
+        assert!(state.register("main".into()).is_some());
     }
 
     #[test]
-    fn webview_health_waits_for_reloaded_frontend() {
+    fn webview_health_recovery_starts_once_and_blocks_probes() {
         let state = WebviewHealthState::default();
-        state.begin_recovery("main");
+        assert!(state.begin_recovery("main"));
 
         assert!(state.register("main".into()).is_none());
+        assert!(!state.begin_recovery("main"));
         state.ready("main");
         assert!(state.register("main".into()).is_some());
     }

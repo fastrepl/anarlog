@@ -4,7 +4,85 @@ use tauri_specta::Event;
 use crate::{AppWindow, SavedFrame, WebviewHealthState, WindowImpl, WindowReadyState, events};
 
 #[cfg(target_os = "macos")]
-const WEBVIEW_HEALTH_CHECK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
+const WEBVIEW_HEALTH_CHECK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+#[cfg(target_os = "macos")]
+const WEBVIEW_HEALTH_CHECK_RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(500);
+#[cfg(target_os = "macos")]
+const WEBVIEW_HEALTH_MONITOR_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
+#[cfg(target_os = "macos")]
+const WEBVIEW_HEALTH_CHECK_ATTEMPTS: u8 = 2;
+
+#[cfg(target_os = "macos")]
+enum WebviewHealthCheckResult {
+    Healthy,
+    Unhealthy { request_id: String },
+    Skipped,
+}
+
+#[cfg(target_os = "macos")]
+async fn check_webview_health(
+    app: &AppHandle<tauri::Wry>,
+    label: &str,
+) -> WebviewHealthCheckResult {
+    let Some(state) = app.try_state::<WebviewHealthState>() else {
+        return WebviewHealthCheckResult::Skipped;
+    };
+    let Some((registration_id, request_id, rx)) = state.register(label.to_string()) else {
+        return WebviewHealthCheckResult::Skipped;
+    };
+
+    let health_check = events::WebviewHealthCheck {
+        request_id: request_id.clone(),
+    };
+    if let Err(error) = health_check.emit_to(app, label) {
+        let is_current = state.unregister(label, registration_id);
+        tracing::warn!(%error, %request_id, "failed to request main webview health check");
+        return if is_current {
+            WebviewHealthCheckResult::Unhealthy { request_id }
+        } else {
+            WebviewHealthCheckResult::Skipped
+        };
+    }
+
+    match tokio::time::timeout(WEBVIEW_HEALTH_CHECK_TIMEOUT, rx).await {
+        Ok(Ok(())) => WebviewHealthCheckResult::Healthy,
+        Ok(Err(_)) => WebviewHealthCheckResult::Skipped,
+        Err(_) => {
+            let is_current = state.unregister(label, registration_id);
+            if is_current {
+                WebviewHealthCheckResult::Unhealthy { request_id }
+            } else {
+                WebviewHealthCheckResult::Skipped
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn webview_is_visible(app: &AppHandle<tauri::Wry>, label: &str) -> bool {
+    app.get_webview_window(label)
+        .and_then(|window| window.is_visible().ok())
+        .unwrap_or(false)
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn start_webview_health_monitor(app: AppHandle<tauri::Wry>) {
+    tauri::async_runtime::spawn(async move {
+        let mut interval = tokio::time::interval(WEBVIEW_HEALTH_MONITOR_INTERVAL);
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        interval.tick().await;
+
+        loop {
+            interval.tick().await;
+            let Some(window) = AppWindow::Main.get(&app) else {
+                continue;
+            };
+            if window.is_visible().unwrap_or(false) {
+                AppWindow::Main.request_webview_health_check(&app, &window);
+            }
+        }
+    });
+}
 
 #[cfg(target_os = "macos")]
 pub(crate) fn run_on_main_thread<R: Send + 'static>(
@@ -22,33 +100,29 @@ pub(crate) fn run_on_main_thread<R: Send + 'static>(
 
 impl AppWindow {
     #[cfg(target_os = "macos")]
-    fn reload_unresponsive_webview(app: &AppHandle<tauri::Wry>, label: &str, request_id: &str) {
-        let Some(window) = app.get_webview_window(label) else {
-            return;
-        };
-        if !window.is_visible().unwrap_or(false) {
+    fn restart_unresponsive_app(app: &AppHandle<tauri::Wry>, label: &str, request_id: &str) {
+        if !webview_is_visible(app, label) {
             return;
         }
 
         let Some(state) = app.try_state::<WebviewHealthState>() else {
             return;
         };
-        state.begin_recovery(label);
-
-        match window.reload() {
-            Ok(()) => tracing::warn!(
-                request_id,
-                "reloaded unresponsive main webview after reopen"
-            ),
-            Err(error) => {
-                state.ready(label);
-                tracing::error!(
-                    %error,
-                    request_id,
-                    "failed to reload unresponsive main webview after reopen"
-                );
-            }
+        if !state.begin_recovery(label) {
+            return;
         }
+
+        use tauri_plugin_window_state::AppHandleExt;
+        if let Err(error) = app.save_window_state(crate::persisted_window_state_flags()) {
+            tracing::warn!(%error, "failed to save window state before webview recovery");
+        }
+
+        tracing::error!(
+            %request_id,
+            attempts = WEBVIEW_HEALTH_CHECK_ATTEMPTS,
+            "restarting app after repeated main webview health check failures"
+        );
+        app.request_restart();
     }
 
     pub fn request_webview_health_check(
@@ -62,41 +136,37 @@ impl AppWindow {
                 return;
             }
 
-            let Some(state) = app.try_state::<WebviewHealthState>() else {
-                return;
-            };
             let label = window.label().to_string();
-            let Some((registration_id, request_id, rx)) = state.register(label.clone()) else {
-                return;
-            };
-
-            let health_check = events::WebviewHealthCheck {
-                request_id: request_id.clone(),
-            };
-            if let Err(error) = health_check.emit_to(app, &label) {
-                let should_reload = state.unregister(&label, registration_id);
-                tracing::warn!(%error, "failed to request main webview health check");
-                if should_reload {
-                    Self::reload_unresponsive_webview(app, &label, &request_id);
-                }
-                return;
-            }
-
             let app = app.clone();
             tauri::async_runtime::spawn(async move {
-                match tokio::time::timeout(WEBVIEW_HEALTH_CHECK_TIMEOUT, rx).await {
-                    Ok(Ok(())) | Ok(Err(_)) => return,
-                    Err(_) => {}
+                let mut last_request_id = None;
+                for attempt in 1..=WEBVIEW_HEALTH_CHECK_ATTEMPTS {
+                    if !webview_is_visible(&app, &label) {
+                        return;
+                    }
+
+                    match check_webview_health(&app, &label).await {
+                        WebviewHealthCheckResult::Healthy | WebviewHealthCheckResult::Skipped => {
+                            return;
+                        }
+                        WebviewHealthCheckResult::Unhealthy { request_id } => {
+                            tracing::warn!(
+                                %request_id,
+                                attempt,
+                                "main webview health check failed"
+                            );
+                            last_request_id = Some(request_id);
+                        }
+                    }
+
+                    if attempt < WEBVIEW_HEALTH_CHECK_ATTEMPTS {
+                        tokio::time::sleep(WEBVIEW_HEALTH_CHECK_RETRY_DELAY).await;
+                    }
                 }
 
-                let Some(state) = app.try_state::<WebviewHealthState>() else {
-                    return;
-                };
-                if !state.unregister(&label, registration_id) {
-                    return;
+                if let Some(request_id) = last_request_id {
+                    Self::restart_unresponsive_app(&app, &label, &request_id);
                 }
-
-                Self::reload_unresponsive_webview(&app, &label, &request_id);
             });
         }
 
