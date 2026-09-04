@@ -188,9 +188,9 @@ impl EmailDelivery {
                 recipient,
                 owner_email,
                 &sender_name,
-                format!("{sender_name} invited you to {workspace_name}"),
+                format!("You're invited to join the \"{workspace_name}\" team in Anarlog"),
                 format!(
-                    "{} invited you to join \"{}\" in Anarlog.\n\nAccept the invitation:\n{}\n\nReply to this email to contact {}.",
+                    "{} invited you to join \"{}\", a team in Anarlog.\n\nAccept the invitation:\n{}\n\nReply to this email to contact {}.",
                     sender_name,
                     workspace_name,
                     invitation_url,
