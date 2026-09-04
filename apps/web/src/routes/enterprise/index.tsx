@@ -1,4 +1,3 @@
-import { BellRinging, CheckCircle, HardDrives } from "@phosphor-icons/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { cn } from "@anlg/utils";
@@ -6,10 +5,6 @@ import { cn } from "@anlg/utils";
 import { AnarlogLogo } from "@/components/anarlog-logo";
 import { BookFounderCall } from "@/components/book-founder-call";
 import { EnterpriseCtaLink } from "@/components/enterprise-cta-link";
-import {
-  LocalFilesVisual,
-  MeetingCaptureVisual,
-} from "@/components/home-page/privacy-section";
 import { PilotPath } from "@/components/pilot-path";
 import { SecurityReviewList } from "@/components/security-review-list";
 import { SiteFooter } from "@/components/site-footer";
@@ -45,29 +40,29 @@ const pillarRows = [
     {
       title: "Private by architecture",
       body: "Notes live in local SQLite, and cloud sync is end-to-end encrypted — our servers only ever hold ciphertext.",
-      Visual: LocalFilesVisual,
+      image: "/images/enterprise/private-architecture.webp",
     },
     {
       title: "No bots in your meetings",
       body: "Anarlog listens locally. Nothing joins your calls, and nothing appears in participant lists.",
-      Visual: MeetingCaptureVisual,
+      image: "/images/enterprise/no-bots.webp",
     },
     {
       title: "Consent on your terms",
       body: "Recording disclosure and consent defaults set once, org-wide — every meeting meets the same bar.",
-      Visual: ConsentNoticeVisual,
+      image: "/images/enterprise/consent.webp",
     },
   ],
   [
     {
       title: "Admin without surveillance",
       body: "Members, roles, seats, and org-wide policies built on metadata — never on anyone's notes.",
-      Visual: WorkspaceAdminVisual,
+      image: "/images/enterprise/admin.webp",
     },
     {
       title: "Self-host the whole stack",
       body: "Run the Anarlog server on infrastructure you control for regulated environments.",
-      Visual: SelfHostVisual,
+      image: "/images/enterprise/self-host.webp",
     },
   ],
 ];
@@ -133,7 +128,7 @@ function EnterprisePage() {
                         key={pillar.title}
                         className="flex flex-col px-6 py-3 text-center md:w-[31%] md:p-4"
                       >
-                        <pillar.Visual />
+                        <SketchIcon src={pillar.image} />
                         <h3 className="mt-5 text-base font-medium text-[#4f4940] md:mt-7">
                           {pillar.title}
                         </h3>
@@ -250,69 +245,15 @@ function EnterprisePage() {
   );
 }
 
-function ConsentNoticeVisual() {
+function SketchIcon({ src }: { src: string }) {
   return (
     <div className="flex h-20 items-center justify-center select-none md:h-28 md:w-full">
-      <div className="flex w-full max-w-[260px] items-center gap-3 rounded-2xl border border-neutral-200 bg-white py-2 pr-3 pl-4 text-left shadow-[0_3px_10px_rgba(24,22,19,0.04)]">
-        <BellRinging size={28} className="text-stone-700" aria-hidden="true" />
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-stone-800">
-            Consent notice sent
-          </span>
-          <span className="text-sm text-stone-400">org-wide policy</span>
-        </div>
-        <CheckCircle
-          size={20}
-          weight="fill"
-          className="ml-auto text-emerald-500"
-          aria-hidden="true"
-        />
-      </div>
-    </div>
-  );
-}
-
-function WorkspaceAdminVisual() {
-  return (
-    <div className="flex h-20 items-center justify-center select-none md:h-28 md:w-full">
-      <div className="flex w-full max-w-[260px] items-center gap-3 rounded-2xl border border-neutral-200 bg-white py-2 pr-3 pl-4 text-left shadow-[0_3px_10px_rgba(24,22,19,0.04)]">
-        <div className="flex -space-x-2.5" aria-hidden="true">
-          {["S", "B", "A"].map((initial) => (
-            <span
-              key={initial}
-              className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-[#eadfce] text-xs font-semibold text-[#756b5d] [corner-shape:round]"
-            >
-              {initial}
-            </span>
-          ))}
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-stone-800">
-            Design team
-          </span>
-          <span className="text-sm text-stone-400">12 seats</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SelfHostVisual() {
-  return (
-    <div className="flex h-20 items-center justify-center select-none md:h-28 md:w-full">
-      <div className="flex w-full max-w-[260px] items-center gap-3 rounded-2xl border border-neutral-200 bg-white py-2 pr-3 pl-4 text-left shadow-[0_3px_10px_rgba(24,22,19,0.04)]">
-        <HardDrives size={28} className="text-stone-700" aria-hidden="true" />
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-stone-800">
-            notes.acme.internal
-          </span>
-          <span className="text-sm text-stone-400">your infrastructure</span>
-        </div>
-        <span
-          className="ml-auto h-2.5 w-2.5 rounded-full bg-emerald-500 [corner-shape:round]"
-          aria-hidden="true"
-        />
-      </div>
+      <img
+        src={src}
+        alt=""
+        className="h-16 w-auto object-contain md:h-24"
+        draggable={false}
+      />
     </div>
   );
 }
