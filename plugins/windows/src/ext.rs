@@ -64,6 +64,11 @@ fn webview_is_visible(app: &AppHandle<tauri::Wry>, label: &str) -> bool {
 }
 
 #[cfg(target_os = "macos")]
+pub(crate) fn should_restart_terminated_webview(label: &str, is_visible: bool) -> bool {
+    is_visible && matches!(label.parse::<AppWindow>(), Ok(AppWindow::Main))
+}
+
+#[cfg(target_os = "macos")]
 pub(crate) fn run_on_main_thread<R: Send + 'static>(
     app: &AppHandle<tauri::Wry>,
     f: impl FnOnce() -> R + Send + 'static,
@@ -99,6 +104,16 @@ impl AppWindow {
     pub(crate) fn recover_terminated_webview(webview: &tauri::Webview<tauri::Wry>) {
         let app = webview.app_handle();
         let label = webview.label();
+        let is_visible = webview_is_visible(app, label);
+        if !should_restart_terminated_webview(label, is_visible) {
+            tracing::warn!(
+                webview = %label,
+                is_visible,
+                "web content process terminated without requiring immediate app recovery"
+            );
+            return;
+        }
+
         if Self::prepare_clean_restart(app, label) {
             tracing::error!(webview = %label, "restarting app after web content process termination");
             app.request_restart();

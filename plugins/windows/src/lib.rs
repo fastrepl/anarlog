@@ -386,6 +386,21 @@ mod test {
         assert!(state.register("main".into()).is_some());
     }
 
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn terminated_webview_restarts_only_for_visible_main_window() {
+        assert!(crate::ext::should_restart_terminated_webview("main", true));
+        assert!(!crate::ext::should_restart_terminated_webview(
+            "main", false
+        ));
+        assert!(!crate::ext::should_restart_terminated_webview(
+            "composer", true
+        ));
+        assert!(!crate::ext::should_restart_terminated_webview(
+            "note-1", true
+        ));
+    }
+
     #[test]
     fn expansion_pop_removes_empty_window_entry() {
         let expansions = WindowExpansions::default();
