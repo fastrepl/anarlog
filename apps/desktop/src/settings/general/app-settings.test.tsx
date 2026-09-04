@@ -106,6 +106,6 @@ describe("AppSettingsView", () => {
     expect(
       screen.queryByRole("switch", { name: "Share usage data (PostHog)" }),
     ).toBeNull();
-    expect(screen.queryByRole("switch", { name: "Sentry" })).toBeNull();
+    expect(screen.queryByRole("switch", { name: "Error" })).toBeNull();
   });
 });

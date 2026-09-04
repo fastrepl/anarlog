@@ -70,19 +70,19 @@ describe("SettingsPrivacy", () => {
 
   afterEach(cleanup);
 
-  it("controls PostHog and Sentry independently", () => {
+  it("controls usage data and error reporting independently", () => {
     render(<SettingsPrivacy />);
 
     const posthog = screen.getByRole("switch", {
       name: "Share usage data (PostHog)",
     });
-    const sentry = screen.getByRole("switch", { name: "Sentry" });
+    const errorReporting = screen.getByRole("switch", { name: "Error" });
 
     expect(posthog.getAttribute("data-state")).toBe("checked");
-    expect(sentry.getAttribute("data-state")).toBe("unchecked");
+    expect(errorReporting.getAttribute("data-state")).toBe("unchecked");
 
     fireEvent.click(posthog);
-    fireEvent.click(sentry);
+    fireEvent.click(errorReporting);
 
     expect(mocks.setSettingValues).toHaveBeenNthCalledWith(1, {
       telemetry_consent: false,

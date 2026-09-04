@@ -1,8 +1,17 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { BookOpen, MinusCircle, Plus } from "@phosphor-icons/react";
+import {
+  BookOpen,
+  Check,
+  MinusCircle,
+  PencilSimple,
+  Plus,
+  X,
+} from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
+import { useState } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
+import { Input } from "@anlg/ui/components/ui/input";
 import {
   InputGroup,
   InputGroupAddon,
@@ -70,6 +79,18 @@ export function DictionarySettings({
       operation: "removed",
       term_count: nextTerms.length,
       removed_count: normalizedTerms.length - nextTerms.length,
+    });
+  };
+
+  const editTerm = (term: string, nextTerm: string) => {
+    const nextTerms = normalizedTerms.map((value) =>
+      value === term ? nextTerm : value,
+    );
+    onSave(JSON.stringify(nextTerms));
+    trackAnalyticsEvent("dictionary_updated", {
+      operation: "edited",
+      term_count: nextTerms.length,
+      edited_count: 1,
     });
   };
 
@@ -155,22 +176,13 @@ export function DictionarySettings({
           return (
             <div className="border-border bg-card divide-border divide-y overflow-hidden rounded-2xl border">
               {visibleTerms.map((term) => (
-                <div
+                <DictionaryTermRow
                   key={term}
-                  className="group flex min-h-12 items-center justify-between gap-3 py-3 pr-3 pl-4"
-                >
-                  <span className="text-sm">{term}</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground hover:text-foreground size-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-                    onClick={() => removeTerm(term)}
-                    aria-label={t`Remove ${term}`}
-                  >
-                    <MinusCircle className="size-4" />
-                  </Button>
-                </div>
+                  term={term}
+                  terms={normalizedTerms}
+                  onEdit={editTerm}
+                  onRemove={removeTerm}
+                />
               ))}
             </div>
           );
@@ -180,8 +192,120 @@ export function DictionarySettings({
   );
 }
 
+function DictionaryTermRow({
+  term,
+  terms,
+  onEdit,
+  onRemove,
+}: {
+  term: string;
+  terms: string[];
+  onEdit: (term: string, nextTerm: string) => void;
+  onRemove: (term: string) => void;
+}) {
+  const { t } = useLingui();
+  const [editValue, setEditValue] = useState<string | null>(null);
+  const nextTerm =
+    editValue === null ? null : getEditedDictionaryTerm(terms, term, editValue);
+
+  const saveEdit = () => {
+    if (!nextTerm) return;
+    onEdit(term, nextTerm);
+    setEditValue(null);
+  };
+
+  if (editValue !== null) {
+    return (
+      <div className="flex min-h-12 items-center gap-2 py-2 pr-3 pl-4">
+        <Input
+          autoFocus
+          className="h-8 min-w-0 flex-1"
+          value={editValue}
+          onChange={(event) => setEditValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              event.stopPropagation();
+              saveEdit();
+            }
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setEditValue(null);
+            }
+          }}
+          aria-label={`${t`Edit`}: ${term}`}
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-foreground size-7 shrink-0"
+          onClick={saveEdit}
+          disabled={!nextTerm}
+          aria-label={t`Save`}
+        >
+          <Check className="size-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-foreground size-7 shrink-0"
+          onClick={() => setEditValue(null)}
+          aria-label={t`Cancel`}
+        >
+          <X className="size-4" />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="group flex min-h-12 items-center justify-between gap-3 py-3 pr-3 pl-4">
+      <span className="text-sm">{term}</span>
+      <div className="flex items-center">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-foreground size-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+          onClick={() => setEditValue(term)}
+          aria-label={`${t`Edit`}: ${term}`}
+        >
+          <PencilSimple className="size-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-foreground size-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+          onClick={() => onRemove(term)}
+          aria-label={t`Remove ${term}`}
+        >
+          <MinusCircle className="size-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function appendDictionaryTerms(terms: string[], value: string): string[] {
   return normalizeKeywordList([...terms, ...parseDictionaryTermsText(value)]);
+}
+
+function getEditedDictionaryTerm(
+  terms: string[],
+  currentTerm: string,
+  value: string,
+): string | null {
+  const [nextTerm] = normalizeKeywordList([value]);
+  if (!nextTerm || nextTerm === currentTerm) return null;
+
+  const nextKey = nextTerm.toLocaleLowerCase();
+  const isDuplicate = terms.some(
+    (term) => term !== currentTerm && term.toLocaleLowerCase() === nextKey,
+  );
+  return isDuplicate ? null : nextTerm;
 }
 
 function getVisibleDictionaryTerms(terms: string[], value: string): string[] {

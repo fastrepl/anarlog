@@ -773,6 +773,7 @@ msgstr "Can view"
 #: src/imports/screen.tsx
 #: src/session-sharing/comments.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
+#: src/settings/dictionary/index.tsx
 #: src/settings/general/e2ee-setup.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
 #: src/settings/sync/index.tsx
@@ -1861,6 +1862,10 @@ msgstr "Each example must be 12,000 characters or fewer."
 msgid "Edit"
 msgstr "Edit"
 
+#: src/settings/dictionary/index.tsx
+msgid "Edit {term}"
+msgstr "Edit {term}"
+
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Edit date"
 msgstr "Edit date"
@@ -1951,6 +1956,10 @@ msgstr "Enter your API key (optional)"
 #: src/settings/general/e2ee-setup.tsx
 msgid "Enter your saved recovery key when another approved device is unavailable."
 msgstr "Enter your saved recovery key when another approved device is unavailable."
+
+#: src/settings/privacy/index.tsx
+msgid "Error"
+msgstr "Error"
 
 #: src/composer/index.tsx
 msgid "Esc to dismiss"
@@ -3876,6 +3885,7 @@ msgstr "Runs after the recording finishes, not during the meeting."
 msgid "Runs once the AI summary for the meeting is ready."
 msgstr "Runs once the AI summary for the meeting is ready."
 
+#: src/settings/dictionary/index.tsx
 #: src/settings/sync/index.tsx
 #: src/templates/auto-form.tsx
 msgid "Save"
@@ -4127,10 +4137,6 @@ msgstr "sent"
 #: src/settings/sync/index.tsx
 msgid "Sent {0}"
 msgstr "Sent {0}"
-
-#: src/settings/privacy/index.tsx
-msgid "Sentry"
-msgstr "Sentry"
 
 #: src/session/components/note-input/header.tsx
 msgid "Session note views"

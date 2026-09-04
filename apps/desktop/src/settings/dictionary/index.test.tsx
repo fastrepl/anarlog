@@ -147,6 +147,59 @@ describe("DictionarySettings", () => {
     expect(onSave).toHaveBeenCalledWith(JSON.stringify(["Parakeet TDT"]));
   });
 
+  it("edits saved terms inline", () => {
+    const onSave = vi.fn();
+    render(
+      <DictionarySettings
+        terms={["Anarlog", "Parakeet TDT"]}
+        onSave={onSave}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit: Anarlog" }));
+    const input = screen.getByRole("textbox", { name: "Edit: Anarlog" });
+    fireEvent.change(input, { target: { value: " Anarlog AI " } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(onSave).toHaveBeenCalledWith(
+      JSON.stringify(["Anarlog AI", "Parakeet TDT"]),
+    );
+  });
+
+  it("does not save an edit that duplicates another term", () => {
+    const onSave = vi.fn();
+    render(
+      <DictionarySettings
+        terms={["Anarlog", "Parakeet TDT"]}
+        onSave={onSave}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit: Anarlog" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Edit: Anarlog" }), {
+      target: { value: "parakeet tdt" },
+    });
+
+    expect(
+      (screen.getByRole("button", { name: "Save" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("cancels inline edits with Escape", () => {
+    const onSave = vi.fn();
+    render(<DictionarySettings terms={["Anarlog"]} onSave={onSave} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit: Anarlog" }));
+    const input = screen.getByRole("textbox", { name: "Edit: Anarlog" });
+    fireEvent.change(input, { target: { value: "Anarlog AI" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+
+    expect(screen.getByText("Anarlog")).toBeTruthy();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
   it("does not enable adding duplicate terms", async () => {
     const onSave = vi.fn();
     render(<DictionarySettings terms={["Anarlog"]} onSave={onSave} />);

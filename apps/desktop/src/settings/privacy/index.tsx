@@ -82,7 +82,7 @@ export function SettingsPrivacy() {
           }}
         />
         <SettingSwitchRow
-          title={t`Sentry`}
+          title={t`Error`}
           description={t`Send sanitized crash and error reports to help improve Anarlog.`}
           checked={sentryEnabled}
           onChange={(crashReportingConsent) => {

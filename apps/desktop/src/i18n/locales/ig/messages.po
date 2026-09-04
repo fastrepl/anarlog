@@ -773,6 +773,7 @@ msgstr ""
 #: src/imports/screen.tsx
 #: src/session-sharing/comments.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
+#: src/settings/dictionary/index.tsx
 #: src/settings/general/e2ee-setup.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
 #: src/settings/sync/index.tsx
@@ -1861,6 +1862,10 @@ msgstr ""
 msgid "Edit"
 msgstr ""
 
+#: src/settings/dictionary/index.tsx
+msgid "Edit {term}"
+msgstr ""
+
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Edit date"
 msgstr ""
@@ -1950,6 +1955,10 @@ msgstr ""
 
 #: src/settings/general/e2ee-setup.tsx
 msgid "Enter your saved recovery key when another approved device is unavailable."
+msgstr ""
+
+#: src/settings/privacy/index.tsx
+msgid "Error"
 msgstr ""
 
 #: src/composer/index.tsx
@@ -3876,6 +3885,7 @@ msgstr ""
 msgid "Runs once the AI summary for the meeting is ready."
 msgstr ""
 
+#: src/settings/dictionary/index.tsx
 #: src/settings/sync/index.tsx
 #: src/templates/auto-form.tsx
 msgid "Save"
@@ -4126,10 +4136,6 @@ msgstr ""
 #. placeholder {0}: formatSyncBytes(entry.sent_bytes)
 #: src/settings/sync/index.tsx
 msgid "Sent {0}"
-msgstr ""
-
-#: src/settings/privacy/index.tsx
-msgid "Sentry"
 msgstr ""
 
 #: src/session/components/note-input/header.tsx
