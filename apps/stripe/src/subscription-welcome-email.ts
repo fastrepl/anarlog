@@ -1,5 +1,7 @@
 import type Stripe from "stripe";
 
+import { getCustomerOwner } from "./customer-metadata";
+
 const SUBSCRIPTION_WELCOME_TRANSACTIONAL_ID = "cmsq3t8ns0ffi0jydc6uzj1rt";
 
 type SendTransactional = (args: {
@@ -54,7 +56,10 @@ export async function sendSubscriptionWelcomeEmail(
   }
 
   const customer = await activeDependencies.getCustomer(customerId);
-  if (!customer?.email) {
+  if (
+    !customer?.email ||
+    getCustomerOwner(customer.metadata)?.kind === "workspace"
+  ) {
     return null;
   }
 

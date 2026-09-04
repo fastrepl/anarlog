@@ -126,6 +126,50 @@ describe("sendSubscriptionWelcomeEmail", () => {
     expect(result).toBeNull();
   });
 
+  it("does not send the Pro welcome email for a Team subscription", async () => {
+    const result = await sendSubscriptionWelcomeEmail(
+      invoiceEvent(),
+      dependencies({
+        getCustomer: async () =>
+          ({
+            id: "cus_team_subscriber",
+            email: "owner@example.com",
+            name: "Workspace Team",
+            metadata: {
+              workspaceId: "workspace-team",
+            } as Stripe.Metadata,
+          }) as Stripe.Customer,
+        sendTransactional: async () => {
+          throw new Error("should not send");
+        },
+      }),
+    );
+
+    expect(result).toBeNull();
+  });
+
+  it("does not send the Pro welcome email for an Enterprise subscription", async () => {
+    const result = await sendSubscriptionWelcomeEmail(
+      invoiceEvent(),
+      dependencies({
+        getCustomer: async () =>
+          ({
+            id: "cus_enterprise_subscriber",
+            email: "owner@example.com",
+            name: "Enterprise Workspace",
+            metadata: {
+              workspace_id: "workspace-enterprise",
+            } as Stripe.Metadata,
+          }) as Stripe.Customer,
+        sendTransactional: async () => {
+          throw new Error("should not send");
+        },
+      }),
+    );
+
+    expect(result).toBeNull();
+  });
+
   it("ignores zero-value trial invoices", async () => {
     const result = await sendSubscriptionWelcomeEmail(
       invoiceEvent({ amount_paid: 0 }),
