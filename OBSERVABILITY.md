@@ -121,17 +121,17 @@ Do not use custom trace propagation headers when W3C exists.
 
 Rust shared helpers live in:
 
-- [`crates/observability/src/lib.rs`](/Users/yujonglee/dev/char/crates/observability/src/lib.rs)
+- [`crates/observability/src/lib.rs`](crates/observability/src/lib.rs)
 
 API ingress extraction and root HTTP span setup live in:
 
-- [`apps/api/src/main.rs`](/Users/yujonglee/dev/char/apps/api/src/main.rs)
+- [`apps/api/src/main.rs`](apps/api/src/main.rs)
 
 Desktop request header creation lives in:
 
-- [`apps/desktop/src/shared/utils.ts`](/Users/yujonglee/dev/char/apps/desktop/src/shared/utils.ts)
-- [`apps/desktop/src/ai/traced-fetch.ts`](/Users/yujonglee/dev/char/apps/desktop/src/ai/traced-fetch.ts)
-- [`apps/desktop/src/auth/context.tsx`](/Users/yujonglee/dev/char/apps/desktop/src/auth/context.tsx)
+- [`apps/desktop/src/shared/utils.ts`](apps/desktop/src/shared/utils.ts)
+- [`apps/desktop/src/ai/traced-fetch.ts`](apps/desktop/src/ai/traced-fetch.ts)
+- [`apps/desktop/src/auth/context.tsx`](apps/desktop/src/auth/context.tsx)
 
 ### Baggage policy
 
@@ -173,12 +173,12 @@ Never do this:
 
 API ingress uses request-id middleware and records the value on the root span:
 
-- [`apps/api/src/main.rs`](/Users/yujonglee/dev/char/apps/api/src/main.rs)
+- [`apps/api/src/main.rs`](apps/api/src/main.rs)
 
 Desktop client requests add `x-request-id` separately from `traceparent`:
 
-- [`apps/desktop/src/ai/traced-fetch.ts`](/Users/yujonglee/dev/char/apps/desktop/src/ai/traced-fetch.ts)
-- [`apps/desktop/src/auth/context.tsx`](/Users/yujonglee/dev/char/apps/desktop/src/auth/context.tsx)
+- [`apps/desktop/src/ai/traced-fetch.ts`](apps/desktop/src/ai/traced-fetch.ts)
+- [`apps/desktop/src/auth/context.tsx`](apps/desktop/src/auth/context.tsx)
 
 ## Naming Rules
 
@@ -520,19 +520,19 @@ Do not do any of the following:
 
 The current implementation that this spec describes is centered in:
 
-- [`apps/api/src/observability.rs`](/Users/yujonglee/dev/char/apps/api/src/observability.rs)
-- [`apps/api/src/main.rs`](/Users/yujonglee/dev/char/apps/api/src/main.rs)
-- [`apps/api/src/auth.rs`](/Users/yujonglee/dev/char/apps/api/src/auth.rs)
-- [`crates/observability/src/lib.rs`](/Users/yujonglee/dev/char/crates/observability/src/lib.rs)
-- [`crates/llm-proxy/src/handler/mod.rs`](/Users/yujonglee/dev/char/crates/llm-proxy/src/handler/mod.rs)
-- [`crates/llm-proxy/src/handler/non_streaming.rs`](/Users/yujonglee/dev/char/crates/llm-proxy/src/handler/non_streaming.rs)
-- [`crates/llm-proxy/src/handler/streaming.rs`](/Users/yujonglee/dev/char/crates/llm-proxy/src/handler/streaming.rs)
-- [`crates/transcribe-proxy/src/routes/streaming/mod.rs`](/Users/yujonglee/dev/char/crates/transcribe-proxy/src/routes/streaming/mod.rs)
-- [`crates/transcribe-proxy/src/routes/streaming/session.rs`](/Users/yujonglee/dev/char/crates/transcribe-proxy/src/routes/streaming/session.rs)
-- [`apps/desktop/src/shared/utils.ts`](/Users/yujonglee/dev/char/apps/desktop/src/shared/utils.ts)
-- [`apps/desktop/src/ai/traced-fetch.ts`](/Users/yujonglee/dev/char/apps/desktop/src/ai/traced-fetch.ts)
-- [`apps/desktop/src/auth/context.tsx`](/Users/yujonglee/dev/char/apps/desktop/src/auth/context.tsx)
-- [`apps/desktop/src-tauri/src/lib.rs`](/Users/yujonglee/dev/char/apps/desktop/src-tauri/src/lib.rs)
+- [`apps/api/src/observability.rs`](apps/api/src/observability.rs)
+- [`apps/api/src/main.rs`](apps/api/src/main.rs)
+- [`apps/api/src/auth.rs`](apps/api/src/auth.rs)
+- [`crates/observability/src/lib.rs`](crates/observability/src/lib.rs)
+- [`crates/llm-proxy/src/handler/mod.rs`](crates/llm-proxy/src/handler/mod.rs)
+- [`crates/llm-proxy/src/handler/non_streaming.rs`](crates/llm-proxy/src/handler/non_streaming.rs)
+- [`crates/llm-proxy/src/handler/streaming.rs`](crates/llm-proxy/src/handler/streaming.rs)
+- [`crates/transcribe-proxy/src/routes/streaming/mod.rs`](crates/transcribe-proxy/src/routes/streaming/mod.rs)
+- [`crates/transcribe-proxy/src/routes/streaming/session.rs`](crates/transcribe-proxy/src/routes/streaming/session.rs)
+- [`apps/desktop/src/shared/utils.ts`](apps/desktop/src/shared/utils.ts)
+- [`apps/desktop/src/ai/traced-fetch.ts`](apps/desktop/src/ai/traced-fetch.ts)
+- [`apps/desktop/src/auth/context.tsx`](apps/desktop/src/auth/context.tsx)
+- [`apps/desktop/src-tauri/src/lib.rs`](apps/desktop/src-tauri/src/lib.rs)
 
 ## Change Policy
 

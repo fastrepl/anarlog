@@ -36,7 +36,7 @@ The managed Transcription route chooses a provider from the meeting's languages 
 - Soniox currently resolves it to **Soniox 5**: `stt-rt-v5` for live transcription and `stt-async-v5` after recording.
 - AssemblyAI currently resolves it to **Universal 3.5 Pro** (`universal-3-5-pro`) for live and after-recording transcription.
 - After-recording transcription prefers Soniox when it supports the selected languages.
-- The eligible fallback pool also includes configured routes for Gladia (currently **Solaria 1**), ElevenLabs, Fireworks, OpenAI, Mistral, and Alibaba Cloud Model Studio.
+- The eligible fallback pool also includes configured routes for Gladia (currently **Solaria 1**), ElevenLabs, OpenAI, Mistral, and Alibaba Cloud Model Studio.
 
 Only configured providers that support the requested mode and languages enter the route. If one returns a retryable error, Anarlog can try the next eligible provider.
 
@@ -106,8 +106,9 @@ Recent bring-your-own Transcription models in Settings include:
 
 - **Google Gemini 3.5 Transcribe** (`gemini-3.5-transcribe-live` during the meeting, `gemini-3.5-transcribe` after recording)
 - **AssemblyAI Universal 3.5 Pro** (`universal-3-5-pro-realtime` during the meeting, `universal-3-5-pro` after recording)
+- **Smallest AI Pulse** (`pulse`) and **Pulse Pro** (`pulse-pro`) for live and after-recording transcription
 
-Settings may still show older model IDs for compatibility. Prefer the current Gemini 3.5, Universal 3.5, Soniox 5, and GPT Transcribe models when you configure a provider yourself.
+Settings may still show older model IDs for compatibility. Prefer the current Gemini 3.5, Universal 3.5, Soniox 5, Smallest AI Pulse, and GPT Transcribe models when you configure a provider yourself.
 
 ## Choose a setup
 

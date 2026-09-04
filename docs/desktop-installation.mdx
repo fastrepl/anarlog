@@ -12,8 +12,10 @@ description: "Choose the right Anarlog build for macOS, Windows, or Linux."
 | macOS | Apple Silicon DMG | For Macs with an M-series chip. Requires macOS 15 or later. |
 | macOS | Intel DMG | For Intel-based Macs. Requires macOS 15 or later. |
 | Windows | Windows x64 EXE | For 64-bit Windows PCs. Windows support is in beta. |
+| Windows | Microsoft Store | For Windows 10 and 11. Windows support is in beta. |
 | Linux | x64 or ARM64 AppImage | Portable build. Linux support is in beta. |
 | Linux | x64 or ARM64 DEB | For Debian, Ubuntu, and compatible distributions. Linux support is in beta. |
+| Linux | Arch Linux PKGBUILD | For x64 or ARM64 Arch-based distributions. Linux support is in beta. |
 
 On a Mac, open **Apple menu → About This Mac** if you do not know whether it uses an Apple or Intel chip.
 
@@ -26,8 +28,8 @@ On a Mac, open **Apple menu → About This Mac** if you do not know whether it u
 
 ## Windows
 
-1. Download the **Windows x64** installer.
-2. Run the EXE and follow the installer.
+1. Download the **Windows x64** installer or [get Anarlog from Microsoft Store](https://apps.microsoft.com/detail/XPDLN196NKSW10).
+2. For the direct download, run the EXE and follow the installer. Microsoft Store handles installation and updates automatically.
 3. Open Anarlog and complete setup.
 4. Allow microphone and system-audio access when prompted.
 
@@ -87,6 +89,18 @@ WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 ./anarlog-*.A
 ```
 
 Current builds apply the DMA-BUF workaround automatically. Set the variables yourself only if a black window remains.
+
+### Arch Linux
+
+Build the maintained `anarlog-bin` package with `makepkg`:
+
+```bash
+git clone https://github.com/fastrepl/anarlog.git
+cd anarlog/packaging/aur/anarlog-bin
+makepkg -si
+```
+
+The PKGBUILD downloads the stable DEB for your architecture, verifies its checksum, and installs it through pacman.
 
 ## Platform differences
 
