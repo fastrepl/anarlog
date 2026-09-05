@@ -189,7 +189,7 @@ impl ProviderSettings {
     }
 
     /// A stored value: the direct row, else the legacy document at `path`.
-    fn value(&self, key: &str, legacy_path: &[&str]) -> Option<serde_json::Value> {
+    pub fn value(&self, key: &str, legacy_path: &[&str]) -> Option<serde_json::Value> {
         if let Some(json) = self.raw.get(key)
             && let Ok(value) = serde_json::from_str::<serde_json::Value>(json)
         {

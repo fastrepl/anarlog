@@ -875,6 +875,19 @@ impl Workspace {
                 .gap_10()
                 .child(title)
                 .child(self.render_appearance_settings(cx)),
+            // `SettingsNotifications`: `gap-6` between the title and the rows.
+            SettingsTab::Notifications => div()
+                .flex()
+                .flex_col()
+                .gap_6()
+                .child(title)
+                .child(self.render_notification_settings(cx)),
+            SettingsTab::Meetings => div()
+                .flex()
+                .flex_col()
+                .gap_8()
+                .child(title)
+                .child(self.render_meeting_settings(cx)),
             _ => div().flex().flex_col().gap_8().child(title),
         };
 
@@ -892,6 +905,555 @@ impl Workspace {
             .pt_6()
             .pb_10()
             .child(page)
+    }
+
+    /// A `SettingSwitchRow` bound to a boolean setting; `disabled` renders the
+    /// switch at half opacity and ignores clicks, like the Radix switch.
+    fn switch_setting_row(&self, row: SwitchRow, cx: &Context<Self>) -> Div {
+        let theme = self.theme;
+        let SwitchRow {
+            id,
+            title,
+            description,
+            key,
+            legacy_path,
+            default,
+            disabled,
+        } = row;
+        let checked = self
+            .provider_settings
+            .bool_setting(key, legacy_path, default);
+        let switch = render_switch(
+            theme,
+            id,
+            checked,
+            cx.listener(move |this, _: &ClickEvent, _, cx| {
+                if !disabled {
+                    this.set_bool_setting(key, !checked, cx);
+                }
+            }),
+        )
+        .when(disabled, |switch| switch.opacity(0.5).cursor_not_allowed());
+        setting_row(theme, title, description, false, switch.into_any_element())
+    }
+
+    /// `NotificationSettingsView`: the master switch, then every alert switch
+    /// disabled while notifications are off. Platform gating follows the web
+    /// view: no Dock bounce row on macOS without the Dock icon, and no
+    /// microphone detection on Windows.
+    fn render_notification_settings(&self, cx: &Context<Self>) -> Div {
+        let theme = self.theme;
+        let settings = &self.provider_settings;
+        let disabled_all = settings.bool_setting(
+            "notification_disabled",
+            &["notification", "disabled"],
+            false,
+        );
+        let completion_sound = settings.bool_setting(
+            "notification_completion_sound",
+            &["notification", "completion_sound"],
+            true,
+        );
+        let sound_name = settings
+            .string_setting(
+                "notification_completion_sound_name",
+                &["notification", "completion_sound_name"],
+            )
+            .unwrap_or_else(|| "ready".to_string());
+        let detect =
+            settings.bool_setting("notification_detect", &["notification", "detect"], true);
+        let threshold = settings
+            .value("mic_active_threshold", &["general", "mic_active_threshold"])
+            .and_then(|value| value.as_f64())
+            .unwrap_or(15.0) as i64;
+        let show_bounce = !cfg!(target_os = "macos")
+            || settings.bool_setting("show_app_in_dock", &["general", "show_app_in_dock"], true);
+        let supports_mic_detection = !cfg!(target_os = "windows");
+
+        let row = |id, title, description, key, legacy_path, default| {
+            self.switch_setting_row(
+                SwitchRow {
+                    id,
+                    title,
+                    description: Some(description),
+                    key,
+                    legacy_path,
+                    default,
+                    disabled: disabled_all,
+                },
+                cx,
+            )
+        };
+
+        let mut page = div()
+            .flex()
+            .flex_col()
+            .gap_6()
+            .child(self.switch_setting_row(
+                SwitchRow {
+                    id: "setting-notification-disabled",
+                    title: "Disable all notifications",
+                    description: Some("Hide all notification panels, Dock alerts, and completion sounds."),
+                    key: "notification_disabled",
+                    legacy_path: &["notification", "disabled"],
+                    default: false,
+                    disabled: false,
+                },
+                cx,
+            ))
+            .child(row(
+                "setting-notification-transcription",
+                "Transcription complete",
+                "Show when a transcript is ready.",
+                "notification_transcription_complete",
+                &["notification", "transcription_complete"],
+                true,
+            ))
+            .child(row(
+                "setting-notification-summary",
+                "Summary complete",
+                "Show when a summary is ready.",
+                "notification_summary_complete",
+                &["notification", "summary_complete"],
+                true,
+            ))
+            .child(row(
+                "setting-notification-cloudsync",
+                "Cloud sync complete",
+                "Show when initial cloud sync finishes.",
+                "notification_cloudsync_complete",
+                &["notification", "cloudsync_complete"],
+                true,
+            ))
+            .child(row(
+                "setting-notification-event",
+                "Event notifications",
+                "Prepare for events with a 5-minute reminder.",
+                "notification_event",
+                &["notification", "event"],
+                true,
+            ))
+            .child(row(
+                "setting-notification-recording",
+                "Recording status prompts",
+                "Ask before stopping when a meeting may have ended. When alerts are off, Anarlog keeps listening.",
+                "notification_recording",
+                &["notification", "recording"],
+                true,
+            ))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_4()
+                    .child(row(
+                        "setting-notification-sound",
+                        "Completion sound",
+                        "Play a sound when transcription, summaries, or cloud sync finish.",
+                        "notification_completion_sound",
+                        &["notification", "completion_sound"],
+                        true,
+                    ))
+                    .when(completion_sound, |group| {
+                        // `border-muted ml-3 border-l-2 pl-4`: the Sound select
+                        // (`min-w-0 flex-1`) beside the `Preview` outline button.
+                        let select = self.render_select(
+                            SelectSpec::for_setting(
+                                "notification_completion_sound_name",
+                                Some(sound_name.clone()),
+                                "Select sound",
+                                [
+                                    ("ready", "Ready"),
+                                    ("success", "Success"),
+                                    ("chime", "Chime"),
+                                    ("sparkle", "Sparkle"),
+                                    ("bloom", "Bloom"),
+                                ]
+                                .into_iter()
+                                .map(|(value, label)| SelectOption {
+                                    value: value.to_string(),
+                                    label: label.to_string(),
+                                    detail: None,
+                                })
+                                .collect(),
+                            ),
+                            cx,
+                        );
+                        group.child(
+                            div()
+                                .ml_3()
+                                .pl_4()
+                                .border_l_2()
+                                .border_color(theme.muted)
+                                .child(setting_row(
+                                    theme,
+                                    "Sound",
+                                    Some("Choose from five completion sounds."),
+                                    true,
+                                    div()
+                                        .flex()
+                                        .w_full()
+                                        .items_center()
+                                        .gap_2()
+                                        .child(div().min_w_0().flex_1().w(px(120.0)).child(select))
+                                        .child(
+                                            div()
+                                                .id("notification-sound-preview")
+                                                .flex()
+                                                .items_center()
+                                                .h(px(32.0))
+                                                .rounded_full()
+                                                .border_1()
+                                                .border_color(theme.border)
+                                                .bg(theme.card)
+                                                .px_3()
+                                                .tw_text_xs()
+                                                .font_weight(gpui::FontWeight::MEDIUM)
+                                                .text_color(theme.foreground)
+                                                .when(disabled_all, |button| button.opacity(0.5))
+                                                .when(!disabled_all, |button| {
+                                                    button.cursor_pointer().hover(move |style| style.bg(theme.accent))
+                                                })
+                                                .child("Preview"),
+                                        )
+                                        .into_any_element(),
+                                )),
+                        )
+                    }),
+            );
+        if show_bounce {
+            page = page.child(row(
+                "setting-notification-bounce",
+                "Bounce app icon",
+                "Get your attention when Anarlog finishes work in the background.",
+                "notification_bounce",
+                &["notification", "bounce"],
+                true,
+            ));
+        }
+        if supports_mic_detection {
+            page = page.child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_4()
+                    .child(row(
+                        "setting-notification-detect",
+                        "Microphone detection",
+                        "Detect meetings from microphone activity.",
+                        "notification_detect",
+                        &["notification", "detect"],
+                        true,
+                    ))
+                    .when(detect, |group| {
+                        let delay = self.render_select(
+                            SelectSpec {
+                                id: "mic_active_threshold",
+                                current: Some(threshold.to_string()),
+                                placeholder: "Select delay",
+                                options: Rc::new(
+                                    [
+                                        ("5", "5 sec"),
+                                        ("10", "10 sec"),
+                                        ("15", "15 sec"),
+                                        ("30", "30 sec"),
+                                        ("60", "1 min"),
+                                        ("120", "2 min"),
+                                    ]
+                                    .into_iter()
+                                    .map(|(value, label)| SelectOption {
+                                        value: value.to_string(),
+                                        label: label.to_string(),
+                                        detail: None,
+                                    })
+                                    .collect(),
+                                ),
+                                search: None,
+                                on_select: Rc::new(|this, value, _, cx| {
+                                    if let Ok(seconds) = value.parse::<i64>() {
+                                        this.set_setting("mic_active_threshold", serde_json::Value::from(seconds), cx);
+                                    }
+                                }),
+                            },
+                            cx,
+                        );
+                        group.child(
+                            div()
+                                .ml_3()
+                                .pl_4()
+                                .border_l_2()
+                                .border_color(theme.muted)
+                                .flex()
+                                .flex_col()
+                                .gap_4()
+                                .child(setting_row(
+                                    theme,
+                                    "Detection delay",
+                                    Some("Wait before treating microphone activity as a meeting."),
+                                    false,
+                                    div().w(px(100.0)).child(delay).into_any_element(),
+                                ))
+                                .child(
+                                    div()
+                                        .child(
+                                            div()
+                                                .mb_1()
+                                                .tw_text_sm()
+                                                .font_weight(gpui::FontWeight::MEDIUM)
+                                                .text_color(theme.foreground)
+                                                .child("Exclude apps from detection"),
+                                        )
+                                        .child(
+                                            div()
+                                                .tw_text_xs()
+                                                .text_color(theme.muted_foreground)
+                                                .child("Prevent selected apps from triggering meeting detection."),
+                                        ),
+                                ),
+                        )
+                    }),
+            );
+        }
+        page
+    }
+
+    /// The Meetings page: `DefaultMeetingShareAccessSelector`,
+    /// `MeetingSettingsView`, then the Summaries and Audio sections.
+    fn render_meeting_settings(&self, cx: &Context<Self>) -> Div {
+        let theme = self.theme;
+        let settings = &self.provider_settings;
+        let auto_start = settings.bool_setting(
+            "auto_start_scheduled_meetings",
+            &["general", "auto_start_scheduled_meetings"],
+            true,
+        );
+        let share_access = settings
+            .string_setting(
+                "default_meeting_share_access",
+                &["general", "default_meeting_share_access"],
+            )
+            .unwrap_or_else(|| "me".to_string());
+        let summary_length = settings
+            .string_setting("summary_length", &["general", "summary_length"])
+            .unwrap_or_else(|| "detailed".to_string());
+        let retention = settings
+            .string_setting("audio_retention", &["general", "audio_retention"])
+            .unwrap_or_else(|| "forever".to_string());
+        let microphone = settings
+            .string_setting("microphone_device", &["general", "microphone_device"])
+            .unwrap_or_default();
+        let supports_meeting_ax = cfg!(any(target_os = "macos", target_os = "linux"));
+        let supports_mic_detection = !cfg!(target_os = "windows");
+
+        let options = |pairs: &[(&str, &str)]| {
+            pairs
+                .iter()
+                .map(|(value, label)| SelectOption {
+                    value: value.to_string(),
+                    label: label.to_string(),
+                    detail: None,
+                })
+                .collect::<Vec<_>>()
+        };
+
+        let mut meetings = div()
+            .flex()
+            .flex_col()
+            .gap_4()
+            .child(setting_row(
+                theme,
+                "Default sharing",
+                Some("Choose who can access notes from new meetings."),
+                true,
+                self.render_select(
+                    SelectSpec::for_setting(
+                        "default_meeting_share_access",
+                        Some(share_access),
+                        "Select default sharing",
+                        options(&[
+                            ("me", "Only me"),
+                            ("participants", "People in the meeting"),
+                            ("workspace", "Everyone in the workspace"),
+                        ]),
+                    ),
+                    cx,
+                ),
+            ))
+            .child(self.switch_setting_row(
+                SwitchRow {
+                    id: "setting-auto-start",
+                    title: "Start when meeting begins",
+                    description: Some("Start listening when a scheduled meeting begins."),
+                    key: "auto_start_scheduled_meetings",
+                    legacy_path: &["general", "auto_start_scheduled_meetings"],
+                    default: true,
+                    disabled: false,
+                },
+                cx,
+            ))
+            .child(self.switch_setting_row(
+                SwitchRow {
+                    id: "setting-auto-join",
+                    title: "Join scheduled meetings",
+                    description: Some("Open the meeting link when a scheduled meeting begins."),
+                    key: "auto_join_scheduled_meetings",
+                    legacy_path: &["general", "auto_join_scheduled_meetings"],
+                    default: false,
+                    disabled: !auto_start,
+                },
+                cx,
+            ));
+        if supports_mic_detection {
+            meetings = meetings.child(self.switch_setting_row(
+                SwitchRow {
+                    id: "setting-auto-stop",
+                    title: "Stop when meeting ends",
+                    description: Some("Stop listening when your call ends."),
+                    key: "auto_stop_meetings",
+                    legacy_path: &["general", "auto_stop_meetings"],
+                    default: true,
+                    disabled: false,
+                },
+                cx,
+            ));
+        }
+        if supports_meeting_ax {
+            meetings = meetings
+                .child(self.switch_setting_row(
+                SwitchRow {
+                    id: "setting-consent-chat",
+                    title: "Post recording disclosure in meeting chat",
+                    description: Some("Tell participants when listening starts; this does not confirm consent."),
+                    key: "consent_auto_send_chat",
+                    legacy_path: &["general", "consent_auto_send_chat"],
+                    default: false,
+                    disabled: false,
+                },
+                cx,
+            ))
+                .child(self.switch_setting_row(
+                SwitchRow {
+                    id: "setting-capture-chat",
+                    title: "Capture meeting chat in Memos",
+                    description: Some("Save visible chat from supported meetings using Accessibility."),
+                    key: "capture_meeting_chat",
+                    legacy_path: &["general", "capture_meeting_chat"],
+                    default: false,
+                    disabled: false,
+                },
+                cx,
+            ));
+        }
+        meetings = meetings.child(self.switch_setting_row(
+            SwitchRow {
+                id: "setting-floating-bar",
+                title: "Show floating bar",
+                description: Some("Control listening without reopening Anarlog."),
+                key: "floating_bar_enabled",
+                legacy_path: &["general", "floating_bar_enabled"],
+                default: true,
+                disabled: false,
+            },
+            cx,
+        ));
+
+        div()
+            .flex()
+            .flex_col()
+            .gap_8()
+            .child(meetings)
+            .child(
+                div().child(section_heading(theme, "Summaries")).child(setting_row(
+                    theme,
+                    "Summary length",
+                    Some("Choose how much detail generated meeting summaries include."),
+                    true,
+                    self.render_select(
+                        SelectSpec::for_setting(
+                            "summary_length",
+                            Some(summary_length),
+                            "Select length",
+                            options(&[
+                                ("crisp", "Crisp"),
+                                ("balanced", "Balanced"),
+                                ("detailed", "Detailed"),
+                            ]),
+                        ),
+                        cx,
+                    ),
+                )),
+            )
+            .child(
+                div().child(section_heading(theme, "Audio")).child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_4()
+                        .child(setting_row(
+                            theme,
+                            "Microphone",
+                            Some("Choose the microphone that captures your voice."),
+                            true,
+                            self.render_select(
+                                SelectSpec::for_setting(
+                                    "microphone_device",
+                                    Some(microphone.clone()),
+                                    "Select microphone",
+                                    // The device list comes from the audio plugin; only
+                                    // the system default is offered until it is ported.
+                                    std::iter::once(SelectOption {
+                                        value: String::new(),
+                                        label: "Current default".to_string(),
+                                        detail: None,
+                                    })
+                                    .chain((!microphone.is_empty()).then(|| SelectOption {
+                                        value: microphone.clone(),
+                                        label: format!("{microphone} (Unavailable — using current default)"),
+                                        detail: None,
+                                    }))
+                                    .collect(),
+                                ),
+                                cx,
+                            ),
+                        ))
+                        .child(self.switch_setting_row(
+                SwitchRow {
+                    id: "setting-remember-speakers",
+                    title: "Remember speakers",
+                    description: Some(
+                                "Build voiceprints from meeting audio so speakers you name in a transcript are recognized in later meetings. Voiceprints never leave this device, and unnamed ones are deleted after 45 days.",
+                            ),
+                    key: "remember_speakers",
+                    legacy_path: &["general", "remember_speakers"],
+                    default: true,
+                    disabled: false,
+                },
+                cx,
+            ))
+                        .child(setting_row(
+                            theme,
+                            "Audio file retention",
+                            Some("Choose how long recordings stay on this device."),
+                            true,
+                            self.render_select(
+                                SelectSpec::for_setting(
+                                    "audio_retention",
+                                    Some(retention),
+                                    "Select retention",
+                                    options(&[
+                                        ("none", "Don't save"),
+                                        ("oneDay", "1 day"),
+                                        ("threeDays", "3 days"),
+                                        ("oneWeek", "1 week"),
+                                        ("oneMonth", "1 month"),
+                                        ("forever", "Forever"),
+                                    ]),
+                                ),
+                                cx,
+                            ),
+                        )),
+                ),
+            )
     }
 
     /// `AppSettingsView` + Language & Region + Storage.
@@ -1639,6 +2201,17 @@ fn additional_spoken_languages(main: &str, spoken: &[String]) -> Vec<String> {
         .map(|code| base_language_code(code))
         .filter(|code| !code.is_empty() && *code != main && seen.insert(code.clone()))
         .collect()
+}
+
+/// One `SettingSwitchRow` bound to a boolean setting.
+struct SwitchRow {
+    id: &'static str,
+    title: &'static str,
+    description: Option<&'static str>,
+    key: &'static str,
+    legacy_path: &'static [&'static str],
+    default: bool,
+    disabled: bool,
 }
 
 pub(crate) struct SelectOption {
