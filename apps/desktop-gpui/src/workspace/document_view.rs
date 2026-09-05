@@ -324,19 +324,33 @@ impl DocumentRenderer {
             Block::List { ordered, items } => div()
                 .flex()
                 .flex_col()
+                // `li > ul::before`: a 1px guide rail at `left: calc(-1em - 0.5px)`
+                // in `currentColor` at 30%, centred under the parent marker.
+                // WebKit snaps the half pixel to the nearer device pixel.
+                .when(depth > 0, |list| {
+                    list.relative().child(
+                        div()
+                            .absolute()
+                            .top_0()
+                            .left(px(-BODY_PX))
+                            .w(px(1.0))
+                            .h_full()
+                            .bg(alpha(theme.foreground, 0.3)),
+                    )
+                })
                 .children(items.iter().enumerate().map(|(index, item)| {
                     div()
                         .relative()
                         .flex()
                         .child(
-                            // `li { padding-left: 1.5em }` with the marker at `left: 0.5em`.
+                            // `li { padding-left: 1.5em }`; bullets are centred at
+                            // `left: 0.5em`, `top: 0.125em + 0.75em`, ordered markers fill a
+                            // `1em` box at `left: 0` with centred text.
                             div()
+                                .relative()
                                 .flex_shrink_0()
                                 .w(px(BODY_PX * 1.5))
                                 .h(px(BODY_PX * 1.5 + 4.0))
-                                .flex()
-                                .items_center()
-                                .justify_center()
                                 .child(self.marker(item.checked, *ordered, index, depth)),
                         )
                         .child(
@@ -416,9 +430,15 @@ impl DocumentRenderer {
     ) -> AnyElement {
         let theme = self.theme;
         let ink = alpha(theme.foreground, 0.65);
+        let centre = |size: f32| {
+            div()
+                .absolute()
+                .left(px(BODY_PX * 0.5 - size / 2.0))
+                .top(px(BODY_PX * 0.875 - size / 2.0))
+                .size(px(size))
+        };
         if let Some(checked) = checked {
-            return div()
-                .size(px(14.0))
+            return centre(14.0)
                 .rounded(px(3.0))
                 .border_1()
                 .border_color(ink)
@@ -428,20 +448,27 @@ impl DocumentRenderer {
                 .into_any_element();
         }
         if ordered {
+            // `ol > li::before { top: 0.125em; left: 0; width: 1em; line-height: 1.5 }`
             return div()
+                .absolute()
+                .left_0()
+                .top(px(BODY_PX * 0.125))
+                .w(px(BODY_PX))
+                .flex()
+                .justify_center()
                 .text_color(ink)
                 .text_size(px(BODY_PX))
+                .line_height(px(BODY_PX * 1.5))
                 .child(SharedString::from(format!("{}.", index + 1)))
                 .into_any_element();
         }
         match depth % 3 {
-            0 => div().size(px(BODY_PX * 0.5)).rounded_full().bg(ink),
-            1 => div()
-                .size(px(BODY_PX * 0.5))
+            0 => centre(BODY_PX * 0.5).rounded_full().bg(ink),
+            1 => centre(BODY_PX * 0.5)
                 .rounded_full()
                 .border(px(1.5))
                 .border_color(ink),
-            _ => div().size(px(BODY_PX * 0.42)).rounded(px(1.6)).bg(ink),
+            _ => centre(BODY_PX * 0.42).rounded(px(1.6)).bg(ink),
         }
         .into_any_element()
     }
