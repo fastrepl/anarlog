@@ -27,12 +27,14 @@ export function SessionCard({
   showTags,
   onPress,
   onDelete,
+  variant = "card",
 }: {
   session: TimelineSession;
   showFolder: boolean;
   showTags: boolean;
   onPress: () => void;
   onDelete?: () => void;
+  variant?: "card" | "plain";
 }) {
   const [width, setWidth] = useState<number>();
   const title = session.title || "Untitled";
@@ -56,6 +58,7 @@ export function SessionCard({
       style={({ pressed }) => [
         styles.card,
         styles.cardContent,
+        variant === "plain" && styles.cardPlain,
         { width },
         pressed && styles.cardPressed,
       ]}
@@ -132,6 +135,10 @@ const styles = StyleSheet.create({
   },
   cardPressed: {
     backgroundColor: Colors.accentSurface,
+  },
+  cardPlain: {
+    borderColor: "transparent",
+    backgroundColor: "transparent",
   },
   title: {
     ...Typography.bodyStrong,

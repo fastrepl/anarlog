@@ -1,66 +1,35 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import {
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/auth/context";
 import { ActionButtonCard } from "@/components/action-button-card";
+import { SearchPalette } from "@/components/search-palette";
 import { SessionCard } from "@/components/session-card";
 import { StartListeningButton } from "@/components/start-listening-button";
 import { IconButton } from "@/components/ui/icon-button";
 import { UserAvatarButton } from "@/components/user-avatar";
-import { Colors, ControlSize, Spacing, Typography } from "@/constants/theme";
-import { useSessionSearch } from "@/data/search";
+import { Colors, Spacing, Typography } from "@/constants/theme";
 import { createSession, deleteSession } from "@/data/session";
 import { useSidebarItemPreferences } from "@/data/sidebar-preferences";
 import { useTimelineSessions, type TimelineSession } from "@/data/timeline";
-import { captureAnalytics } from "@/lib/analytics";
 import { confirmDestructive } from "@/lib/confirm";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
 
 const ACTION_BUTTON_CARD_DISMISSED_KEY = "action-button-card-dismissed";
 
-function SearchAnalytics({ resultCount }: { resultCount: number }) {
-  useMountEffect(() => {
-    captureAnalytics("search_performed", {
-      entry_point: "mobile_home",
-      result_count: resultCount,
-      entity_types: ["note"],
-    });
-  });
-  return null;
-}
-
 export default function HomeScreen() {
   const router = useRouter();
   const auth = useAuth();
   const { items, isLoading } = useTimelineSessions();
   const sidebarPreferences = useSidebarItemPreferences();
-  const [query, setQuery] = useState<string | null>(null);
-  const [settledSearchQuery, setSettledSearchQuery] = useState("");
+  const [searching, setSearching] = useState(false);
   const [showActionButtonCard, setShowActionButtonCard] = useState(false);
-  const searching = query !== null;
-  const search = useSessionSearch(query ?? "");
   // Ref, not state: two taps in the same frame both pass a state check.
   const busyRef = useRef(false);
-  const searchAnalyticsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-
-  useMountEffect(() => () => {
-    if (searchAnalyticsTimerRef.current) {
-      clearTimeout(searchAnalyticsTimerRef.current);
-    }
-  });
 
   useMountEffect(() => {
     if (Platform.OS !== "ios") return;
@@ -81,32 +50,6 @@ export default function HomeScreen() {
       active = false;
     };
   });
-
-  const handleSearchChange = (value: string) => {
-    setQuery(value);
-    if (searchAnalyticsTimerRef.current) {
-      clearTimeout(searchAnalyticsTimerRef.current);
-      searchAnalyticsTimerRef.current = null;
-    }
-    const term = value.trim();
-    if (term === "") {
-      setSettledSearchQuery("");
-      return;
-    }
-    searchAnalyticsTimerRef.current = setTimeout(() => {
-      searchAnalyticsTimerRef.current = null;
-      setSettledSearchQuery(term);
-    }, 300);
-  };
-
-  const closeSearch = () => {
-    if (searchAnalyticsTimerRef.current) {
-      clearTimeout(searchAnalyticsTimerRef.current);
-      searchAnalyticsTimerRef.current = null;
-    }
-    setSettledSearchQuery("");
-    setQuery(null);
-  };
 
   const handleDelete = async (session: TimelineSession) => {
     const confirmed = await confirmDestructive(
@@ -162,43 +105,23 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        {searching ? (
-          <>
-            <TextInput
-              style={styles.searchInput}
-              autoFocus
-              value={query ?? ""}
-              onChangeText={handleSearchChange}
-              placeholder="Search meetings"
-              placeholderTextColor={Colors.muted}
-            />
-            <IconButton
-              accessibilityLabel="Close search"
-              icon="close"
-              onPress={closeSearch}
-            />
-          </>
-        ) : (
-          <>
-            <UserAvatarButton
-              accessibilityLabel="Open settings"
-              onPress={() => router.push("/settings")}
-              user={auth.session?.user ?? null}
-            />
-            <View style={styles.headerActions}>
-              <IconButton
-                accessibilityLabel="Create new note"
-                icon="new-note"
-                onPress={() => void createAndOpen()}
-              />
-              <IconButton
-                accessibilityLabel="Search meetings"
-                icon="search"
-                onPress={() => setQuery("")}
-              />
-            </View>
-          </>
-        )}
+        <UserAvatarButton
+          accessibilityLabel="Open settings"
+          onPress={() => router.push("/settings")}
+          user={auth.session?.user ?? null}
+        />
+        <View style={styles.headerActions}>
+          <IconButton
+            accessibilityLabel="Create new note"
+            icon="new-note"
+            onPress={() => void createAndOpen()}
+          />
+          <IconButton
+            accessibilityLabel="Search meetings"
+            icon="search"
+            onPress={() => setSearching(true)}
+          />
+        </View>
       </View>
 
       <ScrollView
@@ -206,83 +129,58 @@ export default function HomeScreen() {
         contentContainerStyle={styles.listContent}
         keyboardShouldPersistTaps="handled"
       >
-        {searching ? (
-          <>
-            {settledSearchQuery !== "" &&
-              settledSearchQuery === query.trim() &&
-              !search.isLoading && (
-                <SearchAnalytics
-                  key={settledSearchQuery}
-                  resultCount={search.results.length}
-                />
-              )}
-            {query.trim() !== "" &&
-              !search.isLoading &&
-              search.results.length === 0 && (
-                <View style={styles.empty}>
-                  <Text style={styles.emptyBody}>No matches</Text>
-                </View>
-              )}
-            {search.results.map((session) => (
-              <SessionCard
-                key={session.id}
-                session={session}
-                showFolder={sidebarPreferences.showFolder}
-                showTags={sidebarPreferences.showTags}
-                onPress={() => {
-                  captureAnalytics("search_result_opened", {
-                    entry_point: "mobile_home",
-                    result_type: "session",
-                  });
-                  router.push(`/note/${session.id}`);
-                }}
-                onDelete={() => void handleDelete(session)}
-              />
-            ))}
-          </>
-        ) : (
-          <>
-            {showActionButtonCard && (
-              <ActionButtonCard
-                onConfigure={() => router.push("/action-button")}
-                onDismiss={dismissActionButtonCard}
-              />
-            )}
-            {!isLoading && items.length === 0 && (
-              <View style={styles.empty}>
-                <Text style={styles.emptyTitle}>No meetings yet</Text>
-                <Text style={styles.emptyBody}>
-                  Start listening or create a new note.
-                </Text>
-              </View>
-            )}
-            {items.map((item) => {
-              if (item.type === "header") {
-                return (
-                  <Text key={item.key} style={styles.sectionLabel}>
-                    {item.label}
-                  </Text>
-                );
-              }
-              return (
-                <SessionCard
-                  key={item.key}
-                  session={item.session}
-                  showFolder={sidebarPreferences.showFolder}
-                  showTags={sidebarPreferences.showTags}
-                  onPress={() => router.push(`/note/${item.session.id}`)}
-                  onDelete={() => void handleDelete(item.session)}
-                />
-              );
-            })}
-          </>
+        {showActionButtonCard && (
+          <ActionButtonCard
+            onConfigure={() => router.push("/action-button")}
+            onDismiss={dismissActionButtonCard}
+          />
         )}
+        {!isLoading && items.length === 0 && (
+          <View style={styles.empty}>
+            <Text style={styles.emptyTitle}>No meetings yet</Text>
+            <Text style={styles.emptyBody}>
+              Start listening or create a new note.
+            </Text>
+          </View>
+        )}
+        {items.map((item) => {
+          if (item.type === "header") {
+            return (
+              <Text key={item.key} style={styles.sectionLabel}>
+                {item.label}
+              </Text>
+            );
+          }
+          return (
+            <SessionCard
+              key={item.key}
+              session={item.session}
+              showFolder={sidebarPreferences.showFolder}
+              showTags={sidebarPreferences.showTags}
+              onPress={() => router.push(`/note/${item.session.id}`)}
+              onDelete={() => void handleDelete(item.session)}
+            />
+          );
+        })}
       </ScrollView>
 
-      {!searching && (
-        <StartListeningButton
-          bottomSpacing={Spacing.xs}
-          onPress={() => void createAndOpen("?listen=1")}
+      <StartListeningButton
+        bottomSpacing={Spacing.xs}
+        onPress={() => void createAndOpen("?listen=1")}
+      />
+      {searching && (
+        <SearchPalette
+          onClose={() => setSearching(false)}
+          onOpenSession={(session) => {
+            setSearching(false);
+            router.push(`/note/${session.id}`);
+          }}
+          onDeleteSession={(session) => {
+            setSearching(false);
+            requestAnimationFrame(() => {
+              void handleDelete(session);
+            });
+          }}
         />
       )}
     </SafeAreaView>
@@ -305,15 +203,6 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: "row",
     gap: Spacing.xs,
-  },
-  searchInput: {
-    flex: 1,
-    height: ControlSize.compact,
-    marginRight: Spacing.sm,
-    paddingVertical: Spacing.sm,
-    ...Typography.body,
-    color: Colors.ink,
-    textAlignVertical: "center",
   },
   list: {
     flex: 1,
