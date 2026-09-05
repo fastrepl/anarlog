@@ -555,7 +555,7 @@ impl Workspace {
 
         if let Some(editor) = editor {
             // The memo is live: render the editor's document, not the snapshot.
-            let renderer = self.document_editor_renderer(editor.clone(), window);
+            let renderer = self.document_editor_renderer(editor.clone(), window, cx);
             let (blocks, pristine) = {
                 let editor = editor.read(cx);
                 (
@@ -563,22 +563,18 @@ impl Workspace {
                     editor.doc().is_pristine(),
                 )
             };
-            let mut children = renderer.blocks(&blocks, 0);
-            if pristine {
-                // `Start writing...` placeholder of the raw editor, drawn over
-                // the empty first paragraph.
-                let placeholder = div()
-                    .absolute()
-                    .top_0()
-                    .left_0()
-                    .py(px(2.0))
-                    .text_color(theme.muted_foreground)
-                    .child("Start writing...")
-                    .into_any_element();
-                children.insert(0, placeholder);
-            }
+            let children = renderer.blocks(&blocks, 0);
             let root = editor.update(cx, |editor, cx| editor.render_root(cx));
-            return body.child(root.child(renderer.editable_root(&editor, children, cx)));
+            // `isMemoEmpty && audioExistsResolved && !canShowTranscript`: the
+            // template suggestions float `top-8` over the empty editor.
+            let suggestions = (pristine && !preview.has_transcript)
+                .then(|| self.render_template_suggestions(preview, cx));
+            return body.child(
+                div()
+                    .relative()
+                    .child(root.child(renderer.editable_root(&editor, children, cx)))
+                    .children(suggestions),
+            );
         }
 
         let blocks = match tab {
@@ -616,7 +612,240 @@ impl Workspace {
     }
 }
 
+/// `defaultSuggestedTemplateIds`
+const DEFAULT_SUGGESTED_TEMPLATE_IDS: [&str; 3] = [
+    "default-project-kickoff",
+    "default-daily-standup",
+    "default-one-on-one-meeting",
+];
+
+/// `contextualTemplateRules`
+static CONTEXTUAL_TEMPLATE_RULES: std::sync::LazyLock<Vec<(&'static str, regex::Regex)>> =
+    std::sync::LazyLock::new(|| {
+        vec![
+            (
+                "default-sales-discovery-call",
+                regex::Regex::new(r"(?i)\b(sales|discovery|demo|prospect|lead|client|customer|pipeline|qualification|qualifying|pitch)\b").unwrap(),
+            ),
+            (
+                "default-project-kickoff",
+                regex::Regex::new(r"(?i)\b(kickoff|kick-off|project launch)\b").unwrap(),
+            ),
+            (
+                "default-daily-standup",
+                regex::Regex::new(r"(?i)\b(standup|stand-up|daily sync|scrum)\b").unwrap(),
+            ),
+            (
+                "default-one-on-one-meeting",
+                regex::Regex::new(r"(?i)\b(1:1|one[- ]on[- ]one)\b").unwrap(),
+            ),
+        ]
+    });
+
+/// `getFavoriteTemplates`
+pub(crate) fn favorite_templates(templates: &[crate::db::Template]) -> Vec<&crate::db::Template> {
+    let mut favorites: Vec<&crate::db::Template> = templates
+        .iter()
+        .filter(|template| template.pinned && !template.section_titles.is_empty())
+        .collect();
+    favorites.sort_by(|a, b| {
+        let order = |template: &crate::db::Template| template.pin_order.unwrap_or(i64::MAX);
+        order(a).cmp(&order(b)).then_with(|| a.title.cmp(&b.title))
+    });
+    favorites
+}
+
+/// `getSuggestedTemplates`
+pub(crate) fn suggested_templates<'a>(
+    templates: &'a [crate::db::Template],
+    favorites: &[&crate::db::Template],
+    event_text: &str,
+    participant_count: usize,
+) -> Vec<&'a crate::db::Template> {
+    let available: Vec<&crate::db::Template> = templates
+        .iter()
+        .filter(|template| {
+            !favorites.iter().any(|favorite| favorite.id == template.id)
+                && !template.section_titles.is_empty()
+        })
+        .collect();
+    let mut preferred_ids: Vec<&str> = CONTEXTUAL_TEMPLATE_RULES
+        .iter()
+        .filter(|(_, pattern)| pattern.is_match(event_text))
+        .map(|(id, _)| *id)
+        .collect();
+    if participant_count == 2 {
+        preferred_ids.push("default-one-on-one-meeting");
+    }
+    preferred_ids.extend(DEFAULT_SUGGESTED_TEMPLATE_IDS);
+    let mut seen = Vec::new();
+    preferred_ids.retain(|id| {
+        if seen.contains(id) {
+            false
+        } else {
+            seen.push(*id);
+            true
+        }
+    });
+    let preferred: Vec<&crate::db::Template> = preferred_ids
+        .iter()
+        .filter_map(|id| {
+            available
+                .iter()
+                .copied()
+                .find(|template| template.id == *id)
+        })
+        .collect();
+    let mut fallback: Vec<&crate::db::Template> = available
+        .iter()
+        .copied()
+        .filter(|template| !preferred.iter().any(|p| p.id == template.id))
+        .collect();
+    fallback.sort_by(|a, b| a.title.cmp(&b.title));
+    preferred
+        .into_iter()
+        .chain(fallback)
+        .take(DEFAULT_SUGGESTED_TEMPLATE_IDS.len())
+        .collect()
+}
+
 impl Workspace {
+    /// `TemplateEmptyState`: `absolute inset-x-0 top-8 flex-col` with the
+    /// favorite and suggested sections (`h-8 text-xs` labels, `h-8 -ml-2 px-2
+    /// gap-2 rounded-md` rows in muted foreground) and the New template row.
+    fn render_template_suggestions(&self, preview: &NotePreview, cx: &mut Context<Self>) -> Div {
+        let theme = self.theme;
+        let event = preview.session_event();
+        let event_title = event
+            .as_ref()
+            .and_then(|event| event.title.clone())
+            .unwrap_or_else(|| preview.session.title.clone());
+        let event_description = event
+            .as_ref()
+            .and_then(|event| event.description.clone())
+            .unwrap_or_default();
+        let participant_count = event
+            .as_ref()
+            .map(|event| event.participants.len())
+            .unwrap_or(0);
+        let favorites = favorite_templates(&self.templates);
+        let suggested = suggested_templates(
+            &self.templates,
+            &favorites,
+            &format!("{event_title} {event_description}"),
+            participant_count,
+        );
+
+        let row = |id: gpui::ElementId, glyph: AnyElement, label: SharedString| {
+            div()
+                .id(id)
+                .flex()
+                .h(px(32.0))
+                .w_auto()
+                .max_w_full()
+                .items_center()
+                .gap_2()
+                .ml(px(-8.0))
+                .px_2()
+                .rounded_md()
+                .text_color(theme.muted_foreground)
+                .cursor_pointer()
+                .hover(move |style| style.bg(theme.accent).text_color(theme.foreground))
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .child(glyph)
+                .child(
+                    div()
+                        .min_w_0()
+                        .truncate()
+                        .tw_text_sm()
+                        .font_weight(gpui::FontWeight::MEDIUM)
+                        .child(label),
+                )
+        };
+        let template_glyph = |template: &crate::db::Template| -> AnyElement {
+            match &template.icon {
+                crate::db::TemplateIcon::Emoji(emoji) => div()
+                    .flex()
+                    .size(px(16.0))
+                    .items_center()
+                    .justify_center()
+                    .tw_text_sm()
+                    .child(SharedString::from(emoji.clone()))
+                    .into_any_element(),
+                crate::db::TemplateIcon::Icon { name, color } => {
+                    let color = parse_hex_color(color).unwrap_or(theme.muted_foreground);
+                    icon(template_icon_asset(name), px(16.0), color).into_any_element()
+                }
+            }
+        };
+        let section =
+            |label: &'static str, templates: &[&crate::db::Template]| -> Vec<AnyElement> {
+                if templates.is_empty() {
+                    return Vec::new();
+                }
+                let mut children = vec![
+                    div()
+                        .flex()
+                        .h(px(32.0))
+                        .items_center()
+                        .tw_text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child(label)
+                        .into_any_element(),
+                ];
+                for template in templates {
+                    let template = (*template).clone();
+                    let label = if template.title.trim().is_empty() {
+                        "Untitled".to_string()
+                    } else {
+                        template.title.clone()
+                    };
+                    children.push(
+                        row(
+                            SharedString::from(format!("template-{}", template.id)).into(),
+                            template_glyph(&template),
+                            SharedString::from(label),
+                        )
+                        .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                            this.apply_template(&template, window, cx);
+                        }))
+                        .into_any_element(),
+                    );
+                }
+                children
+            };
+
+        div()
+            .absolute()
+            .top(px(32.0))
+            .left_0()
+            .right_0()
+            .flex()
+            .flex_col()
+            .children(section("Start with a favorite template", &favorites))
+            .children(section("Suggested templates", &suggested))
+            .child(
+                row(
+                    "template-new".into(),
+                    icon("plus", px(16.0), theme.muted_foreground).into_any_element(),
+                    "New template".into(),
+                )
+                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                    let task = this.store.create_template();
+                    cx.spawn(async move |this, cx| match task.await {
+                        Ok(Ok(_template_id)) => {
+                            // The Templates tab that would open on the new
+                            // template is not ported yet.
+                            this.update(cx, |this, cx| this.reload_settings(cx)).ok();
+                        }
+                        Ok(Err(error)) => tracing::error!(%error, "[useCreateTemplate]"),
+                        Err(error) => tracing::error!(%error, "[useCreateTemplate]"),
+                    })
+                    .detach();
+                })),
+            )
+    }
+
     /// `ConfigError`: centred copy with the `Get Pro` (default) and `Add API
     /// key` (outline) buttons routing to the Account / Intelligence settings.
     fn render_summary_config_error(&self, cx: &mut Context<Self>) -> Div {
@@ -810,6 +1039,36 @@ impl Workspace {
                     .child(SharedString::from(segment.text.clone())),
             )
     }
+}
+
+/// `TEMPLATE_ICON_COMPONENTS`: the bundled subset of the template icon names.
+fn template_icon_asset(name: &str) -> &'static str {
+    match name {
+        "notebook-tabs" | "notebook" => "notebook",
+        "book-open" => "book-open",
+        "calendar" => "calendar-dots",
+        "file-text" => "file-text",
+        "folder" => "folder",
+        "users" => "users",
+        "code" => "code",
+        "bell" => "bell",
+        _ => "notebook",
+    }
+}
+
+/// `#rrggbb` -> `Rgba`.
+fn parse_hex_color(value: &str) -> Option<gpui::Rgba> {
+    let hex = value.strip_prefix('#')?;
+    if hex.len() != 6 {
+        return None;
+    }
+    let channel = |range: std::ops::Range<usize>| u8::from_str_radix(&hex[range], 16).ok();
+    Some(gpui::Rgba {
+        r: channel(0..2)? as f32 / 255.0,
+        g: channel(2..4)? as f32 / 255.0,
+        b: channel(4..6)? as f32 / 255.0,
+        a: 1.0,
+    })
 }
 
 /// Bundled bitmap/brand images. A bare file name parses as a relative URI, so

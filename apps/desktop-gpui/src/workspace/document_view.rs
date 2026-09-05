@@ -19,6 +19,14 @@ use crate::ui::TailwindText as _;
 
 const BODY_PX: f32 = 16.0;
 
+/// WebCore stores a unitless `line-height` as a single-precision percentage
+/// and truncates the used value to whole pixels, so `18px * 1.4444` lays out
+/// as 25px, not 26.
+pub(super) fn webkit_line_height(font_px: f32, ratio: f32) -> f32 {
+    let percent = ratio * 100.0;
+    (percent * font_px / 100.0).floor()
+}
+
 /// Paints one quad per wrapped line the byte range covers. Line ends are
 /// found by bisecting on the y of `position_for_index`, which is monotonic.
 fn paint_selection(
@@ -87,6 +95,9 @@ pub(super) struct DocumentRenderer {
     /// their layout to the editor, place the caret on click, and paint it.
     editor: Option<Entity<BodyEditor>>,
     next_textblock: Cell<usize>,
+    /// `placeholderPlugin`: the empty textblock holding the selection anchor
+    /// shows the placeholder text.
+    placeholder: Option<(usize, SharedString)>,
 }
 
 impl Workspace {
@@ -103,6 +114,7 @@ impl Workspace {
             theme: self.theme,
             editor: None,
             next_textblock: Cell::new(0),
+            placeholder: None,
         }
     }
 
@@ -110,8 +122,20 @@ impl Workspace {
         &self,
         editor: Entity<BodyEditor>,
         window: &Window,
+        cx: &gpui::App,
     ) -> DocumentRenderer {
         let mut renderer = self.document_renderer(window);
+        renderer.placeholder = {
+            let editor = editor.read(cx);
+            // ProseMirror always has a selection; before the first focus it
+            // sits at the document start.
+            editor
+                .caret()
+                .map(|caret| caret.block)
+                .or_else(|| editor.doc().is_pristine().then_some(0))
+                .filter(|block| editor.doc().text(*block).is_empty())
+                .map(|block| (block, SharedString::from("Start writing...")))
+        };
         renderer.editor = Some(editor);
         renderer
     }
@@ -180,6 +204,28 @@ impl DocumentRenderer {
         let drag_editor = editor.clone();
         let caret_color = self.theme.foreground;
         let selection_color = self.theme.selection;
+        let placeholder = self
+            .placeholder
+            .as_ref()
+            .filter(|(block, _)| *block == index)
+            .map(|(_, text)| text.clone());
+        let muted = self.theme.muted_foreground;
+        let text = match placeholder {
+            // `.n::before { content: attr(data-placeholder) }` at the block's origin.
+            Some(placeholder) => div()
+                .relative()
+                .child(text)
+                .child(
+                    div()
+                        .absolute()
+                        .top_0()
+                        .left_0()
+                        .text_color(muted)
+                        .child(placeholder),
+                )
+                .into_any_element(),
+            None => text.into_any_element(),
+        };
         wrapper
             .id(("textblock", index))
             .relative()
@@ -257,19 +303,21 @@ impl DocumentRenderer {
                 self.text(spans, &self.base),
             ),
             Block::Heading { level, spans } => {
-                let (em, weight, line_height) = match level {
+                let (em, weight, ratio) = match level {
                     1 => (1.25, gpui::FontWeight::BOLD, 1.4),
                     2 => (1.125, gpui::FontWeight::SEMIBOLD, 1.4444),
                     _ => (1.0, gpui::FontWeight::SEMIBOLD, 1.5),
                 };
+                let font_px = BODY_PX * em;
                 let mut style = self.base.clone();
                 style.font_weight = weight;
-                style.font_size = px(BODY_PX * em).into();
+                style.font_size = px(font_px).into();
                 self.textblock(
                     div()
-                        .py(pad)
-                        .text_size(px(BODY_PX * em))
-                        .line_height(px(BODY_PX * em * line_height)),
+                        // `padding-block: 0.125em` scales with the heading's own size.
+                        .py(px(font_px * 0.125))
+                        .text_size(px(font_px))
+                        .line_height(px(webkit_line_height(font_px, ratio))),
                     self.text(spans, &style),
                 )
             }

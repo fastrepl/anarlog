@@ -297,6 +297,23 @@ impl BodyEditor {
         }
     }
 
+    /// `editor.commands.focus()` on a freshly opened note: the caret sits at
+    /// the document start unless the editor already has one.
+    pub fn focus_start(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.doc.ensure_textblock();
+        if self.caret.is_none() {
+            self.set_head(
+                Caret {
+                    block: 0,
+                    offset: 0,
+                },
+                false,
+                cx,
+            );
+        }
+        self.focus_handle.focus(window);
+    }
+
     /// Clicking below the last block puts the caret at the end, like
     /// `trailing-empty-line-click.ts`.
     pub fn place_caret_at_end(&mut self, window: &mut Window, cx: &mut Context<Self>) {

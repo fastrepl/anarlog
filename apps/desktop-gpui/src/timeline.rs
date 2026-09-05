@@ -60,9 +60,13 @@ pub struct Item {
 #[derive(Debug, Clone, PartialEq, Eq, Default, serde::Deserialize)]
 pub struct SessionEvent {
     pub tracking_id: Option<String>,
+    pub title: Option<String>,
+    pub description: Option<String>,
     pub started_at: Option<String>,
     pub ended_at: Option<String>,
     pub meeting_link: Option<String>,
+    #[serde(default)]
+    pub participants: Vec<serde_json::Value>,
 }
 
 impl SessionEvent {
@@ -496,6 +500,7 @@ pub fn build_with<Tz: TimeZone>(
                 started_at: Some(event.started_at.clone()),
                 ended_at: Some(event.ended_at.clone()),
                 meeting_link: Some(event.meeting_link.clone()),
+                ..SessionEvent::default()
             }),
         });
     }

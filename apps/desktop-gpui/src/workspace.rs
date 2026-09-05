@@ -135,6 +135,12 @@ pub struct Workspace {
     /// shown, but `openNew` vs `openCurrent` decide which note gets closed.
     tabs: Vec<String>,
     provider_settings: ProviderSettings,
+    /// `useUserTemplates`, for the empty-memo suggestions.
+    templates: Vec<crate::db::Template>,
+    /// `useAutoFocusEditor`: the session whose editor was focused on open, and
+    /// the editor waiting for the next frame to receive that focus.
+    auto_focused_session: Option<String>,
+    pending_editor_focus: Option<gpui::Entity<BodyEditor>>,
     auth: toast::Auth,
     /// `getDismissedToasts` from `store.json`.
     dismissed_toasts: Vec<String>,
@@ -235,6 +241,9 @@ impl Workspace {
             store_file,
             tabs: Vec::new(),
             provider_settings: ProviderSettings::default(),
+            templates: Vec::new(),
+            auto_focused_session: None,
+            pending_editor_focus: None,
             auth: toast::Auth::Loading,
             dismissed_toasts: Vec::new(),
             theme_preference: "system".to_string(),
@@ -341,6 +350,7 @@ impl Workspace {
 
     fn reload_settings(&mut self, cx: &mut Context<Self>) {
         let task = self.store.load_provider_settings();
+        let templates = self.store.list_templates();
         cx.spawn(async move |this, cx| {
             if let Ok(Ok(settings)) = task.await {
                 this.update(cx, |this, cx| {
@@ -352,6 +362,68 @@ impl Workspace {
                 })
                 .ok();
             }
+            if let Ok(Ok(templates)) = templates.await {
+                this.update(cx, |this, cx| {
+                    if this.templates != templates {
+                        this.templates = templates;
+                        cx.notify();
+                    }
+                })
+                .ok();
+            }
+        })
+        .detach();
+    }
+
+    /// `handleApplyTemplate`: the memo becomes one `h2` + empty paragraph per
+    /// titled section, persisted with `raw_template_id` in the same write.
+    fn apply_template(
+        &mut self,
+        template: &crate::db::Template,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let content: Vec<serde_json::Value> = template
+            .section_titles
+            .iter()
+            .flat_map(|title| {
+                [
+                    serde_json::json!({
+                        "type": "heading",
+                        "attrs": { "level": 2 },
+                        "content": [{ "type": "text", "text": title }],
+                    }),
+                    serde_json::json!({ "type": "paragraph" }),
+                ]
+            })
+            .collect();
+        if content.is_empty() {
+            return;
+        }
+        let Some(editor) = self.editor.clone() else {
+            return;
+        };
+        let session_id = editor.read(cx).session_id.clone();
+        let body = serde_json::json!({ "type": "doc", "content": content }).to_string();
+        editor.update(cx, |editor, cx| {
+            editor.replace_body(&body, cx);
+            // `replaceContent` leaves the selection at the end of the new document.
+            editor.place_caret_at_end(window, cx);
+        });
+        let task =
+            self.store
+                .update_memo_with_template(session_id.clone(), body, template.id.clone());
+        cx.spawn(async move |this, cx| match task.await {
+            Ok(Ok(())) => {
+                this.update(cx, |this, cx| {
+                    if this.selected.as_deref() == Some(session_id.as_str()) {
+                        this.reload_note(session_id, cx);
+                    }
+                })
+                .ok();
+            }
+            Ok(Err(error)) => tracing::error!(%error, "failed to apply template"),
+            Err(error) => tracing::error!(%error, "failed to apply template"),
         })
         .detach();
     }
@@ -618,6 +690,15 @@ impl Workspace {
                             }
                         });
                         this.sync_editor(&preview, cx);
+                        // `useAutoFocusEditor`: focus the memo once per opened
+                        // session, at the document start.
+                        if tab == NoteTab::Memo
+                            && this.auto_focused_session.as_deref() != Some(session_id.as_str())
+                            && let Some(editor) = this.editor.clone()
+                        {
+                            this.auto_focused_session = Some(session_id.clone());
+                            this.pending_editor_focus = Some(editor);
+                        }
                         Note::Ready {
                             preview: Box::new(preview),
                             tab,
@@ -869,6 +950,9 @@ impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // `resolveIsDarkMode` on every frame: the setting or the system
         // appearance may have changed since the last one.
+        if let Some(editor) = self.pending_editor_focus.take() {
+            editor.update(cx, |editor, cx| editor.focus_start(window, cx));
+        }
         let resolved = Theme::resolve(&self.theme_preference, window.appearance());
         if resolved != self.theme {
             self.theme = resolved;

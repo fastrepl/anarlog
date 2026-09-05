@@ -396,6 +396,109 @@ fn has_note_content(body: &str, format: &str) -> bool {
 }
 
 // apps/desktop/src/session/queries/sessions.ts, `updateSession({ raw_md })`.
+// The same statement with `raw_template_id` set (`hasTemplateChange`).
+const UPSERT_MEMO_WITH_TEMPLATE_SQL: &str = "
+    INSERT INTO session_documents (
+      id, workspace_id, session_id, kind, template_id, body_format, body,
+      created_by, updated_by, created_at, updated_at, deleted_at
+    )
+    SELECT ?, workspace_id, id, 'note', ?, 'prosemirror_json', ?,
+      owner_user_id, owner_user_id, ?, ?, NULL
+    FROM sessions
+    WHERE id = ? AND deleted_at IS NULL
+    ON CONFLICT(id) DO UPDATE SET
+      template_id = excluded.template_id,
+      body_format = excluded.body_format,
+      body = excluded.body,
+      updated_by = excluded.updated_by,
+      updated_at = excluded.updated_at,
+      deleted_at = NULL
+";
+
+// apps/desktop/src/templates/queries.ts, `useUserTemplates`.
+const TEMPLATES_SQL: &str = "
+    SELECT id, title, pinned, pin_order, icon_json, sections_json
+    FROM templates
+    ORDER BY id
+";
+
+/// A `templates` row as `mapTemplateLiveRows` shapes it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Template {
+    pub id: String,
+    pub title: String,
+    pub pinned: bool,
+    pub pin_order: Option<i64>,
+    /// `normalizeTemplateIcon`: `(type, value, color)`.
+    pub icon: TemplateIcon,
+    /// Section titles, trimmed and non-empty.
+    pub section_titles: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TemplateIcon {
+    Emoji(String),
+    Icon { name: String, color: String },
+}
+
+impl Template {
+    fn from_row(
+        (id, title, pinned, pin_order, icon_json, sections_json): (
+            String,
+            String,
+            i64,
+            Option<i64>,
+            String,
+            String,
+        ),
+    ) -> Self {
+        let icon = serde_json::from_str::<serde_json::Value>(&icon_json)
+            .ok()
+            .and_then(|icon| {
+                let kind = icon.get("type")?.as_str()?.to_string();
+                let value = icon.get("value")?.as_str()?.to_string();
+                Some(if kind == "emoji" {
+                    TemplateIcon::Emoji(value)
+                } else {
+                    TemplateIcon::Icon {
+                        name: value,
+                        color: icon
+                            .get("color")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or("#9ca3af")
+                            .to_string(),
+                    }
+                })
+            })
+            .unwrap_or(TemplateIcon::Icon {
+                name: "notebook-tabs".to_string(),
+                color: "#9ca3af".to_string(),
+            });
+        let section_titles = serde_json::from_str::<serde_json::Value>(&sections_json)
+            .ok()
+            .and_then(|sections| sections.as_array().cloned())
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|section| {
+                section
+                    .get("title")?
+                    .as_str()
+                    .map(str::trim)
+                    .map(str::to_string)
+            })
+            .filter(|title| !title.is_empty())
+            .collect();
+        Self {
+            id,
+            title,
+            pinned: pinned != 0,
+            pin_order,
+            icon,
+            section_titles,
+        }
+    }
+}
+
 const UPSERT_MEMO_SQL: &str = "
     INSERT INTO session_documents (
       id, workspace_id, session_id, kind, template_id, body_format, body,
@@ -962,6 +1065,61 @@ impl Store {
     }
 
     /// `updateSession(sessionId, { raw_md })`: the memo upsert.
+    /// `updateSession({ raw_md, raw_template_id })` after applying a template.
+    pub fn update_memo_with_template(
+        &self,
+        session_id: String,
+        body: String,
+        template_id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let now = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string();
+            sqlx::query(UPSERT_MEMO_WITH_TEMPLATE_SQL)
+                .bind(&session_id)
+                .bind(&template_id)
+                .bind(&body)
+                .bind(&now)
+                .bind(&now)
+                .bind(&session_id)
+                .execute(db.pool())
+                .await?;
+            Ok(())
+        })
+    }
+
+    /// `useCreateTemplate`'s insert for the memo's "New template" button:
+    /// an untitled, unpinned template with the default icon and no sections.
+    pub fn create_template(&self) -> tokio::task::JoinHandle<anyhow::Result<String>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let id = uuid::Uuid::new_v4().to_string();
+            sqlx::query(
+                "INSERT INTO templates (id, title, description, pinned, category, icon_json, targets_json, sections_json, created_at, updated_at)
+                 VALUES (?, 'New Template', '', 0, NULL, ?, NULL, '[]', strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+            )
+            .bind(&id)
+            .bind(r##"{"type":"icon","value":"notebook-tabs","color":"#9ca3af"}"##)
+            .execute(db.pool())
+            .await?;
+            Ok(id)
+        })
+    }
+
+    pub fn list_templates(&self) -> tokio::task::JoinHandle<anyhow::Result<Vec<Template>>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let rows = sqlx::query_as::<_, (String, String, i64, Option<i64>, String, String)>(
+                TEMPLATES_SQL,
+            )
+            .fetch_all(db.pool())
+            .await?;
+            Ok(rows.into_iter().map(Template::from_row).collect())
+        })
+    }
+
     pub fn update_memo(
         &self,
         session_id: String,
