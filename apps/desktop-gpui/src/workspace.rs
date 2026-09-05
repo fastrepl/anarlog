@@ -158,6 +158,8 @@ pub struct Workspace {
     ai_settings: std::collections::HashMap<ai_settings::ProviderKind, ai_settings::AiSettings>,
     /// Provider cards whose Advanced disclosure is expanded.
     ai_advanced_open: std::collections::HashSet<(ai_settings::ProviderKind, &'static str)>,
+    /// `usePermission` state for the Permissions page, keyed by permission.
+    permissions: std::collections::HashMap<&'static str, settings::PermissionState>,
     /// The `SpokenLanguagesView` chip input, created with the settings tab.
     spoken_search: Option<gpui::Entity<TextInput>>,
     spoken_highlighted: Option<usize>,
@@ -260,6 +262,7 @@ impl Workspace {
             open_select: None,
             ai_settings: std::collections::HashMap::new(),
             ai_advanced_open: std::collections::HashSet::new(),
+            permissions: std::collections::HashMap::new(),
             spoken_search: None,
             spoken_highlighted: None,
             pending_deletions: Vec::new(),

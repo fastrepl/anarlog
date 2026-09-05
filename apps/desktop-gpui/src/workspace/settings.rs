@@ -358,6 +358,11 @@ impl Workspace {
             SettingsTab::Intelligence => {
                 self.ensure_ai_settings(super::ai_settings::ProviderKind::Llm, window, cx)
             }
+            SettingsTab::Permissions => {
+                for permission in ["microphone", "system_audio"] {
+                    self.check_permission(permission, cx);
+                }
+            }
             _ => {}
         }
         self.settings_tab = Some(tab);
@@ -903,6 +908,12 @@ impl Workspace {
             SettingsTab::Intelligence => {
                 self.render_ai_settings(super::ai_settings::ProviderKind::Llm, title, window, cx)
             }
+            SettingsTab::Permissions => div()
+                .flex()
+                .flex_col()
+                .gap_8()
+                .child(title)
+                .child(self.render_permissions_settings(cx)),
             SettingsTab::Privacy => div()
                 .flex()
                 .flex_col()
@@ -1244,6 +1255,188 @@ impl Workspace {
             );
         }
         page
+    }
+
+    /// `usePermission(...).check`: probe on a blocking thread and store the
+    /// status.
+    fn check_permission(&mut self, permission: &'static str, cx: &mut Context<Self>) {
+        let audio = cx.global::<crate::audio::Audio>().0.clone();
+        let task = self
+            .store
+            .runtime()
+            .spawn_blocking(move || match permission {
+                "microphone" => crate::audio::check_microphone(audio.as_ref()),
+                _ => crate::audio::check_system_audio(audio.as_ref()),
+            });
+        cx.spawn(async move |this, cx| {
+            if let Ok(status) = task.await {
+                this.update(cx, |this, cx| {
+                    let state = this.permissions.entry(permission).or_default();
+                    state.status = Some(status);
+                    state.pending = false;
+                    cx.notify();
+                })
+                .ok();
+            }
+        })
+        .detach();
+    }
+
+    /// `usePermission(...).request`: run the platform request, record its
+    /// error, then re-check.
+    fn request_permission(&mut self, permission: &'static str, cx: &mut Context<Self>) {
+        let audio = cx.global::<crate::audio::Audio>().0.clone();
+        let state = self.permissions.entry(permission).or_default();
+        state.pending = true;
+        state.error = None;
+        let task = self
+            .store
+            .runtime()
+            .spawn_blocking(move || match permission {
+                "microphone" => crate::audio::request_microphone(audio.as_ref()),
+                _ => crate::audio::request_system_audio(audio.as_ref()),
+            });
+        cx.spawn(async move |this, cx| {
+            let result = task.await.unwrap_or_else(|error| Err(error.to_string()));
+            this.update(cx, |this, cx| {
+                let state = this.permissions.entry(permission).or_default();
+                state.error = result.err();
+                this.check_permission(permission, cx);
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// `Permissions` off macOS: the Audio group with runtime capabilities.
+    fn render_permissions_settings(&self, cx: &Context<Self>) -> Div {
+        let theme = self.theme;
+        div()
+            .flex()
+            .flex_col()
+            .child(
+                // `PermissionGroup`: `text-xs font-semibold tracking-wide uppercase mb-3`.
+                div()
+                    .mb_3()
+                    .tw_text_xs()
+                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .text_color(theme.muted_foreground)
+                    .child("AUDIO"),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_4()
+                    .child(self.render_permission_row(
+                        "microphone",
+                        "Microphone",
+                        "Record your voice in meetings and calls.",
+                        cx,
+                    ))
+                    .child(self.render_permission_row(
+                        "system_audio",
+                        "System audio",
+                        "Record other participants in meetings.",
+                        cx,
+                    )),
+            )
+    }
+
+    /// `PermissionRow` with `runtimeCapability`: red title + warning glyph until
+    /// authorized, a `size-8` button that requests (arrow) or, once granted,
+    /// shows the green check disabled.
+    fn render_permission_row(
+        &self,
+        permission: &'static str,
+        title: &'static str,
+        description: &'static str,
+        cx: &Context<Self>,
+    ) -> Div {
+        let theme = self.theme;
+        let state = self.permissions.get(permission);
+        let authorized = state
+            .is_some_and(|state| state.status == Some(crate::audio::PermissionStatus::Authorized));
+        let pending = state.is_some_and(|state| state.pending);
+        let error = state.and_then(|state| state.error.clone());
+        let red = gpui::rgb(0xfb2c36);
+        let green = gpui::rgb(0x00a63e);
+        let title_color = if authorized { theme.foreground } else { red };
+        div()
+            .flex()
+            .items_center()
+            .justify_between()
+            .gap_4()
+            .child(
+                div()
+                    .flex_1()
+                    .child(
+                        div()
+                            .mb_1()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .when(!authorized, |row| {
+                                row.child(icon("warning-circle", px(16.0), red))
+                            })
+                            .child(
+                                div()
+                                    .tw_text_sm()
+                                    .font_weight(gpui::FontWeight::MEDIUM)
+                                    .text_color(title_color)
+                                    .child(title),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .tw_text_xs()
+                            .text_color(theme.muted_foreground)
+                            .child(description),
+                    )
+                    .when_some(error, |column, error| {
+                        column.child(
+                            div()
+                                .mt_1()
+                                .tw_text_xs()
+                                .text_color(red)
+                                .child(SharedString::from(error)),
+                        )
+                    }),
+            )
+            .child(if authorized {
+                // `variant="ghost"` disabled: the green check with no hover.
+                div()
+                    .size(px(32.0))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded_full()
+                    .opacity(0.5)
+                    .child(icon("check", px(16.0), green))
+                    .into_any_element()
+            } else {
+                // `variant="default" size="icon"`: `bg-primary text-primary-foreground`.
+                div()
+                    .id(SharedString::from(format!("permission-{permission}")))
+                    .size(px(32.0))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded_full()
+                    .bg(theme.primary)
+                    .when(pending, |button| button.opacity(0.5))
+                    .when(!pending, |button| {
+                        button
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(alpha(theme.primary, 0.9)))
+                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                this.request_permission(permission, cx);
+                            }))
+                    })
+                    .child(icon("arrow-right", px(20.0), theme.primary_foreground))
+                    .into_any_element()
+            })
     }
 
     /// `SettingsPrivacy`: Lock app (disabled where device authentication is
@@ -2314,6 +2507,14 @@ pub(crate) struct SelectOption {
     pub detail: Option<&'static str>,
     /// `ProviderIconSlot` before the label (the AI provider selects).
     pub glyph: Option<crate::ai_providers::Icon>,
+}
+
+/// `usePermission`'s slice the page renders.
+#[derive(Debug, Default, Clone)]
+pub(crate) struct PermissionState {
+    pub status: Option<crate::audio::PermissionStatus>,
+    pub pending: bool,
+    pub error: Option<String>,
 }
 
 /// `SearchableSelect`'s popover: a `CommandInput` above the filtered list.

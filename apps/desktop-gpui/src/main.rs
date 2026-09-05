@@ -1,6 +1,7 @@
 mod actions;
 mod ai_providers;
 mod assets;
+mod audio;
 mod db;
 mod document;
 mod editor;
@@ -87,12 +88,14 @@ fn main() -> anyhow::Result<()> {
         db_path,
         args.identifier.clone(),
     ))?;
+    let audio = audio::provider(&args.identifier);
     let store = Arc::new(store);
     tracing::info!(path = %store.path().display(), "opened application database");
 
     Application::new()
         .with_assets(assets::Assets)
         .run(move |cx: &mut App| {
+            cx.set_global(audio::Audio(audio));
             actions::bind_keys(cx);
             text_input::bind_keys(cx);
             editor::bind_keys(cx);

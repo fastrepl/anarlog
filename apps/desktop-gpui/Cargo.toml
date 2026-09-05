@@ -10,6 +10,9 @@ name = "anarlog-gpui"
 path = "src/main.rs"
 
 [dependencies]
+anlg-audio = { workspace = true }
+anlg-audio-actual = { workspace = true }
+anlg-audio-mock = { workspace = true }
 anlg-db-app = { workspace = true }
 anlg-db-core = { workspace = true }
 anlg-storage = { workspace = true }

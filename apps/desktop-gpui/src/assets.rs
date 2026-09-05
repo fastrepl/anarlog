@@ -57,6 +57,7 @@ embedded!(
     "icons/app-window.svg",
     "icons/arrow-down.svg",
     "icons/arrow-left.svg",
+    "icons/arrow-right.svg",
     "icons/arrow-up-right.svg",
     "icons/arrow-up.svg",
     "icons/arrows-clockwise.svg",
@@ -108,6 +109,7 @@ embedded!(
     "icons/users.svg",
     "icons/video-camera.svg",
     "icons/view-sidebar-left.svg",
+    "icons/warning-circle.svg",
     "icons/waveform.svg",
     "icons/x.svg",
     "anarlog-icon.png",
@@ -146,6 +148,6 @@ mod tests {
         }
         assert!(Assets.load("icons/search.svg").unwrap().is_some());
         assert!(Assets.load("icons/missing.svg").unwrap().is_none());
-        assert_eq!(Assets.list("icons/").unwrap().len(), 57);
+        assert_eq!(Assets.list("icons/").unwrap().len(), 59);
     }
 }

@@ -911,6 +911,10 @@ impl Store {
         &self.path
     }
 
+    pub fn runtime(&self) -> &tokio::runtime::Handle {
+        &self.runtime
+    }
+
     /// Ticks whenever another process commits to the database. This is how
     /// the shell stays in step with the Tauri app's writes; in-process change
     /// notifications (`anlg-db-reactive`) cannot see other connections.
