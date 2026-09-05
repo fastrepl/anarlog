@@ -43,7 +43,7 @@ const TIMELINE_EVENTS_SQL: &str = "
 
 // apps/desktop/src/session/queries/enhanced-notes.ts, `useEnhancedNoteRecords`.
 const ENHANCED_NOTES_SQL: &str = "
-    SELECT id, title, body, body_format
+    SELECT id, title, body, body_format, COALESCE(template_id, '')
     FROM session_documents
     WHERE session_id = ?
       AND kind IN ('summary', 'template_output')
@@ -58,6 +58,8 @@ pub struct NoteDocument {
     pub blocks: Vec<Block>,
     /// The stored body (TipTap JSON) for exports and content checks.
     pub body: String,
+    /// `template_id` (`""` for Auto).
+    pub template_id: String,
 }
 
 /// `DEFAULT_USER_ID` in `apps/desktop/src/shared/utils.ts`.
@@ -2373,16 +2375,17 @@ impl Store {
                 None => (Vec::new(), String::new()),
             };
             let enhanced =
-                sqlx::query_as::<_, (String, String, String, String)>(ENHANCED_NOTES_SQL)
+                sqlx::query_as::<_, (String, String, String, String, String)>(ENHANCED_NOTES_SQL)
                     .bind(&session_id)
                     .fetch_all(db.pool())
                     .await?
                     .into_iter()
-                    .map(|(id, title, body, body_format)| NoteDocument {
+                    .map(|(id, title, body, body_format, template_id)| NoteDocument {
                         id,
                         title,
                         blocks: document::from_body(&body_format, &body),
                         body,
+                        template_id,
                     })
                     .collect();
             let has_transcript: bool = sqlx::query_scalar(HAS_TRANSCRIPT_SQL)

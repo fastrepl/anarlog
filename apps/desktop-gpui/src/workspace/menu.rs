@@ -560,7 +560,7 @@ impl Workspace {
 }
 
 /// `appFloatingContentClassName` with `shadow-lg`.
-fn menu_chrome(theme: Theme, id: &'static str, width: f32) -> gpui::Stateful<gpui::Div> {
+pub(super) fn menu_chrome(theme: Theme, id: &'static str, width: f32) -> gpui::Stateful<gpui::Div> {
     div()
         .id(SharedString::from(format!("{id}-chrome")))
         .occlude()

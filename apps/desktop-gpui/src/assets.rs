@@ -141,6 +141,7 @@ embedded!(
     "brands/zai.svg",
     "icons/alert-triangle.svg",
     "icons/app-window.svg",
+    "icons/arrow-clockwise.svg",
     "icons/arrow-down.svg",
     "icons/arrow-elbow-down-left.svg",
     "icons/arrow-left.svg",
@@ -152,6 +153,7 @@ embedded!(
     "icons/bell.svg",
     "icons/book-open-text.svg",
     "icons/book-open.svg",
+    "icons/buildings.svg",
     "icons/calendar-blank.svg",
     "icons/calendar-dots.svg",
     "icons/calendar.svg",
@@ -188,6 +190,7 @@ embedded!(
     "icons/plus.svg",
     "icons/popover-tail-border.svg",
     "icons/popover-tail.svg",
+    "icons/push-pin.svg",
     "icons/search.svg",
     "icons/share-network.svg",
     "icons/share.svg",
@@ -324,6 +327,6 @@ mod tests {
         }
         assert!(Assets.load("icons/search.svg").unwrap().is_some());
         assert!(Assets.load("icons/missing.svg").unwrap().is_none());
-        assert_eq!(Assets.list("icons/").unwrap().len(), 149);
+        assert_eq!(Assets.list("icons/").unwrap().len(), 152);
     }
 }

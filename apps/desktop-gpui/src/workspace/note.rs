@@ -447,7 +447,7 @@ impl Workspace {
         cx: &Context<Self>,
     ) -> Div {
         let theme = self.theme;
-        let mut tabs: Vec<(NoteTab, SharedString, &'static str)> = preview
+        let mut tabs: Vec<(NoteTab, SharedString, &'static str, String)> = preview
             .enhanced
             .iter()
             .map(|doc| {
@@ -460,14 +460,25 @@ impl Workspace {
                     NoteTab::Enhanced(doc.id.clone()),
                     SharedString::from(label),
                     "sparkle",
+                    doc.template_id.clone(),
                 )
             })
             .collect();
-        tabs.push((NoteTab::Memo, "Memos".into(), "text-align-left"));
+        tabs.push((
+            NoteTab::Memo,
+            "Memos".into(),
+            "text-align-left",
+            String::new(),
+        ));
         // `createEditorTabs`: the transcript tab follows the memo whenever
         // `getCanShowTranscript` holds (a stored transcript with words).
         if preview.has_transcript {
-            tabs.push((NoteTab::Transcript, "Transcript".into(), "waveform"));
+            tabs.push((
+                NoteTab::Transcript,
+                "Transcript".into(),
+                "waveform",
+                String::new(),
+            ));
         }
 
         div()
@@ -481,65 +492,82 @@ impl Workspace {
             .p(px(2.0))
             .rounded_full()
             .bg(alpha(theme.foreground, 0.1))
-            .children(
-                tabs.into_iter()
-                    .enumerate()
-                    .map(|(index, (tab, label, glyph))| {
-                        let active = *current == tab;
-                        div()
-                            .id(("view-tab", index))
-                            .flex()
-                            .h(px(24.0))
-                            .flex_shrink_0()
-                            .items_center()
-                            .justify_center()
-                            .gap_1()
-                            .px_2()
-                            .rounded_full()
-                            .cursor_pointer()
-                            .when(active, |t| {
-                                t.bg(theme.white).text_color(theme.foreground).shadow_xs()
-                            })
-                            .when(!active, |t| {
-                                t.text_color(alpha(theme.muted_foreground, 0.7)).hover(
-                                    move |style| {
-                                        style
-                                            .bg(alpha(theme.background, 0.6))
-                                            .text_color(theme.foreground)
-                                    },
-                                )
-                            })
-                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                            .on_click(cx.listener(move |this, _: &ClickEvent, _window, cx| {
-                                this.set_tab(tab.clone(), cx);
-                            }))
-                            .child(icon(
-                                glyph,
-                                px(16.0),
-                                if active {
-                                    theme.foreground
-                                } else {
-                                    alpha(theme.muted_foreground, 0.7)
-                                },
-                            ))
-                            .when(active, |t| {
-                                t.child(
-                                    div()
-                                        .tw_text_xs()
-                                        .font_weight(gpui::FontWeight::MEDIUM)
-                                        .child(label),
-                                )
-                                .when(glyph == "sparkle", |t| {
-                                    t.child(icon("caret-down", px(12.0), theme.foreground))
+            .children(tabs.into_iter().enumerate().map(
+                |(index, (tab, label, glyph, template_id))| {
+                    let active = *current == tab;
+                    let enhanced_id = match &tab {
+                        NoteTab::Enhanced(id) => Some(id.clone()),
+                        _ => None,
+                    };
+                    let picker_open = active
+                        && enhanced_id.as_ref().is_some_and(|id| {
+                            self.template_picker
+                                .as_ref()
+                                .is_some_and(|picker| picker.note_id == *id)
+                        });
+                    div()
+                        .id(("view-tab", index))
+                        .relative()
+                        .flex()
+                        .h(px(24.0))
+                        .flex_shrink_0()
+                        .items_center()
+                        .justify_center()
+                        .gap_1()
+                        .px_2()
+                        .rounded_full()
+                        .cursor_pointer()
+                        .when(active, |t| {
+                            t.bg(theme.white).text_color(theme.foreground).shadow_xs()
+                        })
+                        .when(!active, |t| {
+                            t.text_color(alpha(theme.muted_foreground, 0.7))
+                                .hover(move |style| {
+                                    style
+                                        .bg(alpha(theme.background, 0.6))
+                                        .text_color(theme.foreground)
                                 })
-                                // `HeaderViewTranscriptActive`: an inactive session with a
-                                // stored transcript can enter edit mode, shown by the pencil.
-                                .when(glyph == "waveform", |t| {
-                                    t.child(icon("pencil-edit", px(14.0), theme.foreground))
-                                })
+                        })
+                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                        .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                            // The active enhanced pill is the template picker trigger.
+                            match (&enhanced_id, active) {
+                                (Some(id), true) => {
+                                    this.toggle_template_picker(id.clone(), window, cx)
+                                }
+                                _ => this.set_tab(tab.clone(), cx),
+                            }
+                        }))
+                        .when(picker_open, |t| {
+                            t.children(self.render_template_picker(&template_id, cx))
+                        })
+                        .child(icon(
+                            glyph,
+                            px(16.0),
+                            if active {
+                                theme.foreground
+                            } else {
+                                alpha(theme.muted_foreground, 0.7)
+                            },
+                        ))
+                        .when(active, |t| {
+                            t.child(
+                                div()
+                                    .tw_text_xs()
+                                    .font_weight(gpui::FontWeight::MEDIUM)
+                                    .child(label),
+                            )
+                            .when(glyph == "sparkle", |t| {
+                                t.child(icon("caret-down", px(12.0), theme.foreground))
                             })
-                    }),
-            )
+                            // `HeaderViewTranscriptActive`: an inactive session with a
+                            // stored transcript can enter edit mode, shown by the pencil.
+                            .when(glyph == "waveform", |t| {
+                                t.child(icon("pencil-edit", px(14.0), theme.foreground))
+                            })
+                        })
+                },
+            ))
     }
 
     /// `NoteInput` scroll column: `px-3 pt-2 pb-6 overflow-y-auto`.

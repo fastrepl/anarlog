@@ -14,6 +14,7 @@ mod overflow;
 mod settings;
 pub(crate) use overflow::find_session_dir;
 mod sidebar;
+mod template_picker;
 mod templates_tab;
 mod title_bar;
 mod toast;
@@ -183,6 +184,8 @@ pub struct Workspace {
     calendar: Option<calendar_tab::CalendarState>,
     /// The Contacts tab while open.
     contacts: Option<contacts_tab::ContactsState>,
+    /// The enhanced tab's template picker while open.
+    template_picker: Option<template_picker::TemplatePicker>,
     /// The note column's scroll position, for its WebKit-style scrollbar.
     note_scroll: gpui::ScrollHandle,
     /// The template section under the pointer (`group-hover`).
@@ -299,6 +302,7 @@ impl Workspace {
             templates_tab: None,
             calendar: None,
             contacts: None,
+            template_picker: None,
             note_scroll: gpui::ScrollHandle::new(),
             hovered_section: None,
             spoken_search: None,
@@ -1066,6 +1070,8 @@ impl Render for Workspace {
                     this.close_folder_dialogs(cx);
                 } else if this.calendar_popover_open() {
                     this.close_calendar_popover(cx);
+                } else if this.template_picker_open() {
+                    this.close_template_picker(window, cx);
                 } else if this.is_standalone() {
                     window.remove_window();
                 }
