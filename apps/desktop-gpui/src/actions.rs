@@ -10,6 +10,8 @@ actions!(
         NewNote,
         StartRecording,
         OpenSettings,
+        OpenTranscriptionSettings,
+        OpenIntelligenceSettings,
         ToggleSidebar,
         ToggleFullscreen,
         CloseWindow,

@@ -4,6 +4,7 @@ mod menu;
 mod note;
 mod open_note;
 mod overflow;
+mod settings;
 pub(crate) use overflow::find_session_dir;
 mod sidebar;
 mod title_bar;
@@ -140,6 +141,9 @@ pub struct Workspace {
     theme_preference: String,
     overflow_open: bool,
     overflow_submenu: Option<usize>,
+    /// The settings tab while it is the active overlay tab.
+    settings_tab: Option<settings::SettingsTab>,
+    settings_search: Option<gpui::Entity<TextInput>>,
     pending_deletions: Vec<overflow::PendingDeletion>,
     /// Pending `scrollToAnchor`: the viewport ratio the current-time line
     /// should land at, applied over two frames once the row is measured.
@@ -230,6 +234,8 @@ impl Workspace {
             theme_preference: "system".to_string(),
             overflow_open: false,
             overflow_submenu: None,
+            settings_tab: None,
+            settings_search: None,
             pending_deletions: Vec::new(),
             anchor_scroll: None,
             anchor_scrolled_once: false,
@@ -848,6 +854,19 @@ impl Render for Workspace {
                     this.open_note_dialog(window, cx)
                 }),
             )
+            .on_action(cx.listener(|this, _: &actions::OpenSettings, window, cx| {
+                this.open_settings(settings::SettingsTab::App, window, cx)
+            }))
+            .on_action(
+                cx.listener(|this, _: &actions::OpenTranscriptionSettings, window, cx| {
+                    this.open_settings(settings::SettingsTab::Transcription, window, cx)
+                }),
+            )
+            .on_action(
+                cx.listener(|this, _: &actions::OpenIntelligenceSettings, window, cx| {
+                    this.open_settings(settings::SettingsTab::Intelligence, window, cx)
+                }),
+            )
             .on_action(
                 cx.listener(|this, _: &actions::ToggleSidebar, _, cx| this.toggle_sidebar(cx)),
             )
@@ -903,9 +922,14 @@ impl Render for Workspace {
                     .flex_1()
                     .min_h_0()
                     .when(self.sidebar_expanded && !self.is_standalone(), |shell| {
+                        let sidebar = if self.settings_open() {
+                            self.render_settings_nav(cx).into_any_element()
+                        } else {
+                            self.render_sidebar(window, cx).into_any_element()
+                        };
                         shell
                             .pl_1()
-                            .child(self.render_sidebar(window, cx))
+                            .child(sidebar)
                             .child(self.render_sidebar_handle(cx))
                     })
                     .when(!self.sidebar_expanded && !self.is_standalone(), |shell| {

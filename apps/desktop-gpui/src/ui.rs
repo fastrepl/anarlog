@@ -18,6 +18,10 @@ pub trait TailwindText: Styled + Sized {
     fn tw_text_base(self) -> Self {
         self.text_size(px(16.0)).line_height(px(24.0))
     }
+    /// `text-lg`
+    fn tw_text_lg(self) -> Self {
+        self.text_size(px(18.0)).line_height(px(28.0))
+    }
     /// `text-[11px] leading-4`.
     fn tw_text_11(self) -> Self {
         self.text_size(px(11.0)).line_height(px(16.0))

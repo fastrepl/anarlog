@@ -132,6 +132,10 @@ pub struct ProviderSettings {
     pub stt_model: Option<String>,
     /// `theme` (`general.theme` in the legacy document), default `system`.
     pub theme: String,
+    /// Every stored row (`id` → `value_json`) for the settings pages.
+    pub raw: std::collections::HashMap<String, String>,
+    /// `legacy_settings_document`, already parsed.
+    pub legacy: serde_json::Value,
 }
 
 impl ProviderSettings {
@@ -176,7 +180,40 @@ impl ProviderSettings {
             stt_provider: read("current_stt_provider"),
             stt_model: read("current_stt_model"),
             theme,
+            raw: rows
+                .iter()
+                .map(|(id, json)| (id.clone(), json.clone()))
+                .collect(),
+            legacy,
         }
+    }
+
+    /// A stored value: the direct row, else the legacy document at `path`.
+    fn value(&self, key: &str, legacy_path: &[&str]) -> Option<serde_json::Value> {
+        if let Some(json) = self.raw.get(key)
+            && let Ok(value) = serde_json::from_str::<serde_json::Value>(json)
+        {
+            return Some(value);
+        }
+        let mut node = &self.legacy;
+        for segment in legacy_path {
+            node = node.get(segment)?;
+        }
+        Some(node.clone())
+    }
+
+    /// `resolveConfigValue` for a boolean setting with a schema default.
+    pub fn bool_setting(&self, key: &str, legacy_path: &[&str], default: bool) -> bool {
+        self.value(key, legacy_path)
+            .and_then(|value| value.as_bool())
+            .unwrap_or(default)
+    }
+
+    /// `resolveConfigValue` for a string setting; `None` when unset or blank.
+    pub fn string_setting(&self, key: &str, legacy_path: &[&str]) -> Option<String> {
+        self.value(key, legacy_path)
+            .and_then(|value| value.as_str().map(str::to_string))
+            .filter(|value| !value.is_empty())
     }
 
     /// `hasLLMConfigured`
@@ -683,6 +720,48 @@ impl Store {
                 .map(|(id, json, _)| (id, json))
                 .collect::<Vec<_>>();
             Ok(ProviderSettings::from_rows(&rows))
+        })
+    }
+
+    /// `setSettingValues`: one row per key, `JSON.stringify`'d, in
+    /// `synced_preferences` for synced keys and `app_settings` otherwise.
+    pub fn set_setting(
+        &self,
+        key: String,
+        value: serde_json::Value,
+        synced: bool,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let now = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string();
+            let json = serde_json::to_string(&value)?;
+            let sql = if synced {
+                "INSERT INTO synced_preferences (id, workspace_id, value_json, updated_at)
+                 VALUES (?, NULLIF((
+                   SELECT json_extract(value_json, '$.workspace_id')
+                   FROM app_settings
+                   WHERE id = 'cloudsync_workspace_binding'
+                 ), ''), ?, ?)
+                 ON CONFLICT(id) DO UPDATE SET
+                   workspace_id = excluded.workspace_id,
+                   value_json = excluded.value_json,
+                   updated_at = excluded.updated_at"
+            } else {
+                "INSERT INTO app_settings (id, value_json, updated_at)
+                 VALUES (?, ?, ?)
+                 ON CONFLICT(id) DO UPDATE SET
+                   value_json = excluded.value_json,
+                   updated_at = excluded.updated_at"
+            };
+            sqlx::query(sql)
+                .bind(&key)
+                .bind(&json)
+                .bind(&now)
+                .execute(db.pool())
+                .await?;
+            Ok(())
         })
     }
 
@@ -1311,6 +1390,31 @@ mod tests {
         assert_eq!(dark.theme, "dark");
         let bogus = ProviderSettings::from_rows(&rows(&[("theme", "\"neon\"")]));
         assert_eq!(bogus.theme, "system");
+
+        let general = ProviderSettings::from_rows(&rows(&[
+            ("autostart", "true"),
+            (
+                "legacy_settings_document",
+                r#"{"general":{"show_tray_icon":false,"ai_language":"ko","timezone":""}}"#,
+            ),
+        ]));
+        assert!(general.bool_setting("autostart", &["general", "autostart"], false));
+        assert!(general.bool_setting("automatic_updates", &["general", "automatic_updates"], true));
+        assert!(
+            !general.bool_setting("show_tray_icon", &["general", "show_tray_icon"], true),
+            "legacy document fallback"
+        );
+        assert_eq!(
+            general
+                .string_setting("ai_language", &["general", "ai_language"])
+                .as_deref(),
+            Some("ko")
+        );
+        assert_eq!(
+            general.string_setting("timezone", &["general", "timezone"]),
+            None,
+            "blank counts as unset"
+        );
 
         let direct = ProviderSettings::from_rows(&rows(&[
             ("current_stt_provider", "\"soniqo\""),

@@ -58,14 +58,14 @@ pub(crate) fn current_toast(
         return Some(Toast {
             id: "missing-stt",
             description: "Transcription provider needed".into(),
-            action: Some(("Add", Box::new(actions::OpenSettings))),
+            action: Some(("Add", Box::new(actions::OpenTranscriptionSettings))),
         });
     }
     if !has_usable_llm {
         return Some(Toast {
             id: "missing-llm",
             description: "Language model needed".into(),
-            action: Some(("Add", Box::new(actions::OpenSettings))),
+            action: Some(("Add", Box::new(actions::OpenIntelligenceSettings))),
         });
     }
     if !is_auth_loading
