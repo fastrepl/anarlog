@@ -1,6 +1,8 @@
 mod document_view;
 mod note;
 mod open_note;
+mod overflow;
+pub(crate) use overflow::find_session_dir;
 mod sidebar;
 mod title_bar;
 mod toast;
@@ -107,6 +109,8 @@ pub struct Workspace {
     tabs: Vec<String>,
     provider_settings: ProviderSettings,
     auth: toast::Auth,
+    overflow_open: bool,
+    pending_deletions: Vec<overflow::PendingDeletion>,
     /// Id of the chrome button under the pointer, so icons can take the
     /// `hover:text-foreground` colour their container cannot pass down.
     hovered: Option<&'static str>,
@@ -160,6 +164,8 @@ impl Workspace {
             tabs: Vec::new(),
             provider_settings: ProviderSettings::default(),
             auth: toast::Auth::Loading,
+            overflow_open: false,
+            pending_deletions: Vec::new(),
             hovered: None,
         };
         // Chips and the bottom fade depend on the scroll position.
@@ -653,6 +659,8 @@ impl Render for Workspace {
                     .child(self.render_main_surface(window, cx)),
             )
             .children(self.render_toast_host(window, cx))
+            .children(self.render_undo_toast(cx))
+            .children(self.render_overflow_menu(window, cx))
             .children(self.render_open_menu(window, cx))
             .children(self.render_open_note_dialog(window, cx))
     }

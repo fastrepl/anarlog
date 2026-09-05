@@ -90,14 +90,24 @@ impl Workspace {
     ) -> Option<AnyElement> {
         let toast = current_toast(&self.provider_settings, self.auth)?;
         let text = rgb(0x171717);
+        // sonner's collapsed stack: an older toast sits 14px behind the
+        // newest one at 95% width and only its top edge shows.
+        let behind = !self.pending_deletions.is_empty();
+        let bottom = if behind { px(32.0 + 14.0) } else { px(32.0) };
+        let width = if behind { px(300.0 * 0.95) } else { px(300.0) };
+        let right = if behind {
+            px(32.0 + 300.0 * 0.025)
+        } else {
+            px(32.0)
+        };
 
         Some(
             div()
                 .id("toast-host")
                 .absolute()
-                .right(px(32.0))
-                .bottom(px(32.0))
-                .w(px(300.0))
+                .right(right)
+                .bottom(bottom)
+                .w(width)
                 .flex()
                 .items_center()
                 .gap(px(6.0))

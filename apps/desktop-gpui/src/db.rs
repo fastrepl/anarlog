@@ -267,6 +267,64 @@ const TOMBSTONE_TABLES: [&str; 6] = [
     "session_attachments",
 ];
 
+/// `buildSessionTombstoneStatements`: sets (or, when restoring, clears)
+/// `deleted_at` on the session and its rows in one transaction and returns
+/// how many session rows changed.
+async fn apply_tombstone(
+    pool: &sqlx::SqlitePool,
+    session_id: &str,
+    tombstone: &str,
+    restore: bool,
+) -> anyhow::Result<u64> {
+    let value: Option<&str> = if restore { None } else { Some(tombstone) };
+    let predicate = if restore {
+        "deleted_at = ?"
+    } else {
+        "deleted_at IS NULL"
+    };
+    let mut transaction = pool.begin().await?;
+    for table in TOMBSTONE_TABLES {
+        let mut query = sqlx::query(sqlx::AssertSqlSafe(format!(
+            "UPDATE {table} SET deleted_at = ?, updated_at = ? WHERE session_id = ? AND {predicate}"
+        )))
+        .bind(value)
+        .bind(tombstone)
+        .bind(session_id);
+        if restore {
+            query = query.bind(tombstone);
+        }
+        query.execute(&mut *transaction).await?;
+    }
+    let mut query = sqlx::query(sqlx::AssertSqlSafe(format!(
+        "UPDATE entity_mentions
+         SET deleted_at = ?, updated_at = ?
+         WHERE (
+           (source_type = 'session' AND source_id = ?)
+           OR (target_type = 'session' AND target_id = ?)
+         ) AND {predicate}"
+    )))
+    .bind(value)
+    .bind(tombstone)
+    .bind(session_id)
+    .bind(session_id);
+    if restore {
+        query = query.bind(tombstone);
+    }
+    query.execute(&mut *transaction).await?;
+    let mut query = sqlx::query(sqlx::AssertSqlSafe(format!(
+        "UPDATE sessions SET deleted_at = ?, updated_at = ? WHERE id = ? AND {predicate}"
+    )))
+    .bind(value)
+    .bind(tombstone)
+    .bind(session_id);
+    if restore {
+        query = query.bind(tombstone);
+    }
+    let result = query.execute(&mut *transaction).await?;
+    transaction.commit().await?;
+    Ok(result.rows_affected())
+}
+
 /// `hasNoteContent`: a note counts as written once its Markdown rendering has
 /// anything but whitespace or a bare `&nbsp;`.
 fn has_note_content(body: &str, format: &str) -> bool {
@@ -623,12 +681,13 @@ impl Store {
         let db = self.db.clone();
         self.runtime.spawn(async move {
             let pool = db.pool();
-            let row = sqlx::query_as::<_, (String, String, String, String, i64, i64, i64, i64, i64)>(
-                SESSION_EMPTY_SQL,
-            )
-            .bind(&session_id)
-            .fetch_optional(pool)
-            .await?;
+            let row =
+                sqlx::query_as::<_, (String, String, String, String, i64, i64, i64, i64, i64)>(
+                    SESSION_EMPTY_SQL,
+                )
+                .bind(&session_id)
+                .fetch_optional(pool)
+                .await?;
             let Some((
                 title,
                 event_json,
@@ -660,42 +719,48 @@ impl Store {
             let tombstone = chrono::Utc::now()
                 .format("%Y-%m-%dT%H:%M:%S%.3fZ")
                 .to_string();
-            let mut transaction = pool.begin().await?;
-            for table in TOMBSTONE_TABLES {
-                sqlx::query(sqlx::AssertSqlSafe(format!(
-                    "UPDATE {table} SET deleted_at = ?, updated_at = ? WHERE session_id = ? AND deleted_at IS NULL"
-                )))
-                .bind(&tombstone)
-                .bind(&tombstone)
-                .bind(&session_id)
-                .execute(&mut *transaction)
-                .await?;
-            }
-            sqlx::query(
-                "UPDATE entity_mentions
-                 SET deleted_at = ?, updated_at = ?
-                 WHERE (
-                   (source_type = 'session' AND source_id = ?)
-                   OR (target_type = 'session' AND target_id = ?)
-                 ) AND deleted_at IS NULL",
-            )
-            .bind(&tombstone)
-            .bind(&tombstone)
-            .bind(&session_id)
-            .bind(&session_id)
-            .execute(&mut *transaction)
-            .await?;
-            let result = sqlx::query(
-                "UPDATE sessions SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL",
-            )
-            .bind(&tombstone)
-            .bind(&tombstone)
-            .bind(&session_id)
-            .execute(&mut *transaction)
-            .await?;
-            transaction.commit().await?;
-            Ok(result.rows_affected() == 1)
+            Ok(apply_tombstone(pool, &session_id, &tombstone, false).await? == 1)
         })
+    }
+
+    /// `softDeleteSession`: tombstones a live session and returns the
+    /// tombstone the undo toast needs to restore it.
+    pub fn soft_delete_session(
+        &self,
+        session_id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<Option<String>>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let tombstone = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string();
+            let affected = apply_tombstone(db.pool(), &session_id, &tombstone, false).await?;
+            Ok((affected == 1).then_some(tombstone))
+        })
+    }
+
+    /// `restoreDeletedSession`: lifts exactly the rows that tombstone touched.
+    pub fn restore_session(
+        &self,
+        session_id: String,
+        tombstone: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            apply_tombstone(db.pool(), &session_id, &tombstone, true).await?;
+            Ok(())
+        })
+    }
+
+    /// `fs-sync`'s `session_dir`: `<vault>/sessions/<id>`, where the vault is
+    /// the folder holding `app.db`.
+    pub fn session_dir(&self, session_id: &str) -> PathBuf {
+        let base = self
+            .path
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_default();
+        crate::workspace::find_session_dir(&base.join("sessions"), session_id)
     }
 
     /// `updateSession(sessionId, { raw_md })`: the memo upsert.
