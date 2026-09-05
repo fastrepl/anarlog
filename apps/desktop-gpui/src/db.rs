@@ -442,7 +442,7 @@ async fn apply_tombstone(
 
 /// `hasNoteContent`: a note counts as written once its Markdown rendering has
 /// anything but whitespace or a bare `&nbsp;`.
-fn has_note_content(body: &str, format: &str) -> bool {
+pub(crate) fn has_note_content(body: &str, format: &str) -> bool {
     if body.is_empty() {
         return false;
     }
@@ -580,6 +580,144 @@ const UPSERT_MEMO_SQL: &str = "
 ";
 
 // apps/desktop/src/session/queries/sessions.ts, `updateSession({ title })`.
+/// `useSessionParticipants`
+const SESSION_PARTICIPANTS_SQL: &str = "
+    SELECT
+        participant.id,
+        participant.human_id,
+        participant.source,
+        COALESCE(NULLIF(human.name, ''), participant.display_name) AS name,
+        COALESCE(NULLIF(human.email, ''), participant.email) AS email
+    FROM session_participants AS participant
+    LEFT JOIN humans AS human
+        ON human.id = participant.human_id AND human.deleted_at IS NULL
+    WHERE participant.session_id = ?
+        AND participant.deleted_at IS NULL
+    ORDER BY name, email, participant.id
+";
+
+/// `useHumans`
+const HUMANS_SQL: &str = "
+    SELECT id, name, email, phone, job_title, organization_id
+    FROM humans
+    WHERE deleted_at IS NULL
+    ORDER BY name, email, id
+";
+
+/// `createHuman`
+const CREATE_HUMAN_SQL: &str = "
+    INSERT INTO humans (
+        id, workspace_id, owner_user_id, organization_id, name, email,
+        phone, job_title, linkedin_username, memo, pinned, pin_order,
+        metadata_json, created_at, updated_at, deleted_at
+    ) VALUES (
+        ?, NULLIF((
+            SELECT json_extract(value_json, '$.workspace_id')
+            FROM app_settings
+            WHERE id = 'cloudsync_workspace_binding'
+        ), ''), COALESCE(
+            NULLIF(NULLIF(?, ''), '00000000-0000-0000-0000-000000000000'),
+            NULLIF((
+                SELECT json_extract(value_json, '$.workspace_id')
+                FROM app_settings
+                WHERE id = 'cloudsync_workspace_binding'
+            ), ''),
+            '00000000-0000-0000-0000-000000000000'
+        ), '', ?, ?, '', '', '', '', 0, NULL, '{}', ?, ?, NULL
+    )
+";
+
+/// `addSessionParticipant`, first statement.
+const REVIVE_EXCLUDED_PARTICIPANT_SQL: &str = "
+    UPDATE session_participants
+    SET source = ?, updated_at = ?
+    WHERE id = (
+        SELECT id
+        FROM session_participants
+        WHERE session_id = ?
+            AND human_id = ?
+            AND source = 'excluded'
+            AND deleted_at IS NULL
+            AND ? <> 'auto'
+        ORDER BY created_at, id
+        LIMIT 1
+    )
+";
+
+/// `addSessionParticipant`, second statement.
+const INSERT_MANUAL_PARTICIPANT_SQL: &str = "
+    INSERT INTO session_participants (
+        id, workspace_id, owner_user_id, session_id, human_id,
+        display_name, email, role, source, metadata_json, created_at,
+        updated_at, deleted_at
+    )
+    SELECT ?, session.workspace_id, session.owner_user_id, session.id, human.id,
+        human.name, human.email, '', ?, '{}', ?, ?, NULL
+    FROM sessions AS session
+    JOIN humans AS human ON human.id = ? AND human.deleted_at IS NULL
+    WHERE session.id = ?
+        AND session.deleted_at IS NULL
+        AND NOT EXISTS (
+            SELECT 1
+            FROM session_participants AS existing
+            WHERE existing.session_id = session.id
+                AND existing.human_id = human.id
+                AND existing.deleted_at IS NULL
+        )
+";
+
+/// `removeSessionParticipant`
+const REMOVE_PARTICIPANT_SQL: &str = "
+    UPDATE session_participants
+    SET
+        source = CASE WHEN source = 'auto' THEN 'excluded' ELSE source END,
+        deleted_at = CASE WHEN source = 'auto' THEN NULL ELSE ? END,
+        updated_at = ?
+    WHERE id = ? AND deleted_at IS NULL
+";
+
+/// `parseAssignedHumanId`: the hint value is JSON (or a JSON string) with a
+/// `human_id`.
+fn assigned_human_id(value: Option<&serde_json::Value>) -> Option<String> {
+    let value = value?;
+    let parsed = match value {
+        serde_json::Value::String(text) => serde_json::from_str::<serde_json::Value>(text).ok()?,
+        other => other.clone(),
+    };
+    parsed
+        .get("human_id")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string)
+}
+
+/// A `session_participants` row as the metadata panel lists it.
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
+pub struct SessionParticipant {
+    pub id: String,
+    pub human_id: String,
+    pub source: String,
+    pub name: String,
+    pub email: String,
+}
+
+/// A `humans` row as the participant picker searches it.
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
+pub struct Human {
+    pub id: String,
+    pub name: String,
+    pub email: String,
+    pub phone: String,
+    pub job_title: String,
+    pub organization_id: String,
+}
+
+/// Who to add: an existing contact or a name to create one for.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParticipantTarget {
+    Existing(String),
+    New(String),
+}
+
 const UPDATE_TITLE_SQL: &str = "
     UPDATE sessions
     SET title = ?, updated_at = ?
@@ -1370,6 +1508,187 @@ impl Store {
                     .execute(pool)
                     .await?;
             }
+            Ok(())
+        })
+    }
+
+    /// `useSessionParticipants`: active and excluded mappings with the human's
+    /// current name/email over the mapping's own.
+    pub fn list_session_participants(
+        &self,
+        session_id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<Vec<SessionParticipant>>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            Ok(
+                sqlx::query_as::<_, SessionParticipant>(SESSION_PARTICIPANTS_SQL)
+                    .bind(&session_id)
+                    .fetch_all(db.pool())
+                    .await?,
+            )
+        })
+    }
+
+    /// `useHumans` (the columns the participant picker searches).
+    pub fn list_humans(&self) -> tokio::task::JoinHandle<anyhow::Result<Vec<Human>>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            Ok(sqlx::query_as::<_, Human>(HUMANS_SQL)
+                .fetch_all(db.pool())
+                .await?)
+        })
+    }
+
+    /// `createHuman` + `addSessionParticipant` for a typed name, or just the
+    /// latter for an existing contact.
+    pub fn add_session_participant(
+        &self,
+        session_id: String,
+        human: ParticipantTarget,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let pool = db.pool();
+            let now = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string();
+            let human_id = match human {
+                ParticipantTarget::Existing(id) => id,
+                ParticipantTarget::New(name) => {
+                    let owner: Option<String> =
+                        sqlx::query_scalar("SELECT owner_user_id FROM sessions WHERE id = ?")
+                            .bind(&session_id)
+                            .fetch_optional(pool)
+                            .await?;
+                    let Some(owner) = owner else {
+                        anyhow::bail!("session {session_id} does not exist");
+                    };
+                    let human_id = uuid::Uuid::new_v4().to_string();
+                    sqlx::query(CREATE_HUMAN_SQL)
+                        .bind(&human_id)
+                        .bind(&owner)
+                        .bind(&name)
+                        .bind("")
+                        .bind(&now)
+                        .bind(&now)
+                        .execute(pool)
+                        .await?;
+                    human_id
+                }
+            };
+            let participant_id = uuid::Uuid::new_v4().to_string();
+            let mut tx = pool.begin().await?;
+            sqlx::query(REVIVE_EXCLUDED_PARTICIPANT_SQL)
+                .bind("manual")
+                .bind(&now)
+                .bind(&session_id)
+                .bind(&human_id)
+                .bind("manual")
+                .execute(&mut *tx)
+                .await?;
+            sqlx::query(INSERT_MANUAL_PARTICIPANT_SQL)
+                .bind(&participant_id)
+                .bind("manual")
+                .bind(&now)
+                .bind(&now)
+                .bind(&human_id)
+                .bind(&session_id)
+                .execute(&mut *tx)
+                .await?;
+            tx.commit().await?;
+            Ok(())
+        })
+    }
+
+    /// `removeHumanSpeakerAssignments` + `removeSessionParticipant`: drop the
+    /// human's speaker hints from the session's stored transcripts, then
+    /// exclude (auto) or tombstone (manual) the mapping.
+    pub fn remove_session_participant(
+        &self,
+        session_id: String,
+        mapping_id: String,
+        human_id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let pool = db.pool();
+            let now = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string();
+            let transcripts = sqlx::query_as::<_, (String, String, i64, i64)>(
+                "SELECT transcript.id, transcript.speaker_hints_json, transcript.content_revision,
+                    (SELECT COUNT(*) FROM transcript_live_deltas AS delta WHERE delta.transcript_id = transcript.id)
+                 FROM transcripts AS transcript
+                 WHERE transcript.session_id = ? AND transcript.deleted_at IS NULL
+                 ORDER BY transcript.started_at_ms, transcript.created_at, transcript.id",
+            )
+            .bind(&session_id)
+            .fetch_all(pool)
+            .await?;
+            for (transcript_id, hints_json, revision, pending_deltas) in transcripts {
+                if pending_deltas > 0 {
+                    // Live deltas need the full snapshot materialisation the
+                    // recording flow owns; stored transcripts have none.
+                    tracing::warn!(%transcript_id, "skipping speaker hint removal with pending live deltas");
+                    continue;
+                }
+                let Ok(serde_json::Value::Array(hints)) = serde_json::from_str::<serde_json::Value>(&hints_json)
+                else {
+                    continue;
+                };
+                let filtered: Vec<serde_json::Value> = hints
+                    .iter()
+                    .filter(|hint| {
+                        let kind = hint.get("type").and_then(serde_json::Value::as_str).unwrap_or("");
+                        if kind != "automatic_speaker_assignment" && kind != "user_speaker_assignment" {
+                            return true;
+                        }
+                        assigned_human_id(hint.get("value")).as_deref() != Some(human_id.as_str())
+                    })
+                    .cloned()
+                    .collect();
+                if filtered.len() == hints.len() {
+                    continue;
+                }
+                sqlx::query(
+                    "UPDATE transcripts
+                     SET speaker_hints_json = ?, content_revision = content_revision + 1, updated_at = ?
+                     WHERE id = ? AND content_revision = ? AND deleted_at IS NULL",
+                )
+                .bind(serde_json::Value::Array(filtered).to_string())
+                .bind(&now)
+                .bind(&transcript_id)
+                .bind(revision)
+                .execute(pool)
+                .await?;
+            }
+            sqlx::query(REMOVE_PARTICIPANT_SQL)
+                .bind(&now)
+                .bind(&now)
+                .bind(&mapping_id)
+                .execute(pool)
+                .await?;
+            Ok(())
+        })
+    }
+
+    /// `updateSession({ created_at })` from the metadata date editor.
+    pub fn update_created_at(
+        &self,
+        session_id: String,
+        created_at: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let now = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string();
+            sqlx::query("UPDATE sessions SET created_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL")
+                .bind(&created_at)
+                .bind(&now)
+                .bind(&session_id)
+                .execute(db.pool())
+                .await?;
             Ok(())
         })
     }

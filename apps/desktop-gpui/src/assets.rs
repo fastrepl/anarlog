@@ -56,6 +56,7 @@ embedded!(
     "icons/alert-triangle.svg",
     "icons/app-window.svg",
     "icons/arrow-down.svg",
+    "icons/arrow-elbow-down-left.svg",
     "icons/arrow-left.svg",
     "icons/arrow-right.svg",
     "icons/arrow-up-right.svg",
@@ -84,6 +85,7 @@ embedded!(
     "icons/headset.svg",
     "icons/lightning.svg",
     "icons/lock.svg",
+    "icons/map-pin.svg",
     "icons/microphone.svg",
     "icons/more-horizontal.svg",
     "icons/note-edit.svg",
@@ -148,6 +150,6 @@ mod tests {
         }
         assert!(Assets.load("icons/search.svg").unwrap().is_some());
         assert!(Assets.load("icons/missing.svg").unwrap().is_none());
-        assert_eq!(Assets.list("icons/").unwrap().len(), 59);
+        assert_eq!(Assets.list("icons/").unwrap().len(), 61);
     }
 }

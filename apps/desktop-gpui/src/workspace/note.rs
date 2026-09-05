@@ -215,9 +215,9 @@ impl Workspace {
                     .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
                         this.set_hovered("overflow", *hovered, cx);
                     }))
-                    .on_click(
-                        cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_overflow_menu(cx)),
-                    )
+                    .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                        this.toggle_overflow_menu(window, cx)
+                    }))
                     .child(icon(
                         "more-horizontal",
                         px(16.0),

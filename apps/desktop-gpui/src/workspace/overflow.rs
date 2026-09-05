@@ -11,7 +11,7 @@ use gpui::{
 };
 
 use super::Workspace;
-use super::menu::{Align, Entry, MenuSpec, Select, Trailing};
+use super::menu::{Align, Entry, MenuSpec, Select, Submenu, Trailing};
 use crate::theme::alpha;
 
 /// `UNDO_TIMEOUT_MS`
@@ -26,9 +26,14 @@ pub(crate) struct PendingDeletion {
 }
 
 impl Workspace {
-    pub(crate) fn toggle_overflow_menu(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn toggle_overflow_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.overflow_open = !self.overflow_open;
         self.overflow_submenu = None;
+        if self.overflow_open
+            && let Some(session_id) = self.selected.clone()
+        {
+            self.prepare_meeting_info(session_id, window, cx);
+        }
         cx.notify();
     }
 
@@ -71,7 +76,28 @@ impl Workspace {
                 on_select,
                 submenu: None,
             };
-        MenuSpec {
+        // `showUploadActions`: no audio file, no transcript, and nothing
+        // written in the current view (recording is not ported, so a meeting
+        // is never in progress here).
+        let show_upload = match &self.note {
+            super::Note::Ready { preview, tab } => {
+                let audio_exists =
+                    anlg_fs_sync_core::audio::exists(&self.store.session_dir(&preview.session.id))
+                        .unwrap_or(false);
+                let note_has_content = match tab {
+                    super::NoteTab::Memo => crate::db::has_note_content(&preview.memo_body, "json"),
+                    super::NoteTab::Enhanced(id) => preview
+                        .enhanced
+                        .iter()
+                        .find(|document| document.id == *id)
+                        .is_some_and(|document| !document.blocks.is_empty()),
+                    super::NoteTab::Transcript => false,
+                };
+                !audio_exists && !preview.has_transcript && !note_has_content
+            }
+            _ => false,
+        };
+        let mut spec = MenuSpec {
             id: "overflow-menu",
             width: 224.0,
             open_sub: self.overflow_submenu,
@@ -85,7 +111,7 @@ impl Workspace {
                     trailing: Trailing::Submenu,
                     destructive: false,
                     on_select: None,
-                    submenu: Some(self.folder_submenu_entries()),
+                    submenu: Some(Submenu::Entries(self.folder_submenu_entries())),
                 },
                 Entry::Item {
                     icon: Some("calendar-blank"),
@@ -94,12 +120,18 @@ impl Workspace {
                     trailing: Trailing::Submenu,
                     destructive: false,
                     on_select: None,
-                    submenu: None,
+                    // `DropdownMenuSubContent className="w-72"` with `MetadataPanelContent`.
+                    submenu: Some(Submenu::Panel {
+                        width: 288.0,
+                        render: |this, cx| this.render_meeting_info_panel(cx),
+                    }),
                 },
                 Entry::Separator,
                 plain("file-arrow-down", "Export", None),
                 Entry::Separator,
                 plain("microphone", "Start listening", None),
+                plain("waveform", "Upload audio", None),
+                plain("file-text", "Upload transcript", None),
                 Entry::Separator,
                 plain(
                     "app-window",
@@ -129,7 +161,16 @@ impl Workspace {
                     submenu: None,
                 },
             ],
+        };
+        if !show_upload {
+            let start = spec
+                .entries
+                .iter()
+                .position(|entry| matches!(entry, Entry::Item { label, .. } if label.as_ref() == "Upload audio"))
+                .expect("upload entries present");
+            spec.entries.drain(start..start + 2);
         }
+        spec
     }
 
     /// `FolderPickerSubmenu`: every folder in use plus "No folder", the
@@ -227,6 +268,7 @@ impl Workspace {
             spec,
             point(viewport.width - px(8.0), px(81.0)),
             Align::End,
+            window,
             cx,
         ))
     }

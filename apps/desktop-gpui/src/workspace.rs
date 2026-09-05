@@ -1,6 +1,7 @@
 mod ai_settings;
 mod document_view;
 mod filter_menu;
+mod meeting_info;
 mod menu;
 mod note;
 mod open_note;
@@ -160,6 +161,8 @@ pub struct Workspace {
     ai_advanced_open: std::collections::HashSet<(ai_settings::ProviderKind, &'static str)>,
     /// `usePermission` state for the Permissions page, keyed by permission.
     permissions: std::collections::HashMap<&'static str, settings::PermissionState>,
+    /// The Meeting info submenu's data for the note whose overflow menu is open.
+    meeting_info: Option<meeting_info::MeetingInfo>,
     /// The `SpokenLanguagesView` chip input, created with the settings tab.
     spoken_search: Option<gpui::Entity<TextInput>>,
     spoken_highlighted: Option<usize>,
@@ -263,6 +266,7 @@ impl Workspace {
             ai_settings: std::collections::HashMap::new(),
             ai_advanced_open: std::collections::HashSet::new(),
             permissions: std::collections::HashMap::new(),
+            meeting_info: None,
             spoken_search: None,
             spoken_highlighted: None,
             pending_deletions: Vec::new(),

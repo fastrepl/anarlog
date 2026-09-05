@@ -5,7 +5,7 @@
 use gpui::{AnyElement, Context, Window, point, px};
 
 use super::Workspace;
-use super::menu::{Align, Entry, MenuSpec, Trailing};
+use super::menu::{Align, Entry, MenuSpec, Submenu, Trailing};
 use crate::timeline::{GroupBy, SortOrder};
 
 impl Workspace {
@@ -53,7 +53,7 @@ impl Workspace {
 
     pub(super) fn render_filter_menu(
         &self,
-        _window: &Window,
+        window: &Window,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         if !self.filter_menu_open {
@@ -86,7 +86,7 @@ impl Workspace {
                     trailing: Trailing::Text(grouping_label.into()),
                     destructive: false,
                     on_select: None,
-                    submenu: Some(vec![
+                    submenu: Some(Submenu::Entries(vec![
                         Entry::Item {
                             icon: Some("calendar-blank"),
                             dim_icon: true,
@@ -109,7 +109,7 @@ impl Workspace {
                             })),
                             submenu: None,
                         },
-                    ]),
+                    ])),
                 },
                 Entry::Item {
                     icon: None,
@@ -118,7 +118,7 @@ impl Workspace {
                     trailing: Trailing::Text(ordering_label.into()),
                     destructive: false,
                     on_select: None,
-                    submenu: Some(vec![
+                    submenu: Some(Submenu::Entries(vec![
                         Entry::Item {
                             icon: Some("sort-descending"),
                             dim_icon: true,
@@ -141,7 +141,7 @@ impl Workspace {
                             })),
                             submenu: None,
                         },
-                    ]),
+                    ])),
                 },
             ],
         };
@@ -150,6 +150,6 @@ impl Workspace {
         // header `pl-2` + spacer + search + new note = 96px; `align="start"`,
         // `sideOffset` 4 under its bottom edge (title bar 40 + `pt-[9px]` + 28).
         let position = point(px(96.0), px(40.0 + 9.0 + 28.0 + 4.0));
-        Some(self.render_app_menu(spec, position, Align::Start, cx))
+        Some(self.render_app_menu(spec, position, Align::Start, window, cx))
     }
 }

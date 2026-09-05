@@ -15,6 +15,7 @@ anlg-audio-actual = { workspace = true }
 anlg-audio-mock = { workspace = true }
 anlg-db-app = { workspace = true }
 anlg-db-core = { workspace = true }
+anlg-fs-sync-core = { workspace = true }
 anlg-storage = { workspace = true }
 anlg-tiptap = { workspace = true }
 anlg-transcript = { workspace = true }

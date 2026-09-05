@@ -29,6 +29,16 @@ pub(crate) enum Trailing {
     Submenu,
 }
 
+/// What a `DropdownMenuSub` opens: another item list, or a custom panel
+/// (`DropdownMenuSubContent` wrapping arbitrary content).
+pub(crate) enum Submenu {
+    Entries(Vec<Entry>),
+    Panel {
+        width: f32,
+        render: fn(&Workspace, &Context<Workspace>) -> AnyElement,
+    },
+}
+
 pub(crate) enum Entry {
     Item {
         /// Leading icon, drawn at `opacity-70` when `dim_icon`.
@@ -38,7 +48,7 @@ pub(crate) enum Entry {
         trailing: Trailing,
         destructive: bool,
         on_select: Option<Select>,
-        submenu: Option<Vec<Entry>>,
+        submenu: Option<Submenu>,
     },
     Separator,
 }
@@ -78,14 +88,21 @@ impl Workspace {
         spec: MenuSpec,
         position: Point<Pixels>,
         align: Align,
+        window: &gpui::Window,
         cx: &Context<Self>,
     ) -> AnyElement {
         let theme = self.theme;
+        let viewport_width = window.viewport_size().width;
         let width = spec.width;
         let open_sub = spec.open_sub;
         let on_hover_sub = spec.on_hover_sub;
         let on_close = spec.on_close;
         let mut submenu_overlay: Option<AnyElement> = None;
+        // The sub panel is a separate deferred element, so the parent's
+        // `on_mouse_down_out` has to know its bounds to keep clicks inside a
+        // custom panel (the participant field) from closing the menu.
+        let sub_bounds: std::rc::Rc<std::cell::Cell<Option<gpui::Bounds<Pixels>>>> =
+            std::rc::Rc::new(std::cell::Cell::new(None));
         let mut y = PANEL_INSET;
         let panel_left = match align {
             Align::Start => position.x,
@@ -116,20 +133,40 @@ impl Workspace {
                         submenu,
                     } => {
                         let is_sub = submenu.is_some();
-                        if let (Some(entries), true) = (submenu, open_sub == Some(index)) {
+                        if let (Some(submenu), true) = (submenu, open_sub == Some(index)) {
                             // `DropdownMenuSubContent`: measured against the
                             // app, the sub chrome starts at the parent's right
-                            // edge, 2px above the trigger row.
-                            let sub_position =
-                                point(panel_left + px(width), position.y + px(top) - px(2.0));
-                            submenu_overlay = Some(self.render_menu_panel(
-                                spec.id,
-                                entries,
-                                176.0,
-                                sub_position,
-                                on_close,
-                                cx,
-                            ));
+                            // edge, 2px above the trigger row; Radix flips it
+                            // to the left edge when the right side lacks room.
+                            let sub_width = match &submenu {
+                                Submenu::Entries(_) => 176.0,
+                                Submenu::Panel { width, .. } => *width,
+                            };
+                            // Flipped, the sub's right edge sits 9px inside the
+                            // parent chrome (measured against the app).
+                            let sub_x = if panel_left + px(width + sub_width + 8.0) > viewport_width
+                            {
+                                panel_left - px(sub_width - 9.0)
+                            } else {
+                                panel_left + px(width)
+                            };
+                            let sub_position = point(sub_x, position.y + px(top) - px(2.0));
+                            submenu_overlay = Some(match submenu {
+                                Submenu::Entries(entries) => self.render_menu_panel(
+                                    spec.id,
+                                    entries,
+                                    sub_width,
+                                    sub_position,
+                                    on_close,
+                                    cx,
+                                ),
+                                Submenu::Panel { render, .. } => self.render_sub_panel(
+                                    sub_width,
+                                    sub_position,
+                                    render(self, cx),
+                                    sub_bounds.clone(),
+                                ),
+                            });
                         }
                         let color = if destructive {
                             theme.delete_text
@@ -207,9 +244,15 @@ impl Workspace {
             .collect::<Vec<_>>();
 
         let panel = menu_chrome(theme, spec.id, width)
-            .on_mouse_down_out(
-                cx.listener(move |this, _: &MouseDownEvent, _, cx| on_close(this, cx)),
-            )
+            .on_mouse_down_out(cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                if sub_bounds
+                    .get()
+                    .is_some_and(|bounds| bounds.contains(&event.position))
+                {
+                    return;
+                }
+                on_close(this, cx)
+            }))
             .child(
                 // `AppFloatingPanel`: `rounded-[20px] border` under the panel squircle.
                 div()
@@ -334,6 +377,51 @@ impl Workspace {
                 ))
                 .children(items),
         );
+        deferred(
+            anchored()
+                .anchor(Corner::TopLeft)
+                .position(position)
+                .snap_to_window_with_margin(px(8.0))
+                .child(panel),
+        )
+        .with_priority(2)
+        .into_any_element()
+    }
+}
+
+impl Workspace {
+    /// `DropdownMenuSubContent variant="app"` around an `AppFloatingPanel`
+    /// holding custom content.
+    fn render_sub_panel(
+        &self,
+        width: f32,
+        position: Point<Pixels>,
+        content: AnyElement,
+        bounds_out: std::rc::Rc<std::cell::Cell<Option<gpui::Bounds<Pixels>>>>,
+    ) -> AnyElement {
+        let theme = self.theme;
+        let panel = menu_chrome(theme, "submenu", width)
+            .child(
+                gpui::canvas(
+                    move |bounds, _, _| bounds_out.set(Some(bounds)),
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .inset_0()
+                .size_full(),
+            )
+            .child(
+                div()
+                    .relative()
+                    .flex()
+                    .flex_col()
+                    .child(crate::squircle::squircle(
+                        crate::squircle::PANEL_RADIUS,
+                        Some(theme.floating_panel),
+                        Some((1.0, theme.floating_border)),
+                    ))
+                    .child(content),
+            );
         deferred(
             anchored()
                 .anchor(Corner::TopLeft)

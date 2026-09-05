@@ -65,6 +65,7 @@ pub struct SessionEvent {
     pub started_at: Option<String>,
     pub ended_at: Option<String>,
     pub meeting_link: Option<String>,
+    pub location: Option<String>,
     #[serde(default)]
     pub participants: Vec<serde_json::Value>,
 }
