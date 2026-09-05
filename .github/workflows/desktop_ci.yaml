@@ -13,6 +13,7 @@ on:
       - scripts/repack-linux-appimage.test.mjs
       - apps/cli/**
       - apps/desktop/**
+      - apps/desktop-gpui/**
       - plugins/**
       - crates/**
       - Cargo.toml
@@ -25,6 +26,7 @@ on:
       - scripts/repack-linux-appimage.test.mjs
       - apps/cli/**
       - apps/desktop/**
+      - apps/desktop-gpui/**
       - plugins/**
       - crates/**
       - Cargo.toml
@@ -47,6 +49,23 @@ jobs:
       - run: pnpm -F ui build
       - run: pnpm -F desktop typecheck
       - run: pnpm -F desktop test
+
+  gpui_linux_ci:
+    if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - run: |
+          sudo apt-get -o Acquire::Retries=5 update
+          sudo apt-get -o Acquire::Retries=5 install -y libxkbcommon-dev libxkbcommon-x11-dev
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: linux
+      - run: cargo clippy --locked -p desktop-gpui --all-targets --no-deps -- -D warnings
+      - run: cargo test --locked -p desktop-gpui
 
   macos_ci:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
@@ -97,11 +116,16 @@ jobs:
       - run: cargo check -p desktop --features direct-distribution
       - run: cargo check -p desktop --features app-store
       - run: cargo test -p desktop
+      # Metal shader compilation for GPUI is not yet validated on the macOS
+      # runners; surface the result without failing the job until it is.
+      - run: cargo check --locked -p desktop-gpui
+        continue-on-error: true
       - run: cargo test --locked -p cloudsync
       - run: "cargo test --locked -p db-core 'cloudsync::' -- --test-threads=1"
       - run: |
           cargo test --workspace \
             --exclude desktop \
+            --exclude desktop-gpui \
             --exclude control-tauri \
             --exclude ai \
             --exclude lago \
