@@ -89,6 +89,9 @@ impl Workspace {
             sidebar_expanded: true,
             hovered: None,
         };
+        // Chips and the bottom fade depend on the scroll position.
+        this.list_state
+            .set_scroll_handler(cx.listener(|_, _: &gpui::ListScrollEvent, _, cx| cx.notify()));
         this.reload_sessions(cx);
         this.watch_changes(cx);
         this
@@ -287,15 +290,16 @@ impl Render for Workspace {
             .when(title_bar::uses_windows_style_title_bar(), |root| {
                 root.child(self.render_title_bar(window, cx))
             })
+            // `shell-scaffold`: `pl-1` only while the main surface has its left
+            // chrome; collapsing the sidebar switches to `top-borderless`.
             .child(
                 div()
                     .flex()
                     .flex_1()
                     .min_h_0()
                     .gap_1()
-                    .pl_1()
                     .when(self.sidebar_expanded, |shell| {
-                        shell.child(self.render_sidebar(cx))
+                        shell.pl_1().child(self.render_sidebar(cx))
                     })
                     .child(self.render_main_surface(window, cx)),
             )

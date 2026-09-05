@@ -62,6 +62,10 @@ impl Workspace {
                 let scroll_top = self.list_state.logical_scroll_top();
                 let at_top = scroll_top.item_ix == 0 && scroll_top.offset_in_item <= px(0.0);
                 let show_chip = timeline.has_more_future_items && at_top;
+                // `data-sidebar-timeline-bottom-fade` while `!isScrolledToBottom`.
+                let max_offset = self.list_state.max_offset_for_scrollbar().height;
+                let scrolled = -self.list_state.scroll_px_offset_for_scrollbar().y;
+                let show_bottom_fade = max_offset > px(0.0) && scrolled < max_offset - px(1.0);
                 div()
                     .relative()
                     .flex_1()
@@ -75,6 +79,21 @@ impl Workspace {
                         )
                         .size_full(),
                     )
+                    .when(show_bottom_fade, |container| {
+                        container.child(
+                            div()
+                                .absolute()
+                                .bottom_0()
+                                .left_0()
+                                .right_0()
+                                .h(px(28.0))
+                                .bg(gpui::linear_gradient(
+                                    180.0,
+                                    gpui::linear_color_stop(alpha(theme.background, 0.0), 0.0),
+                                    gpui::linear_color_stop(theme.background, 1.0),
+                                )),
+                        )
+                    })
                     .when(show_chip, |container| {
                         container.child(
                             // Chip stack at `top-1` when chips overlap the header row.

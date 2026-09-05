@@ -16,8 +16,9 @@ use crate::ui::{TailwindText as _, ghost_icon_button, icon};
 impl Workspace {
     pub(super) fn render_main_surface(&self, window: &Window, cx: &Context<Self>) -> Div {
         let theme = self.theme;
-        // `resolvedMainSurfaceChrome === "left"`: only a left border, and on
-        // non-macOS only the top-left corner is rounded.
+        // `resolvedMainSurfaceChrome`: "left" while the sidebar is expanded
+        // (left border, top-left corner rounded off macOS), "top-borderless"
+        // when collapsed (no border, no rounding).
         div()
             .flex()
             .flex_col()
@@ -25,9 +26,12 @@ impl Workspace {
             .min_w_0()
             .min_h_0()
             .bg(theme.card)
-            .border_l_1()
-            .border_color(theme.border)
-            .rounded_tl(px(12.0))
+            .when(self.sidebar_expanded, |surface| {
+                surface
+                    .border_l_1()
+                    .border_color(theme.border)
+                    .rounded_tl(px(12.0))
+            })
             .overflow_hidden()
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .child(match &self.note {
@@ -133,13 +137,16 @@ impl Workspace {
             preview.session.title.clone().into()
         };
 
+        // `showSidebarTimelineHeaderGutter` (sidebar collapsed) widens the
+        // left padding to `pl-[32px]`; otherwise `pl-2`.
         div()
             .relative()
             .flex()
             .w_full()
             .h(px(48.0))
             .pb(px(2.0))
-            .pl_2()
+            .when(self.sidebar_expanded, |header| header.pl_2())
+            .when(!self.sidebar_expanded, |header| header.pl(px(32.0)))
             .items_center()
             .gap(px(2.0))
             .when(preview.enhanced.len() + 1 > 1, |header| {
