@@ -20,6 +20,7 @@ embedded!(
     "icons/calendar.svg",
     "icons/caret-down.svg",
     "icons/close-x.svg",
+    "icons/file-text.svg",
     "icons/filter.svg",
     "icons/folder.svg",
     "icons/headset.svg",
@@ -36,6 +37,7 @@ embedded!(
     "icons/users.svg",
     "icons/video-camera.svg",
     "icons/view-sidebar-left.svg",
+    "icons/x.svg",
     "anarlog-icon.png",
     "google-meet.svg",
     "teams.png",
@@ -72,6 +74,6 @@ mod tests {
         }
         assert!(Assets.load("icons/search.svg").unwrap().is_some());
         assert!(Assets.load("icons/missing.svg").unwrap().is_none());
-        assert_eq!(Assets.list("icons/").unwrap().len(), 20);
+        assert_eq!(Assets.list("icons/").unwrap().len(), 22);
     }
 }

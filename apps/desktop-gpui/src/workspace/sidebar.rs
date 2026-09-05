@@ -32,11 +32,13 @@ impl Workspace {
                     .flex()
                     .items_center()
                     .child(div().size(px(28.0)).flex_shrink_0())
-                    .child(self.tracked_chrome_button("search", cx).child(icon(
-                        "search",
-                        px(15.0),
-                        self.chrome_icon_color("search"),
-                    )))
+                    .child(
+                        self.tracked_chrome_button("search", cx)
+                            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                this.open_note_dialog(window, cx)
+                            }))
+                            .child(icon("search", px(15.0), self.chrome_icon_color("search"))),
+                    )
                     .child(
                         self.tracked_chrome_button("new-note", cx)
                             .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.new_note(cx)))

@@ -1,5 +1,6 @@
 mod document_view;
 mod note;
+mod open_note;
 mod sidebar;
 mod title_bar;
 
@@ -81,6 +82,8 @@ pub struct Workspace {
     font_family: Option<SharedString>,
     mono_font_family: Option<SharedString>,
     sessions: Sessions,
+    /// Every non-deleted session (`useSessionSummaries`), for the open-note dialog.
+    session_rows: Vec<timeline::SessionRow>,
     rows: Vec<SidebarRow>,
     list_state: ListState,
     selected: Option<String>,
@@ -89,6 +92,9 @@ pub struct Workspace {
     sidebar_width: f32,
     sidebar_drag: Option<SidebarDrag>,
     open_menu: Option<Menu>,
+    open_note: Option<open_note::OpenNoteDialog>,
+    /// `recentlyOpenedSessionIds`, newest first.
+    recently_opened: Vec<String>,
     /// Id of the chrome button under the pointer, so icons can take the
     /// `hover:text-foreground` colour their container cannot pass down.
     hovered: Option<&'static str>,
@@ -127,6 +133,7 @@ impl Workspace {
             font_family,
             mono_font_family,
             sessions: Sessions::Loading,
+            session_rows: Vec::new(),
             rows: Vec::new(),
             list_state: ListState::new(0, ListAlignment::Top, px(400.0)),
             selected: None,
@@ -135,6 +142,8 @@ impl Workspace {
             sidebar_width: SIDEBAR_DEFAULT_WIDTH,
             sidebar_drag: None,
             open_menu: None,
+            open_note: None,
+            recently_opened: Vec::new(),
             hovered: None,
         };
         // Chips and the bottom fade depend on the scroll position.
@@ -172,15 +181,17 @@ impl Workspace {
         }
         let task = self.store.list_timeline();
         cx.spawn(async move |this, cx| {
-            let result = match task.await {
-                Ok(Ok((rows, events))) => {
-                    Sessions::Ready(timeline::build(&rows, &events, Utc::now(), &Local))
-                }
-                Ok(Err(error)) => Sessions::Failed(error.to_string()),
-                Err(error) => Sessions::Failed(error.to_string()),
+            let (result, rows) = match task.await {
+                Ok(Ok((rows, events))) => (
+                    Sessions::Ready(timeline::build(&rows, &events, Utc::now(), &Local)),
+                    rows,
+                ),
+                Ok(Err(error)) => (Sessions::Failed(error.to_string()), Vec::new()),
+                Err(error) => (Sessions::Failed(error.to_string()), Vec::new()),
             };
             this.update(cx, |this, cx| {
                 this.sessions = result;
+                this.session_rows = rows;
                 this.rebuild_rows();
                 cx.notify();
             })
@@ -209,6 +220,11 @@ impl Workspace {
     }
 
     fn select(&mut self, session_id: String, cx: &mut Context<Self>) {
+        // `addRecentlyOpened`
+        self.recently_opened.retain(|id| id != &session_id);
+        self.recently_opened.insert(0, session_id.clone());
+        self.recently_opened
+            .truncate(open_note::MAX_RECENT_SESSIONS);
         if self.selected.as_deref() == Some(session_id.as_str()) {
             return;
         }
@@ -442,6 +458,11 @@ impl Render for Workspace {
             .key_context(actions::KEY_CONTEXT)
             .on_action(cx.listener(|this, _: &actions::NewNote, _, cx| this.new_note(cx)))
             .on_action(
+                cx.listener(|this, _: &actions::OpenNoteDialog, window, cx| {
+                    this.open_note_dialog(window, cx)
+                }),
+            )
+            .on_action(
                 cx.listener(|this, _: &actions::ToggleSidebar, _, cx| this.toggle_sidebar(cx)),
             )
             .on_action(cx.listener(|this, _: &actions::PreviousView, _, cx| this.step_view(-1, cx)))
@@ -497,5 +518,6 @@ impl Render for Workspace {
                     .child(self.render_main_surface(window, cx)),
             )
             .children(self.render_open_menu(window, cx))
+            .children(self.render_open_note_dialog(window, cx))
     }
 }

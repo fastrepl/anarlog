@@ -30,7 +30,9 @@ actions!(
         Cut,
         Copy,
         Commit,
-        Noop,
+        Up,
+        Down,
+        Escape,
     ]
 );
 
@@ -57,9 +59,9 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new(&format!("{m}-c"), Copy, ctx),
         KeyBinding::new(&format!("{m}-x"), Cut, ctx),
         KeyBinding::new("enter", Commit, ctx),
-        // The title input swallows ArrowUp (`e.preventDefault()`).
-        KeyBinding::new("up", Noop, ctx),
-        KeyBinding::new("down", Noop, ctx),
+        KeyBinding::new("up", Up, ctx),
+        KeyBinding::new("down", Down, ctx),
+        KeyBinding::new("escape", Escape, ctx),
     ]);
 }
 
@@ -68,6 +70,10 @@ pub enum TextInputEvent {
     Changed,
     /// Enter or blur after an edit.
     Committed,
+    /// Arrow up/down; single-line fields have no use for them, so hosts such
+    /// as the open-note dialog get to move their selection.
+    Navigate(i32),
+    Escape,
 }
 
 /// Colours the caller resolves from the theme.
@@ -166,7 +172,17 @@ impl TextInput {
         self.blurred(window, cx);
     }
 
-    fn noop(&mut self, _: &Noop, _: &mut Window, _: &mut Context<Self>) {}
+    fn up(&mut self, _: &Up, _: &mut Window, cx: &mut Context<Self>) {
+        cx.emit(TextInputEvent::Navigate(-1));
+    }
+
+    fn down(&mut self, _: &Down, _: &mut Window, cx: &mut Context<Self>) {
+        cx.emit(TextInputEvent::Navigate(1));
+    }
+
+    fn escape(&mut self, _: &Escape, _: &mut Window, cx: &mut Context<Self>) {
+        cx.emit(TextInputEvent::Escape);
+    }
 
     fn left(&mut self, _: &Left, _: &mut Window, cx: &mut Context<Self>) {
         if self.selected_range.is_empty() {
@@ -719,7 +735,9 @@ impl Render for TextInput {
             .on_action(cx.listener(Self::cut))
             .on_action(cx.listener(Self::copy))
             .on_action(cx.listener(Self::commit))
-            .on_action(cx.listener(Self::noop))
+            .on_action(cx.listener(Self::up))
+            .on_action(cx.listener(Self::down))
+            .on_action(cx.listener(Self::escape))
             .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
             .on_mouse_up(MouseButton::Left, cx.listener(Self::on_mouse_up))
             .on_mouse_up_out(MouseButton::Left, cx.listener(Self::on_mouse_up))
