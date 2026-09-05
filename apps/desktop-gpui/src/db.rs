@@ -4,6 +4,7 @@ use std::sync::Arc;
 use anlg_db_core::Db;
 use anyhow::Context as _;
 
+use crate::document::{self, Block};
 use crate::timeline::SessionRow;
 
 const DB_FILENAME: &str = "app.db";
@@ -32,14 +33,14 @@ const ENHANCED_NOTES_SQL: &str = "
 pub struct NoteDocument {
     pub id: String,
     pub title: String,
-    pub body: String,
+    pub blocks: Vec<Block>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NotePreview {
     pub session: SessionRow,
-    /// The raw memo (`kind = 'note'`), converted to Markdown.
-    pub memo: String,
+    /// The raw memo (`kind = 'note'`).
+    pub memo: Vec<Block>,
     /// Summaries and template outputs in the order the app tabs them.
     pub enhanced: Vec<NoteDocument>,
 }
@@ -53,7 +54,10 @@ pub struct Store {
     runtime: tokio::runtime::Handle,
     db: Arc<Db>,
     path: PathBuf,
+    changes: tokio::sync::watch::Receiver<u64>,
 }
+
+const CHANGE_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(750);
 
 impl Store {
     pub async fn open(runtime: tokio::runtime::Handle, path: PathBuf) -> anyhow::Result<Self> {
@@ -63,18 +67,29 @@ impl Store {
                 path.display()
             );
         }
-        let db = Db::connect_local_read_only(&path)
-            .await
-            .with_context(|| format!("failed to open {}", path.display()))?;
+        let db = Arc::new(
+            Db::connect_local_read_only(&path)
+                .await
+                .with_context(|| format!("failed to open {}", path.display()))?,
+        );
+        let changes = spawn_change_watcher(&runtime, db.clone()).await?;
         Ok(Self {
             runtime,
-            db: Arc::new(db),
+            db,
             path,
+            changes,
         })
     }
 
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// Ticks whenever another process commits to the database. This is how
+    /// the shell stays in step with the Tauri app's writes; in-process change
+    /// notifications (`anlg-db-reactive`) cannot see other connections.
+    pub fn changes(&self) -> tokio::sync::watch::Receiver<u64> {
+        self.changes.clone()
     }
 
     /// Runs the sqlx future on the tokio runtime and hands back a handle the
@@ -99,8 +114,8 @@ impl Store {
                 return Ok(None);
             };
             let memo = match anlg_db_app::get_session_note(db.pool(), &session_id).await? {
-                Some(note) => note_body_as_markdown(&note.body_format, &note.body),
-                None => String::new(),
+                Some(note) => document::from_body(&note.body_format, &note.body),
+                None => Vec::new(),
             };
             let enhanced =
                 sqlx::query_as::<_, (String, String, String, String)>(ENHANCED_NOTES_SQL)
@@ -111,7 +126,7 @@ impl Store {
                     .map(|(id, title, body, body_format)| NoteDocument {
                         id,
                         title,
-                        body: note_body_as_markdown(&body_format, &body),
+                        blocks: document::from_body(&body_format, &body),
                     })
                     .collect();
             Ok(Some(NotePreview {
@@ -130,17 +145,49 @@ impl Store {
     }
 }
 
-fn note_body_as_markdown(body_format: &str, body: &str) -> String {
-    if body.trim().is_empty() {
-        return String::new();
-    }
-    match body_format {
-        "prosemirror_json" => serde_json::from_str::<serde_json::Value>(body)
-            .ok()
-            .and_then(|json| anlg_tiptap::tiptap_json_to_md(&json).ok())
-            .unwrap_or_else(|| body.to_string()),
-        _ => body.to_string(),
-    }
+/// `PRAGMA data_version` is scoped to one connection and increments when any
+/// other connection commits, so the watcher holds a dedicated connection.
+async fn spawn_change_watcher(
+    runtime: &tokio::runtime::Handle,
+    db: Arc<Db>,
+) -> anyhow::Result<tokio::sync::watch::Receiver<u64>> {
+    let mut connection = db
+        .pool()
+        .acquire()
+        .await
+        .context("failed to acquire change-watcher connection")?;
+    let mut last = data_version(&mut connection).await?;
+    let (tx, rx) = tokio::sync::watch::channel(0u64);
+    runtime.spawn(async move {
+        let mut generation = 0u64;
+        loop {
+            tokio::time::sleep(CHANGE_POLL_INTERVAL).await;
+            match data_version(&mut connection).await {
+                Ok(version) if version != last => {
+                    last = version;
+                    generation += 1;
+                    if tx.send(generation).is_err() {
+                        break;
+                    }
+                }
+                Ok(_) => {}
+                Err(error) => {
+                    tracing::warn!(%error, "database change watcher failed; stopping");
+                    break;
+                }
+            }
+        }
+    });
+    Ok(rx)
+}
+
+async fn data_version(
+    connection: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>,
+) -> anyhow::Result<i64> {
+    let version: i64 = sqlx::query_scalar("PRAGMA data_version")
+        .fetch_one(&mut **connection)
+        .await?;
+    Ok(version)
 }
 
 /// Resolves the same `app.db` the Tauri desktop app opens for `identifier`.
@@ -194,24 +241,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn prosemirror_bodies_render_as_markdown() {
-        let body = serde_json::json!({
-            "type": "doc",
-            "content": [
-                { "type": "heading", "attrs": { "level": 2 }, "content": [{ "type": "text", "text": "Agenda" }] },
-                { "type": "paragraph", "content": [{ "type": "text", "text": "Ship the GPUI shell." }] }
-            ]
-        })
-        .to_string();
-
-        let markdown = note_body_as_markdown("prosemirror_json", &body);
-        assert!(markdown.contains("## Agenda"));
-        assert!(markdown.contains("Ship the GPUI shell."));
-        assert_eq!(note_body_as_markdown("markdown", "# raw"), "# raw");
-        assert_eq!(note_body_as_markdown("prosemirror_json", "   "), "");
-    }
-
     #[tokio::test]
     async fn store_reads_sessions_written_by_the_app_schema() {
         let dir = tempfile::tempdir().unwrap();
@@ -258,16 +287,19 @@ mod tests {
             .unwrap();
         assert_eq!(note.session.title, "Weekly sync");
         assert_eq!(note.session.created_at, "2026-09-01T09:00:00Z");
-        assert_eq!(note.memo.trim(), "Decide on GPUI.");
+        assert_eq!(
+            note.memo,
+            vec![Block::Paragraph(vec![document::Span {
+                text: "Decide on GPUI.".into(),
+                ..document::Span::default()
+            }])]
+        );
         assert_eq!(
             note.enhanced
                 .iter()
-                .map(|doc| (doc.id.as_str(), doc.title.as_str(), doc.body.as_str()))
+                .map(|doc| (doc.id.as_str(), doc.title.as_str(), doc.blocks.len()))
                 .collect::<Vec<_>>(),
-            [
-                ("summary-1", "First", "## Sooner"),
-                ("summary-2", "Second", "## Later")
-            ]
+            [("summary-1", "First", 1), ("summary-2", "Second", 1)]
         );
 
         assert!(
@@ -278,6 +310,32 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
+    }
+
+    #[tokio::test]
+    async fn store_notices_commits_from_other_connections() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(DB_FILENAME);
+        let writer = Db::connect_local_plain(&path).await.unwrap();
+        anlg_db_app::prepare_schema(&writer).await.unwrap();
+
+        let store = Store::open(tokio::runtime::Handle::current(), path)
+            .await
+            .unwrap();
+        let mut changes = store.changes();
+        assert_eq!(*changes.borrow(), 0);
+
+        sqlx::query("INSERT INTO sessions (id, workspace_id, title) VALUES ('s1', 'w1', 'New')")
+            .execute(writer.pool())
+            .await
+            .unwrap();
+
+        tokio::time::timeout(std::time::Duration::from_secs(5), changes.changed())
+            .await
+            .expect("watcher should tick after an external commit")
+            .unwrap();
+        assert_eq!(*changes.borrow(), 1);
+        assert_eq!(store.list_sessions().await.unwrap().unwrap().len(), 1);
     }
 
     #[tokio::test]

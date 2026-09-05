@@ -2,11 +2,12 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Local, Utc};
 use gpui::{
-    AnyElement, ClickEvent, Context, Div, ListAlignment, ListState, Render, SharedString, Stateful,
-    Window, div, list, prelude::*, px,
+    AnyElement, ClickEvent, Context, Div, HighlightStyle, ListAlignment, ListState, Render,
+    SharedString, Stateful, StyledText, TextStyle, Window, div, list, prelude::*, px,
 };
 
 use crate::db::{NotePreview, Store};
+use crate::document::{Block, Span};
 use crate::theme::Theme;
 use crate::timeline::{self, Bucket, Precision, Timeline};
 
@@ -43,6 +44,7 @@ enum Note {
 pub struct Workspace {
     store: Arc<Store>,
     theme: Theme,
+    font_family: Option<SharedString>,
     sessions: Sessions,
     rows: Vec<SidebarRow>,
     list_state: ListState,
@@ -52,9 +54,11 @@ pub struct Workspace {
 
 impl Workspace {
     pub fn new(store: Arc<Store>, cx: &mut Context<Self>) -> Self {
+        let font_family = crate::theme::ui_font_family(cx.text_system()).map(SharedString::from);
         let mut this = Self {
             store,
             theme: Theme::light(),
+            font_family,
             sessions: Sessions::Loading,
             rows: Vec::new(),
             list_state: ListState::new(0, ListAlignment::Top, px(400.0)),
@@ -62,11 +66,35 @@ impl Workspace {
             note: Note::Empty,
         };
         this.reload_sessions(cx);
+        this.watch_changes(cx);
         this
     }
 
+    /// Re-reads the list and the open note whenever the Tauri app commits.
+    fn watch_changes(&self, cx: &mut Context<Self>) {
+        let mut changes = self.store.changes();
+        cx.spawn(async move |this, cx| {
+            while changes.changed().await.is_ok() {
+                let keep_going = this
+                    .update(cx, |this, cx| {
+                        this.reload_sessions(cx);
+                        if let Some(selected) = this.selected.clone() {
+                            this.reload_note(selected, cx);
+                        }
+                    })
+                    .is_ok();
+                if !keep_going {
+                    break;
+                }
+            }
+        })
+        .detach();
+    }
+
     fn reload_sessions(&mut self, cx: &mut Context<Self>) {
-        self.sessions = Sessions::Loading;
+        if !matches!(self.sessions, Sessions::Ready(_)) {
+            self.sessions = Sessions::Loading;
+        }
         let task = self.store.list_sessions();
         cx.spawn(async move |this, cx| {
             let result = match task.await {
@@ -114,31 +142,51 @@ impl Workspace {
         self.selected = Some(session_id.clone());
         self.note = Note::Loading;
         cx.notify();
+        self.reload_note(session_id, cx);
+    }
 
+    fn reload_note(&mut self, session_id: String, cx: &mut Context<Self>) {
         let task = self.store.load_note(session_id.clone());
         cx.spawn(async move |this, cx| {
-            let result = match task.await {
-                Ok(Ok(Some(preview))) => {
-                    let tab = match preview.enhanced.first() {
-                        Some(first) => NoteTab::Enhanced(first.id.clone()),
-                        None => NoteTab::Memo,
-                    };
-                    Note::Ready { preview, tab }
-                }
-                Ok(Ok(None)) => Note::Failed("This note no longer exists.".to_string()),
-                Ok(Err(error)) => Note::Failed(error.to_string()),
-                Err(error) => Note::Failed(error.to_string()),
-            };
+            let result = task.await;
             this.update(cx, |this, cx| {
                 // A newer selection may have raced this load; keep the latest.
-                if this.selected.as_deref() == Some(session_id.as_str()) {
-                    this.note = result;
-                    cx.notify();
+                if this.selected.as_deref() != Some(session_id.as_str()) {
+                    return;
                 }
+                this.note = match result {
+                    Ok(Ok(Some(preview))) => {
+                        let tab = this.current_tab_for(&preview);
+                        Note::Ready { preview, tab }
+                    }
+                    Ok(Ok(None)) => Note::Failed("This note no longer exists.".to_string()),
+                    Ok(Err(error)) => Note::Failed(error.to_string()),
+                    Err(error) => Note::Failed(error.to_string()),
+                };
+                cx.notify();
             })
             .ok();
         })
         .detach();
+    }
+
+    /// `computeCurrentNoteTab`: keep the remembered tab while it still exists,
+    /// otherwise the first enhanced note, otherwise the memo.
+    fn current_tab_for(&self, preview: &NotePreview) -> NoteTab {
+        let first_enhanced = preview
+            .enhanced
+            .first()
+            .map(|doc| NoteTab::Enhanced(doc.id.clone()));
+        match &self.note {
+            Note::Ready {
+                tab: NoteTab::Memo, ..
+            } => NoteTab::Memo,
+            Note::Ready {
+                tab: NoteTab::Enhanced(id),
+                ..
+            } if preview.enhanced.iter().any(|doc| &doc.id == id) => NoteTab::Enhanced(id.clone()),
+            _ => first_enhanced.unwrap_or(NoteTab::Memo),
+        }
     }
 
     fn set_tab(&mut self, tab: NoteTab, cx: &mut Context<Self>) {
@@ -301,7 +349,7 @@ impl Workspace {
             )
     }
 
-    fn render_note(&self, cx: &Context<Self>) -> Div {
+    fn render_note(&self, window: &Window, cx: &Context<Self>) -> Div {
         let theme = self.theme;
         let content: AnyElement = match &self.note {
             Note::Empty => self
@@ -310,17 +358,18 @@ impl Workspace {
             Note::Loading => self.render_message("Loading…").into_any_element(),
             Note::Failed(error) => self.render_error(error.clone()).into_any_element(),
             Note::Ready { preview, tab } => {
-                let body = match tab {
-                    NoteTab::Memo => preview.memo.as_str(),
+                let blocks: &[Block] = match tab {
+                    NoteTab::Memo => &preview.memo,
                     NoteTab::Enhanced(id) => preview
                         .enhanced
                         .iter()
                         .find(|doc| &doc.id == id)
-                        .map(|doc| doc.body.as_str())
-                        .unwrap_or(""),
+                        .map(|doc| doc.blocks.as_slice())
+                        .unwrap_or(&[]),
                 };
-                let blocks = markdown_blocks(body);
+                let has_content = blocks.iter().any(has_visible_content);
                 let timestamp = timeline::session_timestamp(&preview.session, &Local);
+                let renderer = DocumentRenderer::new(window, theme, self.font_family.clone());
 
                 div()
                     .id("note")
@@ -344,14 +393,24 @@ impl Workspace {
                             .child(SharedString::from(display_date(timestamp))),
                     )
                     .child(self.render_tabs(preview, tab, cx))
-                    .when(blocks.is_empty(), |body| {
+                    .when(!has_content, |body| {
                         body.child(
                             div()
                                 .text_color(theme.text_muted)
                                 .child("This note is empty."),
                         )
                     })
-                    .children(blocks.into_iter().map(|block| render_block(block, theme)))
+                    .when(has_content, |body| {
+                        body.child(
+                            div()
+                                .flex()
+                                .flex_col()
+                                .gap_2()
+                                .max_w(px(720.0))
+                                .line_height(px(24.0))
+                                .children(renderer.blocks(blocks, 0)),
+                        )
+                    })
                     .into_any_element()
             }
         };
@@ -452,7 +511,7 @@ impl Workspace {
 }
 
 impl Render for Workspace {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme;
         div()
             .flex()
@@ -461,98 +520,179 @@ impl Render for Workspace {
             .bg(theme.background)
             .text_color(theme.text)
             .text_size(px(14.0))
+            .when_some(self.font_family.clone(), |root, family| {
+                root.font_family(family)
+            })
             .child(
                 div()
                     .flex()
                     .flex_1()
                     .min_h_0()
                     .child(self.render_sidebar(cx))
-                    .child(self.render_note(cx)),
+                    .child(self.render_note(window, cx)),
             )
             .child(self.render_status_bar())
     }
 }
 
-/// Coarse block structure of the Markdown produced by `anlg_tiptap`, enough to
-/// read a note. Inline marks (bold, links) stay literal until the editor lands.
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum Block {
-    Heading { level: usize, text: String },
-    Bullet(String),
-    Paragraph(String),
-}
-
-fn markdown_blocks(body: &str) -> Vec<Block> {
-    let mut blocks = Vec::new();
-    let mut paragraph: Vec<&str> = Vec::new();
-    let flush = |paragraph: &mut Vec<&str>, blocks: &mut Vec<Block>| {
-        if !paragraph.is_empty() {
-            blocks.push(Block::Paragraph(paragraph.join(" ")));
-            paragraph.clear();
-        }
-    };
-
-    for line in body.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            flush(&mut paragraph, &mut blocks);
-            continue;
-        }
-
-        let hashes = trimmed.chars().take_while(|c| *c == '#').count();
-        if (1..=6).contains(&hashes) && trimmed[hashes..].starts_with(' ') {
-            flush(&mut paragraph, &mut blocks);
-            blocks.push(Block::Heading {
-                level: hashes,
-                text: trimmed[hashes..].trim().to_string(),
-            });
-            continue;
-        }
-
-        let bullet = trimmed
-            .strip_prefix("- ")
-            .or_else(|| trimmed.strip_prefix("* "))
-            .or_else(|| {
-                let digits = trimmed.chars().take_while(char::is_ascii_digit).count();
-                (digits > 0)
-                    .then(|| trimmed[digits..].strip_prefix(". "))
-                    .flatten()
-            });
-        if let Some(item) = bullet {
-            flush(&mut paragraph, &mut blocks);
-            blocks.push(Block::Bullet(item.trim().to_string()));
-            continue;
-        }
-
-        paragraph.push(trimmed);
-    }
-    flush(&mut paragraph, &mut blocks);
-    blocks
-}
-
-fn render_block(block: Block, theme: Theme) -> Div {
-    let base = div().max_w(px(720.0)).line_height(px(24.0));
+fn has_visible_content(block: &Block) -> bool {
     match block {
-        Block::Heading { level, text } => base
-            .mt_2()
-            .font_weight(gpui::FontWeight::SEMIBOLD)
-            .map(|heading| match level {
-                1 => heading.text_xl(),
-                2 => heading.text_lg(),
-                _ => heading,
-            })
-            .child(SharedString::from(text)),
-        Block::Bullet(text) => base
-            .flex()
-            .gap_2()
-            .child(
+        Block::Paragraph(spans) => spans.iter().any(|span| !span.text.trim().is_empty()),
+        Block::Heading { spans, .. } => spans.iter().any(|span| !span.text.trim().is_empty()),
+        Block::List { items, .. } => items
+            .iter()
+            .any(|item| item.checked.is_some() || item.blocks.iter().any(has_visible_content)),
+        Block::Blockquote(blocks) => blocks.iter().any(has_visible_content),
+        Block::Code(code) => !code.trim().is_empty(),
+        Block::HorizontalRule | Block::Image { .. } => true,
+    }
+}
+
+/// Renders parsed documents the way the ProseMirror editor shows them:
+/// block layout from the tree, inline marks as styled text runs.
+struct DocumentRenderer {
+    base: TextStyle,
+    theme: Theme,
+}
+
+impl DocumentRenderer {
+    fn new(window: &Window, theme: Theme, font_family: Option<SharedString>) -> Self {
+        let mut base = window.text_style();
+        base.font_size = px(14.0).into();
+        base.color = theme.text.into();
+        if let Some(family) = font_family {
+            base.font_family = family;
+        }
+        Self { base, theme }
+    }
+
+    fn blocks(&self, blocks: &[Block], depth: usize) -> Vec<AnyElement> {
+        blocks
+            .iter()
+            .map(|block| self.block(block, depth))
+            .collect()
+    }
+
+    fn block(&self, block: &Block, depth: usize) -> AnyElement {
+        let theme = self.theme;
+        match block {
+            Block::Paragraph(spans) => div()
+                .min_h(px(24.0))
+                .child(self.text(spans, &self.base))
+                .into_any_element(),
+            Block::Heading { level, spans } => {
+                let mut style = self.base.clone();
+                style.font_weight = gpui::FontWeight::SEMIBOLD;
+                style.font_size = match level {
+                    1 => px(24.0),
+                    2 => px(20.0),
+                    3 => px(17.0),
+                    _ => px(15.0),
+                }
+                .into();
                 div()
-                    .flex_shrink_0()
-                    .text_color(theme.text_muted)
-                    .child("•"),
-            )
-            .child(div().child(SharedString::from(text))),
-        Block::Paragraph(text) => base.child(SharedString::from(text)),
+                    .mt_2()
+                    .text_size(style.font_size.to_pixels(px(16.0)))
+                    .line_height(px(32.0))
+                    .child(self.text(spans, &style))
+                    .into_any_element()
+            }
+            Block::List { ordered, items } => div()
+                .flex()
+                .flex_col()
+                .gap_1()
+                .children(items.iter().enumerate().map(|(index, item)| {
+                    let marker = match (item.checked, ordered) {
+                        (Some(true), _) => "☑".to_string(),
+                        (Some(false), _) => "☐".to_string(),
+                        (None, true) => format!("{}.", index + 1),
+                        (None, false) => "•".to_string(),
+                    };
+                    div()
+                        .flex()
+                        .gap_2()
+                        .child(
+                            div()
+                                .flex_shrink_0()
+                                .w(px(20.0))
+                                .text_color(theme.text_muted)
+                                .child(SharedString::from(marker)),
+                        )
+                        .child(
+                            div()
+                                .flex()
+                                .flex_col()
+                                .gap_1()
+                                .min_w_0()
+                                .children(self.blocks(&item.blocks, depth + 1)),
+                        )
+                }))
+                .into_any_element(),
+            Block::Blockquote(blocks) => div()
+                .flex()
+                .flex_col()
+                .gap_2()
+                .pl_3()
+                .border_l_2()
+                .border_color(theme.border)
+                .text_color(theme.text_muted)
+                .children(self.blocks(blocks, depth + 1))
+                .into_any_element(),
+            Block::Code(code) => div()
+                .px_3()
+                .py_2()
+                .rounded_md()
+                .bg(theme.sidebar)
+                .font_family("monospace")
+                .text_sm()
+                .child(SharedString::from(code.clone()))
+                .into_any_element(),
+            Block::HorizontalRule => div().my_2().h(px(1.0)).bg(theme.border).into_any_element(),
+            Block::Image { alt } => div()
+                .px_3()
+                .py_2()
+                .rounded_md()
+                .border_1()
+                .border_dashed()
+                .border_color(theme.border)
+                .text_color(theme.text_muted)
+                .text_sm()
+                .child(SharedString::from(if alt.is_empty() {
+                    "Image".to_string()
+                } else {
+                    format!("Image: {alt}")
+                }))
+                .into_any_element(),
+        }
+    }
+
+    fn text(&self, spans: &[Span], base: &TextStyle) -> StyledText {
+        let mut text = String::new();
+        let mut highlights: Vec<(std::ops::Range<usize>, HighlightStyle)> = Vec::new();
+        for span in spans {
+            let start = text.len();
+            text.push_str(&span.text);
+            let highlight = HighlightStyle {
+                font_weight: span.bold.then_some(gpui::FontWeight::BOLD),
+                font_style: span.italic.then_some(gpui::FontStyle::Italic),
+                color: span.link.is_some().then(|| self.theme.link.into()),
+                background_color: span.code.then(|| self.theme.selected.into()),
+                underline: (span.underline || span.link.is_some()).then(|| gpui::UnderlineStyle {
+                    thickness: px(1.0),
+                    color: Some(self.theme.link.into()),
+                    wavy: false,
+                }),
+                strikethrough: span.strike.then(|| gpui::StrikethroughStyle {
+                    thickness: px(1.0),
+                    color: Some(self.theme.text_muted.into()),
+                }),
+                ..HighlightStyle::default()
+            };
+            if highlight != HighlightStyle::default() {
+                highlights.push((start..text.len(), highlight));
+            }
+        }
+        StyledText::new(text).with_default_highlights(base, highlights)
     }
 }
 
@@ -574,26 +714,6 @@ fn display_date(timestamp: Option<DateTime<Utc>>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn markdown_blocks_split_headings_bullets_and_paragraphs() {
-        let body = "## Agenda\n\n- First item\n* Second item\n1. Third item\n\nA paragraph\nthat wraps.\n\n#notatag stays text\n";
-        assert_eq!(
-            markdown_blocks(body),
-            vec![
-                Block::Heading {
-                    level: 2,
-                    text: "Agenda".to_string()
-                },
-                Block::Bullet("First item".to_string()),
-                Block::Bullet("Second item".to_string()),
-                Block::Bullet("Third item".to_string()),
-                Block::Paragraph("A paragraph that wraps.".to_string()),
-                Block::Paragraph("#notatag stays text".to_string()),
-            ]
-        );
-        assert!(markdown_blocks("  \n\n").is_empty());
-    }
 
     #[test]
     fn display_title_falls_back_to_untitled() {

@@ -1,4 +1,5 @@
 mod db;
+mod document;
 mod theme;
 mod timeline;
 mod workspace;
