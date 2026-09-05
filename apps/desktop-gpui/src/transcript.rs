@@ -16,6 +16,8 @@ use crate::db::TranscriptRow;
 #[derive(Debug, Clone, PartialEq)]
 pub struct RenderedTranscript {
     pub id: String,
+    pub started_at_ms: i64,
+    pub ended_at_ms: Option<i64>,
     pub segments: Vec<Segment>,
 }
 
@@ -29,6 +31,10 @@ pub struct Segment {
     pub end_ms: i64,
     /// Words joined by single spaces (`getWordDisplayText` + the line joins).
     pub text: String,
+    /// The segmenter's own label and text, which the export uses
+    /// (`buildTranscriptExportSegments` reads `speaker_label` / `text`).
+    pub export_speaker: String,
+    pub export_text: String,
 }
 
 /// `useRenderedTranscriptData(transcriptId)`: each transcript is rendered on
@@ -81,6 +87,8 @@ pub fn render_transcripts(
             }
             Some(RenderedTranscript {
                 id: row.id.clone(),
+                started_at_ms: row.started_at_ms,
+                ended_at_ms: row.ended_at_ms,
                 segments: rendered
                     .into_iter()
                     .map(|segment| Segment {
@@ -96,6 +104,8 @@ pub fn render_transcripts(
                             .filter(|text| !text.is_empty())
                             .collect::<Vec<_>>()
                             .join(" "),
+                        export_speaker: segment.speaker_label,
+                        export_text: segment.text,
                     })
                     .collect(),
             })
@@ -476,6 +486,7 @@ mod tests {
             id: "t1".into(),
             owner_user_id: String::new(),
             started_at_ms: 0,
+            ended_at_ms: None,
             words_json: words.to_string(),
             speaker_hints_json: hints.to_string(),
         }

@@ -52,6 +52,8 @@ pub struct NoteDocument {
     pub id: String,
     pub title: String,
     pub blocks: Vec<Block>,
+    /// The stored body (TipTap JSON) for exports and content checks.
+    pub body: String,
 }
 
 /// `DEFAULT_USER_ID` in `apps/desktop/src/shared/utils.ts`.
@@ -886,7 +888,7 @@ const HAS_TRANSCRIPT_SQL: &str = "
 // apps/desktop/src/stt/queries.ts, `useSessionTranscripts` (stored rows;
 // pending live deltas only exist while a capture is running).
 const SESSION_TRANSCRIPTS_SQL: &str = "
-    SELECT id, owner_user_id, started_at_ms, words_json, speaker_hints_json
+    SELECT id, owner_user_id, started_at_ms, ended_at_ms, words_json, speaker_hints_json
     FROM transcripts AS transcript
     WHERE transcript.session_id = ? AND transcript.deleted_at IS NULL
     ORDER BY transcript.started_at_ms, transcript.created_at, transcript.id
@@ -959,6 +961,7 @@ pub struct TranscriptRow {
     pub id: String,
     pub owner_user_id: String,
     pub started_at_ms: i64,
+    pub ended_at_ms: Option<i64>,
     pub words_json: String,
     pub speaker_hints_json: String,
 }
@@ -2040,6 +2043,7 @@ impl Store {
                         id,
                         title,
                         blocks: document::from_body(&body_format, &body),
+                        body,
                     })
                     .collect();
             let has_transcript: bool = sqlx::query_scalar(HAS_TRANSCRIPT_SQL)

@@ -5449,6 +5449,7 @@ dependencies = [
  "db-app",
  "db-core",
  "dirs 6.0.0",
+ "export-core",
  "fs-sync-core",
  "gpui",
  "iana-time-zone",

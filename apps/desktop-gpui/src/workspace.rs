@@ -1,5 +1,6 @@
 mod ai_settings;
 mod document_view;
+mod export;
 mod filter_menu;
 mod meeting_info;
 mod menu;
@@ -163,6 +164,8 @@ pub struct Workspace {
     permissions: std::collections::HashMap<&'static str, settings::PermissionState>,
     /// The Meeting info submenu's data for the note whose overflow menu is open.
     meeting_info: Option<meeting_info::MeetingInfo>,
+    /// The Export dialog while open.
+    export_dialog: Option<export::ExportDialog>,
     /// The `SpokenLanguagesView` chip input, created with the settings tab.
     spoken_search: Option<gpui::Entity<TextInput>>,
     spoken_highlighted: Option<usize>,
@@ -267,6 +270,7 @@ impl Workspace {
             ai_advanced_open: std::collections::HashSet::new(),
             permissions: std::collections::HashMap::new(),
             meeting_info: None,
+            export_dialog: None,
             spoken_search: None,
             spoken_highlighted: None,
             pending_deletions: Vec::new(),
@@ -1021,8 +1025,10 @@ impl Render for Workspace {
             .on_action(|_: &actions::ToggleFullscreen, window, _| window.toggle_fullscreen())
             .on_action(|_: &actions::CloseWindow, window, _| window.remove_window())
             // `useCloseStandaloneNoteWindowOnEscape`
-            .on_action(cx.listener(|this, _: &actions::Escape, window, _| {
-                if this.is_standalone() {
+            .on_action(cx.listener(|this, _: &actions::Escape, window, cx| {
+                if this.export_dialog.is_some() {
+                    this.close_export_dialog(cx);
+                } else if this.is_standalone() {
                     window.remove_window();
                 }
             }))
@@ -1100,6 +1106,7 @@ impl Render for Workspace {
             .children(self.render_overflow_menu(window, cx))
             .children(self.render_filter_menu(window, cx))
             .children(self.render_open_menu(window, cx))
+            .children(self.render_export_dialog(cx))
             .children(self.render_open_note_dialog(window, cx))
     }
 }

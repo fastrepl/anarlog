@@ -127,7 +127,11 @@ impl Workspace {
                     }),
                 },
                 Entry::Separator,
-                plain("file-arrow-down", "Export", None),
+                plain(
+                    "file-arrow-down",
+                    "Export",
+                    Some(Box::new(|this, _, cx| this.open_export_dialog(cx))),
+                ),
                 Entry::Separator,
                 plain("microphone", "Start listening", None),
                 plain("waveform", "Upload audio", None),
