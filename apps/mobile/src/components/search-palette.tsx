@@ -121,7 +121,7 @@ export function SearchPalette({
               />
             )}
             <View style={styles.searchBar}>
-              <NativeIcon name="search" size={20} color={Colors.muted} />
+              <NativeIcon name="search" size={16} color={Colors.muted} />
               <TextInput
                 ref={inputRef}
                 accessibilityLabel="Search meetings"
@@ -138,7 +138,7 @@ export function SearchPalette({
                 <IconButton
                   accessibilityLabel="Clear search"
                   icon="close"
-                  iconSize={20}
+                  iconSize={16}
                   onPress={() => {
                     handleSearchChange("");
                     inputRef.current?.focus();
