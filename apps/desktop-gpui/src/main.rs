@@ -2,6 +2,7 @@ mod actions;
 mod assets;
 mod db;
 mod document;
+mod editor;
 mod text_input;
 mod theme;
 mod timeline;
@@ -86,6 +87,7 @@ fn main() -> anyhow::Result<()> {
         .run(move |cx: &mut App| {
             actions::bind_keys(cx);
             text_input::bind_keys(cx);
+            editor::bind_keys(cx);
             cx.on_window_closed(|cx| {
                 if cx.windows().is_empty() {
                     // gpui 0.2.2's X11 client still holds its state borrow while

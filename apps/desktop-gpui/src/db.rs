@@ -114,6 +114,100 @@ const INSERT_OWNER_PARTICIPANT_SQL: &str = "
     WHERE session.id = ? AND session.deleted_at IS NULL
 ";
 
+// apps/desktop/src/session/queries/deletion.ts, `isSessionEmpty`.
+const SESSION_EMPTY_SQL: &str = "
+    SELECT
+      sessions.title,
+      sessions.event_json,
+      COALESCE(note.body, '') AS note_body,
+      COALESCE(note.body_format, '') AS note_body_format,
+      (
+        SELECT COUNT(*)
+        FROM transcripts
+        WHERE session_id = sessions.id AND deleted_at IS NULL
+      ) AS transcript_count,
+      (
+        SELECT COUNT(*)
+        FROM session_documents
+        WHERE session_id = sessions.id
+          AND kind IN ('summary', 'template_output')
+          AND deleted_at IS NULL
+      ) AS enhanced_note_count,
+      (
+        SELECT COUNT(*)
+        FROM session_documents
+        WHERE session_id = sessions.id
+          AND kind = 'meeting_chat'
+          AND deleted_at IS NULL
+      ) AS meeting_chat_count,
+      (
+        SELECT COUNT(*)
+        FROM session_participants
+        WHERE session_id = sessions.id
+          AND source NOT IN ('auto', 'excluded')
+          AND human_id <> sessions.owner_user_id
+          AND deleted_at IS NULL
+      ) AS manual_participant_count,
+      (
+        SELECT COUNT(*)
+        FROM session_tags
+        WHERE session_id = sessions.id AND deleted_at IS NULL
+      ) AS tag_count
+    FROM sessions
+    LEFT JOIN session_documents AS note
+      ON note.id = sessions.id
+      AND note.kind = 'note'
+      AND note.deleted_at IS NULL
+    WHERE sessions.id = ? AND sessions.deleted_at IS NULL
+    LIMIT 1
+";
+
+/// `buildSessionTombstoneStatements` tables, in order.
+const TOMBSTONE_TABLES: [&str; 6] = [
+    "session_documents",
+    "transcripts",
+    "session_participants",
+    "session_tags",
+    "action_items",
+    "session_attachments",
+];
+
+/// `hasNoteContent`: a note counts as written once its Markdown rendering has
+/// anything but whitespace or a bare `&nbsp;`.
+fn has_note_content(body: &str, format: &str) -> bool {
+    if body.is_empty() {
+        return false;
+    }
+    let markdown = if format == "prosemirror_json" {
+        serde_json::from_str::<serde_json::Value>(body)
+            .ok()
+            .and_then(|json| anlg_tiptap::tiptap_json_to_md(&json).ok())
+            .unwrap_or_else(|| body.to_string())
+    } else {
+        body.to_string()
+    };
+    let markdown = markdown.trim();
+    !markdown.is_empty() && markdown != "&nbsp;"
+}
+
+// apps/desktop/src/session/queries/sessions.ts, `updateSession({ raw_md })`.
+const UPSERT_MEMO_SQL: &str = "
+    INSERT INTO session_documents (
+      id, workspace_id, session_id, kind, template_id, body_format, body,
+      created_by, updated_by, created_at, updated_at, deleted_at
+    )
+    SELECT ?, workspace_id, id, 'note', ?, 'prosemirror_json', ?,
+      owner_user_id, owner_user_id, ?, ?, NULL
+    FROM sessions
+    WHERE id = ? AND deleted_at IS NULL
+    ON CONFLICT(id) DO UPDATE SET
+      body_format = excluded.body_format,
+      body = excluded.body,
+      updated_by = excluded.updated_by,
+      updated_at = excluded.updated_at,
+      deleted_at = NULL
+";
+
 // apps/desktop/src/session/queries/sessions.ts, `updateSession({ title })`.
 const UPDATE_TITLE_SQL: &str = "
     UPDATE sessions
@@ -285,6 +379,9 @@ pub struct NotePreview {
     pub session: SessionRow,
     /// The raw memo (`kind = 'note'`).
     pub memo: Vec<Block>,
+    /// The memo as TipTap JSON (`mapSessionRow` converts imported Markdown
+    /// with `md2json`); what the editor loads and writes back.
+    pub memo_body: String,
     /// Summaries and template outputs in the order the app tabs them.
     pub enhanced: Vec<NoteDocument>,
     pub has_transcript: bool,
@@ -402,6 +499,115 @@ impl Store {
                 .await?;
             transaction.commit().await?;
             Ok(session_id)
+        })
+    }
+
+    /// `createSessionTabCloseHandler`: a session whose tab closes while it is
+    /// still empty (`isSessionEmpty`) is tombstoned with
+    /// `softDeleteSession`. Returns whether it was deleted.
+    pub fn close_empty_session(
+        &self,
+        session_id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<bool>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let pool = db.pool();
+            let row = sqlx::query_as::<_, (String, String, String, String, i64, i64, i64, i64, i64)>(
+                SESSION_EMPTY_SQL,
+            )
+            .bind(&session_id)
+            .fetch_optional(pool)
+            .await?;
+            let Some((
+                title,
+                event_json,
+                note_body,
+                note_body_format,
+                transcripts,
+                enhanced,
+                chats,
+                manual_participants,
+                tags,
+            )) = row
+            else {
+                return Ok(false);
+            };
+            // Same early returns as `isSessionEmpty`.
+            if !title.trim().is_empty() && event_json.is_empty() {
+                return Ok(false);
+            }
+            if has_note_content(&note_body, &note_body_format) {
+                return Ok(false);
+            }
+            if [transcripts, enhanced, chats, manual_participants, tags]
+                .iter()
+                .any(|count| *count != 0)
+            {
+                return Ok(false);
+            }
+
+            let tombstone = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string();
+            let mut transaction = pool.begin().await?;
+            for table in TOMBSTONE_TABLES {
+                sqlx::query(sqlx::AssertSqlSafe(format!(
+                    "UPDATE {table} SET deleted_at = ?, updated_at = ? WHERE session_id = ? AND deleted_at IS NULL"
+                )))
+                .bind(&tombstone)
+                .bind(&tombstone)
+                .bind(&session_id)
+                .execute(&mut *transaction)
+                .await?;
+            }
+            sqlx::query(
+                "UPDATE entity_mentions
+                 SET deleted_at = ?, updated_at = ?
+                 WHERE (
+                   (source_type = 'session' AND source_id = ?)
+                   OR (target_type = 'session' AND target_id = ?)
+                 ) AND deleted_at IS NULL",
+            )
+            .bind(&tombstone)
+            .bind(&tombstone)
+            .bind(&session_id)
+            .bind(&session_id)
+            .execute(&mut *transaction)
+            .await?;
+            let result = sqlx::query(
+                "UPDATE sessions SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL",
+            )
+            .bind(&tombstone)
+            .bind(&tombstone)
+            .bind(&session_id)
+            .execute(&mut *transaction)
+            .await?;
+            transaction.commit().await?;
+            Ok(result.rows_affected() == 1)
+        })
+    }
+
+    /// `updateSession(sessionId, { raw_md })`: the memo upsert.
+    pub fn update_memo(
+        &self,
+        session_id: String,
+        body: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let now = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string();
+            sqlx::query(UPSERT_MEMO_SQL)
+                .bind(&session_id)
+                .bind("")
+                .bind(&body)
+                .bind(&now)
+                .bind(&now)
+                .bind(&session_id)
+                .execute(db.pool())
+                .await?;
+            Ok(())
         })
     }
 
@@ -588,9 +794,21 @@ impl Store {
             let Some(session) = anlg_db_app::get_session(db.pool(), &session_id).await? else {
                 return Ok(None);
             };
-            let memo = match anlg_db_app::get_session_note(db.pool(), &session_id).await? {
-                Some(note) => document::from_body(&note.body_format, &note.body),
-                None => Vec::new(),
+            let (memo, memo_body) = match anlg_db_app::get_session_note(db.pool(), &session_id)
+                .await?
+            {
+                Some(note) => {
+                    let body = if note.body_format == "markdown" && !note.body.trim().is_empty() {
+                        anlg_tiptap::md_to_tiptap_json(&note.body)
+                            .ok()
+                            .and_then(|json| serde_json::to_string(&json).ok())
+                            .unwrap_or_else(|| note.body.clone())
+                    } else {
+                        note.body.clone()
+                    };
+                    (document::from_body(&note.body_format, &note.body), body)
+                }
+                None => (Vec::new(), String::new()),
             };
             let enhanced =
                 sqlx::query_as::<_, (String, String, String, String)>(ENHANCED_NOTES_SQL)
@@ -619,6 +837,7 @@ impl Store {
                     locked: session.locked,
                 },
                 memo,
+                memo_body,
                 enhanced,
             }))
         })
@@ -861,6 +1080,101 @@ mod tests {
                 .unwrap();
         assert_eq!(title, "Weekly sync");
         assert!(bumped);
+    }
+
+    #[tokio::test]
+    async fn closing_an_untouched_note_deletes_it_but_written_notes_survive() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(DB_FILENAME);
+        {
+            let db = Db::connect_local_plain(&path).await.unwrap();
+            anlg_db_app::prepare_schema(&db).await.unwrap();
+        }
+        let store = Store::open(tokio::runtime::Handle::current(), path)
+            .await
+            .unwrap();
+
+        let untouched = store.create_note().await.unwrap().unwrap();
+        let titled = store.create_note().await.unwrap().unwrap();
+        store
+            .update_title(titled.clone(), "Kept".to_string())
+            .await
+            .unwrap()
+            .unwrap();
+        let written = store.create_note().await.unwrap().unwrap();
+        store
+            .update_memo(
+                written.clone(),
+                r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"hi"}]}]}"#.to_string(),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        let blank_paragraph = store.create_note().await.unwrap().unwrap();
+        store
+            .update_memo(
+                blank_paragraph.clone(),
+                r#"{"type":"doc","content":[{"type":"paragraph"}]}"#.to_string(),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert!(
+            store
+                .close_empty_session(untouched.clone())
+                .await
+                .unwrap()
+                .unwrap()
+        );
+        assert!(
+            !store
+                .close_empty_session(titled.clone())
+                .await
+                .unwrap()
+                .unwrap()
+        );
+        assert!(
+            !store
+                .close_empty_session(written.clone())
+                .await
+                .unwrap()
+                .unwrap()
+        );
+        assert!(
+            store
+                .close_empty_session(blank_paragraph.clone())
+                .await
+                .unwrap()
+                .unwrap()
+        );
+        // Already tombstoned: nothing to do.
+        assert!(
+            !store
+                .close_empty_session(untouched.clone())
+                .await
+                .unwrap()
+                .unwrap()
+        );
+
+        let (sessions, _) = store.list_timeline().await.unwrap().unwrap();
+        let mut ids: Vec<&str> = sessions.iter().map(|s| s.id.as_str()).collect();
+        ids.sort();
+        let mut expected = vec![titled.as_str(), written.as_str()];
+        expected.sort();
+        assert_eq!(ids, expected);
+        let pool = store.db.pool();
+        let tombstoned_docs: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM session_documents WHERE session_id = ? AND deleted_at IS NOT NULL",
+        )
+        .bind(&untouched)
+        .fetch_one(pool)
+        .await
+        .unwrap();
+        assert_eq!(
+            tombstoned_docs, 1,
+            "the memo row is tombstoned with the session"
+        );
     }
 
     #[tokio::test]

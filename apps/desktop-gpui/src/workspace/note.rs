@@ -14,8 +14,40 @@ use crate::timeline::{RemoteMeeting, SessionEvent};
 use crate::ui::{TailwindText as _, ghost_icon_button, icon};
 
 impl Workspace {
-    pub(super) fn render_main_surface(&self, window: &Window, cx: &Context<Self>) -> Div {
+    pub(super) fn render_main_surface(&self, window: &Window, cx: &mut Context<Self>) -> Div {
         let theme = self.theme;
+        let content = match &self.note {
+            Note::Empty => self.render_empty_view().into_any_element(),
+            Note::Loading => div().flex_1().into_any_element(),
+            Note::Failed(error) => div()
+                .p_4()
+                .tw_text_sm()
+                .text_color(theme.destructive)
+                .child(SharedString::from(error.clone()))
+                .into_any_element(),
+            Note::Ready { preview, tab } => {
+                let (preview, tab) = (preview.clone(), tab.clone());
+                div()
+                    .flex()
+                    .flex_col()
+                    .size_full()
+                    .min_h_0()
+                    .child(
+                        div()
+                            .px_1()
+                            .child(self.render_outer_header(&preview, &tab, window, cx)),
+                    )
+                    // Measured against the Tauri window: the text column starts at
+                    // the same x as the breadcrumb title (12px from the surface).
+                    .child(
+                        div()
+                            .min_h_0()
+                            .flex_1()
+                            .child(self.render_note_body(&preview, &tab, window, cx)),
+                    )
+                    .into_any_element()
+            }
+        };
         // `resolvedMainSurfaceChrome`: "left" while the sidebar is expanded
         // (left border, top-left corner rounded off macOS), "top-borderless"
         // when collapsed (no border, no rounding).
@@ -34,35 +66,7 @@ impl Workspace {
             })
             .overflow_hidden()
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .child(match &self.note {
-                Note::Empty => self.render_empty_view().into_any_element(),
-                Note::Loading => div().flex_1().into_any_element(),
-                Note::Failed(error) => div()
-                    .p_4()
-                    .tw_text_sm()
-                    .text_color(theme.destructive)
-                    .child(SharedString::from(error.clone()))
-                    .into_any_element(),
-                Note::Ready { preview, tab } => div()
-                    .flex()
-                    .flex_col()
-                    .size_full()
-                    .min_h_0()
-                    .child(
-                        div()
-                            .px_1()
-                            .child(self.render_outer_header(preview, tab, window, cx)),
-                    )
-                    // Measured against the Tauri window: the text column starts at
-                    // the same x as the breadcrumb title (12px from the surface).
-                    .child(
-                        div()
-                            .min_h_0()
-                            .flex_1()
-                            .child(self.render_note_body(preview, tab, window)),
-                    )
-                    .into_any_element(),
-            })
+            .child(content)
     }
 
     /// `EmptyView`: three centred actions with their shortcuts.
@@ -481,8 +485,57 @@ impl Workspace {
         preview: &NotePreview,
         tab: &NoteTab,
         window: &Window,
+        cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let theme = self.theme;
+        let editor = match tab {
+            NoteTab::Memo => self
+                .editor
+                .clone()
+                .filter(|editor| editor.read(cx).session_id == preview.session.id),
+            NoteTab::Enhanced(_) => None,
+        };
+
+        let body = div()
+            .id("note-body")
+            .h_full()
+            .px_3()
+            .pt_2()
+            .pb_6()
+            .overflow_y_scroll()
+            .flex()
+            .flex_col()
+            .text_size(px(16.0))
+            .line_height(px(24.0));
+
+        if let Some(editor) = editor {
+            // The memo is live: render the editor's document, not the snapshot.
+            let renderer = self.document_editor_renderer(editor.clone(), window);
+            let (blocks, pristine) = {
+                let editor = editor.read(cx);
+                (
+                    crate::document::parse(editor.doc().root()),
+                    editor.doc().is_pristine(),
+                )
+            };
+            let mut children = renderer.blocks(&blocks, 0);
+            if pristine {
+                // `Start writing...` placeholder of the raw editor, drawn over
+                // the empty first paragraph.
+                let placeholder = div()
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .py(px(2.0))
+                    .text_color(theme.muted_foreground)
+                    .child("Start writing...")
+                    .into_any_element();
+                children.insert(0, placeholder);
+            }
+            let root = editor.update(cx, |editor, cx| editor.render_root(cx));
+            return body.child(root.child(renderer.editable_root(&editor, children, cx)));
+        }
+
         let blocks = match tab {
             NoteTab::Memo => preview.memo.as_slice(),
             NoteTab::Enhanced(id) => preview
@@ -494,30 +547,17 @@ impl Workspace {
         };
         let renderer = self.document_renderer(window);
         let has_content = blocks.iter().any(super::document_view::has_visible_content);
-
-        div()
-            .id("note-body")
-            .h_full()
-            .px_3()
-            .pt_2()
-            .pb_6()
-            .overflow_y_scroll()
-            .flex()
-            .flex_col()
-            .text_size(px(16.0))
-            .line_height(px(24.0))
-            .when(!has_content, |body| {
-                // `Start writing...` placeholder of the raw editor.
-                body.child(
-                    div()
-                        .py(px(2.0))
-                        .text_color(theme.muted_foreground)
-                        .child("Start writing..."),
-                )
-            })
-            .when(has_content, |body| {
-                body.children(renderer.blocks(blocks, 0))
-            })
+        body.when(!has_content, |body| {
+            body.child(
+                div()
+                    .py(px(2.0))
+                    .text_color(theme.muted_foreground)
+                    .child("Start writing..."),
+            )
+        })
+        .when(has_content, |body| {
+            body.children(renderer.blocks(blocks, 0))
+        })
     }
 }
 

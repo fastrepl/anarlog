@@ -3,12 +3,17 @@
 //! 1.25em/1.125em/1em, custom list markers cycling filled circle → hollow
 //! circle → square, links in blue-600 with underline.
 
+use std::cell::Cell;
+
 use gpui::{
-    AnyElement, HighlightStyle, SharedString, StyledText, TextStyle, Window, div, prelude::*, px,
+    AnyElement, Div, ElementInputHandler, Entity, Focusable as _, HighlightStyle, MouseButton,
+    MouseDownEvent, SharedString, StyledText, TextStyle, Window, canvas, div, fill, prelude::*, px,
+    size,
 };
 
 use super::Workspace;
 use crate::document::{Block, Span};
+use crate::editor::BodyEditor;
 use crate::theme::{Theme, alpha};
 use crate::ui::TailwindText as _;
 
@@ -31,6 +36,10 @@ pub(super) struct DocumentRenderer {
     base: TextStyle,
     mono_family: Option<SharedString>,
     theme: Theme,
+    /// Present when the document is the editable memo: textblocks report
+    /// their layout to the editor, place the caret on click, and paint it.
+    editor: Option<Entity<BodyEditor>>,
+    next_textblock: Cell<usize>,
 }
 
 impl Workspace {
@@ -45,11 +54,125 @@ impl Workspace {
             base,
             mono_family: self.mono_font_family.clone(),
             theme: self.theme,
+            editor: None,
+            next_textblock: Cell::new(0),
         }
+    }
+
+    pub(super) fn document_editor_renderer(
+        &self,
+        editor: Entity<BodyEditor>,
+        window: &Window,
+    ) -> DocumentRenderer {
+        let mut renderer = self.document_renderer(window);
+        renderer.editor = Some(editor);
+        renderer
     }
 }
 
 impl DocumentRenderer {
+    /// Root wrapper for an editable document: registers the input handler so
+    /// typed and composed text reaches the editor, and lets a click below the
+    /// last block land the caret at the end.
+    pub(super) fn editable_root(
+        &self,
+        editor: &Entity<BodyEditor>,
+        children: Vec<AnyElement>,
+        cx: &gpui::App,
+    ) -> AnyElement {
+        let focus_handle = editor.read(cx).focus_handle(cx);
+        let handler_editor = editor.clone();
+        let click_editor = editor.clone();
+        div()
+            .relative()
+            .flex()
+            .flex_col()
+            .w_full()
+            .children(children)
+            .child(
+                canvas(
+                    |_, _, _| (),
+                    move |bounds, _, window, cx| {
+                        window.handle_input(
+                            &focus_handle,
+                            ElementInputHandler::new(bounds, handler_editor.clone()),
+                            cx,
+                        );
+                    },
+                )
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full(),
+            )
+            .child(
+                // The `flex-1` tail below the content: `trailing-empty-line-click`.
+                div()
+                    .id("editor-tail")
+                    .h(px(BODY_PX * 1.5 * 4.0))
+                    .w_full()
+                    .cursor_text()
+                    .on_mouse_down(MouseButton::Left, move |_: &MouseDownEvent, window, cx| {
+                        cx.stop_propagation();
+                        click_editor.update(cx, |editor, cx| editor.place_caret_at_end(window, cx));
+                    }),
+            )
+            .into_any_element()
+    }
+
+    /// Wraps a textblock's text with the editor hooks when editing.
+    fn textblock(&self, wrapper: Div, text: StyledText) -> AnyElement {
+        let Some(editor) = &self.editor else {
+            return wrapper.child(text).into_any_element();
+        };
+        let index = self.next_textblock.get();
+        self.next_textblock.set(index + 1);
+        let layout = text.layout().clone();
+        let paint_editor = editor.clone();
+        let click_editor = editor.clone();
+        let caret_color = self.theme.foreground;
+        wrapper
+            .id(("textblock", index))
+            .relative()
+            .cursor_text()
+            .on_mouse_down(
+                MouseButton::Left,
+                move |event: &MouseDownEvent, window, cx| {
+                    cx.stop_propagation();
+                    click_editor.update(cx, |editor, cx| {
+                        editor.place_caret_at(index, event.position, window, cx)
+                    });
+                },
+            )
+            .child(text)
+            .child(
+                canvas(
+                    |_, _, _| (),
+                    move |bounds, _, window, cx| {
+                        let caret = paint_editor.update(cx, |editor, _| {
+                            editor.record_layout(index, layout.clone(), bounds);
+                            editor
+                                .caret()
+                                .filter(|caret| caret.block == index && editor.is_focused(window))
+                        });
+                        if let Some(caret) = caret
+                            && let Some(position) = layout.position_for_index(caret.offset)
+                        {
+                            window.paint_quad(fill(
+                                gpui::Bounds::new(position, size(px(1.0), layout.line_height())),
+                                caret_color,
+                            ));
+                        }
+                    },
+                )
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full(),
+            )
+            .into_any_element()
+    }
+
     pub(super) fn blocks(&self, blocks: &[Block], depth: usize) -> Vec<AnyElement> {
         blocks
             .iter()
@@ -62,11 +185,10 @@ impl DocumentRenderer {
         // `.note-typography > * { padding-block: 0.125em }`
         let pad = px(BODY_PX * 0.125);
         match block {
-            Block::Paragraph(spans) => div()
-                .py(pad)
-                .min_h(px(BODY_PX * 1.5 + 4.0))
-                .child(self.text(spans, &self.base))
-                .into_any_element(),
+            Block::Paragraph(spans) => self.textblock(
+                div().py(pad).min_h(px(BODY_PX * 1.5 + 4.0)),
+                self.text(spans, &self.base),
+            ),
             Block::Heading { level, spans } => {
                 let (em, weight, line_height) = match level {
                     1 => (1.25, gpui::FontWeight::BOLD, 1.4),
@@ -76,12 +198,13 @@ impl DocumentRenderer {
                 let mut style = self.base.clone();
                 style.font_weight = weight;
                 style.font_size = px(BODY_PX * em).into();
-                div()
-                    .py(pad)
-                    .text_size(px(BODY_PX * em))
-                    .line_height(px(BODY_PX * em * line_height))
-                    .child(self.text(spans, &style))
-                    .into_any_element()
+                self.textblock(
+                    div()
+                        .py(pad)
+                        .text_size(px(BODY_PX * em))
+                        .line_height(px(BODY_PX * em * line_height)),
+                    self.text(spans, &style),
+                )
             }
             Block::List { ordered, items } => div()
                 .flex()
@@ -119,18 +242,30 @@ impl DocumentRenderer {
                 .text_color(theme.muted_foreground)
                 .children(self.blocks(blocks, depth + 1))
                 .into_any_element(),
-            Block::Code(code) => div()
-                .my(pad)
-                .px_3()
-                .py_2()
-                .rounded_md()
-                .bg(theme.accent)
-                .text_size(px(BODY_PX * 0.875))
-                .when_some(self.mono_family.clone(), |code, family| {
-                    code.font_family(family)
-                })
-                .child(SharedString::from(code.clone()))
-                .into_any_element(),
+            Block::Code(code) => {
+                let mut style = self.base.clone();
+                style.font_size = px(BODY_PX * 0.875).into();
+                if let Some(family) = &self.mono_family {
+                    style.font_family = family.clone();
+                }
+                let span = Span {
+                    text: code.clone(),
+                    ..Span::default()
+                };
+                self.textblock(
+                    div()
+                        .my(pad)
+                        .px_3()
+                        .py_2()
+                        .rounded_md()
+                        .bg(theme.accent)
+                        .text_size(px(BODY_PX * 0.875))
+                        .when_some(self.mono_family.clone(), |code, family| {
+                            code.font_family(family)
+                        }),
+                    self.text(std::slice::from_ref(&span), &style),
+                )
+            }
             Block::HorizontalRule => div()
                 .my(px(BODY_PX * 0.75))
                 .h(px(1.0))

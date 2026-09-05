@@ -14,6 +14,7 @@ use gpui::{
 
 use crate::actions;
 use crate::db::{NotePreview, Store};
+use crate::editor::{BodyEditor, EditorEvent};
 use crate::text_input::{TextInput, TextInputEvent, TextInputStyle};
 use crate::theme::Theme;
 use crate::timeline::{self, Timeline};
@@ -70,7 +71,10 @@ enum NoteTab {
 enum Note {
     Empty,
     Loading,
-    Ready { preview: NotePreview, tab: NoteTab },
+    Ready {
+        preview: Box<NotePreview>,
+        tab: NoteTab,
+    },
     Failed(String),
 }
 
@@ -79,6 +83,8 @@ pub struct Workspace {
     theme: Theme,
     focus_handle: FocusHandle,
     title_input: gpui::Entity<TextInput>,
+    /// The memo editor for the selected session.
+    editor: Option<gpui::Entity<BodyEditor>>,
     font_family: Option<SharedString>,
     mono_font_family: Option<SharedString>,
     sessions: Sessions,
@@ -95,6 +101,9 @@ pub struct Workspace {
     open_note: Option<open_note::OpenNoteDialog>,
     /// `recentlyOpenedSessionIds`, newest first.
     recently_opened: Vec<String>,
+    /// The tab store's session tabs, in order; the tab strip itself is not
+    /// shown, but `openNew` vs `openCurrent` decide which note gets closed.
+    tabs: Vec<String>,
     /// Id of the chrome button under the pointer, so icons can take the
     /// `hover:text-foreground` colour their container cannot pass down.
     hovered: Option<&'static str>,
@@ -130,6 +139,7 @@ impl Workspace {
             theme,
             focus_handle: cx.focus_handle(),
             title_input,
+            editor: None,
             font_family,
             mono_font_family,
             sessions: Sessions::Loading,
@@ -144,6 +154,7 @@ impl Workspace {
             open_menu: None,
             open_note: None,
             recently_opened: Vec::new(),
+            tabs: Vec::new(),
             hovered: None,
         };
         // Chips and the bottom fade depend on the scroll position.
@@ -219,19 +230,73 @@ impl Workspace {
         self.list_state.reset(self.rows.len());
     }
 
+    /// `openCurrent`: reuse the tab if the note is already open, otherwise
+    /// replace the active slot, which closes the note that was there.
     fn select(&mut self, session_id: String, cx: &mut Context<Self>) {
+        self.open_tab(session_id, false, cx);
+    }
+
+    /// `openNew`: the note opens in a new tab; the previous one stays open in
+    /// the (invisible) tab list, so it is not closed or cleaned up.
+    pub(crate) fn open_new(&mut self, session_id: String, cx: &mut Context<Self>) {
+        self.open_tab(session_id, true, cx);
+    }
+
+    fn open_tab(&mut self, session_id: String, force_new: bool, cx: &mut Context<Self>) {
         // `addRecentlyOpened`
         self.recently_opened.retain(|id| id != &session_id);
         self.recently_opened.insert(0, session_id.clone());
         self.recently_opened
             .truncate(open_note::MAX_RECENT_SESSIONS);
+
         if self.selected.as_deref() == Some(session_id.as_str()) {
             return;
         }
-        self.selected = Some(session_id.clone());
+        let previous = self.selected.replace(session_id.clone());
+        let already_open = self.tabs.contains(&session_id);
+        if !already_open {
+            match previous
+                .as_ref()
+                .and_then(|id| self.tabs.iter().position(|t| t == id))
+            {
+                Some(slot) if !force_new => {
+                    let closed = std::mem::replace(&mut self.tabs[slot], session_id.clone());
+                    self.close_tab(closed, cx);
+                }
+                _ => self.tabs.push(session_id.clone()),
+            }
+        }
         self.note = Note::Loading;
         cx.notify();
         self.reload_note(session_id, cx);
+    }
+
+    /// `openCurrent` replaces the tab, so the previous note goes through the
+    /// tab close handler: pending edits are written first, then an untouched
+    /// note is soft-deleted.
+    fn close_tab(&mut self, session_id: String, cx: &mut Context<Self>) {
+        let pending = self
+            .editor
+            .as_ref()
+            .filter(|editor| editor.read(cx).session_id == session_id)
+            .and_then(|editor| editor.update(cx, |editor, _| editor.take_pending()));
+        let store = self.store.clone();
+        cx.spawn(async move |this, cx| {
+            if let Some(body) = pending
+                && let Err(error) = store.update_memo(session_id.clone(), body).await
+            {
+                tracing::error!(%error, "failed to persist note");
+            }
+            match store.close_empty_session(session_id).await {
+                Ok(Ok(true)) => {
+                    this.update(cx, |this, cx| this.reload_sessions(cx)).ok();
+                }
+                Ok(Ok(false)) => {}
+                Ok(Err(error)) => tracing::error!(%error, "session close cleanup"),
+                Err(error) => tracing::error!(%error, "session close cleanup"),
+            }
+        })
+        .detach();
     }
 
     fn reload_note(&mut self, session_id: String, cx: &mut Context<Self>) {
@@ -253,7 +318,11 @@ impl Workspace {
                                 input.set_text(title, cx);
                             }
                         });
-                        Note::Ready { preview, tab }
+                        this.sync_editor(&preview, cx);
+                        Note::Ready {
+                            preview: Box::new(preview),
+                            tab,
+                        }
                     }
                     Ok(Ok(None)) => Note::Failed("This note no longer exists.".to_string()),
                     Ok(Err(error)) => Note::Failed(error.to_string()),
@@ -303,6 +372,49 @@ impl Workspace {
         cx.notify();
     }
 
+    /// Keeps one `BodyEditor` per selected session, fed from the store unless
+    /// it has unsaved edits.
+    fn sync_editor(&mut self, preview: &NotePreview, cx: &mut Context<Self>) {
+        let session_id = preview.session.id.clone();
+        let body = preview.memo_body.clone();
+        match &self.editor {
+            Some(editor) if editor.read(cx).session_id == session_id => {
+                editor.update(cx, |editor, cx| editor.replace_body(&body, cx));
+            }
+            _ => {
+                if let Some(previous) = self.editor.take() {
+                    previous.update(cx, |editor, cx| editor.flush(cx));
+                }
+                let editor = cx.new(|cx| BodyEditor::new(session_id, &body, cx));
+                cx.subscribe(&editor, |this, editor, event: &EditorEvent, cx| {
+                    let EditorEvent::Flush(json) = event;
+                    let session_id = editor.read(cx).session_id.clone();
+                    this.persist_memo(session_id, json.clone(), cx);
+                })
+                .detach();
+                self.editor = Some(editor);
+            }
+        }
+    }
+
+    /// `updateSession({ raw_md })` from the editor's debounced flush.
+    fn persist_memo(&mut self, session_id: String, body: String, cx: &mut Context<Self>) {
+        let task = self.store.update_memo(session_id.clone(), body);
+        cx.spawn(async move |this, cx| match task.await {
+            Ok(Ok(())) => {
+                this.update(cx, |this, cx| {
+                    if this.selected.as_deref() == Some(session_id.as_str()) {
+                        this.reload_note(session_id, cx);
+                    }
+                })
+                .ok();
+            }
+            Ok(Err(error)) => tracing::error!(%error, "failed to persist note"),
+            Err(error) => tracing::error!(%error, "failed to persist note"),
+        })
+        .detach();
+    }
+
     /// `persistTitle`: the title input's blur/Enter writes the draft.
     fn persist_title(&mut self, cx: &mut Context<Self>) {
         let Some(session_id) = self.selected.clone() else {
@@ -333,7 +445,7 @@ impl Workspace {
             Ok(Ok(session_id)) => {
                 this.update(cx, |this, cx| {
                     this.reload_sessions(cx);
-                    this.select(session_id, cx);
+                    this.open_new(session_id, cx);
                 })
                 .ok();
             }
