@@ -28,6 +28,7 @@ gpui = { workspace = true }
 iana-time-zone = "0.1"
 hmac = { workspace = true }
 keyring = { workspace = true }
+mime_guess = "2"
 reqwest = { workspace = true, features = ["json"] }
 sha2 = { workspace = true }
 pico-args = { workspace = true }

@@ -5455,6 +5455,7 @@ dependencies = [
  "hmac 0.13.0",
  "iana-time-zone",
  "keyring",
+ "mime_guess",
  "pico-args",
  "regex",
  "reqwest 0.13.2",

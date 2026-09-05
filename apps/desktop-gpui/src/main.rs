@@ -6,9 +6,11 @@ mod db;
 mod developers;
 mod document;
 mod editor;
+mod folders;
 mod secrets;
 mod squircle;
 mod store_file;
+mod text_area;
 mod text_input;
 mod theme;
 mod timeline;
@@ -100,6 +102,7 @@ fn main() -> anyhow::Result<()> {
             cx.set_global(audio::Audio(audio));
             actions::bind_keys(cx);
             text_input::bind_keys(cx);
+            text_area::bind_keys(cx);
             editor::bind_keys(cx);
             cx.on_window_closed(|cx| {
                 if cx.windows().is_empty() {

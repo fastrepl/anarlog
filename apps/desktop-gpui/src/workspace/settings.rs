@@ -824,6 +824,8 @@ impl Workspace {
                         .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                             if let Some(tab) = tab {
                                 this.open_settings(tab, window, cx);
+                            } else if label == "Folders" {
+                                this.open_folders(window, cx);
                             }
                         }))
                         .child(icon(glyph, px(15.0), color))

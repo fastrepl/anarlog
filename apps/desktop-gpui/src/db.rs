@@ -506,6 +506,63 @@ pub enum TemplateIcon {
     Icon { name: String, color: String },
 }
 
+impl TemplateIcon {
+    /// `DEFAULT_TEMPLATE_ICON`
+    pub fn default_template() -> Self {
+        Self::Icon {
+            name: "notebook-tabs".to_string(),
+            color: "#9ca3af".to_string(),
+        }
+    }
+
+    /// `DEFAULT_FOLDER_ICON`
+    pub fn default_folder() -> Self {
+        Self::Icon {
+            name: "folder".to_string(),
+            color: "#9ca3af".to_string(),
+        }
+    }
+
+    /// `normalizeTemplateIcon` on an already-parsed value: `None` when the
+    /// shape is not an icon object.
+    pub fn from_json(icon: &serde_json::Value) -> Option<Self> {
+        let kind = icon.get("type")?.as_str()?;
+        let value = icon.get("value")?.as_str()?.to_string();
+        Some(if kind == "emoji" {
+            Self::Emoji(value)
+        } else if kind == "icon" {
+            Self::Icon {
+                name: value,
+                color: icon
+                    .get("color")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("#9ca3af")
+                    .to_string(),
+            }
+        } else {
+            return None;
+        })
+    }
+
+    /// `isExplicitTemplateIcon`
+    pub fn is_explicit(&self) -> bool {
+        match self {
+            Self::Emoji(value) => !value.trim().is_empty(),
+            Self::Icon { name, .. } => !name.trim().is_empty(),
+        }
+    }
+
+    #[cfg(test)]
+    pub fn to_json(&self) -> serde_json::Value {
+        match self {
+            Self::Emoji(value) => serde_json::json!({ "type": "emoji", "value": value }),
+            Self::Icon { name, color } => {
+                serde_json::json!({ "type": "icon", "value": name, "color": color })
+            }
+        }
+    }
+}
+
 impl Template {
     fn from_row(
         (id, title, pinned, pin_order, icon_json, sections_json): (
@@ -519,26 +576,8 @@ impl Template {
     ) -> Self {
         let icon = serde_json::from_str::<serde_json::Value>(&icon_json)
             .ok()
-            .and_then(|icon| {
-                let kind = icon.get("type")?.as_str()?.to_string();
-                let value = icon.get("value")?.as_str()?.to_string();
-                Some(if kind == "emoji" {
-                    TemplateIcon::Emoji(value)
-                } else {
-                    TemplateIcon::Icon {
-                        name: value,
-                        color: icon
-                            .get("color")
-                            .and_then(serde_json::Value::as_str)
-                            .unwrap_or("#9ca3af")
-                            .to_string(),
-                    }
-                })
-            })
-            .unwrap_or(TemplateIcon::Icon {
-                name: "notebook-tabs".to_string(),
-                color: "#9ca3af".to_string(),
-            });
+            .and_then(|icon| TemplateIcon::from_json(&icon))
+            .unwrap_or_else(TemplateIcon::default_template);
         let section_titles = serde_json::from_str::<serde_json::Value>(&sections_json)
             .ok()
             .and_then(|sections| sections.as_array().cloned())
@@ -1697,6 +1736,99 @@ impl Store {
                 .execute(db.pool())
                 .await?;
             Ok(())
+        })
+    }
+
+    /// The vault mirror for folder operations (`fs-sync`'s base directory is
+    /// the folder holding `app.db`).
+    fn vault(&self) -> crate::folders::Vault {
+        crate::folders::Vault::new(
+            self.path
+                .parent()
+                .map(Path::to_path_buf)
+                .unwrap_or_default(),
+        )
+    }
+
+    pub fn load_folder_catalog(
+        &self,
+    ) -> tokio::task::JoinHandle<anyhow::Result<crate::folders::Catalog>> {
+        let db = self.db.clone();
+        self.runtime
+            .spawn(async move { crate::folders::load_catalog(db.pool()).await })
+    }
+
+    pub fn load_folder_details(
+        &self,
+        path: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<(String, Vec<crate::folders::Material>)>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            Ok((
+                crate::folders::load_instructions(db.pool(), &path).await?,
+                crate::folders::load_materials(db.pool(), &path).await?,
+            ))
+        })
+    }
+
+    pub fn create_folder(&self, path: String) -> tokio::task::JoinHandle<anyhow::Result<String>> {
+        let db = self.db.clone();
+        let vault = self.vault();
+        self.runtime
+            .spawn(async move { crate::folders::create_folder(db.pool(), &vault, &path).await })
+    }
+
+    pub fn rename_folder(
+        &self,
+        old_path: String,
+        new_path: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<String>> {
+        let db = self.db.clone();
+        let vault = self.vault();
+        self.runtime.spawn(async move {
+            crate::folders::rename_folder(db.pool(), &vault, &old_path, &new_path).await
+        })
+    }
+
+    pub fn delete_folder(&self, path: String) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        let vault = self.vault();
+        self.runtime
+            .spawn(async move { crate::folders::delete_folder(db.pool(), &vault, &path).await })
+    }
+
+    pub fn update_folder_instructions(
+        &self,
+        path: String,
+        instructions: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            crate::folders::update_instructions(db.pool(), &path, &instructions).await
+        })
+    }
+
+    pub fn add_folder_material(
+        &self,
+        path: String,
+        file: PathBuf,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        let vault = self.vault();
+        self.runtime.spawn(async move {
+            crate::folders::add_material(db.pool(), &vault, &path, &file).await
+        })
+    }
+
+    pub fn remove_folder_material(
+        &self,
+        path: String,
+        attachment_id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        let vault = self.vault();
+        self.runtime.spawn(async move {
+            crate::folders::remove_material(db.pool(), &vault, &path, &attachment_id).await
         })
     }
 

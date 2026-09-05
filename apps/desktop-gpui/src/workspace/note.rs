@@ -17,6 +17,7 @@ impl Workspace {
     pub(super) fn render_main_surface(&self, window: &Window, cx: &mut Context<Self>) -> Div {
         let theme = self.theme;
         let content = match &self.note {
+            _ if self.folders_open() => self.render_folders_main(cx),
             _ if self.settings_open() => {
                 self.render_settings_content(window, cx).into_any_element()
             }
@@ -68,7 +69,17 @@ impl Workspace {
                     .rounded_tl(px(12.0))
             })
             .overflow_hidden()
-            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            // Presses that reach the surface neither drag the window nor keep
+            // an input focused (a click on the page blurs it in the web view).
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|this, _: &gpui::MouseDownEvent, window, cx| {
+                    cx.stop_propagation();
+                    if !this.focus_handle.is_focused(window) {
+                        this.focus_handle.focus(window);
+                    }
+                }),
+            )
             .child(content)
     }
 
@@ -1077,7 +1088,7 @@ impl Workspace {
 }
 
 /// `TEMPLATE_ICON_COMPONENTS`: the bundled subset of the template icon names.
-fn template_icon_asset(name: &str) -> &'static str {
+pub(super) fn template_icon_asset(name: &str) -> &'static str {
     match name {
         "notebook-tabs" | "notebook" => "notebook",
         "book-open" => "book-open",
@@ -1092,7 +1103,7 @@ fn template_icon_asset(name: &str) -> &'static str {
 }
 
 /// `#rrggbb` -> `Rgba`.
-fn parse_hex_color(value: &str) -> Option<gpui::Rgba> {
+pub(super) fn parse_hex_color(value: &str) -> Option<gpui::Rgba> {
     let hex = value.strip_prefix('#')?;
     if hex.len() != 6 {
         return None;

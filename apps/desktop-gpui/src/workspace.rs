@@ -3,6 +3,7 @@ mod developers_page;
 mod document_view;
 mod export;
 mod filter_menu;
+mod folders_tab;
 mod meeting_info;
 mod menu;
 mod note;
@@ -171,6 +172,8 @@ pub struct Workspace {
     flash: Option<toast::FlashToast>,
     /// Developers page state, created when the page opens.
     developers: Option<developers_page::DevelopersState>,
+    /// The Folders tab while open.
+    folders: Option<folders_tab::FoldersState>,
     /// The `SpokenLanguagesView` chip input, created with the settings tab.
     spoken_search: Option<gpui::Entity<TextInput>>,
     spoken_highlighted: Option<usize>,
@@ -278,6 +281,7 @@ impl Workspace {
             export_dialog: None,
             flash: None,
             developers: None,
+            folders: None,
             spoken_search: None,
             spoken_highlighted: None,
             pending_deletions: Vec::new(),
@@ -463,6 +467,7 @@ impl Workspace {
                     .update(cx, |this, cx| {
                         this.reload_sessions(cx);
                         this.reload_settings(cx);
+                        this.reload_folders_from_watcher(cx);
                         if let Some(selected) = this.selected.clone() {
                             this.reload_note(selected, cx);
                         }
@@ -1035,10 +1040,22 @@ impl Render for Workspace {
             .on_action(cx.listener(|this, _: &actions::Escape, window, cx| {
                 if this.export_dialog.is_some() {
                     this.close_export_dialog(cx);
+                } else if this.folder_dialog_open() {
+                    this.close_folder_dialogs(cx);
                 } else if this.is_standalone() {
                     window.remove_window();
                 }
             }))
+            // A press on anything that does not claim the pointer moves focus
+            // to the shell, blurring inputs the way a click on the page does.
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|this, _: &gpui::MouseDownEvent, window, _| {
+                    if !this.focus_handle.is_focused(window) {
+                        this.focus_handle.focus(window);
+                    }
+                }),
+            )
             .flex()
             .flex_col()
             .size_full()
@@ -1081,7 +1098,9 @@ impl Render for Workspace {
                     .flex_1()
                     .min_h_0()
                     .when(self.sidebar_expanded && !self.is_standalone(), |shell| {
-                        let sidebar = if self.settings_open() {
+                        let sidebar = if self.folders_open() {
+                            self.render_folders_sidebar(cx).into_any_element()
+                        } else if self.settings_open() {
                             self.render_settings_nav(cx).into_any_element()
                         } else {
                             self.render_sidebar(window, cx).into_any_element()
@@ -1114,6 +1133,7 @@ impl Render for Workspace {
             .children(self.render_filter_menu(window, cx))
             .children(self.render_open_menu(window, cx))
             .children(self.render_export_dialog(cx))
+            .children(self.render_folder_dialogs(cx))
             .children(
                 self.render_flash_toast()
                     .map(|toast| gpui::deferred(toast).with_priority(11)),

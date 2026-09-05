@@ -79,6 +79,7 @@ embedded!(
     "icons/external-link.svg",
     "icons/file-arrow-down.svg",
     "icons/file-text.svg",
+    "icons/file.svg",
     "icons/filter.svg",
     "icons/folder-open.svg",
     "icons/folder.svg",
@@ -96,6 +97,7 @@ embedded!(
     "icons/popover-tail-border.svg",
     "icons/popover-tail.svg",
     "icons/search.svg",
+    "icons/share-network.svg",
     "icons/share.svg",
     "icons/shield-check.svg",
     "icons/shuffle.svg",
@@ -151,6 +153,6 @@ mod tests {
         }
         assert!(Assets.load("icons/search.svg").unwrap().is_some());
         assert!(Assets.load("icons/missing.svg").unwrap().is_none());
-        assert_eq!(Assets.list("icons/").unwrap().len(), 62);
+        assert_eq!(Assets.list("icons/").unwrap().len(), 64);
     }
 }
