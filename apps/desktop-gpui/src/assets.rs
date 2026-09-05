@@ -17,6 +17,8 @@ macro_rules! embedded {
 
 embedded!(
     "icons/app-window.svg",
+    "icons/arrow-down.svg",
+    "icons/arrow-up.svg",
     "icons/calendar-blank.svg",
     "icons/calendar-dots.svg",
     "icons/caret-right.svg",
@@ -39,6 +41,7 @@ embedded!(
     "icons/search.svg",
     "icons/sidebar-left.svg",
     "icons/sparkle.svg",
+    "icons/sun.svg",
     "icons/square.svg",
     "icons/text-align-left.svg",
     "icons/users.svg",
@@ -81,6 +84,6 @@ mod tests {
         }
         assert!(Assets.load("icons/search.svg").unwrap().is_some());
         assert!(Assets.load("icons/missing.svg").unwrap().is_none());
-        assert_eq!(Assets.list("icons/").unwrap().len(), 29);
+        assert_eq!(Assets.list("icons/").unwrap().len(), 32);
     }
 }

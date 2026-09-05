@@ -3,17 +3,24 @@
 
 use chrono::{Local, Utc};
 use gpui::{
-    AnyElement, ClickEvent, Context, Div, MouseButton, Pixels, SharedString, Stateful, div, list,
-    prelude::*, px,
+    AnyElement, ClickEvent, Context, Div, MouseButton, Pixels, SharedString, Stateful, Window, div,
+    list, prelude::*, px,
 };
 
 use super::{Sessions, SidebarRow, Workspace};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AnchorVisibility {
+    Visible,
+    Above,
+    Below,
+}
 use crate::theme::alpha;
 use crate::timeline::{self, Bucket, IndicatorPlacement, ItemKind, Precision};
 use crate::ui::{TailwindText as _, icon};
 
 impl Workspace {
-    pub(super) fn render_sidebar(&self, cx: &Context<Self>) -> Div {
+    pub(super) fn render_sidebar(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Div {
         let theme = self.theme;
 
         // `flex h-9 shrink-0 items-start pt-[9px] pr-1 pl-2`; on Windows/Linux the
@@ -55,6 +62,9 @@ impl Workspace {
                     ))),
             );
 
+        if matches!(self.sessions, Sessions::Ready(_)) {
+            self.apply_anchor_scroll(window, cx);
+        }
         let body = match &self.sessions {
             Sessions::Loading => div().flex_1(),
             Sessions::Failed(error) => div()
@@ -65,10 +75,14 @@ impl Workspace {
                 .text_color(theme.destructive)
                 .child(SharedString::from(error.clone())),
             Sessions::Ready(timeline) => {
+                let anchor = self.anchor_visibility();
                 // `showOpenCalendarChip`: only while scrolled to the top.
                 let scroll_top = self.list_state.logical_scroll_top();
                 let at_top = scroll_top.item_ix == 0 && scroll_top.offset_in_item <= px(0.0);
                 let show_chip = timeline.has_more_future_items && at_top;
+                // `showTopNowChip` / the bottom `TimelineNowChip`.
+                let show_top_now = anchor == Some(AnchorVisibility::Above);
+                let show_bottom_now = anchor == Some(AnchorVisibility::Below);
                 // `data-sidebar-timeline-bottom-fade` while `!isScrolledToBottom`.
                 let max_offset = self.list_state.max_offset_for_scrollbar().height;
                 let scrolled = -self.list_state.scroll_px_offset_for_scrollbar().y;
@@ -112,6 +126,30 @@ impl Workspace {
                                 )),
                         )
                     })
+                    .when(show_top_now, |container| {
+                        container.child(
+                            div()
+                                .absolute()
+                                .top_1()
+                                .left_0()
+                                .right_0()
+                                .flex()
+                                .justify_center()
+                                .child(self.render_now_chip(true, cx)),
+                        )
+                    })
+                    .when(show_bottom_now, |container| {
+                        container.child(
+                            div()
+                                .absolute()
+                                .bottom_2()
+                                .left_0()
+                                .right_0()
+                                .flex()
+                                .justify_center()
+                                .child(self.render_now_chip(false, cx)),
+                        )
+                    })
                     .when(show_chip, |container| {
                         container.child(
                             // Chip stack at `top-1` when chips overlap the header row.
@@ -138,6 +176,122 @@ impl Workspace {
             .overflow_hidden()
             .child(header)
             .child(body)
+    }
+
+    /// Where the current-time line is relative to the list viewport
+    /// (`isAnchorVisible` / `isScrolledPastAnchor`).
+    fn anchor_visibility(&self) -> Option<AnchorVisibility> {
+        let (row, at_bottom) = self.anchor_row()?;
+        let viewport = self.list_state.viewport_bounds();
+        if viewport.size.height <= px(0.0) {
+            return None;
+        }
+        match self.list_state.bounds_for_item(row) {
+            Some(bounds) => {
+                let y = if at_bottom {
+                    bounds.bottom()
+                } else {
+                    bounds.top()
+                };
+                if y < viewport.top() {
+                    Some(AnchorVisibility::Above)
+                } else if y > viewport.bottom() {
+                    Some(AnchorVisibility::Below)
+                } else {
+                    Some(AnchorVisibility::Visible)
+                }
+            }
+            None => {
+                if row < self.list_state.logical_scroll_top().item_ix {
+                    Some(AnchorVisibility::Above)
+                } else {
+                    Some(AnchorVisibility::Below)
+                }
+            }
+        }
+    }
+
+    /// `scrollToAnchor({ viewportRatio })` over two frames: bring the row into
+    /// the viewport first so it gets measured, then place the line at the
+    /// requested ratio. The launch scroll uses 0.15, the chips 0.5.
+    fn apply_anchor_scroll(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some((row, at_bottom)) = self.anchor_row() else {
+            return;
+        };
+        let viewport = self.list_state.viewport_bounds();
+        if viewport.size.height <= px(0.0) {
+            return;
+        }
+        if !self.anchor_scrolled_once {
+            self.anchor_scrolled_once = true;
+            self.anchor_scroll = Some(0.15);
+        }
+        let Some(ratio) = self.anchor_scroll else {
+            return;
+        };
+        match self.list_state.bounds_for_item(row) {
+            Some(bounds) => {
+                let y = if at_bottom {
+                    bounds.bottom()
+                } else {
+                    bounds.top()
+                };
+                let target = viewport.top() + viewport.size.height * ratio;
+                self.list_state.scroll_by(y - target);
+                self.anchor_scroll = None;
+            }
+            None => {
+                self.list_state.scroll_to(gpui::ListOffset {
+                    item_ix: row,
+                    offset_in_item: px(0.0),
+                });
+                // The row is measured by this frame; finish on the next one.
+                let this = cx.entity();
+                window.on_next_frame(move |_, cx| this.update(cx, |_, cx| cx.notify()));
+            }
+        }
+    }
+
+    pub(crate) fn scroll_to_now(&mut self, cx: &mut Context<Self>) {
+        self.anchor_scroll = Some(0.5);
+        cx.notify();
+    }
+
+    /// `TimelineNowChip`: `h-6 rounded-full border border-border bg-card
+    /// text-xs font-semibold shadow-md px-2.5 gap-1`, an arrow on the side
+    /// the line is, and the yellow sun.
+    fn render_now_chip(&self, up: bool, cx: &Context<Self>) -> Stateful<Div> {
+        let theme = self.theme;
+        let arrow = icon(
+            if up { "arrow-up" } else { "arrow-down" },
+            px(12.0),
+            theme.foreground,
+        );
+        div()
+            .id("now-chip")
+            .h(px(24.0))
+            .flex()
+            .items_center()
+            .gap_1()
+            .px(px(10.0))
+            .rounded_full()
+            .border_1()
+            .border_color(theme.border)
+            .bg(theme.card)
+            .shadow_md()
+            .tw_text_xs()
+            .font_weight(gpui::FontWeight::SEMIBOLD)
+            .text_color(theme.foreground)
+            .cursor_pointer()
+            .hover(move |style| style.bg(theme.accent))
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.scroll_to_now(cx)))
+            .when(up, |chip| chip.child(arrow))
+            .child(icon("sun", px(13.0), gpui::rgb(0xfacc15)))
+            .child("Now")
+            .when(!up, |chip| {
+                chip.child(icon("arrow-down", px(12.0), theme.foreground))
+            })
     }
 
     /// CSS `sticky` bucket headers: while a bucket's own header has scrolled

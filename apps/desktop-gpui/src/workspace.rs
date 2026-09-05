@@ -113,6 +113,11 @@ pub struct Workspace {
     theme_preference: String,
     overflow_open: bool,
     pending_deletions: Vec<overflow::PendingDeletion>,
+    /// Pending `scrollToAnchor`: the viewport ratio the current-time line
+    /// should land at, applied over two frames once the row is measured.
+    anchor_scroll: Option<f32>,
+    /// `useAutoScrollToAnchor`: the launch scroll happens once.
+    anchor_scrolled_once: bool,
     /// Id of the chrome button under the pointer, so icons can take the
     /// `hover:text-foreground` colour their container cannot pass down.
     hovered: Option<&'static str>,
@@ -169,6 +174,8 @@ impl Workspace {
             theme_preference: "system".to_string(),
             overflow_open: false,
             pending_deletions: Vec::new(),
+            anchor_scroll: None,
+            anchor_scrolled_once: false,
             hovered: None,
         };
         // Chips and the bottom fade depend on the scroll position.
@@ -245,6 +252,7 @@ impl Workspace {
     }
 
     fn rebuild_rows(&mut self) {
+        let previous_len = self.rows.len();
         self.rows.clear();
         if let Sessions::Ready(timeline) = &self.sessions {
             if timeline.has_more_future_items {
@@ -260,7 +268,58 @@ impl Workspace {
                 }
             }
         }
-        self.list_state.reset(self.rows.len());
+        // Splicing keeps the scroll position across reloads the way the DOM
+        // list does; `reset` would jump back to the top.
+        if previous_len == 0 {
+            self.list_state.reset(self.rows.len());
+        } else {
+            self.list_state.splice(0..previous_len, self.rows.len());
+        }
+    }
+
+    /// The list row that draws the current-time line and whether it sits at
+    /// the row's bottom edge (after a header or the last past item) or its
+    /// top edge (before the first past item).
+    pub(crate) fn anchor_row(&self) -> Option<(usize, bool)> {
+        let Sessions::Ready(timeline) = &self.sessions else {
+            return None;
+        };
+        let now = Utc::now();
+        for (index, row) in self.rows.iter().enumerate() {
+            match row {
+                SidebarRow::Header { bucket } => {
+                    let bucket = &timeline.buckets[*bucket];
+                    if bucket.label == "Today"
+                        && !bucket.items.is_empty()
+                        && matches!(
+                            timeline::indicator_placement(&bucket.items, now),
+                            timeline::IndicatorPlacement::Before { index: 0 }
+                        )
+                    {
+                        return Some((index, true));
+                    }
+                }
+                SidebarRow::Session { bucket, item } => {
+                    let bucket = &timeline.buckets[*bucket];
+                    if bucket.label != "Today" {
+                        continue;
+                    }
+                    match timeline::indicator_placement(&bucket.items, now) {
+                        timeline::IndicatorPlacement::Before { index: at }
+                            if at == *item && at > 0 =>
+                        {
+                            return Some((index, false));
+                        }
+                        timeline::IndicatorPlacement::After if *item + 1 == bucket.items.len() => {
+                            return Some((index, true));
+                        }
+                        _ => {}
+                    }
+                }
+                SidebarRow::Spacer => {}
+            }
+        }
+        None
     }
 
     /// `openCurrent`: reuse the tab if the note is already open, otherwise
@@ -673,7 +732,7 @@ impl Render for Workspace {
                     .when(self.sidebar_expanded, |shell| {
                         shell
                             .pl_1()
-                            .child(self.render_sidebar(cx))
+                            .child(self.render_sidebar(window, cx))
                             .child(self.render_sidebar_handle(cx))
                     })
                     .when(!self.sidebar_expanded, |shell| shell.gap_1())
