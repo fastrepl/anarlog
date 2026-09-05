@@ -391,7 +391,8 @@ impl Workspace {
                         theme.primary
                     })
                     .shadow(vec![gpui::BoxShadow {
-                        color: gpui::hsla(0.0, 0.0, 0.0, 0.4),
+                        // `shadow-[0_4px_14px_rgba(87,83,78,0.4)]`
+                        color: alpha(gpui::rgb(0x57534e), 0.4).into(),
                         offset: gpui::point(px(0.0), px(4.0)),
                         blur_radius: px(14.0),
                         spread_radius: px(0.0),

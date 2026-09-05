@@ -914,6 +914,13 @@ impl Workspace {
             SettingsTab::Intelligence => {
                 self.render_ai_settings(super::ai_settings::ProviderKind::Llm, title, window, cx)
             }
+            SettingsTab::Account => div()
+                .flex()
+                .flex_col()
+                .gap_8()
+                .child(title)
+                .child(self.render_account_signed_out(cx))
+                .child(self.render_guest_plans()),
             SettingsTab::Permissions => div()
                 .flex()
                 .flex_col()
@@ -1272,6 +1279,246 @@ impl Workspace {
             );
         }
         page
+    }
+
+    /// `SettingsAccount` while signed out: the sign-in section with the
+    /// `rounded-pill h-10 border-2 px-6` primary button that opens
+    /// `buildWebAppUrl("/auth")` in the browser.
+    fn render_account_signed_out(&self, cx: &Context<Self>) -> Div {
+        let theme = self.theme;
+        let hovered = self.hovered == Some("account-get-started");
+        let url = format!(
+            "{}/auth?flow=desktop&scheme={}",
+            web_app_url(),
+            deep_link_scheme(self.store.identifier())
+        );
+        div()
+            .flex()
+            .min_w_0()
+            .flex_col()
+            .items_start()
+            .gap_4()
+            .pb_4()
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_2()
+                    .child(
+                        div()
+                            .tw_text_sm()
+                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .text_color(theme.foreground)
+                            .child("Sign in to Anarlog"),
+                    )
+                    .child(
+                        div()
+                            .tw_text_sm()
+                            .text_color(theme.muted_foreground)
+                            .child("Sign in for cloud transcription, AI models, and sharing."),
+                    ),
+            )
+            .child(
+                div()
+                    .id("account-get-started")
+                    .flex()
+                    .h(px(40.0))
+                    .items_center()
+                    .px_6()
+                    .rounded_full()
+                    .border_2()
+                    .border_color(theme.primary)
+                    .bg(if hovered {
+                        alpha(theme.primary, 0.9)
+                    } else {
+                        theme.primary
+                    })
+                    .shadow(vec![gpui::BoxShadow {
+                        // `shadow-[0_4px_14px_rgba(87,83,78,0.4)]`
+                        color: alpha(gpui::rgb(0x57534e), 0.4).into(),
+                        offset: gpui::point(px(0.0), px(4.0)),
+                        blur_radius: px(14.0),
+                        spread_radius: px(0.0),
+                    }])
+                    .tw_text_sm()
+                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .text_color(theme.primary_foreground)
+                    .cursor_pointer()
+                    .on_hover(cx.listener(|this, hovering: &bool, _, cx| {
+                        this.set_hovered("account-get-started", *hovering, cx);
+                    }))
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_click(move |_, _, cx| cx.open_url(&url))
+                    .child("Get started"),
+            )
+    }
+
+    /// `GuestPlanSection` + `PlanTierList` (wide layout: a two-column grid,
+    /// `gap-x-10 gap-y-8`) over `PLAN_TIERS`, with Free current.
+    fn render_guest_plans(&self) -> Div {
+        let theme = self.theme;
+        let tiers = plan_tiers();
+        let tier = |tier: &PlanTier| {
+            let is_pro = tier.id == "pro";
+            let is_current = tier.id == "free";
+            let mut header = div()
+                .mb_2()
+                .flex()
+                .flex_wrap()
+                .items_center()
+                .gap_2()
+                .child(
+                    div()
+                        .tw_text_base()
+                        .font_weight(if is_pro {
+                            gpui::FontWeight::SEMIBOLD
+                        } else {
+                            gpui::FontWeight::MEDIUM
+                        })
+                        .text_color(theme.foreground)
+                        .child(SharedString::from(tier.name)),
+                );
+            if is_current {
+                // `PlanStatusChip`: `rounded-pill px-2 py-0.5 text-[10px] font-medium bg-muted`.
+                header = header.child(
+                    div()
+                        .rounded_full()
+                        .px_2()
+                        .py(px(2.0))
+                        .bg(theme.muted)
+                        .text_size(px(10.0))
+                        .line_height(px(15.0))
+                        .font_weight(gpui::FontWeight::MEDIUM)
+                        .text_color(theme.muted_foreground)
+                        .child("Current"),
+                );
+            }
+            let mut price = div().mb_2().child(
+                div()
+                    .flex()
+                    .items_baseline()
+                    .child(
+                        div()
+                            .tw_text_lg()
+                            .text_size(px(20.0))
+                            .line_height(px(28.0))
+                            .text_color(theme.muted_foreground)
+                            .child(SharedString::from(tier.price)),
+                    )
+                    .when(!tier.period.is_empty(), |row| {
+                        row.child(
+                            div()
+                                .ml_1()
+                                .tw_text_sm()
+                                .text_color(theme.muted_foreground)
+                                .child(SharedString::from(tier.period)),
+                        )
+                    }),
+            );
+            if let Some(subtitle) = tier.subtitle {
+                price = price.child(
+                    div()
+                        .mt(px(2.0))
+                        .tw_text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child(SharedString::from(subtitle)),
+                );
+            }
+            let details =
+                if tier.id == "free" {
+                    div()
+                        .tw_text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child("On-device transcription, recordings, and your own keys.")
+                } else {
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_3()
+                        .child(
+                            div()
+                                .tw_text_xs()
+                                .line_height(px(20.0))
+                                .text_color(theme.muted_foreground)
+                                .child(SharedString::from(tier.description)),
+                        )
+                        .child(
+                            // `PlanFeatureList dense`: `gap-1.5` rows, 14px emerald check.
+                            div().flex().flex_col().gap(px(6.0)).children(
+                                tier.features.iter().map(|feature| {
+                                    div()
+                                        .flex()
+                                        .items_start()
+                                        .gap(px(6.0))
+                                        .child(
+                                            div()
+                                                .flex()
+                                                .h(px(16.0))
+                                                .flex_shrink_0()
+                                                .items_center()
+                                                .child(icon(
+                                                    "check-circle",
+                                                    px(14.0),
+                                                    gpui::rgb(0x009966),
+                                                )),
+                                        )
+                                        .child(
+                                            div()
+                                                .flex_1()
+                                                .flex()
+                                                .min_h(px(16.0))
+                                                .items_center()
+                                                .tw_text_xs()
+                                                .text_color(theme.foreground)
+                                                .child(SharedString::from(*feature)),
+                                        )
+                                }),
+                            ),
+                        )
+                };
+            div()
+                .flex()
+                .flex_col()
+                .child(header)
+                .child(price)
+                .child(details)
+        };
+        div()
+            .flex()
+            .flex_col()
+            .child(
+                div()
+                    .mb_4()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .child(
+                        div()
+                            .tw_text_lg()
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .text_color(theme.foreground)
+                            .child("Plans"),
+                    )
+                    .child(
+                        div()
+                            .tw_text_sm()
+                            .text_color(theme.muted_foreground)
+                            .child("Compare Free, Pro, Team, and Enterprise."),
+                    ),
+            )
+            .child(
+                // `grid grid-cols-2 gap-x-10 gap-y-8`
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_8()
+                    .children(tiers.chunks(2).map(|pair| {
+                        div()
+                            .flex()
+                            .gap_10()
+                            .children(pair.iter().map(|t| div().flex_1().min_w_0().child(tier(t))))
+                    })),
+            )
     }
 
     /// `usePermission(...).check`: probe on a blocking thread and store the
@@ -2541,6 +2788,111 @@ pub(crate) struct SelectOption {
     pub detail: Option<&'static str>,
     /// `ProviderIconSlot` before the label (the AI provider selects).
     pub glyph: Option<crate::ai_providers::Icon>,
+}
+
+/// `PlanTierData` from `packages/pricing/src/tiers.ts` (`PLAN_TIERS`: prices
+/// rendered from `MARKETING_PLAN_TIERS`, only the included features).
+struct PlanTier {
+    id: &'static str,
+    name: &'static str,
+    price: &'static str,
+    period: &'static str,
+    subtitle: Option<&'static str>,
+    description: &'static str,
+    features: &'static [&'static str],
+}
+
+fn plan_tiers() -> [PlanTier; 4] {
+    [
+        PlanTier {
+            id: "free",
+            name: "Free",
+            price: "$0",
+            period: "/month",
+            subtitle: None,
+            description: "Private, local meeting notes with on-device models or your own API keys.",
+            features: &[
+                "Unlimited on-device transcription",
+                "Local recordings and audio player",
+                "Bring your own keys for STT and AI",
+                "Notes, folders, and templates",
+                "Chat and exports",
+                "Local API, CLI, MCP, and webhooks",
+                "Manual Speaker Labeling",
+            ],
+        },
+        PlanTier {
+            id: "pro",
+            name: "Pro",
+            price: "$15",
+            period: "/month",
+            subtitle: Some("or $150/year"),
+            description: "Hosted transcription, AI, sync, and personal workflows for one person.",
+            features: &[
+                "Everything in Free",
+                "Cloud Transcription",
+                "Cloud LLM",
+                "Better Speaker Identification",
+                "End-to-end encrypted Cloud Sync",
+                "Share individual notes",
+                "Integrations and personal automations",
+                "Folder sharing with access controls",
+                "Custom dictionaries and summary formats",
+            ],
+        },
+        PlanTier {
+            id: "team",
+            name: "Team",
+            price: "$20",
+            period: "/person/month",
+            subtitle: Some("or $200/person/year"),
+            description: "A paid shared workspace with Pro for every member; each workspace has its own per-seat billing.",
+            features: &[
+                "Everything in Pro for every member",
+                "Shared workspaces and notes",
+                "Members, roles, and invitations",
+                "Centralized per-seat billing",
+                "Shared team folders",
+                "Shared team templates",
+                "Shared team automations",
+            ],
+        },
+        PlanTier {
+            id: "enterprise",
+            name: "Enterprise",
+            price: "Custom",
+            period: "",
+            subtitle: Some("Founder-led rollout"),
+            description: "Organization-wide security, policy, and deployment controls with a founder-led rollout.",
+            features: &[
+                "Everything in Team",
+                "Domain SSO and SCIM",
+                "Sharing, retention, and consent policies",
+                "Usage and audit visibility",
+                "Custom workspace subdomain",
+                "Customer-hosted capture and data plane",
+                "Founder-led security review and rollout",
+            ],
+        },
+    ]
+}
+
+/// `env.VITE_APP_URL`: the dev default, or the CD build's value.
+fn web_app_url() -> &'static str {
+    if cfg!(debug_assertions) {
+        "http://localhost:3000"
+    } else {
+        "https://anarlog.so"
+    }
+}
+
+/// `getScheme()` in `shared/utils.ts`.
+fn deep_link_scheme(identifier: &str) -> &'static str {
+    match identifier {
+        "com.hyprnote.stable" | "com.hyprnote.Hyprnote" => "anarlog",
+        "com.hyprnote.staging" => "anarlog-staging",
+        _ => "anarlog-dev",
+    }
 }
 
 /// `usePermission`'s slice the page renders.

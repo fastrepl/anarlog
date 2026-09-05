@@ -1056,6 +1056,10 @@ impl Store {
         &self.runtime
     }
 
+    pub fn identifier(&self) -> &str {
+        &self.identifier
+    }
+
     /// Ticks whenever another process commits to the database. This is how
     /// the shell stays in step with the Tauri app's writes; in-process change
     /// notifications (`anlg-db-reactive`) cannot see other connections.
