@@ -2,15 +2,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { Pressable, StyleSheet, Text } from "react-native";
 
-import {
-  Colors,
-  CornerCurve,
-  Radius,
-  Spacing,
-  Typography,
-} from "@/constants/theme";
+import { CornerCurve, Radius, Spacing, Typography } from "@/constants/theme";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
+import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -32,6 +27,8 @@ export function AudioChip({
   filename: string;
   sizeBytes: number;
 }) {
+  const styles = useStyles();
+  const Colors = useColors();
   const player = useAudioPlayer(uri);
   const status = useAudioPlayerStatus(player);
 
@@ -101,7 +98,7 @@ export function AudioChip({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   chip: {
     flexDirection: "row",
     alignItems: "center",
@@ -125,4 +122,4 @@ const styles = StyleSheet.create({
     color: Colors.ink,
     maxWidth: 180,
   },
-});
+}));

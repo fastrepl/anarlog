@@ -5,7 +5,6 @@ import { useState } from "react";
 import {
   Platform,
   Pressable,
-  StyleSheet,
   Text,
   useWindowDimensions,
   View,
@@ -20,7 +19,6 @@ import {
 import { isAppleSignInAvailable, type SignInMethod } from "@/auth/sign-in";
 import { Button } from "@/components/ui/button";
 import {
-  Colors,
   CornerCurve,
   Gradients,
   Radius,
@@ -31,6 +29,7 @@ import { captureAnalytics } from "@/lib/analytics";
 import { env } from "@/lib/env";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
+import { createStyleHook } from "@/settings/theme-provider";
 
 export function SignInScreen({
   onSignIn,
@@ -41,6 +40,7 @@ export function SignInScreen({
   busy: boolean;
   lastSignInMethod: SignInMethod | null;
 }) {
+  const styles = useStyles();
   const [showSignInMethods, setShowSignInMethods] = useState(false);
   const { width } = useWindowDimensions();
 
@@ -168,6 +168,7 @@ function SignInMethodButton({
   disabled: boolean;
   lastSignInMethod: SignInMethod | null;
 }) {
+  const styles = useStyles();
   const isLastUsed = method === lastSignInMethod;
 
   return (
@@ -199,6 +200,7 @@ function SignInMethodButton({
 }
 
 function ProviderIcon({ source }: { source: number }) {
+  const styles = useStyles();
   return (
     <Image contentFit="contain" source={source} style={styles.providerIcon} />
   );
@@ -215,6 +217,7 @@ export function PaywallScreen({
   onRefreshBilling: () => Promise<boolean>;
   onSignOut: () => void;
 }) {
+  const styles = useStyles();
   const [busy, setBusy] = useState(false);
   const [accessPending, setAccessPending] = useState(false);
 
@@ -333,7 +336,7 @@ export function PaywallScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   safeArea: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -359,7 +362,7 @@ const styles = StyleSheet.create({
   },
   signInTitle: {
     maxWidth: 340,
-    color: Colors.ink,
+    color: "#272321",
     fontFamily: "CaveatSemiBold",
     fontSize: 38,
     lineHeight: 44,
@@ -463,4 +466,4 @@ const styles = StyleSheet.create({
     ...Typography.captionStrong,
     color: Colors.ink,
   },
-});
+}));

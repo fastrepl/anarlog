@@ -19,7 +19,6 @@ import type {
 } from "@/audio/use-session-recorder";
 import { DancingSticks } from "@/components/dancing-sticks";
 import {
-  Colors,
   CornerCurve,
   LISTENING_CONTROL_HEIGHT,
   LISTENING_CONTROL_RADIUS,
@@ -27,6 +26,7 @@ import {
   Spacing,
   Typography,
 } from "@/constants/theme";
+import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 const DETAIL_HEIGHT = 124;
 
@@ -90,6 +90,8 @@ export function ListeningSheet({
   onRetry: () => void;
   onOpenSettings: () => void;
 }) {
+  const styles = useStyles();
+  const Colors = useColors();
   const [expanded, setExpanded] = useState(false);
   const detailHeight = useSharedValue(0);
 
@@ -185,7 +187,7 @@ export function ListeningSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   sheet: {
     borderWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: 0,
@@ -257,4 +259,4 @@ const styles = StyleSheet.create({
     ...Typography.label,
     color: Colors.inkInverse,
   },
-});
+}));

@@ -4,7 +4,7 @@
     "slug": "anarlog-mobile",
     "version": "0.1.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "usesAppleSignIn": true
     },
@@ -40,6 +40,7 @@
       ],
       "expo-widgets",
       "expo-secure-store",
+      ["expo-local-authentication", { "faceIDPermission": "Use Face ID to unlock your Anarlog notes." }],
       "@sentry/react-native/expo"
     ],
     "experiments": {

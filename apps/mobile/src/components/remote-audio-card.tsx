@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Colors, Spacing, Typography } from "@/constants/theme";
+import { Spacing, Typography } from "@/constants/theme";
+import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 export function RemoteAudioCard({
   errorMessage,
@@ -18,6 +19,8 @@ export function RemoteAudioCard({
   onDownloadRecording: () => void;
   onChooseRecording: () => void;
 }) {
+  const styles = useStyles();
+  const Colors = useColors();
   return (
     <Card style={styles.card} tone="muted">
       <Ionicons
@@ -58,7 +61,7 @@ export function RemoteAudioCard({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   card: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -92,4 +95,4 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     marginTop: Spacing.xs,
   },
-});
+}));

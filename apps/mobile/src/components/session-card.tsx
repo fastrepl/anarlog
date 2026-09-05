@@ -3,14 +3,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import {
-  Colors,
-  CornerCurve,
-  Radius,
-  Spacing,
-  Typography,
-} from "@/constants/theme";
+import { CornerCurve, Radius, Spacing, Typography } from "@/constants/theme";
 import { relativeLabel, type TimelineSession } from "@/data/timeline";
+import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 const DELETE_ACTIONS: MenuAction[] = [
   {
@@ -36,6 +31,8 @@ export function SessionCard({
   onDelete?: () => void;
   variant?: "card" | "plain";
 }) {
+  const styles = useStyles();
+  const Colors = useColors();
   const [width, setWidth] = useState<number>();
   const title = session.title || "Untitled";
   const folder = showFolder ? session.folderPath : "";
@@ -113,7 +110,7 @@ export function SessionCard({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   row: {
     alignSelf: "stretch",
     marginBottom: Spacing.sm,
@@ -168,4 +165,4 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.muted,
   },
-});
+}));

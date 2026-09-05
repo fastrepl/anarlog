@@ -10,12 +10,12 @@ import {
 
 import { NativeIcon } from "@/components/ui/native-icon";
 import {
-  Colors,
   ControlSize,
   CornerCurve,
   Radius,
   Typography,
 } from "@/constants/theme";
+import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 function profileInitials(name: string | null): string {
   if (!name) return "";
@@ -38,6 +38,8 @@ export function UserAvatar({
   size?: number;
   user: User | null;
 }) {
+  const styles = useStyles();
+  const Colors = useColors();
   const imageUrl = getProviderProfileImageUrl(user);
   const initials = profileInitials(getProviderProfileName(user));
 
@@ -84,6 +86,7 @@ export function UserAvatarButton({
   onPress: () => void;
   user: User | null;
 }) {
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityLabel={accessibilityLabel}
@@ -96,7 +99,7 @@ export function UserAvatarButton({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   avatar: {
     alignItems: "center",
     justifyContent: "center",
@@ -121,4 +124,4 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.72,
   },
-});
+}));

@@ -4,6 +4,11 @@ import { randomUUID } from "expo-crypto";
 import { AppState } from "react-native";
 
 import { env } from "@/lib/env";
+import {
+  getPrivacyPreferences,
+  loadPrivacyPreferences,
+  subscribePrivacyPreferences,
+} from "@/settings/privacy-store";
 
 type AnalyticsValue = null | boolean | number | string | string[] | number[];
 
@@ -118,9 +123,12 @@ async function sendAnalytics(
   properties: Record<string, unknown> = {},
   distinctId?: string,
 ) {
-  if (!enabled) return;
+  if (!enabled || !getPrivacyPreferences().analytics) return;
 
   const controller = new AbortController();
+  const unsubscribe = subscribePrivacyPreferences(() => {
+    if (!getPrivacyPreferences().analytics) controller.abort();
+  });
   const timeout = setTimeout(() => controller.abort(), 1_000);
   try {
     const resolvedDistinctId = distinctId ?? (await getAnonymousId());
@@ -144,6 +152,7 @@ async function sendAnalytics(
     });
   } catch {
   } finally {
+    unsubscribe();
     clearTimeout(timeout);
   }
 }
@@ -193,6 +202,7 @@ let initialization: Promise<void> | null = null;
 
 export function initializeAnalytics() {
   initialization ??= (async () => {
+    await loadPrivacyPreferences();
     if (!enabled) return;
 
     await getAnonymousId();

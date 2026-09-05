@@ -1,13 +1,13 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import {
-  Colors,
   CornerCurve,
   LISTENING_CONTROL_HEIGHT,
   LISTENING_CONTROL_RADIUS,
   Spacing,
   Typography,
 } from "@/constants/theme";
+import { createStyleHook } from "@/settings/theme-provider";
 
 export function StartListeningButton({
   bottomSpacing = Spacing.md,
@@ -16,6 +16,7 @@ export function StartListeningButton({
   bottomSpacing?: number;
   onPress: () => void;
 }) {
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"
@@ -32,7 +33,7 @@ export function StartListeningButton({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   button: {
     height: LISTENING_CONTROL_HEIGHT,
     flexDirection: "row",
@@ -58,4 +59,4 @@ const styles = StyleSheet.create({
     ...Typography.section,
     color: Colors.primaryForeground,
   },
-});
+}));

@@ -2,13 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import {
-  Colors,
-  CornerCurve,
-  Radius,
-  Spacing,
-  Typography,
-} from "@/constants/theme";
+import { CornerCurve, Radius, Spacing, Typography } from "@/constants/theme";
+import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 export function NoteActionsSheet({
   hasRecordingHistory,
@@ -29,6 +24,8 @@ export function NoteActionsSheet({
   onToggleListening: () => void;
   visible: boolean;
 }) {
+  const styles = useStyles();
+  const Colors = useColors();
   const insets = useSafeAreaInsets();
   const listeningLabel = listening ? "Stop listening" : "Start listening";
 
@@ -135,7 +132,7 @@ export function NoteActionsSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   container: {
     flex: 1,
     justifyContent: "flex-end",
@@ -202,4 +199,4 @@ const styles = StyleSheet.create({
     ...Typography.bodyStrong,
     color: Colors.destructive,
   },
-});
+}));

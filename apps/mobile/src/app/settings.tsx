@@ -1,120 +1,76 @@
-import { Ionicons } from "@expo/vector-icons";
+import { FieldGroup, Icon } from "@expo/ui";
 import { useRouter } from "expo-router";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
-import { SettingsContent } from "@/components/profile-sheet";
-import { IconButton } from "@/components/ui/icon-button";
-import {
-  Colors,
-  ControlSize,
-  CornerCurve,
-  Radius,
-  Spacing,
-  Typography,
-} from "@/constants/theme";
+import { SettingsPage, SettingsRow } from "@/settings/components";
 
 export default function SettingsScreen() {
   const router = useRouter();
-
-  const handleBack = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace("/");
-  };
-
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <IconButton
-          accessibilityLabel="Back"
-          icon="back"
-          iconSize={22}
-          onPress={handleBack}
+    <SettingsPage title="Settings">
+      <FieldGroup.Section>
+        <SettingsRow
+          title="Account"
+          icon={Icon.select({
+            ios: "person.crop.circle",
+            android: import("@expo/material-symbols/account_circle.xml"),
+          })}
+          onPress={() => router.push("/settings/account")}
         />
-        <Text style={styles.title}>Settings</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-      {Platform.OS === "ios" && (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push("/action-button")}
-          style={({ pressed }) => [
-            styles.actionButtonRow,
-            pressed && styles.actionButtonRowPressed,
-          ]}
-        >
-          <View style={styles.actionButtonIcon}>
-            <Ionicons name="mic-outline" size={20} color={Colors.ink} />
-          </View>
-          <View style={styles.actionButtonCopy}>
-            <Text style={styles.actionButtonTitle}>Action Button</Text>
-            <Text style={styles.actionButtonDescription}>
-              Start or stop listening in one press
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={Colors.muted} />
-        </Pressable>
-      )}
-      <SettingsContent />
-    </SafeAreaView>
+      </FieldGroup.Section>
+      <FieldGroup.Section>
+        <SettingsRow
+          title="Sync & storage"
+          icon={Icon.select({
+            ios: "icloud",
+            android: import("@expo/material-symbols/cloud.xml"),
+          })}
+          onPress={() => router.push("/settings/sync")}
+        />
+      </FieldGroup.Section>
+      <FieldGroup.Section>
+        <SettingsRow
+          title="Recording"
+          icon={Icon.select({
+            ios: "mic",
+            android: import("@expo/material-symbols/mic.xml"),
+          })}
+          onPress={() => router.push("/settings/recording")}
+        />
+        <SettingsRow
+          title="Transcription & summaries"
+          icon={Icon.select({
+            ios: "text.bubble",
+            android: import("@expo/material-symbols/subtitles.xml"),
+          })}
+          onPress={() => router.push("/settings/transcription")}
+        />
+        <SettingsRow
+          title="Appearance"
+          icon={Icon.select({
+            ios: "sun.max",
+            android: import("@expo/material-symbols/light_mode.xml"),
+          })}
+          onPress={() => router.push("/settings/appearance")}
+        />
+      </FieldGroup.Section>
+      <FieldGroup.Section>
+        <SettingsRow
+          title="Privacy"
+          icon={Icon.select({
+            ios: "hand.raised",
+            android: import("@expo/material-symbols/privacy_tip.xml"),
+          })}
+          onPress={() => router.push("/settings/privacy")}
+        />
+        <SettingsRow
+          title="Help & about"
+          icon={Icon.select({
+            ios: "questionmark.circle",
+            android: import("@expo/material-symbols/help.xml"),
+          })}
+          onPress={() => router.push("/settings/help")}
+        />
+      </FieldGroup.Section>
+    </SettingsPage>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  title: {
-    ...Typography.section,
-    color: Colors.ink,
-  },
-  headerSpacer: {
-    width: ControlSize.default,
-    height: ControlSize.default,
-  },
-  actionButtonRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.border,
-    borderRadius: Radius.card,
-    borderCurve: CornerCurve.squircle,
-    backgroundColor: Colors.surface,
-    padding: Spacing.md,
-  },
-  actionButtonRowPressed: {
-    opacity: 0.78,
-  },
-  actionButtonIcon: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: Radius.pill,
-    borderCurve: CornerCurve.squircle,
-    backgroundColor: Colors.accentSurface,
-  },
-  actionButtonCopy: {
-    flex: 1,
-  },
-  actionButtonTitle: {
-    ...Typography.bodyStrong,
-    color: Colors.ink,
-  },
-  actionButtonDescription: {
-    marginTop: Spacing.xs,
-    ...Typography.caption,
-    color: Colors.muted,
-  },
-});

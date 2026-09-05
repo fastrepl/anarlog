@@ -1,9 +1,9 @@
-import * as Sentry from "@sentry/react-native";
 import type {
   Breadcrumb,
   ErrorEvent,
   SeverityLevel,
 } from "@sentry/react-native";
+import * as Sentry from "@sentry/react-native";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
@@ -17,6 +17,11 @@ import {
   sanitizeMobileErrorEvent,
   type MobileErrorEvent,
 } from "@/lib/error-sanitization";
+import {
+  getPrivacyPreferences,
+  loadPrivacyPreferences,
+  subscribePrivacyPreferences,
+} from "@/settings/privacy-store";
 
 type ErrorContextValue = null | boolean | number | string;
 const capturedErrors = new WeakSet<object>();
@@ -37,20 +42,22 @@ function appDist(): string | undefined {
   return build === undefined ? undefined : String(build);
 }
 
-export function initializeErrorReporting() {
+function startErrorReporting() {
   Sentry.init({
     dsn: env.sentryDsn,
-    enabled: Boolean(env.sentryDsn) && !__DEV__,
+    enabled: true,
     environment: env.appVariant === "stable" ? "production" : env.appVariant,
     release: `anarlog-mobile@${Constants.expoConfig?.version ?? "unknown"}`,
     dist: appDist(),
     sendDefaultPii: false,
     attachStacktrace: true,
     beforeSend: (event) =>
-      isUserErrorEvent(event) ? null : sanitizeErrorEvent(event),
+      !getPrivacyPreferences().errorReports || isUserErrorEvent(event)
+        ? null
+        : sanitizeErrorEvent(event),
     beforeBreadcrumb: (breadcrumb) =>
       sanitizeBreadcrumb(breadcrumb as Breadcrumb),
-    enableAutoSessionTracking: true,
+    enableAutoSessionTracking: false,
     sessionTrackingIntervalMillis: 30_000,
     enableTombstone: true,
     enableAppHangTracking: true,
@@ -71,6 +78,29 @@ export function initializeErrorReporting() {
   });
 }
 
+let initialized = false;
+export async function initializeErrorReporting() {
+  await loadPrivacyPreferences();
+  if (initialized || !env.sentryDsn || __DEV__) return;
+  initialized = true;
+  let enabled = getPrivacyPreferences().errorReports;
+  let changing = Promise.resolve();
+  if (enabled) startErrorReporting();
+  subscribePrivacyPreferences(() => {
+    const next = getPrivacyPreferences().errorReports;
+    if (next === enabled) return;
+    enabled = next;
+    const client = Sentry.getClient();
+    if (client) client.getOptions().enabled = false;
+    changing = changing
+      .catch(() => {})
+      .then(async () => {
+        await Sentry.close();
+        if (getPrivacyPreferences().errorReports) startErrorReporting();
+      });
+  });
+}
+
 export function captureOperationalError(
   error: unknown,
   {
@@ -85,6 +115,7 @@ export function captureOperationalError(
     context?: Record<string, ErrorContextValue>;
   },
 ) {
+  if (!getPrivacyPreferences().errorReports) return;
   if (isUserError(error)) return;
 
   if (error && typeof error === "object") {

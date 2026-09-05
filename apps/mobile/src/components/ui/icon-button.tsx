@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet } from "react-native";
 
-import { Colors, ControlSize, CornerCurve, Radius } from "@/constants/theme";
+import { ControlSize, CornerCurve, Radius } from "@/constants/theme";
+import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 import { NativeIcon, type NativeIconName } from "./native-icon";
 
@@ -21,6 +22,8 @@ export function IconButton({
   tone?: "default" | "muted" | "destructive";
   variant?: "ghost" | "surface";
 }) {
+  const styles = useStyles();
+  const Colors = useColors();
   const color =
     tone === "destructive"
       ? Colors.destructive
@@ -46,7 +49,7 @@ export function IconButton({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   button: {
     width: ControlSize.default,
     height: ControlSize.default,
@@ -66,4 +69,4 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.45,
   },
-});
+}));

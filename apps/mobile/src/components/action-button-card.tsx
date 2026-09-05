@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Text, useWindowDimensions, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   Easing,
@@ -16,7 +16,8 @@ import { scheduleOnRN } from "react-native-worklets";
 import { IPhoneDeviceFrame } from "@/components/iphone-device-frame";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Colors, Spacing, Typography } from "@/constants/theme";
+import { Spacing, Typography } from "@/constants/theme";
+import { createStyleHook } from "@/settings/theme-provider";
 
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 
@@ -32,6 +33,7 @@ export function ActionButtonCard({
   onConfigure: () => void;
   onDismiss: () => void;
 }) {
+  const styles = useStyles();
   const { width } = useWindowDimensions();
   const reducedMotion = useReducedMotion();
   const translateX = useSharedValue(0);
@@ -114,7 +116,7 @@ export function ActionButtonCard({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   card: {
     marginBottom: Spacing.lg,
     padding: Spacing.md,
@@ -134,4 +136,4 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.muted,
   },
-});
+}));

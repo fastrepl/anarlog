@@ -1,10 +1,11 @@
 import * as Sentry from "@sentry/react-native";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
 import { type ErrorBoundaryProps, Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import {
@@ -17,7 +18,7 @@ import { PaywallScreen, SignInScreen } from "@/auth/screens";
 import type { SignInMethod } from "@/auth/sign-in";
 import { BrandLoadingView } from "@/components/brand-loading-view";
 import { Button } from "@/components/ui/button";
-import { Colors, Spacing, Typography } from "@/constants/theme";
+import { Spacing, Typography } from "@/constants/theme";
 import { initializeAnalytics, screenAnalytics } from "@/lib/analytics";
 import {
   addNavigationBreadcrumb,
@@ -26,10 +27,16 @@ import {
 } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
 import { QuickActionLifecycle } from "@/quick-actions/quick-action-lifecycle";
+import { AppLock } from "@/settings/app-lock";
+import { createStyleHook, useColors } from "@/settings/theme-provider";
+import { ThemeProvider, useAppColorScheme } from "@/settings/theme-provider";
 import { MobileSyncLifecycle } from "@/sync/mobile-sync-lifecycle";
 import { initializeWatchConnectivity } from "@/watch-connectivity";
 
-initializeErrorReporting();
+void initializeErrorReporting().catch(() => {});
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: 1, staleTime: 10_000 } },
+});
 initializeWatchConnectivity();
 SplashScreen.setOptions({ duration: 300, fade: true });
 
@@ -66,6 +73,7 @@ function AnalyticsLifecycle() {
 }
 
 function Screens({ accountUserId }: { accountUserId: string | null }) {
+  const Colors = useColors();
   useMountEffect(() => {
     void recoverInterruptedRecordings(accountUserId).catch((error) => {
       captureOperationalError(error, {
@@ -177,6 +185,7 @@ function RouteError({
   error: Error;
   retry: () => Promise<void>;
 }) {
+  const styles = useStyles();
   useMountEffect(() => {
     captureOperationalError(error, {
       operation: "route_render",
@@ -215,6 +224,7 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 }
 
 function RootLayout() {
+  const styles = useStyles();
   const [fontsLoaded, fontError] = useFonts({
     CaveatSemiBold: require("../../assets/fonts/Caveat-SemiBold.ttf"),
   });
@@ -232,18 +242,29 @@ function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      <AuthProvider>
-        <AnalyticsLifecycle />
-        <Gate />
-        <StatusBar style="dark" />
-      </AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AuthProvider>
+            <AnalyticsLifecycle />
+            <Gate />
+            <AppLock />
+            <AppStatusBar />
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
     </GestureHandlerRootView>
+  );
+}
+
+function AppStatusBar() {
+  return (
+    <StatusBar style={useAppColorScheme() === "dark" ? "light" : "dark"} />
   );
 }
 
 export default Sentry.wrap(RootLayout);
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   root: {
     flex: 1,
   },
@@ -268,4 +289,4 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     minWidth: 140,
   },
-});
+}));

@@ -20,18 +20,17 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SessionCard } from "@/components/session-card";
 import { IconButton } from "@/components/ui/icon-button";
 import { NativeIcon } from "@/components/ui/native-icon";
-import {
-  Colors,
-  CornerCurve,
-  Radius,
-  Spacing,
-  Typography,
-} from "@/constants/theme";
+import { CornerCurve, Radius, Spacing, Typography } from "@/constants/theme";
 import { useSessionSearch } from "@/data/search";
 import { useSidebarItemPreferences } from "@/data/sidebar-preferences";
 import type { TimelineSession } from "@/data/timeline";
 import { captureAnalytics } from "@/lib/analytics";
 import { useMountEffect } from "@/lib/use-mount-effect";
+import {
+  createStyleHook,
+  useAppColorScheme,
+  useColors,
+} from "@/settings/theme-provider";
 
 function SearchAnalytics({ resultCount }: { resultCount: number }) {
   useMountEffect(() => {
@@ -53,6 +52,9 @@ export function SearchPalette({
   onOpenSession: (session: TimelineSession) => void;
   onDeleteSession: (session: TimelineSession) => void;
 }) {
+  const styles = useStyles();
+  const Colors = useColors();
+  const colorScheme = useAppColorScheme();
   const insets = useSafeAreaInsets();
   const sidebarPreferences = useSidebarItemPreferences();
   const [query, setQuery] = useState("");
@@ -114,7 +116,7 @@ export function SearchPalette({
           >
             {hasGlass && (
               <GlassView
-                colorScheme="light"
+                colorScheme={colorScheme}
                 glassEffectStyle="regular"
                 pointerEvents="none"
                 style={StyleSheet.absoluteFill}
@@ -195,7 +197,7 @@ export function SearchPalette({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   backdrop: {
     ...StyleSheet.absoluteFill,
     backgroundColor: Colors.scrim,
@@ -254,4 +256,4 @@ const styles = StyleSheet.create({
     color: Colors.muted,
     textAlign: "center",
   },
-});
+}));

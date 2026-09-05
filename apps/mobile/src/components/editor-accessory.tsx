@@ -3,14 +3,9 @@ import { SymbolView } from "expo-symbols";
 import type { ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import {
-  Colors,
-  ControlSize,
-  CornerCurve,
-  Radius,
-  Spacing,
-} from "@/constants/theme";
+import { ControlSize, CornerCurve, Radius, Spacing } from "@/constants/theme";
 import type { EditorFormat } from "@/lib/editor-format";
+import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 function FormatButton({
   accessibilityLabel,
@@ -25,6 +20,7 @@ function FormatButton({
   onPress: (format: EditorFormat) => void;
   children: ReactNode;
 }) {
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityLabel={accessibilityLabel}
@@ -55,6 +51,8 @@ export function EditorAccessory({
   onFormat: (format: EditorFormat) => void;
   onDismiss: () => void;
 }) {
+  const styles = useStyles();
+  const Colors = useColors();
   return (
     <View style={styles.toolbar}>
       <View style={[styles.formatting, styles.floatingControl]}>
@@ -149,7 +147,7 @@ export function EditorAccessory({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   toolbar: {
     minHeight: ControlSize.editorAccessory + Spacing.md,
     flexDirection: "row",
@@ -223,4 +221,4 @@ const styles = StyleSheet.create({
     borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.surface,
   },
-});
+}));

@@ -3,13 +3,23 @@ import { fetch } from "expo/fetch";
 import { useSyncExternalStore } from "react";
 import { Platform } from "react-native";
 
-import { supabase } from "@/auth/client";
 import { execute, executeTransaction } from "@/db";
 import { captureAnalytics } from "@/lib/analytics";
 import { env } from "@/lib/env";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { id, nowIso } from "@/lib/ids";
+import { readPreferences } from "@/settings/preferences";
+import {
+  applyTranscriptionPreferences,
+  type Preferences,
+} from "@/settings/preferences-model";
+import { resolveProvider } from "@/settings/providers";
+import {
+  normalizeTranscriptionResponse,
+  type ProviderConfig,
+} from "@/settings/providers-model";
 
+import { requestProviderTranscription } from "./provider-transcription";
 import { TranscriptionAdmission } from "./transcription-admission";
 import {
   assertBoundedTranscriptionResponse,
@@ -116,7 +126,7 @@ INSERT INTO transcripts (
   updated_at, deleted_at
 )
 SELECT ?, session.workspace_id, session.owner_user_id, session.id,
-  'batch_transcription', 'anarlog', 'cloud', ?, ?, NULL, '',
+  'batch_transcription', ?, ?, ?, ?, NULL, '',
   COALESCE((
     SELECT note.body FROM session_documents AS note
     WHERE note.id = session.id AND note.kind = 'note' AND note.deleted_at IS NULL
@@ -183,7 +193,10 @@ function syntheticWords(
   }));
 }
 
-function mapBatchResponse(payload: unknown): {
+function mapBatchResponse(
+  payload: unknown,
+  provider: string,
+): {
   words: WordRecord[];
   hints: HintRecord[];
 } {
@@ -235,7 +248,7 @@ function mapBatchResponse(payload: unknown): {
           word_id: wordId,
           type: "provider_speaker_index",
           value: JSON.stringify({
-            provider: "anarlog",
+            provider,
             channel: wordChannel,
             speaker_index: word.speaker,
           }),
@@ -336,8 +349,15 @@ async function requestTranscription(
   contentType: string,
   token: string | undefined,
   timeoutMs: number,
+  provider: ProviderConfig & { apiKey: string },
+  preferences: Preferences,
 ): Promise<{ status: number; body: string }> {
-  const url = `${env.apiUrl}/stt/listen?provider=anarlog&max_response_bytes=${MAX_TRANSCRIPTION_RESPONSE_BYTES}`;
+  const url = applyTranscriptionPreferences(
+    new URL(
+      `${env.apiUrl}/stt/listen?provider=anarlog&max_response_bytes=${MAX_TRANSCRIPTION_RESPONSE_BYTES}`,
+    ),
+    preferences,
+  ).toString();
   const headers = {
     "Content-Type": contentType,
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -348,6 +368,14 @@ async function requestTranscription(
     timeoutMs,
   );
   try {
+    if (provider.provider !== "anarlog")
+      return await requestProviderTranscription(
+        file,
+        contentType,
+        provider,
+        preferences,
+        controller.signal,
+      );
     if (Platform.OS === "web") {
       const response = await fetch(url, {
         method: "POST",
@@ -407,11 +435,9 @@ async function runTranscription(sessionId: string): Promise<void> {
     });
   }
 
-  const auth = await supabase?.auth.getSession();
-  if (auth?.error) {
-    throw withTranscriptionStage(auth.error, "auth");
-  }
-  const token = auth?.data.session?.access_token;
+  const provider = await resolveProvider("stt");
+  const preferences = await readPreferences();
+  const token = provider.provider === "anarlog" ? provider.apiKey : undefined;
   const startedAtMs = Date.now();
 
   const response = await requestTranscription(
@@ -419,6 +445,8 @@ async function runTranscription(sessionId: string): Promise<void> {
     audio.content_type || "application/octet-stream",
     token,
     requestTimeoutMs(sizeBytes),
+    provider,
+    preferences,
   ).catch((error) => {
     throw withTranscriptionStage(error, "request");
   });
@@ -437,12 +465,15 @@ async function runTranscription(sessionId: string): Promise<void> {
 
   let payload: unknown;
   try {
-    payload = JSON.parse(response.body);
+    payload = normalizeTranscriptionResponse(
+      provider.provider,
+      JSON.parse(response.body),
+    );
   } catch (error) {
     throw withTranscriptionStage(error, "response");
   }
   response.body = "";
-  const { words, hints } = mapBatchResponse(payload);
+  const { words, hints } = mapBatchResponse(payload, provider.provider);
   payload = null;
   if (words.length === 0) {
     // Never mark complete on an empty result — transcript_status stays
@@ -466,7 +497,9 @@ async function runTranscription(sessionId: string): Promise<void> {
       sql: TRANSCRIPT_INSERT_SQL,
       params: [
         id(),
-        "",
+        provider.provider,
+        provider.model,
+        preferences.ai_language,
         startedAtMs,
         wordsJson,
         hintsJson,

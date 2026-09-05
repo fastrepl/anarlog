@@ -4,6 +4,12 @@ import { captureAnalytics } from "@/lib/analytics";
 import { env } from "@/lib/env";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { id, nowIso } from "@/lib/ids";
+import { readPreferences } from "@/settings/preferences";
+import {
+  applyTranscriptionPreferences,
+  type Preferences,
+} from "@/settings/preferences-model";
+import { readProviderConfig } from "@/settings/providers";
 
 import {
   parseHostedTranscriptionMessage,
@@ -94,7 +100,11 @@ type NativeWebSocketConstructor = new (
   options?: { headers?: Record<string, string> },
 ) => WebSocket;
 
-function liveUrl(sampleRate: number, channels: number): string {
+function liveUrl(
+  sampleRate: number,
+  channels: number,
+  preferences: Preferences,
+): string {
   const url = new URL(`${env.apiUrl}/stt/listen`);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   url.searchParams.set("provider", "anarlog");
@@ -102,7 +112,7 @@ function liveUrl(sampleRate: number, channels: number): string {
   url.searchParams.set("encoding", "linear16");
   url.searchParams.set("sample_rate", String(sampleRate));
   url.searchParams.set("channels", String(channels));
-  return url.toString();
+  return applyTranscriptionPreferences(url, preferences).toString();
 }
 
 export class HostedLiveTranscription {
@@ -148,15 +158,30 @@ export class HostedLiveTranscription {
     try {
       const auth = await supabase?.auth.getSession();
       if (auth?.error) throw auth.error;
+      const provider = await readProviderConfig(
+        auth?.data.session?.user.id ?? null,
+        "stt",
+      );
+      if (provider.provider !== "anarlog") {
+        this.setStatus("fallback");
+        this.queuedAudio = [];
+        this.queuedAudioBytes = 0;
+        return;
+      }
+      const preferences = await readPreferences();
       const token = auth?.data.session?.access_token;
       if (!token)
         throw new Error("Live transcription requires a signed-in session");
       if (this.stopping || this.status === "fallback") return;
 
       const Socket = WebSocket as unknown as NativeWebSocketConstructor;
-      const socket = new Socket(liveUrl(sampleRate, channels), null, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const socket = new Socket(
+        liveUrl(sampleRate, channels, preferences),
+        null,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       socket.binaryType = "arraybuffer";
       socket.onopen = () => {
         if (this.stopping || this.status === "fallback") {

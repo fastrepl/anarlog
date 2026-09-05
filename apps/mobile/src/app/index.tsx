@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Platform, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/auth/context";
@@ -11,17 +11,19 @@ import { SessionCard } from "@/components/session-card";
 import { StartListeningButton } from "@/components/start-listening-button";
 import { IconButton } from "@/components/ui/icon-button";
 import { UserAvatarButton } from "@/components/user-avatar";
-import { Colors, Spacing, Typography } from "@/constants/theme";
+import { Spacing, Typography } from "@/constants/theme";
 import { createSession, deleteSession } from "@/data/session";
 import { useSidebarItemPreferences } from "@/data/sidebar-preferences";
 import { useTimelineSessions, type TimelineSession } from "@/data/timeline";
 import { confirmDestructive } from "@/lib/confirm";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
+import { createStyleHook } from "@/settings/theme-provider";
 
 const ACTION_BUTTON_CARD_DISMISSED_KEY = "action-button-card-dismissed";
 
 export default function HomeScreen() {
+  const styles = useStyles();
   const router = useRouter();
   const auth = useAuth();
   const { items, isLoading } = useTimelineSessions();
@@ -187,7 +189,7 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   safeArea: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -234,4 +236,4 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     marginBottom: Spacing.sm,
   },
-});
+}));

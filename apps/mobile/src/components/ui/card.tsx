@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 
-import { Colors, CornerCurve, Radius } from "@/constants/theme";
+import { CornerCurve, Radius } from "@/constants/theme";
+import { createStyleHook } from "@/settings/theme-provider";
 
 export function Card({
   children,
@@ -12,6 +13,7 @@ export function Card({
   style?: StyleProp<ViewStyle>;
   tone?: "surface" | "muted" | "alert";
 }) {
+  const styles = useStyles();
   return (
     <View
       style={[
@@ -29,7 +31,7 @@ export function Card({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   card: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: Radius.card,
@@ -47,4 +49,4 @@ const styles = StyleSheet.create({
     borderColor: Colors.alertBorder,
     backgroundColor: Colors.alert,
   },
-});
+}));

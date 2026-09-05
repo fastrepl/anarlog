@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Colors, Spacing, Typography } from "@/constants/theme";
+import { Spacing, Typography } from "@/constants/theme";
+import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -30,6 +31,8 @@ export function NoteAttachmentCard({
   onShare: () => void;
   sizeBytes: number;
 }) {
+  const styles = useStyles();
+  const Colors = useColors();
   return (
     <Card style={styles.card} tone="muted">
       <View style={styles.icon}>
@@ -66,7 +69,7 @@ export function NoteAttachmentCard({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   card: {
     flexDirection: "row",
     alignItems: "center",
@@ -97,4 +100,4 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.destructive,
   },
-});
+}));

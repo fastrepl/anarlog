@@ -4,19 +4,19 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  type StyleProp,
   View,
+  type StyleProp,
   type ViewStyle,
 } from "react-native";
 
 import {
-  Colors,
   ControlSize,
   CornerCurve,
   Radius,
   Spacing,
   Typography,
 } from "@/constants/theme";
+import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 export function Button({
   label,
@@ -37,6 +37,8 @@ export function Button({
   style?: StyleProp<ViewStyle>;
   variant?: "primary" | "secondary" | "outline" | "ghost" | "destructive";
 }) {
+  const styles = useStyles();
+  const Colors = useColors();
   const foreground =
     variant === "primary"
       ? Colors.primaryForeground
@@ -86,7 +88,7 @@ export function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   base: {
     alignItems: "center",
     justifyContent: "center",
@@ -136,4 +138,4 @@ const styles = StyleSheet.create({
   label: {
     ...Typography.label,
   },
-});
+}));

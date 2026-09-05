@@ -1,15 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Colors, Spacing, Typography } from "@/constants/theme";
+import { Spacing, Typography } from "@/constants/theme";
 import {
   retrySessionAudioUpload,
   type SessionAudio,
 } from "@/data/audio-catalog";
 import { captureOperationalError } from "@/lib/error-reporting";
+import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 const presentation = {
   queued: {
@@ -31,6 +32,8 @@ const presentation = {
 };
 
 export function RecordingSyncCard({ audio }: { audio: SessionAudio }) {
+  const styles = useStyles();
+  const Colors = useColors();
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState(false);
   const status = presentation[audio.deliveryState];
@@ -82,7 +85,7 @@ export function RecordingSyncCard({ audio }: { audio: SessionAudio }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   card: {
     gap: Spacing.sm,
     marginHorizontal: Spacing.lg,
@@ -102,4 +105,4 @@ const styles = StyleSheet.create({
   button: {
     alignSelf: "flex-start",
   },
-});
+}));

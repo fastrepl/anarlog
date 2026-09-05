@@ -12,8 +12,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 
-import { Colors } from "@/constants/theme";
 import { useMountEffect } from "@/lib/use-mount-effect";
+import { createStyleHook } from "@/settings/theme-provider";
 
 const WORDMARK_WIDTH = 200;
 const WORDMARK_HEIGHT = 56;
@@ -32,6 +32,7 @@ export function BrandLoadingView({
   animated?: boolean;
   onAnimationComplete?: () => void;
 }) {
+  const styles = useStyles();
   const reducedMotion = useReducedMotion();
   const shouldAnimate = animated && !reducedMotion;
   const logoOpacity = useSharedValue(shouldAnimate ? 1 : 0);
@@ -144,7 +145,7 @@ export function BrandLoadingView({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   container: {
     flex: 1,
     alignItems: "center",
@@ -185,4 +186,4 @@ const styles = StyleSheet.create({
     borderRadius: 2.5,
     backgroundColor: Colors.ink,
   },
-});
+}));

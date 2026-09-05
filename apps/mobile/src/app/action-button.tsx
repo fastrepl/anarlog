@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -11,13 +11,8 @@ import { IPhoneDeviceFrame } from "@/components/iphone-device-frame";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { IconButton } from "@/components/ui/icon-button";
-import {
-  Colors,
-  ControlSize,
-  Radius,
-  Spacing,
-  Typography,
-} from "@/constants/theme";
+import { ControlSize, Radius, Spacing, Typography } from "@/constants/theme";
+import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 const steps = [
   {
@@ -35,6 +30,8 @@ const steps = [
 ];
 
 export default function ActionButtonScreen() {
+  const styles = useStyles();
+  const Colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -121,7 +118,7 @@ export default function ActionButtonScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   safeArea: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -217,4 +214,4 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     backgroundColor: Colors.background,
   },
-});
+}));

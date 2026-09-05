@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { StyleSheet, View } from "react-native";
+import { View } from "react-native";
 
-import { Colors, CornerCurve, Radius } from "@/constants/theme";
+import { CornerCurve, Radius } from "@/constants/theme";
+import { createStyleHook } from "@/settings/theme-provider";
 
 const IPHONE_17_PRO_ASPECT_RATIO = 71.9 / 150;
 const IPHONE_17_PRO_DEVICE_CORNER_RADIUS_RATIO = 62 / 402;
@@ -13,6 +14,7 @@ export function IPhoneDeviceFrame({
   liveActivity?: ReactNode;
   width: number;
 }) {
+  const styles = useStyles();
   const height = width / IPHONE_17_PRO_ASPECT_RATIO;
   const borderWidth = Math.max(1.5, width * 0.029);
   const actionButtonWidth = Math.max(3, width * 0.058);
@@ -70,7 +72,7 @@ export function IPhoneDeviceFrame({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyleHook((Colors) => ({
   frame: {
     alignItems: "center",
     borderColor: Colors.ink,
@@ -95,4 +97,4 @@ const styles = StyleSheet.create({
     borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.ink,
   },
-});
+}));
