@@ -255,6 +255,175 @@ impl Doc {
         })
     }
 
+    /// Plain text between two carets, blocks joined with newlines.
+    pub fn text_between(&self, from: Caret, to: Caret) -> String {
+        let (from, to) = order(from, to);
+        if from.block == to.block {
+            let text = self.text(from.block);
+            return text[from.offset.min(text.len())..to.offset.min(text.len())].to_string();
+        }
+        let mut out = String::new();
+        let first = self.text(from.block);
+        out.push_str(&first[from.offset.min(first.len())..]);
+        for block in from.block + 1..to.block {
+            out.push('\n');
+            out.push_str(&self.text(block));
+        }
+        out.push('\n');
+        let last = self.text(to.block);
+        out.push_str(&last[..to.offset.min(last.len())]);
+        out
+    }
+
+    /// `deleteSelection`: removes everything between two carets, joining the
+    /// end block into the start block. Returns the collapsed caret.
+    pub fn delete_between(&mut self, from: Caret, to: Caret) -> Caret {
+        let (from, to) = order(from, to);
+        if from == to {
+            return from;
+        }
+        if from.block == to.block {
+            self.delete_range(from.block, from.offset..to.offset);
+            return from;
+        }
+        let first_len = self.text(from.block).len();
+        self.delete_range(from.block, from.offset..first_len);
+        self.delete_range(to.block, 0..to.offset);
+        // Drop the blocks strictly in between, last first so indices hold.
+        for block in (from.block + 1..to.block).rev() {
+            let path = self.textblocks[block].clone();
+            self.remove_node(&path);
+            self.reindex();
+        }
+        // `to` is now directly after `from`.
+        self.join_backward(from.block + 1);
+        from
+    }
+
+    /// Whether every character between the carets carries `mark`
+    /// (ProseMirror's `rangeHasMark`, which drives `toggleMark`).
+    pub fn range_has_mark(&self, from: Caret, to: Caret, mark: &str) -> bool {
+        let (from, to) = order(from, to);
+        let mut any = false;
+        for block in from.block..=to.block {
+            let Some(node) = self
+                .textblocks
+                .get(block)
+                .and_then(|path| node_at(&self.root, path))
+            else {
+                continue;
+            };
+            let start = if block == from.block { from.offset } else { 0 };
+            let end = if block == to.block {
+                to.offset
+            } else {
+                plain_text(node).len()
+            };
+            let mut cursor = 0usize;
+            for child in children(node) {
+                let len = inline_text(child).len();
+                let (a, b) = (cursor, cursor + len);
+                cursor = b;
+                if a.max(start) >= b.min(end)
+                    || child.get("type").and_then(Value::as_str) != Some("text")
+                {
+                    continue;
+                }
+                any = true;
+                if !has_mark(child, mark) {
+                    return false;
+                }
+            }
+        }
+        any
+    }
+
+    /// `toggleMark`: adds the mark to every text node in the range (splitting
+    /// nodes at the boundaries) or removes it when the whole range has it.
+    pub fn toggle_mark(&mut self, from: Caret, to: Caret, mark: &str) {
+        let (from, to) = order(from, to);
+        let add = !self.range_has_mark(from, to, mark);
+        for block in from.block..=to.block {
+            let Some(path) = self.textblocks.get(block).cloned() else {
+                continue;
+            };
+            let Some(node) = node_at_mut(&mut self.root, &path) else {
+                continue;
+            };
+            let start = if block == from.block { from.offset } else { 0 };
+            let end = if block == to.block {
+                to.offset
+            } else {
+                plain_text(node).len()
+            };
+            let inline = inline_content_mut(node);
+            let mut cursor = 0usize;
+            let mut rebuilt = Vec::with_capacity(inline.len() + 2);
+            for child in inline.drain(..) {
+                let len = inline_text(&child).len();
+                let (a, b) = (cursor, cursor + len);
+                cursor = b;
+                let is_text = child.get("type").and_then(Value::as_str) == Some("text");
+                let (lo, hi) = (a.max(start), b.min(end));
+                if !is_text || lo >= hi {
+                    rebuilt.push(child);
+                    continue;
+                }
+                let text = child
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                let pieces = [(a, lo, false), (lo, hi, true), (hi, b, false)];
+                for (s, e, inside) in pieces {
+                    if s >= e {
+                        continue;
+                    }
+                    let mut piece = child.clone();
+                    piece["text"] = Value::String(text[s - a..e - a].to_string());
+                    if inside {
+                        set_mark(&mut piece, mark, add);
+                    }
+                    rebuilt.push(piece);
+                }
+            }
+            *inline = rebuilt;
+            merge_adjacent_text(inline);
+        }
+    }
+
+    /// Marks typed text would inherit at the caret (`$from.marks()`): those
+    /// of the text node before it, or after it at the start of the block.
+    pub fn marks_at(&self, caret: Caret) -> Vec<&'static str> {
+        let Some(node) = self
+            .textblocks
+            .get(caret.block)
+            .and_then(|path| node_at(&self.root, path))
+        else {
+            return Vec::new();
+        };
+        let inline = children(node);
+        let (index, _) = locate(inline, caret.offset);
+        let Some(child) = index.and_then(|index| inline.get(index)) else {
+            return Vec::new();
+        };
+        MARK_RANK
+            .iter()
+            .copied()
+            .filter(|mark| *mark != "link" && has_mark(child, mark))
+            .collect()
+    }
+
+    /// Makes the text between the carets carry exactly `marks` (links aside).
+    pub fn set_marks(&mut self, from: Caret, to: Caret, marks: &[&'static str]) {
+        for mark in MARK_RANK.iter().copied().filter(|mark| *mark != "link") {
+            let wanted = marks.contains(&mark);
+            if self.range_has_mark(from, to, mark) != wanted {
+                self.toggle_mark(from, to, mark);
+            }
+        }
+    }
+
     /// Removes a textblock and any list item / list left empty by it.
     fn remove_node(&mut self, path: &[usize]) {
         let (parent_path, index) = path.split_at(path.len() - 1);
@@ -447,6 +616,62 @@ fn split_inline(inline: &mut Vec<Value>, offset: usize) -> (Vec<Value>, Vec<Valu
     (head, tail)
 }
 
+pub fn order(a: Caret, b: Caret) -> (Caret, Caret) {
+    if (a.block, a.offset) <= (b.block, b.offset) {
+        (a, b)
+    } else {
+        (b, a)
+    }
+}
+
+/// Mark names in schema order (`packages/editor/src/note/schema.ts`), which
+/// is the rank ProseMirror keeps a node's `marks` array sorted by.
+const MARK_RANK: [&str; 6] = ["bold", "italic", "underline", "strike", "code", "link"];
+
+fn mark_rank(mark: &Value) -> usize {
+    mark.get("type")
+        .and_then(Value::as_str)
+        .and_then(|name| MARK_RANK.iter().position(|m| *m == name))
+        .unwrap_or(MARK_RANK.len())
+}
+
+fn has_mark(node: &Value, mark: &str) -> bool {
+    node.get("marks")
+        .and_then(Value::as_array)
+        .is_some_and(|marks| {
+            marks
+                .iter()
+                .any(|m| m.get("type").and_then(Value::as_str) == Some(mark))
+        })
+}
+
+/// `Mark.addToSet` / `removeFromSet`; an empty set drops the `marks` key like
+/// `Node.toJSON` does.
+fn set_mark(node: &mut Value, mark: &str, add: bool) {
+    let mut marks: Vec<Value> = node
+        .get("marks")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    marks.retain(|m| m.get("type").and_then(Value::as_str) != Some(mark));
+    if add {
+        marks.push(json!({ "type": mark }));
+        marks.sort_by_key(mark_rank);
+    }
+    let object = node.as_object_mut().expect("text node object");
+    if marks.is_empty() {
+        object.remove("marks");
+    } else {
+        // Keep TipTap's key order: type, marks, text.
+        let text = object.remove("text");
+        object.remove("marks");
+        object.insert("marks".into(), Value::Array(marks));
+        if let Some(text) = text {
+            object.insert("text".into(), text);
+        }
+    }
+}
+
 fn text_node(text: &str, marks: Option<Value>) -> Value {
     let mut node = Map::new();
     node.insert("type".into(), Value::String("text".into()));
@@ -580,6 +805,45 @@ mod tests {
             r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"ab"}]}]}"#
         );
         assert!(doc.join_backward(0).is_none());
+    }
+
+    #[test]
+    fn deleting_across_blocks_joins_the_ends() {
+        let body = r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"one two"}]},{"type":"heading","attrs":{"level":1},"content":[{"type":"text","text":"gone"}]},{"type":"paragraph","content":[{"type":"text","text":"three four"}]}]}"#;
+        let mut doc = Doc::parse(body);
+        assert_eq!(
+            doc.text_between(caret(0, 4), caret(2, 5)),
+            "two\ngone\nthree"
+        );
+        let c = doc.delete_between(caret(2, 5), caret(0, 4));
+        assert_eq!(c, caret(0, 4));
+        assert_eq!(
+            doc.to_json(),
+            r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"one  four"}]}]}"#
+        );
+    }
+
+    #[test]
+    fn toggling_marks_splits_nodes_and_keeps_schema_rank_order() {
+        let body = r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"make this bold"}]}]}"#;
+        let mut doc = Doc::parse(body);
+        doc.toggle_mark(caret(0, 5), caret(0, 9), "bold");
+        assert_eq!(
+            doc.to_json(),
+            r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"make "},{"type":"text","marks":[{"type":"bold"}],"text":"this"},{"type":"text","text":" bold"}]}]}"#
+        );
+        // Italic on a wider range: the bold node gets both marks, bold first.
+        doc.toggle_mark(caret(0, 0), caret(0, 14), "italic");
+        assert_eq!(
+            doc.to_json(),
+            r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","marks":[{"type":"italic"}],"text":"make "},{"type":"text","marks":[{"type":"bold"},{"type":"italic"}],"text":"this"},{"type":"text","marks":[{"type":"italic"}],"text":" bold"}]}]}"#
+        );
+        assert!(doc.range_has_mark(caret(0, 0), caret(0, 14), "italic"));
+        assert!(!doc.range_has_mark(caret(0, 0), caret(0, 14), "bold"));
+        // Toggling again removes it everywhere and merges the plain nodes back.
+        doc.toggle_mark(caret(0, 0), caret(0, 14), "italic");
+        doc.toggle_mark(caret(0, 5), caret(0, 9), "bold");
+        assert_eq!(doc.to_json(), body);
     }
 
     #[test]

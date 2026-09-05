@@ -19,6 +19,53 @@ use crate::ui::TailwindText as _;
 
 const BODY_PX: f32 = 16.0;
 
+/// Paints one quad per wrapped line the byte range covers. Line ends are
+/// found by bisecting on the y of `position_for_index`, which is monotonic.
+fn paint_selection(
+    layout: &gpui::TextLayout,
+    range: std::ops::Range<usize>,
+    color: gpui::Rgba,
+    window: &mut Window,
+) {
+    let line_height = layout.line_height();
+    let mut start = range.start;
+    while start < range.end {
+        let Some(origin) = layout.position_for_index(start) else {
+            return;
+        };
+        // Largest index in (start, end] still on this line.
+        let (mut lo, mut hi) = (start, range.end);
+        while lo < hi {
+            let mid = lo + (hi - lo).div_ceil(2);
+            match layout.position_for_index(mid) {
+                Some(p) if p.y == origin.y => lo = mid,
+                _ => hi = mid - 1,
+            }
+        }
+        let end_x = layout
+            .position_for_index(lo)
+            .map(|p| p.x)
+            .unwrap_or(origin.x);
+        // A line break inside the range keeps a visible sliver.
+        let width = (end_x - origin.x).max(px(4.0));
+        window.paint_quad(fill(
+            gpui::Bounds::new(origin, size(width, line_height)),
+            color,
+        ));
+        if lo >= range.end {
+            break;
+        }
+        start = lo + 1;
+        while start < range.end
+            && layout
+                .position_for_index(start)
+                .is_some_and(|p| p.y == origin.y)
+        {
+            start += 1;
+        }
+    }
+}
+
 pub(super) fn has_visible_content(block: &Block) -> bool {
     match block {
         Block::Paragraph(spans) => spans.iter().any(|span| !span.text.trim().is_empty()),
@@ -130,7 +177,9 @@ impl DocumentRenderer {
         let layout = text.layout().clone();
         let paint_editor = editor.clone();
         let click_editor = editor.clone();
+        let drag_editor = editor.clone();
         let caret_color = self.theme.foreground;
+        let selection_color = self.theme.selection;
         wrapper
             .id(("textblock", index))
             .relative()
@@ -140,21 +189,39 @@ impl DocumentRenderer {
                 move |event: &MouseDownEvent, window, cx| {
                     cx.stop_propagation();
                     click_editor.update(cx, |editor, cx| {
-                        editor.place_caret_at(index, event.position, window, cx)
+                        editor.place_caret_at(
+                            index,
+                            event.position,
+                            event.modifiers.shift,
+                            window,
+                            cx,
+                        )
                     });
                 },
             )
+            .on_mouse_move(move |event: &gpui::MouseMoveEvent, _, cx| {
+                if event.pressed_button == Some(MouseButton::Left) {
+                    drag_editor.update(cx, |editor, cx| editor.drag_to(index, event.position, cx));
+                }
+            })
             .child(text)
             .child(
                 canvas(
                     |_, _, _| (),
                     move |bounds, _, window, cx| {
-                        let caret = paint_editor.update(cx, |editor, _| {
+                        let (caret, selection) = paint_editor.update(cx, |editor, _| {
                             editor.record_layout(index, layout.clone(), bounds);
-                            editor
-                                .caret()
-                                .filter(|caret| caret.block == index && editor.is_focused(window))
+                            let focused = editor.is_focused(window);
+                            (
+                                editor
+                                    .caret()
+                                    .filter(|caret| caret.block == index && focused),
+                                editor.selection_in_block(index).filter(|_| focused),
+                            )
                         });
+                        if let Some(range) = selection {
+                            paint_selection(&layout, range, selection_color, window);
+                        }
                         if let Some(caret) = caret
                             && let Some(position) = layout.position_for_index(caret.offset)
                         {

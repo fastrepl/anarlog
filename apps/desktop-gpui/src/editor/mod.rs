@@ -8,15 +8,37 @@ use std::ops::Range;
 use std::time::{Duration, Instant};
 
 use gpui::{
-    App, Bounds, Context, EntityInputHandler, EventEmitter, FocusHandle, Focusable, KeyBinding,
-    Pixels, Point, TextLayout, UTF16Selection, Window, actions,
+    App, Bounds, ClipboardItem, Context, EntityInputHandler, EventEmitter, FocusHandle, Focusable,
+    KeyBinding, Pixels, Point, TextLayout, UTF16Selection, Window, actions,
 };
 
 use model::{Caret, Doc};
 
 actions!(
     body_editor,
-    [Left, Right, Up, Down, Home, End, Backspace, Delete, Enter,]
+    [
+        Left,
+        Right,
+        Up,
+        Down,
+        Home,
+        End,
+        SelectLeft,
+        SelectRight,
+        SelectUp,
+        SelectDown,
+        SelectAll,
+        Backspace,
+        Delete,
+        Enter,
+        Copy,
+        Cut,
+        Paste,
+        ToggleBold,
+        ToggleItalic,
+        ToggleUnderline,
+        ToggleCode,
+    ]
 );
 
 pub const KEY_CONTEXT: &str = "BodyEditor";
@@ -25,6 +47,11 @@ const FLUSH_MAX_WAIT: Duration = Duration::from_secs(10);
 
 pub fn bind_keys(cx: &mut App) {
     let ctx = Some(KEY_CONTEXT);
+    let m = if cfg!(target_os = "macos") {
+        "cmd"
+    } else {
+        "ctrl"
+    };
     cx.bind_keys([
         KeyBinding::new("left", Left, ctx),
         KeyBinding::new("right", Right, ctx),
@@ -32,9 +59,22 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("down", Down, ctx),
         KeyBinding::new("home", Home, ctx),
         KeyBinding::new("end", End, ctx),
+        KeyBinding::new("shift-left", SelectLeft, ctx),
+        KeyBinding::new("shift-right", SelectRight, ctx),
+        KeyBinding::new("shift-up", SelectUp, ctx),
+        KeyBinding::new("shift-down", SelectDown, ctx),
+        KeyBinding::new(&format!("{m}-a"), SelectAll, ctx),
         KeyBinding::new("backspace", Backspace, ctx),
         KeyBinding::new("delete", Delete, ctx),
         KeyBinding::new("enter", Enter, ctx),
+        KeyBinding::new(&format!("{m}-c"), Copy, ctx),
+        KeyBinding::new(&format!("{m}-x"), Cut, ctx),
+        KeyBinding::new(&format!("{m}-v"), Paste, ctx),
+        // `packages/editor/src/note/keymap.ts`
+        KeyBinding::new(&format!("{m}-b"), ToggleBold, ctx),
+        KeyBinding::new(&format!("{m}-i"), ToggleItalic, ctx),
+        KeyBinding::new(&format!("{m}-u"), ToggleUnderline, ctx),
+        KeyBinding::new(&format!("{m}-`"), ToggleCode, ctx),
     ]);
 }
 
@@ -49,6 +89,12 @@ pub struct BodyEditor {
     pub session_id: String,
     doc: Doc,
     caret: Option<Caret>,
+    /// The other end of the selection while one exists (`caret` is the head).
+    anchor: Option<Caret>,
+    /// ProseMirror `storedMarks`: the mark set for the next typed text after
+    /// toggling a mark with an empty selection.
+    stored_marks: Option<Vec<&'static str>>,
+    is_selecting: bool,
     marked_range: Option<Range<usize>>,
     /// Text layouts captured while painting, one per textblock.
     layouts: Vec<Option<(TextLayout, Bounds<Pixels>)>>,
@@ -68,6 +114,9 @@ impl BodyEditor {
             layouts: vec![None; doc.textblock_count()],
             doc,
             caret: None,
+            anchor: None,
+            stored_marks: None,
+            is_selecting: false,
             marked_range: None,
             dirty_since: None,
             last_input: None,
@@ -81,6 +130,51 @@ impl BodyEditor {
 
     pub fn caret(&self) -> Option<Caret> {
         self.caret
+    }
+
+    /// The selected byte range within `block`, if the selection covers it.
+    pub fn selection_in_block(&self, block: usize) -> Option<Range<usize>> {
+        let (from, to) = model::order(self.anchor?, self.caret?);
+        if from == to || block < from.block || block > to.block {
+            return None;
+        }
+        let start = if block == from.block { from.offset } else { 0 };
+        let end = if block == to.block {
+            to.offset
+        } else {
+            self.doc.text(block).len()
+        };
+        (start < end).then_some(start..end)
+    }
+
+    fn selection(&self) -> Option<(Caret, Caret)> {
+        let (anchor, caret) = (self.anchor?, self.caret?);
+        (anchor != caret).then(|| model::order(anchor, caret))
+    }
+
+    /// Collapses the selection into the caret, deleting its content.
+    fn delete_selection(&mut self) -> bool {
+        let Some((from, to)) = self.selection() else {
+            return false;
+        };
+        self.caret = Some(self.doc.delete_between(from, to));
+        self.anchor = None;
+        true
+    }
+
+    fn set_head(&mut self, head: Caret, extend: bool, cx: &mut Context<Self>) {
+        if extend {
+            self.anchor.get_or_insert(self.caret.unwrap_or(head));
+        } else {
+            self.anchor = None;
+        }
+        self.caret = Some(head);
+        self.stored_marks = None;
+        cx.notify();
+    }
+
+    pub fn end_mouse_selection(&mut self) {
+        self.is_selecting = false;
     }
 
     pub fn is_dirty(&self) -> bool {
@@ -124,13 +218,7 @@ impl BodyEditor {
         Some((position, layout.line_height()))
     }
 
-    pub fn place_caret_at(
-        &mut self,
-        block: usize,
-        position: Point<Pixels>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn caret_for_position(&self, block: usize, position: Point<Pixels>) -> Caret {
         let offset = self
             .layouts
             .get(block)
@@ -139,14 +227,40 @@ impl BodyEditor {
                 Ok(index) | Err(index) => index,
             })
             .unwrap_or(0);
-        self.doc.ensure_textblock();
+        let block = block.min(self.doc.textblock_count().saturating_sub(1));
         let text = self.doc.text(block);
-        self.caret = Some(Caret {
-            block: block.min(self.doc.textblock_count().saturating_sub(1)),
+        Caret {
+            block,
             offset: snap(&text, offset.min(text.len())),
-        });
+        }
+    }
+
+    /// Mouse down in a textblock: place the caret (shift extends) and start a
+    /// drag selection.
+    pub fn place_caret_at(
+        &mut self,
+        block: usize,
+        position: Point<Pixels>,
+        extend: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.doc.ensure_textblock();
+        let head = self.caret_for_position(block, position);
+        self.set_head(head, extend, cx);
+        self.is_selecting = true;
         self.focus_handle.focus(window);
-        cx.notify();
+    }
+
+    /// Mouse moved over a textblock while dragging: extend to that point.
+    pub fn drag_to(&mut self, block: usize, position: Point<Pixels>, cx: &mut Context<Self>) {
+        if !self.is_selecting {
+            return;
+        }
+        let head = self.caret_for_position(block, position);
+        if self.caret != Some(head) {
+            self.set_head(head, true, cx);
+        }
     }
 
     /// Clicking below the last block puts the caret at the end, like
@@ -154,15 +268,16 @@ impl BodyEditor {
     pub fn place_caret_at_end(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.doc.ensure_textblock();
         let block = self.doc.textblock_count() - 1;
-        self.caret = Some(Caret {
+        let head = Caret {
             block,
             offset: self.doc.text(block).len(),
-        });
+        };
+        self.set_head(head, false, cx);
         self.focus_handle.focus(window);
-        cx.notify();
     }
 
     fn clamp_caret(&mut self) {
+        self.anchor = None;
         if let Some(caret) = &mut self.caret {
             if self.doc.textblock_count() == 0 {
                 self.caret = None;
@@ -231,10 +346,15 @@ impl BodyEditor {
         self.dirty_since.take().map(|_| self.doc.to_json())
     }
 
-    fn move_horizontally(&mut self, delta: isize, cx: &mut Context<Self>) {
+    fn move_horizontally(&mut self, delta: isize, extend: bool, cx: &mut Context<Self>) {
         let Some(caret) = self.caret else {
             return;
         };
+        // Left/right with a selection collapse it to the corresponding end.
+        if !extend && let Some((from, to)) = self.selection() {
+            self.set_head(if delta < 0 { from } else { to }, false, cx);
+            return;
+        }
         let text = self.doc.text(caret.block);
         let next = if delta < 0 {
             if caret.offset == 0 {
@@ -266,13 +386,12 @@ impl BodyEditor {
                 offset: next_boundary(&text, caret.offset),
             }
         };
-        self.caret = Some(next);
-        cx.notify();
+        self.set_head(next, extend, cx);
     }
 
     /// Up/down keep the x position, moving a line within the block when the
     /// layout wrapped, otherwise into the neighbouring block.
-    fn move_vertically(&mut self, delta: isize, cx: &mut Context<Self>) {
+    fn move_vertically(&mut self, delta: isize, extend: bool, cx: &mut Context<Self>) {
         let Some(caret) = self.caret else {
             return;
         };
@@ -322,47 +441,154 @@ impl BodyEditor {
             }
         };
         let text = self.doc.text(next.block);
-        self.caret = Some(Caret {
+        let next = Caret {
             block: next.block,
             offset: snap(&text, next.offset.min(text.len())),
-        });
-        cx.notify();
+        };
+        self.set_head(next, extend, cx);
     }
 
     fn on_left(&mut self, _: &Left, _: &mut Window, cx: &mut Context<Self>) {
-        self.move_horizontally(-1, cx);
+        self.move_horizontally(-1, false, cx);
     }
 
     fn on_right(&mut self, _: &Right, _: &mut Window, cx: &mut Context<Self>) {
-        self.move_horizontally(1, cx);
+        self.move_horizontally(1, false, cx);
     }
 
     fn on_up(&mut self, _: &Up, _: &mut Window, cx: &mut Context<Self>) {
-        self.move_vertically(-1, cx);
+        self.move_vertically(-1, false, cx);
     }
 
     fn on_down(&mut self, _: &Down, _: &mut Window, cx: &mut Context<Self>) {
-        self.move_vertically(1, cx);
+        self.move_vertically(1, false, cx);
+    }
+
+    fn on_select_left(&mut self, _: &SelectLeft, _: &mut Window, cx: &mut Context<Self>) {
+        self.move_horizontally(-1, true, cx);
+    }
+
+    fn on_select_right(&mut self, _: &SelectRight, _: &mut Window, cx: &mut Context<Self>) {
+        self.move_horizontally(1, true, cx);
+    }
+
+    fn on_select_up(&mut self, _: &SelectUp, _: &mut Window, cx: &mut Context<Self>) {
+        self.move_vertically(-1, true, cx);
+    }
+
+    fn on_select_down(&mut self, _: &SelectDown, _: &mut Window, cx: &mut Context<Self>) {
+        self.move_vertically(1, true, cx);
+    }
+
+    fn on_select_all(&mut self, _: &SelectAll, _: &mut Window, cx: &mut Context<Self>) {
+        if self.doc.textblock_count() == 0 {
+            return;
+        }
+        let last = self.doc.textblock_count() - 1;
+        self.anchor = Some(Caret {
+            block: 0,
+            offset: 0,
+        });
+        self.caret = Some(Caret {
+            block: last,
+            offset: self.doc.text(last).len(),
+        });
+        self.stored_marks = None;
+        cx.notify();
     }
 
     fn on_home(&mut self, _: &Home, _: &mut Window, cx: &mut Context<Self>) {
-        if let Some(caret) = &mut self.caret {
-            caret.offset = 0;
-            cx.notify();
+        if let Some(caret) = self.caret {
+            self.set_head(
+                Caret {
+                    block: caret.block,
+                    offset: 0,
+                },
+                false,
+                cx,
+            );
         }
     }
 
     fn on_end(&mut self, _: &End, _: &mut Window, cx: &mut Context<Self>) {
         if let Some(caret) = self.caret {
-            self.caret = Some(Caret {
-                block: caret.block,
-                offset: self.doc.text(caret.block).len(),
-            });
-            cx.notify();
+            let offset = self.doc.text(caret.block).len();
+            self.set_head(
+                Caret {
+                    block: caret.block,
+                    offset,
+                },
+                false,
+                cx,
+            );
         }
     }
 
+    fn on_copy(&mut self, _: &Copy, _: &mut Window, cx: &mut Context<Self>) {
+        if let Some((from, to)) = self.selection() {
+            cx.write_to_clipboard(ClipboardItem::new_string(self.doc.text_between(from, to)));
+        }
+    }
+
+    fn on_cut(&mut self, _: &Cut, _: &mut Window, cx: &mut Context<Self>) {
+        if let Some((from, to)) = self.selection() {
+            cx.write_to_clipboard(ClipboardItem::new_string(self.doc.text_between(from, to)));
+            self.delete_selection();
+            self.changed(cx);
+        }
+    }
+
+    fn on_paste(&mut self, _: &Paste, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
+            self.replace_text_in_range(None, &text, window, cx);
+        }
+    }
+
+    /// `toggleMark`: with a selection, adds or removes the mark across it;
+    /// with a caret only, toggles it in the stored marks for the next input.
+    fn toggle_mark(&mut self, mark: &'static str, cx: &mut Context<Self>) {
+        if let Some((from, to)) = self.selection() {
+            self.doc.toggle_mark(from, to, mark);
+            self.changed(cx);
+            return;
+        }
+        let Some(caret) = self.caret else {
+            return;
+        };
+        let mut marks = self
+            .stored_marks
+            .clone()
+            .unwrap_or_else(|| self.doc.marks_at(caret));
+        if let Some(index) = marks.iter().position(|m| *m == mark) {
+            marks.remove(index);
+        } else {
+            marks.push(mark);
+        }
+        self.stored_marks = Some(marks);
+        cx.notify();
+    }
+
+    fn on_toggle_bold(&mut self, _: &ToggleBold, _: &mut Window, cx: &mut Context<Self>) {
+        self.toggle_mark("bold", cx);
+    }
+
+    fn on_toggle_italic(&mut self, _: &ToggleItalic, _: &mut Window, cx: &mut Context<Self>) {
+        self.toggle_mark("italic", cx);
+    }
+
+    fn on_toggle_underline(&mut self, _: &ToggleUnderline, _: &mut Window, cx: &mut Context<Self>) {
+        self.toggle_mark("underline", cx);
+    }
+
+    fn on_toggle_code(&mut self, _: &ToggleCode, _: &mut Window, cx: &mut Context<Self>) {
+        self.toggle_mark("code", cx);
+    }
+
     fn on_backspace(&mut self, _: &Backspace, _: &mut Window, cx: &mut Context<Self>) {
+        if self.delete_selection() {
+            self.changed(cx);
+            return;
+        }
         let Some(caret) = self.caret else {
             return;
         };
@@ -384,6 +610,10 @@ impl BodyEditor {
     }
 
     fn on_delete(&mut self, _: &Delete, _: &mut Window, cx: &mut Context<Self>) {
+        if self.delete_selection() {
+            self.changed(cx);
+            return;
+        }
         let Some(caret) = self.caret else {
             return;
         };
@@ -414,7 +644,11 @@ impl BodyEditor {
             block: 0,
             offset: 0,
         });
-        self.caret = Some(self.doc.insert_text(caret, text));
+        let end = self.doc.insert_text(caret, text);
+        if let Some(marks) = self.stored_marks.take() {
+            self.doc.set_marks(caret, end, &marks);
+        }
+        self.caret = Some(end);
         self.changed(cx);
     }
 
@@ -447,9 +681,29 @@ impl BodyEditor {
             .on_action(cx.listener(Self::on_down))
             .on_action(cx.listener(Self::on_home))
             .on_action(cx.listener(Self::on_end))
+            .on_action(cx.listener(Self::on_select_left))
+            .on_action(cx.listener(Self::on_select_right))
+            .on_action(cx.listener(Self::on_select_up))
+            .on_action(cx.listener(Self::on_select_down))
+            .on_action(cx.listener(Self::on_select_all))
             .on_action(cx.listener(Self::on_backspace))
             .on_action(cx.listener(Self::on_delete))
             .on_action(cx.listener(Self::on_enter))
+            .on_action(cx.listener(Self::on_copy))
+            .on_action(cx.listener(Self::on_cut))
+            .on_action(cx.listener(Self::on_paste))
+            .on_action(cx.listener(Self::on_toggle_bold))
+            .on_action(cx.listener(Self::on_toggle_italic))
+            .on_action(cx.listener(Self::on_toggle_underline))
+            .on_action(cx.listener(Self::on_toggle_code))
+            .on_mouse_up(
+                gpui::MouseButton::Left,
+                cx.listener(|this, _: &gpui::MouseUpEvent, _, _| this.end_mouse_selection()),
+            )
+            .on_mouse_up_out(
+                gpui::MouseButton::Left,
+                cx.listener(|this, _: &gpui::MouseUpEvent, _, _| this.end_mouse_selection()),
+            )
     }
 }
 
