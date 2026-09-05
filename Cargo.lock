@@ -5448,6 +5448,7 @@ dependencies = [
  "dirs 6.0.0",
  "gpui",
  "pico-args",
+ "regex",
  "serde",
  "serde_json",
  "sqlx",

@@ -3,6 +3,7 @@
 //! flushed 500ms after the last keystroke, at most 10s apart).
 
 pub mod model;
+pub mod rules;
 
 use std::ops::Range;
 use std::time::{Duration, Instant};
@@ -38,6 +39,10 @@ actions!(
         ToggleItalic,
         ToggleUnderline,
         ToggleCode,
+        Tab,
+        ShiftTab,
+        Undo,
+        Redo,
     ]
 );
 
@@ -75,7 +80,28 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new(&format!("{m}-i"), ToggleItalic, ctx),
         KeyBinding::new(&format!("{m}-u"), ToggleUnderline, ctx),
         KeyBinding::new(&format!("{m}-`"), ToggleCode, ctx),
+        KeyBinding::new("tab", Tab, ctx),
+        KeyBinding::new("shift-tab", ShiftTab, ctx),
+        KeyBinding::new(&format!("{m}-z"), Undo, ctx),
+        KeyBinding::new(&format!("{m}-shift-z"), Redo, ctx),
+        KeyBinding::new(&format!("{m}-y"), Redo, ctx),
     ]);
+}
+
+/// prosemirror-history's `newGroupDelay`.
+const HISTORY_GROUP_DELAY: Duration = Duration::from_millis(500);
+
+#[derive(Clone)]
+struct Snapshot {
+    json: String,
+    caret: Option<Caret>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EditKind {
+    Typing,
+    Deleting,
+    Structural,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -95,7 +121,11 @@ pub struct BodyEditor {
     /// toggling a mark with an empty selection.
     stored_marks: Option<Vec<&'static str>>,
     is_selecting: bool,
+    pasting: bool,
     marked_range: Option<Range<usize>>,
+    undo_stack: Vec<Snapshot>,
+    redo_stack: Vec<Snapshot>,
+    last_edit: Option<(Instant, EditKind)>,
     /// Text layouts captured while painting, one per textblock.
     layouts: Vec<Option<(TextLayout, Bounds<Pixels>)>>,
     dirty_since: Option<Instant>,
@@ -117,7 +147,11 @@ impl BodyEditor {
             anchor: None,
             stored_marks: None,
             is_selecting: false,
+            pasting: false,
             marked_range: None,
+            undo_stack: Vec::new(),
+            redo_stack: Vec::new(),
+            last_edit: None,
             dirty_since: None,
             last_input: None,
             flush_scheduled: false,
@@ -287,6 +321,60 @@ impl BodyEditor {
             let text = self.doc.text(caret.block);
             caret.offset = snap(&text, caret.offset.min(text.len()));
         }
+    }
+
+    /// Records the pre-edit state for undo; adjacent edits of the same kind
+    /// within `newGroupDelay` share one history entry.
+    fn record_edit(&mut self, kind: EditKind) {
+        let now = Instant::now();
+        let grouped = matches!(
+            self.last_edit,
+            Some((at, last_kind)) if last_kind == kind && kind != EditKind::Structural && now.duration_since(at) < HISTORY_GROUP_DELAY
+        );
+        if !grouped {
+            self.undo_stack.push(Snapshot {
+                json: self.doc.to_json(),
+                caret: self.caret,
+            });
+            if self.undo_stack.len() > 200 {
+                self.undo_stack.remove(0);
+            }
+        }
+        self.redo_stack.clear();
+        self.last_edit = Some((now, kind));
+    }
+
+    fn restore(&mut self, snapshot: Snapshot, cx: &mut Context<Self>) {
+        self.doc = Doc::parse(&snapshot.json);
+        self.layouts = vec![None; self.doc.textblock_count()];
+        self.caret = snapshot.caret;
+        self.clamp_caret();
+        self.anchor = None;
+        self.stored_marks = None;
+        self.last_edit = None;
+        self.changed(cx);
+    }
+
+    fn on_undo(&mut self, _: &Undo, _: &mut Window, cx: &mut Context<Self>) {
+        let Some(snapshot) = self.undo_stack.pop() else {
+            return;
+        };
+        self.redo_stack.push(Snapshot {
+            json: self.doc.to_json(),
+            caret: self.caret,
+        });
+        self.restore(snapshot, cx);
+    }
+
+    fn on_redo(&mut self, _: &Redo, _: &mut Window, cx: &mut Context<Self>) {
+        let Some(snapshot) = self.redo_stack.pop() else {
+            return;
+        };
+        self.undo_stack.push(Snapshot {
+            json: self.doc.to_json(),
+            caret: self.caret,
+        });
+        self.restore(snapshot, cx);
     }
 
     fn changed(&mut self, cx: &mut Context<Self>) {
@@ -533,6 +621,7 @@ impl BodyEditor {
     fn on_cut(&mut self, _: &Cut, _: &mut Window, cx: &mut Context<Self>) {
         if let Some((from, to)) = self.selection() {
             cx.write_to_clipboard(ClipboardItem::new_string(self.doc.text_between(from, to)));
+            self.record_edit(EditKind::Structural);
             self.delete_selection();
             self.changed(cx);
         }
@@ -540,7 +629,10 @@ impl BodyEditor {
 
     fn on_paste(&mut self, _: &Paste, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
+            self.record_edit(EditKind::Structural);
+            self.pasting = true;
             self.replace_text_in_range(None, &text, window, cx);
+            self.pasting = false;
         }
     }
 
@@ -548,6 +640,7 @@ impl BodyEditor {
     /// with a caret only, toggles it in the stored marks for the next input.
     fn toggle_mark(&mut self, mark: &'static str, cx: &mut Context<Self>) {
         if let Some((from, to)) = self.selection() {
+            self.record_edit(EditKind::Structural);
             self.doc.toggle_mark(from, to, mark);
             self.changed(cx);
             return;
@@ -585,7 +678,9 @@ impl BodyEditor {
     }
 
     fn on_backspace(&mut self, _: &Backspace, _: &mut Window, cx: &mut Context<Self>) {
-        if self.delete_selection() {
+        if self.selection().is_some() {
+            self.record_edit(EditKind::Structural);
+            self.delete_selection();
             self.changed(cx);
             return;
         }
@@ -593,12 +688,33 @@ impl BodyEditor {
             return;
         };
         if caret.offset == 0 {
+            // `revertBlockToParagraph`, then `joinBackward` (which lifts the
+            // first item out of a list instead of joining across it).
+            if matches!(
+                self.doc.block_type(caret.block).as_deref(),
+                Some("heading" | "codeBlock")
+            ) {
+                self.record_edit(EditKind::Structural);
+                self.doc.set_block_type(caret.block, "paragraph", None);
+                self.changed(cx);
+                return;
+            }
+            if self.doc.is_first_list_item(caret.block) {
+                self.record_edit(EditKind::Structural);
+                if let Some(next) = self.doc.lift_list_item(caret.block) {
+                    self.caret = Some(next);
+                }
+                self.changed(cx);
+                return;
+            }
+            self.record_edit(EditKind::Structural);
             if let Some(next) = self.doc.join_backward(caret.block) {
                 self.caret = Some(next);
                 self.changed(cx);
             }
             return;
         }
+        self.record_edit(EditKind::Deleting);
         let text = self.doc.text(caret.block);
         let start = previous_boundary(&text, caret.offset);
         self.doc.delete_range(caret.block, start..caret.offset);
@@ -609,8 +725,37 @@ impl BodyEditor {
         self.changed(cx);
     }
 
+    /// Tab: `sinkListItem`.
+    fn on_tab(&mut self, _: &Tab, _: &mut Window, cx: &mut Context<Self>) {
+        let Some(caret) = self.caret else {
+            return;
+        };
+        if self.doc.in_list_item(caret.block) {
+            self.record_edit(EditKind::Structural);
+            if self.doc.sink_list_item(caret.block) {
+                self.changed(cx);
+            }
+        }
+    }
+
+    /// Shift-Tab: `liftListItem`.
+    fn on_shift_tab(&mut self, _: &ShiftTab, _: &mut Window, cx: &mut Context<Self>) {
+        let Some(caret) = self.caret else {
+            return;
+        };
+        if self.doc.in_list_item(caret.block) {
+            self.record_edit(EditKind::Structural);
+            if let Some(next) = self.doc.lift_list_item(caret.block) {
+                self.caret = Some(next);
+                self.changed(cx);
+            }
+        }
+    }
+
     fn on_delete(&mut self, _: &Delete, _: &mut Window, cx: &mut Context<Self>) {
-        if self.delete_selection() {
+        if self.selection().is_some() {
+            self.record_edit(EditKind::Structural);
+            self.delete_selection();
             self.changed(cx);
             return;
         }
@@ -620,20 +765,56 @@ impl BodyEditor {
         let text = self.doc.text(caret.block);
         if caret.offset >= text.len() {
             if caret.block + 1 < self.doc.textblock_count() {
+                self.record_edit(EditKind::Structural);
                 self.doc.join_backward(caret.block + 1);
                 self.changed(cx);
             }
             return;
         }
+        self.record_edit(EditKind::Deleting);
         let end = next_boundary(&text, caret.offset);
         self.doc.delete_range(caret.block, caret.offset..end);
         self.changed(cx);
     }
 
+    /// The `Enter` chain: exit a code block from an empty last line or insert
+    /// a newline in it, lift an empty list item out of its list, otherwise
+    /// `splitBlock` (which splits list items).
     fn on_enter(&mut self, _: &Enter, _: &mut Window, cx: &mut Context<Self>) {
+        self.record_edit(EditKind::Structural);
+        self.delete_selection();
         let Some(caret) = self.caret else {
             return;
         };
+        let text = self.doc.text(caret.block);
+        if self.doc.block_type(caret.block).as_deref() == Some("codeBlock") {
+            let at_end = caret.offset >= text.len();
+            let empty_last_line = at_end && (text.is_empty() || text.ends_with('\n'));
+            if empty_last_line {
+                // `exitCodeBlockOnEmptyLine`: drop the trailing newline and
+                // continue in a paragraph after the block.
+                if !text.is_empty() {
+                    self.doc
+                        .delete_range(caret.block, text.len() - 1..text.len());
+                }
+                let end = Caret {
+                    block: caret.block,
+                    offset: self.doc.text(caret.block).len(),
+                };
+                self.caret = Some(self.doc.split_block(end));
+            } else {
+                self.caret = Some(self.doc.insert_text(caret, "\n"));
+            }
+            self.changed(cx);
+            return;
+        }
+        if self.doc.in_list_item(caret.block) && text.is_empty() {
+            if let Some(next) = self.doc.lift_list_item(caret.block) {
+                self.caret = Some(next);
+            }
+            self.changed(cx);
+            return;
+        }
         self.caret = Some(self.doc.split_block(caret));
         self.changed(cx);
     }
@@ -644,6 +825,30 @@ impl BodyEditor {
             block: 0,
             offset: 0,
         });
+        self.record_edit(EditKind::Typing);
+        // Input rules see typed text only (`handleTextInput`), never pastes.
+        if !self.pasting {
+            let in_code = self.doc.block_type(caret.block).as_deref() == Some("codeBlock")
+                || self
+                    .stored_marks
+                    .clone()
+                    .unwrap_or_else(|| self.doc.marks_at(caret))
+                    .contains(&"code");
+            if let Some(outcome) = rules::apply(&mut self.doc, caret, text, in_code) {
+                self.caret = Some(outcome.caret);
+                if let Some(mark) = outcome.clear_stored_mark {
+                    let mut marks = self
+                        .stored_marks
+                        .clone()
+                        .unwrap_or_else(|| self.doc.marks_at(outcome.caret));
+                    marks.retain(|m| *m != mark);
+                    self.stored_marks = Some(marks);
+                }
+                self.layouts = vec![None; self.doc.textblock_count()];
+                self.changed(cx);
+                return;
+            }
+        }
         let end = self.doc.insert_text(caret, text);
         if let Some(marks) = self.stored_marks.take() {
             self.doc.set_marks(caret, end, &marks);
@@ -696,6 +901,10 @@ impl BodyEditor {
             .on_action(cx.listener(Self::on_toggle_italic))
             .on_action(cx.listener(Self::on_toggle_underline))
             .on_action(cx.listener(Self::on_toggle_code))
+            .on_action(cx.listener(Self::on_tab))
+            .on_action(cx.listener(Self::on_shift_tab))
+            .on_action(cx.listener(Self::on_undo))
+            .on_action(cx.listener(Self::on_redo))
             .on_mouse_up(
                 gpui::MouseButton::Left,
                 cx.listener(|this, _: &gpui::MouseUpEvent, _, _| this.end_mouse_selection()),
@@ -769,6 +978,11 @@ impl EntityInputHandler for BodyEditor {
         cx: &mut Context<Self>,
     ) {
         self.doc.ensure_textblock();
+        // Typing over a selection replaces it.
+        if range_utf16.is_none() && self.marked_range.is_none() && self.selection().is_some() {
+            self.record_edit(EditKind::Structural);
+            self.delete_selection();
+        }
         let caret = self.caret.unwrap_or(Caret {
             block: 0,
             offset: 0,
@@ -779,12 +993,14 @@ impl EntityInputHandler for BodyEditor {
             .or_else(|| self.marked_range.clone())
             .unwrap_or(caret.offset..caret.offset);
         if !range.is_empty() {
+            self.record_edit(EditKind::Typing);
             self.doc.delete_range(caret.block, range.clone());
         }
         self.caret = Some(Caret {
             block: caret.block,
             offset: range.start,
         });
+        self.anchor = None;
         self.marked_range = None;
         // Newlines pasted into a textblock become new blocks, as in ProseMirror.
         let mut first = true;
@@ -809,10 +1025,15 @@ impl EntityInputHandler for BodyEditor {
         cx: &mut Context<Self>,
     ) {
         self.doc.ensure_textblock();
+        if range_utf16.is_none() && self.marked_range.is_none() && self.selection().is_some() {
+            self.record_edit(EditKind::Structural);
+            self.delete_selection();
+        }
         let caret = self.caret.unwrap_or(Caret {
             block: 0,
             offset: 0,
         });
+        self.anchor = None;
         let text = self.doc.text(caret.block);
         let range = range_utf16
             .map(|r| Self::utf16_to_offset(&text, r.start)..Self::utf16_to_offset(&text, r.end))

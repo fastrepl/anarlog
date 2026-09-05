@@ -392,6 +392,262 @@ impl Doc {
         }
     }
 
+    /// Node type of a textblock (`paragraph`, `heading`, `codeBlock`).
+    pub fn block_type(&self, block: usize) -> Option<String> {
+        self.textblocks
+            .get(block)
+            .and_then(|path| node_at(&self.root, path))
+            .and_then(|node| node.get("type").and_then(Value::as_str))
+            .map(str::to_string)
+    }
+
+    /// Node type of the textblock's parent (`doc`, `listItem`, `blockquote`...).
+    pub fn parent_type(&self, block: usize) -> Option<String> {
+        let path = self.textblocks.get(block)?;
+        node_at(&self.root, &path[..path.len() - 1])
+            .and_then(|node| node.get("type").and_then(Value::as_str))
+            .map(str::to_string)
+    }
+
+    /// `setBlockType`: change a textblock's type, replacing its attrs.
+    pub fn set_block_type(&mut self, block: usize, kind: &str, attrs: Option<Value>) {
+        let Some(path) = self.textblocks.get(block).cloned() else {
+            return;
+        };
+        let Some(node) = node_at_mut(&mut self.root, &path) else {
+            return;
+        };
+        let content = node.get("content").cloned();
+        let mut object = Map::new();
+        object.insert("type".into(), Value::String(kind.to_string()));
+        if let Some(attrs) = attrs {
+            object.insert("attrs".into(), attrs);
+        }
+        if let Some(content) = content {
+            object.insert("content".into(), content);
+        }
+        *node = Value::Object(object);
+        self.reindex();
+    }
+
+    /// `wrappingInputRule`: wrap the textblock in `list > listItem` (or a
+    /// `blockquote`). A preceding sibling list of the same type absorbs the
+    /// new item when `join_previous` holds, like `canJoin` + `joinPredicate`.
+    pub fn wrap_block(
+        &mut self,
+        block: usize,
+        wrapper: &str,
+        attrs: Option<Value>,
+        join_previous: bool,
+    ) {
+        let Some(path) = self.textblocks.get(block).cloned() else {
+            return;
+        };
+        let (parent_path, index) = path.split_at(path.len() - 1);
+        let index = index[0];
+        let Some(parent) = node_at_mut(&mut self.root, parent_path) else {
+            return;
+        };
+        let siblings = content_mut(parent);
+        let textblock = siblings.remove(index);
+        let wrapped = if wrapper == "blockquote" {
+            let mut quote = Map::new();
+            quote.insert("type".into(), Value::String("blockquote".into()));
+            quote.insert("content".into(), Value::Array(vec![textblock]));
+            Value::Object(quote)
+        } else {
+            let mut item = Map::new();
+            item.insert("type".into(), Value::String("listItem".into()));
+            item.insert("content".into(), Value::Array(vec![textblock]));
+            if join_previous
+                && index > 0
+                && siblings[index - 1].get("type").and_then(Value::as_str) == Some(wrapper)
+            {
+                content_mut(&mut siblings[index - 1]).push(Value::Object(item));
+                self.reindex();
+                return;
+            }
+            let mut list = Map::new();
+            list.insert("type".into(), Value::String(wrapper.to_string()));
+            if let Some(attrs) = attrs {
+                list.insert("attrs".into(), attrs);
+            }
+            list.insert("content".into(), Value::Array(vec![Value::Object(item)]));
+            Value::Object(list)
+        };
+        siblings.insert(index, wrapped);
+        self.reindex();
+    }
+
+    /// `orderedListRule`'s `joinPredicate`: the sibling before the textblock
+    /// is a list of `kind` whose numbering continues at `number`.
+    pub fn previous_sibling_list_continues_at(
+        &self,
+        block: usize,
+        kind: &str,
+        number: u64,
+    ) -> bool {
+        let Some(path) = self.textblocks.get(block) else {
+            return false;
+        };
+        let (parent_path, index) = path.split_at(path.len() - 1);
+        if index[0] == 0 {
+            return false;
+        }
+        let Some(previous) =
+            node_at(&self.root, parent_path).and_then(|parent| children(parent).get(index[0] - 1))
+        else {
+            return false;
+        };
+        if previous.get("type").and_then(Value::as_str) != Some(kind) {
+            return false;
+        }
+        let start = previous
+            .get("attrs")
+            .and_then(|attrs| attrs.get("start"))
+            .and_then(Value::as_u64)
+            .unwrap_or(1);
+        children(previous).len() as u64 + start == number
+    }
+
+    /// `horizontalRuleRule`: the textblock (which held only the shortcut)
+    /// becomes a rule followed by an empty paragraph.
+    pub fn replace_block_with_rule(&mut self, block: usize) -> Caret {
+        let Some(path) = self.textblocks.get(block).cloned() else {
+            return Caret { block, offset: 0 };
+        };
+        let (parent_path, index) = path.split_at(path.len() - 1);
+        let index = index[0];
+        if let Some(parent) = node_at_mut(&mut self.root, parent_path) {
+            let siblings = content_mut(parent);
+            siblings[index] = json!({ "type": "horizontalRule" });
+            siblings.insert(index + 1, json!({ "type": "paragraph" }));
+        }
+        self.reindex();
+        Caret { block, offset: 0 }
+    }
+
+    /// Number of items the list containing `block` has and the item's index,
+    /// when the block is the first child of a list item.
+    fn list_item_position(&self, block: usize) -> Option<(Vec<usize>, usize)> {
+        let path = self.textblocks.get(block)?;
+        if path.len() < 3 || path[path.len() - 1] != 0 {
+            return None;
+        }
+        let item_path = &path[..path.len() - 1];
+        let list_path = &item_path[..item_path.len() - 1];
+        let item = node_at(&self.root, item_path)?;
+        let kind = item.get("type").and_then(Value::as_str)?;
+        if kind != "listItem" && kind != "taskItem" {
+            return None;
+        }
+        Some((list_path.to_vec(), item_path[item_path.len() - 1]))
+    }
+
+    /// Whether the textblock starts a list item.
+    pub fn in_list_item(&self, block: usize) -> bool {
+        self.list_item_position(block).is_some()
+    }
+
+    /// Whether the textblock is its parent's first child.
+    pub fn is_first_child(&self, block: usize) -> bool {
+        self.textblocks
+            .get(block)
+            .and_then(|path| path.last())
+            .is_some_and(|index| *index == 0)
+    }
+
+    /// Whether the textblock starts the first item of its list.
+    pub fn is_first_list_item(&self, block: usize) -> bool {
+        self.list_item_position(block)
+            .is_some_and(|(_, index)| index == 0)
+    }
+
+    /// `liftListItem` for a top-level item: its content leaves the list. A
+    /// first item goes before the list, a last item after it, and a middle
+    /// item splits the list in two around it.
+    pub fn lift_list_item(&mut self, block: usize) -> Option<Caret> {
+        let (list_path, item_index) = self.list_item_position(block)?;
+        let (grand_path, list_index) = list_path.split_at(list_path.len() - 1);
+        let list_index = list_index[0];
+        let list = node_at_mut(&mut self.root, &list_path)?;
+        let items = content_mut(list);
+        let item = items.remove(item_index);
+        let lifted = children(&item).to_vec();
+        let remaining_after: Vec<Value> = if item_index < items.len() {
+            items.drain(item_index..).collect()
+        } else {
+            Vec::new()
+        };
+        let list_empty = items.is_empty();
+        let list_type = list
+            .get("type")
+            .and_then(Value::as_str)
+            .unwrap_or("bulletList")
+            .to_string();
+        let list_attrs = list.get("attrs").cloned();
+
+        let grand = node_at_mut(&mut self.root, grand_path)?;
+        let siblings = content_mut(grand);
+        let mut insert_at = list_index + 1;
+        if list_empty {
+            siblings.remove(list_index);
+            insert_at = list_index;
+        } else if item_index == 0 {
+            insert_at = list_index;
+        }
+        let lifted_len = lifted.len();
+        for (offset, node) in lifted.into_iter().enumerate() {
+            siblings.insert(insert_at + offset, node);
+        }
+        if !remaining_after.is_empty() {
+            let mut tail = Map::new();
+            tail.insert("type".into(), Value::String(list_type));
+            if let Some(attrs) = list_attrs {
+                tail.insert("attrs".into(), attrs);
+            }
+            tail.insert("content".into(), Value::Array(remaining_after));
+            siblings.insert(insert_at + lifted_len, Value::Object(tail));
+        }
+        self.reindex();
+        Some(Caret { block, offset: 0 })
+    }
+
+    /// `sinkListItem`: nest the item under the previous item as a sublist.
+    pub fn sink_list_item(&mut self, block: usize) -> bool {
+        let Some((list_path, item_index)) = self.list_item_position(block) else {
+            return false;
+        };
+        if item_index == 0 {
+            return false;
+        }
+        let Some(list) = node_at_mut(&mut self.root, &list_path) else {
+            return false;
+        };
+        let list_type = list
+            .get("type")
+            .and_then(Value::as_str)
+            .unwrap_or("bulletList")
+            .to_string();
+        let items = content_mut(list);
+        let item = items.remove(item_index);
+        let previous = &mut items[item_index - 1];
+        let previous_children = content_mut(previous);
+        match previous_children.last_mut() {
+            Some(last) if last.get("type").and_then(Value::as_str) == Some(list_type.as_str()) => {
+                content_mut(last).push(item);
+            }
+            _ => {
+                let mut sublist = Map::new();
+                sublist.insert("type".into(), Value::String(list_type));
+                sublist.insert("content".into(), Value::Array(vec![item]));
+                previous_children.push(Value::Object(sublist));
+            }
+        }
+        self.reindex();
+        true
+    }
+
     /// Marks typed text would inherit at the caret (`$from.marks()`): those
     /// of the text node before it, or after it at the start of the block.
     pub fn marks_at(&self, caret: Caret) -> Vec<&'static str> {
@@ -626,7 +882,15 @@ pub fn order(a: Caret, b: Caret) -> (Caret, Caret) {
 
 /// Mark names in schema order (`packages/editor/src/note/schema.ts`), which
 /// is the rank ProseMirror keeps a node's `marks` array sorted by.
-const MARK_RANK: [&str; 6] = ["bold", "italic", "underline", "strike", "code", "link"];
+const MARK_RANK: [&str; 7] = [
+    "bold",
+    "italic",
+    "underline",
+    "strike",
+    "code",
+    "link",
+    "highlight",
+];
 
 fn mark_rank(mark: &Value) -> usize {
     mark.get("type")
@@ -844,6 +1108,72 @@ mod tests {
         doc.toggle_mark(caret(0, 0), caret(0, 14), "italic");
         doc.toggle_mark(caret(0, 5), caret(0, 9), "bold");
         assert_eq!(doc.to_json(), body);
+    }
+
+    #[test]
+    fn block_types_lists_and_rules_follow_the_input_rules() {
+        let mut doc = Doc::parse(
+            r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Title"}]}]}"#,
+        );
+        doc.set_block_type(0, "heading", Some(json!({ "level": 2 })));
+        assert_eq!(
+            doc.to_json(),
+            r#"{"type":"doc","content":[{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Title"}]}]}"#
+        );
+        assert_eq!(doc.block_type(0).as_deref(), Some("heading"));
+        assert_eq!(doc.parent_type(0).as_deref(), Some("doc"));
+        doc.set_block_type(0, "paragraph", None);
+        assert_eq!(
+            doc.to_json(),
+            r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Title"}]}]}"#
+        );
+
+        // `- ` wraps in a bullet list; a following `- ` joins the same list.
+        doc.wrap_block(0, "bulletList", None, true);
+        let c = doc.split_block(caret(0, 5));
+        doc.lift_list_item(c.block).unwrap();
+        doc.insert_text(caret(1, 0), "next");
+        doc.wrap_block(1, "bulletList", None, true);
+        assert_eq!(
+            doc.to_json(),
+            r#"{"type":"doc","content":[{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Title"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"next"}]}]}]}]}"#
+        );
+        assert!(doc.in_list_item(1));
+
+        // Tab nests the second item under the first.
+        assert!(doc.sink_list_item(1));
+        assert_eq!(
+            doc.to_json(),
+            r#"{"type":"doc","content":[{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Title"}]},{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"next"}]}]}]}]}]}]}"#
+        );
+
+        // Ordered lists carry their start attr; `---` becomes a rule.
+        let mut doc = Doc::parse(
+            r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"a"}]},{"type":"paragraph"},{"type":"paragraph","content":[{"type":"text","text":"b"}]}]}"#,
+        );
+        doc.wrap_block(2, "orderedList", Some(json!({ "start": 3 })), true);
+        let c = doc.replace_block_with_rule(1);
+        assert_eq!(c, caret(1, 0));
+        assert_eq!(
+            doc.to_json(),
+            r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"a"}]},{"type":"horizontalRule"},{"type":"paragraph"},{"type":"orderedList","attrs":{"start":3},"content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"b"}]}]}]}]}"#
+        );
+    }
+
+    #[test]
+    fn lifting_a_middle_item_splits_the_list() {
+        let body = r#"{"type":"doc","content":[{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"1"}]}]},{"type":"listItem","content":[{"type":"paragraph"}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"3"}]}]}]}]}"#;
+        let mut doc = Doc::parse(body);
+        assert_eq!(doc.lift_list_item(1), Some(caret(1, 0)));
+        assert_eq!(
+            doc.to_json(),
+            r#"{"type":"doc","content":[{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"1"}]}]}]},{"type":"paragraph"},{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"3"}]}]}]}]}"#
+        );
+        // Lifting the only item removes the list.
+        assert_eq!(doc.lift_list_item(0), Some(caret(0, 0)));
+        assert_eq!(doc.block_type(0).as_deref(), Some("paragraph"));
+        assert_eq!(doc.parent_type(0).as_deref(), Some("doc"));
+        assert!(!doc.in_list_item(0));
     }
 
     #[test]
