@@ -13,10 +13,6 @@ vi.mock("./body", () => ({
   ChatBody: () => <div data-testid="chat-body" />,
 }));
 
-vi.mock("./context-bar", () => ({
-  ContextBar: () => <div data-testid="context-bar" />,
-}));
-
 vi.mock("./input", () => ({
   ChatMessageInput: ({
     onSendMessage,
@@ -68,7 +64,6 @@ const renderContent = (onAddContextEntity = vi.fn()) => {
       status="ready"
       model={{} as never}
       handleSendMessage={vi.fn()}
-      contextEntities={[]}
       pendingRefs={[]}
       onAddContextEntity={onAddContextEntity}
       isSystemPromptReady
@@ -103,7 +98,6 @@ describe("ChatContent", () => {
         status="ready"
         model={{} as never}
         handleSendMessage={vi.fn()}
-        contextEntities={[]}
         pendingRefs={[]}
         isSystemPromptReady
       />,
@@ -115,7 +109,7 @@ describe("ChatContent", () => {
     expect(content?.className).not.toContain("shrink-0");
   });
 
-  it("hides context chips without removing context from new messages", () => {
+  it("keeps context on new messages", () => {
     const handleSendMessage = vi.fn();
     const sendMessage = vi.fn();
     const contextRef = {
@@ -134,20 +128,10 @@ describe("ChatContent", () => {
         status="ready"
         model={{} as never}
         handleSendMessage={handleSendMessage}
-        contextEntities={[
-          {
-            ...contextRef,
-            source: "manual",
-            name: "Artem",
-            pending: true,
-          },
-        ]}
         pendingRefs={[contextRef]}
         isSystemPromptReady
       />,
     );
-
-    expect(screen.queryByTestId("context-bar")).toBeNull();
 
     fireEvent.click(screen.getByTestId("chat-input"));
 
@@ -207,7 +191,6 @@ describe("ChatContent", () => {
         status="streaming"
         model={{} as never}
         handleSendMessage={handleSendMessage}
-        contextEntities={[]}
         pendingRefs={[]}
         isSystemPromptReady
       />,
@@ -231,7 +214,6 @@ describe("ChatContent", () => {
         status="streaming"
         model={{} as never}
         handleSendMessage={handleSendMessage}
-        contextEntities={[]}
         pendingRefs={[]}
         isSystemPromptReady
       />,
@@ -256,7 +238,6 @@ describe("ChatContent", () => {
         status="ready"
         model={{} as never}
         handleSendMessage={handleSendMessage}
-        contextEntities={[]}
         pendingRefs={[]}
         isSystemPromptReady
       />,
@@ -278,7 +259,6 @@ describe("ChatContent", () => {
         status="streaming"
         model={{} as never}
         handleSendMessage={handleSendMessage}
-        contextEntities={[]}
         pendingRefs={[
           { kind: "session", key: "session:auto", sessionId: "s1" },
         ]}
@@ -298,7 +278,6 @@ describe("ChatContent", () => {
         status="ready"
         model={{} as never}
         handleSendMessage={handleSendMessage}
-        contextEntities={[]}
         pendingRefs={[]}
         isSystemPromptReady
       />,
@@ -327,7 +306,6 @@ describe("ChatContent", () => {
         status="streaming"
         model={{} as never}
         handleSendMessage={handleSendMessage}
-        contextEntities={[]}
         pendingRefs={[]}
         isSystemPromptReady
       />,
@@ -346,7 +324,6 @@ describe("ChatContent", () => {
         status="ready"
         model={{} as never}
         handleSendMessage={handleSendMessage}
-        contextEntities={[]}
         pendingRefs={[]}
         isSystemPromptReady
       />,

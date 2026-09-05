@@ -21,8 +21,6 @@ import {
   parseSharedNoteCommentPage,
   parseSharedNoteLinkPreview,
   parseSharedNotePreview,
-  parseSharedNoteWebEditConflict,
-  parseSharedNoteWebEditSnapshot,
   withoutDuplicateLeadingTitle,
 } from "./shared-notes.ts";
 
@@ -160,45 +158,6 @@ test("parses a short-link preview with its resolved share ID", () => {
   );
 });
 
-test("parses the exact web-edit snapshot without weakening public reads", () => {
-  const response = {
-    shareId: "00000000-0000-4000-8000-000000000001",
-    schemaVersion: 1,
-    contentRevision: 3,
-    title: "Weekly sync",
-    body: BODY,
-    attachments: [],
-    publishedAt: "2026-07-17T12:00:00Z",
-    accessVersion: 8,
-    webEditable: true,
-  };
-  const edited = parseSharedNoteWebEditSnapshot(response);
-
-  assert.equal(edited.snapshot.contentRevision, 3);
-  assert.equal(edited.accessVersion, 8);
-  assert.equal(edited.webEditable, true);
-  assert.throws(() =>
-    parseSharedNoteWebEditSnapshot({
-      ...edited.snapshot,
-      webEditable: true,
-    }),
-  );
-  assert.deepEqual(
-    parseSharedNoteWebEditConflict({
-      code: "snapshot_conflict",
-      snapshot: response,
-    }),
-    edited,
-  );
-  assert.throws(() =>
-    parseSharedNoteWebEditConflict({
-      code: "snapshot_conflict",
-      snapshot: response,
-      internalReason: "do not expose",
-    }),
-  );
-});
-
 test("maps authenticated snake-case RPC rows without internal identifiers", () => {
   const result = parseAuthenticatedSharedNote({
     share_id: "00000000-0000-4000-8000-000000000001",
@@ -219,7 +178,6 @@ test("maps authenticated snake-case RPC rows without internal identifiers", () =
   assert.equal(result.capability, "commenter");
   assert.equal(result.manageAccess, true);
   assert.equal(result.accessVersion, 7);
-  assert.equal(result.webEditable, false);
   assert.equal("workspaceId" in result.snapshot, false);
   assert.equal("sessionId" in result.snapshot, false);
   assert.throws(() =>

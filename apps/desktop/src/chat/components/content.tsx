@@ -12,7 +12,6 @@ import {
   hasSessionContextDragData,
   readSessionContextDragData,
 } from "~/chat/context/session-drag";
-import type { DisplayEntity } from "~/chat/context/use-chat-context-pipeline";
 import type { ChatMessageSender, AnlgUIMessage } from "~/chat/types";
 import { id } from "~/shared/utils";
 
@@ -58,9 +57,7 @@ export function ChatContent({
     sendMessage: ChatMessageSender,
     contextRefs?: ContextRef[],
   ) => void;
-  contextEntities: DisplayEntity[];
   pendingRefs: ContextRef[];
-  onRemoveContextEntity?: (key: string) => void;
   onAddContextEntity?: (ref: ContextRef) => void;
   onDraftContentChange?: (hasDraftContent: boolean) => void;
   onDraftContextRefsChange?: (refs: ContextRef[]) => void;

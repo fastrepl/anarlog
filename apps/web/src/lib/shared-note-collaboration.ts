@@ -54,8 +54,8 @@ export function formatAuthenticatedSharedNoteAccessLabel({
   capability: SharedNoteCapability;
   manageAccess: boolean;
 }) {
-  if (manageAccess) return "You manage this note · Can edit and comment";
-  if (capability === "editor") return "Shared with you · Can edit and comment";
+  if (manageAccess) return "You manage this note · Can comment";
+  if (capability === "editor") return "Shared with you · Can comment";
   if (capability === "commenter") return "Shared with you · Can comment";
   return "Shared with you · View only";
 }

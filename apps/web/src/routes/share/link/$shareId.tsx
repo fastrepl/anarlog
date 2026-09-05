@@ -6,8 +6,8 @@ import { useShareRouteContinuation } from "@/components/share-route-continuation
 import { LinkSharedNoteActions } from "@/components/shared-note-actions";
 import { SharedNoteChatPanel } from "@/components/shared-note-chat-panel";
 import { SharedNoteCollaboration } from "@/components/shared-note-collaboration";
+import { SharedNoteCollaborationViewer } from "@/components/shared-note-collaboration-viewer";
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
-import { SharedNoteEditableViewer } from "@/components/shared-note-editable-viewer";
 import {
   SharedNoteLoading,
   SharedNoteTransientError,
@@ -33,10 +33,7 @@ import {
   getPrivateShareHead,
   privateShareHeaders,
 } from "@/lib/shared-note-meta";
-import {
-  getLinkSharedNoteFallbackSnapshot,
-  getLinkSharedNoteRouteGate,
-} from "@/lib/shared-note-route-state";
+import { getLinkSharedNoteRouteGate } from "@/lib/shared-note-route-state";
 import {
   buildSharedNoteWebPath,
   linkSharePreviewTokenSchema,
@@ -212,27 +209,16 @@ export function LinkSharedNoteClient({
   if (!snapshot) {
     return <SharedNoteUnavailable />;
   }
-  const fallbackSnapshot = getLinkSharedNoteFallbackSnapshot({
-    authenticatedSnapshot: authenticatedNote?.snapshot ?? null,
-    linkSnapshot,
-  });
   const returnPath = buildSharedNoteWebPath(pathname, scheme);
 
   return (
     <>
-      <SharedNoteEditableViewer
+      <SharedNoteCollaborationViewer
         key={snapshot.shareId}
         snapshot={snapshot}
         authenticatedNote={authenticatedNote}
-        fallbackAccessLabel={
-          linkSnapshot
-            ? "Anyone with the link · View only"
-            : "Shared note · View only"
-        }
-        fallbackSnapshot={fallbackSnapshot}
         meetingMetadata={meetingMetadata}
         resolveAttachment={resolveAttachment}
-        revokedBehavior="read-only"
         signedIn={currentUserId !== null}
         accessLabel={
           authenticatedNote &&

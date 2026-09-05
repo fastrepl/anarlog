@@ -101,12 +101,6 @@ export type SharedNoteLinkPreview = SharedNotePreview & {
   shareId: string;
 };
 
-export type SharedNoteWebEditSnapshot = {
-  snapshot: SharedNoteSnapshot;
-  accessVersion: number;
-  webEditable: boolean;
-};
-
 export type SharedNoteAttachment = {
   id: string;
   filename: string;
@@ -139,7 +133,6 @@ export type AuthenticatedSharedNote = {
   capability: SharedNoteCapability;
   manageAccess: boolean;
   accessVersion: number;
-  webEditable: boolean;
 };
 
 export type SharedNoteCommentAnchor = {
@@ -293,20 +286,6 @@ const sharedNoteLinkPreviewSchema = sharedNotePreviewSchema
   .extend({ shareId: shareIdSchema })
   .strict();
 
-const webEditSnapshotSchema = gatewaySnapshotSchema
-  .extend({
-    accessVersion: z.number().int().positive().safe(),
-    webEditable: z.boolean(),
-  })
-  .strict();
-
-const webEditConflictResponseSchema = z
-  .object({
-    code: z.literal("snapshot_conflict"),
-    snapshot: z.unknown(),
-  })
-  .strict();
-
 const authenticatedSnapshotRowSchema = z
   .object({
     share_id: shareIdSchema,
@@ -318,7 +297,6 @@ const authenticatedSnapshotRowSchema = z
     capability: z.enum(["viewer", "commenter", "editor"]),
     manage_access: z.boolean(),
     access_version: z.number().int().positive().safe(),
-    web_editable: z.boolean(),
     published_at: z.string(),
   })
   .passthrough();
@@ -488,25 +466,6 @@ export function parseSharedNoteLinkPreview(
   };
 }
 
-export function parseSharedNoteWebEditSnapshot(
-  value: unknown,
-): SharedNoteWebEditSnapshot {
-  const parsed = webEditSnapshotSchema.parse(value);
-  const { accessVersion, webEditable, ...snapshot } = parsed;
-  return {
-    accessVersion,
-    webEditable,
-    snapshot: parseGatewaySharedNote(snapshot),
-  };
-}
-
-export function parseSharedNoteWebEditConflict(
-  value: unknown,
-): SharedNoteWebEditSnapshot {
-  const parsed = webEditConflictResponseSchema.parse(value);
-  return parseSharedNoteWebEditSnapshot(parsed.snapshot);
-}
-
 export function parseAuthenticatedSharedNote(
   value: unknown,
 ): AuthenticatedSharedNote {
@@ -515,7 +474,6 @@ export function parseAuthenticatedSharedNote(
     capability: parsed.capability,
     manageAccess: parsed.manage_access,
     accessVersion: parsed.access_version,
-    webEditable: parsed.web_editable,
     snapshot: {
       shareId: parsed.share_id,
       schemaVersion: parsed.schema_version,

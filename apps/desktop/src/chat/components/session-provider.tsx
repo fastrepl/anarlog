@@ -63,7 +63,6 @@ export type ChatSessionRenderProps = {
   error?: Error;
   contextEntities: DisplayEntity[];
   pendingRefs: ContextRef[];
-  onRemoveContextEntity: (key: string) => void;
   onAddContextEntity: (ref: ContextRef) => void;
   onDraftContextRefsChange: (refs: ContextRef[]) => void;
   isSystemPromptReady: boolean;
@@ -181,11 +180,6 @@ function ChatSessionLifecycle({
     setPendingManualRefs((prev) =>
       prev.some((r) => r.key === ref.key) ? prev : [...prev, ref],
     );
-  }, []);
-
-  const onRemoveContextEntity = useCallback((key: string) => {
-    setPendingManualRefs((prev) => prev.filter((r) => r.key !== key));
-    setPendingDraftRefs((prev) => prev.filter((r) => r.key !== key));
   }, []);
 
   const onDraftContextRefsChange = useCallback((refs: ContextRef[]) => {
@@ -765,7 +759,6 @@ function ChatSessionLifecycle({
     error,
     contextEntities,
     pendingRefs,
-    onRemoveContextEntity,
     onAddContextEntity,
     onDraftContextRefsChange,
     isSystemPromptReady,

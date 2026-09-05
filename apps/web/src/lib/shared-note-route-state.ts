@@ -1,5 +1,3 @@
-import type { SharedNoteSnapshot } from "./shared-notes";
-
 export function getInvitationRouteFailure({
   acceptanceFailed,
   inspectionFailed,
@@ -41,14 +39,4 @@ export function getLinkSharedNoteRouteGate({
     return "loading";
   }
   return null;
-}
-
-export function getLinkSharedNoteFallbackSnapshot({
-  authenticatedSnapshot,
-  linkSnapshot,
-}: {
-  authenticatedSnapshot: SharedNoteSnapshot | null;
-  linkSnapshot: SharedNoteSnapshot | null;
-}): SharedNoteSnapshot | null {
-  return linkSnapshot ?? authenticatedSnapshot;
 }

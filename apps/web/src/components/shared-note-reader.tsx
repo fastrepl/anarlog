@@ -5,7 +5,7 @@ import {
   SharedNoteDocument,
 } from "@/components/shared-note-document";
 import { useMountEffect } from "@/hooks/useMountEffect";
-import { hasUnsupportedSharedNoteEditorNode } from "@/lib/shared-note-editing";
+import { hasUnsupportedSharedNoteInteractiveNode } from "@/lib/shared-note-interactivity";
 import {
   type SharedNoteSnapshot,
   withoutDuplicateLeadingTitle,
@@ -46,7 +46,7 @@ export function SharedNoteReader({
     />
   );
 
-  if (!interactive || hasUnsupportedSharedNoteEditorNode(snapshot.body)) {
+  if (!interactive || hasUnsupportedSharedNoteInteractiveNode(snapshot.body)) {
     return staticDocument;
   }
 

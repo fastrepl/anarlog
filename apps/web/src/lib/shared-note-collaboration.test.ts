@@ -196,7 +196,7 @@ test("access labels match the authenticated capability", () => {
       capability: "editor",
       manageAccess: true,
     }),
-    "You manage this note · Can edit and comment",
+    "You manage this note · Can comment",
   );
 });
 

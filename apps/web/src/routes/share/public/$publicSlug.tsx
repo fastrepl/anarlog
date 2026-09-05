@@ -5,7 +5,7 @@ import { PublicSharedNoteActions } from "@/components/shared-note-actions";
 import { SharedNoteChatPanel } from "@/components/shared-note-chat-panel";
 import { SharedNoteCollaboration } from "@/components/shared-note-collaboration";
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
-import { SharedNoteEditableViewer } from "@/components/shared-note-editable-viewer";
+import { SharedNoteCollaborationViewer } from "@/components/shared-note-collaboration-viewer";
 import {
   SharedNoteLoading,
   SharedNoteTransientError,
@@ -121,15 +121,12 @@ function Component() {
 
   return (
     <>
-      <SharedNoteEditableViewer
+      <SharedNoteCollaborationViewer
         key={snapshot.shareId}
         snapshot={snapshot}
         authenticatedNote={authenticatedNote}
-        fallbackAccessLabel="Public note · View only"
-        fallbackSnapshot={result.snapshot}
         meetingMetadata={preview}
         resolveAttachment={resolveAttachment}
-        revokedBehavior="read-only"
         signedIn={user !== null}
         accessLabel={accessLabel}
         collaboration={

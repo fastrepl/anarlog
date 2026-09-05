@@ -22,7 +22,6 @@ const mocks = vi.hoisted(() => ({
     messages: [],
     onAddContextEntity: vi.fn(),
     onDraftContextRefsChange: vi.fn(),
-    onRemoveContextEntity: vi.fn(),
     pendingRefs: [],
     regenerate: vi.fn(),
     sendMessage: vi.fn(),
