@@ -8,6 +8,7 @@ import {
   SignIn,
   Sparkle,
 } from "@anlg/ui/components/icons";
+import { streamdownIcons } from "@anlg/ui/components/streamdown-icons";
 import {
   Dialog,
   DialogContent,
@@ -249,7 +250,7 @@ function ChatBody({
             </div>
           ) : (
             <div key={index} className="text-color min-w-0 text-sm leading-6">
-              <Streamdown>{message.content}</Streamdown>
+              <Streamdown icons={streamdownIcons}>{message.content}</Streamdown>
             </div>
           ),
         )}
@@ -261,7 +262,7 @@ function ChatBody({
             </p>
           ) : (
             <div className="text-color min-w-0 text-sm leading-6">
-              <Streamdown>{streaming}</Streamdown>
+              <Streamdown icons={streamdownIcons}>{streaming}</Streamdown>
             </div>
           ))}
         {errorMessage && (

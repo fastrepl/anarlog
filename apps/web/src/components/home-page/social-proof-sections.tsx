@@ -306,26 +306,10 @@ export function CredibilityLogoMarquee() {
         <p className="absolute top-0 left-0 w-max -rotate-[3deg] font-['Reenie_Beanie','Patrick_Hand',cursive] text-[25px] leading-none font-normal whitespace-nowrap lg:text-[28px]">
           people love us at
         </p>
-        <svg
+        <ArrowRight
           className="absolute top-[1.65rem] left-[1.15rem] h-[2.9rem] w-[4.65rem] rotate-[5deg] text-neutral-950"
-          viewBox="0 0 74 46"
-          fill="none"
-        >
-          <path
-            d="M7 8L56 30"
-            stroke="currentColor"
-            strokeWidth="2.1"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M44 22L57 30L42 37"
-            stroke="currentColor"
-            strokeWidth="2.1"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+          aria-hidden="true"
+        />
       </div>
 
       <div className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-white motion-reduce:overflow-visible">

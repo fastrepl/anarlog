@@ -1,6 +1,7 @@
 import { Trans } from "@lingui/react/macro";
 import { Streamdown } from "streamdown";
 
+import { streamdownIcons } from "@anlg/ui/components/streamdown-icons";
 import { cn } from "@anlg/utils";
 
 import { streamdownComponents } from "../../streamdown";
@@ -101,6 +102,7 @@ export function StreamingView({
       <div className="flex flex-col gap-1">
         <SummaryTitleSpace title={visibleTitle} />
         <Streamdown
+          icons={streamdownIcons}
           components={streamdownComponents}
           className={cn(["note-typography", "flex flex-col"])}
           caret="block"

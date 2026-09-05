@@ -3,6 +3,7 @@ import { getIdentifier, getVersion } from "@tauri-apps/api/app";
 import { useReducer, useState } from "react";
 
 import { commands as miscCommands } from "@anlg/plugin-misc";
+import { Copy, Minus } from "@anlg/ui/components/icons";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -198,7 +199,7 @@ function DevtoolsStatusBarContent(props: Record<never, never>) {
             className={BUTTON_CLASS}
             onClick={() => void copyDiagnostics()}
           >
-            ↓
+            <Copy size={12} aria-hidden="true" />
           </button>
         </Hint>
         <Hint content="Collapse the developer bar">
@@ -208,7 +209,7 @@ function DevtoolsStatusBarContent(props: Record<never, never>) {
             className={cn([BUTTON_CLASS, "pr-2.5"])}
             onClick={toggleCollapsed}
           >
-            _
+            <Minus size={12} aria-hidden="true" />
           </button>
         </Hint>
       </footer>

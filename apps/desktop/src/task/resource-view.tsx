@@ -12,6 +12,7 @@ import {
   RadioButton,
   XCircle,
 } from "@anlg/ui/components/icons";
+import { streamdownIcons } from "@anlg/ui/components/streamdown-icons";
 import { cn } from "@anlg/utils";
 
 import { streamdownComponents } from "~/session/components/streamdown";
@@ -173,6 +174,7 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
           {issue.body ? (
             <div className="border-border border-t pt-4">
               <Streamdown
+                icons={streamdownIcons}
                 className="note-typography text-muted-foreground mt-1 [--note-editor-font-size:0.875rem]"
                 components={streamdownComponents}
                 isAnimating={false}
@@ -228,6 +230,7 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
                     <div className="px-4 py-3">
                       {comment.body ? (
                         <Streamdown
+                          icons={streamdownIcons}
                           className="note-typography text-muted-foreground mt-1 [--note-editor-font-size:0.875rem]"
                           components={streamdownComponents}
                           isAnimating={false}

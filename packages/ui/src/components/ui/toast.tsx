@@ -5,6 +5,15 @@ import {
   type ExternalToast,
 } from "sonner";
 
+import {
+  CheckCircle,
+  CircleNotch,
+  Info,
+  Warning,
+  WarningCircle,
+  X,
+} from "@anlg/ui/components/icons";
+
 export const TOAST_DURATIONS = {
   success: 3_000,
   info: 4_000,
@@ -88,6 +97,7 @@ const Toaster = ({
   position = "bottom-right",
   richColors = true,
   closeButton = true,
+  icons,
   style,
   ...props
 }: ToasterProps) => (
@@ -96,6 +106,17 @@ const Toaster = ({
     position={position}
     richColors={richColors}
     closeButton={closeButton}
+    icons={{
+      success: <CheckCircle size={20} aria-hidden="true" />,
+      info: <Info size={20} aria-hidden="true" />,
+      warning: <Warning size={20} aria-hidden="true" />,
+      error: <WarningCircle size={20} aria-hidden="true" />,
+      loading: (
+        <CircleNotch size={20} className="animate-spin" aria-hidden="true" />
+      ),
+      close: <X size={12} aria-hidden="true" />,
+      ...icons,
+    }}
     className="toaster group"
     style={{ "--width": "300px", ...style } as CSSProperties}
     toastOptions={{

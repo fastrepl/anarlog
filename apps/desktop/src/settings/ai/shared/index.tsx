@@ -12,6 +12,7 @@ import {
   CircleNotch,
   WarningCircle,
 } from "@anlg/ui/components/icons";
+import { streamdownIcons } from "@anlg/ui/components/streamdown-icons";
 import {
   AccordionContent,
   AccordionItem,
@@ -771,6 +772,7 @@ export function StyledStreamdown({
 }) {
   return (
     <Streamdown
+      icons={streamdownIcons}
       components={streamdownComponents}
       className={cn(["mt-1 text-sm", className])}
       isAnimating={false}

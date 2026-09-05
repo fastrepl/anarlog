@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Streamdown } from "streamdown";
 
 import { CircleNotch, XCircle } from "@anlg/ui/components/icons";
+import { streamdownIcons } from "@anlg/ui/components/streamdown-icons";
 import { cn } from "@anlg/utils";
 
 import { extractMcpOutputText } from "~/chat/mcp/mcp-output-parser";
@@ -134,6 +135,7 @@ export function MarkdownPreview({ children }: { children: string }) {
     <div className="border-border/80 bg-card rounded-lg border">
       <div className="max-h-64 overflow-y-auto px-3 py-2.5">
         <Streamdown
+          icons={streamdownIcons}
           className="text-muted-foreground text-[13px] leading-relaxed"
           linkSafety={{ enabled: false }}
         >

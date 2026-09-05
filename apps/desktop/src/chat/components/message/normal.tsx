@@ -8,6 +8,7 @@ import {
   Check,
   Copy,
 } from "@anlg/ui/components/icons";
+import { streamdownIcons } from "@anlg/ui/components/streamdown-icons";
 import { cn } from "@anlg/utils";
 
 import { Disclosure, MessageBubble, MessageContainer } from "./shared";
@@ -206,6 +207,7 @@ function Text({ part }: { part: Extract<Part, { type: "text" }> }) {
 
   return (
     <Streamdown
+      icons={streamdownIcons}
       components={chatComponents}
       className="overflow-wrap-anywhere min-w-0 px-0.5 py-1"
       caret="block"

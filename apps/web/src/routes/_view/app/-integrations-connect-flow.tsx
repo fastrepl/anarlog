@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { createSession } from "@anlg/api-client";
 import { createClient } from "@anlg/api-client/client";
+import { CircleNotch } from "@anlg/ui/components/icons";
 
 import { env } from "@/env";
 import { getAccessToken } from "@/functions/access-token";
@@ -340,26 +341,10 @@ export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
           disabled={isLoading || !connectSessionToken}
         >
           {(status === "loading" || sessionLoading) && (
-            <svg
-              className="h-4 w-4 animate-spin text-white"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-              />
-            </svg>
+            <CircleNotch
+              className="size-4 animate-spin text-white"
+              aria-hidden="true"
+            />
           )}
           {status === "loading"
             ? "Connecting…"

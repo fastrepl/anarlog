@@ -2,6 +2,7 @@ import { MDXContent } from "@content-collections/mdx/react";
 import { Link } from "@tanstack/react-router";
 import type { Legal } from "content-collections";
 
+import { ArrowLeft } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { getCanonicalUrl } from "@/lib/seo";
@@ -29,9 +30,10 @@ export function LegalDocument({ doc }: { doc: Legal }) {
       <div className="mx-auto w-full max-w-[700px] px-5 py-14 md:px-8 md:py-16">
         <Link
           to="/"
-          className="mb-10 inline-block text-sm text-[#756b5d] transition-colors hover:text-[#181613]"
+          className="mb-10 inline-flex items-center gap-1 text-sm text-[#756b5d] transition-colors hover:text-[#181613]"
         >
-          ← Home
+          <ArrowLeft size={14} aria-hidden="true" />
+          Home
         </Link>
 
         <header className="mb-10">

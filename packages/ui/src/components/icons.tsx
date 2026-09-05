@@ -200,6 +200,8 @@ import {
   Wrench01Icon,
   XIcon,
   ZapIcon,
+  ZoomInIcon,
+  ZoomOutIcon,
 } from "@hugeicons/core-free-icons";
 import {
   HugeiconsIcon,
@@ -577,6 +579,14 @@ export const MagicWand = /* @__PURE__ */ createIcon(
 export const MagnifyingGlass = /* @__PURE__ */ createIcon(
   Search01Icon,
   "MagnifyingGlass",
+);
+export const MagnifyingGlassPlus = /* @__PURE__ */ createIcon(
+  ZoomInIcon,
+  "MagnifyingGlassPlus",
+);
+export const MagnifyingGlassMinus = /* @__PURE__ */ createIcon(
+  ZoomOutIcon,
+  "MagnifyingGlassMinus",
 );
 export const MapPin = /* @__PURE__ */ createIcon(MapPinIcon, "MapPin");
 export const MapTrifold = /* @__PURE__ */ createIcon(MapIcon, "MapTrifold");

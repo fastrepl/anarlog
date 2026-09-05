@@ -1,6 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 
 import { ChangelogContent } from "@anlg/changelog";
+import { ArrowLeft } from "@anlg/ui/components/icons";
 
 import { SiteFooter } from "@/components/site-footer";
 import { formatChangelogDate, getChangelogEntry } from "@/lib/changelog";
@@ -63,9 +64,10 @@ function Component() {
 
         <Link
           to="/changelog/"
-          className="mt-16 inline-block text-sm text-[#756b5d] hover:text-[#181613]"
+          className="mt-16 inline-flex items-center gap-1 text-sm text-[#756b5d] hover:text-[#181613]"
         >
-          ← Changelog
+          <ArrowLeft size={14} aria-hidden="true" />
+          Changelog
         </Link>
 
         <header className="max-w-[760px] pt-10 pb-12 md:pt-14 md:pb-16">

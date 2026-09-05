@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 
+import { ArrowRight } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { Image as OptimizedImage } from "@/components/image";
@@ -59,7 +60,12 @@ function CtaCard({
       {description && (
         <div className="mb-3 text-sm text-neutral-600">{description}</div>
       )}
-      {cta && <div className="text-sm text-stone-600">{cta} →</div>}
+      {cta && (
+        <div className="flex items-center gap-1 text-sm text-stone-600">
+          {cta}
+          <ArrowRight size={14} aria-hidden="true" />
+        </div>
+      )}
     </a>
   );
 }
