@@ -236,6 +236,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 44,
     paddingHorizontal: Spacing.sm,
+    transform: [{ translateY: -2 }],
     ...Typography.body,
     color: Colors.ink,
   },
