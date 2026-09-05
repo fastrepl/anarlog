@@ -903,6 +903,12 @@ impl Workspace {
             SettingsTab::Intelligence => {
                 self.render_ai_settings(super::ai_settings::ProviderKind::Llm, title, window, cx)
             }
+            SettingsTab::Privacy => div()
+                .flex()
+                .flex_col()
+                .gap_8()
+                .child(title)
+                .child(self.render_privacy_settings(cx)),
             SettingsTab::Meetings => div()
                 .flex()
                 .flex_col()
@@ -1238,6 +1244,62 @@ impl Workspace {
             );
         }
         page
+    }
+
+    /// `SettingsPrivacy`: Lock app (disabled where device authentication is
+    /// unavailable, as on Linux), usage data (PostHog), and error reports.
+    fn render_privacy_settings(&self, cx: &Context<Self>) -> Div {
+        let auth_available = cfg!(any(target_os = "macos", target_os = "windows"));
+        let lock_description = if !auth_available {
+            "Device authentication is not available on this computer."
+        } else if cfg!(target_os = "windows") {
+            "Require Windows Hello face, PIN, or password when opening Anarlog."
+        } else {
+            "Require Touch ID or your password when opening Anarlog."
+        };
+        div()
+            .flex()
+            .flex_col()
+            .gap_4()
+            .child(self.switch_setting_row(
+                SwitchRow {
+                    id: "setting-lock-app",
+                    title: "Lock app",
+                    description: Some(lock_description),
+                    key: "lock_app",
+                    legacy_path: &["general", "lock_app"],
+                    // `checked={lockAppEnabled && authAvailable}`
+                    default: false,
+                    disabled: !auth_available,
+                },
+                cx,
+            ))
+            .child(self.switch_setting_row(
+                SwitchRow {
+                    id: "setting-telemetry",
+                    title: "Share usage data (PostHog)",
+                    description: Some("Help improve Anarlog with anonymous usage data."),
+                    key: "telemetry_consent",
+                    legacy_path: &["general", "telemetry_consent"],
+                    default: true,
+                    disabled: false,
+                },
+                cx,
+            ))
+            .child(self.switch_setting_row(
+                SwitchRow {
+                    id: "setting-crash-reports",
+                    title: "Error",
+                    description: Some(
+                        "Send sanitized crash and error reports to help improve Anarlog.",
+                    ),
+                    key: "crash_reporting_consent",
+                    legacy_path: &["general", "crash_reporting_consent"],
+                    default: true,
+                    disabled: false,
+                },
+                cx,
+            ))
     }
 
     /// The Meetings page: `DefaultMeetingShareAccessSelector`,
