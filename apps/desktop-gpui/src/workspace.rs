@@ -183,6 +183,8 @@ pub struct Workspace {
     calendar: Option<calendar_tab::CalendarState>,
     /// The Contacts tab while open.
     contacts: Option<contacts_tab::ContactsState>,
+    /// The note column's scroll position, for its WebKit-style scrollbar.
+    note_scroll: gpui::ScrollHandle,
     /// The template section under the pointer (`group-hover`).
     hovered_section: Option<u64>,
     /// The `SpokenLanguagesView` chip input, created with the settings tab.
@@ -297,6 +299,7 @@ impl Workspace {
             templates_tab: None,
             calendar: None,
             contacts: None,
+            note_scroll: gpui::ScrollHandle::new(),
             hovered_section: None,
             spoken_search: None,
             spoken_highlighted: None,

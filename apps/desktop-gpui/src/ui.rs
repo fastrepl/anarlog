@@ -107,3 +107,62 @@ pub fn window_control(id: impl Into<ElementId>, theme: Theme, close: bool) -> St
             button.hover(move |style| style.bg(alpha(theme.foreground, 0.1)))
         })
 }
+
+/// `::-webkit-scrollbar` from `styles/scrollbar.css`: a 6px gutter with a
+/// `#e5e5e5` (`.dark`: `#44403c`) thumb under `border-radius: 4px`. WebKitGTK
+/// reserves the gutter inside the scroller, so callers pad their content by
+/// [`scrollbar_gutter`] and paint this over the right edge of a `relative`
+/// wrapper around the `overflow_y_scroll` container.
+pub const WEBKIT_SCROLLBAR_WIDTH: f32 = 6.0;
+
+pub fn scrollbar_gutter(handle: &gpui::ScrollHandle) -> Pixels {
+    if handle.max_offset().height > px(0.0) {
+        px(WEBKIT_SCROLLBAR_WIDTH)
+    } else {
+        px(0.0)
+    }
+}
+
+pub fn webkit_scrollbar(handle: gpui::ScrollHandle, thumb: Rgba) -> impl IntoElement {
+    // The gutter the caller reserved this frame; the scroller only learns its
+    // overflow while laying out, so a change here needs one more frame.
+    let laid_out_gutter = scrollbar_gutter(&handle);
+    gpui::canvas(
+        |_, _, _| (),
+        move |bounds, _, window, _| {
+            if scrollbar_gutter(&handle) != laid_out_gutter {
+                window.request_animation_frame();
+            }
+            let max = handle.max_offset().height;
+            if max <= px(0.0) {
+                return;
+            }
+            let viewport = bounds.size.height;
+            let content = viewport + max;
+            // Measured against WebKitGTK: the thumb is 5px wide at the gutter's
+            // left, starts 1px down, and its length is taken from a track
+            // inset 2px at both ends.
+            let track = viewport - px(4.0);
+            let thumb_height = (track * (f32::from(viewport) / f32::from(content)))
+                .floor()
+                .max(px(20.0));
+            let progress = (f32::from(-handle.offset().y) / f32::from(max)).clamp(0.0, 1.0);
+            let top = bounds.top() + px(1.0) + (viewport - px(2.0) - thumb_height) * progress;
+            window.paint_quad(
+                gpui::fill(
+                    gpui::Bounds::new(
+                        gpui::point(bounds.left(), top),
+                        gpui::size(px(WEBKIT_SCROLLBAR_WIDTH - 1.0), thumb_height),
+                    ),
+                    thumb,
+                )
+                .corner_radii(px(2.5)),
+            );
+        },
+    )
+    .absolute()
+    .top_0()
+    .bottom_0()
+    .right_0()
+    .w(px(WEBKIT_SCROLLBAR_WIDTH))
+}

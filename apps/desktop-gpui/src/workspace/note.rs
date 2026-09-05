@@ -48,9 +48,14 @@ impl Workspace {
                     // the same x as the breadcrumb title (12px from the surface).
                     .child(
                         div()
+                            .relative()
                             .min_h_0()
                             .flex_1()
-                            .child(self.render_note_body(&preview, &tab, window, cx)),
+                            .child(self.render_note_body(&preview, &tab, window, cx))
+                            .child(crate::ui::webkit_scrollbar(
+                                self.note_scroll.clone(),
+                                self.theme.scrollbar_thumb,
+                            )),
                     )
                     .into_any_element()
             }
@@ -568,13 +573,16 @@ impl Workspace {
                 .child(self.render_transcript(preview, cx));
         }
 
+        // `overflow-y-auto` shows the 6px WebKit scrollbar inside the column.
         let body = div()
             .id("note-body")
             .h_full()
-            .px_3()
+            .pl_3()
+            .pr(px(12.0) + crate::ui::scrollbar_gutter(&self.note_scroll))
             .pt_2()
             .pb_6()
             .overflow_y_scroll()
+            .track_scroll(&self.note_scroll)
             .flex()
             .flex_col()
             .text_size(px(16.0))

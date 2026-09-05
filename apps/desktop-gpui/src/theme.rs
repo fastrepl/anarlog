@@ -29,6 +29,8 @@ pub struct Theme {
     pub white: Rgba,
     /// Text selection highlight (WebKitGTK's default).
     pub selection: Rgba,
+    /// `::-webkit-scrollbar-thumb` (`scrollbar.css` / `dark-theme.css`).
+    pub scrollbar_thumb: Rgba,
     /// `--app-floating-*` tokens for `variant="app"` menus.
     pub floating_chrome: Rgba,
     pub floating_panel: Rgba,
@@ -65,6 +67,7 @@ impl Theme {
             link: rgb(0x2563eb),
             white: rgb(0xffffff),
             selection: alpha(rgb(0x3584e4), 0.35),
+            scrollbar_thumb: rgb(0xe5e5e5),
             floating_chrome: rgb(0xf0f0ef),
             floating_panel: rgb(0xfafaf9),
             floating_border: rgb(0xdddbd9),
@@ -98,6 +101,7 @@ impl Theme {
             link: rgb(0x2563eb),
             white: rgb(0xffffff),
             selection: alpha(rgb(0x3584e4), 0.45),
+            scrollbar_thumb: rgb(0x44403c),
             floating_chrome: rgb(0x393532),
             floating_panel: rgb(0x272321),
             floating_border: rgb(0x59534f),
