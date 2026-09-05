@@ -1,3 +1,5 @@
+import type { CaptureResult } from "posthog-js";
+
 const SENSITIVE_PROPERTY_KEYS = new Set([
   "account_id",
   "address",
@@ -50,6 +52,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SAFE_TOKEN_PATTERN = /^[a-z0-9][a-z0-9_.:{}<>/-]*$/i;
+const SAFE_URL_PATTERN = /^[a-z0-9/][a-z0-9_.:{}<>/-]*$/i;
 const SAFE_EVENT_NAME_PATTERN = /^[a-z0-9_$.-]+$/i;
 
 export function sanitizeAnalyticsEventName(event: string) {
@@ -114,16 +117,19 @@ function sanitizeAnalyticsValue(key: string, value: unknown): unknown {
 }
 
 function isSafeAnalyticsString(key: string, value: string) {
-  if (!value || value.length > 128 || EMAIL_PATTERN.test(value)) {
+  if (!value || EMAIL_PATTERN.test(value)) {
     return false;
   }
   if (IDENTIFIER_PROPERTY_KEYS.has(key.toLowerCase())) {
-    return SAFE_TOKEN_PATTERN.test(value);
+    return value.length <= 128 && SAFE_TOKEN_PATTERN.test(value);
   }
   if (URL_PROPERTY_KEYS.has(key.toLowerCase())) {
+    if (value === "$direct") {
+      return isReferrerPropertyKey(key);
+    }
     return (
       value.length <= 256 &&
-      SAFE_TOKEN_PATTERN.test(value) &&
+      SAFE_URL_PATTERN.test(value) &&
       !value.includes("?") &&
       !value.includes("#")
     );
@@ -135,4 +141,65 @@ function isSafeAnalyticsString(key: string, value: string) {
     !UUID_PATTERN.test(value) &&
     !(value.length >= 32 && /^[a-z0-9_-]+$/i.test(value))
   );
+}
+
+function isReferrerPropertyKey(key: string) {
+  const normalized = key.toLowerCase();
+  return normalized === "$referrer" || normalized === "$initial_referrer";
+}
+
+const POSTHOG_URL_PROPERTIES = [
+  "$current_url",
+  "$initial_current_url",
+  "$initial_referrer",
+  "$referrer",
+] as const;
+
+function normalizePath(pathname: string) {
+  return pathname
+    .split("/")
+    .map((segment) => {
+      let decoded = segment;
+      try {
+        decoded = decodeURIComponent(segment);
+      } catch {
+        return ":id";
+      }
+      return UUID_PATTERN.test(decoded) ||
+        EMAIL_PATTERN.test(decoded) ||
+        /^\d{6,}$/.test(decoded) ||
+        decoded.length > 32
+        ? ":id"
+        : segment;
+    })
+    .join("/");
+}
+
+export function sanitizePostHogEvent(
+  event: CaptureResult | null,
+  origin: string,
+) {
+  if (!event) return null;
+  const properties = { ...event.properties };
+  for (const key of POSTHOG_URL_PROPERTIES) {
+    const value = properties[key];
+    if (typeof value !== "string") continue;
+    if (isReferrerPropertyKey(key) && value === "$direct") continue;
+    try {
+      const url = new URL(value, origin);
+      properties[key] = `${url.origin}${normalizePath(url.pathname)}`;
+    } catch {
+      delete properties[key];
+    }
+  }
+  if (typeof properties.$pathname === "string") {
+    properties.$pathname = normalizePath(
+      properties.$pathname.split(/[?#]/, 1)[0],
+    );
+  }
+  return {
+    ...event,
+    event: sanitizeAnalyticsEventName(event.event),
+    properties: sanitizeAnalyticsProperties(properties),
+  };
 }

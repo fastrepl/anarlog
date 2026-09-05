@@ -1,4 +1,4 @@
-import type { CaptureResult, PostHog } from "posthog-js";
+import type { PostHog } from "posthog-js";
 import {
   createContext,
   useCallback,
@@ -9,71 +9,13 @@ import {
 } from "react";
 
 import { env } from "../env";
-import {
-  sanitizeAnalyticsEventName,
-  sanitizeAnalyticsProperties,
-} from "../lib/analytics-sanitization";
+import { sanitizePostHogEvent } from "../lib/analytics-sanitization";
 import { isTelemetryPrivateLocation } from "../lib/auth-route-privacy";
 import { hasGlobalPrivacyControl } from "../lib/global-privacy-control";
 import { getPostHogPersistenceName } from "../lib/private-route-analytics-identity";
 import { runWhenIdle } from "../lib/run-when-idle";
 
 const isDev = import.meta.env.DEV;
-const POSTHOG_URL_PROPERTIES = [
-  "$current_url",
-  "$initial_current_url",
-  "$initial_referrer",
-  "$referrer",
-] as const;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function normalizePath(pathname: string) {
-  return pathname
-    .split("/")
-    .map((segment) => {
-      let decoded = segment;
-      try {
-        decoded = decodeURIComponent(segment);
-      } catch {
-        return ":id";
-      }
-      return UUID_PATTERN.test(decoded) ||
-        EMAIL_PATTERN.test(decoded) ||
-        /^\d{6,}$/.test(decoded) ||
-        decoded.length > 32
-        ? ":id"
-        : segment;
-    })
-    .join("/");
-}
-
-function sanitizePostHogEvent(event: CaptureResult | null) {
-  if (!event) return null;
-  const properties = { ...event.properties };
-  for (const key of POSTHOG_URL_PROPERTIES) {
-    const value = properties[key];
-    if (typeof value !== "string") continue;
-    try {
-      const url = new URL(value, window.location.origin);
-      properties[key] = `${url.origin}${normalizePath(url.pathname)}`;
-    } catch {
-      delete properties[key];
-    }
-  }
-  if (typeof properties.$pathname === "string") {
-    properties.$pathname = normalizePath(
-      properties.$pathname.split(/[?#]/, 1)[0],
-    );
-  }
-  return {
-    ...event,
-    event: sanitizeAnalyticsEventName(event.event),
-    properties: sanitizeAnalyticsProperties(properties),
-  };
-}
-
 type PendingAnalyticsOperation = (client: PostHog) => void;
 
 const PostHogContext = createContext<{
@@ -185,7 +127,7 @@ export function PostHogProvider({
               window.location.search,
             )
               ? null
-              : sanitizePostHogEvent(event),
+              : sanitizePostHogEvent(event, window.location.origin),
         });
         didInitRef.current = true;
       } else if (routeDisabledRef.current) {
