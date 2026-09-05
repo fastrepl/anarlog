@@ -68,8 +68,12 @@ pub fn bind_keys(cx: &mut App) {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TextInputEvent {
     Changed,
+    /// Enter, before the field blurs; fires whether or not there were edits.
+    Enter,
     /// Enter or blur after an edit.
     Committed,
+    /// Backspace on an empty field, for chip inputs that pop the last chip.
+    BackspaceEmpty,
     /// Arrow up/down; single-line fields have no use for them, so hosts such
     /// as the open-note dialog get to move their selection.
     Navigate(i32),
@@ -172,6 +176,7 @@ impl TextInput {
     }
 
     fn commit(&mut self, _: &Commit, window: &mut Window, cx: &mut Context<Self>) {
+        cx.emit(TextInputEvent::Enter);
         // `e.currentTarget.blur()`: the focus-out handler emits `Committed`.
         window.blur();
         self.blurred(window, cx);
@@ -227,6 +232,10 @@ impl TextInput {
     }
 
     fn backspace(&mut self, _: &Backspace, window: &mut Window, cx: &mut Context<Self>) {
+        if self.content.is_empty() {
+            cx.emit(TextInputEvent::BackspaceEmpty);
+            return;
+        }
         if self.selected_range.is_empty() {
             self.select_to(self.previous_boundary(self.cursor_offset()), cx)
         }

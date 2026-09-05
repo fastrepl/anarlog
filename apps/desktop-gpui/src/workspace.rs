@@ -144,6 +144,11 @@ pub struct Workspace {
     /// The settings tab while it is the active overlay tab.
     settings_tab: Option<settings::SettingsTab>,
     settings_search: Option<gpui::Entity<TextInput>>,
+    /// The settings `Select` whose popover is open.
+    open_select: Option<settings::OpenSelect>,
+    /// The `SpokenLanguagesView` chip input, created with the settings tab.
+    spoken_search: Option<gpui::Entity<TextInput>>,
+    spoken_highlighted: Option<usize>,
     pending_deletions: Vec<overflow::PendingDeletion>,
     /// Pending `scrollToAnchor`: the viewport ratio the current-time line
     /// should land at, applied over two frames once the row is measured.
@@ -236,6 +241,9 @@ impl Workspace {
             overflow_submenu: None,
             settings_tab: None,
             settings_search: None,
+            open_select: None,
+            spoken_search: None,
+            spoken_highlighted: None,
             pending_deletions: Vec::new(),
             anchor_scroll: None,
             anchor_scrolled_once: false,
@@ -937,8 +945,16 @@ impl Render for Workspace {
                     })
                     .child(self.render_main_surface(window, cx)),
             )
-            .children(self.render_toast_host(window, cx))
-            .children(self.render_undo_toast(cx))
+            // sonner's toaster sits at `z-index: 999999999`, above every
+            // popover, menu, and dialog.
+            .children(
+                self.render_toast_host(window, cx)
+                    .map(|toast| gpui::deferred(toast).with_priority(10)),
+            )
+            .children(
+                self.render_undo_toast(cx)
+                    .map(|toast| gpui::deferred(toast).with_priority(10)),
+            )
             .children(self.render_overflow_menu(window, cx))
             .children(self.render_filter_menu(window, cx))
             .children(self.render_open_menu(window, cx))

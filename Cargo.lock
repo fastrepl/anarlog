@@ -5447,6 +5447,7 @@ dependencies = [
  "db-core",
  "dirs 6.0.0",
  "gpui",
+ "iana-time-zone",
  "pico-args",
  "regex",
  "serde",

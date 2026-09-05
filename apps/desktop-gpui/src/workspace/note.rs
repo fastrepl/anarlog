@@ -17,7 +17,9 @@ impl Workspace {
     pub(super) fn render_main_surface(&self, window: &Window, cx: &mut Context<Self>) -> Div {
         let theme = self.theme;
         let content = match &self.note {
-            _ if self.settings_open() => self.render_settings_content(cx).into_any_element(),
+            _ if self.settings_open() => {
+                self.render_settings_content(window, cx).into_any_element()
+            }
             Note::Empty => self.render_empty_view().into_any_element(),
             Note::Loading => div().flex_1().into_any_element(),
             Note::Failed(error) => div()

@@ -2,9 +2,11 @@
 //! replaces the timeline) and `apps/desktop/src/settings/index.tsx` (the page
 //! frame), with the General page from `settings/general`.
 
+use std::rc::Rc;
+
 use gpui::{
-    AnyElement, ClickEvent, Context, Div, MouseButton, SharedString, Stateful, Window, div,
-    prelude::*, px, rgb,
+    AnyElement, ClickEvent, Context, Div, Focusable as _, MouseButton, SharedString, Stateful,
+    Window, div, prelude::*, px, rgb,
 };
 
 use super::Workspace;
@@ -253,28 +255,6 @@ const AUTOMATIC_UPDATES: (&str, &[&str], bool) =
 const SHOW_TRAY_ICON: (&str, &[&str], bool) =
     ("show_tray_icon", &["general", "show_tray_icon"], true);
 
-fn language_label(code: &str) -> String {
-    // `en-US` and friends resolve by their primary subtag.
-    let primary = code.split(['-', '_']).next().unwrap_or(code).to_lowercase();
-    match primary.as_str() {
-        "en" => "English",
-        "ko" => "Korean",
-        "ja" => "Japanese",
-        "zh" => "Chinese",
-        "es" => "Spanish",
-        "fr" => "French",
-        "de" => "German",
-        "pt" => "Portuguese",
-        "it" => "Italian",
-        "nl" => "Dutch",
-        "ru" => "Russian",
-        "hi" => "Hindi",
-        "ar" => "Arabic",
-        _ => code,
-    }
-    .to_string()
-}
-
 impl Workspace {
     /// `openNew({ type: "settings", state: { tab } })`
     pub(crate) fn open_settings(
@@ -306,8 +286,324 @@ impl Workspace {
             .detach();
             self.settings_search = Some(input);
         }
+        if self.spoken_search.is_none() {
+            let theme = self.theme;
+            let input = cx.new(|cx| {
+                TextInput::new(
+                    "Add language",
+                    TextInputStyle {
+                        text: theme.foreground,
+                        placeholder: theme.muted_foreground,
+                        selection: theme.selection,
+                        underline_when_focused: false,
+                    },
+                    window,
+                    cx,
+                )
+            });
+            cx.subscribe_in(
+                &input,
+                window,
+                |this, input, event: &TextInputEvent, window, cx| match event {
+                    TextInputEvent::Changed => {
+                        this.spoken_highlighted = None;
+                        cx.notify();
+                    }
+                    TextInputEvent::Navigate(delta) => {
+                        let count = this.spoken_language_matches(cx).len();
+                        if count == 0 {
+                            return;
+                        }
+                        let current = this.spoken_highlighted.map(|i| i as i32).unwrap_or(-1);
+                        let next = (current + delta).clamp(0, count as i32 - 1);
+                        this.spoken_highlighted = Some(next as usize);
+                        cx.notify();
+                    }
+                    TextInputEvent::Enter => {
+                        let matches = this.spoken_language_matches(cx);
+                        if let Some(code) = this
+                            .spoken_highlighted
+                            .and_then(|i| matches.get(i).cloned())
+                        {
+                            this.add_spoken_language(&code, cx);
+                            input.update(cx, |input, cx| input.set_text("", cx));
+                            this.spoken_highlighted = None;
+                        }
+                        // Keep typing: the web input stays focused on Enter.
+                        input.read(cx).focus_handle(cx).focus(window);
+                    }
+                    TextInputEvent::BackspaceEmpty => {
+                        let mut spoken = this.spoken_languages();
+                        if spoken.pop().is_some() {
+                            this.write_spoken_languages(spoken, cx);
+                        }
+                    }
+                    TextInputEvent::Escape => {
+                        input.update(cx, |input, cx| input.set_text("", cx));
+                        this.focus_handle.focus(window);
+                        cx.notify();
+                    }
+                    TextInputEvent::Committed => cx.notify(),
+                },
+            )
+            .detach();
+            self.spoken_search = Some(input);
+        }
         self.settings_tab = Some(tab);
         cx.notify();
+    }
+
+    /// `getAdditionalSpokenLanguages(ai_language, spoken_languages)`
+    fn spoken_languages(&self) -> Vec<String> {
+        let main = self
+            .provider_settings
+            .string_setting("ai_language", &["language", "ai_language"])
+            .unwrap_or_else(|| "en".to_string());
+        let spoken = self
+            .provider_settings
+            .string_setting("spoken_languages", &["language", "spoken_languages"])
+            .and_then(|json| serde_json::from_str::<Vec<String>>(&json).ok())
+            .unwrap_or_default();
+        additional_spoken_languages(&main, &spoken)
+    }
+
+    fn write_spoken_languages(&mut self, spoken: Vec<String>, cx: &mut Context<Self>) {
+        self.set_setting(
+            "spoken_languages",
+            serde_json::Value::String(
+                serde_json::to_string(&spoken).unwrap_or_else(|_| "[]".to_string()),
+            ),
+            cx,
+        );
+    }
+
+    fn add_spoken_language(&mut self, code: &str, cx: &mut Context<Self>) {
+        let mut spoken = self.spoken_languages();
+        spoken.push(code.to_string());
+        self.write_spoken_languages(spoken, cx);
+    }
+
+    /// `filteredLanguages`: supported codes minus the main and chosen ones,
+    /// matched by display name; empty until something is typed.
+    fn spoken_language_matches(&self, cx: &Context<Self>) -> Vec<String> {
+        let query = self
+            .spoken_search
+            .as_ref()
+            .map(|input| input.read(cx).text().trim().to_lowercase())
+            .unwrap_or_default();
+        if query.is_empty() {
+            return Vec::new();
+        }
+        let main = base_language_code(
+            &self
+                .provider_settings
+                .string_setting("ai_language", &["language", "ai_language"])
+                .unwrap_or_else(|| "en".to_string()),
+        );
+        let chosen = self.spoken_languages();
+        CORE_LANGUAGES
+            .iter()
+            .filter(|(code, label)| {
+                *code != main
+                    && !chosen.iter().any(|c| c == code)
+                    && label.to_lowercase().contains(&query)
+            })
+            .map(|(code, _)| code.to_string())
+            .collect()
+    }
+
+    /// `SpokenLanguagesView`: heading, description, and the chip input with
+    /// its `top-full mt-1` results list while typing.
+    fn render_spoken_languages(&self, window: &Window, cx: &Context<Self>) -> Div {
+        let theme = self.theme;
+        let chosen = self.spoken_languages();
+        let focused = self
+            .spoken_search
+            .as_ref()
+            .is_some_and(|input| input.read(cx).focus_handle(cx).is_focused(window));
+        let query_present = self
+            .spoken_search
+            .as_ref()
+            .is_some_and(|input| !input.read(cx).text().trim().is_empty());
+        let matches = self.spoken_language_matches(cx);
+
+        let mut field = div()
+            .id("spoken-languages-field")
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap(px(6.0))
+            .min_h(px(38.0))
+            .w_full()
+            .rounded(px(16.0))
+            .border_1()
+            .border_color(theme.border)
+            .bg(theme.card)
+            .px_2()
+            .py(px(6.0))
+            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                if let Some(input) = &this.spoken_search {
+                    input.read(cx).focus_handle(cx).focus(window);
+                }
+            }));
+        for code in &chosen {
+            let label = CORE_LANGUAGES
+                .iter()
+                .find(|(c, _)| c == code)
+                .map(|(_, label)| label.to_string())
+                .unwrap_or_else(|| code.clone());
+            let code_for_click = code.clone();
+            field = field.child(
+                // `Badge variant="secondary"` with `bg-muted px-2 py-0.5 text-xs`.
+                div()
+                    .id(SharedString::from(format!("spoken-{code}")))
+                    .flex()
+                    .items_center()
+                    .gap_1()
+                    .rounded_full()
+                    .bg(theme.muted)
+                    .px_2()
+                    .py(px(2.0))
+                    .tw_text_xs()
+                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .text_color(theme.foreground)
+                    .child(SharedString::from(label))
+                    .child(
+                        div()
+                            .id(SharedString::from(format!("spoken-remove-{code}")))
+                            .ml(px(2.0))
+                            .size(px(12.0))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .cursor_pointer()
+                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                let spoken = this
+                                    .spoken_languages()
+                                    .into_iter()
+                                    .filter(|c| *c != code_for_click)
+                                    .collect();
+                                this.write_spoken_languages(spoken, cx);
+                            }))
+                            .child(icon("x", px(10.0), theme.foreground)),
+                    ),
+            );
+        }
+        if chosen.is_empty() {
+            field = field.child(icon("search", px(16.0), theme.muted_foreground));
+        }
+        if let Some(input) = self.spoken_search.clone() {
+            field = field.child(div().flex_1().min_w(px(120.0)).tw_text_sm().child(input));
+        }
+
+        div()
+            .child(
+                div()
+                    .mb_1()
+                    .tw_text_sm()
+                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .text_color(theme.foreground)
+                    .child("Additional spoken languages"),
+            )
+            .child(
+                div()
+                    .mb_3()
+                    .tw_text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child("Transcribe meetings that use more than one language."),
+            )
+            .child(
+                div()
+                    .relative()
+                    .child(field)
+                    .when(focused && query_present, |wrapper| {
+                        let mut list = div()
+                            .id("spoken-languages-options")
+                            .occlude()
+                            .absolute()
+                            .top(px(38.0))
+                            .left_0()
+                            .right_0()
+                            .mt_1()
+                            .flex()
+                            .flex_col()
+                            .max_h(px(240.0))
+                            .overflow_y_scroll()
+                            .rounded(px(16.0))
+                            .border_1()
+                            .border_color(theme.border)
+                            .bg(theme.card)
+                            .shadow_md();
+                        if matches.is_empty() {
+                            list = list.child(
+                                div()
+                                    .px_3()
+                                    .py_2()
+                                    .text_center()
+                                    .tw_text_sm()
+                                    .text_color(theme.muted_foreground)
+                                    .child("No matching languages found"),
+                            );
+                        } else {
+                            list = list.children(matches.into_iter().enumerate().map(
+                                |(index, code)| {
+                                    let label = CORE_LANGUAGES
+                                        .iter()
+                                        .find(|(c, _)| *c == code)
+                                        .map(|(_, label)| label.to_string())
+                                        .unwrap_or_else(|| code.clone());
+                                    let highlighted = self.spoken_highlighted == Some(index);
+                                    div()
+                                        .id(SharedString::from(format!("spoken-option-{index}")))
+                                        .flex()
+                                        .w_full()
+                                        .items_center()
+                                        .justify_between()
+                                        .px_3()
+                                        .py_2()
+                                        .tw_text_sm()
+                                        .text_color(theme.foreground)
+                                        .when(highlighted, |row| row.bg(theme.accent))
+                                        .hover(move |style| style.bg(theme.accent))
+                                        .on_hover(cx.listener(
+                                            move |this, hovered: &bool, _, cx| {
+                                                if *hovered
+                                                    && this.spoken_highlighted != Some(index)
+                                                {
+                                                    this.spoken_highlighted = Some(index);
+                                                    cx.notify();
+                                                }
+                                            },
+                                        ))
+                                        // `onMouseDown={(e) => e.preventDefault()}` keeps the input focused.
+                                        .on_mouse_down(MouseButton::Left, |_, _, cx| {
+                                            cx.stop_propagation()
+                                        })
+                                        .on_click(cx.listener(
+                                            move |this, _: &ClickEvent, window, cx| {
+                                                this.add_spoken_language(&code, cx);
+                                                if let Some(input) = &this.spoken_search {
+                                                    input.update(cx, |input, cx| {
+                                                        input.set_text("", cx)
+                                                    });
+                                                    input.read(cx).focus_handle(cx).focus(window);
+                                                }
+                                                this.spoken_highlighted = None;
+                                            },
+                                        ))
+                                        .child(
+                                            div()
+                                                .truncate()
+                                                .font_weight(gpui::FontWeight::MEDIUM)
+                                                .child(SharedString::from(label)),
+                                        )
+                                },
+                            ));
+                        }
+                        wrapper.child(gpui::deferred(list).with_priority(1))
+                    }),
+            )
     }
 
     /// `leaveOverlayTab`: back to the tab that was active before.
@@ -549,7 +845,11 @@ impl Workspace {
     }
 
     /// `SettingsView`: `bg-card dark:bg-accent`, content `px-6 pt-6 pb-10`.
-    pub(super) fn render_settings_content(&self, cx: &Context<Self>) -> Stateful<Div> {
+    pub(super) fn render_settings_content(
+        &self,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> Stateful<Div> {
         let theme = self.theme;
         let tab = self.settings_tab.unwrap_or(SettingsTab::App);
         let title = div()
@@ -566,7 +866,7 @@ impl Workspace {
                 .flex_col()
                 .gap_8()
                 .child(title)
-                .child(self.render_general_settings(cx)),
+                .child(self.render_general_settings(window, cx)),
             // `SettingsAppearance`: `max-w-5xl gap-10`.
             SettingsTab::Appearance => div()
                 .flex()
@@ -595,7 +895,7 @@ impl Workspace {
     }
 
     /// `AppSettingsView` + Language & Region + Storage.
-    fn render_general_settings(&self, cx: &Context<Self>) -> Div {
+    fn render_general_settings(&self, window: &Window, cx: &Context<Self>) -> Div {
         let theme = self.theme;
         let settings = &self.provider_settings;
         let autostart = settings.bool_setting(AUTOSTART.0, AUTOSTART.1, AUTOSTART.2);
@@ -606,7 +906,7 @@ impl Workspace {
         );
         let tray = settings.bool_setting(SHOW_TRAY_ICON.0, SHOW_TRAY_ICON.1, SHOW_TRAY_ICON.2);
         let language = settings
-            .string_setting("ai_language", &["general", "ai_language"])
+            .string_setting("ai_language", &["language", "ai_language"])
             .unwrap_or_else(|| "en".to_string());
         let timezone = settings.string_setting("timezone", &["general", "timezone"]);
         let week_start = settings
@@ -693,10 +993,58 @@ impl Workspace {
                                 "Main language",
                                 Some("Use this language for summaries and AI responses."),
                                 true,
-                                render_select(
-                                    theme,
-                                    Some(language_label(&language)),
-                                    "Select language",
+                                self.render_select(
+                                    SelectSpec {
+                                        id: "ai_language",
+                                        // `normalizedValue`: `en-US` selects the `en` option.
+                                        current: Some(base_language_code(&language)),
+                                        placeholder: "Select language",
+                                        options: Rc::new(
+                                            CORE_LANGUAGES
+                                                .iter()
+                                                .map(|(code, label)| SelectOption {
+                                                    value: code.to_string(),
+                                                    label: label.to_string(),
+                                                    detail: None,
+                                                })
+                                                .collect(),
+                                        ),
+                                        search: Some(SearchSpec {
+                                            placeholder: "Search language...",
+                                            empty_message: "No matching languages found",
+                                            width: None,
+                                        }),
+                                        on_select: Rc::new(|this, value, _, cx| {
+                                            // Changing the main language also drops it from
+                                            // `spoken_languages` (`getAdditionalSpokenLanguages`).
+                                            let spoken = this
+                                                .provider_settings
+                                                .string_setting(
+                                                    "spoken_languages",
+                                                    &["language", "spoken_languages"],
+                                                )
+                                                .and_then(|json| {
+                                                    serde_json::from_str::<Vec<String>>(&json).ok()
+                                                })
+                                                .unwrap_or_default();
+                                            let spoken =
+                                                additional_spoken_languages(&value, &spoken);
+                                            this.set_setting(
+                                                "ai_language",
+                                                serde_json::Value::String(value),
+                                                cx,
+                                            );
+                                            this.set_setting(
+                                                "spoken_languages",
+                                                serde_json::Value::String(
+                                                    serde_json::to_string(&spoken)
+                                                        .unwrap_or_else(|_| "[]".to_string()),
+                                                ),
+                                                cx,
+                                            );
+                                        }),
+                                    },
+                                    cx,
                                 ),
                             ))
                             .child(setting_row(
@@ -704,33 +1052,73 @@ impl Workspace {
                                 "Timezone",
                                 Some("Show the timeline in your preferred timezone."),
                                 true,
-                                render_select(theme, timezone, "Select timezone"),
+                                self.render_select(
+                                    SelectSpec {
+                                        id: "timezone",
+                                        // `displayValue = value || systemTimezone`
+                                        current: Some(
+                                            timezone.clone().unwrap_or_else(system_timezone),
+                                        ),
+                                        placeholder: "Select timezone",
+                                        options: Rc::new(
+                                            COMMON_TIMEZONES
+                                                .iter()
+                                                .map(|(value, label, detail)| SelectOption {
+                                                    value: value.to_string(),
+                                                    label: label.to_string(),
+                                                    detail: Some(detail),
+                                                })
+                                                .collect(),
+                                        ),
+                                        search: Some(SearchSpec {
+                                            placeholder: "Search timezone...",
+                                            empty_message: "No results found.",
+                                            width: Some(288.0),
+                                        }),
+                                        on_select: Rc::new(|this, value, _, cx| {
+                                            // Picking the system zone stores "" (`handleChange`).
+                                            let stored = if value == system_timezone() {
+                                                String::new()
+                                            } else {
+                                                value
+                                            };
+                                            this.set_setting(
+                                                "timezone",
+                                                serde_json::Value::String(stored),
+                                                cx,
+                                            );
+                                        }),
+                                    },
+                                    cx,
+                                ),
                             ))
                             .child(setting_row(
                                 theme,
                                 "Week starts on",
                                 Some("Choose which day begins your calendar week."),
                                 true,
-                                render_select(
-                                    theme,
-                                    Some(
-                                        if week_start == "monday" {
-                                            "Monday"
-                                        } else {
-                                            "Sunday"
-                                        }
-                                        .to_string(),
+                                self.render_select(
+                                    SelectSpec::for_setting(
+                                        "week_start",
+                                        Some(week_start.clone()),
+                                        "Select day",
+                                        vec![
+                                            SelectOption {
+                                                value: "sunday".to_string(),
+                                                label: "Sunday".to_string(),
+                                                detail: None,
+                                            },
+                                            SelectOption {
+                                                value: "monday".to_string(),
+                                                label: "Monday".to_string(),
+                                                detail: None,
+                                            },
+                                        ],
                                     ),
-                                    "Select day",
+                                    cx,
                                 ),
                             ))
-                            .child(setting_row(
-                                theme,
-                                "Additional spoken languages",
-                                Some("Transcribe meetings that use more than one language."),
-                                true,
-                                render_select(theme, None, "Add languages"),
-                            )),
+                            .child(self.render_spoken_languages(window, cx)),
                     ),
             )
             .child(
@@ -1151,32 +1539,530 @@ fn render_switch(
         )
 }
 
-/// `SelectTrigger` with `SETTING_CONTROL_CLASS`: `h-9 w-full rounded-full
-/// border bg-card px-3 text-sm` with the half-opacity caret.
-fn render_select(
-    theme: crate::theme::Theme,
-    value: Option<String>,
-    placeholder: &'static str,
-) -> AnyElement {
-    let (text, color) = match value {
-        Some(value) => (SharedString::from(value), theme.foreground),
-        None => (SharedString::from(placeholder), theme.muted_foreground),
-    };
-    div()
-        .flex()
-        .h(px(36.0))
-        .w_full()
-        .items_center()
-        .justify_between()
-        .rounded_full()
-        .border_1()
-        .border_color(theme.border)
-        .bg(theme.card)
-        .px_3()
-        .py_2()
-        .tw_text_sm()
-        .text_color(color)
-        .child(div().min_w_0().truncate().child(text))
-        .child(icon("caret-down", px(16.0), alpha(theme.foreground, 0.5)))
-        .into_any_element()
+/// `CORE_TRANSCRIPTION_LANGUAGE_CODES` with their English
+/// `Intl.DisplayNames` labels, in the app's order.
+const CORE_LANGUAGES: [(&str, &str); 49] = [
+    ("ar", "Arabic"),
+    ("be", "Belarusian"),
+    ("bg", "Bulgarian"),
+    ("bn", "Bangla"),
+    ("bs", "Bosnian"),
+    ("ca", "Catalan"),
+    ("cs", "Czech"),
+    ("da", "Danish"),
+    ("de", "German"),
+    ("el", "Greek"),
+    ("en", "English"),
+    ("es", "Spanish"),
+    ("et", "Estonian"),
+    ("fa", "Persian"),
+    ("fi", "Finnish"),
+    ("fr", "French"),
+    ("he", "Hebrew"),
+    ("hi", "Hindi"),
+    ("hr", "Croatian"),
+    ("hu", "Hungarian"),
+    ("id", "Indonesian"),
+    ("it", "Italian"),
+    ("ja", "Japanese"),
+    ("kn", "Kannada"),
+    ("ko", "Korean"),
+    ("lt", "Lithuanian"),
+    ("lv", "Latvian"),
+    ("mk", "Macedonian"),
+    ("mr", "Marathi"),
+    ("ms", "Malay"),
+    ("nl", "Dutch"),
+    ("no", "Norwegian"),
+    ("pl", "Polish"),
+    ("pt", "Portuguese"),
+    ("ro", "Romanian"),
+    ("ru", "Russian"),
+    ("sk", "Slovak"),
+    ("sl", "Slovenian"),
+    ("sr", "Serbian"),
+    ("sv", "Swedish"),
+    ("ta", "Tamil"),
+    ("te", "Telugu"),
+    ("th", "Thai"),
+    ("tl", "Filipino"),
+    ("tr", "Turkish"),
+    ("uk", "Ukrainian"),
+    ("ur", "Urdu"),
+    ("vi", "Vietnamese"),
+    ("zh", "Chinese"),
+];
+
+/// `COMMON_TIMEZONES` from `timezone.tsx`.
+const COMMON_TIMEZONES: [(&str, &str, &str); 22] = [
+    ("Pacific/Honolulu", "Hawaii", "UTC-10"),
+    ("America/Anchorage", "Alaska", "UTC-9"),
+    ("America/Los_Angeles", "Pacific Time", "UTC-8"),
+    ("America/Denver", "Mountain Time", "UTC-7"),
+    ("America/Chicago", "Central Time", "UTC-6"),
+    ("America/New_York", "Eastern Time", "UTC-5"),
+    ("America/Sao_Paulo", "Sao Paulo", "UTC-3"),
+    ("Atlantic/Reykjavik", "Reykjavik", "UTC+0"),
+    ("Europe/London", "London", "UTC+0/+1"),
+    ("Europe/Paris", "Paris", "UTC+1/+2"),
+    ("Europe/Berlin", "Berlin", "UTC+1/+2"),
+    ("Africa/Cairo", "Cairo", "UTC+2"),
+    ("Europe/Moscow", "Moscow", "UTC+3"),
+    ("Asia/Dubai", "Dubai", "UTC+4"),
+    ("Asia/Kolkata", "India", "UTC+5:30"),
+    ("Asia/Bangkok", "Bangkok", "UTC+7"),
+    ("Asia/Singapore", "Singapore", "UTC+8"),
+    ("Asia/Shanghai", "China", "UTC+8"),
+    ("Asia/Tokyo", "Tokyo", "UTC+9"),
+    ("Asia/Seoul", "Seoul", "UTC+9"),
+    ("Australia/Sydney", "Sydney", "UTC+10/+11"),
+    ("Pacific/Auckland", "Auckland", "UTC+12/+13"),
+];
+
+/// `Intl.DateTimeFormat().resolvedOptions().timeZone`
+fn system_timezone() -> String {
+    iana_time_zone::get_timezone().unwrap_or_else(|_| "UTC".to_string())
+}
+
+/// `getBaseLanguageCode`: the primary subtag of a BCP 47 tag.
+fn base_language_code(code: &str) -> String {
+    code.split(['-', '_']).next().unwrap_or(code).to_lowercase()
+}
+
+/// `getAdditionalSpokenLanguages`: the stored list minus the main language,
+/// de-duplicated by base code.
+fn additional_spoken_languages(main: &str, spoken: &[String]) -> Vec<String> {
+    let main = base_language_code(main);
+    let mut seen = std::collections::HashSet::new();
+    spoken
+        .iter()
+        .map(|code| base_language_code(code))
+        .filter(|code| !code.is_empty() && *code != main && seen.insert(code.clone()))
+        .collect()
+}
+
+pub(crate) struct SelectOption {
+    pub value: String,
+    pub label: String,
+    /// `SearchableSelectOption.detail`, shown as `label (detail)` on the
+    /// trigger and in `font-mono text-[10px]` on the row.
+    pub detail: Option<&'static str>,
+}
+
+/// `SearchableSelect`'s popover: a `CommandInput` above the filtered list.
+pub(crate) struct SearchSpec {
+    pub placeholder: &'static str,
+    pub empty_message: &'static str,
+    /// `dropdownClassName="w-72"`; otherwise the trigger width.
+    pub width: Option<f32>,
+}
+
+type OnSelect = Rc<dyn Fn(&mut Workspace, String, &mut Window, &mut Context<Workspace>)>;
+
+pub(crate) struct SelectSpec {
+    pub id: &'static str,
+    pub current: Option<String>,
+    pub placeholder: &'static str,
+    pub options: Rc<Vec<SelectOption>>,
+    pub search: Option<SearchSpec>,
+    pub on_select: OnSelect,
+}
+
+impl SelectSpec {
+    /// A select that writes its value straight to `key`.
+    fn for_setting(
+        key: &'static str,
+        current: Option<String>,
+        placeholder: &'static str,
+        options: Vec<SelectOption>,
+    ) -> Self {
+        Self {
+            id: key,
+            current,
+            placeholder,
+            options: Rc::new(options),
+            search: None,
+            on_select: Rc::new(move |this, value, _, cx| {
+                this.set_setting(key, serde_json::Value::String(value), cx);
+            }),
+        }
+    }
+}
+
+/// The open select popover: which one, its options for keyboard handling,
+/// the cmdk-style highlighted row, and the `SearchableSelect` query input.
+pub(crate) struct OpenSelect {
+    id: &'static str,
+    options: Rc<Vec<SelectOption>>,
+    on_select: OnSelect,
+    highlighted: usize,
+    search: Option<gpui::Entity<TextInput>>,
+}
+
+/// cmdk's `filter`: case-insensitive substring match on `label detail`.
+fn filter_options<'a>(options: &'a [SelectOption], query: &str) -> Vec<&'a SelectOption> {
+    let query = query.to_lowercase();
+    options
+        .iter()
+        .filter(|option| {
+            let haystack = match option.detail {
+                Some(detail) => format!("{} {detail}", option.label),
+                None => option.label.clone(),
+            };
+            haystack.to_lowercase().contains(&query)
+        })
+        .collect()
+}
+
+impl Workspace {
+    fn close_select(&mut self, cx: &mut Context<Self>) {
+        self.open_select = None;
+        cx.notify();
+    }
+
+    fn open_select(&mut self, spec: &SelectSpec, window: &mut Window, cx: &mut Context<Self>) {
+        let search = spec.search.as_ref().map(|search| {
+            let theme = self.theme;
+            let input = cx.new(|cx| {
+                TextInput::new(
+                    search.placeholder,
+                    TextInputStyle {
+                        text: theme.foreground,
+                        placeholder: theme.muted_foreground,
+                        selection: theme.selection,
+                        underline_when_focused: false,
+                    },
+                    window,
+                    cx,
+                )
+            });
+            cx.subscribe_in(
+                &input,
+                window,
+                |this, input, event: &TextInputEvent, window, cx| {
+                    let Some(open) = this.open_select.as_mut() else {
+                        return;
+                    };
+                    match event {
+                        TextInputEvent::Changed => {
+                            open.highlighted = 0;
+                            cx.notify();
+                        }
+                        TextInputEvent::Navigate(delta) => {
+                            let count = filter_options(&open.options, input.read(cx).text()).len();
+                            if count > 0 {
+                                open.highlighted = (open.highlighted as i32 + delta)
+                                    .clamp(0, count as i32 - 1)
+                                    as usize;
+                                cx.notify();
+                            }
+                        }
+                        TextInputEvent::Enter => {
+                            let options = open.options.clone();
+                            let on_select = open.on_select.clone();
+                            let chosen = filter_options(&options, input.read(cx).text())
+                                .get(open.highlighted)
+                                .map(|option| option.value.clone());
+                            this.close_select(cx);
+                            this.focus_handle.focus(window);
+                            if let Some(value) = chosen {
+                                on_select(this, value, window, cx);
+                            }
+                        }
+                        TextInputEvent::Escape => {
+                            this.close_select(cx);
+                            this.focus_handle.focus(window);
+                        }
+                        TextInputEvent::Committed | TextInputEvent::BackspaceEmpty => {}
+                    }
+                },
+            )
+            .detach();
+            input.read(cx).focus_handle(cx).focus(window);
+            input
+        });
+        self.open_select = Some(OpenSelect {
+            id: spec.id,
+            options: spec.options.clone(),
+            on_select: spec.on_select.clone(),
+            highlighted: 0,
+            search,
+        });
+        cx.notify();
+    }
+
+    fn render_select(&self, spec: SelectSpec, cx: &Context<Self>) -> AnyElement {
+        let theme = self.theme;
+        let selected = spec
+            .current
+            .as_ref()
+            .and_then(|value| spec.options.iter().find(|option| &option.value == value));
+        let (text, color) = match selected {
+            Some(option) => (
+                SharedString::from(match option.detail {
+                    Some(detail) => format!("{} ({detail})", option.label),
+                    None => option.label.clone(),
+                }),
+                theme.foreground,
+            ),
+            None => (SharedString::from(spec.placeholder), theme.muted_foreground),
+        };
+        let id = spec.id;
+        let open = self.open_select.as_ref().filter(|open| open.id == id);
+        let spec = Rc::new(spec);
+        let spec_for_click = spec.clone();
+
+        div()
+            .id(SharedString::from(format!("select-{id}")))
+            .relative()
+            .w_full()
+            .child(
+                // `SelectTrigger` / the combobox `Button variant="outline"` with
+                // `SETTING_CONTROL_CLASS`: `h-9 w-full rounded-full border
+                // bg-card px-3 text-sm`, half-opacity caret.
+                div()
+                    .id(SharedString::from(format!("select-trigger-{id}")))
+                    .flex()
+                    .h(px(36.0))
+                    .w_full()
+                    .items_center()
+                    .justify_between()
+                    .rounded_full()
+                    .border_1()
+                    .border_color(theme.border)
+                    .bg(theme.card)
+                    .px_3()
+                    .py_2()
+                    .tw_text_sm()
+                    .text_color(color)
+                    .cursor_default()
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                        if this.open_select.as_ref().is_some_and(|open| open.id == id) {
+                            this.close_select(cx);
+                        } else {
+                            this.open_select(&spec_for_click, window, cx);
+                        }
+                    }))
+                    .child(div().min_w_0().truncate().child(text))
+                    .child(icon("caret-down", px(16.0), alpha(theme.foreground, 0.5))),
+            )
+            .when_some(open, |wrapper, open| {
+                let panel = match &spec.search {
+                    Some(search) => self.render_searchable_panel(&spec, search, open, cx),
+                    None => self.render_select_panel(&spec, cx),
+                };
+                wrapper.child(gpui::deferred(panel).with_priority(1))
+            })
+            .into_any_element()
+    }
+
+    /// `SelectContent position="popper"`: `bg-popover rounded-[18px] border
+    /// shadow-md p-1` at the trigger's width, 4px below; items `py-1.5 pr-8
+    /// pl-2 text-sm` with the check at `right-2`.
+    fn render_select_panel(&self, spec: &SelectSpec, cx: &Context<Self>) -> AnyElement {
+        let theme = self.theme;
+        let id = spec.id;
+        div()
+            .id(SharedString::from(format!("select-content-{id}")))
+            .occlude()
+            .absolute()
+            .top(px(40.0))
+            .left_0()
+            .w_full()
+            .min_w(px(128.0))
+            .flex()
+            .flex_col()
+            .p_1()
+            .rounded(px(18.0))
+            .border_1()
+            .border_color(theme.border)
+            .bg(theme.popover)
+            .shadow_md()
+            .on_mouse_down_out(
+                cx.listener(|this, _: &gpui::MouseDownEvent, _, cx| this.close_select(cx)),
+            )
+            .children(spec.options.iter().enumerate().map(|(index, option)| {
+                let selected = spec.current.as_deref() == Some(option.value.as_str());
+                let value = option.value.clone();
+                let on_select = spec.on_select.clone();
+                div()
+                    .id(SharedString::from(format!("select-option-{id}-{index}")))
+                    .relative()
+                    .flex()
+                    .w_full()
+                    .items_center()
+                    .py(px(6.0))
+                    .pr_8()
+                    .pl_2()
+                    .rounded(px(14.0))
+                    .tw_text_sm()
+                    .text_color(theme.foreground)
+                    .cursor_default()
+                    .hover(move |style| style.bg(theme.accent))
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                        this.close_select(cx);
+                        on_select(this, value.clone(), window, cx);
+                    }))
+                    .child(SharedString::from(option.label.clone()))
+                    .when(selected, |item| {
+                        item.child(div().absolute().right_2().flex().items_center().child(icon(
+                            "check",
+                            px(16.0),
+                            theme.foreground,
+                        )))
+                    })
+            }))
+            .into_any_element()
+    }
+
+    /// `PopoverContent variant="app"` + `AppFloatingPanel` + `Command`: the
+    /// search row (`border-b px-3`, 16px glass at half opacity, `h-10 text-sm`
+    /// input) above a `p-1` list capped at 250px; rows `px-2 py-1.5 text-sm
+    /// gap-2` with the label, the mono detail, and a check when selected.
+    fn render_searchable_panel(
+        &self,
+        spec: &SelectSpec,
+        search: &SearchSpec,
+        open: &OpenSelect,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let theme = self.theme;
+        let id = spec.id;
+        let query = open
+            .search
+            .as_ref()
+            .map(|input| input.read(cx).text().to_string())
+            .unwrap_or_default();
+        let matches = filter_options(&spec.options, &query);
+        let highlighted = open.highlighted;
+
+        let mut panel = div()
+            .id(SharedString::from(format!("select-content-{id}")))
+            .occlude()
+            .absolute()
+            .top(px(40.0))
+            .left_0()
+            .flex()
+            .flex_col()
+            .p(px(2.0))
+            .rounded(px(22.0))
+            .border_1()
+            .border_color(theme.floating_border)
+            .bg(theme.floating_chrome)
+            .shadow_lg()
+            .on_mouse_down_out(
+                cx.listener(|this, _: &gpui::MouseDownEvent, _, cx| this.close_select(cx)),
+            );
+        panel = match search.width {
+            Some(width) => panel.w(px(width)),
+            None => panel.w_full(),
+        };
+
+        let mut list = div()
+            .id(SharedString::from(format!("select-list-{id}")))
+            .flex()
+            .flex_col()
+            .max_h(px(250.0))
+            .overflow_y_scroll()
+            .p_1();
+        if matches.is_empty() {
+            list = list.child(
+                div()
+                    .px_2()
+                    .py(px(6.0))
+                    .tw_text_sm()
+                    .text_color(theme.muted_foreground)
+                    .child(search.empty_message),
+            );
+        } else {
+            list = list.children(matches.into_iter().enumerate().map(|(index, option)| {
+                let selected = spec.current.as_deref() == Some(option.value.as_str());
+                let value = option.value.clone();
+                let on_select = spec.on_select.clone();
+                div()
+                    .id(SharedString::from(format!("select-option-{id}-{index}")))
+                    .flex()
+                    .w_full()
+                    .items_center()
+                    .gap_2()
+                    .px_2()
+                    .py(px(6.0))
+                    .rounded(px(14.0))
+                    .tw_text_sm()
+                    .text_color(theme.foreground)
+                    .cursor_pointer()
+                    // cmdk `data-[selected=true]:bg-accent`; the pointer moves it.
+                    .when(index == highlighted, |row| row.bg(theme.accent))
+                    .hover(move |style| style.bg(theme.accent))
+                    .on_hover(cx.listener(move |this, hovered: &bool, _, cx| {
+                        if let Some(open) = this.open_select.as_mut()
+                            && *hovered
+                            && open.highlighted != index
+                        {
+                            open.highlighted = index;
+                            cx.notify();
+                        }
+                    }))
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                        this.close_select(cx);
+                        this.focus_handle.focus(window);
+                        on_select(this, value.clone(), window, cx);
+                    }))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .child(SharedString::from(option.label.clone())),
+                    )
+                    .when_some(option.detail, |row, detail| {
+                        row.child(
+                            div()
+                                .flex_shrink_0()
+                                .when_some(self.mono_font_family.clone(), |detail, family| {
+                                    detail.font_family(family)
+                                })
+                                .text_size(px(10.0))
+                                .text_color(theme.muted_foreground)
+                                .child(detail),
+                        )
+                    })
+                    .when(selected, |row| {
+                        row.child(icon("check", px(16.0), theme.foreground))
+                    })
+            }));
+        }
+
+        panel
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .overflow_hidden()
+                    .rounded(px(20.0))
+                    .border_1()
+                    .border_color(theme.floating_border)
+                    .bg(theme.floating_panel)
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .h(px(40.0))
+                            .px_3()
+                            .border_b_1()
+                            .border_color(theme.border)
+                            .tw_text_sm()
+                            .child(icon("search", px(16.0), alpha(theme.foreground, 0.5)))
+                            .child(div().w(px(8.0)))
+                            .when_some(open.search.clone(), |row, input| {
+                                row.child(div().flex_1().min_w_0().child(input))
+                            }),
+                    )
+                    .child(list),
+            )
+            .into_any_element()
+    }
 }
