@@ -27,7 +27,128 @@ pub struct Item {
     pub id: String,
     pub title: String,
     pub timestamp: DateTime<Utc>,
+    pub ended_at: Option<DateTime<Utc>>,
     pub locked: bool,
+    pub folder_id: String,
+    pub event: Option<SessionEvent>,
+}
+
+/// The parts of `sessions.event_json` the main window reads. Fields stay
+/// `Option` because the app's `??` fallbacks only fire for missing keys, not
+/// for empty strings.
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Deserialize)]
+pub struct SessionEvent {
+    pub tracking_id: Option<String>,
+    pub started_at: Option<String>,
+    pub ended_at: Option<String>,
+    pub meeting_link: Option<String>,
+}
+
+impl SessionEvent {
+    pub fn parse(event_json: &str) -> Option<Self> {
+        if event_json.trim().is_empty() {
+            return None;
+        }
+        serde_json::from_str(event_json).ok()
+    }
+
+    /// `apps/desktop/src/session/hooks/useRemoteMeeting.ts`.
+    pub fn remote_meeting(&self) -> Option<RemoteMeeting> {
+        let url = url::Url::parse(self.meeting_link.as_deref()?).ok()?;
+        let host = url.host_str()?;
+        if host.contains("zoom.us") {
+            Some(RemoteMeeting::Zoom)
+        } else if host.contains("meet.google.com") {
+            Some(RemoteMeeting::GoogleMeet)
+        } else if host.contains("webex.com") {
+            Some(RemoteMeeting::Webex)
+        } else if host.contains("teams.microsoft.com") {
+            Some(RemoteMeeting::Teams)
+        } else if host == "app.cal.com" && url.path().starts_with("/video/") {
+            Some(RemoteMeeting::CalCom)
+        } else {
+            None
+        }
+    }
+
+    pub fn is_welcome_demo(&self) -> bool {
+        self.tracking_id.as_deref() == Some("anarlog-onboarding-demo-v1")
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RemoteMeeting {
+    Zoom,
+    GoogleMeet,
+    Webex,
+    Teams,
+    CalCom,
+}
+
+const MAX_FOLDER_PATH_LENGTH: usize = 200;
+const MAX_FOLDER_SEGMENT_LENGTH: usize = 80;
+
+/// `normalizeFolderPath` from `apps/desktop/src/session/folders.ts`.
+pub fn normalize_folder_path(path: &str) -> Option<String> {
+    let replaced = path.replace('\\', "/");
+    let replaced = replaced.trim();
+    if replaced.is_empty() {
+        return Some(String::new());
+    }
+    if replaced.starts_with('/') {
+        return None;
+    }
+    let mut segments = Vec::new();
+    for raw in replaced.trim_end_matches('/').split('/') {
+        if raw.is_empty() || raw == "." || raw == ".." || raw.len() > MAX_FOLDER_SEGMENT_LENGTH {
+            return None;
+        }
+        segments.push(raw);
+    }
+    let normalized = segments.join("/");
+    (normalized.len() <= MAX_FOLDER_PATH_LENGTH).then_some(normalized)
+}
+
+/// The folder line under a sidebar row (`sidebar_show_folder` defaults on).
+pub fn folder_label(folder_id: &str) -> Option<String> {
+    normalize_folder_path(folder_id).filter(|label| !label.is_empty())
+}
+
+/// `calculateTodayIndicatorPlacement`: where the red current-time line sits
+/// among a bucket's items (sorted newest first).
+#[derive(Debug, Clone, PartialEq)]
+pub enum IndicatorPlacement {
+    /// Overlaid on the item at `index`, `progress` (0..1) of the way through it.
+    Inside { index: usize, progress: f32 },
+    /// Between items, before `index`.
+    Before { index: usize },
+    /// After every item.
+    After,
+}
+
+pub fn indicator_placement(items: &[Item], now: DateTime<Utc>) -> IndicatorPlacement {
+    let now_ms = now.timestamp_millis();
+    if let Some((index, item)) = items.iter().enumerate().find(|(_, item)| {
+        let start = item.timestamp.timestamp_millis();
+        item.ended_at.is_some_and(|end| {
+            let end = end.timestamp_millis();
+            start <= now_ms && now_ms <= end && end > start
+        })
+    }) {
+        let start = item.timestamp.timestamp_millis();
+        let end = item.ended_at.expect("checked above").timestamp_millis();
+        return IndicatorPlacement::Inside {
+            index,
+            progress: (now_ms - start) as f32 / (end - start) as f32,
+        };
+    }
+    match items
+        .iter()
+        .position(|item| item.timestamp.timestamp_millis() < now_ms)
+    {
+        Some(index) => IndicatorPlacement::Before { index },
+        None => IndicatorPlacement::After,
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -70,15 +191,11 @@ pub fn parse_date<Tz: TimeZone>(value: &str, tz: &Tz) -> Option<DateTime<Utc>> {
 
 /// `getSessionEvent(row)?.started_at ?? row.created_at`.
 pub fn session_timestamp<Tz: TimeZone>(row: &SessionRow, tz: &Tz) -> Option<DateTime<Utc>> {
-    let event_started_at = serde_json::from_str::<serde_json::Value>(&row.event_json)
-        .ok()
-        .and_then(|event| {
-            event
-                .get("started_at")
-                .and_then(|value| value.as_str())
-                .map(str::to_string)
-        });
-    let source = event_started_at.as_deref().unwrap_or(&row.created_at);
+    let event = SessionEvent::parse(&row.event_json);
+    let source = event
+        .as_ref()
+        .and_then(|event| event.started_at.as_deref())
+        .unwrap_or(&row.created_at);
     parse_date(source, tz)
 }
 
@@ -242,11 +359,19 @@ pub fn build<Tz: TimeZone>(rows: &[SessionRow], now: DateTime<Utc>, tz: &Tz) -> 
             has_more_future_items = true;
             continue;
         }
+        let event = SessionEvent::parse(&row.event_json);
+        let ended_at = event
+            .as_ref()
+            .and_then(|event| event.ended_at.as_deref())
+            .and_then(|value| parse_date(value, tz));
         items.push(Item {
             id: row.id.clone(),
             title: row.title.clone(),
             timestamp,
+            ended_at,
             locked: row.locked != 0,
+            folder_id: row.folder_id.clone(),
+            event,
         });
     }
 
@@ -416,6 +541,79 @@ mod tests {
             .map(|i| i.id.as_str())
             .collect();
         assert_eq!(ids, ["newer", "a", "b", "u"]);
+    }
+
+    #[test]
+    fn indicator_sits_between_future_and_past_or_inside_an_active_item() {
+        let rows = [
+            row("future", "Future", "2024-01-15T15:00:00Z", None),
+            row("past", "Past", "2024-01-15T09:00:00Z", None),
+        ];
+        let items = build(&rows, now(), &Utc).buckets.remove(0).items;
+        assert_eq!(
+            indicator_placement(&items, now()),
+            IndicatorPlacement::Before { index: 1 }
+        );
+        assert_eq!(
+            indicator_placement(&items[..1], now()),
+            IndicatorPlacement::After
+        );
+
+        let mut active = row(
+            "active",
+            "Active",
+            "2024-01-15T09:00:00Z",
+            Some("2024-01-15T11:00:00Z"),
+        );
+        active.event_json = serde_json::json!({
+            "started_at": "2024-01-15T11:00:00Z",
+            "ended_at": "2024-01-15T13:00:00Z",
+            "meeting_link": "https://zoom.us/j/1"
+        })
+        .to_string();
+        let items = build(&[active], now(), &Utc).buckets.remove(0).items;
+        assert_eq!(
+            indicator_placement(&items, now()),
+            IndicatorPlacement::Inside {
+                index: 0,
+                progress: 0.5
+            }
+        );
+        assert_eq!(
+            items[0].event.as_ref().unwrap().remote_meeting(),
+            Some(RemoteMeeting::Zoom)
+        );
+    }
+
+    #[test]
+    fn empty_event_started_at_drops_the_row_like_the_app() {
+        let mut empty = row("e", "Empty start", "2024-01-15T09:00:00Z", None);
+        empty.event_json = serde_json::json!({ "started_at": "" }).to_string();
+        let no_key = row("k", "No key", "2024-01-15T09:00:00Z", None);
+        let mut no_key = no_key;
+        no_key.event_json = serde_json::json!({ "tracking_id": "x" }).to_string();
+        let timeline = build(&[empty, no_key], now(), &Utc);
+        let ids: Vec<&str> = timeline
+            .buckets
+            .iter()
+            .flat_map(|b| b.items.iter().map(|i| i.id.as_str()))
+            .collect();
+        assert_eq!(ids, ["k"]);
+    }
+
+    #[test]
+    fn folder_paths_normalize_like_the_app() {
+        assert_eq!(
+            normalize_folder_path("  Work\\Q3/  "),
+            Some("Work/Q3".into())
+        );
+        assert_eq!(normalize_folder_path("Work/"), Some("Work".into()));
+        assert_eq!(normalize_folder_path(""), Some(String::new()));
+        assert_eq!(normalize_folder_path("/abs"), None);
+        assert_eq!(normalize_folder_path("a//b"), None);
+        assert_eq!(normalize_folder_path("a/../b"), None);
+        assert_eq!(folder_label(""), None);
+        assert_eq!(folder_label("Work"), Some("Work".into()));
     }
 
     #[test]

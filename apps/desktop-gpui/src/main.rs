@@ -1,7 +1,9 @@
+mod assets;
 mod db;
 mod document;
 mod theme;
 mod timeline;
+mod ui;
 mod workspace;
 
 use std::path::PathBuf;
@@ -9,8 +11,8 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use gpui::{
-    App, AppContext as _, Application, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px,
-    size,
+    App, AppContext as _, Application, Bounds, TitlebarOptions, WindowBounds, WindowDecorations,
+    WindowOptions, point, px, size,
 };
 
 use crate::db::Store;
@@ -77,39 +79,53 @@ fn main() -> anyhow::Result<()> {
     let store = Arc::new(store);
     tracing::info!(path = %store.path().display(), "opened application database");
 
-    Application::new().run(move |cx: &mut App| {
-        cx.on_window_closed(|cx| {
-            if cx.windows().is_empty() {
-                // gpui 0.2.2's X11 client still holds its state borrow while
-                // firing this callback; quitting synchronously re-borrows it
-                // and panics, so hop to the next executor tick first.
-                cx.spawn(async move |cx| cx.update(|cx| cx.quit()).ok())
-                    .detach();
-            }
-        })
-        .detach();
+    Application::new()
+        .with_assets(assets::Assets)
+        .run(move |cx: &mut App| {
+            cx.on_window_closed(|cx| {
+                if cx.windows().is_empty() {
+                    // gpui 0.2.2's X11 client still holds its state borrow while
+                    // firing this callback; quitting synchronously re-borrows it
+                    // and panics, so hop to the next executor tick first.
+                    cx.spawn(async move |cx| cx.update(|cx| cx.quit()).ok())
+                        .detach();
+                }
+            })
+            .detach();
 
-        let bounds = Bounds::centered(None, size(px(1100.0), px(720.0)), cx);
-        let window = cx.open_window(
-            WindowOptions {
-                window_bounds: Some(WindowBounds::Windowed(bounds)),
-                titlebar: Some(TitlebarOptions {
-                    title: Some("Anarlog".into()),
+            let bounds = Bounds::centered(None, size(px(1100.0), px(720.0)), cx);
+            // Tauri ships `decorations: false` with its own title bar on Windows
+            // and Linux, and a transparent title bar with inset traffic lights on
+            // macOS (`tauri.macos.conf.json`).
+            let window = cx.open_window(
+                WindowOptions {
+                    window_bounds: Some(WindowBounds::Windowed(bounds)),
+                    titlebar: Some(TitlebarOptions {
+                        title: Some("Anarlog".into()),
+                        appears_transparent: cfg!(target_os = "macos"),
+                        traffic_light_position: cfg!(target_os = "macos")
+                            .then(|| point(px(12.0), px(12.0))),
+                    }),
+                    window_decorations: Some(
+                        if cfg!(any(target_os = "windows", target_os = "linux")) {
+                            WindowDecorations::Client
+                        } else {
+                            WindowDecorations::Server
+                        },
+                    ),
+                    app_id: Some(APP_ID.to_string()),
+                    window_min_size: Some(size(px(640.0), px(400.0))),
                     ..Default::default()
-                }),
-                app_id: Some(APP_ID.to_string()),
-                window_min_size: Some(size(px(640.0), px(400.0))),
-                ..Default::default()
-            },
-            |_window, cx| cx.new(|cx| Workspace::new(store, cx)),
-        );
-        if let Err(error) = window {
-            tracing::error!(%error, "failed to open main window");
-            cx.quit();
-            return;
-        }
-        cx.activate(true);
-    });
+                },
+                |_window, cx| cx.new(|cx| Workspace::new(store, cx)),
+            );
+            if let Err(error) = window {
+                tracing::error!(%error, "failed to open main window");
+                cx.quit();
+                return;
+            }
+            cx.activate(true);
+        });
 
     drop(runtime);
     Ok(())

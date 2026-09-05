@@ -2,35 +2,50 @@ use std::path::PathBuf;
 
 use gpui::{Rgba, TextSystem, rgb};
 
-/// Neutral light palette matching the Tauri app's default appearance. Dark
-/// mode and user appearance settings land once settings move off the webview.
+/// Light tokens from `packages/design-system/src/tokens.css`, converted from
+/// their HSL channels. Dark mode lands with the appearance settings.
 #[derive(Clone, Copy)]
 pub struct Theme {
     pub background: Rgba,
-    pub sidebar: Rgba,
+    pub foreground: Rgba,
+    pub card: Rgba,
+    pub muted_foreground: Rgba,
+    pub accent: Rgba,
     pub border: Rgba,
-    pub text: Rgba,
-    pub text_muted: Rgba,
-    pub selected: Rgba,
-    pub hover: Rgba,
-    pub danger: Rgba,
+    pub destructive: Rgba,
+    /// Tailwind `red-500`, used by the current-time line and recording dot.
+    pub red: Rgba,
+    /// Tailwind `neutral-700`, the breadcrumb title colour.
+    pub title: Rgba,
+    /// Windows-style close button hover.
+    pub close_hover: Rgba,
+    /// `--color-blue-600` from `note-typography.css`.
     pub link: Rgba,
+    pub white: Rgba,
 }
 
 impl Theme {
     pub fn light() -> Self {
         Self {
-            background: rgb(0xffffff),
-            sidebar: rgb(0xf5f5f5),
-            border: rgb(0xe5e5e5),
-            text: rgb(0x171717),
-            text_muted: rgb(0x737373),
-            selected: rgb(0xe5e5e5),
-            hover: rgb(0xebebeb),
-            danger: rgb(0xb91c1c),
+            background: rgb(0xfafaf9),
+            foreground: rgb(0x1c1917),
+            card: rgb(0xffffff),
+            muted_foreground: rgb(0x78726d),
+            accent: rgb(0xf0f0ef),
+            border: rgb(0xe7e5e4),
+            destructive: rgb(0xef4444),
+            red: rgb(0xef4444),
+            title: rgb(0x404040),
+            close_hover: rgb(0xc42b1c),
             link: rgb(0x2563eb),
+            white: rgb(0xffffff),
         }
     }
+}
+
+/// Tailwind `color/NN` opacity modifier.
+pub fn alpha(color: Rgba, alpha: f32) -> Rgba {
+    Rgba { a: alpha, ..color }
 }
 
 /// The family the Tauri app's `system-ui` CSS resolves to on this machine.
@@ -62,6 +77,28 @@ pub fn ui_font_family(text_system: &TextSystem) -> Option<String> {
             .find(|family| is_installed(family))
             .map(str::to_string)
         })
+}
+
+/// Tailwind's `font-mono` stack, then what fontconfig's `monospace` maps to
+/// on common Linux installs.
+pub fn mono_font_family(text_system: &TextSystem) -> Option<String> {
+    let installed = text_system.all_font_names();
+    [
+        "SF Mono",
+        "SFMono-Regular",
+        "Menlo",
+        "Monaco",
+        "Consolas",
+        "Liberation Mono",
+        "Courier New",
+        "DejaVu Sans Mono",
+        "Noto Sans Mono",
+        "Cascadia Code",
+        "Cousine",
+    ]
+    .into_iter()
+    .find(|family| installed.iter().any(|name| name == family))
+    .map(str::to_string)
 }
 
 /// WebKitGTK resolves `system-ui` through GTK's `gtk-font-name` setting.
@@ -108,5 +145,15 @@ mod tests {
             Some("Cantarell".to_string())
         );
         assert_eq!(parse_gtk_font_name("gtk-theme-name=X"), None);
+    }
+
+    #[test]
+    fn alpha_only_touches_the_alpha_channel() {
+        let faded = alpha(rgb(0xef4444), 0.85);
+        assert_eq!(faded.a, 0.85);
+        assert_eq!(
+            (faded.r, faded.g, faded.b),
+            (rgb(0xef4444).r, rgb(0xef4444).g, rgb(0xef4444).b)
+        );
     }
 }

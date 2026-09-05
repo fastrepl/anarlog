@@ -36,6 +36,20 @@ pub struct NoteDocument {
     pub blocks: Vec<Block>,
 }
 
+// apps/desktop/src/session/queries/sessions.ts, `useSessionTranscriptExistence`.
+const HAS_TRANSCRIPT_SQL: &str = "
+    SELECT EXISTS (
+        SELECT 1
+        FROM transcripts
+        WHERE session_id = ?
+          AND deleted_at IS NULL
+          AND CASE
+            WHEN json_valid(words_json) THEN json_array_length(words_json)
+            ELSE 0
+          END > 0
+    )
+";
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NotePreview {
     pub session: SessionRow,
@@ -43,6 +57,7 @@ pub struct NotePreview {
     pub memo: Vec<Block>,
     /// Summaries and template outputs in the order the app tabs them.
     pub enhanced: Vec<NoteDocument>,
+    pub has_transcript: bool,
 }
 
 /// Read-only access to the SQLite database owned by the Tauri desktop app.
@@ -129,7 +144,12 @@ impl Store {
                         blocks: document::from_body(&body_format, &body),
                     })
                     .collect();
+            let has_transcript: bool = sqlx::query_scalar(HAS_TRANSCRIPT_SQL)
+                .bind(&session_id)
+                .fetch_one(db.pool())
+                .await?;
             Ok(Some(NotePreview {
+                has_transcript,
                 session: SessionRow {
                     id: session.id,
                     title: session.title,
@@ -287,6 +307,7 @@ mod tests {
             .unwrap();
         assert_eq!(note.session.title, "Weekly sync");
         assert_eq!(note.session.created_at, "2026-09-01T09:00:00Z");
+        assert!(!note.has_transcript);
         assert_eq!(
             note.memo,
             vec![Block::Paragraph(vec![document::Span {
