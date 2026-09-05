@@ -267,6 +267,7 @@ impl Workspace {
         self.close_folders(cx);
         self.close_templates(cx);
         self.close_calendar(cx);
+        self.close_contacts(cx);
         if self.settings_search.is_none() {
             let theme = self.theme;
             let input = cx.new(|cx| {
@@ -834,6 +835,8 @@ impl Workspace {
                                 this.open_templates(None, window, cx);
                             } else if label == "Calendar" {
                                 this.open_calendar(cx);
+                            } else if label == "Contacts" {
+                                this.open_contacts(window, cx);
                             }
                         }))
                         .child(icon(glyph, px(15.0), color))

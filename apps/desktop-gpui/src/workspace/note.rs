@@ -17,6 +17,7 @@ impl Workspace {
     pub(super) fn render_main_surface(&self, window: &Window, cx: &mut Context<Self>) -> Div {
         let theme = self.theme;
         let content = match &self.note {
+            _ if self.contacts_open() => self.render_contacts_main(cx),
             _ if self.calendar_open() => self.render_calendar_main(window, cx),
             _ if self.templates_open() => self.render_templates_main(window, cx),
             _ if self.folders_open() => self.render_folders_main(cx),

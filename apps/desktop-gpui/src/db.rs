@@ -1876,6 +1876,102 @@ impl Store {
             .spawn(async move { crate::templates::toggle_favorite(db.pool(), &id).await })
     }
 
+    pub fn list_contacts(
+        &self,
+    ) -> tokio::task::JoinHandle<
+        anyhow::Result<(
+            Vec<crate::contacts::Human>,
+            Vec<crate::contacts::Organization>,
+        )>,
+    > {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            Ok((
+                crate::contacts::list_humans(db.pool()).await?,
+                crate::contacts::list_organizations(db.pool()).await?,
+            ))
+        })
+    }
+
+    /// `useHumanSessions`
+    pub fn human_sessions(
+        &self,
+        human_id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<Vec<crate::contacts::HumanSession>>> {
+        let db = self.db.clone();
+        self.runtime
+            .spawn(async move { crate::contacts::human_sessions(db.pool(), &human_id).await })
+    }
+
+    /// `updateHuman` for one column.
+    pub fn update_human_field(
+        &self,
+        human_id: String,
+        column: &'static str,
+        value: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            crate::contacts::update_human_field(db.pool(), &human_id, column, &value).await
+        })
+    }
+
+    /// `toggleContactPin`
+    pub fn toggle_contact_pin(
+        &self,
+        table: &'static str,
+        id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime
+            .spawn(async move { crate::contacts::toggle_pin(db.pool(), table, &id).await })
+    }
+
+    /// `deleteHuman` / `deleteOrganization`
+    pub fn delete_contact(
+        &self,
+        table: &'static str,
+        id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime
+            .spawn(async move { crate::contacts::soft_delete(db.pool(), table, &id).await })
+    }
+
+    /// `createHuman({ name })` from the contacts sidebar (default owner).
+    pub fn create_contact_human(
+        &self,
+        name: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<String>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let human_id = uuid::Uuid::new_v4().to_string();
+            let now = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string();
+            sqlx::query(CREATE_HUMAN_SQL)
+                .bind(&human_id)
+                .bind("00000000-0000-0000-0000-000000000000")
+                .bind(&name)
+                .bind("")
+                .bind(&now)
+                .bind(&now)
+                .execute(db.pool())
+                .await?;
+            Ok(human_id)
+        })
+    }
+
+    /// `createOrganization({ name })`
+    pub fn create_organization(
+        &self,
+        name: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<String>> {
+        let db = self.db.clone();
+        self.runtime
+            .spawn(async move { crate::contacts::create_organization(db.pool(), &name).await })
+    }
+
     /// `listWebhooks`
     pub fn list_webhooks(
         &self,

@@ -1,5 +1,6 @@
 mod ai_settings;
 mod calendar_tab;
+mod contacts_tab;
 mod developers_page;
 mod document_view;
 mod export;
@@ -180,6 +181,8 @@ pub struct Workspace {
     templates_tab: Option<templates_tab::TemplatesState>,
     /// The Calendar tab while open.
     calendar: Option<calendar_tab::CalendarState>,
+    /// The Contacts tab while open.
+    contacts: Option<contacts_tab::ContactsState>,
     /// The template section under the pointer (`group-hover`).
     hovered_section: Option<u64>,
     /// The `SpokenLanguagesView` chip input, created with the settings tab.
@@ -292,6 +295,7 @@ impl Workspace {
             folders: None,
             templates_tab: None,
             calendar: None,
+            contacts: None,
             hovered_section: None,
             spoken_search: None,
             spoken_highlighted: None,
@@ -480,6 +484,7 @@ impl Workspace {
                         this.reload_settings(cx);
                         this.reload_folders_from_watcher(cx);
                         this.reload_templates_from_watcher(cx);
+                        this.reload_contacts_from_watcher(cx);
                         if let Some(selected) = this.selected.clone() {
                             this.reload_note(selected, cx);
                         }
@@ -996,6 +1001,7 @@ impl Render for Workspace {
         if let Some(editor) = self.pending_editor_focus.take() {
             editor.update(cx, |editor, cx| editor.focus_start(window, cx));
         }
+        self.prepare_contact_avatars();
         let resolved = Theme::resolve(&self.theme_preference, window.appearance());
         if resolved != self.theme {
             self.theme = resolved;
@@ -1112,7 +1118,9 @@ impl Render for Workspace {
                     .flex_1()
                     .min_h_0()
                     .when(self.sidebar_expanded && !self.is_standalone(), |shell| {
-                        let sidebar = if self.calendar_open() {
+                        let sidebar = if self.contacts_open() {
+                            self.render_contacts_sidebar(window, cx).into_any_element()
+                        } else if self.calendar_open() {
                             self.render_calendar_sidebar(cx).into_any_element()
                         } else if self.templates_open() {
                             self.render_templates_sidebar(cx).into_any_element()

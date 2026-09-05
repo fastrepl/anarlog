@@ -28,10 +28,12 @@ dirs = { workspace = true }
 gpui = { workspace = true }
 iana-time-zone = "0.1"
 hmac = { workspace = true }
+image = { workspace = true }
 keyring = { workspace = true }
 mime_guess = "2"
 reqwest = { workspace = true, features = ["json"] }
 sha2 = { workspace = true }
+smallvec = "1"
 pico-args = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -40,6 +42,7 @@ sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+unicode-normalization = "0.1"
 unicode-segmentation = "1"
 url = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }

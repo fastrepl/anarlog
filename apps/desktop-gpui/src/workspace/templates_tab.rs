@@ -76,6 +76,7 @@ impl Workspace {
         self.close_settings(cx);
         self.close_folders(cx);
         self.close_calendar(cx);
+        self.close_contacts(cx);
         if self.templates_tab.is_none() {
             let style = self.plain_input_style();
             let search = cx.new(|cx| TextInput::new("Search templates...", style, window, cx));
