@@ -527,7 +527,7 @@ impl Workspace {
                     div()
                         .flex()
                         .min_w_0()
-                        .items_start()
+                        .items_center()
                         .gap_2()
                         .child(
                             // `flex-grow` with an auto basis: a 0% basis would make
@@ -537,6 +537,7 @@ impl Workspace {
                                 .flex_grow()
                                 .min_w_0()
                                 .flex_col()
+                                .gap(px(2.0))
                                 .when_some(folder, |column, folder| {
                                     column.child(
                                         div()
@@ -570,7 +571,6 @@ impl Workspace {
                             row.child(
                                 div()
                                     .flex_shrink_0()
-                                    .pt(px(2.0))
                                     .text_color(theme.muted_foreground)
                                     .child(icon("lock", px(14.0), theme.muted_foreground)),
                             )

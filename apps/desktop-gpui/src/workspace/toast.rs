@@ -137,7 +137,7 @@ impl Workspace {
                         .flex_1()
                         .min_w_0()
                         .text_size(px(13.0))
-                        .line_height(px(19.5))
+                        .line_height(px(19.0))
                         .font_weight(gpui::FontWeight::MEDIUM)
                         .text_color(text)
                         .child(toast.description),

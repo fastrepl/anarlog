@@ -8,9 +8,15 @@ use crate::theme::{Theme, alpha};
 /// Tailwind font-size utilities set a line height too (12/16, 14/20, 16/24);
 /// GPUI's `text_xs`/`text_sm`/`text_base` only set the size and keep a φ line
 /// height, which makes every row taller than the web app's.
+///
+/// WebCore truncates the used line height to whole pixels after evaluating
+/// Tailwind's `calc()` ratios in single precision, so `text-xs`
+/// (`calc(1 / 0.75) * 12px` = 15.99999) lays out as 15px while `text-sm`
+/// (`calc(1.25 / 0.875) * 14px` = 20.0000006) stays 20px. The values here are
+/// the measured WebKit boxes, not the nominal Tailwind ones.
 pub trait TailwindText: Styled + Sized {
     fn tw_text_xs(self) -> Self {
-        self.text_size(px(12.0)).line_height(px(16.0))
+        self.text_size(px(12.0)).line_height(px(15.0))
     }
     fn tw_text_sm(self) -> Self {
         self.text_size(px(14.0)).line_height(px(20.0))

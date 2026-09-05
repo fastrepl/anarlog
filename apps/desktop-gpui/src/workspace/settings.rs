@@ -855,7 +855,7 @@ impl Workspace {
         let title = div()
             .font_family(hand_font_family())
             .text_size(px(30.0))
-            .line_height(px(37.5))
+            .line_height(px(37.0))
             .font_weight(gpui::FontWeight::SEMIBOLD)
             .text_color(theme.foreground)
             .child(tab.title());
