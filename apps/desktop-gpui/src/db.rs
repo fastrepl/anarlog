@@ -579,7 +579,109 @@ const HAS_TRANSCRIPT_SQL: &str = "
     )
 ";
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+// apps/desktop/src/stt/queries.ts, `useSessionTranscripts` (stored rows;
+// pending live deltas only exist while a capture is running).
+const SESSION_TRANSCRIPTS_SQL: &str = "
+    SELECT id, owner_user_id, started_at_ms, words_json, speaker_hints_json
+    FROM transcripts AS transcript
+    WHERE transcript.session_id = ? AND transcript.deleted_at IS NULL
+    ORDER BY transcript.started_at_ms, transcript.created_at, transcript.id
+";
+
+// apps/desktop/src/stt/queries.ts, `useSessionParticipantHumanIds`.
+const PARTICIPANT_HUMAN_IDS_SQL: &str = "
+    SELECT DISTINCT participant.human_id
+    FROM session_participants AS participant
+    LEFT JOIN humans AS human
+      ON human.id = participant.human_id
+      AND human.deleted_at IS NULL
+    WHERE participant.session_id = ?
+      AND participant.human_id <> ''
+      AND participant.source <> 'excluded'
+      AND participant.deleted_at IS NULL
+      AND participant.human_id <> COALESCE((
+        SELECT session.owner_user_id
+        FROM sessions AS session
+        WHERE session.id = participant.session_id
+      ), '')
+      AND (
+        NULLIF(lower(COALESCE(NULLIF(human.email, ''), participant.email)), '') IS NULL
+        OR NOT EXISTS (
+          SELECT 1
+          FROM humans AS self_human
+          JOIN sessions AS session
+            ON session.owner_user_id = self_human.id
+          WHERE session.id = participant.session_id
+            AND self_human.deleted_at IS NULL
+            AND NULLIF(lower(self_human.email), '') IS NOT NULL
+            AND lower(self_human.email) = lower(COALESCE(NULLIF(human.email, ''), participant.email))
+        )
+      )
+    ORDER BY participant.human_id
+";
+
+// apps/desktop/src/services/enhancer/storage.ts, `ensureSummaryDocument`.
+const INSERT_SUMMARY_DOCUMENT_SQL: &str = "
+    INSERT INTO session_documents (
+      id, workspace_id, session_id, kind, template_id, title,
+      body_format, body, sort_order, created_by, updated_by,
+      created_at, updated_at, deleted_at
+    )
+    SELECT
+      ?, workspace_id, id, ?, ?, 'Summary', 'prosemirror_json', '', ?,
+      owner_user_id, owner_user_id, ?, ?, NULL
+    FROM sessions
+    WHERE id = ? AND deleted_at IS NULL
+";
+
+const ENHANCED_POSITIONS_SQL: &str = "
+    SELECT template_id, sort_order
+    FROM session_documents
+    WHERE session_id = ?
+      AND kind IN ('summary', 'template_output')
+      AND deleted_at IS NULL
+";
+
+// `replaceSummaryDocumentTemplate`, run by `hydrateTemplateTitle`.
+const HYDRATE_TEMPLATE_TITLE_SQL: &str = "
+    UPDATE session_documents
+    SET template_id = ?, title = ?, updated_at = ?
+    WHERE id = ? AND session_id = ? AND deleted_at IS NULL
+";
+
+/// A `transcripts` row as `useSessionTranscripts` reads it.
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
+pub struct TranscriptRow {
+    pub id: String,
+    pub owner_user_id: String,
+    pub started_at_ms: i64,
+    pub words_json: String,
+    pub speaker_hints_json: String,
+}
+
+/// `useTranscriptHumans`: names for the given ids, in id order.
+async fn transcript_humans(
+    pool: &sqlx::SqlitePool,
+    human_ids: &[String],
+) -> anyhow::Result<Vec<(String, String)>> {
+    let mut ids: Vec<&String> = human_ids.iter().filter(|id| !id.is_empty()).collect();
+    ids.sort();
+    ids.dedup();
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let placeholders = vec!["?"; ids.len()].join(", ");
+    let sql = format!(
+        "SELECT id, name FROM humans WHERE id IN ({placeholders}) AND name <> '' AND deleted_at IS NULL ORDER BY id"
+    );
+    let mut query = sqlx::query_as::<_, (String, String)>(sqlx::AssertSqlSafe(sql));
+    for id in ids {
+        query = query.bind(id.clone());
+    }
+    Ok(query.fetch_all(pool).await?)
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct NotePreview {
     pub session: SessionRow,
     /// The raw memo (`kind = 'note'`).
@@ -590,6 +692,8 @@ pub struct NotePreview {
     /// Summaries and template outputs in the order the app tabs them.
     pub enhanced: Vec<NoteDocument>,
     pub has_transcript: bool,
+    /// Stored transcripts, segmented for the Transcript tab.
+    pub transcripts: Vec<crate::transcript::RenderedTranscript>,
 }
 
 /// Access to the SQLite database shared with the Tauri desktop app.
@@ -1078,6 +1182,86 @@ impl Store {
         })
     }
 
+    /// `useEnsureDefaultSummary` -> `enhancer.ensureNote(sessionId, templateId)`:
+    /// a session with a transcript and no enhanced note gets a `Summary`
+    /// document (kind `summary`, or `template_output` when a template is
+    /// selected, whose title is then hydrated from the template). Returns
+    /// whether a row was inserted.
+    pub fn ensure_summary_document(
+        &self,
+        session_id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<bool>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let pool = db.pool();
+            if anlg_db_app::get_session(pool, &session_id).await?.is_none() {
+                return Ok(false);
+            }
+            // `templateId = memoTemplateId || selectedTemplateId`, where the memo
+            // template is `COALESCE(note.template_id, '')` of the `note` document.
+            let memo_template: Option<String> = sqlx::query_scalar(
+                "SELECT template_id FROM session_documents WHERE session_id = ? AND kind = 'note' AND deleted_at IS NULL LIMIT 1",
+            )
+            .bind(&session_id)
+            .fetch_optional(pool)
+            .await?;
+            let rows = sqlx::query_as::<_, (String, String, i64)>(SETTING_ROWS_SQL)
+                .fetch_all(pool)
+                .await?
+                .into_iter()
+                .map(|(id, json, _)| (id, json))
+                .collect::<Vec<_>>();
+            let settings = ProviderSettings::from_rows(&rows);
+            let template_id = memo_template
+                .filter(|id| !id.is_empty())
+                .or_else(|| {
+                    settings.string_setting("selected_template_id", &["general", "selected_template_id"])
+                })
+                .unwrap_or_default();
+            let existing = sqlx::query_as::<_, (String, i64)>(ENHANCED_POSITIONS_SQL)
+                .bind(&session_id)
+                .fetch_all(pool)
+                .await?;
+            if existing.iter().any(|(template, _)| *template == template_id) {
+                return Ok(false);
+            }
+            let position = existing.iter().map(|(_, order)| *order).max().unwrap_or(0) + 1;
+            let now = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string();
+            let note_id = uuid::Uuid::new_v4().to_string();
+            let inserted = sqlx::query(INSERT_SUMMARY_DOCUMENT_SQL)
+                .bind(&note_id)
+                .bind(if template_id.is_empty() { "summary" } else { "template_output" })
+                .bind(&template_id)
+                .bind(position)
+                .bind(&now)
+                .bind(&now)
+                .bind(&session_id)
+                .execute(pool)
+                .await?
+                .rows_affected();
+            if inserted == 1 && !template_id.is_empty() {
+                let title: Option<String> =
+                    sqlx::query_scalar("SELECT title FROM templates WHERE id = ?")
+                        .bind(&template_id)
+                        .fetch_optional(pool)
+                        .await?;
+                if let Some(title) = title.map(|title| title.trim().to_string()).filter(|title| !title.is_empty()) {
+                    sqlx::query(HYDRATE_TEMPLATE_TITLE_SQL)
+                        .bind(&template_id)
+                        .bind(&title)
+                        .bind(&now)
+                        .bind(&note_id)
+                        .bind(&session_id)
+                        .execute(pool)
+                        .await?;
+                }
+            }
+            Ok(inserted == 1)
+        })
+    }
+
     pub fn load_note(
         &self,
         session_id: String,
@@ -1119,8 +1303,29 @@ impl Store {
                 .bind(&session_id)
                 .fetch_one(db.pool())
                 .await?;
+            let transcripts = if has_transcript {
+                let rows = sqlx::query_as::<_, TranscriptRow>(SESSION_TRANSCRIPTS_SQL)
+                    .bind(&session_id)
+                    .fetch_all(db.pool())
+                    .await?;
+                let participants: Vec<String> = sqlx::query_scalar(PARTICIPANT_HUMAN_IDS_SQL)
+                    .bind(&session_id)
+                    .fetch_all(db.pool())
+                    .await?;
+                // `humanIds = participants ∪ assigned ∪ self`.
+                let mut human_ids = participants.clone();
+                human_ids.extend(crate::transcript::assigned_human_ids(&rows));
+                if let Some(owner) = rows.first().map(|row| row.owner_user_id.clone()) {
+                    human_ids.push(owner);
+                }
+                let humans = transcript_humans(db.pool(), &human_ids).await?;
+                crate::transcript::render_transcripts(&rows, &participants, &humans)
+            } else {
+                Vec::new()
+            };
             Ok(Some(NotePreview {
                 has_transcript,
+                transcripts,
                 session: SessionRow {
                     id: session.id,
                     title: session.title,

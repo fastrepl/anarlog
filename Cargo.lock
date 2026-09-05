@@ -5459,6 +5459,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "transcript",
  "unicode-segmentation",
  "url",
  "uuid",

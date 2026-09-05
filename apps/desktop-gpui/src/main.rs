@@ -7,6 +7,7 @@ mod store_file;
 mod text_input;
 mod theme;
 mod timeline;
+mod transcript;
 mod ui;
 mod workspace;
 

@@ -29,6 +29,7 @@ embedded!(
     "icons/calendar.svg",
     "icons/caret-down.svg",
     "icons/caret-right.svg",
+    "icons/check-circle.svg",
     "icons/check.svg",
     "icons/close-x.svg",
     "icons/code.svg",
@@ -45,9 +46,11 @@ embedded!(
     "icons/microphone.svg",
     "icons/more-horizontal.svg",
     "icons/note-edit.svg",
+    "icons/pencil-edit.svg",
     "icons/popover-tail-border.svg",
     "icons/popover-tail.svg",
     "icons/search.svg",
+    "icons/share.svg",
     "icons/shield-check.svg",
     "icons/sidebar-left.svg",
     "icons/sort-ascending.svg",
@@ -62,6 +65,7 @@ embedded!(
     "icons/users.svg",
     "icons/video-camera.svg",
     "icons/view-sidebar-left.svg",
+    "icons/waveform.svg",
     "icons/x.svg",
     "anarlog-icon.png",
     "google-meet.svg",
@@ -99,6 +103,6 @@ mod tests {
         }
         assert!(Assets.load("icons/search.svg").unwrap().is_some());
         assert!(Assets.load("icons/missing.svg").unwrap().is_none());
-        assert_eq!(Assets.list("icons/").unwrap().len(), 47);
+        assert_eq!(Assets.list("icons/").unwrap().len(), 51);
     }
 }

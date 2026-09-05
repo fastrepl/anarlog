@@ -14,6 +14,7 @@ anlg-db-app = { workspace = true }
 anlg-db-core = { workspace = true }
 anlg-storage = { workspace = true }
 anlg-tiptap = { workspace = true }
+anlg-transcript = { workspace = true }
 
 anyhow = { workspace = true }
 chrono = { workspace = true }

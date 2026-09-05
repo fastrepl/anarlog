@@ -87,6 +87,7 @@ enum SidebarRow {
 enum NoteTab {
     Memo,
     Enhanced(String),
+    Transcript,
 }
 
 enum Note {
@@ -567,6 +568,31 @@ impl Workspace {
         .detach();
     }
 
+    fn ensure_summary(&mut self, session_id: String, cx: &mut Context<Self>) {
+        let task = self.store.ensure_summary_document(session_id.clone());
+        cx.spawn(async move |this, cx| {
+            match task
+                .await
+                .map_err(anyhow::Error::from)
+                .and_then(|result| result)
+            {
+                Ok(true) => {
+                    this.update(cx, |this, cx| {
+                        if this.selected.as_deref() == Some(session_id.as_str()) {
+                            this.reload_note(session_id.clone(), cx);
+                        }
+                    })
+                    .ok();
+                }
+                Ok(false) => {}
+                Err(error) => {
+                    tracing::error!(%error, "[enhancer] failed to create default summary")
+                }
+            }
+        })
+        .detach();
+    }
+
     fn reload_note(&mut self, session_id: String, cx: &mut Context<Self>) {
         let task = self.store.load_note(session_id.clone());
         cx.spawn(async move |this, cx| {
@@ -578,6 +604,11 @@ impl Workspace {
                 }
                 this.note = match result {
                     Ok(Ok(Some(preview))) => {
+                        // `useEnsureDefaultSummary`: a transcript without an
+                        // enhanced note gets its Summary document created.
+                        if preview.has_transcript && preview.enhanced.is_empty() {
+                            this.ensure_summary(session_id.clone(), cx);
+                        }
                         let tab = this.current_tab_for(&preview);
                         // `title = draftTitle ?? storeTitle`
                         let title = preview.session.title.clone();
@@ -618,6 +649,10 @@ impl Workspace {
                 tab: NoteTab::Enhanced(id),
                 ..
             } if preview.enhanced.iter().any(|doc| &doc.id == id) => NoteTab::Enhanced(id.clone()),
+            Note::Ready {
+                tab: NoteTab::Transcript,
+                ..
+            } if preview.has_transcript => NoteTab::Transcript,
             _ => first_enhanced.unwrap_or(NoteTab::Memo),
         }
     }
@@ -788,6 +823,9 @@ impl Workspace {
             .map(|doc| NoteTab::Enhanced(doc.id.clone()))
             .collect();
         tabs.push(NoteTab::Memo);
+        if preview.has_transcript {
+            tabs.push(NoteTab::Transcript);
+        }
         let Some(index) = tabs.iter().position(|t| t == tab) else {
             return;
         };

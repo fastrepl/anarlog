@@ -183,25 +183,30 @@ impl Workspace {
             })
             .items_center()
             .gap(px(2.0))
-            .when(preview.enhanced.len() + 1 > 1, |header| {
-                header.child(self.render_view_switcher(preview, tab, cx))
-            })
-            .child(
-                // `TitleInput variant="breadcrumb"`: `h-5 text-sm leading-5
-                // text-neutral-700`, placeholder in muted foreground.
-                div()
-                    .w(title_width)
-                    .max_w_full()
-                    .min_w_0()
-                    .flex_shrink()
-                    .h(px(20.0))
-                    .flex()
-                    .items_center()
-                    .overflow_hidden()
-                    .tw_text_sm()
-                    .text_color(theme.title)
-                    .child(self.title_input.clone()),
+            .when(
+                preview.enhanced.len() + 1 + usize::from(preview.has_transcript) > 1,
+                |header| header.child(self.render_view_switcher(preview, tab, cx)),
             )
+            // `showTitleInput = tab && !isLiveMeeting && !meetingOver`: once the
+            // meeting is over the breadcrumb title leaves the header.
+            .when(!preview.meeting_over(), |header| {
+                header.child(
+                    // `TitleInput variant="breadcrumb"`: `h-5 text-sm leading-5
+                    // text-neutral-700`, placeholder in muted foreground.
+                    div()
+                        .w(title_width)
+                        .max_w_full()
+                        .min_w_0()
+                        .flex_shrink()
+                        .h(px(20.0))
+                        .flex()
+                        .items_center()
+                        .overflow_hidden()
+                        .tw_text_sm()
+                        .text_color(theme.title)
+                        .child(self.title_input.clone()),
+                )
+            })
             .child(div().flex_1())
             .child(self.render_meeting_cta(preview, window))
             .child(
@@ -231,7 +236,13 @@ impl Workspace {
         let event = event.as_ref();
         let show_demo_prompt =
             event.is_some_and(SessionEvent::is_welcome_demo) && !preview.has_transcript;
+        // Once the meeting is over the CTA turns into `SessionShareButton
+        // variant="cta"` (`ShareNetwork size-3.5` + "Share").
         let (label, glyph): (&str, AnyElement) = match event {
+            _ if preview.meeting_over() => (
+                "Share",
+                icon("share", px(14.0), theme.foreground).into_any_element(),
+            ),
             Some(event) if event.is_welcome_demo() => (
                 "Join & record",
                 img(embedded("anarlog-icon.png"))
@@ -421,6 +432,11 @@ impl Workspace {
             })
             .collect();
         tabs.push((NoteTab::Memo, "Memos".into(), "text-align-left"));
+        // `createEditorTabs`: the transcript tab follows the memo whenever
+        // `getCanShowTranscript` holds (a stored transcript with words).
+        if preview.has_transcript {
+            tabs.push((NoteTab::Transcript, "Transcript".into(), "waveform"));
+        }
 
         div()
             .flex()
@@ -484,6 +500,11 @@ impl Workspace {
                                 .when(glyph == "sparkle", |t| {
                                     t.child(icon("caret-down", px(12.0), theme.foreground))
                                 })
+                                // `HeaderViewTranscriptActive`: an inactive session with a
+                                // stored transcript can enter edit mode, shown by the pencil.
+                                .when(glyph == "waveform", |t| {
+                                    t.child(icon("pencil-edit", px(14.0), theme.foreground))
+                                })
                             })
                     }),
             )
@@ -503,8 +524,22 @@ impl Workspace {
                 .editor
                 .clone()
                 .filter(|editor| editor.read(cx).session_id == preview.session.id),
-            NoteTab::Enhanced(_) => None,
+            NoteTab::Enhanced(_) | NoteTab::Transcript => None,
         };
+
+        if *tab == NoteTab::Transcript {
+            // The transcript tab keeps `px-3 pt-2` but scrolls inside the
+            // viewer (`overflow-hidden pb-0` on the column).
+            return div()
+                .id("note-body")
+                .h_full()
+                .px_3()
+                .pt_2()
+                .flex()
+                .flex_col()
+                .overflow_hidden()
+                .child(self.render_transcript(preview, cx));
+        }
 
         let body = div()
             .id("note-body")
@@ -547,7 +582,7 @@ impl Workspace {
         }
 
         let blocks = match tab {
-            NoteTab::Memo => preview.memo.as_slice(),
+            NoteTab::Memo | NoteTab::Transcript => preview.memo.as_slice(),
             NoteTab::Enhanced(id) => preview
                 .enhanced
                 .iter()
@@ -557,6 +592,16 @@ impl Workspace {
         };
         let renderer = self.document_renderer(window);
         let has_content = blocks.iter().any(super::document_view::has_visible_content);
+        // `Enhanced`: with no stored content and no way to generate one
+        // (`shouldShowEmptySummaryConfigError`: missing provider or model),
+        // the tab shows `ConfigError` instead of an editor.
+        if matches!(tab, NoteTab::Enhanced(_))
+            && !has_content
+            && (self.provider_settings.llm_provider.is_none()
+                || self.provider_settings.llm_model.is_none())
+        {
+            return body.child(self.render_summary_config_error(cx));
+        }
         body.when(!has_content, |body| {
             body.child(
                 div()
@@ -571,6 +616,202 @@ impl Workspace {
     }
 }
 
+impl Workspace {
+    /// `ConfigError`: centred copy with the `Get Pro` (default) and `Add API
+    /// key` (outline) buttons routing to the Account / Intelligence settings.
+    fn render_summary_config_error(&self, cx: &mut Context<Self>) -> Div {
+        let theme = self.theme;
+        let button = |id: &'static str, label: &'static str, primary: bool| {
+            div()
+                .id(id)
+                .flex()
+                .h(px(36.0))
+                .items_center()
+                .justify_center()
+                .gap_2()
+                .px_4()
+                .py_2()
+                .rounded_full()
+                .tw_text_sm()
+                .font_weight(gpui::FontWeight::MEDIUM)
+                .cursor_pointer()
+                .when(primary, |button| {
+                    button
+                        .bg(theme.primary)
+                        .text_color(theme.primary_foreground)
+                        .hover(move |style| style.bg(alpha(theme.primary, 0.9)))
+                })
+                .when(!primary, |button| {
+                    button
+                        .border_1()
+                        .border_color(theme.border)
+                        .bg(theme.background)
+                        .text_color(theme.foreground)
+                        .hover(move |style| style.bg(theme.accent))
+                })
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .child(label)
+        };
+        div()
+            .flex()
+            .h_full()
+            .min_h(px(400.0))
+            .flex_col()
+            .items_center()
+            .justify_center()
+            .px_6()
+            .child(
+                div()
+                    .mb_6()
+                    .flex()
+                    .max_w(px(448.0))
+                    .flex_col()
+                    .gap_2()
+                    .text_center()
+                    .child(
+                        div()
+                            .w_full()
+                            .flex()
+                            .justify_center()
+                            .tw_text_base()
+                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .text_color(theme.foreground)
+                            .child("Set up AI summaries"),
+                    )
+                    .child(
+                        div()
+                            .w_full()
+                            .text_center()
+                            .text_size(px(14.0))
+                            .line_height(px(22.0))
+                            .text_color(theme.muted_foreground)
+                            .child("Start a Pro trial or add your own LLM API key to generate a summary from this transcript."),
+                    ),
+            )
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .child(button("summary-get-pro", "Get Pro", true).on_click(cx.listener(
+                        |this, _: &ClickEvent, window, cx| {
+                            this.open_settings(super::settings::SettingsTab::Account, window, cx);
+                        },
+                    )))
+                    .child(button("summary-add-key", "Add API key", false).on_click(cx.listener(
+                        |this, _: &ClickEvent, window, cx| {
+                            this.open_settings(super::settings::SettingsTab::Intelligence, window, cx);
+                        },
+                    ))),
+            )
+    }
+
+    /// `TranscriptViewer`: a `gap-8` column of transcripts scrolling inside
+    /// the tab, `pb-[4rem]`, with `~ ~ ~` separators between transcripts.
+    /// Each transcript lists its segments 16px apart (`SEGMENT_GAP`).
+    fn render_transcript(&self, preview: &NotePreview, cx: &Context<Self>) -> Stateful<Div> {
+        let theme = self.theme;
+        let count = preview.transcripts.len();
+        div()
+            .id("transcript-viewer")
+            .relative()
+            .flex()
+            .flex_col()
+            .flex_1()
+            .min_h_0()
+            .min_w_0()
+            .gap_8()
+            .pb(px(64.0))
+            .overflow_y_scroll()
+            .children(
+                preview
+                    .transcripts
+                    .iter()
+                    .enumerate()
+                    .map(|(index, transcript)| {
+                        let is_last = index + 1 == count;
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_8()
+                            .child(
+                                div()
+                                    .relative()
+                                    .w_full()
+                                    .min_w_0()
+                                    .flex()
+                                    .flex_col()
+                                    .gap(px(16.0))
+                                    .children(transcript.segments.iter().map(|segment| {
+                                        self.render_transcript_segment(segment, cx)
+                                    })),
+                            )
+                            .when(!is_last, |column| {
+                                // `TranscriptSeparator`
+                                let rule = || {
+                                    div()
+                                        .flex_1()
+                                        .border_t_1()
+                                        .border_color(alpha(theme.border, 0.4))
+                                };
+                                column.child(
+                                    div()
+                                        .flex()
+                                        .items_center()
+                                        .gap_3()
+                                        .tw_text_xs()
+                                        .font_weight(gpui::FontWeight::LIGHT)
+                                        .text_color(theme.muted_foreground)
+                                        .child(rule())
+                                        .child("~ ~ ~ ~ ~ ~ ~ ~ ~")
+                                        .child(rule()),
+                                )
+                            })
+                    }),
+            )
+    }
+
+    /// `SegmentRenderer`: `section rounded-lg px-2` with the `py-1 text-xs
+    /// font-light` speaker header (the assign trigger `-my-0.5 py-0.5 pr-2`
+    /// in the segment colour) above `mt-1.5 text-sm leading-relaxed` words.
+    fn render_transcript_segment(
+        &self,
+        segment: &crate::transcript::Segment,
+        _cx: &Context<Self>,
+    ) -> Div {
+        let theme = self.theme;
+        let color = crate::transcript::segment_color(&segment.key, theme.dark);
+        div()
+            .rounded_lg()
+            .px_2()
+            .child(
+                div().relative().py_1().flex().items_center().gap_2().child(
+                    div()
+                        .id(SharedString::from(format!("speaker-{}", segment.id)))
+                        .my(px(-2.0))
+                        .py(px(2.0))
+                        .pr_2()
+                        .rounded_full()
+                        .tw_text_xs()
+                        .font_weight(gpui::FontWeight::LIGHT)
+                        .text_color(color)
+                        .cursor_pointer()
+                        .hover(|style| style.text_decoration_1().text_decoration_solid())
+                        .child(SharedString::from(segment.speaker_label.clone())),
+                ),
+            )
+            .child(
+                div()
+                    .mt(px(6.0))
+                    .text_size(px(14.0))
+                    // `leading-relaxed` = 1.625 * 14 = 22.75, laid out as 22px by WebKit.
+                    .line_height(px(22.0))
+                    .text_color(theme.foreground)
+                    .child(SharedString::from(segment.text.clone())),
+            )
+    }
+}
+
 /// Bundled bitmap/brand images. A bare file name parses as a relative URI, so
 /// `img(&str)` would try to fetch it over HTTP.
 fn embedded(name: &str) -> ImageSource {
@@ -580,5 +821,18 @@ fn embedded(name: &str) -> ImageSource {
 impl NotePreview {
     pub fn session_event(&self) -> Option<SessionEvent> {
         SessionEvent::parse(&self.session.event_json)
+    }
+
+    /// `meetingOver = !isRecording && (ended || hasTranscript || audioExists)`
+    /// (no capture runs in this shell yet, and audio files are not tracked).
+    pub fn meeting_over(&self) -> bool {
+        self.has_transcript
+            || self.session_event().is_some_and(|event| {
+                event
+                    .ended_at
+                    .as_deref()
+                    .and_then(|ended| crate::timeline::parse_date(ended, &chrono::Local))
+                    .is_some_and(|ended| ended <= chrono::Utc::now())
+            })
     }
 }
