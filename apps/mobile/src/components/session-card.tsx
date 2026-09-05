@@ -1,5 +1,6 @@
 import MenuView, { type MenuAction } from "@expo/ui/community/menu";
 import { Ionicons } from "@expo/vector-icons";
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
@@ -33,6 +34,7 @@ export function SessionCard({
   onPress: () => void;
   onDelete?: () => void;
 }) {
+  const [width, setWidth] = useState<number>();
   const title = session.title || "Untitled";
   const folder = showFolder ? session.folderPath : "";
   const tags = showTags ? session.tags.map((tag) => `#${tag}`).join(" ") : "";
@@ -52,7 +54,9 @@ export function SessionCard({
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [
+        styles.card,
         styles.cardContent,
+        { width },
         pressed && styles.cardPressed,
       ]}
     >
@@ -79,30 +83,44 @@ export function SessionCard({
     </Pressable>
   );
 
-  if (!onDelete) return <View style={styles.card}>{content}</View>;
-
   return (
-    <MenuView
-      actions={DELETE_ACTIONS}
-      onPressAction={({ nativeEvent }) => {
-        if (nativeEvent.event === "delete") onDelete();
+    <View
+      onLayout={({ nativeEvent }) => {
+        const nextWidth = nativeEvent.layout.width;
+        // Native MenuView measures its trigger on mount, so wait for this width.
+        setWidth((current) => (current === nextWidth ? current : nextWidth));
       }}
-      shouldOpenOnLongPress
-      style={styles.card}
+      style={styles.row}
     >
-      {content}
-    </MenuView>
+      {onDelete && width != null ? (
+        <MenuView
+          key={width}
+          actions={DELETE_ACTIONS}
+          onPressAction={({ nativeEvent }) => {
+            if (nativeEvent.event === "delete") onDelete();
+          }}
+          shouldOpenOnLongPress
+        >
+          {content}
+        </MenuView>
+      ) : (
+        content
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  row: {
+    alignSelf: "stretch",
+    marginBottom: Spacing.sm,
+  },
   card: {
     minHeight: 64,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Colors.border,
     borderRadius: Radius.card,
     borderCurve: CornerCurve.squircle,
-    marginBottom: Spacing.sm,
     backgroundColor: Colors.surface,
     overflow: "hidden",
   },
