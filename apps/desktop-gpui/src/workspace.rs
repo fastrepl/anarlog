@@ -223,6 +223,7 @@ impl Workspace {
         let font_family = crate::theme::ui_font_family(cx.text_system()).map(SharedString::from);
         let mono_font_family =
             crate::theme::mono_font_family(cx.text_system()).map(SharedString::from);
+        tracing::info!(ui = ?font_family, mono = ?mono_font_family, "resolved font families");
         let theme = Theme::light();
         let title_input = cx.new(|cx| {
             TextInput::new(

@@ -131,6 +131,27 @@ pub fn alpha(color: Rgba, alpha: f32) -> Rgba {
     Rgba { a: alpha, ..color }
 }
 
+/// `--font-sans` in `styles/globals.css`.
+const SANS_STACK: [&str; 5] = [
+    "system-ui",
+    "-apple-system",
+    "BlinkMacSystemFont",
+    "Segoe UI",
+    "sans-serif",
+];
+
+/// Tailwind's `font-mono` stack.
+const MONO_STACK: [&str; 8] = [
+    "ui-monospace",
+    "SFMono-Regular",
+    "Menlo",
+    "Monaco",
+    "Consolas",
+    "Liberation Mono",
+    "Courier New",
+    "monospace",
+];
+
 /// The family the Tauri app's `system-ui` CSS resolves to on this machine.
 /// GPUI's built-in fallbacks are requested at normal weight, so an explicit
 /// installed family is also what makes bold and semibold runs render.
@@ -145,8 +166,8 @@ pub fn ui_font_family(text_system: &TextSystem) -> Option<String> {
         return is_installed("Segoe UI").then(|| "Segoe UI".to_string());
     }
 
-    gtk_font_family()
-        .filter(|family| is_installed(family))
+    fontconfig::resolve_stack(&SANS_STACK, &is_installed)
+        .or_else(|| gtk_font_family().filter(|family| is_installed(family)))
         .or_else(|| {
             [
                 "Cantarell",
@@ -162,10 +183,14 @@ pub fn ui_font_family(text_system: &TextSystem) -> Option<String> {
         })
 }
 
-/// Tailwind's `font-mono` stack, then what fontconfig's `monospace` maps to
-/// on common Linux installs.
+/// Tailwind's `font-mono` stack, resolved the way WebKit does on each
+/// platform: fontconfig on Linux, the first installed family elsewhere.
 pub fn mono_font_family(text_system: &TextSystem) -> Option<String> {
     let installed = text_system.all_font_names();
+    let is_installed = |family: &str| installed.iter().any(|name| name == family);
+    if let Some(family) = fontconfig::resolve_stack(&MONO_STACK, &is_installed) {
+        return Some(family);
+    }
     [
         "SF Mono",
         "SFMono-Regular",
@@ -180,11 +205,117 @@ pub fn mono_font_family(text_system: &TextSystem) -> Option<String> {
         "Cousine",
     ]
     .into_iter()
-    .find(|family| installed.iter().any(|name| name == family))
+    .find(|family| is_installed(family))
     .map(str::to_string)
 }
 
-/// WebKitGTK resolves `system-ui` through GTK's `gtk-font-name` setting.
+/// WebKitGTK (`FontCacheFreeType`) asks fontconfig for each family in a CSS
+/// stack and keeps the match only when it is the requested family, a generic
+/// family, or a *strong* alias of it (metric aliases, `local.conf` rules);
+/// otherwise it moves on to the next family. `fc-match` gives the match and
+/// `fc-pattern -c` the substituted family list, where strong bindings come
+/// first and the weak default chain follows.
+mod fontconfig {
+    use std::process::Command;
+    use std::sync::OnceLock;
+
+    const GENERIC: [&str; 6] = [
+        "sans",
+        "sans-serif",
+        "serif",
+        "monospace",
+        "cursive",
+        "fantasy",
+    ];
+
+    fn run(program: &str, pattern: &str) -> Option<String> {
+        let mut command = Command::new(program);
+        if program == "fc-pattern" {
+            command.arg("-c");
+        }
+        let output = command
+            .args(["-f", "%{family}", &escape(pattern)])
+            .output()
+            .ok()?;
+        output
+            .status
+            .success()
+            .then(|| String::from_utf8_lossy(&output.stdout).trim().to_string())
+    }
+
+    /// fontconfig pattern syntax reads `-` as the size separator and `:`/`,`
+    /// as element separators.
+    fn escape(pattern: &str) -> String {
+        pattern
+            .chars()
+            .flat_map(|c| match c {
+                '-' | ':' | ',' | '\\' => vec!['\\', c],
+                _ => vec![c],
+            })
+            .collect()
+    }
+
+    fn first_family(families: &str) -> &str {
+        families.split(',').next().unwrap_or("").trim()
+    }
+
+    /// The weak default chain fontconfig appends to every pattern, taken from
+    /// a family nothing matches.
+    fn default_chain() -> &'static [String] {
+        static CHAIN: OnceLock<Vec<String>> = OnceLock::new();
+        CHAIN.get_or_init(|| {
+            run("fc-pattern", "zzz-no-such-family")
+                .map(|list| {
+                    list.split(',')
+                        .skip(1)
+                        .map(|s| s.trim().to_string())
+                        .collect()
+                })
+                .unwrap_or_default()
+        })
+    }
+
+    pub(super) fn strong_aliases(family: &str, substituted: &str) -> Vec<String> {
+        let chain = default_chain();
+        substituted
+            .split(',')
+            .map(str::trim)
+            .take_while(|entry| !chain.iter().any(|weak| weak.eq_ignore_ascii_case(entry)))
+            .filter(|entry| !entry.eq_ignore_ascii_case(family))
+            .map(str::to_string)
+            .collect()
+    }
+
+    fn accepts(family: &str, matched: &str) -> bool {
+        if GENERIC.contains(&family) || matched.eq_ignore_ascii_case(family) {
+            return true;
+        }
+        run("fc-pattern", family)
+            .map(|substituted| {
+                strong_aliases(family, &substituted)
+                    .iter()
+                    .any(|alias| alias.eq_ignore_ascii_case(matched))
+            })
+            .unwrap_or(false)
+    }
+
+    pub(super) fn resolve_stack(
+        stack: &[&str],
+        is_installed: &dyn Fn(&str) -> bool,
+    ) -> Option<String> {
+        if !cfg!(target_os = "linux") {
+            return None;
+        }
+        stack.iter().find_map(|family| {
+            let matched = run("fc-match", family)?;
+            let matched = first_family(&matched);
+            (!matched.is_empty() && accepts(family, matched) && is_installed(matched))
+                .then(|| matched.to_string())
+        })
+    }
+}
+
+/// GTK's `gtk-font-name`, the fallback when fontconfig tools are unavailable.
 fn gtk_font_family() -> Option<String> {
     let config_dir = std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
@@ -212,6 +343,18 @@ fn parse_gtk_font_name(ini: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn strong_aliases_stop_at_the_weak_default_chain() {
+        // Only meaningful where fontconfig is installed; the default chain is
+        // read from `fc-pattern`, so an empty chain keeps everything.
+        let aliases = super::fontconfig::strong_aliases(
+            "Menlo",
+            "JetBrains Mono,DejaVu LGC Sans,Noto Sans,sans-serif",
+        );
+        assert_eq!(aliases.first().map(String::as_str), Some("JetBrains Mono"));
+        assert!(!aliases.iter().any(|a| a == "Menlo"));
+    }
 
     #[test]
     fn gtk_font_name_drops_the_size_and_keeps_multi_word_families() {
