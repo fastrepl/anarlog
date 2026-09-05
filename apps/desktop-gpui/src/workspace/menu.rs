@@ -287,6 +287,131 @@ impl Workspace {
             .into_any_element()
     }
 
+    /// A standalone menu anchored at the element's own layout position (for
+    /// dropdown triggers inside scrolling content): the app chrome, items with
+    /// hover and click, `on_mouse_down_out` closing it.
+    pub(crate) fn render_menu_inline(
+        &self,
+        spec: MenuSpec,
+        align: Align,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let theme = self.theme;
+        let on_close = spec.on_close;
+        let items = self.menu_item_elements(spec.id, spec.entries, on_close, cx);
+        let panel = menu_chrome(theme, spec.id, spec.width)
+            .on_mouse_down_out(
+                cx.listener(move |this, _: &MouseDownEvent, _, cx| on_close(this, cx)),
+            )
+            .child(
+                div()
+                    .relative()
+                    .flex()
+                    .flex_col()
+                    .p(px(6.0))
+                    .child(crate::squircle::squircle(
+                        crate::squircle::PANEL_RADIUS,
+                        Some(theme.floating_panel),
+                        Some((1.0, theme.floating_border)),
+                    ))
+                    .children(items),
+            );
+        deferred(
+            anchored()
+                .anchor(match align {
+                    Align::Start => Corner::TopLeft,
+                    Align::End => Corner::TopRight,
+                })
+                .snap_to_window_with_margin(px(8.0))
+                .child(panel),
+        )
+        .with_priority(2)
+        .into_any_element()
+    }
+
+    /// The `rounded-[14px] px-2 py-1.5 text-sm gap-2` rows of a plain panel.
+    fn menu_item_elements(
+        &self,
+        id: &'static str,
+        entries: Vec<Entry>,
+        on_close: fn(&mut Workspace, &mut Context<Workspace>),
+        cx: &Context<Self>,
+    ) -> Vec<AnyElement> {
+        let theme = self.theme;
+        entries
+            .into_iter()
+            .enumerate()
+            .map(|(index, entry)| match entry {
+                Entry::Separator => div()
+                    .mx(px(-4.0))
+                    .my_1()
+                    .h(px(1.0))
+                    .bg(theme.accent)
+                    .into_any_element(),
+                Entry::Item {
+                    icon: glyph,
+                    dim_icon,
+                    label,
+                    trailing,
+                    destructive,
+                    on_select,
+                    ..
+                } => {
+                    let color = if destructive {
+                        theme.delete_text
+                    } else {
+                        theme.foreground
+                    };
+                    let disabled = on_select.is_none();
+                    let on_select = on_select.map(std::rc::Rc::new);
+                    div()
+                        .id(SharedString::from(format!("{id}-inline-{index}")))
+                        .flex()
+                        .items_center()
+                        .gap_2()
+                        .px_2()
+                        .py(px(6.0))
+                        .rounded(px(14.0))
+                        .tw_text_sm()
+                        .text_color(color)
+                        // `data-[disabled]:opacity-50`
+                        .when(disabled, |item| item.opacity(0.5))
+                        .when(!disabled, |item| {
+                            item.cursor_pointer()
+                                .hover(move |style| style.bg(theme.accent))
+                        })
+                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                        .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                            if let Some(on_select) = &on_select {
+                                on_close(this, cx);
+                                on_select(this, window, cx);
+                            }
+                        }))
+                        .when_some(glyph, |item, glyph| {
+                            let tint = if dim_icon {
+                                crate::theme::alpha(color, 0.7)
+                            } else {
+                                color
+                            };
+                            item.child(icon(glyph, px(16.0), tint))
+                        })
+                        .child(div().flex_1().child(label))
+                        .child(match trailing {
+                            Trailing::Check(true) => {
+                                icon("check", px(14.0), color).into_any_element()
+                            }
+                            Trailing::Text(text) => div()
+                                .text_color(theme.muted_foreground)
+                                .child(text)
+                                .into_any_element(),
+                            _ => div().into_any_element(),
+                        })
+                        .into_any_element()
+                }
+            })
+            .collect()
+    }
+
     /// A submenu panel: items only, no hover switching of its own.
     fn render_menu_panel(
         &self,

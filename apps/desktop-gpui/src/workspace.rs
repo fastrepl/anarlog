@@ -1,4 +1,5 @@
 mod ai_settings;
+mod developers_page;
 mod document_view;
 mod export;
 mod filter_menu;
@@ -166,6 +167,10 @@ pub struct Workspace {
     meeting_info: Option<meeting_info::MeetingInfo>,
     /// The Export dialog while open.
     export_dialog: Option<export::ExportDialog>,
+    /// A transient success / error toast.
+    flash: Option<toast::FlashToast>,
+    /// Developers page state, created when the page opens.
+    developers: Option<developers_page::DevelopersState>,
     /// The `SpokenLanguagesView` chip input, created with the settings tab.
     spoken_search: Option<gpui::Entity<TextInput>>,
     spoken_highlighted: Option<usize>,
@@ -271,6 +276,8 @@ impl Workspace {
             permissions: std::collections::HashMap::new(),
             meeting_info: None,
             export_dialog: None,
+            flash: None,
+            developers: None,
             spoken_search: None,
             spoken_highlighted: None,
             pending_deletions: Vec::new(),
@@ -1107,6 +1114,10 @@ impl Render for Workspace {
             .children(self.render_filter_menu(window, cx))
             .children(self.render_open_menu(window, cx))
             .children(self.render_export_dialog(cx))
+            .children(
+                self.render_flash_toast()
+                    .map(|toast| gpui::deferred(toast).with_priority(11)),
+            )
             .children(self.render_open_note_dialog(window, cx))
     }
 }

@@ -26,7 +26,10 @@ chrono = { workspace = true }
 dirs = { workspace = true }
 gpui = { workspace = true }
 iana-time-zone = "0.1"
+hmac = { workspace = true }
 keyring = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
+sha2 = { workspace = true }
 pico-args = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

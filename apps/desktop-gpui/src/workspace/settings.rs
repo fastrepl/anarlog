@@ -363,6 +363,7 @@ impl Workspace {
                     self.check_permission(permission, cx);
                 }
             }
+            SettingsTab::Developers => self.ensure_developers(window, cx),
             _ => {}
         }
         self.settings_tab = Some(tab);
@@ -914,6 +915,7 @@ impl Workspace {
             SettingsTab::Intelligence => {
                 self.render_ai_settings(super::ai_settings::ProviderKind::Llm, title, window, cx)
             }
+            SettingsTab::Developers => self.render_developers_settings(title, cx),
             SettingsTab::Account => div()
                 .flex()
                 .flex_col()

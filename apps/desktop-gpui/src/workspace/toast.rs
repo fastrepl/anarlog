@@ -24,6 +24,19 @@ pub(crate) enum Auth {
     SignedIn,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum FlashVariant {
+    Success,
+    Error,
+}
+
+/// A transient sonner toast (`success` / `error`).
+pub(crate) struct FlashToast {
+    variant: FlashVariant,
+    message: SharedString,
+    generation: u64,
+}
+
 pub(crate) struct Toast {
     pub id: &'static str,
     pub description: SharedString,
@@ -184,6 +197,115 @@ impl Workspace {
             }
             _ => None,
         }
+    }
+
+    /// `sonnerToast.success` / `sonnerToast.error` from the settings pages:
+    /// shown for `TOAST_DURATIONS` (3s / 5s), newest replacing the previous.
+    pub(crate) fn flash(
+        &mut self,
+        variant: FlashVariant,
+        message: impl Into<SharedString>,
+        cx: &mut Context<Self>,
+    ) {
+        let generation = self.flash.as_ref().map_or(0, |flash| flash.generation + 1);
+        self.flash = Some(FlashToast {
+            variant,
+            message: message.into(),
+            generation,
+        });
+        cx.notify();
+        let duration = match variant {
+            FlashVariant::Success => std::time::Duration::from_secs(3),
+            FlashVariant::Error => std::time::Duration::from_secs(5),
+        };
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(duration).await;
+            this.update(cx, |this, cx| {
+                if this
+                    .flash
+                    .as_ref()
+                    .is_some_and(|flash| flash.generation == generation)
+                {
+                    this.flash = None;
+                    cx.notify();
+                }
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// The flash toast in front of everything else, with sonner's richColors
+    /// success / error palettes.
+    pub(super) fn render_flash_toast(&self) -> Option<AnyElement> {
+        let flash = self.flash.as_ref()?;
+        let (background, border, text, glyph) = match (flash.variant, self.theme.dark) {
+            (FlashVariant::Success, false) => (
+                gpui::rgb(0xecfdf3),
+                gpui::rgb(0xd3fde5),
+                gpui::rgb(0x008a2e),
+                "check-circle",
+            ),
+            (FlashVariant::Success, true) => (
+                gpui::rgb(0x001f0f),
+                gpui::rgb(0x003d1c),
+                gpui::rgb(0x59f3a6),
+                "check-circle",
+            ),
+            (FlashVariant::Error, false) => (
+                gpui::rgb(0xfff0f0),
+                gpui::rgb(0xffe0e1),
+                gpui::rgb(0xe60000),
+                "warning-circle",
+            ),
+            (FlashVariant::Error, true) => (
+                gpui::rgb(0x2d0607),
+                gpui::rgb(0x4d0408),
+                gpui::rgb(0xff9ea1),
+                "warning-circle",
+            ),
+        };
+        Some(
+            div()
+                .id("flash-toast")
+                .absolute()
+                .right(px(32.0))
+                .bottom(px(32.0))
+                .w(px(300.0))
+                .flex()
+                .items_center()
+                .gap(px(6.0))
+                .p(px(16.0))
+                .rounded(px(8.0))
+                .border_1()
+                .border_color(border)
+                .bg(background)
+                .shadow(vec![BoxShadow {
+                    color: hsla(0.0, 0.0, 0.0, 0.1),
+                    offset: point(px(0.0), px(4.0)),
+                    blur_radius: px(12.0),
+                    spread_radius: px(0.0),
+                }])
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .child(
+                    div()
+                        .flex_shrink_0()
+                        .ml(px(-3.0))
+                        .mr(px(4.0))
+                        .child(crate::ui::icon(glyph, px(16.0), text)),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .text_size(px(13.0))
+                        .line_height(px(19.0))
+                        .font_weight(gpui::FontWeight::MEDIUM)
+                        .text_color(text)
+                        .child(flash.message.clone()),
+                )
+                .into_any_element(),
+        )
     }
 
     /// `sonnerToast.warning` with `richColors`: `#fffbeb` on a `#fef3c7`

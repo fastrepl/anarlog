@@ -74,6 +74,7 @@ embedded!(
     "icons/check.svg",
     "icons/close-x.svg",
     "icons/code.svg",
+    "icons/copy.svg",
     "icons/download-simple.svg",
     "icons/external-link.svg",
     "icons/file-arrow-down.svg",
@@ -150,6 +151,6 @@ mod tests {
         }
         assert!(Assets.load("icons/search.svg").unwrap().is_some());
         assert!(Assets.load("icons/missing.svg").unwrap().is_none());
-        assert_eq!(Assets.list("icons/").unwrap().len(), 61);
+        assert_eq!(Assets.list("icons/").unwrap().len(), 62);
     }
 }

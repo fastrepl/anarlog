@@ -1700,6 +1700,69 @@ impl Store {
         })
     }
 
+    /// `listWebhooks`
+    pub fn list_webhooks(
+        &self,
+    ) -> tokio::task::JoinHandle<anyhow::Result<Vec<crate::developers::Webhook>>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            Ok(anlg_db_app::list_webhook_endpoints(db.pool())
+                .await?
+                .into_iter()
+                .map(crate::developers::Webhook::from)
+                .collect())
+        })
+    }
+
+    /// `createWebhook(url, [])`: the endpoint and its one-time secret.
+    pub fn create_webhook(
+        &self,
+        url: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<(crate::developers::Webhook, String)>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            crate::developers::create_webhook(db.pool(), &url)
+                .await
+                .map_err(anyhow::Error::msg)
+        })
+    }
+
+    /// `deleteWebhook`
+    pub fn delete_webhook(&self, id: String) -> tokio::task::JoinHandle<anyhow::Result<bool>> {
+        let db = self.db.clone();
+        self.runtime
+            .spawn(async move { Ok(anlg_db_app::delete_webhook_endpoint(db.pool(), &id).await?) })
+    }
+
+    /// `setWebhookActive`
+    pub fn set_webhook_active(
+        &self,
+        id: String,
+        active: bool,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            anlg_db_app::set_webhook_endpoint_active(db.pool(), &id, active).await?;
+            Ok(())
+        })
+    }
+
+    /// `testWebhook`: `(delivered, status)`.
+    pub fn test_webhook(
+        &self,
+        id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<(bool, String)>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let endpoint = anlg_db_app::get_webhook_endpoint(db.pool(), &id)
+                .await?
+                .ok_or_else(|| anyhow::anyhow!("webhook not found"))?;
+            crate::developers::send_test_webhook(db.pool(), &endpoint)
+                .await
+                .map_err(anyhow::Error::msg)
+        })
+    }
+
     pub fn list_templates(&self) -> tokio::task::JoinHandle<anyhow::Result<Vec<Template>>> {
         let db = self.db.clone();
         self.runtime.spawn(async move {

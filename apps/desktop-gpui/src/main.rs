@@ -3,6 +3,7 @@ mod ai_providers;
 mod assets;
 mod audio;
 mod db;
+mod developers;
 mod document;
 mod editor;
 mod secrets;
