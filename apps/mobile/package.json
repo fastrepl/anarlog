@@ -12,7 +12,6 @@
     "test:billing-handoff": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test --experimental-strip-types src/auth/billing-handoff.test.mjs",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test --experimental-strip-types",
     "test:error-reporting": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test --experimental-strip-types src/lib/error-sanitization.test.mjs",
-    "test:recorder-status": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test --experimental-strip-types src/audio/recorder-status.test.mjs",
     "test:transcription-limits": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test --experimental-strip-types src/data/transcription-limits.test.mjs",
     "typecheck": "tsc --noEmit"
   },

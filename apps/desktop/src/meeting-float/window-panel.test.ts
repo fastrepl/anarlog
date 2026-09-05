@@ -22,11 +22,8 @@ vi.mock("@anlg/plugin-windows", () => ({
   },
 }));
 
-import type { FloatingRouteState, LiveCaptionRouteState } from "./route-state";
-import {
-  createFloatingMeetingWindowSynchronizer,
-  createLiveCaptionWindowSynchronizer,
-} from "./window-panel";
+import type { FloatingRouteState } from "./route-state";
+import { createFloatingMeetingWindowSynchronizer } from "./window-panel";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -193,42 +190,5 @@ describe("floating meeting window synchronizer", () => {
     expect(mocks.hide.mock.invocationCallOrder[0]).toBeGreaterThan(
       mocks.update.mock.invocationCallOrder[0]!,
     );
-  });
-});
-
-function captionState(text: string): LiveCaptionRouteState {
-  return {
-    sessionId: "session-1",
-    text,
-    opacity: 0.3,
-    width: 440,
-    lineCount: 1,
-    position: "topCenter",
-    minimized: false,
-  };
-}
-
-describe("live caption window synchronizer", () => {
-  it("shows and updates the caption overlay", async () => {
-    const synchronizer = createLiveCaptionWindowSynchronizer();
-
-    synchronizer.update(captionState("hello"));
-    await vi.waitFor(() => {
-      expect(mocks.liveCaptionShow).toHaveBeenCalledOnce();
-      expect(mocks.liveCaptionUpdate).toHaveBeenLastCalledWith(
-        expect.objectContaining({ text: "hello", minimized: false }),
-      );
-    });
-
-    synchronizer.update(captionState("hello world"));
-    await vi.waitFor(() => {
-      expect(mocks.liveCaptionUpdate).toHaveBeenLastCalledWith(
-        expect.objectContaining({ text: "hello world" }),
-      );
-    });
-    expect(mocks.liveCaptionShow).toHaveBeenCalledOnce();
-
-    await synchronizer.dispose();
-    expect(mocks.liveCaptionHide).toHaveBeenCalled();
   });
 });

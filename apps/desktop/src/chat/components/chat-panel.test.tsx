@@ -109,9 +109,23 @@ vi.mock("~/stt/contexts", () => ({
     }),
 }));
 
-import { ChatView } from "./chat-panel";
+import { ChatPanelFrame, ChatSessionHost } from "./chat-panel";
 
-describe("ChatView", () => {
+function TestChatPanel({
+  layout = "floating",
+}: {
+  layout?: "floating" | "right-panel";
+}) {
+  return (
+    <ChatSessionHost>
+      {(sessionProps) => (
+        <ChatPanelFrame layout={layout} sessionProps={sessionProps} />
+      )}
+    </ChatSessionHost>
+  );
+}
+
+describe("Chat panel", () => {
   beforeEach(() => {
     cleanup();
     mocks.chatSession.mockClear();
@@ -130,7 +144,7 @@ describe("ChatView", () => {
     mocks.requestedLiveTranscription = false;
     mocks.liveTranscriptionActive = false;
 
-    render(<ChatView />);
+    render(<TestChatPanel />);
 
     expect(mocks.chatSession).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -146,7 +160,7 @@ describe("ChatView", () => {
     mocks.requestedLiveTranscription = false;
     mocks.liveTranscriptionActive = false;
 
-    render(<ChatView />);
+    render(<TestChatPanel />);
 
     expect(mocks.chatSession).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -159,7 +173,7 @@ describe("ChatView", () => {
   it("passes the active folder into the chat session", () => {
     mocks.folderFilter = "CS 101";
 
-    render(<ChatView />);
+    render(<TestChatPanel />);
 
     expect(mocks.chatSession).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -174,7 +188,7 @@ describe("ChatView", () => {
     mocks.hasAvailableTranscript = true;
     mocks.sessionMode = "active";
 
-    const { container } = render(<ChatView layout="right-panel" />);
+    const { container } = render(<TestChatPanel layout="right-panel" />);
 
     expect(mocks.chatSession).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -190,7 +204,7 @@ describe("ChatView", () => {
   });
 
   it("uses the sidebar card shell in the right panel layout", () => {
-    const { container } = render(<ChatView layout="right-panel" />);
+    const { container } = render(<TestChatPanel layout="right-panel" />);
     const root = container.firstElementChild;
 
     expect(root?.className).toContain("bg-card");
@@ -213,7 +227,7 @@ describe("ChatView", () => {
   });
 
   it("uses the neutral shell in the floating layout", () => {
-    const { container } = render(<ChatView layout="floating" />);
+    const { container } = render(<TestChatPanel layout="floating" />);
     const root = container.firstElementChild;
 
     expect(root?.className).toContain("bg-[#f4f4f5]");

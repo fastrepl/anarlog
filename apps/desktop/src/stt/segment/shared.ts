@@ -1,7 +1,3 @@
-import { Schema } from "effect";
-
-import { ChannelProfile } from "~/stt/live-segment";
-
 export {
   ChannelProfile,
   type PartialWord,
@@ -10,5 +6,3 @@ export {
   SpeakerLabelManager,
   type WordLike,
 } from "~/stt/live-segment";
-
-export const ChannelProfileSchema = Schema.Enums(ChannelProfile);

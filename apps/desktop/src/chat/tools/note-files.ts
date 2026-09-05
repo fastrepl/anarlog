@@ -1,7 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-import { CONTEXT_TEXT_FIELD } from "./context-text";
 import type { ToolDependencies } from "./types";
 
 import {
@@ -15,8 +14,6 @@ import {
   loadMeetingChatRecords,
 } from "~/stt/meeting-chat-records";
 
-const DEFAULT_READ_MAX_CHARS = 16_000;
-const MAX_READ_CHARS = 30_000;
 const DEFAULT_SEARCH_LIMIT = 5;
 const MAX_SEARCH_LIMIT = 10;
 const SNIPPET_RADIUS = 180;
@@ -50,21 +47,6 @@ type SearchMatch = {
   score: number;
   snippets: SearchSnippet[];
 };
-
-const maxCharsSchema = z
-  .number()
-  .int()
-  .min(1_000)
-  .max(MAX_READ_CHARS)
-  .optional()
-  .describe("Maximum note content characters to return to the model");
-
-function clampMaxChars(value: number | undefined): number {
-  return Math.min(
-    Math.max(value ?? DEFAULT_READ_MAX_CHARS, 1_000),
-    MAX_READ_CHARS,
-  );
-}
 
 function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
@@ -145,39 +127,6 @@ function buildNoteSections(
   return sections;
 }
 
-function renderNoteContext(note: LoadedNoteFile): string {
-  const header = [
-    `# ${note.title || "Untitled"}`,
-    note.date ? `Date: ${note.date}` : null,
-    note.eventName ? `Event: ${note.eventName}` : null,
-    note.participants.length > 0
-      ? `Participants: ${note.participants.join(", ")}`
-      : null,
-  ].filter(Boolean);
-
-  const body = note.sections.map(
-    (section) => `## ${section.title}\n${section.text}`,
-  );
-  return [...header, ...body].join("\n\n");
-}
-
-function limitText(
-  text: string,
-  maxChars: number,
-): {
-  text: string;
-  truncated: boolean;
-} {
-  if (text.length <= maxChars) {
-    return { text, truncated: false };
-  }
-
-  return {
-    text: `${text.slice(0, maxChars).trimEnd()}\n\n[Content truncated]`,
-    truncated: true,
-  };
-}
-
 async function loadNoteFile(sessionId: string): Promise<LoadedNoteFile | null> {
   const snapshot = await loadSessionContentSnapshot(sessionId);
   if (!snapshot) return null;
@@ -209,41 +158,6 @@ async function loadNoteFile(sessionId: string): Promise<LoadedNoteFile | null> {
     participants,
     participantNamesById,
     sections: buildNoteSections(snapshot, meetingChatMarkdown),
-  };
-}
-
-async function readNoteOutput({
-  sessionId,
-  maxChars,
-}: {
-  sessionId: string;
-  maxChars: number;
-}) {
-  const note = await loadNoteFile(sessionId);
-  if (!note) {
-    return {
-      status: "error" as const,
-      message: `Could not read note ${sessionId}`,
-      sessionId,
-    };
-  }
-
-  const fullText = renderNoteContext(note);
-  const limited = limitText(fullText, maxChars);
-
-  return {
-    status: "ok" as const,
-    sessionId: note.sessionId,
-    title: note.title,
-    date: note.date,
-    event: note.eventName,
-    participants: note.participants,
-    sections: note.sections.map((section) => ({
-      title: section.title,
-      characters: section.text.length,
-    })),
-    truncated: limited.truncated,
-    [CONTEXT_TEXT_FIELD]: limited.text,
   };
 }
 
@@ -508,44 +422,6 @@ async function listRelatedNotes({
     results: results.slice(0, limit),
   };
 }
-
-export const buildReadCurrentNoteTool = (deps: ToolDependencies) =>
-  tool({
-    description:
-      "Read the currently open local note/meeting. Use this before answering questions about 'this note', 'this meeting', or the active note.",
-    inputSchema: z.object({
-      maxChars: maxCharsSchema,
-    }),
-    execute: async (params: { maxChars?: number }) => {
-      const sessionId = deps.getSessionId();
-      if (!sessionId) {
-        return {
-          status: "error" as const,
-          message: "No note is currently open",
-        };
-      }
-
-      return readNoteOutput({
-        sessionId,
-        maxChars: clampMaxChars(params.maxChars),
-      });
-    },
-  });
-
-export const buildReadNoteTool = (_deps: ToolDependencies) =>
-  tool({
-    description:
-      "Read a specific local note/meeting by session id, including raw note, enhanced notes, transcript, participants, and event metadata.",
-    inputSchema: z.object({
-      sessionId: z.string().describe("Session id for the note to read"),
-      maxChars: maxCharsSchema,
-    }),
-    execute: async (params: { sessionId: string; maxChars?: number }) =>
-      readNoteOutput({
-        sessionId: params.sessionId,
-        maxChars: clampMaxChars(params.maxChars),
-      }),
-  });
 
 export const buildSearchMeetingContentTool = (deps: ToolDependencies) =>
   tool({

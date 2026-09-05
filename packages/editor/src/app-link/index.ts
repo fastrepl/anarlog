@@ -1,36 +1,12 @@
-import {
-  getAtlassianDisplayParts,
-  parseAtlassianUrl,
-  type AtlassianAttrs,
-} from "./atlassian";
-import {
-  getDiscordDisplayParts,
-  parseDiscordUrl,
-  type DiscordAttrs,
-} from "./discord";
-import { getFigmaDisplayParts, parseFigmaUrl, type FigmaAttrs } from "./figma";
-import {
-  getGitHubDisplayParts,
-  parseGitHubUrl,
-  type GitHubAttrs,
-} from "./github";
-import {
-  getGoogleDisplayParts,
-  parseGoogleUrl,
-  type GoogleAttrs,
-} from "./google";
-import {
-  getLinearDisplayParts,
-  parseLinearUrl,
-  type LinearAttrs,
-} from "./linear";
-import {
-  getNotionDisplayParts,
-  parseNotionUrl,
-  type NotionAttrs,
-} from "./notion";
-import { getSlackDisplayParts, parseSlackUrl, type SlackAttrs } from "./slack";
-import { getWorkDisplayParts, parseWorkUrl, type WorkAttrs } from "./work";
+import { getAtlassianDisplayParts, type AtlassianAttrs } from "./atlassian";
+import { getDiscordDisplayParts, type DiscordAttrs } from "./discord";
+import { getFigmaDisplayParts, type FigmaAttrs } from "./figma";
+import { getGitHubDisplayParts, type GitHubAttrs } from "./github";
+import { getGoogleDisplayParts, type GoogleAttrs } from "./google";
+import { getLinearDisplayParts, type LinearAttrs } from "./linear";
+import { getNotionDisplayParts, type NotionAttrs } from "./notion";
+import { getSlackDisplayParts, type SlackAttrs } from "./slack";
+import { getWorkDisplayParts, type WorkAttrs } from "./work";
 
 export type { GitHubAttrs, GitHubLinkKind as AppLinkKind } from "./github";
 export type { SlackAttrs } from "./slack";
@@ -52,25 +28,6 @@ export type AppLinkAttrs =
   | FigmaAttrs
   | AtlassianAttrs
   | WorkAttrs;
-
-export function parseAppLinkUrl(rawUrl: string): AppLinkAttrs | null {
-  const trimmed = rawUrl.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  return (
-    parseGitHubUrl(trimmed) ??
-    parseSlackUrl(trimmed) ??
-    parseDiscordUrl(trimmed) ??
-    parseLinearUrl(trimmed) ??
-    parseNotionUrl(trimmed) ??
-    parseGoogleUrl(trimmed) ??
-    parseFigmaUrl(trimmed) ??
-    parseAtlassianUrl(trimmed) ??
-    parseWorkUrl(trimmed)
-  );
-}
 
 export function getAppLinkDisplayParts(attrs: AppLinkAttrs): {
   header: string;

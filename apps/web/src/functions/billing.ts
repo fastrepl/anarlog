@@ -2,10 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import type Stripe from "stripe";
 import { z } from "zod";
 
-import {
-  canStartTrial as canStartTrialApi,
-  deleteAccount as deleteAccountApi,
-} from "@anlg/api-client";
+import { deleteAccount as deleteAccountApi } from "@anlg/api-client";
 import { createClient } from "@anlg/api-client/client";
 
 import { env, requireEnv } from "@/env";
@@ -939,44 +936,6 @@ export const createPortalSession = createServerFn({ method: "POST" })
     return { url: portalSession.url };
   });
 
-export const syncAfterSuccess = createServerFn({ method: "POST" }).handler(
-  async () => {
-    const supabase = getSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user?.id) {
-      throw new Error("Unauthorized");
-    }
-
-    const stripe = getStripeClient();
-    const stripeCustomerId = await getStripeCustomerIdForUser(
-      supabase,
-      stripe,
-      user,
-    );
-
-    if (!stripeCustomerId) {
-      return { status: "none" };
-    }
-
-    const subscription = await getCurrentSubscription(stripe, stripeCustomerId);
-
-    if (!subscription) {
-      return { status: "none" };
-    }
-
-    return {
-      subscriptionId: subscription.id,
-      status: subscription.status,
-      priceId: subscription.items.data[0]?.price.id ?? null,
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
-      currentPeriodEnd: getSubscriptionAccessEnd(subscription),
-    };
-  },
-);
-
 export const getAccountSubscription = createServerFn({ method: "GET" }).handler(
   async () => {
     const supabase = getSupabaseServerClient();
@@ -1022,35 +981,6 @@ export const getAccountSubscription = createServerFn({ method: "GET" }).handler(
       currentPeriodEnd: getSubscriptionAccessEnd(subscription),
       hasYcPerk: subscriptionHasYcPerk(subscription),
     };
-  },
-);
-
-export const canStartTrial = createServerFn({ method: "POST" }).handler(
-  async () => {
-    const supabase = getSupabaseServerClient();
-    const { data: sessionData } = await supabase.auth.getSession();
-
-    if (!sessionData.session) {
-      return false;
-    }
-
-    const client = createClient({
-      baseUrl: env.VITE_API_URL,
-      headers: {
-        Authorization: `Bearer ${sessionData.session.access_token}`,
-      },
-    });
-
-    const { data, error } = await canStartTrialApi({ client });
-
-    if (error) {
-      captureOperationalError(error, {
-        operation: "trial_eligibility_check",
-      });
-      return false;
-    }
-
-    return data?.canStartTrial ?? false;
   },
 );
 

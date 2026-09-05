@@ -107,10 +107,6 @@ export function getSegmentColorVars(key: SegmentKey): SegmentColorVars {
   };
 }
 
-export function useSegmentColor(key: SegmentKey): string {
-  return useMemo(() => getSegmentColor(key), [key]);
-}
-
 export function useSegmentColorVars(key: SegmentKey): SegmentColorVars {
   return useMemo(() => getSegmentColorVars(key), [key]);
 }

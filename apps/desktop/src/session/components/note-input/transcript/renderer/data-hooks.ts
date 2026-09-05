@@ -19,10 +19,6 @@ import {
   renderTranscriptSegments,
 } from "~/stt/render-transcript";
 
-export function useRenderedTranscriptSegments(transcriptId: string): Segment[] {
-  return useRenderedTranscriptData(transcriptId).segments;
-}
-
 export function useRenderedTranscriptData(
   transcriptId: string,
   currentActive = false,

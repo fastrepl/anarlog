@@ -3,11 +3,7 @@ import { useEffect, useMemo } from "react";
 import { useAITask } from "~/ai/contexts";
 import { getEnhancerService } from "~/services/enhancer";
 import { useHasTranscript } from "~/session/components/shared";
-import {
-  useEnhancedNote as useSqliteEnhancedNote,
-  useEnhancedNoteRecords,
-  useSession,
-} from "~/session/queries";
+import { useEnhancedNoteRecords, useSession } from "~/session/queries";
 import { useConfigValue } from "~/shared/config";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import type { SessionMode } from "~/store/zustand/listener/general";
@@ -16,17 +12,6 @@ import { useListener } from "~/stt/contexts";
 export function useEnhancedNotes(sessionId: string) {
   const notes = useEnhancedNoteRecords(sessionId);
   return useMemo(() => notes.map((note) => note.id), [notes]);
-}
-
-export function useEnhancedNote(enhancedNoteId: string) {
-  const note = useSqliteEnhancedNote(enhancedNoteId);
-
-  return {
-    title: note?.title,
-    content: note?.content,
-    position: note?.position,
-    templateId: note?.templateId,
-  };
 }
 
 export function useEnsureDefaultSummary(sessionId: string) {

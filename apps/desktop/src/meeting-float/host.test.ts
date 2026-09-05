@@ -6,8 +6,6 @@ import {
   getCurrentFloatingBarColorScheme,
   getFloatingRouteState,
   getFloatingTranscriptBubbles,
-  getLiveCaptionDisplayText,
-  getLiveCaptionRouteState,
   shouldShowFloatingLiveCaptionToggle,
 } from "./host";
 
@@ -27,21 +25,6 @@ function createListenerState(live: Partial<ListenerLiveState>) {
       ...store.getState().live,
       ...live,
     },
-  });
-  return store.getState();
-}
-
-function createListenerStateWithCaption(
-  live: Partial<ListenerLiveState>,
-  liveCaptionText: string,
-) {
-  const store = createListenerStore();
-  store.setState({
-    live: {
-      ...store.getState().live,
-      ...live,
-    },
-    liveCaptionText,
   });
   return store.getState();
 }
@@ -479,177 +462,6 @@ describe("getCurrentFloatingBarColorScheme", () => {
 
     document.documentElement.classList.add("dark");
     expect(getCurrentFloatingBarColorScheme()).toBe("dark");
-  });
-});
-
-describe("getLiveCaptionRouteState", () => {
-  it("hides live captions by default", () => {
-    expect(
-      getLiveCaptionRouteState(
-        createListenerStateWithCaption(
-          {
-            status: "active",
-            sessionId: "session-1",
-            liveTranscriptionActive: true,
-          },
-          "  we should ship this  ",
-        ),
-      ),
-    ).toBeNull();
-  });
-
-  it("returns live caption state for active live transcription when expanded", () => {
-    expect(
-      getLiveCaptionRouteState(
-        createListenerStateWithCaption(
-          {
-            status: "active",
-            sessionId: "session-1",
-            liveTranscriptionActive: true,
-          },
-          "  we should ship this  ",
-        ),
-        {
-          floatingBarOpacity: 0.78,
-          liveCaptionOpacity: 0.3,
-          liveCaptionWidth: 440,
-          liveCaptionLineCount: 1,
-          liveCaptionPosition: "topCenter",
-          liveCaptionMinimized: false,
-        },
-      ),
-    ).toEqual({
-      sessionId: "session-1",
-      text: "we should ship this",
-      opacity: 0.3,
-      width: 440,
-      lineCount: 1,
-      position: "topCenter",
-      minimized: false,
-    });
-  });
-
-  it("hides captions when the live caption is hidden from the floating bar", () => {
-    expect(
-      getLiveCaptionRouteState(
-        createListenerStateWithCaption(
-          {
-            status: "active",
-            sessionId: "session-1",
-            liveTranscriptionActive: true,
-          },
-          " ",
-        ),
-        {
-          floatingBarOpacity: 0.7,
-          liveCaptionOpacity: 0.66,
-          liveCaptionWidth: 520,
-          liveCaptionLineCount: 3,
-          liveCaptionPosition: "bottomRight",
-          liveCaptionMinimized: true,
-        },
-      ),
-    ).toBeNull();
-  });
-
-  it("keeps the minimized caption restore control visible without text", () => {
-    expect(
-      getLiveCaptionRouteState(
-        createListenerStateWithCaption(
-          {
-            status: "active",
-            sessionId: "session-1",
-            liveTranscriptionActive: true,
-          },
-          " ",
-        ),
-        {
-          floatingBarOpacity: 0.7,
-          liveCaptionOpacity: 0.66,
-          liveCaptionWidth: 520,
-          liveCaptionLineCount: 3,
-          liveCaptionPosition: "bottomRight",
-          liveCaptionMinimized: true,
-        },
-      ),
-    ).toBeNull();
-  });
-  it("hides captions before live transcription is active", () => {
-    expect(
-      getLiveCaptionRouteState(
-        createListenerStateWithCaption(
-          {
-            status: "active",
-            sessionId: "session-1",
-            liveTranscriptionActive: false,
-          },
-          "hello",
-        ),
-      ),
-    ).toBeNull();
-  });
-
-  it("shows captions immediately before text arrives", () => {
-    expect(
-      getLiveCaptionRouteState(
-        createListenerStateWithCaption(
-          {
-            status: "active",
-            sessionId: "session-1",
-            liveTranscriptionActive: true,
-          },
-          " ",
-        ),
-        {
-          floatingBarOpacity: 0.78,
-          liveCaptionOpacity: 0.3,
-          liveCaptionWidth: 440,
-          liveCaptionLineCount: 1,
-          liveCaptionPosition: "topCenter",
-          liveCaptionMinimized: false,
-        },
-      ),
-    ).toEqual({
-      sessionId: "session-1",
-      text: "",
-      opacity: 0.3,
-      width: 440,
-      lineCount: 1,
-      position: "topCenter",
-      minimized: false,
-    });
-  });
-});
-
-describe("getLiveCaptionDisplayText", () => {
-  it("shows a rolling recent caption window", () => {
-    const text =
-      "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma tau upsilon phi chi psi omega";
-
-    const singleLine = getLiveCaptionDisplayText(text, {
-      liveCaptionWidth: 260,
-      liveCaptionLineCount: 1,
-    });
-    const expanded = getLiveCaptionDisplayText(text, {
-      liveCaptionWidth: 260,
-      liveCaptionLineCount: 3,
-    });
-
-    expect(singleLine).toMatch(/^\.\.\. /);
-    expect(expanded).toMatch(/^\.\.\. /);
-    expect(singleLine.endsWith("omega")).toBe(true);
-    expect(expanded.endsWith("omega")).toBe(true);
-    expect(expanded.length).toBeGreaterThan(singleLine.length);
-    expect(expanded.endsWith(singleLine.replace(/^\.\.\. /, ""))).toBe(true);
-  });
-
-  it("keeps short captions unchanged", () => {
-    expect(
-      getLiveCaptionDisplayText("  hello   there  ", {
-        liveCaptionWidth: 260,
-        liveCaptionLineCount: 1,
-      }),
-    ).toBe("hello there");
   });
 });
 

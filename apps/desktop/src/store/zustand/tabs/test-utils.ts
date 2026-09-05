@@ -1,5 +1,5 @@
 import { type Tab, useTabs } from ".";
-import { computeHistoryFlags, type TabHistory } from "./navigation";
+import { computeHistoryFlags } from "./navigation";
 
 import { id } from "~/shared/utils";
 
@@ -97,26 +97,4 @@ export const seedTabsStore = (
 
 export const resetTabsStore = (): void => {
   seedTabsStore();
-};
-
-type HistoryEntry = {
-  slotId?: string;
-  stack: Tab[];
-  currentIndex?: number;
-};
-
-export const createHistory = (
-  entries: HistoryEntry[],
-): Map<string, TabHistory> => {
-  const history = new Map<string, TabHistory>();
-
-  entries.forEach(({ slotId, stack, currentIndex }) => {
-    const key = slotId ?? (stack.length > 0 ? stack[0].slotId : "default");
-    history.set(key, {
-      stack,
-      currentIndex: currentIndex ?? stack.length - 1,
-    });
-  });
-
-  return history;
 };

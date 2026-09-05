@@ -1754,10 +1754,6 @@ msgstr "Delete model"
 msgid "Delete Note"
 msgstr "Delete Note"
 
-#: src/session/components/outer-header/overflow/delete.tsx
-msgid "Delete recording"
-msgstr "Delete recording"
-
 #: src/sidebar/timeline/index.tsx
 msgid "Delete Selected ({sessionCount})"
 msgstr "Delete Selected ({sessionCount})"
@@ -1773,10 +1769,6 @@ msgstr "Delete workspace"
 #: src/settings/team/index.tsx
 msgid "Deleting removes the workspace for everyone. Transfer ownership first if you only want to leave."
 msgstr "Deleting removes the workspace for everyone. Transfer ownership first if you only want to leave."
-
-#: src/session/components/outer-header/overflow/delete.tsx
-msgid "Deleting..."
-msgstr "Deleting..."
 
 #: src/session-sharing/access-management.tsx
 msgid "Deny"

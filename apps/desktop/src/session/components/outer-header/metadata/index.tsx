@@ -1,36 +1,17 @@
-import { forwardRef, useState } from "react";
-
 import { commands as openerCommands } from "@anlg/plugin-opener2";
-import { CalendarBlank, MapPin, VideoCamera } from "@anlg/ui/components/icons";
+import { MapPin, VideoCamera } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
-  Popover,
   PopoverContent,
-  PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
-import { cn, safeFormat, safeParseDate, TZDate } from "@anlg/utils";
+import { safeFormat, safeParseDate, TZDate } from "@anlg/utils";
 
 import { DateEditor } from "./date";
 import { ParticipantsDisplay } from "./participants";
 
 import { useSessionEvent } from "~/session/hooks/useSessionEvent";
 import { useConfigValue } from "~/shared/config";
-
-export function MetadataButton({ sessionId }: { sessionId: string }) {
-  const [open, setOpen] = useState(false);
-  const sessionEvent = useSessionEvent(sessionId);
-  const label = sessionEvent ? "Open event metadata" : "Open note metadata";
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <TriggerInner label={label} open={open} />
-      </PopoverTrigger>
-      <MetadataPopoverContent sessionId={sessionId} />
-    </Popover>
-  );
-}
 
 export function MetadataPopoverContent({ sessionId }: { sessionId: string }) {
   return (
@@ -47,31 +28,6 @@ export function MetadataPanelContent({ sessionId }: { sessionId: string }) {
     </AppFloatingPanel>
   );
 }
-
-const TriggerInner = forwardRef<
-  HTMLButtonElement,
-  { label: string; open?: boolean }
->(({ label, open, ...props }, ref) => {
-  return (
-    <Button
-      ref={ref}
-      {...props}
-      variant="ghost"
-      size="icon"
-      type="button"
-      data-tauri-drag-region="false"
-      aria-label={label}
-      title={label}
-      className={cn([
-        "size-7 rounded-full [&_svg]:size-4",
-        "text-muted-foreground hover:bg-accent hover:text-foreground",
-        open && "bg-muted text-foreground",
-      ])}
-    >
-      <CalendarBlank className="size-4" />
-    </Button>
-  );
-});
 
 function ContentInner({ sessionId }: { sessionId: string }) {
   const sessionEvent = useSessionEvent(sessionId);

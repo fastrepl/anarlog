@@ -1754,10 +1754,6 @@ msgstr ""
 msgid "Delete Note"
 msgstr ""
 
-#: src/session/components/outer-header/overflow/delete.tsx
-msgid "Delete recording"
-msgstr ""
-
 #: src/sidebar/timeline/index.tsx
 msgid "Delete Selected ({sessionCount})"
 msgstr ""
@@ -1772,10 +1768,6 @@ msgstr ""
 
 #: src/settings/team/index.tsx
 msgid "Deleting removes the workspace for everyone. Transfer ownership first if you only want to leave."
-msgstr ""
-
-#: src/session/components/outer-header/overflow/delete.tsx
-msgid "Deleting..."
 msgstr ""
 
 #: src/session-sharing/access-management.tsx

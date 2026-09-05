@@ -1,7 +1,6 @@
 import { Effect, Option, pipe } from "effect";
 import type { UnknownException } from "effect/Cause";
 import { toString } from "nlcst-to-string";
-import { useMemo } from "react";
 import retextEnglish from "retext-english";
 import type { Keyphrase, Keyword } from "retext-keywords";
 import retextKeywords from "retext-keywords";
@@ -10,41 +9,10 @@ import retextStringify from "retext-stringify";
 import { unified } from "unified";
 import type { VFile } from "vfile";
 
-import { useSessionEventParticipants } from "~/calendar/queries";
 import { liveQueryClient } from "~/db";
-import { useSession, useSessionParticipants } from "~/session/queries";
-import { useConfigValue } from "~/shared/config";
 import { normalizeKeywordList } from "~/stt/keywords";
 
 const MAX_TRANSCRIPTION_HINTS = 50;
-
-export function useKeywords(sessionId: string) {
-  const session = useSession(sessionId);
-  const participants = useSessionParticipants(sessionId);
-  const eventParticipants = useSessionEventParticipants(sessionId);
-  const dictionaryTerms = useConfigValue("personalization_dictionary_terms");
-
-  return useMemo(
-    () =>
-      buildKeywords({
-        rawMd: session?.raw_md,
-        title: session?.title,
-        eventJson: session?.event_json,
-        sessionParticipantTerms: participants.flatMap((participant) =>
-          participant.source !== "excluded" && participant.name
-            ? [participant.name]
-            : [],
-        ),
-        eventParticipantTerms: eventParticipants.flatMap((participant) =>
-          !participant.is_current_user && participant.name
-            ? [participant.name]
-            : [],
-        ),
-        dictionaryTerms,
-      }),
-    [dictionaryTerms, eventParticipants, participants, session],
-  );
-}
 
 type KeywordSnapshotSqlRow = {
   raw_md: string;

@@ -4,10 +4,6 @@ import { latestContent, latestVersion } from "virtual:changelog";
 
 import { processContent } from "@anlg/changelog";
 
-export function getLatestVersion(): string | null {
-  return latestVersion;
-}
-
 async function fetchChangelogFromGitHub(
   version: string,
 ): Promise<string | null> {

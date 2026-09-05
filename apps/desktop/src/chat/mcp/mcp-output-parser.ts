@@ -48,14 +48,6 @@ export function readMcpJsonText(output: unknown): unknown {
   }
 }
 
-export function parseMcpToolOutput<T>(
-  output: unknown,
-  guard: (value: unknown) => value is T,
-): T | null {
-  const value = readMcpJsonText(output);
-  return guard(value) ? value : null;
-}
-
 export function parseMcpObjectOutput<T extends McpObjectOutput>(
   output: unknown,
 ): T | null {

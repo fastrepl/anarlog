@@ -1,5 +1,3 @@
-import { useSessionEvent } from "~/session/hooks/useSessionEvent";
-
 export type RemoteMeetingType =
   | "zoom"
   | "google-meet"
@@ -51,9 +49,4 @@ export function getRemoteMeeting(
   }
 
   return { type, url: meetingLink };
-}
-
-export function useRemoteMeeting(sessionId: string): RemoteMeeting | null {
-  const event = useSessionEvent(sessionId);
-  return getRemoteMeeting(event?.meeting_link);
 }

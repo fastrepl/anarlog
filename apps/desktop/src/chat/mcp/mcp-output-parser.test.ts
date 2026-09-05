@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   extractMcpOutputText,
   parseMcpObjectOutput,
-  parseMcpToolOutput,
   readMcpJsonText,
 } from "./mcp-output-parser";
 
@@ -45,20 +44,5 @@ describe("mcp-output-parser", () => {
       status: "error",
       message: "No active session selected.",
     });
-  });
-
-  it("parses guarded MCP outputs", () => {
-    expect(
-      parseMcpToolOutput<{ count: number }>(
-        {
-          content: [{ type: "text", text: '{"count":3}' }],
-        },
-        (value): value is { count: number } =>
-          !!value &&
-          typeof value === "object" &&
-          "count" in value &&
-          typeof value.count === "number",
-      ),
-    ).toEqual({ count: 3 });
   });
 });

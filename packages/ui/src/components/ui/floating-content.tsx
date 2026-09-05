@@ -22,7 +22,6 @@ export const appFloatingContentClassName =
 
 export const appFloatingMenuPanelClassName = "overflow-hidden p-1.5";
 export const appFloatingItemClassName = "rounded-[14px]";
-export const floatingMenuItemClassName = "rounded-[14px]";
 
 export type FloatingContentVariant = "default" | "app";
 

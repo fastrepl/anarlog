@@ -49,8 +49,6 @@ export {
   getCurrentFloatingBarColorScheme,
   getFloatingRouteState,
   getFloatingTranscriptBubbles,
-  getLiveCaptionDisplayText,
-  getLiveCaptionRouteState,
   shouldShowFloatingLiveCaptionToggle,
 } from "./route-state";
 export { hideFloatingMeetingPanel, hideLiveCaptionPanel } from "./window-panel";

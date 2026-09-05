@@ -1,8 +1,10 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Popover } from "@anlg/ui/components/ui/popover";
+
 import { DateEditor } from "./date";
-import { MetadataButton } from "./index";
+import { MetadataPopoverContent } from "./index";
 
 const mocks = vi.hoisted(() => ({
   createdAt: "2026-07-02T03:53:00.000Z" as unknown,
@@ -66,30 +68,17 @@ describe("Metadata controls", () => {
   });
 
   it("uses a narrow floating panel", () => {
-    render(<MetadataButton sessionId="session-1" />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Open note metadata" }));
+    render(
+      <Popover open>
+        <MetadataPopoverContent sessionId="session-1" />
+      </Popover>,
+    );
 
     const content = screen
       .getByRole("button", { name: "Edit date" })
       .closest("[data-radix-popper-content-wrapper] > *");
 
     expect(content?.className.split(/\s+/) ?? []).toContain("w-72");
-  });
-
-  it("renders the metadata calendar trigger as a circle", () => {
-    render(<MetadataButton sessionId="session-1" />);
-
-    const metadataButton = screen.getByRole("button", {
-      name: "Open note metadata",
-    });
-
-    expect(metadataButton.className).toContain("size-7");
-    expect(metadataButton.className).toContain("rounded-full");
-    expect(metadataButton.className).toContain("[&_svg]:size-4");
-    expect(
-      metadataButton.querySelector("svg")?.getAttribute("class"),
-    ).toContain("size-4");
   });
 
   it("renders date edit action buttons as circles", () => {
@@ -106,9 +95,11 @@ describe("Metadata controls", () => {
   });
 
   it("keeps date edit actions available in the narrow panel", () => {
-    render(<MetadataButton sessionId="session-1" />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Open note metadata" }));
+    render(
+      <Popover open>
+        <MetadataPopoverContent sessionId="session-1" />
+      </Popover>,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Edit date" }));
 
     const input = document.querySelector('input[type="datetime-local"]');

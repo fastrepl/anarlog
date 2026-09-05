@@ -212,50 +212,6 @@ export function hydrateTaskContent(args: {
   );
 }
 
-export function moveOpenTasksBetweenContents(args: {
-  previousContent: JSONContent;
-  currentContent: JSONContent;
-  previousTasks: TaskRecord[];
-  currentTasks: TaskRecord[];
-  currentSource: TaskSource;
-}): {
-  previousContent: JSONContent;
-  currentContent: JSONContent;
-  previousTasks: TaskRecord[];
-  currentTasks: TaskRecord[];
-  movedTasks: TaskRecord[];
-} | null {
-  const currentTaskIds = new Set(args.currentTasks.map((task) => task.taskId));
-  const tasksToMove = args.previousTasks.filter(
-    (task) => !isTaskDone(task.status) && !currentTaskIds.has(task.taskId),
-  );
-
-  if (tasksToMove.length === 0) {
-    return null;
-  }
-
-  const movedTaskIds = new Set(tasksToMove.map((task) => task.taskId));
-  const movedTasks = tasksToMove.map((task, index) => ({
-    ...task,
-    sourceId: args.currentSource.id,
-    sourceType: args.currentSource.type,
-    sourceOrder: args.currentTasks.length + index,
-  }));
-
-  return {
-    previousContent: removeTaskItems(args.previousContent, movedTaskIds),
-    currentContent: appendTaskItems(
-      args.currentContent,
-      movedTasks.map((task) => createTaskItemNode(task)),
-    ),
-    previousTasks: args.previousTasks.filter(
-      (task) => !movedTaskIds.has(task.taskId),
-    ),
-    currentTasks: [...args.currentTasks, ...movedTasks],
-    movedTasks,
-  };
-}
-
 function hydrateNodeContent(
   node: JSONContent,
   sourceTasksById: ReadonlyMap<string, TaskRecord>,
@@ -306,53 +262,6 @@ function hydrateNode(
 
   const nextContent = node.content
     .map((child) => hydrateNode(child, sourceTasksById, usedTaskIds, getTask))
-    .filter((child): child is JSONContent => child !== null);
-  const changed = nextContent.some(
-    (child, index) => child !== node.content?.[index],
-  );
-
-  if (node.type === "taskList" && nextContent.length === 0) {
-    return null;
-  }
-
-  if (!changed && nextContent.length === node.content.length) {
-    return node;
-  }
-
-  return {
-    ...node,
-    content: nextContent,
-  };
-}
-
-function removeTaskItems(content: JSONContent, taskIds: ReadonlySet<string>) {
-  const nextContent = removeTaskNodes(content, taskIds);
-  if (nextContent) {
-    return nextContent;
-  }
-
-  return { type: "doc", content: [{ type: "paragraph" }] };
-}
-
-function removeTaskNodes(
-  node: JSONContent,
-  taskIds: ReadonlySet<string>,
-): JSONContent | null {
-  if (node.type === "taskItem") {
-    const taskId = node.attrs?.taskId;
-    if (typeof taskId === "string" && taskIds.has(taskId)) {
-      return null;
-    }
-
-    return node;
-  }
-
-  if (!node.content?.length) {
-    return node;
-  }
-
-  const nextContent = node.content
-    .map((child) => removeTaskNodes(child, taskIds))
     .filter((child): child is JSONContent => child !== null);
   const changed = nextContent.some(
     (child, index) => child !== node.content?.[index],

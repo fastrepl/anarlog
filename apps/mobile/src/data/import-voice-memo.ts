@@ -40,18 +40,6 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
   }
 }
 
-export function sessionAudioDirectory(sessionId: string): string {
-  return new Directory(Paths.document, "sessions", sessionId).uri;
-}
-
-export function recordingDestination(
-  sessionId: string,
-  extension: string,
-): string {
-  return new File(Paths.document, "sessions", sessionId, `audio.${extension}`)
-    .uri;
-}
-
 function splitName(name: string): { title: string; extension: string } {
   const dotIndex = name.lastIndexOf(".");
   if (dotIndex <= 0 || dotIndex === name.length - 1) {

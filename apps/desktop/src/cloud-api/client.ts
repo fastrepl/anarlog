@@ -334,22 +334,6 @@ async function performCloudApiSnapshotSync(
   }
 }
 
-export async function deleteCloudApiSnapshot(sessionId: string): Promise<void> {
-  const intent = setSnapshotIntent(sessionId, "delete");
-  cancelScheduledSnapshotSync(sessionId);
-  try {
-    const current = await session();
-    addPendingChange(current.user.id, sessionId, "deletes");
-    await waitForSnapshotSync(sessionId, current.user.id);
-    if (snapshotIntents.get(sessionId) !== intent) {
-      return;
-    }
-    await deleteCloudApiSnapshotForUser(sessionId, current.user.id);
-  } finally {
-    clearSnapshotIntent(sessionId, intent);
-  }
-}
-
 async function deleteCloudApiSnapshotForUser(
   sessionId: string,
   userId: string,

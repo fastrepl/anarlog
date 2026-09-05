@@ -5,11 +5,7 @@ import { parseEventInstant, safeParseDate, TZDate } from "@anlg/utils";
 
 import { eventCalendarDay } from "./event-day";
 import { useIgnoredEvents } from "./ignored-events";
-import {
-  useCalendarRow,
-  useEnabledCalendarRows,
-  useTimelineTables,
-} from "./queries";
+import { useEnabledCalendarRows, useTimelineTables } from "./queries";
 
 import { useConfigValue } from "~/shared/config";
 import type {
@@ -126,10 +122,6 @@ export type Calendar = {
   connection_id: string;
   created_at: string;
 };
-
-export function useCalendar(id: string | null | undefined): Calendar | null {
-  return useCalendarRow(id);
-}
 
 export type EnabledCalendar = { id: string; provider: string };
 

@@ -120,7 +120,6 @@ import {
   Mic01Icon,
   MicOff01Icon,
   MinusIcon,
-  MonitorIcon,
   MoonIcon,
   MoreHorizontalIcon,
   MoreVerticalIcon,
@@ -595,7 +594,6 @@ export const MinusCircle = /* @__PURE__ */ createIcon(
   CircleMinusIcon,
   "MinusCircle",
 );
-export const Monitor = /* @__PURE__ */ createIcon(MonitorIcon, "Monitor");
 export const Moon = /* @__PURE__ */ createIcon(MoonIcon, "Moon");
 export const MusicNote = /* @__PURE__ */ createIcon(
   MusicNote01Icon,

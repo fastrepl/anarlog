@@ -23,7 +23,6 @@ vi.mock("~/session/queries", () => ({
 }));
 
 import {
-  buildReadCurrentNoteTool,
   buildSearchMeetingContentTool,
   noteFileTestInternals,
 } from "./note-files";
@@ -143,20 +142,7 @@ describe("note file chat tools", () => {
     expect(result?.snippets[0]?.text).toContain("contract renewal");
   });
 
-  it("reads and searches canonical SQLite note snapshots", async () => {
-    const readTool = buildReadCurrentNoteTool({
-      getSessionId: () => "session-1",
-    } as any);
-    const readResult = await (readTool as any).execute({});
-
-    expect(readResult).toMatchObject({
-      status: "ok",
-      sessionId: "session-1",
-      title: "Customer call",
-      participants: ["Ada Lovelace"],
-    });
-    expect(readResult.contextText).toContain("contract renewal timing");
-
+  it("searches canonical SQLite note snapshots", async () => {
     const contentSearchTool = buildSearchMeetingContentTool({} as any);
     const contentSearchResult = await (contentSearchTool as any).execute({
       query: "contract renewal",

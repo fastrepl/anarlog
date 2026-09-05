@@ -6,7 +6,6 @@ import {
   extractTasksFromContent,
   getNextTaskStatus,
   hydrateTaskContent,
-  moveOpenTasksBetweenContents,
   normalizeTaskContent,
 } from "./tasks";
 
@@ -260,99 +259,6 @@ describe("task content", () => {
               attrs: { checked: true, taskId: "task-1" },
             },
           ],
-        },
-      ],
-    });
-  });
-
-  it("moves unfinished daily tasks forward with the same task id and body", () => {
-    const previousSource = { type: "daily_note", id: "2026-04-05" };
-    const currentSource = { type: "daily_note", id: "2026-04-06" };
-    const previousTasks = [
-      {
-        taskId: "task-1",
-        sourceId: previousSource.id,
-        sourceType: previousSource.type,
-        sourceOrder: 0,
-        status: "todo" as const,
-        textPreview: "Carry me",
-        dueDate: "2026-04-10",
-        body: [
-          {
-            type: "paragraph",
-            content: [{ type: "text", text: "Carry me" }],
-          },
-          {
-            type: "blockquote",
-            content: [
-              {
-                type: "paragraph",
-                content: [{ type: "text", text: "Keep structure" }],
-              },
-            ],
-          },
-        ],
-      },
-      {
-        taskId: "task-2",
-        sourceId: previousSource.id,
-        sourceType: previousSource.type,
-        sourceOrder: 1,
-        status: "done" as const,
-        textPreview: "Done task",
-        body: [{ type: "paragraph" }],
-      },
-    ];
-
-    const result = moveOpenTasksBetweenContents({
-      previousContent: {
-        type: "doc",
-        content: [
-          {
-            type: "taskList",
-            content: previousTasks.map((task) => createTaskItemNode(task)),
-          },
-        ],
-      },
-      currentContent: {
-        type: "doc",
-        content: [{ type: "paragraph" }],
-      },
-      previousTasks,
-      currentTasks: [],
-      currentSource,
-    });
-
-    expect(result).not.toBeNull();
-    expect(result?.movedTasks).toHaveLength(1);
-    expect(result?.movedTasks[0]).toMatchObject({
-      taskId: "task-1",
-      sourceId: currentSource.id,
-      sourceType: currentSource.type,
-      sourceOrder: 0,
-      dueDate: "2026-04-10",
-      body: previousTasks[0]?.body,
-    });
-    expect(result?.previousContent).toMatchObject({
-      type: "doc",
-      content: [
-        {
-          type: "taskList",
-          content: [
-            {
-              type: "taskItem",
-              attrs: { taskId: "task-2" },
-            },
-          ],
-        },
-      ],
-    });
-    expect(result?.currentContent.content?.[1]).toMatchObject({
-      type: "taskList",
-      content: [
-        {
-          type: "taskItem",
-          attrs: { taskId: "task-1", checked: false },
         },
       ],
     });

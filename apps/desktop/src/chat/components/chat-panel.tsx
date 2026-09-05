@@ -19,29 +19,6 @@ import { folderIdForNewNote, useSidebarNotes } from "~/sidebar/note-filter";
 import { isBatchTranscriptionPending } from "~/store/zustand/listener/general-shared";
 import { useListener } from "~/stt/contexts";
 
-export function ChatView({
-  layout = "floating",
-  onOpenFloating,
-  onOpenRightPanel,
-}: {
-  layout?: "floating" | "right-panel";
-  onOpenFloating?: () => void;
-  onOpenRightPanel?: () => void;
-}) {
-  return (
-    <ChatSessionHost>
-      {(sessionProps) => (
-        <ChatPanelFrame
-          layout={layout}
-          onOpenFloating={onOpenFloating}
-          onOpenRightPanel={onOpenRightPanel}
-          sessionProps={sessionProps}
-        />
-      )}
-    </ChatSessionHost>
-  );
-}
-
 export function ChatSessionHost({
   children,
 }: {

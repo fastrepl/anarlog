@@ -18,7 +18,6 @@ export {
   AUTO_TEMPLATE_ID,
   filterWebTemplatesAgainstUserTemplates,
   getTemplateCreatorLabel,
-  useTemplateCreatorName,
 } from "./utils";
 export { TemplatesSidebarContent } from "./template-sidebar";
 

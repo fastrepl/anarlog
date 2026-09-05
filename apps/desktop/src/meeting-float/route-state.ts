@@ -1,6 +1,5 @@
 import {
   DEFAULT_FLOATING_OVERLAY_SETTINGS,
-  LIVE_CAPTION_MIN_WIDTH,
   type FloatingOverlaySettings,
   type LiveCaptionPosition,
 } from "./settings";
@@ -40,19 +39,6 @@ export type FloatingRouteState = {
   liveCaptionToggleVisible: boolean;
   transcriptBubbles: FloatingTranscriptBubble[];
 };
-
-export type LiveCaptionRouteState = {
-  sessionId: string;
-  text: string;
-  opacity: number;
-  width: number;
-  lineCount: number;
-  position: LiveCaptionPosition;
-  minimized: boolean;
-};
-
-const LIVE_CAPTION_HORIZONTAL_PADDING_PX = 32;
-const LIVE_CAPTION_AVERAGE_CHARACTER_WIDTH_PX = 7.8;
 const FLOATING_TRANSCRIPT_OVERLAP_THRESHOLD_MS = 300;
 
 export function getFloatingRouteState(
@@ -295,60 +281,12 @@ export function getFloatingLiveCaptionToggleVisible(state: ListenerState) {
   });
 }
 
-export function getLiveCaptionRouteState(
-  state: ListenerState,
-  settings: FloatingOverlaySettings = DEFAULT_FLOATING_OVERLAY_SETTINGS,
-): LiveCaptionRouteState | null {
-  if (state.live.status !== "active") {
-    return null;
-  }
-
-  if (!state.live.sessionId) {
-    return null;
-  }
-
-  if (state.live.liveTranscriptionActive !== true) {
-    return null;
-  }
-
-  if (settings.liveCaptionMinimized) {
-    return null;
-  }
-
-  const text = getLiveCaptionDisplayText(state.liveCaptionText, settings);
-
-  return {
-    sessionId: state.live.sessionId,
-    text,
-    opacity: settings.liveCaptionOpacity,
-    width: settings.liveCaptionWidth,
-    lineCount: settings.liveCaptionLineCount,
-    position: settings.liveCaptionPosition,
-    minimized: settings.liveCaptionMinimized,
-  };
-}
-
 export function getCurrentFloatingBarColorScheme(): FloatingBarColorScheme {
   if (typeof document === "undefined") {
     return "dark";
   }
 
   return document.documentElement.classList.contains("dark") ? "dark" : "light";
-}
-
-export function isSameLiveCaptionRouteState(
-  left: LiveCaptionRouteState | null,
-  right: LiveCaptionRouteState | null,
-) {
-  return (
-    left?.sessionId === right?.sessionId &&
-    left?.text === right?.text &&
-    left?.opacity === right?.opacity &&
-    left?.width === right?.width &&
-    left?.lineCount === right?.lineCount &&
-    left?.position === right?.position &&
-    left?.minimized === right?.minimized
-  );
 }
 
 export function isSameFloatingRouteState(
@@ -402,46 +340,4 @@ function isSameFloatingTranscriptBubbles(
       bubble.overlapsNext === other.overlapsNext
     );
   });
-}
-
-export function getLiveCaptionDisplayText(
-  text: string,
-  settings: Pick<
-    FloatingOverlaySettings,
-    "liveCaptionWidth" | "liveCaptionLineCount"
-  > = DEFAULT_FLOATING_OVERLAY_SETTINGS,
-) {
-  const normalizedText = text.trim().replace(/\s+/g, " ");
-  if (!normalizedText) {
-    return "";
-  }
-
-  const contentWidth = Math.max(
-    settings.liveCaptionWidth - LIVE_CAPTION_HORIZONTAL_PADDING_PX,
-    LIVE_CAPTION_MIN_WIDTH - LIVE_CAPTION_HORIZONTAL_PADDING_PX,
-  );
-  const charactersPerLine = Math.max(
-    12,
-    Math.floor(contentWidth / LIVE_CAPTION_AVERAGE_CHARACTER_WIDTH_PX),
-  );
-  const maxCharacters = Math.max(
-    24,
-    charactersPerLine * settings.liveCaptionLineCount,
-  );
-
-  if (normalizedText.length <= maxCharacters) {
-    return normalizedText;
-  }
-
-  return `... ${getTextSuffixAtWordBoundary(normalizedText, maxCharacters - 4)}`;
-}
-
-function getTextSuffixAtWordBoundary(text: string, maxCharacters: number) {
-  const suffix = text.slice(-maxCharacters).trimStart();
-  const firstWhitespaceIndex = suffix.search(/\s/);
-  if (firstWhitespaceIndex > 0 && firstWhitespaceIndex < suffix.length - 1) {
-    return suffix.slice(firstWhitespaceIndex).trimStart();
-  }
-
-  return suffix;
 }

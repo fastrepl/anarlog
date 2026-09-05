@@ -14,8 +14,6 @@ import { useWindowControlsGutter } from "~/shared/hooks/useWindowControlsGutter"
 import { StandardContentWrapper } from "~/shared/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
-export { getLatestVersion } from "./data";
-
 export function TabContentChangelog({
   tab,
 }: {

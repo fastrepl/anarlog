@@ -9,11 +9,6 @@ import { cn } from "@anlg/utils";
 export { MainShellBodyFrame } from "./body-frame";
 export { MainChatPanels } from "./chat-panels";
 export { useMainContentCenterOffset } from "./content-offset";
-export {
-  MainSessionStatusBannerHost,
-  SessionStatusBannerProvider,
-  useSessionStatusBanner,
-} from "./session-status-banner";
 export { MainShellScaffold, type MainSurfaceChrome } from "./shell-scaffold";
 
 export function StandardContentWrapper({

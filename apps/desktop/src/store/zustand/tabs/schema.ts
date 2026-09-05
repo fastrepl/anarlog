@@ -96,12 +96,6 @@ export type DailySummaryState = {
   activeTab: "timeline" | "raw" | null;
 };
 
-export const isEnhancedView = (
-  view: EditorView,
-): view is { type: "enhanced"; id: string } => view.type === "enhanced";
-export const isRawView = (view: EditorView): view is { type: "raw" } =>
-  view.type === "raw";
-
 type BaseTab = {
   active: boolean;
   slotId: string;

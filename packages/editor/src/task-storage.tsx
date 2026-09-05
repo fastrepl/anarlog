@@ -1,10 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useMemo,
-  useSyncExternalStore,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 
 import {
   createTaskSourceKey,
@@ -226,56 +220,4 @@ export function TaskStorageProvider({
 
 export function useTaskStorageOptional(): TaskStorage | null {
   return useContext(TaskStorageContext);
-}
-
-export function useTaskStorage(): TaskStorage {
-  const storage = useTaskStorageOptional();
-  if (!storage) {
-    throw new Error("useTaskStorage must be used within a TaskStorageProvider");
-  }
-
-  return storage;
-}
-
-export function useTaskRecords(
-  source: TaskSource | null | undefined,
-): TaskRecord[] {
-  const storage = useTaskStorageOptional();
-
-  return useSyncExternalStore(
-    source && storage
-      ? (listener) => storage.subscribeSource(source, listener)
-      : subscribeNoop,
-    source && storage ? () => storage.getTasksForSource(source) : getEmptyTasks,
-    getEmptyTasks,
-  );
-}
-
-export function useTaskRecord(
-  source: TaskSource | null | undefined,
-  taskId: string | null | undefined,
-): TaskRecord | null {
-  const storage = useTaskStorageOptional();
-
-  return useSyncExternalStore(
-    source && storage
-      ? (listener) => storage.subscribeSource(source, listener)
-      : subscribeNoop,
-    source && taskId && storage
-      ? () => storage.getTask(taskId)
-      : getNullTaskRecord,
-    getNullTaskRecord,
-  );
-}
-
-function subscribeNoop() {
-  return () => {};
-}
-
-function getEmptyTasks() {
-  return emptyTasks;
-}
-
-function getNullTaskRecord() {
-  return null;
 }

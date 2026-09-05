@@ -1,10 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
-import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useState } from "react";
 
 import {
   commands as localSttCommands,
-  events as localSttEvents,
   type LocalModel,
 } from "@anlg/plugin-local-stt";
 
@@ -54,104 +51,3 @@ export const localSttQueries = {
       },
     }),
 };
-
-export function useLocalModelDownload(
-  model: LocalModel,
-  onDownloadComplete?: (model: LocalModel) => void,
-) {
-  const [progress, setProgress] = useState<number>(0);
-  const [isStarting, setIsStarting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const isDownloaded = useQuery(localSttQueries.isDownloaded(model));
-  const isDownloading = useQuery(localSttQueries.isDownloading(model));
-  const refetchDownloaded = isDownloaded.refetch;
-  const refetchDownloading = isDownloading.refetch;
-
-  const showProgress =
-    !isDownloaded.data && (isStarting || (isDownloading.data ?? false));
-
-  useEffect(() => {
-    if (isDownloading.data) {
-      setIsStarting(false);
-    }
-  }, [isDownloading.data]);
-
-  useEffect(() => {
-    const unlisten = localSttEvents.downloadProgressPayload.listen((event) => {
-      if (event.payload.model === model) {
-        const { status } = event.payload;
-        if (typeof status === "object" && "failed" in status) {
-          setErrorMessage(status.failed);
-          setIsStarting(false);
-          setProgress(0);
-          void refetchDownloading();
-        } else if (status === "completed") {
-          setErrorMessage(null);
-          setProgress(100);
-          setIsStarting(false);
-          void refetchDownloaded();
-          void refetchDownloading();
-        } else if (typeof status === "object" && "downloading" in status) {
-          setErrorMessage(null);
-          setIsStarting(true);
-          setProgress(Math.max(0, Math.min(100, status.downloading)));
-        }
-      }
-    });
-
-    return () => {
-      void unlisten.then((fn) => fn());
-    };
-  }, [model, refetchDownloaded, refetchDownloading]);
-
-  useEffect(() => {
-    if (isDownloaded.data && progress > 0) {
-      setProgress(0);
-      onDownloadComplete?.(model);
-    }
-  }, [isDownloaded.data, model, onDownloadComplete, progress]);
-
-  const handleDownload = useCallback(() => {
-    if (isDownloaded.data || isDownloading.data || isStarting) {
-      return;
-    }
-    setErrorMessage(null);
-    setIsStarting(true);
-    setProgress(0);
-    void localSttCommands.downloadModel(model).then((result) => {
-      if (result.status === "error") {
-        setErrorMessage(result.error);
-        setIsStarting(false);
-      }
-    });
-  }, [isDownloaded.data, isDownloading.data, isStarting, model]);
-
-  const handleCancel = useCallback(() => {
-    void localSttCommands
-      .cancelDownload(model)
-      .then(() => refetchDownloading());
-    setIsStarting(false);
-    setProgress(0);
-  }, [model, refetchDownloading]);
-
-  const handleDelete = useCallback(() => {
-    void localSttCommands.deleteModel(model).then((result) => {
-      if (result.status === "ok") {
-        void refetchDownloaded();
-      }
-    });
-  }, [model, refetchDownloaded]);
-
-  return {
-    progress,
-    hasError: errorMessage !== null,
-    errorMessage,
-    isDownloaded: isDownloaded.data ?? false,
-    isDownloadedLoading: isDownloaded.isLoading,
-    showProgress,
-    handleDownload,
-    handleCancel,
-    handleDelete,
-  };
-}
