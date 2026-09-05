@@ -7,13 +7,14 @@ use std::cell::Cell;
 
 use gpui::{
     AnyElement, Div, ElementInputHandler, Entity, Focusable as _, HighlightStyle, MouseButton,
-    MouseDownEvent, Pixels, SharedString, StyledText, TextStyle, Window, canvas, div, fill,
-    prelude::*, px, size,
+    MouseDownEvent, Pixels, SharedString, StyledText, TextRun, TextStyle, Window, canvas, div,
+    fill, prelude::*, px, size,
 };
 
 use super::Workspace;
 use crate::document::{Block, Span};
 use crate::editor::BodyEditor;
+use crate::prose_text::{ProseLayout, ProseText};
 use crate::theme::{Theme, alpha};
 use crate::ui::TailwindText as _;
 
@@ -27,50 +28,17 @@ pub(super) fn webkit_line_height(font_px: f32, ratio: f32) -> f32 {
     (percent * font_px / 100.0).floor()
 }
 
-/// Paints one quad per wrapped line the byte range covers. Line ends are
-/// found by bisecting on the y of `position_for_index`, which is monotonic.
+/// Paints one quad per wrapped line the byte range covers.
 fn paint_selection(
-    layout: &gpui::TextLayout,
+    layout: &ProseLayout,
     range: std::ops::Range<usize>,
     color: gpui::Rgba,
     window: &mut Window,
 ) {
-    let line_height = layout.line_height();
-    let mut start = range.start;
-    while start < range.end {
-        let Some(origin) = layout.position_for_index(start) else {
-            return;
-        };
-        // Largest index in (start, end] still on this line.
-        let (mut lo, mut hi) = (start, range.end);
-        while lo < hi {
-            let mid = lo + (hi - lo).div_ceil(2);
-            match layout.position_for_index(mid) {
-                Some(p) if p.y == origin.y => lo = mid,
-                _ => hi = mid - 1,
-            }
-        }
-        let end_x = layout
-            .position_for_index(lo)
-            .map(|p| p.x)
-            .unwrap_or(origin.x);
+    for mut span in layout.line_spans(range) {
         // A line break inside the range keeps a visible sliver.
-        let width = (end_x - origin.x).max(px(4.0));
-        window.paint_quad(fill(
-            gpui::Bounds::new(origin, size(width, line_height)),
-            color,
-        ));
-        if lo >= range.end {
-            break;
-        }
-        start = lo + 1;
-        while start < range.end
-            && layout
-                .position_for_index(start)
-                .is_some_and(|p| p.y == origin.y)
-        {
-            start += 1;
-        }
+        span.size.width = span.size.width.max(px(4.0));
+        window.paint_quad(fill(span, color));
     }
 }
 
@@ -106,7 +74,10 @@ impl Workspace {
     pub(super) fn document_renderer(&self, window: &Window) -> DocumentRenderer {
         let mut base = window.text_style();
         base.font_size = px(BODY_PX).into();
+        base.line_height = px(BODY_PX * 1.5).into();
         base.color = self.theme.foreground.into();
+        // `.ProseMirror { font-variant-ligatures: none }`
+        base.font_features = gpui::FontFeatures(std::sync::Arc::new(vec![("liga".into(), 0)]));
         if let Some(family) = &self.font_family {
             base.font_family = family.clone();
         }
@@ -195,7 +166,7 @@ impl DocumentRenderer {
     }
 
     /// Wraps a textblock's text with the editor hooks when editing.
-    fn textblock(&self, wrapper: Div, text: StyledText) -> AnyElement {
+    fn textblock(&self, wrapper: Div, text: ProseText) -> AnyElement {
         let Some(editor) = &self.editor else {
             return wrapper.child(text).into_any_element();
         };
@@ -303,7 +274,7 @@ impl DocumentRenderer {
         match block {
             Block::Paragraph(spans) => self.textblock(
                 div().py(pad).min_h(px(BODY_PX * 1.5 + 4.0)),
-                self.text(spans, &self.base),
+                self.prose(spans, &self.base, px(BODY_PX * 1.5)),
             ),
             Block::Heading { level, spans } => {
                 let (em, weight, ratio) = match level {
@@ -321,7 +292,7 @@ impl DocumentRenderer {
                         .py(px(font_px * 0.125))
                         .text_size(px(font_px))
                         .line_height(px(webkit_line_height(font_px, ratio))),
-                    self.text(spans, &style),
+                    self.prose(spans, &style, px(webkit_line_height(font_px, ratio))),
                 )
             }
             Block::List { ordered, items } => div()
@@ -375,8 +346,12 @@ impl DocumentRenderer {
                 .children(self.blocks(blocks, depth + 1))
                 .into_any_element(),
             Block::Code(code) => {
+                // `pre`: 0.875em, line-height 1.4286, `margin-block: 0.5em`,
+                // `padding: 1em 0.75em`, `rounded-md`, wrapping (`pre-wrap`).
+                let font_px = BODY_PX * 0.875;
+                let line_height = px(webkit_line_height(font_px, 1.4286));
                 let mut style = self.base.clone();
-                style.font_size = px(BODY_PX * 0.875).into();
+                style.font_size = px(font_px).into();
                 if let Some(family) = &self.mono_family {
                     style.font_family = family.clone();
                 }
@@ -386,16 +361,17 @@ impl DocumentRenderer {
                 };
                 self.textblock(
                     div()
-                        .my(pad)
-                        .px_3()
-                        .py_2()
+                        .my(px(font_px * 0.5))
+                        .px(px(font_px * 0.75))
+                        .py(px(font_px))
                         .rounded_md()
                         .bg(theme.accent)
-                        .text_size(px(BODY_PX * 0.875))
+                        .text_size(px(font_px))
+                        .line_height(line_height)
                         .when_some(self.mono_family.clone(), |code, family| {
                             code.font_family(family)
                         }),
-                    self.text(std::slice::from_ref(&span), &style),
+                    self.prose(std::slice::from_ref(&span), &style, line_height),
                 )
             }
             Block::HorizontalRule => div()
@@ -500,7 +476,35 @@ impl DocumentRenderer {
         renderer.text(spans, &base)
     }
 
+    /// A block's inline content as a WebKit-wrapped paragraph.
+    fn prose(&self, spans: &[Span], base: &TextStyle, line_height: Pixels) -> ProseText {
+        let (text, highlights) = self.inline_runs(spans);
+        let mut runs: Vec<TextRun> = Vec::new();
+        let mut ix = 0;
+        for (range, highlight) in highlights {
+            if ix < range.start {
+                runs.push(base.to_run(range.start - ix));
+            }
+            runs.push(base.clone().highlight(highlight).to_run(range.len()));
+            ix = range.end;
+        }
+        if ix < text.len() {
+            runs.push(base.to_run(text.len() - ix));
+        }
+        let font_size = base.font_size.to_pixels(px(16.0));
+        ProseText::new(text, runs, font_size, line_height)
+    }
+
     fn text(&self, spans: &[Span], base: &TextStyle) -> StyledText {
+        let (text, highlights) = self.inline_runs(spans);
+        StyledText::new(text).with_default_highlights(base, highlights)
+    }
+
+    /// The concatenated text of the spans and their highlight ranges.
+    fn inline_runs(
+        &self,
+        spans: &[Span],
+    ) -> (String, Vec<(std::ops::Range<usize>, HighlightStyle)>) {
         let mut text = String::new();
         let mut highlights: Vec<(std::ops::Range<usize>, HighlightStyle)> = Vec::new();
         for span in spans {
@@ -540,6 +544,6 @@ impl DocumentRenderer {
                 highlights.push((start..text.len(), highlight));
             }
         }
-        StyledText::new(text).with_default_highlights(base, highlights)
+        (text, highlights)
     }
 }

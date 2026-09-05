@@ -10,10 +10,12 @@ use std::time::{Duration, Instant};
 
 use gpui::{
     App, Bounds, ClipboardItem, Context, EntityInputHandler, EventEmitter, FocusHandle, Focusable,
-    KeyBinding, Pixels, Point, TextLayout, UTF16Selection, Window, actions,
+    KeyBinding, Pixels, Point, UTF16Selection, Window, actions,
 };
 
 use model::{Caret, Doc};
+
+use crate::prose_text::ProseLayout;
 
 actions!(
     body_editor,
@@ -127,7 +129,7 @@ pub struct BodyEditor {
     redo_stack: Vec<Snapshot>,
     last_edit: Option<(Instant, EditKind)>,
     /// Text layouts captured while painting, one per textblock.
-    layouts: Vec<Option<(TextLayout, Bounds<Pixels>)>>,
+    layouts: Vec<Option<(ProseLayout, Bounds<Pixels>)>>,
     dirty_since: Option<Instant>,
     last_input: Option<Instant>,
     flush_scheduled: bool,
@@ -234,7 +236,7 @@ impl BodyEditor {
         cx.notify();
     }
 
-    pub fn record_layout(&mut self, block: usize, layout: TextLayout, bounds: Bounds<Pixels>) {
+    pub fn record_layout(&mut self, block: usize, layout: ProseLayout, bounds: Bounds<Pixels>) {
         if self.layouts.len() != self.doc.textblock_count() {
             self.layouts = vec![None; self.doc.textblock_count()];
         }

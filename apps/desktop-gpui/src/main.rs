@@ -8,6 +8,7 @@ mod developers;
 mod document;
 mod editor;
 mod folders;
+mod prose_text;
 mod secrets;
 mod squircle;
 mod store_file;
