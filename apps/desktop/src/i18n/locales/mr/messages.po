@@ -40,6 +40,12 @@ msgstr ""
 msgid "{0} is ready to use"
 msgstr ""
 
+#. placeholder {0}: stats.totalConversations
+#. placeholder {1}: stats.nextMilestone
+#: src/settings/stats/index.tsx
+msgid "{0} of {1} conversations captured"
+msgstr ""
+
 #. placeholder {0}: issue.user?.login
 #: src/task/resource-view.tsx
 msgid "{0} opened on"
@@ -57,6 +63,10 @@ msgstr ""
 
 #: src/sidebar/timeline/utils/index.ts
 msgid "{absDays} days ago"
+msgstr ""
+
+#: src/settings/stats/index.tsx
+msgid "{date}. Conversations: {count}"
 msgstr ""
 
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
@@ -114,6 +124,14 @@ msgstr ""
 
 #: src/settings/general/audio-settings.tsx
 msgid "3 days"
+msgstr ""
+
+#: src/settings/stats/index.tsx
+msgid "30 days"
+msgstr ""
+
+#: src/settings/stats/index.tsx
+msgid "7 days"
 msgstr ""
 
 #: src/automations/starters.tsx
@@ -182,8 +200,16 @@ msgstr ""
 msgid "Action"
 msgstr ""
 
+#: src/settings/stats/index.tsx
+msgid "Active days"
+msgstr ""
+
 #: src/templates/template-icon-picker.tsx
 msgid "Activity"
+msgstr ""
+
+#: src/settings/stats/index.tsx
+msgid "Activity over the past year"
 msgstr ""
 
 #: src/contacts/shared.tsx
@@ -378,6 +404,10 @@ msgstr ""
 
 #: src/shared/open-note-dialog.tsx
 msgid "All Notes"
+msgstr ""
+
+#: src/settings/stats/index.tsx
+msgid "All time"
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -823,8 +853,16 @@ msgstr ""
 msgid "Cancel invitation"
 msgstr ""
 
+#: src/settings/stats/index.tsx
+msgid "Capture a conversation each week to keep your streak going."
+msgstr ""
+
 #: src/settings/general/meeting-settings.tsx
 msgid "Capture meeting chat in Memos"
+msgstr ""
+
+#: src/settings/stats/index.tsx
+msgid "Capture your first conversation"
 msgstr ""
 
 #: src/onboarding/folder-location.tsx
@@ -1392,6 +1430,10 @@ msgstr ""
 msgid "Control listening without reopening Anarlog."
 msgstr ""
 
+#: src/settings/stats/index.tsx
+msgid "Conversations"
+msgstr ""
+
 #: src/main/windows-title-bar.tsx
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
@@ -1579,6 +1621,10 @@ msgstr ""
 msgid "Couldn’t check availability. You can still try Save."
 msgstr ""
 
+#: src/settings/stats/index.tsx
+msgid "Couldn't load your stats. Reopen this page to try again."
+msgstr ""
+
 #: src/folders/sidebar.tsx
 #: src/settings/team/index.tsx
 msgid "Create"
@@ -1674,6 +1720,10 @@ msgstr ""
 msgid "Cut"
 msgstr ""
 
+#: src/settings/stats/index.tsx
+msgid "Daily conversations"
+msgstr ""
+
 #: src/settings/appearance/theme.tsx
 msgid "Dark"
 msgstr ""
@@ -1688,6 +1738,10 @@ msgstr ""
 
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Date and time are required"
+msgstr ""
+
+#: src/settings/stats/index.tsx
+msgid "Date range"
 msgstr ""
 
 #: src/edit/tab-content.tsx
@@ -2380,6 +2434,10 @@ msgstr ""
 msgid "History {0}/{1}"
 msgstr ""
 
+#: src/settings/stats/index.tsx
+msgid "Hours transcribed"
+msgstr ""
+
 #: src/settings/ai/llm/select.tsx
 msgid "How much the model thinks before answering. Default leaves it to the provider."
 msgstr ""
@@ -2451,6 +2509,10 @@ msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Include"
+msgstr ""
+
+#: src/settings/stats/index.tsx
+msgid "Includes imported transcripts. Deleted conversations are excluded."
 msgstr ""
 
 #: src/templates/sections-editor.tsx
@@ -2638,6 +2700,10 @@ msgstr ""
 msgid "Leaving gives up your access to shared notes here."
 msgstr ""
 
+#: src/settings/stats/index.tsx
+msgid "Less"
+msgstr ""
+
 #: src/session-sharing/attachment-controls.tsx
 msgid "Let people with access play the recording."
 msgstr ""
@@ -2714,6 +2780,10 @@ msgstr ""
 
 #: src/settings/automations/starter-config.tsx
 msgid "Loading teams…"
+msgstr ""
+
+#: src/settings/stats/index.tsx
+msgid "Loading your stats…"
 msgstr ""
 
 #: src/changelog/index.tsx
@@ -2935,6 +3005,10 @@ msgstr ""
 msgid "Migration status unavailable"
 msgstr ""
 
+#: src/settings/stats/index.tsx
+msgid "Milestones"
+msgstr ""
+
 #: src/main/windows-title-bar.tsx
 msgid "Minimize"
 msgstr ""
@@ -2954,6 +3028,10 @@ msgstr ""
 
 #: src/settings/general/week-start.tsx
 msgid "Monday"
+msgstr ""
+
+#: src/settings/stats/index.tsx
+msgid "More"
 msgstr ""
 
 #: src/session-sharing/delivery-panel.tsx
@@ -3009,8 +3087,16 @@ msgstr ""
 msgid "Newest"
 msgstr ""
 
+#: src/settings/stats/index.tsx
+msgid "Next conversation milestone"
+msgstr ""
+
 #: src/session/components/note-input/search/bar.tsx
 msgid "Next match"
+msgstr ""
+
+#: src/settings/stats/index.tsx
+msgid "Next milestone"
 msgstr ""
 
 #: src/sidebar/timeline/utils/index.ts
@@ -3445,6 +3531,10 @@ msgstr ""
 msgid "Others"
 msgstr ""
 
+#: src/settings/stats/index.tsx
+msgid "Overview"
+msgstr ""
+
 #: src/shared/control.tsx
 msgid "Page not found"
 msgstr ""
@@ -3636,6 +3726,10 @@ msgstr ""
 
 #: src/session/components/note-input/transcript/actions.ts
 msgid "Re-transcription failed"
+msgstr ""
+
+#: src/settings/stats/index.tsx
+msgid "Reached:"
 msgstr ""
 
 #: src/onboarding/permissions.tsx
@@ -4734,6 +4828,10 @@ msgstr ""
 msgid "Starting…"
 msgstr ""
 
+#: src/sidebar/settings.tsx
+msgid "Stats"
+msgstr ""
+
 #: src/settings/general/app-settings.tsx
 msgid "Stay current with updates installed the next time Anarlog opens."
 msgstr ""
@@ -5315,6 +5413,10 @@ msgstr ""
 msgid "Upcoming Event"
 msgstr ""
 
+#: src/settings/stats/index.tsx
+msgid "Upcoming:"
+msgstr ""
+
 #: src/resource-sharing/share-dialog.tsx
 msgid "Update"
 msgstr ""
@@ -5509,6 +5611,11 @@ msgstr ""
 msgid "Week starts on"
 msgstr ""
 
+#. placeholder {0}: stats.streak
+#: src/settings/stats/index.tsx
+msgid "Weekly streak: {0}"
+msgstr ""
+
 #: src/onboarding/index.tsx
 msgid "Welcome to Anarlog"
 msgstr ""
@@ -5623,6 +5730,10 @@ msgstr ""
 msgid "Your comment couldn’t be added. Try again."
 msgstr ""
 
+#: src/settings/stats/index.tsx
+msgid "Your conversation history."
+msgstr ""
+
 #: src/settings/dictionary/index.tsx
 msgid "Your dictionary is empty"
 msgstr ""
@@ -5662,6 +5773,10 @@ msgstr ""
 
 #: src/settings/general/e2ee-setup.tsx
 msgid "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
+msgstr ""
+
+#: src/settings/stats/index.tsx
+msgid "Your stats"
 msgstr ""
 
 #: src/settings/sync/index.tsx
