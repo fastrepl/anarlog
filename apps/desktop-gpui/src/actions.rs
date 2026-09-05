@@ -15,6 +15,7 @@ actions!(
         CloseWindow,
         FocusSearch,
         OpenNoteDialog,
+        Escape,
         ToggleChat,
         PreviousView,
         NextView,
@@ -57,6 +58,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new(&format!("{m}-v"), Paste, ctx),
         KeyBinding::new(&format!("{m}-a"), SelectAll, ctx),
     ];
+    bindings.push(KeyBinding::new("escape", Escape, ctx));
     if cfg!(any(target_os = "windows", target_os = "linux")) {
         bindings.push(KeyBinding::new("f11", ToggleFullscreen, ctx));
         bindings.push(KeyBinding::new("alt-f4", CloseWindow, ctx));

@@ -58,7 +58,7 @@ impl Workspace {
             .min_w_0()
             .min_h_0()
             .bg(theme.card)
-            .when(self.sidebar_expanded, |surface| {
+            .when(self.sidebar_expanded && !self.is_standalone(), |surface| {
                 surface
                     .border_l_1()
                     .border_color(theme.border)
@@ -172,8 +172,12 @@ impl Workspace {
             .w_full()
             .h(px(48.0))
             .pb(px(2.0))
-            .when(self.sidebar_expanded, |header| header.pl_2())
-            .when(!self.sidebar_expanded, |header| header.pl(px(32.0)))
+            .when(self.sidebar_expanded || self.is_standalone(), |header| {
+                header.pl_2()
+            })
+            .when(!self.sidebar_expanded && !self.is_standalone(), |header| {
+                header.pl(px(32.0))
+            })
             .items_center()
             .gap(px(2.0))
             .when(preview.enhanced.len() + 1 > 1, |header| {

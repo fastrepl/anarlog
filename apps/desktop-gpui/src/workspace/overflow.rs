@@ -101,7 +101,15 @@ impl Workspace {
                 Entry::Separator,
                 plain("microphone", "Start listening", None),
                 Entry::Separator,
-                plain("app-window", "Open in New Window", None),
+                plain(
+                    "app-window",
+                    "Open in New Window",
+                    Some(Box::new(|this, _, cx| {
+                        if let Some(id) = this.selected.clone() {
+                            this.open_note_window(id, cx);
+                        }
+                    })),
+                ),
                 plain(
                     "folder-open",
                     if cfg!(target_os = "macos") {
@@ -208,8 +216,15 @@ impl Workspace {
             return None;
         }
         let viewport = window.viewport_size();
+        let mut spec = self.overflow_spec();
+        if self.is_standalone() {
+            // `{!standaloneWindow && <Open in New Window>}`
+            spec.entries.retain(
+                |entry| !matches!(entry, Entry::Item { label, .. } if label.as_ref() == "Open in New Window"),
+            );
+        }
         Some(self.render_app_menu(
-            self.overflow_spec(),
+            spec,
             point(viewport.width - px(8.0), px(81.0)),
             Align::End,
             cx,
@@ -235,6 +250,7 @@ impl Workspace {
         cx.spawn(async move |this, cx| match task.await {
             Ok(Ok(Some(tombstone))) => {
                 this.update(cx, |this, cx| {
+                    this.close_note_windows(&session_id, cx);
                     this.tabs.retain(|id| id != &session_id);
                     this.close_selected_note(cx);
                     this.pending_deletions.push(PendingDeletion {

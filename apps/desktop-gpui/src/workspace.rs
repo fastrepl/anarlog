@@ -46,6 +46,20 @@ struct SidebarDrag {
     start_width: f32,
 }
 
+/// Which window this workspace drives: the main window, or a standalone
+/// note window (`/app/note/$sessionId`, server decorations, no sidebar).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Mode {
+    Main,
+    StandaloneNote(String),
+}
+
+/// `note-<sessionId>` windows, so opening a note twice focuses the first.
+#[derive(Default)]
+pub(crate) struct NoteWindows(pub std::collections::HashMap<String, gpui::WindowHandle<Workspace>>);
+
+impl gpui::Global for NoteWindows {}
+
 enum Sessions {
     Loading,
     Ready(Timeline),
@@ -85,6 +99,7 @@ enum Note {
 }
 
 pub struct Workspace {
+    mode: Mode,
     store: Arc<Store>,
     theme: Theme,
     focus_handle: FocusHandle,
@@ -138,6 +153,25 @@ pub struct Workspace {
 
 impl Workspace {
     pub fn new(store: Arc<Store>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        Self::with_mode(store, Mode::Main, window, cx)
+    }
+
+    /// `StandaloneNoteWindow`: the note surface alone, showing `session_id`.
+    pub fn standalone(
+        store: Arc<Store>,
+        session_id: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        Self::with_mode(store, Mode::StandaloneNote(session_id), window, cx)
+    }
+
+    fn with_mode(
+        store: Arc<Store>,
+        mode: Mode,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let font_family = crate::theme::ui_font_family(cx.text_system()).map(SharedString::from);
         let mono_font_family =
             crate::theme::mono_font_family(cx.text_system()).map(SharedString::from);
@@ -163,6 +197,7 @@ impl Workspace {
         .detach();
         let store_file = StoreFile::next_to(store.path());
         let mut this = Self {
+            mode: mode.clone(),
             store,
             theme,
             focus_handle: cx.focus_handle(),
@@ -206,8 +241,76 @@ impl Workspace {
         this.reload_sessions(cx);
         this.reload_settings(cx);
         this.watch_changes(cx);
-        this.restore_tabs(cx);
+        match mode {
+            Mode::Main => this.restore_tabs(cx),
+            Mode::StandaloneNote(session_id) => {
+                this.tabs.push(session_id.clone());
+                this.selected = Some(session_id.clone());
+                this.note = Note::Loading;
+                this.reload_note(session_id, cx);
+            }
+        }
         this
+    }
+
+    pub(crate) fn is_standalone(&self) -> bool {
+        matches!(self.mode, Mode::StandaloneNote(_))
+    }
+
+    /// `openStandaloneNoteWindow`: a 720×820 server-decorated window (min
+    /// 420×500) per session; an existing one is brought forward.
+    pub(crate) fn open_note_window(&mut self, session_id: String, cx: &mut Context<Self>) {
+        if let Some(handle) = cx
+            .default_global::<NoteWindows>()
+            .0
+            .get(&session_id)
+            .cloned()
+        {
+            let focused = handle
+                .update(cx, |_, window, _| window.activate_window())
+                .is_ok();
+            if focused {
+                return;
+            }
+        }
+        let store = self.store.clone();
+        let id = session_id.clone();
+        let bounds = gpui::Bounds::centered(None, gpui::size(px(720.0), px(820.0)), cx);
+        let result = cx.open_window(
+            gpui::WindowOptions {
+                window_bounds: Some(gpui::WindowBounds::Windowed(bounds)),
+                titlebar: Some(gpui::TitlebarOptions {
+                    title: Some("Anarlog".into()),
+                    ..Default::default()
+                }),
+                window_decorations: Some(gpui::WindowDecorations::Server),
+                app_id: Some(crate::APP_ID.to_string()),
+                window_min_size: Some(gpui::size(px(420.0), px(500.0))),
+                ..Default::default()
+            },
+            move |window, cx| {
+                let workspace = cx.new(|cx| Workspace::standalone(store, id, window, cx));
+                workspace.read(cx).focus_handle().focus(window);
+                workspace
+            },
+        );
+        match result {
+            Ok(handle) => {
+                cx.default_global::<NoteWindows>()
+                    .0
+                    .insert(session_id, handle);
+            }
+            Err(error) => tracing::error!(%error, "failed to open note window"),
+        }
+    }
+
+    /// `closeSessionNoteWindows`: deleting a note closes its windows.
+    fn close_note_windows(&mut self, session_id: &str, cx: &mut Context<Self>) {
+        if let Some(handle) = cx.default_global::<NoteWindows>().0.remove(session_id) {
+            handle
+                .update(cx, |_, window, _| window.remove_window())
+                .ok();
+        }
     }
 
     /// `initializeDesktopTabs`: pinned session tabs come back through
@@ -519,6 +622,9 @@ impl Workspace {
     }
 
     fn toggle_sidebar(&mut self, cx: &mut Context<Self>) {
+        if self.is_standalone() {
+            return;
+        }
         self.sidebar_expanded = !self.sidebar_expanded;
         cx.notify();
     }
@@ -749,6 +855,12 @@ impl Render for Workspace {
             .on_action(cx.listener(|this, _: &actions::NextView, _, cx| this.step_view(1, cx)))
             .on_action(|_: &actions::ToggleFullscreen, window, _| window.toggle_fullscreen())
             .on_action(|_: &actions::CloseWindow, window, _| window.remove_window())
+            // `useCloseStandaloneNoteWindowOnEscape`
+            .on_action(cx.listener(|this, _: &actions::Escape, window, _| {
+                if this.is_standalone() {
+                    window.remove_window();
+                }
+            }))
             .flex()
             .flex_col()
             .size_full()
@@ -778,23 +890,27 @@ impl Render for Workspace {
                     }
                 })
             })
-            .when(title_bar::uses_windows_style_title_bar(), |root| {
-                root.child(self.render_title_bar(window, cx))
-            })
+            .when(
+                title_bar::uses_windows_style_title_bar() && !self.is_standalone(),
+                |root| root.child(self.render_title_bar(window, cx)),
+            )
             // `shell-scaffold`: `pl-1` only while the main surface has its left
-            // chrome; collapsing the sidebar switches to `top-borderless`.
+            // chrome; collapsing the sidebar switches to `top-borderless`. A
+            // standalone note window is the surface alone.
             .child(
                 div()
                     .flex()
                     .flex_1()
                     .min_h_0()
-                    .when(self.sidebar_expanded, |shell| {
+                    .when(self.sidebar_expanded && !self.is_standalone(), |shell| {
                         shell
                             .pl_1()
                             .child(self.render_sidebar(window, cx))
                             .child(self.render_sidebar_handle(cx))
                     })
-                    .when(!self.sidebar_expanded, |shell| shell.gap_1())
+                    .when(!self.sidebar_expanded && !self.is_standalone(), |shell| {
+                        shell.gap_1()
+                    })
                     .child(self.render_main_surface(window, cx)),
             )
             .children(self.render_toast_host(window, cx))
