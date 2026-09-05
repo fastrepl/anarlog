@@ -7,6 +7,7 @@ mod db;
 mod developers;
 mod document;
 mod editor;
+mod emoji;
 mod folders;
 mod prose_text;
 mod secrets;

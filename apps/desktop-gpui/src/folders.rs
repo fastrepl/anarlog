@@ -195,6 +195,15 @@ const UPDATE_INSTRUCTIONS_SQL: &str = "
     AND deleted_at IS NULL
 ";
 
+const UPDATE_ICON_SQL: &str = "
+  UPDATE folders
+  SET
+    icon_json = ?,
+    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE path = ?
+    AND deleted_at IS NULL
+";
+
 const REVIVE_MATERIAL_SQL: &str = "
   UPDATE folder_attachments
   SET
@@ -589,6 +598,19 @@ pub async fn update_instructions(
     Ok(())
 }
 
+/// `updateFolderIcon`: `ensureFolderStatements(path)` then the icon update,
+/// with the icon normalised to its JSON form.
+pub async fn update_icon(pool: &SqlitePool, path: &str, icon: &TemplateIcon) -> anyhow::Result<()> {
+    let path = require_named(path)?;
+    ensure_catalog(pool, &path).await?;
+    sqlx::query(UPDATE_ICON_SQL)
+        .bind(icon.to_json().to_string())
+        .bind(&path)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
 const MAX_IPC_ATTACHMENT_BYTES: u64 = 4 * 1024 * 1024;
 
 /// `useFolderMaterialUpload`: copy the file into `<folder>/materials`, then
@@ -697,6 +719,57 @@ mod tests {
             collect_folder_paths(["work/clients/acme", "personal", "work"]),
             vec!["personal", "work", "work/clients", "work/clients/acme"]
         );
+    }
+
+    #[tokio::test]
+    async fn update_icon_creates_the_folder_row_then_writes_the_icon_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = anlg_db_core::Db::connect_local_plain(&dir.path().join("app.db"))
+            .await
+            .unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
+        update_icon(
+            db.pool(),
+            "work/clients",
+            &TemplateIcon::Icon {
+                name: "briefcase".to_string(),
+                color: "#5b67d8".to_string(),
+            },
+        )
+        .await
+        .unwrap();
+        let rows: Vec<(String, Option<String>)> =
+            sqlx::query_as("SELECT path, icon_json FROM folders ORDER BY path")
+                .fetch_all(db.pool())
+                .await
+                .unwrap();
+        // `ensureFolderStatements` seeds the ancestor with the default icon.
+        assert_eq!(
+            rows,
+            vec![
+                (
+                    "work".to_string(),
+                    Some(r##"{"type":"icon","value":"folder","color":"#9ca3af"}"##.to_string())
+                ),
+                (
+                    "work/clients".to_string(),
+                    Some(r##"{"type":"icon","value":"briefcase","color":"#5b67d8"}"##.to_string())
+                ),
+            ]
+        );
+        update_icon(
+            db.pool(),
+            "work/clients",
+            &TemplateIcon::Emoji("📁".to_string()),
+        )
+        .await
+        .unwrap();
+        let icon: String =
+            sqlx::query_scalar("SELECT icon_json FROM folders WHERE path = 'work/clients'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(icon, r##"{"type":"emoji","value":"📁"}"##);
     }
 
     #[test]

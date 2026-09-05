@@ -6,6 +6,7 @@ mod document_view;
 mod export;
 mod filter_menu;
 mod folders_tab;
+mod icon_picker;
 mod meeting_info;
 mod menu;
 mod note;
@@ -186,6 +187,10 @@ pub struct Workspace {
     contacts: Option<contacts_tab::ContactsState>,
     /// The enhanced tab's template picker while open.
     template_picker: Option<template_picker::TemplatePicker>,
+    /// The template / folder icon picker while open.
+    icon_picker: Option<icon_picker::IconPicker>,
+    /// `anarlog.template-picker.recent-emojis` (kept for the session).
+    recent_emoji_ids: Vec<String>,
     /// The note column's scroll position, for its WebKit-style scrollbar.
     note_scroll: gpui::ScrollHandle,
     /// The template section under the pointer (`group-hover`).
@@ -303,6 +308,8 @@ impl Workspace {
             calendar: None,
             contacts: None,
             template_picker: None,
+            icon_picker: None,
+            recent_emoji_ids: Vec::new(),
             note_scroll: gpui::ScrollHandle::new(),
             hovered_section: None,
             spoken_search: None,
@@ -1070,6 +1077,8 @@ impl Render for Workspace {
                     this.close_folder_dialogs(cx);
                 } else if this.calendar_popover_open() {
                     this.close_calendar_popover(cx);
+                } else if this.icon_picker_open() {
+                    this.close_icon_picker(window, cx);
                 } else if this.template_picker_open() {
                     this.close_template_picker(window, cx);
                 } else if this.is_standalone() {

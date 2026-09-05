@@ -15,7 +15,7 @@ use crate::theme::alpha;
 use crate::ui::{TailwindText as _, icon};
 
 pub(crate) struct FoldersState {
-    catalog: Catalog,
+    pub(super) catalog: Catalog,
     /// `useFolderSelection.selectedPath`
     selected: Option<String>,
     /// `useFolderSelection.deletedPrefixes`
@@ -886,14 +886,29 @@ impl Workspace {
                         // `TemplateIconPicker size="sm"`: `size-7 rounded-md hover:bg-accent`.
                         div()
                             .id("folder-icon")
+                            .relative()
                             .flex()
                             .size(px(28.0))
                             .flex_shrink_0()
                             .items_center()
                             .justify_center()
                             .rounded_md()
+                            .cursor_pointer()
                             .hover(move |style| style.bg(theme.accent))
-                            .child(self.template_icon_glyph(&glyph, px(16.0))),
+                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                            .on_click({
+                                let target = super::icon_picker::IconTarget::Folder(path.clone());
+                                let current = glyph.clone();
+                                cx.listener(move |this, _: &ClickEvent, window, cx| {
+                                    this.toggle_icon_picker(target.clone(), &current, window, cx);
+                                })
+                            })
+                            .child(self.template_icon_glyph(&glyph, px(16.0)))
+                            .children(self.render_icon_picker(
+                                &super::icon_picker::IconTarget::Folder(path.clone()),
+                                &glyph,
+                                cx,
+                            )),
                     )
                     .child(
                         // The name input sized to its text (`whitespace-pre` twin).

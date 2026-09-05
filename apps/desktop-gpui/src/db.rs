@@ -1813,6 +1813,16 @@ impl Store {
         })
     }
 
+    pub fn update_folder_icon(
+        &self,
+        path: String,
+        icon: TemplateIcon,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime
+            .spawn(async move { crate::folders::update_icon(db.pool(), &path, &icon).await })
+    }
+
     pub fn add_folder_material(
         &self,
         path: String,
