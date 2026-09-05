@@ -274,6 +274,23 @@ impl Workspace {
         .detach();
     }
 
+    /// Clicking a calendar event opens (creating if needed) its session.
+    pub(crate) fn open_event(&mut self, event_id: String, cx: &mut Context<Self>) {
+        let task = self.store.open_event_session(event_id);
+        cx.spawn(async move |this, cx| match task.await {
+            Ok(Ok(session_id)) => {
+                this.update(cx, |this, cx| {
+                    this.reload_sessions(cx);
+                    this.select(session_id, cx);
+                })
+                .ok();
+            }
+            Ok(Err(error)) => tracing::error!(%error, "failed to open calendar event"),
+            Err(error) => tracing::error!(%error, "failed to open calendar event"),
+        })
+        .detach();
+    }
+
     fn set_menu(&mut self, menu: Option<Menu>, cx: &mut Context<Self>) {
         if self.open_menu != menu {
             self.open_menu = menu;

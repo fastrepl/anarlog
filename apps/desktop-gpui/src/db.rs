@@ -114,6 +114,151 @@ const INSERT_OWNER_PARTICIPANT_SQL: &str = "
     WHERE session.id = ? AND session.deleted_at IS NULL
 ";
 
+// `getOrCreateSessionForEventId`.
+const EVENT_FOR_SESSION_SQL: &str = "
+    SELECT
+      id,
+      tracking_id_event,
+      calendar_id,
+      title,
+      started_at,
+      ended_at,
+      location,
+      meeting_link,
+      description,
+      recurrence_series_id,
+      has_recurrence_rules,
+      is_all_day,
+      provider,
+      participants_json
+    FROM events
+    WHERE id = ? AND deleted_at IS NULL
+    LIMIT 1
+";
+
+// `findSessionForEvent`.
+const FIND_SESSION_FOR_EVENT_SQL: &str = "
+    SELECT id
+    FROM sessions
+    WHERE deleted_at IS NULL
+      AND (event_id = ? OR (? <> '' AND external_event_id = ?))
+    ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END, created_at, id
+    LIMIT 1
+";
+
+const CREATE_EVENT_SESSION_SQL: &str = "
+    INSERT INTO sessions (
+      id, workspace_id, owner_user_id, title, created_at, updated_at,
+      started_at, ended_at, event_id, external_event_id, external_provider,
+      series_id, event_json, deleted_at
+    )
+    SELECT ?, NULLIF((
+      SELECT json_extract(value_json, '$.workspace_id')
+      FROM app_settings
+      WHERE id = 'cloudsync_workspace_binding'
+    ), ''), COALESCE(
+      NULLIF(NULLIF(?, ''), '00000000-0000-0000-0000-000000000000'),
+      NULLIF((
+        SELECT json_extract(value_json, '$.workspace_id')
+        FROM app_settings
+        WHERE id = 'cloudsync_workspace_binding'
+      ), '')
+    ), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM sessions
+      WHERE deleted_at IS NULL
+        AND (event_id = ? OR (? <> '' AND external_event_id = ?))
+    )
+";
+
+const INSERT_PARTICIPANT_HUMAN_SQL: &str = "
+    INSERT INTO humans (
+      id, workspace_id, owner_user_id, name, email, created_at,
+      updated_at, deleted_at
+    )
+    SELECT ?, session.workspace_id, session.owner_user_id, ?, ?, ?, ?, NULL
+    FROM sessions AS session
+    WHERE session.id = ? AND session.deleted_at IS NULL
+      AND NOT EXISTS (
+        SELECT 1
+        FROM humans
+        WHERE lower(email) = lower(?) AND deleted_at IS NULL
+      )
+";
+
+const INSERT_EVENT_PARTICIPANT_SQL: &str = "
+    INSERT INTO session_participants (
+      id, workspace_id, owner_user_id, session_id, human_id, display_name,
+      email, source, created_at, updated_at, deleted_at
+    )
+    SELECT ?, session.workspace_id, session.owner_user_id, session.id,
+      ?, ?, ?, 'auto', ?, ?, NULL
+    FROM sessions AS session
+    WHERE session.id = ? AND session.deleted_at IS NULL
+      AND NOT EXISTS (
+        SELECT 1
+        FROM session_participants
+        WHERE session_id = session.id AND human_id = ? AND deleted_at IS NULL
+      )
+";
+
+/// `sessionEventSchema` in `packages/store/src/zod.ts`; field order matches
+/// `toSessionEvent` so `JSON.stringify` output is byte-identical.
+#[derive(serde::Serialize)]
+struct StoredSessionEvent {
+    tracking_id: String,
+    calendar_id: String,
+    title: String,
+    started_at: String,
+    ended_at: String,
+    is_all_day: bool,
+    has_recurrence_rules: bool,
+    location: String,
+    meeting_link: String,
+    description: String,
+    recurrence_series_id: String,
+}
+
+/// `eventParticipantSchema`: extra keys are ignored, missing ones are `None`.
+#[derive(serde::Deserialize)]
+struct EventParticipant {
+    name: Option<String>,
+    email: Option<String>,
+}
+
+fn parse_event_participants(value: Option<&str>) -> Vec<EventParticipant> {
+    let Some(value) = value else {
+        return Vec::new();
+    };
+    let Ok(serde_json::Value::Array(items)) = serde_json::from_str::<serde_json::Value>(value)
+    else {
+        return Vec::new();
+    };
+    items
+        .into_iter()
+        .filter_map(|item| serde_json::from_value::<EventParticipant>(item).ok())
+        .collect()
+}
+
+#[derive(sqlx::FromRow)]
+struct EventSqlRow {
+    id: String,
+    tracking_id_event: String,
+    calendar_id: String,
+    title: String,
+    started_at: String,
+    ended_at: String,
+    location: String,
+    meeting_link: String,
+    description: String,
+    recurrence_series_id: String,
+    has_recurrence_rules: i64,
+    is_all_day: i64,
+    provider: String,
+    participants_json: Option<String>,
+}
+
 // apps/desktop/src/session/queries/sessions.ts, `useSessionTranscriptExistence`.
 const HAS_TRANSCRIPT_SQL: &str = "
     SELECT EXISTS (
@@ -250,6 +395,159 @@ impl Store {
                 .await?;
             transaction.commit().await?;
             Ok(session_id)
+        })
+    }
+
+    /// `getOrCreateSessionForEventId`: open the session backing a calendar
+    /// event, creating it (with participants from the event) if none exists.
+    pub fn open_event_session(
+        &self,
+        event_id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<String>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let pool = db.pool();
+            let Some(event) = sqlx::query_as::<_, EventSqlRow>(EVENT_FOR_SESSION_SQL)
+                .bind(&event_id)
+                .fetch_optional(pool)
+                .await?
+            else {
+                anyhow::bail!("calendar event {event_id} no longer exists");
+            };
+
+            let find_existing = |preferred: String| {
+                sqlx::query_scalar::<_, String>(FIND_SESSION_FOR_EVENT_SQL)
+                    .bind(event.id.clone())
+                    .bind(event.tracking_id_event.clone())
+                    .bind(event.tracking_id_event.clone())
+                    .bind(preferred)
+                    .fetch_optional(pool)
+            };
+            if let Some(existing) = find_existing(String::new()).await? {
+                return Ok(existing);
+            }
+
+            let session_id = uuid::Uuid::new_v4().to_string();
+            let now = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string();
+            let session_event = StoredSessionEvent {
+                tracking_id: event.tracking_id_event.clone(),
+                calendar_id: event.calendar_id.clone(),
+                title: event.title.clone(),
+                started_at: event.started_at.clone(),
+                ended_at: event.ended_at.clone(),
+                is_all_day: event.is_all_day != 0,
+                has_recurrence_rules: event.has_recurrence_rules != 0,
+                location: event.location.clone(),
+                meeting_link: event.meeting_link.clone(),
+                description: event.description.clone(),
+                recurrence_series_id: event.recurrence_series_id.clone(),
+            };
+            let participants = parse_event_participants(event.participants_json.as_deref());
+
+            // `findHumansByEmail`
+            let emails: Vec<String> = {
+                let mut seen = std::collections::BTreeSet::new();
+                participants
+                    .iter()
+                    .filter_map(|p| p.email.as_deref())
+                    .map(|email| email.trim().to_lowercase())
+                    .filter(|email| !email.is_empty() && seen.insert(email.clone()))
+                    .collect()
+            };
+            let mut humans_by_email = std::collections::HashMap::new();
+            if !emails.is_empty() {
+                let placeholders = vec!["?"; emails.len()].join(", ");
+                let sql = format!(
+                    "SELECT id, email FROM humans WHERE deleted_at IS NULL AND lower(email) IN ({placeholders}) ORDER BY id"
+                );
+                let mut query = sqlx::query_as::<_, (String, String)>(sqlx::AssertSqlSafe(sql));
+                for email in &emails {
+                    query = query.bind(email);
+                }
+                for (id, email) in query.fetch_all(pool).await? {
+                    humans_by_email.insert(email.to_lowercase(), id);
+                }
+            }
+
+            let mut transaction = pool.begin().await?;
+            sqlx::query(CREATE_EVENT_SESSION_SQL)
+                .bind(&session_id)
+                .bind(DEFAULT_USER_ID)
+                .bind(&session_event.title)
+                .bind(&now)
+                .bind(&now)
+                .bind(&session_event.started_at)
+                .bind(&session_event.ended_at)
+                .bind(&event.id)
+                .bind(&event.tracking_id_event)
+                .bind(&event.provider)
+                .bind(&event.recurrence_series_id)
+                .bind(serde_json::to_string(&session_event)?)
+                .bind(&event.id)
+                .bind(&event.tracking_id_event)
+                .bind(&event.tracking_id_event)
+                .execute(&mut *transaction)
+                .await?;
+            sqlx::query(CREATE_EMPTY_NOTE_SQL)
+                .bind(&session_id)
+                .bind("")
+                .bind(&now)
+                .bind(&now)
+                .bind(&session_id)
+                .execute(&mut *transaction)
+                .await?;
+
+            let mut seen_emails = std::collections::HashSet::new();
+            for participant in &participants {
+                let Some(email) = participant.email.as_deref().map(str::trim).filter(|e| !e.is_empty())
+                else {
+                    continue;
+                };
+                let key = email.to_lowercase();
+                if !seen_emails.insert(key.clone()) {
+                    continue;
+                }
+                let display_name = participant
+                    .name
+                    .as_deref()
+                    .filter(|name| !name.is_empty())
+                    .unwrap_or(email);
+                let human_id = match humans_by_email.get(&key) {
+                    Some(id) => id.clone(),
+                    None => {
+                        let human_id = uuid::Uuid::new_v4().to_string();
+                        sqlx::query(INSERT_PARTICIPANT_HUMAN_SQL)
+                            .bind(&human_id)
+                            .bind(display_name)
+                            .bind(email)
+                            .bind(&now)
+                            .bind(&now)
+                            .bind(&session_id)
+                            .bind(email)
+                            .execute(&mut *transaction)
+                            .await?;
+                        human_id
+                    }
+                };
+                sqlx::query(INSERT_EVENT_PARTICIPANT_SQL)
+                    .bind(uuid::Uuid::new_v4().to_string())
+                    .bind(&human_id)
+                    .bind(display_name)
+                    .bind(email)
+                    .bind(&now)
+                    .bind(&now)
+                    .bind(&session_id)
+                    .bind(&human_id)
+                    .execute(&mut *transaction)
+                    .await?;
+            }
+            transaction.commit().await?;
+
+            find_existing(session_id)
+                .await?
+                .ok_or_else(|| anyhow::anyhow!("failed to create a session for event {event_id}"))
         })
     }
 
@@ -516,6 +814,108 @@ mod tests {
 
         let note = store.load_note(session_id).await.unwrap().unwrap().unwrap();
         assert!(note.memo.is_empty());
+    }
+
+    #[tokio::test]
+    async fn opening_an_event_creates_its_session_once_with_participants() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(DB_FILENAME);
+        {
+            let db = Db::connect_local_plain(&path).await.unwrap();
+            anlg_db_app::prepare_schema(&db).await.unwrap();
+            sqlx::raw_sql(
+                "INSERT INTO humans (id, email, name) VALUES ('human-ada', 'ADA@example.com', 'Ada');
+                 INSERT INTO events (id, calendar_id, title, started_at, ended_at, tracking_id_event, provider, meeting_link, participants_json)
+                 VALUES ('event-1', 'cal-1', 'Standup', '2099-01-01T09:00:00Z', '2099-01-01T09:15:00Z', 'track-1', 'google', 'https://meet.google.com/x',
+                         '[{\"name\":\"Ada\",\"email\":\"ada@example.com\"},{\"email\":\"bob@example.com\"},{\"name\":\"No email\"},{\"email\":\"ada@example.com\"}]');",
+            )
+            .execute(db.pool())
+            .await
+            .unwrap();
+        }
+        let store = Store::open(tokio::runtime::Handle::current(), path)
+            .await
+            .unwrap();
+
+        let session_id = store
+            .open_event_session("event-1".to_string())
+            .await
+            .unwrap()
+            .unwrap();
+        let again = store
+            .open_event_session("event-1".to_string())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(session_id, again, "second open reuses the session");
+
+        let pool = store.db.pool();
+        let (title, event_id, external, provider, event_json): (String, String, String, String, String) =
+            sqlx::query_as(
+                "SELECT title, event_id, external_event_id, external_provider, event_json FROM sessions WHERE id = ?",
+            )
+            .bind(&session_id)
+            .fetch_one(pool)
+            .await
+            .unwrap();
+        assert_eq!(
+            (
+                title.as_str(),
+                event_id.as_str(),
+                external.as_str(),
+                provider.as_str()
+            ),
+            ("Standup", "event-1", "track-1", "google")
+        );
+        assert_eq!(
+            event_json,
+            "{\"tracking_id\":\"track-1\",\"calendar_id\":\"cal-1\",\"title\":\"Standup\",\"started_at\":\"2099-01-01T09:00:00Z\",\"ended_at\":\"2099-01-01T09:15:00Z\",\"is_all_day\":false,\"has_recurrence_rules\":false,\"location\":\"\",\"meeting_link\":\"https://meet.google.com/x\",\"description\":\"\",\"recurrence_series_id\":\"\"}"
+        );
+
+        let participants: Vec<(String, String, String, String)> = sqlx::query_as(
+            "SELECT human_id, display_name, email, source FROM session_participants WHERE session_id = ? ORDER BY email",
+        )
+        .bind(&session_id)
+        .fetch_all(pool)
+        .await
+        .unwrap();
+        assert_eq!(
+            participants.len(),
+            2,
+            "duplicates and email-less entries are skipped"
+        );
+        assert_eq!(
+            participants[0].0, "human-ada",
+            "existing humans are matched by email, case-insensitively"
+        );
+        assert_eq!(participants[0].3, "auto");
+        assert_eq!(
+            participants[1].1, "bob@example.com",
+            "name falls back to the email"
+        );
+        let humans: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM humans WHERE deleted_at IS NULL")
+                .fetch_one(pool)
+                .await
+                .unwrap();
+        assert_eq!(humans, 2);
+
+        // The timeline now lists the session instead of the event.
+        let (sessions, events) = store.list_timeline().await.unwrap().unwrap();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(events.len(), 1);
+        let now = "2099-01-01T08:00:00Z".parse().unwrap();
+        let timeline = crate::timeline::build(&sessions, &events, now, &chrono::Utc);
+        let ids: Vec<&str> = timeline
+            .buckets
+            .iter()
+            .flat_map(|b| b.items.iter().map(|i| i.id.as_str()))
+            .collect();
+        assert_eq!(
+            ids,
+            [session_id.as_str()],
+            "the session replaces the event by tracking id"
+        );
     }
 
     #[tokio::test]

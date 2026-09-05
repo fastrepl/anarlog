@@ -336,10 +336,10 @@ impl Workspace {
                 // `muted = isTimelineItemInFuture(item)` -> `opacity-65`.
                 .when(item.timestamp > Utc::now(), |row| row.opacity(0.65))
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                // Clicking a calendar event creates its session in the app,
-                // which needs the write path.
                 .on_click(cx.listener(move |this, _event: &ClickEvent, _window, cx| {
-                    if !is_event {
+                    if is_event {
+                        this.open_event(session_id.clone(), cx);
+                    } else {
                         this.select(session_id.clone(), cx);
                     }
                 }))
