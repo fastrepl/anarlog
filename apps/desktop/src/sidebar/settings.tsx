@@ -7,6 +7,7 @@ import {
   Bell,
   BookOpen,
   CalendarDots,
+  ChartBar,
   Code,
   DownloadSimple,
   FileText,
@@ -84,6 +85,7 @@ export function SettingsNav() {
       items: [
         { id: "app", label: t`General`, icon: Gear },
         { id: "account", label: t`Account`, icon: User },
+        { id: "stats", label: t`Stats`, icon: ChartBar },
         {
           id: "team",
           label: t`Teams`,

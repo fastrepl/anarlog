@@ -247,6 +247,16 @@ describe("SettingsNav", () => {
     expect(screen.queryByText("Personalization")).toBeNull();
   });
 
+  it("opens personal stats for free users", () => {
+    mocks.isPro = false;
+    render(<SettingsNav />);
+    fireEvent.click(screen.getByRole("button", { name: "Stats" }));
+    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
+      mocks.currentTab,
+      { tab: "stats" },
+    );
+  });
+
   it("opens Meetings inside settings", () => {
     render(<SettingsNav />);
 

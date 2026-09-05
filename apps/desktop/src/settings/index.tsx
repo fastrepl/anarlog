@@ -17,6 +17,7 @@ import { SettingsDictionary } from "~/settings/dictionary";
 import { SettingsHydrationBoundary } from "~/settings/hydration-boundary";
 import { SettingsImports } from "~/settings/imports";
 import { SettingsPrivacy } from "~/settings/privacy";
+import { SettingsStats } from "~/settings/stats";
 import { SettingsSync } from "~/settings/sync";
 import { SettingsTeam } from "~/settings/team";
 import { StandardContentWrapper } from "~/shared/main";
@@ -51,6 +52,8 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
     switch (activeTab) {
       case "account":
         return <SettingsAccount />;
+      case "stats":
+        return <SettingsStats />;
       case "app":
         return <SettingsApp />;
       case "meetings":
