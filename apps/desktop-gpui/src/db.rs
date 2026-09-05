@@ -130,6 +130,8 @@ pub struct ProviderSettings {
     pub llm_model: Option<String>,
     pub stt_provider: Option<String>,
     pub stt_model: Option<String>,
+    /// `theme` (`general.theme` in the legacy document), default `system`.
+    pub theme: String,
 }
 
 impl ProviderSettings {
@@ -156,11 +158,24 @@ impl ProviderSettings {
                     .and_then(|value| value.as_str().map(str::to_string))
             })
         };
+        let theme = direct
+            .get("theme")
+            .and_then(|json| serde_json::from_str::<serde_json::Value>(json).ok())
+            .and_then(|value| value.as_str().map(str::to_string))
+            .or_else(|| {
+                legacy
+                    .get("general")
+                    .and_then(|general| general.get("theme"))
+                    .and_then(|value| value.as_str().map(str::to_string))
+            })
+            .filter(|theme| matches!(theme.as_str(), "light" | "dark" | "system"))
+            .unwrap_or_else(|| "system".to_string());
         Self {
             llm_provider: read("current_llm_provider"),
             llm_model: read("current_llm_model"),
             stt_provider: read("current_stt_provider"),
             stt_model: read("current_stt_model"),
+            theme,
         }
     }
 
@@ -1268,6 +1283,11 @@ mod tests {
         };
         let none = ProviderSettings::from_rows(&rows(&[("ai_language", "\"en-US\"")]));
         assert!(!none.has_stt() && !none.has_llm());
+        assert_eq!(none.theme, "system");
+        let dark = ProviderSettings::from_rows(&rows(&[("theme", "\"dark\"")]));
+        assert_eq!(dark.theme, "dark");
+        let bogus = ProviderSettings::from_rows(&rows(&[("theme", "\"neon\"")]));
+        assert_eq!(bogus.theme, "system");
 
         let direct = ProviderSettings::from_rows(&rows(&[
             ("current_stt_provider", "\"soniqo\""),

@@ -109,6 +109,8 @@ pub struct Workspace {
     tabs: Vec<String>,
     provider_settings: ProviderSettings,
     auth: toast::Auth,
+    /// The `theme` setting: `light`, `dark`, or `system`.
+    theme_preference: String,
     overflow_open: bool,
     pending_deletions: Vec<overflow::PendingDeletion>,
     /// Id of the chrome button under the pointer, so icons can take the
@@ -164,6 +166,7 @@ impl Workspace {
             tabs: Vec::new(),
             provider_settings: ProviderSettings::default(),
             auth: toast::Auth::Loading,
+            theme_preference: "system".to_string(),
             overflow_open: false,
             pending_deletions: Vec::new(),
             hovered: None,
@@ -183,6 +186,7 @@ impl Workspace {
             if let Ok(Ok(settings)) = task.await {
                 this.update(cx, |this, cx| {
                     if this.provider_settings != settings {
+                        this.theme_preference = settings.theme.clone();
                         this.provider_settings = settings;
                         cx.notify();
                     }
@@ -587,6 +591,23 @@ impl Workspace {
 
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // `resolveIsDarkMode` on every frame: the setting or the system
+        // appearance may have changed since the last one.
+        let resolved = Theme::resolve(&self.theme_preference, window.appearance());
+        if resolved != self.theme {
+            self.theme = resolved;
+            self.title_input.update(cx, |input, cx| {
+                input.set_style(
+                    TextInputStyle {
+                        text: resolved.title,
+                        placeholder: resolved.muted_foreground,
+                        selection: resolved.selection,
+                        underline_when_focused: true,
+                    },
+                    cx,
+                )
+            });
+        }
         let theme = self.theme;
         let client_decorations = matches!(window.window_decorations(), Decorations::Client { .. });
 

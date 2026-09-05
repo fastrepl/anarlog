@@ -4,7 +4,7 @@
 
 use gpui::{
     AnyElement, BoxShadow, ClickEvent, Context, MouseButton, SharedString, Window, div, hsla,
-    point, prelude::*, px, rgb,
+    point, prelude::*, px,
 };
 
 use super::Workspace;
@@ -89,7 +89,8 @@ impl Workspace {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let toast = current_toast(&self.provider_settings, self.auth)?;
-        let text = rgb(0x171717);
+        let theme = self.theme;
+        let text = theme.toast_text;
         // sonner's collapsed stack: an older toast sits 14px behind the
         // newest one at 95% width and only its top edge shows.
         let behind = !self.pending_deletions.is_empty();
@@ -114,8 +115,8 @@ impl Workspace {
                 .p(px(16.0))
                 .rounded(px(8.0))
                 .border_1()
-                .border_color(rgb(0xededed))
-                .bg(rgb(0xffffff))
+                .border_color(theme.toast_border)
+                .bg(theme.toast_background)
                 .shadow(vec![BoxShadow {
                     color: hsla(0.0, 0.0, 0.0, 0.1),
                     offset: point(px(0.0), px(4.0)),
@@ -144,7 +145,7 @@ impl Workspace {
                             .items_center()
                             .rounded(px(4.0))
                             .bg(text)
-                            .text_color(rgb(0xffffff))
+                            .text_color(theme.toast_background)
                             .text_size(px(12.0))
                             .line_height(px(24.0))
                             .cursor_pointer()

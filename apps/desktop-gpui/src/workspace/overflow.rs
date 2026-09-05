@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use gpui::{
     AnyElement, BoxShadow, ClickEvent, Context, Corner, MouseButton, MouseDownEvent, SharedString,
-    Window, anchored, deferred, div, hsla, point, prelude::*, px, rgb,
+    Window, anchored, deferred, div, hsla, point, prelude::*, px,
 };
 
 use super::Workspace;
@@ -250,12 +250,12 @@ impl Workspace {
         }
         let theme = self.theme;
         let viewport = window.viewport_size();
-        let chrome = rgb(0xf0f0ef);
-        let panel_bg = rgb(0xfafaf9);
-        let border = rgb(0xdddbd9);
-        let red_600 = rgb(0xdc2626);
-        let red_700 = rgb(0xb91c1c);
-        let red_50 = rgb(0xfef2f2);
+        let chrome = theme.floating_chrome;
+        let panel_bg = theme.floating_panel;
+        let border = theme.floating_border;
+        let red_600 = theme.delete_text;
+        let red_700 = theme.delete_hover_text;
+        let red_50 = theme.delete_hover_background;
 
         let items = self
             .overflow_items()
@@ -374,7 +374,8 @@ impl Workspace {
     /// draining over the five-second window, in the toast host's slot.
     pub(super) fn render_undo_toast(&self, cx: &Context<Self>) -> Option<AnyElement> {
         let deletion = self.pending_deletions.last()?;
-        let text = rgb(0x171717);
+        let theme = self.theme;
+        let text = theme.toast_text;
         let title = if deletion.title.trim().is_empty() {
             "Untitled".to_string()
         } else {
@@ -396,8 +397,8 @@ impl Workspace {
                 .p(px(16.0))
                 .rounded(px(8.0))
                 .border_1()
-                .border_color(rgb(0xededed))
-                .bg(rgb(0xffffff))
+                .border_color(theme.toast_border)
+                .bg(theme.toast_background)
                 .overflow_hidden()
                 .shadow(vec![BoxShadow {
                     color: hsla(0.0, 0.0, 0.0, 0.1),
@@ -427,7 +428,7 @@ impl Workspace {
                         .items_center()
                         .rounded(px(4.0))
                         .bg(text)
-                        .text_color(rgb(0xffffff))
+                        .text_color(theme.toast_background)
                         .text_size(px(12.0))
                         .line_height(px(24.0))
                         .cursor_pointer()
@@ -445,16 +446,12 @@ impl Workspace {
                         .right_0()
                         .bottom_0()
                         .h(px(4.0))
-                        .bg(theme_muted())
-                        .child(div().h_full().w(px(300.0 * progress)).bg(rgb(0x2d2825))),
+                        .bg(theme.muted)
+                        .child(div().h_full().w(px(300.0 * progress)).bg(theme.primary)),
                 )
                 .into_any_element(),
         )
     }
-}
-
-fn theme_muted() -> gpui::Rgba {
-    rgb(0xf5f5f4)
 }
 
 /// `find_session_dir`: the folder for a session under `<vault>/sessions`,

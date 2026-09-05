@@ -137,6 +137,11 @@ impl TextInput {
         &self.content
     }
 
+    pub fn set_style(&mut self, style: TextInputStyle, cx: &mut Context<Self>) {
+        self.style = style;
+        cx.notify();
+    }
+
     /// Whether the user has edits that have not been committed yet.
     pub fn is_dirty(&self) -> bool {
         self.dirty
