@@ -149,12 +149,16 @@ impl Workspace {
         cx: &Context<Self>,
     ) -> Div {
         let theme = self.theme;
-        let title_is_placeholder = preview.session.title.trim().is_empty();
-        let title: SharedString = if title_is_placeholder {
-            "Untitled".into()
-        } else {
-            preview.session.title.clone().into()
-        };
+        // `width: calc(${max(title.length, "Untitled".length)}ch + 2px)`
+        let title_chars = self
+            .title_input
+            .read(cx)
+            .text()
+            .chars()
+            .count()
+            .max("Untitled".len());
+        let ch = self.measure_text("0", px(14.0), window);
+        let title_width = ch * title_chars as f32 + px(2.0);
 
         // `showSidebarTimelineHeaderGutter` (sidebar collapsed) widens the
         // left padding to `pl-[32px]`; otherwise `pl-2`.
@@ -175,18 +179,17 @@ impl Workspace {
                 // `TitleInput variant="breadcrumb"`: `h-5 text-sm leading-5
                 // text-neutral-700`, placeholder in muted foreground.
                 div()
-                    .max_w(px(224.0))
+                    .w(title_width)
+                    .max_w_full()
                     .min_w_0()
                     .flex_shrink()
                     .h(px(20.0))
+                    .flex()
+                    .items_center()
+                    .overflow_hidden()
                     .tw_text_sm()
-                    .truncate()
-                    .text_color(if title_is_placeholder {
-                        theme.muted_foreground
-                    } else {
-                        theme.title
-                    })
-                    .child(title),
+                    .text_color(theme.title)
+                    .child(self.title_input.clone()),
             )
             .child(div().flex_1())
             .child(self.render_meeting_cta(preview, window))

@@ -114,6 +114,13 @@ const INSERT_OWNER_PARTICIPANT_SQL: &str = "
     WHERE session.id = ? AND session.deleted_at IS NULL
 ";
 
+// apps/desktop/src/session/queries/sessions.ts, `updateSession({ title })`.
+const UPDATE_TITLE_SQL: &str = "
+    UPDATE sessions
+    SET title = ?, updated_at = ?
+    WHERE id = ? AND deleted_at IS NULL
+";
+
 // `getOrCreateSessionForEventId`.
 const EVENT_FOR_SESSION_SQL: &str = "
     SELECT
@@ -395,6 +402,27 @@ impl Store {
                 .await?;
             transaction.commit().await?;
             Ok(session_id)
+        })
+    }
+
+    /// `updateSession(sessionId, { title })`.
+    pub fn update_title(
+        &self,
+        session_id: String,
+        title: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let now = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string();
+            sqlx::query(UPDATE_TITLE_SQL)
+                .bind(&title)
+                .bind(&now)
+                .bind(&session_id)
+                .execute(db.pool())
+                .await?;
+            Ok(())
         })
     }
 
@@ -812,8 +840,27 @@ mod tests {
         .unwrap();
         assert_eq!(participants, 1);
 
-        let note = store.load_note(session_id).await.unwrap().unwrap().unwrap();
+        let note = store
+            .load_note(session_id.clone())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
         assert!(note.memo.is_empty());
+
+        store
+            .update_title(session_id.clone(), "Weekly sync".to_string())
+            .await
+            .unwrap()
+            .unwrap();
+        let (title, bumped): (String, bool) =
+            sqlx::query_as("SELECT title, updated_at > created_at FROM sessions WHERE id = ?")
+                .bind(&session_id)
+                .fetch_one(pool)
+                .await
+                .unwrap();
+        assert_eq!(title, "Weekly sync");
+        assert!(bumped);
     }
 
     #[tokio::test]

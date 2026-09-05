@@ -22,6 +22,8 @@ pub struct Theme {
     /// `--color-blue-600` from `note-typography.css`.
     pub link: Rgba,
     pub white: Rgba,
+    /// Text selection highlight (WebKitGTK's default).
+    pub selection: Rgba,
 }
 
 impl Theme {
@@ -39,6 +41,7 @@ impl Theme {
             close_hover: rgb(0xc42b1c),
             link: rgb(0x2563eb),
             white: rgb(0xffffff),
+            selection: alpha(rgb(0x3584e4), 0.35),
         }
     }
 }

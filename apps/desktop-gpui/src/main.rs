@@ -2,6 +2,7 @@ mod actions;
 mod assets;
 mod db;
 mod document;
+mod text_input;
 mod theme;
 mod timeline;
 mod ui;
@@ -84,6 +85,7 @@ fn main() -> anyhow::Result<()> {
         .with_assets(assets::Assets)
         .run(move |cx: &mut App| {
             actions::bind_keys(cx);
+            text_input::bind_keys(cx);
             cx.on_window_closed(|cx| {
                 if cx.windows().is_empty() {
                     // gpui 0.2.2's X11 client still holds its state borrow while
@@ -120,7 +122,7 @@ fn main() -> anyhow::Result<()> {
                     ..Default::default()
                 },
                 |window, cx| {
-                    let workspace = cx.new(|cx| Workspace::new(store, cx));
+                    let workspace = cx.new(|cx| Workspace::new(store, window, cx));
                     // Key bindings dispatch through the focused element.
                     workspace.read(cx).focus_handle().focus(window);
                     workspace

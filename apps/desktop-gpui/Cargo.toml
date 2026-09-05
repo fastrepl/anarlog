@@ -26,6 +26,7 @@ sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+unicode-segmentation = "1"
 url = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 

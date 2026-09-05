@@ -13,6 +13,7 @@ use gpui::{
 
 use crate::actions;
 use crate::db::{NotePreview, Store};
+use crate::text_input::{TextInput, TextInputEvent, TextInputStyle};
 use crate::theme::Theme;
 use crate::timeline::{self, Timeline};
 use crate::ui::TailwindText as _;
@@ -76,6 +77,7 @@ pub struct Workspace {
     store: Arc<Store>,
     theme: Theme,
     focus_handle: FocusHandle,
+    title_input: gpui::Entity<TextInput>,
     font_family: Option<SharedString>,
     mono_font_family: Option<SharedString>,
     sessions: Sessions,
@@ -93,14 +95,35 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    pub fn new(store: Arc<Store>, cx: &mut Context<Self>) -> Self {
+    pub fn new(store: Arc<Store>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let font_family = crate::theme::ui_font_family(cx.text_system()).map(SharedString::from);
         let mono_font_family =
             crate::theme::mono_font_family(cx.text_system()).map(SharedString::from);
+        let theme = Theme::light();
+        let title_input = cx.new(|cx| {
+            TextInput::new(
+                "Untitled",
+                TextInputStyle {
+                    text: theme.title,
+                    placeholder: theme.muted_foreground,
+                    selection: theme.selection,
+                    underline_when_focused: true,
+                },
+                window,
+                cx,
+            )
+        });
+        cx.subscribe(&title_input, |this, _, event: &TextInputEvent, cx| {
+            if *event == TextInputEvent::Committed {
+                this.persist_title(cx);
+            }
+        })
+        .detach();
         let mut this = Self {
             store,
-            theme: Theme::light(),
+            theme,
             focus_handle: cx.focus_handle(),
+            title_input,
             font_family,
             mono_font_family,
             sessions: Sessions::Loading,
@@ -207,6 +230,13 @@ impl Workspace {
                 this.note = match result {
                     Ok(Ok(Some(preview))) => {
                         let tab = this.current_tab_for(&preview);
+                        // `title = draftTitle ?? storeTitle`
+                        let title = preview.session.title.clone();
+                        this.title_input.update(cx, |input, cx| {
+                            if !input.is_dirty() {
+                                input.set_text(title, cx);
+                            }
+                        });
                         Note::Ready { preview, tab }
                     }
                     Ok(Ok(None)) => Note::Failed("This note no longer exists.".to_string()),
@@ -255,6 +285,29 @@ impl Workspace {
     fn toggle_sidebar(&mut self, cx: &mut Context<Self>) {
         self.sidebar_expanded = !self.sidebar_expanded;
         cx.notify();
+    }
+
+    /// `persistTitle`: the title input's blur/Enter writes the draft.
+    fn persist_title(&mut self, cx: &mut Context<Self>) {
+        let Some(session_id) = self.selected.clone() else {
+            return;
+        };
+        let title = self.title_input.read(cx).text().to_string();
+        let task = self.store.update_title(session_id.clone(), title);
+        cx.spawn(async move |this, cx| match task.await {
+            Ok(Ok(())) => {
+                this.update(cx, |this, cx| {
+                    this.reload_sessions(cx);
+                    if this.selected.as_deref() == Some(session_id.as_str()) {
+                        this.reload_note(session_id, cx);
+                    }
+                })
+                .ok();
+            }
+            Ok(Err(error)) => tracing::error!(%error, "failed to persist title"),
+            Err(error) => tracing::error!(%error, "failed to persist title"),
+        })
+        .detach();
     }
 
     /// `useNewNote`: create the session, then open it as the current tab.
