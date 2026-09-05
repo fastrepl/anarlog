@@ -76,6 +76,30 @@ type Rotate = fn(f32, f32) -> (f32, f32);
 
 /// The closed outline of `bounds` with every corner smoothed.
 pub fn path(bounds: Bounds<Pixels>, radius: f32, smoothing: f32) -> Option<Path<Pixels>> {
+    let mut builder = PathBuilder::fill();
+    append(&mut builder, bounds, radius, smoothing)?;
+    builder.build().ok()
+}
+
+/// `bounds` shrunk by `inset` on every side.
+fn inset(bounds: Bounds<Pixels>, inset: f32) -> Bounds<Pixels> {
+    Bounds {
+        origin: point(bounds.origin.x + px(inset), bounds.origin.y + px(inset)),
+        size: gpui::size(
+            bounds.size.width - px(inset * 2.0),
+            bounds.size.height - px(inset * 2.0),
+        ),
+    }
+}
+
+/// Appends the smoothed outline of `bounds` as one closed sub-path. Two
+/// outlines in one path make a ring under lyon's even-odd fill.
+fn append(
+    builder: &mut PathBuilder,
+    bounds: Bounds<Pixels>,
+    radius: f32,
+    smoothing: f32,
+) -> Option<()> {
     let width = f32::from(bounds.size.width);
     let height = f32::from(bounds.size.height);
     if width <= 0.0 || height <= 0.0 {
@@ -84,7 +108,6 @@ pub fn path(bounds: Bounds<Pixels>, radius: f32, smoothing: f32) -> Option<Path<
     let corner = corner(radius, smoothing, width.min(height) / 2.0);
     let origin = bounds.origin;
     let at = |x: f32, y: f32| point(origin.x + px(x), origin.y + px(y));
-    let mut builder = PathBuilder::fill();
     // Each corner is the top-right one rotated a quarter turn further:
     // `rotate` maps a vector in the top-right frame into the corner's frame.
     let corners: [(f32, f32, Rotate); 4] = [
@@ -128,7 +151,7 @@ pub fn path(bounds: Bounds<Pixels>, radius: f32, smoothing: f32) -> Option<Path<
         builder.cubic_bezier_to(end, control_a, control_b);
     }
     builder.close();
-    builder.build().ok()
+    Some(())
 }
 
 /// A smoothed-corner box painted behind its siblings: place it as the first
@@ -137,19 +160,23 @@ pub fn squircle(radius: f32, fill: Option<Rgba>, border: Option<(f32, Rgba)>) ->
     canvas(
         |_, _, _| {},
         move |bounds, _, window, _| {
+            let inner_bounds = border.map(|(width, _)| inset(bounds, width));
             if let Some((width, color)) = border {
-                if let Some(outer) = path(bounds, radius, APPLE_SMOOTHING) {
-                    window.paint_path(outer, color);
+                let inner_radius = (radius - width).max(0.0);
+                let mut ring = PathBuilder::fill();
+                if append(&mut ring, bounds, radius, APPLE_SMOOTHING).is_some() {
+                    append(
+                        &mut ring,
+                        inner_bounds.unwrap(),
+                        inner_radius,
+                        APPLE_SMOOTHING,
+                    );
+                    if let Ok(ring) = ring.build() {
+                        window.paint_path(ring, color);
+                    }
                 }
-                let inner = Bounds {
-                    origin: point(bounds.origin.x + px(width), bounds.origin.y + px(width)),
-                    size: gpui::size(
-                        bounds.size.width - px(width * 2.0),
-                        bounds.size.height - px(width * 2.0),
-                    ),
-                };
                 if let Some(fill) = fill
-                    && let Some(path) = path(inner, (radius - width).max(0.0), APPLE_SMOOTHING)
+                    && let Some(path) = path(inner_bounds.unwrap(), inner_radius, APPLE_SMOOTHING)
                 {
                     window.paint_path(path, fill);
                 }

@@ -208,7 +208,7 @@ impl Workspace {
                 )
             })
             .child(div().flex_1())
-            .child(self.render_meeting_cta(preview, window))
+            .child(self.render_meeting_cta(preview, window, cx))
             .child(
                 ghost_icon_button("overflow", theme, self.hovered == Some("overflow"))
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
@@ -230,7 +230,12 @@ impl Workspace {
     /// session has a meeting link, otherwise `Record` with the pulsing dot. The
     /// onboarding demo note keeps its "Try the demo" popover open until it has
     /// a transcript.
-    fn render_meeting_cta(&self, preview: &NotePreview, window: &Window) -> Div {
+    fn render_meeting_cta(
+        &self,
+        preview: &NotePreview,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> Div {
         let theme = self.theme;
         let event = preview.session_event();
         let event = event.as_ref();
@@ -302,8 +307,10 @@ impl Workspace {
         // border-border bg-transparent gap-1.5 pl-1.5 pr-2.5 text-sm`.
         let label_width = self.measure_text(label, px(14.0), window);
         let cta_width = 1.0 + 6.0 + 14.0 + 6.0 + f32::from(label_width) + 10.0 + 1.0;
+        let hovered = self.hovered == Some("meeting-cta");
         let button = div()
             .id("meeting-cta")
+            .relative()
             .flex()
             .h(px(32.0))
             .max_w(px(224.0))
@@ -312,13 +319,18 @@ impl Workspace {
             .gap(px(6.0))
             .pl(px(6.0))
             .pr(px(10.0))
-            .rounded_md()
-            .border_1()
-            .border_color(theme.border)
+            // The Button's control squircle carries the border and hover fill.
+            .child(crate::squircle::squircle(
+                crate::squircle::CONTROL_RADIUS,
+                hovered.then_some(theme.accent),
+                Some((1.0, theme.border)),
+            ))
             .tw_text_sm()
             .text_color(theme.foreground)
             .cursor_pointer()
-            .hover(move |style| style.bg(theme.accent))
+            .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
+                this.set_hovered("meeting-cta", *hovered, cx);
+            }))
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .child(glyph)
             .child(div().truncate().child(label));
