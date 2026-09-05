@@ -114,6 +114,101 @@ const INSERT_OWNER_PARTICIPANT_SQL: &str = "
     WHERE session.id = ? AND session.deleted_at IS NULL
 ";
 
+// apps/desktop/src/settings/queries.ts, `SETTING_ROWS_SQL`: synced rows sort
+// after device rows so a last-write-wins map prefers the synced value.
+const SETTING_ROWS_SQL: &str = "
+    SELECT id, value_json, 0 AS source_rank FROM app_settings
+    UNION ALL
+    SELECT id, value_json, 1 AS source_rank FROM synced_preferences
+    ORDER BY id, source_rank
+";
+
+/// The provider settings the toast host reads (`useConfigValues`).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ProviderSettings {
+    pub llm_provider: Option<String>,
+    pub llm_model: Option<String>,
+    pub stt_provider: Option<String>,
+    pub stt_model: Option<String>,
+}
+
+impl ProviderSettings {
+    /// `parseSettingRows` for string settings: the direct row wins, then the
+    /// `legacy_settings_document` path `ai.<key>`.
+    pub fn from_rows(rows: &[(String, String)]) -> Self {
+        let direct: std::collections::HashMap<&str, &str> = rows
+            .iter()
+            .map(|(id, json)| (id.as_str(), json.as_str()))
+            .collect();
+        let legacy = direct
+            .get("legacy_settings_document")
+            .and_then(|json| serde_json::from_str::<serde_json::Value>(json).ok())
+            .unwrap_or(serde_json::Value::Null);
+        let read = |key: &str| -> Option<String> {
+            let direct_value = direct
+                .get(key)
+                .and_then(|json| serde_json::from_str::<serde_json::Value>(json).ok())
+                .and_then(|value| value.as_str().map(str::to_string));
+            direct_value.or_else(|| {
+                legacy
+                    .get("ai")
+                    .and_then(|ai| ai.get(key))
+                    .and_then(|value| value.as_str().map(str::to_string))
+            })
+        };
+        Self {
+            llm_provider: read("current_llm_provider"),
+            llm_model: read("current_llm_model"),
+            stt_provider: read("current_stt_provider"),
+            stt_model: read("current_stt_model"),
+        }
+    }
+
+    /// `hasLLMConfigured`
+    pub fn has_llm(&self) -> bool {
+        self.llm_provider.as_deref().is_some_and(|p| !p.is_empty())
+            && self.llm_model.as_deref().is_some_and(|m| !m.is_empty())
+    }
+
+    /// `isConfiguredSttModel` in `apps/desktop/src/stt/capabilities.ts`.
+    pub fn has_stt(&self) -> bool {
+        let (Some(provider), Some(model)) =
+            (self.stt_provider.as_deref(), self.stt_model.as_deref())
+        else {
+            return false;
+        };
+        if provider.is_empty() || model.is_empty() {
+            return false;
+        }
+        match provider {
+            "anarlog" => model == "cloud" || is_supported_local_stt_model(model),
+            "soniqo" => model.starts_with("soniqo-"),
+            "apple_speech" => model == "apple-speech",
+            "local_file" => model == "local-file",
+            _ => true,
+        }
+    }
+
+    /// `isAnarlogCloudSttModel`
+    pub fn has_pro_stt(&self) -> bool {
+        self.stt_provider.as_deref() == Some("anarlog")
+            && self.stt_model.as_deref() == Some("cloud")
+    }
+
+    /// `hasProLlmConfigured`
+    pub fn has_pro_llm(&self) -> bool {
+        self.llm_provider.as_deref() == Some("anarlog")
+    }
+}
+
+/// `isSupportedLocalSttModel`
+fn is_supported_local_stt_model(model: &str) -> bool {
+    model.starts_with("soniqo-")
+        || model == "apple-speech"
+        || model.starts_with("am-")
+        || model.starts_with("Quantized")
+}
+
 // apps/desktop/src/session/queries/deletion.ts, `isSessionEmpty`.
 const SESSION_EMPTY_SQL: &str = "
     SELECT
@@ -499,6 +594,22 @@ impl Store {
                 .await?;
             transaction.commit().await?;
             Ok(session_id)
+        })
+    }
+
+    /// `useConfigValues` for the provider keys the toast host needs.
+    pub fn load_provider_settings(
+        &self,
+    ) -> tokio::task::JoinHandle<anyhow::Result<ProviderSettings>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let rows = sqlx::query_as::<_, (String, String, i64)>(SETTING_ROWS_SQL)
+                .fetch_all(db.pool())
+                .await?
+                .into_iter()
+                .map(|(id, json, _)| (id, json))
+                .collect::<Vec<_>>();
+            Ok(ProviderSettings::from_rows(&rows))
         })
     }
 
@@ -1080,6 +1191,47 @@ mod tests {
                 .unwrap();
         assert_eq!(title, "Weekly sync");
         assert!(bumped);
+    }
+
+    #[test]
+    fn provider_settings_follow_the_settings_parser() {
+        let rows = |pairs: &[(&str, &str)]| -> Vec<(String, String)> {
+            pairs
+                .iter()
+                .map(|(a, b)| (a.to_string(), b.to_string()))
+                .collect()
+        };
+        let none = ProviderSettings::from_rows(&rows(&[("ai_language", "\"en-US\"")]));
+        assert!(!none.has_stt() && !none.has_llm());
+
+        let direct = ProviderSettings::from_rows(&rows(&[
+            ("current_stt_provider", "\"soniqo\""),
+            ("current_stt_model", "\"soniqo-parakeet-streaming\""),
+            ("current_llm_provider", "\"openai\""),
+            ("current_llm_model", "\"gpt-4o\""),
+        ]));
+        assert!(
+            direct.has_stt() && direct.has_llm() && !direct.has_pro_stt() && !direct.has_pro_llm()
+        );
+
+        let mismatched = ProviderSettings::from_rows(&rows(&[
+            ("current_stt_provider", "\"soniqo\""),
+            ("current_stt_model", "\"cloud\""),
+        ]));
+        assert!(!mismatched.has_stt(), "soniqo needs a soniqo- model");
+
+        let legacy = ProviderSettings::from_rows(&rows(&[(
+            "legacy_settings_document",
+            r#"{"ai":{"current_stt_provider":"anarlog","current_stt_model":"cloud","current_llm_provider":"anarlog","current_llm_model":"auto"}}"#,
+        )]));
+        assert!(legacy.has_stt() && legacy.has_pro_stt() && legacy.has_pro_llm());
+
+        // A synced row (sorted after the device row) wins.
+        let synced = ProviderSettings::from_rows(&rows(&[
+            ("current_stt_model", "\"am-parakeet-v3\""),
+            ("current_stt_provider", "\"anarlog\""),
+        ]));
+        assert!(synced.has_stt() && !synced.has_pro_stt());
     }
 
     #[tokio::test]

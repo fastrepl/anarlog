@@ -3,6 +3,7 @@ mod note;
 mod open_note;
 mod sidebar;
 mod title_bar;
+mod toast;
 
 use std::sync::Arc;
 
@@ -13,7 +14,7 @@ use gpui::{
 };
 
 use crate::actions;
-use crate::db::{NotePreview, Store};
+use crate::db::{NotePreview, ProviderSettings, Store};
 use crate::editor::{BodyEditor, EditorEvent};
 use crate::text_input::{TextInput, TextInputEvent, TextInputStyle};
 use crate::theme::Theme;
@@ -104,6 +105,8 @@ pub struct Workspace {
     /// The tab store's session tabs, in order; the tab strip itself is not
     /// shown, but `openNew` vs `openCurrent` decide which note gets closed.
     tabs: Vec<String>,
+    provider_settings: ProviderSettings,
+    auth: toast::Auth,
     /// Id of the chrome button under the pointer, so icons can take the
     /// `hover:text-foreground` colour their container cannot pass down.
     hovered: Option<&'static str>,
@@ -155,14 +158,33 @@ impl Workspace {
             open_note: None,
             recently_opened: Vec::new(),
             tabs: Vec::new(),
+            provider_settings: ProviderSettings::default(),
+            auth: toast::Auth::Loading,
             hovered: None,
         };
         // Chips and the bottom fade depend on the scroll position.
         this.list_state
             .set_scroll_handler(cx.listener(|_, _: &gpui::ListScrollEvent, _, cx| cx.notify()));
         this.reload_sessions(cx);
+        this.reload_settings(cx);
         this.watch_changes(cx);
         this
+    }
+
+    fn reload_settings(&mut self, cx: &mut Context<Self>) {
+        let task = self.store.load_provider_settings();
+        cx.spawn(async move |this, cx| {
+            if let Ok(Ok(settings)) = task.await {
+                this.update(cx, |this, cx| {
+                    if this.provider_settings != settings {
+                        this.provider_settings = settings;
+                        cx.notify();
+                    }
+                })
+                .ok();
+            }
+        })
+        .detach();
     }
 
     /// Re-reads the list and the open note whenever the Tauri app commits.
@@ -173,6 +195,7 @@ impl Workspace {
                 let keep_going = this
                     .update(cx, |this, cx| {
                         this.reload_sessions(cx);
+                        this.reload_settings(cx);
                         if let Some(selected) = this.selected.clone() {
                             this.reload_note(selected, cx);
                         }
@@ -629,6 +652,7 @@ impl Render for Workspace {
                     .when(!self.sidebar_expanded, |shell| shell.gap_1())
                     .child(self.render_main_surface(window, cx)),
             )
+            .children(self.render_toast_host(window, cx))
             .children(self.render_open_menu(window, cx))
             .children(self.render_open_note_dialog(window, cx))
     }
