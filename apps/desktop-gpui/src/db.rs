@@ -54,6 +54,66 @@ pub struct NoteDocument {
     pub blocks: Vec<Block>,
 }
 
+/// `DEFAULT_USER_ID` in `apps/desktop/src/shared/utils.ts`.
+const DEFAULT_USER_ID: &str = "00000000-0000-0000-0000-000000000000";
+
+// apps/desktop/src/session/queries/creation.ts, `createSession`.
+const CREATE_SESSION_SQL: &str = "
+    INSERT INTO sessions (
+      id, workspace_id, owner_user_id, title, event_json, folder_path,
+      created_at, updated_at, deleted_at
+    ) VALUES (
+      ?, NULLIF((
+        SELECT json_extract(value_json, '$.workspace_id')
+        FROM app_settings
+        WHERE id = 'cloudsync_workspace_binding'
+      ), ''), COALESCE(
+        NULLIF(NULLIF(?, ''), '00000000-0000-0000-0000-000000000000'),
+        NULLIF((
+          SELECT json_extract(value_json, '$.workspace_id')
+          FROM app_settings
+          WHERE id = 'cloudsync_workspace_binding'
+        ), '')
+      ), ?, ?, ?, ?, ?, NULL
+    )
+";
+
+// `createEmptyNoteStatement`.
+const CREATE_EMPTY_NOTE_SQL: &str = "
+    INSERT INTO session_documents (
+      id, workspace_id, session_id, kind, body_format, body, created_by,
+      updated_by, created_at, updated_at, deleted_at
+    )
+    SELECT ?, workspace_id, id, 'note', 'prosemirror_json', ?,
+      owner_user_id, owner_user_id, ?, ?, NULL
+    FROM sessions
+    WHERE id = ? AND deleted_at IS NULL
+";
+
+const UPSERT_OWNER_HUMAN_SQL: &str = "
+    INSERT INTO humans (
+      id, workspace_id, owner_user_id, updated_at, deleted_at
+    )
+    SELECT session.owner_user_id, session.workspace_id,
+      session.owner_user_id, ?, NULL
+    FROM sessions AS session
+    WHERE session.id = ? AND session.deleted_at IS NULL
+    ON CONFLICT(id) DO UPDATE SET
+      deleted_at = NULL,
+      updated_at = excluded.updated_at
+";
+
+const INSERT_OWNER_PARTICIPANT_SQL: &str = "
+    INSERT INTO session_participants (
+      id, workspace_id, owner_user_id, session_id, human_id, source,
+      created_at, updated_at, deleted_at
+    )
+    SELECT ?, session.workspace_id, session.owner_user_id, session.id,
+      session.owner_user_id, 'manual', ?, ?, NULL
+    FROM sessions AS session
+    WHERE session.id = ? AND session.deleted_at IS NULL
+";
+
 // apps/desktop/src/session/queries/sessions.ts, `useSessionTranscriptExistence`.
 const HAS_TRANSCRIPT_SQL: &str = "
     SELECT EXISTS (
@@ -78,11 +138,12 @@ pub struct NotePreview {
     pub has_transcript: bool,
 }
 
-/// Read-only access to the SQLite database owned by the Tauri desktop app.
+/// Access to the SQLite database shared with the Tauri desktop app.
 ///
-/// The GPUI shell coexists with the Tauri app during the migration, so it never
-/// writes to `app.db` and never runs migrations; the Tauri app stays the sole
-/// schema owner until the write path moves over.
+/// The GPUI shell coexists with the Tauri app during the migration: it never
+/// runs migrations (the Tauri app stays the schema owner) and every write it
+/// performs uses the same statements the Tauri frontend issues, so both apps
+/// produce identical rows.
 pub struct Store {
     runtime: tokio::runtime::Handle,
     db: Arc<Db>,
@@ -101,7 +162,7 @@ impl Store {
             );
         }
         let db = Arc::new(
-            Db::connect_local_read_only(&path)
+            Db::connect_local_read_write(&path)
                 .await
                 .with_context(|| format!("failed to open {}", path.display()))?,
         );
@@ -140,6 +201,55 @@ impl Store {
                 .fetch_all(db.pool())
                 .await?;
             Ok((sessions, events))
+        })
+    }
+
+    /// `createSession("")` from the Tauri frontend: the session, its empty
+    /// memo, the owner's human row, and the owner participant in one
+    /// transaction. Returns the new session id.
+    pub fn create_note(&self) -> tokio::task::JoinHandle<anyhow::Result<String>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let session_id = uuid::Uuid::new_v4().to_string();
+            let participant_id = uuid::Uuid::new_v4().to_string();
+            // `new Date().toISOString()`
+            let now = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string();
+
+            let mut transaction = db.pool().begin().await?;
+            sqlx::query(CREATE_SESSION_SQL)
+                .bind(&session_id)
+                .bind(DEFAULT_USER_ID)
+                .bind("")
+                .bind("")
+                .bind("")
+                .bind(&now)
+                .bind(&now)
+                .execute(&mut *transaction)
+                .await?;
+            sqlx::query(CREATE_EMPTY_NOTE_SQL)
+                .bind(&session_id)
+                .bind("")
+                .bind(&now)
+                .bind(&now)
+                .bind(&session_id)
+                .execute(&mut *transaction)
+                .await?;
+            sqlx::query(UPSERT_OWNER_HUMAN_SQL)
+                .bind(&now)
+                .bind(&session_id)
+                .execute(&mut *transaction)
+                .await?;
+            sqlx::query(INSERT_OWNER_PARTICIPANT_SQL)
+                .bind(&participant_id)
+                .bind(&now)
+                .bind(&now)
+                .bind(&session_id)
+                .execute(&mut *transaction)
+                .await?;
+            transaction.commit().await?;
+            Ok(session_id)
         })
     }
 
@@ -361,6 +471,51 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
+    }
+
+    #[tokio::test]
+    async fn create_note_writes_the_same_rows_as_the_tauri_frontend() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(DB_FILENAME);
+        {
+            let db = Db::connect_local_plain(&path).await.unwrap();
+            anlg_db_app::prepare_schema(&db).await.unwrap();
+        }
+        let store = Store::open(tokio::runtime::Handle::current(), path)
+            .await
+            .unwrap();
+
+        let session_id = store.create_note().await.unwrap().unwrap();
+        let (sessions, _) = store.list_timeline().await.unwrap().unwrap();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].id, session_id);
+        assert_eq!(sessions[0].title, "");
+        assert!(sessions[0].created_at.ends_with('Z'));
+
+        let pool = store.db.pool();
+        let (kind, body_format, body): (String, String, String) = sqlx::query_as(
+            "SELECT kind, body_format, body FROM session_documents WHERE id = ? AND session_id = ?",
+        )
+        .bind(&session_id)
+        .bind(&session_id)
+        .fetch_one(pool)
+        .await
+        .unwrap();
+        assert_eq!(
+            (kind.as_str(), body_format.as_str(), body.as_str()),
+            ("note", "prosemirror_json", "")
+        );
+        let participants: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM session_participants WHERE session_id = ? AND source = 'manual'",
+        )
+        .bind(&session_id)
+        .fetch_one(pool)
+        .await
+        .unwrap();
+        assert_eq!(participants, 1);
+
+        let note = store.load_note(session_id).await.unwrap().unwrap().unwrap();
+        assert!(note.memo.is_empty());
     }
 
     #[tokio::test]

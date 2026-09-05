@@ -7,18 +7,35 @@ use std::sync::Arc;
 
 use chrono::{Local, Utc};
 use gpui::{
-    Context, Decorations, ListAlignment, ListState, MouseButton, Render, SharedString, Window, div,
-    prelude::*, px,
+    Context, Decorations, FocusHandle, ListAlignment, ListState, MouseButton, MouseMoveEvent,
+    MouseUpEvent, Pixels, Render, SharedString, Window, div, prelude::*, px,
 };
 
+use crate::actions;
 use crate::db::{NotePreview, Store};
 use crate::theme::Theme;
 use crate::timeline::{self, Timeline};
 use crate::ui::TailwindText as _;
 
-/// `LEFT_SIDEBAR_DEFAULT_WIDTH_PX` in `apps/desktop/src/main/left-sidebar-panel.ts`.
-const SIDEBAR_WIDTH: f32 = 200.0;
+/// `apps/desktop/src/main/left-sidebar-panel.ts`.
+const SIDEBAR_DEFAULT_WIDTH: f32 = 200.0;
+const SIDEBAR_MIN_WIDTH: f32 = 200.0;
+const SIDEBAR_MAX_WIDTH: f32 = 360.0;
 const RESIZE_EDGE: f32 = 5.0;
+
+/// Which title bar menu is open.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Menu {
+    File,
+    Edit,
+    View,
+    Help,
+}
+
+struct SidebarDrag {
+    start_x: Pixels,
+    start_width: f32,
+}
 
 enum Sessions {
     Loading,
@@ -58,6 +75,7 @@ enum Note {
 pub struct Workspace {
     store: Arc<Store>,
     theme: Theme,
+    focus_handle: FocusHandle,
     font_family: Option<SharedString>,
     mono_font_family: Option<SharedString>,
     sessions: Sessions,
@@ -66,6 +84,9 @@ pub struct Workspace {
     selected: Option<String>,
     note: Note,
     sidebar_expanded: bool,
+    sidebar_width: f32,
+    sidebar_drag: Option<SidebarDrag>,
+    open_menu: Option<Menu>,
     /// Id of the chrome button under the pointer, so icons can take the
     /// `hover:text-foreground` colour their container cannot pass down.
     hovered: Option<&'static str>,
@@ -79,6 +100,7 @@ impl Workspace {
         let mut this = Self {
             store,
             theme: Theme::light(),
+            focus_handle: cx.focus_handle(),
             font_family,
             mono_font_family,
             sessions: Sessions::Loading,
@@ -87,6 +109,9 @@ impl Workspace {
             selected: None,
             note: Note::Empty,
             sidebar_expanded: true,
+            sidebar_width: SIDEBAR_DEFAULT_WIDTH,
+            sidebar_drag: None,
+            open_menu: None,
             hovered: None,
         };
         // Chips and the bottom fade depend on the scroll position.
@@ -223,9 +248,83 @@ impl Workspace {
         }
     }
 
+    pub(crate) fn focus_handle(&self) -> &FocusHandle {
+        &self.focus_handle
+    }
+
     fn toggle_sidebar(&mut self, cx: &mut Context<Self>) {
         self.sidebar_expanded = !self.sidebar_expanded;
         cx.notify();
+    }
+
+    /// `useNewNote`: create the session, then open it as the current tab.
+    pub(crate) fn new_note(&mut self, cx: &mut Context<Self>) {
+        let task = self.store.create_note();
+        cx.spawn(async move |this, cx| match task.await {
+            Ok(Ok(session_id)) => {
+                this.update(cx, |this, cx| {
+                    this.reload_sessions(cx);
+                    this.select(session_id, cx);
+                })
+                .ok();
+            }
+            Ok(Err(error)) => tracing::error!(%error, "failed to create note"),
+            Err(error) => tracing::error!(%error, "failed to create note"),
+        })
+        .detach();
+    }
+
+    fn set_menu(&mut self, menu: Option<Menu>, cx: &mut Context<Self>) {
+        if self.open_menu != menu {
+            self.open_menu = menu;
+            cx.notify();
+        }
+    }
+
+    /// `ResizableHandle` drag: clamp to the panel's min/max like the app.
+    fn begin_sidebar_drag(&mut self, x: Pixels, cx: &mut Context<Self>) {
+        self.sidebar_drag = Some(SidebarDrag {
+            start_x: x,
+            start_width: self.sidebar_width,
+        });
+        cx.notify();
+    }
+
+    fn update_sidebar_drag(&mut self, x: Pixels, cx: &mut Context<Self>) {
+        if let Some(drag) = &self.sidebar_drag {
+            let width = (drag.start_width + f32::from(x - drag.start_x))
+                .clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
+            if width != self.sidebar_width {
+                self.sidebar_width = width;
+                cx.notify();
+            }
+        }
+    }
+
+    fn end_sidebar_drag(&mut self, cx: &mut Context<Self>) {
+        if self.sidebar_drag.take().is_some() {
+            cx.notify();
+        }
+    }
+
+    /// Switch between note views (`mod+alt+left/right`), in tab-strip order:
+    /// enhanced notes first, then the memo.
+    fn step_view(&mut self, delta: isize, cx: &mut Context<Self>) {
+        let Note::Ready { preview, tab } = &self.note else {
+            return;
+        };
+        let mut tabs: Vec<NoteTab> = preview
+            .enhanced
+            .iter()
+            .map(|doc| NoteTab::Enhanced(doc.id.clone()))
+            .collect();
+        tabs.push(NoteTab::Memo);
+        let Some(index) = tabs.iter().position(|t| t == tab) else {
+            return;
+        };
+        let next = (index as isize + delta).rem_euclid(tabs.len() as isize) as usize;
+        let next = tabs[next].clone();
+        self.set_tab(next, cx);
     }
 
     fn set_hovered(&mut self, id: &'static str, hovered: bool, cx: &mut Context<Self>) {
@@ -266,8 +365,19 @@ impl Render for Workspace {
 
         // `ShellFrame`: title bar (Windows/Linux) above the `shell-scaffold`
         // row of sidebar + main surface, all on `bg-background`.
+        let dragging = self.sidebar_drag.is_some();
         div()
             .id("window")
+            .track_focus(&self.focus_handle)
+            .key_context(actions::KEY_CONTEXT)
+            .on_action(cx.listener(|this, _: &actions::NewNote, _, cx| this.new_note(cx)))
+            .on_action(
+                cx.listener(|this, _: &actions::ToggleSidebar, _, cx| this.toggle_sidebar(cx)),
+            )
+            .on_action(cx.listener(|this, _: &actions::PreviousView, _, cx| this.step_view(-1, cx)))
+            .on_action(cx.listener(|this, _: &actions::NextView, _, cx| this.step_view(1, cx)))
+            .on_action(|_: &actions::ToggleFullscreen, window, _| window.toggle_fullscreen())
+            .on_action(|_: &actions::CloseWindow, window, _| window.remove_window())
             .flex()
             .flex_col()
             .size_full()
@@ -276,6 +386,16 @@ impl Render for Workspace {
             .tw_text_sm()
             .when_some(self.font_family.clone(), |root, family| {
                 root.font_family(family)
+            })
+            .when(dragging, |root| {
+                root.cursor_col_resize()
+                    .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _, cx| {
+                        this.update_sidebar_drag(event.position.x, cx);
+                    }))
+                    .on_mouse_up(
+                        MouseButton::Left,
+                        cx.listener(|this, _: &MouseUpEvent, _, cx| this.end_sidebar_drag(cx)),
+                    )
             })
             .when(client_decorations, |root| {
                 root.on_mouse_down(MouseButton::Left, |event, window, _cx| {
@@ -297,11 +417,15 @@ impl Render for Workspace {
                     .flex()
                     .flex_1()
                     .min_h_0()
-                    .gap_1()
                     .when(self.sidebar_expanded, |shell| {
-                        shell.pl_1().child(self.render_sidebar(cx))
+                        shell
+                            .pl_1()
+                            .child(self.render_sidebar(cx))
+                            .child(self.render_sidebar_handle(cx))
                     })
+                    .when(!self.sidebar_expanded, |shell| shell.gap_1())
                     .child(self.render_main_surface(window, cx)),
             )
+            .children(self.render_open_menu(window, cx))
     }
 }

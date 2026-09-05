@@ -68,9 +68,16 @@ impl Workspace {
     /// `EmptyView`: three centred actions with their shortcuts.
     fn render_empty_view(&self) -> Div {
         let theme = self.theme;
-        let action = |label: &'static str, keys: &'static [&'static str]| {
+        let action = |label: &'static str,
+                      keys: &'static [&'static str],
+                      action: Option<Box<dyn gpui::Action>>| {
             div()
                 .id(SharedString::from(format!("empty-action-{label}")))
+                .when_some(action, |item, action| {
+                    item.on_click(move |_: &ClickEvent, window, cx| {
+                        window.dispatch_action(action.boxed_clone(), cx);
+                    })
+                })
                 .flex()
                 .items_center()
                 .justify_between()
@@ -114,10 +121,22 @@ impl Workspace {
                     .min_w(px(280.0))
                     .flex_col()
                     .gap_1()
-                    .child(action("New Note", &["Ctrl", "N"]))
-                    .child(action("Start Recording", &["Ctrl", "⇧", "N"]))
+                    .child(action(
+                        "New Note",
+                        &["Ctrl", "N"],
+                        Some(Box::new(crate::actions::NewNote)),
+                    ))
+                    .child(action(
+                        "Start Recording",
+                        &["Ctrl", "⇧", "N"],
+                        Some(Box::new(crate::actions::StartRecording)),
+                    ))
                     .child(div().my_1().h(px(1.0)).bg(theme.accent))
-                    .child(action("Settings", &["Ctrl", ","])),
+                    .child(action(
+                        "Settings",
+                        &["Ctrl", ","],
+                        Some(Box::new(crate::actions::OpenSettings)),
+                    )),
             )
     }
 
@@ -341,7 +360,12 @@ impl Workspace {
             )
     }
 
-    fn measure_text(&self, text: &str, size: gpui::Pixels, window: &Window) -> gpui::Pixels {
+    pub(super) fn measure_text(
+        &self,
+        text: &str,
+        size: gpui::Pixels,
+        window: &Window,
+    ) -> gpui::Pixels {
         let mut style = window.text_style();
         style.font_size = size.into();
         if let Some(family) = &self.font_family {

@@ -1,3 +1,4 @@
+mod actions;
 mod assets;
 mod db;
 mod document;
@@ -82,6 +83,7 @@ fn main() -> anyhow::Result<()> {
     Application::new()
         .with_assets(assets::Assets)
         .run(move |cx: &mut App| {
+            actions::bind_keys(cx);
             cx.on_window_closed(|cx| {
                 if cx.windows().is_empty() {
                     // gpui 0.2.2's X11 client still holds its state borrow while
@@ -117,7 +119,12 @@ fn main() -> anyhow::Result<()> {
                     window_min_size: Some(size(px(640.0), px(400.0))),
                     ..Default::default()
                 },
-                |_window, cx| cx.new(|cx| Workspace::new(store, cx)),
+                |window, cx| {
+                    let workspace = cx.new(|cx| Workspace::new(store, cx));
+                    // Key bindings dispatch through the focused element.
+                    workspace.read(cx).focus_handle().focus(window);
+                    workspace
+                },
             );
             if let Err(error) = window {
                 tracing::error!(%error, "failed to open main window");

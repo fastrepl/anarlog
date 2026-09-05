@@ -3,10 +3,11 @@
 
 use chrono::{Local, Utc};
 use gpui::{
-    AnyElement, ClickEvent, Context, Div, MouseButton, SharedString, div, list, prelude::*, px,
+    AnyElement, ClickEvent, Context, Div, MouseButton, Pixels, SharedString, Stateful, div, list,
+    prelude::*, px,
 };
 
-use super::{SIDEBAR_WIDTH, Sessions, SidebarRow, Workspace};
+use super::{Sessions, SidebarRow, Workspace};
 use crate::theme::alpha;
 use crate::timeline::{self, Bucket, IndicatorPlacement, ItemKind, Precision};
 use crate::ui::{TailwindText as _, icon};
@@ -36,11 +37,15 @@ impl Workspace {
                         px(15.0),
                         self.chrome_icon_color("search"),
                     )))
-                    .child(self.tracked_chrome_button("new-note", cx).child(icon(
-                        "note-edit",
-                        px(15.0),
-                        self.chrome_icon_color("new-note"),
-                    )))
+                    .child(
+                        self.tracked_chrome_button("new-note", cx)
+                            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.new_note(cx)))
+                            .child(icon(
+                                "note-edit",
+                                px(15.0),
+                                self.chrome_icon_color("new-note"),
+                            )),
+                    )
                     .child(self.tracked_chrome_button("sort-notes", cx).child(icon(
                         "filter",
                         px(15.0),
@@ -66,6 +71,7 @@ impl Workspace {
                 let max_offset = self.list_state.max_offset_for_scrollbar().height;
                 let scrolled = -self.list_state.scroll_px_offset_for_scrollbar().y;
                 let show_bottom_fade = max_offset > px(0.0) && scrolled < max_offset - px(1.0);
+                let sticky_header = self.sticky_header(timeline);
                 div()
                     .relative()
                     .flex_1()
@@ -79,6 +85,16 @@ impl Workspace {
                         )
                         .size_full(),
                     )
+                    .when_some(sticky_header, |container, (bucket, top)| {
+                        container.child(
+                            div()
+                                .absolute()
+                                .top(top)
+                                .left_0()
+                                .right_0()
+                                .child(self.render_bucket_header(&timeline.buckets[bucket])),
+                        )
+                    })
                     .when(show_bottom_fade, |container| {
                         container.child(
                             div()
@@ -114,12 +130,69 @@ impl Workspace {
             .flex()
             .flex_col()
             .h_full()
-            .w(px(SIDEBAR_WIDTH))
+            .w(px(self.sidebar_width))
             .flex_shrink_0()
             .gap_1()
             .overflow_hidden()
             .child(header)
             .child(body)
+    }
+
+    /// CSS `sticky` bucket headers: while a bucket's own header has scrolled
+    /// off, its copy pins to the top of the list and is pushed away by the next
+    /// bucket's header. Returns the bucket and the overlay's top offset.
+    fn sticky_header(&self, timeline: &crate::timeline::Timeline) -> Option<(usize, Pixels)> {
+        const HEADER_HEIGHT: f32 = 28.0;
+        let scroll_top = self.list_state.logical_scroll_top();
+        let bucket = match self.rows.get(scroll_top.item_ix)? {
+            SidebarRow::Spacer => return None,
+            SidebarRow::Header { bucket } => {
+                if scroll_top.offset_in_item <= px(0.0) {
+                    return None;
+                }
+                *bucket
+            }
+            SidebarRow::Session { bucket, .. } => *bucket,
+        };
+        timeline.buckets.get(bucket)?;
+        let next_header = self
+            .rows
+            .iter()
+            .position(|row| matches!(row, SidebarRow::Header { bucket: b } if *b == bucket + 1));
+        let viewport_top = self.list_state.viewport_bounds().origin.y;
+        let top = next_header
+            .and_then(|ix| self.list_state.bounds_for_item(ix))
+            .map(|bounds| f32::from(bounds.origin.y - viewport_top) - HEADER_HEIGHT)
+            .unwrap_or(0.0)
+            .min(0.0);
+        Some((bucket, px(top)))
+    }
+
+    /// `ResizableHandle`: the 4px gap between the panels doubles as a
+    /// `cursor-ew-resize` drag handle with an 8px hit area.
+    pub(super) fn render_sidebar_handle(&self, cx: &Context<Self>) -> Stateful<Div> {
+        div()
+            .id("sidebar-resize-handle")
+            .relative()
+            .w(px(4.0))
+            .h_full()
+            .flex_shrink_0()
+            .cursor_col_resize()
+            .child(
+                div()
+                    .absolute()
+                    .top_0()
+                    .bottom_0()
+                    .left(px(-2.0))
+                    .w(px(8.0)),
+            )
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
+                    cx.stop_propagation();
+                    this.begin_sidebar_drag(event.position.x, cx);
+                }),
+            )
     }
 
     /// `TimelineTopChip`: `h-6 rounded-full border border-border bg-card
