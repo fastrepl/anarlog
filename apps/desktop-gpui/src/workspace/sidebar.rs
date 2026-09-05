@@ -493,7 +493,13 @@ impl Workspace {
             Utc::now(),
             &Local,
         ));
-        let folder = timeline::folder_label(&item.folder_id);
+        // `sidebar_show_folder` (Appearance › Notes list) hides the folder line.
+        let show_folder = self.provider_settings.bool_setting(
+            "sidebar_show_folder",
+            &["general", "sidebar_show_folder"],
+            true,
+        );
+        let folder = timeline::folder_label(&item.folder_id).filter(|_| show_folder);
 
         div().child(
             div()

@@ -235,6 +235,16 @@ fn hand_font_family() -> &'static str {
     }
 }
 
+/// `SYNCED_SETTING_KEYS` in `settings/schema.ts`.
+const SYNCED_SETTING_KEYS: [&str; 6] = [
+    "theme",
+    "app_icon",
+    "sidebar_show_folder",
+    "sidebar_show_tags",
+    "week_start",
+    "default_meeting_share_access",
+];
+
 /// Setting keys the General page edits, with their legacy paths and
 /// defaults from `settings/schema.ts`.
 const AUTOSTART: (&str, &[&str], bool) = ("autostart", &["general", "autostart"], false);
@@ -312,13 +322,20 @@ impl Workspace {
     }
 
     fn set_bool_setting(&mut self, key: &'static str, value: bool, cx: &mut Context<Self>) {
+        self.set_setting(key, serde_json::Value::Bool(value), cx);
+    }
+
+    /// Optimistically applies a setting, then writes it like `setSettingValues`.
+    fn set_setting(&mut self, key: &'static str, value: serde_json::Value, cx: &mut Context<Self>) {
+        let synced = SYNCED_SETTING_KEYS.contains(&key);
         self.provider_settings
             .raw
             .insert(key.to_string(), value.to_string());
+        if key == "theme" {
+            self.theme_preference = value.as_str().unwrap_or("system").to_string();
+        }
         cx.notify();
-        let task = self
-            .store
-            .set_setting(key.to_string(), serde_json::Value::Bool(value), false);
+        let task = self.store.set_setting(key.to_string(), value, synced);
         cx.spawn(async move |this, cx| match task.await {
             Ok(Ok(())) => {
                 this.update(cx, |this, cx| this.reload_settings(cx)).ok();
@@ -543,10 +560,23 @@ impl Workspace {
             .text_color(theme.foreground)
             .child(tab.title());
 
-        let mut page = div().flex().flex_col().gap_8().child(title);
-        if tab == SettingsTab::App {
-            page = page.child(self.render_general_settings(cx));
-        }
+        let page = match tab {
+            SettingsTab::App => div()
+                .flex()
+                .flex_col()
+                .gap_8()
+                .child(title)
+                .child(self.render_general_settings(cx)),
+            // `SettingsAppearance`: `max-w-5xl gap-10`.
+            SettingsTab::Appearance => div()
+                .flex()
+                .flex_col()
+                .max_w(px(1024.0))
+                .gap_10()
+                .child(title)
+                .child(self.render_appearance_settings(cx)),
+            _ => div().flex().flex_col().gap_8().child(title),
+        };
 
         div()
             .id("settings-content")
@@ -760,6 +790,272 @@ impl Workspace {
                 ),
             )
     }
+}
+
+impl Workspace {
+    /// `ThemeSelector` + `SidebarItemFieldsSettings` (the app icon picker is
+    /// macOS-only).
+    fn render_appearance_settings(&self, cx: &Context<Self>) -> Div {
+        let theme = self.theme;
+        let settings = &self.provider_settings;
+        let current = self.theme_preference.clone();
+        let show_folder = settings.bool_setting(
+            "sidebar_show_folder",
+            &["general", "sidebar_show_folder"],
+            true,
+        );
+        let show_tags = settings.bool_setting(
+            "sidebar_show_tags",
+            &["general", "sidebar_show_tags"],
+            false,
+        );
+
+        let options: [(&str, &str, &str); 3] = [
+            ("light", "Light", "Bright canvas"),
+            ("dark", "Dark", "Low-light canvas"),
+            ("system", "System", "Match your device"),
+        ];
+        let cards = options.into_iter().map(|(value, label, description)| {
+            let selected = current == value;
+            div()
+                .id(SharedString::from(format!("theme-{value}")))
+                .relative()
+                .flex()
+                .flex_col()
+                .flex_1()
+                .min_w_0()
+                .overflow_hidden()
+                .rounded_2xl()
+                .border_1()
+                .border_color(if selected {
+                    alpha(theme.foreground, 0.5)
+                } else {
+                    theme.border
+                })
+                .bg(if selected {
+                    alpha(theme.accent, 0.4)
+                } else {
+                    theme.background
+                })
+                .when(selected, |card| card.shadow_xs())
+                .when(!selected, |card| {
+                    card.hover(move |style| {
+                        style
+                            .border_color(alpha(theme.foreground, 0.3))
+                            .bg(alpha(theme.accent, 0.2))
+                    })
+                })
+                .cursor_pointer()
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                    this.set_setting("theme", serde_json::Value::String(value.to_string()), cx);
+                }))
+                .child(theme_preview(value))
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_2()
+                        .border_t_1()
+                        .border_color(theme.border)
+                        .p_3()
+                        .child(
+                            div()
+                                .min_w_0()
+                                .flex_1()
+                                .child(
+                                    div()
+                                        .tw_text_sm()
+                                        .font_weight(gpui::FontWeight::MEDIUM)
+                                        .text_color(theme.foreground)
+                                        .child(label),
+                                )
+                                .child(
+                                    div()
+                                        .tw_text_xs()
+                                        .text_color(theme.muted_foreground)
+                                        .child(description),
+                                ),
+                        )
+                        .when(selected, |row| {
+                            row.child(
+                                div()
+                                    .size(px(20.0))
+                                    .flex_shrink_0()
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .rounded_full()
+                                    .bg(theme.foreground)
+                                    .child(icon("check", px(12.0), theme.background)),
+                            )
+                        }),
+                )
+        });
+
+        div()
+            .flex()
+            .flex_col()
+            .gap_10()
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_4()
+                    .child(
+                        div()
+                            .child(
+                                div()
+                                    .tw_text_lg()
+                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .text_color(theme.foreground)
+                                    .child("Theme"),
+                            )
+                            .child(
+                                div()
+                                    .mt_1()
+                                    .tw_text_sm()
+                                    .text_color(theme.muted_foreground)
+                                    .child("Choose how Anarlog looks on this device."),
+                            ),
+                    )
+                    .child(div().flex().gap_3().children(cards)),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_4()
+                    .child(
+                        div()
+                            .child(
+                                div()
+                                    .tw_text_lg()
+                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .text_color(theme.foreground)
+                                    .child("Notes list"),
+                            )
+                            .child(
+                                div()
+                                    .mt_1()
+                                    .tw_text_sm()
+                                    .text_color(theme.muted_foreground)
+                                    .child("Choose extra fields to show on each note."),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_4()
+                            .child(setting_row(
+                                theme,
+                                "Folder",
+                                Some("Show the folder above the title."),
+                                false,
+                                render_switch(
+                                    theme,
+                                    "setting-show-folder",
+                                    show_folder,
+                                    cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                        this.set_bool_setting(
+                                            "sidebar_show_folder",
+                                            !show_folder,
+                                            cx,
+                                        );
+                                    }),
+                                )
+                                .into_any_element(),
+                            ))
+                            .child(setting_row(
+                                theme,
+                                "Tags",
+                                Some("Show tags under the date and time."),
+                                false,
+                                render_switch(
+                                    theme,
+                                    "setting-show-tags",
+                                    show_tags,
+                                    cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                        this.set_bool_setting("sidebar_show_tags", !show_tags, cx);
+                                    }),
+                                )
+                                .into_any_element(),
+                            )),
+                    ),
+            )
+    }
+}
+
+/// `ThemePreview`: a `h-28` mock canvas; the system card is the light canvas
+/// with the dark one clipped to the lower-left triangle.
+fn theme_preview(value: &str) -> Div {
+    let dark = value == "dark";
+    let mut preview = div()
+        .relative()
+        .h(px(112.0))
+        .overflow_hidden()
+        .child(preview_canvas(dark));
+    if value == "system" {
+        // No clip-path in GPUI: approximate the diagonal with a dark canvas
+        // shifted so it fills the lower-left half.
+        preview = preview.child(
+            div()
+                .absolute()
+                .top_0()
+                .left(px(-140.0))
+                .bottom_0()
+                .w(px(280.0))
+                .child(preview_canvas(true)),
+        );
+    }
+    preview
+}
+
+fn preview_canvas(dark: bool) -> Div {
+    let (bg, side, title, line) = if dark {
+        (rgb(0x0a0a0a), rgb(0x262626), rgb(0xd4d4d4), rgb(0x404040))
+    } else {
+        (rgb(0xffffff), rgb(0xf5f5f5), rgb(0x404040), rgb(0xe5e5e5))
+    };
+    div()
+        .absolute()
+        .top_0()
+        .left_0()
+        .right_0()
+        .bottom_0()
+        .flex()
+        .flex_col()
+        .p_3()
+        .bg(bg)
+        .child(
+            div()
+                .mb_3()
+                .flex()
+                .gap_1()
+                .child(div().size(px(6.0)).rounded_full().bg(rgb(0xf87171)))
+                .child(div().size(px(6.0)).rounded_full().bg(rgb(0xfbbf24)))
+                .child(div().size(px(6.0)).rounded_full().bg(rgb(0x4ade80))),
+        )
+        .child(
+            div()
+                .flex()
+                .flex_1()
+                .gap_3()
+                .child(div().w(px(46.0)).rounded_md().bg(side))
+                .child(
+                    div()
+                        .flex()
+                        .flex_1()
+                        .flex_col()
+                        .gap_2()
+                        .py_1()
+                        .child(div().h(px(6.0)).w(px(40.0)).rounded_full().bg(title))
+                        .child(div().h(px(4.0)).w_4_5().rounded_full().bg(line))
+                        .child(div().h(px(4.0)).w_3_5().rounded_full().bg(line))
+                        .child(div().h(px(4.0)).w_2_3().rounded_full().bg(line)),
+                ),
+        )
 }
 
 /// `<h2 className="mb-4 font-sans text-lg font-semibold">`
