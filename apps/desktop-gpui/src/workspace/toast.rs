@@ -32,7 +32,14 @@ pub(crate) struct Toast {
 
 /// `createToastRegistry` reduced to the conditions the shell can evaluate;
 /// downloads, updates, and the local STT server are not wired yet.
-pub(crate) fn current_toast(settings: &ProviderSettings, auth: Auth) -> Option<Toast> {
+pub(crate) fn current_toast(
+    settings: &ProviderSettings,
+    auth: Auth,
+    dismissed: &[String],
+) -> Option<Toast> {
+    // `isToastDismissed` for the `permanent` lifecycle: both promotions
+    // share the `auth-promotion` dismissal id.
+    let promotion_dismissed = dismissed.iter().any(|id| id == "auth-promotion");
     let is_auth_loading = auth == Auth::Loading;
     let is_authenticated = auth == Auth::SignedIn;
     let has_usable_stt =
@@ -40,7 +47,7 @@ pub(crate) fn current_toast(settings: &ProviderSettings, auth: Auth) -> Option<T
     let has_usable_llm =
         settings.has_llm() && (is_auth_loading || is_authenticated || !settings.has_pro_llm());
 
-    if !is_auth_loading && !is_authenticated {
+    if !is_auth_loading && !is_authenticated && !promotion_dismissed {
         return Some(Toast {
             id: "sign-in-benefits",
             description: "Sign in to get the most out of Anarlog".into(),
@@ -63,6 +70,7 @@ pub(crate) fn current_toast(settings: &ProviderSettings, auth: Auth) -> Option<T
     }
     if !is_auth_loading
         && !is_authenticated
+        && !promotion_dismissed
         && settings.has_llm()
         && settings.has_stt()
         && !settings.has_pro_stt()
@@ -88,7 +96,7 @@ impl Workspace {
         _window: &Window,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
-        let toast = current_toast(&self.provider_settings, self.auth)?;
+        let toast = current_toast(&self.provider_settings, self.auth, &self.dismissed_toasts)?;
         let theme = self.theme;
         let text = theme.toast_text;
         // sonner's collapsed stack: an older toast sits 14px behind the

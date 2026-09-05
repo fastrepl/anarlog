@@ -20,6 +20,7 @@ use gpui::{
 use crate::actions;
 use crate::db::{NotePreview, ProviderSettings, Store};
 use crate::editor::{BodyEditor, EditorEvent};
+use crate::store_file::StoreFile;
 use crate::text_input::{TextInput, TextInputEvent, TextInputStyle};
 use crate::theme::Theme;
 use crate::timeline::{self, Timeline};
@@ -110,13 +111,16 @@ pub struct Workspace {
     sidebar_drag: Option<SidebarDrag>,
     open_menu: Option<Menu>,
     open_note: Option<open_note::OpenNoteDialog>,
-    /// `recentlyOpenedSessionIds`, newest first.
+    /// `recentlyOpenedSessionIds`, newest first, persisted to `store.json`.
     recently_opened: Vec<String>,
+    store_file: StoreFile,
     /// The tab store's session tabs, in order; the tab strip itself is not
     /// shown, but `openNew` vs `openCurrent` decide which note gets closed.
     tabs: Vec<String>,
     provider_settings: ProviderSettings,
     auth: toast::Auth,
+    /// `getDismissedToasts` from `store.json`.
+    dismissed_toasts: Vec<String>,
     /// The `theme` setting: `light`, `dark`, or `system`.
     theme_preference: String,
     overflow_open: bool,
@@ -157,6 +161,7 @@ impl Workspace {
             }
         })
         .detach();
+        let store_file = StoreFile::next_to(store.path());
         let mut this = Self {
             store,
             theme,
@@ -182,9 +187,11 @@ impl Workspace {
             open_menu: None,
             open_note: None,
             recently_opened: Vec::new(),
+            store_file,
             tabs: Vec::new(),
             provider_settings: ProviderSettings::default(),
             auth: toast::Auth::Loading,
+            dismissed_toasts: Vec::new(),
             theme_preference: "system".to_string(),
             overflow_open: false,
             overflow_submenu: None,
@@ -199,7 +206,19 @@ impl Workspace {
         this.reload_sessions(cx);
         this.reload_settings(cx);
         this.watch_changes(cx);
+        this.restore_tabs(cx);
         this
+    }
+
+    /// `initializeDesktopTabs`: pinned session tabs come back through
+    /// `openNew` (the last one active) and the recent list is reloaded; with
+    /// nothing pinned the empty view shows.
+    fn restore_tabs(&mut self, cx: &mut Context<Self>) {
+        self.recently_opened = self.store_file.recently_opened_sessions();
+        self.dismissed_toasts = self.store_file.dismissed_toasts();
+        for tab in self.store_file.pinned_session_tabs() {
+            self.open_new(tab.id, cx);
+        }
     }
 
     fn reload_settings(&mut self, cx: &mut Context<Self>) {
@@ -369,11 +388,17 @@ impl Workspace {
     }
 
     fn open_tab(&mut self, session_id: String, force_new: bool, cx: &mut Context<Self>) {
-        // `addRecentlyOpened`
+        // `addRecentlyOpened`, saved through the store like the main window does.
         self.recently_opened.retain(|id| id != &session_id);
         self.recently_opened.insert(0, session_id.clone());
         self.recently_opened
             .truncate(open_note::MAX_RECENT_SESSIONS);
+        if let Err(error) = self
+            .store_file
+            .save_recently_opened_sessions(&self.recently_opened)
+        {
+            tracing::warn!(%error, "failed to save recently opened sessions");
+        }
 
         if self.selected.as_deref() == Some(session_id.as_str()) {
             return;

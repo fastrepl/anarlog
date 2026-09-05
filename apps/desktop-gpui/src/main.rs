@@ -3,6 +3,7 @@ mod assets;
 mod db;
 mod document;
 mod editor;
+mod store_file;
 mod text_input;
 mod theme;
 mod timeline;
