@@ -48,7 +48,6 @@ const commonSearch = {
   redirect: z.string().optional(),
   provider: z.enum(["apple", "azure", "github", "google"]).optional(),
   view: z.enum(["email", "sso"]).optional(),
-  rra: z.boolean().optional(),
 };
 
 const validateSearch = flowSearchSchema(commonSearch);
@@ -66,10 +65,7 @@ export const Route = createFileRoute("/auth")({
     ]);
 
     if (user) {
-      const shouldReauthWithProvider =
-        search.flow === "web" && !!search.provider;
-
-      if (search.flow === "web" && !shouldReauthWithProvider) {
+      if (search.flow === "web") {
         throw redirect({
           href: sanitizeInternalReturnPath(search.redirect),
         } as any);
@@ -120,7 +116,6 @@ function Component() {
     redirect,
     provider,
     view: initialView,
-    rra,
   } = Route.useSearch();
   const { existingUser, lastSignInMethod } = Route.useRouteContext();
   const [view, setView] = useState<AuthView>(initialView ?? "main");
@@ -141,29 +136,6 @@ function Component() {
           )}
           lastSignInMethod={lastSignInMethod}
         />
-      </AuthShell>
-    );
-  }
-
-  if (existingUser && flow === "web" && provider) {
-    const providerName = getOAuthProviderName(provider);
-
-    return (
-      <AuthShell
-        title={`Reconnect ${providerName}`}
-        description={`Refresh your ${providerName} access to continue with admin actions.`}
-      >
-        <div className="flex flex-col gap-4">
-          <OAuthButton
-            flow={flow}
-            scheme={scheme}
-            redirect={redirect}
-            provider={provider}
-            rra={rra}
-            autoStart
-            isLastUsed={lastSignInMethod === provider}
-          />
-        </div>
       </AuthShell>
     );
   }
@@ -215,7 +187,6 @@ function Component() {
                 scheme={scheme}
                 redirect={redirect}
                 provider="github"
-                rra={rra}
                 autoStart={autoStartOAuth}
                 isLastUsed={lastSignInMethod === "github"}
               />
@@ -961,7 +932,6 @@ function OAuthButton({
   scheme,
   redirect,
   provider,
-  rra,
   autoStart = false,
   isLastUsed = false,
 }: {
@@ -969,7 +939,6 @@ function OAuthButton({
   scheme?: DesktopScheme;
   redirect?: string;
   provider: OAuthProvider;
-  rra?: boolean;
   autoStart?: boolean;
   isLastUsed?: boolean;
 }) {
@@ -986,7 +955,6 @@ function OAuthButton({
           flow,
           scheme,
           redirect,
-          rra,
         },
       });
     },

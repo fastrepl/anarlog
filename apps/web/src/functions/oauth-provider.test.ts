@@ -15,7 +15,6 @@ test("Apple login uses provider defaults", () => {
   assert.equal(oauthProviderScopes("apple"), undefined);
 });
 
-test("GitHub only requests repo when reconnecting for admin access", () => {
+test("GitHub login uses provider defaults", () => {
   assert.equal(oauthProviderScopes("github"), undefined);
-  assert.equal(oauthProviderScopes("github", true), "repo");
 });

@@ -2,7 +2,6 @@ import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { isAdminEmail } from "@/functions/admin";
 import { getRequestAppOrigin } from "@/functions/app-origin";
 import { rememberLastSignInMethod } from "@/functions/auth-last-used";
 import { mintDesktopSessionForAuthenticatedUser } from "@/functions/auth-session";
@@ -229,27 +228,6 @@ function toMutationTokenResponse(result: FlowTokenResult, userId?: string) {
   };
 }
 
-async function upsertAdminGithubTokenIfNeeded(
-  supabase: SupabaseClient,
-  session: Session,
-) {
-  const email = session.user.email;
-  if (!session.provider_token || !email || !isAdminEmail(email)) {
-    return;
-  }
-
-  const githubUsername =
-    session.user.user_metadata?.user_name ||
-    session.user.user_metadata?.preferred_username;
-
-  await supabase.from("admins").upsert({
-    id: session.user.id,
-    github_token: session.provider_token,
-    github_username: githubUsername,
-    updated_at: new Date().toISOString(),
-  });
-}
-
 async function mintDesktopSessionFromEmail(email: string) {
   try {
     const admin = getSupabaseAdminClient();
@@ -298,7 +276,6 @@ export const doAuth = createServerFn({ method: "POST" })
   .inputValidator(
     shared.extend({
       provider: z.enum(["apple", "azure", "google", "github"]),
-      rra: z.boolean().optional(),
     }),
   )
   .handler(async ({ data }) => {
@@ -311,7 +288,7 @@ export const doAuth = createServerFn({ method: "POST" })
         redirectTo: buildAuthCallbackUrl(params),
         queryParams:
           data.provider === "azure" ? { prompt: "select_account" } : undefined,
-        scopes: oauthProviderScopes(data.provider, data.rra),
+        scopes: oauthProviderScopes(data.provider),
       },
     });
 
@@ -454,7 +431,6 @@ export const exchangeOAuthCode = createServerFn({ method: "POST" })
       };
     }
 
-    await upsertAdminGithubTokenIfNeeded(supabase, authData.session);
     await identifyServerUserFromRequest(authData.session.user.id, {
       method: "oauth",
       flow: data.flow,

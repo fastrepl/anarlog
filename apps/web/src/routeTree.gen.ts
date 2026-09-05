@@ -39,7 +39,6 @@ import { Route as TeamInviteInvitationIdRouteImport } from './routes/team/invite
 import { Route as SharePublicPublicSlugRouteImport } from './routes/share/public/$publicSlug'
 import { Route as ShareLinkShareIdRouteImport } from './routes/share/link/$shareId'
 import { Route as ShareInviteInvitationIdRouteImport } from './routes/share/invite/$invitationId'
-import { Route as ApiWebhooksSlackInteractiveRouteImport } from './routes/api/webhooks/slack-interactive'
 import { Route as ApiTweetIdRouteImport } from './routes/api/tweet.$id'
 import { Route as ApiAssetsSplatRouteImport } from './routes/api/assets.$'
 import { Route as ViewDownloadAppleSiliconRouteImport } from './routes/_view/download/apple-silicon'
@@ -55,23 +54,6 @@ import { Route as ViewAppIntegrationRouteImport } from './routes/_view/app/integ
 import { Route as ViewAppCheckoutRouteImport } from './routes/_view/app/checkout'
 import { Route as ViewAppAccountRouteImport } from './routes/_view/app/account'
 import { Route as ApiOgBlogSlugRouteImport } from './routes/api/og/blog/$slug'
-import { Route as ApiAdminKanbanUpdateRouteImport } from './routes/api/admin/kanban/update'
-import { Route as ApiAdminKanbanProjectsRouteImport } from './routes/api/admin/kanban/projects'
-import { Route as ApiAdminKanbanItemsRouteImport } from './routes/api/admin/kanban/items'
-import { Route as ApiAdminKanbanDeleteRouteImport } from './routes/api/admin/kanban/delete'
-import { Route as ApiAdminKanbanCreateRouteImport } from './routes/api/admin/kanban/create'
-import { Route as ApiAdminContentSaveRouteImport } from './routes/api/admin/content/save'
-import { Route as ApiAdminContentRenameRouteImport } from './routes/api/admin/content/rename'
-import { Route as ApiAdminContentPublishRouteImport } from './routes/api/admin/content/publish'
-import { Route as ApiAdminContentPendingPrRouteImport } from './routes/api/admin/content/pending-pr'
-import { Route as ApiAdminContentListDraftsRouteImport } from './routes/api/admin/content/list-drafts'
-import { Route as ApiAdminContentListRouteImport } from './routes/api/admin/content/list'
-import { Route as ApiAdminContentHistoryRouteImport } from './routes/api/admin/content/history'
-import { Route as ApiAdminContentGetBranchFileRouteImport } from './routes/api/admin/content/get-branch-file'
-import { Route as ApiAdminContentDuplicateRouteImport } from './routes/api/admin/content/duplicate'
-import { Route as ApiAdminContentDeleteRouteImport } from './routes/api/admin/content/delete'
-import { Route as ApiAdminContentCreateRouteImport } from './routes/api/admin/content/create'
-import { Route as ApiAdminContentAuditRouteImport } from './routes/api/admin/content/audit'
 import { Route as ApiOgShareTLinkIdRouteImport } from './routes/api/og/share/t/$linkId'
 import { Route as ApiOgSharePublicPublicSlugRouteImport } from './routes/api/og/share/public/$publicSlug'
 import { Route as ApiOgShareLinkShareIdRouteImport } from './routes/api/og/share/link/$shareId'
@@ -225,12 +207,6 @@ const ShareInviteInvitationIdRoute = ShareInviteInvitationIdRouteImport.update({
   path: '/share/invite/$invitationId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiWebhooksSlackInteractiveRoute =
-  ApiWebhooksSlackInteractiveRouteImport.update({
-    id: '/api/webhooks/slack-interactive',
-    path: '/api/webhooks/slack-interactive',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiTweetIdRoute = ApiTweetIdRouteImport.update({
   id: '/api/tweet/$id',
   path: '/api/tweet/$id',
@@ -307,95 +283,6 @@ const ApiOgBlogSlugRoute = ApiOgBlogSlugRouteImport.update({
   path: '/api/og/blog/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAdminKanbanUpdateRoute = ApiAdminKanbanUpdateRouteImport.update({
-  id: '/api/admin/kanban/update',
-  path: '/api/admin/kanban/update',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminKanbanProjectsRoute = ApiAdminKanbanProjectsRouteImport.update({
-  id: '/api/admin/kanban/projects',
-  path: '/api/admin/kanban/projects',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminKanbanItemsRoute = ApiAdminKanbanItemsRouteImport.update({
-  id: '/api/admin/kanban/items',
-  path: '/api/admin/kanban/items',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminKanbanDeleteRoute = ApiAdminKanbanDeleteRouteImport.update({
-  id: '/api/admin/kanban/delete',
-  path: '/api/admin/kanban/delete',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminKanbanCreateRoute = ApiAdminKanbanCreateRouteImport.update({
-  id: '/api/admin/kanban/create',
-  path: '/api/admin/kanban/create',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminContentSaveRoute = ApiAdminContentSaveRouteImport.update({
-  id: '/api/admin/content/save',
-  path: '/api/admin/content/save',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminContentRenameRoute = ApiAdminContentRenameRouteImport.update({
-  id: '/api/admin/content/rename',
-  path: '/api/admin/content/rename',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminContentPublishRoute = ApiAdminContentPublishRouteImport.update({
-  id: '/api/admin/content/publish',
-  path: '/api/admin/content/publish',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminContentPendingPrRoute =
-  ApiAdminContentPendingPrRouteImport.update({
-    id: '/api/admin/content/pending-pr',
-    path: '/api/admin/content/pending-pr',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiAdminContentListDraftsRoute =
-  ApiAdminContentListDraftsRouteImport.update({
-    id: '/api/admin/content/list-drafts',
-    path: '/api/admin/content/list-drafts',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiAdminContentListRoute = ApiAdminContentListRouteImport.update({
-  id: '/api/admin/content/list',
-  path: '/api/admin/content/list',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminContentHistoryRoute = ApiAdminContentHistoryRouteImport.update({
-  id: '/api/admin/content/history',
-  path: '/api/admin/content/history',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminContentGetBranchFileRoute =
-  ApiAdminContentGetBranchFileRouteImport.update({
-    id: '/api/admin/content/get-branch-file',
-    path: '/api/admin/content/get-branch-file',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiAdminContentDuplicateRoute =
-  ApiAdminContentDuplicateRouteImport.update({
-    id: '/api/admin/content/duplicate',
-    path: '/api/admin/content/duplicate',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiAdminContentDeleteRoute = ApiAdminContentDeleteRouteImport.update({
-  id: '/api/admin/content/delete',
-  path: '/api/admin/content/delete',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminContentCreateRoute = ApiAdminContentCreateRouteImport.update({
-  id: '/api/admin/content/create',
-  path: '/api/admin/content/create',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminContentAuditRoute = ApiAdminContentAuditRouteImport.update({
-  id: '/api/admin/content/audit',
-  path: '/api/admin/content/audit',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiOgShareTLinkIdRoute = ApiOgShareTLinkIdRouteImport.update({
   id: '/api/og/share/t/$linkId',
   path: '/api/og/share/t/$linkId',
@@ -451,30 +338,12 @@ export interface FileRoutesByFullPath {
   '/download/apple-silicon': typeof ViewDownloadAppleSiliconRoute
   '/api/assets/$': typeof ApiAssetsSplatRoute
   '/api/tweet/$id': typeof ApiTweetIdRoute
-  '/api/webhooks/slack-interactive': typeof ApiWebhooksSlackInteractiveRoute
   '/share/invite/$invitationId': typeof ShareInviteInvitationIdRoute
   '/share/link/$shareId': typeof ShareLinkShareIdRoute
   '/share/public/$publicSlug': typeof SharePublicPublicSlugRoute
   '/team/invite/$invitationId': typeof TeamInviteInvitationIdRoute
   '/app/': typeof ViewAppIndexRoute
   '/download/': typeof ViewDownloadIndexRoute
-  '/api/admin/content/audit': typeof ApiAdminContentAuditRoute
-  '/api/admin/content/create': typeof ApiAdminContentCreateRoute
-  '/api/admin/content/delete': typeof ApiAdminContentDeleteRoute
-  '/api/admin/content/duplicate': typeof ApiAdminContentDuplicateRoute
-  '/api/admin/content/get-branch-file': typeof ApiAdminContentGetBranchFileRoute
-  '/api/admin/content/history': typeof ApiAdminContentHistoryRoute
-  '/api/admin/content/list': typeof ApiAdminContentListRoute
-  '/api/admin/content/list-drafts': typeof ApiAdminContentListDraftsRoute
-  '/api/admin/content/pending-pr': typeof ApiAdminContentPendingPrRoute
-  '/api/admin/content/publish': typeof ApiAdminContentPublishRoute
-  '/api/admin/content/rename': typeof ApiAdminContentRenameRoute
-  '/api/admin/content/save': typeof ApiAdminContentSaveRoute
-  '/api/admin/kanban/create': typeof ApiAdminKanbanCreateRoute
-  '/api/admin/kanban/delete': typeof ApiAdminKanbanDeleteRoute
-  '/api/admin/kanban/items': typeof ApiAdminKanbanItemsRoute
-  '/api/admin/kanban/projects': typeof ApiAdminKanbanProjectsRoute
-  '/api/admin/kanban/update': typeof ApiAdminKanbanUpdateRoute
   '/api/og/blog/$slug': typeof ApiOgBlogSlugRoute
   '/api/og/share/link/$shareId': typeof ApiOgShareLinkShareIdRoute
   '/api/og/share/public/$publicSlug': typeof ApiOgSharePublicPublicSlugRoute
@@ -517,30 +386,12 @@ export interface FileRoutesByTo {
   '/download/apple-silicon': typeof ViewDownloadAppleSiliconRoute
   '/api/assets/$': typeof ApiAssetsSplatRoute
   '/api/tweet/$id': typeof ApiTweetIdRoute
-  '/api/webhooks/slack-interactive': typeof ApiWebhooksSlackInteractiveRoute
   '/share/invite/$invitationId': typeof ShareInviteInvitationIdRoute
   '/share/link/$shareId': typeof ShareLinkShareIdRoute
   '/share/public/$publicSlug': typeof SharePublicPublicSlugRoute
   '/team/invite/$invitationId': typeof TeamInviteInvitationIdRoute
   '/app': typeof ViewAppIndexRoute
   '/download': typeof ViewDownloadIndexRoute
-  '/api/admin/content/audit': typeof ApiAdminContentAuditRoute
-  '/api/admin/content/create': typeof ApiAdminContentCreateRoute
-  '/api/admin/content/delete': typeof ApiAdminContentDeleteRoute
-  '/api/admin/content/duplicate': typeof ApiAdminContentDuplicateRoute
-  '/api/admin/content/get-branch-file': typeof ApiAdminContentGetBranchFileRoute
-  '/api/admin/content/history': typeof ApiAdminContentHistoryRoute
-  '/api/admin/content/list': typeof ApiAdminContentListRoute
-  '/api/admin/content/list-drafts': typeof ApiAdminContentListDraftsRoute
-  '/api/admin/content/pending-pr': typeof ApiAdminContentPendingPrRoute
-  '/api/admin/content/publish': typeof ApiAdminContentPublishRoute
-  '/api/admin/content/rename': typeof ApiAdminContentRenameRoute
-  '/api/admin/content/save': typeof ApiAdminContentSaveRoute
-  '/api/admin/kanban/create': typeof ApiAdminKanbanCreateRoute
-  '/api/admin/kanban/delete': typeof ApiAdminKanbanDeleteRoute
-  '/api/admin/kanban/items': typeof ApiAdminKanbanItemsRoute
-  '/api/admin/kanban/projects': typeof ApiAdminKanbanProjectsRoute
-  '/api/admin/kanban/update': typeof ApiAdminKanbanUpdateRoute
   '/api/og/blog/$slug': typeof ApiOgBlogSlugRoute
   '/api/og/share/link/$shareId': typeof ApiOgShareLinkShareIdRoute
   '/api/og/share/public/$publicSlug': typeof ApiOgSharePublicPublicSlugRoute
@@ -586,30 +437,12 @@ export interface FileRoutesById {
   '/_view/download/apple-silicon': typeof ViewDownloadAppleSiliconRoute
   '/api/assets/$': typeof ApiAssetsSplatRoute
   '/api/tweet/$id': typeof ApiTweetIdRoute
-  '/api/webhooks/slack-interactive': typeof ApiWebhooksSlackInteractiveRoute
   '/share/invite/$invitationId': typeof ShareInviteInvitationIdRoute
   '/share/link/$shareId': typeof ShareLinkShareIdRoute
   '/share/public/$publicSlug': typeof SharePublicPublicSlugRoute
   '/team/invite/$invitationId': typeof TeamInviteInvitationIdRoute
   '/_view/app/': typeof ViewAppIndexRoute
   '/_view/download/': typeof ViewDownloadIndexRoute
-  '/api/admin/content/audit': typeof ApiAdminContentAuditRoute
-  '/api/admin/content/create': typeof ApiAdminContentCreateRoute
-  '/api/admin/content/delete': typeof ApiAdminContentDeleteRoute
-  '/api/admin/content/duplicate': typeof ApiAdminContentDuplicateRoute
-  '/api/admin/content/get-branch-file': typeof ApiAdminContentGetBranchFileRoute
-  '/api/admin/content/history': typeof ApiAdminContentHistoryRoute
-  '/api/admin/content/list': typeof ApiAdminContentListRoute
-  '/api/admin/content/list-drafts': typeof ApiAdminContentListDraftsRoute
-  '/api/admin/content/pending-pr': typeof ApiAdminContentPendingPrRoute
-  '/api/admin/content/publish': typeof ApiAdminContentPublishRoute
-  '/api/admin/content/rename': typeof ApiAdminContentRenameRoute
-  '/api/admin/content/save': typeof ApiAdminContentSaveRoute
-  '/api/admin/kanban/create': typeof ApiAdminKanbanCreateRoute
-  '/api/admin/kanban/delete': typeof ApiAdminKanbanDeleteRoute
-  '/api/admin/kanban/items': typeof ApiAdminKanbanItemsRoute
-  '/api/admin/kanban/projects': typeof ApiAdminKanbanProjectsRoute
-  '/api/admin/kanban/update': typeof ApiAdminKanbanUpdateRoute
   '/api/og/blog/$slug': typeof ApiOgBlogSlugRoute
   '/api/og/share/link/$shareId': typeof ApiOgShareLinkShareIdRoute
   '/api/og/share/public/$publicSlug': typeof ApiOgSharePublicPublicSlugRoute
@@ -655,30 +488,12 @@ export interface FileRouteTypes {
     | '/download/apple-silicon'
     | '/api/assets/$'
     | '/api/tweet/$id'
-    | '/api/webhooks/slack-interactive'
     | '/share/invite/$invitationId'
     | '/share/link/$shareId'
     | '/share/public/$publicSlug'
     | '/team/invite/$invitationId'
     | '/app/'
     | '/download/'
-    | '/api/admin/content/audit'
-    | '/api/admin/content/create'
-    | '/api/admin/content/delete'
-    | '/api/admin/content/duplicate'
-    | '/api/admin/content/get-branch-file'
-    | '/api/admin/content/history'
-    | '/api/admin/content/list'
-    | '/api/admin/content/list-drafts'
-    | '/api/admin/content/pending-pr'
-    | '/api/admin/content/publish'
-    | '/api/admin/content/rename'
-    | '/api/admin/content/save'
-    | '/api/admin/kanban/create'
-    | '/api/admin/kanban/delete'
-    | '/api/admin/kanban/items'
-    | '/api/admin/kanban/projects'
-    | '/api/admin/kanban/update'
     | '/api/og/blog/$slug'
     | '/api/og/share/link/$shareId'
     | '/api/og/share/public/$publicSlug'
@@ -721,30 +536,12 @@ export interface FileRouteTypes {
     | '/download/apple-silicon'
     | '/api/assets/$'
     | '/api/tweet/$id'
-    | '/api/webhooks/slack-interactive'
     | '/share/invite/$invitationId'
     | '/share/link/$shareId'
     | '/share/public/$publicSlug'
     | '/team/invite/$invitationId'
     | '/app'
     | '/download'
-    | '/api/admin/content/audit'
-    | '/api/admin/content/create'
-    | '/api/admin/content/delete'
-    | '/api/admin/content/duplicate'
-    | '/api/admin/content/get-branch-file'
-    | '/api/admin/content/history'
-    | '/api/admin/content/list'
-    | '/api/admin/content/list-drafts'
-    | '/api/admin/content/pending-pr'
-    | '/api/admin/content/publish'
-    | '/api/admin/content/rename'
-    | '/api/admin/content/save'
-    | '/api/admin/kanban/create'
-    | '/api/admin/kanban/delete'
-    | '/api/admin/kanban/items'
-    | '/api/admin/kanban/projects'
-    | '/api/admin/kanban/update'
     | '/api/og/blog/$slug'
     | '/api/og/share/link/$shareId'
     | '/api/og/share/public/$publicSlug'
@@ -789,30 +586,12 @@ export interface FileRouteTypes {
     | '/_view/download/apple-silicon'
     | '/api/assets/$'
     | '/api/tweet/$id'
-    | '/api/webhooks/slack-interactive'
     | '/share/invite/$invitationId'
     | '/share/link/$shareId'
     | '/share/public/$publicSlug'
     | '/team/invite/$invitationId'
     | '/_view/app/'
     | '/_view/download/'
-    | '/api/admin/content/audit'
-    | '/api/admin/content/create'
-    | '/api/admin/content/delete'
-    | '/api/admin/content/duplicate'
-    | '/api/admin/content/get-branch-file'
-    | '/api/admin/content/history'
-    | '/api/admin/content/list'
-    | '/api/admin/content/list-drafts'
-    | '/api/admin/content/pending-pr'
-    | '/api/admin/content/publish'
-    | '/api/admin/content/rename'
-    | '/api/admin/content/save'
-    | '/api/admin/kanban/create'
-    | '/api/admin/kanban/delete'
-    | '/api/admin/kanban/items'
-    | '/api/admin/kanban/projects'
-    | '/api/admin/kanban/update'
     | '/api/og/blog/$slug'
     | '/api/og/share/link/$shareId'
     | '/api/og/share/public/$publicSlug'
@@ -845,28 +624,10 @@ export interface RootRouteChildren {
   YcIndexRoute: typeof YcIndexRoute
   ApiAssetsSplatRoute: typeof ApiAssetsSplatRoute
   ApiTweetIdRoute: typeof ApiTweetIdRoute
-  ApiWebhooksSlackInteractiveRoute: typeof ApiWebhooksSlackInteractiveRoute
   ShareInviteInvitationIdRoute: typeof ShareInviteInvitationIdRoute
   ShareLinkShareIdRoute: typeof ShareLinkShareIdRoute
   SharePublicPublicSlugRoute: typeof SharePublicPublicSlugRoute
   TeamInviteInvitationIdRoute: typeof TeamInviteInvitationIdRoute
-  ApiAdminContentAuditRoute: typeof ApiAdminContentAuditRoute
-  ApiAdminContentCreateRoute: typeof ApiAdminContentCreateRoute
-  ApiAdminContentDeleteRoute: typeof ApiAdminContentDeleteRoute
-  ApiAdminContentDuplicateRoute: typeof ApiAdminContentDuplicateRoute
-  ApiAdminContentGetBranchFileRoute: typeof ApiAdminContentGetBranchFileRoute
-  ApiAdminContentHistoryRoute: typeof ApiAdminContentHistoryRoute
-  ApiAdminContentListRoute: typeof ApiAdminContentListRoute
-  ApiAdminContentListDraftsRoute: typeof ApiAdminContentListDraftsRoute
-  ApiAdminContentPendingPrRoute: typeof ApiAdminContentPendingPrRoute
-  ApiAdminContentPublishRoute: typeof ApiAdminContentPublishRoute
-  ApiAdminContentRenameRoute: typeof ApiAdminContentRenameRoute
-  ApiAdminContentSaveRoute: typeof ApiAdminContentSaveRoute
-  ApiAdminKanbanCreateRoute: typeof ApiAdminKanbanCreateRoute
-  ApiAdminKanbanDeleteRoute: typeof ApiAdminKanbanDeleteRoute
-  ApiAdminKanbanItemsRoute: typeof ApiAdminKanbanItemsRoute
-  ApiAdminKanbanProjectsRoute: typeof ApiAdminKanbanProjectsRoute
-  ApiAdminKanbanUpdateRoute: typeof ApiAdminKanbanUpdateRoute
   ApiOgBlogSlugRoute: typeof ApiOgBlogSlugRoute
   ApiOgShareLinkShareIdRoute: typeof ApiOgShareLinkShareIdRoute
   ApiOgSharePublicPublicSlugRoute: typeof ApiOgSharePublicPublicSlugRoute
@@ -1085,13 +846,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShareInviteInvitationIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/webhooks/slack-interactive': {
-      id: '/api/webhooks/slack-interactive'
-      path: '/api/webhooks/slack-interactive'
-      fullPath: '/api/webhooks/slack-interactive'
-      preLoaderRoute: typeof ApiWebhooksSlackInteractiveRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/tweet/$id': {
       id: '/api/tweet/$id'
       path: '/api/tweet/$id'
@@ -1197,125 +951,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOgBlogSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/admin/kanban/update': {
-      id: '/api/admin/kanban/update'
-      path: '/api/admin/kanban/update'
-      fullPath: '/api/admin/kanban/update'
-      preLoaderRoute: typeof ApiAdminKanbanUpdateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/kanban/projects': {
-      id: '/api/admin/kanban/projects'
-      path: '/api/admin/kanban/projects'
-      fullPath: '/api/admin/kanban/projects'
-      preLoaderRoute: typeof ApiAdminKanbanProjectsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/kanban/items': {
-      id: '/api/admin/kanban/items'
-      path: '/api/admin/kanban/items'
-      fullPath: '/api/admin/kanban/items'
-      preLoaderRoute: typeof ApiAdminKanbanItemsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/kanban/delete': {
-      id: '/api/admin/kanban/delete'
-      path: '/api/admin/kanban/delete'
-      fullPath: '/api/admin/kanban/delete'
-      preLoaderRoute: typeof ApiAdminKanbanDeleteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/kanban/create': {
-      id: '/api/admin/kanban/create'
-      path: '/api/admin/kanban/create'
-      fullPath: '/api/admin/kanban/create'
-      preLoaderRoute: typeof ApiAdminKanbanCreateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/content/save': {
-      id: '/api/admin/content/save'
-      path: '/api/admin/content/save'
-      fullPath: '/api/admin/content/save'
-      preLoaderRoute: typeof ApiAdminContentSaveRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/content/rename': {
-      id: '/api/admin/content/rename'
-      path: '/api/admin/content/rename'
-      fullPath: '/api/admin/content/rename'
-      preLoaderRoute: typeof ApiAdminContentRenameRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/content/publish': {
-      id: '/api/admin/content/publish'
-      path: '/api/admin/content/publish'
-      fullPath: '/api/admin/content/publish'
-      preLoaderRoute: typeof ApiAdminContentPublishRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/content/pending-pr': {
-      id: '/api/admin/content/pending-pr'
-      path: '/api/admin/content/pending-pr'
-      fullPath: '/api/admin/content/pending-pr'
-      preLoaderRoute: typeof ApiAdminContentPendingPrRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/content/list-drafts': {
-      id: '/api/admin/content/list-drafts'
-      path: '/api/admin/content/list-drafts'
-      fullPath: '/api/admin/content/list-drafts'
-      preLoaderRoute: typeof ApiAdminContentListDraftsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/content/list': {
-      id: '/api/admin/content/list'
-      path: '/api/admin/content/list'
-      fullPath: '/api/admin/content/list'
-      preLoaderRoute: typeof ApiAdminContentListRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/content/history': {
-      id: '/api/admin/content/history'
-      path: '/api/admin/content/history'
-      fullPath: '/api/admin/content/history'
-      preLoaderRoute: typeof ApiAdminContentHistoryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/content/get-branch-file': {
-      id: '/api/admin/content/get-branch-file'
-      path: '/api/admin/content/get-branch-file'
-      fullPath: '/api/admin/content/get-branch-file'
-      preLoaderRoute: typeof ApiAdminContentGetBranchFileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/content/duplicate': {
-      id: '/api/admin/content/duplicate'
-      path: '/api/admin/content/duplicate'
-      fullPath: '/api/admin/content/duplicate'
-      preLoaderRoute: typeof ApiAdminContentDuplicateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/content/delete': {
-      id: '/api/admin/content/delete'
-      path: '/api/admin/content/delete'
-      fullPath: '/api/admin/content/delete'
-      preLoaderRoute: typeof ApiAdminContentDeleteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/content/create': {
-      id: '/api/admin/content/create'
-      path: '/api/admin/content/create'
-      fullPath: '/api/admin/content/create'
-      preLoaderRoute: typeof ApiAdminContentCreateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/content/audit': {
-      id: '/api/admin/content/audit'
-      path: '/api/admin/content/audit'
-      fullPath: '/api/admin/content/audit'
-      preLoaderRoute: typeof ApiAdminContentAuditRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/og/share/t/$linkId': {
       id: '/api/og/share/t/$linkId'
       path: '/api/og/share/t/$linkId'
@@ -1416,28 +1051,10 @@ const rootRouteChildren: RootRouteChildren = {
   YcIndexRoute: YcIndexRoute,
   ApiAssetsSplatRoute: ApiAssetsSplatRoute,
   ApiTweetIdRoute: ApiTweetIdRoute,
-  ApiWebhooksSlackInteractiveRoute: ApiWebhooksSlackInteractiveRoute,
   ShareInviteInvitationIdRoute: ShareInviteInvitationIdRoute,
   ShareLinkShareIdRoute: ShareLinkShareIdRoute,
   SharePublicPublicSlugRoute: SharePublicPublicSlugRoute,
   TeamInviteInvitationIdRoute: TeamInviteInvitationIdRoute,
-  ApiAdminContentAuditRoute: ApiAdminContentAuditRoute,
-  ApiAdminContentCreateRoute: ApiAdminContentCreateRoute,
-  ApiAdminContentDeleteRoute: ApiAdminContentDeleteRoute,
-  ApiAdminContentDuplicateRoute: ApiAdminContentDuplicateRoute,
-  ApiAdminContentGetBranchFileRoute: ApiAdminContentGetBranchFileRoute,
-  ApiAdminContentHistoryRoute: ApiAdminContentHistoryRoute,
-  ApiAdminContentListRoute: ApiAdminContentListRoute,
-  ApiAdminContentListDraftsRoute: ApiAdminContentListDraftsRoute,
-  ApiAdminContentPendingPrRoute: ApiAdminContentPendingPrRoute,
-  ApiAdminContentPublishRoute: ApiAdminContentPublishRoute,
-  ApiAdminContentRenameRoute: ApiAdminContentRenameRoute,
-  ApiAdminContentSaveRoute: ApiAdminContentSaveRoute,
-  ApiAdminKanbanCreateRoute: ApiAdminKanbanCreateRoute,
-  ApiAdminKanbanDeleteRoute: ApiAdminKanbanDeleteRoute,
-  ApiAdminKanbanItemsRoute: ApiAdminKanbanItemsRoute,
-  ApiAdminKanbanProjectsRoute: ApiAdminKanbanProjectsRoute,
-  ApiAdminKanbanUpdateRoute: ApiAdminKanbanUpdateRoute,
   ApiOgBlogSlugRoute: ApiOgBlogSlugRoute,
   ApiOgShareLinkShareIdRoute: ApiOgShareLinkShareIdRoute,
   ApiOgSharePublicPublicSlugRoute: ApiOgSharePublicPublicSlugRoute,
