@@ -260,6 +260,10 @@ impl Workspace {
                 let target = viewport.top() + viewport.size.height * ratio;
                 self.list_state.scroll_by(y - target);
                 self.anchor_scroll = None;
+                // The chips read the clamped scroll offset, which the list
+                // settles while painting; re-evaluate them on the next frame.
+                let this = cx.entity();
+                window.on_next_frame(move |_, cx| this.update(cx, |_, cx| cx.notify()));
             }
             None => {
                 self.list_state.scroll_to(gpui::ListOffset {
