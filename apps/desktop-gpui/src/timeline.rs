@@ -16,14 +16,35 @@ pub struct SessionRow {
     pub locked: i64,
 }
 
+/// `useTimelineEventsTable` row: calendar events not yet backed by a session.
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
+pub struct EventRow {
+    pub id: String,
+    pub title: String,
+    pub started_at: String,
+    pub ended_at: String,
+    pub tracking_id_event: String,
+    pub is_all_day: i64,
+    pub meeting_link: String,
+    pub calendar_color: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Precision {
     Time,
     Date,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ItemKind {
+    Session,
+    /// A calendar event with no session yet; the app opens one on click.
+    Event,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Item {
+    pub kind: ItemKind,
     pub id: String,
     pub title: String,
     pub timestamp: DateTime<Utc>,
@@ -345,12 +366,21 @@ where
     }
 }
 
-/// `deriveTimelineWindowData` + `collectTimelineItems` + `compareTimelineItems`
-/// + `buildDateBuckets` for sessions, newest first, grouped by date.
-pub fn build<Tz: TimeZone>(rows: &[SessionRow], now: DateTime<Utc>, tz: &Tz) -> Timeline {
+/// `deriveTimelineWindowData`, `collectTimelineItems`, `compareTimelineItems`
+/// and `buildDateBuckets`: sessions and calendar events, newest first, grouped
+/// by date. Sessions win over events that share a tracking id, and events
+/// that already ended are not listed (their sessions are).
+pub fn build<Tz: TimeZone>(
+    rows: &[SessionRow],
+    events: &[EventRow],
+    now: DateTime<Utc>,
+    tz: &Tz,
+) -> Timeline {
     let tomorrow_upper_bound = start_of_day_ms(shift(now, 2), tz);
     let mut has_more_future_items = false;
-    let mut items: Vec<Item> = Vec::with_capacity(rows.len());
+    let mut items: Vec<Item> = Vec::with_capacity(rows.len() + events.len());
+    let mut seen_tracking_ids: std::collections::HashSet<String> = Default::default();
+
     for row in rows {
         let Some(timestamp) = session_timestamp(row, tz) else {
             continue;
@@ -360,11 +390,20 @@ pub fn build<Tz: TimeZone>(rows: &[SessionRow], now: DateTime<Utc>, tz: &Tz) -> 
             continue;
         }
         let event = SessionEvent::parse(&row.event_json);
+        if let Some(tracking_id) = event
+            .as_ref()
+            .and_then(|event| event.tracking_id.as_deref())
+            .filter(|id| !id.is_empty())
+            && !seen_tracking_ids.insert(tracking_id.to_string())
+        {
+            continue;
+        }
         let ended_at = event
             .as_ref()
             .and_then(|event| event.ended_at.as_deref())
             .and_then(|value| parse_date(value, tz));
         items.push(Item {
+            kind: ItemKind::Session,
             id: row.id.clone(),
             title: row.title.clone(),
             timestamp,
@@ -372,6 +411,49 @@ pub fn build<Tz: TimeZone>(rows: &[SessionRow], now: DateTime<Utc>, tz: &Tz) -> 
             locked: row.locked != 0,
             folder_id: row.folder_id.clone(),
             event,
+        });
+    }
+
+    for event in events {
+        let started = parse_date(&event.started_at, tz);
+        let ended = parse_date(&event.ended_at, tz);
+        let window_time = started.or(ended);
+        if window_time.is_some_and(|t| t.timestamp_millis() >= tomorrow_upper_bound) {
+            has_more_future_items = true;
+            continue;
+        }
+        if !event.tracking_id_event.is_empty()
+            && seen_tracking_ids.contains(&event.tracking_id_event)
+        {
+            continue;
+        }
+        let Some(time_to_check) = ended.or(started) else {
+            continue;
+        };
+        // `!isPast(timeToCheck)`
+        if time_to_check <= now {
+            continue;
+        }
+        let Some(timestamp) = started else {
+            continue;
+        };
+        if !event.tracking_id_event.is_empty() {
+            seen_tracking_ids.insert(event.tracking_id_event.clone());
+        }
+        items.push(Item {
+            kind: ItemKind::Event,
+            id: event.id.clone(),
+            title: event.title.clone(),
+            timestamp,
+            ended_at: ended,
+            locked: false,
+            folder_id: String::new(),
+            event: Some(SessionEvent {
+                tracking_id: Some(event.tracking_id_event.clone()),
+                started_at: Some(event.started_at.clone()),
+                ended_at: Some(event.ended_at.clone()),
+                meeting_link: Some(event.meeting_link.clone()),
+            }),
         });
     }
 
@@ -498,7 +580,7 @@ mod tests {
                 None,
             ),
         ];
-        let timeline = build(&rows, now(), &Utc);
+        let timeline = build(&rows, &[], now(), &Utc);
         let labels: Vec<&str> = timeline.buckets.iter().map(|b| b.label.as_str()).collect();
         assert_eq!(labels, ["Tomorrow", "Yesterday"]);
         assert!(!timeline.has_more_future_items);
@@ -516,7 +598,7 @@ mod tests {
             row("later", "Day after", "2024-01-17T00:00:00.000Z", None),
             row("unparseable", "Broken", "not a date", None),
         ];
-        let timeline = build(&rows, now(), &Utc);
+        let timeline = build(&rows, &[], now(), &Utc);
         let ids: Vec<&str> = timeline
             .buckets
             .iter()
@@ -534,7 +616,7 @@ mod tests {
             row("a", "Alpha", "2024-01-15T09:00:00.000Z", None),
             row("newer", "Zed", "2024-01-15T10:00:00.000Z", None),
         ];
-        let timeline = build(&rows, now(), &Utc);
+        let timeline = build(&rows, &[], now(), &Utc);
         let ids: Vec<&str> = timeline.buckets[0]
             .items
             .iter()
@@ -549,7 +631,7 @@ mod tests {
             row("future", "Future", "2024-01-15T15:00:00Z", None),
             row("past", "Past", "2024-01-15T09:00:00Z", None),
         ];
-        let items = build(&rows, now(), &Utc).buckets.remove(0).items;
+        let items = build(&rows, &[], now(), &Utc).buckets.remove(0).items;
         assert_eq!(
             indicator_placement(&items, now()),
             IndicatorPlacement::Before { index: 1 }
@@ -571,7 +653,7 @@ mod tests {
             "meeting_link": "https://zoom.us/j/1"
         })
         .to_string();
-        let items = build(&[active], now(), &Utc).buckets.remove(0).items;
+        let items = build(&[active], &[], now(), &Utc).buckets.remove(0).items;
         assert_eq!(
             indicator_placement(&items, now()),
             IndicatorPlacement::Inside {
@@ -592,13 +674,104 @@ mod tests {
         let no_key = row("k", "No key", "2024-01-15T09:00:00Z", None);
         let mut no_key = no_key;
         no_key.event_json = serde_json::json!({ "tracking_id": "x" }).to_string();
-        let timeline = build(&[empty, no_key], now(), &Utc);
+        let timeline = build(&[empty, no_key], &[], now(), &Utc);
         let ids: Vec<&str> = timeline
             .buckets
             .iter()
             .flat_map(|b| b.items.iter().map(|i| i.id.as_str()))
             .collect();
         assert_eq!(ids, ["k"]);
+    }
+
+    fn event(id: &str, title: &str, started: &str, ended: &str, tracking: &str) -> EventRow {
+        EventRow {
+            id: id.into(),
+            title: title.into(),
+            started_at: started.into(),
+            ended_at: ended.into(),
+            tracking_id_event: tracking.into(),
+            is_all_day: 0,
+            meeting_link: String::new(),
+            calendar_color: String::new(),
+        }
+    }
+
+    #[test]
+    fn events_merge_after_sessions_skip_past_and_dedupe_by_tracking_id() {
+        let mut backed = row("s-backed", "Backed", "2024-01-15T08:00:00Z", None);
+        backed.event_json = serde_json::json!({
+            "tracking_id": "track-a",
+            "started_at": "2024-01-15T14:00:00Z"
+        })
+        .to_string();
+        let rows = [backed];
+        let events = [
+            event(
+                "e-dup",
+                "Dup of backed",
+                "2024-01-15T14:00:00Z",
+                "2024-01-15T15:00:00Z",
+                "track-a",
+            ),
+            event(
+                "e-past",
+                "Already over",
+                "2024-01-15T09:00:00Z",
+                "2024-01-15T10:00:00Z",
+                "track-b",
+            ),
+            event(
+                "e-live",
+                "Running now",
+                "2024-01-15T11:00:00Z",
+                "2024-01-15T13:00:00Z",
+                "track-c",
+            ),
+            event(
+                "e-later",
+                "Tomorrow",
+                "2024-01-16T09:00:00Z",
+                "2024-01-16T10:00:00Z",
+                "track-d",
+            ),
+            event(
+                "e-far",
+                "Next week",
+                "2024-01-22T09:00:00Z",
+                "2024-01-22T10:00:00Z",
+                "track-e",
+            ),
+            event(
+                "e-recur-1",
+                "Weekly",
+                "2024-01-16T12:00:00Z",
+                "2024-01-16T13:00:00Z",
+                "track-f",
+            ),
+            event(
+                "e-recur-2",
+                "Weekly",
+                "2024-01-16T12:00:00Z",
+                "2024-01-16T13:00:00Z",
+                "track-f",
+            ),
+        ];
+        let timeline = build(&rows, &events, now(), &Utc);
+        let ids: Vec<(&str, ItemKind)> = timeline
+            .buckets
+            .iter()
+            .flat_map(|b| b.items.iter().map(|i| (i.id.as_str(), i.kind)))
+            .collect();
+        assert_eq!(
+            ids,
+            [
+                ("e-recur-1", ItemKind::Event),
+                ("e-later", ItemKind::Event),
+                ("s-backed", ItemKind::Session),
+                ("e-live", ItemKind::Event),
+            ]
+        );
+        assert!(timeline.has_more_future_items);
     }
 
     #[test]

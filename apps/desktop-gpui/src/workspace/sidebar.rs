@@ -8,7 +8,7 @@ use gpui::{
 
 use super::{SIDEBAR_WIDTH, Sessions, SidebarRow, Workspace};
 use crate::theme::alpha;
-use crate::timeline::{self, Bucket, IndicatorPlacement, Precision};
+use crate::timeline::{self, Bucket, IndicatorPlacement, ItemKind, Precision};
 use crate::ui::{TailwindText as _, icon};
 
 impl Workspace {
@@ -57,15 +57,38 @@ impl Workspace {
                 .tw_text_sm()
                 .text_color(theme.destructive)
                 .child(SharedString::from(error.clone())),
-            Sessions::Ready(_) => div().flex_1().min_h_0().child(
-                list(
-                    self.list_state.clone(),
-                    cx.processor(|this, index: usize, _window, cx| {
-                        this.render_sidebar_row(index, cx)
-                    }),
-                )
-                .size_full(),
-            ),
+            Sessions::Ready(timeline) => {
+                // `showOpenCalendarChip`: only while scrolled to the top.
+                let scroll_top = self.list_state.logical_scroll_top();
+                let at_top = scroll_top.item_ix == 0 && scroll_top.offset_in_item <= px(0.0);
+                let show_chip = timeline.has_more_future_items && at_top;
+                div()
+                    .relative()
+                    .flex_1()
+                    .min_h_0()
+                    .child(
+                        list(
+                            self.list_state.clone(),
+                            cx.processor(|this, index: usize, _window, cx| {
+                                this.render_sidebar_row(index, cx)
+                            }),
+                        )
+                        .size_full(),
+                    )
+                    .when(show_chip, |container| {
+                        container.child(
+                            // Chip stack at `top-1` when chips overlap the header row.
+                            div()
+                                .absolute()
+                                .top_1()
+                                .left_0()
+                                .right_0()
+                                .flex()
+                                .justify_center()
+                                .child(self.render_open_calendar_chip(cx)),
+                        )
+                    })
+            }
         };
 
         div()
@@ -80,11 +103,36 @@ impl Workspace {
             .child(body)
     }
 
+    /// `TimelineTopChip`: `h-6 rounded-full border border-border bg-card
+    /// text-muted-foreground text-xs font-medium px-2.5 gap-1 shadow-xs`.
+    fn render_open_calendar_chip(&self, cx: &Context<Self>) -> Div {
+        let theme = self.theme;
+        let color = self.chrome_icon_color("open-calendar");
+        div().child(
+            self.tracked_chrome_button("open-calendar", cx)
+                .h(px(24.0))
+                .w_auto()
+                .px(px(10.0))
+                .gap_1()
+                .border_1()
+                .border_color(theme.border)
+                .bg(theme.card)
+                .shadow_xs()
+                .tw_text_xs()
+                .font_weight(gpui::FontWeight::MEDIUM)
+                .text_color(color)
+                .child(icon("calendar-dots", px(12.0), color))
+                .child("Open calendar"),
+        )
+    }
+
     fn render_sidebar_row(&self, index: usize, cx: &Context<Self>) -> AnyElement {
         let Sessions::Ready(timeline) = &self.sessions else {
             return div().into_any_element();
         };
         match self.rows.get(index) {
+            // `topChipsOverlapHeader` is set in this layout, so the spacer is `h-9`.
+            Some(SidebarRow::Spacer) => div().h(px(36.0)).flex_shrink_0().into_any_element(),
             Some(SidebarRow::Header { bucket }) => {
                 let bucket = &timeline.buckets[*bucket];
                 let items_len = bucket.items.len();
@@ -166,7 +214,8 @@ impl Workspace {
     ) -> Div {
         let theme = self.theme;
         let session_id = item.id.clone();
-        let selected = self.selected.as_deref() == Some(item.id.as_str());
+        let is_event = item.kind == ItemKind::Event;
+        let selected = !is_event && self.selected.as_deref() == Some(item.id.as_str());
         let title: SharedString = if item.title.is_empty() {
             "Untitled".into()
         } else {
@@ -192,9 +241,15 @@ impl Workspace {
                 .when(!selected, |row| {
                     row.hover(move |style| style.bg(alpha(theme.accent, 0.5)))
                 })
+                // `muted = isTimelineItemInFuture(item)` -> `opacity-65`.
+                .when(item.timestamp > Utc::now(), |row| row.opacity(0.65))
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                // Clicking a calendar event creates its session in the app,
+                // which needs the write path.
                 .on_click(cx.listener(move |this, _event: &ClickEvent, _window, cx| {
-                    this.select(session_id.clone(), cx);
+                    if !is_event {
+                        this.select(session_id.clone(), cx);
+                    }
                 }))
                 .child(
                     div()

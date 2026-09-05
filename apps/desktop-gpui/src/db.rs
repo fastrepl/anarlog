@@ -5,7 +5,7 @@ use anlg_db_core::Db;
 use anyhow::Context as _;
 
 use crate::document::{self, Block};
-use crate::timeline::SessionRow;
+use crate::timeline::{EventRow, SessionRow};
 
 const DB_FILENAME: &str = "app.db";
 
@@ -17,6 +17,24 @@ const TIMELINE_SESSIONS_SQL: &str = "
     FROM sessions
     WHERE deleted_at IS NULL
     ORDER BY created_at, id
+";
+
+// apps/desktop/src/calendar/queries.ts, `useTimelineEventsTable`.
+const TIMELINE_EVENTS_SQL: &str = "
+    SELECT
+      event.id,
+      event.title,
+      event.started_at,
+      event.ended_at,
+      event.tracking_id_event,
+      event.is_all_day,
+      event.meeting_link,
+      COALESCE(calendar.color, '') AS calendar_color
+    FROM events AS event
+    LEFT JOIN calendars AS calendar
+      ON calendar.id = event.calendar_id AND calendar.deleted_at IS NULL
+    WHERE event.deleted_at IS NULL
+    ORDER BY event.started_at, event.id
 ";
 
 // apps/desktop/src/session/queries/enhanced-notes.ts, `useEnhancedNoteRecords`.
@@ -107,15 +125,21 @@ impl Store {
         self.changes.clone()
     }
 
-    /// Runs the sqlx future on the tokio runtime and hands back a handle the
-    /// GPUI foreground executor can await.
-    pub fn list_sessions(&self) -> tokio::task::JoinHandle<anyhow::Result<Vec<SessionRow>>> {
+    /// Runs the sqlx futures on the tokio runtime and hands back a handle the
+    /// GPUI foreground executor can await. Returns the two tables the Tauri
+    /// timeline merges: sessions and calendar events.
+    pub fn list_timeline(
+        &self,
+    ) -> tokio::task::JoinHandle<anyhow::Result<(Vec<SessionRow>, Vec<EventRow>)>> {
         let db = self.db.clone();
         self.runtime.spawn(async move {
-            let rows = sqlx::query_as::<_, SessionRow>(TIMELINE_SESSIONS_SQL)
+            let sessions = sqlx::query_as::<_, SessionRow>(TIMELINE_SESSIONS_SQL)
                 .fetch_all(db.pool())
                 .await?;
-            Ok(rows)
+            let events = sqlx::query_as::<_, EventRow>(TIMELINE_EVENTS_SQL)
+                .fetch_all(db.pool())
+                .await?;
+            Ok((sessions, events))
         })
     }
 
@@ -281,7 +305,10 @@ mod tests {
                  );
                  INSERT INTO session_documents (id, workspace_id, session_id, kind, title, body_format, body, sort_order)
                  VALUES ('summary-2', 'workspace-1', 'session-1', 'summary', 'Second', 'markdown', '## Later', 2),
-                        ('summary-1', 'workspace-1', 'session-1', 'template_output', 'First', 'markdown', '## Sooner', 1);",
+                        ('summary-1', 'workspace-1', 'session-1', 'template_output', 'First', 'markdown', '## Sooner', 1);
+                 INSERT INTO calendars (id, color) VALUES ('cal-1', '#ff0000');
+                 INSERT INTO events (id, calendar_id, title, started_at, ended_at, tracking_id_event)
+                 VALUES ('event-1', 'cal-1', 'Standup', '2099-01-01T09:00:00Z', '2099-01-01T09:15:00Z', 'track-1');",
             )
             .execute(db.pool())
             .await
@@ -291,8 +318,11 @@ mod tests {
         let store = Store::open(tokio::runtime::Handle::current(), path)
             .await
             .unwrap();
-        let sessions = store.list_sessions().await.unwrap().unwrap();
+        let (sessions, events) = store.list_timeline().await.unwrap().unwrap();
         assert_eq!(sessions.len(), 1, "deleted sessions stay hidden");
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].title, "Standup");
+        assert_eq!(events[0].calendar_color, "#ff0000");
         assert_eq!(sessions[0].title, "Weekly sync");
         assert_eq!(
             sessions[0].event_json,
@@ -356,7 +386,7 @@ mod tests {
             .expect("watcher should tick after an external commit")
             .unwrap();
         assert_eq!(*changes.borrow(), 1);
-        assert_eq!(store.list_sessions().await.unwrap().unwrap().len(), 1);
+        assert_eq!(store.list_timeline().await.unwrap().unwrap().0.len(), 1);
     }
 
     #[tokio::test]

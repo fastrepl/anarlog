@@ -30,8 +30,15 @@ enum Sessions {
 /// so the variable-height `list` element can virtualize them together.
 #[derive(Clone)]
 enum SidebarRow {
-    Header { bucket: usize },
-    Session { bucket: usize, item: usize },
+    /// `data-sidebar-timeline-top-spacer`: room for the floating chips.
+    Spacer,
+    Header {
+        bucket: usize,
+    },
+    Session {
+        bucket: usize,
+        item: usize,
+    },
 }
 
 /// `computeCurrentNoteTab` with no remembered tab and no live session.
@@ -112,10 +119,12 @@ impl Workspace {
         if !matches!(self.sessions, Sessions::Ready(_)) {
             self.sessions = Sessions::Loading;
         }
-        let task = self.store.list_sessions();
+        let task = self.store.list_timeline();
         cx.spawn(async move |this, cx| {
             let result = match task.await {
-                Ok(Ok(rows)) => Sessions::Ready(timeline::build(&rows, Utc::now(), &Local)),
+                Ok(Ok((rows, events))) => {
+                    Sessions::Ready(timeline::build(&rows, &events, Utc::now(), &Local))
+                }
                 Ok(Err(error)) => Sessions::Failed(error.to_string()),
                 Err(error) => Sessions::Failed(error.to_string()),
             };
@@ -132,6 +141,9 @@ impl Workspace {
     fn rebuild_rows(&mut self) {
         self.rows.clear();
         if let Sessions::Ready(timeline) = &self.sessions {
+            if timeline.has_more_future_items {
+                self.rows.push(SidebarRow::Spacer);
+            }
             for (bucket_ix, bucket) in timeline.buckets.iter().enumerate() {
                 self.rows.push(SidebarRow::Header { bucket: bucket_ix });
                 for item_ix in 0..bucket.items.len() {
