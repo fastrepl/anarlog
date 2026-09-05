@@ -17,6 +17,7 @@ impl Workspace {
     pub(super) fn render_main_surface(&self, window: &Window, cx: &mut Context<Self>) -> Div {
         let theme = self.theme;
         let content = match &self.note {
+            _ if self.templates_open() => self.render_templates_main(window, cx),
             _ if self.folders_open() => self.render_folders_main(cx),
             _ if self.settings_open() => {
                 self.render_settings_content(window, cx).into_any_element()
@@ -854,13 +855,17 @@ impl Workspace {
                     icon("plus", px(16.0), theme.muted_foreground).into_any_element(),
                     "New template".into(),
                 )
-                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                    // `useCreateTemplate("session_note")` then `openNew({ type: "templates" })`
+                    // selecting the new template.
                     let task = this.store.create_template();
-                    cx.spawn(async move |this, cx| match task.await {
-                        Ok(Ok(_template_id)) => {
-                            // The Templates tab that would open on the new
-                            // template is not ported yet.
-                            this.update(cx, |this, cx| this.reload_settings(cx)).ok();
+                    cx.spawn_in(window, async move |this, cx| match task.await {
+                        Ok(Ok(template_id)) => {
+                            this.update_in(cx, |this, window, cx| {
+                                this.reload_settings(cx);
+                                this.open_templates(Some(template_id), window, cx);
+                            })
+                            .ok();
                         }
                         Ok(Err(error)) => tracing::error!(%error, "[useCreateTemplate]"),
                         Err(error) => tracing::error!(%error, "[useCreateTemplate]"),
@@ -1089,16 +1094,13 @@ impl Workspace {
 
 /// `TEMPLATE_ICON_COMPONENTS`: the bundled subset of the template icon names.
 pub(super) fn template_icon_asset(name: &str) -> &'static str {
-    match name {
-        "notebook-tabs" | "notebook" => "notebook",
-        "book-open" => "book-open",
-        "calendar" => "calendar-dots",
-        "file-text" => "file-text",
-        "folder" => "folder",
-        "users" => "users",
-        "code" => "code",
-        "bell" => "bell",
-        _ => "notebook",
+    // `TEMPLATE_ICON_COMPONENTS`: every key has a `tpl-<key>` asset.
+    match crate::assets::TEMPLATE_ICON_ASSETS
+        .iter()
+        .find(|(key, _)| *key == name)
+    {
+        Some((_, asset)) => asset,
+        None => "tpl-notebook-tabs",
     }
 }
 

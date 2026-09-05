@@ -5465,6 +5465,7 @@ dependencies = [
  "sqlx",
  "storage",
  "tempfile",
+ "template-app",
  "tiptap",
  "tokio",
  "tracing",

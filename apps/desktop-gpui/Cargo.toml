@@ -18,6 +18,7 @@ anlg-db-core = { workspace = true }
 anlg-export-core = { workspace = true }
 anlg-fs-sync-core = { workspace = true }
 anlg-storage = { workspace = true }
+anlg-template-app = { workspace = true }
 anlg-tiptap = { workspace = true }
 anlg-transcript = { workspace = true }
 

@@ -333,7 +333,7 @@ impl Workspace {
     /// `Button size="sm" variant="outline"` (or `default` when `primary`):
     /// `h-8 px-3 gap-1.5 text-xs font-medium` under the control squircle.
     #[allow(clippy::type_complexity)]
-    fn outline_button(
+    pub(super) fn outline_button(
         &self,
         id: &'static str,
         content: AnyElement,

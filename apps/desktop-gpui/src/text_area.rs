@@ -135,6 +135,18 @@ impl TextArea {
         &self.content
     }
 
+    /// A click on the field's padding: focus and put the caret at the end,
+    /// the way a `<textarea>` does for presses below its last line.
+    pub fn focus_end(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.focus_handle.is_focused(window) {
+            self.focus_handle.focus(window);
+        }
+        let end = self.content.len();
+        self.selected_range = end..end;
+        self.selection_reversed = false;
+        cx.notify();
+    }
+
     pub fn set_text(&mut self, text: impl Into<SharedString>, cx: &mut Context<Self>) {
         let text: SharedString = text.into();
         if text == self.content {

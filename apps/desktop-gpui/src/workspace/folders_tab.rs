@@ -57,6 +57,7 @@ impl Workspace {
     /// `openNew({ type: "folders" })`
     pub(crate) fn open_folders(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.close_settings(cx);
+        self.close_templates(cx);
         if self.folders.is_none() {
             let style = self.input_style();
             let search = cx.new(|cx| TextInput::new("Search folders...", style, window, cx));
@@ -634,6 +635,7 @@ impl Workspace {
             .h_full()
             .w(px(self.sidebar_width))
             .flex_shrink_0()
+            .pr_1()
             .overflow_hidden()
             .child(
                 // `CustomSidebarHeader`: `h-12 pt-[9px] pr-1 pl-2`, back + New folder.
@@ -805,38 +807,25 @@ impl Workspace {
                                             .child(
                                                 div()
                                                     .min_w_0()
-                                                    .truncate()
-                                                    .child(SharedString::from(path.clone())),
+                                                    .flex_grow()
+                                                    .flex()
+                                                    .flex_col()
+                                                    .child(
+                                                        div()
+                                                            // See the templates list: the nowrap
+                                                            // text needs its exact width up front.
+                                                            .w(px(self.sidebar_width - 52.0))
+                                                            .truncate()
+                                                            .child(SharedString::from(
+                                                                path.clone(),
+                                                            )),
+                                                    ),
                                             ),
                                     )
                             }))
                             .into_any_element()
                     }),
             )
-    }
-
-    /// `TemplateIconGlyph` at `size-4 text-sm`.
-    fn template_icon_glyph(
-        &self,
-        glyph: &crate::db::TemplateIcon,
-        size: gpui::Pixels,
-    ) -> AnyElement {
-        match glyph {
-            crate::db::TemplateIcon::Emoji(value) => div()
-                .flex()
-                .size(size)
-                .items_center()
-                .justify_center()
-                .tw_text_sm()
-                .child(SharedString::from(value.clone()))
-                .into_any_element(),
-            crate::db::TemplateIcon::Icon { name, color } => icon(
-                super::note::template_icon_asset(name),
-                size,
-                super::note::parse_hex_color(color).unwrap_or(gpui::rgb(0x9ca3af)),
-            )
-            .into_any_element(),
-        }
     }
 
     /// `FoldersMain`
@@ -1005,12 +994,23 @@ impl Workspace {
                             .child(
                                 // `FolderInstructionsField rows={4}`: `rounded-md border-border/60 px-3 py-2.5 text-sm leading-5`.
                                 div()
+                                    .id("folder-instructions")
                                     .w_full()
                                     .rounded_md()
                                     .border_1()
                                     .border_color(alpha(theme.border, 0.6))
                                     .px_3()
                                     .py(px(10.0))
+                                    .cursor_text()
+                                    .on_mouse_down(MouseButton::Left, |_, _, cx| {
+                                        cx.stop_propagation()
+                                    })
+                                    .on_click({
+                                        let area = editor.instructions.clone();
+                                        move |_: &ClickEvent, window, cx| {
+                                            area.update(cx, |area, cx| area.focus_end(window, cx));
+                                        }
+                                    })
                                     .child(editor.instructions.clone()),
                             ),
                     )

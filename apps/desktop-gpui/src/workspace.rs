@@ -12,6 +12,7 @@ mod overflow;
 mod settings;
 pub(crate) use overflow::find_session_dir;
 mod sidebar;
+mod templates_tab;
 mod title_bar;
 mod toast;
 
@@ -174,6 +175,10 @@ pub struct Workspace {
     developers: Option<developers_page::DevelopersState>,
     /// The Folders tab while open.
     folders: Option<folders_tab::FoldersState>,
+    /// The Templates tab while open.
+    templates_tab: Option<templates_tab::TemplatesState>,
+    /// The template section under the pointer (`group-hover`).
+    hovered_section: Option<u64>,
     /// The `SpokenLanguagesView` chip input, created with the settings tab.
     spoken_search: Option<gpui::Entity<TextInput>>,
     spoken_highlighted: Option<usize>,
@@ -282,6 +287,8 @@ impl Workspace {
             flash: None,
             developers: None,
             folders: None,
+            templates_tab: None,
+            hovered_section: None,
             spoken_search: None,
             spoken_highlighted: None,
             pending_deletions: Vec::new(),
@@ -468,6 +475,7 @@ impl Workspace {
                         this.reload_sessions(cx);
                         this.reload_settings(cx);
                         this.reload_folders_from_watcher(cx);
+                        this.reload_templates_from_watcher(cx);
                         if let Some(selected) = this.selected.clone() {
                             this.reload_note(selected, cx);
                         }
@@ -1098,7 +1106,9 @@ impl Render for Workspace {
                     .flex_1()
                     .min_h_0()
                     .when(self.sidebar_expanded && !self.is_standalone(), |shell| {
-                        let sidebar = if self.folders_open() {
+                        let sidebar = if self.templates_open() {
+                            self.render_templates_sidebar(cx).into_any_element()
+                        } else if self.folders_open() {
                             self.render_folders_sidebar(cx).into_any_element()
                         } else if self.settings_open() {
                             self.render_settings_nav(cx).into_any_element()

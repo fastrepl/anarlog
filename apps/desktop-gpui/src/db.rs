@@ -552,7 +552,6 @@ impl TemplateIcon {
         }
     }
 
-    #[cfg(test)]
     pub fn to_json(&self) -> serde_json::Value {
         match self {
             Self::Emoji(value) => serde_json::json!({ "type": "emoji", "value": value }),
@@ -1830,6 +1829,47 @@ impl Store {
         self.runtime.spawn(async move {
             crate::folders::remove_material(db.pool(), &vault, &path, &attachment_id).await
         })
+    }
+
+    pub fn list_user_templates(
+        &self,
+    ) -> tokio::task::JoinHandle<anyhow::Result<Vec<crate::templates::UserTemplate>>> {
+        let db = self.db.clone();
+        self.runtime
+            .spawn(async move { crate::templates::list(db.pool()).await })
+    }
+
+    pub fn create_user_template(
+        &self,
+        draft: crate::templates::Draft,
+    ) -> tokio::task::JoinHandle<anyhow::Result<String>> {
+        let db = self.db.clone();
+        self.runtime
+            .spawn(async move { crate::templates::create(db.pool(), &draft).await })
+    }
+
+    pub fn save_user_template(
+        &self,
+        template: crate::templates::UserTemplate,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime
+            .spawn(async move { crate::templates::save(db.pool(), &template).await })
+    }
+
+    pub fn delete_user_template(&self, id: String) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime
+            .spawn(async move { crate::templates::delete(db.pool(), &id).await })
+    }
+
+    pub fn toggle_template_favorite(
+        &self,
+        id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime
+            .spawn(async move { crate::templates::toggle_favorite(db.pool(), &id).await })
     }
 
     /// `listWebhooks`

@@ -28,6 +28,7 @@ pub(crate) enum Auth {
 pub(crate) enum FlashVariant {
     Success,
     Error,
+    Warning,
 }
 
 /// A transient sonner toast (`success` / `error`).
@@ -216,7 +217,7 @@ impl Workspace {
         cx.notify();
         let duration = match variant {
             FlashVariant::Success => std::time::Duration::from_secs(3),
-            FlashVariant::Error => std::time::Duration::from_secs(5),
+            FlashVariant::Error | FlashVariant::Warning => std::time::Duration::from_secs(5),
         };
         cx.spawn(async move |this, cx| {
             cx.background_executor().timer(duration).await;
@@ -263,6 +264,18 @@ impl Workspace {
                 gpui::rgb(0x4d0408),
                 gpui::rgb(0xff9ea1),
                 "warning-circle",
+            ),
+            (FlashVariant::Warning, false) => (
+                gpui::rgb(0xfffbeb),
+                gpui::rgb(0xfef3c7),
+                gpui::rgb(0x92400e),
+                "alert-triangle",
+            ),
+            (FlashVariant::Warning, true) => (
+                gpui::rgb(0x1d1f00),
+                gpui::rgb(0x3d3d00),
+                gpui::rgb(0xf3cf58),
+                "alert-triangle",
             ),
         };
         Some(

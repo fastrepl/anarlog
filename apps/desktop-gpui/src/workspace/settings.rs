@@ -826,6 +826,8 @@ impl Workspace {
                                 this.open_settings(tab, window, cx);
                             } else if label == "Folders" {
                                 this.open_folders(window, cx);
+                            } else if label == "Templates" {
+                                this.open_templates(None, window, cx);
                             }
                         }))
                         .child(icon(glyph, px(15.0), color))

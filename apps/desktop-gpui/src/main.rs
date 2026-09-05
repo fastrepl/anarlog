@@ -10,6 +10,7 @@ mod folders;
 mod secrets;
 mod squircle;
 mod store_file;
+mod templates;
 mod text_area;
 mod text_input;
 mod theme;
