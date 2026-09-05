@@ -29,7 +29,11 @@ const TIMELINE_EVENTS_SQL: &str = "
       event.tracking_id_event,
       event.is_all_day,
       event.meeting_link,
-      COALESCE(calendar.color, '') AS calendar_color
+      COALESCE(calendar.color, '') AS calendar_color,
+      COALESCE(event.calendar_id, '') AS calendar_id,
+      COALESCE(event.recurrence_series_id, '') AS recurrence_series_id,
+      COALESCE(event.location, '') AS location,
+      COALESCE(event.description, '') AS description
     FROM events AS event
     LEFT JOIN calendars AS calendar
       ON calendar.id = event.calendar_id AND calendar.deleted_at IS NULL

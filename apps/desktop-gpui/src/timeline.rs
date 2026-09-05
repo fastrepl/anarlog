@@ -17,7 +17,7 @@ pub struct SessionRow {
 }
 
 /// `useTimelineEventsTable` row: calendar events not yet backed by a session.
-#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, sqlx::FromRow)]
 pub struct EventRow {
     pub id: String,
     pub title: String,
@@ -27,6 +27,10 @@ pub struct EventRow {
     pub is_all_day: i64,
     pub meeting_link: String,
     pub calendar_color: String,
+    pub calendar_id: String,
+    pub recurrence_series_id: String,
+    pub location: String,
+    pub description: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -618,9 +622,7 @@ mod tests {
             title: "Meeting".into(),
             started_at: "2024-01-15T13:00:00.000Z".into(),
             ended_at: "2024-01-15T14:00:00.000Z".into(),
-            is_all_day: 0,
-            meeting_link: String::new(),
-            calendar_color: String::new(),
+            ..EventRow::default()
         };
 
         let folders = build_with(
@@ -860,9 +862,7 @@ mod tests {
             started_at: started.into(),
             ended_at: ended.into(),
             tracking_id_event: tracking.into(),
-            is_all_day: 0,
-            meeting_link: String::new(),
-            calendar_color: String::new(),
+            ..EventRow::default()
         }
     }
 

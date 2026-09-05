@@ -1,0 +1,1138 @@
+//! The Calendar tab: `calendar/components/{calendar-view,day-cell,event-chip,
+//! session-chip,sidebar}.tsx` and `calendar/hooks.ts`' `useCalendarData`, in
+//! the month view over the timeline's session and event rows.
+
+use std::collections::{BTreeMap, HashSet};
+
+use chrono::{Datelike, Duration, Local, NaiveDate, Weekday};
+use gpui::{
+    AnyElement, ClickEvent, Context, Div, MouseButton, MouseDownEvent, SharedString, Window, div,
+    prelude::*, px,
+};
+
+use super::Workspace;
+use crate::theme::alpha;
+use crate::timeline::{EventRow, SessionRow};
+use crate::ui::{TailwindText as _, icon};
+
+/// `text-xs leading-tight` chips: 15px rows with the `gap-0.5`.
+const CHIP_HEIGHT: f32 = 15.0;
+const CHIP_GAP: f32 = 2.0;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Popover {
+    Event(String),
+    Session(String),
+    /// The `+N more` panel for a day.
+    More(NaiveDate),
+}
+
+pub(crate) struct CalendarState {
+    /// The first day of the month on screen (`currentMonth`).
+    month: NaiveDate,
+    popover: Option<Popover>,
+    /// Expanded provider accordions (`google`, `outlook`).
+    expanded: HashSet<&'static str>,
+}
+
+/// `useCalendarData`: ids per `yyyy-MM-dd` key in the app's sort order.
+#[derive(Default)]
+struct CalendarData {
+    events_by_date: BTreeMap<NaiveDate, Vec<usize>>,
+    sessions_by_date: BTreeMap<NaiveDate, Vec<usize>>,
+}
+
+/// `eventCalendarDay`: all-day events use the stored date, timed ones the
+/// local day of the instant.
+fn event_day(event: &EventRow) -> Option<NaiveDate> {
+    if event.is_all_day != 0 {
+        return NaiveDate::parse_from_str(event.started_at.trim().get(..10)?, "%Y-%m-%d").ok();
+    }
+    crate::timeline::parse_date(&event.started_at, &Local)
+        .map(|instant| instant.with_timezone(&Local).date_naive())
+}
+
+fn ignored_ids(settings: &crate::db::ProviderSettings, key: &str, field: &str) -> HashSet<String> {
+    settings
+        .value(key, &[key])
+        .and_then(|value| match value {
+            serde_json::Value::String(text) => serde_json::from_str(&text).ok(),
+            other => Some(other),
+        })
+        .and_then(|value: serde_json::Value| value.as_array().cloned())
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|entry| {
+            entry
+                .get(field)
+                .and_then(|id| id.as_str())
+                .map(str::to_string)
+        })
+        .collect()
+}
+
+fn build_calendar_data(
+    sessions: &[SessionRow],
+    events: &[EventRow],
+    settings: &crate::db::ProviderSettings,
+) -> CalendarData {
+    let ignored_events = ignored_ids(settings, "ignored_events", "tracking_id");
+    let ignored_series = ignored_ids(settings, "ignored_recurring_series", "id");
+    let mut data = CalendarData::default();
+    for (index, event) in events.iter().enumerate() {
+        if event.title.is_empty() {
+            continue;
+        }
+        if ignored_events.contains(&event.tracking_id_event)
+            || (!event.recurrence_series_id.is_empty()
+                && ignored_series.contains(&event.recurrence_series_id))
+        {
+            continue;
+        }
+        let Some(day) = event_day(event) else {
+            continue;
+        };
+        data.events_by_date.entry(day).or_default().push(index);
+    }
+    for ids in data.events_by_date.values_mut() {
+        ids.sort_by(|a, b| {
+            let (a, b) = (&events[*a], &events[*b]);
+            (a.is_all_day == 0)
+                .cmp(&(b.is_all_day == 0))
+                .then_with(|| {
+                    crate::timeline::parse_date(&a.started_at, &Local)
+                        .cmp(&crate::timeline::parse_date(&b.started_at, &Local))
+                })
+                .then_with(|| a.title.cmp(&b.title))
+                .then_with(|| a.id.cmp(&b.id))
+        });
+    }
+    for (index, session) in sessions.iter().enumerate() {
+        if !session.event_json.is_empty() || session.title.is_empty() {
+            continue;
+        }
+        let Some(created) = crate::timeline::parse_date(&session.created_at, &Local) else {
+            continue;
+        };
+        data.sessions_by_date
+            .entry(created.with_timezone(&Local).date_naive())
+            .or_default()
+            .push(index);
+    }
+    for ids in data.sessions_by_date.values_mut() {
+        ids.sort_by(|a, b| {
+            let (a, b) = (&sessions[*a], &sessions[*b]);
+            crate::timeline::parse_date(&a.created_at, &Local)
+                .cmp(&crate::timeline::parse_date(&b.created_at, &Local))
+                .then_with(|| a.title.cmp(&b.title))
+                .then_with(|| a.id.cmp(&b.id))
+        });
+    }
+    data
+}
+
+/// `useVisibleItemCount`: how many chips fit, keeping room for the overflow line.
+fn visible_item_count(available: f32, total: usize) -> usize {
+    if total == 0 {
+        return 0;
+    }
+    let all = total as f32 * CHIP_HEIGHT + (total.saturating_sub(1)) as f32 * CHIP_GAP;
+    if all <= available {
+        return total;
+    }
+    let mut count = 0;
+    let mut used = 0.0;
+    while count < total {
+        let next = CHIP_HEIGHT + if count > 0 { CHIP_GAP } else { 0.0 };
+        let remaining = total - count - 1;
+        let more_space = if remaining > 0 {
+            CHIP_HEIGHT + CHIP_GAP
+        } else {
+            0.0
+        };
+        if used + next + more_space > available {
+            break;
+        }
+        used += next;
+        count += 1;
+    }
+    count.max(1)
+}
+
+/// The width of a `font-mono text-xs` label, for sizing the truncating title.
+fn mono_text_width(text: &str, family: Option<&SharedString>, window: &Window) -> f32 {
+    let mut style = window.text_style();
+    if let Some(family) = family {
+        style.font_family = family.clone();
+    }
+    let run = style.to_run(text.len());
+    window
+        .text_system()
+        .shape_line(SharedString::from(text.to_string()), px(12.0), &[run], None)
+        .width
+        .into()
+}
+
+fn format_time(instant: &str) -> Option<String> {
+    crate::timeline::parse_date(instant, &Local)
+        .map(|utc| utc.with_timezone(&Local).format("%-I:%M %p").to_string())
+}
+
+impl Workspace {
+    pub(crate) fn open_calendar(&mut self, cx: &mut Context<Self>) {
+        self.close_settings(cx);
+        self.close_folders(cx);
+        self.close_templates(cx);
+        if self.calendar.is_none() {
+            let today = Local::now().date_naive();
+            self.calendar = Some(CalendarState {
+                month: today.with_day(1).unwrap_or(today),
+                popover: None,
+                expanded: HashSet::new(),
+            });
+        }
+        cx.notify();
+    }
+
+    pub(crate) fn close_calendar(&mut self, cx: &mut Context<Self>) {
+        if self.calendar.take().is_some() {
+            cx.notify();
+        }
+    }
+
+    pub(crate) fn calendar_open(&self) -> bool {
+        self.calendar.is_some()
+    }
+
+    pub(crate) fn calendar_popover_open(&self) -> bool {
+        self.calendar
+            .as_ref()
+            .is_some_and(|state| state.popover.is_some())
+    }
+
+    pub(crate) fn close_calendar_popover(&mut self, cx: &mut Context<Self>) {
+        if let Some(state) = self.calendar.as_mut()
+            && state.popover.take().is_some()
+        {
+            cx.notify();
+        }
+    }
+
+    fn shift_month(&mut self, months: i32, cx: &mut Context<Self>) {
+        let Some(state) = self.calendar.as_mut() else {
+            return;
+        };
+        let (year, month0) = (state.month.year(), state.month.month0() as i32 + months);
+        let year = year + month0.div_euclid(12);
+        let month = month0.rem_euclid(12) as u32 + 1;
+        if let Some(next) = NaiveDate::from_ymd_opt(year, month, 1) {
+            state.month = next;
+        }
+        state.popover = None;
+        cx.notify();
+    }
+
+    fn week_starts_on_monday(&self) -> bool {
+        self.provider_settings
+            .string_setting("week_start", &["general", "week_start"])
+            .is_some_and(|value| value == "monday")
+    }
+
+    /// `CalendarSidebarContent`: the Google / Outlook accordion rows.
+    pub(super) fn render_calendar_sidebar(&self, cx: &Context<Self>) -> Div {
+        let theme = self.theme;
+        let Some(state) = self.calendar.as_ref() else {
+            return div();
+        };
+        let providers: [(&'static str, &'static str, &'static str); 2] = [
+            ("google", "Google", "brands/google-calendar.svg"),
+            ("outlook", "Outlook", "brands/outlook.svg"),
+        ];
+        let mut list = div().flex().flex_col().px_2();
+        for (id, label, asset) in providers {
+            let open = state.expanded.contains(id);
+            list = list
+                .child(
+                    // `-mx-2 rounded-full px-2 hover:bg-accent` grid row with the `py-3` trigger.
+                    div()
+                        .id(SharedString::from(format!("calendar-provider-{id}")))
+                        .relative()
+                        .mx(px(-8.0))
+                        .flex()
+                        .items_center()
+                        .gap_1()
+                        .rounded(px(8.0))
+                        .px_2()
+                        .cursor_pointer()
+                        .hover(move |style| style.bg(theme.accent))
+                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                            if let Some(state) = this.calendar.as_mut() {
+                                if !state.expanded.remove(id) {
+                                    state.expanded.insert(id);
+                                }
+                                cx.notify();
+                            }
+                        }))
+                        .child(
+                            div()
+                                .flex()
+                                .min_w_0()
+                                .flex_grow()
+                                .items_center()
+                                .gap_2()
+                                .py_3()
+                                .tw_text_sm()
+                                .font_weight(gpui::FontWeight::MEDIUM)
+                                .text_color(theme.foreground)
+                                .child(
+                                    div()
+                                        .flex()
+                                        .size(px(20.0))
+                                        .flex_shrink_0()
+                                        .items_center()
+                                        .justify_center()
+                                        .child(
+                                            gpui::img(super::note::embedded(asset)).size(px(16.0)),
+                                        ),
+                                )
+                                .child(div().truncate().child(label)),
+                        )
+                        .child(icon(
+                            if open { "caret-down" } else { "caret-right" },
+                            px(16.0),
+                            theme.muted_foreground,
+                        )),
+                )
+                .when(open, |list| {
+                    // `OAuthProviderContent` while signed out: the disabled connect line.
+                    list.child(
+                        div().pb_3().child(
+                            div()
+                                .pt_1()
+                                .pb_2()
+                                .tw_text_xs()
+                                .text_color(theme.muted_foreground)
+                                .opacity(0.5)
+                                .cursor_not_allowed()
+                                .child(SharedString::from(format!("Connect {label} Calendar"))),
+                        ),
+                    )
+                });
+        }
+        div()
+            .flex()
+            .flex_col()
+            .h_full()
+            .w(px(self.sidebar_width))
+            .flex_shrink_0()
+            .pr_1()
+            .overflow_hidden()
+            .child(
+                div()
+                    .flex()
+                    .h(px(48.0))
+                    .flex_shrink_0()
+                    .items_start()
+                    .pt(px(9.0))
+                    .pr_1()
+                    .pl_2()
+                    .child(
+                        self.tracked_chrome_button("calendar-back", cx)
+                            .on_click(
+                                cx.listener(|this, _: &ClickEvent, _, cx| this.close_calendar(cx)),
+                            )
+                            .child(icon(
+                                "arrow-left",
+                                px(16.0),
+                                self.chrome_icon_color("calendar-back"),
+                            )),
+                    ),
+            )
+            .child(
+                div()
+                    .id("calendar-providers")
+                    .flex_1()
+                    .min_h_0()
+                    .overflow_y_scroll()
+                    .child(list),
+            )
+    }
+
+    /// `CalendarView` in the seven-column month layout.
+    pub(super) fn render_calendar_main(&self, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let theme = self.theme;
+        let Some(state) = self.calendar.as_ref() else {
+            return div().into_any_element();
+        };
+        let monday_first = self.week_starts_on_monday();
+        let headers: [&str; 7] = if monday_first {
+            ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        } else {
+            ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+        };
+        let month_start = state.month;
+        let month_end = {
+            let (y, m) = (month_start.year(), month_start.month());
+            let next = if m == 12 {
+                NaiveDate::from_ymd_opt(y + 1, 1, 1)
+            } else {
+                NaiveDate::from_ymd_opt(y, m + 1, 1)
+            };
+            next.map(|d| d - Duration::days(1)).unwrap_or(month_start)
+        };
+        let week_start = if monday_first {
+            Weekday::Mon
+        } else {
+            Weekday::Sun
+        };
+        let days_back = (month_start.weekday().num_days_from_monday() as i64
+            - week_start.num_days_from_monday() as i64)
+            .rem_euclid(7);
+        let cal_start = month_start - Duration::days(days_back);
+        let days_forward = (week_start.num_days_from_monday() as i64 + 6
+            - month_end.weekday().num_days_from_monday() as i64)
+            .rem_euclid(7);
+        let cal_end = month_end + Duration::days(days_forward);
+        let total_days = (cal_end - cal_start).num_days() as usize + 1;
+        let rows = total_days / 7;
+        let today = Local::now().date_naive();
+        let data = build_calendar_data(
+            &self.session_rows,
+            &self.event_rows,
+            &self.provider_settings,
+        );
+
+        // The `auto-rows-fr` grid: the surface height minus the header (48)
+        // and the weekday row (31) splits evenly across the rows.
+        let viewport = window.viewport_size();
+        // The `minmax(0, 1fr)` columns: the surface (viewport minus the
+        // sidebar, its gutter, and the handle, minus the left border) over 7.
+        let surface_width = f32::from(viewport.width)
+            - if self.sidebar_expanded && !self.is_standalone() {
+                self.sidebar_width + 8.0 + 1.0
+            } else {
+                0.0
+            };
+        let cell_width = surface_width / 7.0;
+        let title_bar = if self.is_standalone() { 0.0 } else { 36.0 };
+        let grid_height = (f32::from(viewport.height) - title_bar - 48.0 - 31.0).max(0.0);
+        let row_height = grid_height / rows.max(1) as f32;
+        // `p-1.5` (12) and the `h-7 mb-1` day number (32).
+        let items_available = (row_height - 12.0 - 32.0).max(0.0);
+
+        let header = div()
+            .flex()
+            .h(px(48.0))
+            .flex_shrink_0()
+            .items_center()
+            .justify_between()
+            .border_b_1()
+            .border_color(theme.border)
+            .py_2()
+            .px_3()
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .child(
+                        div()
+                            .tw_text_sm()
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .text_color(theme.foreground)
+                            .child(SharedString::from(month_start.format("%B %Y").to_string())),
+                    )
+                    .child(
+                        // `CalendarSyncHeaderControls`: the idle refresh button.
+                        div()
+                            .id("calendar-refresh")
+                            .flex()
+                            .size(px(24.0))
+                            .items_center()
+                            .justify_center()
+                            .rounded(px(8.0))
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(theme.accent))
+                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                this.reload_sessions(cx);
+                            }))
+                            .child(icon("arrows-clockwise", px(14.0), theme.foreground)),
+                    ),
+            )
+            .child(self.render_calendar_nav(cx));
+
+        let weekday_row = div()
+            .flex()
+            .flex_shrink_0()
+            .border_b_1()
+            .border_color(theme.border)
+            .children(headers.iter().enumerate().map(|(index, day)| {
+                let weekend = *day == "Sat" || *day == "Sun";
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .py_2()
+                    .text_center()
+                    .tw_text_xs()
+                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .text_color(if weekend {
+                        theme.muted_foreground
+                    } else {
+                        theme.foreground
+                    })
+                    .when(index < 6, |cell| {
+                        cell.border_r_1().border_color(theme.border)
+                    })
+                    .child(SharedString::from(*day))
+            }));
+
+        let mut grid = div().flex().flex_col().flex_1().min_h_0().overflow_hidden();
+        for row in 0..rows {
+            let mut week = div().flex().flex_1().min_h_0();
+            for column in 0..7 {
+                let day = cal_start + Duration::days((row * 7 + column) as i64);
+                week = week.child(self.render_day_cell(
+                    day,
+                    day.month() == month_start.month() && day.year() == month_start.year(),
+                    day == today,
+                    &data,
+                    items_available,
+                    cell_width,
+                    state,
+                    window,
+                    cx,
+                ));
+            }
+            grid = grid.child(week);
+        }
+
+        div()
+            .flex()
+            .h_full()
+            .flex_col()
+            .overflow_hidden()
+            .child(header)
+            .child(weekday_row)
+            .child(grid)
+            .into_any_element()
+    }
+
+    /// The `ButtonGroup` (`h-7 rounded-full border bg-card`): ‹ · Today · ›.
+    fn render_calendar_nav(&self, cx: &Context<Self>) -> Div {
+        let theme = self.theme;
+        let segment = |id: &'static str, content: AnyElement, width: Option<f32>| {
+            div()
+                .id(id)
+                .flex()
+                .h_full()
+                .items_center()
+                .justify_center()
+                .when_some(width, |segment, width| segment.w(px(width)))
+                .when(width.is_none(), |segment| segment.px_2())
+                .cursor_pointer()
+                .hover(move |style| style.bg(theme.accent))
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .child(content)
+        };
+        let separator = || div().w(px(1.0)).h_full().bg(theme.accent);
+        div()
+            .relative()
+            .flex()
+            .h(px(28.0))
+            .overflow_hidden()
+            .child(crate::squircle::squircle(
+                crate::squircle::CONTROL_RADIUS,
+                Some(theme.card),
+                Some((1.0, theme.border)),
+            ))
+            .child(
+                segment(
+                    "calendar-prev",
+                    icon("caret-left", px(14.0), theme.foreground).into_any_element(),
+                    Some(28.0),
+                )
+                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.shift_month(-1, cx))),
+            )
+            .child(separator())
+            .child(
+                segment(
+                    "calendar-today",
+                    div()
+                        .tw_text_xs()
+                        .font_weight(gpui::FontWeight::MEDIUM)
+                        .text_color(theme.foreground)
+                        .child("Today")
+                        .into_any_element(),
+                    None,
+                )
+                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                    if let Some(state) = this.calendar.as_mut() {
+                        let today = Local::now().date_naive();
+                        state.month = today.with_day(1).unwrap_or(today);
+                        state.popover = None;
+                        cx.notify();
+                    }
+                })),
+            )
+            .child(separator())
+            .child(
+                segment(
+                    "calendar-next",
+                    icon("caret-right", px(14.0), theme.foreground).into_any_element(),
+                    Some(28.0),
+                )
+                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.shift_month(1, cx))),
+            )
+    }
+
+    /// `DayCell`
+    #[allow(clippy::too_many_arguments)]
+    fn render_day_cell(
+        &self,
+        day: NaiveDate,
+        in_month: bool,
+        is_today: bool,
+        data: &CalendarData,
+        items_available: f32,
+        cell_width: f32,
+        state: &CalendarState,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> Div {
+        let theme = self.theme;
+        let weekend = matches!(day.weekday(), Weekday::Sat | Weekday::Sun);
+        // Chips span the cell minus `p-1.5`.
+        let chip_width = cell_width - 12.0;
+        let events = data.events_by_date.get(&day).cloned().unwrap_or_default();
+        let sessions = data.sessions_by_date.get(&day).cloned().unwrap_or_default();
+        let total = events.len() + sessions.len();
+        let max_visible = visible_item_count(items_available, total);
+        let visible_events = events.len().min(max_visible);
+        let visible_sessions = sessions.len().min(max_visible - visible_events);
+        let overflow = total - visible_events - visible_sessions;
+
+        let number_color = if is_today {
+            theme.primary_foreground
+        } else if !in_month {
+            alpha(theme.muted_foreground, 0.7)
+        } else if weekend {
+            theme.muted_foreground
+        } else {
+            theme.foreground
+        };
+
+        let mut items = div()
+            .flex()
+            .min_h_0()
+            .flex_1()
+            .flex_col()
+            .gap(px(CHIP_GAP))
+            .overflow_hidden();
+        for index in &events[..visible_events] {
+            items = items.child(self.render_event_chip(
+                &self.event_rows[*index],
+                chip_width,
+                state,
+                window,
+                cx,
+            ));
+        }
+        for index in &sessions[..visible_sessions] {
+            items = items.child(self.render_session_chip(
+                &self.session_rows[*index],
+                chip_width,
+                state,
+                window,
+                cx,
+            ));
+        }
+        if overflow > 0 {
+            let more_open = state.popover == Some(Popover::More(day));
+            items = items.child(
+                div()
+                    .relative()
+                    .child(
+                        div()
+                            .id(SharedString::from(format!("calendar-more-{day}")))
+                            .flex_shrink_0()
+                            .pl_1()
+                            .tw_text_xs()
+                            .text_color(theme.muted_foreground)
+                            .cursor_pointer()
+                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                if let Some(state) = this.calendar.as_mut() {
+                                    state.popover = Some(Popover::More(day));
+                                    cx.notify();
+                                }
+                            }))
+                            .child(SharedString::from(format!("+{overflow} more"))),
+                    )
+                    .when(more_open, |anchor| {
+                        let mut list = div().flex().flex_col().gap(px(CHIP_GAP));
+                        // The `w-[220px] p-2` panel's chips.
+                        for index in &events {
+                            list = list.child(self.render_event_chip(
+                                &self.event_rows[*index],
+                                204.0,
+                                state,
+                                window,
+                                cx,
+                            ));
+                        }
+                        for index in &sessions {
+                            list = list.child(self.render_session_chip(
+                                &self.session_rows[*index],
+                                204.0,
+                                state,
+                                window,
+                                cx,
+                            ));
+                        }
+                        anchor.child(
+                            self.render_calendar_popover(
+                                220.0,
+                                cx,
+                                div()
+                                    .p_2()
+                                    .child(
+                                        div()
+                                            .mb_2()
+                                            .tw_text_sm()
+                                            .font_weight(gpui::FontWeight::MEDIUM)
+                                            .text_color(theme.foreground)
+                                            .child(SharedString::from(
+                                                day.format("%b %-d, %Y").to_string(),
+                                            )),
+                                    )
+                                    .child(list)
+                                    .into_any_element(),
+                            ),
+                        )
+                    }),
+            );
+        }
+
+        div()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .flex_col()
+            .p(px(6.0))
+            .border_r_1()
+            .border_b_1()
+            .border_color(theme.border)
+            .when(weekend, |cell| cell.bg(theme.muted))
+            .child(
+                div().flex().flex_shrink_0().justify_end().child(
+                    div()
+                        .mb_1()
+                        .flex()
+                        .size(px(28.0))
+                        .items_center()
+                        .justify_center()
+                        // `.rounded-full` is `0.5rem` in the desktop app.
+                        .rounded(px(8.0))
+                        .when(is_today, |pill| pill.bg(theme.primary))
+                        .tw_text_sm()
+                        .font_weight(gpui::FontWeight::MEDIUM)
+                        .text_color(number_color)
+                        .child(SharedString::from(day.day().to_string())),
+                ),
+            )
+            .child(items)
+    }
+
+    /// `EventChip`: the colour bar, title, and `font-mono` start time; all-day
+    /// events fill the chip with the calendar colour.
+    fn render_event_chip(
+        &self,
+        event: &EventRow,
+        chip_width: f32,
+        state: &CalendarState,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> Div {
+        let theme = self.theme;
+        let color =
+            super::note::parse_hex_color(&event.calendar_color).unwrap_or(gpui::rgb(0x888888));
+        let id = event.id.clone();
+        let open = state.popover == Some(Popover::Event(event.id.clone()));
+        let time = format_time(&event.started_at);
+        let time_width = time
+            .as_deref()
+            .map(|time| mono_text_width(time, self.mono_font_family.as_ref(), window) + 4.0)
+            .unwrap_or(0.0);
+        // `pl-0.5`, the bar, `gap-1`, and the time (with its gap) leave the title width.
+        let title_width = (chip_width - 2.0 - 2.5 - 4.0 - time_width).max(0.0);
+        let chip = if event.is_all_day != 0 {
+            div()
+                .id(SharedString::from(format!("event-chip-{}", event.id)))
+                .w_full()
+                .rounded(px(4.0))
+                .px(px(6.0))
+                .py(px(2.0))
+                .bg(color)
+                .text_size(px(12.0))
+                .line_height(px(CHIP_HEIGHT))
+                .text_color(theme.primary_foreground)
+                .child(
+                    div()
+                        .w(px((chip_width - 12.0).max(0.0)))
+                        .truncate()
+                        .child(SharedString::from(event.title.clone())),
+                )
+        } else {
+            div()
+                .id(SharedString::from(format!("event-chip-{}", event.id)))
+                .flex()
+                .w_full()
+                .items_center()
+                .gap_1()
+                .rounded(px(4.0))
+                .pl(px(2.0))
+                .text_size(px(12.0))
+                .line_height(px(CHIP_HEIGHT))
+                .text_color(theme.foreground)
+                .child(
+                    div()
+                        .w(px(2.5))
+                        .h(px(CHIP_HEIGHT))
+                        .flex_shrink_0()
+                        .rounded(px(8.0))
+                        .bg(color),
+                )
+                .child(
+                    div().min_w_0().flex_grow().flex().flex_col().child(
+                        div()
+                            .w(px(title_width))
+                            .truncate()
+                            .child(SharedString::from(event.title.clone())),
+                    ),
+                )
+                .when_some(time, |chip, time| {
+                    chip.child(
+                        div()
+                            .flex_shrink_0()
+                            .text_color(theme.muted_foreground)
+                            .when_some(self.mono_font_family.clone(), |t, family| {
+                                t.font_family(family)
+                            })
+                            .child(SharedString::from(time)),
+                    )
+                })
+        };
+        div()
+            .relative()
+            .child(
+                chip.cursor_pointer()
+                    .hover(|style| style.opacity(0.8))
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        if let Some(state) = this.calendar.as_mut() {
+                            state.popover = Some(Popover::Event(id.clone()));
+                            cx.notify();
+                        }
+                    })),
+            )
+            .when(open, |anchor| {
+                anchor.child(self.render_calendar_popover(
+                    320.0,
+                    cx,
+                    self.render_event_popover(event, cx),
+                ))
+            })
+    }
+
+    /// `SessionChip`: the bordered bar, title, and `font-mono` created time.
+    fn render_session_chip(
+        &self,
+        session: &SessionRow,
+        chip_width: f32,
+        state: &CalendarState,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> Div {
+        let theme = self.theme;
+        let id = session.id.clone();
+        let open = state.popover == Some(Popover::Session(session.id.clone()));
+        let time = format_time(&session.created_at);
+        let time_width = time
+            .as_deref()
+            .map(|time| mono_text_width(time, self.mono_font_family.as_ref(), window) + 4.0)
+            .unwrap_or(0.0);
+        let title_width = (chip_width - 2.0 - 4.0 - 4.0 - time_width).max(0.0);
+        div()
+            .relative()
+            .child(
+                div()
+                    .id(SharedString::from(format!("session-chip-{}", session.id)))
+                    .flex()
+                    .w_full()
+                    .items_center()
+                    .gap_1()
+                    .rounded(px(4.0))
+                    .pl(px(2.0))
+                    .text_size(px(12.0))
+                    .line_height(px(CHIP_HEIGHT))
+                    .text_color(theme.foreground)
+                    .cursor_pointer()
+                    .hover(|style| style.opacity(0.8))
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        if let Some(state) = this.calendar.as_mut() {
+                            state.popover = Some(Popover::Session(id.clone()));
+                            cx.notify();
+                        }
+                    }))
+                    .child(
+                        div()
+                            .w(px(4.0))
+                            .h(px(CHIP_HEIGHT))
+                            .flex_shrink_0()
+                            .rounded(px(8.0))
+                            .border_1()
+                            .border_color(theme.border),
+                    )
+                    .child(
+                        div().min_w_0().flex_grow().flex().flex_col().child(
+                            div()
+                                .w(px(title_width))
+                                .truncate()
+                                .child(SharedString::from(session.title.clone())),
+                        ),
+                    )
+                    .when_some(time, |chip, time| {
+                        chip.child(
+                            div()
+                                .flex_shrink_0()
+                                .text_color(theme.muted_foreground)
+                                .when_some(self.mono_font_family.clone(), |t, family| {
+                                    t.font_family(family)
+                                })
+                                .child(SharedString::from(time)),
+                        )
+                    }),
+            )
+            .when(open, |anchor| {
+                anchor.child(self.render_calendar_popover(
+                    280.0,
+                    cx,
+                    self.render_session_popover(session, cx),
+                ))
+            })
+    }
+
+    /// `EventPopoverContent`: `EventDisplay` plus the Open note button.
+    fn render_event_popover(&self, event: &EventRow, cx: &Context<Self>) -> AnyElement {
+        let session_event = crate::timeline::SessionEvent {
+            tracking_id: Some(event.tracking_id_event.clone()),
+            title: Some(event.title.clone()),
+            description: Some(event.description.clone()),
+            started_at: Some(event.started_at.clone()),
+            ended_at: Some(event.ended_at.clone()),
+            meeting_link: Some(event.meeting_link.clone()),
+            location: Some(event.location.clone()),
+            participants: Vec::new(),
+        };
+        let id = event.id.clone();
+        div()
+            .flex()
+            .flex_col()
+            .gap_3()
+            .p_4()
+            .child(self.render_event_display(&session_event, cx))
+            .child(self.open_note_button(
+                "event-open-note",
+                move |this, cx| {
+                    this.close_calendar(cx);
+                    this.open_event(id.clone(), cx);
+                },
+                cx,
+            ))
+            .into_any_element()
+    }
+
+    /// `SessionPopoverContent`
+    fn render_session_popover(&self, session: &SessionRow, cx: &Context<Self>) -> AnyElement {
+        let theme = self.theme;
+        let id = session.id.clone();
+        let created = crate::timeline::parse_date(&session.created_at, &Local).map(|utc| {
+            utc.with_timezone(&Local)
+                .format("%b %-d, %Y %-I:%M %p")
+                .to_string()
+        });
+        div()
+            .flex()
+            .flex_col()
+            .gap_3()
+            .p_4()
+            .child(
+                div()
+                    .tw_text_base()
+                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .text_color(theme.foreground)
+                    .child(SharedString::from(session.title.clone())),
+            )
+            .child(div().h(px(1.0)).bg(theme.accent))
+            .when_some(created, |column, created| {
+                column.child(
+                    div()
+                        .tw_text_sm()
+                        .text_color(theme.muted_foreground)
+                        .child(SharedString::from(created)),
+                )
+            })
+            .child(self.open_note_button(
+                "session-open-note",
+                move |this, cx| {
+                    this.close_calendar(cx);
+                    this.select_session_from_calendar(id.clone(), cx);
+                },
+                cx,
+            ))
+            .into_any_element()
+    }
+
+    pub(crate) fn select_session_from_calendar(&mut self, id: String, cx: &mut Context<Self>) {
+        self.open_tab(id, false, cx);
+    }
+
+    /// `Button size="sm" bg-primary min-h-8 w-full`
+    fn open_note_button(
+        &self,
+        id: &'static str,
+        on_click: impl Fn(&mut Workspace, &mut Context<Workspace>) + 'static,
+        cx: &Context<Self>,
+    ) -> gpui::Stateful<Div> {
+        let theme = self.theme;
+        let hovered = self.hovered == Some(id);
+        div()
+            .id(id)
+            .relative()
+            .flex()
+            .min_h(px(32.0))
+            .w_full()
+            .items_center()
+            .justify_center()
+            .px_3()
+            .child(crate::squircle::squircle(
+                crate::squircle::CONTROL_RADIUS,
+                Some(if hovered {
+                    alpha(theme.primary, 0.9)
+                } else {
+                    theme.primary
+                }),
+                None,
+            ))
+            .tw_text_xs()
+            .font_weight(gpui::FontWeight::MEDIUM)
+            .text_color(theme.primary_foreground)
+            .cursor_pointer()
+            .on_hover(cx.listener(move |this, hovering: &bool, _, cx| {
+                this.set_hovered(id, *hovering, cx);
+            }))
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| on_click(this, cx)))
+            .child("Open note")
+    }
+
+    /// A `variant="app"` popover panel anchored under its trigger, closing
+    /// on an outside press.
+    fn render_calendar_popover(
+        &self,
+        width: f32,
+        cx: &Context<Self>,
+        content: AnyElement,
+    ) -> AnyElement {
+        let theme = self.theme;
+        div()
+            .absolute()
+            .top(px(CHIP_HEIGHT + 4.0))
+            .left_0()
+            .child(
+                gpui::deferred(
+                    gpui::anchored()
+                        .anchor(gpui::Corner::TopLeft)
+                        .snap_to_window_with_margin(px(16.0))
+                        .child(
+                            div()
+                                .id("calendar-popover")
+                                .occlude()
+                                .relative()
+                                .w(px(width))
+                                .child(crate::squircle::squircle(
+                                    crate::squircle::PANEL_RADIUS,
+                                    Some(theme.floating_panel),
+                                    Some((1.0, theme.floating_border)),
+                                ))
+                                .shadow(vec![gpui::BoxShadow {
+                                    color: gpui::hsla(0.0, 0.0, 0.0, 0.1),
+                                    offset: gpui::point(px(0.0), px(8.0)),
+                                    blur_radius: px(24.0),
+                                    spread_radius: px(0.0),
+                                }])
+                                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                                .on_mouse_down_out(cx.listener(
+                                    |this, _: &MouseDownEvent, _, cx| {
+                                        this.close_calendar_popover(cx);
+                                    },
+                                ))
+                                .child(content),
+                        ),
+                )
+                .with_priority(2),
+            )
+            .into_any_element()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::{TimeZone, Utc};
+
+    #[test]
+    fn visible_item_count_keeps_room_for_the_more_line() {
+        assert_eq!(visible_item_count(100.0, 0), 0);
+        // Three chips fit outright: 15 + 2 + 15 + 2 + 15 = 49.
+        assert_eq!(visible_item_count(49.0, 3), 3);
+        // Five chips need 83px; in 49px two chips fit with the 17px reserved
+        // for the more line, in 66px three do.
+        assert_eq!(visible_item_count(49.0, 5), 2);
+        assert_eq!(visible_item_count(66.0, 5), 3);
+        assert_eq!(visible_item_count(5.0, 5), 1);
+    }
+
+    #[test]
+    fn all_day_events_keep_their_stored_date() {
+        let event = EventRow {
+            started_at: "2026-09-05".into(),
+            is_all_day: 1,
+            ..EventRow::default()
+        };
+        assert_eq!(event_day(&event), NaiveDate::from_ymd_opt(2026, 9, 5));
+        let bad = EventRow {
+            started_at: "nope".into(),
+            is_all_day: 1,
+            ..EventRow::default()
+        };
+        assert_eq!(event_day(&bad), None);
+    }
+
+    #[test]
+    fn timed_events_use_the_local_day() {
+        let event = EventRow {
+            started_at: "2026-09-05T12:00:00.000Z".into(),
+            ..EventRow::default()
+        };
+        let expected = Utc
+            .with_ymd_and_hms(2026, 9, 5, 12, 0, 0)
+            .unwrap()
+            .with_timezone(&Local)
+            .date_naive();
+        assert_eq!(event_day(&event), Some(expected));
+    }
+}

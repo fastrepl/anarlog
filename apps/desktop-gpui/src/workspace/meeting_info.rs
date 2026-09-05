@@ -588,7 +588,7 @@ impl Workspace {
 
     /// `EventDisplay`: title, rule, location, meeting link with Join, the
     /// time range, participants, and the description.
-    fn render_event_display(
+    pub(super) fn render_event_display(
         &self,
         event: &crate::timeline::SessionEvent,
         cx: &Context<Self>,

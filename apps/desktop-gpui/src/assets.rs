@@ -119,6 +119,7 @@ embedded!(
     "brands/gemini.svg",
     "brands/github-copilot.svg",
     "brands/gladia.svg",
+    "brands/google-calendar.svg",
     "brands/google-cloud.svg",
     "brands/groq.svg",
     "brands/lmstudio.svg",
@@ -127,6 +128,7 @@ embedded!(
     "brands/ollama.svg",
     "brands/openai.svg",
     "brands/openrouter.svg",
+    "brands/outlook.svg",
     "brands/pyannote-logo-black.png",
     "brands/revai.svg",
     "brands/siliconcloud.svg",
@@ -154,6 +156,7 @@ embedded!(
     "icons/calendar-dots.svg",
     "icons/calendar.svg",
     "icons/caret-down.svg",
+    "icons/caret-left.svg",
     "icons/caret-right.svg",
     "icons/caret-up.svg",
     "icons/check-circle.svg",
@@ -321,6 +324,6 @@ mod tests {
         }
         assert!(Assets.load("icons/search.svg").unwrap().is_some());
         assert!(Assets.load("icons/missing.svg").unwrap().is_none());
-        assert_eq!(Assets.list("icons/").unwrap().len(), 148);
+        assert_eq!(Assets.list("icons/").unwrap().len(), 149);
     }
 }

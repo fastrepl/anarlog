@@ -58,6 +58,7 @@ impl Workspace {
     pub(crate) fn open_folders(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.close_settings(cx);
         self.close_templates(cx);
+        self.close_calendar(cx);
         if self.folders.is_none() {
             let style = self.input_style();
             let search = cx.new(|cx| TextInput::new("Search folders...", style, window, cx));

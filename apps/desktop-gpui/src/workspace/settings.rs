@@ -263,6 +263,10 @@ impl Workspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        // `openNew({ type: "settings" })` replaces the other overlay tabs.
+        self.close_folders(cx);
+        self.close_templates(cx);
+        self.close_calendar(cx);
         if self.settings_search.is_none() {
             let theme = self.theme;
             let input = cx.new(|cx| {
@@ -828,6 +832,8 @@ impl Workspace {
                                 this.open_folders(window, cx);
                             } else if label == "Templates" {
                                 this.open_templates(None, window, cx);
+                            } else if label == "Calendar" {
+                                this.open_calendar(cx);
                             }
                         }))
                         .child(icon(glyph, px(15.0), color))

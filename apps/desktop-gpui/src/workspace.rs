@@ -1,4 +1,5 @@
 mod ai_settings;
+mod calendar_tab;
 mod developers_page;
 mod document_view;
 mod export;
@@ -177,6 +178,8 @@ pub struct Workspace {
     folders: Option<folders_tab::FoldersState>,
     /// The Templates tab while open.
     templates_tab: Option<templates_tab::TemplatesState>,
+    /// The Calendar tab while open.
+    calendar: Option<calendar_tab::CalendarState>,
     /// The template section under the pointer (`group-hover`).
     hovered_section: Option<u64>,
     /// The `SpokenLanguagesView` chip input, created with the settings tab.
@@ -288,6 +291,7 @@ impl Workspace {
             developers: None,
             folders: None,
             templates_tab: None,
+            calendar: None,
             hovered_section: None,
             spoken_search: None,
             spoken_highlighted: None,
@@ -1050,6 +1054,8 @@ impl Render for Workspace {
                     this.close_export_dialog(cx);
                 } else if this.folder_dialog_open() {
                     this.close_folder_dialogs(cx);
+                } else if this.calendar_popover_open() {
+                    this.close_calendar_popover(cx);
                 } else if this.is_standalone() {
                     window.remove_window();
                 }
@@ -1106,7 +1112,9 @@ impl Render for Workspace {
                     .flex_1()
                     .min_h_0()
                     .when(self.sidebar_expanded && !self.is_standalone(), |shell| {
-                        let sidebar = if self.templates_open() {
+                        let sidebar = if self.calendar_open() {
+                            self.render_calendar_sidebar(cx).into_any_element()
+                        } else if self.templates_open() {
                             self.render_templates_sidebar(cx).into_any_element()
                         } else if self.folders_open() {
                             self.render_folders_sidebar(cx).into_any_element()

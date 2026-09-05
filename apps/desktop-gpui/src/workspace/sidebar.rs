@@ -406,6 +406,8 @@ impl Workspace {
                 .font_weight(gpui::FontWeight::MEDIUM)
                 .text_color(color)
                 .child(icon("calendar-dots", px(12.0), color))
+                // `openNew({ type: "calendar" })`
+                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.open_calendar(cx)))
                 .child("Open calendar"),
         )
     }
