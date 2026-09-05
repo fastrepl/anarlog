@@ -1,5 +1,6 @@
 mod db;
 mod theme;
+mod timeline;
 mod workspace;
 
 use std::path::PathBuf;

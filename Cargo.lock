@@ -5442,6 +5442,7 @@ name = "desktop-gpui"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "db-app",
  "db-core",
  "dirs 6.0.0",

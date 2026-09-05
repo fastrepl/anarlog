@@ -16,6 +16,7 @@ anlg-storage = { workspace = true }
 anlg-tiptap = { workspace = true }
 
 anyhow = { workspace = true }
+chrono = { workspace = true }
 dirs = { workspace = true }
 gpui = { workspace = true }
 pico-args = { workspace = true }

@@ -1,27 +1,42 @@
-use std::ops::Range;
 use std::sync::Arc;
 
-use anlg_db_app::SessionListItem;
+use chrono::{DateTime, Local, Utc};
 use gpui::{
-    AnyElement, ClickEvent, Context, Div, Render, SharedString, Stateful, Window, div, prelude::*,
-    px, uniform_list,
+    AnyElement, ClickEvent, Context, Div, ListAlignment, ListState, Render, SharedString, Stateful,
+    Window, div, list, prelude::*, px,
 };
 
 use crate::db::{NotePreview, Store};
 use crate::theme::Theme;
+use crate::timeline::{self, Bucket, Precision, Timeline};
 
 const SIDEBAR_WIDTH: f32 = 280.0;
 
 enum Sessions {
     Loading,
-    Ready(Vec<SessionListItem>),
+    Ready(Timeline),
     Failed(String),
+}
+
+/// One line of the sidebar list; buckets and their rows share one flat list
+/// so the variable-height `list` element can virtualize them together.
+#[derive(Clone)]
+enum SidebarRow {
+    Header { bucket: usize },
+    Session { bucket: usize, item: usize },
+}
+
+/// `computeCurrentNoteTab` with no remembered tab and no live session.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum NoteTab {
+    Memo,
+    Enhanced(String),
 }
 
 enum Note {
     Empty,
     Loading,
-    Ready(NotePreview),
+    Ready { preview: NotePreview, tab: NoteTab },
     Failed(String),
 }
 
@@ -29,6 +44,8 @@ pub struct Workspace {
     store: Arc<Store>,
     theme: Theme,
     sessions: Sessions,
+    rows: Vec<SidebarRow>,
+    list_state: ListState,
     selected: Option<String>,
     note: Note,
 }
@@ -39,6 +56,8 @@ impl Workspace {
             store,
             theme: Theme::light(),
             sessions: Sessions::Loading,
+            rows: Vec::new(),
+            list_state: ListState::new(0, ListAlignment::Top, px(400.0)),
             selected: None,
             note: Note::Empty,
         };
@@ -51,24 +70,41 @@ impl Workspace {
         let task = self.store.list_sessions();
         cx.spawn(async move |this, cx| {
             let result = match task.await {
-                Ok(Ok(sessions)) => Sessions::Ready(sessions),
+                Ok(Ok(rows)) => Sessions::Ready(timeline::build(&rows, Utc::now(), &Local)),
                 Ok(Err(error)) => Sessions::Failed(error.to_string()),
                 Err(error) => Sessions::Failed(error.to_string()),
             };
             this.update(cx, |this, cx| {
-                if let Sessions::Ready(sessions) = &result
-                    && this.selected.is_none()
-                    && let Some(first) = sessions.first()
+                this.sessions = result;
+                this.rebuild_rows();
+                if this.selected.is_none()
+                    && let Sessions::Ready(timeline) = &this.sessions
+                    && let Some(first) = timeline.buckets.first().and_then(|b| b.items.first())
                 {
                     let first_id = first.id.clone();
                     this.select(first_id, cx);
                 }
-                this.sessions = result;
                 cx.notify();
             })
             .ok();
         })
         .detach();
+    }
+
+    fn rebuild_rows(&mut self) {
+        self.rows.clear();
+        if let Sessions::Ready(timeline) = &self.sessions {
+            for (bucket_ix, bucket) in timeline.buckets.iter().enumerate() {
+                self.rows.push(SidebarRow::Header { bucket: bucket_ix });
+                for item_ix in 0..bucket.items.len() {
+                    self.rows.push(SidebarRow::Session {
+                        bucket: bucket_ix,
+                        item: item_ix,
+                    });
+                }
+            }
+        }
+        self.list_state.reset(self.rows.len());
     }
 
     fn select(&mut self, session_id: String, cx: &mut Context<Self>) {
@@ -82,7 +118,13 @@ impl Workspace {
         let task = self.store.load_note(session_id.clone());
         cx.spawn(async move |this, cx| {
             let result = match task.await {
-                Ok(Ok(Some(note))) => Note::Ready(note),
+                Ok(Ok(Some(preview))) => {
+                    let tab = match preview.enhanced.first() {
+                        Some(first) => NoteTab::Enhanced(first.id.clone()),
+                        None => NoteTab::Memo,
+                    };
+                    Note::Ready { preview, tab }
+                }
                 Ok(Ok(None)) => Note::Failed("This note no longer exists.".to_string()),
                 Ok(Err(error)) => Note::Failed(error.to_string()),
                 Err(error) => Note::Failed(error.to_string()),
@@ -99,8 +141,28 @@ impl Workspace {
         .detach();
     }
 
+    fn set_tab(&mut self, tab: NoteTab, cx: &mut Context<Self>) {
+        if let Note::Ready { tab: current, .. } = &mut self.note
+            && *current != tab
+        {
+            *current = tab;
+            cx.notify();
+        }
+    }
+
     fn render_sidebar(&self, cx: &Context<Self>) -> Div {
         let theme = self.theme;
+        let (count, has_more_future_items) = match &self.sessions {
+            Sessions::Ready(timeline) => (
+                timeline
+                    .buckets
+                    .iter()
+                    .map(|b| b.items.len())
+                    .sum::<usize>(),
+                timeline.has_more_future_items,
+            ),
+            _ => (0, false),
+        };
         let header = div()
             .flex()
             .items_center()
@@ -110,41 +172,27 @@ impl Workspace {
             .border_b_1()
             .border_color(theme.border)
             .child(div().font_weight(gpui::FontWeight::SEMIBOLD).child("Notes"))
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(theme.text_muted)
-                    .child(match &self.sessions {
-                        Sessions::Ready(sessions) => sessions.len().to_string(),
-                        _ => String::new(),
-                    }),
-            );
+            .child(div().text_sm().text_color(theme.text_muted).child(
+                if matches!(self.sessions, Sessions::Ready(_)) {
+                    count.to_string()
+                } else {
+                    String::new()
+                },
+            ));
 
         let body = match &self.sessions {
             Sessions::Loading => self.render_message("Loading notes…"),
             Sessions::Failed(error) => self.render_error(error.clone()),
-            Sessions::Ready(sessions) if sessions.is_empty() => {
-                self.render_message("No notes yet.")
-            }
-            Sessions::Ready(sessions) => {
-                let count = sessions.len();
-                div().flex_1().min_h_0().child(
-                    uniform_list(
-                        "sessions",
-                        count,
-                        cx.processor(|this, range: Range<usize>, _window, cx| {
-                            let Sessions::Ready(sessions) = &this.sessions else {
-                                return Vec::new();
-                            };
-                            range
-                                .filter_map(|index| sessions.get(index).map(|s| (index, s)))
-                                .map(|(index, session)| this.render_session_row(index, session, cx))
-                                .collect()
-                        }),
-                    )
-                    .h_full(),
+            Sessions::Ready(_) if self.rows.is_empty() => self.render_message("No notes yet."),
+            Sessions::Ready(_) => div().flex_1().min_h_0().child(
+                list(
+                    self.list_state.clone(),
+                    cx.processor(|this, index: usize, _window, cx| {
+                        this.render_sidebar_row(index, cx)
+                    }),
                 )
-            }
+                .size_full(),
+            ),
         };
 
         div()
@@ -158,19 +206,65 @@ impl Workspace {
             .border_color(theme.border)
             .child(header)
             .child(body)
+            .when(has_more_future_items, |sidebar| {
+                sidebar.child(
+                    div()
+                        .px_3()
+                        .py_2()
+                        .text_xs()
+                        .text_color(theme.text_muted)
+                        .border_t_1()
+                        .border_color(theme.border)
+                        .child("More upcoming notes are in the calendar."),
+                )
+            })
+    }
+
+    fn render_sidebar_row(&self, index: usize, cx: &Context<Self>) -> AnyElement {
+        let Sessions::Ready(timeline) = &self.sessions else {
+            return div().into_any_element();
+        };
+        match self.rows.get(index) {
+            Some(SidebarRow::Header { bucket }) => self
+                .render_bucket_header(&timeline.buckets[*bucket])
+                .into_any_element(),
+            Some(SidebarRow::Session { bucket, item }) => {
+                let bucket = &timeline.buckets[*bucket];
+                self.render_session_row(index, &bucket.items[*item], bucket.precision, cx)
+                    .into_any_element()
+            }
+            None => div().into_any_element(),
+        }
+    }
+
+    fn render_bucket_header(&self, bucket: &Bucket) -> Div {
+        div()
+            .px_3()
+            .pt_3()
+            .pb_1()
+            .text_xs()
+            .font_weight(gpui::FontWeight::SEMIBOLD)
+            .text_color(self.theme.text_muted)
+            .child(SharedString::from(bucket.label.clone()))
     }
 
     fn render_session_row(
         &self,
         index: usize,
-        session: &SessionListItem,
+        item: &timeline::Item,
+        precision: Precision,
         cx: &Context<Self>,
     ) -> Stateful<Div> {
         let theme = self.theme;
-        let session_id = session.id.clone();
-        let selected = self.selected.as_deref() == Some(session.id.as_str());
-        let title = display_title(&session.title);
-        let subtitle = display_date(&session.started_at, &session.created_at);
+        let session_id = item.id.clone();
+        let selected = self.selected.as_deref() == Some(item.id.as_str());
+        let title = display_title(&item.title);
+        let time = SharedString::from(timeline::format_display_time(
+            item.timestamp,
+            precision,
+            Utc::now(),
+            &Local,
+        ));
 
         div()
             .id(index)
@@ -188,17 +282,26 @@ impl Workspace {
             .on_click(cx.listener(move |this, _event: &ClickEvent, _window, cx| {
                 this.select(session_id.clone(), cx);
             }))
-            .child(div().text_sm().truncate().child(title))
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_1()
+                    .child(div().text_sm().truncate().child(title))
+                    .when(item.locked, |row| {
+                        row.child(div().text_xs().text_color(theme.text_muted).child("locked"))
+                    }),
+            )
             .child(
                 div()
                     .text_xs()
                     .text_color(theme.text_muted)
                     .truncate()
-                    .child(subtitle),
+                    .child(time),
             )
     }
 
-    fn render_note(&self) -> Div {
+    fn render_note(&self, cx: &Context<Self>) -> Div {
         let theme = self.theme;
         let content: AnyElement = match &self.note {
             Note::Empty => self
@@ -206,8 +309,18 @@ impl Workspace {
                 .into_any_element(),
             Note::Loading => self.render_message("Loading…").into_any_element(),
             Note::Failed(error) => self.render_error(error.clone()).into_any_element(),
-            Note::Ready(note) => {
-                let blocks = markdown_blocks(&note.body);
+            Note::Ready { preview, tab } => {
+                let body = match tab {
+                    NoteTab::Memo => preview.memo.as_str(),
+                    NoteTab::Enhanced(id) => preview
+                        .enhanced
+                        .iter()
+                        .find(|doc| &doc.id == id)
+                        .map(|doc| doc.body.as_str())
+                        .unwrap_or(""),
+                };
+                let blocks = markdown_blocks(body);
+                let timestamp = timeline::session_timestamp(&preview.session, &Local);
 
                 div()
                     .id("note")
@@ -222,14 +335,15 @@ impl Workspace {
                         div()
                             .text_2xl()
                             .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .child(display_title(&note.title)),
+                            .child(display_title(&preview.session.title)),
                     )
                     .child(
                         div()
                             .text_sm()
                             .text_color(theme.text_muted)
-                            .child(display_date(&note.started_at, "")),
+                            .child(SharedString::from(display_date(timestamp))),
                     )
+                    .child(self.render_tabs(preview, tab, cx))
                     .when(blocks.is_empty(), |body| {
                         body.child(
                             div()
@@ -250,6 +364,47 @@ impl Workspace {
             .h_full()
             .bg(theme.background)
             .child(content)
+    }
+
+    /// Enhanced notes first, then the memo, matching the app's tab strip.
+    fn render_tabs(&self, preview: &NotePreview, current: &NoteTab, cx: &Context<Self>) -> Div {
+        let theme = self.theme;
+        let mut tabs: Vec<(NoteTab, SharedString)> = preview
+            .enhanced
+            .iter()
+            .map(|doc| {
+                let label = if doc.title.trim().is_empty() {
+                    "Summary".to_string()
+                } else {
+                    doc.title.clone()
+                };
+                (NoteTab::Enhanced(doc.id.clone()), SharedString::from(label))
+            })
+            .collect();
+        tabs.push((NoteTab::Memo, "Memo".into()));
+
+        div()
+            .flex()
+            .gap_1()
+            .children(tabs.into_iter().enumerate().map(|(index, (tab, label))| {
+                let active = *current == tab;
+                div()
+                    .id(("tab", index))
+                    .px_2()
+                    .py_1()
+                    .rounded_md()
+                    .text_sm()
+                    .cursor_pointer()
+                    .when(active, |t| t.bg(theme.selected))
+                    .when(!active, |t| {
+                        t.text_color(theme.text_muted)
+                            .hover(|style| style.bg(theme.hover))
+                    })
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _window, cx| {
+                        this.set_tab(tab.clone(), cx);
+                    }))
+                    .child(label)
+            }))
     }
 
     fn render_status_bar(&self) -> Div {
@@ -312,7 +467,7 @@ impl Render for Workspace {
                     .flex_1()
                     .min_h_0()
                     .child(self.render_sidebar(cx))
-                    .child(self.render_note()),
+                    .child(self.render_note(cx)),
             )
             .child(self.render_status_bar())
     }
@@ -410,21 +565,10 @@ fn display_title(title: &str) -> SharedString {
     }
 }
 
-/// Sessions store RFC 3339 timestamps; show the calendar date and time without
-/// pulling in a date-time crate until locale-aware formatting is needed.
-fn display_date(started_at: &str, fallback: &str) -> SharedString {
-    let source = if started_at.trim().is_empty() {
-        fallback
-    } else {
-        started_at
-    };
-    let (date, rest) = source.split_once('T').unwrap_or((source, ""));
-    let time = rest.get(..5).unwrap_or("");
-    if time.is_empty() {
-        date.to_string().into()
-    } else {
-        format!("{date} {time}").into()
-    }
+fn display_date(timestamp: Option<DateTime<Utc>>) -> String {
+    timestamp
+        .map(|ts| timeline::format_display_time(ts, Precision::Date, Utc::now(), &Local))
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -455,21 +599,5 @@ mod tests {
     fn display_title_falls_back_to_untitled() {
         assert_eq!(display_title("  "), SharedString::from("Untitled"));
         assert_eq!(display_title(" Standup "), SharedString::from("Standup"));
-    }
-
-    #[test]
-    fn display_date_prefers_started_at_and_trims_seconds() {
-        assert_eq!(
-            display_date("2026-09-01T09:05:33.120Z", "2026-08-31T00:00:00Z"),
-            SharedString::from("2026-09-01 09:05")
-        );
-        assert_eq!(
-            display_date("", "2026-08-31T23:59:00Z"),
-            SharedString::from("2026-08-31 23:59")
-        );
-        assert_eq!(
-            display_date("2026-09-01", ""),
-            SharedString::from("2026-09-01")
-        );
     }
 }
