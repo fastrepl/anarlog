@@ -96,9 +96,10 @@ impl Workspace {
                         IndicatorPlacement::Before { index: 0 }
                     )
                     && items_len > 0;
-                self.render_bucket_header(bucket)
-                    .when(line_here, |header| {
-                        header.child(self.render_current_time_line())
+                div()
+                    .child(self.render_bucket_header(bucket))
+                    .when(line_here, |wrap| {
+                        wrap.child(self.render_current_time_line())
                     })
                     .into_any_element()
             }
@@ -139,13 +140,19 @@ impl Workspace {
         )
     }
 
-    /// `CurrentTimeIndicator`: a 1px `bg-red-500/85` rule.
+    /// `CurrentTimeIndicator` (seam variant): a zero-height anchor whose 1px
+    /// `bg-red-500/85` rule is shifted up half a pixel (`-translate-y-1/2`), so
+    /// it straddles the seam between two rows like the web app's does.
     fn render_current_time_line(&self) -> Div {
-        div()
-            .relative()
-            .h(px(1.0))
-            .w_full()
-            .bg(alpha(self.theme.red, 0.85))
+        div().relative().h(px(0.0)).w_full().child(
+            div()
+                .absolute()
+                .top(px(-0.5))
+                .left_0()
+                .right_0()
+                .h(px(1.0))
+                .bg(alpha(self.theme.red, 0.85)),
+        )
     }
 
     /// `ItemBase`: `w-full rounded-lg px-3 py-2`, `bg-accent` when selected,
