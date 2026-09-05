@@ -8,10 +8,6 @@ import {
 import { env } from "@/env";
 import { getRequestAppOrigin } from "@/functions/app-origin";
 
-import {
-  sanitizeAnalyticsEventName,
-  sanitizeAnalyticsProperties,
-} from "./analytics-sanitization";
 import type { AnalyticsIdentity } from "./private-route-analytics-identity";
 import {
   ANALYTICS_IDENTITY_COOKIE,
@@ -21,58 +17,27 @@ import {
   parseAnalyticsIdentity,
   serializeAnalyticsIdentity,
 } from "./private-route-analytics-identity";
-
-const SERVER_ANALYTICS_PROPERTY_KEYS = new Set([
-  "checkout_type",
-  "entry_point",
-  "period",
-  "plan",
-]);
+import { sendServerAnalytics } from "./server-analytics-capture";
 
 export async function captureServerAnalytics({
-  event,
   userId: _userId,
-  properties = {},
-  insertId: _insertId,
-}: {
-  event: string;
+  ...event
+}: Pick<
+  Parameters<typeof sendServerAnalytics>[0],
+  "event" | "properties" | "insertId" | "timestamp"
+> & {
   userId: string;
-  properties?: Record<string, unknown>;
-  insertId?: string;
 }) {
   if (!env.VITE_POSTHOG_API_KEY || process.env.NODE_ENV !== "production") {
     return;
   }
 
-  const response = await fetch(
-    `${env.VITE_POSTHOG_HOST.replace(/\/+$/, "")}/capture/`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(1_000),
-      body: JSON.stringify({
-        api_key: env.VITE_POSTHOG_API_KEY,
-        event: sanitizeAnalyticsEventName(event),
-        properties: {
-          ...sanitizeAnalyticsProperties(
-            Object.fromEntries(
-              Object.entries(properties).filter(([key]) =>
-                SERVER_ANALYTICS_PROPERTY_KEYS.has(key),
-              ),
-            ),
-          ),
-          distinct_id: crypto.randomUUID(),
-          surface: "api",
-          analytics_schema_version: 1,
-          app_version: env.VITE_APP_VERSION ?? "unknown",
-        },
-      }),
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(`PostHog capture failed with ${response.status}`);
-  }
+  await sendServerAnalytics({
+    ...event,
+    apiKey: env.VITE_POSTHOG_API_KEY,
+    host: env.VITE_POSTHOG_HOST,
+    appVersion: env.VITE_APP_VERSION ?? "unknown",
+  });
 }
 
 function readPostHogAnonIdFromRequest() {

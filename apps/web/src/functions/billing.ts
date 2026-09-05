@@ -423,6 +423,7 @@ async function createCheckoutUrl({
     event: "checkout_started",
     userId: user.id,
     insertId: `checkout-started:${checkout.id}`,
+    timestamp: new Date(checkout.created * 1_000),
     properties: {
       plan: "pro",
       period,
