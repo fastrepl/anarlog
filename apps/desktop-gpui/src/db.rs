@@ -802,6 +802,29 @@ impl Store {
         })
     }
 
+    /// `updateSession(sessionId, { folder_id })`: `folder_path = ?`.
+    pub fn update_folder(
+        &self,
+        session_id: String,
+        folder_path: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let now = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string();
+            sqlx::query(
+                "UPDATE sessions SET folder_path = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL",
+            )
+            .bind(&folder_path)
+            .bind(&now)
+            .bind(&session_id)
+            .execute(db.pool())
+            .await?;
+            Ok(())
+        })
+    }
+
     /// `updateSession(sessionId, { title })`.
     pub fn update_title(
         &self,

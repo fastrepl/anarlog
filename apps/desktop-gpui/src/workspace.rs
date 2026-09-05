@@ -1,4 +1,6 @@
 mod document_view;
+mod filter_menu;
+mod menu;
 mod note;
 mod open_note;
 mod overflow;
@@ -93,6 +95,12 @@ pub struct Workspace {
     sessions: Sessions,
     /// Every non-deleted session (`useSessionSummaries`), for the open-note dialog.
     session_rows: Vec<timeline::SessionRow>,
+    event_rows: Vec<timeline::EventRow>,
+    /// `useSidebarNotes`: grouping and ordering of the timeline.
+    group_by: timeline::GroupBy,
+    sort_order: timeline::SortOrder,
+    filter_menu_open: bool,
+    filter_submenu: Option<usize>,
     rows: Vec<SidebarRow>,
     list_state: ListState,
     selected: Option<String>,
@@ -112,6 +120,7 @@ pub struct Workspace {
     /// The `theme` setting: `light`, `dark`, or `system`.
     theme_preference: String,
     overflow_open: bool,
+    overflow_submenu: Option<usize>,
     pending_deletions: Vec<overflow::PendingDeletion>,
     /// Pending `scrollToAnchor`: the viewport ratio the current-time line
     /// should land at, applied over two frames once the row is measured.
@@ -158,6 +167,11 @@ impl Workspace {
             mono_font_family,
             sessions: Sessions::Loading,
             session_rows: Vec::new(),
+            event_rows: Vec::new(),
+            group_by: timeline::GroupBy::Date,
+            sort_order: timeline::SortOrder::Newest,
+            filter_menu_open: false,
+            filter_submenu: None,
             rows: Vec::new(),
             list_state: ListState::new(0, ListAlignment::Top, px(400.0)),
             selected: None,
@@ -173,6 +187,7 @@ impl Workspace {
             auth: toast::Auth::Loading,
             theme_preference: "system".to_string(),
             overflow_open: false,
+            overflow_submenu: None,
             pending_deletions: Vec::new(),
             anchor_scroll: None,
             anchor_scrolled_once: false,
@@ -232,23 +247,42 @@ impl Workspace {
         }
         let task = self.store.list_timeline();
         cx.spawn(async move |this, cx| {
-            let (result, rows) = match task.await {
-                Ok(Ok((rows, events))) => (
-                    Sessions::Ready(timeline::build(&rows, &events, Utc::now(), &Local)),
-                    rows,
-                ),
-                Ok(Err(error)) => (Sessions::Failed(error.to_string()), Vec::new()),
-                Err(error) => (Sessions::Failed(error.to_string()), Vec::new()),
-            };
+            let result = task.await;
             this.update(cx, |this, cx| {
-                this.sessions = result;
-                this.session_rows = rows;
-                this.rebuild_rows();
+                match result {
+                    Ok(Ok((rows, events))) => {
+                        this.session_rows = rows;
+                        this.event_rows = events;
+                        this.rebuild_timeline(cx);
+                    }
+                    Ok(Err(error)) => {
+                        this.sessions = Sessions::Failed(error.to_string());
+                        this.rebuild_rows();
+                    }
+                    Err(error) => {
+                        this.sessions = Sessions::Failed(error.to_string());
+                        this.rebuild_rows();
+                    }
+                }
                 cx.notify();
             })
             .ok();
         })
         .detach();
+    }
+
+    /// `buildTimelineBuckets` over the loaded rows with the current view.
+    pub(crate) fn rebuild_timeline(&mut self, cx: &mut Context<Self>) {
+        self.sessions = Sessions::Ready(timeline::build_with(
+            &self.session_rows,
+            &self.event_rows,
+            Utc::now(),
+            &Local,
+            self.group_by,
+            self.sort_order,
+        ));
+        self.rebuild_rows();
+        cx.notify();
     }
 
     fn rebuild_rows(&mut self) {
@@ -292,7 +326,7 @@ impl Workspace {
                     if bucket.label == "Today"
                         && !bucket.items.is_empty()
                         && matches!(
-                            timeline::indicator_placement(&bucket.items, now),
+                            timeline::indicator_placement(&bucket.items, now, self.sort_order),
                             timeline::IndicatorPlacement::Before { index: 0 }
                         )
                     {
@@ -304,7 +338,7 @@ impl Workspace {
                     if bucket.label != "Today" {
                         continue;
                     }
-                    match timeline::indicator_placement(&bucket.items, now) {
+                    match timeline::indicator_placement(&bucket.items, now, self.sort_order) {
                         timeline::IndicatorPlacement::Before { index: at }
                             if at == *item && at > 0 =>
                         {
@@ -741,6 +775,7 @@ impl Render for Workspace {
             .children(self.render_toast_host(window, cx))
             .children(self.render_undo_toast(cx))
             .children(self.render_overflow_menu(window, cx))
+            .children(self.render_filter_menu(window, cx))
             .children(self.render_open_menu(window, cx))
             .children(self.render_open_note_dialog(window, cx))
     }

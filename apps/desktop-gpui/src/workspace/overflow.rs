@@ -6,13 +6,13 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use gpui::{
-    AnyElement, BoxShadow, ClickEvent, Context, Corner, MouseButton, MouseDownEvent, SharedString,
-    Window, anchored, deferred, div, hsla, point, prelude::*, px,
+    AnyElement, BoxShadow, ClickEvent, Context, MouseButton, SharedString, Window, div, hsla,
+    point, prelude::*, px,
 };
 
 use super::Workspace;
+use super::menu::{Align, Entry, MenuSpec, Select, Trailing};
 use crate::theme::alpha;
-use crate::ui::{TailwindText as _, icon};
 
 /// `UNDO_TIMEOUT_MS`
 pub(super) const UNDO_TIMEOUT: Duration = Duration::from_millis(5000);
@@ -25,115 +25,195 @@ pub(crate) struct PendingDeletion {
     pub added_at: Instant,
 }
 
-enum Item {
-    Entry {
-        icon: &'static str,
-        label: &'static str,
-        submenu: bool,
-        destructive: bool,
-        action: ItemAction,
-    },
-    Separator,
-}
-
-#[derive(Clone, Copy)]
-enum ItemAction {
-    None,
-    Delete,
-    ShowInFolder,
-}
-
 impl Workspace {
     pub(crate) fn toggle_overflow_menu(&mut self, cx: &mut Context<Self>) {
         self.overflow_open = !self.overflow_open;
+        self.overflow_submenu = None;
         cx.notify();
     }
 
     fn close_overflow_menu(&mut self, cx: &mut Context<Self>) {
         if self.overflow_open {
             self.overflow_open = false;
+            self.overflow_submenu = None;
             cx.notify();
+        }
+    }
+
+    fn hover_overflow_submenu(&mut self, index: Option<usize>, cx: &mut Context<Self>) {
+        if self.overflow_submenu != index {
+            self.overflow_submenu = index;
+            cx.notify();
+        }
+    }
+
+    fn show_in_folder(&mut self, cx: &mut Context<Self>) {
+        if let Some(path) = self
+            .selected
+            .as_deref()
+            .map(|id| self.store.session_dir(id))
+        {
+            cx.open_url(&format!("file://{}", path.display()));
         }
     }
 
     /// The items the Tauri menu shows for a note without audio, transcript,
     /// or an active recording; lock is only offered where the OS app lock
-    /// exists, which Linux lacks.
-    fn overflow_items(&self) -> Vec<Item> {
-        vec![
-            Item::Entry {
-                icon: "folder",
-                label: "Folder",
-                submenu: true,
+    /// exists, which Linux lacks. Folder and Meeting info open submenus.
+    fn overflow_spec(&self) -> MenuSpec {
+        let plain =
+            |icon: &'static str, label: &'static str, on_select: Option<Select>| Entry::Item {
+                icon: Some(icon),
+                dim_icon: false,
+                label: label.into(),
+                trailing: Trailing::None,
                 destructive: false,
-                action: ItemAction::None,
-            },
-            Item::Entry {
-                icon: "calendar-blank",
-                label: "Meeting info",
-                submenu: true,
-                destructive: false,
-                action: ItemAction::None,
-            },
-            Item::Separator,
-            Item::Entry {
-                icon: "file-arrow-down",
-                label: "Export",
-                submenu: false,
-                destructive: false,
-                action: ItemAction::None,
-            },
-            Item::Separator,
-            Item::Entry {
-                icon: "microphone",
-                label: "Start listening",
-                submenu: false,
-                destructive: false,
-                action: ItemAction::None,
-            },
-            Item::Separator,
-            Item::Entry {
-                icon: "app-window",
-                label: "Open in New Window",
-                submenu: false,
-                destructive: false,
-                action: ItemAction::None,
-            },
-            Item::Entry {
-                icon: "folder-open",
-                label: if cfg!(target_os = "macos") {
-                    "Show in Finder"
-                } else {
-                    "Show in folder"
+                on_select,
+                submenu: None,
+            };
+        MenuSpec {
+            id: "overflow-menu",
+            width: 224.0,
+            open_sub: self.overflow_submenu,
+            on_hover_sub: Self::hover_overflow_submenu,
+            on_close: Self::close_overflow_menu,
+            entries: vec![
+                Entry::Item {
+                    icon: Some("folder"),
+                    dim_icon: false,
+                    label: "Folder".into(),
+                    trailing: Trailing::Submenu,
+                    destructive: false,
+                    on_select: None,
+                    submenu: Some(self.folder_submenu_entries()),
                 },
-                submenu: false,
-                destructive: false,
-                action: ItemAction::ShowInFolder,
-            },
-            Item::Entry {
-                icon: "trash",
-                label: "Delete",
-                submenu: false,
-                destructive: true,
-                action: ItemAction::Delete,
-            },
-        ]
+                Entry::Item {
+                    icon: Some("calendar-blank"),
+                    dim_icon: false,
+                    label: "Meeting info".into(),
+                    trailing: Trailing::Submenu,
+                    destructive: false,
+                    on_select: None,
+                    submenu: None,
+                },
+                Entry::Separator,
+                plain("file-arrow-down", "Export", None),
+                Entry::Separator,
+                plain("microphone", "Start listening", None),
+                Entry::Separator,
+                plain("app-window", "Open in New Window", None),
+                plain(
+                    "folder-open",
+                    if cfg!(target_os = "macos") {
+                        "Show in Finder"
+                    } else {
+                        "Show in folder"
+                    },
+                    Some(Box::new(|this, _, cx| this.show_in_folder(cx))),
+                ),
+                Entry::Item {
+                    icon: Some("trash"),
+                    dim_icon: false,
+                    label: "Delete".into(),
+                    trailing: Trailing::None,
+                    destructive: true,
+                    on_select: Some(Box::new(|this, _, cx| this.delete_current_note(cx))),
+                    submenu: None,
+                },
+            ],
+        }
     }
 
-    fn run_overflow_action(&mut self, action: ItemAction, cx: &mut Context<Self>) {
-        match action {
-            ItemAction::None => {}
-            ItemAction::Delete => self.delete_current_note(cx),
-            ItemAction::ShowInFolder => {
-                if let Some(path) = self
-                    .selected
-                    .as_deref()
-                    .map(|id| self.store.session_dir(id))
-                {
-                    cx.open_url(&format!("file://{}", path.display()));
-                }
+    /// `FolderPickerSubmenu`: every folder in use plus "No folder", the
+    /// current one checked; picking runs `updateSession({ folder_id })`.
+    fn folder_submenu_entries(&self) -> Vec<Entry> {
+        let current = match &self.note {
+            super::Note::Ready { preview, .. } => {
+                crate::timeline::normalize_folder_path(&preview.session.folder_id)
+                    .unwrap_or_default()
             }
+            _ => String::new(),
+        };
+        let mut folders: Vec<String> = self
+            .session_rows
+            .iter()
+            .filter_map(|row| crate::timeline::normalize_folder_path(&row.folder_id))
+            .filter(|folder| !folder.is_empty())
+            .collect();
+        folders.sort();
+        folders.dedup();
+        let mut entries: Vec<Entry> = folders
+            .into_iter()
+            .map(|folder| {
+                let checked = folder == current;
+                let target = folder.clone();
+                Entry::Item {
+                    icon: Some("folder"),
+                    dim_icon: true,
+                    label: folder.into(),
+                    trailing: Trailing::Check(checked),
+                    destructive: false,
+                    on_select: Some(Box::new(move |this, _, cx| {
+                        this.move_current_note_to_folder(target.clone(), cx)
+                    })),
+                    submenu: None,
+                }
+            })
+            .collect();
+        if !entries.is_empty() {
+            entries.push(Entry::Separator);
         }
+        entries.push(Entry::Item {
+            icon: None,
+            dim_icon: false,
+            label: "No folder".into(),
+            trailing: Trailing::Check(current.is_empty()),
+            destructive: false,
+            on_select: Some(Box::new(|this, _, cx| {
+                this.move_current_note_to_folder(String::new(), cx)
+            })),
+            submenu: None,
+        });
+        entries
+    }
+
+    fn move_current_note_to_folder(&mut self, folder: String, cx: &mut Context<Self>) {
+        let Some(session_id) = self.selected.clone() else {
+            return;
+        };
+        let task = self.store.update_folder(session_id.clone(), folder);
+        cx.spawn(async move |this, cx| match task.await {
+            Ok(Ok(())) => {
+                this.update(cx, |this, cx| {
+                    this.reload_sessions(cx);
+                    this.reload_note(session_id, cx);
+                })
+                .ok();
+            }
+            Ok(Err(error)) => tracing::error!(%error, "failed to move note"),
+            Err(error) => tracing::error!(%error, "failed to move note"),
+        })
+        .detach();
+    }
+
+    /// `DropdownMenuContent variant="app" align="end" className="w-56"` under
+    /// the `…` trigger; measured against the app, the chrome starts 81px from
+    /// the window top with its right edge 8px in from the window's.
+    pub(super) fn render_overflow_menu(
+        &self,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        if !self.overflow_open {
+            return None;
+        }
+        let viewport = window.viewport_size();
+        Some(self.render_app_menu(
+            self.overflow_spec(),
+            point(viewport.width - px(8.0), px(81.0)),
+            Align::End,
+            cx,
+        ))
     }
 
     /// `useDeleteSession`: tombstone the note, close its tab, and offer undo
@@ -235,139 +315,6 @@ impl Workspace {
             Err(error) => tracing::error!(%error, "could not restore deleted note"),
         })
         .detach();
-    }
-
-    /// `DropdownMenuContent variant="app" align="end" className="w-56"`: a
-    /// `rounded-[22px]` chrome with `p-0.5` around an `AppFloatingPanel`
-    /// (`rounded-[20px] p-1.5`), anchored to the trigger's bottom-right.
-    pub(super) fn render_overflow_menu(
-        &self,
-        window: &Window,
-        cx: &Context<Self>,
-    ) -> Option<AnyElement> {
-        if !self.overflow_open {
-            return None;
-        }
-        let theme = self.theme;
-        let viewport = window.viewport_size();
-        let chrome = theme.floating_chrome;
-        let panel_bg = theme.floating_panel;
-        let border = theme.floating_border;
-        let red_600 = theme.delete_text;
-        let red_700 = theme.delete_hover_text;
-        let red_50 = theme.delete_hover_background;
-
-        let items = self
-            .overflow_items()
-            .into_iter()
-            .enumerate()
-            .map(|(index, item)| match item {
-                Item::Separator => div()
-                    .mx(px(-4.0))
-                    .my_1()
-                    .h(px(1.0))
-                    .bg(theme.accent)
-                    .into_any_element(),
-                Item::Entry {
-                    icon: glyph,
-                    label,
-                    submenu,
-                    destructive,
-                    action,
-                } => {
-                    let color = if destructive {
-                        red_600
-                    } else {
-                        theme.foreground
-                    };
-                    div()
-                        .id(("overflow-item", index))
-                        .flex()
-                        .items_center()
-                        .gap_2()
-                        .px_2()
-                        .py(px(6.0))
-                        .rounded(px(14.0))
-                        .tw_text_sm()
-                        .text_color(color)
-                        .cursor_pointer()
-                        .hover(move |style| {
-                            if destructive {
-                                style.bg(red_50).text_color(red_700)
-                            } else {
-                                style.bg(theme.accent)
-                            }
-                        })
-                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                            if submenu {
-                                return;
-                            }
-                            this.close_overflow_menu(cx);
-                            this.run_overflow_action(action, cx);
-                        }))
-                        .child(icon(glyph, px(16.0), color))
-                        .child(SharedString::from(label))
-                        .when(submenu, |item| {
-                            item.child(div().ml_auto().child(icon("caret-right", px(16.0), color)))
-                        })
-                        .into_any_element()
-                }
-            });
-
-        let panel = div()
-            .id("overflow-menu")
-            .occlude()
-            .w(px(224.0))
-            .p(px(2.0))
-            .rounded(px(22.0))
-            .border_1()
-            .border_color(border)
-            .bg(chrome)
-            .shadow(vec![
-                BoxShadow {
-                    color: hsla(0.0, 0.0, 0.0, 0.1),
-                    offset: point(px(0.0), px(10.0)),
-                    blur_radius: px(15.0),
-                    spread_radius: px(-3.0),
-                },
-                BoxShadow {
-                    color: hsla(0.0, 0.0, 0.0, 0.1),
-                    offset: point(px(0.0), px(4.0)),
-                    blur_radius: px(6.0),
-                    spread_radius: px(-4.0),
-                },
-            ])
-            .on_mouse_down_out(
-                cx.listener(|this, _: &MouseDownEvent, _, cx| this.close_overflow_menu(cx)),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .p(px(6.0))
-                    .rounded(px(20.0))
-                    .border_1()
-                    .border_color(border)
-                    .bg(panel_bg)
-                    .children(items),
-            );
-
-        // `align="end"` puts the menu's right edge on the trigger's; measured
-        // against the app, the panel's chrome starts 81px from the window top.
-        let trigger_right = viewport.width - px(8.0);
-        let trigger_bottom = px(77.0);
-        Some(
-            deferred(
-                anchored()
-                    .anchor(Corner::TopRight)
-                    .position(point(trigger_right, trigger_bottom + px(4.0)))
-                    .snap_to_window_with_margin(px(8.0))
-                    .child(panel),
-            )
-            .with_priority(1)
-            .into_any_element(),
-        )
     }
 
     /// `UndoDeleteToast`: "<title> deleted" with an Undo action and a gauge

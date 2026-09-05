@@ -55,11 +55,25 @@ impl Workspace {
                                 self.chrome_icon_color("new-note"),
                             )),
                     )
-                    .child(self.tracked_chrome_button("sort-notes", cx).child(icon(
-                        "filter",
-                        px(15.0),
-                        self.chrome_icon_color("sort-notes"),
-                    ))),
+                    .child(
+                        // `!isDefaultView && "bg-accent text-foreground"`
+                        self.tracked_chrome_button("sort-notes", cx)
+                            .when(!self.is_default_notes_view(), |button| {
+                                button.bg(theme.accent)
+                            })
+                            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                this.toggle_filter_menu(cx)
+                            }))
+                            .child(icon(
+                                "filter",
+                                px(15.0),
+                                if self.is_default_notes_view() {
+                                    self.chrome_icon_color("sort-notes")
+                                } else {
+                                    theme.foreground
+                                },
+                            )),
+                    ),
             );
 
         if matches!(self.sessions, Sessions::Ready(_)) {
@@ -388,7 +402,7 @@ impl Workspace {
                 // the past, so the line sits directly under the header.
                 let line_here = bucket.label == "Today"
                     && matches!(
-                        timeline::indicator_placement(&bucket.items, Utc::now()),
+                        timeline::indicator_placement(&bucket.items, Utc::now(), self.sort_order),
                         IndicatorPlacement::Before { index: 0 }
                     )
                     && items_len > 0;
@@ -402,7 +416,11 @@ impl Workspace {
             Some(SidebarRow::Session { bucket, item }) => {
                 let bucket = &timeline.buckets[*bucket];
                 let placement = if bucket.label == "Today" {
-                    Some(timeline::indicator_placement(&bucket.items, Utc::now()))
+                    Some(timeline::indicator_placement(
+                        &bucket.items,
+                        Utc::now(),
+                        self.sort_order,
+                    ))
                 } else {
                     None
                 };

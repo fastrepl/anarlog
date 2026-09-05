@@ -147,7 +147,29 @@ pub enum IndicatorPlacement {
     After,
 }
 
-pub fn indicator_placement(items: &[Item], now: DateTime<Utc>) -> IndicatorPlacement {
+/// `SidebarNotesGroupBy`
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum GroupBy {
+    #[default]
+    Date,
+    Folder,
+}
+
+/// `SidebarNotesSortOrder`
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SortOrder {
+    #[default]
+    Newest,
+    Oldest,
+}
+
+/// `calculateTodayIndicatorPlacement` with `calculateIndicatorIndex`'s
+/// order-aware boundary.
+pub fn indicator_placement(
+    items: &[Item],
+    now: DateTime<Utc>,
+    order: SortOrder,
+) -> IndicatorPlacement {
     let now_ms = now.timestamp_millis();
     if let Some((index, item)) = items.iter().enumerate().find(|(_, item)| {
         let start = item.timestamp.timestamp_millis();
@@ -163,10 +185,11 @@ pub fn indicator_placement(items: &[Item], now: DateTime<Utc>) -> IndicatorPlace
             progress: (now_ms - start) as f32 / (end - start) as f32,
         };
     }
-    match items
-        .iter()
-        .position(|item| item.timestamp.timestamp_millis() < now_ms)
-    {
+    let boundary = |item: &Item| match order {
+        SortOrder::Newest => item.timestamp.timestamp_millis() < now_ms,
+        SortOrder::Oldest => item.timestamp.timestamp_millis() >= now_ms,
+    };
+    match items.iter().position(boundary) {
         Some(index) => IndicatorPlacement::Before { index },
         None => IndicatorPlacement::After,
     }
@@ -370,12 +393,32 @@ where
 /// and `buildDateBuckets`: sessions and calendar events, newest first, grouped
 /// by date. Sessions win over events that share a tracking id, and events
 /// that already ended are not listed (their sessions are).
+#[cfg(test)]
 pub fn build<Tz: TimeZone>(
     rows: &[SessionRow],
     events: &[EventRow],
     now: DateTime<Utc>,
     tz: &Tz,
 ) -> Timeline {
+    build_with(rows, events, now, tz, GroupBy::Date, SortOrder::Newest)
+}
+
+/// `buildTimelineBuckets` with the sidebar's grouping and ordering. Folder
+/// grouping lists sessions only (no events, no "more future items") in
+/// alphabetical folders with "No folder" last.
+pub fn build_with<Tz: TimeZone>(
+    rows: &[SessionRow],
+    events: &[EventRow],
+    now: DateTime<Utc>,
+    tz: &Tz,
+    group_by: GroupBy,
+    order: SortOrder,
+) -> Timeline {
+    let events: &[EventRow] = if group_by == GroupBy::Folder {
+        &[]
+    } else {
+        events
+    };
     let tomorrow_upper_bound = start_of_day_ms(shift(now, 2), tz);
     let mut has_more_future_items = false;
     let mut items: Vec<Item> = Vec::with_capacity(rows.len() + events.len());
@@ -457,12 +500,52 @@ pub fn build<Tz: TimeZone>(
         });
     }
 
+    // `compareTimelineItems`
     items.sort_by(|left, right| {
-        right
-            .timestamp
-            .cmp(&left.timestamp)
+        let by_time = match order {
+            SortOrder::Newest => right.timestamp.cmp(&left.timestamp),
+            SortOrder::Oldest => left.timestamp.cmp(&right.timestamp),
+        };
+        by_time
             .then_with(|| compare_titles(display_title(&left.title), display_title(&right.title)))
     });
+
+    if group_by == GroupBy::Folder {
+        // `buildFolderBuckets`
+        let mut buckets: Vec<(String, Bucket)> = Vec::new();
+        for item in items {
+            let key = normalize_folder_path(&item.folder_id).unwrap_or_default();
+            match buckets.iter_mut().find(|(k, _)| *k == key) {
+                Some((_, bucket)) => bucket.items.push(item),
+                None => {
+                    let label = if key.is_empty() {
+                        "No folder".to_string()
+                    } else {
+                        key.clone()
+                    };
+                    buckets.push((
+                        key,
+                        Bucket {
+                            label,
+                            precision: Precision::Date,
+                            items: vec![item],
+                        },
+                    ));
+                }
+            }
+        }
+        buckets.sort_by(
+            |(left, _), (right, _)| match (left.is_empty(), right.is_empty()) {
+                (true, false) => std::cmp::Ordering::Greater,
+                (false, true) => std::cmp::Ordering::Less,
+                _ => left.cmp(right),
+            },
+        );
+        return Timeline {
+            buckets: buckets.into_iter().map(|(_, bucket)| bucket).collect(),
+            has_more_future_items: false,
+        };
+    }
 
     let mut buckets: Vec<(i64, Bucket)> = Vec::new();
     for item in items {
@@ -479,7 +562,10 @@ pub fn build<Tz: TimeZone>(
             )),
         }
     }
-    buckets.sort_by(|left, right| right.0.cmp(&left.0));
+    match order {
+        SortOrder::Newest => buckets.sort_by(|left, right| right.0.cmp(&left.0)),
+        SortOrder::Oldest => buckets.sort_by(|left, right| left.0.cmp(&right.0)),
+    }
 
     Timeline {
         buckets: buckets.into_iter().map(|(_, bucket)| bucket).collect(),
@@ -511,6 +597,84 @@ mod tests {
             folder_id: String::new(),
             locked: 0,
         }
+    }
+
+    #[test]
+    fn folder_grouping_and_oldest_ordering_follow_build_timeline_buckets() {
+        let mut a = row("a", "Alpha", "2024-01-15T05:00:00.000Z", None);
+        a.folder_id = "Work/Client".into();
+        let mut b = row("b", "Beta", "2024-01-14T05:00:00.000Z", None);
+        b.folder_id = "Personal".into();
+        let c = row("c", "Gamma", "2024-01-13T05:00:00.000Z", None);
+        let event = EventRow {
+            id: "e".into(),
+            tracking_id_event: "t".into(),
+            title: "Meeting".into(),
+            started_at: "2024-01-15T13:00:00.000Z".into(),
+            ended_at: "2024-01-15T14:00:00.000Z".into(),
+            is_all_day: 0,
+            meeting_link: String::new(),
+            calendar_color: String::new(),
+        };
+
+        let folders = build_with(
+            &[a.clone(), b.clone(), c.clone()],
+            std::slice::from_ref(&event),
+            now(),
+            &Utc,
+            GroupBy::Folder,
+            SortOrder::Newest,
+        );
+        let labels: Vec<&str> = folders
+            .buckets
+            .iter()
+            .map(|bucket| bucket.label.as_str())
+            .collect();
+        assert_eq!(
+            labels,
+            ["Personal", "Work/Client", "No folder"],
+            "alphabetical with No folder last"
+        );
+        assert!(!folders.has_more_future_items);
+        assert!(
+            folders.buckets.iter().all(|bucket| bucket
+                .items
+                .iter()
+                .all(|item| item.kind == ItemKind::Session)),
+            "events are not shown when grouping by folder"
+        );
+        assert_eq!(folders.buckets[0].precision, Precision::Date);
+
+        let oldest = build_with(
+            &[a, b, c],
+            &[],
+            now(),
+            &Utc,
+            GroupBy::Date,
+            SortOrder::Oldest,
+        );
+        let labels: Vec<&str> = oldest
+            .buckets
+            .iter()
+            .map(|bucket| bucket.label.as_str())
+            .collect();
+        assert_eq!(labels, ["2 days ago", "Yesterday", "Today"]);
+
+        // Oldest-first Today bucket: the line goes before the first item at or after now.
+        let items = vec![
+            Item {
+                timestamp: at("2024-01-15T05:00:00.000Z"),
+                ..oldest.buckets[2].items[0].clone()
+            },
+            Item {
+                timestamp: at("2024-01-15T13:00:00.000Z"),
+                ..oldest.buckets[2].items[0].clone()
+            },
+        ];
+        assert_eq!(
+            indicator_placement(&items, now(), SortOrder::Oldest),
+            IndicatorPlacement::Before { index: 1 }
+        );
     }
 
     #[test]
@@ -633,11 +797,11 @@ mod tests {
         ];
         let items = build(&rows, &[], now(), &Utc).buckets.remove(0).items;
         assert_eq!(
-            indicator_placement(&items, now()),
+            indicator_placement(&items, now(), SortOrder::Newest),
             IndicatorPlacement::Before { index: 1 }
         );
         assert_eq!(
-            indicator_placement(&items[..1], now()),
+            indicator_placement(&items[..1], now(), SortOrder::Newest),
             IndicatorPlacement::After
         );
 
@@ -655,7 +819,7 @@ mod tests {
         .to_string();
         let items = build(&[active], &[], now(), &Utc).buckets.remove(0).items;
         assert_eq!(
-            indicator_placement(&items, now()),
+            indicator_placement(&items, now(), SortOrder::Newest),
             IndicatorPlacement::Inside {
                 index: 0,
                 progress: 0.5

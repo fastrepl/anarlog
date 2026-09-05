@@ -22,6 +22,7 @@ embedded!(
     "icons/calendar-blank.svg",
     "icons/calendar-dots.svg",
     "icons/caret-right.svg",
+    "icons/check.svg",
     "icons/file-arrow-down.svg",
     "icons/folder-open.svg",
     "icons/microphone.svg",
@@ -40,6 +41,8 @@ embedded!(
     "icons/popover-tail.svg",
     "icons/search.svg",
     "icons/sidebar-left.svg",
+    "icons/sort-ascending.svg",
+    "icons/sort-descending.svg",
     "icons/sparkle.svg",
     "icons/sun.svg",
     "icons/square.svg",
@@ -84,6 +87,6 @@ mod tests {
         }
         assert!(Assets.load("icons/search.svg").unwrap().is_some());
         assert!(Assets.load("icons/missing.svg").unwrap().is_none());
-        assert_eq!(Assets.list("icons/").unwrap().len(), 32);
+        assert_eq!(Assets.list("icons/").unwrap().len(), 35);
     }
 }
