@@ -6,6 +6,7 @@ mod db;
 mod document;
 mod editor;
 mod secrets;
+mod squircle;
 mod store_file;
 mod text_input;
 mod theme;

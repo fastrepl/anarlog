@@ -210,7 +210,7 @@ impl Workspace {
             .child(div().flex_1())
             .child(self.render_meeting_cta(preview, window))
             .child(
-                ghost_icon_button("overflow", theme)
+                ghost_icon_button("overflow", theme, self.hovered == Some("overflow"))
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
                         this.set_hovered("overflow", *hovered, cx);

@@ -211,14 +211,17 @@ impl Workspace {
                 cx.listener(move |this, _: &MouseDownEvent, _, cx| on_close(this, cx)),
             )
             .child(
+                // `AppFloatingPanel`: `rounded-[20px] border` under the panel squircle.
                 div()
+                    .relative()
                     .flex()
                     .flex_col()
                     .p(px(6.0))
-                    .rounded(px(20.0))
-                    .border_1()
-                    .border_color(theme.floating_border)
-                    .bg(theme.floating_panel)
+                    .child(crate::squircle::squircle(
+                        crate::squircle::PANEL_RADIUS,
+                        Some(theme.floating_panel),
+                        Some((1.0, theme.floating_border)),
+                    ))
                     .children(items),
             );
 
@@ -320,13 +323,15 @@ impl Workspace {
             });
         let panel = menu_chrome(theme, "submenu", width).child(
             div()
+                .relative()
                 .flex()
                 .flex_col()
                 .p(px(6.0))
-                .rounded(px(20.0))
-                .border_1()
-                .border_color(theme.floating_border)
-                .bg(theme.floating_panel)
+                .child(crate::squircle::squircle(
+                    crate::squircle::PANEL_RADIUS,
+                    Some(theme.floating_panel),
+                    Some((1.0, theme.floating_border)),
+                ))
                 .children(items),
         );
         deferred(

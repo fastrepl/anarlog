@@ -949,7 +949,7 @@ impl Workspace {
         id: &'static str,
         cx: &Context<Self>,
     ) -> gpui::Stateful<gpui::Div> {
-        crate::ui::chrome_button(id, self.theme)
+        crate::ui::chrome_button(id, self.theme, self.hovered == Some(id))
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .on_hover(cx.listener(move |this, hovered: &bool, _, cx| {
                 this.set_hovered(id, *hovered, cx);

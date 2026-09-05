@@ -58,9 +58,16 @@ impl Workspace {
                     .child(
                         // `!isDefaultView && "bg-accent text-foreground"`
                         self.tracked_chrome_button("sort-notes", cx)
-                            .when(!self.is_default_notes_view(), |button| {
-                                button.bg(theme.accent)
-                            })
+                            .when(
+                                !self.is_default_notes_view() && self.hovered != Some("sort-notes"),
+                                |button| {
+                                    button.child(crate::squircle::squircle(
+                                        crate::squircle::CONTROL_RADIUS,
+                                        Some(theme.accent),
+                                        None,
+                                    ))
+                                },
+                            )
                             .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
                                 this.toggle_filter_menu(cx)
                             }))
@@ -281,23 +288,31 @@ impl Workspace {
             px(12.0),
             theme.foreground,
         );
+        let hovered = self.hovered == Some("now-chip");
         div()
             .id("now-chip")
+            .relative()
             .h(px(24.0))
             .flex()
             .items_center()
             .gap_1()
             .px(px(10.0))
-            .rounded_full()
-            .border_1()
-            .border_color(theme.border)
-            .bg(theme.card)
+            // `Button variant="outline" size="sm"`: the control squircle.
+            .child(crate::squircle::squircle(
+                crate::squircle::CONTROL_RADIUS,
+                Some(if hovered { theme.accent } else { theme.card }),
+                Some((1.0, theme.border)),
+            ))
+            // The shadow keeps a plain radius; only the fill is a squircle.
+            .rounded(px(8.0))
             .shadow_md()
             .tw_text_xs()
             .font_weight(gpui::FontWeight::SEMIBOLD)
             .text_color(theme.foreground)
             .cursor_pointer()
-            .hover(move |style| style.bg(theme.accent))
+            .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
+                this.set_hovered("now-chip", *hovered, cx);
+            }))
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.scroll_to_now(cx)))
             .when(up, |chip| chip.child(arrow))
@@ -376,9 +391,16 @@ impl Workspace {
                 .w_auto()
                 .px(px(10.0))
                 .gap_1()
-                .border_1()
-                .border_color(theme.border)
-                .bg(theme.card)
+                .child(crate::squircle::squircle(
+                    crate::squircle::CONTROL_RADIUS,
+                    Some(if self.hovered == Some("open-calendar") {
+                        theme.accent
+                    } else {
+                        theme.card
+                    }),
+                    Some((1.0, theme.border)),
+                ))
+                .rounded(px(8.0))
                 .shadow_xs()
                 .tw_text_xs()
                 .font_weight(gpui::FontWeight::MEDIUM)

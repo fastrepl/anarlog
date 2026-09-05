@@ -49,31 +49,44 @@ pub fn icon(name: &str, size: Pixels, color: Rgba) -> Svg {
 /// `LeftSurfaceChromeButton`: `size-7 rounded-full text-muted-foreground
 /// hover:bg-accent hover:text-foreground`. `hovered` drives the icon colour
 /// because svg children do not pick up the parent's hover text colour.
-pub fn chrome_button(id: impl Into<ElementId>, theme: Theme) -> Stateful<Div> {
+pub fn chrome_button(id: impl Into<ElementId>, theme: Theme, hovered: bool) -> Stateful<Div> {
     div()
         .id(id)
+        .relative()
         .flex()
         .size(px(28.0))
         .flex_shrink_0()
         .items_center()
         .justify_center()
-        .rounded_full()
         .cursor_pointer()
-        .hover(move |style| style.bg(theme.accent))
+        // `hover:bg-accent` under the Button's control squircle.
+        .when(hovered, |button| {
+            button.child(crate::squircle::squircle(
+                crate::squircle::CONTROL_RADIUS,
+                Some(theme.accent),
+                None,
+            ))
+        })
 }
 
 /// `Button size="icon" variant="ghost"` as used by the header overflow menu.
-pub fn ghost_icon_button(id: impl Into<ElementId>, theme: Theme) -> Stateful<Div> {
+pub fn ghost_icon_button(id: impl Into<ElementId>, theme: Theme, hovered: bool) -> Stateful<Div> {
     div()
         .id(id)
+        .relative()
         .flex()
         .size(px(36.0))
         .flex_shrink_0()
         .items_center()
         .justify_center()
-        .rounded_full()
         .cursor_pointer()
-        .hover(move |style| style.bg(theme.accent))
+        .when(hovered, |button| {
+            button.child(crate::squircle::squircle(
+                crate::squircle::CONTROL_RADIUS,
+                Some(theme.accent),
+                None,
+            ))
+        })
 }
 
 /// Windows-style title bar control: `h-10 w-[46px]`, `hover:bg-foreground/10`,

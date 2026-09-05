@@ -1362,6 +1362,11 @@ impl Workspace {
         let red = gpui::rgb(0xfb2c36);
         let green = gpui::rgb(0x00a63e);
         let title_color = if authorized { theme.foreground } else { red };
+        let hover_id: &'static str = match permission {
+            "microphone" => "permission-microphone",
+            _ => "permission-system-audio",
+        };
+        let hovered = self.hovered == Some(hover_id);
         div()
             .flex()
             .items_center()
@@ -1418,17 +1423,27 @@ impl Workspace {
                 // `variant="default" size="icon"`: `bg-primary text-primary-foreground`.
                 div()
                     .id(SharedString::from(format!("permission-{permission}")))
+                    .relative()
                     .size(px(32.0))
                     .flex()
                     .items_center()
                     .justify_center()
-                    .rounded_full()
-                    .bg(theme.primary)
+                    .child(crate::squircle::squircle(
+                        crate::squircle::CONTROL_RADIUS,
+                        Some(if hovered {
+                            alpha(theme.primary, 0.9)
+                        } else {
+                            theme.primary
+                        }),
+                        None,
+                    ))
                     .when(pending, |button| button.opacity(0.5))
                     .when(!pending, |button| {
                         button
                             .cursor_pointer()
-                            .hover(move |style| style.bg(alpha(theme.primary, 0.9)))
+                            .on_hover(cx.listener(move |this, hovering: &bool, _, cx| {
+                                this.set_hovered(hover_id, *hovering, cx);
+                            }))
                             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                             .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                                 this.request_permission(permission, cx);
@@ -2692,15 +2707,19 @@ impl Workspace {
                 // bg-card px-3 text-sm`, half-opacity caret.
                 div()
                     .id(SharedString::from(format!("select-trigger-{id}")))
+                    .relative()
                     .flex()
                     .h(px(36.0))
                     .w_full()
                     .items_center()
                     .justify_between()
-                    .rounded_full()
-                    .border_1()
-                    .border_color(theme.border)
-                    .bg(theme.card)
+                    // `useSquircleRef` replaces the pill radius with the
+                    // control squircle.
+                    .child(crate::squircle::squircle(
+                        crate::squircle::CONTROL_RADIUS,
+                        Some(theme.card),
+                        Some((1.0, theme.border)),
+                    ))
                     .px_3()
                     .py_2()
                     .tw_text_sm()
