@@ -12,6 +12,7 @@ resolver = "2"
 members = [
   "apps/api",
   "apps/cli",
+  "apps/desktop-gpui",
   "apps/desktop/src-tauri",
   "crates/*",
   "plugins/*",
@@ -326,6 +327,7 @@ minijinja = "2.7.0"
 minijinja-contrib = "2.7.0"
 
 env_logger = "0.11.8"
+gpui = "0.2.2"
 log = "0.4"
 opentelemetry = "0.30"
 opentelemetry-otlp = { version = "0.30", features = ["grpc-tonic", "trace"] }

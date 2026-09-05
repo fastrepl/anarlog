@@ -1,0 +1,30 @@
+[package]
+name = "desktop-gpui"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Anarlog Desktop App (GPUI)"
+
+[[bin]]
+name = "anarlog-gpui"
+path = "src/main.rs"
+
+[dependencies]
+anlg-db-app = { workspace = true }
+anlg-db-core = { workspace = true }
+anlg-storage = { workspace = true }
+anlg-tiptap = { workspace = true }
+
+anyhow = { workspace = true }
+dirs = { workspace = true }
+gpui = { workspace = true }
+pico-args = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["rt", "macros"] }
