@@ -101,7 +101,7 @@ impl Workspace {
         let text = theme.toast_text;
         // sonner's collapsed stack: an older toast sits 14px behind the
         // newest one at 95% width and only its top edge shows.
-        let behind = !self.pending_deletions.is_empty();
+        let behind = !self.pending_deletions.is_empty() || self.settings_alert().is_some();
         let bottom = if behind { px(32.0 + 14.0) } else { px(32.0) };
         let width = if behind { px(300.0 * 0.95) } else { px(300.0) };
         let right = if behind {
@@ -164,6 +164,85 @@ impl Workspace {
                             .child(label),
                     )
                 })
+                .into_any_element(),
+        )
+    }
+
+    /// `SettingsAlertToast` on the AI pages: the `stt-settings-alert` /
+    /// `llm-settings-alert` warning while no model is configured.
+    pub(super) fn settings_alert(&self) -> Option<&'static str> {
+        match self.settings_tab? {
+            super::settings::SettingsTab::Transcription => {
+                let configured = self.provider_settings.stt_provider.is_some()
+                    && self.provider_settings.stt_model.is_some();
+                (!configured).then_some("Choose a transcription model to start listening.")
+            }
+            super::settings::SettingsTab::Intelligence => {
+                let configured = self.provider_settings.llm_provider.is_some()
+                    && self.provider_settings.llm_model.is_some();
+                (!configured).then_some("Choose a language model for summaries and chat.")
+            }
+            _ => None,
+        }
+    }
+
+    /// `sonnerToast.warning` with `richColors`: `#fffbeb` on a `#fef3c7`
+    /// border in `#92400e`, the 16px triangle in the icon slot (`-3px` /
+    /// `4px` margins), `Infinity` duration, not dismissible.
+    pub(super) fn render_settings_alert_toast(&self) -> Option<AnyElement> {
+        let description = self.settings_alert()?;
+        let (background, border, text) = if self.theme.dark {
+            (
+                gpui::rgb(0x2d2306),
+                gpui::rgb(0x5c4206),
+                gpui::rgb(0xfef3c7),
+            )
+        } else {
+            (
+                gpui::rgb(0xfffbeb),
+                gpui::rgb(0xfef3c7),
+                gpui::rgb(0x92400e),
+            )
+        };
+        Some(
+            div()
+                .id("settings-alert-toast")
+                .absolute()
+                .right(px(32.0))
+                .bottom(px(32.0))
+                .w(px(300.0))
+                .flex()
+                .items_center()
+                .gap(px(6.0))
+                .p(px(16.0))
+                .rounded(px(8.0))
+                .border_1()
+                .border_color(border)
+                .bg(background)
+                .shadow(vec![BoxShadow {
+                    color: hsla(0.0, 0.0, 0.0, 0.1),
+                    offset: point(px(0.0), px(4.0)),
+                    blur_radius: px(12.0),
+                    spread_radius: px(0.0),
+                }])
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .child(
+                    div()
+                        .flex_shrink_0()
+                        .ml(px(-3.0))
+                        .mr(px(4.0))
+                        .child(crate::ui::icon("alert-triangle", px(16.0), text)),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .text_size(px(13.0))
+                        .line_height(px(19.0))
+                        .font_weight(gpui::FontWeight::MEDIUM)
+                        .text_color(text)
+                        .child(description),
+                )
                 .into_any_element(),
         )
     }

@@ -138,6 +138,16 @@ pub struct ProviderSettings {
     pub legacy: serde_json::Value,
 }
 
+/// A credential-store lookup: the key, none, or the store's error message.
+pub type ApiKeyResult = Result<Option<String>, String>;
+
+/// `AiProviderConfig` without the `type` discriminator.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct AiProviderConfig {
+    pub base_url: String,
+    pub api_key: String,
+}
+
 impl ProviderSettings {
     /// `parseSettingRows` for string settings: the direct row wins, then the
     /// `legacy_settings_document` path `ai.<key>`.
@@ -189,6 +199,59 @@ impl ProviderSettings {
     }
 
     /// A stored value: the direct row, else the legacy document at `path`.
+    /// `parseAiProviders`: `ai_provider:<type>:<id>` rows over the legacy
+    /// `ai.<type>.<id>` document entries, keyed by provider id. API keys are
+    /// whatever plaintext the row still carries; the credential store wins.
+    pub fn ai_providers(&self, kind: &str) -> std::collections::HashMap<String, AiProviderConfig> {
+        let mut result = std::collections::HashMap::new();
+        let normalize = |value: &serde_json::Value| -> Option<AiProviderConfig> {
+            let object = value.as_object()?;
+            if object.is_empty() {
+                return None;
+            }
+            let text = |key: &str| {
+                object
+                    .get(key)
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("")
+                    .to_string()
+            };
+            Some(AiProviderConfig {
+                base_url: text("base_url"),
+                api_key: text("api_key"),
+            })
+        };
+        if let Some(legacy) = self
+            .legacy
+            .get("ai")
+            .and_then(|ai| ai.get(kind))
+            .and_then(serde_json::Value::as_object)
+        {
+            for (provider_id, value) in legacy {
+                if let Some(config) = normalize(value) {
+                    result.insert(provider_id.clone(), config);
+                }
+            }
+        }
+        let prefix = format!("ai_provider:{kind}:");
+        for (id, json) in &self.raw {
+            let Some(provider_id) = id.strip_prefix(&prefix) else {
+                continue;
+            };
+            if provider_id.is_empty() {
+                continue;
+            }
+            if let Some(config) = serde_json::from_str::<serde_json::Value>(json)
+                .ok()
+                .as_ref()
+                .and_then(normalize)
+            {
+                result.insert(provider_id.to_string(), config);
+            }
+        }
+        result
+    }
+
     pub fn value(&self, key: &str, legacy_path: &[&str]) -> Option<serde_json::Value> {
         if let Some(json) = self.raw.get(key)
             && let Ok(value) = serde_json::from_str::<serde_json::Value>(json)
@@ -810,12 +873,19 @@ pub struct Store {
     db: Arc<Db>,
     path: PathBuf,
     changes: tokio::sync::watch::Receiver<u64>,
+    /// The Tauri bundle identifier whose data (and credential-store entries)
+    /// this shell shares.
+    identifier: String,
 }
 
 const CHANGE_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(750);
 
 impl Store {
-    pub async fn open(runtime: tokio::runtime::Handle, path: PathBuf) -> anyhow::Result<Self> {
+    pub async fn open(
+        runtime: tokio::runtime::Handle,
+        path: PathBuf,
+        identifier: String,
+    ) -> anyhow::Result<Self> {
         if !path.is_file() {
             anyhow::bail!(
                 "no Anarlog database at {}. Launch the desktop app once to create it, or pass --db-path.",
@@ -833,6 +903,7 @@ impl Store {
             db,
             path,
             changes,
+            identifier,
         })
     }
 
@@ -1105,6 +1176,197 @@ impl Store {
             .execute(db.pool())
             .await?;
             Ok(id)
+        })
+    }
+
+    /// `loadSecureAiProviderApiKeys`: the credential-store key for each
+    /// provider id, or the store's error message.
+    pub fn ai_provider_api_keys(
+        &self,
+        kind: &'static str,
+        provider_ids: Vec<String>,
+    ) -> tokio::task::JoinHandle<Vec<(String, ApiKeyResult)>> {
+        let identifier = self.identifier.clone();
+        self.runtime.spawn_blocking(move || {
+            provider_ids
+                .into_iter()
+                .map(|provider_id| {
+                    let key = format!("{kind}:{provider_id}");
+                    let result = crate::secrets::read(
+                        &identifier,
+                        crate::secrets::PROVIDER_SECRET_SCOPE,
+                        &key,
+                    );
+                    (provider_id, result)
+                })
+                .collect()
+        })
+    }
+
+    /// `setAiProvider`: the API key goes to the credential store, the row keeps
+    /// `{type, base_url, api_key: ""}`; a legacy document entry is redacted.
+    pub fn set_ai_provider(
+        &self,
+        kind: &'static str,
+        provider_id: String,
+        base_url: Option<String>,
+        api_key: Option<String>,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        let identifier = self.identifier.clone();
+        self.runtime.spawn(async move {
+            let pool = db.pool();
+            let storage_id = format!("ai_provider:{kind}:{provider_id}");
+            let secret_key = format!("{kind}:{provider_id}");
+            let rows = sqlx::query_as::<_, (String, String)>(
+                "SELECT id, value_json FROM app_settings WHERE id IN (?, ?)",
+            )
+            .bind(&storage_id)
+            .bind("legacy_settings_document")
+            .fetch_all(pool)
+            .await?;
+            let settings = ProviderSettings::from_rows(&rows);
+            let current = settings.ai_providers(kind).remove(provider_id.as_str());
+            let direct = rows.iter().find(|(id, _)| *id == storage_id).cloned();
+            let previous_key = {
+                let identifier = identifier.clone();
+                let secret_key = secret_key.clone();
+                tokio::task::spawn_blocking(move || {
+                    crate::secrets::read(&identifier, crate::secrets::PROVIDER_SECRET_SCOPE, &secret_key)
+                })
+                .await?
+                .map_err(anyhow::Error::msg)?
+            };
+            let next_base_url = base_url
+                .or_else(|| current.as_ref().map(|c| c.base_url.clone()))
+                .unwrap_or_default();
+            let next_api_key = api_key
+                .or_else(|| previous_key.clone())
+                .or_else(|| current.as_ref().map(|c| c.api_key.clone()))
+                .unwrap_or_default();
+            {
+                let identifier = identifier.clone();
+                let secret_key = secret_key.clone();
+                let value = next_api_key.clone();
+                tokio::task::spawn_blocking(move || {
+                    crate::secrets::write(&identifier, crate::secrets::PROVIDER_SECRET_SCOPE, &secret_key, &value)
+                })
+                .await?
+                .map_err(anyhow::Error::msg)?;
+            }
+            // `JSON.stringify({ type, base_url, api_key: "" })`
+            let persisted = format!(
+                "{{\"type\":{},\"base_url\":{},\"api_key\":\"\"}}",
+                serde_json::Value::String(kind.to_string()),
+                serde_json::Value::String(next_base_url)
+            );
+            let now = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string();
+            let updated = match &direct {
+                Some((_, existing)) => {
+                    sqlx::query("UPDATE app_settings SET value_json = ?, updated_at = ? WHERE id = ? AND value_json = ?")
+                        .bind(&persisted)
+                        .bind(&now)
+                        .bind(&storage_id)
+                        .bind(existing)
+                        .execute(pool)
+                        .await?
+                        .rows_affected()
+                }
+                None => {
+                    sqlx::query("INSERT INTO app_settings (id, value_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(id) DO NOTHING")
+                        .bind(&storage_id)
+                        .bind(&persisted)
+                        .bind(&now)
+                        .execute(pool)
+                        .await?
+                        .rows_affected()
+                }
+            };
+            if updated != 1 {
+                anyhow::bail!("Provider {kind}:{provider_id} changed too frequently");
+            }
+            // `redactLegacyProviderApiKey`
+            if let Some((_, legacy_json)) = rows.iter().find(|(id, _)| id == "legacy_settings_document")
+                && let Ok(mut legacy) = serde_json::from_str::<serde_json::Value>(legacy_json)
+                && let Some(entry) = legacy
+                    .get_mut("ai")
+                    .and_then(|ai| ai.get_mut(kind))
+                    .and_then(|providers| providers.get_mut(&provider_id))
+                    .and_then(serde_json::Value::as_object_mut)
+                && entry.get("api_key").and_then(serde_json::Value::as_str).is_some_and(|key| !key.is_empty())
+            {
+                entry.insert("api_key".to_string(), serde_json::Value::String(String::new()));
+                sqlx::query("UPDATE app_settings SET value_json = ?, updated_at = ? WHERE id = ?")
+                    .bind(legacy.to_string())
+                    .bind(&now)
+                    .bind("legacy_settings_document")
+                    .execute(pool)
+                    .await?;
+            }
+            Ok(())
+        })
+    }
+
+    /// `clearAiProvider`: delete the credential-store key, the row, and the
+    /// legacy document entry.
+    pub fn clear_ai_provider(
+        &self,
+        kind: &'static str,
+        provider_id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        let identifier = self.identifier.clone();
+        self.runtime.spawn(async move {
+            let pool = db.pool();
+            let storage_id = format!("ai_provider:{kind}:{provider_id}");
+            let secret_key = format!("{kind}:{provider_id}");
+            tokio::task::spawn_blocking(move || {
+                crate::secrets::write(
+                    &identifier,
+                    crate::secrets::PROVIDER_SECRET_SCOPE,
+                    &secret_key,
+                    "",
+                )
+            })
+            .await?
+            .map_err(anyhow::Error::msg)?;
+            let rows = sqlx::query_as::<_, (String, String)>(
+                "SELECT id, value_json FROM app_settings WHERE id IN (?, ?)",
+            )
+            .bind(&storage_id)
+            .bind("legacy_settings_document")
+            .fetch_all(pool)
+            .await?;
+            if let Some((_, existing)) = rows.iter().find(|(id, _)| *id == storage_id) {
+                sqlx::query("DELETE FROM app_settings WHERE id = ? AND value_json = ?")
+                    .bind(&storage_id)
+                    .bind(existing)
+                    .execute(pool)
+                    .await?;
+            }
+            // `removeLegacyProvider`
+            if let Some((_, legacy_json)) =
+                rows.iter().find(|(id, _)| id == "legacy_settings_document")
+                && let Ok(mut legacy) = serde_json::from_str::<serde_json::Value>(legacy_json)
+                && let Some(providers) = legacy
+                    .get_mut("ai")
+                    .and_then(|ai| ai.get_mut(kind))
+                    .and_then(serde_json::Value::as_object_mut)
+                && providers.remove(&provider_id).is_some()
+            {
+                let now = chrono::Utc::now()
+                    .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                    .to_string();
+                sqlx::query("UPDATE app_settings SET value_json = ?, updated_at = ? WHERE id = ?")
+                    .bind(legacy.to_string())
+                    .bind(&now)
+                    .bind("legacy_settings_document")
+                    .execute(pool)
+                    .await?;
+            }
+            Ok(())
         })
     }
 
@@ -1626,9 +1888,13 @@ mod tests {
             .unwrap();
         }
 
-        let store = Store::open(tokio::runtime::Handle::current(), path)
-            .await
-            .unwrap();
+        let store = Store::open(
+            tokio::runtime::Handle::current(),
+            path,
+            "com.hyprnote.dev".to_string(),
+        )
+        .await
+        .unwrap();
         let (sessions, events) = store.list_timeline().await.unwrap().unwrap();
         assert_eq!(sessions.len(), 1, "deleted sessions stay hidden");
         assert_eq!(events.len(), 1);
@@ -1682,9 +1948,13 @@ mod tests {
             let db = Db::connect_local_plain(&path).await.unwrap();
             anlg_db_app::prepare_schema(&db).await.unwrap();
         }
-        let store = Store::open(tokio::runtime::Handle::current(), path)
-            .await
-            .unwrap();
+        let store = Store::open(
+            tokio::runtime::Handle::current(),
+            path,
+            "com.hyprnote.dev".to_string(),
+        )
+        .await
+        .unwrap();
 
         let session_id = store.create_note().await.unwrap().unwrap();
         let (sessions, _) = store.list_timeline().await.unwrap().unwrap();
@@ -1817,9 +2087,13 @@ mod tests {
             let db = Db::connect_local_plain(&path).await.unwrap();
             anlg_db_app::prepare_schema(&db).await.unwrap();
         }
-        let store = Store::open(tokio::runtime::Handle::current(), path)
-            .await
-            .unwrap();
+        let store = Store::open(
+            tokio::runtime::Handle::current(),
+            path,
+            "com.hyprnote.dev".to_string(),
+        )
+        .await
+        .unwrap();
 
         let untouched = store.create_note().await.unwrap().unwrap();
         let titled = store.create_note().await.unwrap().unwrap();
@@ -1921,9 +2195,13 @@ mod tests {
             .await
             .unwrap();
         }
-        let store = Store::open(tokio::runtime::Handle::current(), path)
-            .await
-            .unwrap();
+        let store = Store::open(
+            tokio::runtime::Handle::current(),
+            path,
+            "com.hyprnote.dev".to_string(),
+        )
+        .await
+        .unwrap();
 
         let session_id = store
             .open_event_session("event-1".to_string())
@@ -2013,9 +2291,13 @@ mod tests {
         let writer = Db::connect_local_plain(&path).await.unwrap();
         anlg_db_app::prepare_schema(&writer).await.unwrap();
 
-        let store = Store::open(tokio::runtime::Handle::current(), path)
-            .await
-            .unwrap();
+        let store = Store::open(
+            tokio::runtime::Handle::current(),
+            path,
+            "com.hyprnote.dev".to_string(),
+        )
+        .await
+        .unwrap();
         let mut changes = store.changes();
         assert_eq!(*changes.borrow(), 0);
 
@@ -2036,10 +2318,14 @@ mod tests {
     async fn store_refuses_to_create_a_database() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join(DB_FILENAME);
-        let error = Store::open(tokio::runtime::Handle::current(), path.clone())
-            .await
-            .err()
-            .unwrap();
+        let error = Store::open(
+            tokio::runtime::Handle::current(),
+            path.clone(),
+            "com.hyprnote.dev".to_string(),
+        )
+        .await
+        .err()
+        .unwrap();
         assert!(error.to_string().contains("--db-path"));
         assert!(!path.exists());
     }

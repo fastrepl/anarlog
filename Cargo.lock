@@ -5448,6 +5448,7 @@ dependencies = [
  "dirs 6.0.0",
  "gpui",
  "iana-time-zone",
+ "keyring",
  "pico-args",
  "regex",
  "serde",

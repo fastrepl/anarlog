@@ -7,8 +7,8 @@ use std::cell::Cell;
 
 use gpui::{
     AnyElement, Div, ElementInputHandler, Entity, Focusable as _, HighlightStyle, MouseButton,
-    MouseDownEvent, SharedString, StyledText, TextStyle, Window, canvas, div, fill, prelude::*, px,
-    size,
+    MouseDownEvent, Pixels, SharedString, StyledText, TextStyle, Window, canvas, div, fill,
+    prelude::*, px, size,
 };
 
 use super::Workspace;
@@ -98,6 +98,8 @@ pub(super) struct DocumentRenderer {
     /// `placeholderPlugin`: the empty textblock holding the selection anchor
     /// shows the placeholder text.
     placeholder: Option<(usize, SharedString)>,
+    /// Overrides the `blue-600` link colour (and makes links `font-medium`).
+    link_color: Option<gpui::Rgba>,
 }
 
 impl Workspace {
@@ -115,6 +117,7 @@ impl Workspace {
             editor: None,
             next_textblock: Cell::new(0),
             placeholder: None,
+            link_color: None,
         }
     }
 
@@ -473,20 +476,58 @@ impl DocumentRenderer {
         .into_any_element()
     }
 
+    /// Inline runs at an explicit size, for prose outside the note body; links
+    /// use `link_color` (streamdown's `text-foreground font-medium underline`).
+    pub(super) fn inline_text(
+        &self,
+        spans: &[Span],
+        font_size: Pixels,
+        line_height: Pixels,
+        link_color: gpui::Rgba,
+    ) -> StyledText {
+        let mut base = self.base.clone();
+        base.font_size = font_size.into();
+        base.line_height = line_height.into();
+        let renderer = DocumentRenderer {
+            base: base.clone(),
+            mono_family: self.mono_family.clone(),
+            theme: self.theme,
+            editor: None,
+            next_textblock: std::cell::Cell::new(0),
+            placeholder: None,
+            link_color: Some(link_color),
+        };
+        renderer.text(spans, &base)
+    }
+
     fn text(&self, spans: &[Span], base: &TextStyle) -> StyledText {
         let mut text = String::new();
         let mut highlights: Vec<(std::ops::Range<usize>, HighlightStyle)> = Vec::new();
         for span in spans {
             let start = text.len();
             text.push_str(&span.text);
+            let link_color = self.link_color.unwrap_or(self.theme.link);
             let highlight = HighlightStyle {
-                font_weight: span.bold.then_some(gpui::FontWeight::BOLD),
+                font_weight: if span.bold {
+                    Some(gpui::FontWeight::BOLD)
+                } else if span.link.is_some() && self.link_color.is_some() {
+                    Some(gpui::FontWeight::MEDIUM)
+                } else {
+                    None
+                },
                 font_style: span.italic.then_some(gpui::FontStyle::Italic),
-                color: span.link.is_some().then(|| self.theme.link.into()),
+                color: span.link.is_some().then(|| link_color.into()),
                 background_color: span.code.then(|| self.theme.accent.into()),
                 underline: (span.underline || span.link.is_some()).then(|| gpui::UnderlineStyle {
                     thickness: px(1.0),
-                    color: Some(self.theme.link.into()),
+                    color: Some(
+                        if self.link_color.is_some() {
+                            alpha(link_color, 0.5)
+                        } else {
+                            link_color
+                        }
+                        .into(),
+                    ),
                     wavy: false,
                 }),
                 strikethrough: span.strike.then(|| gpui::StrikethroughStyle {

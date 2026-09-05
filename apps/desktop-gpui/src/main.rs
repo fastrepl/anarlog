@@ -1,8 +1,10 @@
 mod actions;
+mod ai_providers;
 mod assets;
 mod db;
 mod document;
 mod editor;
+mod secrets;
 mod store_file;
 mod text_input;
 mod theme;
@@ -80,7 +82,11 @@ fn main() -> anyhow::Result<()> {
         .enable_all()
         .build()
         .context("failed to start tokio runtime")?;
-    let store = runtime.block_on(Store::open(runtime.handle().clone(), db_path))?;
+    let store = runtime.block_on(Store::open(
+        runtime.handle().clone(),
+        db_path,
+        args.identifier.clone(),
+    ))?;
     let store = Arc::new(store);
     tracing::info!(path = %store.path().display(), "opened application database");
 

@@ -40,6 +40,7 @@ impl Workspace {
                     placeholder: theme.muted_foreground,
                     selection: theme.selection,
                     underline_when_focused: false,
+                    masked: false,
                 },
                 window,
                 cx,

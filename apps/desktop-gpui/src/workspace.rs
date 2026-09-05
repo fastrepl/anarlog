@@ -1,3 +1,4 @@
+mod ai_settings;
 mod document_view;
 mod filter_menu;
 mod menu;
@@ -153,6 +154,10 @@ pub struct Workspace {
     settings_search: Option<gpui::Entity<TextInput>>,
     /// The settings `Select` whose popover is open.
     open_select: Option<settings::OpenSelect>,
+    /// Transcription / Intelligence page state, created when a page opens.
+    ai_settings: std::collections::HashMap<ai_settings::ProviderKind, ai_settings::AiSettings>,
+    /// Provider cards whose Advanced disclosure is expanded.
+    ai_advanced_open: std::collections::HashSet<(ai_settings::ProviderKind, &'static str)>,
     /// The `SpokenLanguagesView` chip input, created with the settings tab.
     spoken_search: Option<gpui::Entity<TextInput>>,
     spoken_highlighted: Option<usize>,
@@ -200,6 +205,7 @@ impl Workspace {
                     placeholder: theme.muted_foreground,
                     selection: theme.selection,
                     underline_when_focused: true,
+                    masked: false,
                 },
                 window,
                 cx,
@@ -252,6 +258,8 @@ impl Workspace {
             settings_tab: None,
             settings_search: None,
             open_select: None,
+            ai_settings: std::collections::HashMap::new(),
+            ai_advanced_open: std::collections::HashSet::new(),
             spoken_search: None,
             spoken_highlighted: None,
             pending_deletions: Vec::new(),
@@ -963,6 +971,7 @@ impl Render for Workspace {
                         placeholder: resolved.muted_foreground,
                         selection: resolved.selection,
                         underline_when_focused: true,
+                        masked: false,
                     },
                     cx,
                 )
@@ -1075,6 +1084,10 @@ impl Render for Workspace {
             )
             .children(
                 self.render_undo_toast(cx)
+                    .map(|toast| gpui::deferred(toast).with_priority(10)),
+            )
+            .children(
+                self.render_settings_alert_toast()
                     .map(|toast| gpui::deferred(toast).with_priority(10)),
             )
             .children(self.render_overflow_menu(window, cx))

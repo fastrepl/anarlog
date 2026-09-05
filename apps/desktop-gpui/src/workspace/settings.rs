@@ -273,6 +273,7 @@ impl Workspace {
                         placeholder: theme.muted_foreground,
                         selection: theme.selection,
                         underline_when_focused: false,
+                        masked: false,
                     },
                     window,
                     cx,
@@ -296,6 +297,7 @@ impl Workspace {
                         placeholder: theme.muted_foreground,
                         selection: theme.selection,
                         underline_when_focused: false,
+                        masked: false,
                     },
                     window,
                     cx,
@@ -348,6 +350,15 @@ impl Workspace {
             )
             .detach();
             self.spoken_search = Some(input);
+        }
+        match tab {
+            SettingsTab::Transcription => {
+                self.ensure_ai_settings(super::ai_settings::ProviderKind::Stt, window, cx)
+            }
+            SettingsTab::Intelligence => {
+                self.ensure_ai_settings(super::ai_settings::ProviderKind::Llm, window, cx)
+            }
+            _ => {}
         }
         self.settings_tab = Some(tab);
         cx.notify();
@@ -622,7 +633,12 @@ impl Workspace {
     }
 
     /// Optimistically applies a setting, then writes it like `setSettingValues`.
-    fn set_setting(&mut self, key: &'static str, value: serde_json::Value, cx: &mut Context<Self>) {
+    pub(super) fn set_setting(
+        &mut self,
+        key: &'static str,
+        value: serde_json::Value,
+        cx: &mut Context<Self>,
+    ) {
         let synced = SYNCED_SETTING_KEYS.contains(&key);
         self.provider_settings
             .raw
@@ -793,10 +809,9 @@ impl Workspace {
                             })
                         })
                         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                             if let Some(tab) = tab {
-                                this.settings_tab = Some(tab);
-                                cx.notify();
+                                this.open_settings(tab, window, cx);
                             }
                         }))
                         .child(icon(glyph, px(15.0), color))
@@ -882,6 +897,12 @@ impl Workspace {
                 .gap_6()
                 .child(title)
                 .child(self.render_notification_settings(cx)),
+            SettingsTab::Transcription => {
+                self.render_ai_settings(super::ai_settings::ProviderKind::Stt, title, window, cx)
+            }
+            SettingsTab::Intelligence => {
+                self.render_ai_settings(super::ai_settings::ProviderKind::Llm, title, window, cx)
+            }
             SettingsTab::Meetings => div()
                 .flex()
                 .flex_col()
@@ -1074,6 +1095,7 @@ impl Workspace {
                                     value: value.to_string(),
                                     label: label.to_string(),
                                     detail: None,
+                                    glyph: None,
                                 })
                                 .collect(),
                             ),
@@ -1165,6 +1187,7 @@ impl Workspace {
                                         value: value.to_string(),
                                         label: label.to_string(),
                                         detail: None,
+                                        glyph: None,
                                     })
                                     .collect(),
                                 ),
@@ -1252,6 +1275,7 @@ impl Workspace {
                     value: value.to_string(),
                     label: label.to_string(),
                     detail: None,
+                    glyph: None,
                 })
                 .collect::<Vec<_>>()
         };
@@ -1405,11 +1429,13 @@ impl Workspace {
                                         value: String::new(),
                                         label: "Current default".to_string(),
                                         detail: None,
+                                        glyph: None,
                                     })
                                     .chain((!microphone.is_empty()).then(|| SelectOption {
                                         value: microphone.clone(),
                                         label: format!("{microphone} (Unavailable — using current default)"),
                                         detail: None,
+                                        glyph: None,
                                     }))
                                     .collect(),
                                 ),
@@ -1568,6 +1594,7 @@ impl Workspace {
                                                     value: code.to_string(),
                                                     label: label.to_string(),
                                                     detail: None,
+                                                    glyph: None,
                                                 })
                                                 .collect(),
                                         ),
@@ -1629,6 +1656,7 @@ impl Workspace {
                                                     value: value.to_string(),
                                                     label: label.to_string(),
                                                     detail: Some(detail),
+                                                    glyph: None,
                                                 })
                                                 .collect(),
                                         ),
@@ -1669,11 +1697,13 @@ impl Workspace {
                                                 value: "sunday".to_string(),
                                                 label: "Sunday".to_string(),
                                                 detail: None,
+                                                glyph: None,
                                             },
                                             SelectOption {
                                                 value: "monday".to_string(),
                                                 label: "Monday".to_string(),
                                                 detail: None,
+                                                glyph: None,
                                             },
                                         ],
                                     ),
@@ -2220,6 +2250,8 @@ pub(crate) struct SelectOption {
     /// `SearchableSelectOption.detail`, shown as `label (detail)` on the
     /// trigger and in `font-mono text-[10px]` on the row.
     pub detail: Option<&'static str>,
+    /// `ProviderIconSlot` before the label (the AI provider selects).
+    pub glyph: Option<crate::ai_providers::Icon>,
 }
 
 /// `SearchableSelect`'s popover: a `CommandInput` above the filtered list.
@@ -2304,6 +2336,7 @@ impl Workspace {
                         placeholder: theme.muted_foreground,
                         selection: theme.selection,
                         underline_when_focused: false,
+                        masked: false,
                     },
                     window,
                     cx,
@@ -2364,7 +2397,7 @@ impl Workspace {
         cx.notify();
     }
 
-    fn render_select(&self, spec: SelectSpec, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn render_select(&self, spec: SelectSpec, cx: &Context<Self>) -> AnyElement {
         let theme = self.theme;
         let selected = spec
             .current
@@ -2380,6 +2413,7 @@ impl Workspace {
             ),
             None => (SharedString::from(spec.placeholder), theme.muted_foreground),
         };
+        let selected_glyph = selected.and_then(|option| option.glyph);
         let id = spec.id;
         let open = self.open_select.as_ref().filter(|open| open.id == id);
         let spec = Rc::new(spec);
@@ -2417,7 +2451,17 @@ impl Workspace {
                             this.open_select(&spec_for_click, window, cx);
                         }
                     }))
-                    .child(div().min_w_0().truncate().child(text))
+                    .child(
+                        div()
+                            .min_w_0()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .children(selected_glyph.map(|glyph| {
+                                super::ai_settings::provider_icon(glyph, px(20.0), theme)
+                            }))
+                            .child(div().min_w_0().truncate().child(text)),
+                    )
                     .child(icon("caret-down", px(16.0), alpha(theme.foreground, 0.5))),
             )
             .when_some(open, |wrapper, open| {
@@ -2478,6 +2522,10 @@ impl Workspace {
                         this.close_select(cx);
                         on_select(this, value.clone(), window, cx);
                     }))
+                    .when_some(option.glyph, |row, glyph| {
+                        row.gap_2()
+                            .child(super::ai_settings::provider_icon(glyph, px(20.0), theme))
+                    })
                     .child(SharedString::from(option.label.clone()))
                     .when(selected, |item| {
                         item.child(div().absolute().right_2().flex().items_center().child(icon(

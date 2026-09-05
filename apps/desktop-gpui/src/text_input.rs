@@ -88,6 +88,26 @@ pub struct TextInputStyle {
     pub selection: Rgba,
     /// `focus:underline`
     pub underline_when_focused: bool,
+    /// `type="password"`: draw one bullet per character.
+    pub masked: bool,
+}
+
+/// The mask glyph and its UTF-8 length.
+const MASK: &str = "\u{2022}";
+
+/// Byte offset in the content -> byte offset in the masked display string.
+fn masked_offset(content: &str, offset: usize) -> usize {
+    content[..offset.min(content.len())].chars().count() * MASK.len()
+}
+
+/// Byte offset in the masked display string -> byte offset in the content.
+fn unmasked_offset(content: &str, offset: usize) -> usize {
+    let chars = offset / MASK.len();
+    content
+        .char_indices()
+        .nth(chars)
+        .map(|(index, _)| index)
+        .unwrap_or(content.len())
 }
 
 pub struct TextInput {
@@ -327,7 +347,21 @@ impl TextInput {
         if position.y > bounds.bottom() {
             return self.content.len();
         }
-        line.closest_index_for_x(position.x - bounds.left() + self.scroll_offset)
+        let index = line.closest_index_for_x(position.x - bounds.left() + self.scroll_offset);
+        if self.style.masked {
+            unmasked_offset(&self.content, index)
+        } else {
+            index
+        }
+    }
+
+    /// Content byte offset -> offset in the shaped (possibly masked) line.
+    fn display_offset(&self, offset: usize) -> usize {
+        if self.style.masked {
+            masked_offset(&self.content, offset)
+        } else {
+            offset
+        }
     }
 
     fn select_to(&mut self, offset: usize, cx: &mut Context<Self>) {
@@ -497,8 +531,14 @@ impl EntityInputHandler for TextInput {
         let range = self.range_from_utf16(&range_utf16);
         let left = bounds.left() - self.scroll_offset;
         Some(Bounds::from_corners(
-            point(left + last_layout.x_for_index(range.start), bounds.top()),
-            point(left + last_layout.x_for_index(range.end), bounds.bottom()),
+            point(
+                left + last_layout.x_for_index(self.display_offset(range.start)),
+                bounds.top(),
+            ),
+            point(
+                left + last_layout.x_for_index(self.display_offset(range.end)),
+                bounds.bottom(),
+            ),
         ))
     }
 
@@ -511,6 +551,11 @@ impl EntityInputHandler for TextInput {
         let line_point = self.last_bounds?.localize(&point)?;
         let last_layout = self.last_layout.as_ref()?;
         let utf8_index = last_layout.index_for_x(point.x - line_point.x + self.scroll_offset)?;
+        let utf8_index = if self.style.masked {
+            unmasked_offset(&self.content, utf8_index)
+        } else {
+            utf8_index
+        };
         Some(self.offset_to_utf16(utf8_index))
     }
 }
@@ -570,14 +615,24 @@ impl Element for TextElement {
     ) -> Self::PrepaintState {
         let input = self.input.read(cx);
         let content = input.content.clone();
-        let selected_range = input.selected_range.clone();
-        let cursor = input.cursor_offset();
+        let selected_range = input.display_offset(input.selected_range.start)
+            ..input.display_offset(input.selected_range.end);
+        let cursor = input.display_offset(input.cursor_offset());
+        let marked_range = input
+            .marked_range
+            .as_ref()
+            .map(|range| input.display_offset(range.start)..input.display_offset(range.end));
         let focused = input.focus_handle.is_focused(window);
         let text_style = window.text_style();
         let colors = input.style;
 
         let (display_text, text_color) = if content.is_empty() {
             (input.placeholder.clone(), colors.placeholder)
+        } else if colors.masked {
+            (
+                SharedString::from(MASK.repeat(content.chars().count())),
+                colors.text,
+            )
         } else {
             (content, colors.text)
         };
@@ -599,7 +654,7 @@ impl Element for TextElement {
             underline,
             strikethrough: None,
         };
-        let runs = if let Some(marked_range) = input.marked_range.as_ref() {
+        let runs = if let Some(marked_range) = marked_range.as_ref() {
             vec![
                 TextRun {
                     len: marked_range.start,
