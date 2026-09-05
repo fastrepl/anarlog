@@ -15,6 +15,7 @@ import {
 } from "../lib/analytics-sanitization";
 import { isTelemetryPrivateLocation } from "../lib/auth-route-privacy";
 import { hasGlobalPrivacyControl } from "../lib/global-privacy-control";
+import { getPostHogPersistenceName } from "../lib/private-route-analytics-identity";
 import { runWhenIdle } from "../lib/run-when-idle";
 
 const isDev = import.meta.env.DEV;
@@ -169,6 +170,7 @@ export function PostHogProvider({
       if (!didInitRef.current) {
         client.init(apiKey, {
           api_host: env.VITE_POSTHOG_HOST,
+          persistence_name: getPostHogPersistenceName(apiKey),
           autocapture: true,
           capture_pageview: true,
           mask_all_element_attributes: true,

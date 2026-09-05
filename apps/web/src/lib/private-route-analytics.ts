@@ -7,6 +7,7 @@ import {
   ANALYTICS_IDENTITY_COOKIE,
   ANALYTICS_IDENTITY_MAX_AGE_SECONDS,
   createPrivateRouteIdentity,
+  getPostHogPersistenceName,
   parseAnalyticsIdentity,
   parsePostHogDistinctId,
   serializeAnalyticsIdentity,
@@ -41,7 +42,7 @@ const privateRouteIdentity = createPrivateRouteIdentity({
 });
 
 /**
- * posthog-js persists its anonymous distinct_id under `ph_<token>_posthog`
+ * Read only the anonymous persistence namespace used by the public-page SDK
  * (localStorage, mirrored to a cookie). Telemetry is disabled on auth routes,
  * so posthog-js is never initialized here and cannot hand us the id directly.
  * Reading the persisted value keeps events fired from auth routes attached to
@@ -53,7 +54,7 @@ function readPostHogDistinctId() {
   }
 
   try {
-    const key = `ph_${env.VITE_POSTHOG_API_KEY}_posthog`;
+    const key = `ph_${getPostHogPersistenceName(env.VITE_POSTHOG_API_KEY)}`;
     const localValue = window.localStorage.getItem(key);
     if (localValue) {
       const localDistinctId = parsePostHogDistinctId(localValue);

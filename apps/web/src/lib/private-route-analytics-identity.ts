@@ -1,5 +1,10 @@
-export const ANALYTICS_IDENTITY_COOKIE = "anlg_analytics_identity";
+// Legacy browser IDs may already be linked to accounts, even if locally anonymous.
+export const ANALYTICS_IDENTITY_COOKIE = "anlg_analytics_identity_v2";
 export const ANALYTICS_IDENTITY_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+
+export function getPostHogPersistenceName(apiKey: string) {
+  return `${apiKey}_anonymous_v2`;
+}
 
 export type AnalyticsIdentity = {
   anonymousId?: string;

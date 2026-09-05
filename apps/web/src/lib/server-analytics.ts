@@ -17,6 +17,7 @@ import {
   ANALYTICS_IDENTITY_COOKIE,
   ANALYTICS_IDENTITY_MAX_AGE_SECONDS,
   createPrivateRouteIdentity,
+  getPostHogPersistenceName,
   parseAnalyticsIdentity,
   serializeAnalyticsIdentity,
 } from "./private-route-analytics-identity";
@@ -85,7 +86,7 @@ function readPostHogAnonIdFromRequest() {
       return null;
     }
 
-    const name = `ph_${env.VITE_POSTHOG_API_KEY}_posthog`;
+    const name = `ph_${getPostHogPersistenceName(env.VITE_POSTHOG_API_KEY)}`;
     const prefix = `${name}=`;
     const raw = cookieHeader
       .split(";")
