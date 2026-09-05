@@ -1,8 +1,18 @@
 # desktop-gpui
 
 Native [GPUI](https://gpui.rs) shell for the Anarlog desktop app. This is the
-landing zone for migrating `apps/desktop` off Tauri (ANLG-320). It runs side by
-side with the Tauri app and reads the same SQLite database.
+`apps/desktop-gpui` application called for in the target architecture of
+[ANLG-320](https://linear.app/fastrepl-inc/issue/ANLG-320/migrate-the-desktop-application-from-tauri-to-gpui).
+It runs side by side with the Tauri app, reads the same SQLite database, and is
+not a replacement for anything yet.
+
+Where this sits in the ANLG-320 plan: it is the start of **Phase 2 (GPUI
+foundation)**, scaffolding the crate with test and CI targets, async runtime
+integration, logging, and a minimal theme. It deliberately does not pre-empt
+**Phase 0 (baseline, inventory, profiling, success thresholds)**, which gates
+whether the migration proceeds at all; the shell only exists so the GPUI
+dependency graph, build prerequisites, and data-layer reuse are proven before
+Phase 3 needs them.
 
 ## Current scope
 
@@ -57,19 +67,17 @@ reproducible and CI does not clone the Zed monorepo. Bumping the version is a
 one-line change in the workspace `Cargo.toml`; expect API churn between
 releases while GPUI is pre-1.0.
 
-## Migration plan
+The crate lives in the root workspace because its dependency graph resolved
+without conflicts. ANLG-320 allows isolating it in a nested workspace if pinned
+Rust, wgpu, font, or platform dependencies ever collide with the root; any fork
+or permanent patch needs a written rationale and an owner.
 
-Each step keeps the Tauri app shippable and moves one capability over:
+## Plan
 
-1. Read-only shell (this crate): sessions list + note view.
-2. Writes: session/document upserts through `anlg-db-app`, reactive updates via
-   `anlg-db-reactive` instead of the webview live-query bridge.
-3. Editor: ProseMirror-compatible rich text on top of GPUI text primitives,
-   persisting TipTap-dialect JSON validated by `crates/tiptap`.
-4. Recording + transcription: reuse `listener2-core`, `audio-*`, `local-stt-core`
-   directly (they are already Tauri-agnostic).
-5. Settings, calendar, templates, search (`tantivy`), tray/windows, updater,
-   deep links: port plugin-by-plugin, replacing each `plugins/*` Tauri wrapper
-   with a direct crate call.
-6. Packaging: replace `tauri-build`/`tauri.conf.*.json` with a GPUI bundle
-   pipeline; cut over once feature parity gates in `desktop_e2e` pass.
+The phases, gates, benchmark protocol, and stop conditions are owned by
+ANLG-320; this README does not restate them. In short: Phase 0 baselines and
+inventories the Tauri app, Phase 1 moves logic behind shell-neutral Rust
+services that both Tauri and GPUI call, Phases 2 to 6 build the GPUI app up to
+parity, and Phase 7 dual-runs both builds before any cutover. Tauri stays the
+default and the rollback path throughout. Work in this crate must not change
+the SQLite schema or the document format.
