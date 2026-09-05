@@ -4813,6 +4813,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "desktop-bench"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "serde",
+ "serde_json",
+ "sysinfo",
+ "tempfile",
+]
+
+[[package]]
 name = "detect"
 version = "0.1.0"
 dependencies = [
