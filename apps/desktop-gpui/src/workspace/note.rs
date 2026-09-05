@@ -89,7 +89,8 @@ impl Workspace {
                 .items_center()
                 .justify_between()
                 .gap_8()
-                .rounded_full()
+                // The desktop app remaps `.rounded-full` to `0.5rem`.
+                .rounded(px(8.0))
                 .px_4()
                 .py_2()
                 .tw_text_sm()
@@ -862,9 +863,33 @@ impl Workspace {
     /// key` (outline) buttons routing to the Account / Intelligence settings.
     fn render_summary_config_error(&self, cx: &mut Context<Self>) -> Div {
         let theme = self.theme;
+        let hovered = self.hovered;
         let button = |id: &'static str, label: &'static str, primary: bool| {
+            let is_hovered = hovered == Some(id);
+            // `Button` (default / outline): the control squircle carries the
+            // fill and border.
+            let (fill, border) = if primary {
+                (
+                    Some(if is_hovered {
+                        alpha(theme.primary, 0.9)
+                    } else {
+                        theme.primary
+                    }),
+                    None,
+                )
+            } else {
+                (
+                    Some(if is_hovered {
+                        theme.accent
+                    } else {
+                        theme.background
+                    }),
+                    Some((1.0, theme.border)),
+                )
+            };
             div()
                 .id(id)
+                .relative()
                 .flex()
                 .h(px(36.0))
                 .items_center()
@@ -872,24 +897,22 @@ impl Workspace {
                 .gap_2()
                 .px_4()
                 .py_2()
-                .rounded_full()
+                .child(crate::squircle::squircle(
+                    crate::squircle::CONTROL_RADIUS,
+                    fill,
+                    border,
+                ))
                 .tw_text_sm()
                 .font_weight(gpui::FontWeight::MEDIUM)
+                .text_color(if primary {
+                    theme.primary_foreground
+                } else {
+                    theme.foreground
+                })
                 .cursor_pointer()
-                .when(primary, |button| {
-                    button
-                        .bg(theme.primary)
-                        .text_color(theme.primary_foreground)
-                        .hover(move |style| style.bg(alpha(theme.primary, 0.9)))
-                })
-                .when(!primary, |button| {
-                    button
-                        .border_1()
-                        .border_color(theme.border)
-                        .bg(theme.background)
-                        .text_color(theme.foreground)
-                        .hover(move |style| style.bg(theme.accent))
-                })
+                .on_hover(cx.listener(move |this, hovering: &bool, _, cx| {
+                    this.set_hovered(id, *hovering, cx);
+                }))
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .child(label)
         };
@@ -1032,7 +1055,7 @@ impl Workspace {
                         .my(px(-2.0))
                         .py(px(2.0))
                         .pr_2()
-                        .rounded_full()
+                        .rounded(px(8.0))
                         .tw_text_xs()
                         .font_weight(gpui::FontWeight::LIGHT)
                         .text_color(color)

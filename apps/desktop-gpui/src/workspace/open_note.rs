@@ -212,7 +212,8 @@ impl Workspace {
                 div()
                     .id("open-note-close")
                     .size(px(20.0))
-                    .rounded_full()
+                    // `.rounded-full` is `0.5rem` in the desktop app.
+                    .rounded(px(8.0))
                     .flex()
                     .items_center()
                     .justify_center()

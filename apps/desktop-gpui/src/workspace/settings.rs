@@ -473,11 +473,16 @@ impl Workspace {
                 // `Badge variant="secondary"` with `bg-muted px-2 py-0.5 text-xs`.
                 div()
                     .id(SharedString::from(format!("spoken-{code}")))
+                    .relative()
                     .flex()
                     .items_center()
                     .gap_1()
-                    .rounded_full()
-                    .bg(theme.muted)
+                    // `Badge`: the control squircle.
+                    .child(crate::squircle::squircle(
+                        crate::squircle::CONTROL_RADIUS,
+                        Some(theme.muted),
+                        None,
+                    ))
                     .px_2()
                     .py(px(2.0))
                     .tw_text_xs()
@@ -799,7 +804,8 @@ impl Workspace {
                         .w_full()
                         .items_center()
                         .gap_2()
-                        .rounded_full()
+                        // `.rounded-full` is `0.5rem` in the desktop app.
+                        .rounded(px(8.0))
                         .px_3()
                         .py_2()
                         .tw_text_sm()
@@ -1138,20 +1144,31 @@ impl Workspace {
                                         .child(
                                             div()
                                                 .id("notification-sound-preview")
+                                                .relative()
                                                 .flex()
                                                 .items_center()
                                                 .h(px(32.0))
-                                                .rounded_full()
-                                                .border_1()
-                                                .border_color(theme.border)
-                                                .bg(theme.card)
+                                                // `Button variant="outline"`: the control squircle.
+                                                .child(crate::squircle::squircle(
+                                                    crate::squircle::CONTROL_RADIUS,
+                                                    Some(if self.hovered == Some("notification-sound-preview") {
+                                                        theme.accent
+                                                    } else {
+                                                        theme.card
+                                                    }),
+                                                    Some((1.0, theme.border)),
+                                                ))
                                                 .px_3()
                                                 .tw_text_xs()
                                                 .font_weight(gpui::FontWeight::MEDIUM)
                                                 .text_color(theme.foreground)
                                                 .when(disabled_all, |button| button.opacity(0.5))
                                                 .when(!disabled_all, |button| {
-                                                    button.cursor_pointer().hover(move |style| style.bg(theme.accent))
+                                                    button.cursor_pointer().on_hover(cx.listener(
+                                                        |this, hovering: &bool, _, cx| {
+                                                            this.set_hovered("notification-sound-preview", *hovering, cx);
+                                                        },
+                                                    ))
                                                 })
                                                 .child("Preview"),
                                         )
@@ -2024,15 +2041,17 @@ impl Workspace {
                         .child(
                             // `Button variant="outline" className="h-9 w-full"` in a 9rem column.
                             div()
+                                .relative()
                                 .w(px(144.0))
                                 .h(px(36.0))
                                 .flex()
                                 .items_center()
                                 .justify_center()
-                                .rounded_full()
-                                .border_1()
-                                .border_color(theme.border)
-                                .bg(theme.background)
+                                .child(crate::squircle::squircle(
+                                    crate::squircle::CONTROL_RADIUS,
+                                    Some(theme.background),
+                                    Some((1.0, theme.border)),
+                                ))
                                 .tw_text_sm()
                                 .font_weight(gpui::FontWeight::MEDIUM)
                                 .child("Change"),
@@ -2135,7 +2154,7 @@ impl Workspace {
                                     .flex()
                                     .items_center()
                                     .justify_center()
-                                    .rounded_full()
+                                    .rounded(px(8.0))
                                     .bg(theme.foreground)
                                     .child(icon("check", px(12.0), theme.background)),
                             )

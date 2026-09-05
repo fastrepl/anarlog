@@ -732,15 +732,16 @@ impl Workspace {
                         .items_center()
                         .gap_2()
                         .px_2()
-                        .rounded_full()
-                        .border_1()
-                        .border_color(theme.border)
-                        .bg(theme.background)
+                        .relative()
+                        .child(crate::squircle::squircle(
+                            crate::squircle::CONTROL_RADIUS,
+                            Some(theme.background),
+                            Some((1.0, theme.border)),
+                        ))
                         .tw_text_xs()
                         .font_weight(gpui::FontWeight::MEDIUM)
                         .text_color(theme.foreground)
                         .cursor_pointer()
-                        .hover(move |style| style.bg(theme.accent))
                         .child(provider_icon(provider.icon, px(14.0), theme))
                         .child(SharedString::from(format!(
                             "Connect {}",
@@ -824,15 +825,16 @@ impl Workspace {
                             .items_center()
                             .gap_2()
                             .px_2()
-                            .rounded_full()
-                            .border_1()
-                            .border_color(theme.border)
-                            .bg(theme.background)
+                            .relative()
+                            .child(crate::squircle::squircle(
+                                crate::squircle::CONTROL_RADIUS,
+                                Some(theme.background),
+                                Some((1.0, theme.border)),
+                            ))
                             .tw_text_xs()
                             .font_weight(gpui::FontWeight::MEDIUM)
                             .text_color(theme.foreground)
                             .cursor_pointer()
-                            .hover(move |style| style.bg(theme.accent))
                             .child(provider_icon(twin_provider.icon, px(14.0), theme))
                             .child(SharedString::from(format!(
                                 "Connect {}",
@@ -1089,7 +1091,8 @@ fn provider_badge(theme: crate::theme::Theme, badge: &'static str) -> Div {
                 .font_weight(gpui::FontWeight::MEDIUM)
         })
         .when(!batch_only, |pill| {
-            pill.rounded_full()
+            // `.rounded-full` is `0.5rem` in the desktop app.
+            pill.rounded(px(8.0))
                 .border_1()
                 .border_color(theme.border)
                 .px_2()
