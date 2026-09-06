@@ -19,6 +19,7 @@ mod recording;
 mod search;
 mod secrets;
 mod shell;
+mod speaker_assignment;
 mod squircle;
 mod stats;
 mod store_file;

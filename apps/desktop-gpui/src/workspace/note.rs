@@ -14,7 +14,11 @@ use crate::timeline::{RemoteMeeting, SessionEvent};
 use crate::ui::{TailwindText as _, ghost_icon_button, icon};
 
 impl Workspace {
-    pub(super) fn render_main_surface(&mut self, window: &Window, cx: &mut Context<Self>) -> Div {
+    pub(super) fn render_main_surface(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Div {
         let theme = self.theme;
         let content = match &self.note {
             _ if self.contacts_open() => self.render_contacts_main(cx),
@@ -91,6 +95,25 @@ impl Workspace {
                 }),
             )
             .child(content)
+            // `FloatingActionButton` / `FloatingChatCTA`: the chat pill (and
+            // the transcript selection bar) over the note or the empty view.
+            .children(match &self.note {
+                _ if self.contacts_open()
+                    || self.automations_open()
+                    || self.calendar_open()
+                    || self.templates_open()
+                    || self.folders_open()
+                    || self.settings_open() =>
+                {
+                    None
+                }
+                Note::Ready { preview, .. } => {
+                    let preview = preview.clone();
+                    self.render_floating_action_button(Some(&preview), window, cx)
+                }
+                Note::Empty => self.render_floating_action_button(None, window, cx),
+                _ => None,
+            })
             // `PersistentChat` portals its floating frame over this surface.
             .children(self.render_chat_frame(cx))
     }
@@ -543,6 +566,10 @@ impl Workspace {
             ));
         }
 
+        let can_edit = self.can_edit_transcript(preview);
+        let edit_mode = self.transcript_edit_mode(&preview.session.id);
+        let session_id = preview.session.id.clone();
+
         div()
             .flex()
             .h(px(28.0))
@@ -556,6 +583,7 @@ impl Workspace {
             .bg(alpha(theme.foreground, 0.1))
             .children(tabs.into_iter().enumerate().map(
                 |(index, (tab, label, glyph, template_id))| {
+                    let session_id = session_id.clone();
                     let active = *current == tab;
                     let enhanced_id = match &tab {
                         NoteTab::Enhanced(id) => Some(id.clone()),
@@ -607,10 +635,21 @@ impl Workspace {
                         })
                         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                         .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                            // The active enhanced pill is the template picker trigger.
+                            // The active enhanced pill is the template picker
+                            // trigger; the active transcript pill toggles edit
+                            // mode when the transcript can be edited.
                             match (&enhanced_id, active) {
                                 (Some(id), true) => {
                                     this.toggle_template_picker(id.clone(), window, cx)
+                                }
+                                (None, true) if can_edit && tab == NoteTab::Transcript => {
+                                    let edit_mode = !this.transcript_edit_mode(&session_id);
+                                    this.set_transcript_edit_mode(
+                                        &session_id,
+                                        edit_mode,
+                                        window,
+                                        cx,
+                                    );
                                 }
                                 _ => this.set_tab(tab.clone(), cx),
                             }
@@ -645,10 +684,22 @@ impl Workspace {
                                 t.child(icon("caret-down", px(12.0), theme.foreground))
                             })
                             // `HeaderViewTranscriptActive`: an inactive session with a
-                            // stored transcript can enter edit mode, shown by the pencil.
-                            .when(glyph == "waveform" && live.is_none(), |t| {
-                                t.child(icon("pencil-edit", px(14.0), theme.foreground))
-                            })
+                            // stored transcript can enter edit mode, shown by the
+                            // pencil, and the check while editing.
+                            .when(
+                                glyph == "waveform" && can_edit,
+                                |t| {
+                                    t.child(icon(
+                                        if edit_mode {
+                                            "check-circle"
+                                        } else {
+                                            "pencil-edit"
+                                        },
+                                        px(14.0),
+                                        theme.foreground,
+                                    ))
+                                },
+                            )
                         })
                 },
             ))
@@ -659,7 +710,7 @@ impl Workspace {
         &mut self,
         preview: &NotePreview,
         tab: &NoteTab,
-        window: &Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let theme = self.theme;

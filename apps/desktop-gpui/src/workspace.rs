@@ -3,6 +3,7 @@ mod audio_player;
 mod automations_tab;
 mod calendar_tab;
 mod chat;
+mod chat_cta;
 mod contacts_tab;
 mod developers_page;
 mod dictionary;
@@ -22,6 +23,7 @@ mod overflow;
 mod recording;
 mod settings;
 mod share;
+mod speaker_assign;
 pub(crate) use overflow::find_session_dir;
 mod sidebar;
 mod stats_page;
@@ -30,6 +32,7 @@ mod templates_tab;
 mod timeline_selection;
 mod title_bar;
 mod toast;
+mod transcript_edit;
 mod transcript_tab;
 
 use std::sync::Arc;
@@ -229,6 +232,8 @@ pub struct Workspace {
     audio_player: Option<audio_player::AudioPlayer>,
     /// The open transcript tab's scroll, follow and word hover state.
     transcript_view: transcript_tab::TranscriptView,
+    /// The "Ask anything" pill is hovered (it grows into the prompt bar).
+    chat_cta_hovered: bool,
     /// The Dictionary page's term field and the row being edited.
     dictionary_input: Option<gpui::Entity<TextInput>>,
     dictionary_edit: Option<dictionary::DictionaryEdit>,
@@ -372,6 +377,7 @@ impl Workspace {
             recording: recording::RecordingState::default(),
             audio_player: None,
             transcript_view: transcript_tab::TranscriptView::default(),
+            chat_cta_hovered: false,
             dictionary_input: None,
             dictionary_edit: None,
             chat_open: false,
@@ -1270,6 +1276,10 @@ impl Render for Workspace {
             }))
             .on_action(cx.listener(|this, _: &actions::Escape, window, cx| {
                 if this.close_open_menus(cx) {
+                    return;
+                }
+                // `useHotkeys("esc")` in edit mode drops the section selection.
+                if this.clear_transcript_selection(cx) {
                     return;
                 }
                 if !this.pending_delete_selected.is_empty() {

@@ -2429,7 +2429,7 @@ fn remove_photo_entry(table: &'static str, contact_id: &str, has_photo: bool) ->
 }
 
 /// Decodes an uploaded avatar for the GPU (textures are BGRA).
-fn decode_photo(data_url: &str) -> Option<Arc<RenderImage>> {
+pub(super) fn decode_photo(data_url: &str) -> Option<Arc<RenderImage>> {
     let mut buffer = crate::contacts::decode_avatar_data_url(data_url)?;
     for pixel in buffer.pixels_mut() {
         pixel.0.swap(0, 2);

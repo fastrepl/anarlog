@@ -1324,6 +1324,18 @@ pub struct NotePreview {
     pub transcripts: Vec<crate::transcript::RenderedTranscript>,
 }
 
+/// Who a transcript speaker is assigned to: an existing human or one to
+/// create from the picker's typed name / event attendee.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SpeakerTarget {
+    Existing(String),
+    New { name: String, email: String },
+}
+
+/// A `mutateTranscript` step over `(words_json, hints_json)`, returning the
+/// next pair or `None` to persist nothing.
+type TranscriptMutation = Box<dyn Fn(&str, &str) -> Option<(String, String)> + Send + Sync>;
+
 /// Access to the SQLite database shared with the Tauri desktop app.
 ///
 /// The GPUI shell coexists with the Tauri app during the migration: it never
@@ -3098,12 +3110,288 @@ impl Store {
         })
     }
 
-    /// `flushLiveTranscriptDeltasToDatabase` → `mutateTranscript`: fold the
-    /// journaled deltas into `words_json` / `speaker_hints_json` under the
-    /// `content_revision` check and drop the journal.
+    /// `flushLiveTranscriptDeltasToDatabase` → `mutateTranscript` without a
+    /// mutation: fold the journaled deltas into `words_json` /
+    /// `speaker_hints_json` under the `content_revision` check and drop the
+    /// journal.
     pub fn flush_live_deltas(
         &self,
         transcript_id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        self.mutate_transcript(transcript_id, None)
+    }
+
+    /// `useSessionEventParticipants`: the `(name, email)` pairs of the
+    /// session's calendar event, matched by `event_id` or by the event
+    /// JSON's tracking id and calendar.
+    pub fn session_event_participants(
+        &self,
+        session_id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<Vec<(String, String)>>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let participants_json: Option<String> = sqlx::query_scalar(
+                "SELECT event.participants_json
+                 FROM sessions AS session
+                 JOIN events AS event
+                   ON event.deleted_at IS NULL
+                   AND (
+                     event.id = session.event_id
+                     OR (
+                       event.tracking_id_event = CASE
+                         WHEN json_valid(session.event_json)
+                         THEN json_extract(session.event_json, '$.tracking_id')
+                         ELSE ''
+                       END
+                       AND event.calendar_id = CASE
+                         WHEN json_valid(session.event_json)
+                         THEN json_extract(session.event_json, '$.calendar_id')
+                         ELSE ''
+                       END
+                     )
+                   )
+                 WHERE session.id = ? AND session.deleted_at IS NULL
+                 ORDER BY event.started_at, event.id
+                 LIMIT 1",
+            )
+            .bind(&session_id)
+            .fetch_optional(db.pool())
+            .await?;
+            let Some(json) = participants_json else {
+                return Ok(Vec::new());
+            };
+            let Ok(serde_json::Value::Array(items)) =
+                serde_json::from_str::<serde_json::Value>(&json)
+            else {
+                return Ok(Vec::new());
+            };
+            // `eventParticipantSchema`: objects with optional string fields.
+            Ok(items
+                .iter()
+                .filter(|item| item.is_object())
+                .filter(|item| {
+                    ["name", "email"]
+                        .iter()
+                        .all(|key| item.get(key).is_none_or(|v| v.is_string() || v.is_null()))
+                })
+                .map(|item| {
+                    (
+                        item.get("name")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or("")
+                            .to_string(),
+                        item.get("email")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or("")
+                            .to_string(),
+                    )
+                })
+                .collect())
+        })
+    }
+
+    /// `SpeakerParticipantPicker`'s `getCurrentHumanId` + `linkHumanToSession`:
+    /// resolve the picked option to a human (an existing contact by email,
+    /// else by name, else a new `humans` row owned by the session's user) and
+    /// make sure it is a session participant. Returns the human id.
+    pub fn prepare_speaker(
+        &self,
+        session_id: String,
+        target: SpeakerTarget,
+    ) -> tokio::task::JoinHandle<anyhow::Result<String>> {
+        let db = self.db.clone();
+        let store = self.clone_handle();
+        self.runtime.spawn(async move {
+            let pool = db.pool();
+            let human_id = match target {
+                SpeakerTarget::Existing(id) => id,
+                SpeakerTarget::New { name, email } => {
+                    let email = email.trim().to_lowercase();
+                    let existing: Option<String> = if !email.is_empty() {
+                        sqlx::query_scalar(
+                            "SELECT id FROM humans
+                             WHERE deleted_at IS NULL AND lower(trim(email)) = ?
+                             ORDER BY name, email, id LIMIT 1",
+                        )
+                        .bind(&email)
+                        .fetch_optional(pool)
+                        .await?
+                    } else {
+                        sqlx::query_scalar(
+                            "SELECT id FROM humans
+                             WHERE deleted_at IS NULL AND lower(trim(name)) = ?
+                             ORDER BY name, email, id LIMIT 1",
+                        )
+                        .bind(name.trim().to_lowercase())
+                        .fetch_optional(pool)
+                        .await?
+                    };
+                    match existing {
+                        Some(id) => id,
+                        None => {
+                            let owner: Option<String> = sqlx::query_scalar(
+                                "SELECT owner_user_id FROM sessions WHERE id = ?",
+                            )
+                            .bind(&session_id)
+                            .fetch_optional(pool)
+                            .await?;
+                            let Some(owner) = owner else {
+                                anyhow::bail!("session {session_id} does not exist");
+                            };
+                            let now = chrono::Utc::now()
+                                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                                .to_string();
+                            let human_id = uuid::Uuid::new_v4().to_string();
+                            sqlx::query(CREATE_HUMAN_SQL)
+                                .bind(&human_id)
+                                .bind(&owner)
+                                .bind(&name)
+                                .bind(&email)
+                                .bind(&now)
+                                .bind(&now)
+                                .execute(pool)
+                                .await?;
+                            human_id
+                        }
+                    }
+                }
+            };
+            let linked: i64 = sqlx::query_scalar(
+                "SELECT COUNT(*) FROM session_participants
+                 WHERE session_id = ? AND human_id = ? AND deleted_at IS NULL",
+            )
+            .bind(&session_id)
+            .bind(&human_id)
+            .fetch_one(pool)
+            .await?;
+            if linked == 0 {
+                store
+                    .add_session_participant(
+                        session_id,
+                        ParticipantTarget::Existing(human_id.clone()),
+                    )
+                    .await??;
+            }
+            Ok(human_id)
+        })
+    }
+
+    /// `assignTranscriptSpeaker` / `assignSpeakerInTranscript`: upsert the
+    /// user speaker assignment, resolving the anchor word from the segment
+    /// key when the caller has none (a resumed transcript). The Tauri app
+    /// also promotes voiceprint candidates on `all` assignments; voiceprints
+    /// are not part of this shell yet.
+    pub fn assign_transcript_speaker(
+        &self,
+        transcript_id: String,
+        segment_key: anlg_transcript::SegmentKey,
+        human_id: String,
+        anchor_word_id: Option<String>,
+        mode: crate::speaker_assignment::Mode,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        self.mutate_transcript(
+            transcript_id,
+            Some(Box::new(move |words, hints| {
+                let anchor = anchor_word_id.clone().or_else(|| {
+                    crate::speaker_assignment::find_anchor_word_id(words, hints, &segment_key)
+                })?;
+                let next = crate::speaker_assignment::upsert_speaker_assignment(
+                    words,
+                    hints,
+                    &segment_key,
+                    &human_id,
+                    &anchor,
+                    &mode,
+                );
+                Some((words.to_string(), next))
+            })),
+        )
+    }
+
+    /// `assignSessionTranscriptSpeaker`: the `all` assignment over every
+    /// stored transcript of the session, the anchor only for the one it was
+    /// made in.
+    pub fn assign_session_transcript_speaker(
+        &self,
+        session_id: String,
+        transcript_id: String,
+        segment_key: anlg_transcript::SegmentKey,
+        human_id: String,
+        anchor_word_id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        let store = self.clone_handle();
+        self.runtime.spawn(async move {
+            let transcripts: Vec<(String,)> = sqlx::query_as(
+                "SELECT id FROM transcripts
+                 WHERE session_id = ? AND deleted_at IS NULL
+                 ORDER BY started_at_ms, created_at, id",
+            )
+            .bind(&session_id)
+            .fetch_all(db.pool())
+            .await?;
+            for (id,) in transcripts {
+                let anchor = (id == transcript_id).then(|| anchor_word_id.clone());
+                store
+                    .assign_transcript_speaker(
+                        id,
+                        segment_key.clone(),
+                        human_id.clone(),
+                        anchor,
+                        crate::speaker_assignment::Mode::All,
+                    )
+                    .await??;
+            }
+            Ok(())
+        })
+    }
+
+    /// `mergeTranscriptSegments`
+    pub fn merge_transcript_segments(
+        &self,
+        transcript_id: String,
+        segment_key: anlg_transcript::SegmentKey,
+        word_ids: Vec<String>,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        self.mutate_transcript(
+            transcript_id,
+            Some(Box::new(move |words, hints| {
+                crate::speaker_assignment::merge_segment_assignments(
+                    words,
+                    hints,
+                    &segment_key,
+                    &word_ids,
+                )
+                .map(|next| (words.to_string(), next))
+            })),
+        )
+    }
+
+    /// `updateTranscriptSegmentText`
+    pub fn update_transcript_segment_text(
+        &self,
+        transcript_id: String,
+        word_ids: Vec<String>,
+        text: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        self.mutate_transcript(
+            transcript_id,
+            Some(Box::new(move |words, hints| {
+                crate::speaker_assignment::update_segment_text(words, &word_ids, &text)
+                    .map(|next| (next, hints.to_string()))
+            })),
+        )
+    }
+
+    /// `mutateTranscript`: read the stored JSON with its pending live deltas
+    /// materialised, apply `mutation` to `(words_json, hints_json)` (a `None`
+    /// result persists nothing), and write back under the `content_revision`
+    /// check, retrying the read on a lost race. Without a mutation the
+    /// materialised snapshot alone is written when deltas were pending.
+    fn mutate_transcript(
+        &self,
+        transcript_id: String,
+        mutation: Option<TranscriptMutation>,
     ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
         let db = self.db.clone();
         self.runtime.spawn(async move {
@@ -3128,16 +3416,29 @@ impl Store {
                 .fetch_optional(db.pool())
                 .await?;
                 let Some((words_json, hints_json, revision, pending_json)) = current else {
-                    return Ok(());
+                    if mutation.is_none() {
+                        return Ok(());
+                    }
+                    anyhow::bail!("Transcript {transcript_id} does not exist");
                 };
                 let deltas: Vec<anlg_listener_core::LiveTranscriptDelta> =
                     serde_json::from_str(&pending_json).unwrap_or_default();
-                if deltas.is_empty() {
+                if mutation.is_none() && deltas.is_empty() {
                     return Ok(());
                 }
-                let merged = crate::live_transcript::coalesce_deltas(&deltas);
-                let (next_words, next_hints) =
-                    crate::live_transcript::apply_live_delta(&words_json, &hints_json, &merged);
+                let (words_json, hints_json) = if deltas.is_empty() {
+                    (words_json, hints_json)
+                } else {
+                    let merged = crate::live_transcript::coalesce_deltas(&deltas);
+                    crate::live_transcript::apply_live_delta(&words_json, &hints_json, &merged)
+                };
+                let (next_words, next_hints) = match &mutation {
+                    Some(mutation) => match mutation(&words_json, &hints_json) {
+                        Some(next) => next,
+                        None => return Ok(()),
+                    },
+                    None => (words_json, hints_json),
+                };
                 let now = chrono::Utc::now()
                     .format("%Y-%m-%dT%H:%M:%S%.3fZ")
                     .to_string();

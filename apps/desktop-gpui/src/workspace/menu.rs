@@ -316,6 +316,7 @@ impl Workspace {
         closed |= self.close_contacts_menus();
         closed |= self.close_templates_menus();
         closed |= self.close_automations_menus();
+        closed |= self.close_speaker_assign(cx);
         if closed {
             cx.notify();
         }

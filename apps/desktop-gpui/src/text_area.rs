@@ -34,6 +34,7 @@ actions!(
         Copy,
         Newline,
         Escape,
+        Submit,
     ]
 );
 
@@ -66,6 +67,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("enter", Newline, ctx),
         KeyBinding::new("shift-enter", Newline, ctx),
         KeyBinding::new("escape", Escape, ctx),
+        KeyBinding::new(&format!("{m}-enter"), Submit, ctx),
     ]);
 }
 
@@ -75,6 +77,8 @@ pub enum TextAreaEvent {
     /// Focus left the field (the `onBlur` save point).
     Blurred,
     Escape,
+    /// Cmd/Ctrl+Enter, for fields that commit on it.
+    Submit,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -368,6 +372,10 @@ impl TextArea {
         self.replace_text_in_range(None, "\n", window, cx)
     }
 
+    fn submit(&mut self, _: &Submit, _: &mut Window, cx: &mut Context<Self>) {
+        cx.emit(TextAreaEvent::Submit);
+    }
+
     fn escape(&mut self, _: &Escape, _: &mut Window, cx: &mut Context<Self>) {
         cx.emit(TextAreaEvent::Escape);
     }
@@ -609,6 +617,7 @@ impl Render for TextArea {
             .on_action(cx.listener(Self::copy))
             .on_action(cx.listener(Self::newline))
             .on_action(cx.listener(Self::escape))
+            .on_action(cx.listener(Self::submit))
             .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
             .on_mouse_up(MouseButton::Left, cx.listener(Self::on_mouse_up))
             .on_mouse_up_out(MouseButton::Left, cx.listener(Self::on_mouse_up))

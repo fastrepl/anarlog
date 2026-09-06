@@ -34,8 +34,27 @@ pub(super) struct TranscriptView {
     user_scrolled: bool,
     /// The scroll controls pill is hovered (drives the icon colours).
     controls_hovered: bool,
+    /// The open speaker picker, and whether its Confirm is hovered.
+    pub speaker_assign: Option<super::speaker_assign::SpeakerAssign>,
+    pub speaker_confirm_hovered: bool,
+    /// Bumped per picker so late loads and confirms find their own picker.
+    pub picker_generation: u64,
+    /// Edit mode and the section selection.
+    pub edit: super::transcript_edit::TranscriptEdit,
     /// The in-flight smooth scroll, so a newer one supersedes it.
     animation: u64,
+}
+
+/// What every segment of a transcript renders against.
+#[derive(Clone, Copy)]
+struct SegmentContext<'a> {
+    session_id: &'a str,
+    transcript_id: &'a str,
+    offset_ms: i64,
+    current_ms: i64,
+    audio_exists: bool,
+    /// Edit (and select) mode: editors instead of word spans.
+    edit_mode: bool,
 }
 
 /// `behavior: "smooth"`: WebKit eases a programmatic scroll over ~0.3s.
@@ -172,7 +191,7 @@ impl Workspace {
     pub(super) fn render_transcript(
         &mut self,
         preview: &NotePreview,
-        window: &Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Div {
         let theme = self.theme;
@@ -200,6 +219,12 @@ impl Workspace {
             .retain(|id, _| live_ids.contains(id));
         self.follow_transcript_playback(preview, &timeline, current_ms, cx);
         let audio_exists = preview.audio_exists;
+        // `editMode && !screen.currentActive`
+        let edit_mode = self.transcript_edit_mode(&preview.session.id)
+            && self.session_mode(&preview.session.id) == super::recording::SessionMode::Inactive;
+        if !edit_mode && !self.transcript_view.edit.editors.is_empty() {
+            self.transcript_view.edit.editors.clear();
+        }
         let playing = self
             .audio_player
             .as_ref()
@@ -230,18 +255,19 @@ impl Workspace {
                     .map(|(index, transcript)| {
                         let is_last = index + 1 == count;
                         let offset_ms = timeline_offset_ms(transcript.started_at_ms, &timeline);
+                        let context = SegmentContext {
+                            session_id: &preview.session.id,
+                            transcript_id: &transcript.id,
+                            offset_ms,
+                            current_ms,
+                            audio_exists,
+                            edit_mode,
+                        };
                         let segments: Vec<AnyElement> = transcript
                             .segments
                             .iter()
                             .map(|segment| {
-                                self.render_transcript_segment(
-                                    segment,
-                                    offset_ms,
-                                    current_ms,
-                                    audio_exists,
-                                    window,
-                                    cx,
-                                )
+                                self.render_transcript_segment(segment, &context, window, cx)
                             })
                             .collect();
                         div()
@@ -428,14 +454,28 @@ impl Workspace {
     fn render_transcript_segment(
         &mut self,
         segment: &Segment,
-        offset_ms: i64,
-        current_ms: i64,
-        audio_exists: bool,
-        window: &Window,
-        cx: &Context<Self>,
+        context: &SegmentContext<'_>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
     ) -> AnyElement {
+        let SegmentContext {
+            session_id,
+            transcript_id,
+            offset_ms,
+            current_ms,
+            audio_exists,
+            edit_mode,
+        } = *context;
         let theme = self.theme;
         let color = segment_color(&segment.key, theme.dark);
+        let section_key = (transcript_id.to_string(), segment.id.to_string());
+        let selected = self.transcript_section_selected(&section_key);
+        let editor = edit_mode.then(|| self.segment_editor(transcript_id, segment, window, cx));
+        let assign_open = self
+            .transcript_view
+            .speaker_assign
+            .as_ref()
+            .is_some_and(|open| open.segment_id() == Some(segment.id.as_str()));
         let layout = self
             .transcript_view
             .layouts
@@ -515,69 +555,149 @@ impl Workspace {
         let hover_layout = layout.clone();
         let click_layout = layout;
         div()
+            .id(SharedString::from(format!("segment-{}", segment.id)))
+            .relative()
             .rounded_lg()
             .px_2()
-            .child(
-                div().relative().py_1().flex().items_center().gap_2().child(
-                    div()
-                        .id(SharedString::from(format!("speaker-{}", segment.id)))
-                        .my(px(-2.0))
-                        .py(px(2.0))
-                        .pr_2()
-                        .rounded(px(8.0))
-                        .tw_text_xs()
-                        .font_weight(gpui::FontWeight::LIGHT)
-                        .text_color(color)
-                        .cursor_pointer()
-                        .hover(|style| style.text_decoration_1().text_decoration_solid())
-                        .child(SharedString::from(segment.speaker_label.clone())),
-                ),
-            )
+            .when(edit_mode, |section| section.cursor_pointer())
+            // `data-[transcript-selected=true]:bg-primary/10 ring-1 ring-inset
+            // ring-primary/30`
+            .when(selected, |section| {
+                section.child(crate::squircle::squircle(
+                    crate::squircle::CONTROL_RADIUS,
+                    Some(alpha(theme.primary, 0.1)),
+                    Some((1.0, alpha(theme.primary, 0.3))),
+                ))
+            })
+            .on_click(cx.listener({
+                let key = section_key.clone();
+                move |this, event: &ClickEvent, _, cx| {
+                    this.click_transcript_section(key.clone(), event.modifiers(), cx);
+                }
+            }))
             .child(
                 div()
-                    .id(SharedString::from(format!("segment-words-{}", segment.id)))
-                    .mt(px(6.0))
-                    .text_size(px(14.0))
-                    .line_height(px(22.0))
-                    .text_color(theme.foreground)
-                    .when(hover_seekable, |words| words.cursor_pointer())
-                    .on_mouse_move(
-                        cx.listener(move |this, event: &gpui::MouseMoveEvent, _, cx| {
-                            let next = hover_layout
-                                .index_for_position(event.position)
-                                .ok()
-                                .and_then(|offset| words_for_hover.word_at(offset))
-                                .map(|index| (segment_id.clone(), index));
-                            if this.transcript_view.hover != next {
-                                this.transcript_view.hover = next;
+                    .relative()
+                    .py_1()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .when(edit_mode, |header| {
+                        header.child(self.render_selection_circle(selected))
+                    })
+                    .child(
+                        // `SpeakerAssignPopover`'s trigger: `-my-0.5 rounded-full
+                        // py-0.5 pr-2 hover:underline`, underlined while open. The
+                        // popover anchors to the trigger's top-right through an
+                        // unstyled wrapper so it inherits none of the label's text
+                        // styling.
+                        div()
+                            .relative()
+                            .my(px(-2.0))
+                            .child(
+                                div()
+                                    .id(SharedString::from(format!("speaker-{}", segment.id)))
+                                    .py(px(2.0))
+                                    .pr_2()
+                                    .rounded(px(8.0))
+                                    .tw_text_xs()
+                                    .font_weight(gpui::FontWeight::LIGHT)
+                                    .text_color(color)
+                                    .cursor_pointer()
+                                    .when(assign_open, |label| {
+                                        label.text_decoration_1().text_decoration_solid()
+                                    })
+                                    .hover(|style| {
+                                        style.text_decoration_1().text_decoration_solid()
+                                    })
+                                    .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| {
+                                        cx.stop_propagation()
+                                    })
+                                    .on_click(cx.listener({
+                                        let segment = segment.clone();
+                                        let session_id = session_id.to_string();
+                                        let transcript_id = transcript_id.to_string();
+                                        move |this, _: &ClickEvent, window, cx| {
+                                            this.toggle_speaker_assign(
+                                                session_id.clone(),
+                                                transcript_id.clone(),
+                                                &segment,
+                                                window,
+                                                cx,
+                                            );
+                                        }
+                                    }))
+                                    .child(SharedString::from(segment.speaker_label.clone())),
+                            )
+                            .children(self.render_speaker_assign_popover(&segment.id, cx)),
+                    ),
+            )
+            .when_some(editor, |section, editor| {
+                // `EditableSegmentText`: `mt-1.5 rounded-md text-sm
+                // leading-relaxed outline-hidden`; presses stay in the editor
+                // rather than toggling the section.
+                section.child(
+                    div()
+                        .mt(px(6.0))
+                        .rounded(px(6.0))
+                        .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                        .child(editor),
+                )
+            })
+            .when(!edit_mode, |section| {
+                section.child(
+                    div()
+                        .id(SharedString::from(format!("segment-words-{}", segment.id)))
+                        .mt(px(6.0))
+                        .text_size(px(14.0))
+                        .line_height(px(22.0))
+                        .text_color(theme.foreground)
+                        .when(hover_seekable, |words| words.cursor_pointer())
+                        .on_mouse_move(cx.listener(
+                            move |this, event: &gpui::MouseMoveEvent, _, cx| {
+                                let next = hover_layout
+                                    .index_for_position(event.position)
+                                    .ok()
+                                    .and_then(|offset| words_for_hover.word_at(offset))
+                                    .map(|index| (segment_id.clone(), index));
+                                if this.transcript_view.hover != next {
+                                    this.transcript_view.hover = next;
+                                    cx.notify();
+                                }
+                            },
+                        ))
+                        .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
+                            if !*hovered && this.transcript_view.hover.take().is_some() {
                                 cx.notify();
                             }
-                        }),
-                    )
-                    .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
-                        if !*hovered && this.transcript_view.hover.take().is_some() {
-                            cx.notify();
-                        }
-                    }))
-                    .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
-                        if !audio_exists {
-                            return;
-                        }
-                        let Ok(offset) = click_layout.index_for_position(event.position()) else {
-                            return;
-                        };
-                        let Some(word) = words_for_click
-                            .word_at(offset)
-                            .and_then(|index| words_for_click.words.get(index))
-                        else {
-                            return;
-                        };
-                        if word.seekable {
-                            this.seek_and_play(offset_ms + word.start_ms, cx);
-                        }
-                    }))
-                    .child(HighlightedProseText::new(text, highlights)),
-            )
+                        }))
+                        .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
+                            // A modifier click selects the section instead.
+                            let modifiers = event.modifiers();
+                            if !audio_exists
+                                || modifiers.platform
+                                || modifiers.control
+                                || modifiers.shift
+                            {
+                                return;
+                            }
+                            let Ok(offset) = click_layout.index_for_position(event.position())
+                            else {
+                                return;
+                            };
+                            let Some(word) = words_for_click
+                                .word_at(offset)
+                                .and_then(|index| words_for_click.words.get(index))
+                            else {
+                                return;
+                            };
+                            if word.seekable {
+                                this.seek_and_play(offset_ms + word.start_ms, cx);
+                            }
+                        }))
+                        .child(HighlightedProseText::new(text, highlights)),
+                )
+            })
             .into_any_element()
     }
 }
