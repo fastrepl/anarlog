@@ -58,8 +58,9 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
+      # listener-core pulls the same native audio stack as the Tauri app.
+      - uses: ./.github/actions/install_desktop_deps
       - run: |
-          sudo apt-get -o Acquire::Retries=5 update
           sudo apt-get -o Acquire::Retries=5 install -y libxkbcommon-dev libxkbcommon-x11-dev
       - uses: ./.github/actions/rust_install
         with:
