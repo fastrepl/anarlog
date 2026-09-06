@@ -1,3 +1,7 @@
+import { Platform } from "react-native";
+
+import type { ProviderLiveTranscriptionLike } from "@anlg/mobile-bridge";
+
 import { decodeJwtPayload, deriveBillingInfo } from "@/auth/billing";
 import { supabase } from "@/auth/client";
 import { execute, executeTransaction } from "@/db";
@@ -10,7 +14,8 @@ import {
   applyTranscriptionPreferences,
   type Preferences,
 } from "@/settings/preferences-model";
-import { readProviderConfig } from "@/settings/providers";
+import { readProviderConfig, readProviderKey } from "@/settings/providers";
+import { supportsLiveTranscription } from "@/settings/transcription-mode";
 
 import {
   parseHostedTranscriptionMessage,
@@ -39,7 +44,7 @@ INSERT INTO transcripts (
   updated_at, deleted_at
 )
 SELECT ?, session.workspace_id, session.owner_user_id, session.id,
-  'live_capture', 'anarlog', 'cloud', '', ?, NULL, ?,
+  'live_capture', ?, ?, '', ?, NULL, ?,
   COALESCE((
     SELECT note.body FROM session_documents AS note
     WHERE note.id = session.id AND note.kind = 'note' AND note.deleted_at IS NULL
@@ -116,7 +121,7 @@ function liveUrl(
   return applyTranscriptionPreferences(url, preferences).toString();
 }
 
-export class HostedLiveTranscription {
+export class SessionLiveTranscription {
   readonly transcriptId = id();
   private readonly sessionId: string;
   private readonly onUpdate: (update: {
@@ -124,6 +129,10 @@ export class HostedLiveTranscription {
     text: string;
   }) => void;
 
+  private provider = "anarlog";
+  private model = "cloud";
+  private native: ProviderLiveTranscriptionLike | null = null;
+  private connectAbort = new AbortController();
   private socket: WebSocket | null = null;
   private status: LiveTranscriptionStatus = "connecting";
   private queuedAudio: ArrayBuffer[] = [];
@@ -150,7 +159,7 @@ export class HostedLiveTranscription {
     sessionId: string,
     sampleRate: number,
     channels: number,
-    onUpdate: HostedLiveTranscription["onUpdate"],
+    onUpdate: SessionLiveTranscription["onUpdate"],
   ) {
     this.sessionId = sessionId;
     this.onUpdate = onUpdate;
@@ -170,27 +179,93 @@ export class HostedLiveTranscription {
         auth?.data.session?.user.id ?? null,
         "stt",
       );
-      if (provider.provider !== "anarlog") {
-        this.setStatus("fallback");
-        this.queuedAudio = [];
-        this.queuedAudioBytes = 0;
-        return;
-      }
+      this.provider = provider.provider;
+      this.model = provider.model;
       const preferences = await readPreferences();
-      const token = auth?.data.session?.access_token;
-      if (!token)
-        throw new Error("Live transcription requires a signed-in session");
-      this.updateBilling(token);
+      const accountId = auth?.data.session?.user.id ?? null;
       if (this.stopping || this.status === "fallback") return;
-      const accountId = auth?.data.session?.user.id;
       const subscription = supabase?.auth.onAuthStateChange(
         (_event, session) => {
-          if (session?.user.id !== accountId) this.fallBack();
-          else this.updateBilling(session!.access_token);
+          if ((session?.user.id ?? null) !== accountId) this.fallBack();
+          else if (this.provider === "anarlog" && session)
+            this.updateBilling(session.access_token);
         },
       );
       this.unsubscribeAuth = () =>
         subscription?.data.subscription.unsubscribe();
+      const currentAuth = await supabase?.auth.getSession();
+      if (currentAuth?.error) throw currentAuth.error;
+      if ((currentAuth?.data.session?.user.id ?? null) !== accountId) {
+        this.fallBack();
+        return;
+      }
+      if (this.stopping || this.connectAbort.signal.aborted) return;
+      if (provider.provider !== "anarlog") {
+        if (
+          Platform.OS === "web" ||
+          !supportsLiveTranscription(provider.provider, provider.model)
+        ) {
+          this.fallBack();
+          return;
+        }
+        const apiKey = await readProviderKey(
+          accountId,
+          "stt",
+          provider.provider,
+        );
+        if (!apiKey) {
+          this.fallBack();
+          return;
+        }
+        const { startProviderLiveTranscription } =
+          await import("@anlg/mobile-bridge");
+        const native = await startProviderLiveTranscription(
+          JSON.stringify({
+            provider: provider.provider,
+            base_url: provider.baseUrl,
+            api_key: apiKey,
+            params: {
+              model: provider.model,
+              sample_rate: sampleRate,
+              channels,
+              languages: [
+                ...new Set([
+                  preferences.ai_language,
+                  ...preferences.spoken_languages,
+                ]),
+              ],
+              keywords: preferences.personalization_dictionary_terms,
+            },
+          }),
+          {
+            onMessage: (message) => this.handleMessage(message),
+            onError: () =>
+              this.fail(
+                new Error("Live transcription connection failed"),
+                "provider",
+              ),
+          },
+          { signal: this.connectAbort.signal },
+        );
+        if (this.stopping || this.connectAbort.signal.aborted) {
+          native.cancel();
+          return;
+        }
+        this.native = native;
+        this.setStatus("live");
+        const queued = this.queuedAudio;
+        this.queuedAudio = [];
+        this.queuedAudioBytes = 0;
+        for (const buffer of queued) this.sendAudio(buffer);
+        return;
+      }
+      const token = currentAuth?.data.session?.access_token;
+      if (!token) {
+        this.fallBack();
+        return;
+      }
+      this.updateBilling(token);
+      if (this.stopping || this.connectAbort.signal.aborted) return;
 
       const Socket = WebSocket as unknown as NativeWebSocketConstructor;
       const socket = new Socket(
@@ -234,14 +309,26 @@ export class HostedLiveTranscription {
         }
       };
       this.socket = socket;
-    } catch (error) {
-      this.fail(error, "connect");
+    } catch {
+      if (this.stopping || this.connectAbort.signal.aborted) return;
+      this.fail(new Error("Live transcription could not connect"), "connect");
     }
   }
 
   sendAudio(buffer: ArrayBuffer) {
     if (!this.checkTrial() || this.status === "fallback" || this.stopping)
       return;
+    if (this.native) {
+      try {
+        this.native.sendAudio(buffer);
+      } catch {
+        this.fail(
+          new Error("Live transcription upload fell behind"),
+          "backpressure",
+        );
+      }
+      return;
+    }
     const socket = this.socket;
     if (socket?.readyState === WebSocket.OPEN) {
       if (socket.bufferedAmount > MAX_SOCKET_BUFFERED_BYTES) {
@@ -265,9 +352,11 @@ export class HostedLiveTranscription {
   }
 
   private handleMessage(message: string) {
+    if (this.status === "fallback") return;
     for (const event of parseHostedTranscriptionMessage(
       message,
       this.transcriptId,
+      this.provider,
     )) {
       if (event.type === "error") {
         this.fail(new Error(event.message), "response");
@@ -324,6 +413,8 @@ export class HostedLiveTranscription {
               sql: LIVE_TRANSCRIPT_INSERT_SQL,
               params: [
                 this.transcriptId,
+                this.provider,
+                this.model,
                 this.startedAtMs,
                 `session-audio:${this.sessionId}`,
                 JSON.stringify(words),
@@ -394,6 +485,9 @@ export class HostedLiveTranscription {
     this.queuedAudio = [];
     this.queuedAudioBytes = 0;
     this.socket?.close();
+    this.connectAbort.abort();
+    this.native?.cancel();
+    this.native = null;
   }
 
   private fail(error: unknown, stage: string) {
@@ -418,11 +512,25 @@ export class HostedLiveTranscription {
 
   private async performStop(): Promise<boolean> {
     this.stopping = true;
+    if (!this.native) this.connectAbort.abort();
     await this.connectPromise;
     this.clearKeepAlive();
     const socket = this.socket;
     try {
-      if (socket?.readyState === WebSocket.OPEN && this.status === "live") {
+      if (this.native) {
+        const native = this.native;
+        const completed = await native.finish();
+        native.cancel();
+        this.native = null;
+        if (!completed)
+          this.fail(
+            new Error("Live transcription could not finish"),
+            "finalize",
+          );
+      } else if (
+        socket?.readyState === WebSocket.OPEN &&
+        this.status === "live"
+      ) {
         socket.send(JSON.stringify({ type: "Finalize" }));
         let timer: ReturnType<typeof setTimeout>;
         await Promise.race([

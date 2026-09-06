@@ -4,6 +4,7 @@ mod attachment;
 mod db;
 mod error;
 mod listener;
+mod live_transcription;
 mod transcription;
 
 use std::collections::HashSet;

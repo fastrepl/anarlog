@@ -21,6 +21,7 @@ import { modelOptions, presetProviderModels } from "./provider-model-catalog";
 import { discoverProviderModels } from "./provider-models";
 import type { ProviderConfig, ProviderKind } from "./providers-model";
 import { useColors } from "./theme-provider";
+import { supportsLiveTranscription } from "./transcription-mode";
 
 export function ProviderModelPicker({
   kind,
@@ -117,6 +118,19 @@ export function ProviderModelPicker({
           </form.Subscribe>
         </Column>
       </Row>
+      {kind === "stt" && (
+        <form.Subscribe selector={(state) => state.values.model}>
+          {(model) =>
+            model ? (
+              <Text textStyle={{ color: Colors.muted }}>
+                {supportsLiveTranscription(config.provider, model)
+                  ? "Transcribes live while recording."
+                  : "Transcribes after recording."}
+              </Text>
+            ) : null
+          }
+        </form.Subscribe>
+      )}
       {manual && (
         <TextInput
           value={input}

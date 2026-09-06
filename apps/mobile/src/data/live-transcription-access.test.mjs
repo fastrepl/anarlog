@@ -9,15 +9,31 @@ const fixture = (globalThis.liveAccessFixture = {
   listeners: new Set(),
   sockets: [],
   failures: [],
+  provider: null,
+  native: [],
+  transactions: [],
+  apiKey: "synthetic-key",
 });
 const mocks = {
+  "@anlg/mobile-bridge": `export async function startProviderLiveTranscription(json, listener, options) {
+    const f = globalThis.liveAccessFixture;
+    const native = {request: JSON.parse(json), listener, signal: options.signal, sent: [], cancelled: false,
+      sendAudio(data) { if (f.backpressure) throw new Error('queue full'); this.sent.push(data); },
+      async finish() { f.finalize?.(listener); return !f.finalizeFailed; },
+      cancel() { this.cancelled = true; },
+    };
+    f.native.push(native);
+    if (f.connectWait) await f.connectWait;
+    return native;
+  }`,
+  "react-native": `export const Platform = { OS: "ios" };`,
   "@/auth/client": `const f = globalThis.liveAccessFixture; export const supabase = { auth: {
     getSession: async () => ({ data: { session: f.session } }),
     onAuthStateChange: listener => { f.listeners.add(listener); return { data: { subscription: { unsubscribe: () => f.listeners.delete(listener) } } }; }
   } };`,
-  "@/db": `export async function execute() { return []; } export async function executeTransaction() { return []; }`,
-  "@/settings/providers": `export async function readProviderConfig() { return { provider: 'anarlog' }; }`,
-  "@/settings/preferences": `export async function readPreferences() { return {}; }`,
+  "@/db": `export async function execute() { return []; } export async function executeTransaction(statements) { globalThis.liveAccessFixture.transactions.push(statements); return statements.map(() => 1); }`,
+  "@/settings/providers": `export async function readProviderConfig() { globalThis.liveAccessFixture.providerRead?.(); return globalThis.liveAccessFixture.provider ?? { provider: 'anarlog', model: 'cloud' }; } export async function readProviderKey() { return globalThis.liveAccessFixture.apiKey; }`,
+  "@/settings/preferences": `export async function readPreferences() { return { ai_language: "en", spoken_languages: ["ko"], personalization_dictionary_terms: ["Anarlog"] }; }`,
   "@/settings/preferences-model": `export const applyTranscriptionPreferences = url => url;`,
   "@/lib/ids": `export const id = () => 'transcript-test'; export const nowIso = () => new Date().toISOString();`,
   "@/lib/env": `export const env = { apiUrl: 'https://api.anarlog.test' };`,
@@ -44,7 +60,7 @@ registerHooks({
   },
 });
 
-const { HostedLiveTranscription } = await import("./live-transcription.ts");
+const { SessionLiveTranscription } = await import("./live-transcription.ts");
 
 function session(claims) {
   return {
@@ -63,6 +79,15 @@ beforeEach(() => {
   fixture.listeners.clear();
   fixture.sockets = [];
   fixture.failures = [];
+  fixture.provider = null;
+  fixture.providerRead = null;
+  fixture.apiKey = "synthetic-key";
+  fixture.native = [];
+  fixture.transactions = [];
+  fixture.backpressure = false;
+  fixture.finalizeFailed = false;
+  fixture.finalize = null;
+  fixture.connectWait = null;
   globalThis.WebSocket = class {
     static OPEN = 1;
     readyState = 0;
@@ -96,7 +121,7 @@ test("free and expired accounts record locally without opening a hosted socket o
   ]) {
     fixture.session = session(claims);
     const updates = [];
-    const live = new HostedLiveTranscription("note-a", 16000, 1, (update) =>
+    const live = new SessionLiveTranscription("note-a", 16000, 1, (update) =>
       updates.push(update),
     );
     await settle();
@@ -116,7 +141,7 @@ test("trial expiry closes an active socket and stops sending audio while preserv
     trial_end: (now + 2000) / 1000,
   });
   const updates = [];
-  const live = new HostedLiveTranscription("note-a", 16000, 1, (update) =>
+  const live = new SessionLiveTranscription("note-a", 16000, 1, (update) =>
     updates.push(update),
   );
   await settle();
@@ -141,7 +166,7 @@ test("renewal during recording clears the trial deadline; sign-out still closes 
     subscription_status: "trialing",
     trial_end: (now + 2000) / 1000,
   });
-  const live = new HostedLiveTranscription("note-a", 16000, 1, () => {});
+  const live = new SessionLiveTranscription("note-a", 16000, 1, () => {});
   await settle();
   const socket = fixture.sockets[0];
   socket.open();
@@ -155,5 +180,157 @@ test("renewal during recording clears the trial deadline; sign-out still closes 
   emitAuth(null);
   assert.equal(socket.readyState, 3);
   await live.stop();
+  assert.equal(fixture.listeners.size, 0);
+});
+
+function providerSession(model = "universal-3-5-pro-realtime") {
+  fixture.provider = {
+    provider: "assemblyai",
+    model,
+    baseUrl: "https://api.assemblyai.com",
+  };
+  fixture.session = session({
+    subscription_status: "trialing",
+    trial_end: Date.now() / 1000 - 100,
+  });
+}
+function transcript(text = "Hello", isFinal = true) {
+  return JSON.stringify({
+    type: "Results",
+    is_final: isFinal,
+    start: 0,
+    duration: 1,
+    channel_index: [0],
+    channel: {
+      alternatives: [
+        {
+          transcript: text,
+          words: [{ word: text, start: 0, end: 1, speaker: 1 }],
+        },
+      ],
+    },
+  });
+}
+
+test("own-key live recording works after trial expiry and persists the selected provider and final words", async () => {
+  providerSession();
+  const updates = [];
+  const live = new SessionLiveTranscription("note-a", 16000, 1, (update) =>
+    updates.push(update),
+  );
+  const pcm = new ArrayBuffer(6400);
+  live.sendAudio(pcm);
+  await settle();
+  const native = fixture.native[0];
+  assert.equal(fixture.sockets.length, 0);
+  assert.equal(native.request.provider, "assemblyai");
+  assert.equal(native.request.api_key, "synthetic-key");
+  assert.deepEqual(native.request.params, {
+    model: "universal-3-5-pro-realtime",
+    sample_rate: 16000,
+    channels: 1,
+    languages: ["en", "ko"],
+    keywords: ["Anarlog"],
+  });
+  assert.deepEqual(native.sent, [pcm]);
+  native.listener.onMessage(transcript("Hel", false));
+  assert.equal(updates.at(-1).text, "Hel");
+  assert.equal(fixture.transactions.length, 0);
+  native.listener.onMessage(transcript("Hello"));
+  await settle();
+  fixture.finalize = (listener) => listener.onMessage(transcript("Hello!"));
+  assert.equal(await live.stop(), true);
+  assert.equal(native.cancelled, true);
+  const insert = fixture.transactions[0][1];
+  assert.deepEqual(insert.params.slice(1, 3), [
+    "assemblyai",
+    "universal-3-5-pro-realtime",
+  ]);
+  const finish = fixture.transactions.at(-1)[0];
+  assert.equal(JSON.parse(finish.params[0])[0].text, "Hello!");
+  assert.equal(
+    JSON.parse(JSON.parse(finish.params[1])[0].value).provider,
+    "assemblyai",
+  );
+  assert.equal(fixture.failures.length, 0);
+});
+
+test("batch models and missing keys keep local recording without attempting a live connection", async () => {
+  for (const [model, apiKey] of [
+    ["universal-3-5-pro", "synthetic-key"],
+    ["universal-3-5-pro-realtime", ""],
+  ]) {
+    providerSession(model);
+    fixture.apiKey = apiKey;
+    const live = new SessionLiveTranscription("note-a", 16000, 1, () => {});
+    await settle();
+    assert.equal(await live.stop(), false);
+  }
+  assert.equal(fixture.native.length, 0);
+  assert.equal(fixture.failures.length, 0);
+});
+
+test("sign-out cancels an own-key stream and ignores late provider callbacks", async () => {
+  providerSession();
+  const live = new SessionLiveTranscription("note-a", 16000, 1, () => {});
+  await settle();
+  const native = fixture.native[0];
+  emitAuth(null);
+  live.sendAudio(new ArrayBuffer(16));
+  native.listener.onMessage(transcript());
+  await settle();
+  assert.equal(native.cancelled, true);
+  assert.equal(native.sent.length, 0);
+  assert.equal(fixture.transactions.length, 0);
+  assert.equal(await live.stop(), false);
+});
+
+test("stopping while an own-key connection is pending cancels it without uploading queued audio", async () => {
+  providerSession();
+  let connected;
+  fixture.connectWait = new Promise((resolve) => {
+    connected = resolve;
+  });
+  const live = new SessionLiveTranscription("note-a", 16000, 1, () => {});
+  live.sendAudio(new ArrayBuffer(16));
+  await settle();
+  const stop = live.stop();
+  connected();
+  assert.equal(await stop, false);
+  assert.equal(fixture.native[0].signal.aborted, true);
+  assert.equal(fixture.native[0].cancelled, true);
+  assert.equal(fixture.native[0].sent.length, 0);
+});
+
+test("provider failure, backpressure, and incomplete finalization leave the recording for batch recovery", async () => {
+  for (const failure of ["provider", "backpressure", "finalize"]) {
+    providerSession();
+    const live = new SessionLiveTranscription("note-a", 16000, 1, () => {});
+    await settle();
+    const native = fixture.native.at(-1);
+    if (failure === "provider") native.listener.onError();
+    if (failure === "backpressure") {
+      fixture.backpressure = true;
+      live.sendAudio(new ArrayBuffer(16));
+    }
+    if (failure === "finalize") {
+      native.listener.onMessage(transcript());
+      fixture.finalizeFailed = true;
+    }
+    assert.equal(await live.stop(), false);
+    assert.equal(native.cancelled, true);
+    fixture.backpressure = false;
+  }
+});
+
+test("an account change during settings reads cannot start a connection with the previous account's key", async () => {
+  providerSession();
+  fixture.providerRead = () => {
+    fixture.session = null;
+  };
+  const live = new SessionLiveTranscription("note-a", 16000, 1, () => {});
+  await settle();
+  assert.equal(fixture.native.length, 0);
+  assert.equal(await live.stop(), false);
   assert.equal(fixture.listeners.size, 0);
 });

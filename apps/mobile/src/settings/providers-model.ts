@@ -32,6 +32,12 @@ export const TRANSCRIPTION_PROVIDERS = [
     model: "openai/gpt-transcribe",
   },
   {
+    id: "dashscope",
+    name: "Alibaba Cloud Model Studio",
+    baseUrl: "https://dashscope-intl.aliyuncs.com",
+    model: "qwen3-asr-flash-realtime",
+  },
+  {
     id: "zai",
     name: "Z.AI",
     baseUrl: "https://api.z.ai/api/paas/v4",

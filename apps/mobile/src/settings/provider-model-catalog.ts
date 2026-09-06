@@ -1,10 +1,20 @@
 import type { ProviderKind } from "./providers-model";
 
-// Desktop's remote model catalog, limited to models usable after recording.
+// Desktop's remote model catalog, including live transcription models.
 const TRANSCRIPTION_MODELS: Record<string, readonly string[]> = {
-  deepgram: ["nova-3-general", "nova-3-medical"],
-  assemblyai: ["universal-3-5-pro"],
-  openai: ["gpt-transcribe", "gpt-4o-transcribe-diarize", "whisper-1"],
+  deepgram: [
+    "flux-general-multi",
+    "flux-general-en",
+    "nova-3-general",
+    "nova-3-medical",
+  ],
+  assemblyai: ["universal-3-5-pro", "universal-3-5-pro-realtime"],
+  openai: [
+    "gpt-live-transcribe",
+    "gpt-transcribe",
+    "gpt-4o-transcribe-diarize",
+    "whisper-1",
+  ],
   openrouter: [
     "openai/gpt-transcribe",
     "mistralai/voxtral-mini-transcribe",
@@ -24,17 +34,21 @@ const TRANSCRIPTION_MODELS: Record<string, readonly string[]> = {
     "google/chirp-3",
     "openai/whisper-1",
   ],
+  dashscope: [
+    "qwen3-asr-flash-realtime",
+    "qwen3-asr-flash-realtime-2026-02-10",
+  ],
   zai: ["glm-asr-2512"],
   siliconflow: ["FunAudioLLM/SenseVoiceSmall", "TeleAI/TeleSpeechASR"],
-  google_generative_ai: ["gemini-3.5-transcribe"],
+  google_generative_ai: ["gemini-3.5-transcribe-live", "gemini-3.5-transcribe"],
   google_cloud: ["latest_long"],
   aws_transcribe: ["amazon-transcribe"],
   azure_speech: ["fast-transcription"],
-  elevenlabs: ["scribe_v2"],
-  soniox: ["stt-async-v5"],
+  elevenlabs: ["scribe_v2", "scribe_v2_realtime"],
+  soniox: ["stt-rt-v5"],
   speechmatics: ["enhanced", "standard"],
   groq: ["whisper-large-v3-turbo", "whisper-large-v3"],
-  mistral: ["voxtral-mini-2602"],
+  mistral: ["voxtral-mini-2602", "voxtral-mini-transcribe-realtime-2602"],
   revai: ["machine"],
   gladia: ["solaria-3", "solaria-1"],
   cartesia: ["ink-2"],

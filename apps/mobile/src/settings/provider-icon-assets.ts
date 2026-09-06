@@ -115,6 +115,10 @@ const PROVIDER_ICONS: Record<string, { light: number; dark: number }> = {
     light: require("../../assets/providers/deepseek-light.png"),
     dark: require("../../assets/providers/deepseek-light.png"),
   },
+  dashscope: {
+    light: require("../../assets/providers/alibabacloud-light.png"),
+    dark: require("../../assets/providers/alibabacloud-light.png"),
+  },
   alibaba_cloud: {
     light: require("../../assets/providers/alibabacloud-light.png"),
     dark: require("../../assets/providers/alibabacloud-light.png"),

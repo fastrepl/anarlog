@@ -10831,6 +10831,7 @@ name = "mobile-bridge"
 version = "0.1.0"
 dependencies = [
  "attachment-sync-core",
+ "bytes",
  "db-app",
  "db-core",
  "db-execute",
@@ -10838,6 +10839,7 @@ dependencies = [
  "db-reactive",
  "db-sync",
  "e2ee",
+ "futures-util",
  "owhisper-client",
  "owhisper-interface",
  "reqwest 0.13.2",
@@ -10849,6 +10851,8 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-stream",
+ "tokio-tungstenite 0.29.0",
  "tokio-util",
  "uniffi 0.31.1",
  "url",

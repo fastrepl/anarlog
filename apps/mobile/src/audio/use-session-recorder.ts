@@ -17,7 +17,7 @@ import { type RecorderPhase } from "@/audio/recorder-status";
 import { SessionWavWriter } from "@/audio/session-wav-writer";
 import { catalogSessionAudio } from "@/data/audio-catalog";
 import {
-  HostedLiveTranscription,
+  SessionLiveTranscription,
   markSessionAudioTranscribed,
   type LiveTranscriptionStatus,
 } from "@/data/live-transcription";
@@ -68,7 +68,7 @@ export function useSessionRecorder(
   const phaseRef = useRef<RecorderPhase>("idle");
   const activeRef = useRef(true);
   const writerRef = useRef<SessionWavWriter | null>(null);
-  const liveRef = useRef<HostedLiveTranscription | null>(null);
+  const liveRef = useRef<SessionLiveTranscription | null>(null);
   const startGenerationRef = useRef(0);
   const startRef = useRef<Promise<void> | null>(null);
   const stopOperationRef = useRef<Promise<StopResult> | null>(null);
@@ -137,7 +137,7 @@ export function useSessionRecorder(
         return;
       }
       const generation = startGenerationRef.current;
-      liveRef.current ??= new HostedLiveTranscription(
+      liveRef.current ??= new SessionLiveTranscription(
         sessionId,
         buffer.sampleRate,
         buffer.channels,

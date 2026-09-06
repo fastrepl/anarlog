@@ -53,6 +53,7 @@ function normalizedChannel(value: unknown): number {
 
 function mapFinalWords({
   transcriptId,
+  provider,
   segmentId,
   channel,
   streamWords,
@@ -61,6 +62,7 @@ function mapFinalWords({
   duration,
 }: {
   transcriptId: string;
+  provider: string;
   segmentId: string;
   channel: number;
   streamWords: StreamWord[];
@@ -106,7 +108,7 @@ function mapFinalWords({
         word_id: wordId,
         type: "provider_speaker_index",
         value: JSON.stringify({
-          provider: "anarlog",
+          provider,
           channel,
           speaker_index: speaker,
         }),
@@ -137,9 +139,12 @@ function mapFinalWords({
 function parsePayload(
   payload: unknown,
   transcriptId: string,
+  provider: string,
 ): HostedTranscriptEvent[] {
   if (Array.isArray(payload)) {
-    return payload.flatMap((item) => parsePayload(item, transcriptId));
+    return payload.flatMap((item) =>
+      parsePayload(item, transcriptId, provider),
+    );
   }
   if (!payload || typeof payload !== "object") return [];
   const response = payload as Record<string, unknown>;
@@ -188,6 +193,7 @@ function parsePayload(
   const segmentId = `${channel}:${Math.round(start * 1_000)}`;
   const { words, hints } = mapFinalWords({
     transcriptId,
+    provider,
     segmentId,
     channel,
     streamWords,
@@ -203,6 +209,7 @@ function parsePayload(
 export function parseHostedTranscriptionMessage(
   message: string,
   transcriptId: string,
+  provider = "anarlog",
 ): HostedTranscriptEvent[] {
   try {
     assertBoundedTranscriptionResponse(message, null, MAX_STREAM_MESSAGE_BYTES);
@@ -212,7 +219,7 @@ export function parseHostedTranscriptionMessage(
     ];
   }
   try {
-    return parsePayload(JSON.parse(message), transcriptId);
+    return parsePayload(JSON.parse(message), transcriptId, provider);
   } catch {
     return [
       { type: "error", message: "Live transcription returned invalid data" },

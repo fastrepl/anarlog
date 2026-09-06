@@ -19,6 +19,7 @@ import {
   normalizeTranscriptionResponse,
   type ProviderConfig,
 } from "@/settings/providers-model";
+import { batchTranscriptionModel } from "@/settings/transcription-mode";
 
 import { requestProviderTranscription } from "./provider-transcription";
 import { TranscriptionAdmission } from "./transcription-admission";
@@ -436,7 +437,13 @@ async function runTranscription(sessionId: string): Promise<void> {
     });
   }
 
-  const provider = await resolveProvider("stt");
+  const selected = await resolveProvider("stt");
+  const model = batchTranscriptionModel(selected.provider, selected.model);
+  if (!model)
+    throw new Error(
+      "This provider only transcribes live. Choose another provider to transcribe this saved recording.",
+    );
+  const provider = { ...selected, model };
   const preferences = await readPreferences();
   const token = provider.provider === "anarlog" ? provider.apiKey : undefined;
   const startedAtMs = Date.now();

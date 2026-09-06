@@ -62,29 +62,11 @@ function desktopProviders(kind) {
   });
 }
 
-test("transcription choices follow desktop's catalog without its live-only models", () => {
-  const liveOnly = new Set([
-    "flux-general-multi",
-    "flux-general-en",
-    "gpt-live-transcribe",
-    "universal-3-5-pro-realtime",
-    "gemini-3.5-transcribe-live",
-    "scribe_v2_realtime",
-    "voxtral-mini-transcribe-realtime-2602",
-  ]);
+test("transcription choices include desktop's live and post-recording models", () => {
   for (const provider of desktopProviders("stt")) {
-    if (provider.id.text === "dashscope") continue;
-    const expected = provider.models.elements
-      .map((model) => model.text)
-      .filter((model) => !liveOnly.has(model))
-      .map((model) =>
-        provider.id.text === "soniox"
-          ? model.replace("stt-rt-", "stt-async-")
-          : model,
-      );
     assert.deepEqual(
       presetProviderModels("stt", provider.id.text),
-      expected,
+      provider.models.elements.map((model) => model.text),
       provider.id.text,
     );
   }
@@ -102,9 +84,7 @@ test("model options retain a saved or manually entered ID without duplicates or 
 
 for (const kind of ["stt", "llm"]) {
   test(`${kind} includes the desktop's remote API-key providers supported by mobile recording`, () => {
-    const desktop = desktopProviders(kind).filter(
-      (provider) => kind !== "stt" || provider.id.text !== "dashscope",
-    );
+    const desktop = desktopProviders(kind);
     const mobile = providersFor(kind).filter(
       (provider) => provider.id !== "anarlog",
     );

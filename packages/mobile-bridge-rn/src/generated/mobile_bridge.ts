@@ -9,6 +9,7 @@ import {
   type UniffiForeignFutureDroppedCallback,
   type UniffiForeignFutureDroppedCallbackStruct,
   type UniffiVTableCallbackInterfaceMobileBridgeQueryEventListener,
+  type UniffiVTableCallbackInterfaceMobileBridgeTranscriptionEventListener,
 } from "./mobile_bridge-ffi";
 import {
   type FfiConverter,
@@ -53,6 +54,55 @@ const uniffiIsDebug =
   false;
 
 // Public interface members begin here.
+
+export async function startProviderLiveTranscription(
+  requestJson: string,
+  listener: TranscriptionEventListener,
+  asyncOpts_?: { signal: AbortSignal },
+): Promise<ProviderLiveTranscriptionLike> /*throws*/ {
+  const __stack = uniffiIsDebug ? new Error().stack : undefined;
+  try {
+    return await uniffiRustCallAsync(
+      /*rustCaller:*/ uniffiCaller,
+      /*rustFutureFunc:*/ () => {
+        return nativeModule().ubrn_uniffi_mobile_bridge_fn_func_start_provider_live_transcription(
+          FfiConverterString.lower(
+            requestJson,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterTypeTranscriptionEventListener.lower(
+            listener,
+            nativeModule().rustbuffer_alloc,
+          ),
+        );
+      },
+      /*pollFunc:*/ nativeModule().ubrn_ffi_mobile_bridge_rust_future_poll_u64,
+      /*cancelFunc:*/ nativeModule()
+        .ubrn_ffi_mobile_bridge_rust_future_cancel_u64,
+      /*completeFunc:*/ nativeModule()
+        .ubrn_ffi_mobile_bridge_rust_future_complete_u64,
+      /*freeFunc:*/ nativeModule().ubrn_ffi_mobile_bridge_rust_future_free_u64,
+      // Async returns always go through the JS-side converter: the
+      // FFI symbol returns the future handle (u64), and the user-level
+      // RustBuffer comes back via the shared `rust_future_complete_*`
+      // export. The bytes the runtime hands back must be deserialized
+      // here using the per-callable return-type converter.
+      /*liftFunc:*/ FfiConverterTypeProviderLiveTranscription.lift.bind(
+        FfiConverterTypeProviderLiveTranscription,
+      ),
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+      /*asyncOpts:*/ asyncOpts_,
+      /*errorHandler:*/ FfiConverterTypeProviderTranscriptionError.lift.bind(
+        FfiConverterTypeProviderTranscriptionError,
+      ),
+    );
+  } catch (__error: any) {
+    if (uniffiIsDebug && __error instanceof Error) {
+      __error.stack = __stack;
+    }
+    throw __error;
+  }
+}
 
 export async function transcribeProviderAudio(
   requestJson: string,
@@ -2317,6 +2367,386 @@ const FfiConverterTypeMobileDbBridge = new FfiConverterObject(
   uniffiTypeMobileDbBridgeObjectFactory,
 );
 
+export interface ProviderLiveTranscriptionLike {
+  cancel(): void;
+  finish(asyncOpts_?: { signal: AbortSignal }): Promise<boolean>;
+  sendAudio(audio: ArrayBuffer) /*throws*/ : void;
+}
+/**
+ * @deprecated Use `ProviderLiveTranscriptionLike` instead.
+ */
+export type ProviderLiveTranscriptionInterface = ProviderLiveTranscriptionLike;
+
+export class ProviderLiveTranscription
+  extends UniffiAbstractObject
+  implements ProviderLiveTranscriptionLike
+{
+  readonly [uniffiTypeNameSymbol] = "ProviderLiveTranscription";
+  readonly [destructorGuardSymbol]: UniffiGcObject;
+  readonly [pointerLiteralSymbol]: UniffiHandle;
+  // No primary constructor declared for this class.
+  private constructor(pointer: UniffiHandle) {
+    super();
+    this[pointerLiteralSymbol] = pointer;
+    this[destructorGuardSymbol] =
+      uniffiTypeProviderLiveTranscriptionObjectFactory.bless(pointer);
+  }
+
+  cancel(): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_mobile_bridge_fn_method_providerlivetranscription_cancel(
+          uniffiTypeProviderLiveTranscriptionObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+  }
+
+  async finish(asyncOpts_?: { signal: AbortSignal }): Promise<boolean> {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_providerlivetranscription_finish(
+            uniffiTypeProviderLiveTranscriptionObjectFactory.clonePointer(this),
+          );
+        },
+        /*pollFunc:*/ nativeModule().ubrn_ffi_mobile_bridge_rust_future_poll_i8,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_mobile_bridge_rust_future_cancel_i8,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_mobile_bridge_rust_future_complete_i8,
+        /*freeFunc:*/ nativeModule().ubrn_ffi_mobile_bridge_rust_future_free_i8,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        /*liftFunc:*/ FfiConverterBool.lift.bind(FfiConverterBool),
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
+  }
+
+  sendAudio(audio: ArrayBuffer): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeProviderTranscriptionError.lift.bind(
+        FfiConverterTypeProviderTranscriptionError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_mobile_bridge_fn_method_providerlivetranscription_send_audio(
+          uniffiTypeProviderLiveTranscriptionObjectFactory.clonePointer(this),
+          FfiConverterArrayBuffer.lower(audio, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+  }
+
+  uniffiDestroy(): void {
+    const ptr = (this as any)[destructorGuardSymbol];
+    if (ptr !== undefined) {
+      const pointer =
+        uniffiTypeProviderLiveTranscriptionObjectFactory.pointer(this);
+      uniffiTypeProviderLiveTranscriptionObjectFactory.freePointer(pointer);
+      uniffiTypeProviderLiveTranscriptionObjectFactory.unbless(ptr);
+      delete (this as any)[destructorGuardSymbol];
+    }
+  }
+
+  static instanceOf(obj_: any): obj_ is ProviderLiveTranscription {
+    return uniffiTypeProviderLiveTranscriptionObjectFactory.isConcreteType(
+      obj_,
+    );
+  }
+}
+
+const uniffiTypeProviderLiveTranscriptionObjectFactory: UniffiObjectFactory<ProviderLiveTranscriptionLike> =
+  (() => {
+    return {
+      create(pointer: UniffiHandle): ProviderLiveTranscriptionLike {
+        const instance = Object.create(ProviderLiveTranscription.prototype);
+        instance[pointerLiteralSymbol] = pointer;
+        instance[destructorGuardSymbol] = this.bless(pointer);
+        instance[uniffiTypeNameSymbol] = "ProviderLiveTranscription";
+        return instance;
+      },
+
+      bless(p: UniffiHandle): UniffiGcObject {
+        return uniffiCaller.rustCall(
+          /*caller:*/ (status) =>
+            nativeModule().ubrn_uniffi_internal_fn_method_providerlivetranscription_ffi__bless_pointer(
+              p,
+              status,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      unbless(ptr_: UniffiGcObject) {
+        ptr_.markDestroyed();
+      },
+
+      pointer(obj_: ProviderLiveTranscriptionLike): UniffiHandle {
+        if ((obj_ as any)[destructorGuardSymbol] === undefined) {
+          throw new UniffiInternalError.UnexpectedNullPointer();
+        }
+        return (obj_ as any)[pointerLiteralSymbol];
+      },
+
+      clonePointer(obj_: ProviderLiveTranscriptionLike): UniffiHandle {
+        const pointer = this.pointer(obj_);
+        return uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_mobile_bridge_fn_clone_providerlivetranscription(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      freePointer(pointer: UniffiHandle): void {
+        uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_mobile_bridge_fn_free_providerlivetranscription(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      isConcreteType(obj_: any): obj_ is ProviderLiveTranscriptionLike {
+        return (
+          obj_[destructorGuardSymbol] &&
+          obj_[uniffiTypeNameSymbol] === "ProviderLiveTranscription"
+        );
+      },
+    };
+  })();
+const FfiConverterTypeProviderLiveTranscription = new FfiConverterObject(
+  uniffiTypeProviderLiveTranscriptionObjectFactory,
+);
+
+export interface TranscriptionEventListener {
+  onMessage(messageJson: string): void;
+  onError(): void;
+}
+
+export class TranscriptionEventListenerImpl
+  extends UniffiAbstractObject
+  implements TranscriptionEventListener
+{
+  readonly [uniffiTypeNameSymbol] = "TranscriptionEventListenerImpl";
+  readonly [destructorGuardSymbol]: UniffiGcObject;
+  readonly [pointerLiteralSymbol]: UniffiHandle;
+  // No primary constructor declared for this class.
+  private constructor(pointer: UniffiHandle) {
+    super();
+    this[pointerLiteralSymbol] = pointer;
+    this[destructorGuardSymbol] =
+      uniffiTypeTranscriptionEventListenerImplObjectFactory.bless(pointer);
+  }
+
+  onMessage(messageJson: string): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_mobile_bridge_fn_method_transcriptioneventlistener_on_message(
+          uniffiTypeTranscriptionEventListenerImplObjectFactory.clonePointer(
+            this,
+          ),
+          FfiConverterString.lower(
+            messageJson,
+            nativeModule().rustbuffer_alloc,
+          ),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+  }
+
+  onError(): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_mobile_bridge_fn_method_transcriptioneventlistener_on_error(
+          uniffiTypeTranscriptionEventListenerImplObjectFactory.clonePointer(
+            this,
+          ),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+  }
+
+  uniffiDestroy(): void {
+    const ptr = (this as any)[destructorGuardSymbol];
+    if (ptr !== undefined) {
+      const pointer =
+        uniffiTypeTranscriptionEventListenerImplObjectFactory.pointer(this);
+      uniffiTypeTranscriptionEventListenerImplObjectFactory.freePointer(
+        pointer,
+      );
+      uniffiTypeTranscriptionEventListenerImplObjectFactory.unbless(ptr);
+      delete (this as any)[destructorGuardSymbol];
+    }
+  }
+
+  static instanceOf(obj_: any): obj_ is TranscriptionEventListenerImpl {
+    return uniffiTypeTranscriptionEventListenerImplObjectFactory.isConcreteType(
+      obj_,
+    );
+  }
+}
+
+const uniffiTypeTranscriptionEventListenerImplObjectFactory: UniffiObjectFactory<TranscriptionEventListener> =
+  (() => {
+    return {
+      create(pointer: UniffiHandle): TranscriptionEventListener {
+        const instance = Object.create(
+          TranscriptionEventListenerImpl.prototype,
+        );
+        instance[pointerLiteralSymbol] = pointer;
+        instance[destructorGuardSymbol] = this.bless(pointer);
+        instance[uniffiTypeNameSymbol] = "TranscriptionEventListenerImpl";
+        return instance;
+      },
+
+      bless(p: UniffiHandle): UniffiGcObject {
+        return uniffiCaller.rustCall(
+          /*caller:*/ (status) =>
+            nativeModule().ubrn_uniffi_internal_fn_method_transcriptioneventlistener_ffi__bless_pointer(
+              p,
+              status,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      unbless(ptr_: UniffiGcObject) {
+        ptr_.markDestroyed();
+      },
+
+      pointer(obj_: TranscriptionEventListener): UniffiHandle {
+        if ((obj_ as any)[destructorGuardSymbol] === undefined) {
+          throw new UniffiInternalError.UnexpectedNullPointer();
+        }
+        return (obj_ as any)[pointerLiteralSymbol];
+      },
+
+      clonePointer(obj_: TranscriptionEventListener): UniffiHandle {
+        const pointer = this.pointer(obj_);
+        return uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_mobile_bridge_fn_clone_transcriptioneventlistener(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      freePointer(pointer: UniffiHandle): void {
+        uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_mobile_bridge_fn_free_transcriptioneventlistener(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      isConcreteType(obj_: any): obj_ is TranscriptionEventListener {
+        return (
+          obj_[destructorGuardSymbol] &&
+          obj_[uniffiTypeNameSymbol] === "TranscriptionEventListenerImpl"
+        );
+      },
+    };
+  })();
+const FfiConverterTypeTranscriptionEventListener =
+  new FfiConverterObjectWithCallbacks(
+    uniffiTypeTranscriptionEventListenerImplObjectFactory,
+  );
+
+// Add a vtable for the callbacks that go in TranscriptionEventListener.
+
+// Put the implementation in a struct so we don't pollute the top-level namespace
+const uniffiCallbackInterfaceTranscriptionEventListener: {
+  vtable: any;
+  register: () => void;
+} = {
+  // Create the VTable using a series of closures.
+  // ts automatically converts these into C callback functions.
+  vtable: {
+    on_message: (uniffiHandle: bigint, messageJson: Uint8Array) => {
+      const uniffiMakeCall = (): void => {
+        const jsCallback =
+          FfiConverterTypeTranscriptionEventListener.lift(uniffiHandle);
+        return jsCallback.onMessage(FfiConverterString.lift(messageJson));
+      };
+      const uniffiResult = UniffiResult.ready<void>();
+      const uniffiHandleSuccess = (obj: any) => {};
+      const uniffiHandleError = (code: number, errBuf: UniffiByteArray) => {
+        UniffiResult.writeError(uniffiResult, code, errBuf);
+      };
+      uniffiTraitInterfaceCall(
+        /*makeCall:*/ uniffiMakeCall,
+        /*handleSuccess:*/ uniffiHandleSuccess,
+        /*handleError:*/ uniffiHandleError,
+        /*lowerString:*/ FfiConverterString.lower.bind(FfiConverterString),
+        /*alloc:*/ nativeModule().rustbuffer_alloc,
+      );
+      return uniffiResult;
+    },
+    on_error: (uniffiHandle: bigint) => {
+      const uniffiMakeCall = (): void => {
+        const jsCallback =
+          FfiConverterTypeTranscriptionEventListener.lift(uniffiHandle);
+        return jsCallback.onError();
+      };
+      const uniffiResult = UniffiResult.ready<void>();
+      const uniffiHandleSuccess = (obj: any) => {};
+      const uniffiHandleError = (code: number, errBuf: UniffiByteArray) => {
+        UniffiResult.writeError(uniffiResult, code, errBuf);
+      };
+      uniffiTraitInterfaceCall(
+        /*makeCall:*/ uniffiMakeCall,
+        /*handleSuccess:*/ uniffiHandleSuccess,
+        /*handleError:*/ uniffiHandleError,
+        /*lowerString:*/ FfiConverterString.lower.bind(FfiConverterString),
+        /*alloc:*/ nativeModule().rustbuffer_alloc,
+      );
+      return uniffiResult;
+    },
+    uniffi_free: (uniffiHandle: UniffiHandle): void => {
+      // this will throw a stale handle error if the handle isn't found.
+      FfiConverterTypeTranscriptionEventListener.drop(uniffiHandle);
+    },
+    uniffi_clone: (uniffiHandle: UniffiHandle): UniffiHandle => {
+      return FfiConverterTypeTranscriptionEventListener.clone(uniffiHandle);
+    },
+  },
+  register: () => {
+    nativeModule().ubrn_uniffi_mobile_bridge_fn_init_callback_vtable_transcriptioneventlistener(
+      uniffiCallbackInterfaceTranscriptionEventListener.vtable,
+    );
+  },
+};
+
 // FfiConverter for string | undefined
 const FfiConverterOptionalString = new FfiConverterOptional(FfiConverterString);
 
@@ -2343,6 +2773,14 @@ function uniffiEnsureInitialized() {
     throw new UniffiInternalError.ContractVersionMismatch(
       scaffoldingContractVersion,
       bindingsContractVersion,
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_func_start_provider_live_transcription() !==
+    2753
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_func_start_provider_live_transcription",
     );
   }
   if (
@@ -2594,6 +3032,30 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_providerlivetranscription_cancel() !==
+    56139
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_providerlivetranscription_cancel",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_providerlivetranscription_finish() !==
+    57243
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_providerlivetranscription_finish",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_providerlivetranscription_send_audio() !==
+    32543
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_providerlivetranscription_send_audio",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_queryeventlistener_on_result() !==
     44384
   ) {
@@ -2609,8 +3071,25 @@ function uniffiEnsureInitialized() {
       "uniffi_mobile_bridge_checksum_method_queryeventlistener_on_error",
     );
   }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_transcriptioneventlistener_on_message() !==
+    50767
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_transcriptioneventlistener_on_message",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_transcriptioneventlistener_on_error() !==
+    44022
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_transcriptioneventlistener_on_error",
+    );
+  }
 
   uniffiCallbackInterfaceQueryEventListener.register();
+  uniffiCallbackInterfaceTranscriptionEventListener.register();
 }
 
 export default Object.freeze({
@@ -2618,7 +3097,9 @@ export default Object.freeze({
   converters: {
     FfiConverterTypeBridgeError,
     FfiConverterTypeMobileDbBridge,
+    FfiConverterTypeProviderLiveTranscription,
     FfiConverterTypeProviderTranscriptionError,
     FfiConverterTypeQueryEventListener,
+    FfiConverterTypeTranscriptionEventListener,
   },
 });

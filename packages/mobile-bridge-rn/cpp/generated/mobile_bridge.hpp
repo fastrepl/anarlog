@@ -59,6 +59,17 @@ class NativeMobileBridge : public jsi::HostObject {
     jsi::Value cpp_uniffi_mobile_bridge_fn_init_callback_vtable_queryeventlistener(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_method_queryeventlistener_on_result(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_method_queryeventlistener_on_error(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_fn_clone_providerlivetranscription(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_fn_free_providerlivetranscription(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_fn_method_providerlivetranscription_cancel(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_fn_method_providerlivetranscription_finish(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_fn_method_providerlivetranscription_send_audio(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_fn_clone_transcriptioneventlistener(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_fn_free_transcriptioneventlistener(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_fn_init_callback_vtable_transcriptioneventlistener(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_fn_method_transcriptioneventlistener_on_message(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_fn_method_transcriptioneventlistener_on_error(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_fn_func_start_provider_live_transcription(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_func_transcribe_provider_audio(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_ffi_mobile_bridge_rust_future_poll_u8(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_ffi_mobile_bridge_rust_future_cancel_u8(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
@@ -108,6 +119,7 @@ class NativeMobileBridge : public jsi::HostObject {
     jsi::Value cpp_ffi_mobile_bridge_rust_future_cancel_void(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_ffi_mobile_bridge_rust_future_free_void(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_ffi_mobile_bridge_rust_future_complete_void(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_checksum_func_start_provider_live_transcription(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_func_transcribe_provider_audio(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cleanup_attachment_upload_cache(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_close(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
@@ -140,10 +152,17 @@ class NativeMobileBridge : public jsi::HostObject {
     jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_unsubscribe(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_method_queryeventlistener_on_result(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_method_queryeventlistener_on_error(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_checksum_method_providerlivetranscription_cancel(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_checksum_method_providerlivetranscription_finish(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_checksum_method_providerlivetranscription_send_audio(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_checksum_method_transcriptioneventlistener_on_message(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_checksum_method_transcriptioneventlistener_on_error(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_constructor_mobiledbbridge_open(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_ffi_mobile_bridge_uniffi_contract_version(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_internal_fn_method_mobiledbbridge_ffi__bless_pointer(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_internal_fn_method_queryeventlistener_ffi__bless_pointer(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_internal_fn_method_providerlivetranscription_ffi__bless_pointer(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_internal_fn_method_transcriptioneventlistener_ffi__bless_pointer(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
 
   public:
     NativeMobileBridge(jsi::Runtime &rt, std::shared_ptr<uniffi_runtime::UniffiCallInvoker> callInvoker);

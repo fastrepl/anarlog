@@ -103,26 +103,12 @@ pub async fn transcribe_provider_audio(
 }
 
 fn validate_request(request: &Request) -> Result<AdapterKind, ProviderTranscriptionError> {
-    let invalid = || ProviderTranscriptionError::InvalidSettings;
-    let url = url::Url::parse(&request.base_url).map_err(|_| invalid())?;
-    if url.scheme() != "https"
-        || !url.username().is_empty()
-        || url.password().is_some()
-        || url.query().is_some()
-        || url.fragment().is_some()
-        || request.api_key.trim().is_empty()
-        || request.api_key.len() > 8192
-        || request.api_key.contains(['\r', '\n'])
-        || request.params.model.as_deref().is_none_or(|model| {
-            model.trim().is_empty() || model.len() > 200 || model.contains(['\r', '\n'])
-        })
-    {
-        return Err(invalid());
-    }
-    let adapter = match request.provider.as_str() {
-        "cloudflare_workers_ai" => AdapterKind::Deepgram,
-        provider => provider.parse().map_err(|_| invalid())?,
-    };
+    let adapter = validate_provider_settings(
+        &request.provider,
+        &request.base_url,
+        &request.api_key,
+        &request.params,
+    )?;
     if matches!(
         adapter,
         AdapterKind::Anarlog
@@ -130,8 +116,37 @@ fn validate_request(request: &Request) -> Result<AdapterKind, ProviderTranscript
             | AdapterKind::DashScope
             | AdapterKind::Fireworks
     ) {
+        return Err(ProviderTranscriptionError::InvalidSettings);
+    }
+    Ok(adapter)
+}
+
+pub(crate) fn validate_provider_settings(
+    provider: &str,
+    base_url: &str,
+    api_key: &str,
+    params: &ListenParams,
+) -> Result<AdapterKind, ProviderTranscriptionError> {
+    let invalid = || ProviderTranscriptionError::InvalidSettings;
+    let url = url::Url::parse(base_url).map_err(|_| invalid())?;
+    if url.scheme() != "https"
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+        || api_key.trim().is_empty()
+        || api_key.len() > 8192
+        || api_key.contains(['\r', '\n'])
+        || params.model.as_deref().is_none_or(|model| {
+            model.trim().is_empty() || model.len() > 200 || model.contains(['\r', '\n'])
+        })
+    {
         return Err(invalid());
     }
+    let adapter = match provider {
+        "cloudflare_workers_ai" => AdapterKind::Deepgram,
+        provider => provider.parse().map_err(|_| invalid())?,
+    };
     Ok(adapter)
 }
 

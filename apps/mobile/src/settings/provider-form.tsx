@@ -424,7 +424,6 @@ function ProviderFields({
       {(save.error || remove.error) && (
         <Text>{(save.error || remove.error)?.message}</Text>
       )}
-      {kind === "stt" && <Text>Transcription starts after recording.</Text>}
     </Column>
   );
 }
