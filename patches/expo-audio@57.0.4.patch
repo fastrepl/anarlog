@@ -1,0 +1,305 @@
+diff --git a/android/src/main/AndroidManifest.xml b/android/src/main/AndroidManifest.xml
+index 36a19f2d9c4a979a940ab681a1fb844ce45f7c75..52db4ef31acd30dfa55977f630f4b895f97d606c 100644
+--- a/android/src/main/AndroidManifest.xml
++++ b/android/src/main/AndroidManifest.xml
+@@ -1,3 +1,4 @@
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+   <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
++  <uses-permission android:name="android.permission.WAKE_LOCK" />
+ </manifest>
+diff --git a/android/src/main/java/expo/modules/audio/AudioModule.kt b/android/src/main/java/expo/modules/audio/AudioModule.kt
+index 992239ba7631ce0c97c0b41c5fbf61cc842386fe..eaac6ecf77b75a5d2cbed816f6a68f2af9aaa630 100644
+--- a/android/src/main/java/expo/modules/audio/AudioModule.kt
++++ b/android/src/main/java/expo/modules/audio/AudioModule.kt
+@@ -652,7 +652,7 @@ class AudioModule : Module() {
+ 
+       AsyncFunction("start") Coroutine { stream: AudioStream ->
+         checkRecordingPermission()
+-        stream.start()
++        stream.start(allowsBackgroundRecording)
+       }
+ 
+       Function("stop") { stream: AudioStream ->
+diff --git a/android/src/main/java/expo/modules/audio/AudioRecorder.kt b/android/src/main/java/expo/modules/audio/AudioRecorder.kt
+index 9a7683666fe0838b21ed4b8502b91d151f76d601..35026446b76b3a632367b9fa267f883ad599b276 100644
+--- a/android/src/main/java/expo/modules/audio/AudioRecorder.kt
++++ b/android/src/main/java/expo/modules/audio/AudioRecorder.kt
+@@ -14,6 +14,7 @@ import android.os.Bundle
+ import androidx.core.content.ContextCompat
+ import androidx.core.net.toUri
+ import expo.modules.audio.service.AudioRecordingServiceConnection
++import expo.modules.audio.service.BackgroundRecording
+ import expo.modules.kotlin.AppContext
+ import expo.modules.kotlin.exception.CodedException
+ import expo.modules.kotlin.exception.Exceptions
+@@ -34,6 +35,7 @@ class AudioRecorder(
+   appContext: AppContext,
+   private val options: RecordingOptions
+ ) : SharedObject(appContext),
++  BackgroundRecording,
+   MediaRecorder.OnErrorListener,
+   MediaRecorder.OnInfoListener {
+   var filePath: String? = null
+@@ -161,6 +163,10 @@ class AudioRecorder(
+     isPaused = true
+   }
+ 
++  override fun stopFromNotification() {
++    stopRecording()
++  }
++
+   fun stopRecording(): Bundle {
+     val url = currentFileUrl()
+     var durationMillis: Long
+diff --git a/android/src/main/java/expo/modules/audio/AudioStream.kt b/android/src/main/java/expo/modules/audio/AudioStream.kt
+index 8ecdcc126876853204ba8b92ec4ccfaef6faadb0..81967fd77afbaec83a52462e13478dbb465bec5e 100644
+--- a/android/src/main/java/expo/modules/audio/AudioStream.kt
++++ b/android/src/main/java/expo/modules/audio/AudioStream.kt
+@@ -1,10 +1,17 @@
+ package expo.modules.audio
+ 
+ import android.Manifest
++import android.content.Context
++import android.content.pm.PackageManager
+ import android.media.AudioFormat
+ import android.media.AudioRecord
+ import android.media.MediaRecorder
++import android.os.Build
++import android.os.PowerManager
+ import androidx.annotation.RequiresPermission
++import androidx.core.content.ContextCompat
++import expo.modules.audio.service.AudioRecordingServiceConnection
++import expo.modules.audio.service.BackgroundRecording
+ import expo.modules.kotlin.AppContext
+ import expo.modules.kotlin.jni.NativeArrayBuffer
+ import expo.modules.kotlin.sharedobjects.SharedObject
+@@ -15,6 +22,7 @@ import kotlinx.coroutines.isActive
+ import kotlinx.coroutines.launch
+ import java.nio.ByteBuffer
+ import java.nio.ByteOrder
++import java.lang.ref.WeakReference
+ 
+ internal const val AUDIO_STREAM_BUFFER = "audioStreamBuffer"
+ internal const val AUDIO_STREAM_STATUS = "audioStreamStatus"
+@@ -34,25 +42,28 @@ private data class ResolvedAudioConfig(
+ class AudioStream(
+   appContext: AppContext,
+   private val options: AudioStreamOptions
+-) : SharedObject(appContext) {
++) : SharedObject(appContext), BackgroundRecording {
+ 
+   val id: String = java.util.UUID.randomUUID().toString()
+ 
+   private var audioRecord: AudioRecord? = null
+   private var captureJob: Job? = null
+   private val coroutineScope = CoroutineScope(Dispatchers.IO)
++  private val serviceConnection = AudioRecordingServiceConnection(WeakReference(this), appContext)
++  private var wakeLock: PowerManager.WakeLock? = null
+ 
+   var sampleRate: Int = 0
+     private set
+   var channels: Int = 0
+     private set
++  @Volatile
+   var isStreaming: Boolean = false
+     private set
+ 
+   private var startTimeNanos: Long = 0
+ 
+   @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+-  fun start() {
++  suspend fun start(allowsBackgroundRecording: Boolean = false) {
+     if (isStreaming) {
+       return
+     }
+@@ -61,12 +72,29 @@ class AudioStream(
+     val recorder = createAudioRecord(config)
+ 
+     try {
++      if (allowsBackgroundRecording) {
++        val context = appContext?.reactContext ?: throw AudioStreamInitializationException("React context is unavailable")
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
++          ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
++        ) {
++          throw NotificationPermissionsException()
++        }
++        serviceConnection.startBindingTimeout()
++        serviceConnection.bindWithService()
++        val service = serviceConnection.recordingServiceBinder?.service
++        if (service?.registerRecorder(this) != true) {
++          throw AudioRecordingServiceException("Could not start the microphone foreground service")
++        }
++        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
++        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "expo-audio:stream").apply {
++          acquire(24 * 60 * 60 * 1000L)
++        }
++      }
+       recorder.startRecording()
+-    } catch (e: IllegalStateException) {
++    } catch (e: Exception) {
+       recorder.release()
+-      throw AudioStreamInitializationException(
+-        "Failed to start the audio stream. The microphone is likely held by another app or by the system"
+-      )
++      releaseBackgroundService()
++      throw e
+     }
+ 
+     sampleRate = config.sampleRate
+@@ -79,15 +107,32 @@ class AudioStream(
+     startCaptureLoop(recorder, config)
+   }
+ 
++  @Synchronized
+   fun stop() {
+     if (!isStreaming) return
+     isStreaming = false
+     captureJob?.cancel()
+     captureJob = null
+-    audioRecord?.stop()
+-    audioRecord?.release()
+-    audioRecord = null
+-    emitStatus()
++    try {
++      audioRecord?.stop()
++    } finally {
++      audioRecord?.release()
++      audioRecord = null
++      releaseBackgroundService()
++      emitStatus()
++    }
++  }
++
++  override fun stopFromNotification() {
++    stop()
++  }
++
++  private fun releaseBackgroundService() {
++    wakeLock?.let { if (it.isHeld) it.release() }
++    wakeLock = null
++    serviceConnection.recordingServiceBinder?.service?.unregisterRecorder(this)
++    serviceConnection.cleanup()
++    serviceConnection.unbind()
+   }
+ 
+   private fun resolveAudioConfig(): ResolvedAudioConfig {
+@@ -179,6 +224,8 @@ class AudioStream(
+     if (bytesRead > 0) {
+       byteBuffer.limit(bytesRead)
+       emitBufferEvent(NativeArrayBuffer(byteBuffer), channels, sampleRate)
++    } else if (bytesRead < 0) {
++      stop()
+     }
+   }
+ 
+@@ -210,5 +257,7 @@ class AudioStream(
+   override fun sharedObjectDidRelease() {
+     super.sharedObjectDidRelease()
+     stop()
++    serviceConnection.release()
++    releaseBackgroundService()
+   }
+ }
+diff --git a/android/src/main/java/expo/modules/audio/service/AudioRecordingService.kt b/android/src/main/java/expo/modules/audio/service/AudioRecordingService.kt
+index 2c9230336efc5c2ba9d5c6e5d35bd84a02dfd369..76dc0df07be9097bb31ba69e5b5e7b6fb064eaeb 100644
+--- a/android/src/main/java/expo/modules/audio/service/AudioRecordingService.kt
++++ b/android/src/main/java/expo/modules/audio/service/AudioRecordingService.kt
+@@ -12,7 +12,6 @@ import android.os.Build
+ import android.os.IBinder
+ import android.util.Log
+ import androidx.core.app.NotificationCompat
+-import expo.modules.audio.AudioRecorder
+ import expo.modules.audio.getRecordingServiceErrorMessage
+ import expo.modules.kotlin.AppContext
+ import java.lang.ref.WeakReference
+@@ -21,7 +20,7 @@ private const val TAG = "AudioRecordingService"
+ 
+ class AudioRecordingService : Service() {
+   private val binder = AudioRecordingServiceBinder(this)
+-  private val activeRecorders = mutableSetOf<WeakReference<AudioRecorder>>()
++  private val activeRecorders = mutableSetOf<WeakReference<BackgroundRecording>>()
+   private val recorderLock = Any()
+   private var notificationId = NOTIFICATION_ID
+ 
+@@ -141,12 +140,12 @@ class AudioRecordingService : Service() {
+     isRunningForeground = false
+   }
+ 
+-  fun registerRecorder(recorder: AudioRecorder) {
++  fun registerRecorder(recorder: BackgroundRecording): Boolean {
+     synchronized(recorderLock) {
+       activeRecorders.removeAll { it.get() == null }
+ 
+       if (activeRecorders.any { it.get() === recorder }) {
+-        return
++        return isRunningForeground
+       }
+ 
+       activeRecorders.add(WeakReference(recorder))
+@@ -154,10 +153,11 @@ class AudioRecordingService : Service() {
+       if (activeRecorders.size == 1 || !isRunningForeground) {
+         startForegroundWithNotification()
+       }
++      return isRunningForeground
+     }
+   }
+ 
+-  fun unregisterRecorder(recorder: AudioRecorder) {
++  fun unregisterRecorder(recorder: BackgroundRecording) {
+     synchronized(recorderLock) {
+       activeRecorders.removeAll { it.get() == recorder || it.get() == null }
+ 
+@@ -169,12 +169,10 @@ class AudioRecordingService : Service() {
+   }
+ 
+   private fun stopRecordingAndService() {
+-    synchronized(recorderLock) {
+-      activeRecorders.forEach { weakRef ->
+-        weakRef.get()?.stopRecording()
+-      }
+-      activeRecorders.clear()
++    val recordings = synchronized(recorderLock) {
++      activeRecorders.mapNotNull { it.get() }
+     }
++    recordings.forEach { it.stopFromNotification() }
+ 
+     stopForegroundWithNotification()
+     stopSelf()
+diff --git a/android/src/main/java/expo/modules/audio/service/AudioRecordingServiceConnection.kt b/android/src/main/java/expo/modules/audio/service/AudioRecordingServiceConnection.kt
+index 28be72f2207e55ff24604f03a573660fb303d7d9..9c6b15fcdb080368e11428d2cc17f3905158f245 100644
+--- a/android/src/main/java/expo/modules/audio/service/AudioRecordingServiceConnection.kt
++++ b/android/src/main/java/expo/modules/audio/service/AudioRecordingServiceConnection.kt
+@@ -2,7 +2,6 @@ package expo.modules.audio.service
+ 
+ import android.content.ComponentName
+ import android.os.IBinder
+-import expo.modules.audio.AudioRecorder
+ import expo.modules.audio.AudioRecordingServiceException
+ import expo.modules.audio.getRecordingServiceErrorMessage
+ import expo.modules.kotlin.AppContext
+@@ -19,8 +18,12 @@ import kotlin.coroutines.suspendCoroutine
+ 
+ class AudioRecordingServiceBinder(val service: AudioRecordingService) : android.os.Binder()
+ 
++interface BackgroundRecording {
++  fun stopFromNotification()
++}
++
+ class AudioRecordingServiceConnection(
+-  val recorder: WeakReference<AudioRecorder>,
++  val recorder: WeakReference<out BackgroundRecording>,
+   appContext: AppContext
+ ) : BaseServiceConnection<AudioRecordingServiceBinder>(appContext) {
+   var recordingServiceBinder: AudioRecordingServiceBinder? = null
+@@ -104,9 +107,10 @@ class AudioRecordingServiceConnection(
+     }
+     transitionToState(ServiceBindingState.BOUND)
+ 
+-    bindingContinuation?.resume(Unit)
+     recordingServiceBinder = serviceBinder
+     serviceBinder.service.appContext = appContext
++    bindingContinuation?.resume(Unit)
++    bindingContinuation = null
+   }
+ 
+   override fun onServiceDisconnected(componentName: ComponentName) {

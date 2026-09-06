@@ -107,7 +107,9 @@ export function ListeningSheet({
     height: detailHeight.value,
   }));
   const permissionDenied =
-    phase === "unavailable" && failure === "permission_denied";
+    phase === "unavailable" &&
+    (failure === "permission_denied" ||
+      failure === "notification_permission_denied");
   const recoverable = ["interrupted", "save_error", "error"].includes(phase);
   const handlePanelPress = permissionDenied
     ? onOpenSettings
@@ -153,7 +155,9 @@ export function ListeningSheet({
         ) : permissionDenied ? (
           <View style={styles.panelCenter}>
             <Text style={styles.panelMessage}>
-              Microphone access is off — open Settings
+              {failure === "notification_permission_denied"
+                ? "Allow recording notifications in Settings"
+                : "Microphone access is off — open Settings"}
             </Text>
           </View>
         ) : phase === "interrupted" ? (

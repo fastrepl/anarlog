@@ -6,7 +6,7 @@ import {
   type AudioStreamBuffer,
 } from "expo-audio";
 import { useCallback, useRef, useState } from "react";
-import { AppState } from "react-native";
+import { AppState, PermissionsAndroid, Platform } from "react-native";
 
 import {
   beginMobileCapture,
@@ -37,6 +37,7 @@ export type { RecorderPhase } from "@/audio/recorder-status";
 
 export type RecorderFailure =
   | "permission_denied"
+  | "notification_permission_denied"
   | "start_failed"
   | "media_services_reset"
   | "native_error"
@@ -101,7 +102,10 @@ export function useSessionRecorder(
         reportedFailureRef.current = reason;
         captureAnalytics("recording_failed", { failure_stage: reason });
       }
-      if (reason !== "permission_denied") {
+      if (
+        reason !== "permission_denied" &&
+        reason !== "notification_permission_denied"
+      ) {
         captureOperationalError(error, {
           operation,
           tags: { stage: reason },
@@ -220,6 +224,23 @@ export function useSessionRecorder(
         return;
       }
 
+      if (Platform.OS === "android" && Number(Platform.Version) >= 33) {
+        const notificationPermission = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+        );
+        if (!isCurrent()) return;
+        if (notificationPermission !== PermissionsAndroid.RESULTS.GRANTED) {
+          reportFailure(
+            "notification_permission_denied",
+            new Error("Recording notification permission denied"),
+            "recording_notification_permission",
+          );
+          unregisterCapture();
+          setPhase("unavailable");
+          return;
+        }
+      }
+
       await setAudioModeAsync({
         allowsRecording: true,
         playsInSilentMode: true,
@@ -305,6 +326,21 @@ export function useSessionRecorder(
     activeRef.current = true;
     if (!enabled) return;
     void start();
+  });
+
+  useMountEffect(() => {
+    const subscription = stream.addListener(
+      "audioStreamStatus",
+      ({ isStreaming }) => {
+        if (
+          !isStreaming &&
+          (phaseRef.current === "starting" || phaseRef.current === "recording")
+        ) {
+          void stopRef.current();
+        }
+      },
+    );
+    return () => subscription.remove();
   });
 
   useMountEffect(() => {
