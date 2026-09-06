@@ -4,6 +4,7 @@ mod calendar_tab;
 mod chat;
 mod contacts_tab;
 mod developers_page;
+mod dictionary;
 mod document_view;
 mod export;
 mod filter_menu;
@@ -203,6 +204,9 @@ pub struct Workspace {
     recording: recording::RecordingState,
     /// The session audio player for the open transcript tab.
     audio_player: Option<audio_player::AudioPlayer>,
+    /// The Dictionary page's term field and the row being edited.
+    dictionary_input: Option<gpui::Entity<TextInput>>,
+    dictionary_edit: Option<dictionary::DictionaryEdit>,
     /// `chat.mode === "FloatingOpen"`
     chat_open: bool,
     /// The Share CTA's popover while open.
@@ -331,6 +335,8 @@ impl Workspace {
             onboarding: None,
             recording: recording::RecordingState::default(),
             audio_player: None,
+            dictionary_input: None,
+            dictionary_edit: None,
             chat_open: false,
             share_popover: None,
             recent_emoji_ids: Vec::new(),

@@ -300,6 +300,7 @@ impl Workspace {
             .detach();
             self.settings_search = Some(input);
         }
+        self.ensure_dictionary_input(window, cx);
         if self.spoken_search.is_none() {
             let theme = self.theme;
             let input = cx.new(|cx| {
@@ -938,6 +939,7 @@ impl Workspace {
                 self.render_ai_settings(super::ai_settings::ProviderKind::Llm, title, window, cx)
             }
             SettingsTab::Developers => self.render_developers_settings(title, cx),
+            SettingsTab::Dictionary => self.render_dictionary_settings(title, cx),
             SettingsTab::Account => div()
                 .flex()
                 .flex_col()
