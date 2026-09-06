@@ -8,6 +8,7 @@ mod dictionary;
 mod document_view;
 mod export;
 mod filter_menu;
+mod floating_bar;
 mod folders_tab;
 mod icon_picker;
 mod meeting_info;

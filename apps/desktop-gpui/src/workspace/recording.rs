@@ -141,6 +141,8 @@ pub(crate) struct RecordingState {
     pub flushing: Vec<(String, LivePersistence)>,
     /// `state.batch`: import / batch transcription progress and errors.
     pub batch: std::collections::HashMap<String, BatchState>,
+    /// The floating recording bar window while a live session shows it.
+    pub floating_bar: Option<gpui::WindowHandle<super::floating_bar::FloatingBar>>,
     /// The persistent `recording-without-transcription` warning toast.
     pub toast: Option<RecordingToast>,
     /// `Record` was clicked and the engine has not answered yet.
@@ -889,7 +891,73 @@ impl Workspace {
             }
             Event::Data(_) => {}
         }
+        self.sync_floating_bar(cx);
         cx.notify();
+    }
+
+    /// `FloatingMeetingWindowSync`: while `floating_bar_enabled` holds and a
+    /// live session is active the floating bar window shows with the current
+    /// `FloatingRouteState`; otherwise it hides.
+    pub(crate) fn sync_floating_bar(&mut self, cx: &mut Context<Self>) {
+        let enabled = self.provider_settings.bool_setting(
+            "floating_bar_enabled",
+            &["general", "floating_bar_enabled"],
+            true,
+        );
+        let state = self
+            .recording
+            .live
+            .as_ref()
+            .filter(|_| enabled)
+            .map(|live| super::floating_bar::FloatingBarState {
+                // `Math.min(Math.hypot(mic, speaker), 1)`
+                amplitude: live.mic.hypot(live.speaker).min(1.0),
+                title: self
+                    .note_title_for(&live.session_id)
+                    .unwrap_or_else(|| "Untitled".to_string()),
+                error: live.error.is_some() || live.degraded(),
+                dark: self.theme.dark,
+                opacity: self
+                    .provider_settings
+                    .string_setting("floating_bar_opacity", &["general", "floating_bar_opacity"])
+                    .and_then(|value| value.parse::<f32>().ok())
+                    .unwrap_or(0.78),
+                live_caption_toggle_visible: false,
+            });
+        match (state, self.recording.floating_bar.take()) {
+            (Some(state), Some(handle)) => {
+                let updated = handle
+                    .update(cx, |bar, _, cx| {
+                        if bar.state != state {
+                            bar.state = state;
+                            cx.notify();
+                        }
+                    })
+                    .is_ok();
+                if updated {
+                    self.recording.floating_bar = Some(handle);
+                }
+            }
+            (Some(state), None) => {
+                self.recording.floating_bar =
+                    super::floating_bar::show(cx.weak_entity(), state, cx);
+            }
+            (None, Some(handle)) => {
+                handle
+                    .update(cx, |_, window, _| window.remove_window())
+                    .ok();
+            }
+            (None, None) => {}
+        }
+    }
+
+    fn note_title_for(&self, session_id: &str) -> Option<String> {
+        match &self.note {
+            super::Note::Ready { preview, .. } if preview.session.id == session_id => {
+                Some(preview.session.title.clone()).filter(|title| !title.trim().is_empty())
+            }
+            _ => None,
+        }
     }
 
     fn persistence_mut(&mut self, session_id: &str) -> Option<&mut LivePersistence> {
@@ -1542,7 +1610,7 @@ fn degraded_message(error: &DegradedError) -> String {
 /// `DancingSticks`: a 1px line while silent, otherwise sticks of
 /// `stick_width` with `gap`, their heights following `generatePattern`
 /// scaled by `0.2 + 0.8 * amplitude`.
-fn dancing_sticks(
+pub(super) fn dancing_sticks(
     amplitude: f32,
     color: gpui::Rgba,
     height: f32,

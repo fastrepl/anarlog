@@ -256,7 +256,11 @@ impl Workspace {
             };
             spec.entries.insert(
                 after_upload,
-                plain("picture-in-picture", "Open floating panel", None),
+                plain(
+                    "picture-in-picture",
+                    "Open floating panel",
+                    Some(Box::new(|this, _, cx| this.sync_floating_bar(cx))),
+                ),
             );
         }
         spec
