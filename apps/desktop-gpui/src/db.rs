@@ -1813,6 +1813,21 @@ impl Store {
         })
     }
 
+    /// `useActivity` for the signed-out shell (`DEFAULT_USER_ID`).
+    pub fn load_activity(
+        &self,
+    ) -> tokio::task::JoinHandle<anyhow::Result<Vec<crate::stats::ActivityRecord>>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            Ok(
+                sqlx::query_as::<_, crate::stats::ActivityRecord>(crate::stats::ACTIVITY_SQL)
+                    .bind(DEFAULT_USER_ID)
+                    .fetch_all(db.pool())
+                    .await?,
+            )
+        })
+    }
+
     pub fn update_folder_icon(
         &self,
         path: String,

@@ -15,6 +15,7 @@ mod overflow;
 mod settings;
 pub(crate) use overflow::find_session_dir;
 mod sidebar;
+mod stats_page;
 mod template_picker;
 mod templates_tab;
 mod title_bar;
@@ -189,6 +190,8 @@ pub struct Workspace {
     template_picker: Option<template_picker::TemplatePicker>,
     /// The template / folder icon picker while open.
     icon_picker: Option<icon_picker::IconPicker>,
+    /// The Stats settings page's records and range.
+    stats: Option<stats_page::StatsState>,
     /// `anarlog.template-picker.recent-emojis` (kept for the session).
     recent_emoji_ids: Vec<String>,
     /// The note column's scroll position, for its WebKit-style scrollbar.
@@ -309,6 +312,7 @@ impl Workspace {
             contacts: None,
             template_picker: None,
             icon_picker: None,
+            stats: None,
             recent_emoji_ids: Vec::new(),
             note_scroll: gpui::ScrollHandle::new(),
             hovered_section: None,
@@ -500,6 +504,7 @@ impl Workspace {
                         this.reload_folders_from_watcher(cx);
                         this.reload_templates_from_watcher(cx);
                         this.reload_contacts_from_watcher(cx);
+                        this.reload_stats(cx);
                         if let Some(selected) = this.selected.clone() {
                             this.reload_note(selected, cx);
                         }

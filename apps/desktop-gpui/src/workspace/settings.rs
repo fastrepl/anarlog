@@ -19,6 +19,7 @@ use crate::ui::{TailwindText as _, icon};
 pub(crate) enum SettingsTab {
     App,
     Account,
+    Stats,
     Team,
     Appearance,
     Notifications,
@@ -38,6 +39,7 @@ impl SettingsTab {
         match self {
             Self::App => "General",
             Self::Account => "Account",
+            Self::Stats => "Your stats",
             Self::Team => "Teams",
             Self::Appearance => "Appearance",
             Self::Notifications => "Notifications",
@@ -95,6 +97,12 @@ fn nav_groups() -> Vec<(&'static str, Vec<NavItem>)> {
                     tab: SettingsTab::Account,
                     label: "Account",
                     icon: "user",
+                    requires_pro: false,
+                },
+                NavItem::Tab {
+                    tab: SettingsTab::Stats,
+                    label: "Stats",
+                    icon: "chart-bar",
                     requires_pro: false,
                 },
                 NavItem::Tab {
@@ -369,6 +377,7 @@ impl Workspace {
                 }
             }
             SettingsTab::Developers => self.ensure_developers(window, cx),
+            SettingsTab::Stats => self.ensure_stats(cx),
             _ => {}
         }
         self.settings_tab = Some(tab);
@@ -936,6 +945,7 @@ impl Workspace {
                 .child(title)
                 .child(self.render_account_signed_out(cx))
                 .child(self.render_guest_plans()),
+            SettingsTab::Stats => self.render_stats_settings(title, window, cx),
             SettingsTab::Permissions => div()
                 .flex()
                 .flex_col()

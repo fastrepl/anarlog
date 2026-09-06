@@ -12,6 +12,7 @@ mod folders;
 mod prose_text;
 mod secrets;
 mod squircle;
+mod stats;
 mod store_file;
 mod templates;
 mod text_area;
