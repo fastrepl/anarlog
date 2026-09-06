@@ -4,11 +4,12 @@
 //! details column.
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use gpui::{
     AnyElement, ClickEvent, Context, Div, Entity, Focusable as _, ImageSource, MouseButton,
-    RenderImage, SharedString, Window, div, prelude::*, px,
+    RenderImage, Resource, SharedString, Window, div, img, prelude::*, px,
 };
 
 use super::Workspace;
@@ -46,8 +47,19 @@ pub(crate) struct ContactsState {
     /// `showNewPerson`
     new_person: Option<Entity<TextInput>>,
     details: Option<PersonDetails>,
+    organization: Option<OrganizationDetails>,
+    /// `ContactPageHeader`'s `...` menu, for whichever column is shown.
+    actions_open: bool,
     /// `useContactSummary` is LLM-backed; the shell shows the stored facts.
     avatars: HashMap<String, Arc<RenderImage>>,
+    /// Uploaded `avatarDataUrl` photos, decoded once per data URL.
+    photos: HashMap<String, Option<Arc<RenderImage>>>,
+}
+
+/// `OrganizationDetailsColumn`'s editable name field.
+struct OrganizationDetails {
+    id: String,
+    name: Entity<TextInput>,
 }
 
 struct PersonDetails {
@@ -59,7 +71,6 @@ struct PersonDetails {
     linkedin: Entity<TextInput>,
     memo: Entity<TextArea>,
     sessions: Vec<HumanSession>,
-    actions_open: bool,
     organization_open: bool,
     organization_search: Option<Entity<TextInput>>,
     related_newest: bool,
@@ -95,7 +106,10 @@ impl Workspace {
                 search,
                 new_person: None,
                 details: None,
+                organization: None,
+                actions_open: false,
                 avatars: HashMap::new(),
+                photos: HashMap::new(),
             });
         }
         self.reload_contacts(window, cx);
@@ -198,6 +212,7 @@ impl Workspace {
     ) {
         if let Some(state) = self.contacts.as_mut() {
             state.selected = selection;
+            state.actions_open = false;
         }
         self.sync_contact_details(window, cx);
         cx.notify();
@@ -207,9 +222,17 @@ impl Workspace {
     /// person changes; otherwise refresh the related notes.
     fn sync_contact_details(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let selection = self.effective_contact();
-        let Some(Selection::Person(id)) = selection else {
-            if let Some(state) = self.contacts.as_mut() {
+        if let Some(state) = self.contacts.as_mut() {
+            if !matches!(selection, Some(Selection::Person(_))) {
                 state.details = None;
+            }
+            if !matches!(selection, Some(Selection::Organization(_))) {
+                state.organization = None;
+            }
+        }
+        let Some(Selection::Person(id)) = selection else {
+            if let Some(Selection::Organization(id)) = selection {
+                self.sync_organization_details(id, window, cx);
             }
             return;
         };
@@ -295,7 +318,6 @@ impl Workspace {
                 linkedin,
                 memo,
                 sessions: Vec::new(),
-                actions_open: false,
                 organization_open: false,
                 organization_search: None,
                 related_newest: true,
@@ -323,6 +345,125 @@ impl Workspace {
                 }
             })
             .ok();
+        })
+        .detach();
+    }
+
+    /// `<EditableOrganizationNameField key={organization.id}>`: a fresh
+    /// input per organization, written through on every change.
+    fn sync_organization_details(
+        &mut self,
+        id: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(state) = self.contacts.as_ref() else {
+            return;
+        };
+        if state
+            .organization
+            .as_ref()
+            .is_some_and(|details| details.id == id)
+        {
+            return;
+        }
+        let Some(organization) = state.organizations.iter().find(|o| o.id == id).cloned() else {
+            return;
+        };
+        let style = self.contact_input_style(self.theme.foreground);
+        let name = cx.new(|cx| {
+            let mut input = TextInput::new("Organization name", style, window, cx);
+            input.set_text(organization.name.clone(), cx);
+            input
+        });
+        cx.subscribe(&name, |this, input, event: &TextInputEvent, cx| {
+            if *event == TextInputEvent::Changed {
+                let value = input.read(cx).text().to_string();
+                this.persist_organization_name(value, cx);
+            }
+        })
+        .detach();
+        if let Some(state) = self.contacts.as_mut() {
+            state.organization = Some(OrganizationDetails { id, name });
+        }
+    }
+
+    /// `updateOrganization(organization.id, { name })`
+    fn persist_organization_name(&mut self, value: String, cx: &mut Context<Self>) {
+        let Some(state) = self.contacts.as_mut() else {
+            return;
+        };
+        let Some(details) = state.organization.as_ref() else {
+            return;
+        };
+        let id = details.id.clone();
+        if let Some(organization) = state.organizations.iter_mut().find(|o| o.id == id) {
+            organization.name = value.clone();
+        }
+        cx.notify();
+        let task = self.store.update_organization_name(id, value);
+        cx.spawn(async move |this, cx| {
+            if let Ok(Err(error)) = task.await {
+                this.update(cx, |this, cx| {
+                    this.flash(FlashVariant::Error, error.to_string(), cx)
+                })
+                .ok();
+            }
+        })
+        .detach();
+    }
+
+    /// `AvatarUploadButton`: the native open dialog, then `persistContactAvatar`.
+    fn pick_contact_avatar(
+        &mut self,
+        table: &'static str,
+        contact_id: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let picker = cx.prompt_for_paths(gpui::PathPromptOptions {
+            files: true,
+            directories: false,
+            multiple: false,
+            prompt: None,
+        });
+        cx.spawn_in(window, async move |this, cx| {
+            let Ok(Ok(Some(paths))) = picker.await else {
+                return;
+            };
+            let Some(path) = paths.into_iter().next() else {
+                return;
+            };
+            this.update_in(cx, |this, window, cx| {
+                this.set_contact_avatar(table, contact_id, Some(path), window, cx);
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// `persistContactAvatar(type, id, dataUrl | null)`
+    fn set_contact_avatar(
+        &mut self,
+        table: &'static str,
+        contact_id: String,
+        photo: Option<PathBuf>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let task = self.store.set_contact_avatar(table, contact_id, photo);
+        cx.spawn_in(window, async move |this, cx| match task.await {
+            Ok(Ok(())) => {
+                this.update_in(cx, |this, window, cx| this.reload_contacts(window, cx))
+                    .ok();
+            }
+            Ok(Err(error)) => {
+                this.update(cx, |this, cx| {
+                    this.flash(FlashVariant::Error, error.to_string(), cx)
+                })
+                .ok();
+            }
+            Err(_) => {}
         })
         .detach();
     }
@@ -444,9 +585,137 @@ impl Workspace {
             return;
         };
         let seeds: Vec<String> = state.humans.iter().map(Human::avatar_seed).collect();
+        let photos: Vec<String> = state
+            .humans
+            .iter()
+            .filter_map(|human| human.avatar_data_url.clone())
+            .chain(
+                state
+                    .organizations
+                    .iter()
+                    .filter_map(|organization| organization.avatar_data_url.clone()),
+            )
+            .collect();
         for seed in seeds {
             self.avatar_image(&seed);
         }
+        if let Some(state) = self.contacts.as_mut() {
+            for data_url in photos {
+                state
+                    .photos
+                    .entry(data_url.clone())
+                    .or_insert_with(|| decode_photo(&data_url));
+            }
+        }
+    }
+
+    /// `ContactImage`: the uploaded photo under the same clip, border, and
+    /// shadow as the facehash; `None` when there is no (decodable) photo.
+    fn render_contact_photo(&self, data_url: Option<&str>, size: f32) -> Option<AnyElement> {
+        let image = self
+            .contacts
+            .as_ref()
+            .and_then(|state| state.photos.get(data_url?))
+            .cloned()
+            .flatten()?;
+        Some(
+            div()
+                .size(px(size))
+                .flex_shrink_0()
+                .rounded(px(8.0))
+                .overflow_hidden()
+                .border_1()
+                .border_color(gpui::hsla(0.0, 0.0, 0.0, 0.1))
+                .shadow(vec![gpui::BoxShadow {
+                    color: gpui::hsla(0.0, 0.0, 0.0, 0.08),
+                    offset: gpui::point(px(0.0), px(1.0)),
+                    blur_radius: px(2.0),
+                    spread_radius: px(0.0),
+                }])
+                .child(
+                    img(ImageSource::Render(image))
+                        .size_full()
+                        .object_fit(gpui::ObjectFit::Cover),
+                )
+                .into_any_element(),
+        )
+    }
+
+    /// The person's photo when uploaded, otherwise the facehash.
+    fn render_human_avatar(&self, human: &Human, size: f32) -> AnyElement {
+        self.render_contact_photo(human.avatar_data_url.as_deref(), size)
+            .unwrap_or_else(|| self.render_avatar(&human.avatar_seed(), size))
+    }
+
+    /// The organization's photo when uploaded, otherwise the `Buildings`
+    /// glyph on `bg-muted` (rows) / `bg-accent` (details).
+    fn render_organization_avatar(
+        &self,
+        organization: &Organization,
+        size: f32,
+        background: gpui::Rgba,
+    ) -> AnyElement {
+        self.render_contact_photo(organization.avatar_data_url.as_deref(), size)
+            .unwrap_or_else(|| {
+                div()
+                    .flex()
+                    .size(px(size))
+                    .flex_shrink_0()
+                    .items_center()
+                    .justify_center()
+                    .rounded_lg()
+                    .bg(background)
+                    .child(icon(
+                        "buildings",
+                        px(size / 2.0),
+                        self.theme.muted_foreground,
+                    ))
+                    .into_any_element()
+            })
+    }
+
+    /// `AvatarUploadButton`: the avatar with the `bg-black/40` camera overlay
+    /// on hover; clicking opens the photo picker. The facehash is an
+    /// `inline-flex` span on the block button's line box, which adds the 6px
+    /// strut below it; the photo `img` and the organization mark are blocks.
+    fn render_avatar_upload(
+        &self,
+        table: &'static str,
+        contact_id: String,
+        avatar: AnyElement,
+        inline_avatar: bool,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        div()
+            .id("avatar-upload")
+            .group("avatar-upload")
+            .relative()
+            .flex()
+            .flex_col()
+            .items_start()
+            .when(inline_avatar, |button| button.pb(px(6.0)))
+            .flex_shrink_0()
+            .rounded(px(8.0))
+            .cursor_pointer()
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                this.pick_contact_avatar(table, contact_id.clone(), window, cx);
+            }))
+            .child(avatar)
+            .child(
+                div()
+                    .absolute()
+                    .inset_0()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(px(8.0))
+                    .bg(gpui::hsla(0.0, 0.0, 0.0, 0.4))
+                    .opacity(0.0)
+                    .group_hover("avatar-upload", |style| style.opacity(1.0))
+                    .child(icon("camera", px(20.0), gpui::rgb(0xffffff))),
+            )
+            .into_any_element()
     }
 
     fn avatar_image(&mut self, seed: &str) {
@@ -605,6 +874,7 @@ impl Workspace {
                         .py_2()
                         .tw_text_sm()
                         .cursor_pointer()
+                        .group("contact-row")
                         .when(active, |row| row.bg(theme.accent))
                         .when(!active, |row| {
                             row.hover(move |style| style.bg(alpha(theme.accent, 0.5)))
@@ -613,7 +883,7 @@ impl Workspace {
                         .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                             this.select_contact(Some(Selection::Person(id.clone())), window, cx);
                         }))
-                        .child(this.render_avatar(&human.avatar_seed(), 32.0))
+                        .child(this.render_human_avatar(human, 32.0))
                         .child(
                             div()
                                 .min_w_0()
@@ -648,7 +918,9 @@ impl Workspace {
                                 .p_1()
                                 .cursor_pointer()
                                 .when(!human.pinned, |button| {
-                                    button.opacity(0.0).hover(|style| style.opacity(1.0))
+                                    button
+                                        .opacity(0.0)
+                                        .group_hover("contact-row", |style| style.opacity(1.0))
                                 })
                                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                                 .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
@@ -686,6 +958,7 @@ impl Workspace {
                         .py_2()
                         .tw_text_sm()
                         .cursor_pointer()
+                        .group("contact-row")
                         .when(active, |row| row.bg(theme.accent))
                         .when(!active, |row| {
                             row.hover(move |style| style.bg(alpha(theme.accent, 0.5)))
@@ -698,17 +971,7 @@ impl Workspace {
                                 cx,
                             );
                         }))
-                        .child(
-                            div()
-                                .flex()
-                                .size(px(32.0))
-                                .flex_shrink_0()
-                                .items_center()
-                                .justify_center()
-                                .rounded_lg()
-                                .bg(theme.muted)
-                                .child(icon("buildings", px(16.0), theme.muted_foreground)),
-                        )
+                        .child(this.render_organization_avatar(organization, 32.0, theme.muted))
                         .child(
                             div().min_w_0().flex_grow().flex().flex_col().child(
                                 div()
@@ -734,7 +997,9 @@ impl Workspace {
                                 .p_1()
                                 .cursor_pointer()
                                 .when(!organization.pinned, |button| {
-                                    button.opacity(0.0).hover(|style| style.opacity(1.0))
+                                    button
+                                        .opacity(0.0)
+                                        .group_hover("contact-row", |style| style.opacity(1.0))
                                 })
                                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                                 .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
@@ -1042,7 +1307,7 @@ impl Workspace {
                     .filter(|h| h.organization_id == organization.id)
                     .cloned()
                     .collect();
-                self.render_organization_details(&organization, &members, cx)
+                self.render_organization_details(&organization, &members, state, cx)
             }
         }
     }
@@ -1101,10 +1366,8 @@ impl Workspace {
                             .hover(move |style| style.bg(theme.accent))
                             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                             .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                                if let Some(details) =
-                                    this.contacts.as_mut().and_then(|s| s.details.as_mut())
-                                {
-                                    details.actions_open = !details.actions_open;
+                                if let Some(state) = this.contacts.as_mut() {
+                                    state.actions_open = !state.actions_open;
                                     cx.notify();
                                 }
                             }))
@@ -1151,8 +1414,8 @@ impl Workspace {
         let menu = MenuSpec {
             id: "contact-actions-menu",
             width: 192.0,
-            entries: vec![
-                Entry::Item {
+            entries: {
+                let mut entries = vec![Entry::Item {
                     icon: Some("push-pin"),
                     dim_icon: false,
                     label: if human.pinned {
@@ -1170,8 +1433,14 @@ impl Workspace {
                         },
                     ) as Select),
                     submenu: None,
-                },
-                Entry::Item {
+                }];
+                entries.extend(remove_photo_entry(
+                    "humans",
+                    &human.id,
+                    human.avatar_data_url.is_some(),
+                ));
+                entries.push(Entry::Separator);
+                entries.push(Entry::Item {
                     icon: Some("trash"),
                     dim_icon: false,
                     label: "Delete".into(),
@@ -1185,55 +1454,21 @@ impl Workspace {
                         },
                     ) as Select),
                     submenu: None,
-                },
-            ],
+                });
+                entries
+            },
             open_sub: None,
             on_hover_sub: |_, _, _| {},
             on_close: |this, cx| {
-                if let Some(details) = this.contacts.as_mut().and_then(|s| s.details.as_mut()) {
-                    details.actions_open = false;
+                if let Some(state) = this.contacts.as_mut() {
+                    state.actions_open = false;
                     cx.notify();
                 }
             },
         };
 
-        // `border-b px-4 py-3` rows with the `w-28 text-sm text-muted-foreground` label.
-        let row = |label: &'static str, field: AnyElement| {
-            div()
-                .flex()
-                .items_center()
-                .border_b_1()
-                .border_color(theme.border)
-                .px_4()
-                .py_3()
-                .child(
-                    div()
-                        .w(px(112.0))
-                        .tw_text_sm()
-                        .text_color(theme.muted_foreground)
-                        .child(label),
-                )
-                .child(div().flex_1().child(field))
-        };
-        // `Input h-7 border-none p-0 text-base`
-        let field = |id: &'static str, input: &Entity<TextInput>| {
-            let focus = input.clone();
-            div()
-                .id(id)
-                .flex()
-                .h(px(28.0))
-                .w_full()
-                .items_center()
-                // `text-base md:text-sm`: the window is past the `md` breakpoint.
-                .tw_text_sm()
-                .cursor_text()
-                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .on_click(cx.listener(move |_, _: &ClickEvent, window, cx| {
-                    focus.read(cx).focus_handle(cx).focus(window);
-                }))
-                .child(div().min_w_0().flex_1().child(input.clone()))
-                .into_any_element()
-        };
+        let row = |label: &'static str, field: AnyElement| detail_row(theme, label, field);
+        let field = |id: &'static str, input: &Entity<TextInput>| detail_field(id, input, cx);
 
         let organization_field: AnyElement = match &organization {
             Some(organization) => div()
@@ -1303,7 +1538,13 @@ impl Workspace {
                     .border_b_1()
                     .border_color(theme.border)
                     .py_6()
-                    .child(self.render_avatar(&human.avatar_seed(), 64.0)),
+                    .child(self.render_avatar_upload(
+                        "humans",
+                        human.id.clone(),
+                        self.render_human_avatar(human, 64.0),
+                        human.avatar_data_url.is_none(),
+                        cx,
+                    )),
             )
             .child(
                 div()
@@ -1373,7 +1614,7 @@ impl Workspace {
             .child(self.render_contact_header(
                 human.display_name(),
                 human.pinned,
-                details.actions_open,
+                state.actions_open,
                 menu,
                 cx,
             ))
@@ -1824,6 +2065,7 @@ impl Workspace {
         &self,
         organization: &Organization,
         members: &[Human],
+        state: &ContactsState,
         cx: &Context<Self>,
     ) -> AnyElement {
         let theme = self.theme;
@@ -1831,8 +2073,8 @@ impl Workspace {
         let menu = MenuSpec {
             id: "contact-actions-menu",
             width: 192.0,
-            entries: vec![
-                Entry::Item {
+            entries: {
+                let mut entries = vec![Entry::Item {
                     icon: Some("push-pin"),
                     dim_icon: false,
                     label: if organization.pinned {
@@ -1850,8 +2092,14 @@ impl Workspace {
                         },
                     ) as Select),
                     submenu: None,
-                },
-                Entry::Item {
+                }];
+                entries.extend(remove_photo_entry(
+                    "organizations",
+                    &organization.id,
+                    organization.avatar_data_url.is_some(),
+                ));
+                entries.push(Entry::Separator);
+                entries.push(Entry::Item {
                     icon: Some("trash"),
                     dim_icon: false,
                     label: "Delete".into(),
@@ -1865,13 +2113,14 @@ impl Workspace {
                         },
                     ) as Select),
                     submenu: None,
-                },
-            ],
+                });
+                entries
+            },
             open_sub: None,
             on_hover_sub: |_, _, _| {},
             on_close: |this, cx| {
-                if let Some(details) = this.contacts.as_mut().and_then(|s| s.details.as_mut()) {
-                    details.actions_open = false;
+                if let Some(state) = this.contacts.as_mut() {
+                    state.actions_open = false;
                     cx.notify();
                 }
             },
@@ -1881,12 +2130,29 @@ impl Workspace {
         } else {
             organization.name.clone()
         };
+        let name_field: AnyElement = match state.organization.as_ref() {
+            Some(details) if details.id == organization.id => {
+                detail_field("organization-name", &details.name, cx)
+            }
+            _ => div().h(px(28.0)).into_any_element(),
+        };
+        let member_count = if members.len() == 1 {
+            "1 member".to_string()
+        } else {
+            format!("{} members", members.len())
+        };
         div()
             .flex()
             .h_full()
             .flex_1()
             .flex_col()
-            .child(self.render_contact_header(title, organization.pinned, false, menu, cx))
+            .child(self.render_contact_header(
+                title,
+                organization.pinned,
+                state.actions_open,
+                menu,
+                cx,
+            ))
             .child(
                 div()
                     .id("organization-body")
@@ -1894,6 +2160,7 @@ impl Workspace {
                     .min_h_0()
                     .overflow_y_scroll()
                     .child(
+                        // `border-b py-6` with the `bg-accent h-16 w-16 rounded-full` mark.
                         div()
                             .flex()
                             .items_center()
@@ -1901,80 +2168,245 @@ impl Workspace {
                             .border_b_1()
                             .border_color(theme.border)
                             .py_6()
-                            .child(
-                                div()
-                                    .flex()
-                                    .size(px(64.0))
-                                    .items_center()
-                                    .justify_center()
-                                    .rounded_lg()
-                                    .bg(theme.muted)
-                                    .child(icon("buildings", px(28.0), theme.muted_foreground)),
-                            ),
+                            .child(self.render_avatar_upload(
+                                "organizations",
+                                organization.id.clone(),
+                                self.render_organization_avatar(organization, 64.0, theme.accent),
+                                false,
+                                cx,
+                            )),
                     )
+                    .child(detail_row(theme, "Name", name_field))
                     .child(
                         div()
                             .p_6()
                             .child(
+                                // `h3.text-muted-foreground mb-4 text-sm font-medium`
                                 div()
-                                    .mb_3()
+                                    .flex()
+                                    .mb_4()
                                     .tw_text_sm()
-                                    .font_weight(gpui::FontWeight::MEDIUM)
                                     .text_color(theme.muted_foreground)
-                                    .child("People"),
+                                    .child(
+                                        div().font_weight(gpui::FontWeight::MEDIUM).child("People"),
+                                    )
+                                    .child(div().font_weight(gpui::FontWeight::NORMAL).child(
+                                        SharedString::from(format!(" \u{b7} {member_count}")),
+                                    )),
                             )
                             .child(if members.is_empty() {
                                 div()
-                                    .px_2()
-                                    .py_2()
                                     .tw_text_sm()
                                     .text_color(theme.muted_foreground)
-                                    .child("No people in this organization yet")
+                                    .child("No people in this organization")
                                     .into_any_element()
                             } else {
                                 div()
-                                    .flex()
-                                    .flex_col()
-                                    .children(members.iter().map(|human| {
-                                        let id = human.id.clone();
-                                        div()
-                                            .id(SharedString::from(format!("member-{}", human.id)))
-                                            .flex()
-                                            .items_center()
-                                            .gap_3()
-                                            .rounded_md()
-                                            .px_2()
-                                            .py_2()
-                                            .cursor_pointer()
-                                            .hover(move |style| style.bg(theme.accent))
-                                            .on_mouse_down(MouseButton::Left, |_, _, cx| {
-                                                cx.stop_propagation()
-                                            })
-                                            .on_click(cx.listener(
-                                                move |this, _: &ClickEvent, window, cx| {
-                                                    this.select_contact(
-                                                        Some(Selection::Person(id.clone())),
-                                                        window,
-                                                        cx,
-                                                    );
-                                                },
-                                            ))
-                                            .child(self.render_avatar(&human.avatar_seed(), 24.0))
-                                            .child(
-                                                div()
-                                                    .tw_text_sm()
-                                                    .text_color(theme.foreground)
-                                                    .child(SharedString::from(
-                                                        human.display_name(),
-                                                    )),
-                                            )
-                                    }))
+                                    .grid()
+                                    .grid_cols(3)
+                                    .gap_4()
+                                    .children(
+                                        members
+                                            .iter()
+                                            .map(|human| self.render_member_card(human, cx)),
+                                    )
                                     .into_any_element()
                             }),
                     ),
             )
             .into_any_element()
     }
+
+    /// The member card: `border bg-card rounded-lg p-4 hover:shadow-xs` with
+    /// the 48px avatar, name, job title, and mail / LinkedIn icon buttons.
+    fn render_member_card(&self, human: &Human, cx: &Context<Self>) -> AnyElement {
+        let theme = self.theme;
+        let id = human.id.clone();
+        let email = (!human.email.is_empty()).then(|| human.email.clone());
+        let linkedin = (!human.linkedin_username.is_empty()).then(|| {
+            let value = human.linkedin_username.trim();
+            let lower = value.to_ascii_lowercase();
+            if lower.starts_with("http://") || lower.starts_with("https://") {
+                value.to_string()
+            } else {
+                format!(
+                    "https://www.linkedin.com/in/{}",
+                    value.strip_prefix('@').unwrap_or(value)
+                )
+            }
+        });
+        // `Button variant="ghost" size="icon"`: `size-7 rounded-full hover:bg-accent`.
+        let icon_button = |id: &'static str, glyph: AnyElement, href: String| {
+            div()
+                .id(id)
+                .flex()
+                .size(px(28.0))
+                .items_center()
+                .justify_center()
+                .rounded(px(8.0))
+                .cursor_pointer()
+                .hover(move |style| style.bg(theme.accent))
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_click(move |_, _, cx| {
+                    cx.stop_propagation();
+                    cx.open_url(&href);
+                })
+                .child(glyph)
+        };
+        div()
+            .id(SharedString::from(format!("member-{}", human.id)))
+            .flex()
+            .flex_col()
+            .items_center()
+            .gap_3()
+            .rounded_lg()
+            .border_1()
+            .border_color(theme.border)
+            .bg(theme.card)
+            .p_4()
+            .cursor_pointer()
+            .hover(|style| {
+                style.shadow(vec![gpui::BoxShadow {
+                    color: gpui::hsla(0.0, 0.0, 0.0, 0.05),
+                    offset: gpui::point(px(0.0), px(1.0)),
+                    blur_radius: px(2.0),
+                    spread_radius: px(0.0),
+                }])
+            })
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                this.select_contact(Some(Selection::Person(id.clone())), window, cx);
+            }))
+            .child(self.render_human_avatar(human, 48.0))
+            .child(
+                div()
+                    .w_full()
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .child(
+                        div()
+                            .max_w_full()
+                            .truncate()
+                            .tw_text_sm()
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .text_color(theme.foreground)
+                            .child(SharedString::from(human.display_name())),
+                    )
+                    .when(!human.job_title.is_empty(), |column| {
+                        column.child(
+                            div()
+                                .mt_1()
+                                .max_w_full()
+                                .truncate()
+                                .tw_text_xs()
+                                .text_color(theme.muted_foreground)
+                                .child(SharedString::from(human.job_title.clone())),
+                        )
+                    }),
+            )
+            .child(
+                div()
+                    .mt_1()
+                    .flex()
+                    .gap_2()
+                    .when_some(email, |row, email| {
+                        row.child(icon_button(
+                            "member-email",
+                            icon("envelope", px(16.0), theme.foreground).into_any_element(),
+                            format!("mailto:{email}"),
+                        ))
+                    })
+                    .when_some(linkedin, |row, href| {
+                        row.child(icon_button(
+                            "member-linkedin",
+                            img(ImageSource::Resource(Resource::Embedded(
+                                "brands/linkedin.svg".into(),
+                            )))
+                            .size(px(16.0))
+                            .flex_shrink_0()
+                            .into_any_element(),
+                            href,
+                        ))
+                    }),
+            )
+            .into_any_element()
+    }
+}
+
+/// `border-b px-4 py-3` rows with the `w-28 text-sm text-muted-foreground` label.
+fn detail_row(theme: crate::theme::Theme, label: &'static str, field: AnyElement) -> Div {
+    div()
+        .flex()
+        .items_center()
+        .border_b_1()
+        .border_color(theme.border)
+        .px_4()
+        .py_3()
+        .child(
+            div()
+                .w(px(112.0))
+                .tw_text_sm()
+                .text_color(theme.muted_foreground)
+                .child(label),
+        )
+        .child(div().flex_1().child(field))
+}
+
+/// `Input h-7 border-none p-0 text-base`
+fn detail_field(
+    id: &'static str,
+    input: &Entity<TextInput>,
+    cx: &Context<Workspace>,
+) -> AnyElement {
+    let focus = input.clone();
+    div()
+        .id(id)
+        .flex()
+        .h(px(28.0))
+        .w_full()
+        .items_center()
+        // `text-base md:text-sm`: the window is past the `md` breakpoint.
+        .tw_text_sm()
+        .cursor_text()
+        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+        .on_click(cx.listener(move |_, _: &ClickEvent, window, cx| {
+            focus.read(cx).focus_handle(cx).focus(window);
+        }))
+        .child(div().min_w_0().flex_1().child(input.clone()))
+        .into_any_element()
+}
+
+/// `onRemoveAvatar`: the "Remove photo" item, only when a photo is set.
+fn remove_photo_entry(table: &'static str, contact_id: &str, has_photo: bool) -> Option<Entry> {
+    if !has_photo {
+        return None;
+    }
+    let id = contact_id.to_string();
+    Some(Entry::Item {
+        icon: Some("minus-circle"),
+        dim_icon: false,
+        label: "Remove photo".into(),
+        trailing: Trailing::None,
+        destructive: false,
+        on_select: Some(Box::new(
+            move |this: &mut Workspace, window: &mut Window, cx: &mut Context<Workspace>| {
+                this.set_contact_avatar(table, id.clone(), None, window, cx);
+            },
+        ) as Select),
+        submenu: None,
+    })
+}
+
+/// Decodes an uploaded avatar for the GPU (textures are BGRA).
+fn decode_photo(data_url: &str) -> Option<Arc<RenderImage>> {
+    let mut buffer = crate::contacts::decode_avatar_data_url(data_url)?;
+    for pixel in buffer.pixels_mut() {
+        pixel.0.swap(0, 2);
+    }
+    Some(Arc::new(RenderImage::new(smallvec::smallvec![
+        image::Frame::new(buffer)
+    ])))
 }
 
 /// The facehash raster as a GPUI image (textures are BGRA).

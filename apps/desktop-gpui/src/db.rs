@@ -2456,6 +2456,45 @@ impl Store {
         })
     }
 
+    /// `updateOrganization({ name })`
+    pub fn update_organization_name(
+        &self,
+        organization_id: String,
+        name: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            crate::contacts::update_organization_name(db.pool(), &organization_id, &name).await
+        })
+    }
+
+    /// `persistContactAvatar`: compresses the picked file off the UI thread
+    /// and stores (or clears) `metadata_json.avatarDataUrl`.
+    pub fn set_contact_avatar(
+        &self,
+        table: &'static str,
+        contact_id: String,
+        photo: Option<PathBuf>,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let data_url = match photo {
+                Some(path) => {
+                    let bytes = tokio::fs::read(&path).await?;
+                    Some(crate::contacts::compress_avatar_image(&bytes)?)
+                }
+                None => None,
+            };
+            crate::contacts::update_contact_avatar(
+                db.pool(),
+                table,
+                &contact_id,
+                data_url.as_deref(),
+            )
+            .await
+        })
+    }
+
     /// `toggleContactPin`
     pub fn toggle_contact_pin(
         &self,

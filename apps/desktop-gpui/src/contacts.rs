@@ -351,6 +351,124 @@ pub async fn soft_delete(pool: &SqlitePool, table: &'static str, id: &str) -> an
 }
 
 /// `toggleContactPin`
+/// `updateOrganization(organizationId, { name })`
+pub async fn update_organization_name(
+    pool: &SqlitePool,
+    organization_id: &str,
+    name: &str,
+) -> anyhow::Result<()> {
+    sqlx::query(
+        "UPDATE organizations SET name = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL",
+    )
+    .bind(name)
+    .bind(now_iso())
+    .bind(organization_id)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// `updateContactAvatar`: `metadata_json.avatarDataUrl` set or removed, with
+/// invalid metadata treated as `{}`.
+pub async fn update_contact_avatar(
+    pool: &SqlitePool,
+    table: &'static str,
+    contact_id: &str,
+    avatar_data_url: Option<&str>,
+) -> anyhow::Result<()> {
+    if table != "humans" && table != "organizations" {
+        anyhow::bail!("unknown contact table {table}");
+    }
+    let valid = "CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END";
+    match avatar_data_url {
+        Some(data_url) => {
+            sqlx::query(sqlx::AssertSqlSafe(format!(
+                "UPDATE {table}
+                 SET metadata_json = json_set({valid}, '$.avatarDataUrl', ?), updated_at = ?
+                 WHERE id = ? AND deleted_at IS NULL"
+            )))
+            .bind(data_url)
+            .bind(now_iso())
+            .bind(contact_id)
+            .execute(pool)
+            .await?;
+        }
+        None => {
+            sqlx::query(sqlx::AssertSqlSafe(format!(
+                "UPDATE {table}
+                 SET metadata_json = json_remove({valid}, '$.avatarDataUrl'), updated_at = ?
+                 WHERE id = ? AND deleted_at IS NULL"
+            )))
+            .bind(now_iso())
+            .bind(contact_id)
+            .execute(pool)
+            .await?;
+        }
+    }
+    Ok(())
+}
+
+/// `AVATAR_RASTER_SIZE` for uploaded photos (`compressAvatarImage`).
+pub const AVATAR_PHOTO_SIZE: u32 = 70;
+
+/// `compressAvatarImage`: centre-crop to a square, resize to 70×70 with the
+/// canvas's high-quality smoothing, flatten transparency onto white, and
+/// encode as a JPEG data URL at quality 0.85.
+pub fn compress_avatar_image(bytes: &[u8]) -> anyhow::Result<String> {
+    use base64::Engine as _;
+    use image::imageops::FilterType;
+
+    let decoded = image::load_from_memory(bytes)?.to_rgba8();
+    let (width, height) = decoded.dimensions();
+    let side = width.min(height);
+    if side == 0 {
+        anyhow::bail!("image has no pixels");
+    }
+    let cropped = image::imageops::crop_imm(
+        &decoded,
+        (width - side) / 2,
+        (height - side) / 2,
+        side,
+        side,
+    )
+    .to_image();
+    let resized = image::imageops::resize(
+        &cropped,
+        AVATAR_PHOTO_SIZE,
+        AVATAR_PHOTO_SIZE,
+        FilterType::Lanczos3,
+    );
+    let mut flattened = image::RgbImage::new(AVATAR_PHOTO_SIZE, AVATAR_PHOTO_SIZE);
+    for (x, y, pixel) in resized.enumerate_pixels() {
+        let alpha = pixel[3] as f32 / 255.0;
+        let blend = |channel: u8| (channel as f32 * alpha + 255.0 * (1.0 - alpha)).round() as u8;
+        flattened.put_pixel(
+            x,
+            y,
+            image::Rgb([blend(pixel[0]), blend(pixel[1]), blend(pixel[2])]),
+        );
+    }
+    let mut jpeg = Vec::new();
+    let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg, 85);
+    encoder.encode_image(&flattened)?;
+    Ok(format!(
+        "data:image/jpeg;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(jpeg)
+    ))
+}
+
+/// Decodes a `data:image/...;base64,...` avatar into RGBA pixels.
+pub fn decode_avatar_data_url(data_url: &str) -> Option<image::RgbaImage> {
+    use base64::Engine as _;
+    let payload = data_url.split_once(";base64,")?.1;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(payload.trim())
+        .ok()?;
+    image::load_from_memory(&bytes)
+        .ok()
+        .map(|img| img.to_rgba8())
+}
+
 pub async fn toggle_pin(pool: &SqlitePool, table: &'static str, id: &str) -> anyhow::Result<()> {
     if !matches!(table, "humans" | "organizations") {
         anyhow::bail!("unknown contact table {table}");
@@ -587,6 +705,34 @@ mod tests {
         assert_eq!(a.len(), 8 * 8 * 4);
         assert!(a.chunks(4).all(|px| px[3] == 255));
         assert_ne!(a, avatar_pixels("Eve", 8));
+    }
+
+    #[test]
+    fn compresses_photos_to_a_70px_jpeg_data_url_flattened_on_white() {
+        // A 4×2 transparent PNG: the centre 2×2 crop becomes 70×70 and the
+        // alpha flattens onto white.
+        let mut png = Vec::new();
+        let source = image::RgbaImage::from_fn(4, 2, |x, _| {
+            if x == 1 || x == 2 {
+                image::Rgba([255, 0, 0, 128])
+            } else {
+                image::Rgba([0, 0, 255, 255])
+            }
+        });
+        image::DynamicImage::ImageRgba8(source)
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+        let data_url = compress_avatar_image(&png).unwrap();
+        assert!(data_url.starts_with("data:image/jpeg;base64,"));
+        let decoded = decode_avatar_data_url(&data_url).unwrap();
+        assert_eq!(decoded.dimensions(), (AVATAR_PHOTO_SIZE, AVATAR_PHOTO_SIZE));
+        // Half-transparent red over white reads as a pink, not a dark red.
+        let centre = decoded.get_pixel(35, 35);
+        assert!(
+            centre[0] > 200 && centre[1] > 100 && centre[2] > 100,
+            "{centre:?}"
+        );
+        assert!(decode_avatar_data_url("not a data url").is_none());
     }
 
     #[test]

@@ -122,6 +122,7 @@ embedded!(
     "brands/google-calendar.svg",
     "brands/google-cloud.svg",
     "brands/groq.svg",
+    "brands/linkedin.svg",
     "brands/lmstudio.svg",
     "brands/mistral.svg",
     "brands/moonshot.svg",
@@ -156,6 +157,7 @@ embedded!(
     "icons/book-open-text.svg",
     "icons/book-open.svg",
     "icons/buildings.svg",
+    "icons/camera.svg",
     "icons/calendar-blank.svg",
     "icons/calendar-dots.svg",
     "icons/calendar.svg",
@@ -174,6 +176,7 @@ embedded!(
     "icons/discord-logo.svg",
     "icons/dots-three.svg",
     "icons/download-simple.svg",
+    "icons/envelope.svg",
     "icons/external-link.svg",
     "icons/file-arrow-down.svg",
     "icons/file-text.svg",
@@ -349,6 +352,6 @@ mod tests {
         }
         assert!(Assets.load("icons/search.svg").unwrap().is_some());
         assert!(Assets.load("icons/missing.svg").unwrap().is_none());
-        assert_eq!(Assets.list("icons/").unwrap().len(), 173);
+        assert_eq!(Assets.list("icons/").unwrap().len(), 175);
     }
 }
