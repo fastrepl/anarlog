@@ -17,6 +17,7 @@ import {
   providerStorageKey,
   validateProviderConfig,
   normalizeTranscriptionResponse,
+  providersFor,
 } from "./providers-model.ts";
 
 const sourceRoot = new URL("../", import.meta.url);
@@ -33,6 +34,14 @@ const fixture = (globalThis.mobileSettingsFixture = {
     }),
 });
 const modules = {
+  "@anlg/mobile-bridge": `export const ProviderTranscriptionError = Object.fromEntries(["AudioTooLarge", "AudioMissing", "ResponseTooLarge", "InvalidSettings", "TimedOut", "RequestFailed"].map(tag => [tag, {instanceOf: error => error.tag === tag}]));
+  export async function transcribeProviderAudio(request, options) {
+    const fixture = globalThis.mobileSettingsFixture;
+    fixture.nativeRequest = {request: JSON.parse(request), signal: options.signal};
+    options.signal.throwIfAborted();
+    if (fixture.nativeError) throw fixture.nativeError;
+    return JSON.stringify({status: 200, body: JSON.stringify({results: {channels: [{alternatives: [{transcript: 'Hello', words: []}]}]}})});
+  }`,
   "@/db": `const fixture = globalThis.mobileSettingsFixture;
     export async function execute(sql, params = []) { return fixture.db.prepare(sql).all(...params); }
     export async function executeTransaction(statements) {
@@ -106,6 +115,7 @@ const {
 const { requestProviderTranscription } =
   await import("../data/provider-transcription.ts");
 const { summarizeSession } = await import("../data/summarize.ts");
+const { Platform } = await import("react-native");
 
 function signedInWith(claims) {
   fixture.session = {
@@ -115,6 +125,9 @@ function signedInWith(claims) {
 }
 
 beforeEach(() => {
+  Platform.OS = "ios";
+  fixture.nativeRequest = null;
+  fixture.nativeError = null;
   fixture.db?.close();
   fixture.db = new DatabaseSync(":memory:");
   for (const migration of [
@@ -655,6 +668,7 @@ test("expired trial users can keep using their own transcription and summary key
 });
 
 test("OpenAI-compatible audio goes directly to the chosen host as multipart, with language and dictionary", async () => {
+  Platform.OS = "web";
   fixture.respond = () => Response.json({ text: "Hello Anarlog" });
   const audio = new File(["synthetic audio"], "audio.wav", {
     type: "audio/wav",
@@ -688,6 +702,7 @@ test("OpenAI-compatible audio goes directly to the chosen host as multipart, wit
 });
 
 test("Deepgram receives raw audio with its auth scheme and vocabulary options", async () => {
+  Platform.OS = "web";
   fixture.respond = () => Response.json({ results: { channels: [] } });
   const audio = new File(["audio"], "audio.wav");
   await requestProviderTranscription(
@@ -708,6 +723,7 @@ test("Deepgram receives raw audio with its auth scheme and vocabulary options", 
 });
 
 test("oversized provider audio is rejected before sending a request", async () => {
+  Platform.OS = "web";
   await assert.rejects(
     requestProviderTranscription(
       { size: 26 * 1024 * 1024 },
@@ -914,5 +930,226 @@ test("analytics opt-out aborts in-flight requests and prevents subsequent events
     assert.equal(calls, 1);
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+for (const kind of ["stt", "llm"]) {
+  for (const definition of providersFor(kind).filter(
+    ({ id }) => id !== "anarlog",
+  )) {
+    test(`${kind} ${definition.name} keeps its key on this device and restores its own setup`, async () => {
+      const config = {
+        ...defaultProviderConfig(kind, definition.id),
+        baseUrl: definition.baseUrl || "https://gateway.example/v1",
+        model: definition.model || "test-model",
+      };
+      await saveProviderSetup("account-a", kind, config, "synthetic-key");
+      assert.deepEqual(
+        await readProviderSetup("account-a", kind, definition.id),
+        config,
+      );
+      assert.equal(
+        (await readProviderConfig("account-a", kind)).provider,
+        "anarlog",
+      );
+      await saveProviderConfig("account-a", kind, config);
+      assert.deepEqual(await readProviderConfig("account-a", kind), config);
+      assert.equal(
+        fixture.keys.get(providerStorageKey("account-a", kind, definition.id))
+          .options.keychainAccessible,
+        "device-only",
+      );
+      assert.ok(
+        !fixture.db
+          .prepare("SELECT value_json FROM app_settings")
+          .all()
+          .some((row) => row.value_json.includes("synthetic-key")),
+      );
+      assert.deepEqual(
+        await readProviderSetup("account-b", kind, definition.id),
+        defaultProviderConfig(kind, definition.id),
+      );
+      await removeProviderKey("account-a", kind, definition.id);
+      assert.ok(
+        !fixture.keys.has(providerStorageKey("account-a", kind, definition.id)),
+      );
+    });
+  }
+}
+
+for (const definition of providersFor("stt").filter(
+  ({ id }) => !["anarlog", "custom"].includes(id),
+)) {
+  test(`${definition.name} delegates native audio to the desktop adapter with cancellation`, async () => {
+    const controller = new AbortController();
+    const response = await requestProviderTranscription(
+      { uri: "file:///documents/sessions/test/audio.wav", size: 100 },
+      "audio/wav",
+      {
+        ...defaultProviderConfig("stt", definition.id),
+        apiKey: "synthetic-key",
+      },
+      {
+        ...DEFAULT_PREFERENCES,
+        spoken_languages: ["ko", "en"],
+        personalization_dictionary_terms: ["Anarlog"],
+      },
+      controller.signal,
+    );
+    assert.equal(fixture.nativeRequest.request.provider, definition.id);
+    assert.equal(
+      fixture.nativeRequest.request.file_uri,
+      "file:///documents/sessions/test/audio.wav",
+    );
+    assert.equal(fixture.nativeRequest.request.api_key, "synthetic-key");
+    assert.equal(fixture.nativeRequest.signal, controller.signal);
+    assert.deepEqual(fixture.nativeRequest.request.params.languages, [
+      "ko",
+      "en",
+    ]);
+    assert.deepEqual(fixture.nativeRequest.request.params.keywords, [
+      "Anarlog",
+    ]);
+    assert.equal(fixture.requests.length, 0);
+    assert.equal(
+      normalizeTranscriptionResponse(definition.id, JSON.parse(response.body))
+        .results.channels[0].alternatives[0].transcript,
+      "Hello",
+    );
+  });
+}
+
+test("native transcription preserves an already aborted signal", async () => {
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(
+    requestProviderTranscription(
+      { uri: "file:///audio.wav", size: 100 },
+      "audio/wav",
+      {
+        ...defaultProviderConfig("stt", "assemblyai"),
+        apiKey: "synthetic-key",
+      },
+      DEFAULT_PREFERENCES,
+      controller.signal,
+    ),
+    { name: "AbortError" },
+  );
+});
+
+for (const definition of providersFor("llm").filter(
+  ({ id }) => id !== "anarlog",
+)) {
+  test(`${definition.name} generates and persists a summary with its authentication format`, async () => {
+    createNote();
+    const config = {
+      ...defaultProviderConfig("llm", definition.id),
+      baseUrl: definition.baseUrl || "https://gateway.example/v1",
+      model: "test-model",
+    };
+    await saveProviderConfig(null, "llm", config, "synthetic-key");
+    fixture.respond = () =>
+      Response.json(
+        definition.id === "anthropic"
+          ? { content: [{ type: "text", text: "Summary" }] }
+          : definition.id === "google_generative_ai"
+            ? {
+                candidates: [
+                  {
+                    content: {
+                      parts: [
+                        { thought: true, text: "Private reasoning" },
+                        { text: "Summary" },
+                      ],
+                    },
+                  },
+                ],
+              }
+            : { choices: [{ message: { content: "Summary" } }] },
+      );
+    await summarizeSession("note-1");
+    const { url, options } = fixture.requests[0];
+    assert.equal(new URL(url).origin, new URL(config.baseUrl).origin);
+    assert.equal(options.redirect, "error");
+    assert.ok(options.signal instanceof AbortSignal);
+    const body = JSON.parse(options.body);
+    if (definition.id === "anthropic") {
+      assert.ok(url.endsWith("/messages"));
+      assert.equal(options.headers["x-api-key"], "synthetic-key");
+      assert.equal(options.headers["anthropic-version"], "2023-06-01");
+      assert.ok(body.system);
+    } else if (definition.id === "google_generative_ai") {
+      assert.ok(url.endsWith("/models/test-model:generateContent"));
+      assert.equal(options.headers["x-goog-api-key"], "synthetic-key");
+      assert.ok(body.systemInstruction.parts[0].text);
+      assert.ok(body.contents[0].parts[0].text.includes("Ship the app"));
+    } else {
+      assert.ok(url.endsWith("/chat/completions"));
+      assert.equal(body.model, "test-model");
+      assert.equal(
+        options.headers[
+          definition.id === "azure_openai" ? "api-key" : "Authorization"
+        ],
+        definition.id === "azure_openai"
+          ? "synthetic-key"
+          : "Bearer synthetic-key",
+      );
+      if (definition.id === "azure_ai")
+        assert.equal(options.headers["api-key"], "synthetic-key");
+    }
+    assert.equal(
+      fixture.db
+        .prepare("SELECT body FROM session_documents WHERE kind = 'summary'")
+        .get().body,
+      "Summary",
+    );
+  });
+}
+
+test("native file and response limits remain permanent failures", async () => {
+  for (const [tag, code] of [
+    ["AudioTooLarge", "audio_too_large"],
+    ["AudioMissing", "audio_missing"],
+    ["ResponseTooLarge", "stt_response_too_large"],
+  ]) {
+    fixture.nativeError = { tag, inner: { maxMegabytes: 25n } };
+    await assert.rejects(
+      requestProviderTranscription(
+        { uri: "file:///audio.wav", size: 100 },
+        "audio/wav",
+        { ...defaultProviderConfig("stt", "openai"), apiKey: "synthetic-key" },
+        DEFAULT_PREFERENCES,
+        new AbortController().signal,
+      ),
+      (error) => error.code === code,
+    );
+  }
+});
+
+test("Azure resource URLs use the v1 endpoint without duplicating its path", async () => {
+  const { summaryRequest } = await import("../data/provider-summary.ts");
+  for (const baseUrl of [
+    "https://resource.openai.azure.com",
+    "https://resource.openai.azure.com/openai",
+    "https://resource.openai.azure.com/openai/v1",
+  ]) {
+    const request = summaryRequest(
+      {
+        provider: "azure_openai",
+        baseUrl,
+        model: "my-deployment",
+        apiKey: "synthetic-key",
+      },
+      "Summarize",
+      "Notes",
+      "",
+    );
+    assert.equal(
+      request.url,
+      "https://resource.openai.azure.com/openai/v1/chat/completions",
+    );
+    assert.equal(request.body.model, "my-deployment");
+    assert.equal(request.headers["api-key"], "synthetic-key");
+    assert.ok(!request.headers.Authorization);
   }
 });

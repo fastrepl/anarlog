@@ -36,6 +36,7 @@ import {
   saveProviderSetup,
 } from "./providers";
 import {
+  defaultProviderConfig,
   providersFor,
   type ProviderConfig,
   type ProviderKind,
@@ -331,7 +332,7 @@ function ProviderFields({
           }}
         />
       </Row>
-      {config.provider === "custom" && (
+      {!defaultProviderConfig(kind, config.provider).baseUrl && (
         <Row alignment="center" spacing={8}>
           <Icon
             name={Icon.select({
@@ -376,9 +377,7 @@ function ProviderFields({
       {(save.error || remove.error) && (
         <Text>{(save.error || remove.error)?.message}</Text>
       )}
-      {kind === "stt" && (
-        <Text>{`Transcription starts after recording.${config.provider === "deepgram" ? "" : " Recordings must be under 25 MB."}`}</Text>
-      )}
+      {kind === "stt" && <Text>Transcription starts after recording.</Text>}
     </Column>
   );
 }

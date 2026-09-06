@@ -4,6 +4,7 @@ mod attachment;
 mod db;
 mod error;
 mod listener;
+mod transcription;
 
 use std::collections::HashSet;
 use std::future::Future;

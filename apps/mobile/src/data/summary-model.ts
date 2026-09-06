@@ -17,6 +17,9 @@ export function readSummaryText(provider: string, payload: unknown): string {
   const body = payload as {
     choices?: Array<{ message?: { content?: unknown } }>;
     content?: Array<{ type?: string; text?: unknown }>;
+    candidates?: Array<{
+      content?: { parts?: Array<{ text?: unknown; thought?: boolean }> };
+    }>;
   };
   const text =
     provider === "anthropic"
@@ -26,7 +29,12 @@ export function readSummaryText(provider: string, payload: unknown): string {
           )
           .map((part) => part.text)
           .join("\n")
-      : body.choices?.[0]?.message?.content;
+      : provider === "google_generative_ai"
+        ? body.candidates?.[0]?.content?.parts
+            ?.filter((part) => !part.thought && typeof part.text === "string")
+            .map((part) => part.text)
+            .join("\n")
+        : body.choices?.[0]?.message?.content;
   if (typeof text !== "string" || !text.trim())
     throw new Error("The provider returned an empty summary.");
   return text.trim();

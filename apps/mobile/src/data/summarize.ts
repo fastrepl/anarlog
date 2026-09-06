@@ -7,6 +7,7 @@ import { readPreferences } from "@/settings/preferences";
 import { resolveProvider } from "@/settings/providers";
 
 import { docToPlainText, stripMarkdownTitle } from "./note-doc";
+import { summaryRequest } from "./provider-summary";
 import { buildSummaryPrompt, readSummaryText } from "./summary-model";
 import { readBoundedTranscriptionResponse } from "./transcription-response";
 
@@ -52,50 +53,22 @@ export async function summarizeSession(sessionId: string): Promise<void> {
     throw new Error(
       "This meeting is too long to summarize on mobile. Open it on desktop.",
     );
-  const anthropic = provider.provider === "anthropic";
-  const url =
-    provider.provider === "anarlog"
-      ? `${env.apiUrl}/llm/chat/completions`
-      : `${provider.baseUrl}/${anthropic ? "messages" : "chat/completions"}`;
-  const system = buildSummaryPrompt(preferences);
-  const request = anthropic
-    ? {
-        model: provider.model,
-        max_tokens: 4096,
-        system,
-        messages: [{ role: "user", content: source }],
-      }
-    : {
-        model: provider.model || "default",
-        stream: false,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: source },
-        ],
-      };
+  const request = summaryRequest(
+    provider,
+    buildSummaryPrompt(preferences),
+    source,
+    env.apiUrl,
+  );
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120_000);
   let summary: string;
   try {
-    const response = await fetch(url, {
+    const response = await fetch(request.url, {
       method: "POST",
       signal: controller.signal,
       redirect: "error",
-      headers: {
-        "Content-Type": "application/json",
-        ...(provider.apiKey
-          ? anthropic
-            ? {
-                "x-api-key": provider.apiKey,
-                "anthropic-version": "2023-06-01",
-              }
-            : { Authorization: `Bearer ${provider.apiKey}` }
-          : {}),
-        ...(provider.provider === "anarlog"
-          ? { "x-char-task": "enhance" }
-          : {}),
-      },
-      body: JSON.stringify(request),
+      headers: request.headers,
+      body: JSON.stringify(request.body),
     });
     if (!response.ok)
       throw new Error(

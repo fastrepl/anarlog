@@ -337,6 +337,9 @@ extern "C" {
         RustBuffer message, 
         RustCallStatus *uniffi_out_err
     );
+    /*handle*/ uint64_t uniffi_mobile_bridge_fn_func_transcribe_provider_audio(
+        RustBuffer request_json
+    );
     RustBuffer ffi_mobile_bridge_rustbuffer_alloc(
         uint64_t size, 
         RustCallStatus *uniffi_out_err
@@ -533,6 +536,8 @@ extern "C" {
     void ffi_mobile_bridge_rust_future_complete_void(
         /*handle*/ uint64_t handle, 
         RustCallStatus *uniffi_out_err
+    );
+    uint16_t uniffi_mobile_bridge_checksum_func_transcribe_provider_audio(
     );
     uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_cleanup_attachment_upload_cache(
     );
@@ -2896,6 +2901,14 @@ NativeMobileBridge::NativeMobileBridge(
             return this->cpp_uniffi_mobile_bridge_fn_method_queryeventlistener_on_error(rt, thisVal, args, count);
         }
     );
+    props["ubrn_uniffi_mobile_bridge_fn_func_transcribe_provider_audio"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_fn_func_transcribe_provider_audio"),
+        1,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_mobile_bridge_fn_func_transcribe_provider_audio(rt, thisVal, args, count);
+        }
+    );
     props["ubrn_ffi_mobile_bridge_rust_future_poll_u8"] = jsi::Function::createFromHostFunction(
         rt,
         jsi::PropNameID::forAscii(rt, "ubrn_ffi_mobile_bridge_rust_future_poll_u8"),
@@ -3278,6 +3291,14 @@ NativeMobileBridge::NativeMobileBridge(
         1,
         [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_ffi_mobile_bridge_rust_future_complete_void(rt, thisVal, args, count);
+        }
+    );
+    props["ubrn_uniffi_mobile_bridge_checksum_func_transcribe_provider_audio"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_checksum_func_transcribe_provider_audio"),
+        0,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_mobile_bridge_checksum_func_transcribe_provider_audio(rt, thisVal, args, count);
         }
     );
     props["ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cleanup_attachment_upload_cache"] = jsi::Function::createFromHostFunction(
@@ -4083,6 +4104,13 @@ jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_queryeventlist
         
         return jsi::Value::undefined();
 }
+jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_func_transcribe_provider_audio(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_mobile_bridge_fn_func_transcribe_provider_audio(uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0])
+        );
+
+        
+        return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_poll_u8(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         ffi_mobile_bridge_rust_future_poll_u8(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<UniffiRustFutureContinuationCallback>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[2])
         );
@@ -4454,6 +4482,13 @@ jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_complete_void(j
 
         
         return jsi::Value::undefined();
+}
+jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_func_transcribe_provider_audio(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_mobile_bridge_checksum_func_transcribe_provider_audio(
+        );
+
+        
+        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cleanup_attachment_upload_cache(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_cleanup_attachment_upload_cache(

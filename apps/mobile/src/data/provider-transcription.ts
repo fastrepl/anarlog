@@ -1,5 +1,6 @@
 import type { File } from "expo-file-system";
 import { fetch } from "expo/fetch";
+import { Platform } from "react-native";
 
 import { readBoundedTranscriptionResponse } from "@/data/transcription-response";
 import type { Preferences } from "@/settings/preferences-model";
@@ -12,6 +13,63 @@ export async function requestProviderTranscription(
   preferences: Preferences,
   signal: AbortSignal,
 ) {
+  if (Platform.OS !== "web" && provider.provider !== "custom") {
+    const { transcribeProviderAudio, ProviderTranscriptionError } =
+      await import("@anlg/mobile-bridge");
+    try {
+      return JSON.parse(
+        await transcribeProviderAudio(
+          JSON.stringify({
+            provider: provider.provider,
+            base_url: provider.baseUrl,
+            api_key: provider.apiKey,
+            file_uri: file.uri,
+            params: {
+              model: provider.model,
+              languages: preferences.spoken_languages.length
+                ? preferences.spoken_languages
+                : [preferences.ai_language],
+              keywords: preferences.personalization_dictionary_terms,
+            },
+          }),
+          { signal },
+        ),
+      ) as { status: number; body: string };
+    } catch (error) {
+      if (error && typeof error === "object") {
+        if (ProviderTranscriptionError.AudioTooLarge.instanceOf(error))
+          throw Object.assign(
+            new Error(
+              `This provider accepts recordings up to ${error.inner.maxMegabytes} MB.`,
+            ),
+            { code: "audio_too_large", stage: "load_audio" },
+          );
+        if (ProviderTranscriptionError.AudioMissing.instanceOf(error))
+          throw Object.assign(new Error("This recording could not be read."), {
+            code: "audio_missing",
+            stage: "load_audio",
+          });
+        if (ProviderTranscriptionError.ResponseTooLarge.instanceOf(error))
+          throw Object.assign(
+            new Error("The transcription response is too large."),
+            { code: "stt_response_too_large", stage: "response" },
+          );
+        if (ProviderTranscriptionError.InvalidSettings.instanceOf(error))
+          throw new Error("Check the transcription provider settings.");
+        if (ProviderTranscriptionError.TimedOut.instanceOf(error))
+          throw new Error(
+            "The transcription provider took too long. Please try again.",
+          );
+        if (ProviderTranscriptionError.RequestFailed.instanceOf(error))
+          throw new Error("The transcription request could not be completed.");
+      }
+      throw error;
+    }
+  }
+  if (!["custom", "openai", "groq", "deepgram"].includes(provider.provider))
+    throw new Error(
+      "Use the iOS or Android app for this transcription provider.",
+    );
   const deepgram = provider.provider === "deepgram";
   if (!deepgram && file.size > 25 * 1024 * 1024) {
     throw Object.assign(

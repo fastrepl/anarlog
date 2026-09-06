@@ -27,6 +27,7 @@ import {
   FfiConverterObjectWithCallbacks,
   FfiConverterOptional,
   FfiConverterUInt32,
+  FfiConverterUInt64,
   FfiConverterUInt8,
   RustBuffer,
   UniffiAbstractObject,
@@ -52,6 +53,50 @@ const uniffiIsDebug =
   false;
 
 // Public interface members begin here.
+
+export async function transcribeProviderAudio(
+  requestJson: string,
+  asyncOpts_?: { signal: AbortSignal },
+): Promise<string> /*throws*/ {
+  const __stack = uniffiIsDebug ? new Error().stack : undefined;
+  try {
+    return await uniffiRustCallAsync(
+      /*rustCaller:*/ uniffiCaller,
+      /*rustFutureFunc:*/ () => {
+        return nativeModule().ubrn_uniffi_mobile_bridge_fn_func_transcribe_provider_audio(
+          FfiConverterString.lower(
+            requestJson,
+            nativeModule().rustbuffer_alloc,
+          ),
+        );
+      },
+      /*pollFunc:*/ nativeModule()
+        .ubrn_ffi_mobile_bridge_rust_future_poll_rust_buffer,
+      /*cancelFunc:*/ nativeModule()
+        .ubrn_ffi_mobile_bridge_rust_future_cancel_rust_buffer,
+      /*completeFunc:*/ nativeModule()
+        .ubrn_ffi_mobile_bridge_rust_future_complete_rust_buffer,
+      /*freeFunc:*/ nativeModule()
+        .ubrn_ffi_mobile_bridge_rust_future_free_rust_buffer,
+      // Async returns always go through the JS-side converter: the
+      // FFI symbol returns the future handle (u64), and the user-level
+      // RustBuffer comes back via the shared `rust_future_complete_*`
+      // export. The bytes the runtime hands back must be deserialized
+      // here using the per-callable return-type converter.
+      /*liftFunc:*/ FfiConverterString.lift.bind(FfiConverterString),
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+      /*asyncOpts:*/ asyncOpts_,
+      /*errorHandler:*/ FfiConverterTypeProviderTranscriptionError.lift.bind(
+        FfiConverterTypeProviderTranscriptionError,
+      ),
+    );
+  } catch (__error: any) {
+    if (uniffiIsDebug && __error instanceof Error) {
+      __error.stack = __stack;
+    }
+    throw __error;
+  }
+}
 
 // Hermes (React Native ≥ 0.74) ships TextEncoder and encodeInto, but not
 // TextDecoder. For single-string decode (bytesToString), we polyfill via the
@@ -726,6 +771,298 @@ const FfiConverterTypeBridgeError = (() => {
           let size = ordinalConverter.allocationSize(11);
           size += FfiConverterString.allocationSize(inner.reason);
           return size;
+        }
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+  }
+  return new FFIConverter();
+})();
+
+// Error type: ProviderTranscriptionError
+export enum ProviderTranscriptionError_Tags {
+  InvalidSettings = "InvalidSettings",
+  AudioMissing = "AudioMissing",
+  AudioTooLarge = "AudioTooLarge",
+  TimedOut = "TimedOut",
+  ResponseTooLarge = "ResponseTooLarge",
+  RequestFailed = "RequestFailed",
+}
+export const ProviderTranscriptionError = (() => {
+  type InvalidSettings__interface = {
+    tag: ProviderTranscriptionError_Tags.InvalidSettings;
+  };
+  class InvalidSettings_
+    extends UniffiError
+    implements InvalidSettings__interface
+  {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "ProviderTranscriptionError";
+    readonly tag = ProviderTranscriptionError_Tags.InvalidSettings;
+    constructor() {
+      super("ProviderTranscriptionError", "InvalidSettings");
+    }
+
+    static new(): InvalidSettings_ {
+      return new InvalidSettings_();
+    }
+
+    static instanceOf(obj: any): obj is InvalidSettings_ {
+      return obj.tag === ProviderTranscriptionError_Tags.InvalidSettings;
+    }
+    static hasInner(obj: any): obj is InvalidSettings_ {
+      return false;
+    }
+  }
+
+  type AudioMissing__interface = {
+    tag: ProviderTranscriptionError_Tags.AudioMissing;
+  };
+  class AudioMissing_ extends UniffiError implements AudioMissing__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "ProviderTranscriptionError";
+    readonly tag = ProviderTranscriptionError_Tags.AudioMissing;
+    constructor() {
+      super("ProviderTranscriptionError", "AudioMissing");
+    }
+
+    static new(): AudioMissing_ {
+      return new AudioMissing_();
+    }
+
+    static instanceOf(obj: any): obj is AudioMissing_ {
+      return obj.tag === ProviderTranscriptionError_Tags.AudioMissing;
+    }
+    static hasInner(obj: any): obj is AudioMissing_ {
+      return false;
+    }
+  }
+
+  type AudioTooLarge__interface = {
+    tag: ProviderTranscriptionError_Tags.AudioTooLarge;
+    inner: Readonly<{ maxMegabytes: bigint }>;
+  };
+  class AudioTooLarge_ extends UniffiError implements AudioTooLarge__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "ProviderTranscriptionError";
+    readonly tag = ProviderTranscriptionError_Tags.AudioTooLarge;
+    readonly inner: Readonly<{ maxMegabytes: bigint }>;
+    constructor(inner: { maxMegabytes: bigint }) {
+      super("ProviderTranscriptionError", "AudioTooLarge");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { maxMegabytes: bigint }): AudioTooLarge_ {
+      return new AudioTooLarge_(inner);
+    }
+
+    static instanceOf(obj: any): obj is AudioTooLarge_ {
+      return obj.tag === ProviderTranscriptionError_Tags.AudioTooLarge;
+    }
+    static hasInner(obj: any): obj is AudioTooLarge_ {
+      return AudioTooLarge_.instanceOf(obj);
+    }
+
+    static getInner(obj: AudioTooLarge_): Readonly<{ maxMegabytes: bigint }> {
+      return obj.inner;
+    }
+  }
+
+  type TimedOut__interface = {
+    tag: ProviderTranscriptionError_Tags.TimedOut;
+  };
+  class TimedOut_ extends UniffiError implements TimedOut__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "ProviderTranscriptionError";
+    readonly tag = ProviderTranscriptionError_Tags.TimedOut;
+    constructor() {
+      super("ProviderTranscriptionError", "TimedOut");
+    }
+
+    static new(): TimedOut_ {
+      return new TimedOut_();
+    }
+
+    static instanceOf(obj: any): obj is TimedOut_ {
+      return obj.tag === ProviderTranscriptionError_Tags.TimedOut;
+    }
+    static hasInner(obj: any): obj is TimedOut_ {
+      return false;
+    }
+  }
+
+  type ResponseTooLarge__interface = {
+    tag: ProviderTranscriptionError_Tags.ResponseTooLarge;
+  };
+  class ResponseTooLarge_
+    extends UniffiError
+    implements ResponseTooLarge__interface
+  {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "ProviderTranscriptionError";
+    readonly tag = ProviderTranscriptionError_Tags.ResponseTooLarge;
+    constructor() {
+      super("ProviderTranscriptionError", "ResponseTooLarge");
+    }
+
+    static new(): ResponseTooLarge_ {
+      return new ResponseTooLarge_();
+    }
+
+    static instanceOf(obj: any): obj is ResponseTooLarge_ {
+      return obj.tag === ProviderTranscriptionError_Tags.ResponseTooLarge;
+    }
+    static hasInner(obj: any): obj is ResponseTooLarge_ {
+      return false;
+    }
+  }
+
+  type RequestFailed__interface = {
+    tag: ProviderTranscriptionError_Tags.RequestFailed;
+  };
+  class RequestFailed_ extends UniffiError implements RequestFailed__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "ProviderTranscriptionError";
+    readonly tag = ProviderTranscriptionError_Tags.RequestFailed;
+    constructor() {
+      super("ProviderTranscriptionError", "RequestFailed");
+    }
+
+    static new(): RequestFailed_ {
+      return new RequestFailed_();
+    }
+
+    static instanceOf(obj: any): obj is RequestFailed_ {
+      return obj.tag === ProviderTranscriptionError_Tags.RequestFailed;
+    }
+    static hasInner(obj: any): obj is RequestFailed_ {
+      return false;
+    }
+  }
+
+  function instanceOf(obj: any): obj is ProviderTranscriptionError {
+    return obj[uniffiTypeNameSymbol] === "ProviderTranscriptionError";
+  }
+
+  return Object.freeze({
+    instanceOf,
+    InvalidSettings: InvalidSettings_,
+    AudioMissing: AudioMissing_,
+    AudioTooLarge: AudioTooLarge_,
+    TimedOut: TimedOut_,
+    ResponseTooLarge: ResponseTooLarge_,
+    RequestFailed: RequestFailed_,
+  });
+})();
+export type ProviderTranscriptionError = InstanceType<
+  (typeof ProviderTranscriptionError)[
+    | "InvalidSettings"
+    | "AudioMissing"
+    | "AudioTooLarge"
+    | "TimedOut"
+    | "ResponseTooLarge"
+    | "RequestFailed"]
+>;
+
+// FfiConverter for enum ProviderTranscriptionError
+const FfiConverterTypeProviderTranscriptionError = (() => {
+  const ordinalConverter = FfiConverterInt32;
+  type TypeName = ProviderTranscriptionError;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      switch (ordinalConverter.read(from)) {
+        case 1:
+          return new ProviderTranscriptionError.InvalidSettings();
+        case 2:
+          return new ProviderTranscriptionError.AudioMissing();
+        case 3:
+          return new ProviderTranscriptionError.AudioTooLarge({
+            maxMegabytes: FfiConverterUInt64.read(from),
+          });
+        case 4:
+          return new ProviderTranscriptionError.TimedOut();
+        case 5:
+          return new ProviderTranscriptionError.ResponseTooLarge();
+        case 6:
+          return new ProviderTranscriptionError.RequestFailed();
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      switch (value.tag) {
+        case ProviderTranscriptionError_Tags.InvalidSettings: {
+          ordinalConverter.write(1, into);
+          return;
+        }
+        case ProviderTranscriptionError_Tags.AudioMissing: {
+          ordinalConverter.write(2, into);
+          return;
+        }
+        case ProviderTranscriptionError_Tags.AudioTooLarge: {
+          ordinalConverter.write(3, into);
+          const inner = value.inner;
+          FfiConverterUInt64.write(inner.maxMegabytes, into);
+          return;
+        }
+        case ProviderTranscriptionError_Tags.TimedOut: {
+          ordinalConverter.write(4, into);
+          return;
+        }
+        case ProviderTranscriptionError_Tags.ResponseTooLarge: {
+          ordinalConverter.write(5, into);
+          return;
+        }
+        case ProviderTranscriptionError_Tags.RequestFailed: {
+          ordinalConverter.write(6, into);
+          return;
+        }
+        default:
+          // Throwing from here means that ProviderTranscriptionError_Tags hasn't matched an ordinal.
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    allocationSize(value: TypeName): number {
+      switch (value.tag) {
+        case ProviderTranscriptionError_Tags.InvalidSettings: {
+          return ordinalConverter.allocationSize(1);
+        }
+        case ProviderTranscriptionError_Tags.AudioMissing: {
+          return ordinalConverter.allocationSize(2);
+        }
+        case ProviderTranscriptionError_Tags.AudioTooLarge: {
+          const inner = value.inner;
+          let size = ordinalConverter.allocationSize(3);
+          size += FfiConverterUInt64.allocationSize(inner.maxMegabytes);
+          return size;
+        }
+        case ProviderTranscriptionError_Tags.TimedOut: {
+          return ordinalConverter.allocationSize(4);
+        }
+        case ProviderTranscriptionError_Tags.ResponseTooLarge: {
+          return ordinalConverter.allocationSize(5);
+        }
+        case ProviderTranscriptionError_Tags.RequestFailed: {
+          return ordinalConverter.allocationSize(6);
         }
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
@@ -2009,6 +2346,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_func_transcribe_provider_audio() !==
+    33064
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_func_transcribe_provider_audio",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_mobile_bridge_checksum_constructor_mobiledbbridge_open() !==
     53953
   ) {
@@ -2273,6 +2618,7 @@ export default Object.freeze({
   converters: {
     FfiConverterTypeBridgeError,
     FfiConverterTypeMobileDbBridge,
+    FfiConverterTypeProviderTranscriptionError,
     FfiConverterTypeQueryEventListener,
   },
 });
