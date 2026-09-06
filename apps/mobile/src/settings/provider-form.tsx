@@ -82,6 +82,7 @@ function ProviderForm({
   account: string | null;
   config: ProviderConfig;
 }) {
+  const Colors = useColors();
   const auth = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -204,7 +205,13 @@ function ProviderForm({
           <Text>Loading…</Text>
         )}
         <FieldGroup.SectionFooter>
-          <Text>
+          <Text
+            textStyle={
+              select.error instanceof Error
+                ? { color: Colors.destructive }
+                : undefined
+            }
+          >
             {select.error instanceof Error
               ? select.error.message
               : selectedProvider === "anarlog"
@@ -261,6 +268,7 @@ function ProviderForm({
                   kind={kind}
                   config={setup.data.config}
                   hasKey={setup.data.hasKey}
+                  verificationError={setup.data.verificationError}
                   open={open}
                   onSaved={() => {
                     if (selectedProviderRef.current === provider.id) {
@@ -290,6 +298,7 @@ function ProviderFields({
   account,
   config,
   hasKey,
+  verificationError,
   open,
   onSaved,
 }: {
@@ -297,6 +306,7 @@ function ProviderFields({
   account: string | null;
   config: ProviderConfig;
   hasKey: boolean;
+  verificationError?: string;
   open: boolean;
   onSaved: () => void;
 }) {
@@ -435,8 +445,23 @@ function ProviderFields({
           />
         </Row>
       )}
+      {save.isPending && <Text>Verifying key…</Text>}
       {(save.error || remove.error) && (
-        <Text>{(save.error || remove.error)?.message}</Text>
+        <Text textStyle={{ color: Colors.destructive }}>
+          {(save.error || remove.error)?.message}
+        </Text>
+      )}
+      {!save.isPending && !save.error && verificationError && (
+        <Row>
+          <Text textStyle={{ color: Colors.destructive }}>
+            {verificationError}
+          </Text>
+          <Button
+            label="Retry"
+            variant="text"
+            onPress={() => save.mutate({ config, apiKey: apiKey.current })}
+          />
+        </Row>
       )}
     </Column>
   );

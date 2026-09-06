@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { useMemo } from "react";
 
 import { commands as store2Commands } from "@anlg/plugin-store2";
+import { verifyProviderCredentials } from "@anlg/provider-validation";
 
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
@@ -196,14 +198,35 @@ export function setAiProvider(
   });
 }
 
-export function useSetAiProvider(type: AiProviderType, providerId: string) {
+export function useSetAiProvider(
+  type: AiProviderType,
+  providerId: string,
+  verifyCredentials = false,
+) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    gcTime: 0,
+    scope: { id: `ai-provider:${type}:${providerId}` },
     mutationKey: ["set-ai-provider", type, providerId],
-    mutationFn: (
+    mutationFn: async (
       changes: Partial<Pick<AiProviderConfig, "base_url" | "api_key">>,
-    ) => setAiProvider(type, providerId, changes),
+    ) => {
+      if (verifyCredentials) {
+        const previous = await getStoredAiProvider(type, providerId);
+        const apiKey = (changes.api_key ?? previous?.api_key ?? "").trim();
+        await verifyProviderCredentials(
+          {
+            provider: providerId,
+            baseUrl: changes.base_url ?? previous?.base_url ?? "",
+            apiKey,
+          },
+          tauriFetch,
+        );
+        changes = { ...changes, api_key: apiKey };
+      }
+      await setAiProvider(type, providerId, changes);
+    },
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({

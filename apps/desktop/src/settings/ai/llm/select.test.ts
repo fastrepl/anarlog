@@ -73,10 +73,11 @@ describe("getLlmProviderStatus", () => {
     expect(status.listModels).toBeUndefined();
   });
 
-  test("configures API-key providers when a key is saved", () => {
+  test("configures API-key providers only after their saved key is verified", () => {
     const status = getLlmProviderStatus({
       provider: provider("openai"),
       config: { api_key: "sk-test" },
+      isAvailable: true,
       isAuthenticated: false,
       isPaid: false,
     });
@@ -84,6 +85,21 @@ describe("getLlmProviderStatus", () => {
     expect(status.configured).toBe(true);
     expect(status.listModels).toBeTypeOf("function");
   });
+
+  test.each([undefined, false])(
+    "does not expose a saved but unverified key (%s)",
+    (isAvailable) => {
+      const status = getLlmProviderStatus({
+        provider: provider("openai"),
+        config: { api_key: "nonempty-invalid-key" },
+        isAuthenticated: false,
+        isPaid: false,
+        isAvailable,
+      });
+      expect(status.configured).toBe(false);
+      expect(status.listModels).toBeUndefined();
+    },
+  );
 
   test.each(["claude", "chatgpt", "grok", "github_copilot", "kimi_code"])(
     "treats %s as a subscription provider that needs a saved credential",
@@ -135,6 +151,7 @@ describe("getLlmProviderStatus", () => {
     const status = getLlmProviderStatus({
       provider: definition,
       config: { api_key: "test-key" },
+      isAvailable: true,
       isAuthenticated: false,
       isPaid: false,
     });
@@ -151,6 +168,7 @@ describe("getLlmProviderStatus", () => {
       const missingEndpoint = getLlmProviderStatus({
         provider: definition,
         config: { api_key: "test-key" },
+        isAvailable: true,
         isAuthenticated: false,
         isPaid: false,
       });
@@ -160,6 +178,7 @@ describe("getLlmProviderStatus", () => {
           base_url: "https://provider.example.com/v1",
           api_key: "test-key",
         },
+        isAvailable: true,
         isAuthenticated: false,
         isPaid: false,
       });
@@ -178,6 +197,7 @@ describe("getLlmProviderStatus", () => {
           "https://aiplatform.googleapis.com/v1/projects/project/locations/global/endpoints/openapi",
         api_key: "test-key",
       },
+      isAvailable: true,
       isAuthenticated: false,
       isPaid: false,
     });

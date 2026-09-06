@@ -1,4 +1,7 @@
 import * as SecureStore from "expo-secure-store";
+import { fetch } from "expo/fetch";
+
+import { verifyProviderCredentials } from "@anlg/provider-validation";
 
 import {
   decodeJwtPayload,
@@ -83,13 +86,19 @@ export async function readProviderStatus(
   ]);
   let hasKey = false;
   let isConfigured = provider === "anarlog";
+  let verificationError: string | undefined;
   try {
     validateProviderApiKey(apiKey ?? "");
     hasKey = true;
     validateProviderConnection(kind, config);
+    await verifyProviderCredentials({ ...config, apiKey: apiKey! }, fetch);
     isConfigured = true;
-  } catch {}
-  return { config, hasKey, isConfigured };
+  } catch (error) {
+    if (hasKey)
+      verificationError =
+        error instanceof Error ? error.message : "Couldn’t verify this key.";
+  }
+  return { config, hasKey, isConfigured, verificationError };
 }
 
 export async function saveProviderConfig(
@@ -145,6 +154,7 @@ async function persistProviderConfig(
         (await readProviderKey(accountId, kind, normalized.provider)) ||
         "",
     );
+    await verifyProviderCredentials({ ...normalized, apiKey: key }, fetch);
     if (apiKey?.trim())
       await SecureStore.setItemAsync(
         providerStorageKey(accountId, kind, normalized.provider),

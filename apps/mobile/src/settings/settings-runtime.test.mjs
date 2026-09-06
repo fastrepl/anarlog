@@ -34,6 +34,7 @@ const fixture = (globalThis.mobileSettingsFixture = {
     }),
 });
 const modules = {
+  "@anlg/provider-validation": `export async function verifyProviderCredentials(credential) { return globalThis.mobileSettingsFixture.verify(credential); }`,
   "@anlg/mobile-bridge": `export const ProviderTranscriptionError = Object.fromEntries(["AudioTooLarge", "AudioMissing", "ResponseTooLarge", "InvalidSettings", "TimedOut", "RequestFailed"].map(tag => [tag, {instanceOf: error => error.tag === tag}]));
   export async function transcribeProviderAudio(request, options) {
     const fixture = globalThis.mobileSettingsFixture;
@@ -149,10 +150,57 @@ beforeEach(() => {
   fixture.keys.clear();
   fixture.session = null;
   fixture.requests = [];
+  fixture.verify = async () => {};
   fixture.respond = () =>
     Response.json({
       choices: [{ message: { content: "## Decisions\nShip the mobile app." } }],
     });
+});
+
+test("rejected provider keys never replace working credentials or settings", async () => {
+  for (const kind of ["stt", "llm"]) {
+    const config = defaultProviderConfig(kind, "openai");
+    await saveProviderConnection("account-a", kind, config, "working-key");
+    const before = [...fixture.keys.entries()];
+    fixture.verify = async () => {
+      throw Error("The provider rejected this key.");
+    };
+    await assert.rejects(
+      saveProviderConnection("account-a", kind, config, "invalid-key"),
+      /rejected/,
+    );
+    assert.deepEqual([...fixture.keys.entries()], before);
+    assert.equal(
+      (await readProviderStatus("account-a", kind, "openai")).isConfigured,
+      false,
+    );
+    fixture.verify = async () => {};
+    assert.equal(
+      (await readProviderStatus("account-a", kind, "openai")).isConfigured,
+      true,
+    );
+  }
+});
+
+test("failed verification never creates a provider or exposes it in selection", async () => {
+  fixture.verify = async () => {
+    throw Error("Couldn’t verify this key. Check your connection.");
+  };
+  await assert.rejects(
+    saveProviderConnection(
+      null,
+      "stt",
+      defaultProviderConfig("stt", "deepgram"),
+      "bad-key",
+    ),
+    /Couldn’t verify/,
+  );
+  assert.equal(fixture.keys.size, 0);
+  assert.equal(
+    (await readProviderStatus(null, "stt", "deepgram")).isConfigured,
+    false,
+  );
+  assert.equal((await readProviderConfig(null, "stt")).provider, "anarlog");
 });
 
 test("provider availability follows saved device keys for transcription and summaries", async () => {
