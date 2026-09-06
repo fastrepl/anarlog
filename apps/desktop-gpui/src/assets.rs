@@ -165,6 +165,7 @@ embedded!(
     "icons/check-circle.svg",
     "icons/check.svg",
     "icons/circle-notch.svg",
+    "icons/clock-counter-clockwise.svg",
     "icons/close-x.svg",
     "icons/code.svg",
     "icons/copy.svg",
@@ -339,6 +340,6 @@ mod tests {
         }
         assert!(Assets.load("icons/search.svg").unwrap().is_some());
         assert!(Assets.load("icons/missing.svg").unwrap().is_none());
-        assert_eq!(Assets.list("icons/").unwrap().len(), 163);
+        assert_eq!(Assets.list("icons/").unwrap().len(), 164);
     }
 }

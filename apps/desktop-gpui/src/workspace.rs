@@ -1,5 +1,6 @@
 mod ai_settings;
 mod calendar_tab;
+mod chat;
 mod contacts_tab;
 mod developers_page;
 mod document_view;
@@ -198,6 +199,8 @@ pub struct Workspace {
     onboarding: Option<onboarding::OnboardingState>,
     /// The capture engine and the live session state.
     recording: recording::RecordingState,
+    /// `chat.mode === "FloatingOpen"`
+    chat_open: bool,
     /// `anarlog.template-picker.recent-emojis` (kept for the session).
     recent_emoji_ids: Vec<String>,
     /// The note column's scroll position, for its WebKit-style scrollbar.
@@ -321,6 +324,7 @@ impl Workspace {
             stats: None,
             onboarding: None,
             recording: recording::RecordingState::default(),
+            chat_open: false,
             recent_emoji_ids: Vec::new(),
             note_scroll: gpui::ScrollHandle::new(),
             hovered_section: None,
@@ -1143,8 +1147,11 @@ impl Render for Workspace {
             .on_action(|_: &actions::ToggleFullscreen, window, _| window.toggle_fullscreen())
             .on_action(|_: &actions::CloseWindow, window, _| window.remove_window())
             // `useCloseStandaloneNoteWindowOnEscape`
+            .on_action(cx.listener(|this, _: &actions::ToggleChat, _, cx| this.toggle_chat(cx)))
             .on_action(cx.listener(|this, _: &actions::Escape, window, cx| {
-                if this.export_dialog.is_some() {
+                if this.chat_open {
+                    this.close_chat(cx);
+                } else if this.export_dialog.is_some() {
                     this.close_export_dialog(cx);
                 } else if this.folder_dialog_open() {
                     this.close_folder_dialogs(cx);

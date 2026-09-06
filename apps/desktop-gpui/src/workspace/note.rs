@@ -64,6 +64,7 @@ impl Workspace {
         // (left border, top-left corner rounded off macOS), "top-borderless"
         // when collapsed (no border, no rounding).
         div()
+            .relative()
             .flex()
             .flex_col()
             .flex_1()
@@ -89,6 +90,8 @@ impl Workspace {
                 }),
             )
             .child(content)
+            // `PersistentChat` portals its floating frame over this surface.
+            .children(self.render_chat_frame(cx))
     }
 
     /// `EmptyView`: three centred actions with their shortcuts.
