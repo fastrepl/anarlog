@@ -15,6 +15,7 @@ mod live_transcript;
 mod mention;
 mod prose_text;
 mod recording;
+mod search;
 mod secrets;
 mod shell;
 mod squircle;
@@ -105,12 +106,14 @@ fn main() -> anyhow::Result<()> {
     ))?;
     let audio = audio::provider(&args.identifier);
     let store = Arc::new(store);
+    let search = search::SearchIndex::start(&store);
     tracing::info!(path = %store.path().display(), "opened application database");
 
     Application::new()
         .with_assets(assets::Assets)
         .run(move |cx: &mut App| {
             cx.set_global(audio::Audio(audio));
+            cx.set_global(search::Search(search));
             actions::bind_keys(cx);
             text_input::bind_keys(cx);
             text_area::bind_keys(cx);

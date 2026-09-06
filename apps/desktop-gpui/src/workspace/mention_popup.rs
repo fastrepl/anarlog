@@ -52,8 +52,35 @@ pub(crate) fn candidates(
     items
 }
 
-pub(crate) fn search_over(shared: Rc<RefCell<Vec<MentionItem>>>) -> Search {
-    Rc::new(move |query: &str| search_candidates(&shared.borrow(), query))
+/// `handleSearch`: an empty query lists the candidates; a query asks the
+/// shared tantivy index like `useSearchEngine().search(query)` and maps the
+/// hits (`id`, `doc_type`, `title`) — falling back to the label filter while
+/// the index is still opening.
+pub(crate) fn search_over(
+    shared: Rc<RefCell<Vec<MentionItem>>>,
+    index: std::sync::Arc<crate::search::SearchIndex>,
+    runtime: tokio::runtime::Handle,
+) -> Search {
+    Rc::new(move |query: &str| {
+        if query.trim().is_empty() || !index.is_ready() {
+            return search_candidates(&shared.borrow(), query);
+        }
+        match index.search(&runtime, query) {
+            Ok(hits) => hits
+                .into_iter()
+                .map(|hit| MentionItem {
+                    id: hit.document.id,
+                    kind: hit.document.doc_type,
+                    label: hit.document.title,
+                })
+                .take(crate::editor::mention_picker::MAX_ITEMS)
+                .collect(),
+            Err(error) => {
+                tracing::error!(%error, "mention search failed");
+                Vec::new()
+            }
+        }
+    })
 }
 
 impl Workspace {

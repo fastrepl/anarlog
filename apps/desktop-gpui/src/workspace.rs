@@ -938,7 +938,11 @@ impl Workspace {
                 if let Some(previous) = self.editor.take() {
                     previous.update(cx, |editor, cx| editor.flush(cx));
                 }
-                let search = mention_popup::search_over(self.mention_candidates.clone());
+                let search = mention_popup::search_over(
+                    self.mention_candidates.clone(),
+                    cx.global::<crate::search::Search>().0.clone(),
+                    self.store.runtime().clone(),
+                );
                 let editor = cx.new(|cx| {
                     let mut editor = BodyEditor::new(session_id, &body, cx);
                     editor.set_mention_search(search);

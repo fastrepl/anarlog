@@ -20,6 +20,7 @@ anlg-fs-sync-core = { workspace = true }
 anlg-language = { workspace = true }
 anlg-listener-core = { workspace = true }
 anlg-listener2-core = { workspace = true }
+anlg-search-index = { workspace = true }
 anlg-storage = { workspace = true }
 anlg-template-app = { workspace = true }
 anlg-tiptap = { workspace = true }

@@ -1365,6 +1365,10 @@ impl Store {
         &self.path
     }
 
+    pub fn pool(&self) -> &sqlx::SqlitePool {
+        self.db.pool()
+    }
+
     pub fn runtime(&self) -> &tokio::runtime::Handle {
         &self.runtime
     }
