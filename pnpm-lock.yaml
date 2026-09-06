@@ -197,6 +197,9 @@ importers:
       '@anlg/pricing':
         specifier: workspace:^
         version: link:../../packages/pricing
+      '@anlg/provider-validation':
+        specifier: workspace:*
+        version: link:../../packages/provider-validation
       '@anlg/store':
         specifier: workspace:*
         version: link:../../packages/store
@@ -447,6 +450,9 @@ importers:
       '@anlg/mobile-bridge':
         specifier: workspace:*
         version: link:../../packages/mobile-bridge-rn
+      '@anlg/provider-validation':
+        specifier: workspace:*
+        version: link:../../packages/provider-validation
       '@anlg/supabase':
         specifier: workspace:*
         version: link:../../packages/supabase
@@ -1166,6 +1172,12 @@ importers:
       '@types/react':
         specifier: ^19.2.14
         version: 19.2.14
+
+  packages/provider-validation:
+    dependencies:
+      js-sha256:
+        specifier: 0.10.1
+        version: 0.10.1
 
   packages/store:
     dependencies:

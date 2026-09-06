@@ -18,6 +18,7 @@
     "tauri:build": "tauri build"
   },
   "dependencies": {
+    "@anlg/provider-validation": "workspace:*",
     "@ai-sdk/anthropic": "^3.0.69",
     "@ai-sdk/azure": "^3.0.53",
     "@ai-sdk/google": "^3.0.62",

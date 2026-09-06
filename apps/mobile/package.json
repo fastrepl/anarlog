@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@anlg/provider-validation": "workspace:*",
     "@anlg/db-react": "workspace:*",
     "@anlg/db-runtime": "workspace:*",
     "@anlg/design-system": "workspace:^",

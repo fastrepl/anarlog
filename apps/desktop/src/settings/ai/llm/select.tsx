@@ -34,6 +34,7 @@ import { useBillingAccess } from "~/auth/billing-context";
 import {
   providerRowId,
   ProviderIconSlot,
+  requiresKeyVerification,
   useProviderAvailability,
 } from "~/settings/ai/shared";
 import {
@@ -539,7 +540,7 @@ export function getLlmProviderStatus({
     return { configured: false };
   }
 
-  if (provider.checkAvailability) {
+  if (provider.checkAvailability || requiresKeyVerification(provider)) {
     if (isAvailable === undefined) {
       return { configured: false, availabilityPending: true };
     }
@@ -657,7 +658,9 @@ function useConfiguredMapping(): {
         // silently re-persist the selection to another provider.
         const isAvailable = provider.checkAvailability
           ? provider.id === current_llm_provider || availability[provider.id]
-          : undefined;
+          : requiresKeyVerification(provider)
+            ? availability[provider.id]
+            : undefined;
         return [
           provider.id,
           getLlmProviderStatus({
