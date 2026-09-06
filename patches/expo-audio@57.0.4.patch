@@ -7,6 +7,17 @@ index 36a19f2d9c4a979a940ab681a1fb844ce45f7c75..52db4ef31acd30dfa55977f630f4b895
    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 +  <uses-permission android:name="android.permission.WAKE_LOCK" />
  </manifest>
+diff --git a/android/src/main/java/expo/modules/audio/AudioExceptions.kt b/android/src/main/java/expo/modules/audio/AudioExceptions.kt
+index 48026058e83c7f8ce462dc26227996b7c76b06c8..17d5b6765f5e3b7312d4760bcae63b8e67c4b53f 100644
+--- a/android/src/main/java/expo/modules/audio/AudioExceptions.kt
++++ b/android/src/main/java/expo/modules/audio/AudioExceptions.kt
+@@ -63,3 +63,6 @@ internal class AudioStreamUnsupportedConfigException(message: String) :
+ 
+ internal class AudioStreamInitializationException(message: String) :
+   CodedException(message)
++
++internal class AudioStreamStartCancelledException :
++  CodedException("Audio stream startup was cancelled")
 diff --git a/android/src/main/java/expo/modules/audio/AudioModule.kt b/android/src/main/java/expo/modules/audio/AudioModule.kt
 index 992239ba7631ce0c97c0b41c5fbf61cc842386fe..eaac6ecf77b75a5d2cbed816f6a68f2af9aaa630 100644
 --- a/android/src/main/java/expo/modules/audio/AudioModule.kt
@@ -52,7 +63,7 @@ index 9a7683666fe0838b21ed4b8502b91d151f76d601..35026446b76b3a632367b9fa267f883a
      val url = currentFileUrl()
      var durationMillis: Long
 diff --git a/android/src/main/java/expo/modules/audio/AudioStream.kt b/android/src/main/java/expo/modules/audio/AudioStream.kt
-index 8ecdcc126876853204ba8b92ec4ccfaef6faadb0..7e6e29ff01257d50d505a3ee464e33420393b7ab 100644
+index 8ecdcc126876853204ba8b92ec4ccfaef6faadb0..771612dad7c6fdcc97657d229a15dd2b2e5125f1 100644
 --- a/android/src/main/java/expo/modules/audio/AudioStream.kt
 +++ b/android/src/main/java/expo/modules/audio/AudioStream.kt
 @@ -1,10 +1,17 @@
@@ -158,7 +169,7 @@ index 8ecdcc126876853204ba8b92ec4ccfaef6faadb0..7e6e29ff01257d50d505a3ee464e3342
 +      // A notification stop must not land between service registration and capture startup.
 +      synchronized(this) {
 +        if (stopRequested || isReleased) {
-+          throw AudioStreamInitializationException("Audio stream startup was cancelled")
++          throw AudioStreamStartCancelledException()
 +        }
 +        if (allowsBackgroundRecording) {
 +          val context = appContext?.reactContext ?: throw AudioStreamInitializationException("React context is unavailable")

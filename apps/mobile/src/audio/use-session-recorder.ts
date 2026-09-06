@@ -13,7 +13,10 @@ import {
   endMobileCapture,
 } from "@/audio/capture-lifecycle";
 import { pcmAmplitude } from "@/audio/pcm-wav";
-import { type RecorderPhase } from "@/audio/recorder-status";
+import {
+  isRecordingStartCancelled,
+  type RecorderPhase,
+} from "@/audio/recorder-status";
 import { SessionWavWriter } from "@/audio/session-wav-writer";
 import { catalogSessionAudio } from "@/data/audio-catalog";
 import {
@@ -288,6 +291,10 @@ export function useSessionRecorder(
         });
       });
       unregisterCapture();
+      if (isRecordingStartCancelled(error)) {
+        setPhase("idle");
+        return;
+      }
       reportFailure("start_failed", error, "recording_start");
       captureAnalytics("session_start_failed", {
         failure_stage: "capture_start",
