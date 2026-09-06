@@ -274,21 +274,11 @@ impl Workspace {
         // variant="cta"` (`ShareNetwork size-3.5` + "Share").
         let mode = self.session_mode(&preview.session.id);
         let (label, glyph): (&str, AnyElement) = match event {
-            // `sessionMode === "active"`: `Square size-3 text-red-500 weight="fill"`.
+            // `sessionMode === "active"`: `Square className="size-3 text-red-500"`
+            // (the outlined Hugeicons square).
             _ if mode == super::recording::SessionMode::Active => (
                 "Stop",
-                div()
-                    .flex()
-                    .size(px(12.0))
-                    .items_center()
-                    .justify_center()
-                    .child(
-                        div()
-                            .size(px(10.0))
-                            .rounded(px(1.0))
-                            .bg(gpui::rgb(0xfb2c36)),
-                    )
-                    .into_any_element(),
+                icon("square", px(12.0), gpui::rgb(0xfb2c36)).into_any_element(),
             ),
             _ if preview.meeting_over() => (
                 "Share",

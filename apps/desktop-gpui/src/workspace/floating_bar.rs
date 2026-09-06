@@ -820,7 +820,8 @@ impl FloatingBar {
                     .tw_text_xs()
                     .font_weight(gpui::FontWeight::SEMIBOLD)
                     .text_color(accent)
-                    .child(div().size(px(9.0)).rounded(px(1.0)).bg(accent))
+                    // `<Square size={9} />`: the outlined square.
+                    .child(icon("square", px(9.0), accent))
                     .child("Stop")
                     .into_any_element()
             } else {
