@@ -18,10 +18,12 @@ import { createStyleHook } from "@/settings/theme-provider";
 const WORDMARK_WIDTH = 200;
 const WORDMARK_HEIGHT = 56;
 const WORDMARK_SOURCE_WIDTH = 1_205;
+const WORDMARK_SCALE = WORDMARK_WIDTH / WORDMARK_SOURCE_WIDTH;
 const REVEAL_STEPS = [154, 357, 538, 714, 786, 1_006, 1_205].map(
-  (width) => (width / WORDMARK_SOURCE_WIDTH) * WORDMARK_WIDTH,
+  (width) => width * WORDMARK_SCALE,
 );
 const FIRST_REVEAL = REVEAL_STEPS[0];
+const CURSOR_GAP = 166.49 * WORDMARK_SCALE - FIRST_REVEAL;
 const LOGO_SHIFT = -(WORDMARK_WIDTH - FIRST_REVEAL) / 2;
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 
@@ -111,7 +113,7 @@ export function BrandLoadingView({
   }));
   const cursorStyle = useAnimatedStyle(() => ({
     opacity: cursorOpacity.get(),
-    transform: [{ translateX: revealWidth.get() + 4 }],
+    transform: [{ translateX: revealWidth.get() + CURSOR_GAP }],
   }));
 
   return (
@@ -138,7 +140,13 @@ export function BrandLoadingView({
             />
             <Animated.View style={[styles.wordmarkCover, coverStyle]} />
           </View>
-          <Animated.View style={[styles.cursor, cursorStyle]} />
+          <Animated.View style={[styles.cursor, cursorStyle]}>
+            <Image
+              contentFit="contain"
+              source={require("../../assets/images/anarlog-underscore.svg")}
+              style={styles.cursorImage}
+            />
+          </Animated.View>
         </Animated.View>
       </View>
     </View>
@@ -179,11 +187,13 @@ const useStyles = createStyleHook((Colors) => ({
   },
   cursor: {
     position: "absolute",
-    top: 44,
+    top: (WORDMARK_HEIGHT - 334 * WORDMARK_SCALE) / 2 + 221.65 * WORDMARK_SCALE,
     left: 0,
-    width: 14,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: Colors.ink,
+    width: 64.37 * WORDMARK_SCALE,
+    height: 35.46 * WORDMARK_SCALE,
+  },
+  cursorImage: {
+    flex: 1,
+    tintColor: Colors.ink,
   },
 }));
