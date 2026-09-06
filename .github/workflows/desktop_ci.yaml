@@ -53,11 +53,14 @@ jobs:
   gpui_linux_ci:
     if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           submodules: recursive
           fetch-depth: 0
+          persist-credentials: false
       # listener-core pulls the same native audio stack as the Tauri app.
       - uses: ./.github/actions/install_desktop_deps
       - run: |
