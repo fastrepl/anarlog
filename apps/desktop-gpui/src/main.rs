@@ -15,6 +15,7 @@ mod live_transcript;
 mod prose_text;
 mod recording;
 mod secrets;
+mod shell;
 mod squircle;
 mod stats;
 mod store_file;

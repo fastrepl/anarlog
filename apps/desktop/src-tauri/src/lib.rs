@@ -6,6 +6,7 @@ mod db;
 mod embedded_cli;
 mod ext;
 mod search_index;
+mod shell;
 mod startup;
 mod store;
 mod supervisor;
@@ -129,6 +130,8 @@ pub fn main() {
 
     let context = tauri::generate_context!();
     let identifier = context.config().identifier.clone();
+
+    shell::hand_off_if_preferred(&identifier);
 
     // The single-instance plugin only starts with the builder, which is too
     // late to keep a second launch from racing an in-flight startup migration.
@@ -654,6 +657,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::get_env::<tauri::Wry>,
             commands::show_devtool::<tauri::Wry>,
             commands::is_app_store_build,
+            commands::is_native_shell_available,
+            commands::switch_to_native_shell::<tauri::Wry>,
             commands::complete_app_exit::<tauri::Wry>,
             commands::get_tinybase_values::<tauri::Wry>,
             commands::get_pinned_tabs::<tauri::Wry>,

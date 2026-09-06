@@ -138,6 +138,10 @@ msgstr ""
 msgid "A dated Notion update with the meeting summary."
 msgstr ""
 
+#: src/settings/general/native-shell.tsx
+msgid "A faster native interface built on GPUI. You can switch back from its settings at any time. Anarlog relaunches immediately."
+msgstr ""
+
 #: src/sidebar/folder-name-dialog.tsx
 msgid "A folder with this name already exists."
 msgstr ""
@@ -4950,6 +4954,10 @@ msgstr ""
 msgid "Sunday"
 msgstr ""
 
+#: src/settings/general/native-shell.tsx
+msgid "Switch"
+msgstr ""
+
 #: src/templates/template-icon-picker.tsx
 msgid "Symbols"
 msgstr ""
@@ -5301,6 +5309,10 @@ msgstr ""
 
 #: src/session/components/outer-header/index.tsx
 msgid "Try the demo"
+msgstr ""
+
+#: src/settings/general/native-shell.tsx
+msgid "Try the new Anarlog (beta)"
 msgstr ""
 
 #: src/automations/starters.tsx

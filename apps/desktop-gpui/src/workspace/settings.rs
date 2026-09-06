@@ -2107,6 +2107,43 @@ impl Workspace {
     }
 
     /// `AppSettingsView` + Language & Region + Storage.
+    /// Incremental-migration escape hatch: only offered when the Tauri build
+    /// is installed alongside this binary, which is the packaged layout.
+    fn render_classic_shell_row(&self, cx: &Context<Self>) -> Option<Div> {
+        let theme = self.theme;
+        crate::shell::tauri_binary(self.store.identifier())?;
+        // `Button variant="outline" size="sm"`: `h-7 px-2 text-xs`.
+        let button = div()
+            .id("setting-classic-shell")
+            .flex()
+            .h(px(28.0))
+            .items_center()
+            .px_2()
+            .rounded(px(8.0))
+            .border_1()
+            .border_color(theme.border)
+            .bg(theme.background)
+            .tw_text_xs()
+            .font_weight(gpui::FontWeight::MEDIUM)
+            .text_color(theme.foreground)
+            .cursor_pointer()
+            .hover(|s| s.bg(theme.accent))
+            .on_click(cx.listener(|this, _: &gpui::ClickEvent, _, cx| {
+                match crate::shell::switch_to_tauri(this.store.identifier()) {
+                    Ok(()) => cx.quit(),
+                    Err(error) => tracing::warn!(%error, "failed to switch to the classic app"),
+                }
+            }))
+            .child("Switch back");
+        Some(setting_row(
+            theme,
+            "Use the classic app",
+            Some("Return to the previous Anarlog interface. Anarlog relaunches immediately."),
+            true,
+            button.into_any_element(),
+        ))
+    }
+
     fn render_general_settings(&self, window: &Window, cx: &Context<Self>) -> Div {
         let theme = self.theme;
         let settings = &self.provider_settings;
@@ -2190,7 +2227,8 @@ impl Workspace {
                         None,
                         tray,
                         SHOW_TRAY_ICON.0,
-                    )),
+                    ))
+                    .children(self.render_classic_shell_row(cx)),
             )
             .child(
                 div()
