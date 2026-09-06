@@ -5,6 +5,7 @@
 pub mod links;
 pub mod model;
 pub mod rules;
+pub mod tasks;
 
 use std::ops::Range;
 use std::time::{Duration, Instant};
@@ -427,7 +428,18 @@ impl BodyEditor {
         self.restore(snapshot, cx);
     }
 
+    /// `TaskItemView`'s checkbox: flip the item holding `block` between
+    /// `done` and `todo`.
+    pub fn toggle_task(&mut self, block: usize, cx: &mut Context<Self>) {
+        self.record_edit(EditKind::Structural);
+        if self.doc.toggle_task(block) {
+            self.changed(cx);
+        }
+    }
+
     fn changed(&mut self, cx: &mut Context<Self>) {
+        // `taskIdentityPlugin`: ids stay unique after splits and pastes.
+        self.doc.ensure_task_identity();
         // `appendTransaction` of the autolink and link-boundary-guard plugins:
         // the caret's block is the changed textblock; a structural edit (split,
         // join, lift) may also have reshaped the block before it.

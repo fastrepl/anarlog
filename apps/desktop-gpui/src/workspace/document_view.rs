@@ -7,8 +7,8 @@ use std::cell::Cell;
 
 use gpui::{
     AnyElement, Div, ElementInputHandler, Entity, Focusable as _, HighlightStyle, MouseButton,
-    MouseDownEvent, Pixels, SharedString, StyledText, TextRun, TextStyle, Window, canvas, div,
-    fill, prelude::*, px, size,
+    MouseDownEvent, Pixels, Point, SharedString, StyledText, TextRun, TextStyle, Window, canvas,
+    div, fill, point, prelude::*, px, size,
 };
 
 use super::Workspace;
@@ -63,6 +63,9 @@ pub(super) struct DocumentRenderer {
     /// their layout to the editor, place the caret on click, and paint it.
     editor: Option<Entity<BodyEditor>>,
     next_textblock: Cell<usize>,
+    /// Set while rendering a checked task item: its first paragraph paints
+    /// the `li[data-checked="true"] > div > p` strikethrough.
+    strike_next: Cell<bool>,
     /// `placeholderPlugin`: the empty textblock holding the selection anchor
     /// shows the placeholder text.
     placeholder: Option<(usize, SharedString)>,
@@ -87,6 +90,7 @@ impl Workspace {
             theme: self.theme,
             editor: None,
             next_textblock: Cell::new(0),
+            strike_next: Cell::new(false),
             placeholder: None,
             link_color: None,
         }
@@ -167,8 +171,39 @@ impl DocumentRenderer {
 
     /// Wraps a textblock's text with the editor hooks when editing.
     fn textblock(&self, wrapper: Div, text: ProseText) -> AnyElement {
+        // `background: linear-gradient(currentColor, currentColor) 0 55% / 100%
+        // 1px no-repeat` on a `width: fit-content` paragraph: one 1px line at
+        // 55% of the block's height, as wide as its widest line.
+        let strike = self.strike_next.replace(false).then(|| {
+            let layout = text.layout().clone();
+            let ink = self.theme.foreground;
+            canvas(
+                |_, _, _| (),
+                move |bounds, _, window, _| {
+                    let Some(width) = layout.content_width() else {
+                        return;
+                    };
+                    let y = bounds.top() + bounds.size.height * 0.55;
+                    window.paint_quad(fill(
+                        gpui::Bounds::new(
+                            point(bounds.left(), px(f32::from(y).floor())),
+                            size(width, px(1.0)),
+                        ),
+                        ink,
+                    ));
+                },
+            )
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full()
+        });
         let Some(editor) = &self.editor else {
-            return wrapper.child(text).into_any_element();
+            return wrapper
+                .relative()
+                .child(text)
+                .children(strike)
+                .into_any_element();
         };
         let index = self.next_textblock.get();
         self.next_textblock.set(index + 1);
@@ -266,6 +301,7 @@ impl DocumentRenderer {
                 .left_0()
                 .size_full(),
             )
+            .children(strike)
             .into_any_element()
     }
 
@@ -324,26 +360,40 @@ impl DocumentRenderer {
                     )
                 })
                 .children(items.iter().enumerate().map(|(index, item)| {
+                    // The marker renders before the item's blocks, so the next
+                    // textblock index is the item's first paragraph.
+                    let first_block = self.next_textblock.get();
+                    let checked = item.checked == Some(true);
+                    self.strike_next.set(checked);
                     div()
                         .relative()
                         .flex()
                         .child(
                             // `li { padding-left: 1.5em }`; bullets are centred at
                             // `left: 0.5em`, `top: 0.125em + 0.75em`, ordered markers fill a
-                            // `1em` box at `left: 0` with centred text.
+                            // `1em` box at `left: 0` with centred text; a task item's
+                            // checkbox sits at `left: 0.75rem` of its `-0.75rem` li.
                             div()
                                 .relative()
                                 .flex_shrink_0()
                                 .w(px(BODY_PX * 1.5))
                                 .h(px(BODY_PX * 1.5 + 4.0))
-                                .child(self.marker(item.checked, *ordered, index, depth)),
+                                .child(self.marker(
+                                    item.checked,
+                                    *ordered,
+                                    index,
+                                    depth,
+                                    first_block,
+                                )),
                         )
                         .child(
+                            // `li[data-checked="true"] > div { opacity: 0.5 }`
                             div()
                                 .flex()
                                 .flex_col()
                                 .min_w_0()
                                 .flex_1()
+                                .when(checked, |content| content.opacity(0.5))
                                 .children(self.blocks(&item.blocks, depth + 1)),
                         )
                 }))
@@ -417,6 +467,7 @@ impl DocumentRenderer {
         ordered: bool,
         index: usize,
         depth: usize,
+        first_block: usize,
     ) -> AnyElement {
         let theme = self.theme;
         let ink = alpha(theme.foreground, 0.65);
@@ -428,14 +479,7 @@ impl DocumentRenderer {
                 .size(px(size))
         };
         if let Some(checked) = checked {
-            return centre(14.0)
-                .rounded(px(3.0))
-                .border_1()
-                .border_color(ink)
-                .when(checked, |b| {
-                    b.bg(theme.foreground).border_color(theme.foreground)
-                })
-                .into_any_element();
+            return self.task_checkbox(checked, first_block);
         }
         if ordered {
             // `ol > li::before { top: 0.125em; left: 0; width: 1em; line-height: 1.5 }`
@@ -463,6 +507,90 @@ impl DocumentRenderer {
         .into_any_element()
     }
 
+    /// `TaskCheckbox` (`task-list.css`): a `1em` box at `top: 0.375em` with a
+    /// 1.5px (one device pixel) border at 65% foreground and a 5px radius;
+    /// checked fills it with the foreground and draws the rotated-L check in
+    /// the background colour. Interactive only while editing.
+    fn task_checkbox(&self, checked: bool, first_block: usize) -> AnyElement {
+        let theme = self.theme;
+        let ink = alpha(theme.foreground, 0.65);
+        let check = theme.background;
+        let box_px = BODY_PX;
+        let editor = self.editor.clone();
+        div()
+            .id(("task-checkbox", first_block))
+            .absolute()
+            .left_0()
+            .top(px(BODY_PX * 0.375))
+            .size(px(box_px))
+            .rounded(px(BODY_PX * 0.3125))
+            .border_1()
+            .border_color(ink)
+            .when(checked, |b| {
+                b.bg(theme.foreground).border_color(theme.foreground)
+            })
+            .when_some(editor, |b, editor| {
+                b.cursor_pointer()
+                    .when(!checked, |b| {
+                        b.hover(move |s| s.border_color(theme.foreground))
+                    })
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_click(move |_: &gpui::ClickEvent, _, cx| {
+                        editor.update(cx, |editor, cx| editor.toggle_task(first_block, cx));
+                    })
+            })
+            .when(checked, |b| {
+                b.child(
+                    canvas(
+                        |_, _, _| (),
+                        move |bounds, _, window, _| {
+                            // `::after`: a 0.28em × 0.55em box at (0.26em, 0.04em)
+                            // inside the border with 0.125em right/bottom borders,
+                            // rotated 45° about its centre.
+                            let em = box_px;
+                            let inset = 1.0;
+                            let (x, y, w, h) = (
+                                bounds.left() + px(inset + em * 0.26),
+                                bounds.top() + px(inset + em * 0.04),
+                                em * 0.28,
+                                em * 0.55,
+                            );
+                            let centre = point(x + px(w / 2.0), y + px(h / 2.0));
+                            let rotate = |p: Point<Pixels>| {
+                                let (dx, dy) =
+                                    (f32::from(p.x - centre.x), f32::from(p.y - centre.y));
+                                let (s, c) = (
+                                    std::f32::consts::FRAC_1_SQRT_2,
+                                    std::f32::consts::FRAC_1_SQRT_2,
+                                );
+                                point(
+                                    centre.x + px(dx * c - dy * s),
+                                    centre.y + px(dx * s + dy * c),
+                                )
+                            };
+                            let stroke = em * 0.125;
+                            // The L runs down the right edge and along the bottom
+                            // edge; stroke it along the border's centre line.
+                            let right = x + px(w - stroke / 2.0);
+                            let bottom = y + px(h - stroke / 2.0);
+                            let mut path = gpui::PathBuilder::stroke(px(stroke));
+                            path.move_to(rotate(point(right, y)));
+                            path.line_to(rotate(point(right, bottom)));
+                            path.line_to(rotate(point(x, bottom)));
+                            if let Ok(path) = path.build() {
+                                window.paint_path(path, check);
+                            }
+                        },
+                    )
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .size_full(),
+                )
+            })
+            .into_any_element()
+    }
+
     /// Inline runs at an explicit size, for prose outside the note body; links
     /// use `link_color` (streamdown's `text-foreground font-medium underline`).
     pub(super) fn inline_text(
@@ -481,6 +609,7 @@ impl DocumentRenderer {
             theme: self.theme,
             editor: None,
             next_textblock: std::cell::Cell::new(0),
+            strike_next: Cell::new(false),
             placeholder: None,
             link_color: Some(link_color),
         };

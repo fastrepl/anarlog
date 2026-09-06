@@ -161,6 +161,22 @@ impl ProseLayout {
         }
     }
 
+    /// `width: fit-content`: the widest line's visible extent (hanging
+    /// spaces excluded).
+    pub fn content_width(&self) -> Option<Pixels> {
+        let inner = self.0.borrow();
+        let inner = inner.as_ref()?;
+        inner
+            .lines
+            .iter()
+            .map(|line| {
+                line.shaped
+                    .unwrapped_layout
+                    .x_for_index(line.range.len() - line.hanging)
+            })
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+    }
+
     /// Horizontal extents of `range` on each line it touches, in window
     /// coordinates, for painting a selection.
     pub fn line_spans(&self, range: Range<usize>) -> Vec<Bounds<Pixels>> {

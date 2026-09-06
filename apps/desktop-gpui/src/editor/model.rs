@@ -234,12 +234,11 @@ impl Doc {
                 .to_string();
             let mut new_item = Map::new();
             new_item.insert("type".into(), Value::String(item_type));
+            // `splitListItem(itemType)` without `itemAttrs` copies the item's
+            // attrs; a task item's duplicated ids are then re-issued by the
+            // identity sweep (`ensure_task_identity`).
             if let Some(attrs) = item.get("attrs") {
-                let mut attrs = attrs.clone();
-                if let Some(checked) = attrs.get_mut("checked") {
-                    *checked = Value::Bool(false);
-                }
-                new_item.insert("attrs".into(), attrs);
+                new_item.insert("attrs".into(), attrs.clone());
             }
             new_item.insert("content".into(), Value::Array(vec![new_block]));
             if let Some(list) = node_at_mut(&mut self.root, list_path) {
@@ -418,6 +417,103 @@ impl Doc {
             }
             *inline = rebuilt;
             merge_adjacent_text(inline);
+        }
+    }
+
+    /// `taskIdentityPlugin`: unique, non-empty task ids after a change.
+    pub fn ensure_task_identity(&mut self) -> bool {
+        super::tasks::ensure_identity(&mut self.root)
+    }
+
+    /// Path of the `taskItem` a textblock sits in, if any.
+    fn task_item_path(&self, block: usize) -> Option<Vec<usize>> {
+        let path = self.textblocks.get(block)?;
+        (1..path.len()).rev().find_map(|depth| {
+            let candidate = &path[..depth];
+            (node_at(&self.root, candidate)?
+                .get("type")
+                .and_then(Value::as_str)
+                == Some("taskItem"))
+            .then(|| candidate.to_vec())
+        })
+    }
+
+    /// `TaskItemView`'s toggle: `setNodeMarkup` with the next status.
+    pub fn toggle_task(&mut self, block: usize) -> bool {
+        let Some(path) = self.task_item_path(block) else {
+            return false;
+        };
+        let Some(item) = node_at_mut(&mut self.root, &path) else {
+            return false;
+        };
+        let next = super::tasks::next_status(super::tasks::item_status(item));
+        let object = item.as_object_mut().expect("task item object");
+        let mut attrs = object
+            .get("attrs")
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        super::tasks::set_status(&mut attrs, next);
+        let content = object.remove("content");
+        object.remove("attrs");
+        object.insert("attrs".into(), Value::Object(attrs));
+        if let Some(content) = content {
+            object.insert("content".into(), content);
+        }
+        true
+    }
+
+    /// `taskListRule`: `tr.replaceWith(start - 1, end, taskList)` puts a task
+    /// list holding one item and the (emptied) paragraph where it stood.
+    pub fn replace_with_task_list(&mut self, block: usize, checked: bool) -> Caret {
+        let caret = Caret { block, offset: 0 };
+        let Some(path) = self.textblocks.get(block).cloned() else {
+            return caret;
+        };
+        let Some(paragraph) = node_at(&self.root, &path).cloned() else {
+            return caret;
+        };
+        let status = if checked { "done" } else { "todo" };
+        let attrs =
+            super::tasks::item_attrs(status, &super::tasks::new_id(), &super::tasks::new_id());
+        let task_list = json!({
+            "type": "taskList",
+            "content": [{ "type": "taskItem", "attrs": attrs, "content": [paragraph] }]
+        });
+        let (parent_path, index) = path.split_at(path.len() - 1);
+        if let Some(parent) = node_at_mut(&mut self.root, parent_path) {
+            let siblings = content_mut(parent);
+            if index[0] < siblings.len() {
+                siblings[index[0]] = task_list;
+            }
+        }
+        self.reindex();
+        caret
+    }
+
+    /// `taskListRule` fired in a list item's first paragraph: `replaceWith`
+    /// cannot drop the paragraph the item must start with, so ProseMirror's
+    /// fitter keeps it (emptied) and places the task list after it. The caret
+    /// lands in the new item's paragraph.
+    pub fn insert_task_list_after(&mut self, block: usize, checked: bool) -> Caret {
+        let Some(path) = self.textblocks.get(block).cloned() else {
+            return Caret { block, offset: 0 };
+        };
+        let status = if checked { "done" } else { "todo" };
+        let attrs =
+            super::tasks::item_attrs(status, &super::tasks::new_id(), &super::tasks::new_id());
+        let task_list = json!({
+            "type": "taskList",
+            "content": [{ "type": "taskItem", "attrs": attrs, "content": [{ "type": "paragraph" }] }]
+        });
+        let (parent_path, index) = path.split_at(path.len() - 1);
+        if let Some(parent) = node_at_mut(&mut self.root, parent_path) {
+            content_mut(parent).insert(index[0] + 1, task_list);
+        }
+        self.reindex();
+        Caret {
+            block: block + 1,
+            offset: 0,
         }
     }
 

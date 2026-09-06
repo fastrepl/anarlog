@@ -827,6 +827,33 @@ const UPSERT_MEMO_SQL: &str = "
       deleted_at = NULL
 ";
 
+// apps/desktop/src/editor-bridge/task-storage.ts: the `resolvedOwnerSql`
+// fragment binds (owner, DEFAULT_USER_ID) and falls back to the workspace
+// binding's account or workspace id.
+const RESOLVED_OWNER_SQL: &str = "
+  COALESCE(
+    NULLIF(?, ?),
+    (
+      SELECT NULLIF(json_extract(value_json, '$.account_user_id'), '')
+      FROM app_settings
+      WHERE id = 'cloudsync_workspace_binding'
+    ),
+    (
+      SELECT NULLIF(json_extract(value_json, '$.workspace_id'), '')
+      FROM app_settings
+      WHERE id = 'cloudsync_workspace_binding'
+    )
+  )
+";
+
+/// `upsertTasksForSource`: the rows of the note's source (`session`, id).
+const SOURCE_ACTION_ITEMS_SQL: &str = "
+    SELECT id, source_order, status, text, body_json, due_at
+    FROM action_items
+    WHERE source_type = ? AND source_id = ? AND deleted_at IS NULL
+    ORDER BY source_order, id
+";
+
 // apps/desktop/src/session/queries/sessions.ts, `updateSession({ title })`.
 /// `useSessionParticipants`
 const SESSION_PARTICIPANTS_SQL: &str = "
@@ -2992,8 +3019,140 @@ impl Store {
                 .bind(&session_id)
                 .execute(db.pool())
                 .await?;
+            Self::sync_action_items(db.pool(), &session_id, &body, &now).await?;
             Ok(())
         })
+    }
+
+    /// `normalizeTaskContent(initialContent)`: the editor opens the note with
+    /// unique, non-empty task ids; nothing is written until an edit.
+    fn normalize_tasks(body: String) -> String {
+        if !body.contains("\"taskItem\"") {
+            return body;
+        }
+        let Ok(mut doc) = serde_json::from_str::<serde_json::Value>(&body) else {
+            return body;
+        };
+        if crate::editor::tasks::ensure_identity(&mut doc) {
+            doc.to_string()
+        } else {
+            body
+        }
+    }
+
+    /// `syncTasks` → `upsertTasksForSource`: the note's task items mirrored
+    /// into `action_items` (source `session`), tombstoning rows the note no
+    /// longer holds and upserting the rest with the row's own `due_at` kept
+    /// (`previousTask?.dueDate`). Unchanged sets write nothing
+    /// (`areSameTaskSets`).
+    async fn sync_action_items(
+        pool: &sqlx::SqlitePool,
+        session_id: &str,
+        body: &str,
+        now: &str,
+    ) -> anyhow::Result<()> {
+        let Ok(doc) = serde_json::from_str::<serde_json::Value>(body) else {
+            return Ok(());
+        };
+        let tasks = crate::editor::tasks::extract_tasks(&doc);
+        let existing: Vec<(String, i64, String, String, String, String)> =
+            sqlx::query_as(SOURCE_ACTION_ITEMS_SQL)
+                .bind("session")
+                .bind(session_id)
+                .fetch_all(pool)
+                .await?;
+        let due_by_id: std::collections::HashMap<&str, &str> = existing
+            .iter()
+            .map(|(id, _, _, _, _, due)| (id.as_str(), due.as_str()))
+            .collect();
+        let same = existing.len() == tasks.len()
+            && tasks.iter().all(|task| {
+                existing
+                    .iter()
+                    .any(|(id, order, status, text, body_json, _)| {
+                        *id == task.task_id
+                            && *order == task.source_order as i64
+                            && *status == task.status
+                            && *text == task.text_preview
+                            && *body_json == task.body_json
+                    })
+            });
+        if same {
+            return Ok(());
+        }
+        let retained = serde_json::Value::Array(
+            tasks
+                .iter()
+                .map(|task| serde_json::Value::String(task.task_id.clone()))
+                .collect(),
+        )
+        .to_string();
+        let mut transaction = pool.begin().await?;
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "UPDATE action_items
+             SET deleted_at = ?, updated_at = ?, updated_by = {RESOLVED_OWNER_SQL}
+             WHERE source_type = ?
+               AND source_id = ?
+               AND deleted_at IS NULL
+               AND id NOT IN (SELECT value FROM json_each(?))"
+        )))
+        .bind(now)
+        .bind(now)
+        .bind(DEFAULT_USER_ID)
+        .bind(DEFAULT_USER_ID)
+        .bind("session")
+        .bind(session_id)
+        .bind(&retained)
+        .execute(&mut *transaction)
+        .await?;
+        for task in &tasks {
+            sqlx::query(sqlx::AssertSqlSafe(format!(
+                "INSERT INTO action_items (
+                   id, workspace_id, session_id, source_type, source_id, source_order,
+                   assignee_human_id, status, text, body_json, due_at, created_by,
+                   updated_by, metadata_json, created_at, updated_at, deleted_at
+                 )
+                 VALUES (
+                   ?, COALESCE(
+                     (SELECT NULLIF(workspace_id, '') FROM sessions WHERE id = ? AND deleted_at IS NULL),
+                     (SELECT NULLIF(json_extract(value_json, '$.workspace_id'), '')
+                      FROM app_settings WHERE id = 'cloudsync_workspace_binding')
+                   ), ?, ?, ?, ?, '', ?, ?, ?, ?, {RESOLVED_OWNER_SQL}, {RESOLVED_OWNER_SQL}, '{{}}', ?, ?, NULL
+                 )
+                 ON CONFLICT(id) DO UPDATE SET
+                   session_id = excluded.session_id,
+                   source_type = excluded.source_type,
+                   source_id = excluded.source_id,
+                   source_order = excluded.source_order,
+                   status = excluded.status,
+                   text = excluded.text,
+                   body_json = excluded.body_json,
+                   due_at = excluded.due_at,
+                   updated_by = excluded.updated_by,
+                   updated_at = excluded.updated_at,
+                   deleted_at = NULL"
+            )))
+            .bind(&task.task_id)
+            .bind(session_id)
+            .bind(session_id)
+            .bind("session")
+            .bind(session_id)
+            .bind(task.source_order as i64)
+            .bind(&task.status)
+            .bind(&task.text_preview)
+            .bind(&task.body_json)
+            .bind(due_by_id.get(task.task_id.as_str()).copied().unwrap_or(""))
+            .bind(DEFAULT_USER_ID)
+            .bind(DEFAULT_USER_ID)
+            .bind(DEFAULT_USER_ID)
+            .bind(DEFAULT_USER_ID)
+            .bind(now)
+            .bind(now)
+            .execute(&mut *transaction)
+            .await?;
+        }
+        transaction.commit().await?;
+        Ok(())
     }
 
     /// `updateSession(sessionId, { folder_id })`: `folder_path = ?`.
@@ -3297,7 +3456,8 @@ impl Store {
                     } else {
                         note.body.clone()
                     };
-                    (document::from_body(&note.body_format, &note.body), body)
+                    let body = Self::normalize_tasks(body);
+                    (document::from_body("prosemirror_json", &body), body)
                 }
                 None => (Vec::new(), String::new()),
             };

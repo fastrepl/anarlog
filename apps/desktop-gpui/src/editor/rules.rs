@@ -16,6 +16,7 @@ enum Rule {
     Heading,
     Blockquote,
     BulletList,
+    TaskList,
     OrderedList,
     CodeBlock,
     Divider,
@@ -41,6 +42,7 @@ static RULES: LazyLock<Vec<(Regex, Rule)>> = LazyLock::new(|| {
         (Regex::new(r"^\s*(\d+)\.\s$").unwrap(), Rule::OrderedList),
         (Regex::new(r"^```$").unwrap(), Rule::CodeBlock),
         (Regex::new(r"^(?:---|___|\*\*\*)\s$").unwrap(), Rule::Divider),
+        (Regex::new(r"^\s*\[([ x]?)\]\s$").unwrap(), Rule::TaskList),
         (
             Regex::new(r"(?:<->|==>|<==|<=>|->|<-|\+/-|\+-|=/=)$").unwrap(),
             Rule::Symbol,
@@ -190,6 +192,28 @@ pub fn apply(doc: &mut Doc, caret: Caret, typed: &str, in_code_context: bool) ->
                         block: caret.block,
                         offset: start,
                     },
+                    clear_stored_mark: None,
+                });
+            }
+            Rule::TaskList => {
+                // Unlike the wrapping rules this one `replaceWith`s, which the
+                // fitter also accepts in an item's first paragraph (keeping the
+                // paragraph and nesting the list after it).
+                let in_item_head = is_paragraph
+                    && matches!(parent_type.as_str(), "listItem" | "taskItem")
+                    && doc.is_first_child(caret.block);
+                if !block_allowed && !in_item_head {
+                    continue;
+                }
+                let checked = group(1) == "x";
+                doc.delete_range(caret.block, start..end);
+                let caret = if block_allowed {
+                    doc.replace_with_task_list(caret.block, checked)
+                } else {
+                    doc.insert_task_list_after(caret.block, checked)
+                };
+                return Some(Outcome {
+                    caret,
                     clear_stored_mark: None,
                 });
             }
