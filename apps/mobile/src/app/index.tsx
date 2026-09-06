@@ -262,7 +262,6 @@ export default function HomeScreen() {
           }
         >
           <StartListeningButton
-            bottomSpacing={Spacing.xs}
             onPress={() => void createAndOpen("?listen=1")}
           />
         </Animated.View>

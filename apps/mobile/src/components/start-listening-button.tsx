@@ -9,23 +9,13 @@ import {
 } from "@/constants/theme";
 import { createStyleHook } from "@/settings/theme-provider";
 
-export function StartListeningButton({
-  bottomSpacing = Spacing.md,
-  onPress,
-}: {
-  bottomSpacing?: number;
-  onPress: () => void;
-}) {
+export function StartListeningButton({ onPress }: { onPress: () => void }) {
   const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.button,
-        { marginBottom: bottomSpacing },
-        pressed && styles.buttonPressed,
-      ]}
+      style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
     >
       <View style={styles.dot} />
       <Text style={styles.label}>Start listening</Text>
@@ -41,6 +31,7 @@ const useStyles = createStyleHook((Colors) => ({
     justifyContent: "center",
     gap: Spacing.sm,
     marginHorizontal: Spacing.md,
+    marginBottom: Spacing.xs,
     borderRadius: LISTENING_CONTROL_RADIUS,
     borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.primary,
