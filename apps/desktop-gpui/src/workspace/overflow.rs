@@ -37,7 +37,7 @@ impl Workspace {
         cx.notify();
     }
 
-    fn close_overflow_menu(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn close_overflow_menu(&mut self, cx: &mut Context<Self>) {
         if self.overflow_open {
             self.overflow_open = false;
             self.overflow_submenu = None;
@@ -126,9 +126,13 @@ impl Workspace {
                 on_select: None,
                 submenu: None,
             },
-            super::recording::SessionMode::Inactive => plain(
+            super::recording::SessionMode::Inactive
+            | super::recording::SessionMode::RunningBatch => plain(
                 "microphone",
-                if audio_exists || has_transcript {
+                if audio_exists
+                    || has_transcript
+                    || mode == super::recording::SessionMode::RunningBatch
+                {
                     "Resume listening"
                 } else {
                     "Start listening"
@@ -181,7 +185,11 @@ impl Workspace {
                 ),
                 Entry::Separator,
                 listening,
-                plain("waveform", "Upload audio", None),
+                plain(
+                    "waveform",
+                    "Upload audio",
+                    Some(Box::new(|this, window, cx| this.upload_audio(window, cx))),
+                ),
                 plain(
                     "file-text",
                     "Upload transcript",

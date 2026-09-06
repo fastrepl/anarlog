@@ -1430,6 +1430,54 @@ impl Store {
         })
     }
 
+    /// `audioSourceMetadata` + `estimateUploadedAudioSessionCreatedAt`: the
+    /// file's creation (or modification) time minus its duration, as the
+    /// note date for an uploaded recording.
+    pub fn estimate_audio_created_at(path: PathBuf) -> Option<String> {
+        let metadata = anlg_fs_sync_core::audio::source_metadata(&path).ok()?;
+        let anchor = metadata.created_at.or(metadata.modified_at)?;
+        let anchor_ms = crate::timeline::parse_date(&anchor, &chrono::Utc)?.timestamp_millis();
+        let duration_ms = metadata
+            .duration_ms
+            .filter(|duration| *duration > 0)
+            .map(|duration| duration as i64)
+            .unwrap_or(0);
+        let estimated = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(
+            (anchor_ms - duration_ms).max(0),
+        )?;
+        Some(estimated.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string())
+    }
+
+    /// `fsSyncCommands.audioImport(sessionId, filePath)`: fs-sync's
+    /// `import_to_session` — normalise the source into `audio.mp3` in the
+    /// session folder, reporting `audioImportProgress` percentages.
+    pub fn import_audio(
+        &self,
+        session_id: String,
+        source: PathBuf,
+        progress: tokio::sync::mpsc::UnboundedSender<f64>,
+    ) -> tokio::task::JoinHandle<anyhow::Result<PathBuf>> {
+        struct Progress(tokio::sync::mpsc::UnboundedSender<f64>);
+        impl anlg_fs_sync_core::AudioImportRuntime for Progress {
+            fn emit(&self, event: anlg_fs_sync_core::AudioImportEvent) {
+                if let anlg_fs_sync_core::AudioImportEvent::Progress { percentage, .. } = event {
+                    let _ = self.0.send(percentage);
+                }
+            }
+        }
+        let session_dir = self.session_dir(&session_id);
+        self.runtime.spawn_blocking(move || {
+            let runtime = Progress(progress);
+            anlg_fs_sync_core::audio::import_to_session(
+                &runtime,
+                &session_id,
+                &session_dir,
+                &source,
+            )
+            .map_err(|error| anyhow::anyhow!(error.to_string()))
+        })
+    }
+
     /// `catalogLocalSessionAudio`: read the session folder's primary audio
     /// through fs-sync's metadata, then write the `session-audio:<id>`
     /// attachment (update or insert), its local state, and the transfer jobs

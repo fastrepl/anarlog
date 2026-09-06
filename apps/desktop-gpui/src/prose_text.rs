@@ -24,6 +24,10 @@ pub struct ProseText {
     line_height: Pixels,
     /// `text-align: center`: each line is offset by half the free width.
     centered: bool,
+    /// A `max-width` for the paragraph itself, used when the container is
+    /// sized by its content (an intrinsically sized flex item) and offers no
+    /// definite width to wrap at.
+    max_width: Option<Pixels>,
     layout: ProseLayout,
 }
 
@@ -63,12 +67,18 @@ impl ProseText {
             font_size,
             line_height,
             centered: false,
+            max_width: None,
             layout: ProseLayout::default(),
         }
     }
 
     pub fn centered(mut self) -> Self {
         self.centered = true;
+        self
+    }
+
+    pub fn max_width(mut self, width: Pixels) -> Self {
+        self.max_width = Some(width);
         self
     }
 
@@ -198,13 +208,18 @@ impl Element for ProseText {
         let font_size = self.font_size;
         let line_height = self.line_height;
         let layout = self.layout.clone();
+        let max_width = self.max_width;
         let layout_id = window.request_measured_layout(
             Style::default(),
             move |known_dimensions, available_space, window, _cx| {
-                let wrap_width = known_dimensions.width.or(match available_space.width {
-                    AvailableSpace::Definite(width) => Some(width),
-                    _ => None,
-                });
+                let wrap_width = known_dimensions
+                    .width
+                    .or(match available_space.width {
+                        AvailableSpace::Definite(width) => Some(width),
+                        _ => None,
+                    })
+                    .map(|width| max_width.map_or(width, |max| width.min(max)))
+                    .or(max_width);
                 if let Some(inner) = layout.0.borrow().as_ref()
                     && inner.wrap_width == wrap_width
                 {
@@ -478,6 +493,19 @@ mod tests {
     fn a_word_wider_than_the_line_breaks_inside_itself() {
         let breaks = break_offsets("abcdefghij", Some(px(45.0)), monospace);
         assert_eq!(breaks, vec![4, 8, 10]);
+    }
+
+    #[test]
+    fn long_sentences_wrap_at_the_last_fitting_space() {
+        let text = "the selected speech-to-text provider is not available for batch transcription on this platform. Configure a batch-capable speech-to-text provider.";
+        let breaks = break_offsets(text, Some(px(448.0)), |index| px(index as f32 * 6.0));
+        assert!(breaks.len() > 1, "{breaks:?}");
+        for window in breaks.windows(2) {
+            assert!(
+                (window[1] - window[0]) as f32 * 6.0 <= 448.0 + 6.0 * 2.0,
+                "{breaks:?}"
+            );
+        }
     }
 
     #[test]

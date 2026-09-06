@@ -9,7 +9,7 @@ use anlg_listener_core::actors::SessionParams;
 use anlg_listener_core::{
     DegradedError, SessionDataEvent, SessionLifecycleEvent, SessionProgressEvent, TranscriptionMode,
 };
-use gpui::{AnyElement, Context, Div, SharedString, div, prelude::*, px};
+use gpui::{AnyElement, Context, Div, SharedString, Window, div, prelude::*, px};
 
 use super::Workspace;
 use crate::recording::{Event, Recorder};
@@ -21,6 +21,66 @@ pub(crate) enum SessionMode {
     Inactive,
     Active,
     Finalizing,
+    RunningBatch,
+}
+
+/// `state.batch[sessionId]`
+#[derive(Clone, Debug)]
+pub(crate) struct BatchState {
+    pub phase: BatchPhase,
+    pub percentage: Option<f64>,
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum BatchPhase {
+    Importing,
+    Transcribing,
+}
+
+/// `AUDIO_EXTENSIONS`
+const AUDIO_EXTENSIONS: [&str; 8] = ["wav", "mp3", "ogg", "mp4", "m4a", "flac", "webm", "aac"];
+
+/// `DIRECT_BATCH_PROVIDERS`
+const DIRECT_BATCH_PROVIDERS: [&str; 24] = [
+    "deepgram",
+    "cartesia",
+    "soniox",
+    "assemblyai",
+    "openai",
+    "openrouter",
+    "siliconflow",
+    "zai",
+    "gladia",
+    "elevenlabs",
+    "mistral",
+    "pyannote",
+    "aquavoice",
+    "cohere",
+    "aws_transcribe",
+    "azure_speech",
+    "google_cloud",
+    "google_generative_ai",
+    "groq",
+    "revai",
+    "speechmatics",
+    "together",
+    "xai",
+    "smallestai",
+];
+
+/// `getBatchProvider`
+fn batch_provider(provider: &str, model: &str) -> Option<&'static str> {
+    if provider == "cloudflare_workers_ai" {
+        return Some("deepgram");
+    }
+    if crate::db::is_local_file_stt_model(provider, model) {
+        return Some("whispercpp");
+    }
+    DIRECT_BATCH_PROVIDERS
+        .iter()
+        .copied()
+        .find(|p| *p == provider)
 }
 
 /// `createCaptureLifecycle`'s transcript identity and persistence queue: the
@@ -71,6 +131,8 @@ pub(crate) struct RecordingState {
     /// Persistence queues of captures that ended and still have writes or
     /// the final flush outstanding, by session id.
     pub flushing: Vec<(String, LivePersistence)>,
+    /// `state.batch`: import / batch transcription progress and errors.
+    pub batch: std::collections::HashMap<String, BatchState>,
     /// The persistent `recording-without-transcription` warning toast.
     pub toast: Option<RecordingToast>,
     /// `Record` was clicked and the engine has not answered yet.
@@ -94,9 +156,198 @@ impl Workspace {
             SessionMode::Active
         } else if self.recording.finalizing.iter().any(|id| id == session_id) {
             SessionMode::Finalizing
+        } else if self
+            .recording
+            .batch
+            .get(session_id)
+            .is_some_and(|batch| batch.error.is_none())
+        {
+            SessionMode::RunningBatch
         } else {
             SessionMode::Inactive
         }
+    }
+
+    pub(crate) fn batch_state(&self, session_id: &str) -> Option<&BatchState> {
+        self.recording.batch.get(session_id)
+    }
+
+    /// `selectAndUpload("audio")` → `processFile(path, "audio")`: the native
+    /// dialog, then `runAudioImport`: the estimated note date, the import
+    /// with progress (`handleBatchStarted(sessionId, "importing")`), the
+    /// audio catalog, and the batch transcription — which, without a batch
+    /// target, fails the way `useRunBatch` does.
+    pub(crate) fn upload_audio(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.close_overflow_menu(cx);
+        let Some(session_id) = self.selected.clone() else {
+            return;
+        };
+        let picker = cx.prompt_for_paths(gpui::PathPromptOptions {
+            files: true,
+            directories: false,
+            multiple: false,
+            prompt: None,
+        });
+        cx.spawn_in(window, async move |this, cx| {
+            let Ok(Ok(Some(paths))) = picker.await else {
+                return;
+            };
+            let Some(path) = paths.into_iter().next() else {
+                return;
+            };
+            let extension = path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .map(|ext| ext.to_ascii_lowercase())
+                .unwrap_or_default();
+            if !AUDIO_EXTENSIONS.contains(&extension.as_str()) {
+                return;
+            }
+            this.update(cx, |this, cx| this.run_audio_import(session_id, path, cx))
+                .ok();
+        })
+        .detach();
+    }
+
+    /// `runAudioImport`
+    fn run_audio_import(
+        &mut self,
+        session_id: String,
+        path: std::path::PathBuf,
+        cx: &mut Context<Self>,
+    ) {
+        // `applyEstimatedAudioNoteDate`: only for sessions without an event.
+        let has_event = match &self.note {
+            super::Note::Ready { preview, .. } if preview.session.id == session_id => {
+                !preview.session.event_json.trim().is_empty()
+            }
+            _ => true,
+        };
+        let date_task = (!has_event)
+            .then(|| crate::db::Store::estimate_audio_created_at(path.clone()))
+            .flatten()
+            .map(|created_at| self.store.update_created_at(session_id.clone(), created_at));
+        // `handleBatchStarted(sessionId, "importing")`
+        self.recording.batch.insert(
+            session_id.clone(),
+            BatchState {
+                phase: BatchPhase::Importing,
+                percentage: None,
+                error: None,
+            },
+        );
+        cx.notify();
+        let (progress_tx, mut progress_rx) = tokio::sync::mpsc::unbounded_channel::<f64>();
+        let import = self
+            .store
+            .import_audio(session_id.clone(), path, progress_tx);
+        let connection = self.store.stt_connection(&self.provider_settings);
+        cx.spawn(async move |this, cx| {
+            if let Some(task) = date_task {
+                let _ = task.await;
+            }
+            // `updateBatchProgress` from the `audioImportProgress` events.
+            let progress_session = session_id.clone();
+            let progress_pump = cx.spawn({
+                let this = this.clone();
+                async move |cx| {
+                    while let Some(percentage) = progress_rx.recv().await {
+                        this.update(cx, |this, cx| {
+                            if let Some(batch) = this.recording.batch.get_mut(&progress_session) {
+                                batch.percentage = Some(percentage);
+                                cx.notify();
+                            }
+                        })
+                        .ok();
+                    }
+                }
+            });
+            let imported = import.await.map_err(anyhow::Error::from).and_then(|r| r);
+            drop(progress_pump);
+            let catalog = match &imported {
+                Ok(_) => this
+                    .update(cx, |this, _| {
+                        this.store.catalog_session_audio(session_id.clone())
+                    })
+                    .ok(),
+                Err(_) => None,
+            };
+            if let Some(catalog) = catalog
+                && let Ok(Err(error)) = catalog.await
+            {
+                tracing::error!(%error, "[upload] failed to catalog imported audio");
+            }
+            let connection = connection.await.ok().flatten();
+            this.update(cx, |this, cx| {
+                match imported {
+                    Ok(_) => {
+                        // `clearBatchSession`, then `runBatch(importedPath)`.
+                        this.recording.batch.remove(&session_id);
+                        this.run_batch(session_id.clone(), connection, cx);
+                    }
+                    Err(error) => {
+                        tracing::error!(%error, "[upload] audio import failed");
+                        this.recording.batch.insert(
+                            session_id.clone(),
+                            BatchState {
+                                phase: BatchPhase::Importing,
+                                percentage: None,
+                                error: Some(error.to_string()),
+                            },
+                        );
+                    }
+                }
+                if this.selected.as_deref() == Some(session_id.as_str()) {
+                    this.reload_note(session_id.clone(), cx);
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// `useRunBatch`: resolve the batch target. Without a paid account the
+    /// fallback is the local Soniqo batch model on Apple silicon only, so on
+    /// this platform a missing or non-batch provider fails with the
+    /// frontend's message. The batch pipeline itself (`listener2-core`'s
+    /// `run_batch` and the response handling) is not ported yet, so a
+    /// resolvable target still reports `Transcription failed`.
+    pub(crate) fn run_batch(
+        &mut self,
+        session_id: String,
+        connection: Option<crate::db::SttConnection>,
+        cx: &mut Context<Self>,
+    ) {
+        let selected = connection
+            .as_ref()
+            .filter(|conn| batch_provider(&conn.provider, &conn.model).is_some());
+        let local_available = cfg!(all(target_os = "macos", target_arch = "aarch64"));
+        let error = match selected {
+            None if !local_available => {
+                let label = connection
+                    .as_ref()
+                    .map(|conn| conn.model.clone())
+                    .unwrap_or_else(|| "the selected speech-to-text provider".to_string());
+                format!(
+                    "{label} is not available for batch transcription on this platform. Configure a batch-capable speech-to-text provider."
+                )
+            }
+            _ => {
+                tracing::warn!("[batch] batch transcription pipeline is not ported yet");
+                "Transcription failed".to_string()
+            }
+        };
+        // `handleBatchFailed(sessionId, msg)`
+        self.recording.batch.insert(
+            session_id,
+            BatchState {
+                phase: BatchPhase::Transcribing,
+                percentage: None,
+                error: Some(error),
+            },
+        );
+        cx.notify();
     }
 
     /// Spawn the root actor once the window is up and pump its events.
@@ -560,13 +811,83 @@ impl Workspace {
         session_id: &str,
         has_words: bool,
         window: &gpui::Window,
+        cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let theme = self.theme;
         let mode = self.session_mode(session_id);
+        if let Some(batch) = self.batch_state(session_id) {
+            if let Some(error) = &batch.error {
+                // `TranscriptEmptyState` with `error`.
+                return Some(
+                    transcript_screen()
+                        .child(div().mb_5().child(crate::ui::icon(
+                            "warning-circle",
+                            px(36.0),
+                            theme.muted_foreground,
+                        )))
+                        .child(self.transcript_screen_copy(
+                            "Transcription failed",
+                            error,
+                            24.0,
+                            window,
+                        ))
+                        .child(self.transcript_button(
+                            "transcript-retranscribe",
+                            "Re-transcribe",
+                            true,
+                            cx,
+                            |this, _, cx| this.retranscribe(cx),
+                        ))
+                        .into_any_element(),
+                );
+            }
+            // `running_batch`
+            let has_progress = batch.percentage.is_some_and(|p| p > 0.0);
+            return Some(
+                transcript_screen()
+                    .child(div().mb_5().child(crate::ui::icon(
+                        "circle-notch",
+                        px(36.0),
+                        theme.muted_foreground,
+                    )))
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .items_center()
+                            .child(
+                                div()
+                                    .tw_text_base()
+                                    .font_weight(gpui::FontWeight::MEDIUM)
+                                    .text_color(theme.foreground)
+                                    .child(match batch.phase {
+                                        BatchPhase::Importing => "Importing audio...",
+                                        BatchPhase::Transcribing => "Generating transcript...",
+                                    }),
+                            )
+                            .when(has_progress, |c| {
+                                c.child(
+                                    div()
+                                        .mt_2()
+                                        .tw_text_sm()
+                                        .line_height(px(22.0))
+                                        .text_color(theme.muted_foreground)
+                                        .child(SharedString::from(format!(
+                                            "{}% complete",
+                                            (batch.percentage.unwrap_or(0.0) * 100.0).round()
+                                                as i64
+                                        ))),
+                                )
+                            }),
+                    )
+                    .into_any_element(),
+            );
+        }
         if mode == SessionMode::Inactive {
             return None;
         }
         // `hasVisibleTranscriptState`: once words exist the viewer renders
+
         // them (the `ready` screen) unless the capture fell back to batch.
         let live_transcribing = self
             .recording
@@ -582,7 +903,7 @@ impl Workspace {
             .as_ref()
             .filter(|live| live.session_id == session_id);
         let copy = |title: String, description: String| {
-            self.transcript_screen_copy(&title, &description, window)
+            self.transcript_screen_copy(&title, &description, 0.0, window)
         };
         if let Some(live) = live.filter(|live| !live.live_active) {
             // `BatchState`
@@ -672,42 +993,13 @@ impl Workspace {
         cx: &Context<Self>,
     ) -> AnyElement {
         let theme = self.theme;
-        // `Button size="sm"`: `h-8 px-3 gap-2 text-sm`, default or outline.
-        let button = |id: &'static str, label: &'static str, primary: bool| {
-            div()
-                .id(id)
-                .relative()
-                .flex()
-                .h(px(32.0))
-                .items_center()
-                .gap_2()
-                .px_3()
-                .tw_text_sm()
-                .font_weight(gpui::FontWeight::MEDIUM)
-                .cursor_pointer()
-                .child(crate::squircle::squircle(
-                    crate::squircle::CONTROL_RADIUS,
-                    Some(if primary {
-                        theme.primary
-                    } else {
-                        theme.background
-                    }),
-                    (!primary).then_some((1.0, theme.border)),
-                ))
-                .text_color(if primary {
-                    theme.primary_foreground
-                } else {
-                    theme.foreground
-                })
-                .child(div().relative().flex().items_center().gap_2().child(label))
-        };
         transcript_screen()
             .child(div().mb_5().child(crate::ui::icon(
                 "waveform",
                 px(36.0),
                 theme.muted_foreground,
             )))
-            .child(div().mb_6().child(self.transcript_screen_copy(
+            .child(self.transcript_screen_copy(
                 if has_audio {
                     "Audio available"
                 } else {
@@ -718,37 +1010,95 @@ impl Workspace {
                 } else {
                     "Upload audio or a transcript file to populate this note."
                 },
+                24.0,
                 window,
-            )))
+            ))
             .child(
                 div()
                     .flex()
                     .items_center()
                     .gap_2()
                     .when(has_audio, |row| {
-                        row.child(
-                            button("transcript-retranscribe", "Re-transcribe", true).on_click(
-                                cx.listener(|this, _: &gpui::ClickEvent, _, cx| {
-                                    this.retranscribe(cx)
-                                }),
-                            ),
-                        )
+                        row.child(self.transcript_button(
+                            "transcript-retranscribe",
+                            "Re-transcribe",
+                            true,
+                            cx,
+                            |this, _, cx| this.retranscribe(cx),
+                        ))
                     })
-                    .child(
-                        button("transcript-upload", "Upload transcript", false).on_click(
-                            cx.listener(|this, _: &gpui::ClickEvent, window, cx| {
-                                this.upload_transcript(window, cx)
-                            }),
-                        ),
-                    ),
+                    .when(!has_audio, |row| {
+                        row.child(self.transcript_button(
+                            "transcript-upload-audio",
+                            "Upload audio",
+                            false,
+                            cx,
+                            |this, window, cx| this.upload_audio(window, cx),
+                        ))
+                    })
+                    .child(self.transcript_button(
+                        "transcript-upload",
+                        "Upload transcript",
+                        false,
+                        cx,
+                        |this, window, cx| this.upload_transcript(window, cx),
+                    )),
             )
             .into_any_element()
     }
 
+    /// `Button size="sm"`: `h-8 px-3 gap-2 text-sm`, default or outline.
+    fn transcript_button(
+        &self,
+        id: &'static str,
+        label: &'static str,
+        primary: bool,
+        cx: &Context<Self>,
+        on_click: impl Fn(&mut Workspace, &mut Window, &mut Context<Workspace>) + 'static,
+    ) -> gpui::Stateful<Div> {
+        let theme = self.theme;
+        div()
+            .id(id)
+            .relative()
+            .flex()
+            .h(px(32.0))
+            .items_center()
+            .gap_2()
+            .px_3()
+            .tw_text_sm()
+            .font_weight(gpui::FontWeight::MEDIUM)
+            .cursor_pointer()
+            .child(crate::squircle::squircle(
+                crate::squircle::CONTROL_RADIUS,
+                Some(if primary {
+                    theme.primary
+                } else {
+                    theme.background
+                }),
+                (!primary).then_some((1.0, theme.border)),
+            ))
+            .text_color(if primary {
+                theme.primary_foreground
+            } else {
+                theme.foreground
+            })
+            .on_click(
+                cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
+                    on_click(this, window, cx)
+                }),
+            )
+            .child(div().relative().flex().items_center().gap_2().child(label))
+    }
     /// `flex max-w-md flex-col gap-2` with the `text-base font-medium` title
     /// and the centred `text-sm leading-relaxed` description, wrapped the
     /// way WebKit wraps it.
-    fn transcript_screen_copy(&self, title: &str, description: &str, window: &gpui::Window) -> Div {
+    fn transcript_screen_copy(
+        &self,
+        title: &str,
+        description: &str,
+        margin_bottom: f32,
+        window: &gpui::Window,
+    ) -> Div {
         let theme = self.theme;
         let mut style = window.text_style();
         style.font_size = px(14.0).into();
@@ -761,6 +1111,7 @@ impl Workspace {
             .flex()
             .w_full()
             .max_w(px(448.0))
+            .mb(px(margin_bottom))
             .flex_col()
             .gap_2()
             .items_center()
@@ -779,7 +1130,8 @@ impl Workspace {
                         px(14.0),
                         px(22.0),
                     )
-                    .centered(),
+                    .centered()
+                    .max_width(px(448.0)),
                 ),
             )
     }
@@ -788,11 +1140,16 @@ impl Workspace {
     /// audio, which needs a configured provider; the batch pipeline is not
     /// ported yet, so the missing-provider outcome is reported directly.
     pub(crate) fn retranscribe(&mut self, cx: &mut Context<Self>) {
-        self.flash(
-            super::toast::FlashVariant::Error,
-            "Transcription provider needed to re-transcribe this audio.",
-            cx,
-        );
+        let Some(session_id) = self.selected.clone() else {
+            return;
+        };
+        let connection = self.store.stt_connection(&self.provider_settings);
+        cx.spawn(async move |this, cx| {
+            let connection = connection.await.ok().flatten();
+            this.update(cx, |this, cx| this.run_batch(session_id, connection, cx))
+                .ok();
+        })
+        .detach();
     }
 
     /// The persistent sonner warning (`richColors`, `duration: Infinity`)

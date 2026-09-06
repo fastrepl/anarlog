@@ -499,7 +499,10 @@ impl Workspace {
     pub(super) fn can_show_transcript(&self, preview: &NotePreview) -> bool {
         let live_capture =
             self.session_mode(&preview.session.id) != super::recording::SessionMode::Inactive;
-        preview.has_transcript || live_capture || preview.audio_exists
+        let batch_error = self
+            .batch_state(&preview.session.id)
+            .is_some_and(|batch| batch.error.is_some());
+        preview.has_transcript || live_capture || preview.audio_exists || batch_error
     }
 
     fn render_view_switcher(
@@ -694,6 +697,7 @@ impl Workspace {
                 &preview.session.id,
                 preview.has_transcript,
                 window,
+                cx,
             ) {
                 return body.child(screen);
             }
