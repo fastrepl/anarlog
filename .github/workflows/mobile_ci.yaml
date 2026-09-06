@@ -18,6 +18,7 @@ on:
       - crates/db-execute/**
       - crates/mobile-bridge/**
       - crates/xtask/**
+      - crates/ws-client/**
       - packages/mobile-bridge-rn/**
       - packages/db-react/**
       - packages/db-runtime/**
@@ -26,6 +27,8 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - rust-toolchain.toml
+      - Cargo.toml
+      - Cargo.lock
   pull_request:
     paths:
       - .github/actions/pnpm_install/**
@@ -38,6 +41,7 @@ on:
       - crates/db-execute/**
       - crates/mobile-bridge/**
       - crates/xtask/**
+      - crates/ws-client/**
       - packages/mobile-bridge-rn/**
       - packages/db-react/**
       - packages/db-runtime/**
@@ -46,6 +50,8 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - rust-toolchain.toml
+      - Cargo.toml
+      - Cargo.lock
 
 permissions:
   contents: read
@@ -128,7 +134,7 @@ jobs:
   android_build:
     if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - run: |

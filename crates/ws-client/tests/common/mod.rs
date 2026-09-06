@@ -174,10 +174,10 @@ pub(crate) async fn flaky_echo_server(initial_failures: usize) -> (SocketAddr, A
                 let ws_stream = accept_async(stream).await.unwrap();
                 let (mut tx, mut rx) = ws_stream.split();
                 while let Some(Ok(msg)) = rx.next().await {
-                    if matches!(msg, Message::Text(_) | Message::Binary(_)) {
-                        if tx.send(msg).await.is_err() {
-                            break;
-                        }
+                    if matches!(msg, Message::Text(_) | Message::Binary(_))
+                        && tx.send(msg).await.is_err()
+                    {
+                        break;
                     }
                 }
                 break;
