@@ -1,21 +1,21 @@
-#[cfg(not(target_os = "ios"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 use std::fs;
 #[cfg(target_os = "macos")]
 use std::path::Path;
 use std::path::PathBuf;
-#[cfg(not(target_os = "ios"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 use std::sync::atomic::{AtomicU64, Ordering};
 
-#[cfg(not(target_os = "ios"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 use crate::CLOUDSYNC_VERSION;
 use crate::error::Error;
 
-#[cfg(not(target_os = "ios"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 static TEMP_FILE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
-#[cfg(not(target_os = "ios"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 const CLOUDSYNC_BUNDLE_REVISION: &str = "anarlog-request-cancellation-5";
 
-#[cfg(not(target_os = "ios"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 macro_rules! configure_cloudsync_target {
     ($target:literal, $file_name:literal, $path:literal) => {
         const CLOUDSYNC_TARGET: &str = $target;
@@ -36,27 +36,6 @@ configure_cloudsync_target!(
     "macos/x86_64",
     "cloudsync.dylib",
     "../vendor/cloudsync/macos/x86_64/cloudsync.dylib"
-);
-
-#[cfg(all(target_os = "android", target_arch = "aarch64"))]
-configure_cloudsync_target!(
-    "android/arm64-v8a",
-    "cloudsync.so",
-    "../vendor/cloudsync/android/arm64-v8a/cloudsync.so"
-);
-
-#[cfg(all(target_os = "android", target_arch = "arm"))]
-configure_cloudsync_target!(
-    "android/armeabi-v7a",
-    "cloudsync.so",
-    "../vendor/cloudsync/android/armeabi-v7a/cloudsync.so"
-);
-
-#[cfg(all(target_os = "android", target_arch = "x86_64"))]
-configure_cloudsync_target!(
-    "android/x86_64",
-    "cloudsync.so",
-    "../vendor/cloudsync/android/x86_64/cloudsync.so"
 );
 
 #[cfg(all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"))]
@@ -121,12 +100,18 @@ pub fn bundled_extension_path() -> Result<PathBuf, Error> {
         bundled_ios_framework_path()
     }
 
+    #[cfg(all(
+        target_os = "android",
+        any(target_arch = "aarch64", target_arch = "arm", target_arch = "x86_64")
+    ))]
+    {
+        // Android resolves this inside the app's native library namespace, including APKs.
+        Ok(PathBuf::from("libcloudsync.so"))
+    }
+
     #[cfg(any(
         all(target_os = "macos", target_arch = "aarch64"),
         all(target_os = "macos", target_arch = "x86_64"),
-        all(target_os = "android", target_arch = "aarch64"),
-        all(target_os = "android", target_arch = "arm"),
-        all(target_os = "android", target_arch = "x86_64"),
         all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
         all(target_os = "linux", target_env = "gnu", target_arch = "x86_64"),
         all(target_os = "linux", target_env = "musl", target_arch = "aarch64"),

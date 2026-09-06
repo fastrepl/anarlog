@@ -38,7 +38,24 @@ pub(crate) fn mobile_bridge_android() -> Result<()> {
         "{ubrn} build android --config ubrn.config.yaml --and-generate"
     )
     .run()?;
+    let root = crate::repo_root();
+    bundle_android_cloudsync(
+        &root.join("crates/cloudsync/vendor/cloudsync/android"),
+        &root.join("packages/mobile-bridge-rn/android/src/main/jniLibs"),
+    )?;
     repair_generated_native_projects()?;
+    Ok(())
+}
+
+fn bundle_android_cloudsync(source: &Path, destination: &Path) -> Result<()> {
+    for abi in ["arm64-v8a", "armeabi-v7a", "x86_64"] {
+        let output = destination.join(abi);
+        fs::create_dir_all(&output)?;
+        fs::copy(
+            source.join(abi).join("cloudsync.so"),
+            output.join("libcloudsync.so"),
+        )?;
+    }
     Ok(())
 }
 
@@ -140,4 +157,38 @@ fn ubrn_path() -> PathBuf {
     };
 
     root_dir.join("node_modules/.bin").join(bin_name)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn packages_cloudsync_for_each_supported_android_abi() {
+        let root = tempfile::tempdir().unwrap();
+        let source = root.path().join("vendor");
+        let destination = root.path().join("jniLibs");
+        for abi in ["arm64-v8a", "armeabi-v7a", "x86_64"] {
+            fs::create_dir_all(source.join(abi)).unwrap();
+            fs::write(source.join(abi).join("cloudsync.so"), abi).unwrap();
+        }
+
+        bundle_android_cloudsync(&source, &destination).unwrap();
+
+        for abi in ["arm64-v8a", "armeabi-v7a", "x86_64"] {
+            assert_eq!(
+                fs::read_to_string(destination.join(abi).join("libcloudsync.so")).unwrap(),
+                abi
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_missing_android_cloudsync_binaries() {
+        let root = tempfile::tempdir().unwrap();
+        assert!(
+            bundle_android_cloudsync(&root.path().join("vendor"), &root.path().join("jniLibs"))
+                .is_err()
+        );
+    }
 }
