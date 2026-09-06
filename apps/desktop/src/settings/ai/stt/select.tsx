@@ -624,7 +624,7 @@ function getModelCategoryLabel(category?: ModelCategory) {
   return null;
 }
 
-function useConfiguredMapping(): {
+export function useConfiguredMapping(): {
   providers: Record<
     ProviderId,
     {
@@ -784,7 +784,11 @@ function useConfiguredMapping(): {
 
   return {
     providers,
-    isReady: isReady && supportedModels.isFetched && deviceInfo.isFetched,
+    isReady:
+      isReady &&
+      supportedModels.isFetched &&
+      deviceInfo.isFetched &&
+      Object.values(availability).every((value) => value !== undefined),
   };
 }
 
