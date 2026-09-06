@@ -233,6 +233,7 @@ const useStyles = createStyleHook((Colors) => ({
   sectionLabel: {
     ...Typography.section,
     color: Colors.muted,
+    paddingHorizontal: Spacing.compact,
     marginTop: Spacing.md,
     marginBottom: Spacing.sm,
   },
