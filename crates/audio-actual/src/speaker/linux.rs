@@ -58,6 +58,36 @@ struct PipeWireUserData {
     scratch: Vec<f32>,
 }
 
+fn update_pipewire_initialization(
+    init_tx: &mut Option<std::sync::mpsc::Sender<Result<()>>>,
+    state: &pw::stream::StreamState,
+    sample_rate: u32,
+) {
+    match state {
+        pw::stream::StreamState::Streaming if sample_rate > 0 => {
+            if let Some(init_tx) = init_tx.take() {
+                tracing::info!(
+                    anarlog.audio.sample_rate_hz = sample_rate,
+                    "pipewire_capture_initialized"
+                );
+                let _ = init_tx.send(Ok(()));
+            }
+        }
+        pw::stream::StreamState::Error(error) => {
+            if let Some(init_tx) = init_tx.take() {
+                // Initialization failures can recover through the PulseAudio fallback.
+                tracing::warn!(error = %error, "pipewire_stream_init_failed");
+                let _ = init_tx.send(Err(anyhow::anyhow!(
+                    "PipeWire stream entered an error state: {error}"
+                )));
+            } else {
+                tracing::error!(error = %error, "pipewire_stream_error");
+            }
+        }
+        _ => {}
+    }
+}
+
 impl SpeakerInput {
     pub fn new() -> Result<Self> {
         Ok(Self {
@@ -319,13 +349,12 @@ fn pipewire_capture_setup(
             let mainloop = mainloop.clone();
             move |_, user_data, old, new| {
                 tracing::debug!(?old, ?new, "pipewire_stream_state_changed");
-                if let pw::stream::StreamState::Error(error) = new {
-                    tracing::error!(error = %error, "pipewire_stream_error");
-                    if let Some(init_tx) = user_data.init_tx.take() {
-                        let _ = init_tx.send(Err(anyhow::anyhow!(
-                            "PipeWire stream entered an error state: {error}"
-                        )));
-                    }
+                update_pipewire_initialization(
+                    &mut user_data.init_tx,
+                    &new,
+                    user_data.format.rate(),
+                );
+                if matches!(new, pw::stream::StreamState::Error(_)) {
                     mainloop.quit();
                 }
             }
@@ -352,13 +381,6 @@ fn pipewire_capture_setup(
                 let rate = user_data.format.rate();
                 if rate > 0 {
                     user_data.current_sample_rate.store(rate, Ordering::Release);
-                    tracing::info!(
-                        anarlog.audio.sample_rate_hz = rate,
-                        "pipewire_capture_initialized"
-                    );
-                    if let Some(init_tx) = user_data.init_tx.take() {
-                        let _ = init_tx.send(Ok(()));
-                    }
                 }
             }
         })
@@ -860,7 +882,40 @@ impl PinnedDrop for SpeakerStream {
 
 #[cfg(test)]
 mod tests {
-    use super::{SinkTarget, pick_sink_in_use};
+    use super::{SinkTarget, pick_sink_in_use, update_pipewire_initialization};
+    use pipewire::stream::StreamState;
+    use std::sync::mpsc::{self, TryRecvError};
+
+    #[test]
+    fn negotiated_format_does_not_hide_a_pipewire_startup_failure() {
+        let (tx, rx) = mpsc::channel();
+        let mut init_tx = Some(tx);
+        update_pipewire_initialization(&mut init_tx, &StreamState::Paused, 48_000);
+        assert!(matches!(rx.try_recv(), Err(TryRecvError::Empty)));
+
+        update_pipewire_initialization(
+            &mut init_tx,
+            &StreamState::Error("negotiation failed".into()),
+            48_000,
+        );
+        let error = rx.try_recv().unwrap().unwrap_err();
+        assert!(error.to_string().contains("negotiation failed"));
+    }
+
+    #[test]
+    fn pipewire_is_ready_only_when_streaming_with_a_valid_format() {
+        let (tx, rx) = mpsc::channel();
+        let mut init_tx = Some(tx);
+        update_pipewire_initialization(&mut init_tx, &StreamState::Connecting, 0);
+        update_pipewire_initialization(&mut init_tx, &StreamState::Streaming, 0);
+        assert!(matches!(rx.try_recv(), Err(TryRecvError::Empty)));
+
+        update_pipewire_initialization(&mut init_tx, &StreamState::Streaming, 48_000);
+        assert!(rx.try_recv().unwrap().is_ok());
+        update_pipewire_initialization(&mut init_tx, &StreamState::Paused, 48_000);
+        update_pipewire_initialization(&mut init_tx, &StreamState::Streaming, 48_000);
+        assert!(matches!(rx.try_recv(), Err(TryRecvError::Disconnected)));
+    }
 
     fn sink(index: u32, name: &str) -> SinkTarget {
         SinkTarget {
