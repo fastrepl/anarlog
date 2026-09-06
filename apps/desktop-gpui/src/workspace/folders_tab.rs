@@ -1316,7 +1316,7 @@ impl Workspace {
                 .p_5()
                 .border_1()
                 .border_color(alpha(theme.border, 0.45))
-                .bg(alpha(theme.card, 0.94))
+                .bg(crate::theme::glass_card_fill(theme))
                 .shadow(vec![gpui::BoxShadow {
                     color: gpui::hsla(0.0, 0.0, 0.0, 0.32),
                     offset: gpui::point(px(0.0), px(24.0)),

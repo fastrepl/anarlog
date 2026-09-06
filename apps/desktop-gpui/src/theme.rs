@@ -135,6 +135,26 @@ pub fn alpha(color: Rgba, alpha: f32) -> Rgba {
     Rgba { a: alpha, ..color }
 }
 
+/// Source-over compositing of `top` onto an opaque `bottom`.
+pub fn over(top: Rgba, bottom: Rgba) -> Rgba {
+    let a = top.a;
+    Rgba {
+        r: top.r * a + bottom.r * (1.0 - a),
+        g: top.g * a + bottom.g * (1.0 - a),
+        b: top.b * a + bottom.b * (1.0 - a),
+        a: 1.0,
+    }
+}
+
+/// `GlassDialogContent`: `bg-card/60 backdrop-blur-2xl` over the `bg-black/40`
+/// overlay. GPUI cannot blur what is behind an element, but the blur of a
+/// dimmed, mostly `bg-background` page converges on this flat colour (light
+/// mode: `#d6d6d6`, as measured on the running Tauri app).
+pub fn glass_card_fill(theme: Theme) -> Rgba {
+    let dimmed_page = over(alpha(gpui::rgb(0x000000), 0.4), theme.background);
+    over(alpha(theme.card, 0.6), dimmed_page)
+}
+
 /// `--font-sans` in `styles/globals.css`.
 const SANS_STACK: [&str; 5] = [
     "system-ui",
@@ -385,5 +405,18 @@ mod tests {
             (faded.r, faded.g, faded.b),
             (rgb(0xef4444).r, rgb(0xef4444).g, rgb(0xef4444).b)
         );
+    }
+
+    #[test]
+    fn glass_card_fill_matches_the_measured_tauri_dialog() {
+        // `bg-card/60` over `bg-black/40` over the white page: 0.6 + 0.4 * 0.6.
+        // The probe read #d6d6d6; the blur also samples text and borders, so
+        // the flat fill lands within a step of it.
+        let fill = glass_card_fill(Theme::light());
+        for channel in [fill.r, fill.g, fill.b] {
+            let byte = (channel * 255.0).round() as i32;
+            assert!((byte - 0xd6).abs() <= 1, "channel {byte}");
+        }
+        assert_eq!(fill.a, 1.0);
     }
 }
