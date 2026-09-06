@@ -12,6 +12,12 @@ import { resolveProvider } from "@/settings/providers";
 import { docToPlainText, stripMarkdownTitle } from "./note-doc";
 import { summaryRequest } from "./provider-summary";
 import { buildSummaryPrompt, readSummaryText } from "./summary-model";
+import {
+  SESSION_TRANSCRIPTS_SQL,
+  SESSION_SPEAKERS_SQL,
+  transcriptSegments,
+  type TranscriptRow,
+} from "./transcript-model";
 import { readBoundedTranscriptionResponse } from "./transcription-response";
 
 async function runSummary(
@@ -23,18 +29,18 @@ async function runSummary(
     [sessionId],
   );
   if (automatic && existing.length > 0) return;
-  const [notes, transcripts, preferences, provider] = await Promise.all([
-    execute<{ body: string; body_format: string }>(
-      "SELECT body, body_format FROM session_documents WHERE session_id = ? AND kind = 'note' AND deleted_at IS NULL ORDER BY CASE WHEN id = session_id THEN 0 ELSE 1 END, sort_order, id LIMIT 1",
-      [sessionId],
-    ),
-    execute<{ words_json: string }>(
-      "SELECT words_json FROM transcripts WHERE session_id = ? AND deleted_at IS NULL ORDER BY started_at_ms, id",
-      [sessionId],
-    ),
-    readPreferences(),
-    resolveProvider("llm"),
-  ]);
+  const [notes, transcripts, humans, preferences, provider] = await Promise.all(
+    [
+      execute<{ body: string; body_format: string }>(
+        "SELECT body, body_format FROM session_documents WHERE session_id = ? AND kind = 'note' AND deleted_at IS NULL ORDER BY CASE WHEN id = session_id THEN 0 ELSE 1 END, sort_order, id LIMIT 1",
+        [sessionId],
+      ),
+      execute<TranscriptRow>(SESSION_TRANSCRIPTS_SQL, [sessionId]),
+      execute<{ id: string; name: string }>(SESSION_SPEAKERS_SQL, [sessionId]),
+      readPreferences(),
+      resolveProvider("llm"),
+    ],
+  );
   const note = notes[0];
   const text = note
     ? (note.body_format === "markdown"
@@ -42,15 +48,10 @@ async function runSummary(
         : docToPlainText(note.body)
       ).text
     : "";
+  const names = new Map(humans.map((human) => [human.id, human.name]));
   const transcript = transcripts
-    .map((row) => {
-      const words: unknown = JSON.parse(row.words_json);
-      if (!Array.isArray(words))
-        throw new Error("This transcript could not be read.");
-      return words
-        .map((word) => (typeof word?.text === "string" ? word.text : ""))
-        .join(" ");
-    })
+    .flatMap((row) => transcriptSegments(row, names))
+    .map((segment) => `${segment.speaker}: ${segment.text}`)
     .join("\n");
   const source = `Notes:\n${text}\n\nTranscript:\n${transcript}`;
   if (!text.trim() && !transcript.trim())
@@ -130,13 +131,22 @@ const inflight = new Map<string, Promise<void>>();
 
 export function summarizeSession(
   sessionId: string,
-  automatic = false,
+  {
+    automatic = false,
+    beforeGenerate,
+  }: {
+    automatic?: boolean;
+    beforeGenerate?: () => void | Promise<void>;
+  } = {},
 ): Promise<void> {
   const pending = inflight.get(sessionId);
   if (pending) return pending;
   const mutation = queryClient.getMutationCache().build(queryClient, {
     mutationKey: ["session-summary", sessionId],
-    mutationFn: () => runSummary(sessionId, automatic),
+    mutationFn: async () => {
+      await beforeGenerate?.();
+      await runSummary(sessionId, automatic);
+    },
     retry: false,
     onError: (error) =>
       captureOperationalError(error, { operation: "session_summary" }),
@@ -150,7 +160,7 @@ export function summarizeSession(
 
 export function generateSummaryAfterTranscription(sessionId: string): void {
   // Summary failures are visible in the note; they must never fail audio persistence.
-  void summarizeSession(sessionId, true).catch(() => {});
+  void summarizeSession(sessionId, { automatic: true }).catch(() => {});
 }
 
 export function useSessionSummaryState(sessionId: string) {

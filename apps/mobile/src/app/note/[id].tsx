@@ -1,6 +1,5 @@
 import SegmentedControl from "@expo/ui/community/segmented-control";
 import { Ionicons } from "@expo/vector-icons";
-import { useMutation } from "@tanstack/react-query";
 import { File, Paths } from "expo-file-system";
 import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -259,12 +258,6 @@ export default function NoteScreen() {
   const audio = useSessionAudio(id);
   const noteAttachments = useNoteAttachments(id);
   const transcripts = useSessionTranscripts(id);
-  const summarize = useMutation({
-    mutationFn: async () => {
-      await flush(true);
-      await summarizeSession(id);
-    },
-  });
   const summaryState = useSessionSummaryState(id);
   const [selectedTab, setSelectedTab] = useState(0);
   const transcription = useTranscriptionState(id);
@@ -297,8 +290,8 @@ export default function NoteScreen() {
   const active = listening && recorder.phase !== "saved";
   const showTabs = !active && (hasRecordingHistory || Boolean(data?.summary));
   const showMemos = !showTabs || selectedTab === 1;
-  const summaryPending = summarize.isPending || summaryState?.status === "pending";
-  const summaryError = summarize.error ?? summaryState?.error;
+  const summaryPending = summaryState?.status === "pending";
+  const summaryError = summaryState?.error;
   const localNoteAttachments = noteAttachments.map((attachment) => {
     const file = attachment.localRelativePath
       ? new File(Paths.document, "sessions", id, attachment.localRelativePath)
@@ -737,85 +730,129 @@ export default function NoteScreen() {
             onChangeText={(title) => onEdit({ title })}
             onFocus={() => setEditorFocused(true)}
           />
-          {showTabs && <View style={styles.tabs}>
-            <SegmentedControl values={["Summary", "Memos"]} selectedIndex={selectedTab}
-              onChange={(event) => {
-                void flush();
-                Keyboard.dismiss();
-                setEditorFocused(false);
-                setSelectedTab(event.nativeEvent.selectedSegmentIndex);
-              }} />
-          </View>}
-          {showTabs && !showMemos && <ScrollView style={styles.summaryScroll} contentContainerStyle={styles.summary}>
-            {data.summary && <View>
-              {data.summary.title !== "Summary" && <Text style={styles.summaryTitle}>{data.summary.title}</Text>}
-              <Text selectable style={styles.summaryText}>{data.summary.text}</Text>
-            </View>}
-            {!data.summary && <Text style={styles.summaryText}>
-              {summaryPending ? "Generating summary…" : transcription === "running" ? "Your summary will be generated when transcription finishes." : "Your meeting summary will appear here. Your memos are in the Memos tab."}
-            </Text>}
-            {summaryError && <Text accessibilityRole="alert" style={styles.summaryError}>{summaryError.message}</Text>}
-            <Button
-              label={!canSummarize ? "Choose summary provider" : summaryError ? "Retry summary" : data.summary ? "Regenerate summary" : "Generate summary"}
-              loading={summaryPending}
-              disabled={transcription === "running"}
-              variant="ghost" size="small"
-              onPress={() => canSummarize ? summarize.mutate() : router.push("/settings/summary-provider")}
-            />
-          </ScrollView>}
-          <View style={[styles.editor, !showMemos && styles.hidden]}>
-          {localNoteAttachments.length > 0 && (
-            <View style={styles.attachments}>
-              <Text style={styles.attachmentLabel}>Files</Text>
-              {localNoteAttachments.map(({ attachment, file }) => (
-                <NoteAttachmentCard
-                  key={attachment.attachmentId}
-                  availableLocally={file !== null}
-                  cloudAvailable={Boolean(
-                    attachment.cloudObjectKey &&
-                    auth.billing.isPro &&
-                    auth.session?.access_token &&
-                    env.supabaseUrl,
-                  )}
-                  errorMessage={
-                    attachmentActionError?.attachmentId ===
-                    attachment.attachmentId
-                      ? attachmentActionError.message
-                      : null
-                  }
-                  filename={attachment.filename}
-                  loading={attachmentActionId === attachment.attachmentId}
-                  onDownload={() => void handleDownloadAttachment(attachment)}
-                  onShare={() => {
-                    if (file) void handleShareAttachment(attachment, file.uri);
-                  }}
-                  sizeBytes={attachment.sizeBytes}
-                />
-              ))}
-            </View>
-          )}
-          {!data.plainEditable && (
-            <View style={styles.readOnlyChip}>
-              <Ionicons
-                name="lock-closed-outline"
-                size={12}
-                color={Colors.muted}
+          {showTabs && (
+            <View style={styles.tabs}>
+              <SegmentedControl
+                values={["Summary", "Memos"]}
+                selectedIndex={selectedTab}
+                onChange={(event) => {
+                  void flush();
+                  Keyboard.dismiss();
+                  setEditorFocused(false);
+                  setSelectedTab(event.nativeEvent.selectedSegmentIndex);
+                }}
               />
-              <Text style={styles.readOnlyLabel}>
-                Formatted note — edit the body on desktop
-              </Text>
             </View>
           )}
-          <BodyEditor
-            accessoryId={`note-editor-controls-${data.id}`}
-            defaultBodyFormat={data.bodyFormat}
-            defaultValue={data.noteText}
-            editable={data.plainEditable}
-            onAttach={handleAttachFile}
-            onChangeText={(body, bodyFormat) => onEdit({ body, bodyFormat })}
-            onCommit={flush}
-            onFocusChange={setEditorFocused}
-          />
+          {showTabs && !showMemos && (
+            <ScrollView
+              style={styles.summaryScroll}
+              contentContainerStyle={styles.summary}
+            >
+              {data.summary && (
+                <View>
+                  {data.summary.title !== "Summary" && (
+                    <Text style={styles.summaryTitle}>
+                      {data.summary.title}
+                    </Text>
+                  )}
+                  <Text selectable style={styles.summaryText}>
+                    {data.summary.text}
+                  </Text>
+                </View>
+              )}
+              {!data.summary && (
+                <Text style={styles.summaryText}>
+                  {summaryPending
+                    ? "Generating summary…"
+                    : transcription === "running"
+                      ? "Your summary will be generated when transcription finishes."
+                      : "Your meeting summary will appear here. Your memos are in the Memos tab."}
+                </Text>
+              )}
+              {summaryError && (
+                <Text accessibilityRole="alert" style={styles.summaryError}>
+                  {summaryError.message}
+                </Text>
+              )}
+              <Button
+                label={
+                  !canSummarize
+                    ? "Choose summary provider"
+                    : summaryError
+                      ? "Retry summary"
+                      : data.summary
+                        ? "Regenerate summary"
+                        : "Generate summary"
+                }
+                loading={summaryPending}
+                disabled={transcription === "running"}
+                variant="ghost"
+                size="small"
+                onPress={() =>
+                  canSummarize
+                    ? void summarizeSession(id, {
+                        beforeGenerate: () => flush(true),
+                      }).catch(() => {})
+                    : router.push("/settings/summary-provider")
+                }
+              />
+            </ScrollView>
+          )}
+          <View style={[styles.editor, !showMemos && styles.hidden]}>
+            {localNoteAttachments.length > 0 && (
+              <View style={styles.attachments}>
+                <Text style={styles.attachmentLabel}>Files</Text>
+                {localNoteAttachments.map(({ attachment, file }) => (
+                  <NoteAttachmentCard
+                    key={attachment.attachmentId}
+                    availableLocally={file !== null}
+                    cloudAvailable={Boolean(
+                      attachment.cloudObjectKey &&
+                      auth.billing.isPro &&
+                      auth.session?.access_token &&
+                      env.supabaseUrl,
+                    )}
+                    errorMessage={
+                      attachmentActionError?.attachmentId ===
+                      attachment.attachmentId
+                        ? attachmentActionError.message
+                        : null
+                    }
+                    filename={attachment.filename}
+                    loading={attachmentActionId === attachment.attachmentId}
+                    onDownload={() => void handleDownloadAttachment(attachment)}
+                    onShare={() => {
+                      if (file)
+                        void handleShareAttachment(attachment, file.uri);
+                    }}
+                    sizeBytes={attachment.sizeBytes}
+                  />
+                ))}
+              </View>
+            )}
+            {!data.plainEditable && (
+              <View style={styles.readOnlyChip}>
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={12}
+                  color={Colors.muted}
+                />
+                <Text style={styles.readOnlyLabel}>
+                  Formatted note — edit the body on desktop
+                </Text>
+              </View>
+            )}
+            <BodyEditor
+              accessoryId={`note-editor-controls-${data.id}`}
+              defaultBodyFormat={data.bodyFormat}
+              defaultValue={data.noteText}
+              editable={data.plainEditable}
+              onAttach={handleAttachFile}
+              onChangeText={(body, bodyFormat) => onEdit({ body, bodyFormat })}
+              onCommit={flush}
+              onFocusChange={setEditorFocused}
+            />
           </View>
         </View>
       )}
@@ -839,57 +876,59 @@ export default function NoteScreen() {
         <ListeningSheet
           active={active}
           transcripts={transcripts}
-          recordingDetails={<>
-          {audio.data && localAudioAvailable && localAudioFile && (
-            <View key={`${audio.data.filename}:${audio.data.createdAt}`}>
-              <AudioChip
-                uri={localAudioFile.uri}
-                filename={audio.data.filename}
-                sizeBytes={audio.data.sizeBytes}
-              />
-              <RecordingSyncCard audio={audio.data} />
-            </View>
-          )}
-          {audio.data && !localAudioAvailable && (
-            <RemoteAudioCard
-              cloudAvailable={Boolean(
-                audio.data.cloudObjectKey &&
-                auth.billing.isPro &&
-                auth.session?.access_token &&
-                env.supabaseUrl,
+          recordingDetails={
+            <>
+              {audio.data && localAudioAvailable && localAudioFile && (
+                <View key={`${audio.data.filename}:${audio.data.createdAt}`}>
+                  <AudioChip
+                    uri={localAudioFile.uri}
+                    filename={audio.data.filename}
+                    sizeBytes={audio.data.sizeBytes}
+                  />
+                  <RecordingSyncCard audio={audio.data} />
+                </View>
               )}
-              errorMessage={audioRestoreError}
-              loading={restoringAudio}
-              onDownloadRecording={() => void handleDownloadRecording()}
-              onChooseRecording={() => void handleChooseRecording()}
-            />
-          )}
-          {audio.data &&
-            localAudioAvailable &&
-            audio.data.transcriptStatus !== "complete" &&
-            transcripts.length === 0 &&
-            (transcription === "running" ? (
-              <Text style={styles.transcribeStatus}>Transcribing…</Text>
-            ) : (
-              <Pressable
-                hitSlop={4}
-                onPress={() =>
-                  canTranscribe
-                    ? void transcribeSession(id)
-                    : router.push("/settings/transcription-provider")
-                }
-                style={({ pressed }) => pressed && styles.transcribePressed}
-              >
-                <Text style={styles.transcribeAction}>
-                  {!canTranscribe
-                    ? "Choose transcription provider"
-                    : transcription === "failed"
-                      ? "Transcription failed — tap to retry"
-                      : "Tap to transcribe"}
-                </Text>
-              </Pressable>
-            ))}
-          </>}
+              {audio.data && !localAudioAvailable && (
+                <RemoteAudioCard
+                  cloudAvailable={Boolean(
+                    audio.data.cloudObjectKey &&
+                    auth.billing.isPro &&
+                    auth.session?.access_token &&
+                    env.supabaseUrl,
+                  )}
+                  errorMessage={audioRestoreError}
+                  loading={restoringAudio}
+                  onDownloadRecording={() => void handleDownloadRecording()}
+                  onChooseRecording={() => void handleChooseRecording()}
+                />
+              )}
+              {audio.data &&
+                localAudioAvailable &&
+                audio.data.transcriptStatus !== "complete" &&
+                transcripts.length === 0 &&
+                (transcription === "running" ? (
+                  <Text style={styles.transcribeStatus}>Transcribing…</Text>
+                ) : (
+                  <Pressable
+                    hitSlop={4}
+                    onPress={() =>
+                      canTranscribe
+                        ? void transcribeSession(id)
+                        : router.push("/settings/transcription-provider")
+                    }
+                    style={({ pressed }) => pressed && styles.transcribePressed}
+                  >
+                    <Text style={styles.transcribeAction}>
+                      {!canTranscribe
+                        ? "Choose transcription provider"
+                        : transcription === "failed"
+                          ? "Transcription failed — tap to retry"
+                          : "Tap to transcribe"}
+                    </Text>
+                  </Pressable>
+                ))}
+            </>
+          }
           phase={recorder.phase}
           failure={recorder.failure}
           amplitude={recorder.amplitude}
@@ -927,11 +966,19 @@ const useStyles = createStyleHook((Colors) => ({
   },
   tabs: { marginHorizontal: Spacing.md, marginVertical: Spacing.md },
   hidden: { display: "none" },
-  summary: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.lg, gap: Spacing.md },
+  summary: {
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.lg,
+    gap: Spacing.md,
+  },
   summaryTitle: { ...Typography.section, color: Colors.ink },
   summaryScroll: { flex: 1 },
   summaryText: { ...Typography.body, color: Colors.ink },
-  summaryError: { ...Typography.caption, color: Colors.accent, marginTop: Spacing.sm },
+  summaryError: {
+    ...Typography.caption,
+    color: Colors.accent,
+    marginTop: Spacing.sm,
+  },
   transcribeStatus: {
     marginHorizontal: Spacing.md,
     marginTop: Spacing.xs,

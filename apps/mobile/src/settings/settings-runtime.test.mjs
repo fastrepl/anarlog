@@ -138,6 +138,8 @@ beforeEach(() => {
   for (const migration of [
     "20260710223922_canonical_data_model.sql",
     "20260810120000_synced_preferences.sql",
+    "20260815100000_transcript_content_revision.sql",
+    "20260815100100_transcript_live_deltas.sql",
   ]) {
     fixture.db.exec(
       readFileSync(
@@ -1626,7 +1628,7 @@ test("automatic summaries preserve memos and never overwrite an existing summary
   const memo = fixture.db
     .prepare("SELECT body FROM session_documents WHERE id = 'note-1'")
     .get().body;
-  await summarizeSession("note-1", true);
+  await summarizeSession("note-1", { automatic: true });
   assert.equal(fixture.requests.length, 1);
   assert.equal(
     fixture.db
@@ -1639,7 +1641,7 @@ test("automatic summaries preserve memos and never overwrite an existing summary
       "UPDATE session_documents SET body = 'My edited summary' WHERE kind = 'summary'",
     )
     .run();
-  await summarizeSession("note-1", true);
+  await summarizeSession("note-1", { automatic: true });
   assert.equal(fixture.requests.length, 1);
   assert.equal(
     fixture.db
@@ -1660,7 +1662,7 @@ test("automatic and manual summary requests share an in-flight generation", asyn
     new Promise((resolve) => {
       release = resolve;
     });
-  const automatic = summarizeSession("note-1", true);
+  const automatic = summarizeSession("note-1", { automatic: true });
   const manual = summarizeSession("note-1");
   assert.equal(automatic, manual);
   while (!release) await new Promise((resolve) => setImmediate(resolve));
@@ -1690,7 +1692,10 @@ test("automatic summary failure is observable and can be retried without changin
     .prepare("SELECT body FROM session_documents WHERE id = 'note-1'")
     .get().body;
   fixture.respond = () => new Response("Rejected", { status: 401 });
-  await assert.rejects(summarizeSession("note-1", true), /API key or sign in/);
+  await assert.rejects(
+    summarizeSession("note-1", { automatic: true }),
+    /API key or sign in/,
+  );
   const mutation = queryClient
     .getMutationCache()
     .findAll({ mutationKey: ["session-summary", "note-1"] })
@@ -1712,4 +1717,100 @@ test("automatic summary failure is observable and can be retried without changin
       .get().body,
     "Recovered summary",
   );
+});
+
+test("summaries read the full visible transcript, including uncompact live revisions and speaker names", async () => {
+  createNote();
+  signedInWith({
+    subscription_status: "active",
+    entitlements: ["hyprnote_pro"],
+  });
+  fixture.db
+    .prepare(
+      "INSERT INTO humans (id, workspace_id, name) VALUES ('speaker-a', 'workspace-a', 'John')",
+    )
+    .run();
+  const word = (id, text, start_ms) => ({
+    id,
+    text,
+    start_ms,
+    end_ms: start_ms + 100,
+    channel: 0,
+    speaker_index: 0,
+  });
+  fixture.db
+    .prepare(
+      "INSERT INTO transcripts (id, workspace_id, session_id, words_json, speaker_hints_json) VALUES (?, 'workspace-a', 'note-1', ?, ?)",
+    )
+    .run(
+      "live-transcript",
+      JSON.stringify([word("first", "First snapshot", 0)]),
+      JSON.stringify([
+        {
+          word_id: "first",
+          type: "user_speaker_assignment",
+          value: {
+            scope: "speaker",
+            channel: 0,
+            speaker_index: 0,
+            human_id: "speaker-a",
+          },
+        },
+      ]),
+    );
+  fixture.db
+    .prepare(
+      "INSERT INTO transcript_live_state (transcript_id) VALUES ('live-transcript')",
+    )
+    .run();
+  const addDelta = fixture.db.prepare(
+    "INSERT INTO transcript_live_deltas (id, transcript_id, sequence, delta_json) VALUES (?, 'live-transcript', ?, ?)",
+  );
+  addDelta.run(
+    "later",
+    2,
+    JSON.stringify({
+      replaced_ids: ["second"],
+      new_words: [word("second", "Corrected ending", 100)],
+    }),
+  );
+  addDelta.run(
+    "earlier",
+    1,
+    JSON.stringify({
+      replaced_ids: [],
+      new_words: [word("second", "Wrong ending", 100)],
+    }),
+  );
+  await summarizeSession("note-1");
+  const request = JSON.stringify(JSON.parse(fixture.requests[0].options.body));
+  assert.match(request, /John: First snapshot Corrected ending/);
+  assert.doesNotMatch(request, /Wrong ending/);
+});
+
+test("a preparation error is replaced by the next successful automatic summary state", async () => {
+  const { queryClient } = await import("../lib/query-client.ts");
+  createNote();
+  signedInWith({
+    subscription_status: "active",
+    entitlements: ["hyprnote_pro"],
+  });
+  const latestState = () =>
+    queryClient
+      .getMutationCache()
+      .findAll({ mutationKey: ["session-summary", "note-1"] })
+      .at(-1).state;
+  await assert.rejects(
+    summarizeSession("note-1", {
+      beforeGenerate: () => {
+        throw Error("Memo save failed");
+      },
+    }),
+    /Memo save failed/,
+  );
+  assert.equal(fixture.requests.length, 0);
+  assert.equal(latestState().status, "error");
+  await summarizeSession("note-1", { automatic: true });
+  assert.equal(latestState().status, "success");
+  assert.equal(latestState().error, null);
 });

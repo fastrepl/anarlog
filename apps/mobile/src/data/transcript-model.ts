@@ -1,3 +1,13 @@
+export const SESSION_TRANSCRIPTS_SQL = `SELECT transcript.id, transcript.started_at_ms, transcript.words_json, transcript.speaker_hints_json,
+      COALESCE((SELECT json_group_array(json(ordered_delta.delta_json)) FROM (
+        SELECT delta.delta_json FROM transcript_live_deltas AS delta
+        WHERE delta.transcript_id = transcript.id ORDER BY delta.sequence
+      ) AS ordered_delta), '[]') AS pending_deltas_json
+      FROM transcripts AS transcript WHERE transcript.session_id = ? AND transcript.deleted_at IS NULL
+      ORDER BY transcript.started_at_ms, transcript.created_at, transcript.id`;
+
+export const SESSION_SPEAKERS_SQL = `SELECT id, name FROM humans WHERE workspace_id = (SELECT workspace_id FROM sessions WHERE id = ?) AND deleted_at IS NULL`;
+
 export type TranscriptRow = {
   id: string;
   started_at_ms: number;

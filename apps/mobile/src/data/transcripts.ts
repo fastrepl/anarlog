@@ -5,6 +5,8 @@ import { captureOperationalError } from "@/lib/error-reporting";
 
 import {
   transcriptSegments,
+  SESSION_TRANSCRIPTS_SQL,
+  SESSION_SPEAKERS_SQL,
   type TranscriptRow,
   type TranscriptSegment,
 } from "./transcript-model";
@@ -26,13 +28,7 @@ function rememberInvalidRow(rowId: string) {
 
 export function useSessionTranscripts(sessionId: string): TranscriptSegment[] {
   const { data: rows } = useLiveQuery<TranscriptRow, TranscriptRow[]>({
-    sql: `SELECT transcript.id, transcript.started_at_ms, transcript.words_json, transcript.speaker_hints_json,
-      COALESCE((SELECT json_group_array(json(ordered_delta.delta_json)) FROM (
-        SELECT delta.delta_json FROM transcript_live_deltas AS delta
-        WHERE delta.transcript_id = transcript.id ORDER BY delta.sequence
-      ) AS ordered_delta), '[]') AS pending_deltas_json
-      FROM transcripts AS transcript WHERE transcript.session_id = ? AND transcript.deleted_at IS NULL
-      ORDER BY transcript.started_at_ms, transcript.created_at, transcript.id`,
+    sql: SESSION_TRANSCRIPTS_SQL,
     params: [sessionId],
     mapRows: (rows) => rows,
   });
@@ -40,7 +36,7 @@ export function useSessionTranscripts(sessionId: string): TranscriptSegment[] {
     { id: string; name: string },
     { id: string; name: string }[]
   >({
-    sql: `SELECT id, name FROM humans WHERE workspace_id = (SELECT workspace_id FROM sessions WHERE id = ?) AND deleted_at IS NULL`,
+    sql: SESSION_SPEAKERS_SQL,
     params: [sessionId],
     mapRows: (rows) => rows,
   });
