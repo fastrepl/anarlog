@@ -7,14 +7,14 @@ per-PR feedback fast (so the Bugbot → fix → push loop stays cheap) while the
 
 ## CI model
 
-- **Per PR (fast lane, Linux only):** lint, format, typecheck, unit/integration
-  tests, and Linux `cargo check`/`cargo test`. Deduplicated via
-  `concurrency: cancel-in-progress`, so rapid pushes cancel superseded runs.
-- **On merge to `main` + nightly (`schedule`):** the full desktop matrix
-  (macOS, Windows, Linux arm64, Swift) and the mobile native builds
-  (iOS, watchOS, Android). Nightly catches platform breakage within a day and
-  attributes it to a small window — keeping the release audit a clean diff review
-  rather than a regression hunt.
+- **Per PR:** lint, format, typecheck, and unit/integration tests. Desktop CI
+  runs JS and i18n checks on PRs and pushes to `main`, with no native desktop jobs.
+  Rapid pushes cancel superseded runs of the same event and ref.
+- **Desktop native checks:** macOS, Windows, Linux x86_64/ARM64, and Swift run
+  daily at 09:00 UTC (18:00 KST) and through `workflow_dispatch` for release
+  candidates. Pushes to `main` do not cancel scheduled or manual verification.
+- **Mobile native builds:** iOS, watchOS, and Android follow `mobile_ci`'s
+  separate schedule and release requirements.
 - **Release (this audit):** full builds + signing + real-hardware QA.
 
 ## Audit checklist
@@ -27,8 +27,10 @@ Run these before publishing a stable desktop release.
    simplify, delete dead code, reconcile inconsistencies introduced across PRs.
 
 2. **Confirm the heavy suites are green** on the release candidate:
-   - `desktop_ci` and `mobile_ci` — trigger via `workflow_dispatch` on the
-     candidate (or confirm the latest nightly on `main` passed).
+   - `desktop_ci` — trigger via `workflow_dispatch` on the candidate. CloudSync
+     source rebuilds and platform artifacts require dispatch; a nightly run
+     does not replace this release check.
+   - `mobile_ci` — follow its separate native-build and release requirements.
    - `pro_api_e2e` — nightly/dispatch (live provider APIs).
 
 3. **Build + sign all platforms** via `desktop_cd` (`staging` first, then
