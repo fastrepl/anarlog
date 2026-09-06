@@ -1,3 +1,4 @@
 /build/
 /node_modules/
+/android/.cxx/
 /android/src/main/jniLibs/
