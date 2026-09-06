@@ -3,7 +3,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ fetch: vi.fn(), key: 0 }));
+const mocks = vi.hoisted(() => ({ fetch: vi.fn(), key: 0, baseUrl: "" }));
 
 vi.mock("@tauri-apps/plugin-http", () => ({ fetch: mocks.fetch }));
 vi.mock("~/auth/billing-context", () => ({
@@ -11,7 +11,10 @@ vi.mock("~/auth/billing-context", () => ({
 }));
 vi.mock("~/settings/providers", () => ({
   useAiProviders: (type: string) => ({
-    [`${type}:openai`]: { api_key: `saved-key-${mocks.key}`, base_url: "" },
+    [`${type}:openai`]: {
+      api_key: `saved-key-${mocks.key}`,
+      base_url: mocks.baseUrl,
+    },
   }),
 }));
 
@@ -20,8 +23,25 @@ import { useProviderAvailability } from "./index";
 beforeEach(() => {
   mocks.fetch.mockReset();
   mocks.key++;
+  mocks.baseUrl = "";
 });
 afterEach(cleanup);
+
+test.each([
+  "http://192.168.1.10/v1",
+  "https://provider.test/v1?key=invalid",
+  "not-a-url",
+])(
+  "invalid saved endpoint %s settles availability without a request",
+  async (baseUrl) => {
+    mocks.baseUrl = baseUrl;
+    const { result, client, unmount } = setup("stt");
+    await waitFor(() => expect(result.current.openai).toBe(false));
+    expect(mocks.fetch).not.toHaveBeenCalled();
+    unmount();
+    client.clear();
+  },
+);
 
 function setup(type: "stt" | "llm") {
   const client = new QueryClient({

@@ -29,10 +29,15 @@ export async function verifyProviderCredentials(
 ): Promise<void> {
   const apiKey = credential.apiKey.trim();
   if (!apiKey || apiKey.length > 8192 || /[\r\n]/.test(apiKey))
-    throw new Error("Enter a valid API key.");
-  const base = new URL(credential.baseUrl);
+    throw new ProviderCredentialError("Enter a valid API key.");
+  let base: URL;
+  try {
+    base = new URL(credential.baseUrl);
+  } catch {
+    throw new ProviderCredentialError("Enter a valid base URL.");
+  }
   if (base.username || base.password || base.search || base.hash)
-    throw new Error(
+    throw new ProviderCredentialError(
       "Enter a base URL without credentials or query parameters.",
     );
   if (
@@ -42,7 +47,7 @@ export async function verifyProviderCredentials(
       ["localhost", "127.0.0.1", "[::1]"].includes(base.hostname)
     )
   )
-    throw new Error("Use HTTPS for provider credentials.");
+    throw new ProviderCredentialError("Use HTTPS for provider credentials.");
 
   signal?.throwIfAborted();
   const identity = providerCredentialIdentity({ ...credential, apiKey });

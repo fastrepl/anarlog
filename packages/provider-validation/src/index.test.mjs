@@ -272,6 +272,7 @@ test("rejects malformed credentials and unsafe endpoints before a request", asyn
   for (const update of [
     { apiKey: "" },
     { apiKey: "a\nb" },
+    { baseUrl: "not-a-url" },
     { baseUrl: "http://remote.test" },
     { baseUrl: "https://u:p@remote.test" },
     { baseUrl: "https://remote.test/?token=test" },
@@ -280,6 +281,11 @@ test("rejects malformed credentials and unsafe endpoints before a request", asyn
       verifyProviderCredentials({ ...credential, ...update }, () =>
         assert.fail("Unexpected network request"),
       ),
+      (error) => {
+        assert.ok(error instanceof ProviderCredentialError);
+        assert.equal(error.retryable, false);
+        return true;
+      },
     );
   }
 });
