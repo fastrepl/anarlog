@@ -40,7 +40,7 @@ const useStyles = createStyleHook((Colors) => ({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    marginHorizontal: Spacing.lg,
+    marginHorizontal: Spacing.md,
     borderRadius: LISTENING_CONTROL_RADIUS,
     borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.primary,

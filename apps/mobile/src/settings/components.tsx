@@ -1,8 +1,13 @@
 import type { IconName } from "@expo/ui";
 import { FieldGroup, Host, Icon, ListItem, Text as NativeText } from "@expo/ui";
+import {
+  font,
+  listSectionSpacing,
+  scrollContentBackground,
+} from "@expo/ui/swift-ui/modifiers";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
-import { Text, View } from "react-native";
+import { Platform, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconButton } from "@/components/ui/icon-button";
@@ -16,9 +21,11 @@ import {
 export function SettingsPage({
   title,
   children,
+  layout = "form",
 }: {
   title: string;
   children: ReactNode;
+  layout?: "form" | "menu";
 }) {
   const styles = useStyles();
   const Colors = useColors();
@@ -38,14 +45,31 @@ export function SettingsPage({
         <Text style={styles.title}>{title}</Text>
         <View style={styles.spacer} />
       </View>
-      <Host
-        style={styles.form}
-        colorScheme={colorScheme}
-        seedColor={colorScheme === "dark" ? Colors.muted : Colors.ink}
-        ignoreSafeArea="all"
-      >
-        <FieldGroup>{children}</FieldGroup>
-      </Host>
+      {layout === "menu" ? (
+        <ScrollView contentContainerStyle={styles.menu}>{children}</ScrollView>
+      ) : (
+        <Host
+          style={styles.form}
+          colorScheme={colorScheme}
+          seedColor={colorScheme === "dark" ? Colors.muted : Colors.ink}
+          ignoreSafeArea="all"
+        >
+          <FieldGroup
+            style={{ backgroundColor: Colors.background }}
+            modifiers={
+              Platform.OS === "ios"
+                ? [
+                    scrollContentBackground("hidden"),
+                    listSectionSpacing(Spacing.lg),
+                    font({ size: Typography.body.fontSize }),
+                  ]
+                : undefined
+            }
+          >
+            {children}
+          </FieldGroup>
+        </Host>
+      )}
     </SafeAreaView>
   );
 }
@@ -102,10 +126,17 @@ const useStyles = createStyleHook((Colors) => ({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.md,
   },
   title: { ...Typography.section, color: Colors.ink },
   spacer: { width: ControlSize.default, height: ControlSize.default },
   form: { flex: 1 },
+  menu: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.lg,
+    gap: Spacing.lg,
+  },
 }));

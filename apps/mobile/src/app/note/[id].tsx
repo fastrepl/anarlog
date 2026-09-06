@@ -894,12 +894,12 @@ const useStyles = createStyleHook((Colors) => ({
     flex: 1,
   },
   title: {
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.md,
     ...Typography.title,
     color: Colors.ink,
   },
   summary: {
-    marginHorizontal: Spacing.lg,
+    marginHorizontal: Spacing.md,
     marginTop: Spacing.md,
     padding: Spacing.md,
   },
@@ -921,13 +921,13 @@ const useStyles = createStyleHook((Colors) => ({
     color: Colors.ink,
   },
   transcribeStatus: {
-    marginHorizontal: Spacing.lg,
+    marginHorizontal: Spacing.md,
     marginTop: Spacing.xs,
     ...Typography.caption,
     color: Colors.muted,
   },
   transcribeAction: {
-    marginHorizontal: Spacing.lg,
+    marginHorizontal: Spacing.md,
     marginTop: Spacing.xs,
     ...Typography.captionStrong,
     color: Colors.ink,
@@ -936,7 +936,7 @@ const useStyles = createStyleHook((Colors) => ({
     opacity: 0.6,
   },
   transcript: {
-    marginHorizontal: Spacing.lg,
+    marginHorizontal: Spacing.md,
     marginTop: Spacing.sm,
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.sm,
@@ -957,7 +957,7 @@ const useStyles = createStyleHook((Colors) => ({
   },
   attachments: {
     gap: Spacing.sm,
-    marginHorizontal: Spacing.lg,
+    marginHorizontal: Spacing.md,
     marginTop: Spacing.md,
   },
   attachmentLabel: {
@@ -968,7 +968,7 @@ const useStyles = createStyleHook((Colors) => ({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    marginHorizontal: Spacing.lg,
+    marginHorizontal: Spacing.md,
     marginTop: Spacing.sm,
   },
   readOnlyLabel: {
@@ -977,7 +977,7 @@ const useStyles = createStyleHook((Colors) => ({
   },
   body: {
     flex: 1,
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
     ...Typography.body,
     color: Colors.ink,

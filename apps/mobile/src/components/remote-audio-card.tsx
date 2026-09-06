@@ -66,7 +66,7 @@ const useStyles = createStyleHook((Colors) => ({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: Spacing.sm,
-    marginHorizontal: Spacing.lg,
+    marginHorizontal: Spacing.md,
     marginTop: Spacing.sm,
     padding: Spacing.md,
   },

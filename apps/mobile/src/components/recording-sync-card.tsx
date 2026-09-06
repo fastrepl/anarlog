@@ -88,7 +88,7 @@ export function RecordingSyncCard({ audio }: { audio: SessionAudio }) {
 const useStyles = createStyleHook((Colors) => ({
   card: {
     gap: Spacing.sm,
-    marginHorizontal: Spacing.lg,
+    marginHorizontal: Spacing.md,
     marginTop: Spacing.sm,
     padding: Spacing.md,
   },

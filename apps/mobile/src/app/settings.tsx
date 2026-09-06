@@ -1,14 +1,15 @@
-import { FieldGroup, Icon } from "@expo/ui";
+import { Icon } from "@expo/ui";
 import { useRouter } from "expo-router";
 
-import { SettingsPage, SettingsRow } from "@/settings/components";
+import { SettingsPage } from "@/settings/components";
+import { SettingsMenuGroup, SettingsMenuLink } from "@/settings/menu";
 
 export default function SettingsScreen() {
   const router = useRouter();
   return (
-    <SettingsPage title="Settings">
-      <FieldGroup.Section>
-        <SettingsRow
+    <SettingsPage title="Settings" layout="menu">
+      <SettingsMenuGroup>
+        <SettingsMenuLink
           title="Account"
           icon={Icon.select({
             ios: "person.crop.circle",
@@ -16,9 +17,9 @@ export default function SettingsScreen() {
           })}
           onPress={() => router.push("/settings/account")}
         />
-      </FieldGroup.Section>
-      <FieldGroup.Section>
-        <SettingsRow
+      </SettingsMenuGroup>
+      <SettingsMenuGroup>
+        <SettingsMenuLink
           title="Sync & storage"
           icon={Icon.select({
             ios: "icloud",
@@ -26,9 +27,9 @@ export default function SettingsScreen() {
           })}
           onPress={() => router.push("/settings/sync")}
         />
-      </FieldGroup.Section>
-      <FieldGroup.Section>
-        <SettingsRow
+      </SettingsMenuGroup>
+      <SettingsMenuGroup>
+        <SettingsMenuLink
           title="Recording"
           icon={Icon.select({
             ios: "mic",
@@ -36,7 +37,7 @@ export default function SettingsScreen() {
           })}
           onPress={() => router.push("/settings/recording")}
         />
-        <SettingsRow
+        <SettingsMenuLink
           title="Transcription & summaries"
           icon={Icon.select({
             ios: "text.bubble",
@@ -44,7 +45,7 @@ export default function SettingsScreen() {
           })}
           onPress={() => router.push("/settings/transcription")}
         />
-        <SettingsRow
+        <SettingsMenuLink
           title="Appearance"
           icon={Icon.select({
             ios: "sun.max",
@@ -52,9 +53,9 @@ export default function SettingsScreen() {
           })}
           onPress={() => router.push("/settings/appearance")}
         />
-      </FieldGroup.Section>
-      <FieldGroup.Section>
-        <SettingsRow
+      </SettingsMenuGroup>
+      <SettingsMenuGroup>
+        <SettingsMenuLink
           title="Privacy"
           icon={Icon.select({
             ios: "hand.raised",
@@ -62,7 +63,7 @@ export default function SettingsScreen() {
           })}
           onPress={() => router.push("/settings/privacy")}
         />
-        <SettingsRow
+        <SettingsMenuLink
           title="Help & about"
           icon={Icon.select({
             ios: "questionmark.circle",
@@ -70,7 +71,7 @@ export default function SettingsScreen() {
           })}
           onPress={() => router.push("/settings/help")}
         />
-      </FieldGroup.Section>
+      </SettingsMenuGroup>
     </SettingsPage>
   );
 }
