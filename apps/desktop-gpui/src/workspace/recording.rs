@@ -25,12 +25,23 @@ pub(crate) enum SessionMode {
 
 pub(crate) struct LiveCapture {
     pub session_id: String,
-    /// `live.degraded`: no live transcription (no provider, or the engine
-    /// fell back), which tints the transcript tab amber.
-    pub degraded: bool,
+    /// `live.requestedLiveTranscription`: the session asked for live mode.
+    pub requested_live: bool,
+    /// `live.liveTranscriptionActive`: the engine is streaming live.
+    pub live_active: bool,
+    /// `live.degraded`: the engine's degradation error, if any.
+    pub error: Option<DegradedError>,
     pub mic: f32,
     pub speaker: f32,
     pub muted: bool,
+}
+
+impl LiveCapture {
+    /// `Boolean(degraded)` for the amber tint: any degradation or a capture
+    /// that is not transcribing live.
+    pub fn degraded(&self) -> bool {
+        self.error.is_some() || !self.live_active
+    }
 }
 
 #[derive(Default)]
@@ -153,7 +164,9 @@ impl Workspace {
                     Ok(Ok(())) => {
                         this.recording.live = Some(LiveCapture {
                             session_id,
-                            degraded: !has_provider,
+                            requested_live: true,
+                            live_active: has_provider,
+                            error: None,
                             mic: 0.0,
                             speaker: 0.0,
                             muted: false,
@@ -206,29 +219,29 @@ impl Workspace {
         match event {
             Event::Lifecycle(SessionLifecycleEvent::Active {
                 session_id,
+                requested_transcription_mode,
                 current_transcription_mode,
                 error,
-                ..
             }) => {
-                let degraded =
-                    error.is_some() || current_transcription_mode != TranscriptionMode::Live;
+                let requested_live = requested_transcription_mode == TranscriptionMode::Live;
+                let live_active = current_transcription_mode == TranscriptionMode::Live;
                 match self.recording.live.as_mut() {
                     Some(live) if live.session_id == session_id => {
-                        live.degraded = live.degraded || degraded;
+                        live.requested_live = requested_live;
+                        live.live_active = live_active;
+                        live.error = error;
                     }
                     _ => {
                         self.recording.live = Some(LiveCapture {
                             session_id,
-                            degraded,
+                            requested_live,
+                            live_active,
+                            error,
                             mic: 0.0,
                             speaker: 0.0,
                             muted: false,
                         });
                     }
-                }
-                if let Some(DegradedError::ProviderConfiguration { .. }) = error {
-                    // The provider is misconfigured rather than absent; the
-                    // toast for the absent case is already showing.
                 }
             }
             Event::Lifecycle(SessionLifecycleEvent::Finalizing { session_id }) => {
@@ -293,8 +306,10 @@ impl Workspace {
                 }
                 anlg_listener_core::SessionErrorEvent::ConnectionError { error, .. } => {
                     tracing::warn!(%error, "[listener] connection error");
-                    if let Some(live) = self.recording.live.as_mut() {
-                        live.degraded = true;
+                    if let Some(live) = self.recording.live.as_mut()
+                        && live.error.is_none()
+                    {
+                        live.error = Some(DegradedError::StreamError { message: error });
                     }
                 }
             },
@@ -329,10 +344,10 @@ impl Workspace {
             .collect()
     }
 
-    /// `HeaderViewTranscriptLiveIcon` → `DancingSticks` at 16×16: a 1px
-    /// line while silent, otherwise five 2px sticks scaled by amplitude.
+    /// `HeaderViewTranscriptLiveIcon` → `DancingSticks` at 16×16, amber
+    /// while degraded, the waveform while muted.
     pub(super) fn render_dancing_sticks(&self, live: &LiveCapture) -> AnyElement {
-        let color = if live.degraded {
+        let color = if live.degraded() {
             gpui::rgb(0xf59e0b)
         } else {
             gpui::rgb(0xef4444)
@@ -340,23 +355,247 @@ impl Workspace {
         if live.muted {
             return crate::ui::icon("waveform", px(16.0), self.theme.foreground).into_any_element();
         }
-        let amplitude = live.mic.hypot(live.speaker).min(1.0);
-        let container = div().flex().size(px(16.0)).items_center().justify_center();
-        if amplitude == 0.0 {
-            return container
-                .child(div().w(px(16.0)).h(px(1.0)).rounded_full().bg(color))
-                .into_any_element();
+        dancing_sticks(
+            live.mic.hypot(live.speaker).min(1.0),
+            color,
+            16.0,
+            16.0,
+            2.0,
+            1.0,
+        )
+    }
+
+    /// The transcript tab body while `getSessionMode` is not inactive, after
+    /// `useTranscriptScreen`: `batch_fallback` (`BatchState`) when the
+    /// capture is not transcribing live, else `listening` / `finalizing`
+    /// (`TranscriptListeningState`).
+    pub(super) fn render_live_transcript_screen(
+        &self,
+        session_id: &str,
+        window: &gpui::Window,
+    ) -> Option<AnyElement> {
+        let theme = self.theme;
+        let mode = self.session_mode(session_id);
+        if mode == SessionMode::Inactive {
+            return None;
         }
-        let scale = 0.2 + 0.8 * amplitude;
-        // `generatePattern(5)`: 50..100..50 from the edges to the middle.
-        let pattern = [50.0f32, 75.0, 100.0, 75.0, 50.0];
-        container
-            .gap(px(1.0))
-            .children(pattern.into_iter().map(|base| {
-                let height = 16.0 * scale * (base / 100.0).clamp(0.25, 1.0);
-                div().w(px(2.0)).h(px(height)).rounded_full().bg(color)
-            }))
+        let live = self
+            .recording
+            .live
+            .as_ref()
+            .filter(|live| live.session_id == session_id);
+        let copy = |title: String, description: String| {
+            self.transcript_screen_copy(&title, &description, window)
+        };
+        if let Some(live) = live.filter(|live| !live.live_active) {
+            // `BatchState`
+            let fallback = live.requested_live;
+            let reconnecting = fallback
+                && live.error.as_ref().is_some_and(|error| {
+                    !matches!(
+                        error,
+                        DegradedError::AuthenticationFailed { .. }
+                            | DegradedError::ProviderConfiguration { .. }
+                    )
+                });
+            let title = if fallback {
+                if reconnecting {
+                    "Reconnecting live transcription"
+                } else if live.error.is_some() {
+                    "Live transcription stopped"
+                } else {
+                    "Live transcription unavailable"
+                }
+            } else {
+                "Batch transcription mode"
+            };
+            let description = if fallback {
+                format!(
+                    "{}Recording continues{}. A complete transcript will be generated after you stop.",
+                    live.error
+                        .as_ref()
+                        .map(|error| format!("{}. ", degraded_message(error)))
+                        .unwrap_or_default(),
+                    if reconnecting {
+                        " while we reconnect"
+                    } else {
+                        ""
+                    }
+                )
+            } else {
+                "Recording continues. Your transcript will be generated after you stop.".to_string()
+            };
+            return Some(
+                transcript_screen()
+                    .child(div().mb_5().child(dancing_sticks(
+                        live.mic.hypot(live.speaker).min(1.0),
+                        gpui::rgb(0xa3a3a3),
+                        36.0,
+                        80.0,
+                        3.0,
+                        3.0,
+                    )))
+                    .child(copy(title.to_string(), description))
+                    .into_any_element(),
+            );
+        }
+        // `TranscriptListeningState`
+        let finalizing = mode == SessionMode::Finalizing;
+        Some(
+            transcript_screen()
+                .child(div().mb_5().child(if finalizing {
+                    crate::ui::icon("circle-notch", px(36.0), theme.muted_foreground)
+                } else {
+                    crate::ui::icon("waveform", px(36.0), theme.muted_foreground)
+                }))
+                .child(copy(
+                    if finalizing {
+                        "Finalizing transcript..."
+                    } else {
+                        "Listening..."
+                    }
+                    .to_string(),
+                    if finalizing {
+                        "Transcript is still being written."
+                    } else {
+                        "Transcript will appear here when the first segment arrives."
+                    }
+                    .to_string(),
+                ))
+                .into_any_element(),
+        )
+    }
+
+    /// `TranscriptEmptyState` without a batch: `Audio available` with
+    /// Re-transcribe and Upload transcript when the session has audio.
+    pub(super) fn render_transcript_empty_state(
+        &self,
+        has_audio: bool,
+        window: &gpui::Window,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let theme = self.theme;
+        // `Button size="sm"`: `h-8 px-3 gap-2 text-sm`, default or outline.
+        let button = |id: &'static str, label: &'static str, primary: bool| {
+            div()
+                .id(id)
+                .relative()
+                .flex()
+                .h(px(32.0))
+                .items_center()
+                .gap_2()
+                .px_3()
+                .tw_text_sm()
+                .font_weight(gpui::FontWeight::MEDIUM)
+                .cursor_pointer()
+                .child(crate::squircle::squircle(
+                    crate::squircle::CONTROL_RADIUS,
+                    Some(if primary {
+                        theme.primary
+                    } else {
+                        theme.background
+                    }),
+                    (!primary).then_some((1.0, theme.border)),
+                ))
+                .text_color(if primary {
+                    theme.primary_foreground
+                } else {
+                    theme.foreground
+                })
+                .child(div().relative().flex().items_center().gap_2().child(label))
+        };
+        transcript_screen()
+            .child(div().mb_5().child(crate::ui::icon(
+                "waveform",
+                px(36.0),
+                theme.muted_foreground,
+            )))
+            .child(div().mb_6().child(self.transcript_screen_copy(
+                if has_audio {
+                    "Audio available"
+                } else {
+                    "No transcript available"
+                },
+                if has_audio {
+                    "Re-transcribe this audio, or upload a transcript file."
+                } else {
+                    "Upload audio or a transcript file to populate this note."
+                },
+                window,
+            )))
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .when(has_audio, |row| {
+                        row.child(
+                            button("transcript-retranscribe", "Re-transcribe", true).on_click(
+                                cx.listener(|this, _: &gpui::ClickEvent, _, cx| {
+                                    this.retranscribe(cx)
+                                }),
+                            ),
+                        )
+                    })
+                    .child(
+                        button("transcript-upload", "Upload transcript", false).on_click(
+                            cx.listener(|this, _: &gpui::ClickEvent, window, cx| {
+                                this.upload_transcript(window, cx)
+                            }),
+                        ),
+                    ),
+            )
             .into_any_element()
+    }
+
+    /// `flex max-w-md flex-col gap-2` with the `text-base font-medium` title
+    /// and the centred `text-sm leading-relaxed` description, wrapped the
+    /// way WebKit wraps it.
+    fn transcript_screen_copy(&self, title: &str, description: &str, window: &gpui::Window) -> Div {
+        let theme = self.theme;
+        let mut style = window.text_style();
+        style.font_size = px(14.0).into();
+        style.color = theme.muted_foreground.into();
+        if let Some(font) = &self.font_family {
+            style.font_family = font.clone();
+        }
+        let run = style.to_run(description.len());
+        div()
+            .flex()
+            .w_full()
+            .max_w(px(448.0))
+            .flex_col()
+            .gap_2()
+            .items_center()
+            .child(
+                div()
+                    .tw_text_base()
+                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .text_color(theme.foreground)
+                    .child(SharedString::from(title.to_string())),
+            )
+            .child(
+                div().w_full().child(
+                    crate::prose_text::ProseText::new(
+                        description.to_string(),
+                        vec![run],
+                        px(14.0),
+                        px(22.0),
+                    )
+                    .centered(),
+                ),
+            )
+    }
+
+    /// `useRegenerateTranscript` runs the batch pipeline over the stored
+    /// audio, which needs a configured provider; the batch pipeline is not
+    /// ported yet, so the missing-provider outcome is reported directly.
+    pub(crate) fn retranscribe(&mut self, cx: &mut Context<Self>) {
+        self.flash(
+            super::toast::FlashVariant::Error,
+            "Transcription provider needed to re-transcribe this audio.",
+            cx,
+        );
     }
 
     /// The persistent sonner warning (`richColors`, `duration: Infinity`)
@@ -478,4 +717,75 @@ impl Workspace {
                 ),
         )
     }
+}
+
+/// `flex h-full min-h-[400px] flex-col items-center justify-center px-6 text-center`
+fn transcript_screen() -> Div {
+    div()
+        .flex()
+        .h_full()
+        .min_h(px(400.0))
+        .flex_col()
+        .items_center()
+        .justify_center()
+        .px_6()
+}
+
+/// `degradedMessage`
+fn degraded_message(error: &DegradedError) -> String {
+    match error {
+        DegradedError::AuthenticationFailed { provider } => {
+            format!("Authentication failed ({provider})")
+        }
+        DegradedError::UpstreamUnavailable { message } => message.clone(),
+        DegradedError::ConnectionTimeout => "Transcription connection timed out".to_string(),
+        DegradedError::ProviderConfiguration { provider, .. } => {
+            format!("Transcription provider is misconfigured ({provider})")
+        }
+        DegradedError::StreamError { .. } => "Transcription stream error".to_string(),
+    }
+}
+
+/// `DancingSticks`: a 1px line while silent, otherwise sticks of
+/// `stick_width` with `gap`, their heights following `generatePattern`
+/// scaled by `0.2 + 0.8 * amplitude`.
+fn dancing_sticks(
+    amplitude: f32,
+    color: gpui::Rgba,
+    height: f32,
+    width: f32,
+    stick_width: f32,
+    gap: f32,
+) -> AnyElement {
+    let container = div()
+        .flex()
+        .w(px(width))
+        .h(px(height))
+        .items_center()
+        .justify_center();
+    if amplitude == 0.0 {
+        return container
+            .child(div().w(px(width)).h(px(1.0)).rounded_full().bg(color))
+            .into_any_element();
+    }
+    let count = (((width + gap) / (stick_width + gap)).floor() as usize).max(1);
+    let scale = 0.2 + 0.8 * amplitude.clamp(0.0, 1.0);
+    let mid = (count as f32 - 1.0) / 2.0;
+    container
+        .gap(px(gap))
+        .children((0..count).map(|index| {
+            let base = if count <= 1 {
+                100.0
+            } else {
+                let distance = (index as f32 - mid).abs() / mid;
+                50.0 + 50.0 * (1.0 - distance)
+            };
+            let stick = height * scale * (base / 100.0).clamp(0.25, 1.0);
+            div()
+                .w(px(stick_width))
+                .h(px(stick))
+                .rounded_full()
+                .bg(color)
+        }))
+        .into_any_element()
 }

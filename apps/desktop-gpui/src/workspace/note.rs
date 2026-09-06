@@ -487,8 +487,9 @@ impl Workspace {
     /// `getCanShowTranscript`: a stored transcript with words, or a live
     /// capture of this session.
     pub(super) fn can_show_transcript(&self, preview: &NotePreview) -> bool {
-        preview.has_transcript
-            || self.session_mode(&preview.session.id) == super::recording::SessionMode::Active
+        let live_capture =
+            self.session_mode(&preview.session.id) != super::recording::SessionMode::Inactive;
+        preview.has_transcript || live_capture || preview.audio_exists
     }
 
     fn render_view_switcher(
@@ -585,6 +586,21 @@ impl Workspace {
                                         .text_color(theme.foreground)
                                 })
                         })
+                        // The active live transcript tab: `w-[98px] gap-1.5 px-2`
+                        // on `bg-amber-50 text-amber-500` (degraded) or
+                        // `bg-red-50 text-red-500`.
+                        .when_some(live.filter(|_| active && glyph == "waveform"), |t, live| {
+                            let (bg, fg) = if live.degraded() {
+                                (gpui::rgb(0xfffbeb), gpui::rgb(0xf59e0b))
+                            } else {
+                                (gpui::rgb(0xfef2f2), gpui::rgb(0xef4444))
+                            };
+                            t.w(px(98.0))
+                                .min_w(px(98.0))
+                                .gap(px(6.0))
+                                .bg(bg)
+                                .text_color(fg)
+                        })
                         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                         .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                             // The active enhanced pill is the template picker trigger.
@@ -626,7 +642,7 @@ impl Workspace {
                             })
                             // `HeaderViewTranscriptActive`: an inactive session with a
                             // stored transcript can enter edit mode, shown by the pencil.
-                            .when(glyph == "waveform", |t| {
+                            .when(glyph == "waveform" && live.is_none(), |t| {
                                 t.child(icon("pencil-edit", px(14.0), theme.foreground))
                             })
                         })
@@ -653,16 +669,28 @@ impl Workspace {
 
         if *tab == NoteTab::Transcript {
             // The transcript tab keeps `px-3 pt-2` but scrolls inside the
-            // viewer (`overflow-hidden pb-0` on the column).
-            return div()
+            // viewer (`overflow-hidden pb-0` on the column). `useTranscriptScreen`
+            // picks the live / fallback screens while capturing and the empty
+            // state when only audio exists.
+            let body = div()
                 .id("note-body")
                 .h_full()
                 .px_3()
                 .pt_2()
                 .flex()
                 .flex_col()
-                .overflow_hidden()
-                .child(self.render_transcript(preview, cx));
+                .overflow_hidden();
+            if let Some(screen) = self.render_live_transcript_screen(&preview.session.id, window) {
+                return body.child(screen);
+            }
+            if !preview.has_transcript {
+                return body.child(self.render_transcript_empty_state(
+                    preview.audio_exists,
+                    window,
+                    cx,
+                ));
+            }
+            return body.child(self.render_transcript(preview, cx));
         }
 
         // `overflow-y-auto` shows the 6px WebKit scrollbar inside the column.
@@ -1232,10 +1260,11 @@ impl NotePreview {
         SessionEvent::parse(&self.session.event_json)
     }
 
-    /// `meetingOver = !isRecording && (ended || hasTranscript || audioExists)`
-    /// (no capture runs in this shell yet, and audio files are not tracked).
+    /// `ended || hasTranscript || audioExists`; the header adds
+    /// `!isRecording` for `meetingOver`.
     pub fn meeting_over(&self) -> bool {
         self.has_transcript
+            || self.audio_exists
             || self.session_event().is_some_and(|event| {
                 event
                     .ended_at

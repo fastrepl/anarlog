@@ -81,9 +81,7 @@ impl Workspace {
         // is never in progress here).
         let show_upload = match &self.note {
             super::Note::Ready { preview, tab } => {
-                let audio_exists =
-                    anlg_fs_sync_core::audio::exists(&self.store.session_dir(&preview.session.id))
-                        .unwrap_or(false);
+                let audio_exists = preview.audio_exists;
                 let note_has_content = match tab {
                     super::NoteTab::Memo => {
                         crate::db::has_note_content(&preview.memo_body, "prosemirror_json")
@@ -99,6 +97,53 @@ impl Workspace {
             }
             _ => false,
         };
+        // `Listening`: Stop listening while capturing, otherwise Start /
+        // Resume listening (disabled while finalizing).
+        let (mode, audio_exists, has_transcript) = match &self.note {
+            super::Note::Ready { preview, .. } => (
+                self.session_mode(&preview.session.id),
+                preview.audio_exists,
+                preview.has_transcript,
+            ),
+            _ => (super::recording::SessionMode::Inactive, false, false),
+        };
+        let listening = match mode {
+            super::recording::SessionMode::Active => plain(
+                "microphone-slash",
+                "Stop listening",
+                Some(Box::new(|this, _, cx| this.stop_listening(cx))),
+            ),
+            super::recording::SessionMode::Finalizing => Entry::Item {
+                icon: Some("microphone"),
+                dim_icon: true,
+                label: if audio_exists || has_transcript {
+                    "Resume listening".into()
+                } else {
+                    "Start listening".into()
+                },
+                trailing: Trailing::None,
+                destructive: false,
+                on_select: None,
+                submenu: None,
+            },
+            super::recording::SessionMode::Inactive => plain(
+                "microphone",
+                if audio_exists || has_transcript {
+                    "Resume listening"
+                } else {
+                    "Start listening"
+                },
+                Some(Box::new(|this, _, cx| {
+                    if let Some(id) = this.selected.clone() {
+                        this.start_listening(id, cx);
+                    }
+                })),
+            ),
+        };
+        // `showRetranscribeAction`: stored audio on an inactive session.
+        let show_retranscribe = mode == super::recording::SessionMode::Inactive && audio_exists;
+        // `canOpenFloatingPanel`: the floating bar while capturing.
+        let show_floating_panel = mode == super::recording::SessionMode::Active;
         let mut spec = MenuSpec {
             id: "overflow-menu",
             width: 224.0,
@@ -135,15 +180,7 @@ impl Workspace {
                     Some(Box::new(|this, _, cx| this.open_export_dialog(cx))),
                 ),
                 Entry::Separator,
-                plain(
-                    "microphone",
-                    "Start listening",
-                    Some(Box::new(|this, _, cx| {
-                        if let Some(id) = this.selected.clone() {
-                            this.start_listening(id, cx);
-                        }
-                    })),
-                ),
+                listening,
                 plain("waveform", "Upload audio", None),
                 plain(
                     "file-text",
@@ -182,13 +219,37 @@ impl Workspace {
                 },
             ],
         };
+        let upload_start = spec
+            .entries
+            .iter()
+            .position(|entry| matches!(entry, Entry::Item { label, .. } if label.as_ref() == "Upload audio"))
+            .expect("upload entries present");
         if !show_upload {
-            let start = spec
-                .entries
-                .iter()
-                .position(|entry| matches!(entry, Entry::Item { label, .. } if label.as_ref() == "Upload audio"))
-                .expect("upload entries present");
-            spec.entries.drain(start..start + 2);
+            spec.entries.drain(upload_start..upload_start + 2);
+        }
+        let mut insert_at = upload_start;
+        if show_retranscribe {
+            spec.entries.insert(
+                insert_at,
+                plain(
+                    "arrows-clockwise",
+                    "Re-transcribe",
+                    Some(Box::new(|this, _, cx| this.retranscribe(cx))),
+                ),
+            );
+            insert_at += 1;
+        }
+        if show_floating_panel {
+            // The floating bar is its own window; opening it is not ported yet.
+            let after_upload = if show_upload {
+                insert_at + 2
+            } else {
+                insert_at
+            };
+            spec.entries.insert(
+                after_upload,
+                plain("picture-in-picture", "Open floating panel", None),
+            );
         }
         spec
     }
@@ -196,7 +257,7 @@ impl Workspace {
     /// `selectAndUpload("transcript")`: the native open dialog, then the
     /// subtitle import for the selected `.vtt` / `.srt`; other files are
     /// ignored like `processFile`.
-    fn upload_transcript(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn upload_transcript(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.close_overflow_menu(cx);
         let Some(session_id) = self.selected.clone() else {
             return;

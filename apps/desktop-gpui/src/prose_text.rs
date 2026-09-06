@@ -22,6 +22,8 @@ pub struct ProseText {
     runs: Vec<TextRun>,
     font_size: Pixels,
     line_height: Pixels,
+    /// `text-align: center`: each line is offset by half the free width.
+    centered: bool,
     layout: ProseLayout,
 }
 
@@ -60,8 +62,14 @@ impl ProseText {
             runs,
             font_size,
             line_height,
+            centered: false,
             layout: ProseLayout::default(),
         }
+    }
+
+    pub fn centered(mut self) -> Self {
+        self.centered = true;
+        self
     }
 
     pub fn layout(&self) -> &ProseLayout {
@@ -254,11 +262,32 @@ impl Element for ProseText {
         };
         let mut origin = bounds.origin;
         for line in &inner.lines {
+            let mut line_origin = origin;
+            if self.centered {
+                // Hanging whitespace does not count toward the centred width.
+                let visible = &self.text[line.range.start..line.range.end - line.hanging];
+                let width = line.shaped.unwrapped_layout.x_for_index(visible.len());
+                line_origin.x += ((bounds.size.width - width) / 2.0).max(px(0.0));
+            }
             line.shaped
-                .paint_background(origin, inner.line_height, TextAlign::Left, None, window, cx)
+                .paint_background(
+                    line_origin,
+                    inner.line_height,
+                    TextAlign::Left,
+                    None,
+                    window,
+                    cx,
+                )
                 .ok();
             line.shaped
-                .paint(origin, inner.line_height, TextAlign::Left, None, window, cx)
+                .paint(
+                    line_origin,
+                    inner.line_height,
+                    TextAlign::Left,
+                    None,
+                    window,
+                    cx,
+                )
                 .ok();
             origin.y += inner.line_height;
         }

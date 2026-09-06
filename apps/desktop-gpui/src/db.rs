@@ -1214,6 +1214,8 @@ pub struct NotePreview {
     /// Summaries and template outputs in the order the app tabs them.
     pub enhanced: Vec<NoteDocument>,
     pub has_transcript: bool,
+    /// `audioExists`: a primary audio file in the session folder.
+    pub audio_exists: bool,
     /// Stored transcripts, segmented for the Transcript tab.
     pub transcripts: Vec<crate::transcript::RenderedTranscript>,
 }
@@ -2766,6 +2768,9 @@ impl Store {
         session_id: String,
     ) -> tokio::task::JoinHandle<anyhow::Result<Option<NotePreview>>> {
         let db = self.db.clone();
+        // `useAudioExists` → fs-sync `audio_exist` on the session folder.
+        let audio_exists =
+            anlg_fs_sync_core::audio::exists(&self.session_dir(&session_id)).unwrap_or(false);
         self.runtime.spawn(async move {
             let Some(session) = anlg_db_app::get_session(db.pool(), &session_id).await? else {
                 return Ok(None);
@@ -2826,6 +2831,7 @@ impl Store {
             };
             Ok(Some(NotePreview {
                 has_transcript,
+                audio_exists,
                 transcripts,
                 session: SessionRow {
                     id: session.id,
