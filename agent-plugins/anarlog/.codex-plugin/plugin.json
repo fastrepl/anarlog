@@ -1,6 +1,6 @@
 {
   "name": "anarlog",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Query and export Anarlog meetings through Cloud MCP or the local CLI.",
   "author": {
     "name": "Fastrepl",

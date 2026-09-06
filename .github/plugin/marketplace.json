@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Official plugins from Fastrepl",
-    "version": "1.2.0"
+    "version": "1.2.1"
   },
   "plugins": [
     {
       "name": "anarlog",
       "source": "./agent-plugins/anarlog",
       "description": "Query and export Anarlog meetings through Cloud MCP or the local CLI.",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": {
         "name": "Fastrepl",
         "email": "founders@anarlog.so",
