@@ -316,7 +316,12 @@ async fn activity_pause_precedes_an_existing_native_pending_batch() {
     assert_eq!(runtime.last_error.as_deref(), Some("previous error"));
 }
 
-#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[cfg(any(
+    target_os = "macos",
+    target_os = "linux",
+    target_os = "windows",
+    target_os = "ios"
+))]
 #[tokio::test]
 async fn activity_pause_during_pending_preflight_defers_and_drains_before_local_write() {
     let db = Arc::new(Db::connect_memory().await.unwrap());

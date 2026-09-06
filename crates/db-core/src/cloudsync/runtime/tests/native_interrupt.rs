@@ -1,6 +1,11 @@
 use super::super::*;
 
-#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[cfg(any(
+    target_os = "macos",
+    target_os = "linux",
+    target_os = "windows",
+    target_os = "ios"
+))]
 async fn assert_interrupts_stalled_native_request_once() {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let endpoint = format!("http://{}", listener.local_addr().unwrap());
@@ -88,7 +93,12 @@ async fn assert_interrupts_stalled_native_request_once() {
     db.cloudsync_close_connection().await.unwrap();
 }
 
-#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[cfg(any(
+    target_os = "macos",
+    target_os = "linux",
+    target_os = "windows",
+    target_os = "ios"
+))]
 #[tokio::test]
 async fn native_cloudsync_interrupt_drains_blackhole_http_and_reuses_connection() {
     for _ in 0..3 {

@@ -48,6 +48,7 @@ pub fn apply_with_initializer(
 }
 
 #[cfg(any(
+    all(test, target_os = "ios"),
     all(test, target_os = "macos", target_arch = "aarch64"),
     all(test, target_os = "macos", target_arch = "x86_64"),
     all(test, target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
@@ -124,12 +125,17 @@ mod tests {
         pool.close().await;
     }
 
-    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+    #[cfg(any(
+        target_os = "macos",
+        target_os = "linux",
+        target_os = "windows",
+        target_os = "ios"
+    ))]
     #[tokio::test]
     async fn native_http_request_deadline_is_enforced() {
         const CHILD_ENV: &str = "ANARLOG_CLOUDSYNC_TIMEOUT_TEST_CHILD";
 
-        if std::env::var_os(CHILD_ENV).is_none() {
+        if !cfg!(target_os = "ios") && std::env::var_os(CHILD_ENV).is_none() {
             let mut child = std::process::Command::new(std::env::current_exe().unwrap())
                 .arg("native_http_request_deadline_is_enforced")
                 .arg("--nocapture")

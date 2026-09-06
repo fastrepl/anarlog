@@ -1,15 +1,21 @@
+#[cfg(not(target_os = "ios"))]
 use std::fs;
 #[cfg(target_os = "macos")]
 use std::path::Path;
 use std::path::PathBuf;
+#[cfg(not(target_os = "ios"))]
 use std::sync::atomic::{AtomicU64, Ordering};
 
+#[cfg(not(target_os = "ios"))]
 use crate::CLOUDSYNC_VERSION;
 use crate::error::Error;
 
+#[cfg(not(target_os = "ios"))]
 static TEMP_FILE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+#[cfg(not(target_os = "ios"))]
 const CLOUDSYNC_BUNDLE_REVISION: &str = "anarlog-request-cancellation-5";
 
+#[cfg(not(target_os = "ios"))]
 macro_rules! configure_cloudsync_target {
     ($target:literal, $file_name:literal, $path:literal) => {
         const CLOUDSYNC_TARGET: &str = $target;

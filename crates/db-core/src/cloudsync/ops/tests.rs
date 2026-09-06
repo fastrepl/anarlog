@@ -1,5 +1,10 @@
 use std::sync::Arc;
-#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[cfg(any(
+    target_os = "macos",
+    target_os = "linux",
+    target_os = "windows",
+    target_os = "ios"
+))]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
@@ -46,7 +51,12 @@ fn assert_outbound_payload_too_large(error: anlg_cloudsync::Error) {
     ));
 }
 
-#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[cfg(any(
+    target_os = "macos",
+    target_os = "linux",
+    target_os = "windows",
+    target_os = "ios"
+))]
 #[derive(Clone, Copy, Debug)]
 enum StalledNetworkOperation {
     ManualSend,
@@ -54,7 +64,12 @@ enum StalledNetworkOperation {
     LegacySync,
 }
 
-#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[cfg(any(
+    target_os = "macos",
+    target_os = "linux",
+    target_os = "windows",
+    target_os = "ios"
+))]
 async fn assert_stalled_operation_drains_before_local_write(operation: StalledNetworkOperation) {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let endpoint = format!("http://{}", listener.local_addr().unwrap());
@@ -162,7 +177,12 @@ async fn assert_stalled_operation_drains_before_local_write(operation: StalledNe
     db.cloudsync_close_connection().await.unwrap();
 }
 
-#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[cfg(any(
+    target_os = "macos",
+    target_os = "linux",
+    target_os = "windows",
+    target_os = "ios"
+))]
 #[tokio::test]
 async fn manual_and_legacy_network_calls_drain_before_local_writes() {
     for _ in 0..3 {
@@ -174,7 +194,12 @@ async fn manual_and_legacy_network_calls_drain_before_local_writes() {
     assert_stalled_operation_drains_before_local_write(StalledNetworkOperation::LegacySync).await;
 }
 
-#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[cfg(any(
+    target_os = "macos",
+    target_os = "linux",
+    target_os = "windows",
+    target_os = "ios"
+))]
 #[tokio::test]
 async fn native_logout_cleanup_interrupt_drains_before_local_write() {
     let directory = tempfile::tempdir().unwrap();
@@ -248,7 +273,12 @@ async fn native_logout_cleanup_interrupt_drains_before_local_write() {
     .unwrap();
 }
 
-#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[cfg(any(
+    target_os = "macos",
+    target_os = "linux",
+    target_os = "windows",
+    target_os = "ios"
+))]
 async fn tracking_schema(db: &Db) -> Vec<(String, String)> {
     sqlx::query_as(
         "SELECT type, name
@@ -262,7 +292,12 @@ async fn tracking_schema(db: &Db) -> Vec<(String, String)> {
     .unwrap()
 }
 
-#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[cfg(any(
+    target_os = "macos",
+    target_os = "linux",
+    target_os = "windows",
+    target_os = "ios"
+))]
 #[tokio::test]
 async fn tracked_table_cleanup_interrupt_drains_before_local_write() {
     let db = Arc::new(Db::connect_memory().await.unwrap());
@@ -354,7 +389,12 @@ async fn tracked_table_cleanup_interrupt_drains_before_local_write() {
         .expect("local write failed after successful CloudSync table cleanup retry");
 }
 
-#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[cfg(any(
+    target_os = "macos",
+    target_os = "linux",
+    target_os = "windows",
+    target_os = "ios"
+))]
 #[tokio::test]
 async fn populated_table_init_interrupt_drains_before_local_write() {
     let db = Arc::new(Db::connect_memory().await.unwrap());
@@ -429,7 +469,12 @@ async fn populated_table_init_interrupt_drains_before_local_write() {
     .unwrap();
 }
 
-#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[cfg(any(
+    target_os = "macos",
+    target_os = "linux",
+    target_os = "windows",
+    target_os = "ios"
+))]
 #[tokio::test]
 async fn pending_payload_interrupt_drains_before_local_write() {
     let db = Arc::new(Db::connect_memory().await.unwrap());
@@ -646,6 +691,7 @@ async fn network_sync_waits_for_checked_out_connection() {
 }
 
 #[cfg(any(
+    target_os = "ios",
     all(target_os = "macos", target_arch = "aarch64"),
     all(target_os = "macos", target_arch = "x86_64"),
     all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
@@ -706,6 +752,7 @@ async fn initializing_tables_updates_every_pool_connection() {
 }
 
 #[cfg(any(
+    target_os = "ios",
     all(target_os = "macos", target_arch = "aarch64"),
     all(target_os = "macos", target_arch = "x86_64"),
     all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
@@ -779,6 +826,7 @@ async fn table_init_bounds_pool_drain_and_reuses_connections_after_retry() {
 }
 
 #[cfg(any(
+    target_os = "ios",
     all(target_os = "macos", target_arch = "aarch64"),
     all(target_os = "macos", target_arch = "x86_64"),
     all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
@@ -860,6 +908,7 @@ async fn table_init_error_closes_partially_initialized_drained_connections() {
 }
 
 #[cfg(any(
+    target_os = "ios",
     all(target_os = "macos", target_arch = "aarch64"),
     all(target_os = "macos", target_arch = "x86_64"),
     all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
@@ -928,6 +977,7 @@ async fn receive_version_reset_preserves_send_cursor_on_pinned_connection() {
 }
 
 #[cfg(any(
+    target_os = "ios",
     all(target_os = "macos", target_arch = "aarch64"),
     all(target_os = "macos", target_arch = "x86_64"),
     all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
@@ -983,6 +1033,7 @@ async fn terminating_cloudsync_closes_a_single_pool_connection() {
 }
 
 #[cfg(any(
+    target_os = "ios",
     all(target_os = "macos", target_arch = "aarch64"),
     all(target_os = "macos", target_arch = "x86_64"),
     all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
@@ -1055,6 +1106,7 @@ async fn terminating_cloudsync_closes_every_pool_connection() {
 }
 
 #[cfg(any(
+    target_os = "ios",
     all(target_os = "macos", target_arch = "aarch64"),
     all(target_os = "macos", target_arch = "x86_64"),
     all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
@@ -1125,6 +1177,7 @@ async fn suspend_bounds_pool_drain_and_allows_later_teardown() {
 }
 
 #[cfg(any(
+    target_os = "ios",
     all(target_os = "macos", target_arch = "aarch64"),
     all(target_os = "macos", target_arch = "x86_64"),
     all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
@@ -1176,6 +1229,7 @@ async fn suspend_bounds_initial_pinned_connection_acquisition() {
 }
 
 #[cfg(any(
+    target_os = "ios",
     all(target_os = "macos", target_arch = "aarch64"),
     all(target_os = "macos", target_arch = "x86_64"),
     all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
