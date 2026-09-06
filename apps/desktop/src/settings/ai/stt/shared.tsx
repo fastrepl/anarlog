@@ -1006,7 +1006,7 @@ const _PROVIDERS = [
     displayName: "Custom",
     description: "Deepgram-compatible",
     badge: null,
-    icon: <Shuffle weight="fill" />,
+    icon: <Shuffle />,
     baseUrl: undefined,
     models: [],
     requirements: [

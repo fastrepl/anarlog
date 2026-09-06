@@ -99,13 +99,21 @@ export default function ActionButtonScreen() {
         </Card>
 
         <View style={styles.usage}>
-          <Ionicons name="radio-button-on" size={18} color={Colors.primary} />
+          <Ionicons
+            name="radio-button-off-outline"
+            size={18}
+            color={Colors.primary}
+          />
           <Text style={styles.usageLabel}>Long press</Text>
           <Ionicons name="arrow-forward" size={16} color={Colors.muted} />
-          <Ionicons name="mic" size={18} color={Colors.primary} />
+          <Ionicons name="mic-outline" size={18} color={Colors.primary} />
           <Text style={styles.usageLabel}>Listen</Text>
           <Ionicons name="arrow-forward" size={16} color={Colors.muted} />
-          <Ionicons name="radio-button-on" size={18} color={Colors.primary} />
+          <Ionicons
+            name="radio-button-off-outline"
+            size={18}
+            color={Colors.primary}
+          />
           <Text style={styles.usageLabel}>Long press</Text>
         </View>
       </ScrollView>

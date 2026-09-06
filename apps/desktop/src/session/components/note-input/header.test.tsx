@@ -1068,6 +1068,35 @@ describe("Header", () => {
     expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
   });
 
+  it.each(["idle", "muted"])(
+    "shows static audio lines in the %s transcript tab",
+    (state) => {
+      hoisted.sessionMode = state === "muted" ? "active" : "inactive";
+      hoisted.liveMuted = state === "muted";
+
+      render(
+        <SessionViewSwitcher
+          sessionId="session-1"
+          editorTabs={[{ type: "raw" }, { type: "transcript" }]}
+          currentTab={{ type: "raw" }}
+          handleTabChange={vi.fn()}
+        />,
+      );
+
+      const transcriptTab = screen.getByRole("button", { name: "Transcript" });
+      const svg = transcriptTab.querySelector("svg");
+      const bars = svg?.querySelectorAll("path");
+
+      expect(svg?.getAttribute("fill")).toBe("none");
+      expect(svg?.getAttribute("stroke-linecap")).toBe("round");
+      expect(bars).toHaveLength(6);
+      for (const bar of bars ?? []) {
+        expect(bar.getAttribute("d")).toMatch(/^M\d+ \d+v\d+$/);
+      }
+      expect(screen.queryByTestId("dancing-sticks")).toBeNull();
+    },
+  );
+
   it("keeps stop out of the view switcher while listening", () => {
     hoisted.sessionMode = "active";
     const handleTabChange = vi.fn();

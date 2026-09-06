@@ -610,10 +610,7 @@ function TemplateResultButton({
           {title}
         </span>
         {isFavorite ? (
-          <Heart
-            aria-hidden
-            className="size-3.5 shrink-0 fill-rose-500 text-rose-500"
-          />
+          <Heart aria-hidden className="size-3.5 shrink-0 text-rose-500" />
         ) : null}
       </button>
       {regenerateLabel && onRegenerate ? (

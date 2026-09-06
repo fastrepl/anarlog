@@ -93,7 +93,7 @@ export function PersonItem({
         ])}
         aria-label={isPinned ? "Unpin contact" : "Pin contact"}
       >
-        <PushPin className="size-3.5" weight={isPinned ? "fill" : "regular"} />
+        <PushPin className="size-3.5" weight={isPinned ? "bold" : "regular"} />
       </button>
     </div>
   );

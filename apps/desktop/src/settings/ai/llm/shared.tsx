@@ -622,7 +622,7 @@ const _PROVIDERS = [
     id: "custom",
     displayName: "Custom",
     badge: null,
-    icon: <Shuffle weight="fill" />,
+    icon: <Shuffle />,
     baseUrl: undefined,
     requirements: [
       { kind: "requires_config", fields: ["base_url", "api_key"] },

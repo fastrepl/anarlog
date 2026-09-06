@@ -276,7 +276,7 @@ export function TemplateForm({
           >
             <Heart
               className="size-4"
-              weight={template.pinned ? "fill" : "regular"}
+              weight={template.pinned ? "bold" : "regular"}
             />
           </Button>
           <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>

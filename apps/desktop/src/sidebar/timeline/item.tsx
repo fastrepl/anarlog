@@ -311,13 +311,11 @@ const ItemBase = memo(function ItemBase({
               <LockOpen
                 aria-label={t`Unlock Note`}
                 className="text-muted-foreground size-3.5 shrink-0"
-                weight="fill"
               />
             ) : (
               <Lock
                 aria-label={t`Locked note`}
                 className="text-muted-foreground size-3.5 shrink-0"
-                weight="fill"
               />
             )
           ) : null}
@@ -382,7 +380,7 @@ const ItemBase = memo(function ItemBase({
             aria-hidden
             className="hidden items-center justify-center group-hover/sidebar-live-item:flex"
           >
-            <Square size={10} weight="fill" />
+            <Square size={10} />
           </span>
         </button>
       ) : null}

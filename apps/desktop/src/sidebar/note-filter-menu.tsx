@@ -49,7 +49,7 @@ export function SidebarNoteFilterMenu() {
             !isDefaultView && "bg-accent text-foreground",
           ])}
         >
-          <FunnelSimple size={15} weight={isDefaultView ? "regular" : "fill"} />
+          <FunnelSimple size={15} weight={isDefaultView ? "regular" : "bold"} />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent variant="app" align="start" className="w-56">

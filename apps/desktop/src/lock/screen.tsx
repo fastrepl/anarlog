@@ -31,7 +31,7 @@ export function LockScreen({
     >
       <div className="flex max-w-sm flex-col items-center px-6 text-center">
         <div className="bg-muted flex size-14 items-center justify-center rounded-full">
-          <Lock className="text-foreground size-6" weight="fill" />
+          <Lock className="text-foreground size-6" />
         </div>
         <h1 className="mt-5 text-lg font-semibold">{title}</h1>
         {description ? (

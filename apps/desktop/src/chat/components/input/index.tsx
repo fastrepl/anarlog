@@ -194,7 +194,7 @@ export function ChatMessageInput({
                 className="h-7 w-7 rounded-full"
                 aria-label={t`Stop response`}
               >
-                <Square size={14} weight="fill" />
+                <Square size={14} />
               </Button>
             ) : showSendControl ? (
               <SendButton disabled={isSendDisabled} onClick={handleSubmit} />
@@ -349,7 +349,7 @@ function VoiceStatus({
         {isProcessing ? (
           <CircleNotch className="size-3.5 animate-spin" />
         ) : (
-          <Square size={12} weight="fill" />
+          <Square size={12} />
         )}
       </button>
       {isStreaming ? (
@@ -360,7 +360,7 @@ function VoiceStatus({
           className="h-7 w-7 rounded-full"
           aria-label={t`Stop response`}
         >
-          <Square size={14} weight="fill" />
+          <Square size={14} />
         </Button>
       ) : (
         showSend && <SendButton disabled={isSendDisabled} onClick={onSend} />

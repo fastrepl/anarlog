@@ -87,7 +87,7 @@ export function AudioChip({
       style={({ pressed }) => [styles.chip, pressed && styles.pressed]}
     >
       <Ionicons
-        name={status.playing ? "pause" : "play"}
+        name={status.playing ? "pause-outline" : "play-outline"}
         size={14}
         color={Colors.accent}
       />

@@ -86,7 +86,7 @@ export function TranscriptEmptyState({
             className="gap-2"
             onClick={onStopTranscription}
           >
-            <Square className="size-3" weight="fill" />
+            <Square className="size-3" />
             {t`Stop transcription`}
           </Button>
         )}

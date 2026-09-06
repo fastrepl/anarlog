@@ -219,9 +219,9 @@ export function SharedNoteAudioPlayer({
         {downloadQuery.isPending && resolve ? (
           <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
         ) : playing ? (
-          <Pause className="size-3.5" weight="fill" aria-hidden="true" />
+          <Pause className="size-3.5" aria-hidden="true" />
         ) : (
-          <Play className="ml-0.5 size-3.5" weight="fill" aria-hidden="true" />
+          <Play className="ml-0.5 size-3.5" aria-hidden="true" />
         )}
       </button>
       <span className="flex shrink-0 gap-1 font-mono text-[10px] tabular-nums">

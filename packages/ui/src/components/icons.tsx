@@ -40,7 +40,6 @@ import {
   CheckmarkCircle02Icon,
   CircleIcon,
   CircleMinusIcon,
-  ClipboardListIcon,
   Clock01Icon,
   CloudAlertIcon,
   CloudIcon,
@@ -173,6 +172,7 @@ import {
   StethoscopeIcon,
   Sun01Icon,
   Target01Icon,
+  Task01Icon,
   TextAlignLeftIcon,
   TextBoldIcon,
   TextFontIcon,
@@ -215,15 +215,12 @@ import {
   type RefAttributes,
 } from "react";
 
-export type IconWeight =
-  | "thin"
-  | "light"
-  | "regular"
-  | "bold"
-  | "fill"
-  | "duotone";
+export type IconWeight = "thin" | "light" | "regular" | "bold";
 
-export type IconProps = Omit<HugeiconsIconProps, "icon" | "strokeWidth"> & {
+export type IconProps = Omit<
+  HugeiconsIconProps,
+  "icon" | "strokeWidth" | "fill"
+> & {
   mirrored?: boolean;
   strokeWidth?: number;
   weight?: IconWeight;
@@ -238,27 +235,18 @@ const strokeWidthByWeight: Record<IconWeight, number> = {
   light: 1.25,
   regular: 1.5,
   bold: 2,
-  fill: 2.25,
-  duotone: 1.5,
 };
 
 function createIcon(icon: IconSvgElement, displayName: string): Icon {
   const Component = forwardRef<SVGSVGElement, IconProps>(
     (
-      {
-        fill,
-        mirrored = false,
-        strokeWidth,
-        style,
-        weight = "regular",
-        ...props
-      },
+      { mirrored = false, strokeWidth, style, weight = "regular", ...props },
       ref,
     ) => (
       <HugeiconsIcon
         {...props}
         ref={ref}
-        fill={fill ?? (weight === "fill" ? "currentColor" : undefined)}
+        fill="none"
         icon={icon}
         strokeWidth={strokeWidth ?? strokeWidthByWeight[weight]}
         style={
@@ -417,7 +405,7 @@ export const CirclesThreePlus = /* @__PURE__ */ createIcon(
   "CirclesThreePlus",
 );
 export const ClipboardText = /* @__PURE__ */ createIcon(
-  ClipboardListIcon,
+  Task01Icon,
   "ClipboardText",
 );
 export const Clock = /* @__PURE__ */ createIcon(Clock01Icon, "Clock");

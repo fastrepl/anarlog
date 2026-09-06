@@ -323,7 +323,7 @@ function CustomWorkflowDetails({
 
   return (
     <AutomationDetailsLayout
-      icon={<Lightning className="text-violet-500" size={16} weight="fill" />}
+      icon={<Lightning className="text-violet-500" size={16} />}
       title={title}
       description={description}
       actions={
@@ -360,7 +360,7 @@ function CustomWorkflowDetails({
                   : undefined
               }
             >
-              <Lightning size={14} weight="fill" />
+              <Lightning size={14} />
               <Trans>Save &amp; enable</Trans>
             </Button>
           )}
@@ -518,7 +518,7 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
         <div className="border-border flex flex-wrap items-start justify-between gap-3 border-b px-5 py-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <Lightning className="text-primary" size={17} weight="fill" />
+              <Lightning className="text-primary" size={17} />
               <h3
                 id="automation-draft-title"
                 className="truncate text-sm font-semibold"
@@ -594,7 +594,7 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
                 }
                 title={billing.isPro && !isReady ? readinessHint : undefined}
               >
-                <Lightning size={14} weight="fill" />
+                <Lightning size={14} />
                 <Trans>Save &amp; enable</Trans>
               </Button>
             )}

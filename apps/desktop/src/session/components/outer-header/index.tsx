@@ -269,7 +269,7 @@ function HeaderMeetingAction({
       return {
         label: t`Stop`,
         title: t`Stop listening`,
-        icon: <Square className="size-3 text-red-500" weight="fill" />,
+        icon: <Square className="size-3 text-red-500" />,
         onClick: stopListening,
       };
     }

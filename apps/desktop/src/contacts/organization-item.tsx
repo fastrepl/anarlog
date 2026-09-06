@@ -84,7 +84,7 @@ export function OrganizationItem({
         ])}
         aria-label={isPinned ? "Unpin organization" : "Pin organization"}
       >
-        <PushPin className="size-3.5" weight={isPinned ? "fill" : "regular"} />
+        <PushPin className="size-3.5" weight={isPinned ? "bold" : "regular"} />
       </button>
     </div>
   );

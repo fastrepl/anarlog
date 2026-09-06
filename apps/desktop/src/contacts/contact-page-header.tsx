@@ -69,7 +69,7 @@ export function ContactPageHeader({
                 onClick={onTogglePin}
                 className="cursor-pointer"
               >
-                <PushPin weight={pinned ? "fill" : "regular"} />
+                <PushPin weight={pinned ? "bold" : "regular"} />
                 <span>
                   {pinned ? <Trans>Unpin</Trans> : <Trans>Pin</Trans>}
                 </span>

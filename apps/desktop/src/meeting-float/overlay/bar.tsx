@@ -283,7 +283,7 @@ function StopControl({
     >
       {hovered ? (
         <span className="flex items-center gap-1.5 text-xs font-semibold">
-          <Square size={9} weight="fill" />
+          <Square size={9} />
           Stop
         </span>
       ) : (

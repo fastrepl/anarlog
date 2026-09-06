@@ -1,13 +1,14 @@
 import { useLingui } from "@lingui/react/macro";
 import { useCallback, useMemo } from "react";
 
-import { CheckCircle, PencilSimple, Waveform } from "@anlg/ui/components/icons";
+import { CheckCircle, PencilSimple } from "@anlg/ui/components/icons";
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { cn, safeParseDate } from "@anlg/utils";
 
 import { IconHeaderView, copyTextToClipboard } from "./header-shared";
+import { TranscriptAudioIcon } from "./header-transcript-icon";
 
 import * as AudioPlayer from "~/audio-player";
 import { useNow } from "~/calendar/hooks";
@@ -105,7 +106,7 @@ function HeaderViewTranscriptButton({
         ) : isTranscribing ? (
           <Spinner size={16} className="shrink-0" />
         ) : (
-          <Waveform className="size-4" />
+          <TranscriptAudioIcon />
         )
       }
       suffixIcon={suffixIcon}
@@ -152,7 +153,7 @@ function HeaderViewTranscriptLiveIcon({
   return (
     <span className="relative flex size-4 items-center justify-center">
       {live.muted ? (
-        <Waveform className="size-4" />
+        <TranscriptAudioIcon />
       ) : (
         <DancingSticks
           amplitude={live.amplitude}

@@ -111,9 +111,9 @@ export function Timeline({
           ])}
         >
           {state === "playing" ? (
-            <Pause className="text-foreground h-3.5 w-3.5" weight="fill" />
+            <Pause className="text-foreground h-3.5 w-3.5" />
           ) : (
-            <Play className="text-foreground h-3.5 w-3.5" weight="fill" />
+            <Play className="text-foreground h-3.5 w-3.5" />
           )}
         </button>
       }

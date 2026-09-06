@@ -85,7 +85,7 @@ const MeetingRecordingActivity = (
           padding({ all: 16 }),
         ]}
       >
-        <Image systemName="circle.fill" size={10} color={ACCENT_COLOR} />
+        <Image systemName="circle" size={10} color={ACCENT_COLOR} />
         <VStack alignment="leading" spacing={3}>
           <Text
             modifiers={[
@@ -110,7 +110,7 @@ const MeetingRecordingActivity = (
     ),
     compactLeading: (
       <HStack spacing={5} modifiers={[padding({ leading: 4 })]}>
-        <Image systemName="circle.fill" size={7} color={ACCENT_COLOR} />
+        <Image systemName="circle" size={7} color={ACCENT_COLOR} />
         <Waveform size={15} />
       </HStack>
     ),
@@ -118,7 +118,7 @@ const MeetingRecordingActivity = (
     minimal: <Waveform size={16} />,
     expandedLeading: (
       <HStack spacing={7} modifiers={[padding({ leading: 6 })]}>
-        <Image systemName="circle.fill" size={8} color={ACCENT_COLOR} />
+        <Image systemName="circle" size={8} color={ACCENT_COLOR} />
         <Text
           modifiers={[
             font({ size: 14, weight: "semibold" }),
