@@ -61,7 +61,7 @@ export function SettingsPage({
                 ? [
                     scrollContentBackground("hidden"),
                     listSectionSpacing(Spacing.lg),
-                    font({ size: Typography.body.fontSize }),
+                    font({ textStyle: "subheadline" }),
                   ]
                 : undefined
             }
