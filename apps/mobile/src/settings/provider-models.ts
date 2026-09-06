@@ -132,7 +132,7 @@ export function parseProviderModels(
       return [];
     if (
       typeof model.type === "string" &&
-      !["chat", "language"].includes(model.type)
+      ["embedding", "embed", "rerank", "image", "audio"].includes(model.type)
     )
       return [];
     if (

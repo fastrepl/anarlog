@@ -1374,6 +1374,38 @@ test("model discovery excludes non-text models and keeps custom IDs and Cohere m
   assert.throws(() => parseProviderModels("openai", {}), /Invalid model list/);
 });
 
+test("model discovery accepts provider object types and still excludes non-chat capabilities", () => {
+  assert.deepEqual(
+    parseProviderModels("anthropic", {
+      data: [{ id: "claude-sonnet-4-6", type: "model" }],
+    }),
+    ["claude-sonnet-4-6"],
+  );
+  assert.deepEqual(
+    parseProviderModels("mistral", {
+      data: [
+        {
+          id: "mistral-small-latest",
+          type: "base",
+          capabilities: { completion_chat: true },
+        },
+        {
+          id: "ft:my-model",
+          type: "fine-tuned",
+          capabilities: { completion_chat: true },
+        },
+        {
+          id: "no-chat",
+          type: "base",
+          capabilities: { completion_chat: false },
+        },
+        { id: "vector-model", type: "embedding" },
+      ],
+    }),
+    ["ft:my-model", "mistral-small-latest"],
+  );
+});
+
 test("model discovery preserves manual selection on empty, malformed, oversized, or failed responses", async () => {
   const config = {
     ...defaultProviderConfig("llm", "openai"),
