@@ -721,13 +721,18 @@ impl Workspace {
         if let Some(editor) = editor {
             // The memo is live: render the editor's document, not the snapshot.
             let renderer = self.document_editor_renderer(editor.clone(), window, cx);
-            let (blocks, pristine) = {
+            let (mut blocks, pristine) = {
                 let editor = editor.read(cx);
                 (
                     crate::document::parse(editor.doc().root()),
                     editor.doc().is_pristine(),
                 )
             };
+            // ProseMirror's schema requires `block+`, so a stored empty
+            // document still renders one paragraph (with the placeholder).
+            if blocks.is_empty() {
+                blocks.push(crate::document::Block::Paragraph(Vec::new()));
+            }
             let children = renderer.blocks(&blocks, 0);
             let root = editor.update(cx, |editor, cx| editor.render_root(cx));
             // `isMemoEmpty && audioExistsResolved && !canShowTranscript`: the

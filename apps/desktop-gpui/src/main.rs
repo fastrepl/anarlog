@@ -9,6 +9,7 @@ mod document;
 mod editor;
 mod emoji;
 mod folders;
+mod live_transcript;
 mod prose_text;
 mod recording;
 mod secrets;

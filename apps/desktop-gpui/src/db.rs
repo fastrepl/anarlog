@@ -1124,17 +1124,31 @@ const HAS_TRANSCRIPT_SQL: &str = "
         FROM transcripts
         WHERE session_id = ?
           AND deleted_at IS NULL
-          AND CASE
+          AND (EXISTS (
+            SELECT 1 FROM transcript_live_deltas AS delta
+            WHERE delta.transcript_id = transcripts.id
+          ) OR CASE
             WHEN json_valid(words_json) THEN json_array_length(words_json)
             ELSE 0
-          END > 0
+          END > 0)
     )
 ";
 
 // apps/desktop/src/stt/queries.ts, `useSessionTranscripts` (stored rows;
 // pending live deltas only exist while a capture is running).
+/// `useSessionTranscripts` with `includePendingDeltas`: the journaled live
+/// deltas ride along so a capture in progress renders like the frontend's.
 const SESSION_TRANSCRIPTS_SQL: &str = "
-    SELECT id, owner_user_id, started_at_ms, ended_at_ms, words_json, speaker_hints_json
+    SELECT id, owner_user_id, started_at_ms, ended_at_ms, words_json, speaker_hints_json,
+      COALESCE((
+        SELECT json_group_array(json(ordered_delta.delta_json))
+        FROM (
+          SELECT delta.delta_json
+          FROM transcript_live_deltas AS delta
+          WHERE delta.transcript_id = transcript.id
+          ORDER BY delta.sequence
+        ) AS ordered_delta
+      ), '[]') AS pending_deltas_json
     FROM transcripts AS transcript
     WHERE transcript.session_id = ? AND transcript.deleted_at IS NULL
     ORDER BY transcript.started_at_ms, transcript.created_at, transcript.id
@@ -1210,6 +1224,30 @@ pub struct TranscriptRow {
     pub ended_at_ms: Option<i64>,
     pub words_json: String,
     pub speaker_hints_json: String,
+    /// Journaled live deltas not yet folded into the columns.
+    #[sqlx(default)]
+    pub pending_deltas_json: String,
+}
+
+impl TranscriptRow {
+    /// `materializeTranscriptSnapshot`: fold the pending deltas into the
+    /// words and hints for rendering.
+    pub fn materialize(mut self) -> Self {
+        let deltas: Vec<anlg_listener_core::LiveTranscriptDelta> =
+            serde_json::from_str(&self.pending_deltas_json).unwrap_or_default();
+        if !deltas.is_empty() {
+            let merged = crate::live_transcript::coalesce_deltas(&deltas);
+            let (words, hints) = crate::live_transcript::apply_live_delta(
+                &self.words_json,
+                &self.speaker_hints_json,
+                &merged,
+            );
+            self.words_json = words;
+            self.speaker_hints_json = hints;
+        }
+        self.pending_deltas_json = "[]".to_string();
+        self
+    }
 }
 
 /// `useTranscriptHumans`: names for the given ids, in id order.
@@ -2548,6 +2586,179 @@ impl Store {
         })
     }
 
+    /// `createLiveTranscript(input, delta)`: the `live_capture` transcript
+    /// row whose words and hints come from applying the first delta to an
+    /// empty store.
+    #[allow(clippy::too_many_arguments)]
+    pub fn create_live_transcript(
+        &self,
+        transcript_id: String,
+        session_id: String,
+        created_at: String,
+        started_at_ms: i64,
+        memo: String,
+        provider: String,
+        model: String,
+        delta: anlg_listener_core::LiveTranscriptDelta,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let (words_json, hints_json) = crate::live_transcript::apply_live_delta("[]", "[]", &delta);
+            let now = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string();
+            let owner: String = sqlx::query_scalar(
+                "SELECT COALESCE(owner_user_id, '') FROM sessions WHERE id = ? AND deleted_at IS NULL",
+            )
+            .bind(&session_id)
+            .fetch_optional(db.pool())
+            .await?
+            .unwrap_or_default();
+            sqlx::query(CREATE_TRANSCRIPT_SQL)
+                .bind(&transcript_id)
+                .bind(&owner)
+                .bind("live_capture")
+                .bind(&provider)
+                .bind(&model)
+                .bind("")
+                .bind(started_at_ms)
+                .bind(Option::<i64>::None)
+                .bind(&memo)
+                .bind(&words_json)
+                .bind(&hints_json)
+                .bind(&created_at)
+                .bind(&now)
+                .bind(&session_id)
+                .execute(db.pool())
+                .await?;
+            Ok(())
+        })
+    }
+
+    /// `applyLiveTranscriptDeltaToDatabase`: journal the delta under the
+    /// transcript's next sequence.
+    pub fn journal_live_delta(
+        &self,
+        transcript_id: String,
+        delta: anlg_listener_core::LiveTranscriptDelta,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let now = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string();
+            let journal_id = format!("{transcript_id}:{}", uuid::Uuid::new_v4());
+            let delta_json = serde_json::to_string(&delta)?;
+            let mut transaction = db.pool().begin().await?;
+            sqlx::query(
+                "INSERT OR IGNORE INTO transcript_live_state (transcript_id, next_sequence, updated_at)
+                 SELECT id, 0, ? FROM transcripts WHERE id = ? AND deleted_at IS NULL",
+            )
+            .bind(&now)
+            .bind(&transcript_id)
+            .execute(&mut *transaction)
+            .await?;
+            let inserted = sqlx::query(
+                "INSERT INTO transcript_live_deltas (id, transcript_id, sequence, delta_json, created_at)
+                 SELECT ?, transcript_id, next_sequence, ?, ?
+                 FROM transcript_live_state WHERE transcript_id = ?",
+            )
+            .bind(&journal_id)
+            .bind(&delta_json)
+            .bind(&now)
+            .bind(&transcript_id)
+            .execute(&mut *transaction)
+            .await?
+            .rows_affected();
+            sqlx::query(
+                "UPDATE transcript_live_state SET next_sequence = next_sequence + 1, updated_at = ?
+                 WHERE transcript_id = ?",
+            )
+            .bind(&now)
+            .bind(&transcript_id)
+            .execute(&mut *transaction)
+            .await?;
+            transaction.commit().await?;
+            if inserted != 1 {
+                anyhow::bail!("Transcript {transcript_id} does not exist");
+            }
+            Ok(())
+        })
+    }
+
+    /// `flushLiveTranscriptDeltasToDatabase` → `mutateTranscript`: fold the
+    /// journaled deltas into `words_json` / `speaker_hints_json` under the
+    /// `content_revision` check and drop the journal.
+    pub fn flush_live_deltas(
+        &self,
+        transcript_id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            for _ in 0..5 {
+                let current: Option<(String, String, i64, String)> = sqlx::query_as(
+                    "SELECT transcript.words_json, transcript.speaker_hints_json,
+                            transcript.content_revision,
+                            COALESCE((
+                              SELECT json_group_array(json(ordered_delta.delta_json))
+                              FROM (
+                                SELECT delta.delta_json
+                                FROM transcript_live_deltas AS delta
+                                WHERE delta.transcript_id = transcript.id
+                                ORDER BY delta.sequence
+                              ) AS ordered_delta
+                            ), '[]')
+                     FROM transcripts AS transcript
+                     WHERE transcript.id = ? AND transcript.deleted_at IS NULL
+                     LIMIT 1",
+                )
+                .bind(&transcript_id)
+                .fetch_optional(db.pool())
+                .await?;
+                let Some((words_json, hints_json, revision, pending_json)) = current else {
+                    return Ok(());
+                };
+                let deltas: Vec<anlg_listener_core::LiveTranscriptDelta> =
+                    serde_json::from_str(&pending_json).unwrap_or_default();
+                if deltas.is_empty() {
+                    return Ok(());
+                }
+                let merged = crate::live_transcript::coalesce_deltas(&deltas);
+                let (next_words, next_hints) =
+                    crate::live_transcript::apply_live_delta(&words_json, &hints_json, &merged);
+                let now = chrono::Utc::now()
+                    .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                    .to_string();
+                let mut transaction = db.pool().begin().await?;
+                let updated = sqlx::query(
+                    "UPDATE transcripts
+                     SET words_json = ?, speaker_hints_json = ?,
+                         content_revision = content_revision + 1, updated_at = ?
+                     WHERE id = ? AND content_revision = ? AND deleted_at IS NULL",
+                )
+                .bind(&next_words)
+                .bind(&next_hints)
+                .bind(&now)
+                .bind(&transcript_id)
+                .bind(revision)
+                .execute(&mut *transaction)
+                .await?
+                .rows_affected();
+                if updated == 1 {
+                    sqlx::query("DELETE FROM transcript_live_state WHERE transcript_id = ?")
+                        .bind(&transcript_id)
+                        .execute(&mut *transaction)
+                        .await?;
+                }
+                transaction.commit().await?;
+                if updated == 1 {
+                    return Ok(());
+                }
+            }
+            anyhow::bail!("Transcript {transcript_id} changed too frequently")
+        })
+    }
+
     pub fn update_memo(
         &self,
         session_id: String,
@@ -2895,10 +3106,14 @@ impl Store {
                 .fetch_one(db.pool())
                 .await?;
             let transcripts = if has_transcript {
-                let rows = sqlx::query_as::<_, TranscriptRow>(SESSION_TRANSCRIPTS_SQL)
-                    .bind(&session_id)
-                    .fetch_all(db.pool())
-                    .await?;
+                let rows: Vec<TranscriptRow> =
+                    sqlx::query_as::<_, TranscriptRow>(SESSION_TRANSCRIPTS_SQL)
+                        .bind(&session_id)
+                        .fetch_all(db.pool())
+                        .await?
+                        .into_iter()
+                        .map(TranscriptRow::materialize)
+                        .collect();
                 let participants: Vec<String> = sqlx::query_scalar(PARTICIPANT_HUMAN_IDS_SQL)
                     .bind(&session_id)
                     .fetch_all(db.pool())
@@ -3269,6 +3484,142 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(availability, "present");
+    }
+
+    #[tokio::test]
+    async fn live_transcript_deltas_are_created_journaled_materialized_and_flushed() {
+        use anlg_listener_core::LiveTranscriptDelta;
+        use anlg_transcript::{FinalizedWord, WordState};
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(DB_FILENAME);
+        {
+            let db = Db::connect_local_plain(&path).await.unwrap();
+            anlg_db_app::prepare_schema(&db).await.unwrap();
+        }
+        let store = Store::open(
+            tokio::runtime::Handle::current(),
+            path,
+            "com.hyprnote.dev".to_string(),
+        )
+        .await
+        .unwrap();
+        let session_id = store.create_note().await.unwrap().unwrap();
+        let word = |id: &str, text: &str, start: i64| FinalizedWord {
+            id: id.to_string(),
+            text: text.to_string(),
+            start_ms: start,
+            end_ms: start + 300,
+            channel: 0,
+            state: WordState::Final,
+            speaker_index: Some(0),
+        };
+        let delta = |words: Vec<FinalizedWord>, replaced: &[&str]| LiveTranscriptDelta {
+            new_words: words,
+            replaced_ids: replaced.iter().map(|id| id.to_string()).collect(),
+            partials: Vec::new(),
+        };
+        let transcript_id = "live-1".to_string();
+        store
+            .create_live_transcript(
+                transcript_id.clone(),
+                session_id.clone(),
+                "2026-09-06T05:00:00.000Z".to_string(),
+                1_788_670_800_000,
+                String::new(),
+                "deepgram".to_string(),
+                "nova-3".to_string(),
+                delta(vec![word("a", "hel", 0)], &[]),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        store
+            .journal_live_delta(
+                transcript_id.clone(),
+                delta(vec![word("b", "hello", 0)], &["a"]),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        store
+            .journal_live_delta(
+                transcript_id.clone(),
+                delta(vec![word("c", "there", 400)], &[]),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+
+        // Readers materialize the journal like `useSessionTranscripts`.
+        let (source, provider, words_json): (String, String, String) =
+            sqlx::query_as("SELECT source, provider, words_json FROM transcripts WHERE id = ?")
+                .bind(&transcript_id)
+                .fetch_one(store.db.pool())
+                .await
+                .unwrap();
+        assert_eq!(source, "live_capture");
+        assert_eq!(provider, "deepgram");
+        assert!(
+            words_json.contains("\"hel\""),
+            "the columns still hold the first delta"
+        );
+        let preview = store
+            .load_note(session_id.clone())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert!(preview.has_transcript);
+        let rendered: String = preview
+            .transcripts
+            .iter()
+            .flat_map(|t| t.segments.iter().map(|s| s.text.clone()))
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert_eq!(rendered, "hello there");
+        let pending: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM transcript_live_deltas WHERE transcript_id = ?",
+        )
+        .bind(&transcript_id)
+        .fetch_one(store.db.pool())
+        .await
+        .unwrap();
+        assert_eq!(pending, 2);
+
+        store
+            .flush_live_deltas(transcript_id.clone())
+            .await
+            .unwrap()
+            .unwrap();
+        let (words_json, hints_json, revision): (String, String, i64) = sqlx::query_as(
+            "SELECT words_json, speaker_hints_json, content_revision FROM transcripts WHERE id = ?",
+        )
+        .bind(&transcript_id)
+        .fetch_one(store.db.pool())
+        .await
+        .unwrap();
+        assert_eq!(
+            words_json,
+            r#"[{"id":"b","text":"hello","start_ms":0,"end_ms":300,"channel":0},{"id":"c","text":"there","start_ms":400,"end_ms":700,"channel":0}]"#
+        );
+        let hints: Vec<serde_json::Value> = serde_json::from_str(&hints_json).unwrap();
+        assert_eq!(hints.len(), 2);
+        assert_eq!(hints[0]["word_id"], "b");
+        assert_eq!(revision, 1);
+        let pending: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM transcript_live_deltas WHERE transcript_id = ?",
+        )
+        .bind(&transcript_id)
+        .fetch_one(store.db.pool())
+        .await
+        .unwrap();
+        assert_eq!(pending, 0);
+        // Flushing again is a no-op.
+        store
+            .flush_live_deltas(transcript_id.clone())
+            .await
+            .unwrap()
+            .unwrap();
     }
 
     #[tokio::test]

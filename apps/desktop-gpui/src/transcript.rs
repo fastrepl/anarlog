@@ -489,6 +489,7 @@ mod tests {
             ended_at_ms: None,
             words_json: words.to_string(),
             speaker_hints_json: hints.to_string(),
+            pending_deltas_json: "[]".into(),
         }
     }
 

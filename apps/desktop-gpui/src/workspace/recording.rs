@@ -23,8 +23,27 @@ pub(crate) enum SessionMode {
     Finalizing,
 }
 
+/// `createCaptureLifecycle`'s transcript identity and persistence queue: the
+/// transcript row is created on the first delta and later deltas are
+/// journaled, one write in flight at a time (the worker's batching), then
+/// flushed into the columns when the capture ends.
+pub(crate) struct LivePersistence {
+    pub transcript_id: String,
+    pub created_at: String,
+    pub started_at_ms: i64,
+    pub memo: String,
+    pub provider: String,
+    pub model: String,
+    pub created: bool,
+    pub writing: bool,
+    pub pending: Vec<anlg_listener_core::LiveTranscriptDelta>,
+    /// The capture ended: once the queue drains, flush the journal.
+    pub finishing: bool,
+}
+
 pub(crate) struct LiveCapture {
     pub session_id: String,
+    pub persistence: LivePersistence,
     /// `live.requestedLiveTranscription`: the session asked for live mode.
     pub requested_live: bool,
     /// `live.liveTranscriptionActive`: the engine is streaming live.
@@ -49,6 +68,9 @@ pub(crate) struct RecordingState {
     pub recorder: Option<Rc<Recorder>>,
     pub live: Option<LiveCapture>,
     pub finalizing: Vec<String>,
+    /// Persistence queues of captures that ended and still have writes or
+    /// the final flush outstanding, by session id.
+    pub flushing: Vec<(String, LivePersistence)>,
     /// The persistent `recording-without-transcription` warning toast.
     pub toast: Option<RecordingToast>,
     /// `Record` was clicked and the engine has not answered yet.
@@ -132,6 +154,13 @@ impl Workspace {
         // key; `None` (no `conn`) records without a transcription endpoint.
         let connection = self.store.stt_connection(&self.provider_settings);
         let languages = self.transcription_languages();
+        // `memoMd = session?.raw_md ?? ""`
+        let memo = match &self.note {
+            super::Note::Ready { preview, .. } if preview.session.id == session_id => {
+                preview.memo_body.clone()
+            }
+            _ => String::new(),
+        };
         let mic_device = self
             .provider_settings
             .string_setting("microphone_device", &["general", "microphone_device"])
@@ -162,6 +191,26 @@ impl Workspace {
                     Ok(Ok(())) => {
                         this.recording.live = Some(LiveCapture {
                             session_id,
+                            persistence: LivePersistence {
+                                transcript_id: uuid::Uuid::new_v4().to_string(),
+                                created_at: chrono::Utc::now()
+                                    .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                                    .to_string(),
+                                started_at_ms: chrono::Utc::now().timestamp_millis(),
+                                memo,
+                                provider: connection
+                                    .as_ref()
+                                    .map(|c| c.provider.clone())
+                                    .unwrap_or_default(),
+                                model: connection
+                                    .as_ref()
+                                    .map(|c| c.model.clone())
+                                    .unwrap_or_default(),
+                                created: false,
+                                writing: false,
+                                pending: Vec::new(),
+                                finishing: false,
+                            },
                             requested_live: true,
                             live_active: has_provider,
                             error: None,
@@ -232,6 +281,20 @@ impl Workspace {
                     _ => {
                         self.recording.live = Some(LiveCapture {
                             session_id,
+                            persistence: LivePersistence {
+                                transcript_id: uuid::Uuid::new_v4().to_string(),
+                                created_at: chrono::Utc::now()
+                                    .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                                    .to_string(),
+                                started_at_ms: chrono::Utc::now().timestamp_millis(),
+                                memo: String::new(),
+                                provider: String::new(),
+                                model: String::new(),
+                                created: false,
+                                writing: false,
+                                pending: Vec::new(),
+                                finishing: false,
+                            },
                             requested_live,
                             live_active,
                             error,
@@ -243,13 +306,12 @@ impl Workspace {
                 }
             }
             Event::Lifecycle(SessionLifecycleEvent::Finalizing { session_id }) => {
-                if self
+                if let Some(live) = self
                     .recording
                     .live
-                    .as_ref()
-                    .is_some_and(|live| live.session_id == session_id)
+                    .take_if(|live| live.session_id == session_id)
                 {
-                    self.recording.live = None;
+                    self.finish_live_persistence(live.persistence, session_id.clone(), cx);
                 }
                 self.recording.toast = None;
                 if !self.recording.finalizing.contains(&session_id) {
@@ -261,13 +323,12 @@ impl Workspace {
                 audio_path,
                 error,
             }) => {
-                if self
+                if let Some(live) = self
                     .recording
                     .live
-                    .as_ref()
-                    .is_some_and(|live| live.session_id == session_id)
+                    .take_if(|live| live.session_id == session_id)
                 {
-                    self.recording.live = None;
+                    self.finish_live_persistence(live.persistence, session_id.clone(), cx);
                 }
                 self.recording.toast = None;
                 self.recording.finalizing.retain(|id| *id != session_id);
@@ -322,9 +383,136 @@ impl Workspace {
                     live.muted = value;
                 }
             }
+            Event::Data(SessionDataEvent::TranscriptDelta { session_id, delta }) => {
+                // `handlePersist`: empty deltas are ignored.
+                if delta.new_words.is_empty() && delta.replaced_ids.is_empty() {
+                    return;
+                }
+                if let Some(live) = self
+                    .recording
+                    .live
+                    .as_mut()
+                    .filter(|live| live.session_id == session_id)
+                {
+                    live.persistence.pending.push(*delta);
+                    self.drain_live_persistence(session_id, cx);
+                }
+            }
             Event::Data(_) => {}
         }
         cx.notify();
+    }
+
+    fn persistence_mut(&mut self, session_id: &str) -> Option<&mut LivePersistence> {
+        if let Some(live) = self
+            .recording
+            .live
+            .as_mut()
+            .filter(|live| live.session_id == session_id)
+        {
+            return Some(&mut live.persistence);
+        }
+        self.recording
+            .flushing
+            .iter_mut()
+            .find(|(id, _)| id == session_id)
+            .map(|(_, persistence)| persistence)
+    }
+
+    /// The persistence worker's drain: coalesce the pending deltas into one
+    /// write — `createLiveTranscript` first, `applyLiveTranscriptDeltaToDatabase`
+    /// after — keep draining while more arrive, and once a finished capture's
+    /// queue is empty run `flushLiveTranscriptDeltasToDatabase`.
+    fn drain_live_persistence(&mut self, session_id: String, cx: &mut Context<Self>) {
+        let Some(persistence) = self.persistence_mut(&session_id) else {
+            return;
+        };
+        if persistence.writing {
+            return;
+        }
+        if persistence.pending.is_empty() {
+            if !persistence.finishing {
+                return;
+            }
+            let transcript_id = persistence.transcript_id.clone();
+            self.recording.flushing.retain(|(id, _)| *id != session_id);
+            let flush = self.store.flush_live_deltas(transcript_id);
+            cx.spawn(async move |this, cx| {
+                if let Ok(Err(error)) = flush.await {
+                    tracing::error!(%error, "[listener] failed to flush live transcript");
+                }
+                this.update(cx, |this, cx| {
+                    if this.selected.as_deref() == Some(session_id.as_str()) {
+                        this.reload_note(session_id.clone(), cx);
+                    }
+                })
+                .ok();
+            })
+            .detach();
+            return;
+        }
+        let deltas = std::mem::take(&mut persistence.pending);
+        let delta = crate::live_transcript::coalesce_deltas(&deltas);
+        persistence.writing = true;
+        let transcript_id = persistence.transcript_id.clone();
+        let created = persistence.created;
+        let (created_at, started_at_ms, memo, provider, model) = (
+            persistence.created_at.clone(),
+            persistence.started_at_ms,
+            persistence.memo.clone(),
+            persistence.provider.clone(),
+            persistence.model.clone(),
+        );
+        let task = if created {
+            self.store.journal_live_delta(transcript_id, delta)
+        } else {
+            self.store.create_live_transcript(
+                transcript_id,
+                session_id.clone(),
+                created_at,
+                started_at_ms,
+                memo,
+                provider,
+                model,
+                delta,
+            )
+        };
+        cx.spawn(async move |this, cx| {
+            let result = task.await.map_err(anyhow::Error::from).and_then(|r| r);
+            this.update(cx, |this, cx| {
+                if let Err(error) = &result {
+                    tracing::error!(%error, "[listener] failed to persist transcript");
+                }
+                if let Some(persistence) = this.persistence_mut(&session_id) {
+                    persistence.writing = false;
+                    if result.is_ok() {
+                        persistence.created = true;
+                    }
+                }
+                this.drain_live_persistence(session_id.clone(), cx);
+                if this.selected.as_deref() == Some(session_id.as_str()) {
+                    this.reload_note(session_id.clone(), cx);
+                }
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// The capture ended: move its queue aside, mark it finishing, and let
+    /// the drain write the tail and flush the journal in order.
+    fn finish_live_persistence(
+        &mut self,
+        mut persistence: LivePersistence,
+        session_id: String,
+        cx: &mut Context<Self>,
+    ) {
+        persistence.finishing = true;
+        self.recording.flushing.retain(|(id, _)| *id != session_id);
+        self.recording
+            .flushing
+            .push((session_id.clone(), persistence));
+        self.drain_live_persistence(session_id, cx);
     }
 
     /// `getTranscriptionLanguages(aiLanguage, spokenLanguages)`: the AI
