@@ -558,11 +558,22 @@ impl Workspace {
     pub(super) fn render_live_transcript_screen(
         &self,
         session_id: &str,
+        has_words: bool,
         window: &gpui::Window,
     ) -> Option<AnyElement> {
         let theme = self.theme;
         let mode = self.session_mode(session_id);
         if mode == SessionMode::Inactive {
+            return None;
+        }
+        // `hasVisibleTranscriptState`: once words exist the viewer renders
+        // them (the `ready` screen) unless the capture fell back to batch.
+        let live_transcribing = self
+            .recording
+            .live
+            .as_ref()
+            .is_none_or(|live| live.session_id != session_id || live.live_active);
+        if has_words && live_transcribing {
             return None;
         }
         let live = self

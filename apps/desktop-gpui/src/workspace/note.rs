@@ -690,7 +690,11 @@ impl Workspace {
                 .flex()
                 .flex_col()
                 .overflow_hidden();
-            if let Some(screen) = self.render_live_transcript_screen(&preview.session.id, window) {
+            if let Some(screen) = self.render_live_transcript_screen(
+                &preview.session.id,
+                preview.has_transcript,
+                window,
+            ) {
                 return body.child(screen);
             }
             if !preview.has_transcript {
