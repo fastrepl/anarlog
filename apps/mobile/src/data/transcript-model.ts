@@ -50,13 +50,25 @@ export function transcriptSegments(
     }
   };
   addWords(parseArray(row.words_json));
+  const updatedWordIds = new Set<string>();
   for (const value of parseArray(row.pending_deltas_json)) {
     if (!value || typeof value !== "object") continue;
     const delta = value as { replaced_ids?: string[]; new_words?: unknown[] };
     if (Array.isArray(delta.replaced_ids)) {
       for (const id of delta.replaced_ids) wordsById.delete(id);
     }
-    if (Array.isArray(delta.new_words)) addWords(delta.new_words);
+    if (Array.isArray(delta.new_words)) {
+      addWords(delta.new_words);
+      for (const word of delta.new_words) {
+        if (
+          word &&
+          typeof word === "object" &&
+          "id" in word &&
+          typeof word.id === "string"
+        )
+          updatedWordIds.add(word.id);
+      }
+    }
   }
   const words = [...wordsById.values()].sort(
     (a, b) => a.start_ms - b.start_ms || a.end_ms - b.end_ms,
@@ -72,6 +84,9 @@ export function transcriptSegments(
     if (hint.type !== "provider_speaker_index" || !hint.word_id) continue;
     const word = wordsById.get(hint.word_id);
     const value = hint.value as { channel?: number; speaker_index?: number };
+    // A live revision can reuse word IDs while correcting the initial speaker hint.
+    if (word && updatedWordIds.has(word.id) && word.speaker_index != null)
+      continue;
     if (word && typeof value.speaker_index === "number") {
       word.speaker_index = value.speaker_index;
       if (typeof value.channel === "number") word.channel = value.channel;

@@ -115,3 +115,29 @@ test("words without diarization remain readable without inventing an identity", 
     /Invalid transcript/,
   );
 });
+
+test("a live speaker correction wins over the initial persisted provider hint", () => {
+  const initial = word("a", "Hello", 0);
+  const revised = word("a", "Hello!", 1);
+  const originalHint = {
+    word_id: "a",
+    type: "provider_speaker_index",
+    value: { speaker_index: 0, channel: 0 },
+  };
+  const live = transcriptSegments(
+    row(
+      [initial],
+      [{ new_words: [revised], replaced_ids: ["a"] }],
+      [originalHint],
+    ),
+  );
+  const saved = transcriptSegments(
+    row(
+      [revised],
+      [],
+      [{ ...originalHint, value: { speaker_index: 1, channel: 0 } }],
+    ),
+  );
+  assert.deepEqual(live, saved);
+  assert.equal(live[0].speaker, "Speaker 2");
+});
