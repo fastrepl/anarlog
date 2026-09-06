@@ -30,6 +30,17 @@ enum Popover {
 pub(crate) struct CalendarState {
     /// The first day of the month on screen (`currentMonth`).
     month: NaiveDate,
+    /// `visibleStart`: the day the compact strip scrolls to when it (re)opens
+    /// or the arrows move it; the strip spans 42 days either side of it.
+    compact_start: NaiveDate,
+    compact_scroll: gpui::ScrollHandle,
+    /// Set by the arrows, Today, and a column-count change; the next compact
+    /// render scrolls the strip to `compact_start` (the `scrollTo` effect).
+    compact_scroll_reset: std::cell::Cell<bool>,
+    /// The layout the last compact render used, for the arrows and the
+    /// month-to-compact transition.
+    compact_cols: std::cell::Cell<usize>,
+    compact_day_width: std::cell::Cell<f32>,
     popover: Option<Popover>,
     /// `EventChip`'s `useNativeContextMenu`: the event id and the pointer.
     context_menu: Option<(String, gpui::Point<gpui::Pixels>)>,
@@ -200,6 +211,49 @@ fn visible_item_count(available: f32, total: usize) -> usize {
 }
 
 /// The width of a `font-mono text-xs` label, for sizing the truncating title.
+/// `VIEW_BREAKPOINTS`: the month grid needs 700px; narrower surfaces show a
+/// horizontally scrolling strip of 4, 2, or 1 day columns.
+fn visible_cols(width: f32) -> usize {
+    if width >= 700.0 {
+        7
+    } else if width >= 400.0 {
+        4
+    } else if width >= 200.0 {
+        2
+    } else {
+        1
+    }
+}
+
+const COMPACT_SCROLL_PAST_DAYS: i64 = 42;
+const COMPACT_SCROLL_FUTURE_DAYS: i64 = 42;
+
+/// `handleCompactScroll`: the day column at the strip's left edge.
+fn compact_start_index(scroll_x: f32, day_width: f32, total_days: usize, cols: usize) -> usize {
+    if day_width <= 0.0 {
+        return 0;
+    }
+    let max_start = total_days.saturating_sub(cols);
+    ((scroll_x / day_width).round().max(0.0) as usize).min(max_start)
+}
+
+/// `compactVisibleStart`: the day at the strip's left edge, from the scroll
+/// offset of the last compact render (or `compact_start` before one).
+fn compact_visible_start(state: &CalendarState) -> NaiveDate {
+    let first = state.compact_start - Duration::days(COMPACT_SCROLL_PAST_DAYS);
+    let total = (COMPACT_SCROLL_PAST_DAYS + COMPACT_SCROLL_FUTURE_DAYS) as usize;
+    if state.compact_scroll_reset.get() || state.compact_day_width.get() <= 0.0 {
+        return state.compact_start;
+    }
+    let index = compact_start_index(
+        -f32::from(state.compact_scroll.offset().x),
+        state.compact_day_width.get(),
+        total,
+        state.compact_cols.get(),
+    );
+    first + Duration::days(index as i64)
+}
+
 fn mono_text_width(text: &str, family: Option<&SharedString>, window: &Window) -> f32 {
     let mut style = window.text_style();
     if let Some(family) = family {
@@ -228,6 +282,11 @@ impl Workspace {
             let today = Local::now().date_naive();
             self.calendar = Some(CalendarState {
                 month: today.with_day(1).unwrap_or(today),
+                compact_start: today,
+                compact_scroll: gpui::ScrollHandle::new(),
+                compact_scroll_reset: std::cell::Cell::new(true),
+                compact_cols: std::cell::Cell::new(7),
+                compact_day_width: std::cell::Cell::new(0.0),
                 popover: None,
                 context_menu: None,
                 expanded: HashSet::new(),
@@ -349,6 +408,24 @@ impl Workspace {
         {
             cx.notify();
         }
+    }
+
+    /// `goToPrev` / `goToNext`: a month in the month view, `cols` days from
+    /// the strip's current left edge in the compact view (`advanceCompact`).
+    fn shift_calendar(&mut self, direction: i32, cx: &mut Context<Self>) {
+        let Some(state) = self.calendar.as_mut() else {
+            return;
+        };
+        let cols = state.compact_cols.get();
+        if cols == 7 {
+            self.shift_month(direction, cx);
+            return;
+        }
+        let base = compact_visible_start(state);
+        state.compact_start = base + Duration::days(direction as i64 * cols as i64);
+        state.compact_scroll_reset.set(true);
+        state.popover = None;
+        cx.notify();
     }
 
     fn shift_month(&mut self, months: i32, cx: &mut Context<Self>) {
@@ -540,19 +617,49 @@ impl Workspace {
         // and the weekday row (31) splits evenly across the rows.
         let viewport = window.viewport_size();
         // The `minmax(0, 1fr)` columns: the surface (viewport minus the
-        // sidebar, its gutter, and the handle, minus the left border) over 7.
+        // sidebar and its `pl-1` gutter, minus the left border) over `cols`.
+        // Custom sidebars render no resize handle, so the surface starts at
+        // 205 for the 200px sidebar (measured on the Tauri app: x=205, 595
+        // wide at an 800px window).
         let surface_width = f32::from(viewport.width)
             - if self.sidebar_expanded && !self.is_standalone() {
-                self.custom_sidebar_width() + 8.0 + 1.0
+                self.custom_sidebar_width() + 4.0 + 1.0
             } else {
                 0.0
             };
-        let cell_width = surface_width / 7.0;
+        let cols = visible_cols(surface_width);
+        let cell_width = surface_width / cols as f32;
         let title_bar = if self.is_standalone() { 0.0 } else { 36.0 };
         let grid_height = (f32::from(viewport.height) - title_bar - 48.0 - 31.0).max(0.0);
-        let row_height = grid_height / rows.max(1) as f32;
+        let row_height = if cols == 7 {
+            grid_height / rows.max(1) as f32
+        } else {
+            grid_height
+        };
         // `p-1.5` (12) and the `h-7 mb-1` day number (32).
         let items_available = (row_height - 12.0 - 32.0).max(0.0);
+
+        // The compact strip: 84 day columns, `cols` of them visible, scrolled
+        // so `compact_start` sits at the left edge after a reset (`scrollTo`).
+        let compact_days = (COMPACT_SCROLL_PAST_DAYS + COMPACT_SCROLL_FUTURE_DAYS) as usize;
+        if cols != state.compact_cols.get() {
+            state.compact_cols.set(cols);
+            state.compact_scroll_reset.set(true);
+        }
+        state.compact_day_width.set(cell_width);
+        if cols != 7 && state.compact_scroll_reset.get() {
+            state.compact_scroll.set_offset(gpui::point(
+                px(-(COMPACT_SCROLL_PAST_DAYS as f32) * cell_width),
+                px(0.0),
+            ));
+            state.compact_scroll_reset.set(false);
+        }
+        let compact_first = state.compact_start - Duration::days(COMPACT_SCROLL_PAST_DAYS);
+        let header_title = if cols == 7 {
+            month_start.format("%B %Y").to_string()
+        } else {
+            compact_visible_start(state).format("%B %Y").to_string()
+        };
 
         let header = div()
             .flex()
@@ -574,7 +681,7 @@ impl Workspace {
                             .tw_text_sm()
                             .font_weight(gpui::FontWeight::SEMIBOLD)
                             .text_color(theme.foreground)
-                            .child(SharedString::from(month_start.format("%B %Y").to_string())),
+                            .child(SharedString::from(header_title)),
                     )
                     .child(
                         // `CalendarSyncHeaderControls`: the idle refresh button.
@@ -633,12 +740,88 @@ impl Workspace {
                     &data,
                     items_available,
                     cell_width,
+                    false,
                     state,
                     window,
                     cx,
                 ));
             }
             grid = grid.child(week);
+        }
+
+        if cols != 7 {
+            // `grid-rows-[auto_minmax(0,1fr)]` over `days.length` columns, each
+            // `surface / cols` wide, in an `overflow-x-auto` strip.
+            // `width: compactContentWidth` (`days.length / cols * 100%`): the
+            // scroll container measures the strip, so it must size itself.
+            let mut strip = div()
+                .flex()
+                .h_full()
+                .w(px(cell_width * compact_days as f32));
+            for offset in 0..compact_days {
+                let day = compact_first + Duration::days(offset as i64);
+                let label = day.format("%a").to_string();
+                let weekend = matches!(day.weekday(), Weekday::Sat | Weekday::Sun);
+                strip = strip.child(
+                    div()
+                        .w(px(cell_width))
+                        .flex_shrink_0()
+                        .h_full()
+                        .flex()
+                        .flex_col()
+                        .child(
+                            div()
+                                .w_full()
+                                .flex_shrink_0()
+                                .flex()
+                                .justify_center()
+                                .py_2()
+                                .tw_text_xs()
+                                .font_weight(gpui::FontWeight::MEDIUM)
+                                .border_r_1()
+                                .border_b_1()
+                                .border_color(theme.border)
+                                .text_color(if weekend {
+                                    theme.muted_foreground
+                                } else {
+                                    theme.foreground
+                                })
+                                .child(SharedString::from(label)),
+                        )
+                        .child(
+                            self.render_day_cell(
+                                day,
+                                true,
+                                day == today,
+                                &data,
+                                items_available,
+                                cell_width,
+                                true,
+                                state,
+                                window,
+                                cx,
+                            )
+                            .flex_1()
+                            .min_h_0(),
+                        ),
+                );
+            }
+            return div()
+                .flex()
+                .h_full()
+                .flex_col()
+                .overflow_hidden()
+                .child(header)
+                .child(
+                    div()
+                        .id("calendar-compact")
+                        .flex_1()
+                        .min_h_0()
+                        .overflow_x_scroll()
+                        .track_scroll(&state.compact_scroll)
+                        .child(strip),
+                )
+                .into_any_element();
         }
 
         div()
@@ -686,7 +869,7 @@ impl Workspace {
                     icon("caret-left", px(14.0), theme.foreground).into_any_element(),
                     Some(28.0),
                 )
-                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.shift_month(-1, cx))),
+                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.shift_calendar(-1, cx))),
             )
             .child(separator())
             .child(
@@ -704,6 +887,8 @@ impl Workspace {
                     if let Some(state) = this.calendar.as_mut() {
                         let today = Local::now().date_naive();
                         state.month = today.with_day(1).unwrap_or(today);
+                        state.compact_start = today;
+                        state.compact_scroll_reset.set(true);
                         state.popover = None;
                         cx.notify();
                     }
@@ -716,7 +901,7 @@ impl Workspace {
                     icon("caret-right", px(14.0), theme.foreground).into_any_element(),
                     Some(28.0),
                 )
-                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.shift_month(1, cx))),
+                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.shift_calendar(1, cx))),
             )
     }
 
@@ -730,6 +915,7 @@ impl Workspace {
         data: &CalendarData,
         items_available: f32,
         cell_width: f32,
+        fixed_width: bool,
         state: &CalendarState,
         window: &Window,
         cx: &Context<Self>,
@@ -849,7 +1035,8 @@ impl Workspace {
         }
 
         div()
-            .flex_1()
+            .when(fixed_width, |cell| cell.w(px(cell_width)).flex_shrink_0())
+            .when(!fixed_width, |cell| cell.flex_1())
             .min_w_0()
             .flex()
             .flex_col()
@@ -1256,6 +1443,28 @@ mod tests {
         );
     }
     use chrono::{TimeZone, Utc};
+
+    #[test]
+    fn view_breakpoints_match_the_app() {
+        assert_eq!(visible_cols(816.0), 7);
+        assert_eq!(visible_cols(700.0), 7);
+        assert_eq!(visible_cols(699.0), 4);
+        assert_eq!(visible_cols(400.0), 4);
+        assert_eq!(visible_cols(399.0), 2);
+        assert_eq!(visible_cols(200.0), 2);
+        assert_eq!(visible_cols(150.0), 1);
+    }
+
+    #[test]
+    fn compact_start_index_rounds_and_clamps_like_handle_compact_scroll() {
+        // 84 days, 4 visible: the reset scroll (42 columns) lands on day 42,
+        // a half-column drag rounds, and the end clamps to `days.length - cols`.
+        assert_eq!(compact_start_index(42.0 * 150.0, 150.0, 84, 4), 42);
+        assert_eq!(compact_start_index(42.6 * 150.0, 150.0, 84, 4), 43);
+        assert_eq!(compact_start_index(1_000_000.0, 150.0, 84, 4), 80);
+        assert_eq!(compact_start_index(-10.0, 150.0, 84, 4), 0);
+        assert_eq!(compact_start_index(300.0, 0.0, 84, 4), 0);
+    }
 
     #[test]
     fn visible_item_count_keeps_room_for_the_more_line() {
