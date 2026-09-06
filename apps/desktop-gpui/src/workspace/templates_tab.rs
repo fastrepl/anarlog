@@ -601,7 +601,7 @@ impl Workspace {
         // GPUI caches a nowrap text's first (max-content) measurement, so the
         // truncating block gets its exact width: the sidebar minus the row's
         // `px-3`, the 16px glyph, and the `gap-2`.
-        let title_width = px(self.sidebar_width - 52.0);
+        let title_width = px(self.custom_sidebar_width() - 52.0);
         let row = |id: SharedString, is_selected: bool| {
             div()
                 .id(id)
@@ -793,7 +793,7 @@ impl Workspace {
             .flex()
             .flex_col()
             .h_full()
-            .w(px(self.sidebar_width))
+            .w(px(self.custom_sidebar_width()))
             .flex_shrink_0()
             .pr_1()
             .overflow_hidden()

@@ -341,6 +341,27 @@ impl Workspace {
         this
     }
 
+    /// `hasCustomSidebarTab`: settings, folders, templates, calendar, and
+    /// contacts swap the timeline for their own sidebar.
+    pub(crate) fn custom_sidebar_open(&self) -> bool {
+        self.settings_open()
+            || self.folders_open()
+            || self.templates_open()
+            || self.calendar_open()
+            || self.contacts_open()
+    }
+
+    /// `leftSidebarPanelStyle` without `canResizeLeftSidebarPanel`: custom
+    /// sidebars lay out at `LEFT_SIDEBAR_DEFAULT_WIDTH_PX` regardless of the
+    /// timeline's resized width.
+    pub(crate) fn custom_sidebar_width(&self) -> f32 {
+        if self.custom_sidebar_open() {
+            SIDEBAR_DEFAULT_WIDTH
+        } else {
+            self.sidebar_width
+        }
+    }
+
     pub(crate) fn is_standalone(&self) -> bool {
         matches!(self.mode, Mode::StandaloneNote(_))
     }
@@ -1155,10 +1176,15 @@ impl Render for Workspace {
                         } else {
                             self.render_sidebar(window, cx).into_any_element()
                         };
+                        // `canResizeLeftSidebarPanel` holds only for the
+                        // timeline: custom sidebars are pinned to the default
+                        // width and the `ResizableHandle` is not rendered.
                         shell
                             .pl_1()
                             .child(sidebar)
-                            .child(self.render_sidebar_handle(cx))
+                            .when(!self.custom_sidebar_open(), |shell| {
+                                shell.child(self.render_sidebar_handle(cx))
+                            })
                     })
                     .when(!self.sidebar_expanded && !self.is_standalone(), |shell| {
                         shell.gap_1()

@@ -635,7 +635,7 @@ impl Workspace {
             .flex()
             .flex_col()
             .h_full()
-            .w(px(self.sidebar_width))
+            .w(px(self.custom_sidebar_width()))
             .flex_shrink_0()
             .pr_1()
             .overflow_hidden()
@@ -816,7 +816,9 @@ impl Workspace {
                                                         div()
                                                             // See the templates list: the nowrap
                                                             // text needs its exact width up front.
-                                                            .w(px(self.sidebar_width - 52.0))
+                                                            .w(px(
+                                                                self.custom_sidebar_width() - 52.0
+                                                            ))
                                                             .truncate()
                                                             .child(SharedString::from(
                                                                 path.clone(),

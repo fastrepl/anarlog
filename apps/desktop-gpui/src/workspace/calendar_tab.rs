@@ -325,7 +325,7 @@ impl Workspace {
             .flex()
             .flex_col()
             .h_full()
-            .w(px(self.sidebar_width))
+            .w(px(self.custom_sidebar_width()))
             .flex_shrink_0()
             .pr_1()
             .overflow_hidden()
@@ -411,7 +411,7 @@ impl Workspace {
         // sidebar, its gutter, and the handle, minus the left border) over 7.
         let surface_width = f32::from(viewport.width)
             - if self.sidebar_expanded && !self.is_standalone() {
-                self.sidebar_width + 8.0 + 1.0
+                self.custom_sidebar_width() + 8.0 + 1.0
             } else {
                 0.0
             };

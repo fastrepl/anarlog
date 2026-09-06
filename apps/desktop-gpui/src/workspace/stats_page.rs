@@ -309,8 +309,62 @@ impl Workspace {
 
         // Month labels: one `1fr` column per week, labelled where the month
         // changes (`text-[10px]`, overflowing its column).
+        let labels: Vec<(usize, String)> = (0..columns)
+            .filter_map(|column| {
+                let day = days.get(column * 7)?;
+                let previous = column
+                    .checked_sub(1)
+                    .and_then(|c| days.get(c * 7))
+                    .map(|d| d.date.month());
+                (previous != Some(day.date.month()))
+                    .then(|| (column, month_short(day.date.month())))
+            })
+            .collect();
+        // The last label overflows its column past the region's edge, so the
+        // `overflow-x-auto` region shows WebKit's 6px horizontal scrollbar.
+        let tracker_width = stats
+            .tracker_bounds
+            .get()
+            .map(|bounds| f32::from(bounds.size.width))
+            .unwrap_or(704.0);
+        let region_width = tracker_width + 40.0;
+        let pitch = (tracker_width - GAP * (columns as f32 - 1.0)) / columns as f32 + GAP;
+        let scroll_width = labels
+            .iter()
+            .map(|(column, label)| {
+                let mut style = window.text_style();
+                style.font_size = px(10.0).into();
+                if let Some(font) = &self.font_family {
+                    style.font_family = font.clone();
+                }
+                let width = window
+                    .text_system()
+                    .shape_line(
+                        SharedString::from(label.clone()),
+                        px(10.0),
+                        &[style.to_run(label.len())],
+                        None,
+                    )
+                    .width;
+                40.0 + *column as f32 * pitch + f32::from(width)
+            })
+            .fold(region_width, f32::max);
+        let horizontal_scrollbar = (scroll_width > region_width + 0.5).then(|| {
+            let thumb = region_width * region_width / scroll_width;
+            div()
+                .h(px(crate::ui::WEBKIT_SCROLLBAR_WIDTH))
+                .w_full()
+                .child(
+                    div()
+                        .h_full()
+                        .w(px(thumb))
+                        .rounded(px(3.0))
+                        .bg(theme.scrollbar_thumb),
+                )
+        });
         let month_labels = div()
             .relative()
+            .overflow_hidden()
             .h(px(15.0))
             .mb_2()
             .ml(px(40.0))
@@ -319,17 +373,7 @@ impl Workspace {
             .text_color(theme.muted_foreground)
             .child(
                 canvas(|_, _, _| (), {
-                    let labels: Vec<(usize, String)> = (0..columns)
-                        .filter_map(|column| {
-                            let day = days.get(column * 7)?;
-                            let previous = column
-                                .checked_sub(1)
-                                .and_then(|c| days.get(c * 7))
-                                .map(|d| d.date.month());
-                            (previous != Some(day.date.month()))
-                                .then(|| (column, month_short(day.date.month())))
-                        })
-                        .collect();
+                    let labels = labels.clone();
                     let font = self.font_family.clone();
                     move |bounds, _, window, cx| {
                         let pitch = (f32::from(bounds.size.width) - GAP * (columns as f32 - 1.0))
@@ -472,12 +516,18 @@ impl Workspace {
             )
             .child(
                 div()
-                    .pb_1()
                     .flex()
                     .flex_col()
                     .min_w(px(620.0))
-                    .child(month_labels)
-                    .child(div().flex().gap_2().child(weekday_labels).child(tracker)),
+                    .child(
+                        div()
+                            .pb_1()
+                            .flex()
+                            .flex_col()
+                            .child(month_labels)
+                            .child(div().flex().gap_2().child(weekday_labels).child(tracker)),
+                    )
+                    .children(horizontal_scrollbar),
             )
             .child(
                 div()

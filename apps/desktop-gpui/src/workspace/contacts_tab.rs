@@ -586,7 +586,7 @@ impl Workspace {
             .chain(humans.iter().filter(|h| !h.pinned).map(|h| Item::Person(h)))
             .collect();
 
-        let row_width = self.sidebar_width - 4.0;
+        let row_width = self.custom_sidebar_width() - 4.0;
         // `px-3`, the 32px avatar, `gap-2`, and the 22px pin button.
         let title_width = (row_width - 24.0 - 32.0 - 8.0 - 8.0 - 22.0).max(0.0);
         let render_item = |this: &Self, item: &Item| -> AnyElement {
@@ -813,7 +813,7 @@ impl Workspace {
             .flex()
             .flex_col()
             .h_full()
-            .w(px(self.sidebar_width))
+            .w(px(self.custom_sidebar_width()))
             .flex_shrink_0()
             .pr_1()
             .overflow_hidden()
@@ -844,7 +844,7 @@ impl Workspace {
                             )
                             .child(div().flex_1())
                             // `hidden @[220px]:block`: the sort menu needs a 220px column.
-                            .when(self.sidebar_width - 4.0 >= 220.0, |header| {
+                            .when(self.custom_sidebar_width() - 4.0 >= 220.0, |header| {
                                 header.child(
                                 div()
                                     .relative()

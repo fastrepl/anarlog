@@ -877,7 +877,7 @@ impl Workspace {
             .flex()
             .flex_col()
             .h_full()
-            .w(px(self.sidebar_width))
+            .w(px(self.custom_sidebar_width()))
             .flex_shrink_0()
             .pr_1()
             .overflow_hidden()
