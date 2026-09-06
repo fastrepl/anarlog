@@ -53,6 +53,10 @@ export class SessionWavWriter {
     }
   }
 
+  get durationMs(): number {
+    return (this.dataBytes * 1_000) / (this.sampleRate * this.channels * 2);
+  }
+
   finalize(): File {
     if (this.finalized) return this.file;
     if (!this.handle) throw new Error("Recording file is unavailable");

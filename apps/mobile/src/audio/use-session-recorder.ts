@@ -124,12 +124,10 @@ export function useSessionRecorder(
       if (phaseRef.current !== "starting" && phaseRef.current !== "recording") {
         return;
       }
+      const writer = writerRef.current;
+      if (!writer) return;
       try {
-        writerRef.current?.append(
-          buffer.data,
-          buffer.sampleRate,
-          buffer.channels,
-        );
+        writer.append(buffer.data, buffer.sampleRate, buffer.channels);
       } catch (error) {
         reportFailure("save_failed", error, "recording_stream_write");
         setPhase("save_error");
@@ -157,15 +155,7 @@ export function useSessionRecorder(
         },
       );
       liveRef.current?.sendAudio(buffer.data);
-      const frameDuration =
-        buffer.data.byteLength /
-        2 /
-        Math.max(1, buffer.channels) /
-        Math.max(1, buffer.sampleRate);
-      durationRef.current = Math.max(
-        durationRef.current,
-        Math.round((buffer.timestamp + frameDuration) * 1_000),
-      );
+      durationRef.current = Math.round(writer.durationMs);
       if (activeRef.current) {
         setAmplitude(pcmAmplitude(buffer.data));
         setDurationMs(durationRef.current);
