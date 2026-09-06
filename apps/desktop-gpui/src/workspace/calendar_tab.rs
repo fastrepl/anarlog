@@ -54,7 +54,11 @@ fn event_day(event: &EventRow) -> Option<NaiveDate> {
         .map(|instant| instant.with_timezone(&Local).date_naive())
 }
 
-fn ignored_ids(settings: &crate::db::ProviderSettings, key: &str, field: &str) -> HashSet<String> {
+pub(super) fn ignored_ids(
+    settings: &crate::db::ProviderSettings,
+    key: &str,
+    field: &str,
+) -> HashSet<String> {
     settings
         .value(key, &[key])
         .and_then(|value| match value {

@@ -74,6 +74,15 @@ pub(crate) enum Mode {
 }
 
 /// `note-<sessionId>` windows, so opening a note twice focuses the first.
+/// `useIgnoredEvents`' id sets, shared by the timeline and the calendar.
+fn workspace_ignored(
+    settings: &ProviderSettings,
+    key: &str,
+    field: &str,
+) -> std::collections::HashSet<String> {
+    calendar_tab::ignored_ids(settings, key, field)
+}
+
 #[derive(Default)]
 pub(crate) struct NoteWindows(pub std::collections::HashMap<String, gpui::WindowHandle<Workspace>>);
 
@@ -602,6 +611,10 @@ impl Workspace {
 
     /// `buildTimelineBuckets` over the loaded rows with the current view.
     pub(crate) fn rebuild_timeline(&mut self, cx: &mut Context<Self>) {
+        let ignored_events =
+            workspace_ignored(&self.provider_settings, "ignored_events", "tracking_id");
+        let ignored_series =
+            workspace_ignored(&self.provider_settings, "ignored_recurring_series", "id");
         self.sessions = Sessions::Ready(timeline::build_with(
             &self.session_rows,
             &self.event_rows,
@@ -609,6 +622,11 @@ impl Workspace {
             &Local,
             self.group_by,
             self.sort_order,
+            |event| {
+                ignored_events.contains(&event.tracking_id_event)
+                    || (!event.recurrence_series_id.is_empty()
+                        && ignored_series.contains(&event.recurrence_series_id))
+            },
         ));
         self.rebuild_rows();
         cx.notify();

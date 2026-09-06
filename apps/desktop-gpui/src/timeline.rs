@@ -409,12 +409,22 @@ pub fn build<Tz: TimeZone>(
     now: DateTime<Utc>,
     tz: &Tz,
 ) -> Timeline {
-    build_with(rows, events, now, tz, GroupBy::Date, SortOrder::Newest)
+    build_with(
+        rows,
+        events,
+        now,
+        tz,
+        GroupBy::Date,
+        SortOrder::Newest,
+        |_| false,
+    )
 }
 
 /// `buildTimelineBuckets` with the sidebar's grouping and ordering. Folder
 /// grouping lists sessions only (no events, no "more future items") in
-/// alphabetical folders with "No folder" last.
+/// alphabetical folders with "No folder" last. `ignored` is
+/// `useIgnoredEvents().isIgnored` (with `showIgnored` off): ignored events
+/// neither list nor count as future items.
 pub fn build_with<Tz: TimeZone>(
     rows: &[SessionRow],
     events: &[EventRow],
@@ -422,6 +432,7 @@ pub fn build_with<Tz: TimeZone>(
     tz: &Tz,
     group_by: GroupBy,
     order: SortOrder,
+    ignored: impl Fn(&EventRow) -> bool,
 ) -> Timeline {
     let events: &[EventRow] = if group_by == GroupBy::Folder {
         &[]
@@ -467,6 +478,9 @@ pub fn build_with<Tz: TimeZone>(
     }
 
     for event in events {
+        if ignored(event) {
+            continue;
+        }
         let started = parse_date(&event.started_at, tz);
         let ended = parse_date(&event.ended_at, tz);
         let window_time = started.or(ended);
@@ -632,6 +646,7 @@ mod tests {
             &Utc,
             GroupBy::Folder,
             SortOrder::Newest,
+            |_| false,
         );
         let labels: Vec<&str> = folders
             .buckets
@@ -660,6 +675,7 @@ mod tests {
             &Utc,
             GroupBy::Date,
             SortOrder::Oldest,
+            |_| false,
         );
         let labels: Vec<&str> = oldest
             .buckets
@@ -942,6 +958,48 @@ mod tests {
             ]
         );
         assert!(timeline.has_more_future_items);
+    }
+
+    #[test]
+    fn ignored_events_neither_list_nor_count_as_future_items() {
+        // `deriveTimelineWindowData` with `showIgnored` off: an ignored event
+        // after tomorrow does not set `hasMoreFutureItems`, and an ignored
+        // upcoming event leaves the buckets.
+        let events = [
+            event(
+                "e-live",
+                "Live",
+                "2024-01-15T14:30:00Z",
+                "2024-01-15T15:00:00Z",
+                "track-live",
+            ),
+            event(
+                "e-far",
+                "Far",
+                "2024-02-01T10:00:00Z",
+                "2024-02-01T11:00:00Z",
+                "track-far",
+            ),
+        ];
+        let all = build(&[], &events, now(), &Utc);
+        assert_eq!(all.buckets.iter().flat_map(|b| b.items.iter()).count(), 1);
+        assert!(all.has_more_future_items);
+        let filtered = build_with(
+            &[],
+            &events,
+            now(),
+            &Utc,
+            GroupBy::Date,
+            SortOrder::Newest,
+            |event| {
+                event.tracking_id_event == "track-far" || event.tracking_id_event == "track-live"
+            },
+        );
+        assert_eq!(
+            filtered.buckets.iter().flat_map(|b| b.items.iter()).count(),
+            0
+        );
+        assert!(!filtered.has_more_future_items);
     }
 
     #[test]
