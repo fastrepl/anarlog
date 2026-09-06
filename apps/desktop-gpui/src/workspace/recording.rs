@@ -874,9 +874,10 @@ impl Workspace {
                 }
             },
             Event::Data(SessionDataEvent::AudioAmplitude { mic, speaker, .. }) => {
+                // `updateLiveAmplitude`: `clamp(value / 1000, 0, 1)`.
                 if let Some(live) = self.recording.live.as_mut() {
-                    live.mic = f32::from(mic) / f32::from(u16::MAX);
-                    live.speaker = f32::from(speaker) / f32::from(u16::MAX);
+                    live.mic = (f32::from(mic) / 1000.0).clamp(0.0, 1.0);
+                    live.speaker = (f32::from(speaker) / 1000.0).clamp(0.0, 1.0);
                 }
             }
             Event::Data(SessionDataEvent::MicMuted { value, .. }) => {
