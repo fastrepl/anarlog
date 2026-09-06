@@ -128,36 +128,34 @@ impl Workspace {
             );
             return;
         };
-        // `useSTTConnection`: no current provider means no `conn`, so the
-        // engine records without a transcription endpoint.
-        let has_provider = self
-            .provider_settings
-            .stt_provider
-            .as_deref()
-            .is_some_and(|provider| !provider.is_empty());
+        // `useSTTConnection`: the provider's base URL and credential-store
+        // key; `None` (no `conn`) records without a transcription endpoint.
+        let connection = self.store.stt_connection(&self.provider_settings);
         let languages = self.transcription_languages();
-        let params = SessionParams {
-            session_id: session_id.clone(),
-            languages,
-            onboarding: false,
-            transcription_mode: TranscriptionMode::Live,
-            model: self.provider_settings.stt_model.clone().unwrap_or_default(),
-            base_url: String::new(),
-            api_key: String::new(),
-            keywords: Vec::new(),
-            mic_device: self
-                .provider_settings
-                .string_setting("microphone_device", &["general", "microphone_device"])
-                .filter(|device| !device.is_empty()),
-            participant_human_ids: Vec::new(),
-            self_human_id: None,
-            speaker_assignments: Vec::new(),
-        };
+        let mic_device = self
+            .provider_settings
+            .string_setting("microphone_device", &["general", "microphone_device"])
+            .filter(|device| !device.is_empty());
         self.recording.starting = true;
         cx.notify();
-        let task = recorder.start(params);
         cx.spawn(async move |this, cx| {
-            let result = task.await;
+            let connection = connection.await.ok().flatten();
+            let has_provider = connection.is_some();
+            let params = SessionParams {
+                session_id: session_id.clone(),
+                languages,
+                onboarding: false,
+                transcription_mode: TranscriptionMode::Live,
+                model: connection.as_ref().map(|c| c.model.clone()).unwrap_or_default(),
+                base_url: connection.as_ref().map(|c| c.base_url.clone()).unwrap_or_default(),
+                api_key: connection.as_ref().map(|c| c.api_key.clone()).unwrap_or_default(),
+                keywords: Vec::new(),
+                mic_device,
+                participant_human_ids: Vec::new(),
+                self_human_id: None,
+                speaker_assignments: Vec::new(),
+            };
+            let result = recorder.start(params).await;
             this.update(cx, |this, cx| {
                 this.recording.starting = false;
                 match result {

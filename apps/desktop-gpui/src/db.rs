@@ -495,6 +495,37 @@ impl ProviderSettings {
     }
 }
 
+/// `useSTTConnection`'s resolved connection for a third-party provider.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SttConnection {
+    pub provider: String,
+    pub model: String,
+    pub base_url: String,
+    pub api_key: String,
+}
+
+/// `isOnDeviceSttModel`
+pub fn is_on_device_stt_model(provider: &str, model: &str) -> bool {
+    if !is_supported_local_stt_model(model) {
+        return false;
+    }
+    match provider {
+        "soniqo" => model.starts_with("soniqo-"),
+        "apple_speech" | "apple-speech" => model == "apple-speech",
+        _ => provider == "anarlog",
+    }
+}
+
+/// `isLocalFileSttModel`
+pub fn is_local_file_stt_model(provider: &str, model: &str) -> bool {
+    provider == "local_file" && model == "local-file"
+}
+
+/// `isAnarlogCloudSttModel`
+pub fn is_anarlog_cloud_stt_model(provider: &str, model: &str) -> bool {
+    provider == "anarlog" && model == "cloud"
+}
+
 /// `isSupportedLocalSttModel`
 fn is_supported_local_stt_model(model: &str) -> bool {
     model.starts_with("soniqo-")
@@ -1680,6 +1711,60 @@ impl Store {
             .execute(db.pool())
             .await?;
             Ok(id)
+        })
+    }
+
+    /// `useSTTConnection` for the paths the shell can resolve: a
+    /// third-party provider with a base URL (its config or the registry
+    /// default) and a credential-store API key. On-device / local-file
+    /// models need the local model server and the Anarlog cloud model needs
+    /// a signed-in, paid account, so those resolve to `None` like a missing
+    /// `conn`.
+    pub fn stt_connection(
+        &self,
+        settings: &ProviderSettings,
+    ) -> tokio::task::JoinHandle<Option<SttConnection>> {
+        let provider = settings.stt_provider.clone().unwrap_or_default();
+        let model = settings.stt_model.clone().unwrap_or_default();
+        if provider.is_empty()
+            || model.is_empty()
+            || is_on_device_stt_model(&provider, &model)
+            || is_local_file_stt_model(&provider, &model)
+            || is_anarlog_cloud_stt_model(&provider, &model)
+        {
+            return self.runtime.spawn(async { None });
+        }
+        let config = settings.ai_providers("stt").remove(&provider);
+        let default_base_url = crate::ai_providers::STT_PROVIDERS
+            .iter()
+            .find(|entry| entry.id == provider)
+            .and_then(|entry| entry.base_url)
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+        let base_url = config
+            .as_ref()
+            .map(|config| config.base_url.trim().to_string())
+            .filter(|url| !url.is_empty())
+            .unwrap_or(default_base_url);
+        let keys = self.ai_provider_api_keys("stt", vec![provider.clone()]);
+        self.runtime.spawn(async move {
+            let api_key = keys
+                .await
+                .ok()
+                .and_then(|keys| keys.into_iter().next())
+                .and_then(|(_, result)| result.ok().flatten())
+                .map(|key| key.trim().to_string())
+                .filter(|key| !key.is_empty())?;
+            if base_url.is_empty() {
+                return None;
+            }
+            Some(SttConnection {
+                provider,
+                model,
+                base_url,
+                api_key,
+            })
         })
     }
 
@@ -3304,6 +3389,64 @@ mod tests {
                 .unwrap();
         assert_eq!(title, "Weekly sync");
         assert!(bumped);
+    }
+
+    #[test]
+    fn stt_model_predicates_follow_capabilities() {
+        assert!(is_on_device_stt_model("soniqo", "soniqo-parakeet-v3"));
+        assert!(is_on_device_stt_model("apple-speech", "apple-speech"));
+        assert!(is_on_device_stt_model("anarlog", "am-parakeet-v3"));
+        assert!(!is_on_device_stt_model("deepgram", "nova-3"));
+        assert!(!is_on_device_stt_model("soniqo", "am-parakeet-v3"));
+        assert!(is_local_file_stt_model("local_file", "local-file"));
+        assert!(!is_local_file_stt_model("deepgram", "local-file"));
+        assert!(is_anarlog_cloud_stt_model("anarlog", "cloud"));
+        assert!(!is_anarlog_cloud_stt_model("anarlog", "am-parakeet-v3"));
+    }
+
+    #[tokio::test]
+    async fn stt_connection_needs_a_third_party_provider_with_credentials() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(DB_FILENAME);
+        {
+            let db = Db::connect_local_plain(&path).await.unwrap();
+            anlg_db_app::prepare_schema(&db).await.unwrap();
+        }
+        let store = Store::open(
+            tokio::runtime::Handle::current(),
+            path,
+            "com.hyprnote.dev".to_string(),
+        )
+        .await
+        .unwrap();
+        let rows = |pairs: &[(&str, &str)]| -> Vec<(String, String)> {
+            pairs
+                .iter()
+                .map(|(a, b)| (a.to_string(), b.to_string()))
+                .collect()
+        };
+        // No provider, an on-device model, and the cloud model resolve to no
+        // connection like `useSTTConnection` without a local server / account.
+        for settings in [
+            ProviderSettings::from_rows(&rows(&[])),
+            ProviderSettings::from_rows(&rows(&[
+                ("current_stt_provider", "\"soniqo\""),
+                ("current_stt_model", "\"soniqo-parakeet-v3\""),
+            ])),
+            ProviderSettings::from_rows(&rows(&[
+                ("current_stt_provider", "\"anarlog\""),
+                ("current_stt_model", "\"cloud\""),
+            ])),
+        ] {
+            assert_eq!(store.stt_connection(&settings).await.unwrap(), None);
+        }
+        // A third-party provider without a stored key has no `apiKey`, so no
+        // connection either (the credential store holds nothing here).
+        let deepgram = ProviderSettings::from_rows(&rows(&[
+            ("current_stt_provider", "\"deepgram\""),
+            ("current_stt_model", "\"nova-3\""),
+        ]));
+        assert_eq!(store.stt_connection(&deepgram).await.unwrap(), None);
     }
 
     #[test]
