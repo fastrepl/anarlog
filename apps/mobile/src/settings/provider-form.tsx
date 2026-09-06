@@ -4,7 +4,6 @@ import {
   FieldGroup,
   Icon,
   ListItem,
-  Picker,
   Row,
   Spacer,
   Text,
@@ -27,7 +26,9 @@ import { useAuth } from "@/auth/context";
 
 import { SettingsPage } from "./components";
 import { createProviderAutosave } from "./provider-autosave";
+import { ProviderIcon } from "./provider-icon";
 import { ProviderModelPicker } from "./provider-model-picker";
+import { ProviderPicker } from "./provider-picker";
 import {
   readProviderConfig,
   readProviderKey,
@@ -143,7 +144,8 @@ function ProviderForm({
         <Row alignment="center">
           <Text>Provider</Text>
           <Spacer />
-          <Picker
+          <ProviderPicker
+            kind={kind}
             selectedValue={selectedProvider}
             enabled={!select.isPending}
             onValueChange={(provider) => {
@@ -154,16 +156,7 @@ function ProviderForm({
               setExpanded(provider === "anarlog" ? null : provider);
               select.mutate({ provider, model: modelDrafts.current[provider] });
             }}
-            testID="active-provider"
-          >
-            {providersFor(kind).map((provider) => (
-              <Picker.Item
-                key={provider.id}
-                value={provider.id}
-                label={provider.name}
-              />
-            ))}
-          </Picker>
+          />
         </Row>
         {selectedProvider === "anarlog" ? (
           <Row alignment="center">
@@ -215,6 +208,7 @@ function ProviderForm({
           return (
             <Column key={provider.id} spacing={16}>
               <ListItem
+                leading={<ProviderIcon provider={provider.id} />}
                 onPress={() => setExpanded(open ? null : provider.id)}
                 trailing={
                   <Icon
