@@ -30,6 +30,7 @@ mod templates_tab;
 mod timeline_selection;
 mod title_bar;
 mod toast;
+mod transcript_tab;
 
 use std::sync::Arc;
 
@@ -226,10 +227,8 @@ pub struct Workspace {
     recording: recording::RecordingState,
     /// The session audio player for the open transcript tab.
     audio_player: Option<audio_player::AudioPlayer>,
-    /// The transcript word under the pointer: `(segment id, word index)`.
-    transcript_hover: Option<(String, usize)>,
-    /// Each rendered segment's text layout, for hit-testing words.
-    transcript_layouts: std::collections::HashMap<String, crate::prose_text::ProseLayout>,
+    /// The open transcript tab's scroll, follow and word hover state.
+    transcript_view: transcript_tab::TranscriptView,
     /// The Dictionary page's term field and the row being edited.
     dictionary_input: Option<gpui::Entity<TextInput>>,
     dictionary_edit: Option<dictionary::DictionaryEdit>,
@@ -372,8 +371,7 @@ impl Workspace {
             onboarding: None,
             recording: recording::RecordingState::default(),
             audio_player: None,
-            transcript_hover: None,
-            transcript_layouts: std::collections::HashMap::new(),
+            transcript_view: transcript_tab::TranscriptView::default(),
             dictionary_input: None,
             dictionary_edit: None,
             chat_open: false,
@@ -1264,6 +1262,11 @@ impl Render for Workspace {
             }))
             .on_action(cx.listener(|this, _: &actions::DeleteSelected, _, cx| {
                 this.request_delete_selected(cx);
+            }))
+            .on_action(cx.listener(|this, _: &actions::TogglePlayback, _, cx| {
+                if !this.toggle_transcript_playback(cx) {
+                    cx.propagate();
+                }
             }))
             .on_action(cx.listener(|this, _: &actions::Escape, window, cx| {
                 if this.close_open_menus(cx) {

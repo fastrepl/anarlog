@@ -90,7 +90,7 @@ impl Workspace {
 
     /// `handleClick`: play from the stopped state, pause while playing,
     /// resume while paused.
-    fn toggle_playback(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn toggle_playback(&mut self, cx: &mut Context<Self>) {
         let Some(player) = self.audio_player.as_mut() else {
             return;
         };

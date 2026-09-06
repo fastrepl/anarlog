@@ -28,6 +28,7 @@ actions!(
         Paste,
         SelectAll,
         DeleteSelected,
+        TogglePlayback,
     ]
 );
 
@@ -62,6 +63,13 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new(&format!("{m}-a"), SelectAll, ctx),
     ];
     bindings.push(KeyBinding::new("escape", Escape, ctx));
+    // `useHotkeys("space", ..., { enableOnFormTags: false })` on the transcript
+    // viewer: outside every text field, Space drives the session player.
+    bindings.push(KeyBinding::new(
+        "space",
+        TogglePlayback,
+        Some("Workspace && !TextInput && !TextArea && !BodyEditor"),
+    ));
     // `isDeleteSelectionShortcut`: Backspace or Delete outside a text field.
     bindings.push(KeyBinding::new("backspace", DeleteSelected, ctx));
     bindings.push(KeyBinding::new("delete", DeleteSelected, ctx));
