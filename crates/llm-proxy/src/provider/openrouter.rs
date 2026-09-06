@@ -1,6 +1,6 @@
 use anlg_openrouter::{
-    Client as OpenRouterClient, Error as OpenRouterError, ProviderPreferences, ProviderSort,
-    ProviderSortUnion,
+    Client as OpenRouterClient, DataCollectionMode, Error as OpenRouterError, ProviderPreferences,
+    ProviderSort, ProviderSortUnion,
 };
 use reqwest::Client;
 use serde::Deserialize;
@@ -94,6 +94,10 @@ impl Provider for OpenRouterProvider {
         let provider_prefs = ProviderPreferences {
             sort: Some(ProviderSortUnion::Simple(ProviderSort::Latency)),
             preferred_min_throughput: None,
+            // Enforce no training / no retention on every request we send through
+            // OpenRouter, regardless of account-wide dashboard defaults.
+            data_collection: Some(DataCollectionMode::Deny),
+            zdr: Some(true),
             ..Default::default()
         };
 
