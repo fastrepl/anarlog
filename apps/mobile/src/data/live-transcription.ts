@@ -253,10 +253,16 @@ export class SessionLiveTranscription {
         }
         this.native = native;
         this.setStatus("live");
-        const queued = this.queuedAudio;
+        // Let native chunk the backlog once so frame tails do not consume extra queue slots.
+        const queued = new Uint8Array(this.queuedAudioBytes);
+        let offset = 0;
+        for (const buffer of this.queuedAudio) {
+          queued.set(new Uint8Array(buffer), offset);
+          offset += buffer.byteLength;
+        }
         this.queuedAudio = [];
         this.queuedAudioBytes = 0;
-        for (const buffer of queued) this.sendAudio(buffer);
+        if (queued.byteLength > 0) this.sendAudio(queued.buffer);
         return;
       }
       const token = currentAuth?.data.session?.access_token;

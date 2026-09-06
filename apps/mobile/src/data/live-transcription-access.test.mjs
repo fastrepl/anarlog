@@ -270,6 +270,43 @@ test("batch models and missing keys keep local recording without attempting a li
   assert.equal(fixture.failures.length, 0);
 });
 
+test("a full connect backlog of unaligned frames fits the native audio queue without losing PCM", async (t) => {
+  providerSession();
+  let connected;
+  fixture.connectWait = new Promise((resolve) => {
+    connected = resolve;
+  });
+  const updates = [];
+  const live = new SessionLiveTranscription("note-a", 16000, 1, (update) =>
+    updates.push(update),
+  );
+  t.after(() => live.stop());
+  await settle();
+  const native = fixture.native[0];
+  const chunks = [];
+  t.mock.method(native, "sendAudio", (buffer) => {
+    for (let offset = 0; offset < buffer.byteLength; offset += 3200) {
+      if (chunks.length === 100) throw new Error("queue full");
+      chunks.push(Buffer.from(buffer.slice(offset, offset + 3200)));
+    }
+  });
+  const pcm = Uint8Array.from({ length: 320_000 }, (_, i) => i % 251);
+  for (let offset = 0; offset < pcm.byteLength; offset += 4096) {
+    live.sendAudio(pcm.slice(offset, offset + 4096).buffer);
+  }
+  assert.equal(chunks.length, 0);
+
+  connected();
+  await settle();
+  assert.equal(updates.at(-1).status, "live");
+  assert.equal(native.cancelled, false);
+  assert.equal(chunks.length, 100);
+  assert.deepEqual(Buffer.concat(chunks), Buffer.from(pcm));
+  assert.equal(fixture.failures.length, 0);
+  native.listener.onMessage(transcript());
+  assert.equal(await live.stop(), true);
+});
+
 test("sign-out cancels an own-key stream and ignores late provider callbacks", async () => {
   providerSession();
   const live = new SessionLiveTranscription("note-a", 16000, 1, () => {});
