@@ -1353,7 +1353,8 @@ impl Workspace {
             .into_any_element()
     }
 
-    /// `Button size="sm"`: `h-8 px-3 gap-2 text-sm`, default or outline.
+    /// `Button size="sm"` (`h-7 px-2 text-xs`) with the screens' `gap-2`,
+    /// default or outline.
     fn transcript_button(
         &self,
         id: &'static str,
@@ -1367,11 +1368,11 @@ impl Workspace {
             .id(id)
             .relative()
             .flex()
-            .h(px(32.0))
+            .h(px(28.0))
             .items_center()
             .gap_2()
-            .px_3()
-            .tw_text_sm()
+            .px_2()
+            .tw_text_xs()
             .font_weight(gpui::FontWeight::MEDIUM)
             .cursor_pointer()
             .child(crate::squircle::squircle(
