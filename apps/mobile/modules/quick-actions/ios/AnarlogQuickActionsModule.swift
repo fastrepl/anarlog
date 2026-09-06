@@ -5,43 +5,17 @@ import UIKit
 
 private let pendingActionKey = "quick-actions-pending-action"
 
-@available(iOS 16.0, *)
-struct ToggleListeningIntent: AppIntent {
-  static var title: LocalizedStringResource = "Start or Stop Listening"
-  static var description = IntentDescription(
-    "Start a new meeting recording, or stop the recording already in progress."
-  )
-  static var openAppWhenRun: Bool = true
-
-  func perform() async throws -> some IntentResult {
-    QuickActionsService.shared.enqueue(action: "toggle_listening")
-    return .result()
-  }
-}
-
-@available(iOS 16.0, *)
-struct AnarlogAppShortcuts: AppShortcutsProvider {
-  static var appShortcuts: [AppShortcut] {
-    AppShortcut(
-      intent: ToggleListeningIntent(),
-      phrases: [
-        "Start listening with \(.applicationName)",
-        "Stop listening with \(.applicationName)",
-        "Quick capture with \(.applicationName)",
-      ],
-      shortTitle: "Start Listening",
-      systemImageName: "waveform"
-    )
-  }
-
-  static var shortcutTileColor: ShortcutTileColor = .yellow
-}
-
 public class AnarlogQuickActionsModule: Module {
+  public static func toggleListening() {
+    QuickActionsService.shared.enqueue(action: "toggle_listening")
+  }
+
   public func definition() -> ModuleDefinition {
     Name("AnarlogQuickActions")
 
     Events("onAction")
+
+    View(AnarlogShortcutsButtonView.self) {}
 
     OnCreate {
       QuickActionsService.shared.attach(module: self)
@@ -61,17 +35,17 @@ public class AnarlogQuickActionsModule: Module {
   }
 }
 
-public class AnarlogQuickActionsAppDelegateSubscriber:
-  ExpoAppDelegateSubscriber
-{
-  public func application(
-    _ application: UIApplication,
-    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
-  ) -> Bool {
-    if #available(iOS 16.0, *) {
-      AnarlogAppShortcuts.updateAppShortcutParameters()
-    }
-    return true
+class AnarlogShortcutsButtonView: ExpoView {
+  private let button = ShortcutsUIButton(style: .automaticOutline)
+
+  required init(appContext: AppContext? = nil) {
+    super.init(appContext: appContext)
+    addSubview(button)
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    button.frame = bounds
   }
 }
 

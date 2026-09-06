@@ -14,6 +14,8 @@ import { IconButton } from "@/components/ui/icon-button";
 import { ControlSize, Radius, Spacing, Typography } from "@/constants/theme";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
 
+import { AnarlogShortcutsButton } from "../../modules/quick-actions";
+
 const steps = [
   {
     title: "Open Action Button settings",
@@ -81,6 +83,11 @@ export default function ActionButtonScreen() {
           <Text style={styles.description}>
             Your iPhone Action Button can start a new Anarlog recording or stop
             the one already in progress.
+          </Text>
+          <AnarlogShortcutsButton style={styles.shortcutsButton} />
+          <Text style={styles.shortcutHint}>
+            Start Listening is ready to use in Shortcuts. Try it once to allow
+            microphone access, then assign it below.
           </Text>
         </View>
 
@@ -172,6 +179,17 @@ const useStyles = createStyleHook((Colors) => ({
     marginTop: Spacing.xl,
     padding: Spacing.md,
     gap: Spacing.md,
+  },
+  shortcutsButton: {
+    height: ControlSize.default,
+    alignSelf: "stretch",
+    marginTop: Spacing.lg,
+  },
+  shortcutHint: {
+    ...Typography.caption,
+    color: Colors.muted,
+    textAlign: "center",
+    marginTop: Spacing.sm,
   },
   step: {
     flexDirection: "row",

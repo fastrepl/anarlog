@@ -1,7 +1,6 @@
 {
   "platforms": ["apple"],
   "apple": {
-    "modules": ["AnarlogQuickActionsModule"],
-    "appDelegateSubscribers": ["AnarlogQuickActionsAppDelegateSubscriber"]
+    "modules": ["AnarlogQuickActionsModule"]
   }
 }

@@ -132,6 +132,7 @@ jobs:
           test -n "$app"
           test -f "$app/Frameworks/CloudSync.framework/CloudSync"
           strings "$app/Frameworks/CloudSync.framework/CloudSync" | grep -F CLOUDSYNC_CURL_TIMEOUT_MS >/dev/null
+          node apps/mobile/scripts/verify-ios-shortcuts.mjs "$app"
 
   android_build:
     if: ${{ github.event_name != 'pull_request' }}

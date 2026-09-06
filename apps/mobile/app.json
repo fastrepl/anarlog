@@ -16,6 +16,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "./modules/quick-actions/app.plugin.js",
       "expo-asset",
       "expo-dev-client",
       "expo-font",
