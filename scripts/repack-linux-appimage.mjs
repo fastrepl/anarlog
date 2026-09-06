@@ -1,12 +1,33 @@
 import { spawn } from "node:child_process";
 import { constants } from "node:fs";
-import { access, readdir, rm, stat } from "node:fs/promises";
+import {
+  access,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 // Host Mesa and WebKitGTK must resolve against the host's matching Wayland ABI.
 const waylandLibraryPattern = /^libwayland-.*\.so(?:\..*)?$/;
+const gdkBackendDefault = 'export GDK_BACKEND="${GDK_BACKEND:-x11,wayland}"';
+
+function patchGtkHook(source) {
+  if (source.includes(gdkBackendDefault)) {
+    return source;
+  }
+
+  // Keep X11 preferred, but allow Wayland-only sessions and explicit overrides.
+  const forcedX11 = /^export GDK_BACKEND=x11(?:[ \t]+#.*)?$/m;
+  if (!forcedX11.test(source)) {
+    throw new Error("Unrecognized GDK_BACKEND setting in AppImage GTK hook");
+  }
+  return source.replace(forcedX11, gdkBackendDefault);
+}
 
 async function findSingleBundleEntry(bundleDirectory, suffix, isExpectedType) {
   const entries = await readdir(bundleDirectory, { withFileTypes: true });
@@ -94,10 +115,20 @@ export async function repackLinuxAppImage({
   const waylandLibraries = await findBundledWaylandLibraries(
     path.join(appDirectory, "usr"),
   );
+  const gtkHook = path.join(
+    appDirectory,
+    "apprun-hooks",
+    "linuxdeploy-plugin-gtk.sh",
+  );
+  const originalGtkHook = await readFile(gtkHook, "utf8");
+  const patchedGtkHook = patchGtkHook(originalGtkHook);
+  const updatedGtkHook = originalGtkHook !== patchedGtkHook;
 
-  if (waylandLibraries.length === 0) {
-    console.log(`AppImage already uses host Wayland libraries: ${appImage}`);
-    return { appDirectory, appImage, removedLibraries: [] };
+  if (waylandLibraries.length === 0 && !updatedGtkHook) {
+    console.log(
+      `AppImage already uses host Wayland libraries and GTK backends: ${appImage}`,
+    );
+    return { appDirectory, appImage, removedLibraries: [], updatedGtkHook };
   }
 
   if (!arch) {
@@ -110,6 +141,9 @@ export async function repackLinuxAppImage({
     throw new Error(`AppImage output plugin is not executable: ${pluginPath}`);
   }
 
+  if (updatedGtkHook) {
+    await writeFile(gtkHook, patchedGtkHook);
+  }
   await Promise.all(waylandLibraries.map((library) => rm(library)));
 
   const remainingLibraries = await findBundledWaylandLibraries(
@@ -154,7 +188,12 @@ export async function repackLinuxAppImage({
   }
 
   console.log(`Repacked and re-signed AppImage: ${appImage}`);
-  return { appDirectory, appImage, removedLibraries: waylandLibraries };
+  return {
+    appDirectory,
+    appImage,
+    removedLibraries: waylandLibraries,
+    updatedGtkHook,
+  };
 }
 
 async function main() {

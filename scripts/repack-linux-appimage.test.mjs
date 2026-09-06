@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { constants } from "node:fs";
 import {
   access,
@@ -15,7 +16,10 @@ import test from "node:test";
 
 import { repackLinuxAppImage } from "./repack-linux-appimage.mjs";
 
-async function createFixture(t, { withWaylandLibraries = true } = {}) {
+async function createFixture(
+  t,
+  { withWaylandLibraries = true, patchedGtkHook = false } = {},
+) {
   const directory = await mkdtemp(
     path.join(os.tmpdir(), "anarlog-appimage-repack-"),
   );
@@ -25,6 +29,11 @@ async function createFixture(t, { withWaylandLibraries = true } = {}) {
   const libraryDirectory = path.join(appDirectory, "usr", "lib");
   const nestedLibraryDirectory = path.join(libraryDirectory, "gtk-3.0");
   const appImage = path.join(directory, "Anarlog_1.4.5_amd64.AppImage");
+  const gtkHook = path.join(
+    appDirectory,
+    "apprun-hooks",
+    "linuxdeploy-plugin-gtk.sh",
+  );
   const plugin = path.join(
     directory,
     "tools",
@@ -33,6 +42,19 @@ async function createFixture(t, { withWaylandLibraries = true } = {}) {
 
   await mkdir(nestedLibraryDirectory, { recursive: true });
   await mkdir(path.dirname(plugin), { recursive: true });
+  await mkdir(path.dirname(gtkHook), { recursive: true });
+  await writeFile(
+    gtkHook,
+    [
+      "#!/usr/bin/env bash",
+      "export GTK_DATA_PREFIX=unchanged",
+      patchedGtkHook
+        ? 'export GDK_BACKEND="${GDK_BACKEND:-x11,wayland}"'
+        : "export GDK_BACKEND=x11 # Crash with Wayland backend on Wayland",
+      "",
+    ].join("\n"),
+  );
+  await chmod(gtkHook, 0o755);
   await writeFile(path.join(libraryDirectory, "libgtk-3.so.0"), "gtk");
   if (withWaylandLibraries) {
     await writeFile(
@@ -49,7 +71,7 @@ async function createFixture(t, { withWaylandLibraries = true } = {}) {
   await writeFile(plugin, "plugin");
   await chmod(plugin, 0o755);
 
-  return { directory, appDirectory, appImage, plugin };
+  return { directory, appDirectory, appImage, plugin, gtkHook };
 }
 
 test("removes Wayland libraries, repacks, and regenerates the signature", async (t) => {
@@ -72,6 +94,8 @@ test("removes Wayland libraries, repacks, and regenerates the signature", async 
   });
 
   assert.equal(result.removedLibraries.length, 2);
+  assert.equal(result.updatedGtkHook, true);
+  await access(fixture.gtkHook, constants.X_OK);
   await assert.rejects(
     access(
       path.join(fixture.appDirectory, "usr", "lib", "libwayland-client.so.0"),
@@ -119,7 +143,10 @@ test("removes Wayland libraries, repacks, and regenerates the signature", async 
 });
 
 test("keeps an already-clean AppImage and its signature unchanged", async (t) => {
-  const fixture = await createFixture(t, { withWaylandLibraries: false });
+  const fixture = await createFixture(t, {
+    withWaylandLibraries: false,
+    patchedGtkHook: true,
+  });
 
   const result = await repackLinuxAppImage({
     bundleDirectory: fixture.directory,
@@ -130,10 +157,77 @@ test("keeps an already-clean AppImage and its signature unchanged", async (t) =>
   });
 
   assert.deepEqual(result.removedLibraries, []);
+  assert.equal(result.updatedGtkHook, false);
   assert.equal(await readFile(fixture.appImage, "utf8"), "original-appimage");
   assert.equal(
     await readFile(`${fixture.appImage}.sig`, "utf8"),
     "stale-signature",
+  );
+});
+
+test("repacks a hook-only fix and preserves explicit GTK backend preferences", async (t) => {
+  const fixture = await createFixture(t, { withWaylandLibraries: false });
+  const commands = [];
+  const result = await repackLinuxAppImage({
+    arch: "x86_64",
+    bundleDirectory: fixture.directory,
+    pluginPath: fixture.plugin,
+    run: async (command) => {
+      commands.push(command);
+      await writeFile(
+        command === fixture.plugin
+          ? fixture.appImage
+          : `${fixture.appImage}.sig`,
+        "regenerated",
+      );
+    },
+  });
+  assert.deepEqual(result.removedLibraries, []);
+  assert.equal(result.updatedGtkHook, true);
+  assert.deepEqual(commands, [fixture.plugin, "pnpm"]);
+
+  for (const [preference, expected] of [
+    [undefined, "x11,wayland"],
+    ["", "x11,wayland"],
+    ["wayland", "wayland"],
+    ["x11", "x11"],
+    ["wayland,x11", "wayland,x11"],
+  ]) {
+    const env = { ...process.env };
+    delete env.GDK_BACKEND;
+    if (preference !== undefined) env.GDK_BACKEND = preference;
+    const backend = execFileSync(
+      "bash",
+      [
+        "-c",
+        '. "$1"; printf "%s" "$GDK_BACKEND:$GTK_DATA_PREFIX"',
+        "bash",
+        fixture.gtkHook,
+      ],
+      { env, encoding: "utf8" },
+    );
+    assert.equal(backend, `${expected}:unchanged`);
+  }
+});
+
+test("rejects an unfamiliar GTK hook before mutating the bundle", async (t) => {
+  const fixture = await createFixture(t);
+  await writeFile(fixture.gtkHook, "export GDK_BACKEND=unknown\n");
+  await assert.rejects(
+    repackLinuxAppImage({
+      arch: "x86_64",
+      bundleDirectory: fixture.directory,
+      pluginPath: fixture.plugin,
+    }),
+    /Unrecognized GDK_BACKEND/,
+  );
+  assert.equal(await readFile(fixture.appImage, "utf8"), "original-appimage");
+  assert.equal(
+    await readFile(
+      path.join(fixture.appDirectory, "usr", "lib", "libwayland-client.so.0"),
+      "utf8",
+    ),
+    "wayland-client",
   );
 });
 
@@ -156,6 +250,7 @@ test("fails before mutation when the AppImage output plugin is unavailable", asy
   );
 
   assert.equal(await readFile(waylandLibrary, "utf8"), "wayland-client");
+  assert.match(await readFile(fixture.gtkHook, "utf8"), /GDK_BACKEND=x11 #/);
   assert.equal(
     await readFile(`${fixture.appImage}.sig`, "utf8"),
     "stale-signature",
