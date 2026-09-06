@@ -1,0 +1,15 @@
+{
+  "name": "@anlg/provider-validation",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --test --experimental-strip-types",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "js-sha256": "0.10.1"
+  }
+}

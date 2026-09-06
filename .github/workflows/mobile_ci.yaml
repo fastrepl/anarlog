@@ -19,6 +19,7 @@ on:
       - packages/mobile-bridge-rn/**
       - packages/db-react/**
       - packages/db-runtime/**
+      - packages/provider-validation/**
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
@@ -36,6 +37,7 @@ on:
       - packages/mobile-bridge-rn/**
       - packages/db-react/**
       - packages/db-runtime/**
+      - packages/provider-validation/**
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
@@ -63,6 +65,8 @@ jobs:
       - uses: ./.github/actions/pnpm_install
       - run: pnpm -F @anlg/mobile typecheck
       - run: pnpm -F @anlg/mobile test
+      - run: pnpm -F @anlg/provider-validation typecheck
+      - run: pnpm -F @anlg/provider-validation test
 
   watchos_build:
     if: ${{ github.event_name != 'pull_request' }}
