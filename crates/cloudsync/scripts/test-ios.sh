@@ -12,7 +12,7 @@ ANARLOG_CLOUDSYNC_TEST_SIMULATOR=$(xcrun simctl create "Anarlog CloudSync Tests"
 export ANARLOG_CLOUDSYNC_TEST_SIMULATOR
 cleanup() {
   xcrun simctl shutdown "$ANARLOG_CLOUDSYNC_TEST_SIMULATOR" >/dev/null 2>&1 || true
-  xcrun simctl delete "$ANARLOG_CLOUDSYNC_TEST_SIMULATOR"
+  xcrun simctl delete "$ANARLOG_CLOUDSYNC_TEST_SIMULATOR" || true
 }
 trap cleanup EXIT
 xcrun simctl boot "$ANARLOG_CLOUDSYNC_TEST_SIMULATOR"
