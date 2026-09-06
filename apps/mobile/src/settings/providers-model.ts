@@ -331,7 +331,14 @@ export function validateProviderConfig(
 ): ProviderConfig {
   const definition = defaultProviderConfig(kind, config.provider);
   if (config.provider === "anarlog") return definition;
-  const url = new URL(definition.baseUrl || config.baseUrl.trim());
+  let url: URL;
+  try {
+    url = new URL(definition.baseUrl || config.baseUrl.trim());
+  } catch {
+    throw new Error(
+      "Enter an HTTPS base URL without credentials or query parameters.",
+    );
+  }
   if (
     url.protocol !== "https:" ||
     url.username ||
