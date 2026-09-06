@@ -15,3 +15,7 @@ fi
 
 rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
 cargo xtask mobile-bridge ios
+
+# EAS installs pods before this hook, when the generated frameworks are still absent.
+cd apps/mobile/ios
+pod install
