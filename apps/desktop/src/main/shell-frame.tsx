@@ -48,7 +48,11 @@ export function ClassicMainShellFrame() {
 
   return (
     <div className="bg-background flex h-full min-h-0 flex-col">
-      {usesWindowsStyleTitleBar() ? <WindowsTitleBar /> : null}
+      {usesWindowsStyleTitleBar() ? (
+        <WindowsTitleBar
+          showSidebarTimelineChrome={showSidebarTimelineChrome}
+        />
+      ) : null}
       <div className="min-h-0 flex-1">{shell}</div>
       <DevtoolsStatusBar />
     </div>

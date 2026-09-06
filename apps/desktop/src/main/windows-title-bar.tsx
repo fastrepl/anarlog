@@ -29,7 +29,11 @@ import { useTabs } from "~/store/zustand/tabs";
 
 const appWindow = getCurrentWindow();
 
-export function WindowsTitleBar() {
+export function WindowsTitleBar({
+  showSidebarTimelineChrome,
+}: {
+  showSidebarTimelineChrome: boolean;
+}) {
   const { leftsidebar } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
   const openNew = useTabs((state) => state.openNew);
@@ -126,7 +130,9 @@ export function WindowsTitleBar() {
             <Sidebar size={16} />
           )}
         </LeftSurfaceChromeButton>
-        {usesTitleBarSidebarActions() && leftsidebar.expanded ? (
+        {usesTitleBarSidebarActions() &&
+        showSidebarTimelineChrome &&
+        leftsidebar.expanded ? (
           <SidebarNoteActions
             onNewNote={createNewNote}
             onSearch={openNoteDialog.open}

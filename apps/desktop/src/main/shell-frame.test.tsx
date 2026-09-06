@@ -22,7 +22,16 @@ vi.mock("./body", () => ({
 }));
 
 vi.mock("./windows-title-bar", () => ({
-  WindowsTitleBar: () => <div data-testid="windows-title-bar" />,
+  WindowsTitleBar: ({
+    showSidebarTimelineChrome,
+  }: {
+    showSidebarTimelineChrome: boolean;
+  }) => (
+    <div
+      data-testid="windows-title-bar"
+      data-show-sidebar-timeline-chrome={String(showSidebarTimelineChrome)}
+    />
+  ),
 }));
 
 vi.mock("~/shared/main", () => ({
@@ -104,6 +113,33 @@ describe("ClassicMainShellFrame", () => {
     expect(screen.queryByTestId("windows-title-bar")).toBeNull();
     expect(screen.getByTestId("main-shell-scaffold")).toBeTruthy();
   });
+
+  it.each([
+    ["empty", true],
+    ["sessions", true],
+    ["changelog", true],
+    ["onboarding", false],
+    ["settings", false],
+    ["calendar", false],
+    ["contacts", false],
+    ["templates", false],
+    ["automations", false],
+    ["folders", false],
+  ])(
+    "passes timeline chrome visibility for %s to the title bar",
+    (type, visible) => {
+      mocks.platform = "windows";
+      mocks.currentTab = { type };
+
+      render(<ClassicMainShellFrame />);
+
+      expect(
+        screen
+          .getByTestId("windows-title-bar")
+          .getAttribute("data-show-sidebar-timeline-chrome"),
+      ).toBe(String(visible));
+    },
+  );
 
   it("places the devtools status bar below the shell", () => {
     render(<ClassicMainShellFrame />);

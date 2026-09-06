@@ -108,7 +108,7 @@ describe("WindowsTitleBar", () => {
   });
 
   it("renders the sidebar and application menus in the draggable title bar", async () => {
-    render(<WindowsTitleBar />);
+    render(<WindowsTitleBar showSidebarTimelineChrome />);
 
     const titleBar = screen.getByTestId("windows-title-bar");
     const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
@@ -130,7 +130,7 @@ describe("WindowsTitleBar", () => {
   });
 
   it("connects the sidebar and native window controls", () => {
-    render(<WindowsTitleBar />);
+    render(<WindowsTitleBar showSidebarTimelineChrome />);
 
     fireEvent.click(screen.getByRole("button", { name: "Hide sidebar" }));
     fireEvent.click(screen.getByRole("button", { name: "Minimize" }));
@@ -144,7 +144,7 @@ describe("WindowsTitleBar", () => {
   });
 
   it("shows note actions beside the sidebar toggle only while expanded", () => {
-    const { rerender } = render(<WindowsTitleBar />);
+    const { rerender } = render(<WindowsTitleBar showSidebarTimelineChrome />);
 
     expect(
       screen
@@ -159,7 +159,7 @@ describe("WindowsTitleBar", () => {
     expect(mocks.createNewNote).toHaveBeenCalledOnce();
 
     mocks.leftSidebarExpanded = false;
-    rerender(<WindowsTitleBar />);
+    rerender(<WindowsTitleBar showSidebarTimelineChrome />);
 
     for (const name of ["Search", "New note", "Sort notes"]) {
       expect(screen.queryByRole("button", { name })).toBeNull();
@@ -167,14 +167,38 @@ describe("WindowsTitleBar", () => {
     expect(screen.getByRole("button", { name: "Show sidebar" })).toBeTruthy();
 
     mocks.leftSidebarExpanded = true;
-    rerender(<WindowsTitleBar />);
+    rerender(<WindowsTitleBar showSidebarTimelineChrome />);
     for (const name of ["Search", "New note", "Sort notes"]) {
       expect(screen.getByRole("button", { name })).toBeTruthy();
     }
   });
 
+  it("hides note actions outside timeline screens and restores them on return", () => {
+    const { rerender } = render(
+      <WindowsTitleBar showSidebarTimelineChrome={false} />,
+    );
+
+    for (const name of ["Search", "New note", "Sort notes"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    }
+    expect(screen.getByRole("button", { name: "Hide sidebar" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "File" })).toBeTruthy();
+
+    rerender(<WindowsTitleBar showSidebarTimelineChrome />);
+
+    for (const name of ["Search", "New note", "Sort notes"]) {
+      expect(screen.getByRole("button", { name })).toBeTruthy();
+    }
+
+    rerender(<WindowsTitleBar showSidebarTimelineChrome={false} />);
+
+    for (const name of ["Search", "New note", "Sort notes"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    }
+  });
+
   it("changes timeline grouping from the title bar", () => {
-    render(<WindowsTitleBar />);
+    render(<WindowsTitleBar showSidebarTimelineChrome />);
 
     const filter = screen.getByRole("button", { name: "Sort notes" });
     fireEvent.pointerDown(filter);
@@ -189,7 +213,7 @@ describe("WindowsTitleBar", () => {
 
   it("keeps Linux note actions in the sidebar", () => {
     mocks.platform = "linux";
-    render(<WindowsTitleBar />);
+    render(<WindowsTitleBar showSidebarTimelineChrome />);
 
     for (const name of ["Search", "New note", "Sort notes"]) {
       expect(screen.queryByRole("button", { name })).toBeNull();
@@ -200,7 +224,7 @@ describe("WindowsTitleBar", () => {
     mocks.leftSidebarExpanded = false;
     mocks.upcomingMeetingStatus = { itemKey: "session-upcoming" };
 
-    render(<WindowsTitleBar />);
+    render(<WindowsTitleBar showSidebarTimelineChrome />);
 
     const toggle = screen.getByRole("button", { name: "Show sidebar" });
     expect(
