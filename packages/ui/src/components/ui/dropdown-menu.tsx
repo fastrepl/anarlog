@@ -3,7 +3,7 @@ import * as React from "react";
 
 import { cn } from "@anlg/utils";
 
-import { CaretRight, Check, Circle } from "../icons";
+import { CaretRight, Check } from "../icons";
 import {
   AppFloatingPanel,
   appFloatingContentClassName,
@@ -145,7 +145,10 @@ const DropdownMenuRadioItem = React.forwardRef<
   >
     <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
       <DropdownMenuPrimitive.ItemIndicator>
-        <Circle className="h-2 w-2" />
+        <span
+          aria-hidden="true"
+          className="block h-2 w-2 rounded-full bg-current"
+        />
       </DropdownMenuPrimitive.ItemIndicator>
     </span>
     {children}
