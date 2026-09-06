@@ -399,6 +399,12 @@ impl Workspace {
                     cx.listener(|this, _: &gpui::ClickEvent, _, cx| this.stop_listening(cx)),
                 )
             })
+            .when(!disabled && label == "Share", |button| {
+                let session_id = preview.session.id.clone();
+                button.on_click(cx.listener(move |this, _: &gpui::ClickEvent, _, cx| {
+                    this.toggle_share_popover(session_id.clone(), cx);
+                }))
+            })
             .child(glyph)
             .child(div().truncate().child(label));
 
@@ -409,6 +415,7 @@ impl Workspace {
             .when(show_demo_prompt, |anchor| {
                 anchor.child(self.render_demo_prompt(cta_width))
             })
+            .children(self.render_share_popover(&preview.session.id, cx))
     }
 
     /// `PopoverContent` under the CTA: `w-72 rounded-md border px-3 py-2.5

@@ -453,22 +453,10 @@ impl Workspace {
         let Some(state) = self.contacts.as_mut() else {
             return;
         };
-        state.avatars.entry(seed.to_string()).or_insert_with(|| {
-            let mut pixels = crate::contacts::avatar_pixels(seed, AVATAR_RASTER_SIZE);
-            // GPUI textures are BGRA.
-            for pixel in pixels.chunks_exact_mut(4) {
-                pixel.swap(0, 2);
-            }
-            let buffer = image::RgbaImage::from_raw(
-                AVATAR_RASTER_SIZE as u32,
-                AVATAR_RASTER_SIZE as u32,
-                pixels,
-            )
-            .expect("raster dimensions match the buffer");
-            Arc::new(RenderImage::new(smallvec::smallvec![image::Frame::new(
-                buffer
-            )]))
-        });
+        state
+            .avatars
+            .entry(seed.to_string())
+            .or_insert_with(|| rasterize_avatar(seed));
     }
 
     /// `ContactFacehash`: the dithered raster under a squircle-ish clip with
@@ -478,6 +466,14 @@ impl Workspace {
             .contacts
             .as_ref()
             .and_then(|state| state.avatars.get(seed).cloned());
+        Self::render_avatar_image(image, seed, size)
+    }
+
+    pub(super) fn render_avatar_image(
+        image: Option<Arc<RenderImage>>,
+        seed: &str,
+        size: f32,
+    ) -> AnyElement {
         let initials = crate::contacts::avatar_initials(seed);
         let radius = if size >= 48.0 {
             8.0
@@ -1979,4 +1975,18 @@ impl Workspace {
             )
             .into_any_element()
     }
+}
+
+/// The facehash raster as a GPUI image (textures are BGRA).
+pub(super) fn rasterize_avatar(seed: &str) -> Arc<RenderImage> {
+    let mut pixels = crate::contacts::avatar_pixels(seed, AVATAR_RASTER_SIZE);
+    for pixel in pixels.chunks_exact_mut(4) {
+        pixel.swap(0, 2);
+    }
+    let buffer =
+        image::RgbaImage::from_raw(AVATAR_RASTER_SIZE as u32, AVATAR_RASTER_SIZE as u32, pixels)
+            .expect("raster dimensions match the buffer");
+    Arc::new(RenderImage::new(smallvec::smallvec![image::Frame::new(
+        buffer
+    )]))
 }

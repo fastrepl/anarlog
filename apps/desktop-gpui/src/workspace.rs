@@ -16,6 +16,7 @@ mod open_note;
 mod overflow;
 mod recording;
 mod settings;
+mod share;
 pub(crate) use overflow::find_session_dir;
 mod sidebar;
 mod stats_page;
@@ -201,6 +202,8 @@ pub struct Workspace {
     recording: recording::RecordingState,
     /// `chat.mode === "FloatingOpen"`
     chat_open: bool,
+    /// The Share CTA's popover while open.
+    share_popover: Option<share::SharePopover>,
     /// `anarlog.template-picker.recent-emojis` (kept for the session).
     recent_emoji_ids: Vec<String>,
     /// The note column's scroll position, for its WebKit-style scrollbar.
@@ -325,6 +328,7 @@ impl Workspace {
             onboarding: None,
             recording: recording::RecordingState::default(),
             chat_open: false,
+            share_popover: None,
             recent_emoji_ids: Vec::new(),
             note_scroll: gpui::ScrollHandle::new(),
             hovered_section: None,
@@ -1151,6 +1155,8 @@ impl Render for Workspace {
             .on_action(cx.listener(|this, _: &actions::Escape, window, cx| {
                 if this.chat_open {
                     this.close_chat(cx);
+                } else if this.share_popover_open() {
+                    this.close_share_popover(cx);
                 } else if this.export_dialog.is_some() {
                     this.close_export_dialog(cx);
                 } else if this.folder_dialog_open() {

@@ -170,6 +170,7 @@ embedded!(
     "icons/code.svg",
     "icons/copy.svg",
     "icons/discord-logo.svg",
+    "icons/dots-three.svg",
     "icons/download-simple.svg",
     "icons/external-link.svg",
     "icons/file-arrow-down.svg",
@@ -184,6 +185,7 @@ embedded!(
     "icons/headset.svg",
     "icons/heart.svg",
     "icons/lightning.svg",
+    "icons/lock-key.svg",
     "icons/lock.svg",
     "icons/magic-wand.svg",
     "icons/map-pin.svg",
@@ -340,6 +342,6 @@ mod tests {
         }
         assert!(Assets.load("icons/search.svg").unwrap().is_some());
         assert!(Assets.load("icons/missing.svg").unwrap().is_none());
-        assert_eq!(Assets.list("icons/").unwrap().len(), 164);
+        assert_eq!(Assets.list("icons/").unwrap().len(), 166);
     }
 }
