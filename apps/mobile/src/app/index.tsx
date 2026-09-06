@@ -57,6 +57,8 @@ export default function HomeScreen() {
   );
   const [buttonHidden, setButtonHidden] = useState(false);
   const scrollState = useSharedValue({ anchor: 0, hidden: false });
+  const contentHeight = useSharedValue(0);
+  const viewportHeight = useSharedValue(0);
   const buttonProgress = useSharedValue(0);
   const onScroll = useAnimatedScrollHandler((event) => {
     const previous = scrollState.get();
@@ -66,8 +68,19 @@ export default function HomeScreen() {
       event.contentSize.height - event.layoutMeasurement.height,
     );
     scrollState.set(next);
-    if (next.hidden !== previous.hidden) {
-      const target = next.hidden ? 1 : 0;
+  });
+  useAnimatedReaction(
+    () => contentHeight.get() - viewportHeight.get(),
+    (maxOffset) => {
+      if (maxOffset <= 0) scrollState.set({ anchor: 0, hidden: false });
+    },
+  );
+  useAnimatedReaction(
+    () => scrollState.get().hidden,
+    (hidden, previous) => {
+      if (hidden === previous) return;
+      scheduleOnRN(setButtonHidden, hidden);
+      const target = hidden ? 1 : 0;
       buttonProgress.set(
         reducedMotion
           ? withTiming(target, {
@@ -81,12 +94,6 @@ export default function HomeScreen() {
               overshootClamping: true,
             }),
       );
-    }
-  });
-  useAnimatedReaction(
-    () => scrollState.get().hidden,
-    (hidden, previous) => {
-      if (hidden !== previous) scheduleOnRN(setButtonHidden, hidden);
     },
   );
   const buttonStyle = useAnimatedStyle(() => ({
@@ -203,6 +210,10 @@ export default function HomeScreen() {
             { paddingBottom: buttonHeight + Spacing.lg },
           ]}
           keyboardShouldPersistTaps="handled"
+          onContentSizeChange={(_width, height) => contentHeight.set(height)}
+          onLayout={(event) =>
+            viewportHeight.set(event.nativeEvent.layout.height)
+          }
           onScroll={onScroll}
           scrollEventThrottle={16}
         >
