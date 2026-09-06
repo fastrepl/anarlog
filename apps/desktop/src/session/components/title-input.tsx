@@ -241,14 +241,6 @@ const TitleInputInner = memo(
             ).toFixed(2)}s`,
           } as CSSProperties)
         : undefined;
-      const visibleTitleLength = Math.max(
-        title.length || untitled.length,
-        untitled.length,
-      );
-      const titleShellStyle = {
-        ...titleFadeStyle,
-        width: `calc(${visibleTitleLength}ch + 2px)`,
-      };
 
       useImperativeHandle(
         ref,
@@ -399,14 +391,26 @@ const TitleInputInner = memo(
       return (
         <div
           data-tauri-drag-region="false"
-          style={titleShellStyle}
+          style={titleFadeStyle}
           className={cn([
-            "group/title-input relative flex max-w-full items-center overflow-hidden",
+            "group/title-input relative grid w-fit max-w-full grid-cols-[minmax(0,1fr)] items-center overflow-hidden",
             variant === "breadcrumb"
               ? "h-5 text-sm leading-5"
               : "h-8 text-xl font-semibold",
           ])}
         >
+          <span
+            aria-hidden="true"
+            className="invisible col-start-1 row-start-1 min-w-0 overflow-hidden px-px whitespace-pre"
+          >
+            {title}
+          </span>
+          <span
+            aria-hidden="true"
+            className="invisible col-start-1 row-start-1 min-w-0 overflow-hidden px-px whitespace-pre"
+          >
+            {untitled}
+          </span>
           <input
             data-tauri-drag-region="false"
             data-session-title-input
@@ -439,9 +443,8 @@ const TitleInputInner = memo(
             onScroll={(e) => updateOverflowState(e.currentTarget)}
             onSelect={(e) => updateOverflowState(e.currentTarget)}
             value={title}
-            size={visibleTitleLength}
             className={cn([
-              "w-full min-w-0 transition-opacity duration-200",
+              "col-start-1 row-start-1 w-0 min-w-full transition-opacity duration-200",
               "border-none bg-transparent focus:outline-hidden",
               "placeholder:text-muted-foreground text-left",
               variant === "breadcrumb"

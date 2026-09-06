@@ -304,8 +304,11 @@ describe("TitleInput", () => {
     renderTitleInput();
 
     const input = screen.getByPlaceholderText("Untitled");
-    expect(input.className).toContain("w-full");
-    expect(input.parentElement?.style.width).toBe("calc(10ch + 2px)");
+    expect(input.className).toContain("min-w-full");
+    expect(input.parentElement?.style.width).toBe("");
+    expect(input.parentElement?.querySelector("span")?.textContent).toBe(
+      hoisted.storeTitle,
+    );
     expect(
       screen.queryByRole("button", { name: "Regenerate title" }),
     ).toBeNull();
@@ -329,7 +332,9 @@ describe("TitleInput", () => {
 
     fireEvent.change(input, { target: { value: title } });
 
-    const hoverTitle = screen.getByText(title);
+    const hoverTitle = screen.getByText(title, {
+      selector: "span:not([aria-hidden])",
+    });
     const overlay = hoverTitle.parentElement;
     expect(input.className).toContain("text-transparent");
     expect(input.parentElement?.style.maskImage).toBe(
