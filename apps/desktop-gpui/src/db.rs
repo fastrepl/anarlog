@@ -2698,6 +2698,47 @@ impl Store {
         })
     }
 
+    /// `deleteSessionAudio(sessionId)`: tombstone the `session-audio:<id>`
+    /// attachment, delete the audio file through fs-sync, and mark the local
+    /// state `absent`.
+    pub fn delete_session_audio(
+        &self,
+        session_id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<bool>> {
+        let db = self.db.clone();
+        let session_dir = self.session_dir(&session_id);
+        self.runtime.spawn(async move {
+            let attachment_id = format!("session-audio:{session_id}");
+            sqlx::query(
+                "UPDATE session_attachments
+                 SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                     deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                 WHERE id = ? AND session_id = ? AND deleted_at IS NULL",
+            )
+            .bind(&attachment_id)
+            .bind(&session_id)
+            .execute(db.pool())
+            .await?;
+            let deleted =
+                tokio::task::spawn_blocking(move || anlg_fs_sync_core::audio::delete(&session_dir))
+                    .await??;
+            sqlx::query(
+                "INSERT INTO attachment_local_state (
+                   attachment_id, session_id, relative_path, availability, updated_at
+                 ) VALUES (?, ?, '', 'absent', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+                 ON CONFLICT(attachment_id) DO UPDATE SET
+                   session_id = excluded.session_id,
+                   availability = excluded.availability,
+                   updated_at = excluded.updated_at",
+            )
+            .bind(&attachment_id)
+            .bind(&session_id)
+            .execute(db.pool())
+            .await?;
+            Ok(deleted)
+        })
+    }
+
     /// `markSessionAudioTranscriptionComplete(sessionId)`
     pub fn mark_session_audio_transcription_complete(
         &self,

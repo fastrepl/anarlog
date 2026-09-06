@@ -26,6 +26,9 @@ pub(crate) struct AudioPlayer {
     pub position: Duration,
     /// `playbackRate` (the rate menu is Pro-only, so this stays at 1x).
     pub rate: f32,
+    /// `useNativeContextMenu`: the context menu's anchor while open.
+    pub menu_at: Option<gpui::Point<gpui::Pixels>>,
+    pub deleting: bool,
 }
 
 impl Workspace {
@@ -47,6 +50,8 @@ impl Workspace {
             playback: None,
             position: Duration::ZERO,
             rate: 1.0,
+            menu_at: None,
+            deleting: false,
         });
         let Some(path) = anlg_fs_sync_core::audio::path(&self.store.session_dir(session_id)) else {
             if let Some(player) = self.audio_player.as_mut() {
@@ -175,6 +180,130 @@ impl Workspace {
         .detach();
     }
 
+    /// `stop`: pause, drop the source, and put the cursor back at 0.
+    fn stop_playback(&mut self, cx: &mut Context<Self>) {
+        if let Some(player) = self.audio_player.as_mut() {
+            if let Some(playback) = &player.playback {
+                playback.pause();
+            }
+            player.playback = None;
+            player.state = PlayerState::Stopped;
+            player.position = Duration::ZERO;
+            cx.notify();
+        }
+    }
+
+    /// `deleteRecording`: stop, `deleteSessionAudio`, then `markAudioDeleted`
+    /// (the audio queries flip to "absent", so the note reloads).
+    fn delete_recording(&mut self, cx: &mut Context<Self>) {
+        let Some(player) = self.audio_player.as_mut() else {
+            return;
+        };
+        if player.deleting {
+            return;
+        }
+        // `isSessionAudioIdle`: no import or batch in flight for the session.
+        if self
+            .recording
+            .batch
+            .get(&player.session_id)
+            .is_some_and(|batch| batch.error.is_none())
+        {
+            return;
+        }
+        player.deleting = true;
+        let session_id = player.session_id.clone();
+        self.stop_playback(cx);
+        let task = self.store.delete_session_audio(session_id.clone());
+        cx.spawn(async move |this, cx| {
+            let result = task.await.map_err(anyhow::Error::from).and_then(|r| r);
+            this.update(cx, |this, cx| {
+                if let Err(error) = &result {
+                    tracing::error!(%error, "[audio-player] failed to delete the recording");
+                }
+                if let Some(player) = this.audio_player.as_mut() {
+                    player.deleting = false;
+                }
+                if result.is_ok() {
+                    this.audio_player = None;
+                    if this.selected.as_deref() == Some(session_id.as_str()) {
+                        this.reload_note(session_id.clone(), cx);
+                    }
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// `Timeline`'s `useNativeContextMenu`: Play / Pause / Resume, Stop while
+    /// not stopped, then Delete recording. The Tauri app shows the OS menu;
+    /// here it is the app menu chrome.
+    pub(super) fn render_audio_player_menu(
+        &self,
+        window: &gpui::Window,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        use super::menu::{Align, Entry, MenuSpec, Trailing};
+        let player = self.audio_player.as_ref()?;
+        let position = player.menu_at?;
+        let mut entries = Vec::new();
+        let (label, action): (&str, fn(&mut Workspace, &mut Context<Workspace>)) =
+            match player.state {
+                PlayerState::Paused => ("Resume", |this, cx| this.toggle_playback(cx)),
+                PlayerState::Stopped => ("Play", |this, cx| this.toggle_playback(cx)),
+                PlayerState::Playing => ("Pause", |this, cx| this.toggle_playback(cx)),
+            };
+        entries.push(Entry::Item {
+            icon: None,
+            dim_icon: false,
+            label: label.into(),
+            trailing: Trailing::None,
+            destructive: false,
+            on_select: Some(Box::new(move |this, _, cx| action(this, cx))),
+            submenu: None,
+        });
+        if player.state != PlayerState::Stopped {
+            entries.push(Entry::Item {
+                icon: None,
+                dim_icon: false,
+                label: "Stop".into(),
+                trailing: Trailing::None,
+                destructive: false,
+                on_select: Some(Box::new(|this, _, cx| this.stop_playback(cx))),
+                submenu: None,
+            });
+        }
+        entries.push(Entry::Separator);
+        let deleting = player.deleting;
+        entries.push(Entry::Item {
+            icon: None,
+            dim_icon: false,
+            label: "Delete recording".into(),
+            trailing: Trailing::None,
+            destructive: false,
+            on_select: (!deleting).then(|| -> super::menu::Select {
+                Box::new(|this, _, cx| this.delete_recording(cx))
+            }),
+            submenu: None,
+        });
+        let spec = MenuSpec {
+            id: "audio-player-menu",
+            width: 176.0,
+            entries,
+            open_sub: None,
+            on_hover_sub: |_, _, _| {},
+            on_close: |this, cx| {
+                if let Some(player) = this.audio_player.as_mut() {
+                    player.menu_at = None;
+                    cx.notify();
+                }
+            },
+        };
+        Some(self.render_app_menu(spec, position, Align::Start, window, cx))
+    }
+
     /// wavesurfer `interaction` (`dragToSeek`): a press on the lane seeks.
     fn seek_audio_player(&mut self, fraction: f32, cx: &mut Context<Self>) {
         let Some(player) = self.audio_player.as_mut() else {
@@ -290,6 +419,15 @@ impl Workspace {
                 .px_1()
                 .pt_1()
                 .pb_2()
+                .on_mouse_down(
+                    gpui::MouseButton::Right,
+                    cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
+                        if let Some(player) = this.audio_player.as_mut() {
+                            player.menu_at = Some(event.position);
+                            cx.notify();
+                        }
+                    }),
+                )
                 .child(
                     div()
                         .overflow_hidden()

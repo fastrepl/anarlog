@@ -1278,6 +1278,7 @@ impl Render for Workspace {
             )
             .children(self.render_overflow_menu(window, cx))
             .children(self.render_filter_menu(window, cx))
+            .children(self.render_audio_player_menu(window, cx))
             .children(self.render_open_menu(window, cx))
             .children(self.render_export_dialog(cx))
             .children(self.render_folder_dialogs(cx))
