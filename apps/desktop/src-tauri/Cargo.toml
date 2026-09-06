@@ -93,6 +93,7 @@ anlg-db-core = { workspace = true }
 anlg-db-sync = { workspace = true }
 anlg-host = { workspace = true }
 anlg-intercept = { workspace = true }
+anlg-search-index = { workspace = true }
 anlg-storage = { workspace = true }
 anlg-supervisor = { workspace = true }
 

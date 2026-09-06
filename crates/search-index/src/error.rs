@@ -5,23 +5,19 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
-    Index(#[from] anlg_search_index::Error),
-    #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
-    Tauri(#[from] tauri::Error),
+    Tantivy(#[from] tantivy::TantivyError),
     #[error(transparent)]
-    Settings(#[from] tauri_plugin_settings::Error),
-}
-
-impl Error {
-    /// The collection is not registered yet (startup ordering).
-    pub fn is_collection_not_found(&self) -> bool {
-        matches!(
-            self,
-            Error::Index(anlg_search_index::Error::CollectionNotFound(_))
-        )
-    }
+    QueryParser(#[from] tantivy::query::QueryParserError),
+    #[error("Index not initialized")]
+    IndexNotInitialized,
+    #[error("Collection not found: {0}")]
+    CollectionNotFound(String),
+    #[error("Document not found: {0}")]
+    DocumentNotFound(String),
+    #[error("Invalid document type: {0}")]
+    InvalidDocumentType(String),
 }
 
 impl Serialize for Error {

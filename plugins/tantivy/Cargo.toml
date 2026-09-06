@@ -16,8 +16,7 @@ tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 
 [dependencies]
-anlg-language = { workspace = true, features = ["detect"] }
-tantivy = "0.25"
+anlg-search-index = { workspace = true, features = ["specta"] }
 
 tauri = { workspace = true, features = ["test"] }
 tauri-plugin-notify = { workspace = true }
