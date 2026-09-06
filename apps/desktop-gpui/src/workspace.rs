@@ -25,6 +25,7 @@ mod sidebar;
 mod stats_page;
 mod template_picker;
 mod templates_tab;
+mod timeline_selection;
 mod title_bar;
 mod toast;
 
@@ -231,6 +232,12 @@ pub struct Workspace {
     spoken_search: Option<gpui::Entity<TextInput>>,
     spoken_highlighted: Option<usize>,
     pending_deletions: Vec<overflow::PendingDeletion>,
+    timeline_selection: timeline_selection::TimelineSelection,
+    /// `showIgnored`: list ignored calendar events dimmed and struck through.
+    show_ignored_events: bool,
+    timeline_menu: Option<timeline_selection::TimelineMenu>,
+    /// Session ids awaiting the `Delete N selected notes?` confirmation.
+    pending_delete_selected: Vec<String>,
     /// Pending `scrollToAnchor`: the viewport ratio the current-time line
     /// should land at, applied over two frames once the row is measured.
     anchor_scroll: Option<f32>,
@@ -355,6 +362,10 @@ impl Workspace {
             spoken_search: None,
             spoken_highlighted: None,
             pending_deletions: Vec::new(),
+            timeline_selection: timeline_selection::TimelineSelection::default(),
+            show_ignored_events: false,
+            timeline_menu: None,
+            pending_delete_selected: Vec::new(),
             anchor_scroll: None,
             anchor_scrolled_once: false,
             hovered: None,
@@ -620,8 +631,11 @@ impl Workspace {
             &self.event_rows,
             Utc::now(),
             &Local,
-            self.group_by,
-            self.sort_order,
+            timeline::View {
+                group_by: self.group_by,
+                order: self.sort_order,
+                show_ignored: self.show_ignored_events,
+            },
             |event| {
                 ignored_events.contains(&event.tracking_id_event)
                     || (!event.recurrence_series_id.is_empty()
@@ -1181,8 +1195,20 @@ impl Render for Workspace {
             .on_action(|_: &actions::CloseWindow, window, _| window.remove_window())
             // `useCloseStandaloneNoteWindowOnEscape`
             .on_action(cx.listener(|this, _: &actions::ToggleChat, _, cx| this.toggle_chat(cx)))
+            .on_action(cx.listener(|this, _: &actions::SelectAll, _, cx| {
+                this.select_all_timeline_notes(cx);
+            }))
+            .on_action(cx.listener(|this, _: &actions::DeleteSelected, _, cx| {
+                this.request_delete_selected(cx);
+            }))
             .on_action(cx.listener(|this, _: &actions::Escape, window, cx| {
-                if this.chat_open {
+                if !this.pending_delete_selected.is_empty() {
+                    this.pending_delete_selected.clear();
+                    cx.notify();
+                } else if this.timeline_menu.is_some() {
+                    this.timeline_menu = None;
+                    cx.notify();
+                } else if this.chat_open {
                     this.close_chat(cx);
                 } else if this.share_popover_open() {
                     this.close_share_popover(cx);
@@ -1210,6 +1236,18 @@ impl Render for Workspace {
                     }
                 }),
             )
+            // `shouldClearTimelineSelectionOnPointerDown`: any press outside the
+            // timeline root, its dialog, or its (OS-level in Tauri) context menu
+            // drops the selection, whatever element claims the pointer.
+            .capture_any_mouse_down(cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
+                if this.timeline_menu.is_some()
+                    || !this.pending_delete_selected.is_empty()
+                    || this.list_state.viewport_bounds().contains(&event.position)
+                {
+                    return;
+                }
+                this.clear_timeline_selection(cx);
+            }))
             .flex()
             .flex_col()
             .size_full()
@@ -1298,6 +1336,8 @@ impl Render for Workspace {
             .children(self.render_filter_menu(window, cx))
             .children(self.render_audio_player_menu(window, cx))
             .children(self.render_calendar_context_menu(window, cx))
+            .children(self.render_timeline_context_menu(window, cx))
+            .children(self.render_delete_selected_dialog(cx))
             .children(self.render_open_menu(window, cx))
             .children(self.render_export_dialog(cx))
             .children(self.render_folder_dialogs(cx))

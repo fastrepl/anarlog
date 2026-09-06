@@ -248,7 +248,7 @@ impl Workspace {
 
     /// `useIgnoredEvents().ignoreEvent` / `ignoreSeries` over the
     /// `ignored_events` / `ignored_recurring_series` settings.
-    fn ignore_calendar_entry(
+    pub(super) fn ignore_calendar_entry(
         &mut self,
         key: &'static str,
         field: &str,
@@ -259,6 +259,21 @@ impl Workspace {
             .format("%Y-%m-%dT%H:%M:%S%.3fZ")
             .to_string();
         let next = ignore_entry(ignored_list(&self.provider_settings, key), field, id, &now);
+        self.set_setting(key, serde_json::Value::Array(next), cx);
+    }
+
+    /// `unignoreEvent` / `unignoreSeries`: drop every entry with the id.
+    pub(super) fn unignore_calendar_entry(
+        &mut self,
+        key: &'static str,
+        field: &str,
+        id: &str,
+        cx: &mut Context<Self>,
+    ) {
+        let next: Vec<serde_json::Value> = ignored_list(&self.provider_settings, key)
+            .into_iter()
+            .filter(|entry| entry.get(field).and_then(|v| v.as_str()) != Some(id))
+            .collect();
         self.set_setting(key, serde_json::Value::Array(next), cx);
     }
 

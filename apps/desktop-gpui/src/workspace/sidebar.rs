@@ -3,10 +3,11 @@
 
 use chrono::{Local, Utc};
 use gpui::{
-    AnyElement, ClickEvent, Context, Div, MouseButton, Pixels, SharedString, Stateful, Window, div,
-    list, prelude::*, px,
+    AnyElement, ClickEvent, Context, Div, MouseButton, MouseDownEvent, Pixels, SharedString,
+    Stateful, Window, div, list, prelude::*, px,
 };
 
+use super::timeline_selection::{TimelineMenu, item_key};
 use super::{Sessions, SidebarRow, Workspace};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -113,6 +114,30 @@ impl Workspace {
                     .relative()
                     .flex_1()
                     .min_h_0()
+                    // `[data-sidebar-timeline-root]` keeps the selection on a
+                    // press inside it; the press still blurs a focused input.
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|this, _: &MouseDownEvent, window, cx| {
+                            cx.stop_propagation();
+                            if !this.focus_handle.is_focused(window) {
+                                this.focus_handle.focus(window);
+                            }
+                        }),
+                    )
+                    // `onContextMenu={showContextMenu}` on the scroll container:
+                    // `Delete Selected (N)` or the deleted-events toggle.
+                    .on_mouse_down(
+                        MouseButton::Right,
+                        cx.listener(|this, event: &MouseDownEvent, _, cx| {
+                            this.open_timeline_menu(
+                                TimelineMenu::List {
+                                    position: event.position,
+                                },
+                                cx,
+                            );
+                        }),
+                    )
                     .child(
                         list(
                             self.list_state.clone(),
@@ -497,8 +522,10 @@ impl Workspace {
         )
     }
 
-    /// `ItemBase`: `w-full rounded-lg px-3 py-2`, `bg-accent` when selected,
-    /// `hover:bg-accent/50` otherwise; title `text-sm`, time `font-mono text-xs`.
+    /// `ItemBase`: `w-full rounded-lg px-3 py-2`, `bg-accent` when selected or
+    /// multi-selected, `hover:bg-accent/50` otherwise; title `text-sm`, time
+    /// `font-mono text-xs`. Ignored events (shown on request) render at
+    /// `opacity-40`, struck through, and inert.
     fn render_session_row(
         &self,
         index: usize,
@@ -508,7 +535,11 @@ impl Workspace {
     ) -> Div {
         let theme = self.theme;
         let session_id = item.id.clone();
-        let is_event = item.kind == ItemKind::Event;
+        let kind = item.kind;
+        let is_event = kind == ItemKind::Event;
+        let ignored = item.ignored;
+        let key = item_key(kind, &item.id);
+        let multi_selected = self.timeline_selection.is_selected(&key);
         let selected = !is_event && self.selected.as_deref() == Some(item.id.as_str());
         let title: SharedString = if item.title.is_empty() {
             "Untitled".into()
@@ -528,6 +559,7 @@ impl Workspace {
             true,
         );
         let folder = timeline::folder_label(&item.folder_id).filter(|_| show_folder);
+        let menu_id = item.id.clone();
 
         div().child(
             div()
@@ -536,21 +568,46 @@ impl Workspace {
                 .rounded_lg()
                 .px_3()
                 .py_2()
-                .cursor_pointer()
-                .when(selected, |row| row.bg(theme.accent))
-                .when(!selected, |row| {
+                .when(!ignored, |row| row.cursor_pointer())
+                .when(multi_selected || selected, |row| row.bg(theme.accent))
+                .when(!multi_selected && !selected, |row| {
                     row.hover(move |style| style.bg(alpha(theme.accent, 0.5)))
                 })
+                .when(ignored, |row| row.opacity(0.4))
                 // `muted = isTimelineItemInFuture(item)` -> `opacity-65`.
-                .when(item.timestamp > Utc::now(), |row| row.opacity(0.65))
-                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .on_click(cx.listener(move |this, _event: &ClickEvent, _window, cx| {
-                    if is_event {
-                        this.open_event(session_id.clone(), cx);
-                    } else {
-                        this.select(session_id.clone(), cx);
-                    }
-                }))
+                .when(!ignored && item.timestamp > Utc::now(), |row| {
+                    row.opacity(0.65)
+                })
+                // The press lands on the row button in the web view, moving
+                // focus off any text field so Backspace reaches the timeline.
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|this, _: &MouseDownEvent, window, cx| {
+                        cx.stop_propagation();
+                        if !this.focus_handle.is_focused(window) {
+                            this.focus_handle.focus(window);
+                        }
+                    }),
+                )
+                .on_mouse_down(
+                    MouseButton::Right,
+                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                        cx.stop_propagation();
+                        this.open_timeline_menu(
+                            TimelineMenu::Row {
+                                kind,
+                                id: menu_id.clone(),
+                                position: event.position,
+                            },
+                            cx,
+                        );
+                    }),
+                )
+                .when(!ignored, |row| {
+                    row.on_click(cx.listener(move |this, event: &ClickEvent, _window, cx| {
+                        this.timeline_row_click(kind, session_id.clone(), event, cx);
+                    }))
+                })
                 .child(
                     div()
                         .flex()
@@ -584,7 +641,14 @@ impl Workspace {
                                             ),
                                     )
                                 })
-                                .child(div().min_w_0().truncate().tw_text_sm().child(title))
+                                .child(
+                                    div()
+                                        .min_w_0()
+                                        .truncate()
+                                        .tw_text_sm()
+                                        .when(ignored, |title| title.line_through())
+                                        .child(title),
+                                )
                                 .child(
                                     div()
                                         .tw_text_xs()

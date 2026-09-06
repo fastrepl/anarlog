@@ -27,6 +27,7 @@ actions!(
         Copy,
         Paste,
         SelectAll,
+        DeleteSelected,
     ]
 );
 
@@ -61,6 +62,9 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new(&format!("{m}-a"), SelectAll, ctx),
     ];
     bindings.push(KeyBinding::new("escape", Escape, ctx));
+    // `isDeleteSelectionShortcut`: Backspace or Delete outside a text field.
+    bindings.push(KeyBinding::new("backspace", DeleteSelected, ctx));
+    bindings.push(KeyBinding::new("delete", DeleteSelected, ctx));
     if cfg!(any(target_os = "windows", target_os = "linux")) {
         bindings.push(KeyBinding::new("f11", ToggleFullscreen, ctx));
         bindings.push(KeyBinding::new("alt-f4", CloseWindow, ctx));

@@ -23,6 +23,9 @@ pub(crate) struct PendingDeletion {
     pub title: String,
     pub tombstone: String,
     pub added_at: Instant,
+    /// `useDeleteSession(..., { batchId })`: deletions from one multi-select
+    /// share a toast and one Undo.
+    pub batch_id: Option<String>,
 }
 
 impl Workspace {
@@ -408,11 +411,35 @@ impl Workspace {
         let Some(session_id) = self.selected.clone() else {
             return;
         };
+        self.delete_session_by_id(session_id, None, cx);
+    }
+
+    /// The same path for a timeline row's `Delete Note` and the bulk
+    /// `Delete Selected`; `batch_id` groups a multi-select into one toast.
+    pub(super) fn delete_session_by_id(
+        &mut self,
+        session_id: String,
+        batch_id: Option<String>,
+        cx: &mut Context<Self>,
+    ) {
+        if self
+            .pending_deletions
+            .iter()
+            .any(|deletion| deletion.session_id == session_id)
+        {
+            return;
+        }
+        let is_open = self.selected.as_deref() == Some(session_id.as_str());
         let title = match &self.note {
-            super::Note::Ready { preview, .. } => preview.session.title.clone(),
-            _ => String::new(),
+            super::Note::Ready { preview, .. } if is_open => preview.session.title.clone(),
+            _ => self
+                .session_rows
+                .iter()
+                .find(|row| row.id == session_id)
+                .map(|row| row.title.clone())
+                .unwrap_or_default(),
         };
-        if let Some(editor) = self.editor.take() {
+        if is_open && let Some(editor) = self.editor.take() {
             editor.update(cx, |editor, _| {
                 editor.take_pending();
             });
@@ -423,12 +450,15 @@ impl Workspace {
                 this.update(cx, |this, cx| {
                     this.close_note_windows(&session_id, cx);
                     this.tabs.retain(|id| id != &session_id);
-                    this.close_selected_note(cx);
+                    if this.selected.as_deref() == Some(session_id.as_str()) {
+                        this.close_selected_note(cx);
+                    }
                     this.pending_deletions.push(PendingDeletion {
                         session_id,
                         title,
                         tombstone,
                         added_at: Instant::now(),
+                        batch_id,
                     });
                     this.schedule_undo_expiry(cx);
                     this.reload_sessions(cx);
@@ -476,48 +506,89 @@ impl Workspace {
         .detach();
     }
 
-    /// `restoreDeletedSession`: lift the tombstone and reopen the note.
-    fn undo_delete(&mut self, session_id: String, cx: &mut Context<Self>) {
-        let Some(index) = self
-            .pending_deletions
-            .iter()
-            .position(|deletion| deletion.session_id == session_id)
-        else {
-            return;
-        };
-        let deletion = self.pending_deletions.remove(index);
-        cx.notify();
-        let task = self
-            .store
-            .restore_session(deletion.session_id.clone(), deletion.tombstone);
-        cx.spawn(async move |this, cx| match task.await {
-            Ok(Ok(())) => {
-                this.update(cx, |this, cx| {
-                    this.reload_sessions(cx);
-                    this.select(deletion.session_id, cx);
-                })
-                .ok();
+    /// `useRestoreGroup`: lift every tombstone of the toast's group and reopen
+    /// the first note only, so restoring a batch never runs the tab-close
+    /// handler over the notes restored before it.
+    fn undo_delete(&mut self, session_ids: Vec<String>, cx: &mut Context<Self>) {
+        let mut restored = Vec::new();
+        for session_id in &session_ids {
+            if let Some(index) = self
+                .pending_deletions
+                .iter()
+                .position(|deletion| &deletion.session_id == session_id)
+            {
+                restored.push(self.pending_deletions.remove(index));
             }
-            Ok(Err(error)) => tracing::error!(%error, "could not restore deleted note"),
-            Err(error) => tracing::error!(%error, "could not restore deleted note"),
+        }
+        if restored.is_empty() {
+            return;
+        }
+        cx.notify();
+        let tasks: Vec<_> = restored
+            .iter()
+            .map(|deletion| {
+                self.store
+                    .restore_session(deletion.session_id.clone(), deletion.tombstone.clone())
+            })
+            .collect();
+        let first = restored[0].session_id.clone();
+        cx.spawn(async move |this, cx| {
+            let mut failed = false;
+            for task in tasks {
+                match task.await {
+                    Ok(Ok(())) => {}
+                    Ok(Err(error)) => {
+                        failed = true;
+                        tracing::error!(%error, "could not restore deleted note");
+                    }
+                    Err(error) => {
+                        failed = true;
+                        tracing::error!(%error, "could not restore deleted note");
+                    }
+                }
+            }
+            this.update(cx, |this, cx| {
+                this.reload_sessions(cx);
+                if !failed {
+                    this.select(first, cx);
+                }
+            })
+            .ok();
         })
         .detach();
     }
 
-    /// `UndoDeleteToast`: "<title> deleted" with an Undo action and a gauge
-    /// draining over the five-second window, in the toast host's slot.
+    /// `UndoDeleteToast`: "<title> deleted" (or "N notes deleted" for a
+    /// multi-select batch) with an Undo action and a gauge draining over the
+    /// five-second window, in the toast host's slot.
     pub(super) fn render_undo_toast(&self, cx: &Context<Self>) -> Option<AnyElement> {
         let deletion = self.pending_deletions.last()?;
         let theme = self.theme;
         let text = theme.toast_text;
-        let title = if deletion.title.trim().is_empty() {
-            "Untitled".to_string()
-        } else {
-            deletion.title.clone()
+        let group: Vec<&PendingDeletion> = match &deletion.batch_id {
+            Some(batch) => self
+                .pending_deletions
+                .iter()
+                .filter(|other| other.batch_id.as_deref() == Some(batch))
+                .collect(),
+            None => vec![deletion],
         };
+        let label = if deletion.batch_id.is_some() {
+            let noun = if group.len() == 1 { "note" } else { "notes" };
+            format!("{} {noun} deleted", group.len())
+        } else if deletion.title.trim().is_empty() {
+            "Untitled deleted".to_string()
+        } else {
+            format!("{} deleted", deletion.title)
+        };
+        let added_at = group
+            .iter()
+            .map(|other| other.added_at)
+            .min()
+            .unwrap_or(deletion.added_at);
         let progress =
-            1.0 - (deletion.added_at.elapsed().as_secs_f32() / UNDO_TIMEOUT.as_secs_f32()).min(1.0);
-        let session_id = deletion.session_id.clone();
+            1.0 - (added_at.elapsed().as_secs_f32() / UNDO_TIMEOUT.as_secs_f32()).min(1.0);
+        let session_ids: Vec<String> = group.iter().map(|other| other.session_id.clone()).collect();
         Some(
             div()
                 .id("undo-delete-toast")
@@ -550,7 +621,7 @@ impl Workspace {
                         .line_height(px(19.0))
                         .font_weight(gpui::FontWeight::MEDIUM)
                         .text_color(text)
-                        .child(SharedString::from(format!("{title} deleted"))),
+                        .child(SharedString::from(label)),
                 )
                 .child(
                     div()
@@ -568,7 +639,7 @@ impl Workspace {
                         .cursor_pointer()
                         .hover(move |style| style.bg(alpha(text, 0.9)))
                         .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                            this.undo_delete(session_id.clone(), cx);
+                            this.undo_delete(session_ids.clone(), cx);
                         }))
                         .child("Undo"),
                 )

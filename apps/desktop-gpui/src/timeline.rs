@@ -56,6 +56,9 @@ pub struct Item {
     pub locked: bool,
     pub folder_id: String,
     pub event: Option<SessionEvent>,
+    /// `isIgnored(tracking_id_event, recurrence_series_id)` while the timeline
+    /// shows deleted events: the row renders dimmed, struck through, inert.
+    pub ignored: bool,
 }
 
 /// The parts of `sessions.event_json` the main window reads. Fields stay
@@ -414,26 +417,42 @@ pub fn build<Tz: TimeZone>(
         events,
         now,
         tz,
-        GroupBy::Date,
-        SortOrder::Newest,
+        View {
+            group_by: GroupBy::Date,
+            order: SortOrder::Newest,
+            show_ignored: false,
+        },
         |_| false,
     )
+}
+
+/// The sidebar's view of the timeline: `groupBy`, `sortOrder`, `showIgnored`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct View {
+    pub group_by: GroupBy,
+    pub order: SortOrder,
+    pub show_ignored: bool,
 }
 
 /// `buildTimelineBuckets` with the sidebar's grouping and ordering. Folder
 /// grouping lists sessions only (no events, no "more future items") in
 /// alphabetical folders with "No folder" last. `ignored` is
-/// `useIgnoredEvents().isIgnored` (with `showIgnored` off): ignored events
-/// neither list nor count as future items.
+/// `useIgnoredEvents().isIgnored`: with `show_ignored` off, ignored events
+/// neither list nor count as future items; with it on ("Show Deleted Events")
+/// they list like any other event, flagged `Item::ignored`.
 pub fn build_with<Tz: TimeZone>(
     rows: &[SessionRow],
     events: &[EventRow],
     now: DateTime<Utc>,
     tz: &Tz,
-    group_by: GroupBy,
-    order: SortOrder,
+    view: View,
     ignored: impl Fn(&EventRow) -> bool,
 ) -> Timeline {
+    let View {
+        group_by,
+        order,
+        show_ignored,
+    } = view;
     let events: &[EventRow] = if group_by == GroupBy::Folder {
         &[]
     } else {
@@ -474,11 +493,13 @@ pub fn build_with<Tz: TimeZone>(
             locked: row.locked != 0,
             folder_id: row.folder_id.clone(),
             event,
+            ignored: false,
         });
     }
 
     for event in events {
-        if ignored(event) {
+        let is_ignored = ignored(event);
+        if is_ignored && !show_ignored {
             continue;
         }
         let started = parse_date(&event.started_at, tz);
@@ -521,6 +542,7 @@ pub fn build_with<Tz: TimeZone>(
                 meeting_link: Some(event.meeting_link.clone()),
                 ..SessionEvent::default()
             }),
+            ignored: is_ignored,
         });
     }
 
@@ -644,8 +666,11 @@ mod tests {
             std::slice::from_ref(&event),
             now(),
             &Utc,
-            GroupBy::Folder,
-            SortOrder::Newest,
+            View {
+                group_by: GroupBy::Folder,
+                order: SortOrder::Newest,
+                show_ignored: false,
+            },
             |_| false,
         );
         let labels: Vec<&str> = folders
@@ -673,8 +698,11 @@ mod tests {
             &[],
             now(),
             &Utc,
-            GroupBy::Date,
-            SortOrder::Oldest,
+            View {
+                group_by: GroupBy::Date,
+                order: SortOrder::Oldest,
+                show_ignored: false,
+            },
             |_| false,
         );
         let labels: Vec<&str> = oldest
@@ -989,8 +1017,11 @@ mod tests {
             &events,
             now(),
             &Utc,
-            GroupBy::Date,
-            SortOrder::Newest,
+            View {
+                group_by: GroupBy::Date,
+                order: SortOrder::Newest,
+                show_ignored: false,
+            },
             |event| {
                 event.tracking_id_event == "track-far" || event.tracking_id_event == "track-live"
             },
@@ -1000,6 +1031,27 @@ mod tests {
             0
         );
         assert!(!filtered.has_more_future_items);
+
+        // "Show Deleted Events": ignored events list again, flagged, and the
+        // far one counts as a future item like in `deriveTimelineWindowData`.
+        let shown = build_with(
+            &[],
+            &events,
+            now(),
+            &Utc,
+            View {
+                group_by: GroupBy::Date,
+                order: SortOrder::Newest,
+                show_ignored: true,
+            },
+            |event| {
+                event.tracking_id_event == "track-far" || event.tracking_id_event == "track-live"
+            },
+        );
+        let items: Vec<&Item> = shown.buckets.iter().flat_map(|b| b.items.iter()).collect();
+        assert_eq!(items.len(), 1);
+        assert!(items[0].ignored);
+        assert!(shown.has_more_future_items);
     }
 
     #[test]
