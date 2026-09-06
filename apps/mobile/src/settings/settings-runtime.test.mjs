@@ -1258,3 +1258,224 @@ test("Azure resource URLs use the v1 endpoint without duplicating its path", asy
     assert.ok(!request.headers.Authorization);
   }
 });
+
+const { discoverProviderModels, parseProviderModels } =
+  await import("./provider-models.ts");
+const { presetProviderModels } = await import("./provider-model-catalog.ts");
+
+for (const definition of providersFor("llm").filter(
+  ({ id }) => id !== "anarlog" && !presetProviderModels("llm", id),
+)) {
+  test(`${definition.name} discovers selectable models with its device key and authentication headers`, async () => {
+    const config = {
+      ...defaultProviderConfig("llm", definition.id),
+      baseUrl: definition.baseUrl || "https://provider.example.test",
+    };
+    await saveProviderConnection(
+      "account-a",
+      "llm",
+      config,
+      "synthetic-discovery-key",
+    );
+    fixture.respond = () =>
+      Response.json(
+        definition.id === "google_generative_ai"
+          ? {
+              models: [
+                {
+                  name: "models/test-chat",
+                  supportedGenerationMethods: ["generateContent"],
+                },
+              ],
+            }
+          : { data: [{ id: "test-chat" }] },
+      );
+    assert.deepEqual(
+      await discoverProviderModels(
+        "account-a",
+        config,
+        new AbortController().signal,
+      ),
+      ["test-chat"],
+    );
+    const { url, options } = fixture.requests[0];
+    assert.equal(
+      url,
+      `${config.baseUrl}${definition.id === "azure_openai" ? "/openai/models?api-version=2024-10-21" : "/models"}`,
+    );
+    const header =
+      definition.id === "google_generative_ai"
+        ? "x-goog-api-key"
+        : definition.id === "anthropic"
+          ? "x-api-key"
+          : definition.id.startsWith("azure_")
+            ? "api-key"
+            : "Authorization";
+    assert.equal(
+      options.headers[header],
+      `${header === "Authorization" ? "Bearer " : ""}synthetic-discovery-key`,
+    );
+    assert.equal(options.redirect, "error");
+    assert.ok(!url.includes("synthetic-discovery-key"));
+    assert.equal(
+      (await readProviderSetup("account-a", "llm", definition.id)).model,
+      "",
+    );
+    assert.equal(
+      (await readProviderConfig("account-a", "llm")).provider,
+      "anarlog",
+    );
+  });
+}
+
+test("model discovery excludes non-text models and keeps custom IDs and Cohere model names", () => {
+  assert.deepEqual(
+    parseProviderModels("openrouter", {
+      data: [
+        { id: "chat-model" },
+        { id: "chat-model" },
+        { id: "my-custom-model" },
+        { id: "embedding-model" },
+        { id: "speech-transcribe" },
+        { id: "vision-only", architecture: { output_modalities: ["image"] } },
+        { id: "speech-only", architecture: { input_modalities: ["audio"] } },
+        { id: "no-chat", capabilities: { completion_chat: false } },
+        { id: "bad\nmodel" },
+        { id: "a".repeat(201) },
+        null,
+      ],
+    }),
+    ["chat-model", "my-custom-model"],
+  );
+  assert.deepEqual(
+    parseProviderModels("cohere", {
+      models: [
+        { name: "command-a", endpoints: ["chat"] },
+        { name: "classify", endpoints: ["classify"] },
+      ],
+    }),
+    ["command-a"],
+  );
+  assert.deepEqual(
+    parseProviderModels("google_generative_ai", {
+      models: [
+        {
+          name: "models/gemini-chat",
+          supportedGenerationMethods: ["generateContent"],
+        },
+        {
+          name: "models/embedding",
+          supportedGenerationMethods: ["embedContent"],
+        },
+      ],
+    }),
+    ["gemini-chat"],
+  );
+  assert.throws(() => parseProviderModels("openai", {}), /Invalid model list/);
+});
+
+test("model discovery preserves manual selection on empty, malformed, oversized, or failed responses", async () => {
+  const config = {
+    ...defaultProviderConfig("llm", "openai"),
+    model: "my-manual-model",
+  };
+  await saveProviderConfig("account-a", "llm", config, "synthetic-key");
+  fixture.respond = () => Response.json({ data: [] });
+  assert.deepEqual(
+    await discoverProviderModels(
+      "account-a",
+      config,
+      new AbortController().signal,
+    ),
+    [],
+  );
+  for (const response of [
+    () => new Response("private-provider-error-body", { status: 401 }),
+    () => new Response("not-json"),
+    () =>
+      Response.json(
+        { data: [] },
+        { headers: { "content-length": String(9 * 1024 * 1024) } },
+      ),
+    () => new Response("x".repeat(8 * 1024 * 1024 + 1)),
+  ]) {
+    fixture.respond = response;
+    await assert.rejects(
+      discoverProviderModels("account-a", config, new AbortController().signal),
+      { message: "Couldn’t load models. Retry or enter a model ID." },
+    );
+    assert.equal(
+      (await readProviderConfig("account-a", "llm")).model,
+      "my-manual-model",
+    );
+  }
+});
+
+test("discovery never uses another account's key or a stale custom endpoint", async () => {
+  const config = {
+    ...defaultProviderConfig("llm", "custom"),
+    baseUrl: "https://old.example.test",
+  };
+  await saveProviderConnection("account-a", "llm", config, "synthetic-key");
+  await assert.rejects(
+    discoverProviderModels(
+      "account-b",
+      { ...defaultProviderConfig("llm", "openai") },
+      new AbortController().signal,
+    ),
+    /Add an API key/,
+  );
+  await saveProviderConnection(
+    "account-a",
+    "llm",
+    { ...config, baseUrl: "https://new.example.test" },
+    "replacement-key",
+  );
+  await assert.rejects(
+    discoverProviderModels("account-a", config, new AbortController().signal),
+    /connection changed/,
+  );
+  assert.equal(fixture.requests.length, 0);
+});
+
+test("discovery aborts requests when leaving the picker", async () => {
+  const config = defaultProviderConfig("llm", "openai");
+  await saveProviderConnection("account-a", "llm", config, "synthetic-key");
+  const before = new AbortController();
+  before.abort();
+  await assert.rejects(
+    discoverProviderModels("account-a", config, before.signal),
+    { name: "AbortError" },
+  );
+  assert.equal(fixture.requests.length, 0);
+  const during = new AbortController();
+  fixture.respond = (_url, { signal }) => {
+    during.abort();
+    assert.equal(signal.aborted, true);
+    throw new Error("aborted");
+  };
+  await assert.rejects(
+    discoverProviderModels("account-a", config, during.signal),
+    /Couldn’t load models/,
+  );
+});
+
+for (const suffix of ["", "/openai", "/openai/v1"]) {
+  test(`Azure model discovery normalizes the configured endpoint ${suffix || "root"}`, async () => {
+    const config = {
+      ...defaultProviderConfig("llm", "azure_openai"),
+      baseUrl: `https://azure.example.test${suffix}`,
+    };
+    await saveProviderConnection("account-a", "llm", config, "synthetic-key");
+    fixture.respond = () => Response.json({ data: [{ id: "my-deployment" }] });
+    await discoverProviderModels(
+      "account-a",
+      config,
+      new AbortController().signal,
+    );
+    assert.equal(
+      fixture.requests[0].url,
+      "https://azure.example.test/openai/models?api-version=2024-10-21",
+    );
+  });
+}

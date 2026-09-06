@@ -27,6 +27,7 @@ import { useAuth } from "@/auth/context";
 
 import { SettingsPage } from "./components";
 import { createProviderAutosave } from "./provider-autosave";
+import { ProviderModelPicker } from "./provider-model-picker";
 import {
   readProviderConfig,
   readProviderKey,
@@ -171,8 +172,9 @@ function ProviderForm({
             <Text>Automatic</Text>
           </Row>
         ) : selectedSetup?.data ? (
-          <ModelField
+          <ProviderModelPicker
             key={selectedProvider}
+            account={account}
             kind={kind}
             config={selectedSetup.data.config}
             model={
@@ -275,59 +277,6 @@ function ProviderForm({
   );
 }
 
-function ModelField({
-  kind,
-  config,
-  model: initialModel,
-  hasKey,
-  onChange,
-  onSave,
-}: {
-  kind: ProviderKind;
-  config: ProviderConfig;
-  model: string;
-  hasKey: boolean;
-  onChange: (model: string) => void;
-  onSave: (model: string) => void;
-}) {
-  const Colors = useColors();
-  const model = useNativeState(initialModel);
-  const form = useForm({ defaultValues: { model: initialModel } });
-  const [autosave] = useState(() =>
-    createProviderAutosave(kind, ({ config }) => onSave(config.model)),
-  );
-  useFocusEffect(useCallback(() => () => autosave.flush(), [autosave]));
-  return (
-    <Row alignment="center" spacing={8}>
-      <Icon
-        name={Icon.select({
-          ios: "cpu",
-          android: import("@expo/material-symbols/memory.xml"),
-        })}
-        size={18}
-        color={Colors.muted}
-        style={{ width: 20 }}
-      />
-      <Text>Model</Text>
-      <TextInput
-        value={model}
-        placeholder="Model ID"
-        textAlign="right"
-        autoCapitalize="none"
-        autoCorrect={false}
-        onBlur={autosave.flush}
-        onSubmitEditing={autosave.flush}
-        onChangeText={(value) => {
-          model.value = value;
-          form.setFieldValue("model", value);
-          onChange(value);
-          autosave.schedule({ ...config, ...form.state.values }, "", hasKey);
-        }}
-      />
-    </Row>
-  );
-}
-
 function ProviderFields({
   kind,
   account,
@@ -355,12 +304,19 @@ function ProviderFields({
     await queryClient.invalidateQueries({
       queryKey: ["provider", account, kind],
     });
+    void queryClient.resetQueries({
+      queryKey: ["provider-models", account, kind, config.provider],
+    });
   };
   const save = useMutation({
     gcTime: 0,
     scope: { id: `provider-settings:${account}:${kind}` },
-    mutationFn: (draft: { config: ProviderConfig; apiKey: string }) =>
-      saveProviderConnection(account, kind, draft.config, draft.apiKey),
+    mutationFn: async (draft: { config: ProviderConfig; apiKey: string }) => {
+      await queryClient.cancelQueries({
+        queryKey: ["provider-models", account, kind, config.provider],
+      });
+      await saveProviderConnection(account, kind, draft.config, draft.apiKey);
+    },
     onSuccess: async () => {
       await invalidate();
       onSaved();
@@ -372,7 +328,12 @@ function ProviderFields({
   useFocusEffect(useCallback(() => () => autosave.flush(), [autosave]));
   const remove = useMutation({
     scope: { id: `provider-settings:${account}:${kind}` },
-    mutationFn: () => removeProviderKey(account, kind, config.provider),
+    mutationFn: async () => {
+      await queryClient.cancelQueries({
+        queryKey: ["provider-models", account, kind, config.provider],
+      });
+      await removeProviderKey(account, kind, config.provider);
+    },
     onSuccess: async () => {
       save.reset();
       await invalidate();
