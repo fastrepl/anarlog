@@ -164,9 +164,11 @@ embedded!(
     "icons/chart-bar.svg",
     "icons/check-circle.svg",
     "icons/check.svg",
+    "icons/circle-notch.svg",
     "icons/close-x.svg",
     "icons/code.svg",
     "icons/copy.svg",
+    "icons/discord-logo.svg",
     "icons/download-simple.svg",
     "icons/external-link.svg",
     "icons/file-arrow-down.svg",
@@ -176,6 +178,7 @@ embedded!(
     "icons/folder-open.svg",
     "icons/folder.svg",
     "icons/gear.svg",
+    "icons/github-logo.svg",
     "icons/grip-vertical.svg",
     "icons/headset.svg",
     "icons/heart.svg",
@@ -188,6 +191,7 @@ embedded!(
     "icons/note-edit.svg",
     "icons/notebook.svg",
     "icons/pencil-edit.svg",
+    "icons/plugs-connected.svg",
     "icons/plus.svg",
     "icons/popover-tail-border.svg",
     "icons/popover-tail.svg",
@@ -201,6 +205,8 @@ embedded!(
     "icons/sort-ascending.svg",
     "icons/sort-descending.svg",
     "icons/sparkle.svg",
+    "icons/speaker-high.svg",
+    "icons/speaker-x.svg",
     "icons/square.svg",
     "icons/sun.svg",
     "icons/text-align-left.svg",
@@ -292,8 +298,10 @@ embedded!(
     "icons/view-sidebar-left.svg",
     "icons/warning-circle.svg",
     "icons/waveform.svg",
+    "icons/x-logo.svg",
     "icons/x.svg",
     "anarlog-icon.png",
+    "onboarding-frame.png",
     "google-meet.svg",
     "teams.png",
     "webex.png",
@@ -329,6 +337,6 @@ mod tests {
         }
         assert!(Assets.load("icons/search.svg").unwrap().is_some());
         assert!(Assets.load("icons/missing.svg").unwrap().is_none());
-        assert_eq!(Assets.list("icons/").unwrap().len(), 154);
+        assert_eq!(Assets.list("icons/").unwrap().len(), 161);
     }
 }

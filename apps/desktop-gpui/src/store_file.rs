@@ -61,6 +61,21 @@ impl StoreFile {
     }
 
     /// `saveRecentlyOpenedSessions`
+    /// `get_onboarding_needed`: `OnboardingNeeded2`, `true` when unset.
+    pub fn onboarding_needed(&self) -> bool {
+        self.read_desktop()
+            .get("OnboardingNeeded2")
+            .and_then(Value::as_bool)
+            .unwrap_or(true)
+    }
+
+    /// `set_onboarding_needed`
+    pub fn set_onboarding_needed(&self, needed: bool) -> std::io::Result<()> {
+        let mut desktop = self.read_desktop();
+        desktop.insert("OnboardingNeeded2".into(), Value::Bool(needed));
+        self.write_desktop(&desktop)
+    }
+
     pub fn save_recently_opened_sessions(&self, ids: &[String]) -> std::io::Result<()> {
         let mut desktop = self.read_desktop();
         desktop.insert(
@@ -97,6 +112,21 @@ impl StoreFile {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn onboarding_needed_defaults_to_true_and_round_trips() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = StoreFile::next_to(&dir.path().join("app.db"));
+        assert!(store.onboarding_needed());
+        store.set_onboarding_needed(false).unwrap();
+        assert!(!store.onboarding_needed());
+        let raw: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(dir.path().join("store.json")).unwrap())
+                .unwrap();
+        let inner: serde_json::Value =
+            serde_json::from_str(raw["desktop"].as_str().unwrap()).unwrap();
+        assert_eq!(inner["OnboardingNeeded2"], false);
+    }
 
     #[test]
     fn reads_and_writes_the_double_encoded_desktop_document() {

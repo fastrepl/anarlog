@@ -10,6 +10,7 @@ mod icon_picker;
 mod meeting_info;
 mod menu;
 mod note;
+pub(crate) mod onboarding;
 mod open_note;
 mod overflow;
 mod settings;
@@ -192,6 +193,8 @@ pub struct Workspace {
     icon_picker: Option<icon_picker::IconPicker>,
     /// The Stats settings page's records and range.
     stats: Option<stats_page::StatsState>,
+    /// The first-run flow while `OnboardingNeeded2` is not `false`.
+    onboarding: Option<onboarding::OnboardingState>,
     /// `anarlog.template-picker.recent-emojis` (kept for the session).
     recent_emoji_ids: Vec<String>,
     /// The note column's scroll position, for its WebKit-style scrollbar.
@@ -313,6 +316,7 @@ impl Workspace {
             template_picker: None,
             icon_picker: None,
             stats: None,
+            onboarding: None,
             recent_emoji_ids: Vec::new(),
             note_scroll: gpui::ScrollHandle::new(),
             hovered_section: None,
@@ -330,7 +334,10 @@ impl Workspace {
         this.reload_settings(cx);
         this.watch_changes(cx);
         match mode {
-            Mode::Main => this.restore_tabs(cx),
+            Mode::Main => {
+                this.restore_tabs(cx);
+                this.start_onboarding_if_needed();
+            }
             Mode::StandaloneNote(session_id) => {
                 this.tabs.push(session_id.clone());
                 this.selected = Some(session_id.clone());
@@ -1062,6 +1069,17 @@ impl Render for Workspace {
         let theme = self.theme;
         let client_decorations = matches!(window.window_decorations(), Decorations::Client { .. });
 
+        // `isOnboarding`: the onboarding tab takes the whole shell surface,
+        // without the title bar or sidebar.
+        if self.onboarding_open() {
+            return div()
+                .id("workspace-root")
+                .size_full()
+                .track_focus(&self.focus_handle)
+                .child(self.render_onboarding(window, cx))
+                .into_any_element();
+        }
+
         // `ShellFrame`: title bar (Windows/Linux) above the `shell-scaffold`
         // row of sidebar + main surface, all on `bg-background`.
         let dragging = self.sidebar_drag.is_some();
@@ -1215,5 +1233,6 @@ impl Render for Workspace {
                     .map(|toast| gpui::deferred(toast).with_priority(11)),
             )
             .children(self.render_open_note_dialog(window, cx))
+            .into_any_element()
     }
 }

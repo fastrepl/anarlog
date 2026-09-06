@@ -126,6 +126,19 @@ const CREATE_SESSION_SQL: &str = "
     )
 ";
 
+/// `findOrCreateWelcomeSession`'s lookup.
+const WELCOME_SESSION_SQL: &str = "
+    SELECT id
+    FROM sessions
+    WHERE deleted_at IS NULL
+      AND CASE
+        WHEN json_valid(event_json)
+        THEN json_extract(event_json, '$.tracking_id')
+      END = ?
+    ORDER BY created_at, id
+    LIMIT 1
+";
+
 // `createEmptyNoteStatement`.
 const CREATE_EMPTY_NOTE_SQL: &str = "
     INSERT INTO session_documents (
@@ -1173,6 +1186,16 @@ impl Store {
     /// memo, the owner's human row, and the owner participant in one
     /// transaction. Returns the new session id.
     pub fn create_note(&self) -> tokio::task::JoinHandle<anyhow::Result<String>> {
+        self.create_session(String::new(), String::new(), String::new())
+    }
+
+    /// `createSession(title, DEFAULT_USER_ID, { event_json, raw_md })`.
+    pub fn create_session(
+        &self,
+        title: String,
+        event_json: String,
+        raw_md: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<String>> {
         let db = self.db.clone();
         self.runtime.spawn(async move {
             let session_id = uuid::Uuid::new_v4().to_string();
@@ -1186,8 +1209,8 @@ impl Store {
             sqlx::query(CREATE_SESSION_SQL)
                 .bind(&session_id)
                 .bind(DEFAULT_USER_ID)
-                .bind("")
-                .bind("")
+                .bind(&title)
+                .bind(&event_json)
                 .bind("")
                 .bind(&now)
                 .bind(&now)
@@ -1195,7 +1218,7 @@ impl Store {
                 .await?;
             sqlx::query(CREATE_EMPTY_NOTE_SQL)
                 .bind(&session_id)
-                .bind("")
+                .bind(&raw_md)
                 .bind(&now)
                 .bind(&now)
                 .bind(&session_id)
@@ -1216,6 +1239,52 @@ impl Store {
             transaction.commit().await?;
             Ok(session_id)
         })
+    }
+
+    /// `getOrCreateWelcomeSession`: the session tagged with the onboarding
+    /// demo tracking id, created with the welcome note and demo event when
+    /// missing.
+    pub fn get_or_create_welcome_session(&self) -> tokio::task::JoinHandle<anyhow::Result<String>> {
+        let store = self.clone_handle();
+        self.runtime.spawn(async move {
+            let existing: Option<String> = sqlx::query_scalar(WELCOME_SESSION_SQL)
+                .bind(crate::workspace::onboarding::WELCOME_NOTE_TRACKING_ID)
+                .fetch_optional(store.db.pool())
+                .await?;
+            if let Some(id) = existing {
+                return Ok(id);
+            }
+            let now = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string();
+            let event = serde_json::json!({
+                "tracking_id": crate::workspace::onboarding::WELCOME_NOTE_TRACKING_ID,
+                "calendar_id": "",
+                "title": "Welcome to Anarlog",
+                "started_at": now,
+                "ended_at": "",
+                "is_all_day": false,
+                "has_recurrence_rules": false,
+                "meeting_link": crate::workspace::onboarding::WELCOME_NOTE_DEMO_URL,
+                "description": "A private, prerecorded introduction to Anarlog.",
+            });
+            let raw_md = anlg_tiptap::md_to_tiptap_json(crate::workspace::onboarding::WELCOME_NOTE)
+                .map_err(|error| anyhow::anyhow!(error))?
+                .to_string();
+            store
+                .create_session("Welcome to Anarlog".to_string(), event.to_string(), raw_md)
+                .await?
+        })
+    }
+
+    fn clone_handle(&self) -> Store {
+        Store {
+            runtime: self.runtime.clone(),
+            db: self.db.clone(),
+            path: self.path.clone(),
+            changes: self.changes.clone(),
+            identifier: self.identifier.clone(),
+        }
     }
 
     /// `useConfigValues` for the provider keys the toast host needs.
@@ -2850,6 +2919,58 @@ mod tests {
         assert_eq!(words[1]["text"], "Second cue");
         let preview = store.load_note(session_id).await.unwrap().unwrap().unwrap();
         assert!(preview.has_transcript);
+    }
+
+    #[tokio::test]
+    async fn welcome_session_is_created_once_with_the_demo_event_and_note() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(DB_FILENAME);
+        {
+            let db = Db::connect_local_plain(&path).await.unwrap();
+            anlg_db_app::prepare_schema(&db).await.unwrap();
+        }
+        let store = Store::open(
+            tokio::runtime::Handle::current(),
+            path,
+            "com.hyprnote.dev".to_string(),
+        )
+        .await
+        .unwrap();
+        let first = store
+            .get_or_create_welcome_session()
+            .await
+            .unwrap()
+            .unwrap();
+        let second = store
+            .get_or_create_welcome_session()
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(first, second);
+        let (title, event_json, body): (String, String, String) = sqlx::query_as(
+            "SELECT session.title, session.event_json, document.body
+             FROM sessions AS session
+             JOIN session_documents AS document
+               ON document.session_id = session.id AND document.kind = 'note'
+             WHERE session.id = ?",
+        )
+        .bind(&first)
+        .fetch_one(store.db.pool())
+        .await
+        .unwrap();
+        assert_eq!(title, "Welcome to Anarlog");
+        let event: serde_json::Value = serde_json::from_str(&event_json).unwrap();
+        assert_eq!(event["tracking_id"], "anarlog-onboarding-demo-v1");
+        assert_eq!(event["meeting_link"], "https://anarlog.so/onboarding-demo/");
+        assert_eq!(event["title"], "Welcome to Anarlog");
+        assert_eq!(event["is_all_day"], false);
+        let expected = anlg_tiptap::md_to_tiptap_json(crate::workspace::onboarding::WELCOME_NOTE)
+            .unwrap()
+            .to_string();
+        assert_eq!(body, expected);
+        assert!(body.contains("Join & record"));
+        let (sessions, _) = store.list_timeline().await.unwrap().unwrap();
+        assert_eq!(sessions.len(), 1);
     }
 
     #[tokio::test]

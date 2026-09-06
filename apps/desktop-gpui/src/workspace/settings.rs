@@ -235,7 +235,7 @@ fn sidebar_accent(dark: bool) -> gpui::Rgba {
 /// `font-hand`: "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive; on
 /// Linux WebKitGTK ends up on the fontconfig serif, which is what the app
 /// shows there.
-fn hand_font_family() -> &'static str {
+pub(super) fn hand_font_family() -> &'static str {
     if cfg!(target_os = "macos") {
         "Bradley Hand"
     } else if cfg!(target_os = "windows") {
@@ -1306,17 +1306,22 @@ impl Workspace {
         page
     }
 
+    /// `buildWebAppUrl("/auth")` with the desktop flow and deep-link scheme.
+    pub(super) fn auth_url(&self) -> String {
+        format!(
+            "{}/auth?flow=desktop&scheme={}",
+            web_app_url(),
+            deep_link_scheme(self.store.identifier())
+        )
+    }
+
     /// `SettingsAccount` while signed out: the sign-in section with the
     /// `rounded-pill h-10 border-2 px-6` primary button that opens
     /// `buildWebAppUrl("/auth")` in the browser.
     fn render_account_signed_out(&self, cx: &Context<Self>) -> Div {
         let theme = self.theme;
         let hovered = self.hovered == Some("account-get-started");
-        let url = format!(
-            "{}/auth?flow=desktop&scheme={}",
-            web_app_url(),
-            deep_link_scheme(self.store.identifier())
-        );
+        let url = self.auth_url();
         div()
             .flex()
             .min_w_0()
