@@ -85,7 +85,9 @@ impl Workspace {
                     anlg_fs_sync_core::audio::exists(&self.store.session_dir(&preview.session.id))
                         .unwrap_or(false);
                 let note_has_content = match tab {
-                    super::NoteTab::Memo => crate::db::has_note_content(&preview.memo_body, "json"),
+                    super::NoteTab::Memo => {
+                        crate::db::has_note_content(&preview.memo_body, "prosemirror_json")
+                    }
                     super::NoteTab::Enhanced(id) => preview
                         .enhanced
                         .iter()
@@ -135,7 +137,13 @@ impl Workspace {
                 Entry::Separator,
                 plain("microphone", "Start listening", None),
                 plain("waveform", "Upload audio", None),
-                plain("file-text", "Upload transcript", None),
+                plain(
+                    "file-text",
+                    "Upload transcript",
+                    Some(Box::new(|this, window, cx| {
+                        this.upload_transcript(window, cx)
+                    })),
+                ),
                 Entry::Separator,
                 plain(
                     "app-window",
@@ -175,6 +183,42 @@ impl Workspace {
             spec.entries.drain(start..start + 2);
         }
         spec
+    }
+
+    /// `selectAndUpload("transcript")`: the native open dialog, then the
+    /// subtitle import for the selected `.vtt` / `.srt`; other files are
+    /// ignored like `processFile`.
+    fn upload_transcript(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.close_overflow_menu(cx);
+        let Some(session_id) = self.selected.clone() else {
+            return;
+        };
+        let picker = cx.prompt_for_paths(gpui::PathPromptOptions {
+            files: true,
+            directories: false,
+            multiple: false,
+            prompt: None,
+        });
+        cx.spawn_in(window, async move |this, cx| {
+            let Ok(Ok(Some(paths))) = picker.await else {
+                return;
+            };
+            let Some(path) = paths.into_iter().next() else {
+                return;
+            };
+            let task = this
+                .update(cx, |this, _| {
+                    this.store.import_subtitle_transcript(session_id, path)
+                })
+                .ok();
+            let Some(task) = task else {
+                return;
+            };
+            if let Ok(Err(error)) = task.await {
+                tracing::error!(%error, "[upload] transcript failed");
+            }
+        })
+        .detach();
     }
 
     /// `FolderPickerSubmenu`: every folder in use plus "No folder", the

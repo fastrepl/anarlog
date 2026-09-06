@@ -301,11 +301,16 @@ impl Workspace {
                 }])
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .child(
+                    // `[data-icon]`: a 16px box holding the Toaster's 20px
+                    // Hugeicons glyph (`icons={{ success: <CheckCircle size={20} /> ... }}`).
                     div()
+                        .flex()
+                        .size(px(16.0))
                         .flex_shrink_0()
+                        .items_center()
                         .ml(px(-3.0))
                         .mr(px(4.0))
-                        .child(crate::ui::icon(glyph, px(16.0), text)),
+                        .child(crate::ui::icon(glyph, px(20.0), text)),
                 )
                 .child(
                     div()
@@ -363,10 +368,13 @@ impl Workspace {
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .child(
                     div()
+                        .flex()
+                        .size(px(16.0))
                         .flex_shrink_0()
+                        .items_center()
                         .ml(px(-3.0))
                         .mr(px(4.0))
-                        .child(crate::ui::icon("alert-triangle", px(16.0), text)),
+                        .child(crate::ui::icon("alert-triangle", px(20.0), text)),
                 )
                 .child(
                     div()

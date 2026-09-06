@@ -5442,6 +5442,7 @@ name = "desktop-gpui"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "aspasia",
  "audio",
  "audio-actual",
  "audio-mock",

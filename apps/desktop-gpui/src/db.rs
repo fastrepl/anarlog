@@ -41,6 +41,46 @@ const TIMELINE_EVENTS_SQL: &str = "
     ORDER BY event.started_at, event.id
 ";
 
+/// `createTranscript` in `apps/desktop/src/stt/queries.ts` (no replacement).
+const CREATE_TRANSCRIPT_SQL: &str = "
+    INSERT INTO transcripts (
+      id, workspace_id, owner_user_id, session_id, source, provider,
+      model, language, started_at_ms, ended_at_ms, audio_attachment_id,
+      memo, words_json, speaker_hints_json, metadata_json, created_at,
+      updated_at, deleted_at
+    )
+    SELECT ?, session.workspace_id,
+      COALESCE(NULLIF(?, ''), session.owner_user_id),
+      session.id, ?, ?, ?, ?, ?, ?, '',
+      ?, ?, ?, '{}', ?, ?, NULL
+    FROM sessions AS session
+    WHERE session.id = ? AND session.deleted_at IS NULL
+";
+
+/// A subtitle cue as `listener2-core`'s `parse_subtitle_from_path` reads it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SubtitleCue {
+    pub text: String,
+    pub start_ms: u64,
+    pub end_ms: u64,
+}
+
+/// `parseSubtitle`: `.srt` / `.vtt` through aspasia's WebVTT view.
+pub fn parse_subtitle_cues(path: &Path) -> anyhow::Result<Vec<SubtitleCue>> {
+    use aspasia::{Subtitle as _, TimedSubtitleFile, WebVttSubtitle};
+    let file = TimedSubtitleFile::new(path).map_err(|e| anyhow::anyhow!(e.to_string()))?;
+    let vtt: WebVttSubtitle = file.into();
+    Ok(vtt
+        .events()
+        .iter()
+        .map(|cue| SubtitleCue {
+            text: cue.text.clone(),
+            start_ms: i64::from(cue.start) as u64,
+            end_ms: i64::from(cue.end) as u64,
+        })
+        .collect())
+}
+
 // apps/desktop/src/session/queries/enhanced-notes.ts, `useEnhancedNoteRecords`.
 const ENHANCED_NOTES_SQL: &str = "
     SELECT id, title, body, body_format, COALESCE(template_id, '')
@@ -2074,6 +2114,84 @@ impl Store {
         })
     }
 
+    /// `useUploadFile(...).uploadTranscript` → `processFile(path, "transcript")`:
+    /// parse the `.vtt` / `.srt` with aspasia like `parseSubtitle`, then
+    /// `createTranscript` with `source: "subtitle_import"` and one
+    /// `MixedCapture` word per cue. Returns `false` when the file has no cues
+    /// (Tauri writes nothing then).
+    pub fn import_subtitle_transcript(
+        &self,
+        session_id: String,
+        path: PathBuf,
+    ) -> tokio::task::JoinHandle<anyhow::Result<bool>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let extension = path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .map(|ext| ext.to_ascii_lowercase())
+                .unwrap_or_default();
+            if extension != "vtt" && extension != "srt" {
+                return Ok(false);
+            }
+            let cues = tokio::task::spawn_blocking(move || parse_subtitle_cues(&path)).await??;
+            if cues.is_empty() {
+                return Ok(false);
+            }
+            let session: Option<(String, Option<String>)> = sqlx::query_as(
+                "SELECT session.owner_user_id, document.body
+                 FROM sessions AS session
+                 LEFT JOIN session_documents AS document
+                   ON document.session_id = session.id AND document.kind = 'note'
+                   AND document.deleted_at IS NULL
+                 WHERE session.id = ? AND session.deleted_at IS NULL",
+            )
+            .bind(&session_id)
+            .fetch_optional(db.pool())
+            .await?;
+            let Some((owner_user_id, memo)) = session else {
+                return Ok(false);
+            };
+            let transcript_id = uuid::Uuid::new_v4().to_string();
+            let now = chrono::Utc::now();
+            let iso = now.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
+            let words: Vec<serde_json::Value> = cues
+                .iter()
+                .map(|cue| {
+                    serde_json::json!({
+                        "id": uuid::Uuid::new_v4().to_string(),
+                        "transcript_id": transcript_id,
+                        "text": cue.text,
+                        "start_ms": cue.start_ms,
+                        "end_ms": cue.end_ms,
+                        // `ChannelProfile.MixedCapture`
+                        "channel": 2,
+                        "user_id": owner_user_id,
+                        "created_at": iso,
+                    })
+                })
+                .collect();
+            sqlx::query(CREATE_TRANSCRIPT_SQL)
+                .bind(&transcript_id)
+                .bind(&owner_user_id)
+                .bind("subtitle_import")
+                .bind("")
+                .bind("")
+                .bind("")
+                .bind(now.timestamp_millis())
+                .bind(Option::<i64>::None)
+                .bind(memo.unwrap_or_default())
+                .bind(serde_json::Value::Array(words).to_string())
+                .bind("[]")
+                .bind(&iso)
+                .bind(&iso)
+                .bind(&session_id)
+                .execute(db.pool())
+                .await?;
+            Ok(true)
+        })
+    }
+
     pub fn update_memo(
         &self,
         session_id: String,
@@ -2632,6 +2750,106 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
+    }
+
+    #[tokio::test]
+    async fn subtitle_import_writes_the_transcript_row_createtranscript_produces() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(DB_FILENAME);
+        {
+            let db = Db::connect_local_plain(&path).await.unwrap();
+            anlg_db_app::prepare_schema(&db).await.unwrap();
+        }
+        let store = Store::open(
+            tokio::runtime::Handle::current(),
+            path,
+            "com.hyprnote.dev".to_string(),
+        )
+        .await
+        .unwrap();
+        let session_id = store.create_note().await.unwrap().unwrap();
+        store
+            .update_memo(
+                session_id.clone(),
+                r#"{"type":"doc","content":[]}"#.to_string(),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+
+        let vtt = dir.path().join("meeting.vtt");
+        std::fs::write(
+            &vtt,
+            "WEBVTT\n\n00:00:01.000 --> 00:00:02.500\nHello there\n\n00:00:03.000 --> 00:00:04.000\nSecond cue\n",
+        )
+        .unwrap();
+        // Other extensions are ignored like `processFile`.
+        let text = dir.path().join("notes.txt");
+        std::fs::write(&text, "not a subtitle").unwrap();
+        assert!(
+            !store
+                .import_subtitle_transcript(session_id.clone(), text)
+                .await
+                .unwrap()
+                .unwrap()
+        );
+
+        assert!(
+            store
+                .import_subtitle_transcript(session_id.clone(), vtt)
+                .await
+                .unwrap()
+                .unwrap()
+        );
+        let (source, owner, memo, words_json, hints, provider): (
+            String,
+            String,
+            String,
+            String,
+            String,
+            String,
+        ) = sqlx::query_as(
+            "SELECT source, owner_user_id, memo, words_json, speaker_hints_json, provider
+             FROM transcripts WHERE session_id = ?",
+        )
+        .bind(&session_id)
+        .fetch_one(store.db.pool())
+        .await
+        .unwrap();
+        let session_owner: String =
+            sqlx::query_scalar("SELECT owner_user_id FROM sessions WHERE id = ?")
+                .bind(&session_id)
+                .fetch_one(store.db.pool())
+                .await
+                .unwrap();
+        assert_eq!(source, "subtitle_import");
+        assert_eq!(owner, session_owner);
+        assert_eq!(memo, r#"{"type":"doc","content":[]}"#);
+        assert_eq!(hints, "[]");
+        assert_eq!(provider, "");
+        let words: Vec<serde_json::Map<String, serde_json::Value>> =
+            serde_json::from_str(&words_json).unwrap();
+        assert_eq!(words.len(), 2);
+        assert_eq!(
+            words[0].keys().cloned().collect::<Vec<_>>(),
+            [
+                "id",
+                "transcript_id",
+                "text",
+                "start_ms",
+                "end_ms",
+                "channel",
+                "user_id",
+                "created_at"
+            ]
+        );
+        assert_eq!(words[0]["text"], "Hello there");
+        assert_eq!(words[0]["start_ms"], 1000);
+        assert_eq!(words[0]["end_ms"], 2500);
+        assert_eq!(words[0]["channel"], 2);
+        assert_eq!(words[1]["text"], "Second cue");
+        let preview = store.load_note(session_id).await.unwrap().unwrap().unwrap();
+        assert!(preview.has_transcript);
     }
 
     #[tokio::test]

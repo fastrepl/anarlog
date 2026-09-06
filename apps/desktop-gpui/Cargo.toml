@@ -23,6 +23,7 @@ anlg-tiptap = { workspace = true }
 anlg-transcript = { workspace = true }
 
 anyhow = { workspace = true }
+aspasia = "0.2.1"
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 dirs = { workspace = true }
