@@ -315,6 +315,7 @@ impl Workspace {
         closed |= self.close_calendar_context_menu();
         closed |= self.close_contacts_menus();
         closed |= self.close_templates_menus();
+        closed |= self.close_automations_menus();
         if closed {
             cx.notify();
         }

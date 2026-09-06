@@ -278,6 +278,7 @@ impl Workspace {
         self.close_folders(cx);
         self.close_templates(cx);
         self.close_contacts(cx);
+        self.close_automations(cx);
         if self.calendar.is_none() {
             let today = Local::now().date_naive();
             self.calendar = Some(CalendarState {

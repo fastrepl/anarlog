@@ -1,5 +1,6 @@
 mod ai_settings;
 mod audio_player;
+mod automations_tab;
 mod calendar_tab;
 mod chat;
 mod contacts_tab;
@@ -210,6 +211,7 @@ pub struct Workspace {
     templates_tab: Option<templates_tab::TemplatesState>,
     /// The Calendar tab while open.
     calendar: Option<calendar_tab::CalendarState>,
+    automations: Option<automations_tab::AutomationsState>,
     /// The Contacts tab while open.
     contacts: Option<contacts_tab::ContactsState>,
     /// The enhanced tab's template picker while open.
@@ -358,6 +360,7 @@ impl Workspace {
             folders: None,
             templates_tab: None,
             calendar: None,
+            automations: None,
             contacts: None,
             template_picker: None,
             icon_picker: None,
@@ -413,6 +416,7 @@ impl Workspace {
             || self.templates_open()
             || self.calendar_open()
             || self.contacts_open()
+            || self.automations_open()
     }
 
     /// `leftSidebarPanelStyle` without `canResizeLeftSidebarPanel`: custom
@@ -1349,6 +1353,8 @@ impl Render for Workspace {
                     .when(self.sidebar_expanded && !self.is_standalone(), |shell| {
                         let sidebar = if self.contacts_open() {
                             self.render_contacts_sidebar(window, cx).into_any_element()
+                        } else if self.automations_open() {
+                            self.render_automations_sidebar(cx).into_any_element()
                         } else if self.calendar_open() {
                             self.render_calendar_sidebar(cx).into_any_element()
                         } else if self.templates_open() {
@@ -1393,6 +1399,7 @@ impl Render for Workspace {
             .children(self.render_filter_menu(window, cx))
             .children(self.render_audio_player_menu(window, cx))
             .children(self.render_calendar_context_menu(window, cx))
+            .children(self.render_automations_context_menu(window, cx))
             .children(self.render_timeline_context_menu(window, cx))
             .children(self.render_mention_popup(window, cx))
             .children(self.render_delete_selected_dialog(cx))

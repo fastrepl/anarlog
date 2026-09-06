@@ -695,6 +695,14 @@ const TEMPLATES_SQL: &str = "
     ORDER BY id
 ";
 
+/// `ChatGroupRecord`
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChatGroup {
+    pub id: String,
+    pub title: String,
+    pub created_at: String,
+}
+
 /// A `templates` row as `mapTemplateLiveRows` shapes it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Template {
@@ -2504,6 +2512,75 @@ impl Store {
                 participant_human_ids: participants.into_iter().map(|(id, _)| id).collect(),
                 human_names,
             })
+        })
+    }
+
+    /// `useChatGroups("automations")`: groups with an automations-scoped
+    /// message, newest first.
+    pub fn list_automation_chat_groups(
+        &self,
+    ) -> tokio::task::JoinHandle<anyhow::Result<Vec<ChatGroup>>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let rows: Vec<(String, String, String)> = sqlx::query_as(
+                "SELECT g.id, g.title, g.created_at
+                 FROM chat_groups AS g
+                 WHERE g.deleted_at IS NULL
+                   AND EXISTS (
+                     SELECT 1
+                     FROM chat_messages AS m
+                     WHERE m.chat_group_id = g.id
+                       AND m.deleted_at IS NULL
+                       AND CASE
+                         WHEN json_valid(m.metadata_json)
+                           THEN json_extract(m.metadata_json, '$.chatScope')
+                         ELSE NULL
+                       END = 'automations'
+                   )
+                 ORDER BY g.created_at DESC, g.id DESC",
+            )
+            .fetch_all(db.pool())
+            .await?;
+            Ok(rows
+                .into_iter()
+                .map(|(id, title, created_at)| ChatGroup {
+                    id,
+                    title,
+                    created_at,
+                })
+                .collect())
+        })
+    }
+
+    /// `deleteChatGroup`: tombstones the group and its messages.
+    pub fn delete_chat_group(
+        &self,
+        group_id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let now = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string();
+            let mut tx = db.pool().begin().await?;
+            sqlx::query(
+                "UPDATE chat_groups SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL",
+            )
+            .bind(&now)
+            .bind(&now)
+            .bind(&group_id)
+            .execute(&mut *tx)
+            .await?;
+            sqlx::query(
+                "UPDATE chat_messages SET deleted_at = ?, updated_at = ? WHERE chat_group_id = ? AND deleted_at IS NULL",
+            )
+            .bind(&now)
+            .bind(&now)
+            .bind(&group_id)
+            .execute(&mut *tx)
+            .await?;
+            tx.commit().await?;
+            Ok(())
         })
     }
 

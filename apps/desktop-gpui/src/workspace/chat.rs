@@ -30,76 +30,12 @@ impl Workspace {
         }
     }
 
-    /// The `[data-chat-floating-frame]` over the main surface: `items-end
-    /// justify-center px-3 pb-2` with the top clearance, closing on a press
-    /// outside the panel.
-    pub(super) fn render_chat_frame(&self, cx: &Context<Self>) -> Option<AnyElement> {
-        if !self.chat_open {
-            return None;
-        }
+    /// `ChatBodyEmpty` without a model: the greeting, the Beta chip, and the
+    /// `Open AI Settings` button. Shared by the floating frame and the
+    /// automations tab's right panel.
+    pub(super) fn render_chat_body(&self, cx: &Context<Self>) -> AnyElement {
         let theme = self.theme;
-        let panel_bg = if theme.dark {
-            gpui::rgb(0x202020)
-        } else {
-            gpui::rgb(0xf4f4f5)
-        };
-        let ghost = |id: &'static str, glyph: &'static str| {
-            div()
-                .id(id)
-                .flex()
-                .size(px(32.0))
-                .items_center()
-                .justify_center()
-                .rounded(px(8.0))
-                .cursor_pointer()
-                .hover(move |style| style.bg(alpha(theme.muted, 0.8)))
-                .child(icon(glyph, px(16.0), theme.muted_foreground))
-        };
-        // `ChatGroups` trigger: `-ml-2 h-8 gap-1.5 rounded-full px-2.5`.
-        let history = div()
-            .id("chat-history")
-            .flex()
-            .h(px(32.0))
-            .items_center()
-            .gap(px(6.0))
-            .ml(px(-8.0))
-            .px(px(10.0))
-            .rounded(px(8.0))
-            .cursor_pointer()
-            .hover(move |style| style.bg(alpha(theme.muted, 0.8)))
-            .child(icon(
-                "clock-counter-clockwise",
-                px(16.0),
-                theme.muted_foreground,
-            ))
-            .child(icon("caret-down", px(14.0), theme.muted_foreground));
-        let toolbar = div()
-            .flex()
-            .h(px(44.0))
-            .flex_shrink_0()
-            .items_center()
-            .gap_2()
-            .px_3()
-            .child(
-                div()
-                    .flex()
-                    .min_w_0()
-                    .flex_1()
-                    .items_center()
-                    .gap_1()
-                    .child(history),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_shrink_0()
-                    .items_center()
-                    .child(ghost("chat-new", "plus"))
-                    .child(ghost("chat-right-panel", "sidebar-left")),
-            );
-
-        // `ChatBodyEmpty` without a model.
-        let body = div()
+        div()
             .flex()
             .flex_col()
             .px_5()
@@ -194,7 +130,79 @@ impl Workspace {
                                     .child("Open AI Settings"),
                             )),
                     ),
+            )
+        .into_any_element()
+    }
+
+    /// The `[data-chat-floating-frame]` over the main surface: `items-end
+    /// justify-center px-3 pb-2` with the top clearance, closing on a press
+    /// outside the panel.
+    pub(super) fn render_chat_frame(&self, cx: &Context<Self>) -> Option<AnyElement> {
+        if !self.chat_open {
+            return None;
+        }
+        let theme = self.theme;
+        let panel_bg = if theme.dark {
+            gpui::rgb(0x202020)
+        } else {
+            gpui::rgb(0xf4f4f5)
+        };
+        let ghost = |id: &'static str, glyph: &'static str| {
+            div()
+                .id(id)
+                .flex()
+                .size(px(32.0))
+                .items_center()
+                .justify_center()
+                .rounded(px(8.0))
+                .cursor_pointer()
+                .hover(move |style| style.bg(alpha(theme.muted, 0.8)))
+                .child(icon(glyph, px(16.0), theme.muted_foreground))
+        };
+        // `ChatGroups` trigger: `-ml-2 h-8 gap-1.5 rounded-full px-2.5`.
+        let history = div()
+            .id("chat-history")
+            .flex()
+            .h(px(32.0))
+            .items_center()
+            .gap(px(6.0))
+            .ml(px(-8.0))
+            .px(px(10.0))
+            .rounded(px(8.0))
+            .cursor_pointer()
+            .hover(move |style| style.bg(alpha(theme.muted, 0.8)))
+            .child(icon(
+                "clock-counter-clockwise",
+                px(16.0),
+                theme.muted_foreground,
+            ))
+            .child(icon("caret-down", px(14.0), theme.muted_foreground));
+        let toolbar = div()
+            .flex()
+            .h(px(44.0))
+            .flex_shrink_0()
+            .items_center()
+            .gap_2()
+            .px_3()
+            .child(
+                div()
+                    .flex()
+                    .min_w_0()
+                    .flex_1()
+                    .items_center()
+                    .gap_1()
+                    .child(history),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_shrink_0()
+                    .items_center()
+                    .child(ghost("chat-new", "plus"))
+                    .child(ghost("chat-right-panel", "sidebar-left")),
             );
+
+        let body = self.render_chat_body(cx);
 
         let panel = div()
             .id("chat-panel")

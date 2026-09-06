@@ -275,6 +275,7 @@ impl Workspace {
         // unmounting the sidebar triggers dismisses their dropdowns.
         self.close_open_menus(cx);
         self.close_folders(cx);
+        self.close_automations(cx);
         self.close_templates(cx);
         self.close_calendar(cx);
         self.close_contacts(cx);
@@ -854,6 +855,8 @@ impl Workspace {
                                 this.open_calendar(cx);
                             } else if label == "Contacts" {
                                 this.open_contacts(window, cx);
+                            } else if label == "Automations" {
+                                this.open_automations(window, cx);
                             }
                         }))
                         .child(icon(glyph, px(15.0), color))
@@ -3182,6 +3185,17 @@ impl Workspace {
     }
 
     pub(super) fn render_select(&self, spec: SelectSpec, cx: &Context<Self>) -> AnyElement {
+        self.render_select_sized(spec, false, cx)
+    }
+
+    /// `compact`: the bare `SelectTrigger` with `h-8 text-xs` (`rounded-full
+    /// border bg-transparent shadow-xs`) used by the automation builder.
+    pub(super) fn render_select_sized(
+        &self,
+        spec: SelectSpec,
+        compact: bool,
+        cx: &Context<Self>,
+    ) -> AnyElement {
         let theme = self.theme;
         let selected = spec
             .current
@@ -3215,20 +3229,33 @@ impl Workspace {
                     .id(SharedString::from(format!("select-trigger-{id}")))
                     .relative()
                     .flex()
-                    .h(px(36.0))
+                    .h(px(if compact { 32.0 } else { 36.0 }))
                     .w_full()
                     .items_center()
                     .justify_between()
                     // `useSquircleRef` replaces the pill radius with the
                     // control squircle.
-                    .child(crate::squircle::squircle(
-                        crate::squircle::CONTROL_RADIUS,
-                        Some(theme.card),
-                        Some((1.0, theme.border)),
-                    ))
+                    .when(!compact, |trigger| {
+                        trigger.child(crate::squircle::squircle(
+                            crate::squircle::CONTROL_RADIUS,
+                            Some(theme.card),
+                            Some((1.0, theme.border)),
+                        ))
+                    })
+                    .when(compact, |trigger| {
+                        // `bg-transparent` over the card; GPUI shadows need an
+                        // opaque fill or they show through as a tint.
+                        trigger
+                            .rounded(px(8.0))
+                            .border_1()
+                            .border_color(theme.border)
+                            .bg(theme.card)
+                            .shadow_xs()
+                    })
                     .px_3()
                     .py_2()
-                    .tw_text_sm()
+                    .when(!compact, |trigger| trigger.tw_text_sm())
+                    .when(compact, |trigger| trigger.tw_text_xs())
                     .text_color(color)
                     .cursor_default()
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
@@ -3255,7 +3282,7 @@ impl Workspace {
             .when_some(open, |wrapper, open| {
                 let panel = match &spec.search {
                     Some(search) => self.render_searchable_panel(&spec, search, open, cx),
-                    None => self.render_select_panel(&spec, cx),
+                    None => self.render_select_panel(&spec, compact, cx),
                 };
                 wrapper.child(gpui::deferred(panel).with_priority(1))
             })
@@ -3265,14 +3292,19 @@ impl Workspace {
     /// `SelectContent position="popper"`: `bg-popover rounded-[18px] border
     /// shadow-md p-1` at the trigger's width, 4px below; items `py-1.5 pr-8
     /// pl-2 text-sm` with the check at `right-2`.
-    fn render_select_panel(&self, spec: &SelectSpec, cx: &Context<Self>) -> AnyElement {
+    fn render_select_panel(
+        &self,
+        spec: &SelectSpec,
+        compact: bool,
+        cx: &Context<Self>,
+    ) -> AnyElement {
         let theme = self.theme;
         let id = spec.id;
         div()
             .id(SharedString::from(format!("select-content-{id}")))
             .occlude()
             .absolute()
-            .top(px(40.0))
+            .top(px(if compact { 36.0 } else { 40.0 }))
             .left_0()
             .w_full()
             .min_w(px(128.0))

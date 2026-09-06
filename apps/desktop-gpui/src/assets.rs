@@ -122,10 +122,13 @@ embedded!(
     "brands/google-calendar.svg",
     "brands/google-cloud.svg",
     "brands/groq.svg",
+    "brands/linear.svg",
     "brands/linkedin.svg",
     "brands/lmstudio.svg",
+    "brands/markdown-mark.svg",
     "brands/mistral.svg",
     "brands/moonshot.svg",
+    "brands/notion.svg",
     "brands/ollama.svg",
     "brands/openai.svg",
     "brands/openrouter.svg",
@@ -133,6 +136,7 @@ embedded!(
     "brands/pyannote-logo-black.png",
     "brands/revai.svg",
     "brands/siliconcloud.svg",
+    "brands/slack.svg",
     "brands/smallestai.svg",
     "brands/soniox-black.png",
     "brands/speechmatics.svg",
@@ -179,10 +183,12 @@ embedded!(
     "icons/download-simple.svg",
     "icons/envelope.svg",
     "icons/external-link.svg",
+    "icons/eye.svg",
     "icons/file-arrow-down.svg",
     "icons/file-text.svg",
     "icons/file.svg",
     "icons/filter.svg",
+    "icons/floppy-disk.svg",
     "icons/folder-open.svg",
     "icons/folder.svg",
     "icons/gear.svg",
@@ -353,6 +359,6 @@ mod tests {
         }
         assert!(Assets.load("icons/search.svg").unwrap().is_some());
         assert!(Assets.load("icons/missing.svg").unwrap().is_none());
-        assert_eq!(Assets.list("icons/").unwrap().len(), 176);
+        assert_eq!(Assets.list("icons/").unwrap().len(), 178);
     }
 }

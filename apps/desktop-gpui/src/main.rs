@@ -3,6 +3,7 @@ mod ai_providers;
 mod assets;
 mod audio;
 mod audio_player;
+mod automations;
 mod batch;
 mod contacts;
 mod db;
