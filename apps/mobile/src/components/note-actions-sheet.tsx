@@ -5,6 +5,17 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CornerCurve, Radius, Spacing, Typography } from "@/constants/theme";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
 
+export type NoteActionsSheetProps = {
+  hasRecordingHistory: boolean;
+  listening: boolean;
+  onClose: () => void;
+  onDelete: () => void;
+  onExport: () => void;
+  onImportRecording: () => void;
+  onToggleListening: () => void;
+  visible: boolean;
+};
+
 export function NoteActionsSheet({
   hasRecordingHistory,
   listening,
@@ -14,16 +25,7 @@ export function NoteActionsSheet({
   onImportRecording,
   onToggleListening,
   visible,
-}: {
-  hasRecordingHistory: boolean;
-  listening: boolean;
-  onClose: () => void;
-  onDelete: () => void;
-  onExport: () => void;
-  onImportRecording: () => void;
-  onToggleListening: () => void;
-  visible: boolean;
-}) {
+}: NoteActionsSheetProps) {
   const styles = useStyles();
   const Colors = useColors();
   const insets = useSafeAreaInsets();
