@@ -69,6 +69,14 @@ const DIRECT_BATCH_PROVIDERS: [&str; 24] = [
     "smallestai",
 ];
 
+/// `BatchTarget`
+struct BatchTarget {
+    provider: String,
+    model: String,
+    base_url: String,
+    api_key: String,
+}
+
 /// `getBatchProvider`
 fn batch_provider(provider: &str, model: &str) -> Option<&'static str> {
     if provider == "cloudflare_workers_ai" {
@@ -307,38 +315,268 @@ impl Workspace {
         .detach();
     }
 
-    /// `useRunBatch`: resolve the batch target. Without a paid account the
-    /// fallback is the local Soniqo batch model on Apple silicon only, so on
-    /// this platform a missing or non-batch provider fails with the
-    /// frontend's message. The batch pipeline itself (`listener2-core`'s
-    /// `run_batch` and the response handling) is not ported yet, so a
-    /// resolvable target still reports `Transcription failed`.
+    /// `useRunBatch`: resolve the batch target — the configured provider when
+    /// `getBatchProvider` accepts it, else the fallback (the local Soniqo
+    /// batch model exists on Apple silicon only) — then `runBatchSession`:
+    /// `handleBatchStarted`, the synthetic progress timer for providers that
+    /// do not stream progress, `listener2-core`'s `run_batch`, and on
+    /// completion `transformBatch` → the persist callback → `createTranscript`
+    /// (`whole_session` promotion) → `markSessionAudioTranscriptionComplete`.
     pub(crate) fn run_batch(
         &mut self,
         session_id: String,
         connection: Option<crate::db::SttConnection>,
         cx: &mut Context<Self>,
     ) {
-        let selected = connection
-            .as_ref()
-            .filter(|conn| batch_provider(&conn.provider, &conn.model).is_some());
+        let selected = connection.as_ref().and_then(|conn| {
+            batch_provider(&conn.provider, &conn.model).map(|provider| BatchTarget {
+                provider: provider.to_string(),
+                model: conn.model.clone(),
+                base_url: conn.base_url.clone(),
+                api_key: conn.api_key.clone(),
+            })
+        });
         let local_available = cfg!(all(target_os = "macos", target_arch = "aarch64"));
-        let error = match selected {
-            None if !local_available => {
-                let label = connection
-                    .as_ref()
-                    .map(|conn| conn.model.clone())
-                    .unwrap_or_else(|| "the selected speech-to-text provider".to_string());
+        let fallback = local_available.then(|| BatchTarget {
+            provider: "soniqo".to_string(),
+            model: "soniqo-parakeet-batch".to_string(),
+            base_url: "soniqo://local".to_string(),
+            api_key: String::new(),
+        });
+        let Some(target) = selected.or(fallback) else {
+            let label = connection
+                .as_ref()
+                .map(|conn| conn.model.clone())
+                .unwrap_or_else(|| "the selected speech-to-text provider".to_string());
+            self.fail_batch(
+                session_id,
                 format!(
                     "{label} is not available for batch transcription on this platform. Configure a batch-capable speech-to-text provider."
-                )
-            }
-            _ => {
-                tracing::warn!("[batch] batch transcription pipeline is not ported yet");
-                "Transcription failed".to_string()
-            }
+                ),
+                cx,
+            );
+            return;
         };
-        // `handleBatchFailed(sessionId, msg)`
+        let Ok(provider) = serde_json::from_value::<anlg_listener2_core::BatchProvider>(
+            serde_json::Value::String(target.provider.clone()),
+        ) else {
+            self.fail_batch(session_id, "Transcription failed".to_string(), cx);
+            return;
+        };
+        let Some(file_path) = anlg_fs_sync_core::audio::path(&self.store.session_dir(&session_id))
+        else {
+            self.fail_batch(session_id, "Transcription failed".to_string(), cx);
+            return;
+        };
+        // `handleBatchStarted(sessionId)`
+        self.recording.batch.insert(
+            session_id.clone(),
+            BatchState {
+                phase: BatchPhase::Transcribing,
+                percentage: Some(0.0),
+                error: None,
+            },
+        );
+        cx.notify();
+        let languages = self.transcription_languages();
+        let context = self.store.batch_session_context(session_id.clone());
+        let runtime = self.store.runtime().clone();
+        let synthetic = crate::batch::should_use_synthetic_batch_progress(
+            &target.provider,
+            Some(&target.model),
+            &target.base_url,
+        );
+        cx.spawn(async move |this, cx| {
+            let Ok(Ok((owner_user_id, memo, participant_humans))) = context.await else {
+                this.update(cx, |this, cx| {
+                    this.fail_batch(session_id, "Transcription failed".to_string(), cx)
+                })
+                .ok();
+                return;
+            };
+            let num_speakers = crate::batch::session_speaker_count(
+                participant_humans.iter().map(String::as_str),
+                Some(owner_user_id.as_str()),
+            );
+            let created_at = chrono::Utc::now();
+            let started_at_ms = created_at.timestamp_millis();
+            let params = anlg_listener2_core::BatchParams {
+                session_id: session_id.clone(),
+                provider,
+                file_path: file_path.to_string_lossy().into_owned(),
+                model: Some(target.model.clone()),
+                base_url: target.base_url.clone(),
+                api_key: target.api_key.clone(),
+                languages,
+                keywords: Vec::new(),
+                num_speakers,
+                min_speakers: None,
+                max_speakers: None,
+                known_speakers: Vec::new(),
+            };
+            let (events_tx, mut events_rx) =
+                tokio::sync::mpsc::unbounded_channel::<anlg_listener2_core::BatchEvent>();
+            struct Runtime(tokio::sync::mpsc::UnboundedSender<anlg_listener2_core::BatchEvent>);
+            impl anlg_listener2_core::BatchRuntime for Runtime {
+                fn emit(&self, event: anlg_listener2_core::BatchEvent) {
+                    let _ = self.0.send(event);
+                }
+            }
+            let run = runtime.spawn(anlg_listener2_core::run_batch(
+                std::sync::Arc::new(Runtime(events_tx)),
+                params,
+            ));
+            // `SYNTHETIC_BATCH_PROGRESS_*`: eased progress until the first
+            // streamed event or the terminal event arrives.
+            let synthetic_started = std::time::Instant::now();
+            let synthetic_active =
+                std::sync::Arc::new(std::sync::atomic::AtomicBool::new(synthetic));
+            let synthetic_task = cx.spawn({
+                let this = this.clone();
+                let session_id = session_id.clone();
+                let active = synthetic_active.clone();
+                async move |cx| {
+                    if !active.load(std::sync::atomic::Ordering::Relaxed) {
+                        return;
+                    }
+                    let mut percentage = crate::batch::synthetic_batch_progress(0.0);
+                    loop {
+                        if this
+                            .update(cx, |this, cx| {
+                                if let Some(batch) = this.recording.batch.get_mut(&session_id)
+                                    && batch.error.is_none()
+                                {
+                                    batch.percentage = Some(percentage);
+                                    cx.notify();
+                                }
+                            })
+                            .is_err()
+                        {
+                            return;
+                        }
+                        cx.background_executor()
+                            .timer(std::time::Duration::from_millis(
+                                crate::batch::SYNTHETIC_BATCH_PROGRESS_INTERVAL_MS,
+                            ))
+                            .await;
+                        if !active.load(std::sync::atomic::Ordering::Relaxed) {
+                            return;
+                        }
+                        percentage = crate::batch::synthetic_batch_progress(
+                            synthetic_started.elapsed().as_millis() as f64,
+                        );
+                    }
+                }
+            });
+            let mut settled = false;
+            while let Some(event) = events_rx.recv().await {
+                if settled {
+                    break;
+                }
+                match event {
+                    anlg_listener2_core::BatchEvent::BatchStarted { .. } => {}
+                    anlg_listener2_core::BatchEvent::BatchResponseStreamed { event, .. } => {
+                        synthetic_active.store(false, std::sync::atomic::Ordering::Relaxed);
+                        let percentage = event.percentage();
+                        this.update(cx, |this, cx| {
+                            if let Some(batch) = this.recording.batch.get_mut(&session_id) {
+                                batch.percentage = Some(percentage);
+                                cx.notify();
+                            }
+                        })
+                        .ok();
+                    }
+                    anlg_listener2_core::BatchEvent::BatchResponse { response, .. } => {
+                        settled = true;
+                        synthetic_active.store(false, std::sync::atomic::Ordering::Relaxed);
+                        let words = crate::batch::transform_batch(&response);
+                        if words.is_empty() {
+                            this.update(cx, |this, cx| {
+                                this.fail_batch(
+                                    session_id.clone(),
+                                    crate::batch::EMPTY_BATCH_TRANSCRIPT_ERROR.to_string(),
+                                    cx,
+                                )
+                            })
+                            .ok();
+                            break;
+                        }
+                        let (rows, hints) = crate::batch::stage_words(&words, &target.provider);
+                        let write = this
+                            .update(cx, |this, _| {
+                                this.store.create_batch_transcript(
+                                    uuid::Uuid::new_v4().to_string(),
+                                    session_id.clone(),
+                                    created_at.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string(),
+                                    started_at_ms,
+                                    memo.clone(),
+                                    target.provider.clone(),
+                                    target.model.clone(),
+                                    serde_json::Value::Array(rows).to_string(),
+                                    serde_json::Value::Array(hints).to_string(),
+                                    true,
+                                )
+                            })
+                            .ok();
+                        let written = match write {
+                            Some(write) => write.await.map_err(anyhow::Error::from).and_then(|r| r),
+                            None => return,
+                        };
+                        match written {
+                            Ok(()) => {
+                                let mark = this
+                                    .update(cx, |this, _| {
+                                        this.store.mark_session_audio_transcription_complete(
+                                            session_id.clone(),
+                                        )
+                                    })
+                                    .ok();
+                                if let Some(mark) = mark
+                                    && let Ok(Err(error)) = mark.await
+                                {
+                                    tracing::error!(
+                                        %error,
+                                        "[runBatch] failed to mark session audio as processed"
+                                    );
+                                }
+                                this.update(cx, |this, cx| {
+                                    // `clearBatchSession`
+                                    this.recording.batch.remove(&session_id);
+                                    if this.selected.as_deref() == Some(session_id.as_str()) {
+                                        this.reload_note(session_id.clone(), cx);
+                                    }
+                                    cx.notify();
+                                })
+                                .ok();
+                            }
+                            Err(error) => {
+                                tracing::error!(%error, "[runBatch] error handling batch response");
+                                this.update(cx, |this, cx| {
+                                    this.fail_batch(session_id.clone(), error.to_string(), cx)
+                                })
+                                .ok();
+                            }
+                        }
+                    }
+                    anlg_listener2_core::BatchEvent::BatchCompleted { .. } => {}
+                    anlg_listener2_core::BatchEvent::BatchFailed { error, .. } => {
+                        settled = true;
+                        synthetic_active.store(false, std::sync::atomic::Ordering::Relaxed);
+                        this.update(cx, |this, cx| {
+                            this.fail_batch(session_id.clone(), error, cx)
+                        })
+                        .ok();
+                    }
+                }
+            }
+            drop(synthetic_task);
+            let _ = run.await;
+        })
+        .detach();
+    }
+
+    /// `handleBatchFailed(sessionId, error)`
+    fn fail_batch(&mut self, session_id: String, error: String, cx: &mut Context<Self>) {
         self.recording.batch.insert(
             session_id,
             BatchState {

@@ -19,10 +19,12 @@ anlg-export-core = { workspace = true }
 anlg-fs-sync-core = { workspace = true }
 anlg-language = { workspace = true }
 anlg-listener-core = { workspace = true }
+anlg-listener2-core = { workspace = true }
 anlg-storage = { workspace = true }
 anlg-template-app = { workspace = true }
 anlg-tiptap = { workspace = true }
 anlg-transcript = { workspace = true }
+owhisper-interface = { workspace = true }
 
 anyhow = { workspace = true }
 aspasia = "0.2.1"
@@ -30,19 +32,19 @@ chrono = { workspace = true }
 chrono-tz = { workspace = true }
 dirs = { workspace = true }
 gpui = { workspace = true }
-iana-time-zone = "0.1"
 hmac = { workspace = true }
+iana-time-zone = "0.1"
 image = { workspace = true }
 keyring = { workspace = true }
 mime_guess = "2"
-reqwest = { workspace = true, features = ["json"] }
-sha2 = { workspace = true }
-smallvec = "1"
-ractor = { workspace = true, features = ["async-trait"] }
 pico-args = { workspace = true }
+ractor = { workspace = true, features = ["async-trait"] }
 regex = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["preserve_order"] }
+sha2 = { workspace = true }
+smallvec = "1"
 sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time"] }
 tracing = { workspace = true }

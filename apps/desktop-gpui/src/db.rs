@@ -2634,6 +2634,131 @@ impl Store {
         })
     }
 
+    /// `useRunBatch`'s completion: `createTranscript` with
+    /// `source: "batch_transcription"` (tombstoning the session's other
+    /// transcripts for the `whole_session` promotion) and
+    /// `markSessionAudioTranscriptionComplete`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn create_batch_transcript(
+        &self,
+        transcript_id: String,
+        session_id: String,
+        created_at: String,
+        started_at_ms: i64,
+        memo: String,
+        provider: String,
+        model: String,
+        words_json: String,
+        hints_json: String,
+        replace_session: bool,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let now = chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string();
+            let owner: String = sqlx::query_scalar(
+                "SELECT COALESCE(owner_user_id, '') FROM sessions WHERE id = ? AND deleted_at IS NULL",
+            )
+            .bind(&session_id)
+            .fetch_optional(db.pool())
+            .await?
+            .unwrap_or_default();
+            let mut tx = db.pool().begin().await?;
+            if replace_session {
+                sqlx::query(
+                    "UPDATE transcripts SET deleted_at = ?, updated_at = ?
+                     WHERE session_id = ? AND deleted_at IS NULL",
+                )
+                .bind(&now)
+                .bind(&now)
+                .bind(&session_id)
+                .execute(&mut *tx)
+                .await?;
+            }
+            sqlx::query(CREATE_TRANSCRIPT_SQL)
+                .bind(&transcript_id)
+                .bind(&owner)
+                .bind("batch_transcription")
+                .bind(&provider)
+                .bind(&model)
+                .bind("")
+                .bind(started_at_ms)
+                .bind(Option::<i64>::None)
+                .bind(&memo)
+                .bind(&words_json)
+                .bind(&hints_json)
+                .bind(&created_at)
+                .bind(&now)
+                .bind(&session_id)
+                .execute(&mut *tx)
+                .await?;
+            tx.commit().await?;
+            Ok(())
+        })
+    }
+
+    /// `markSessionAudioTranscriptionComplete(sessionId)`
+    pub fn mark_session_audio_transcription_complete(
+        &self,
+        session_id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            sqlx::query(
+                "UPDATE session_attachments
+                 SET
+                   metadata_json = json_set(
+                     CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END,
+                     '$.transcript_status',
+                     'complete'
+                   ),
+                   updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                 WHERE id = ?
+                   AND session_id = ?
+                   AND source_type = 'session_audio'
+                   AND source_id = 'primary'
+                   AND deleted_at IS NULL",
+            )
+            .bind(format!("session-audio:{session_id}"))
+            .bind(&session_id)
+            .execute(db.pool())
+            .await?;
+            Ok(())
+        })
+    }
+
+    /// The batch runner's inputs that come from the session: the memo,
+    /// the owner, and `getSessionSpeakerCount`'s participant human ids.
+    pub fn batch_session_context(
+        &self,
+        session_id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<(String, String, Vec<String>)>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let row: Option<(String, Option<String>)> = sqlx::query_as(
+                "SELECT COALESCE(session.owner_user_id, ''), document.body
+                 FROM sessions AS session
+                 LEFT JOIN session_documents AS document
+                   ON document.session_id = session.id AND document.kind = 'note'
+                   AND document.deleted_at IS NULL
+                 WHERE session.id = ? AND session.deleted_at IS NULL",
+            )
+            .bind(&session_id)
+            .fetch_optional(db.pool())
+            .await?;
+            let (user_id, memo) = row.ok_or_else(|| anyhow::anyhow!("session not found"))?;
+            let humans: Vec<String> = sqlx::query_scalar(
+                "SELECT COALESCE(human_id, '') FROM session_participants
+                 WHERE session_id = ? AND deleted_at IS NULL AND source <> 'excluded'",
+            )
+            .bind(&session_id)
+            .fetch_all(db.pool())
+            .await?;
+            Ok((user_id, memo.unwrap_or_default(), humans))
+        })
+    }
+
     /// `createLiveTranscript(input, delta)`: the `live_capture` transcript
     /// row whose words and hints come from applying the first delta to an
     /// empty store.
@@ -3811,10 +3936,12 @@ mod tests {
             let db = Db::connect_local_plain(&path).await.unwrap();
             anlg_db_app::prepare_schema(&db).await.unwrap();
         }
+        // A throwaway identifier: the credential store on the host may hold a
+        // real key for the dev app.
         let store = Store::open(
             tokio::runtime::Handle::current(),
             path,
-            "com.hyprnote.dev".to_string(),
+            format!("com.anarlog.test.{}", uuid::Uuid::new_v4()),
         )
         .await
         .unwrap();

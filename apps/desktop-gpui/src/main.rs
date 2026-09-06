@@ -2,6 +2,7 @@ mod actions;
 mod ai_providers;
 mod assets;
 mod audio;
+mod batch;
 mod contacts;
 mod db;
 mod developers;
