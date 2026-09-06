@@ -260,6 +260,9 @@ pub struct Workspace {
     /// Pending `scrollToAnchor`: the viewport ratio the current-time line
     /// should land at, applied over two frames once the row is measured.
     anchor_scroll: Option<f32>,
+    /// `selectedNodeRef` → `scrollTimelineItemIntoView`: the session whose
+    /// row scrolls into view once it is laid out.
+    reveal_session: Option<String>,
     /// `useAutoScrollToAnchor`: the launch scroll happens once.
     anchor_scrolled_once: bool,
     /// Id of the chrome button under the pointer, so icons can take the
@@ -393,6 +396,7 @@ impl Workspace {
             timeline_menu: None,
             pending_delete_selected: Vec::new(),
             anchor_scroll: None,
+            reveal_session: None,
             anchor_scrolled_once: false,
             hovered: None,
         };
@@ -776,6 +780,7 @@ impl Workspace {
             return;
         }
         let previous = self.selected.replace(session_id.clone());
+        self.reveal_session = Some(session_id.clone());
         let already_open = self.tabs.contains(&session_id);
         if !already_open {
             match previous

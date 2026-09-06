@@ -86,6 +86,7 @@ impl Workspace {
 
         if matches!(self.sessions, Sessions::Ready(_)) {
             self.apply_anchor_scroll(window, cx);
+            self.apply_selected_reveal(window, cx);
         }
         let body = match &self.sessions {
             Sessions::Loading => div().flex_1(),
@@ -296,6 +297,58 @@ impl Workspace {
                     offset_in_item: px(0.0),
                 });
                 // The row is measured by this frame; finish on the next one.
+                let this = cx.entity();
+                window.on_next_frame(move |_, cx| this.update(cx, |_, cx| cx.notify()));
+            }
+        }
+    }
+
+    /// `scrollTimelineItemIntoView` for the newly selected session's row: when
+    /// it sits outside the viewport (12px margin), scroll so its centre lands
+    /// at 45% of the viewport; a row the list has not measured yet is
+    /// scrolled to first and finished on the next frame.
+    fn apply_selected_reveal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(session_id) = self.reveal_session.clone() else {
+            return;
+        };
+        let Sessions::Ready(timeline) = &self.sessions else {
+            return;
+        };
+        let viewport = self.list_state.viewport_bounds();
+        if viewport.size.height <= px(0.0) {
+            return;
+        }
+        let row = self.rows.iter().position(|row| match row {
+            SidebarRow::Session { bucket, item } => {
+                timeline.buckets[*bucket].items[*item].id == session_id
+            }
+            _ => false,
+        });
+        let Some(row) = row else {
+            // Not in the timeline (filtered out or a deleted note): nothing to reveal.
+            self.reveal_session = None;
+            return;
+        };
+        match self.list_state.bounds_for_item(row) {
+            Some(bounds) => {
+                self.reveal_session = None;
+                let margin = px(12.0);
+                let above = bounds.top() < viewport.top() + margin;
+                let below = bounds.bottom() > viewport.bottom() - margin;
+                if !above && !below {
+                    return;
+                }
+                let center = bounds.top() + bounds.size.height / 2.0;
+                let target = viewport.top() + viewport.size.height * 0.45;
+                self.list_state.scroll_by(center - target);
+                let this = cx.entity();
+                window.on_next_frame(move |_, cx| this.update(cx, |_, cx| cx.notify()));
+            }
+            None => {
+                self.list_state.scroll_to(gpui::ListOffset {
+                    item_ix: row,
+                    offset_in_item: px(0.0),
+                });
                 let this = cx.entity();
                 window.on_next_frame(move |_, cx| this.update(cx, |_, cx| cx.notify()));
             }
