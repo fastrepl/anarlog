@@ -271,7 +271,9 @@ impl Workspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        // `openNew({ type: "settings" })` replaces the other overlay tabs.
+        // `openNew({ type: "settings" })` replaces the other overlay tabs, and
+        // unmounting the sidebar triggers dismisses their dropdowns.
+        self.close_open_menus(cx);
         self.close_folders(cx);
         self.close_templates(cx);
         self.close_calendar(cx);

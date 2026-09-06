@@ -116,6 +116,35 @@ impl Workspace {
         cx.notify();
     }
 
+    /// Escape / a shortcut that swaps the view: every open Radix dropdown in
+    /// the contacts tab dismisses.
+    pub(super) fn close_contacts_menus(&mut self) -> bool {
+        let Some(state) = self.contacts.as_mut() else {
+            return false;
+        };
+        let mut closed = false;
+        if state.sort_menu_open {
+            state.sort_menu_open = false;
+            closed = true;
+        }
+        if state.actions_open {
+            state.actions_open = false;
+            closed = true;
+        }
+        if let Some(details) = state.details.as_mut() {
+            if details.organization_open {
+                details.organization_open = false;
+                details.organization_search = None;
+                closed = true;
+            }
+            if details.related_sort_open {
+                details.related_sort_open = false;
+                closed = true;
+            }
+        }
+        closed
+    }
+
     pub(crate) fn close_contacts(&mut self, cx: &mut Context<Self>) {
         if self.contacts.take().is_some() {
             cx.notify();

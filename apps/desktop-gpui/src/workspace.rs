@@ -1254,6 +1254,9 @@ impl Render for Workspace {
                 this.request_delete_selected(cx);
             }))
             .on_action(cx.listener(|this, _: &actions::Escape, window, cx| {
+                if this.close_open_menus(cx) {
+                    return;
+                }
                 if !this.pending_delete_selected.is_empty() {
                     this.pending_delete_selected.clear();
                     cx.notify();

@@ -108,6 +108,16 @@ impl Workspace {
         cx.notify();
     }
 
+    pub(super) fn close_templates_menus(&mut self) -> bool {
+        match self.templates_tab.as_mut() {
+            Some(state) if state.sort_menu_open => {
+                state.sort_menu_open = false;
+                true
+            }
+            _ => false,
+        }
+    }
+
     pub(crate) fn close_templates(&mut self, cx: &mut Context<Self>) {
         if self.templates_tab.take().is_some() {
             cx.notify();

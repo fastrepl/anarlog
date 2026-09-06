@@ -338,6 +338,12 @@ impl Workspace {
 
     /// `EventChip`'s context menu: `Delete Event`, or `Delete This Event` +
     /// `Delete All Recurring Events` for a recurring event.
+    pub(super) fn close_calendar_context_menu(&mut self) -> bool {
+        self.calendar
+            .as_mut()
+            .is_some_and(|state| state.context_menu.take().is_some())
+    }
+
     pub(super) fn render_calendar_context_menu(
         &self,
         window: &Window,

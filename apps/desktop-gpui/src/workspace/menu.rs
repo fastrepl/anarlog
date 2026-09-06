@@ -290,6 +290,37 @@ impl Workspace {
     /// A standalone menu anchored at the element's own layout position (for
     /// dropdown triggers inside scrolling content): the app chrome, items with
     /// hover and click, `on_mouse_down_out` closing it.
+    /// Radix menus dismiss on Escape; the same happens when a shortcut swaps
+    /// the view under an open menu. Returns whether anything was open.
+    pub(crate) fn close_open_menus(&mut self, cx: &mut Context<Self>) -> bool {
+        let mut closed = false;
+        if self.filter_menu_open {
+            self.filter_menu_open = false;
+            self.filter_submenu = None;
+            closed = true;
+        }
+        if self.overflow_open {
+            self.overflow_open = false;
+            self.overflow_submenu = None;
+            closed = true;
+        }
+        if self.open_menu.take().is_some() {
+            closed = true;
+        }
+        if let Some(player) = self.audio_player.as_mut()
+            && player.menu_at.take().is_some()
+        {
+            closed = true;
+        }
+        closed |= self.close_calendar_context_menu();
+        closed |= self.close_contacts_menus();
+        closed |= self.close_templates_menus();
+        if closed {
+            cx.notify();
+        }
+        closed
+    }
+
     pub(crate) fn render_menu_inline(
         &self,
         spec: MenuSpec,
