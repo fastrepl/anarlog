@@ -280,15 +280,15 @@ impl Workspace {
                     )
                     .child(
                         div().mt_4().child(
-                            // `Button size="sm"`: `h-8 px-3 text-sm`.
+                            // `Button size="sm"`: `h-7 px-2 text-xs`.
                             div()
                                 .id("share-sign-in")
                                 .relative()
                                 .flex()
-                                .h(px(32.0))
+                                .h(px(28.0))
                                 .items_center()
-                                .px_3()
-                                .tw_text_sm()
+                                .px_2()
+                                .tw_text_xs()
                                 .font_weight(gpui::FontWeight::MEDIUM)
                                 .text_color(theme.primary_foreground)
                                 .when(opening, |button| button.opacity(0.5))
