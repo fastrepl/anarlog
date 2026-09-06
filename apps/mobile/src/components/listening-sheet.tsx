@@ -63,7 +63,7 @@ function transcriptionLabel(status: "connecting" | "live" | "fallback") {
     case "live":
       return "Live transcription";
     case "fallback":
-      return "Recording locally · transcript after stop";
+      return "Recording on this device";
     default:
       return "Connecting live transcript…";
   }

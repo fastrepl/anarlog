@@ -36,17 +36,35 @@ export default function SyncSettings() {
     queryKey: ["sync-devices", auth.session?.user.id],
     queryFn: ({ signal }) =>
       requestSyncDeviceList(auth.session!.access_token, signal),
-    enabled: Boolean(auth.session) && !auth.bypass,
+    enabled: Boolean(auth.session) && !auth.bypass && auth.billing.isPro,
   });
   return (
     <SettingsPage title="Sync & storage">
       <FieldGroup.Section>
         <SettingsRow
-          title={presentation.healthy ? "Up to date" : presentation.title}
-          description={presentation.description}
+          title={
+            !auth.billing.isPro
+              ? "Saved on this device"
+              : presentation.healthy
+                ? "Up to date"
+                : presentation.title
+          }
+          description={
+            !auth.billing.isPro
+              ? "Cloud sync is available during your Pro trial and with a Pro subscription. Your local notes and recordings are still available."
+              : presentation.description
+          }
         />
-        {presentation.detail && <Text>{presentation.detail}</Text>}
-        {snapshot.phase === "ready" && (
+        {!auth.bypass && !auth.billing.isPro && (
+          <SettingsRow
+            title="Explore Anarlog Pro"
+            onPress={() => router.push("/settings/pro")}
+          />
+        )}
+        {auth.billing.isPro && presentation.detail && (
+          <Text>{presentation.detail}</Text>
+        )}
+        {auth.billing.isPro && snapshot.phase === "ready" && (
           <Button
             label={
               sync.isPending || snapshot.syncingNow ? "Syncing…" : "Sync now"
@@ -62,14 +80,15 @@ export default function SyncSettings() {
             onPress={() => refresh.mutate()}
           />
         )}
-        {[
-          "error",
-          "device_limit",
-          "identity_mismatch",
-          "approval_pending",
-        ].includes(snapshot.phase) && (
-          <Button label="Try again" onPress={retryMobileSync} />
-        )}
+        {auth.billing.isPro &&
+          [
+            "error",
+            "device_limit",
+            "identity_mismatch",
+            "approval_pending",
+          ].includes(snapshot.phase) && (
+            <Button label="Try again" onPress={retryMobileSync} />
+          )}
         {snapshot.phase === "reauth_required" && (
           <SettingsRow
             title="Sign in again"
@@ -88,7 +107,7 @@ export default function SyncSettings() {
           }
         />
         <SettingsRow
-          title="Waiting to back up"
+          title={auth.billing.isPro ? "Waiting to back up" : "Not backed up"}
           value={data ? String(data.pending_count) : "Loading…"}
         />
         <SettingsRow
@@ -103,7 +122,7 @@ export default function SyncSettings() {
         </FieldGroup.SectionFooter>
         <SettingsError error={storage.error} />
       </FieldGroup.Section>
-      {!auth.bypass && (
+      {!auth.bypass && auth.billing.isPro && (
         <FieldGroup.Section title="Connected devices">
           {devices.isPending ? (
             <Text>Loading devices…</Text>

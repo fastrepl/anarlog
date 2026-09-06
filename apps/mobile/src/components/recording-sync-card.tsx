@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Text, View } from "react-native";
 
+import { useAuth } from "@/auth/context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Spacing, Typography } from "@/constants/theme";
@@ -33,12 +34,20 @@ const presentation = {
 
 export function RecordingSyncCard({ audio }: { audio: SessionAudio }) {
   const styles = useStyles();
+  const { billing } = useAuth();
   const Colors = useColors();
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState(false);
-  const status = presentation[audio.deliveryState];
-  const waitingToRetry = audio.uploadPhase === "retry_wait";
-  const canRetry = audio.deliveryState === "failed" || waitingToRetry;
+  const status =
+    !billing.isPro && audio.deliveryState !== "synced"
+      ? {
+          icon: "phone-portrait-outline" as const,
+          text: "Saved on this device",
+        }
+      : presentation[audio.deliveryState];
+  const waitingToRetry = billing.isPro && audio.uploadPhase === "retry_wait";
+  const canRetry =
+    billing.isPro && (audio.deliveryState === "failed" || waitingToRetry);
 
   const handleRetry = async () => {
     if (retrying) return;
@@ -59,7 +68,9 @@ export function RecordingSyncCard({ audio }: { audio: SessionAudio }) {
   return (
     <Card
       style={styles.card}
-      tone={audio.deliveryState === "failed" ? "alert" : "muted"}
+      tone={
+        billing.isPro && audio.deliveryState === "failed" ? "alert" : "muted"
+      }
     >
       <View style={styles.statusRow}>
         <Ionicons name={status.icon} size={17} color={Colors.muted} />

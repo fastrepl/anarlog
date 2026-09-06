@@ -14,8 +14,9 @@ import {
 } from "@/audio/capture-lifecycle";
 import { recoverInterruptedRecordings } from "@/audio/recover-recordings";
 import { AuthProvider, useAuth } from "@/auth/context";
-import { PaywallScreen, SignInScreen } from "@/auth/screens";
+import { SignInScreen } from "@/auth/screens";
 import type { SignInMethod } from "@/auth/sign-in";
+import { useTrial } from "@/auth/use-trial";
 import { BrandLoadingView } from "@/components/brand-loading-view";
 import { Button } from "@/components/ui/button";
 import { Spacing, Typography } from "@/constants/theme";
@@ -99,6 +100,7 @@ function Screens({ accountUserId }: { accountUserId: string | null }) {
 
 function Gate() {
   const auth = useAuth();
+  useTrial();
   const captureActive = useSyncExternalStore(
     subscribeMobileCapture,
     getMobileCaptureActive,
@@ -119,30 +121,15 @@ function Gate() {
 
   if (auth.bypass) return <Screens accountUserId={null} />;
 
-  if (captureActive) {
-    const activeSession = auth.session;
-    return (
-      <>
-        {activeSession && (
-          <MobileSyncLifecycle
-            key={`${activeSession.user.id}:${activeSession.access_token}`}
-            accessToken={activeSession.access_token}
-            accountUserId={activeSession.user.id}
-          />
-        )}
-        <Screens accountUserId={activeSession?.user.id ?? null} />
-      </>
-    );
-  }
-
   if (
-    auth.status === "loading" ||
-    (auth.status === "signed_in" && !auth.billingReady)
+    !captureActive &&
+    (auth.status === "loading" ||
+      (auth.status === "signed_in" && !auth.billingReady))
   ) {
     return <BrandLoadingView />;
   }
 
-  if (auth.status === "signed_out") {
+  if (!captureActive && auth.status === "signed_out") {
     return (
       <SignInScreen
         busy={signingIn}
@@ -152,28 +139,18 @@ function Gate() {
     );
   }
 
-  if (!auth.billing.isPro) {
-    return (
-      <PaywallScreen
-        billing={auth.billing}
-        email={auth.session?.user.email ?? ""}
-        onRefreshBilling={auth.refreshBilling}
-        onSignOut={auth.signOut}
-      />
-    );
-  }
-
   const session = auth.session;
-  if (!session) return null;
 
   return (
     <>
-      <MobileSyncLifecycle
-        key={`${session.user.id}:${session.access_token}`}
-        accessToken={session.access_token}
-        accountUserId={session.user.id}
-      />
-      <Screens accountUserId={session.user.id} />
+      {session && auth.billing.isPro && (
+        <MobileSyncLifecycle
+          key={`${session.user.id}:${session.access_token}`}
+          accessToken={session.access_token}
+          accountUserId={session.user.id}
+        />
+      )}
+      <Screens accountUserId={session?.user.id ?? null} />
     </>
   );
 }

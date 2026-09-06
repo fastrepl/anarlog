@@ -10,6 +10,7 @@ import {
 } from "@expo/ui";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
 
 import { useAuth } from "@/auth/context";
@@ -106,6 +107,10 @@ function ProviderFields({
   config: ProviderConfig;
 }) {
   const queryClient = useQueryClient();
+  const auth = useAuth();
+  const router = useRouter();
+  const needsPro =
+    config.provider === "anarlog" && !auth.billing.isPro && !auth.bypass;
   const key = useNativeState("");
   const apiKey = useRef("");
   const model = useNativeState(config.model);
@@ -194,14 +199,17 @@ function ProviderFields({
       <FieldGroup.Section>
         <Button
           label={
-            save.isPending
-              ? "Saving…"
-              : save.isSuccess
-                ? "Saved"
-                : "Use this provider"
+            needsPro
+              ? "Explore Anarlog Pro"
+              : save.isPending
+                ? "Saving…"
+                : save.isSuccess
+                  ? "Saved"
+                  : "Use this provider"
           }
           disabled={save.isPending}
           onPress={() => {
+            if (needsPro) return router.push("/settings/pro");
             void form.handleSubmit().catch(() => {});
           }}
         />
@@ -220,7 +228,7 @@ function ProviderFields({
               : remove.error || savedKey.error
                 ? "Could not update this provider. Try again."
                 : config.provider === "anarlog"
-                  ? "Included with your Anarlog Pro plan. No API key needed."
+                  ? "Included during your free three-week trial and with Anarlog Pro. No API key needed. After your trial, subscribe or choose a provider with your own API key."
                   : kind === "stt"
                     ? `Transcription starts after you stop recording.${config.provider === "deepgram" ? "" : " Recordings must be under 25 MB."}`
                     : ""}

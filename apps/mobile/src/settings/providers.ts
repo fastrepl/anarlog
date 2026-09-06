@@ -1,5 +1,10 @@
 import * as SecureStore from "expo-secure-store";
 
+import {
+  decodeJwtPayload,
+  deriveBillingInfo,
+  ProRequiredError,
+} from "@/auth/billing";
 import { supabase } from "@/auth/client";
 import { execute, executeTransaction } from "@/db";
 
@@ -92,8 +97,11 @@ export async function resolveProvider(kind: ProviderKind) {
   const session = auth?.data.session;
   const config = await readProviderConfig(session?.user.id ?? null, kind);
   if (config.provider === "anarlog") {
-    if (session?.access_token)
+    if (session?.access_token) {
+      if (!deriveBillingInfo(decodeJwtPayload(session.access_token)).isPro)
+        throw new ProRequiredError();
       return { ...config, apiKey: session.access_token };
+    }
     if (!supabase) return { ...config, apiKey: "" };
     throw new Error("Sign in to use Anarlog Pro.");
   }

@@ -2,13 +2,7 @@ import { BottomSheet, RNHostView } from "@expo/ui";
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
-import {
-  Platform,
-  Pressable,
-  Text,
-  useWindowDimensions,
-  View,
-} from "react-native";
+import { Platform, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { BillingInfo } from "@/auth/billing";
@@ -18,6 +12,7 @@ import {
 } from "@/auth/billing-handoff";
 import { isAppleSignInAvailable, type SignInMethod } from "@/auth/sign-in";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   CornerCurve,
   Gradients,
@@ -206,16 +201,16 @@ function ProviderIcon({ source }: { source: number }) {
   );
 }
 
-export function PaywallScreen({
+export function ProScreen({
   billing,
   email,
   onRefreshBilling,
-  onSignOut,
+  onClose,
 }: {
   billing: BillingInfo;
   email: string;
   onRefreshBilling: () => Promise<boolean>;
-  onSignOut: () => void;
+  onClose: () => void;
 }) {
   const styles = useStyles();
   const [busy, setBusy] = useState(false);
@@ -223,14 +218,15 @@ export function PaywallScreen({
 
   useMountEffect(() => {
     captureAnalytics("paywall_viewed", {
-      entry_point: "mobile_gate",
-      feature: "mobile_access",
+      entry_point: "mobile_settings",
+      feature: "cloud_and_models",
     });
   });
 
   const refreshAccess = async (checkoutType: "trial" | "paid" | "unknown") => {
     const unlocked = await onRefreshBilling();
     if (unlocked) {
+      setAccessPending(false);
       captureAnalytics("mobile_access_unlocked", {
         entry_point: "mobile_checkout",
         checkout_type: checkoutType,
@@ -285,7 +281,7 @@ export function PaywallScreen({
     } catch (error) {
       captureOperationalError(error, {
         operation: "billing_checkout_open",
-        tags: { entry_point: "mobile_gate" },
+        tags: { entry_point: "mobile_settings" },
       });
     } finally {
       setBusy(false);
@@ -294,18 +290,23 @@ export function PaywallScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <IconButton accessibilityLabel="Back" icon="back" onPress={onClose} />
       <View style={styles.body}>
         <View style={styles.titleRow}>
-          <Text style={styles.paywallTitle}>Anarlog Mobile is for Pro</Text>
+          <Text style={styles.paywallTitle}>More with Anarlog Pro</Text>
           <View style={styles.accentDot} />
         </View>
         <Text style={styles.copy}>
-          Record in-person meetings and voice notes from your phone, then keep
-          notes and transcripts in sync with Anarlog on your other devices.
+          Sync across your devices and use Anarlog models for transcription and
+          summaries. New users get a free three-week trial, shared with desktop.
+        </Text>
+        <Text style={styles.trialLine}>
+          After your trial, your notes and recordings stay on this device.
+          Subscribe to keep sync and Anarlog models, or use your own API keys.
         </Text>
         {accessPending && (
           <Text style={styles.pendingCopy}>
-            Your plan changed, but mobile access is still updating.
+            Your plan changed. Sync and model access are still updating.
           </Text>
         )}
         {billing.plan === "trial" && billing.trialDaysRemaining !== null && (
@@ -328,9 +329,6 @@ export function PaywallScreen({
         <Text style={styles.footerEmail} numberOfLines={1}>
           {email}
         </Text>
-        <Pressable onPress={onSignOut} hitSlop={8}>
-          <Text style={styles.signOutLabel}>Sign out</Text>
-        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -461,9 +459,5 @@ const useStyles = createStyleHook((Colors) => ({
     flexShrink: 1,
     ...Typography.caption,
     color: Colors.muted,
-  },
-  signOutLabel: {
-    ...Typography.captionStrong,
-    color: Colors.ink,
   },
 }));

@@ -24,6 +24,14 @@ export type SupabaseJwtPayload = {
 
 export type Plan = "free" | "trial" | "pro";
 
+export class ProRequiredError extends Error {
+  constructor() {
+    super(
+      "Anarlog models require an active Pro trial or subscription. Choose a provider with your own API key in Settings to continue.",
+    );
+  }
+}
+
 export type BillingInfo = {
   entitlements: string[];
   subscriptionStatus: SubscriptionStatus | null;
@@ -75,6 +83,7 @@ export function decodeJwtPayload(
 
 export function deriveBillingInfo(
   payload: SupabaseJwtPayload | null,
+  now = Date.now(),
 ): BillingInfo {
   const entitlements = payload?.entitlements ?? [];
   const subscriptionStatus = payload?.subscription_status ?? null;
@@ -85,7 +94,7 @@ export function deriveBillingInfo(
 
   let trialDaysRemaining: number | null = null;
   if (trialEnd) {
-    const secondsRemaining = (trialEnd.getTime() - Date.now()) / 1000;
+    const secondsRemaining = (trialEnd.getTime() - now) / 1000;
     trialDaysRemaining =
       secondsRemaining <= 0 ? 0 : Math.ceil(secondsRemaining / (24 * 60 * 60));
   }

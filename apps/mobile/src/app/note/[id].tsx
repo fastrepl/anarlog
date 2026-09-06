@@ -64,6 +64,7 @@ import { env } from "@/lib/env";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
+import { useProviderAccess } from "@/settings/use-provider-access";
 
 function BodyEditor({
   accessoryId,
@@ -248,6 +249,8 @@ export default function NoteScreen() {
   const Colors = useColors();
   const router = useRouter();
   const auth = useAuth();
+  const canTranscribe = useProviderAccess("stt");
+  const canSummarize = useProviderAccess("llm");
   const { id, listen } = useLocalSearchParams<{
     id: string;
     listen?: string;
@@ -744,12 +747,20 @@ export default function NoteScreen() {
               <View>
                 <Button
                   label={
-                    data.summary ? "Regenerate summary" : "Generate summary"
+                    !canSummarize
+                      ? "Choose summary provider"
+                      : data.summary
+                        ? "Regenerate summary"
+                        : "Generate summary"
                   }
                   loading={summarize.isPending}
                   variant="ghost"
                   size="small"
-                  onPress={() => summarize.mutate()}
+                  onPress={() =>
+                    canSummarize
+                      ? summarize.mutate()
+                      : router.push("/settings/summary-provider")
+                  }
                 />
                 {summarize.error && (
                   <Text style={styles.summaryText}>
@@ -772,6 +783,7 @@ export default function NoteScreen() {
             <RemoteAudioCard
               cloudAvailable={Boolean(
                 audio.data.cloudObjectKey &&
+                auth.billing.isPro &&
                 auth.session?.access_token &&
                 env.supabaseUrl,
               )}
@@ -790,13 +802,19 @@ export default function NoteScreen() {
             ) : (
               <Pressable
                 hitSlop={4}
-                onPress={() => void transcribeSession(id)}
+                onPress={() =>
+                  canTranscribe
+                    ? void transcribeSession(id)
+                    : router.push("/settings/transcription-provider")
+                }
                 style={({ pressed }) => pressed && styles.transcribePressed}
               >
                 <Text style={styles.transcribeAction}>
-                  {transcription === "failed"
-                    ? "Transcription failed — tap to retry"
-                    : "Tap to transcribe"}
+                  {!canTranscribe
+                    ? "Choose transcription provider"
+                    : transcription === "failed"
+                      ? "Transcription failed — tap to retry"
+                      : "Tap to transcribe"}
                 </Text>
               </Pressable>
             ))}
@@ -821,6 +839,7 @@ export default function NoteScreen() {
                   availableLocally={file !== null}
                   cloudAvailable={Boolean(
                     attachment.cloudObjectKey &&
+                    auth.billing.isPro &&
                     auth.session?.access_token &&
                     env.supabaseUrl,
                   )}

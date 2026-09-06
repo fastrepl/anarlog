@@ -3,6 +3,7 @@ import { fetch } from "expo/fetch";
 import { useSyncExternalStore } from "react";
 import { Platform } from "react-native";
 
+import { ProRequiredError } from "@/auth/billing";
 import { execute, executeTransaction } from "@/db";
 import { captureAnalytics } from "@/lib/analytics";
 import { env } from "@/lib/env";
@@ -532,6 +533,10 @@ export function transcribeSession(sessionId: string): Promise<void> {
         clearStateSilently(sessionId);
       })
       .catch((error: unknown) => {
+        if (error instanceof ProRequiredError) {
+          setState(sessionId, "idle");
+          return;
+        }
         captureOperationalError(error, {
           operation: "transcription_batch",
           tags: {

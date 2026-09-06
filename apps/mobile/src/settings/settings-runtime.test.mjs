@@ -104,6 +104,13 @@ const { requestProviderTranscription } =
   await import("../data/provider-transcription.ts");
 const { summarizeSession } = await import("../data/summarize.ts");
 
+function signedInWith(claims) {
+  fixture.session = {
+    user: { id: "account-a" },
+    access_token: `synthetic.${Buffer.from(JSON.stringify(claims)).toString("base64url")}.signature`,
+  };
+}
+
 beforeEach(() => {
   fixture.db?.close();
   fixture.db = new DatabaseSync(":memory:");
@@ -293,13 +300,87 @@ test("missing keys cannot activate a provider and selecting Pro uses only the ac
     /Enter an API key/,
   );
   assert.equal((await readProviderConfig(null, "stt")).provider, "anarlog");
-  fixture.session = {
-    user: { id: "account-a" },
-    access_token: "synthetic-session-token",
-  };
+  signedInWith({
+    subscription_status: "active",
+    entitlements: ["hyprnote_pro"],
+  });
   assert.equal(
     (await resolveProvider("stt")).apiKey,
-    "synthetic-session-token",
+    fixture.session.access_token,
+  );
+});
+
+test("active trials use hosted models; expired trials cannot send STT or summary requests", async () => {
+  createNote();
+  const trial = {
+    subscription_status: "trialing",
+    trial_end: Date.now() / 1000 + 21 * 86400,
+    entitlements: ["hyprnote_pro"],
+  };
+  signedInWith(trial);
+  assert.equal(
+    (await resolveProvider("stt")).apiKey,
+    fixture.session.access_token,
+  );
+  await summarizeSession("note-1");
+  assert.equal(
+    fixture.requests[0].url,
+    "https://hosted.anarlog.test/llm/chat/completions",
+  );
+  fixture.requests = [];
+  signedInWith({ ...trial, trial_end: Date.now() / 1000 - 1 });
+  await assert.rejects(
+    resolveProvider("stt"),
+    /active Pro trial or subscription/,
+  );
+  await assert.rejects(
+    summarizeSession("note-1"),
+    /active Pro trial or subscription/,
+  );
+  assert.equal(fixture.requests.length, 0);
+  assert.match(
+    fixture.db
+      .prepare("SELECT body FROM session_documents WHERE id = 'note-1'")
+      .get().body,
+    /Ship the app/,
+  );
+  assert.equal(
+    fixture.db
+      .prepare(
+        "SELECT count(*) AS count FROM session_documents WHERE kind = 'summary'",
+      )
+      .get().count,
+    1,
+  );
+});
+
+test("expired trial users can keep using their own transcription and summary keys", async () => {
+  createNote();
+  signedInWith({
+    subscription_status: "paused",
+    entitlements: ["hyprnote_pro"],
+  });
+  await saveProviderConfig(
+    "account-a",
+    "stt",
+    { ...defaultProviderConfig("stt", "openai"), model: "whisper-1" },
+    "synthetic-stt-key",
+  );
+  await saveProviderConfig(
+    "account-a",
+    "llm",
+    { ...defaultProviderConfig("llm", "openai"), model: "test-model" },
+    "synthetic-llm-key",
+  );
+  assert.equal((await resolveProvider("stt")).apiKey, "synthetic-stt-key");
+  await summarizeSession("note-1");
+  assert.equal(
+    fixture.requests[0].url,
+    "https://api.openai.com/v1/chat/completions",
+  );
+  assert.equal(
+    fixture.requests[0].options.headers.Authorization,
+    "Bearer synthetic-llm-key",
   );
 });
 

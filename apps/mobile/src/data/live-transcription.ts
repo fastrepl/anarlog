@@ -1,3 +1,4 @@
+import { decodeJwtPayload, deriveBillingInfo } from "@/auth/billing";
 import { supabase } from "@/auth/client";
 import { execute, executeTransaction } from "@/db";
 import { captureAnalytics } from "@/lib/analytics";
@@ -117,6 +118,11 @@ function liveUrl(
 
 export class HostedLiveTranscription {
   readonly transcriptId = id();
+  private readonly sessionId: string;
+  private readonly onUpdate: (update: {
+    status: LiveTranscriptionStatus;
+    text: string;
+  }) => void;
 
   private socket: WebSocket | null = null;
   private status: LiveTranscriptionStatus = "connecting";
@@ -132,20 +138,22 @@ export class HostedLiveTranscription {
   private stopPromise: Promise<boolean> | null = null;
   private connectPromise: Promise<void>;
   private keepAliveTimer: ReturnType<typeof setInterval> | null = null;
+  private trialEnd: number | null = null;
+  private trialTimer: ReturnType<typeof setTimeout> | null = null;
+  private unsubscribeAuth: (() => void) | null = null;
   private terminalResolve: (() => void) | null = null;
   private terminalPromise = new Promise<void>((resolve) => {
     this.terminalResolve = resolve;
   });
 
   constructor(
-    private readonly sessionId: string,
+    sessionId: string,
     sampleRate: number,
     channels: number,
-    private readonly onUpdate: (update: {
-      status: LiveTranscriptionStatus;
-      text: string;
-    }) => void,
+    onUpdate: HostedLiveTranscription["onUpdate"],
   ) {
+    this.sessionId = sessionId;
+    this.onUpdate = onUpdate;
     this.connectPromise = this.connect(sampleRate, channels);
   }
 
@@ -172,7 +180,17 @@ export class HostedLiveTranscription {
       const token = auth?.data.session?.access_token;
       if (!token)
         throw new Error("Live transcription requires a signed-in session");
+      this.updateBilling(token);
       if (this.stopping || this.status === "fallback") return;
+      const accountId = auth?.data.session?.user.id;
+      const subscription = supabase?.auth.onAuthStateChange(
+        (_event, session) => {
+          if (session?.user.id !== accountId) this.fallBack();
+          else this.updateBilling(session!.access_token);
+        },
+      );
+      this.unsubscribeAuth = () =>
+        subscription?.data.subscription.unsubscribe();
 
       const Socket = WebSocket as unknown as NativeWebSocketConstructor;
       const socket = new Socket(
@@ -184,7 +202,7 @@ export class HostedLiveTranscription {
       );
       socket.binaryType = "arraybuffer";
       socket.onopen = () => {
-        if (this.stopping || this.status === "fallback") {
+        if (!this.checkTrial() || this.stopping || this.status === "fallback") {
           socket.close();
           return;
         }
@@ -193,7 +211,7 @@ export class HostedLiveTranscription {
         this.queuedAudio = [];
         this.queuedAudioBytes = 0;
         this.keepAliveTimer = setInterval(() => {
-          if (socket.readyState === WebSocket.OPEN) {
+          if (this.checkTrial() && socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({ type: "KeepAlive" }));
           }
         }, KEEP_ALIVE_INTERVAL_MS);
@@ -222,7 +240,8 @@ export class HostedLiveTranscription {
   }
 
   sendAudio(buffer: ArrayBuffer) {
-    if (this.status === "fallback" || this.stopping) return;
+    if (!this.checkTrial() || this.status === "fallback" || this.stopping)
+      return;
     const socket = this.socket;
     if (socket?.readyState === WebSocket.OPEN) {
       if (socket.bufferedAmount > MAX_SOCKET_BUFFERED_BYTES) {
@@ -345,13 +364,41 @@ export class HostedLiveTranscription {
       .catch((error) => this.fail(error, "persist"));
   }
 
-  private fail(error: unknown, stage: string) {
+  private checkTrial() {
+    if (this.trialEnd === null || Date.now() < this.trialEnd) return true;
+    this.fallBack();
+    return false;
+  }
+
+  private updateBilling(token: string) {
+    const billing = deriveBillingInfo(decodeJwtPayload(token));
+    if (!billing.isPro) {
+      this.fallBack();
+      return;
+    }
+    if (this.trialTimer) clearTimeout(this.trialTimer);
+    this.trialEnd = billing.isTrialing ? billing.trialEnd!.getTime() : null;
+    this.trialTimer =
+      this.trialEnd === null
+        ? null
+        : setTimeout(
+            () => this.checkTrial(),
+            Math.min(Math.max(0, this.trialEnd - Date.now()), 2_147_483_647),
+          );
+  }
+
+  private fallBack() {
     if (this.status === "fallback") return;
     this.setStatus("fallback");
     this.clearKeepAlive();
     this.queuedAudio = [];
     this.queuedAudioBytes = 0;
     this.socket?.close();
+  }
+
+  private fail(error: unknown, stage: string) {
+    if (this.status === "fallback") return;
+    this.fallBack();
     captureOperationalError(error, {
       operation: "transcription_live",
       tags: { mode: "live", stage },
@@ -444,6 +491,10 @@ export class HostedLiveTranscription {
   private clearKeepAlive() {
     if (this.keepAliveTimer) clearInterval(this.keepAliveTimer);
     this.keepAliveTimer = null;
+    if (this.trialTimer) clearTimeout(this.trialTimer);
+    this.trialTimer = null;
+    this.unsubscribeAuth?.();
+    this.unsubscribeAuth = null;
   }
 }
 

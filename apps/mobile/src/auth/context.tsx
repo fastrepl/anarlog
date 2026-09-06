@@ -32,6 +32,7 @@ import {
   parseLastSignInMethod,
   type SignInMethod,
 } from "@/auth/sign-in";
+import { useBillingInfo } from "@/auth/use-billing-info";
 import {
   captureAnalytics,
   identifyAnalytics,
@@ -230,6 +231,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const initStartedRef = useRef(false);
 
   const setSession = useCallback((next: Session | null) => {
+    if (sessionRef.current?.user.id !== next?.user.id)
+      billingRefreshRef.current = null;
     sessionRef.current = next;
     setSessionState(next);
     const userId = next?.user.id ?? null;
@@ -441,10 +444,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const client = supabase;
     if (!client) return Promise.resolve(true);
     if (billingRefreshRef.current) return billingRefreshRef.current;
+    const accountId = sessionRef.current?.user.id;
+    if (!accountId) return Promise.resolve(false);
 
     let lastError: unknown;
     const task = retryBillingEntitlement({
       refresh: async () => {
+        if (sessionRef.current?.user.id !== accountId) return false;
         const { data, error } = await client.auth.refreshSession();
         if (error) {
           lastError = error;
@@ -452,7 +458,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         const nextSession = data.session;
-        if (!nextSession) return false;
+        if (
+          nextSession?.user.id !== accountId ||
+          sessionRef.current?.user.id !== accountId
+        )
+          return false;
         setSession(nextSession);
         return deriveBillingInfo(decodeJwtPayload(nextSession.access_token))
           .isPro;
@@ -468,7 +478,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return unlocked;
       })
       .finally(() => {
-        billingRefreshRef.current = null;
+        if (billingRefreshRef.current === task)
+          billingRefreshRef.current = null;
       });
     billingRefreshRef.current = task;
     return task;
@@ -509,7 +520,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => (accessToken ? decodeJwtPayload(accessToken) : null),
     [accessToken],
   );
-  const billing = useMemo(() => deriveBillingInfo(payload), [payload]);
+  const billing = useBillingInfo(payload);
 
   const status: AuthState["status"] = bypass
     ? "signed_in"
