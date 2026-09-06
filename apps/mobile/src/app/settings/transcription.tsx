@@ -49,13 +49,17 @@ export default function TranscriptionSettings() {
             preferences.spoken_languages
               .filter((code) => code !== preferences.ai_language)
               .map(languageName)
-              .join(", ") || "None"
+              .join(", ") || undefined
           }
           onPress={() => router.push("/settings/languages")}
         />
         <SettingsRow
           title="Dictionary"
-          value={`${preferences.personalization_dictionary_terms.length} terms`}
+          value={
+            preferences.personalization_dictionary_terms.length > 0
+              ? `${preferences.personalization_dictionary_terms.length} terms`
+              : undefined
+          }
           onPress={() => router.push("/settings/dictionary")}
         />
         <FieldGroup.SectionFooter>
