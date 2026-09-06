@@ -62,8 +62,17 @@ const validateSearch = z.object({
 });
 
 export const Route = createFileRoute("/_view/callback/auth")({
+  // Exchange from a same-origin request after Safari's cross-site return.
+  ssr: false,
   validateSearch,
   component: Component,
+  pendingComponent: () => (
+    <AuthShell
+      title="Finishing sign-in"
+      description="Please wait while we connect your account."
+      children={null}
+    />
+  ),
   head: () => ({
     meta: [{ name: "robots", content: "noindex, nofollow" }],
   }),
