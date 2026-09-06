@@ -135,7 +135,15 @@ impl Workspace {
                     Some(Box::new(|this, _, cx| this.open_export_dialog(cx))),
                 ),
                 Entry::Separator,
-                plain("microphone", "Start listening", None),
+                plain(
+                    "microphone",
+                    "Start listening",
+                    Some(Box::new(|this, _, cx| {
+                        if let Some(id) = this.selected.clone() {
+                            this.start_listening(id, cx);
+                        }
+                    })),
+                ),
                 plain("waveform", "Upload audio", None),
                 plain(
                     "file-text",

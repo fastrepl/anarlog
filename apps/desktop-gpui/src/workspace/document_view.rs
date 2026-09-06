@@ -106,7 +106,7 @@ impl Workspace {
             editor
                 .caret()
                 .map(|caret| caret.block)
-                .or_else(|| editor.doc().is_pristine().then_some(0))
+                .or_else(|| (editor.doc().textblock_count() <= 1).then_some(0))
                 .filter(|block| editor.doc().text(*block).is_empty())
                 .map(|block| (block, SharedString::from("Start writing...")))
         };

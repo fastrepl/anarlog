@@ -17,6 +17,8 @@ anlg-db-app = { workspace = true }
 anlg-db-core = { workspace = true }
 anlg-export-core = { workspace = true }
 anlg-fs-sync-core = { workspace = true }
+anlg-language = { workspace = true }
+anlg-listener-core = { workspace = true }
 anlg-storage = { workspace = true }
 anlg-template-app = { workspace = true }
 anlg-tiptap = { workspace = true }
@@ -36,6 +38,7 @@ mime_guess = "2"
 reqwest = { workspace = true, features = ["json"] }
 sha2 = { workspace = true }
 smallvec = "1"
+ractor = { workspace = true, features = ["async-trait"] }
 pico-args = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

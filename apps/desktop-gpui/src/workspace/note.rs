@@ -204,29 +204,35 @@ impl Workspace {
             .items_center()
             .gap(px(2.0))
             .when(
-                preview.enhanced.len() + 1 + usize::from(preview.has_transcript) > 1,
+                preview.enhanced.len() + 1 + usize::from(self.can_show_transcript(preview)) > 1,
                 |header| header.child(self.render_view_switcher(preview, tab, cx)),
             )
-            // `showTitleInput = tab && !isLiveMeeting && !meetingOver`: once the
-            // meeting is over the breadcrumb title leaves the header.
-            .when(!preview.meeting_over(), |header| {
-                header.child(
-                    // `TitleInput variant="breadcrumb"`: `h-5 text-sm leading-5
-                    // text-neutral-700`, placeholder in muted foreground.
-                    div()
-                        .w(title_width)
-                        .max_w_full()
-                        .min_w_0()
-                        .flex_shrink()
-                        .h(px(20.0))
-                        .flex()
-                        .items_center()
-                        .overflow_hidden()
-                        .tw_text_sm()
-                        .text_color(theme.title)
-                        .child(self.title_input.clone()),
-                )
-            })
+            // `showTitleInput = tab && !isLiveMeeting && !meetingOver`: the
+            // breadcrumb title leaves the header while capturing and once the
+            // meeting is over.
+            .when(
+                !preview.meeting_over()
+                    && self.session_mode(&preview.session.id)
+                        == super::recording::SessionMode::Inactive,
+                |header| {
+                    header.child(
+                        // `TitleInput variant="breadcrumb"`: `h-5 text-sm leading-5
+                        // text-neutral-700`, placeholder in muted foreground.
+                        div()
+                            .w(title_width)
+                            .max_w_full()
+                            .min_w_0()
+                            .flex_shrink()
+                            .h(px(20.0))
+                            .flex()
+                            .items_center()
+                            .overflow_hidden()
+                            .tw_text_sm()
+                            .text_color(theme.title)
+                            .child(self.title_input.clone()),
+                    )
+                },
+            )
             .child(div().flex_1())
             .child(self.render_meeting_cta(preview, window, cx))
             .child(
@@ -263,7 +269,24 @@ impl Workspace {
             event.is_some_and(SessionEvent::is_welcome_demo) && !preview.has_transcript;
         // Once the meeting is over the CTA turns into `SessionShareButton
         // variant="cta"` (`ShareNetwork size-3.5` + "Share").
+        let mode = self.session_mode(&preview.session.id);
         let (label, glyph): (&str, AnyElement) = match event {
+            // `sessionMode === "active"`: `Square size-3 text-red-500 weight="fill"`.
+            _ if mode == super::recording::SessionMode::Active => (
+                "Stop",
+                div()
+                    .flex()
+                    .size(px(12.0))
+                    .items_center()
+                    .justify_center()
+                    .child(
+                        div()
+                            .size(px(10.0))
+                            .rounded(px(1.0))
+                            .bg(gpui::rgb(0xfb2c36)),
+                    )
+                    .into_any_element(),
+            ),
             _ if preview.meeting_over() => (
                 "Share",
                 icon("share", px(14.0), theme.foreground).into_any_element(),
@@ -328,6 +351,10 @@ impl Workspace {
         let label_width = self.measure_text(label, px(14.0), window);
         let cta_width = 1.0 + 6.0 + 14.0 + 6.0 + f32::from(label_width) + 10.0 + 1.0;
         let hovered = self.hovered == Some("meeting-cta");
+        // `disabled` while finalizing (`cursor-default opacity-60`); the
+        // active CTA swaps `bg-transparent` for `bg-card`.
+        let disabled = mode == super::recording::SessionMode::Finalizing || self.recording.starting;
+        let session_id = preview.session.id.clone();
         let button = div()
             .id("meeting-cta")
             .relative()
@@ -342,16 +369,33 @@ impl Workspace {
             // The Button's control squircle carries the border and hover fill.
             .child(crate::squircle::squircle(
                 crate::squircle::CONTROL_RADIUS,
-                hovered.then_some(theme.accent),
+                if hovered && !disabled {
+                    Some(theme.accent)
+                } else if mode != super::recording::SessionMode::Inactive {
+                    Some(theme.card)
+                } else {
+                    None
+                },
                 Some((1.0, theme.border)),
             ))
             .tw_text_sm()
             .text_color(theme.foreground)
-            .cursor_pointer()
+            .when(disabled, |button| button.opacity(0.6))
+            .when(!disabled, |button| button.cursor_pointer())
             .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
                 this.set_hovered("meeting-cta", *hovered, cx);
             }))
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .when(!disabled && label == "Record", |button| {
+                button.on_click(cx.listener(move |this, _: &gpui::ClickEvent, _, cx| {
+                    this.start_listening(session_id.clone(), cx);
+                }))
+            })
+            .when(!disabled && label == "Stop", |button| {
+                button.on_click(
+                    cx.listener(|this, _: &gpui::ClickEvent, _, cx| this.stop_listening(cx)),
+                )
+            })
             .child(glyph)
             .child(div().truncate().child(label));
 
@@ -440,6 +484,13 @@ impl Workspace {
 
     /// `SessionViewSwitcher`: pill strip shown only with more than one tab.
     /// Enhanced tabs first, then the memo; inactive tabs show only their icon.
+    /// `getCanShowTranscript`: a stored transcript with words, or a live
+    /// capture of this session.
+    pub(super) fn can_show_transcript(&self, preview: &NotePreview) -> bool {
+        preview.has_transcript
+            || self.session_mode(&preview.session.id) == super::recording::SessionMode::Active
+    }
+
     fn render_view_switcher(
         &self,
         preview: &NotePreview,
@@ -471,8 +522,14 @@ impl Workspace {
             String::new(),
         ));
         // `createEditorTabs`: the transcript tab follows the memo whenever
-        // `getCanShowTranscript` holds (a stored transcript with words).
-        if preview.has_transcript {
+        // `getCanShowTranscript` holds (a stored transcript with words, or a
+        // live capture).
+        let live = self
+            .recording
+            .live
+            .as_ref()
+            .filter(|live| live.session_id == preview.session.id);
+        if self.can_show_transcript(preview) {
             tabs.push((
                 NoteTab::Transcript,
                 "Transcript".into(),
@@ -541,15 +598,22 @@ impl Workspace {
                         .when(picker_open, |t| {
                             t.children(self.render_template_picker(&template_id, cx))
                         })
-                        .child(icon(
-                            glyph,
-                            px(16.0),
-                            if active {
-                                theme.foreground
-                            } else {
-                                alpha(theme.muted_foreground, 0.7)
-                            },
-                        ))
+                        .map(|t| match live {
+                            // `HeaderViewTranscriptLiveIcon`: DancingSticks in place
+                            // of the waveform while capturing.
+                            Some(live) if glyph == "waveform" => {
+                                t.child(self.render_dancing_sticks(live))
+                            }
+                            _ => t.child(icon(
+                                glyph,
+                                px(16.0),
+                                if active {
+                                    theme.foreground
+                                } else {
+                                    alpha(theme.muted_foreground, 0.7)
+                                },
+                            )),
+                        })
                         .when(active, |t| {
                             t.child(
                                 div()

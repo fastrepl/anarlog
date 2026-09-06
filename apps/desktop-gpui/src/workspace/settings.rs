@@ -385,7 +385,7 @@ impl Workspace {
     }
 
     /// `getAdditionalSpokenLanguages(ai_language, spoken_languages)`
-    fn spoken_languages(&self) -> Vec<String> {
+    pub(super) fn spoken_languages(&self) -> Vec<String> {
         let main = self
             .provider_settings
             .string_setting("ai_language", &["language", "ai_language"])
@@ -2783,7 +2783,7 @@ fn system_timezone() -> String {
 }
 
 /// `getBaseLanguageCode`: the primary subtag of a BCP 47 tag.
-fn base_language_code(code: &str) -> String {
+pub(super) fn base_language_code(code: &str) -> String {
     code.split(['-', '_']).next().unwrap_or(code).to_lowercase()
 }
 

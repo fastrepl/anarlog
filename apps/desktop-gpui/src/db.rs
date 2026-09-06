@@ -126,6 +126,124 @@ const CREATE_SESSION_SQL: &str = "
     )
 ";
 
+// `catalogLocalSessionAudio` in `apps/desktop/src/session/attachments.ts`.
+const ENQUEUE_REPLACED_AUDIO_DELETE_SQL: &str = "
+    INSERT OR IGNORE INTO attachment_transfer_jobs (
+      id, attachment_id, session_id, workspace_id, direction,
+      expected_sha256, expected_size_bytes, object_key
+    )
+    SELECT ?, attachment.id, attachment.session_id, attachment.workspace_id,
+      'delete', attachment.sha256, attachment.size_bytes,
+      attachment.cloud_object_key
+    FROM session_attachments AS attachment
+    WHERE attachment.session_id = ?
+      AND attachment.id = ?
+      AND (attachment.sha256 <> ? OR attachment.size_bytes <> ?)
+      AND attachment.cloud_object_key <> ''
+    ORDER BY attachment.deleted_at IS NULL DESC,
+      attachment.updated_at DESC,
+      attachment.id
+    LIMIT 1
+";
+
+const UPDATE_SESSION_AUDIO_SQL: &str = "
+    UPDATE session_attachments
+    SET
+      filename = ?,
+      relative_path = ?,
+      content_type = ?,
+      size_bytes = ?,
+      cloud_object_key = CASE
+        WHEN session_attachments.sha256 = ?
+          AND session_attachments.size_bytes = ? THEN cloud_object_key
+        ELSE ''
+      END,
+      storage_kind = CASE
+        WHEN session_attachments.sha256 = ?
+          AND session_attachments.size_bytes = ? THEN storage_kind
+        ELSE 'local_file'
+      END,
+      sha256 = ?,
+      source_type = 'session_audio',
+      source_id = 'primary',
+      metadata_json = json_set(
+        CASE
+          WHEN json_valid(metadata_json) THEN metadata_json
+          ELSE '{}'
+        END,
+        '$.transcript_status',
+        'processing'
+      ),
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+      deleted_at = NULL
+    WHERE id = ?
+      AND session_id = ?
+      AND EXISTS (
+        SELECT 1
+        FROM sessions AS session
+        WHERE session.id = ?
+          AND session.deleted_at IS NULL
+      )
+";
+
+const INSERT_SESSION_AUDIO_SQL: &str = "
+    INSERT INTO session_attachments (
+      id, workspace_id, session_id, filename, relative_path, content_type,
+      size_bytes, sha256, storage_kind, cloud_object_key, source_type,
+      source_id, metadata_json
+    )
+    SELECT
+      ?, session.workspace_id, session.id, ?, ?, ?, ?, ?,
+      'local_file', '', 'session_audio', 'primary',
+      json_object('transcript_status', 'processing')
+    FROM sessions AS session
+    WHERE session.id = ?
+      AND session.deleted_at IS NULL
+      AND NOT EXISTS (
+        SELECT 1
+        FROM session_attachments AS attachment
+        WHERE attachment.id = ?
+      )
+";
+
+const UPSERT_AUDIO_LOCAL_STATE_SQL: &str = "
+    INSERT INTO attachment_local_state (
+      attachment_id, session_id, relative_path, availability, updated_at
+    )
+    SELECT
+      attachment.id, attachment.session_id, attachment.relative_path,
+      'present', strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    FROM session_attachments AS attachment
+    WHERE attachment.id = ?
+      AND attachment.session_id = ?
+      AND attachment.deleted_at IS NULL
+    ON CONFLICT(attachment_id) DO UPDATE SET
+      session_id = excluded.session_id,
+      relative_path = excluded.relative_path,
+      availability = excluded.availability,
+      updated_at = excluded.updated_at
+";
+
+const ENQUEUE_AUDIO_UPLOAD_SQL: &str = "
+    INSERT OR IGNORE INTO attachment_transfer_jobs (
+      id, attachment_id, session_id, workspace_id, direction,
+      expected_sha256, expected_size_bytes
+    )
+    SELECT ?, attachment.id, attachment.session_id, attachment.workspace_id,
+      'upload', attachment.sha256, attachment.size_bytes
+    FROM session_attachments AS attachment
+    JOIN attachment_local_state AS local
+      ON local.attachment_id = attachment.id
+      AND local.availability = 'present'
+    WHERE attachment.session_id = ?
+      AND attachment.id = ?
+      AND attachment.cloud_sync_enabled = 1
+      AND attachment.cloud_object_key = ''
+      AND attachment.deleted_at IS NULL
+    ORDER BY attachment.updated_at DESC, attachment.id
+    LIMIT 1
+";
+
 /// `findOrCreateWelcomeSession`'s lookup.
 const WELCOME_SESSION_SQL: &str = "
     SELECT id
@@ -1238,6 +1356,88 @@ impl Store {
                 .await?;
             transaction.commit().await?;
             Ok(session_id)
+        })
+    }
+
+    /// `catalogLocalSessionAudio`: read the session folder's primary audio
+    /// through fs-sync's metadata, then write the `session-audio:<id>`
+    /// attachment (update or insert), its local state, and the transfer jobs
+    /// in one transaction.
+    pub fn catalog_session_audio(
+        &self,
+        session_id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+        let db = self.db.clone();
+        let session_dir = self.session_dir(&session_id);
+        self.runtime.spawn(async move {
+            let metadata = tokio::task::spawn_blocking(move || {
+                anlg_fs_sync_core::audio::metadata(&session_dir)
+            })
+            .await??
+            .ok_or_else(|| anyhow::anyhow!("audio_path_not_found"))?;
+            let filename = metadata.filename;
+            let content_type = metadata.content_type;
+            let size_bytes = metadata.size_bytes as i64;
+            let sha256 = metadata.sha256;
+            let attachment_id = format!("session-audio:{session_id}");
+            let delete_job_id = uuid::Uuid::new_v4().to_string();
+            let upload_job_id = uuid::Uuid::new_v4().to_string();
+
+            let mut transaction = db.pool().begin().await?;
+            sqlx::query(ENQUEUE_REPLACED_AUDIO_DELETE_SQL)
+                .bind(&delete_job_id)
+                .bind(&session_id)
+                .bind(&attachment_id)
+                .bind(&sha256)
+                .bind(size_bytes)
+                .execute(&mut *transaction)
+                .await?;
+            let updated = sqlx::query(UPDATE_SESSION_AUDIO_SQL)
+                .bind(&filename)
+                .bind(&filename)
+                .bind(&content_type)
+                .bind(size_bytes)
+                .bind(&sha256)
+                .bind(size_bytes)
+                .bind(&sha256)
+                .bind(size_bytes)
+                .bind(&sha256)
+                .bind(&attachment_id)
+                .bind(&session_id)
+                .bind(&session_id)
+                .execute(&mut *transaction)
+                .await?
+                .rows_affected();
+            let inserted = sqlx::query(INSERT_SESSION_AUDIO_SQL)
+                .bind(&attachment_id)
+                .bind(&filename)
+                .bind(&filename)
+                .bind(&content_type)
+                .bind(size_bytes)
+                .bind(&sha256)
+                .bind(&session_id)
+                .bind(&attachment_id)
+                .execute(&mut *transaction)
+                .await?
+                .rows_affected();
+            let local = sqlx::query(UPSERT_AUDIO_LOCAL_STATE_SQL)
+                .bind(&attachment_id)
+                .bind(&session_id)
+                .execute(&mut *transaction)
+                .await?
+                .rows_affected();
+            sqlx::query(ENQUEUE_AUDIO_UPLOAD_SQL)
+                .bind(&upload_job_id)
+                .bind(&session_id)
+                .bind(&attachment_id)
+                .execute(&mut *transaction)
+                .await?;
+            if updated + inserted != 1 || local != 1 {
+                transaction.rollback().await?;
+                anyhow::bail!("audio session is unavailable");
+            }
+            transaction.commit().await?;
+            Ok(())
         })
     }
 
@@ -2919,6 +3119,65 @@ mod tests {
         assert_eq!(words[1]["text"], "Second cue");
         let preview = store.load_note(session_id).await.unwrap().unwrap().unwrap();
         assert!(preview.has_transcript);
+    }
+
+    #[tokio::test]
+    async fn cataloguing_session_audio_writes_the_attachment_rows_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(DB_FILENAME);
+        {
+            let db = Db::connect_local_plain(&path).await.unwrap();
+            anlg_db_app::prepare_schema(&db).await.unwrap();
+        }
+        let store = Store::open(
+            tokio::runtime::Handle::current(),
+            path,
+            "com.hyprnote.dev".to_string(),
+        )
+        .await
+        .unwrap();
+        let session_id = store.create_note().await.unwrap().unwrap();
+        let session_dir = dir.path().join("sessions").join(&session_id);
+        std::fs::create_dir_all(&session_dir).unwrap();
+        std::fs::write(session_dir.join("audio.mp3"), b"ID3 not really mp3").unwrap();
+
+        store
+            .catalog_session_audio(session_id.clone())
+            .await
+            .unwrap()
+            .unwrap();
+        store
+            .catalog_session_audio(session_id.clone())
+            .await
+            .unwrap()
+            .unwrap();
+
+        let rows: Vec<(String, String, String, i64, String, String, String)> = sqlx::query_as(
+            "SELECT id, filename, content_type, size_bytes, sha256, source_type,
+                    json_extract(metadata_json, '$.transcript_status')
+             FROM session_attachments WHERE session_id = ?",
+        )
+        .bind(&session_id)
+        .fetch_all(store.db.pool())
+        .await
+        .unwrap();
+        assert_eq!(rows.len(), 1);
+        let (id, filename, content_type, size, sha, source_type, status) = &rows[0];
+        assert_eq!(id, &format!("session-audio:{session_id}"));
+        assert_eq!(filename, "audio.mp3");
+        assert_eq!(content_type, "audio/mpeg");
+        assert_eq!(*size, 18);
+        assert_eq!(sha.len(), 64);
+        assert_eq!(source_type, "session_audio");
+        assert_eq!(status, "processing");
+        let availability: String = sqlx::query_scalar(
+            "SELECT availability FROM attachment_local_state WHERE attachment_id = ?",
+        )
+        .bind(id)
+        .fetch_one(store.db.pool())
+        .await
+        .unwrap();
+        assert_eq!(availability, "present");
     }
 
     #[tokio::test]

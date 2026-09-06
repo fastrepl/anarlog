@@ -13,6 +13,7 @@ mod note;
 pub(crate) mod onboarding;
 mod open_note;
 mod overflow;
+mod recording;
 mod settings;
 pub(crate) use overflow::find_session_dir;
 mod sidebar;
@@ -195,6 +196,8 @@ pub struct Workspace {
     stats: Option<stats_page::StatsState>,
     /// The first-run flow while `OnboardingNeeded2` is not `false`.
     onboarding: Option<onboarding::OnboardingState>,
+    /// The capture engine and the live session state.
+    recording: recording::RecordingState,
     /// `anarlog.template-picker.recent-emojis` (kept for the session).
     recent_emoji_ids: Vec<String>,
     /// The note column's scroll position, for its WebKit-style scrollbar.
@@ -317,6 +320,7 @@ impl Workspace {
             icon_picker: None,
             stats: None,
             onboarding: None,
+            recording: recording::RecordingState::default(),
             recent_emoji_ids: Vec::new(),
             note_scroll: gpui::ScrollHandle::new(),
             hovered_section: None,
@@ -337,6 +341,7 @@ impl Workspace {
             Mode::Main => {
                 this.restore_tabs(cx);
                 this.start_onboarding_if_needed();
+                this.spawn_recorder(cx);
             }
             Mode::StandaloneNote(session_id) => {
                 this.tabs.push(session_id.clone());
@@ -922,6 +927,25 @@ impl Workspace {
     }
 
     /// `useNewNote`: create the session, then open it as the current tab.
+    /// `useNewNoteAndListen`
+    pub(crate) fn new_note_and_listen(&mut self, cx: &mut Context<Self>) {
+        if self.recording.live.is_some() || self.recording.starting {
+            return;
+        }
+        let task = self.store.create_note();
+        cx.spawn(async move |this, cx| {
+            if let Ok(Ok(session_id)) = task.await {
+                this.update(cx, |this, cx| {
+                    this.reload_sessions(cx);
+                    this.open_new(session_id.clone(), cx);
+                    this.start_listening(session_id, cx);
+                })
+                .ok();
+            }
+        })
+        .detach();
+    }
+
     pub(crate) fn new_note(&mut self, cx: &mut Context<Self>) {
         let task = self.store.create_note();
         cx.spawn(async move |this, cx| match task.await {
@@ -1093,6 +1117,11 @@ impl Render for Workspace {
                     this.open_note_dialog(window, cx)
                 }),
             )
+            // `mod+shift+n` → `useNewNoteAndListen`: a new note that starts
+            // capturing as soon as it opens.
+            .on_action(cx.listener(|this, _: &actions::StartRecording, _, cx| {
+                this.new_note_and_listen(cx);
+            }))
             .on_action(cx.listener(|this, _: &actions::OpenSettings, window, cx| {
                 this.open_settings(settings::SettingsTab::App, window, cx)
             }))
@@ -1228,6 +1257,10 @@ impl Render for Workspace {
             .children(self.render_open_menu(window, cx))
             .children(self.render_export_dialog(cx))
             .children(self.render_folder_dialogs(cx))
+            .children(
+                self.render_recording_toast(cx)
+                    .map(|toast| gpui::deferred(toast).with_priority(10)),
+            )
             .children(
                 self.render_flash_toast()
                     .map(|toast| gpui::deferred(toast).with_priority(11)),

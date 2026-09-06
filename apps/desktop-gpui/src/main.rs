@@ -10,6 +10,7 @@ mod editor;
 mod emoji;
 mod folders;
 mod prose_text;
+mod recording;
 mod secrets;
 mod squircle;
 mod stats;
