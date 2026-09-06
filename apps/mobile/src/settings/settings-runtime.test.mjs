@@ -110,6 +110,7 @@ const {
   saveProviderConnection,
   readProviderConfig,
   readProviderSetup,
+  readProviderStatus,
   removeProviderKey,
   resolveProvider,
 } = await import("./providers.ts");
@@ -152,6 +153,60 @@ beforeEach(() => {
     Response.json({
       choices: [{ message: { content: "## Decisions\nShip the mobile app." } }],
     });
+});
+
+test("provider availability follows saved device keys for transcription and summaries", async () => {
+  for (const kind of ["stt", "llm"]) {
+    for (const { id } of providersFor(kind)) {
+      const status = await readProviderStatus("account-a", kind, id);
+      assert.equal(status.isConfigured, id === "anarlog", `${kind}/${id}`);
+    }
+    const config = defaultProviderConfig(kind, "openai");
+    await saveProviderConnection("account-a", kind, config, "synthetic-key");
+    const configured = await readProviderStatus("account-a", kind, "openai");
+    assert.equal(configured.isConfigured, true);
+    assert.equal(configured.hasKey, true);
+    assert.equal("apiKey" in configured, false);
+    assert.equal(
+      (await readProviderStatus("account-b", kind, "openai")).isConfigured,
+      false,
+    );
+
+    await removeProviderKey("account-a", kind, "openai");
+    assert.equal(
+      (await readProviderStatus("account-a", kind, "openai")).isConfigured,
+      false,
+    );
+  }
+});
+
+test("provider availability rejects invalid saved keys and incomplete custom connections", async () => {
+  for (const kind of ["stt", "llm"]) {
+    for (const value of ["", "  ", "bad\nkey", "x".repeat(8193)]) {
+      fixture.keys.set(providerStorageKey("account-a", kind, "openai"), {
+        value,
+      });
+      assert.equal(
+        (await readProviderStatus("account-a", kind, "openai")).isConfigured,
+        false,
+      );
+    }
+    fixture.keys.set(providerStorageKey("account-a", kind, "custom"), {
+      value: "synthetic-key",
+    });
+    assert.equal(
+      (await readProviderStatus("account-a", kind, "custom")).isConfigured,
+      false,
+    );
+    await saveProviderConnection("account-a", kind, {
+      provider: "custom",
+      baseUrl: "https://custom.test/v1",
+    });
+    assert.equal(
+      (await readProviderStatus("account-a", kind, "custom")).isConfigured,
+      true,
+    );
+  }
 });
 
 test("preference writes work offline and sync only supported preferences to the bound workspace", async () => {

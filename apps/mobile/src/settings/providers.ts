@@ -72,6 +72,26 @@ export async function readProviderSetup(
   return defaultProviderConfig(kind, provider);
 }
 
+export async function readProviderStatus(
+  accountId: string | null,
+  kind: ProviderKind,
+  provider: string,
+) {
+  const [config, apiKey] = await Promise.all([
+    readProviderSetup(accountId, kind, provider),
+    readProviderKey(accountId, kind, provider),
+  ]);
+  let hasKey = false;
+  let isConfigured = provider === "anarlog";
+  try {
+    validateProviderApiKey(apiKey ?? "");
+    hasKey = true;
+    validateProviderConnection(kind, config);
+    isConfigured = true;
+  } catch {}
+  return { config, hasKey, isConfigured };
+}
+
 export async function saveProviderConfig(
   accountId: string | null,
   kind: ProviderKind,

@@ -31,8 +31,8 @@ import { ProviderModelPicker } from "./provider-model-picker";
 import { ProviderPicker } from "./provider-picker";
 import {
   readProviderConfig,
-  readProviderKey,
   readProviderSetup,
+  readProviderStatus,
   removeProviderKey,
   saveProviderConfig,
   saveProviderConnection,
@@ -89,10 +89,7 @@ function ProviderForm({
   const setups = useQueries({
     queries: definitions.map(({ id }) => ({
       queryKey: ["provider-setup", account, kind, id],
-      queryFn: async () => ({
-        config: await readProviderSetup(account, kind, id),
-        hasKey: Boolean(await readProviderKey(account, kind, id)),
-      }),
+      queryFn: () => readProviderStatus(account, kind, id),
     })),
   });
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -101,6 +98,19 @@ function ProviderForm({
   const modelDrafts = useRef<Record<string, string>>({});
   const selectedSetup =
     setups[definitions.findIndex(({ id }) => id === selectedProvider)];
+  const configuredIds = new Set(
+    setups.flatMap(({ data }) =>
+      data?.isConfigured ? [data.config.provider] : [],
+    ),
+  );
+  const providerOptions = providersFor(kind).filter(
+    ({ id }) => id === "anarlog" || configuredIds.has(id),
+  );
+  const visibleProvider = providerOptions.some(
+    ({ id }) => id === selectedProvider,
+  )
+    ? selectedProvider
+    : "";
   const select = useMutation({
     scope: { id: `provider-settings:${account}:${kind}` },
     mutationFn: async ({
@@ -145,10 +155,11 @@ function ProviderForm({
           <Text>Provider</Text>
           <Spacer />
           <ProviderPicker
-            kind={kind}
-            selectedValue={selectedProvider}
+            providers={providerOptions}
+            selectedValue={visibleProvider}
             enabled={!select.isPending}
             onValueChange={(provider) => {
+              if (!providerOptions.some(({ id }) => id === provider)) return;
               if (!modelDrafts.current[provider]?.trim())
                 delete modelDrafts.current[provider];
               selectedProviderRef.current = provider;
@@ -158,7 +169,9 @@ function ProviderForm({
             }}
           />
         </Row>
-        {selectedProvider === "anarlog" ? (
+        {!visibleProvider ? (
+          <Text>Choose a configured provider to select a model.</Text>
+        ) : selectedProvider === "anarlog" ? (
           <Row alignment="center">
             <Text>Model</Text>
             <Spacer />
@@ -203,7 +216,8 @@ function ProviderForm({
       <FieldGroup.Section title="Configure providers">
         {definitions.map((provider, index) => {
           const setup = setups[index];
-          const active = config.provider === provider.id;
+          const active =
+            config.provider === provider.id && setup.data?.isConfigured;
           const open = expanded === provider.id;
           return (
             <Column key={provider.id} spacing={16}>

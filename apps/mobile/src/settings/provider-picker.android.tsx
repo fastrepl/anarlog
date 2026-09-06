@@ -8,21 +8,20 @@ import { menuAnchor } from "@expo/ui/jetpack-compose/modifiers";
 import { useState } from "react";
 
 import { ProviderIcon } from "./provider-icon";
-import { providersFor, type ProviderKind } from "./providers-model";
 
 export function ProviderPicker({
-  kind,
+  providers,
   selectedValue,
   enabled,
   onValueChange,
 }: {
-  kind: ProviderKind;
+  providers: readonly { id: string; name: string }[];
   selectedValue: string;
   enabled: boolean;
   onValueChange: (provider: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const providers = providersFor(kind);
+  const selected = providers.find(({ id }) => id === selectedValue);
   return (
     <ExposedDropdownMenuBox
       expanded={expanded}
@@ -34,11 +33,8 @@ export function ProviderPicker({
         alignment="center"
         testID="active-provider"
       >
-        <ProviderIcon provider={selectedValue} />
-        <Text>
-          {providers.find(({ id }) => id === selectedValue)?.name ??
-            selectedValue}
-        </Text>
+        {selected && <ProviderIcon provider={selected.id} />}
+        <Text>{selected?.name ?? "Select provider"}</Text>
         <Icon
           name={Icon.select({
             ios: "chevron.down",

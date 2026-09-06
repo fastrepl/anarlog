@@ -1,14 +1,12 @@
 import { Picker } from "@expo/ui";
 
-import { providersFor, type ProviderKind } from "./providers-model";
-
 export function ProviderPicker({
-  kind,
+  providers,
   selectedValue,
   enabled,
   onValueChange,
 }: {
-  kind: ProviderKind;
+  providers: readonly { id: string; name: string }[];
   selectedValue: string;
   enabled: boolean;
   onValueChange: (provider: string) => void;
@@ -20,7 +18,8 @@ export function ProviderPicker({
       onValueChange={onValueChange}
       testID="active-provider"
     >
-      {providersFor(kind).map((provider) => (
+      {!selectedValue && <Picker.Item value="" label="Select provider" />}
+      {providers.map((provider) => (
         <Picker.Item
           key={provider.id}
           value={provider.id}

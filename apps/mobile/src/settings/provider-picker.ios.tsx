@@ -8,27 +8,25 @@ import {
 } from "@expo/ui/swift-ui/modifiers";
 
 import { ProviderIcon } from "./provider-icon";
-import { providersFor, type ProviderKind } from "./providers-model";
 
 export function ProviderPicker({
-  kind,
+  providers,
   selectedValue,
   enabled,
   onValueChange,
 }: {
-  kind: ProviderKind;
+  providers: readonly { id: string; name: string }[];
   selectedValue: string;
   enabled: boolean;
   onValueChange: (provider: string) => void;
 }) {
+  const selected = providers.find(({ id }) => id === selectedValue);
   return (
     <Menu
       label={
         <HStack spacing={8}>
-          <ProviderIcon provider={selectedValue} size={20} />
-          <Text>
-            {providersFor(kind).find(({ id }) => id === selectedValue)?.name}
-          </Text>
+          {selected && <ProviderIcon provider={selected.id} size={20} />}
+          <Text>{selected?.name ?? "Select provider"}</Text>
           <Image systemName="chevron.up.chevron.down" size={12} />
         </HStack>
       }
@@ -37,11 +35,11 @@ export function ProviderPicker({
     >
       <Picker
         label="Provider"
-        selection={selectedValue}
+        selection={selected?.id}
         onSelectionChange={onValueChange}
         modifiers={[pickerStyle("inline"), labelsHidden()]}
       >
-        {providersFor(kind).map((provider) => (
+        {providers.map((provider) => (
           <Label
             key={provider.id}
             title={provider.name}
