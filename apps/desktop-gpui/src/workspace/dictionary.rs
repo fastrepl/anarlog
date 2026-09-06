@@ -258,10 +258,11 @@ impl Workspace {
     pub(super) fn render_dictionary_settings(
         &self,
         title: impl IntoElement,
+        window: &Window,
         cx: &Context<Self>,
     ) -> Div {
         let allowed = self.dictionary_allowed();
-        let content = self.render_dictionary_form(allowed, cx);
+        let content = self.render_dictionary_form(allowed, window, cx);
         div()
             .flex()
             .flex_col()
@@ -286,7 +287,7 @@ impl Workspace {
 
     /// `DictionarySettings`: the `InputGroup` with the Add button, then the
     /// empty card, the `No match` line, or the term rows.
-    fn render_dictionary_form(&self, allowed: bool, cx: &Context<Self>) -> Div {
+    fn render_dictionary_form(&self, allowed: bool, window: &Window, cx: &Context<Self>) -> Div {
         let theme = self.theme;
         let terms = self.dictionary_terms();
         let typed = self
@@ -375,17 +376,25 @@ impl Workspace {
                         .text_color(theme.foreground)
                         .child("Your dictionary is empty"),
                 )
-                .child(
-                    div()
-                        .mt_1()
-                        .max_w(px(384.0))
-                        .tw_text_xs()
-                        .text_color(theme.muted_foreground)
-                        .text_center()
-                        .child(
-                            "Tip: Add teammate names, acronyms, company jargon, and product terms.",
-                        ),
-                )
+                .child(div().mt_1().w_full().max_w(px(384.0)).flex().flex_col().items_center().child({
+                    // `p.text-xs max-w-sm`: centred, `text-wrap: pretty`.
+                    let mut style = window.text_style();
+                    style.font_size = px(12.0).into();
+                    style.color = theme.muted_foreground.into();
+                    if let Some(font) = &self.font_family {
+                        style.font_family = font.clone();
+                    }
+                    let text = "Tip: Add teammate names, acronyms, company jargon, and product terms.";
+                    crate::prose_text::ProseText::new(
+                        text.to_string(),
+                        vec![style.to_run(text.len())],
+                        px(12.0),
+                        px(16.0),
+                    )
+                    .centered()
+                    .pretty()
+                    .max_width(px(384.0))
+                }))
                 .into_any_element()
         } else if visible.is_empty() {
             if has_search {

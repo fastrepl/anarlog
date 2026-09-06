@@ -1369,6 +1369,7 @@ impl Workspace {
                         px(22.0),
                     )
                     .centered()
+                    .pretty()
                     .max_width(px(448.0)),
                 ),
             )

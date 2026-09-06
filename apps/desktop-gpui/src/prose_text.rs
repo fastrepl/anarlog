@@ -28,6 +28,9 @@ pub struct ProseText {
     /// sized by its content (an intrinsically sized flex item) and offers no
     /// definite width to wrap at.
     max_width: Option<Pixels>,
+    /// `text-wrap: pretty` (the app's global rule for `p`): WebKit's
+    /// constrained line breaking that avoids orphans.
+    pretty: bool,
     layout: ProseLayout,
 }
 
@@ -68,8 +71,14 @@ impl ProseText {
             line_height,
             centered: false,
             max_width: None,
+            pretty: false,
             layout: ProseLayout::default(),
         }
+    }
+
+    pub fn pretty(mut self) -> Self {
+        self.pretty = true;
+        self
     }
 
     pub fn centered(mut self) -> Self {
@@ -209,6 +218,7 @@ impl Element for ProseText {
         let line_height = self.line_height;
         let layout = self.layout.clone();
         let max_width = self.max_width;
+        let pretty = self.pretty;
         let layout_id = window.request_measured_layout(
             Style::default(),
             move |known_dimensions, available_space, window, _cx| {
@@ -225,7 +235,7 @@ impl Element for ProseText {
                 {
                     return inner.size;
                 }
-                let lines = break_lines(&text, &runs, font_size, wrap_width, window);
+                let lines = break_lines(&text, &runs, font_size, wrap_width, pretty, window);
                 let width = wrap_width.unwrap_or_else(|| {
                     lines
                         .iter()
@@ -324,6 +334,7 @@ fn break_lines(
     runs: &[TextRun],
     font_size: Pixels,
     wrap_width: Option<Pixels>,
+    pretty: bool,
     window: &Window,
 ) -> Vec<Line> {
     let text_system = window.text_system();
@@ -339,9 +350,11 @@ fn break_lines(
     let Some(whole) = shape(measured, runs) else {
         return Vec::new();
     };
-    let breaks = break_offsets(text, wrap_width, |index| {
-        whole.unwrapped_layout.x_for_index(index)
-    });
+    let x_for_index = |index| whole.unwrapped_layout.x_for_index(index);
+    let breaks = match wrap_width {
+        Some(width) if pretty => pretty_break_offsets(text, width, x_for_index),
+        _ => break_offsets(text, wrap_width, x_for_index),
+    };
 
     let mut lines = Vec::with_capacity(breaks.len());
     let mut start = 0;
@@ -419,6 +432,140 @@ pub(crate) fn break_offsets(
     }
     breaks.push(text.len());
     breaks
+}
+
+/// WebKit's `text-wrap: pretty` (`InlineContentConstrainer::prettifyRange`):
+/// lines break only at the greedy breaker's opportunities, every line that
+/// leaves more than two words behind it must measure within
+/// `[max - 90, max]` (the ideal width `max - 45` ± 3 × 15), and among the
+/// feasible break sequences the one with the least total raggedness
+/// `Σ 100·|(width - ideal) / 15|³` wins — the last line included, which is
+/// what pulls words down to avoid a short last line. Paragraphs whose ideal
+/// width is narrower than their widest word, and paragraphs without a
+/// feasible sequence, fall back to greedy breaking. Forced newlines split
+/// the text into independently constrained chunks.
+pub(crate) fn pretty_break_offsets(
+    text: &str,
+    max_width: Pixels,
+    x_for_index: impl Fn(usize) -> Pixels,
+) -> Vec<usize> {
+    const STRETCH: f32 = 15.0;
+    const MAX_STRETCH: f32 = 3.0;
+    const LAST_LINE_PREFERRED_WORDS: usize = 2;
+    let max = f32::from(max_width);
+    let ideal = max - STRETCH * MAX_STRETCH;
+    let greedy = break_offsets(text, Some(max_width), &x_for_index);
+    if ideal <= 0.0 {
+        return greedy;
+    }
+    let x = |index: usize| f32::from(x_for_index(index));
+    let raggedness = |width: f32| 100.0 * ((width - ideal) / STRETCH).abs().powi(3);
+
+    let mut result = Vec::new();
+    let mut chunk_start = 0;
+    for chunk in text.split_inclusive('\n') {
+        let chunk_end = chunk_start + chunk.len();
+        let content_end = chunk_end - usize::from(chunk.ends_with('\n'));
+        // Break opportunities inside the chunk, then the chunk end.
+        let mut opportunities = vec![chunk_start];
+        let graphemes: Vec<(usize, &str)> = text[chunk_start..content_end]
+            .grapheme_indices(true)
+            .map(|(offset, grapheme)| (chunk_start + offset, grapheme))
+            .collect();
+        for (ix, (offset, grapheme)) in graphemes.iter().enumerate() {
+            let following = graphemes.get(ix + 1).map(|(_, g)| *g);
+            let next_offset = graphemes
+                .get(ix + 1)
+                .map(|(o, _)| *o)
+                .unwrap_or(content_end);
+            if following.is_some()
+                && is_break_opportunity(grapheme, following)
+                && next_offset < content_end
+            {
+                // One opportunity per run of spaces: the position after it.
+                if !is_space(following.unwrap_or("")) && *offset + grapheme.len() == next_offset {
+                    opportunities.push(next_offset);
+                }
+            }
+        }
+        opportunities.push(content_end);
+        let count = opportunities.len();
+        // Visible width of a line from opportunity `a` to `b`: hanging
+        // trailing spaces excluded.
+        let line_width = |a: usize, b: usize| -> f32 {
+            let start = opportunities[a];
+            let end = opportunities[b];
+            let trimmed = end - hanging_len(&text[start..end]);
+            (x(trimmed) - x(start)).max(0.0)
+        };
+        let widest_word = (0..count.saturating_sub(1))
+            .map(|a| line_width(a, a + 1))
+            .fold(0.0f32, f32::max);
+        // `validIdealLineWidth`, or a single-line chunk: auto layout.
+        if count <= 2 || ideal < widest_word {
+            result.extend(
+                greedy
+                    .iter()
+                    .copied()
+                    .filter(|end| *end > chunk_start && *end <= chunk_end),
+            );
+            chunk_start = chunk_end;
+            continue;
+        }
+        // Knuth–Plass over the opportunities: best[b] = (cost, previous).
+        let mut best: Vec<(f32, usize)> = vec![(f32::INFINITY, 0); count];
+        best[0] = (0.0, 0);
+        for b in 1..count {
+            let remaining_words = count - 1 - b;
+            let constrained = remaining_words > LAST_LINE_PREFERRED_WORDS;
+            for a in (0..b).rev() {
+                if !best[a].0.is_finite() {
+                    continue;
+                }
+                let width = line_width(a, b);
+                if width > max {
+                    break;
+                }
+                if constrained && width < ideal - STRETCH * MAX_STRETCH {
+                    continue;
+                }
+                let cost = best[a].0 + raggedness(width);
+                if cost < best[b].0 {
+                    best[b] = (cost, a);
+                }
+            }
+        }
+        if !best[count - 1].0.is_finite() {
+            result.extend(
+                greedy
+                    .iter()
+                    .copied()
+                    .filter(|end| *end > chunk_start && *end <= chunk_end),
+            );
+            chunk_start = chunk_end;
+            continue;
+        }
+        let mut ends = Vec::new();
+        let mut b = count - 1;
+        while b > 0 {
+            ends.push(opportunities[b]);
+            b = best[b].1;
+        }
+        ends.reverse();
+        // The chunk's last line carries the forced newline.
+        if let Some(last) = ends.last_mut() {
+            *last = chunk_end;
+        }
+        result.extend(ends);
+        chunk_start = chunk_end;
+    }
+    if text.is_empty() || text.ends_with('\n') {
+        // Match the greedy breaker: an empty trailing line after a newline.
+        if result.last().copied() != Some(text.len()) || text.is_empty() {
+            result.push(text.len());
+        }
+    }
+    result
 }
 
 fn is_space(grapheme: &str) -> bool {
@@ -506,6 +653,84 @@ mod tests {
                 "{breaks:?}"
             );
         }
+    }
+
+    /// The cases below were measured on WebKitGTK 2.52 with a 10px
+    /// JetBrains Mono (6px per character) in a 400px column, where the
+    /// ideal width is 355px and constrained lines must reach 310px.
+    fn mono6(index: usize) -> Pixels {
+        px(index as f32 * 6.0)
+    }
+
+    fn pretty_lines(text: &str, width: f32) -> Vec<usize> {
+        let breaks = pretty_break_offsets(text, px(width), mono6);
+        let mut start = 0;
+        breaks
+            .into_iter()
+            .map(|end| {
+                let len = text[start..end].trim_end().len();
+                start = end;
+                len
+            })
+            .collect()
+    }
+
+    #[test]
+    fn pretty_pulls_words_down_to_avoid_a_short_last_line() {
+        // 12 five-letter words: greedy gives 65 + 5; WebKit lays out 53 + 17.
+        let words = |n: usize| vec!["aaaaa"; n].join(" ");
+        assert_eq!(pretty_lines(&words(12), 400.0), vec![53, 17]);
+        assert_eq!(pretty_lines(&words(16), 400.0), vec![53, 41]);
+        assert_eq!(pretty_lines(&words(22), 400.0), vec![65, 65]);
+        assert_eq!(pretty_lines(&words(23), 400.0), vec![53, 53, 29]);
+        assert_eq!(pretty_lines(&words(24), 400.0), vec![53, 53, 35]);
+    }
+
+    #[test]
+    fn pretty_leaves_two_words_behind_but_keeps_earlier_lines_full() {
+        let first = "aaaaaaaaa aaaaaaaaa aaaaaaaaa aaaaaaaaa aaaaaaaaa aaaaaaaaaaaa";
+        // A one-word last line moves one word down…
+        assert_eq!(pretty_lines(&format!("{first} bbbbb"), 400.0), vec![49, 18]);
+        assert_eq!(pretty_lines(&format!("{first} bb cc"), 400.0), vec![62, 5]);
+        assert_eq!(pretty_lines(&format!("{first} p qq"), 400.0), vec![62, 4]);
+        // …or two when the total raggedness is lower.
+        assert_eq!(pretty_lines(&format!("{first} p q r"), 400.0), vec![62, 5]);
+        // A two-word last line is left alone.
+        assert_eq!(
+            pretty_lines(&format!("{first} bbbbb ccccc"), 400.0),
+            vec![62, 11]
+        );
+        // A line followed by exactly two words may fall under the bound.
+        let short = "aaaaaaaaa aaaaaaaaa aaaaaaaaa aaaaaaaaa aaaaaaaaa";
+        assert_eq!(
+            pretty_lines(&format!("{short} pppppppppppp qqqq"), 400.0),
+            vec![49, 17]
+        );
+        assert_eq!(
+            pretty_lines(&format!("{short} pppppppppppp qqqqqqqqqqqq"), 400.0),
+            vec![49, 25]
+        );
+    }
+
+    #[test]
+    fn pretty_falls_back_to_greedy_for_single_lines_wide_words_and_newlines() {
+        assert_eq!(pretty_lines("aaaaa bbbbb", 400.0), vec![11]);
+        // A 61-character word is wider than the ideal 355px: auto layout.
+        let wide = format!("aa {} bb cc", "w".repeat(61));
+        assert_eq!(
+            pretty_break_offsets(&wide, px(400.0), mono6),
+            break_offsets(&wide, Some(px(400.0)), mono6)
+        );
+        // Forced newlines split the chunks; each keeps the greedy shape here.
+        assert_eq!(
+            pretty_break_offsets("ab\ncd", px(400.0), mono6),
+            break_offsets("ab\ncd", Some(px(400.0)), mono6)
+        );
+        assert_eq!(
+            pretty_break_offsets("ab\n", px(400.0), mono6),
+            break_offsets("ab\n", Some(px(400.0)), mono6)
+        );
+        assert_eq!(pretty_break_offsets("", px(400.0), mono6), vec![0]);
     }
 
     #[test]

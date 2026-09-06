@@ -939,7 +939,7 @@ impl Workspace {
                 self.render_ai_settings(super::ai_settings::ProviderKind::Llm, title, window, cx)
             }
             SettingsTab::Developers => self.render_developers_settings(title, cx),
-            SettingsTab::Dictionary => self.render_dictionary_settings(title, cx),
+            SettingsTab::Dictionary => self.render_dictionary_settings(title, window, cx),
             SettingsTab::Account => div()
                 .flex()
                 .flex_col()

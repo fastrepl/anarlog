@@ -272,6 +272,8 @@ impl DocumentRenderer {
         // `.note-typography > * { padding-block: 0.125em }`
         let pad = px(BODY_PX * 0.125);
         match block {
+            // The editor's paragraphs compute `text-wrap: wrap` (measured on
+            // the running app), not the global `p { text-wrap: pretty }`.
             Block::Paragraph(spans) => self.textblock(
                 div().py(pad).min_h(px(BODY_PX * 1.5 + 4.0)),
                 self.prose(spans, &self.base, px(BODY_PX * 1.5)),
