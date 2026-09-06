@@ -183,7 +183,7 @@ where
                 let response = match message {
                     Some(Ok(response)) => response,
                     Some(Err(_)) => return false,
-                    None => return finalizing,
+                    None => return finalizing || finish.is_cancelled(),
                 };
                 if matches!(response, StreamResponse::ErrorResponse { .. }) { return false; }
                 let terminal = matches!(response,
@@ -225,8 +225,9 @@ impl ProviderLiveTranscription {
     }
 
     pub async fn finish(&self) -> bool {
-        self.audio.lock().unwrap().take();
+        let audio = self.audio.lock().unwrap().take();
         self.finish.cancel();
+        drop(audio);
         let mut completed = self.completed.clone();
         loop {
             if let Some(success) = *completed.borrow_and_update() {
@@ -289,6 +290,86 @@ mod tests {
                 model: Some("universal-3-5-pro-realtime".into()),
                 ..Default::default()
             },
+        }
+    }
+
+    #[tokio::test]
+    async fn finish_is_announced_before_audio_eof_wakes_the_provider() {
+        use std::{
+            sync::atomic::{AtomicBool, Ordering},
+            task::{Context, Wake, Waker},
+        };
+
+        struct EofWake {
+            finish: CancellationToken,
+            finish_at_eof: AtomicBool,
+        }
+        impl Wake for EofWake {
+            fn wake(self: Arc<Self>) {
+                self.finish_at_eof
+                    .store(self.finish.is_cancelled(), Ordering::SeqCst);
+            }
+        }
+        let (sender, mut receiver) = mpsc::channel(1);
+        let (_completed, result) = watch::channel(Some(true));
+        let finish = CancellationToken::new();
+        let observer = Arc::new(EofWake {
+            finish: finish.clone(),
+            finish_at_eof: AtomicBool::new(false),
+        });
+        let waker = Waker::from(observer.clone());
+        assert!(
+            receiver
+                .poll_recv(&mut Context::from_waker(&waker))
+                .is_pending()
+        );
+        let live = ProviderLiveTranscription {
+            audio: Mutex::new(Some(sender)),
+            finish,
+            cancel: CancellationToken::new(),
+            completed: result,
+        };
+
+        assert!(live.finish().await);
+        assert!(observer.finish_at_eof.load(Ordering::SeqCst));
+        assert!(receiver.recv().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn finish_between_select_polls_accepts_eof_but_unexpected_eof_fails() {
+        struct Handle;
+        impl FinalizeHandle for Handle {
+            async fn finalize(&self) {
+                panic!("EOF should arrive before the next finalization poll");
+            }
+            fn expected_finalize_count(&self) -> usize {
+                1
+            }
+        }
+        for finishing in [false, true] {
+            let finish = CancellationToken::new();
+            let mut polls = 0;
+            let stream = futures_util::stream::poll_fn(|_| {
+                polls += 1;
+                if polls == 1 {
+                    return std::task::Poll::Pending;
+                }
+                if finishing {
+                    finish.cancel();
+                }
+                std::task::Poll::Ready(None::<Result<StreamResponse, ()>>)
+            });
+            assert_eq!(
+                consume(
+                    stream,
+                    &Handle,
+                    &Events::default(),
+                    &finish,
+                    &CancellationToken::new()
+                )
+                .await,
+                finishing,
+            );
         }
     }
 
