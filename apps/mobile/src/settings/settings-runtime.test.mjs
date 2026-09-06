@@ -94,9 +94,12 @@ registerHooks({
 });
 
 const { setPreference, readPreferences } = await import("./preferences.ts");
+const { createProviderAutosave } = await import("./provider-autosave.ts");
 const {
   saveProviderConfig,
+  saveProviderSetup,
   readProviderConfig,
+  readProviderSetup,
   removeProviderKey,
   resolveProvider,
 } = await import("./providers.ts");
@@ -280,6 +283,273 @@ test("provider keys stay in device-only secure storage, separated by account and
 test("hosted Anarlog Pro requires a session token", async () => {
   fixture.session = null;
   await assert.rejects(resolveProvider("stt"), /Sign in to use Anarlog Pro/);
+});
+
+test("saving provider credentials leaves the active selection unchanged", async () => {
+  const config = {
+    ...defaultProviderConfig("llm", "openai"),
+    model: "saved-openai-model",
+  };
+  await saveProviderSetup("account-a", "llm", config, "synthetic-key");
+  assert.equal(
+    (await readProviderConfig("account-a", "llm")).provider,
+    "anarlog",
+  );
+  assert.deepEqual(
+    await readProviderSetup("account-a", "llm", "openai"),
+    config,
+  );
+  assert.equal(
+    fixture.keys.get(providerStorageKey("account-a", "llm", "openai")).value,
+    "synthetic-key",
+  );
+  assert.equal(
+    (await readProviderSetup("account-b", "llm", "openai")).model,
+    "",
+  );
+  assert.equal(
+    (await readProviderConfig("account-a", "stt")).provider,
+    "anarlog",
+  );
+  assert.equal(fixture.requests.length, 0);
+});
+
+test("switching providers restores each saved model and endpoint without re-entering keys", async () => {
+  const openai = {
+    ...defaultProviderConfig("llm", "openai"),
+    model: "openai-model",
+  };
+  const custom = {
+    provider: "custom",
+    baseUrl: "https://private-provider.test/v1",
+    model: "custom-model",
+  };
+  await saveProviderSetup("account-a", "llm", openai, "synthetic-openai-key");
+  await saveProviderSetup("account-a", "llm", custom, "synthetic-custom-key");
+  for (const config of [openai, custom, openai]) {
+    await saveProviderConfig(
+      "account-a",
+      "llm",
+      await readProviderSetup("account-a", "llm", config.provider),
+    );
+    assert.deepEqual(await readProviderConfig("account-a", "llm"), config);
+  }
+  assert.equal(fixture.keys.size, 2);
+});
+
+test("editing an active provider updates its runtime config while editing another does not", async () => {
+  const active = {
+    ...defaultProviderConfig("llm", "openai"),
+    model: "first-model",
+  };
+  await saveProviderConfig("account-a", "llm", active, "synthetic-openai-key");
+  const updated = { ...active, model: "updated-model" };
+  await saveProviderSetup("account-a", "llm", updated);
+  await saveProviderSetup(
+    "account-a",
+    "llm",
+    { ...defaultProviderConfig("llm", "anthropic"), model: "anthropic-model" },
+    "synthetic-anthropic-key",
+  );
+  assert.deepEqual(await readProviderConfig("account-a", "llm"), updated);
+  signedInWith({});
+  assert.equal((await resolveProvider("llm")).model, "updated-model");
+});
+
+test("legacy active settings survive the first provider switch, including edits made by older builds", async () => {
+  const legacy = {
+    ...defaultProviderConfig("stt", "deepgram"),
+    model: "legacy-model",
+  };
+  const activeId = providerStorageKey("account-a", "stt");
+  fixture.db
+    .prepare("INSERT INTO app_settings (id, value_json) VALUES (?, ?)")
+    .run(activeId, JSON.stringify(legacy));
+  fixture.db
+    .prepare("INSERT INTO app_settings (id, value_json) VALUES (?, ?)")
+    .run(
+      providerStorageKey("account-a", "stt", "deepgram"),
+      JSON.stringify({ ...legacy, model: "outdated-model" }),
+    );
+  fixture.keys.set(providerStorageKey("account-a", "stt", "deepgram"), {
+    value: "synthetic-existing-key",
+  });
+  assert.deepEqual(
+    await readProviderSetup("account-a", "stt", "deepgram"),
+    legacy,
+  );
+  await saveProviderConfig("account-a", "stt", defaultProviderConfig("stt"));
+  const restored = await readProviderSetup("account-a", "stt", "deepgram");
+  assert.deepEqual(restored, legacy);
+  await saveProviderConfig("account-a", "stt", restored);
+  assert.deepEqual(await readProviderConfig("account-a", "stt"), legacy);
+});
+
+test("invalid setup or a removed key cannot replace the current provider", async () => {
+  const config = defaultProviderConfig("stt", "deepgram");
+  await assert.rejects(
+    saveProviderSetup("account-a", "stt", config),
+    /Enter an API key/,
+  );
+  assert.equal(
+    fixture.db
+      .prepare(
+        "SELECT count(*) AS count FROM app_settings WHERE id LIKE 'anarlog.provider.%'",
+      )
+      .get().count,
+    0,
+  );
+  await saveProviderSetup("account-a", "stt", config, "synthetic-key");
+  await removeProviderKey("account-a", "stt", "deepgram");
+  await assert.rejects(
+    saveProviderConfig("account-a", "stt", config),
+    /Enter an API key/,
+  );
+  assert.equal(
+    (await readProviderConfig("account-a", "stt")).provider,
+    "anarlog",
+  );
+  assert.deepEqual(
+    await readProviderSetup("account-a", "stt", "deepgram"),
+    config,
+  );
+});
+
+test("provider autosave waits for typing to stop and persists only the latest valid draft", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const writes = [];
+  const autosave = createProviderAutosave("llm", (draft) => {
+    writes.push(
+      saveProviderSetup("account-a", "llm", draft.config, draft.apiKey),
+    );
+  });
+  const config = {
+    ...defaultProviderConfig("llm", "openai"),
+    model: "first-model",
+  };
+  autosave.schedule(config, "synthetic-first-key", false);
+  t.mock.timers.tick(300);
+  const latest = { ...config, model: "latest-model" };
+  autosave.schedule(latest, "synthetic-latest-key", false);
+  t.mock.timers.tick(499);
+  assert.equal(writes.length, 0);
+  t.mock.timers.tick(1);
+  await Promise.all(writes);
+  assert.equal(writes.length, 1);
+  assert.deepEqual(
+    await readProviderSetup("account-a", "llm", "openai"),
+    latest,
+  );
+  assert.equal(
+    fixture.keys.get(providerStorageKey("account-a", "llm", "openai")).value,
+    "synthetic-latest-key",
+  );
+  assert.equal(
+    (await readProviderConfig("account-a", "llm")).provider,
+    "anarlog",
+  );
+});
+
+test("an incomplete or invalid edit cancels the pending provider autosave", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const writes = [];
+  const autosave = createProviderAutosave("llm", (draft) => writes.push(draft));
+  const config = {
+    provider: "custom",
+    baseUrl: "https://provider.test/v1",
+    model: "custom-model",
+  };
+  for (const [draft, key] of [
+    [{ ...config, model: "" }, "synthetic-key"],
+    [{ ...config, model: "line\nbreak" }, "synthetic-key"],
+    [{ ...config, baseUrl: "http://provider.test/v1" }, "synthetic-key"],
+    [
+      { ...config, baseUrl: "https://user:password@provider.test" },
+      "synthetic-key",
+    ],
+    [config, ""],
+    [config, "line\nbreak"],
+    [config, "a".repeat(8193)],
+  ]) {
+    autosave.schedule(config, "synthetic-valid-key", false);
+    autosave.schedule(draft, key, false);
+    autosave.flush();
+    t.mock.timers.tick(500);
+    assert.equal(writes.length, 0);
+  }
+});
+
+test("autosave flushes on leaving a field exactly once and reuses a saved key", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const config = defaultProviderConfig("stt", "deepgram");
+  await saveProviderConfig(
+    "account-a",
+    "stt",
+    config,
+    "synthetic-existing-key",
+  );
+  const writes = [];
+  const autosave = createProviderAutosave("stt", (draft) => {
+    writes.push(
+      saveProviderSetup("account-a", "stt", draft.config, draft.apiKey),
+    );
+  });
+  const edited = { ...config, model: "  edited-model  " };
+  autosave.schedule(edited, "", true);
+  autosave.flush();
+  autosave.flush();
+  t.mock.timers.tick(500);
+  await Promise.all(writes);
+  assert.equal(writes.length, 1);
+  assert.equal(
+    (await readProviderConfig("account-a", "stt")).model,
+    "edited-model",
+  );
+  assert.equal(
+    fixture.keys.get(providerStorageKey("account-a", "stt", "deepgram")).value,
+    "synthetic-existing-key",
+  );
+});
+
+test("canceling a pending autosave does not restore a removed provider key", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const config = defaultProviderConfig("stt", "deepgram");
+  await saveProviderSetup("account-a", "stt", config, "synthetic-existing-key");
+  const writes = [];
+  const autosave = createProviderAutosave("stt", (draft) => writes.push(draft));
+  autosave.schedule(config, "synthetic-replacement-key", true);
+  autosave.cancel();
+  await removeProviderKey("account-a", "stt", "deepgram");
+  autosave.flush();
+  t.mock.timers.tick(500);
+  assert.equal(writes.length, 0);
+  assert.equal(fixture.keys.size, 0);
+  assert.deepEqual(
+    await readProviderSetup("account-a", "stt", "deepgram"),
+    config,
+  );
+});
+
+test("invalid autosaved edits preserve the last working provider configuration", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const config = defaultProviderConfig("stt", "deepgram");
+  await saveProviderConfig(
+    "account-a",
+    "stt",
+    config,
+    "synthetic-existing-key",
+  );
+  const writes = [];
+  const autosave = createProviderAutosave("stt", (draft) => {
+    writes.push(
+      saveProviderSetup("account-a", "stt", draft.config, draft.apiKey),
+    );
+  });
+  autosave.schedule({ ...config, model: "" }, "", true);
+  t.mock.timers.tick(500);
+  assert.equal(writes.length, 0);
+  assert.deepEqual(await readProviderConfig("account-a", "stt"), config);
+  assert.equal(fixture.requests.length, 0);
 });
 
 test("corrupt privacy JSON does not enable app lock", async () => {

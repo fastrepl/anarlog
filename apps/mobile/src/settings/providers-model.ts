@@ -20,7 +20,7 @@ export const TRANSCRIPTION_PROVIDERS = [
     baseUrl: "https://api.groq.com/openai/v1",
     model: "whisper-large-v3-turbo",
   },
-  { id: "custom", name: "OpenAI-compatible", baseUrl: "", model: "whisper-1" },
+  { id: "custom", name: "Custom", baseUrl: "", model: "whisper-1" },
 ] as const;
 
 export const SUMMARY_PROVIDERS = [
@@ -49,7 +49,7 @@ export const SUMMARY_PROVIDERS = [
     baseUrl: "https://api.groq.com/openai/v1",
     model: "",
   },
-  { id: "custom", name: "OpenAI-compatible", baseUrl: "", model: "" },
+  { id: "custom", name: "Custom", baseUrl: "", model: "" },
 ] as const;
 
 export type ProviderConfig = {
@@ -112,6 +112,14 @@ export function providerStorageKey(
   if (provider && !providersFor(kind).some((entry) => entry.id === provider))
     throw new Error("Unsupported provider");
   return `anarlog.provider.${account}.${kind}${provider ? `.${provider}` : ""}`;
+}
+
+export function validateProviderApiKey(value: string): string {
+  const key = value.trim();
+  if (!key) throw new Error("Enter an API key for this provider.");
+  if (key.length > 8192 || /[\r\n]/.test(key))
+    throw new Error("Enter a valid API key.");
+  return key;
 }
 
 export function normalizeTranscriptionResponse(

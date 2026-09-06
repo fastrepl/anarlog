@@ -11,6 +11,7 @@ import { execute, executeTransaction } from "@/db";
 import {
   defaultProviderConfig,
   providerStorageKey,
+  validateProviderApiKey,
   validateProviderConfig,
   type ProviderConfig,
   type ProviderKind,
@@ -46,20 +47,60 @@ export async function readProviderKey(
   );
 }
 
+export async function readProviderSetup(
+  accountId: string | null,
+  kind: ProviderKind,
+  provider: string,
+): Promise<ProviderConfig> {
+  const savedId = providerStorageKey(accountId, kind, provider);
+  const rows = await execute<{ value_json: string }>(
+    "SELECT value_json FROM app_settings WHERE id IN (?, ?) ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END",
+    [
+      savedId,
+      providerStorageKey(accountId, kind),
+      providerStorageKey(accountId, kind),
+    ],
+  );
+  for (const row of rows) {
+    const config = JSON.parse(row.value_json) as ProviderConfig;
+    if (config.provider === provider)
+      return validateProviderConfig(kind, config);
+  }
+  return defaultProviderConfig(kind, provider);
+}
+
 export async function saveProviderConfig(
   accountId: string | null,
   kind: ProviderKind,
   config: ProviderConfig,
   apiKey?: string,
 ): Promise<void> {
+  return persistProviderConfig(accountId, kind, config, apiKey, true);
+}
+
+export async function saveProviderSetup(
+  accountId: string | null,
+  kind: ProviderKind,
+  config: ProviderConfig,
+  apiKey?: string,
+): Promise<void> {
+  return persistProviderConfig(accountId, kind, config, apiKey, false);
+}
+
+async function persistProviderConfig(
+  accountId: string | null,
+  kind: ProviderKind,
+  config: ProviderConfig,
+  apiKey: string | undefined,
+  activate: boolean,
+): Promise<void> {
   const normalized = validateProviderConfig(kind, config);
   if (normalized.provider !== "anarlog") {
-    const key =
+    const key = validateProviderApiKey(
       apiKey?.trim() ||
-      (await readProviderKey(accountId, kind, normalized.provider));
-    if (!key) throw new Error("Enter an API key for this provider.");
-    if (key.length > 8192 || /[\r\n]/.test(key))
-      throw new Error("Enter a valid API key.");
+        (await readProviderKey(accountId, kind, normalized.provider)) ||
+        "",
+    );
     if (apiKey?.trim())
       await SecureStore.setItemAsync(
         providerStorageKey(accountId, kind, normalized.provider),
@@ -67,16 +108,38 @@ export async function saveProviderConfig(
         secureOptions,
       );
   }
+  const activeId = providerStorageKey(accountId, kind);
+  const value = JSON.stringify(normalized);
+  const updatedAt = new Date().toISOString();
   await executeTransaction([
+    {
+      // Preserve settings from builds that stored only the active provider.
+      sql: `INSERT INTO app_settings (id, value_json, updated_at)
+      SELECT id || '.' || json_extract(value_json, '$.provider'), value_json, updated_at
+      FROM app_settings WHERE id = ?
+      ON CONFLICT(id) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`,
+      params: [activeId],
+    },
     {
       sql: `INSERT INTO app_settings (id, value_json, updated_at) VALUES (?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`,
       params: [
-        providerStorageKey(accountId, kind),
-        JSON.stringify(normalized),
-        new Date().toISOString(),
+        providerStorageKey(accountId, kind, normalized.provider),
+        value,
+        updatedAt,
       ],
     },
+    activate
+      ? {
+          sql: `INSERT INTO app_settings (id, value_json, updated_at) VALUES (?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`,
+          params: [activeId, value, updatedAt],
+        }
+      : {
+          sql: `UPDATE app_settings SET value_json = ?, updated_at = ?
+      WHERE id = ? AND json_extract(value_json, '$.provider') = ?`,
+          params: [value, updatedAt, activeId, normalized.provider],
+        },
   ]);
 }
 
