@@ -1,4 +1,5 @@
 import { BottomSheet, RNHostView } from "@expo/ui";
+import { ignoreSafeArea } from "@expo/ui/swift-ui/modifiers";
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
@@ -64,6 +65,11 @@ export function SignInScreen({
       <BottomSheet
         isPresented={showSignInMethods}
         onDismiss={() => setShowSignInMethods(false)}
+        modifiers={
+          Platform.OS === "ios"
+            ? [ignoreSafeArea({ regions: "container", edges: "bottom" })]
+            : undefined
+        }
         testID="sign-in-methods"
       >
         <RNHostView matchContents>
