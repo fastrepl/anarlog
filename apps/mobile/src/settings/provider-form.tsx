@@ -115,7 +115,10 @@ function ProviderForm({
         selectedProviderRef.current === provider
           ? saveProviderConfig
           : saveProviderSetup;
-      await save(account, kind, { ...setup, model: model ?? setup.model });
+      await save(account, kind, {
+        ...setup,
+        model: model?.trim() || setup.model,
+      });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({
@@ -126,7 +129,11 @@ function ProviderForm({
       });
     },
     onError: (error) => {
-      if (error instanceof ProRequiredError) router.push("/settings/pro");
+      if (error instanceof ProRequiredError) {
+        selectedProviderRef.current = config.provider;
+        setSelectedProvider(config.provider);
+        router.push("/settings/pro");
+      }
     },
   });
   return (
@@ -139,6 +146,8 @@ function ProviderForm({
             selectedValue={selectedProvider}
             enabled={!select.isPending}
             onValueChange={(provider) => {
+              if (!modelDrafts.current[provider]?.trim())
+                delete modelDrafts.current[provider];
               selectedProviderRef.current = provider;
               setSelectedProvider(provider);
               setExpanded(provider === "anarlog" ? null : provider);
