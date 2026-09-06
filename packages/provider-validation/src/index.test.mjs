@@ -92,6 +92,36 @@ test("a gateway must accept the candidate key and reject the control key", async
   ]);
 });
 
+test("Vertex verifies tokens through the beta publisher catalog, separate from the project inference path", async () => {
+  const requests = [];
+  await verifyProviderCredentials(
+    {
+      ...credential,
+      provider: "google_vertex_ai",
+      baseUrl:
+        "https://us-central1-aiplatform.googleapis.com/v1/projects/test-project/locations/us-central1/endpoints/openapi",
+    },
+    async (url, init) => {
+      requests.push({ url, authorization: init.headers.Authorization });
+      return requests.length === 1
+        ? Response.json({
+            publisherModels: [{ name: "publishers/google/models/test" }],
+          })
+        : new Response(null, { status: 401 });
+    },
+  );
+  assert.deepEqual(requests, [
+    {
+      url: "https://us-central1-aiplatform.googleapis.com/v1beta1/publishers/google/models?pageSize=1",
+      authorization: "Bearer synthetic-key",
+    },
+    {
+      url: "https://us-central1-aiplatform.googleapis.com/v1beta1/publishers/google/models?pageSize=1",
+      authorization: "Bearer anarlog-invalid-key-verification",
+    },
+  ]);
+});
+
 for (const [provider, path, header, value, payload] of [
   [
     "openrouter",

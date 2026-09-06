@@ -161,7 +161,7 @@ function credentialRequest({ provider, baseUrl, apiKey }: ProviderCredential) {
           Array.isArray(record(value).operations));
       break;
     case "google_vertex_ai":
-      url = `${origin}/v1/publishers/google/models?pageSize=1`;
+      url = `${origin}/v1beta1/publishers/google/models?pageSize=1`;
       accept = (value) => Array.isArray(record(value).publisherModels);
       checkAuthentication = true;
       break;
