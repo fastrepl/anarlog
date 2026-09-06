@@ -1,6 +1,7 @@
 import {
   validateProviderApiKey,
   validateProviderConfig,
+  validateProviderConnection,
   type ProviderConfig,
   type ProviderKind,
 } from "./providers-model";
@@ -8,6 +9,7 @@ import {
 export function createProviderAutosave(
   kind: ProviderKind,
   save: (draft: { config: ProviderConfig; apiKey: string }) => void,
+  options?: { connectionOnly?: boolean },
 ) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let pending: { config: ProviderConfig; apiKey: string } | undefined;
@@ -28,7 +30,9 @@ export function createProviderAutosave(
     schedule(config: ProviderConfig, apiKey: string, hasSavedKey: boolean) {
       cancel();
       try {
-        const normalized = validateProviderConfig(kind, config);
+        const normalized = options?.connectionOnly
+          ? { ...config, ...validateProviderConnection(kind, config) }
+          : validateProviderConfig(kind, config);
         const key = apiKey.trim();
         if (key || !hasSavedKey) validateProviderApiKey(key);
         pending = { config: normalized, apiKey: key };

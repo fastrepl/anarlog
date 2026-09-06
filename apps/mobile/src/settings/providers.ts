@@ -13,6 +13,7 @@ import {
   providerStorageKey,
   validateProviderApiKey,
   validateProviderConfig,
+  validateProviderConnection,
   type ProviderConfig,
   type ProviderKind,
 } from "./providers-model";
@@ -64,7 +65,9 @@ export async function readProviderSetup(
   for (const row of rows) {
     const config = JSON.parse(row.value_json) as ProviderConfig;
     if (config.provider === provider)
-      return validateProviderConfig(kind, config);
+      return config.model
+        ? validateProviderConfig(kind, config)
+        : { ...validateProviderConnection(kind, config), model: "" };
   }
   return defaultProviderConfig(kind, provider);
 }
@@ -87,14 +90,35 @@ export async function saveProviderSetup(
   return persistProviderConfig(accountId, kind, config, apiKey, false);
 }
 
+export async function saveProviderConnection(
+  accountId: string | null,
+  kind: ProviderKind,
+  connection: { provider: string; baseUrl: string },
+  apiKey?: string,
+): Promise<void> {
+  const normalized = validateProviderConnection(kind, connection);
+  const saved = await readProviderSetup(accountId, kind, connection.provider);
+  return persistProviderConfig(
+    accountId,
+    kind,
+    { ...saved, ...normalized },
+    apiKey,
+    false,
+    true,
+  );
+}
+
 async function persistProviderConfig(
   accountId: string | null,
   kind: ProviderKind,
   config: ProviderConfig,
   apiKey: string | undefined,
   activate: boolean,
+  connectionOnly = false,
 ): Promise<void> {
-  const normalized = validateProviderConfig(kind, config);
+  const normalized = connectionOnly
+    ? { ...config, ...validateProviderConnection(kind, config) }
+    : validateProviderConfig(kind, config);
   if (normalized.provider !== "anarlog") {
     const key = validateProviderApiKey(
       apiKey?.trim() ||

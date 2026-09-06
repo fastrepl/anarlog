@@ -107,6 +107,7 @@ const { createProviderAutosave } = await import("./provider-autosave.ts");
 const {
   saveProviderConfig,
   saveProviderSetup,
+  saveProviderConnection,
   readProviderConfig,
   readProviderSetup,
   removeProviderKey,
@@ -325,6 +326,110 @@ test("saving provider credentials leaves the active selection unchanged", async 
     "anarlog",
   );
   assert.equal(fixture.requests.length, 0);
+});
+
+test("credentials can be saved before choosing a summary model", async () => {
+  const connection = defaultProviderConfig("llm", "openai");
+  await saveProviderConnection("account-a", "llm", connection, "synthetic-key");
+  assert.equal(
+    (await readProviderSetup("account-a", "llm", "openai")).model,
+    "",
+  );
+  assert.equal(
+    (await readProviderConfig("account-a", "llm")).provider,
+    "anarlog",
+  );
+  assert.equal(
+    fixture.keys.get(providerStorageKey("account-a", "llm", "openai")).value,
+    "synthetic-key",
+  );
+  await assert.rejects(
+    saveProviderConfig("account-a", "llm", connection),
+    /model ID/,
+  );
+
+  await saveProviderConfig("account-a", "llm", {
+    ...connection,
+    model: "chosen-model",
+  });
+  signedInWith({});
+  assert.equal((await resolveProvider("llm")).model, "chosen-model");
+  assert.equal(fixture.requests.length, 0);
+});
+
+test("credential edits preserve the latest model instead of restoring a stale form value", async () => {
+  const earlier = {
+    ...defaultProviderConfig("llm", "custom"),
+    baseUrl: "https://old.test/v1",
+    model: "first-model",
+  };
+  await saveProviderConfig("account-a", "llm", earlier, "synthetic-old-key");
+  await saveProviderConfig("account-a", "llm", {
+    ...earlier,
+    model: "new-model",
+  });
+  await saveProviderConnection(
+    "account-a",
+    "llm",
+    { ...earlier, baseUrl: "https://new.test/v1" },
+    "synthetic-new-key",
+  );
+  const active = await readProviderConfig("account-a", "llm");
+  assert.equal(active.model, "new-model");
+  assert.equal(active.baseUrl, "https://new.test/v1");
+});
+
+test("saving another provider's connection cannot change the active model", async () => {
+  const active = {
+    ...defaultProviderConfig("llm", "openai"),
+    model: "active-model",
+  };
+  await saveProviderConfig("account-a", "llm", active, "synthetic-openai-key");
+  await saveProviderConnection(
+    "account-a",
+    "llm",
+    defaultProviderConfig("llm", "anthropic"),
+    "synthetic-anthropic-key",
+  );
+  assert.deepEqual(await readProviderConfig("account-a", "llm"), active);
+  assert.equal(
+    (await readProviderSetup("account-a", "llm", "anthropic")).model,
+    "",
+  );
+});
+
+test("connection autosave accepts credentials without a model and rejects incomplete connections", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const writes = [];
+  const autosave = createProviderAutosave(
+    "llm",
+    (draft) =>
+      writes.push(
+        saveProviderConnection("account-a", "llm", draft.config, draft.apiKey),
+      ),
+    { connectionOnly: true },
+  );
+  const config = {
+    ...defaultProviderConfig("llm", "custom"),
+    baseUrl: "https://custom.test/v1",
+  };
+  autosave.schedule(config, "synthetic-key", false);
+  t.mock.timers.tick(500);
+  await Promise.all(writes);
+  assert.equal(writes.length, 1);
+  assert.equal(
+    (await readProviderSetup("account-a", "llm", "custom")).model,
+    "",
+  );
+  for (const baseUrl of [
+    "",
+    "http://custom.test",
+    "https://user:secret@custom.test",
+  ]) {
+    autosave.schedule({ ...config, baseUrl }, "synthetic-key", true);
+    autosave.flush();
+  }
+  assert.equal(writes.length, 1);
 });
 
 test("switching providers restores each saved model and endpoint without re-entering keys", async () => {

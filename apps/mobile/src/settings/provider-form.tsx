@@ -33,6 +33,7 @@ import {
   readProviderSetup,
   removeProviderKey,
   saveProviderConfig,
+  saveProviderConnection,
   saveProviderSetup,
 } from "./providers";
 import {
@@ -93,16 +94,37 @@ function ProviderForm({
     })),
   });
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState(config.provider);
+  const selectedProviderRef = useRef(config.provider);
+  const modelDrafts = useRef<Record<string, string>>({});
+  const selectedSetup =
+    setups[definitions.findIndex(({ id }) => id === selectedProvider)];
   const select = useMutation({
     scope: { id: `provider-settings:${account}:${kind}` },
-    mutationFn: async (provider: string) => {
+    mutationFn: async ({
+      provider,
+      model,
+    }: {
+      provider: string;
+      model?: string;
+    }) => {
       if (provider === "anarlog" && !auth.billing.isPro && !auth.bypass)
         throw new ProRequiredError();
       const setup = await readProviderSetup(account, kind, provider);
-      await saveProviderConfig(account, kind, setup);
+      const save =
+        selectedProviderRef.current === provider
+          ? saveProviderConfig
+          : saveProviderSetup;
+      await save(account, kind, { ...setup, model: model ?? setup.model });
     },
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["provider", account, kind] }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["provider", account, kind],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["provider-setup", account, kind],
+      });
+    },
     onError: (error) => {
       if (error instanceof ProRequiredError) router.push("/settings/pro");
     },
@@ -114,12 +136,13 @@ function ProviderForm({
           <Text>Provider</Text>
           <Spacer />
           <Picker
-            key={`${config.provider}:${select.status}`}
-            selectedValue={config.provider}
+            selectedValue={selectedProvider}
             enabled={!select.isPending}
             onValueChange={(provider) => {
+              selectedProviderRef.current = provider;
+              setSelectedProvider(provider);
               setExpanded(provider === "anarlog" ? null : provider);
-              select.mutate(provider);
+              select.mutate({ provider, model: modelDrafts.current[provider] });
             }}
             testID="active-provider"
           >
@@ -132,20 +155,44 @@ function ProviderForm({
             ))}
           </Picker>
         </Row>
-        <Row alignment="center">
-          <Text>Model</Text>
-          <Spacer />
-          <Text>
-            {config.provider === "anarlog" ? "Automatic" : config.model}
-          </Text>
-        </Row>
+        {selectedProvider === "anarlog" ? (
+          <Row alignment="center">
+            <Text>Model</Text>
+            <Spacer />
+            <Text>Automatic</Text>
+          </Row>
+        ) : selectedSetup?.data ? (
+          <ModelField
+            key={selectedProvider}
+            kind={kind}
+            config={selectedSetup.data.config}
+            model={
+              modelDrafts.current[selectedProvider] ??
+              selectedSetup.data.config.model
+            }
+            hasKey={selectedSetup.data.hasKey}
+            onChange={(model) => {
+              modelDrafts.current[selectedProvider] = model;
+            }}
+            onSave={(model) =>
+              select.mutate({ provider: selectedProvider, model })
+            }
+          />
+        ) : selectedSetup?.error ? (
+          <Button
+            label="Try again"
+            onPress={() => void selectedSetup.refetch()}
+          />
+        ) : (
+          <Text>Loading…</Text>
+        )}
         <FieldGroup.SectionFooter>
           <Text>
             {select.error instanceof Error
               ? select.error.message
-              : config.provider === "anarlog"
+              : selectedProvider === "anarlog"
                 ? "Included with your Pro trial or subscription. No API key needed."
-                : "Using your saved provider settings below."}
+                : "Choose your model here. Configure API keys and connections below."}
           </Text>
         </FieldGroup.SectionFooter>
       </FieldGroup.Section>
@@ -196,7 +243,14 @@ function ProviderForm({
                   config={setup.data.config}
                   hasKey={setup.data.hasKey}
                   open={open}
-                  onSaved={() => select.reset()}
+                  onSaved={() => {
+                    if (selectedProviderRef.current === provider.id) {
+                      select.mutate({
+                        provider: provider.id,
+                        model: modelDrafts.current[provider.id],
+                      });
+                    }
+                  }}
                 />
               )}
             </Column>
@@ -209,6 +263,59 @@ function ProviderForm({
         </FieldGroup.SectionFooter>
       </FieldGroup.Section>
     </>
+  );
+}
+
+function ModelField({
+  kind,
+  config,
+  model: initialModel,
+  hasKey,
+  onChange,
+  onSave,
+}: {
+  kind: ProviderKind;
+  config: ProviderConfig;
+  model: string;
+  hasKey: boolean;
+  onChange: (model: string) => void;
+  onSave: (model: string) => void;
+}) {
+  const Colors = useColors();
+  const model = useNativeState(initialModel);
+  const form = useForm({ defaultValues: { model: initialModel } });
+  const [autosave] = useState(() =>
+    createProviderAutosave(kind, ({ config }) => onSave(config.model)),
+  );
+  useFocusEffect(useCallback(() => () => autosave.flush(), [autosave]));
+  return (
+    <Row alignment="center" spacing={8}>
+      <Icon
+        name={Icon.select({
+          ios: "cpu",
+          android: import("@expo/material-symbols/memory.xml"),
+        })}
+        size={18}
+        color={Colors.muted}
+        style={{ width: 20 }}
+      />
+      <Text>Model</Text>
+      <TextInput
+        value={model}
+        placeholder="Model ID"
+        textAlign="right"
+        autoCapitalize="none"
+        autoCorrect={false}
+        onBlur={autosave.flush}
+        onSubmitEditing={autosave.flush}
+        onChangeText={(value) => {
+          model.value = value;
+          form.setFieldValue("model", value);
+          onChange(value);
+          autosave.schedule({ ...config, ...form.state.values }, "", hasKey);
+        }}
+      />
+    </Row>
   );
 }
 
@@ -231,7 +338,6 @@ function ProviderFields({
   const queryClient = useQueryClient();
   const key = useNativeState("");
   const apiKey = useRef("");
-  const model = useNativeState(config.model);
   const baseUrl = useNativeState(config.baseUrl);
   const invalidate = async () => {
     await queryClient.invalidateQueries({
@@ -245,13 +351,15 @@ function ProviderFields({
     gcTime: 0,
     scope: { id: `provider-settings:${account}:${kind}` },
     mutationFn: (draft: { config: ProviderConfig; apiKey: string }) =>
-      saveProviderSetup(account, kind, draft.config, draft.apiKey),
+      saveProviderConnection(account, kind, draft.config, draft.apiKey),
     onSuccess: async () => {
       await invalidate();
       onSaved();
     },
   });
-  const [autosave] = useState(() => createProviderAutosave(kind, save.mutate));
+  const [autosave] = useState(() =>
+    createProviderAutosave(kind, save.mutate, { connectionOnly: true }),
+  );
   useFocusEffect(useCallback(() => () => autosave.flush(), [autosave]));
   const remove = useMutation({
     scope: { id: `provider-settings:${account}:${kind}` },
@@ -262,7 +370,7 @@ function ProviderFields({
     },
   });
   const form = useForm({
-    defaultValues: { model: config.model, baseUrl: config.baseUrl },
+    defaultValues: { baseUrl: config.baseUrl },
   });
   const scheduleSave = () => {
     if (remove.isPending) return;
@@ -303,31 +411,6 @@ function ProviderFields({
           onChangeText={(value) => {
             key.value = value;
             apiKey.current = value;
-            scheduleSave();
-          }}
-        />
-      </Row>
-      <Row alignment="center" spacing={8}>
-        <Icon
-          name={Icon.select({
-            ios: "cpu",
-            android: import("@expo/material-symbols/memory.xml"),
-          })}
-          size={18}
-          color={Colors.muted}
-          style={{ width: 20 }}
-        />
-        <TextInput
-          value={model}
-          placeholder="Model ID"
-          autoCapitalize="none"
-          autoCorrect={false}
-          editable={!remove.isPending}
-          onBlur={autosave.flush}
-          onSubmitEditing={autosave.flush}
-          onChangeText={(value) => {
-            model.value = value;
-            form.setFieldValue("model", value);
             scheduleSave();
           }}
         />

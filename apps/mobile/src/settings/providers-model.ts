@@ -329,6 +329,18 @@ export function validateProviderConfig(
   kind: ProviderKind,
   config: ProviderConfig,
 ): ProviderConfig {
+  const connection = validateProviderConnection(kind, config);
+  if (config.provider === "anarlog") return defaultProviderConfig(kind);
+  const model = config.model.trim();
+  if (!model || model.length > 200 || /[\r\n]/.test(model))
+    throw new Error("Enter a model ID.");
+  return { ...connection, model };
+}
+
+export function validateProviderConnection(
+  kind: ProviderKind,
+  config: { provider: string; baseUrl: string },
+) {
   const definition = defaultProviderConfig(kind, config.provider);
   if (config.provider === "anarlog") return definition;
   let url: URL;
@@ -350,12 +362,8 @@ export function validateProviderConfig(
       "Enter an HTTPS base URL without credentials or query parameters.",
     );
   }
-  const model = config.model.trim();
-  if (!model || model.length > 200 || /[\r\n]/.test(model))
-    throw new Error("Enter a model ID.");
   return {
     provider: config.provider,
-    model,
     baseUrl: url.toString().replace(/\/+$/, ""),
   };
 }
