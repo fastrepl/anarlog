@@ -104,11 +104,11 @@ test("the Anarlog plugin connects Cloud MCP over HTTP", async () => {
   assert.equal(cursor.skills, "./skills/");
 });
 
-test("marketplace icon is a 400px square PNG", async () => {
+test("marketplace icon is a 512px square PNG", async () => {
   const icon = await readFile(`${PLUGIN_ROOT}/assets/icon.png`);
   assert.equal(icon.subarray(1, 4).toString("ascii"), "PNG");
-  assert.equal(icon.readUInt32BE(16), 400);
-  assert.equal(icon.readUInt32BE(20), 400);
+  assert.equal(icon.readUInt32BE(16), 512);
+  assert.equal(icon.readUInt32BE(20), 512);
   assert.ok(icon.length < 5 * 1024 * 1024);
 });
 
