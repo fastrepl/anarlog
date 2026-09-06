@@ -121,6 +121,10 @@ pub(crate) struct LiveCapture {
     pub mic: f32,
     pub speaker: f32,
     pub muted: bool,
+    /// `liveSegments`: the engine's rendered segments for the floating panel.
+    pub segments: Vec<anlg_listener_core::LiveTranscriptSegment>,
+    /// `MeetingFloatData` for this session: title, owner, participants, names.
+    pub label_context: Option<super::floating_bar::LabelContext>,
 }
 
 impl LiveCapture {
@@ -708,7 +712,10 @@ impl Workspace {
                             mic: 0.0,
                             speaker: 0.0,
                             muted: false,
+                            segments: Vec::new(),
+                            label_context: None,
                         });
+                        this.on_live_session_started(cx);
                         // `setLeftSidebarExpanded(false)`
                         this.sidebar_expanded = false;
                         if !has_provider {
@@ -792,7 +799,10 @@ impl Workspace {
                             mic: 0.0,
                             speaker: 0.0,
                             muted: false,
+                            segments: Vec::new(),
+                            label_context: None,
                         });
+                        self.on_live_session_started(cx);
                     }
                 }
             }
@@ -874,6 +884,21 @@ impl Workspace {
                     live.muted = value;
                 }
             }
+            Event::Data(SessionDataEvent::TranscriptSegmentDelta { session_id, delta }) => {
+                if let Some(live) = self
+                    .recording
+                    .live
+                    .as_mut()
+                    .filter(|live| live.session_id == session_id)
+                {
+                    let delta = *delta;
+                    super::floating_bar::apply_segment_delta(
+                        &mut live.segments,
+                        delta.upserts,
+                        &delta.removed_ids,
+                    );
+                }
+            }
             Event::Data(SessionDataEvent::TranscriptDelta { session_id, delta }) => {
                 // `handlePersist`: empty deltas are ignored.
                 if delta.new_words.is_empty() && delta.replaced_ids.is_empty() {
@@ -912,9 +937,14 @@ impl Workspace {
             .map(|live| super::floating_bar::FloatingBarState {
                 // `Math.min(Math.hypot(mic, speaker), 1)`
                 amplitude: live.mic.hypot(live.speaker).min(1.0),
-                title: self
-                    .note_title_for(&live.session_id)
-                    .unwrap_or_else(|| "Untitled".to_string()),
+                // `getFloatingSessionTitle` reads the session row; the open
+                // note's title covers the moment before that row loads.
+                title: super::floating_bar::floating_title(
+                    live.label_context
+                        .as_ref()
+                        .and_then(|ctx| ctx.title.as_deref())
+                        .or(self.note_title_for(&live.session_id).as_deref()),
+                ),
                 error: live.error.is_some() || live.degraded(),
                 dark: self.theme.dark,
                 opacity: self
@@ -922,10 +952,28 @@ impl Workspace {
                     .string_setting("floating_bar_opacity", &["general", "floating_bar_opacity"])
                     .and_then(|value| value.parse::<f32>().ok())
                     .unwrap_or(0.78),
-                live_caption_toggle_visible: false,
+                // `shouldShowFloatingLiveCaptionToggle({ liveTranscriptionActive })`
+                live_caption_toggle_visible: live.live_active,
+                live_caption_minimized: self.provider_settings.bool_setting(
+                    "live_caption_minimized",
+                    &["general", "live_caption_minimized"],
+                    true,
+                ),
+                transcript_bubbles: super::floating_bar::transcript_bubbles(
+                    &live.segments,
+                    live.label_context.as_ref(),
+                ),
             });
         match (state, self.recording.floating_bar.take()) {
             (Some(state), Some(handle)) => {
+                let previous = handle
+                    .update(cx, |bar, _, _| bar.state.container_size())
+                    .ok();
+                if previous.is_some_and(|size| size != state.container_size()) {
+                    self.recording.floating_bar =
+                        super::floating_bar::reopen_resized(handle, cx.weak_entity(), state, cx);
+                    return;
+                }
                 let updated = handle
                     .update(cx, |bar, _, cx| {
                         if bar.state != state {
@@ -949,6 +997,62 @@ impl Workspace {
             }
             (None, None) => {}
         }
+    }
+
+    /// `LiveCaptionDefaultVisibilitySync` (a new live session starts with the
+    /// panel minimized) and the `MeetingFloatData` load for its labels.
+    fn on_live_session_started(&mut self, cx: &mut Context<Self>) {
+        let Some(session_id) = self
+            .recording
+            .live
+            .as_ref()
+            .map(|live| live.session_id.clone())
+        else {
+            return;
+        };
+        if !self.provider_settings.bool_setting(
+            "live_caption_minimized",
+            &["general", "live_caption_minimized"],
+            true,
+        ) {
+            self.set_live_caption_minimized(true, cx);
+        }
+        self.reload_float_label_context(session_id, cx);
+    }
+
+    /// `subscribeMeetingFloatData`: the session title, owner, participants and
+    /// human names behind the panel's speaker labels.
+    pub(crate) fn reload_float_label_context(
+        &mut self,
+        session_id: String,
+        cx: &mut Context<Self>,
+    ) {
+        let task = self.store.meeting_float_context(session_id.clone());
+        cx.spawn(async move |this, cx| {
+            let Ok(Ok(context)) = task.await else {
+                return;
+            };
+            this.update(cx, |this, cx| {
+                if let Some(live) = this
+                    .recording
+                    .live
+                    .as_mut()
+                    .filter(|live| live.session_id == session_id)
+                    && live.label_context.as_ref() != Some(&context)
+                {
+                    live.label_context = Some(context);
+                    this.sync_floating_bar(cx);
+                }
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// `onToggleExpanded` → `floatingBarSettingsChange { liveCaptionMinimized }`.
+    pub(crate) fn set_live_caption_minimized(&mut self, minimized: bool, cx: &mut Context<Self>) {
+        self.set_bool_setting("live_caption_minimized", minimized, cx);
+        self.sync_floating_bar(cx);
     }
 
     fn note_title_for(&self, session_id: &str) -> Option<String> {

@@ -656,7 +656,12 @@ impl Workspace {
         self.settings_tab.is_some()
     }
 
-    fn set_bool_setting(&mut self, key: &'static str, value: bool, cx: &mut Context<Self>) {
+    pub(super) fn set_bool_setting(
+        &mut self,
+        key: &'static str,
+        value: bool,
+        cx: &mut Context<Self>,
+    ) {
         self.set_setting(key, serde_json::Value::Bool(value), cx);
     }
 

@@ -146,6 +146,7 @@ embedded!(
     "icons/arrow-down.svg",
     "icons/arrow-elbow-down-left.svg",
     "icons/arrow-square-out.svg",
+    "icons/arrows-in-simple.svg",
     "icons/arrows-out-simple.svg",
     "icons/arrow-left.svg",
     "icons/arrow-right.svg",
@@ -352,6 +353,6 @@ mod tests {
         }
         assert!(Assets.load("icons/search.svg").unwrap().is_some());
         assert!(Assets.load("icons/missing.svg").unwrap().is_none());
-        assert_eq!(Assets.list("icons/").unwrap().len(), 175);
+        assert_eq!(Assets.list("icons/").unwrap().len(), 176);
     }
 }

@@ -2456,6 +2456,57 @@ impl Store {
         })
     }
 
+    /// `MEETING_FLOAT_SQL` for one session: its title and owner, the
+    /// participants (excluded and deleted rows dropped) and every human's name.
+    pub fn meeting_float_context(
+        &self,
+        session_id: String,
+    ) -> tokio::task::JoinHandle<anyhow::Result<crate::workspace::floating_bar::LabelContext>> {
+        let db = self.db.clone();
+        self.runtime.spawn(async move {
+            let pool = db.pool();
+            let session: Option<(String, String)> = sqlx::query_as(
+                "SELECT title, owner_user_id FROM sessions WHERE id = ? AND deleted_at IS NULL",
+            )
+            .bind(&session_id)
+            .fetch_optional(pool)
+            .await?;
+            let participants: Vec<(String, String)> = sqlx::query_as(
+                "SELECT participant.human_id,
+                        COALESCE(NULLIF(human.name, ''), participant.display_name) AS human_name
+                 FROM session_participants AS participant
+                 LEFT JOIN humans AS human
+                   ON human.id = participant.human_id AND human.deleted_at IS NULL
+                 WHERE participant.session_id = ?
+                   AND participant.human_id <> ''
+                   AND participant.source <> 'excluded'
+                   AND participant.deleted_at IS NULL
+                 ORDER BY participant.human_id",
+            )
+            .bind(&session_id)
+            .fetch_all(pool)
+            .await?;
+            let humans: Vec<(String, String)> =
+                sqlx::query_as("SELECT id, name FROM humans WHERE id <> '' AND deleted_at IS NULL")
+                    .fetch_all(pool)
+                    .await?;
+            let mut human_names: std::collections::HashMap<String, String> =
+                humans.into_iter().collect();
+            for (human_id, name) in &participants {
+                if !name.is_empty() {
+                    human_names.insert(human_id.clone(), name.clone());
+                }
+            }
+            let (title, owner_user_id) = session.unwrap_or_default();
+            Ok(crate::workspace::floating_bar::LabelContext {
+                title: Some(title).filter(|title| !title.trim().is_empty()),
+                owner_user_id,
+                participant_human_ids: participants.into_iter().map(|(id, _)| id).collect(),
+                human_names,
+            })
+        })
+    }
+
     /// `updateOrganization({ name })`
     pub fn update_organization_name(
         &self,

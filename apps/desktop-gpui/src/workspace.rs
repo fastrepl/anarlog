@@ -8,7 +8,7 @@ mod dictionary;
 mod document_view;
 mod export;
 mod filter_menu;
-mod floating_bar;
+pub(crate) mod floating_bar;
 mod folders_tab;
 mod icon_picker;
 mod meeting_info;
@@ -506,6 +506,8 @@ impl Workspace {
                     if this.provider_settings != settings {
                         this.theme_preference = settings.theme.clone();
                         this.provider_settings = settings;
+                        // `FloatingMeetingWindowSettingsSync`
+                        this.sync_floating_bar(cx);
                         cx.notify();
                     }
                 })
