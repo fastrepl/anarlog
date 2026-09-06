@@ -3,6 +3,7 @@
 //! flushed 500ms after the last keystroke, at most 10s apart).
 
 pub mod links;
+pub mod mention_picker;
 pub mod model;
 pub mod rules;
 pub mod tasks;
@@ -36,6 +37,7 @@ actions!(
         Backspace,
         Delete,
         Enter,
+        MentionEscape,
         Copy,
         Cut,
         Paste,
@@ -76,6 +78,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("backspace", Backspace, ctx),
         KeyBinding::new("delete", Delete, ctx),
         KeyBinding::new("enter", Enter, ctx),
+        KeyBinding::new("escape", MentionEscape, ctx),
         KeyBinding::new(&format!("{m}-c"), Copy, ctx),
         KeyBinding::new(&format!("{m}-x"), Cut, ctx),
         KeyBinding::new(&format!("{m}-v"), Paste, ctx),
@@ -112,6 +115,8 @@ enum EditKind {
 pub enum EditorEvent {
     /// The document changed; the payload is `doc.toJSON()`.
     Flush(String),
+    /// A mention chip was clicked: navigate to `/app/<kind>/<id>`.
+    OpenMention { kind: String, id: String },
 }
 
 pub struct BodyEditor {
@@ -135,6 +140,12 @@ pub struct BodyEditor {
     dirty_since: Option<Instant>,
     last_input: Option<Instant>,
     flush_scheduled: bool,
+    /// `MentionSuggestion`: derived from the caret after every change.
+    mention: Option<mention_picker::MentionState>,
+    /// `dismissedFrom`: Escape (or an insertion) hides the popup for this
+    /// trigger position until the caret leaves it.
+    mention_dismissed: Option<(usize, usize)>,
+    mention_search: Option<mention_picker::Search>,
 }
 
 impl EventEmitter<EditorEvent> for BodyEditor {}
@@ -159,6 +170,118 @@ impl BodyEditor {
             dirty_since: None,
             last_input: None,
             flush_scheduled: false,
+            mention: None,
+            mention_dismissed: None,
+            mention_search: None,
+        }
+    }
+
+    /// `mentionConfig`: how `@query` resolves to candidates.
+    pub fn set_mention_search(&mut self, search: mention_picker::Search) {
+        self.mention_search = Some(search);
+    }
+
+    pub fn mention(&self) -> Option<&mention_picker::MentionState> {
+        self.mention
+            .as_ref()
+            .filter(|state| !state.items.is_empty())
+    }
+
+    /// Window position under the trigger character (`coordsAtPos(from)`),
+    /// for the popup's `bottom-start` placement.
+    pub fn mention_anchor(&self) -> Option<(Point<Pixels>, Pixels)> {
+        let state = self.mention()?;
+        let (layout, _) = self.layouts.get(state.block)?.as_ref()?;
+        let position = layout.position_for_index(state.from)?;
+        Some((position, layout.line_height()))
+    }
+
+    /// Re-derive the popup from the caret (`findMention` on the new state).
+    fn refresh_mention(&mut self) {
+        let Some(search) = self.mention_search.clone() else {
+            self.mention = None;
+            return;
+        };
+        let found = self
+            .caret
+            .filter(|_| self.selection().is_none())
+            .and_then(|caret| {
+                let text = self.doc.text(caret.block);
+                let atoms = self.doc.atom_ranges(caret.block);
+                mention_picker::find_mention(&text, &atoms, caret)
+                    .map(|(from, to, query)| (caret.block, from, to, query))
+            });
+        let Some((block, from, to, query)) = found else {
+            self.mention = None;
+            self.mention_dismissed = None;
+            return;
+        };
+        if self.mention_dismissed == Some((block, from)) {
+            self.mention = None;
+            return;
+        }
+        let unchanged = self.mention.as_ref().is_some_and(|state| {
+            state.block == block && state.from == from && state.query == query
+        });
+        if unchanged {
+            if let Some(state) = self.mention.as_mut() {
+                state.to = to;
+            }
+            return;
+        }
+        let items = search(&query);
+        self.mention = Some(mention_picker::MentionState {
+            block,
+            from,
+            to,
+            query,
+            items,
+            selected: 0,
+        });
+    }
+
+    /// The candidate rows changed (`handleSearch` identity in the web app):
+    /// re-run the open popup's query.
+    pub fn rerun_mention_search(&mut self, cx: &mut Context<Self>) {
+        if let Some(state) = self.mention.take() {
+            let _ = state;
+            self.refresh_mention();
+            cx.notify();
+        }
+    }
+
+    pub fn select_mention(&mut self, index: usize, cx: &mut Context<Self>) {
+        if let Some(state) = self.mention.as_mut()
+            && index < state.items.len()
+        {
+            state.selected = index;
+            cx.notify();
+        }
+    }
+
+    /// `insertMention`: the node plus a space replace `@query`; the popup
+    /// stays dismissed for that trigger.
+    pub fn insert_mention(&mut self, index: usize, cx: &mut Context<Self>) {
+        let Some(state) = self.mention.clone() else {
+            return;
+        };
+        let Some(item) = state.items.get(index) else {
+            return;
+        };
+        self.record_edit(EditKind::Structural);
+        let caret = self
+            .doc
+            .insert_mention(state.block, state.from..state.to, item);
+        self.caret = Some(caret);
+        self.anchor = None;
+        self.mention_dismissed = Some((state.block, state.from));
+        self.changed(cx);
+    }
+
+    fn dismiss_mention(&mut self, cx: &mut Context<Self>) {
+        if let Some(state) = self.mention.take() {
+            self.mention_dismissed = Some((state.block, state.from));
+            cx.notify();
         }
     }
 
@@ -208,6 +331,7 @@ impl BodyEditor {
         }
         self.caret = Some(head);
         self.stored_marks = None;
+        self.refresh_mention();
         cx.notify();
     }
 
@@ -242,6 +366,9 @@ impl BodyEditor {
         {
             tracing::info!(%href, "opening link from the memo");
             cx.open_url(&href);
+        } else if let Some((kind, id)) = self.doc.mention_at(block, index) {
+            // `MentionNodeView`'s click navigates to `/app/<type>/<id>`.
+            cx.emit(EditorEvent::OpenMention { kind, id });
         }
     }
 
@@ -297,9 +424,10 @@ impl BodyEditor {
             .unwrap_or(0);
         let block = block.min(self.doc.textblock_count().saturating_sub(1));
         let text = self.doc.text(block);
+        let offset = snap(&text, offset.min(text.len()));
         Caret {
             block,
-            offset: snap(&text, offset.min(text.len())),
+            offset: self.doc.snap_out_of_atoms(block, offset, 0),
         }
     }
 
@@ -452,6 +580,7 @@ impl BodyEditor {
                 self.doc.maintain_links(previous, end..end);
             }
         }
+        self.refresh_mention();
         let now = Instant::now();
         self.dirty_since.get_or_insert(now);
         self.last_input = Some(now);
@@ -531,7 +660,11 @@ impl BodyEditor {
             } else {
                 Caret {
                     block: caret.block,
-                    offset: previous_boundary(&text, caret.offset),
+                    offset: self.doc.snap_out_of_atoms(
+                        caret.block,
+                        previous_boundary(&text, caret.offset),
+                        -1,
+                    ),
                 }
             }
         } else if caret.offset >= text.len() {
@@ -545,7 +678,11 @@ impl BodyEditor {
         } else {
             Caret {
                 block: caret.block,
-                offset: next_boundary(&text, caret.offset),
+                offset: self.doc.snap_out_of_atoms(
+                    caret.block,
+                    next_boundary(&text, caret.offset),
+                    1,
+                ),
             }
         };
         self.set_head(next, extend, cx);
@@ -619,11 +756,31 @@ impl BodyEditor {
     }
 
     fn on_up(&mut self, _: &Up, _: &mut Window, cx: &mut Context<Self>) {
+        if let Some(state) = self.mention.as_mut().filter(|s| !s.items.is_empty()) {
+            state.selected = (state.selected + state.items.len() - 1) % state.items.len();
+            cx.notify();
+            return;
+        }
         self.move_vertically(-1, false, cx);
     }
 
     fn on_down(&mut self, _: &Down, _: &mut Window, cx: &mut Context<Self>) {
+        if let Some(state) = self.mention.as_mut().filter(|s| !s.items.is_empty()) {
+            state.selected = (state.selected + 1) % state.items.len();
+            cx.notify();
+            return;
+        }
         self.move_vertically(1, false, cx);
+    }
+
+    /// Escape only means something to the popup; otherwise the workspace's
+    /// own Escape handling runs.
+    fn on_escape(&mut self, _: &MentionEscape, _: &mut Window, cx: &mut Context<Self>) {
+        if self.mention().is_some() {
+            self.dismiss_mention(cx);
+        } else {
+            cx.propagate();
+        }
     }
 
     fn on_select_left(&mut self, _: &SelectLeft, _: &mut Window, cx: &mut Context<Self>) {
@@ -855,6 +1012,11 @@ impl BodyEditor {
     /// a newline in it, lift an empty list item out of its list, otherwise
     /// `splitBlock` (which splits list items).
     fn on_enter(&mut self, _: &Enter, _: &mut Window, cx: &mut Context<Self>) {
+        if let Some(state) = self.mention() {
+            let index = state.selected;
+            self.insert_mention(index, cx);
+            return;
+        }
         self.record_edit(EditKind::Structural);
         self.delete_selection();
         let Some(caret) = self.caret else {
@@ -977,6 +1139,7 @@ impl BodyEditor {
             .on_action(cx.listener(Self::on_toggle_code))
             .on_action(cx.listener(Self::on_tab))
             .on_action(cx.listener(Self::on_shift_tab))
+            .on_action(cx.listener(Self::on_escape))
             .on_action(cx.listener(Self::on_undo))
             .on_action(cx.listener(Self::on_redo))
             .on_mouse_up(

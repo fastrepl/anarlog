@@ -12,6 +12,7 @@ mod floating_bar;
 mod folders_tab;
 mod icon_picker;
 mod meeting_info;
+mod mention_popup;
 mod menu;
 mod note;
 pub(crate) mod onboarding;
@@ -169,6 +170,14 @@ pub struct Workspace {
     /// the editor waiting for the next frame to receive that focus.
     auto_focused_session: Option<String>,
     pending_editor_focus: Option<gpui::Entity<BodyEditor>>,
+    /// A mention chip asked for `/app/human|organization/<id>`; the next frame
+    /// (which has the window) opens the Contacts tab on it.
+    pending_contact: Option<contacts_tab::Selection>,
+    /// `useMentionConfig` candidates shared with the editor's picker.
+    mention_candidates:
+        std::rc::Rc<std::cell::RefCell<Vec<crate::editor::mention_picker::MentionItem>>>,
+    mention_humans: Vec<crate::contacts::Human>,
+    mention_organizations: Vec<crate::contacts::Organization>,
     auth: toast::Auth,
     /// `getDismissedToasts` from `store.json`.
     dismissed_toasts: Vec<String>,
@@ -327,6 +336,10 @@ impl Workspace {
             templates: Vec::new(),
             auto_focused_session: None,
             pending_editor_focus: None,
+            pending_contact: None,
+            mention_candidates: Default::default(),
+            mention_humans: Vec::new(),
+            mention_organizations: Vec::new(),
             auth: toast::Auth::Loading,
             dismissed_toasts: Vec::new(),
             theme_preference: "system".to_string(),
@@ -602,6 +615,7 @@ impl Workspace {
                     Ok(Ok((rows, events))) => {
                         this.session_rows = rows;
                         this.event_rows = events;
+                        this.refresh_mention_candidates(cx);
                         this.rebuild_timeline(cx);
                     }
                     Ok(Err(error)) => {
@@ -924,15 +938,45 @@ impl Workspace {
                 if let Some(previous) = self.editor.take() {
                     previous.update(cx, |editor, cx| editor.flush(cx));
                 }
-                let editor = cx.new(|cx| BodyEditor::new(session_id, &body, cx));
-                cx.subscribe(&editor, |this, editor, event: &EditorEvent, cx| {
-                    let EditorEvent::Flush(json) = event;
-                    let session_id = editor.read(cx).session_id.clone();
-                    this.persist_memo(session_id, json.clone(), cx);
-                })
+                let search = mention_popup::search_over(self.mention_candidates.clone());
+                let editor = cx.new(|cx| {
+                    let mut editor = BodyEditor::new(session_id, &body, cx);
+                    editor.set_mention_search(search);
+                    editor
+                });
+                self.load_mention_contacts(cx);
+                cx.subscribe(
+                    &editor,
+                    |this, editor, event: &EditorEvent, cx| match event {
+                        EditorEvent::Flush(json) => {
+                            let session_id = editor.read(cx).session_id.clone();
+                            this.persist_memo(session_id, json.clone(), cx);
+                        }
+                        EditorEvent::OpenMention { kind, id } => {
+                            this.open_mention(kind, id.clone(), cx);
+                        }
+                    },
+                )
                 .detach();
                 self.editor = Some(editor);
             }
+        }
+    }
+
+    /// `/app/<type>/<id>` from a mention chip: sessions open in the current
+    /// tab, people and organizations in the Contacts tab.
+    fn open_mention(&mut self, kind: &str, id: String, cx: &mut Context<Self>) {
+        match kind {
+            "session" => self.select(id, cx),
+            "human" => {
+                self.pending_contact = Some(contacts_tab::Selection::Person(id));
+                cx.notify();
+            }
+            "organization" => {
+                self.pending_contact = Some(contacts_tab::Selection::Organization(id));
+                cx.notify();
+            }
+            _ => {}
         }
     }
 
@@ -1123,6 +1167,10 @@ impl Render for Workspace {
         // appearance may have changed since the last one.
         if let Some(editor) = self.pending_editor_focus.take() {
             editor.update(cx, |editor, cx| editor.focus_start(window, cx));
+        }
+        if let Some(selection) = self.pending_contact.take() {
+            self.open_contacts(window, cx);
+            self.select_contact(Some(selection), window, cx);
         }
         self.prepare_contact_avatars();
         let resolved = Theme::resolve(&self.theme_preference, window.appearance());
@@ -1337,6 +1385,7 @@ impl Render for Workspace {
             .children(self.render_audio_player_menu(window, cx))
             .children(self.render_calendar_context_menu(window, cx))
             .children(self.render_timeline_context_menu(window, cx))
+            .children(self.render_mention_popup(window, cx))
             .children(self.render_delete_selected_dialog(cx))
             .children(self.render_open_menu(window, cx))
             .children(self.render_export_dialog(cx))

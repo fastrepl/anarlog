@@ -12,6 +12,7 @@ mod editor;
 mod emoji;
 mod folders;
 mod live_transcript;
+mod mention;
 mod prose_text;
 mod recording;
 mod secrets;

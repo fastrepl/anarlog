@@ -66,6 +66,9 @@ pub(super) struct DocumentRenderer {
     /// Set while rendering a checked task item: its first paragraph paints
     /// the `li[data-checked="true"] > div > p` strikethrough.
     strike_next: Cell<bool>,
+    /// The mention chips of the paragraph being built (`prose` fills it,
+    /// `textblock` paints their avatars over the reserved placeholder).
+    mentions_next: std::cell::RefCell<Vec<(std::ops::Range<usize>, String, String)>>,
     /// `placeholderPlugin`: the empty textblock holding the selection anchor
     /// shows the placeholder text.
     placeholder: Option<(usize, SharedString)>,
@@ -91,6 +94,7 @@ impl Workspace {
             editor: None,
             next_textblock: Cell::new(0),
             strike_next: Cell::new(false),
+            mentions_next: Default::default(),
             placeholder: None,
             link_color: None,
         }
@@ -198,11 +202,13 @@ impl DocumentRenderer {
             .left_0()
             .size_full()
         });
+        let avatars = self.mention_avatars(&text);
         let Some(editor) = &self.editor else {
             return wrapper
                 .relative()
                 .child(text)
                 .children(strike)
+                .children(avatars)
                 .into_any_element();
         };
         let index = self.next_textblock.get();
@@ -302,7 +308,113 @@ impl DocumentRenderer {
                 .size_full(),
             )
             .children(strike)
+            .children(avatars)
             .into_any_element()
+    }
+
+    /// `MentionAvatar` painted over each chip's placeholder: a 1em circle in
+    /// the facehash colour with the initial for humans, the Note / Buildings /
+    /// User glyph in `muted-foreground` otherwise; `vertical-align: middle`
+    /// with `top: -2px`.
+    fn mention_avatars(&self, text: &ProseText) -> Option<AnyElement> {
+        let mentions = std::mem::take(&mut *self.mentions_next.borrow_mut());
+        if mentions.is_empty() {
+            return None;
+        }
+        let layout = text.layout().clone();
+        let theme = self.theme;
+        let font = self.base.font();
+        Some(
+            canvas(
+                |_, _, _| (),
+                move |_, _, window, cx| {
+                    let em = px(BODY_PX);
+                    let line_height = layout.line_height();
+                    let em_space = crate::mention::AVATAR_PLACEHOLDER.chars().next().unwrap();
+                    for (range, kind, label) in &mentions {
+                        let Some(slot) = layout
+                            .line_spans(range.start..range.start + em_space.len_utf8())
+                            .into_iter()
+                            .next()
+                        else {
+                            continue;
+                        };
+                        let origin = point(
+                            slot.origin.x,
+                            slot.origin.y + (line_height - em) / 2.0 - px(2.0),
+                        );
+                        let bounds = gpui::Bounds::new(origin, size(em, em));
+                        if kind == "human" {
+                            let name = if label.is_empty() {
+                                "?"
+                            } else {
+                                label.as_str()
+                            };
+                            let background = crate::mention::facehash_background(name, theme.dark);
+                            window.paint_quad(gpui::quad(
+                                bounds,
+                                gpui::Corners::all(em / 2.0),
+                                gpui::rgb(background),
+                                gpui::Edges::default(),
+                                gpui::transparent_black(),
+                                gpui::BorderStyle::default(),
+                            ));
+                            // The face: two eyes at 60% width, then the initial
+                            // at `26cqw` below them (`stone-950` on the pastel).
+                            let ink = gpui::rgb(0x0c0a09);
+                            let eye = px(1.5);
+                            let eyes_y = origin.y + em * 0.33;
+                            for x in [origin.x + em * 0.32, origin.x + em * 0.62] {
+                                window.paint_quad(fill(
+                                    gpui::Bounds::new(point(x, eyes_y), size(eye, eye)),
+                                    ink,
+                                ));
+                            }
+                            let initial: String =
+                                name.chars().next().unwrap().to_uppercase().collect();
+                            let font_size = em * 0.26;
+                            let run = TextRun {
+                                len: initial.len(),
+                                font: font.clone(),
+                                color: ink.into(),
+                                background_color: None,
+                                underline: None,
+                                strikethrough: None,
+                            };
+                            let line = window.text_system().shape_line(
+                                initial.into(),
+                                font_size,
+                                &[run],
+                                None,
+                            );
+                            let text_origin =
+                                point(origin.x + (em - line.width) / 2.0, origin.y + em * 0.5);
+                            line.paint(text_origin, font_size, window, cx).ok();
+                        } else {
+                            let name = match kind.as_str() {
+                                "session" => "note",
+                                "organization" => "buildings",
+                                _ => "user",
+                            };
+                            window
+                                .paint_svg(
+                                    bounds,
+                                    SharedString::from(format!("icons/{name}.svg")),
+                                    gpui::TransformationMatrix::unit(),
+                                    theme.muted_foreground.into(),
+                                    cx,
+                                )
+                                .ok();
+                        }
+                    }
+                },
+            )
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full()
+            .into_any_element(),
+        )
     }
 
     pub(super) fn blocks(&self, blocks: &[Block], depth: usize) -> Vec<AnyElement> {
@@ -610,6 +722,7 @@ impl DocumentRenderer {
             editor: None,
             next_textblock: std::cell::Cell::new(0),
             strike_next: Cell::new(false),
+            mentions_next: Default::default(),
             placeholder: None,
             link_color: Some(link_color),
         };
@@ -651,10 +764,20 @@ impl DocumentRenderer {
             let start = text.len();
             text.push_str(&span.text);
             let link_color = self.link_color.unwrap_or(self.theme.link);
+            if let Some((kind, _, label)) = &span.mention {
+                self.mentions_next.borrow_mut().push((
+                    start..start + crate::mention::AVATAR_PLACEHOLDER.len(),
+                    kind.clone(),
+                    label.clone(),
+                ));
+            }
             let highlight = HighlightStyle {
+                // `.mention { font-weight: 500 }`
                 font_weight: if span.bold {
                     Some(gpui::FontWeight::BOLD)
-                } else if span.link.is_some() && self.link_color.is_some() {
+                } else if span.mention.is_some()
+                    || (span.link.is_some() && self.link_color.is_some())
+                {
                     Some(gpui::FontWeight::MEDIUM)
                 } else {
                     None

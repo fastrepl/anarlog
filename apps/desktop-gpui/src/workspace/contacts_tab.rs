@@ -190,7 +190,7 @@ impl Workspace {
         }
     }
 
-    fn select_contact(
+    pub(super) fn select_contact(
         &mut self,
         selection: Option<Selection>,
         window: &mut Window,

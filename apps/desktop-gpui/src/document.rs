@@ -13,6 +13,8 @@ pub struct Span {
     pub code: bool,
     pub underline: bool,
     pub link: Option<String>,
+    /// A `mention-@` chip: `(type, id, label)`; `text` is its display text.
+    pub mention: Option<(String, String, String)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -171,9 +173,13 @@ fn inline_nodes(nodes: &[Value]) -> Vec<Span> {
                 let label = attr(node, "label")
                     .and_then(Value::as_str)
                     .unwrap_or_default();
+                let kind = attr(node, "type")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                let id = attr(node, "id").and_then(Value::as_str).unwrap_or_default();
                 spans.push(Span {
-                    text: format!("@{label}"),
-                    bold: true,
+                    text: crate::mention::display_text(label),
+                    mention: Some((kind.to_string(), id.to_string(), label.to_string())),
                     ..Span::default()
                 });
             }
@@ -264,7 +270,10 @@ mod tests {
         let Block::Paragraph(spans) = &blocks[9] else {
             panic!("expected paragraph");
         };
-        assert_eq!(plain_text(spans), "@Ada\nafter");
+        assert_eq!(
+            plain_text(spans),
+            format!("{}\nafter", crate::mention::display_text("Ada"))
+        );
     }
 
     #[test]

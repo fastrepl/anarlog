@@ -420,6 +420,143 @@ impl Doc {
         }
     }
 
+    /// Byte ranges of the inline atoms (mentions) in a textblock's text; the
+    /// caret never rests inside one.
+    pub fn atom_ranges(&self, block: usize) -> Vec<std::ops::Range<usize>> {
+        let Some(node) = self
+            .textblocks
+            .get(block)
+            .and_then(|path| node_at(&self.root, path))
+        else {
+            return Vec::new();
+        };
+        positioned(children(node))
+            .into_iter()
+            .filter(|(_, child)| {
+                child
+                    .get("type")
+                    .and_then(Value::as_str)
+                    .is_some_and(|kind| kind.starts_with("mention-"))
+            })
+            .map(|(pos, child)| pos..pos + inline_text(child).len())
+            .collect()
+    }
+
+    /// `tr.replaceWith(from, to, [mentionNode, space])`: the caret lands
+    /// after the space.
+    pub fn insert_mention(
+        &mut self,
+        block: usize,
+        range: std::ops::Range<usize>,
+        item: &super::mention_picker::MentionItem,
+    ) -> Caret {
+        self.delete_range(block, range.clone());
+        let Some(path) = self.textblocks.get(block).cloned() else {
+            return Caret {
+                block,
+                offset: range.start,
+            };
+        };
+        let Some(node) = node_at_mut(&mut self.root, &path) else {
+            return Caret {
+                block,
+                offset: range.start,
+            };
+        };
+        let mention = super::mention_picker::mention_node(item);
+        let mention_len = inline_text(&mention).len();
+        let inline = inline_content_mut(node);
+        // Split the text node at the insertion point and drop the pieces in.
+        let mut cursor = 0usize;
+        let mut rebuilt = Vec::with_capacity(inline.len() + 3);
+        let mut inserted = false;
+        for child in inline.drain(..) {
+            let len = inline_text(&child).len();
+            let (a, b) = (cursor, cursor + len);
+            cursor = b;
+            let is_text = child.get("type").and_then(Value::as_str) == Some("text");
+            if !inserted && is_text && a <= range.start && range.start <= b {
+                let text = child
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                let (head, tail) = text.split_at(range.start - a);
+                if !head.is_empty() {
+                    let mut piece = child.clone();
+                    piece["text"] = Value::String(head.to_string());
+                    rebuilt.push(piece);
+                }
+                rebuilt.push(mention.clone());
+                rebuilt.push(text_node(" ", None));
+                if !tail.is_empty() {
+                    let mut piece = child.clone();
+                    piece["text"] = Value::String(tail.to_string());
+                    rebuilt.push(piece);
+                }
+                inserted = true;
+                continue;
+            }
+            if !inserted && a == range.start && !is_text {
+                rebuilt.push(mention.clone());
+                rebuilt.push(text_node(" ", None));
+                inserted = true;
+            }
+            rebuilt.push(child);
+        }
+        if !inserted {
+            rebuilt.push(mention);
+            rebuilt.push(text_node(" ", None));
+        }
+        *inline = rebuilt;
+        merge_adjacent_text(inline);
+        Caret {
+            block,
+            offset: range.start + mention_len + 1,
+        }
+    }
+
+    /// Moves an offset that landed inside an atom to the edge in `direction`
+    /// (`> 0` forward, `< 0` back, `0` the nearer one), like `mentionSkipPlugin`.
+    pub fn snap_out_of_atoms(&self, block: usize, offset: usize, direction: isize) -> usize {
+        for range in self.atom_ranges(block) {
+            if range.start < offset && offset < range.end {
+                let nearer_start = offset - range.start <= range.end - offset;
+                return if direction > 0 || (direction == 0 && !nearer_start) {
+                    range.end
+                } else {
+                    range.start
+                };
+            }
+        }
+        offset
+    }
+
+    /// `(type, id)` of the mention atom covering `offset`, if any.
+    pub fn mention_at(&self, block: usize, offset: usize) -> Option<(String, String)> {
+        let node = self
+            .textblocks
+            .get(block)
+            .and_then(|path| node_at(&self.root, path))?;
+        positioned(children(node))
+            .into_iter()
+            .find(|(pos, child)| {
+                child
+                    .get("type")
+                    .and_then(Value::as_str)
+                    .is_some_and(|kind| kind.starts_with("mention-"))
+                    && *pos <= offset
+                    && offset < pos + inline_text(child).len()
+            })
+            .and_then(|(_, child)| {
+                let attrs = child.get("attrs")?;
+                Some((
+                    attrs.get("type")?.as_str()?.to_string(),
+                    attrs.get("id")?.as_str()?.to_string(),
+                ))
+            })
+    }
+
     /// `taskIdentityPlugin`: unique, non-empty task ids after a change.
     pub fn ensure_task_identity(&mut self) -> bool {
         super::tasks::ensure_identity(&mut self.root)
@@ -1065,7 +1202,7 @@ fn inline_text(node: &Value) -> String {
                 .and_then(|attrs| attrs.get("label"))
                 .and_then(Value::as_str)
                 .unwrap_or_default();
-            format!("@{label}")
+            crate::mention::display_text(label)
         }
         _ => String::new(),
     }
