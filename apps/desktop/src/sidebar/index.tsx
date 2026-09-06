@@ -14,6 +14,7 @@ import { TemplatesNav } from "./templates";
 import { TimelineView } from "./timeline";
 import { hasOwnSidebarHeaderTab } from "./use-custom-sidebar";
 
+import { usesTitleBarSidebarActions } from "~/shared/hooks/useWindowControlsGutter";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function LeftSidebar({
@@ -88,7 +89,9 @@ export function LeftSidebar({
                         onShowIgnoredTimelineEventsChange
                       }
                       topChromeInset={
-                        isTimelineSidebarLayout && !timelineHeader
+                        isTimelineSidebarLayout &&
+                        !timelineHeader &&
+                        !usesTitleBarSidebarActions()
                       }
                       topChipsOverlapHeader={
                         isTimelineSidebarLayout && !!timelineHeader

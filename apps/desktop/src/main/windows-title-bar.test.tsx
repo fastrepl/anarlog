@@ -7,6 +7,8 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { resetSidebarNotes, useSidebarNotes } from "~/sidebar/note-filter";
+
 const mocks = vi.hoisted(() => ({
   close: vi.fn().mockResolvedValue(undefined),
   createNewNote: vi.fn(),
@@ -15,13 +17,19 @@ const mocks = vi.hoisted(() => ({
   minimize: vi.fn().mockResolvedValue(undefined),
   onResized: vi.fn().mockResolvedValue(vi.fn()),
   openNew: vi.fn(),
+  openNoteDialog: vi.fn(),
   openUrl: vi.fn().mockResolvedValue({ status: "ok", data: null }),
   setFullscreen: vi.fn().mockResolvedValue(undefined),
   toggleExpanded: vi.fn(),
   toggleMaximize: vi.fn().mockResolvedValue(undefined),
   currentTab: { type: "empty" } as { id?: string; type: string },
   leftSidebarExpanded: true,
+  platform: "windows",
   upcomingMeetingStatus: null as null | { itemKey: string },
+}));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  platform: () => mocks.platform,
 }));
 
 vi.mock("@tauri-apps/api/window", () => ({
@@ -53,6 +61,10 @@ vi.mock("~/shared/useNewNote", () => ({
   useNewNote: () => mocks.createNewNote,
 }));
 
+vi.mock("~/shared/open-note-dialog", () => ({
+  useOpenNoteDialog: () => ({ open: mocks.openNoteDialog }),
+}));
+
 vi.mock("~/sidebar/timeline/upcoming-meeting", () => ({
   useSidebarUpcomingMeetingStatus: () => mocks.upcomingMeetingStatus,
 }));
@@ -78,17 +90,21 @@ describe("WindowsTitleBar", () => {
     mocks.minimize.mockClear();
     mocks.onResized.mockClear();
     mocks.openNew.mockClear();
+    mocks.openNoteDialog.mockClear();
     mocks.openUrl.mockClear();
     mocks.setFullscreen.mockClear();
     mocks.toggleExpanded.mockClear();
     mocks.toggleMaximize.mockClear();
     mocks.currentTab = { type: "empty" };
     mocks.leftSidebarExpanded = true;
+    mocks.platform = "windows";
     mocks.upcomingMeetingStatus = null;
+    resetSidebarNotes();
   });
 
   afterEach(() => {
     cleanup();
+    resetSidebarNotes();
   });
 
   it("renders the sidebar and application menus in the draggable title bar", async () => {
@@ -125,6 +141,59 @@ describe("WindowsTitleBar", () => {
     expect(mocks.minimize).toHaveBeenCalledOnce();
     expect(mocks.toggleMaximize).toHaveBeenCalledOnce();
     expect(mocks.close).toHaveBeenCalledOnce();
+  });
+
+  it("shows note actions beside the sidebar toggle only while expanded", () => {
+    const { rerender } = render(<WindowsTitleBar />);
+
+    expect(
+      screen
+        .getAllByRole("button")
+        .slice(0, 4)
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual(["Hide sidebar", "Search", "New note", "Sort notes"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    fireEvent.click(screen.getByRole("button", { name: "New note" }));
+    expect(mocks.openNoteDialog).toHaveBeenCalledOnce();
+    expect(mocks.createNewNote).toHaveBeenCalledOnce();
+
+    mocks.leftSidebarExpanded = false;
+    rerender(<WindowsTitleBar />);
+
+    for (const name of ["Search", "New note", "Sort notes"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    }
+    expect(screen.getByRole("button", { name: "Show sidebar" })).toBeTruthy();
+
+    mocks.leftSidebarExpanded = true;
+    rerender(<WindowsTitleBar />);
+    for (const name of ["Search", "New note", "Sort notes"]) {
+      expect(screen.getByRole("button", { name })).toBeTruthy();
+    }
+  });
+
+  it("changes timeline grouping from the title bar", () => {
+    render(<WindowsTitleBar />);
+
+    const filter = screen.getByRole("button", { name: "Sort notes" });
+    fireEvent.pointerDown(filter);
+    fireEvent.click(filter);
+    const grouping = screen.getByRole("menuitem", { name: "Grouping, Date" });
+    fireEvent.focus(grouping);
+    fireEvent.keyDown(grouping, { key: "ArrowRight" });
+    fireEvent.click(screen.getByRole("menuitem", { name: "Folder" }));
+
+    expect(useSidebarNotes.getState().groupBy).toBe("folder");
+  });
+
+  it("keeps Linux note actions in the sidebar", () => {
+    mocks.platform = "linux";
+    render(<WindowsTitleBar />);
+
+    for (const name of ["Search", "New note", "Sort notes"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    }
   });
 
   it("preserves the collapsed-sidebar upcoming meeting badge", () => {

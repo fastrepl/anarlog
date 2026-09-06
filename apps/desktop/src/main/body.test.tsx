@@ -851,4 +851,27 @@ describe("ClassicMainBody", () => {
     expect(screen.queryByTestId("resize-handle")).toBeNull();
     expect(screen.getAllByTestId("panel")).toHaveLength(1);
   });
+
+  it("removes the Windows sidebar action row when actions are in the title bar", () => {
+    mocks.runtimePlatform = "windows";
+    render(<ClassicMainBody />);
+
+    expect(screen.getByTestId("classic-main-sidebar")).toBeTruthy();
+    expect(document.querySelector("[data-sidebar-timeline-header]")).toBeNull();
+    for (const name of ["Search", "New note", "Sort notes"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    }
+  });
+
+  it("keeps Linux note actions in the sidebar", () => {
+    mocks.runtimePlatform = "linux";
+    render(<ClassicMainBody />);
+
+    expect(
+      document.querySelector("[data-sidebar-timeline-header]"),
+    ).not.toBeNull();
+    for (const name of ["Search", "New note", "Sort notes"]) {
+      expect(screen.getByRole("button", { name })).toBeTruthy();
+    }
+  });
 });

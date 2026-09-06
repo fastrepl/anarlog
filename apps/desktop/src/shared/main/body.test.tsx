@@ -372,15 +372,19 @@ describe("ClassicMainBody", () => {
             "[data-left-sidebar-chrome] > div",
           );
 
-      await waitFor(() => {
-        expect(chromeFrame?.className).toContain("pl-2");
-      });
+      if (runtimePlatform === "windows" && expanded) {
+        expect(chromeFrame).toBeNull();
+      } else {
+        await waitFor(() => {
+          expect(chromeFrame?.className).toContain("pl-2");
+        });
+        expect(chromeFrame?.className).not.toContain("pl-[76px]");
+      }
       expect(
         screen.queryByRole("button", {
           name: expanded ? "Hide sidebar" : "Show sidebar",
         }),
       ).toBeNull();
-      expect(chromeFrame?.className).not.toContain("pl-[76px]");
       expect(mocks.isFullscreen).not.toHaveBeenCalled();
       expect(mocks.resizeListeners).toHaveLength(0);
     },

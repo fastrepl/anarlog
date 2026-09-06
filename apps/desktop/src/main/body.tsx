@@ -37,6 +37,7 @@ import { useShell } from "~/contexts/shell";
 import { scrollElementByWheel } from "~/shared/dom/scroll-wheel";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
+  usesTitleBarSidebarActions,
   usesWindowsStyleTitleBar,
   useWindowControlsGutter,
 } from "~/shared/hooks/useWindowControlsGutter";
@@ -396,29 +397,30 @@ export function ClassicMainBody({
     "--left-sidebar-panel-size": `${renderedLeftSidebarPanelSize}`,
     "--left-sidebar-panel-width": `${renderedLeftSidebarPanelSize}%`,
   } as LeftSidebarSizeStyle;
-  const timelineHeader = showSidebarTimelineChrome ? (
-    <div
-      data-tauri-drag-region
-      data-sidebar-timeline-header
-      className={cn([
-        "flex h-9 shrink-0 items-start pt-[9px] pr-1",
-        showWindowControlsGutter ? "pl-[76px]" : "pl-2",
-      ])}
-      onWheelCapture={handleSidebarTimelineHeaderWheel}
-    >
-      {showSidebarTimeline ? (
-        <SidebarTimelineChromeWithUpcomingMeeting
-          currentSessionId={currentSessionId}
-          sidebarExpanded
-          showSidebarToggle={showSidebarToggleInBody}
-          showIgnoredTimelineEvents={showIgnoredTimelineEvents}
-          onNewNote={createNewNote}
-          onSearch={handleOpenNoteDialog}
-          onToggleSidebar={handleToggleLeftSidebar}
-        />
-      ) : null}
-    </div>
-  ) : null;
+  const timelineHeader =
+    showSidebarTimelineChrome && !usesTitleBarSidebarActions() ? (
+      <div
+        data-tauri-drag-region
+        data-sidebar-timeline-header
+        className={cn([
+          "flex h-9 shrink-0 items-start pt-[9px] pr-1",
+          showWindowControlsGutter ? "pl-[76px]" : "pl-2",
+        ])}
+        onWheelCapture={handleSidebarTimelineHeaderWheel}
+      >
+        {showSidebarTimeline ? (
+          <SidebarTimelineChromeWithUpcomingMeeting
+            currentSessionId={currentSessionId}
+            sidebarExpanded
+            showSidebarToggle={showSidebarToggleInBody}
+            showIgnoredTimelineEvents={showIgnoredTimelineEvents}
+            onNewNote={createNewNote}
+            onSearch={handleOpenNoteDialog}
+            onToggleSidebar={handleToggleLeftSidebar}
+          />
+        ) : null}
+      </div>
+    ) : null;
 
   return (
     <div

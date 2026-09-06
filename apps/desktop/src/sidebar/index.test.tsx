@@ -3,6 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   currentTab: { type: "empty" } as { type: string } | null,
+  platform: "macos",
+}));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  platform: () => mocks.platform,
 }));
 
 vi.mock("~/store/zustand/tabs", () => ({
@@ -72,6 +77,7 @@ import { LeftSidebar } from "./index";
 describe("LeftSidebar", () => {
   beforeEach(() => {
     mocks.currentTab = { type: "empty" };
+    mocks.platform = "macos";
   });
 
   afterEach(() => {
@@ -117,6 +123,20 @@ describe("LeftSidebar", () => {
         .getByTestId("timeline-view")
         .getAttribute("data-top-chips-overlap-header"),
     ).toBe("true");
+  });
+
+  it("does not reserve space for title bar actions in the Windows timeline", () => {
+    mocks.platform = "windows";
+    render(<LeftSidebar />);
+
+    const timeline = screen.getByTestId("timeline-view");
+    expect(timeline.getAttribute("data-top-chrome-inset")).toBe("false");
+    expect(timeline.getAttribute("data-top-chips-overlap-header")).toBe(
+      "false",
+    );
+    expect(timeline.getAttribute("data-show-open-calendar-button")).toBe(
+      "true",
+    );
   });
 
   it("shows received notes without the personal timeline", () => {

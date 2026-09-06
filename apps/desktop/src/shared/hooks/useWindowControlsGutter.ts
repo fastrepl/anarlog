@@ -10,6 +10,10 @@ export function usesWindowsStyleTitleBar() {
   return runtimePlatform === "windows" || runtimePlatform === "linux";
 }
 
+export function usesTitleBarSidebarActions() {
+  return getRuntimePlatform() === "windows";
+}
+
 export function useWindowControlsGutter() {
   const [visible, setVisible] = useState(() => {
     const runtimePlatform = getRuntimePlatform();

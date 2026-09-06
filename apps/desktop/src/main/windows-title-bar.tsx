@@ -14,10 +14,15 @@ import {
 } from "@anlg/ui/components/ui/dropdown-menu";
 import { cn } from "@anlg/utils";
 
-import { LeftSurfaceChromeButton } from "./sidebar-timeline-chrome";
+import {
+  LeftSurfaceChromeButton,
+  SidebarNoteActions,
+} from "./sidebar-timeline-chrome";
 
 import { useShell } from "~/contexts/shell";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
+import { usesTitleBarSidebarActions } from "~/shared/hooks/useWindowControlsGutter";
+import { useOpenNoteDialog } from "~/shared/open-note-dialog";
 import { useNewNote } from "~/shared/useNewNote";
 import { useSidebarUpcomingMeetingStatus } from "~/sidebar/timeline/upcoming-meeting";
 import { useTabs } from "~/store/zustand/tabs";
@@ -29,6 +34,7 @@ export function WindowsTitleBar() {
   const currentTab = useTabs((state) => state.currentTab);
   const openNew = useTabs((state) => state.openNew);
   const createNewNote = useNewNote();
+  const openNoteDialog = useOpenNoteDialog();
   const upcomingMeetingStatus = useSidebarUpcomingMeetingStatus();
   const [isMaximized, setIsMaximized] = useState(false);
   const editTargetRef = useRef<HTMLElement | null>(null);
@@ -120,6 +126,12 @@ export function WindowsTitleBar() {
             <Sidebar size={16} />
           )}
         </LeftSurfaceChromeButton>
+        {usesTitleBarSidebarActions() && leftsidebar.expanded ? (
+          <SidebarNoteActions
+            onNewNote={createNewNote}
+            onSearch={openNoteDialog.open}
+          />
+        ) : null}
         <nav
           aria-label={t`Application menu`}
           className="ml-2 flex h-full items-center"

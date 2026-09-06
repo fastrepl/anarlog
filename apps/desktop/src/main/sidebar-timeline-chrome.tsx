@@ -74,7 +74,7 @@ function SidebarTimelineChrome({
   return (
     <div data-tauri-drag-region className="flex w-full items-center">
       <div data-tauri-drag-region className="flex items-center gap-0">
-        {showSidebarToggle ? (
+        {showSidebarToggle && (
           <LeftSurfaceChromeButton
             ariaLabel={sidebarExpanded ? "Hide sidebar" : "Show sidebar"}
             badge={collapsedBadge}
@@ -86,26 +86,32 @@ function SidebarTimelineChrome({
               <Sidebar size={16} />
             )}
           </LeftSurfaceChromeButton>
-        ) : (
-          <span
-            aria-hidden="true"
-            data-tauri-drag-region
-            className="size-7 shrink-0"
-          />
         )}
         {sidebarExpanded ? (
-          <>
-            <LeftSurfaceChromeButton ariaLabel="Search" onClick={onSearch}>
-              <MagnifyingGlass size={15} />
-            </LeftSurfaceChromeButton>
-            <LeftSurfaceChromeButton ariaLabel="New note" onClick={onNewNote}>
-              <NotePencil size={15} />
-            </LeftSurfaceChromeButton>
-            <SidebarNoteFilterMenu />
-          </>
+          <SidebarNoteActions onNewNote={onNewNote} onSearch={onSearch} />
         ) : null}
       </div>
     </div>
+  );
+}
+
+export function SidebarNoteActions({
+  onNewNote,
+  onSearch,
+}: {
+  onNewNote: () => void;
+  onSearch: () => void;
+}) {
+  return (
+    <>
+      <LeftSurfaceChromeButton ariaLabel="Search" onClick={onSearch}>
+        <MagnifyingGlass size={15} />
+      </LeftSurfaceChromeButton>
+      <LeftSurfaceChromeButton ariaLabel="New note" onClick={onNewNote}>
+        <NotePencil size={15} />
+      </LeftSurfaceChromeButton>
+      <SidebarNoteFilterMenu />
+    </>
   );
 }
 
