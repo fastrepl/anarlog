@@ -7,6 +7,7 @@ import { Streamdown } from "streamdown";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import {
+  ProviderCredentialError,
   providerCredentialIdentity,
   verifyProviderCredentials,
 } from "@anlg/provider-validation";
@@ -248,11 +249,17 @@ export function useProviderAvailability(
       queryFn: async ({ signal }: { signal: AbortSignal }) => {
         if (provider.checkAvailability)
           return provider.checkAvailability(baseUrl, apiKey);
-        await verifyProviderCredentials(
-          { provider: provider.id, baseUrl, apiKey },
-          tauriFetch,
-          signal,
-        );
+        try {
+          await verifyProviderCredentials(
+            { provider: provider.id, baseUrl, apiKey },
+            tauriFetch,
+            signal,
+          );
+        } catch (error) {
+          if (error instanceof ProviderCredentialError && !error.retryable)
+            return false;
+          throw error;
+        }
         return true;
       },
       enabled: isConfigured,
@@ -265,14 +272,7 @@ export function useProviderAvailability(
 
   const entries = inputs.map(
     ({ provider, isConfigured }, index) =>
-      [
-        provider.id,
-        !isConfigured
-          ? false
-          : queries[index]?.isPending
-            ? undefined
-            : queries[index]?.data === true,
-      ] as const,
+      [provider.id, !isConfigured ? false : queries[index]?.data] as const,
   );
 
   // Callers put this record in memo dependency lists, so its identity has to
@@ -821,11 +821,10 @@ export function StyledStreamdown({
 function useProvider(providerType: ProviderType, config: ProviderConfig) {
   const { providers, isReady } = useAiProvidersState(providerType);
   const providerRow = providers[providerRowId(providerType, config.id)];
-  const providerMutation = useSetAiProvider(
-    providerType,
-    config.id,
-    requiresKeyVerification(config),
-  );
+  const providerMutation = useSetAiProvider(providerType, config.id, {
+    verifyCredentials: requiresKeyVerification(config),
+    defaultBaseUrl: config.baseUrl,
+  });
 
   const { data } = aiProviderSchema.safeParse(providerRow);
   return [data, providerMutation, isReady] as const;

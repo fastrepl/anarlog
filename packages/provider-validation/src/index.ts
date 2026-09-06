@@ -9,6 +9,15 @@ export type ProviderCredential = {
 type CredentialFetch = (url: string, init: RequestInit) => Promise<Response>;
 const verified = new WeakMap<CredentialFetch, Map<string, number>>();
 
+export class ProviderCredentialError extends Error {
+  readonly retryable: boolean;
+
+  constructor(message: string, retryable = false) {
+    super(message);
+    this.retryable = retryable;
+  }
+}
+
 export function providerCredentialIdentity(credential: ProviderCredential) {
   return sha256(JSON.stringify(credential));
 }
@@ -55,21 +64,22 @@ export async function verifyProviderCredentials(
     });
     if (response.status === 401 || response.status === 403) {
       await response.body?.cancel();
-      throw new CredentialError(
+      throw new ProviderCredentialError(
         "The provider rejected this key or its permissions. Check the key and try again.",
       );
     }
     if (!response.ok) {
       await response.body?.cancel();
-      throw new CredentialError(
+      throw new ProviderCredentialError(
         response.status === 429
           ? "The provider is rate limiting verification. Try again shortly."
           : "Couldn’t verify this key with the provider. Check the connection and try again.",
+        true,
       );
     }
     const body = await readResponse(response, request.plainText);
     if (!request.accept(body))
-      throw new CredentialError(
+      throw new ProviderCredentialError(
         "The provider did not confirm this key. Check the key and connection.",
       );
 
@@ -86,10 +96,18 @@ export async function verifyProviderCredentials(
         redirect: "error",
       });
       await rejected.body?.cancel();
-      if (rejected.status !== 401 && rejected.status !== 403)
-        throw new CredentialError(
+      if (rejected.status !== 401 && rejected.status !== 403) {
+        if (!rejected.ok)
+          throw new ProviderCredentialError(
+            rejected.status === 429
+              ? "The provider is rate limiting verification. Try again shortly."
+              : "Couldn’t verify this key with the provider. Check the connection and try again.",
+            true,
+          );
+        throw new ProviderCredentialError(
           "This endpoint doesn’t support API key verification. Use an authenticated model-list endpoint.",
         );
+      }
     }
     controller.signal.throwIfAborted();
     // Saving and refreshing availability use the same proof, without retaining
@@ -97,17 +115,16 @@ export async function verifyProviderCredentials(
     recent.set(identity, Date.now() + 60_000);
     if (recent.size > 128) recent.delete(recent.keys().next().value!);
   } catch (error) {
-    if (error instanceof CredentialError) throw error;
-    throw new Error(
+    if (error instanceof ProviderCredentialError) throw error;
+    throw new ProviderCredentialError(
       "Couldn’t verify this key. Check your connection and try again.",
+      true,
     );
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener("abort", abort);
   }
 }
-
-class CredentialError extends Error {}
 
 function credentialRequest({ provider, baseUrl, apiKey }: ProviderCredential) {
   const base = baseUrl.replace(/\/+$/, "");

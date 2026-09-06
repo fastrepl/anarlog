@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  ProviderCredentialError,
   verifyProviderCredentials,
   providerCredentialIdentity,
 } from "./index.ts";
@@ -47,6 +48,8 @@ for (const [status, message] of [
       (error) => {
         assert.match(error.message, message);
         assert.ok(!error.message.includes("secret-key-echo"));
+        assert.ok(error instanceof ProviderCredentialError);
+        assert.equal(error.retryable, status !== 401 && status !== 403);
         return true;
       },
     );
@@ -91,6 +94,32 @@ test("a gateway must accept the candidate key and reject the control key", async
     "Bearer anarlog-invalid-key-verification",
   ]);
 });
+
+for (const status of [429, 500, 404]) {
+  test(`an inconclusive control response (${status}) is retryable and never cached as proof`, async () => {
+    let calls = 0;
+    let controlStatus = status;
+    const fetcher = async (_url, init) => {
+      calls++;
+      return init.headers.Authorization === "Bearer synthetic-key"
+        ? Response.json({ data: [] })
+        : new Response(null, { status: controlStatus });
+    };
+    const custom = { ...credential, provider: "custom" };
+    await assert.rejects(
+      verifyProviderCredentials(custom, fetcher),
+      (error) => {
+        assert.ok(error instanceof ProviderCredentialError);
+        assert.equal(error.retryable, true);
+        assert.doesNotMatch(error.message, /doesn’t support/);
+        return true;
+      },
+    );
+    controlStatus = 401;
+    await verifyProviderCredentials(custom, fetcher);
+    assert.equal(calls, 4);
+  });
+}
 
 test("Vertex verifies tokens through the beta publisher catalog, separate from the project inference path", async () => {
   const requests = [];

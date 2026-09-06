@@ -201,7 +201,10 @@ export function setAiProvider(
 export function useSetAiProvider(
   type: AiProviderType,
   providerId: string,
-  verifyCredentials = false,
+  {
+    verifyCredentials = false,
+    defaultBaseUrl = "",
+  }: { verifyCredentials?: boolean; defaultBaseUrl?: string } = {},
 ) {
   const queryClient = useQueryClient();
 
@@ -215,15 +218,18 @@ export function useSetAiProvider(
       if (verifyCredentials) {
         const previous = await getStoredAiProvider(type, providerId);
         const apiKey = (changes.api_key ?? previous?.api_key ?? "").trim();
+        const baseUrl =
+          (changes.base_url ?? previous?.base_url ?? "").trim() ||
+          defaultBaseUrl.trim();
         await verifyProviderCredentials(
           {
             provider: providerId,
-            baseUrl: changes.base_url ?? previous?.base_url ?? "",
+            baseUrl,
             apiKey,
           },
           tauriFetch,
         );
-        changes = { ...changes, api_key: apiKey };
+        changes = { ...changes, base_url: baseUrl, api_key: apiKey };
       }
       await setAiProvider(type, providerId, changes);
     },

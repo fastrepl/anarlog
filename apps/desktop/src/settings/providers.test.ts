@@ -84,7 +84,7 @@ describe("SQLite AI providers", () => {
     const wrapper = ({ children }: { children: ReactNode }) =>
       createElement(QueryClientProvider, { client: queryClient }, children);
     const { result } = renderHook(
-      () => useSetAiProvider("llm", "openai", true),
+      () => useSetAiProvider("llm", "openai", { verifyCredentials: true }),
       { wrapper },
     );
     const draft = { base_url: "https://api.openai.com/v1", api_key: "invalid" };
@@ -116,6 +116,57 @@ describe("SQLite AI providers", () => {
     expect(mocks.setSecret).toHaveBeenCalled();
     queryClient.clear();
   });
+
+  it.each([
+    { stored: "", draft: undefined, expected: "https://api.openai.com/v1" },
+    { stored: "", draft: "  ", expected: "https://api.openai.com/v1" },
+    {
+      stored: "https://custom.test/v1",
+      draft: undefined,
+      expected: "https://custom.test/v1",
+    },
+    {
+      stored: "",
+      draft: "https://new.test/v1",
+      expected: "https://new.test/v1",
+    },
+  ])(
+    "verifies and stores the resolved provider URL: $expected",
+    async ({ stored, draft, expected }) => {
+      mocks.execute.mockResolvedValue([
+        {
+          id: "ai_provider:llm:openai",
+          value_json: JSON.stringify({
+            type: "llm",
+            base_url: stored,
+            api_key: "",
+          }),
+        },
+      ]);
+      const queryClient = new QueryClient();
+      const wrapper = ({ children }: { children: ReactNode }) =>
+        createElement(QueryClientProvider, { client: queryClient }, children);
+      const { result } = renderHook(
+        () =>
+          useSetAiProvider("llm", "openai", {
+            verifyCredentials: true,
+            defaultBaseUrl: "https://api.openai.com/v1",
+          }),
+        { wrapper },
+      );
+      await result.current.mutateAsync({ api_key: "working", base_url: draft });
+      expect(mocks.verify).toHaveBeenCalledWith(
+        { provider: "openai", baseUrl: expected, apiKey: "working" },
+        expect.any(Function),
+      );
+      const persisted = mocks.executeTransaction.mock.calls[0][0][0].params[0];
+      expect(JSON.parse(String(persisted))).toMatchObject({
+        base_url: expected,
+        api_key: "",
+      });
+      queryClient.clear();
+    },
+  );
 
   it("waits for secure provider keys before reporting provider state as ready", async () => {
     let resolveSecret!: (value: { status: "ok"; data: string | null }) => void;
