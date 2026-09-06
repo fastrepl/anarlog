@@ -25,6 +25,7 @@ anlg-template-app = { workspace = true }
 anlg-tiptap = { workspace = true }
 anlg-transcript = { workspace = true }
 owhisper-interface = { workspace = true }
+rodio = { workspace = true, features = ["symphonia-all"] }
 
 anyhow = { workspace = true }
 aspasia = "0.2.1"
@@ -55,5 +56,6 @@ url = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 
 [dev-dependencies]
+hound = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["rt", "macros"] }

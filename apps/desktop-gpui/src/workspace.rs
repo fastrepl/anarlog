@@ -1,4 +1,5 @@
 mod ai_settings;
+mod audio_player;
 mod calendar_tab;
 mod chat;
 mod contacts_tab;
@@ -200,6 +201,8 @@ pub struct Workspace {
     onboarding: Option<onboarding::OnboardingState>,
     /// The capture engine and the live session state.
     recording: recording::RecordingState,
+    /// The session audio player for the open transcript tab.
+    audio_player: Option<audio_player::AudioPlayer>,
     /// `chat.mode === "FloatingOpen"`
     chat_open: bool,
     /// The Share CTA's popover while open.
@@ -327,6 +330,7 @@ impl Workspace {
             stats: None,
             onboarding: None,
             recording: recording::RecordingState::default(),
+            audio_player: None,
             chat_open: false,
             share_popover: None,
             recent_emoji_ids: Vec::new(),

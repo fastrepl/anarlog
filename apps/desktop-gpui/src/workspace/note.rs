@@ -14,7 +14,7 @@ use crate::timeline::{RemoteMeeting, SessionEvent};
 use crate::ui::{TailwindText as _, ghost_icon_button, icon};
 
 impl Workspace {
-    pub(super) fn render_main_surface(&self, window: &Window, cx: &mut Context<Self>) -> Div {
+    pub(super) fn render_main_surface(&mut self, window: &Window, cx: &mut Context<Self>) -> Div {
         let theme = self.theme;
         let content = match &self.note {
             _ if self.contacts_open() => self.render_contacts_main(cx),
@@ -665,7 +665,7 @@ impl Workspace {
 
     /// `NoteInput` scroll column: `px-3 pt-2 pb-6 overflow-y-auto`.
     fn render_note_body(
-        &self,
+        &mut self,
         preview: &NotePreview,
         tab: &NoteTab,
         window: &Window,
@@ -693,22 +693,27 @@ impl Workspace {
                 .flex()
                 .flex_col()
                 .overflow_hidden();
-            if let Some(screen) = self.render_live_transcript_screen(
+            let body = if let Some(screen) = self.render_live_transcript_screen(
                 &preview.session.id,
                 preview.has_transcript,
                 window,
                 cx,
             ) {
-                return body.child(screen);
-            }
-            if !preview.has_transcript {
-                return body.child(self.render_transcript_empty_state(
-                    preview.audio_exists,
-                    window,
-                    cx,
-                ));
-            }
-            return body.child(self.render_transcript(preview, cx));
+                body.child(screen)
+            } else if !preview.has_transcript {
+                body.child(self.render_transcript_empty_state(preview.audio_exists, window, cx))
+            } else {
+                body.child(self.render_transcript(preview, cx))
+            };
+            // `session/index.tsx`: the top audio player sits above `NoteInput`
+            // in the session column (`shrink-0`, then `min-h-0 flex-1`).
+            return div()
+                .id("note-column")
+                .h_full()
+                .flex()
+                .flex_col()
+                .children(self.render_top_audio_player(preview, cx))
+                .child(div().min_h_0().flex_1().child(body));
         }
 
         // `overflow-y-auto` shows the 6px WebKit scrollbar inside the column.

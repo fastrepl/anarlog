@@ -194,8 +194,10 @@ embedded!(
     "icons/more-horizontal.svg",
     "icons/note-edit.svg",
     "icons/notebook.svg",
+    "icons/pause.svg",
     "icons/pencil-edit.svg",
     "icons/picture-in-picture.svg",
+    "icons/play.svg",
     "icons/plugs-connected.svg",
     "icons/plus.svg",
     "icons/popover-tail-border.svg",
@@ -342,6 +344,6 @@ mod tests {
         }
         assert!(Assets.load("icons/search.svg").unwrap().is_some());
         assert!(Assets.load("icons/missing.svg").unwrap().is_none());
-        assert_eq!(Assets.list("icons/").unwrap().len(), 166);
+        assert_eq!(Assets.list("icons/").unwrap().len(), 168);
     }
 }
