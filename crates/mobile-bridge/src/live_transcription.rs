@@ -170,7 +170,13 @@ where
             _ = finish.cancelled(), if !finalizing => {
                 finalizing = true;
                 deadline.as_mut().reset(tokio::time::Instant::now() + FINALIZE_TIMEOUT);
-                handle.finalize().await;
+                let interrupted = tokio::select! {
+                    biased;
+                    _ = cancel.cancelled() => true,
+                    _ = &mut deadline => true,
+                    _ = handle.finalize() => false,
+                };
+                if interrupted { return false; }
             }
             _ = &mut deadline, if finalizing => return false,
             message = stream.next() => {
@@ -187,7 +193,7 @@ where
                 let Ok(json) = serde_json::to_string(&response) else { return false; };
                 if json.len() > 1_000_000 { return false; }
                 listener.on_message(json);
-                if terminal { return finalizing; }
+                if terminal && finalizing { return true; }
             }
         }
     }
@@ -283,6 +289,88 @@ mod tests {
                 model: Some("universal-3-5-pro-realtime".into()),
                 ..Default::default()
             },
+        }
+    }
+
+    #[tokio::test]
+    async fn metadata_during_recording_keeps_the_stream_open_until_finish() {
+        struct Handle;
+        impl FinalizeHandle for Handle {
+            async fn finalize(&self) {}
+            fn expected_finalize_count(&self) -> usize {
+                1
+            }
+        }
+        let (sender, receiver) = mpsc::channel::<Result<StreamResponse, ()>>(4);
+        let metadata = || StreamResponse::TerminalResponse {
+            request_id: "test-request".into(),
+            created: String::new(),
+            duration: 0.0,
+            channels: 1,
+        };
+        let events = Events::default();
+        let finish = CancellationToken::new();
+        let cancel = CancellationToken::new();
+        let consuming = consume(
+            ReceiverStream::new(receiver),
+            &Handle,
+            &events,
+            &finish,
+            &cancel,
+        );
+        tokio::pin!(consuming);
+
+        sender.send(Ok(metadata())).await.unwrap();
+        assert!(consuming.as_mut().now_or_never().is_none());
+        assert_eq!(events.messages.lock().unwrap().len(), 1);
+
+        sender
+            .send(Ok(StreamResponse::SpeechStartedResponse {
+                channel: vec![0],
+                timestamp: 1.0,
+            }))
+            .await
+            .unwrap();
+        assert!(consuming.as_mut().now_or_never().is_none());
+        assert_eq!(events.messages.lock().unwrap()[1]["type"], "SpeechStarted");
+
+        finish.cancel();
+        sender.send(Ok(metadata())).await.unwrap();
+        assert!(consuming.await);
+    }
+
+    #[tokio::test]
+    async fn stalled_finalize_obeys_the_stop_deadline_and_cancellation() {
+        struct StalledHandle;
+        impl FinalizeHandle for StalledHandle {
+            async fn finalize(&self) {
+                std::future::pending::<()>().await;
+            }
+            fn expected_finalize_count(&self) -> usize {
+                1
+            }
+        }
+        let finish = CancellationToken::new();
+        finish.cancel();
+        for cancel_during_finalize in [false, true] {
+            let events = Events::default();
+            let cancel = CancellationToken::new();
+            let consuming = consume(
+                futures_util::stream::pending::<Result<StreamResponse, ()>>(),
+                &StalledHandle,
+                &events,
+                &finish,
+                &cancel,
+            );
+            tokio::pin!(consuming);
+            assert!(consuming.as_mut().now_or_never().is_none());
+            let timeout = if cancel_during_finalize {
+                cancel.cancel();
+                Duration::from_millis(100)
+            } else {
+                FINALIZE_TIMEOUT + Duration::from_secs(1)
+            };
+            assert!(!tokio::time::timeout(timeout, consuming).await.unwrap());
         }
     }
 

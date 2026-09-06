@@ -83,7 +83,7 @@ export const TRANSCRIPTION_PROVIDERS = [
     id: "soniox",
     name: "Soniox",
     baseUrl: "https://api.soniox.com",
-    model: "stt-async-v5",
+    model: "stt-rt-v5",
   },
   {
     id: "speechmatics",

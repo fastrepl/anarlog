@@ -328,6 +328,7 @@ function isPermanentTranscriptionFailure(error: unknown): boolean {
     "audio_missing",
     "audio_too_large",
     "stt_response_too_large",
+    "stt_live_only",
   ].includes(String(code));
 }
 
@@ -440,8 +441,10 @@ async function runTranscription(sessionId: string): Promise<void> {
   const selected = await resolveProvider("stt");
   const model = batchTranscriptionModel(selected.provider, selected.model);
   if (!model)
-    throw new Error(
+    throw transcriptionFailure(
       "This provider only transcribes live. Choose another provider to transcribe this saved recording.",
+      "request",
+      { code: "stt_live_only" },
     );
   const provider = { ...selected, model };
   const preferences = await readPreferences();

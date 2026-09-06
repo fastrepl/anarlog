@@ -4,7 +4,7 @@ import { test } from "node:test";
 import ts from "typescript";
 
 import { presetProviderModels } from "./provider-model-catalog.ts";
-import { providersFor } from "./providers-model.ts";
+import { defaultProviderConfig, providersFor } from "./providers-model.ts";
 import {
   batchTranscriptionModel,
   supportsLiveTranscription,
@@ -56,4 +56,18 @@ test("a saved recording uses the corresponding batch model after live failure", 
     ["dashscope", "qwen3-asr-flash-realtime", null],
   ])
     assert.equal(batchTranscriptionModel(provider, live), batch);
+});
+
+test("new Soniox setups start live while saved batch models remain supported", () => {
+  const config = defaultProviderConfig("stt", "soniox");
+  assert.ok(presetProviderModels("stt", "soniox").includes(config.model));
+  assert.equal(supportsLiveTranscription(config.provider, config.model), true);
+  assert.equal(
+    batchTranscriptionModel(config.provider, config.model),
+    "stt-async-v5",
+  );
+  assert.equal(
+    batchTranscriptionModel("soniox", "stt-async-v5"),
+    "stt-async-v5",
+  );
 });
