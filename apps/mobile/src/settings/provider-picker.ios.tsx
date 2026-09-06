@@ -1,4 +1,4 @@
-import { Label, Picker } from "@expo/ui/swift-ui";
+import { HStack, Image, Label, Menu, Picker, Text } from "@expo/ui/swift-ui";
 import {
   disabled,
   labelsHidden,
@@ -22,25 +22,34 @@ export function ProviderPicker({
   onValueChange: (provider: string) => void;
 }) {
   return (
-    <Picker
-      selection={selectedValue}
-      onSelectionChange={onValueChange}
-      modifiers={[
-        pickerStyle("menu"),
-        labelsHidden(),
-        layoutPriority(1),
-        disabled(!enabled),
-      ]}
+    <Menu
+      label={
+        <HStack spacing={8}>
+          <ProviderIcon provider={selectedValue} size={20} />
+          <Text>
+            {providersFor(kind).find(({ id }) => id === selectedValue)?.name}
+          </Text>
+          <Image systemName="chevron.up.chevron.down" size={12} />
+        </HStack>
+      }
+      modifiers={[layoutPriority(1), disabled(!enabled)]}
       testID="active-provider"
     >
-      {providersFor(kind).map((provider) => (
-        <Label
-          key={provider.id}
-          title={provider.name}
-          icon={<ProviderIcon provider={provider.id} />}
-          modifiers={[tag(provider.id)]}
-        />
-      ))}
-    </Picker>
+      <Picker
+        label="Provider"
+        selection={selectedValue}
+        onSelectionChange={onValueChange}
+        modifiers={[pickerStyle("inline"), labelsHidden()]}
+      >
+        {providersFor(kind).map((provider) => (
+          <Label
+            key={provider.id}
+            title={provider.name}
+            icon={<ProviderIcon provider={provider.id} />}
+            modifiers={[tag(provider.id)]}
+          />
+        ))}
+      </Picker>
+    </Menu>
   );
 }
