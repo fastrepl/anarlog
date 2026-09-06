@@ -3,8 +3,25 @@ import test from "node:test";
 
 import {
   resolveAuthFlowContext,
+  shouldReuseBrowserSession,
   toAuthFlowSearch,
 } from "./auth-flow-context.ts";
+
+test("explicit provider choices bypass the previous browser account", () => {
+  for (const provider of ["apple", "google", "azure", "github"]) {
+    assert.equal(shouldReuseBrowserSession({ provider }), false);
+  }
+});
+
+test("email and SSO choices also bypass the previous browser account", () => {
+  for (const view of ["email", "sso"]) {
+    assert.equal(shouldReuseBrowserSession({ view }), false);
+  }
+});
+
+test("generic sign-in links can still reuse an authenticated browser session", () => {
+  assert.equal(shouldReuseBrowserSession({}), true);
+});
 
 test("restores desktop recovery context from the encoded Supabase redirect", () => {
   const context = resolveAuthFlowContext({

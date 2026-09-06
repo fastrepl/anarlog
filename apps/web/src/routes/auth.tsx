@@ -29,7 +29,10 @@ import {
   flowSearchSchema,
 } from "@/functions/desktop-flow";
 import { useMountEffect } from "@/hooks/useMountEffect";
-import { toAuthFlowSearch } from "@/lib/auth-flow-context";
+import {
+  shouldReuseBrowserSession,
+  toAuthFlowSearch,
+} from "@/lib/auth-flow-context";
 import type { AuthSignInMethod } from "@/lib/auth-last-sign-in-method";
 import {
   buildPostAuthDestination,
@@ -60,7 +63,7 @@ export const Route = createFileRoute("/auth")({
   }),
   beforeLoad: async ({ search }) => {
     const [user, lastSignInMethod] = await Promise.all([
-      fetchUser(),
+      shouldReuseBrowserSession(search) ? fetchUser() : null,
       fetchLastSignInMethod(),
     ]);
 

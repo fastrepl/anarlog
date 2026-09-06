@@ -12,7 +12,10 @@ import {
   type NewAccountAuthMethod,
   shouldOfferNewAccountTrialCheckoutFallback,
 } from "@/functions/new-account-trial-policy";
-import { oauthProviderScopes } from "@/functions/oauth-provider";
+import {
+  oauthProviderQueryParams,
+  oauthProviderScopes,
+} from "@/functions/oauth-provider";
 import { claimPendingReferral } from "@/functions/referrals";
 import {
   mapSsoAuthError,
@@ -286,8 +289,7 @@ export const doAuth = createServerFn({ method: "POST" })
       provider: data.provider,
       options: {
         redirectTo: buildAuthCallbackUrl(params),
-        queryParams:
-          data.provider === "azure" ? { prompt: "select_account" } : undefined,
+        queryParams: oauthProviderQueryParams(data.provider),
         scopes: oauthProviderScopes(data.provider),
       },
     });
