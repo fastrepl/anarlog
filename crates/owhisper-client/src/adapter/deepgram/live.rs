@@ -60,7 +60,19 @@ impl RealtimeSttAdapter for DeepgramAdapter {
     }
 
     fn parse_response(&self, raw: &str) -> Vec<StreamResponse> {
-        serde_json::from_str(raw).into_iter().collect()
+        let event = match serde_json::from_str(raw) {
+            Ok(event) => event,
+            Err(_error) => {
+                tracing::warn!(
+                    error.type = "invalid_provider_payload",
+                    anarlog.payload.size_bytes = raw.len() as u64,
+                    "deepgram_json_parse_failed"
+                );
+                return vec![];
+            }
+        };
+
+        vec![event]
     }
 }
 

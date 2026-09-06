@@ -224,6 +224,10 @@ describe("getBatchProvider", () => {
     );
   });
 
+  test("maps custom endpoints to the Deepgram-compatible batch provider", () => {
+    expect(getBatchProvider("custom", "nova-3")).toBe("deepgram");
+  });
+
   test("maps local soniqo models to soniqo batch provider", () => {
     expect(getBatchProvider("anarlog", "soniqo-parakeet-batch")).toBe("soniqo");
     expect(getBatchProvider("soniqo", "soniqo-parakeet-batch")).toBe("soniqo");
@@ -1028,7 +1032,7 @@ describe("useRunBatch", () => {
     expect(sonnerToastWarningMock).not.toHaveBeenCalled();
   });
 
-  test("falls back to local Soniqo when the selected provider is not batch-capable", async () => {
+  test("uses custom Deepgram-compatible endpoints for batch transcription", async () => {
     useSTTConnectionMock.mockReturnValue({
       conn: {
         provider: "custom",
@@ -1047,20 +1051,14 @@ describe("useRunBatch", () => {
 
     expect(startTranscriptionMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        provider: "soniqo",
-        model: "soniqo-parakeet-batch",
-        base_url: "soniqo://local",
-        api_key: "",
+        provider: "deepgram",
+        model: "realtime-only",
+        base_url: "https://custom.test",
+        api_key: "custom-key",
       }),
       expect.any(Object),
     );
-    expect(sonnerToastWarningMock).toHaveBeenCalledWith(
-      "Using a batch transcription provider",
-      expect.objectContaining({
-        description:
-          "realtime-only is not available for batch transcription. Using Soniqo batch transcription instead.",
-      }),
-    );
+    expect(sonnerToastWarningMock).not.toHaveBeenCalled();
   });
 
   test.each(["windows", "linux"] as const)(
@@ -1093,7 +1091,7 @@ describe("useRunBatch", () => {
   );
 
   test.each(["windows", "linux"] as const)(
-    "does not invoke Soniqo as a batch fallback on %s",
+    "uses custom Deepgram-compatible batch endpoints on %s",
     async (currentPlatform) => {
       platformMock.mockReturnValue(currentPlatform);
       useSTTConnectionMock.mockReturnValue({
@@ -1107,15 +1105,19 @@ describe("useRunBatch", () => {
 
       const { result } = renderHook(() => useRunBatch("session-1"));
 
-      await expect(
-        act(async () => {
-          await result.current("/tmp/session.wav");
-        }),
-      ).rejects.toThrow(
-        "realtime-only is not available for batch transcription on this platform",
-      );
+      await act(async () => {
+        await result.current("/tmp/session.wav");
+      });
 
-      expect(startTranscriptionMock).not.toHaveBeenCalled();
+      expect(startTranscriptionMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: "deepgram",
+          model: "realtime-only",
+          base_url: "https://custom.test",
+          api_key: "custom-key",
+        }),
+        expect.any(Object),
+      );
       expect(sonnerToastWarningMock).not.toHaveBeenCalled();
     },
   );

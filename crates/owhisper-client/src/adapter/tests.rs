@@ -101,6 +101,8 @@ fn test_is_local_argmax() {
 
     assert!(!is_local_argmax("https://api.anarlog.so/stt"));
     assert!(!is_local_argmax("http://localhost:3001/stt"));
+    assert!(!is_local_argmax("http://localhost:8080/v1"));
+    assert!(!is_local_argmax("http://127.0.0.1:8080/listen"));
     assert!(!is_local_argmax("https://api.deepgram.com"));
 }
 
@@ -196,6 +198,13 @@ fn test_adapter_kind_from_url_and_languages() {
             &[En],
             None,
             AdapterKind::Argmax,
+        ),
+        // Other local endpoints are custom Deepgram-compatible providers.
+        (
+            "http://localhost:8080/v1",
+            &[En],
+            None,
+            AdapterKind::Deepgram,
         ),
         (
             "https://openrouter.ai/api/v1",

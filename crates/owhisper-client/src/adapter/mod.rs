@@ -360,7 +360,14 @@ pub fn normalize_languages(languages: &[anlg_language::Language]) -> Vec<anlg_la
 }
 
 fn is_local_argmax(base_url: &str) -> bool {
-    host_matches(base_url, is_local_host) && !is_anarlog_local_proxy(base_url)
+    url::Url::parse(base_url)
+        .ok()
+        .map(|url| {
+            is_local_host(url.host_str().unwrap_or(""))
+                && url.port() == Some(50060)
+                && !is_anarlog_local_proxy(base_url)
+        })
+        .unwrap_or(false)
 }
 
 pub(crate) fn build_ws_url_from_base_with(
