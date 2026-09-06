@@ -16,9 +16,11 @@ const fixture = (globalThis.transcriptionRetryFixture = {
   requests: 0,
   transactions: [],
   failures: [],
+  summaries: [],
   requestError: null,
 });
 const mocks = {
+  "./summarize": `export function generateSummaryAfterTranscription(sessionId) { globalThis.transcriptionRetryFixture.summaries.push(sessionId); }`,
   "expo-file-system": `export const Paths = {document: '/synthetic'}; export class File { exists = true; size = 1024; }`,
   "expo/fetch": `export function fetch() { throw new Error('Unexpected hosted request'); }`,
   "react-native": `export const Platform = {OS: 'ios'};`,
@@ -71,6 +73,7 @@ test("live-only recordings stop automatic retries but can be recovered manually 
   assert.equal(fixture.failures.at(-1).code, "stt_live_only");
   assert.equal(fixture.pending, true);
   assert.equal(fixture.requests, 0);
+  assert.deepEqual(fixture.summaries, []);
   assert.equal(fixture.resolutions, 1);
 
   await retryPendingTranscriptions();
@@ -87,6 +90,7 @@ test("live-only recordings stop automatic retries but can be recovered manually 
   assert.equal(fixture.requests, 1);
   assert.equal(fixture.transactions.length, 1);
   assert.equal(fixture.pending, false);
+  assert.ok(fixture.summaries.includes(fixture.sessionId));
 });
 
 test("temporary request failures remain eligible for automatic retry", async () => {
@@ -107,4 +111,5 @@ test("temporary request failures remain eligible for automatic retry", async () 
   await retryPendingTranscriptions();
   assert.equal(fixture.requests, requests + 2);
   assert.equal(fixture.pending, false);
+  assert.ok(fixture.summaries.includes(fixture.sessionId));
 });

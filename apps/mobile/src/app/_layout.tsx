@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/react-native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
 import { type ErrorBoundaryProps, Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -26,6 +26,7 @@ import {
   captureOperationalError,
   initializeErrorReporting,
 } from "@/lib/error-reporting";
+import { queryClient } from "@/lib/query-client";
 import { useMountEffect } from "@/lib/use-mount-effect";
 import { QuickActionLifecycle } from "@/quick-actions/quick-action-lifecycle";
 import { AppLock } from "@/settings/app-lock";
@@ -35,9 +36,6 @@ import { MobileSyncLifecycle } from "@/sync/mobile-sync-lifecycle";
 import { initializeWatchConnectivity } from "@/watch-connectivity";
 
 void initializeErrorReporting().catch(() => {});
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, staleTime: 10_000 } },
-});
 initializeWatchConnectivity();
 SplashScreen.setOptions({ duration: 300, fade: true });
 

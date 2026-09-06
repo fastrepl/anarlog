@@ -75,6 +75,8 @@ const modules = {
   "@sentry/react-native": `const state = globalThis.mobileSettingsFixture.sentry;
     export function init(options) { state.starts++; state.nativeEnabled = true; state.client = { getOptions: () => options }; }
     export function getClient() { return state.client; }
+    export function withScope(callback) { callback({setTag() {}, setContext() {}, setLevel() {}}); }
+    export function captureException() {}
     export async function close() { state.closes++; state.nativeEnabled = false; }
   `,
 };
@@ -1614,3 +1616,100 @@ for (const suffix of ["", "/openai", "/openai/v1"]) {
     );
   });
 }
+
+test("automatic summaries preserve memos and never overwrite an existing summary", async () => {
+  createNote();
+  signedInWith({
+    subscription_status: "active",
+    entitlements: ["hyprnote_pro"],
+  });
+  const memo = fixture.db
+    .prepare("SELECT body FROM session_documents WHERE id = 'note-1'")
+    .get().body;
+  await summarizeSession("note-1", true);
+  assert.equal(fixture.requests.length, 1);
+  assert.equal(
+    fixture.db
+      .prepare("SELECT body FROM session_documents WHERE id = 'note-1'")
+      .get().body,
+    memo,
+  );
+  fixture.db
+    .prepare(
+      "UPDATE session_documents SET body = 'My edited summary' WHERE kind = 'summary'",
+    )
+    .run();
+  await summarizeSession("note-1", true);
+  assert.equal(fixture.requests.length, 1);
+  assert.equal(
+    fixture.db
+      .prepare("SELECT body FROM session_documents WHERE kind = 'summary'")
+      .get().body,
+    "My edited summary",
+  );
+});
+
+test("automatic and manual summary requests share an in-flight generation", async () => {
+  createNote();
+  signedInWith({
+    subscription_status: "active",
+    entitlements: ["hyprnote_pro"],
+  });
+  let release;
+  fixture.respond = () =>
+    new Promise((resolve) => {
+      release = resolve;
+    });
+  const automatic = summarizeSession("note-1", true);
+  const manual = summarizeSession("note-1");
+  assert.equal(automatic, manual);
+  while (!release) await new Promise((resolve) => setImmediate(resolve));
+  release(
+    Response.json({ choices: [{ message: { content: "Finished summary" } }] }),
+  );
+  await Promise.all([automatic, manual]);
+  assert.equal(fixture.requests.length, 1);
+  assert.equal(
+    fixture.db
+      .prepare(
+        "SELECT COUNT(*) AS count FROM session_documents WHERE kind = 'summary'",
+      )
+      .get().count,
+    1,
+  );
+});
+
+test("automatic summary failure is observable and can be retried without changing memos", async () => {
+  const { queryClient } = await import("../lib/query-client.ts");
+  createNote();
+  signedInWith({
+    subscription_status: "active",
+    entitlements: ["hyprnote_pro"],
+  });
+  const memo = fixture.db
+    .prepare("SELECT body FROM session_documents WHERE id = 'note-1'")
+    .get().body;
+  fixture.respond = () => new Response("Rejected", { status: 401 });
+  await assert.rejects(summarizeSession("note-1", true), /API key or sign in/);
+  const mutation = queryClient
+    .getMutationCache()
+    .findAll({ mutationKey: ["session-summary", "note-1"] })
+    .at(-1);
+  assert.equal(mutation.state.status, "error");
+  assert.match(mutation.state.error.message, /API key or sign in/);
+  assert.equal(
+    fixture.db
+      .prepare("SELECT body FROM session_documents WHERE id = 'note-1'")
+      .get().body,
+    memo,
+  );
+  fixture.respond = () =>
+    Response.json({ choices: [{ message: { content: "Recovered summary" } }] });
+  await summarizeSession("note-1");
+  assert.equal(
+    fixture.db
+      .prepare("SELECT body FROM session_documents WHERE kind = 'summary'")
+      .get().body,
+    "Recovered summary",
+  );
+});

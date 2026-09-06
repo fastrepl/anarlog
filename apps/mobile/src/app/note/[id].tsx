@@ -1,3 +1,4 @@
+import SegmentedControl from "@expo/ui/community/segmented-control";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation } from "@tanstack/react-query";
 import { File, Paths } from "expo-file-system";
@@ -29,7 +30,6 @@ import { RecordingSyncCard } from "@/components/recording-sync-card";
 import { RemoteAudioCard } from "@/components/remote-audio-card";
 import { StartListeningButton } from "@/components/start-listening-button";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { IconButton } from "@/components/ui/icon-button";
 import { Spacing, Typography } from "@/constants/theme";
 import { useSessionAudio } from "@/data/audio-catalog";
@@ -54,7 +54,7 @@ import {
   saveSessionTitle,
   useSessionDetail,
 } from "@/data/session";
-import { summarizeSession } from "@/data/summarize";
+import { summarizeSession, useSessionSummaryState } from "@/data/summarize";
 import { transcribeSession, useTranscriptionState } from "@/data/transcribe";
 import { useSessionTranscripts } from "@/data/transcripts";
 import { captureAnalytics } from "@/lib/analytics";
@@ -265,6 +265,8 @@ export default function NoteScreen() {
       await summarizeSession(id);
     },
   });
+  const summaryState = useSessionSummaryState(id);
+  const [selectedTab, setSelectedTab] = useState(0);
   const transcription = useTranscriptionState(id);
   const [listening, setListening] = useState(listen === "1");
   const [editorFocused, setEditorFocused] = useState(false);
@@ -292,6 +294,11 @@ export default function NoteScreen() {
   const localAudioAvailable =
     audio.data?.availableLocally === true && localAudioFile?.exists === true;
   const hasRecordingHistory = audio.data !== null || transcripts.length > 0;
+  const active = listening && recorder.phase !== "saved";
+  const showTabs = !active && (hasRecordingHistory || Boolean(data?.summary));
+  const showMemos = !showTabs || selectedTab === 1;
+  const summaryPending = summarize.isPending || summaryState?.status === "pending";
+  const summaryError = summarize.error ?? summaryState?.error;
   const localNoteAttachments = noteAttachments.map((attachment) => {
     const file = attachment.localRelativePath
       ? new File(Paths.document, "sessions", id, attachment.localRelativePath)
@@ -311,7 +318,7 @@ export default function NoteScreen() {
   }>({});
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showEmptyNoteCta =
-    !listening &&
+    !active &&
     !editorFocused &&
     !audio.isLoading &&
     data !== null &&
@@ -398,13 +405,14 @@ export default function NoteScreen() {
   };
 
   const handleBack = async () => {
+    await flush();
     await recorder.stop();
-    flush();
     if (router.canGoBack()) router.back();
     else router.replace("/");
   };
 
   const handleStop = async () => {
+    await flush();
     const result = await recorder.stop();
     if (result !== "failed") setListening(false);
   };
@@ -659,7 +667,7 @@ export default function NoteScreen() {
     const title = (draft.title ?? current.title).trim() || "Untitled";
     const note = (draft.body ?? current.noteText).trim();
     const transcript = transcripts
-      .map((segment) => segment.text)
+      .map((segment) => `${segment.speaker}: ${segment.text}`)
       .join("\n\n")
       .trim();
     const sections = [`# ${title}`];
@@ -685,7 +693,7 @@ export default function NoteScreen() {
   };
 
   const handleListeningAction = () => {
-    if (listening) void handleStop();
+    if (active) void handleStop();
     else if (!audio.isLoading && !hasRecordingHistory) {
       setListening(true);
       void recorder.start();
@@ -729,107 +737,33 @@ export default function NoteScreen() {
             onChangeText={(title) => onEdit({ title })}
             onFocus={() => setEditorFocused(true)}
           />
-          {data.summary && (
-            <Card style={styles.summary} tone="muted">
-              <Text style={styles.summaryLabel}>Summary</Text>
-              {data.summary.title !== "Summary" && (
-                <Text style={styles.summaryTitle}>{data.summary.title}</Text>
-              )}
-              {data.summary.text !== "" && (
-                <ScrollView style={styles.summaryScroll} nestedScrollEnabled>
-                  <Text style={styles.summaryText}>{data.summary.text}</Text>
-                </ScrollView>
-              )}
-            </Card>
-          )}
-          {!listening &&
-            (transcripts.length > 0 || data.noteText.trim() !== "") && (
-              <View>
-                <Button
-                  label={
-                    !canSummarize
-                      ? "Choose summary provider"
-                      : data.summary
-                        ? "Regenerate summary"
-                        : "Generate summary"
-                  }
-                  loading={summarize.isPending}
-                  variant="ghost"
-                  size="small"
-                  onPress={() =>
-                    canSummarize
-                      ? summarize.mutate()
-                      : router.push("/settings/summary-provider")
-                  }
-                />
-                {summarize.error && (
-                  <Text style={styles.summaryText}>
-                    {summarize.error.message}
-                  </Text>
-                )}
-              </View>
-            )}
-          {audio.data && localAudioAvailable && localAudioFile && (
-            <View key={`${audio.data.filename}:${audio.data.createdAt}`}>
-              <AudioChip
-                uri={localAudioFile.uri}
-                filename={audio.data.filename}
-                sizeBytes={audio.data.sizeBytes}
-              />
-              <RecordingSyncCard audio={audio.data} />
-            </View>
-          )}
-          {audio.data && !localAudioAvailable && (
-            <RemoteAudioCard
-              cloudAvailable={Boolean(
-                audio.data.cloudObjectKey &&
-                auth.billing.isPro &&
-                auth.session?.access_token &&
-                env.supabaseUrl,
-              )}
-              errorMessage={audioRestoreError}
-              loading={restoringAudio}
-              onDownloadRecording={() => void handleDownloadRecording()}
-              onChooseRecording={() => void handleChooseRecording()}
+          {showTabs && <View style={styles.tabs}>
+            <SegmentedControl values={["Summary", "Memos"]} selectedIndex={selectedTab}
+              onChange={(event) => {
+                void flush();
+                Keyboard.dismiss();
+                setEditorFocused(false);
+                setSelectedTab(event.nativeEvent.selectedSegmentIndex);
+              }} />
+          </View>}
+          {showTabs && !showMemos && <ScrollView style={styles.summaryScroll} contentContainerStyle={styles.summary}>
+            {data.summary && <View>
+              {data.summary.title !== "Summary" && <Text style={styles.summaryTitle}>{data.summary.title}</Text>}
+              <Text selectable style={styles.summaryText}>{data.summary.text}</Text>
+            </View>}
+            {!data.summary && <Text style={styles.summaryText}>
+              {summaryPending ? "Generating summary…" : transcription === "running" ? "Your summary will be generated when transcription finishes." : "Your meeting summary will appear here. Your memos are in the Memos tab."}
+            </Text>}
+            {summaryError && <Text accessibilityRole="alert" style={styles.summaryError}>{summaryError.message}</Text>}
+            <Button
+              label={!canSummarize ? "Choose summary provider" : summaryError ? "Retry summary" : data.summary ? "Regenerate summary" : "Generate summary"}
+              loading={summaryPending}
+              disabled={transcription === "running"}
+              variant="ghost" size="small"
+              onPress={() => canSummarize ? summarize.mutate() : router.push("/settings/summary-provider")}
             />
-          )}
-          {audio.data &&
-            localAudioAvailable &&
-            audio.data.transcriptStatus !== "complete" &&
-            transcripts.length === 0 &&
-            (transcription === "running" ? (
-              <Text style={styles.transcribeStatus}>Transcribing…</Text>
-            ) : (
-              <Pressable
-                hitSlop={4}
-                onPress={() =>
-                  canTranscribe
-                    ? void transcribeSession(id)
-                    : router.push("/settings/transcription-provider")
-                }
-                style={({ pressed }) => pressed && styles.transcribePressed}
-              >
-                <Text style={styles.transcribeAction}>
-                  {!canTranscribe
-                    ? "Choose transcription provider"
-                    : transcription === "failed"
-                      ? "Transcription failed — tap to retry"
-                      : "Tap to transcribe"}
-                </Text>
-              </Pressable>
-            ))}
-          {transcripts.length > 0 && (
-            <Card style={styles.transcript} tone="muted">
-              <Text style={styles.transcriptTitle}>Transcript</Text>
-              <ScrollView style={styles.transcriptScroll} nestedScrollEnabled>
-                {transcripts.map((segment) => (
-                  <Text key={segment.id} style={styles.transcriptText}>
-                    {segment.text}
-                  </Text>
-                ))}
-              </ScrollView>
-            </Card>
-          )}
+          </ScrollView>}
+          <View style={[styles.editor, !showMemos && styles.hidden]}>
           {localNoteAttachments.length > 0 && (
             <View style={styles.attachments}>
               <Text style={styles.attachmentLabel}>Files</Text>
@@ -882,6 +816,7 @@ export default function NoteScreen() {
             onCommit={flush}
             onFocusChange={setEditorFocused}
           />
+          </View>
         </View>
       )}
 
@@ -891,7 +826,7 @@ export default function NoteScreen() {
 
       <NoteActionsSheet
         hasRecordingHistory={hasRecordingHistory}
-        listening={listening}
+        listening={active}
         onClose={() => setActionsOpen(false)}
         onDelete={() => void handleDelete()}
         onExport={() => void handleExport()}
@@ -900,8 +835,61 @@ export default function NoteScreen() {
         visible={actionsOpen}
       />
 
-      {listening && (
+      {(active || hasRecordingHistory) && (
         <ListeningSheet
+          active={active}
+          transcripts={transcripts}
+          recordingDetails={<>
+          {audio.data && localAudioAvailable && localAudioFile && (
+            <View key={`${audio.data.filename}:${audio.data.createdAt}`}>
+              <AudioChip
+                uri={localAudioFile.uri}
+                filename={audio.data.filename}
+                sizeBytes={audio.data.sizeBytes}
+              />
+              <RecordingSyncCard audio={audio.data} />
+            </View>
+          )}
+          {audio.data && !localAudioAvailable && (
+            <RemoteAudioCard
+              cloudAvailable={Boolean(
+                audio.data.cloudObjectKey &&
+                auth.billing.isPro &&
+                auth.session?.access_token &&
+                env.supabaseUrl,
+              )}
+              errorMessage={audioRestoreError}
+              loading={restoringAudio}
+              onDownloadRecording={() => void handleDownloadRecording()}
+              onChooseRecording={() => void handleChooseRecording()}
+            />
+          )}
+          {audio.data &&
+            localAudioAvailable &&
+            audio.data.transcriptStatus !== "complete" &&
+            transcripts.length === 0 &&
+            (transcription === "running" ? (
+              <Text style={styles.transcribeStatus}>Transcribing…</Text>
+            ) : (
+              <Pressable
+                hitSlop={4}
+                onPress={() =>
+                  canTranscribe
+                    ? void transcribeSession(id)
+                    : router.push("/settings/transcription-provider")
+                }
+                style={({ pressed }) => pressed && styles.transcribePressed}
+              >
+                <Text style={styles.transcribeAction}>
+                  {!canTranscribe
+                    ? "Choose transcription provider"
+                    : transcription === "failed"
+                      ? "Transcription failed — tap to retry"
+                      : "Tap to transcribe"}
+                </Text>
+              </Pressable>
+            ))}
+          </>}
           phase={recorder.phase}
           failure={recorder.failure}
           amplitude={recorder.amplitude}
@@ -937,28 +925,13 @@ const useStyles = createStyleHook((Colors) => ({
     ...Typography.title,
     color: Colors.ink,
   },
-  summary: {
-    marginHorizontal: Spacing.md,
-    marginTop: Spacing.md,
-    padding: Spacing.md,
-  },
-  summaryLabel: {
-    ...Typography.captionStrong,
-    color: Colors.muted,
-  },
-  summaryTitle: {
-    marginTop: Spacing.xs,
-    ...Typography.section,
-    color: Colors.ink,
-  },
-  summaryScroll: {
-    maxHeight: 220,
-    marginTop: Spacing.sm,
-  },
-  summaryText: {
-    ...Typography.body,
-    color: Colors.ink,
-  },
+  tabs: { marginHorizontal: Spacing.md, marginVertical: Spacing.md },
+  hidden: { display: "none" },
+  summary: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.lg, gap: Spacing.md },
+  summaryTitle: { ...Typography.section, color: Colors.ink },
+  summaryScroll: { flex: 1 },
+  summaryText: { ...Typography.body, color: Colors.ink },
+  summaryError: { ...Typography.caption, color: Colors.accent, marginTop: Spacing.sm },
   transcribeStatus: {
     marginHorizontal: Spacing.md,
     marginTop: Spacing.xs,
@@ -973,26 +946,6 @@ const useStyles = createStyleHook((Colors) => ({
   },
   transcribePressed: {
     opacity: 0.6,
-  },
-  transcript: {
-    marginHorizontal: Spacing.md,
-    marginTop: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.xs,
-  },
-  transcriptTitle: {
-    ...Typography.captionStrong,
-    color: Colors.muted,
-    marginBottom: Spacing.xs,
-  },
-  transcriptScroll: {
-    maxHeight: 160,
-  },
-  transcriptText: {
-    ...Typography.body,
-    color: Colors.ink,
-    marginBottom: Spacing.sm,
   },
   attachments: {
     gap: Spacing.sm,

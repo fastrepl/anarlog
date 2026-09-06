@@ -388,7 +388,7 @@ export class SessionLiveTranscription {
       );
       for (const word of event.words) this.wordsById.set(word.id, word);
       for (const hint of event.hints) this.hintsById.set(hint.id, hint);
-      this.onUpdate({ status: this.status, text: event.text });
+      this.onUpdate({ status: this.status, text: "" });
       this.persistDelta(event.words, replacedIds);
     }
   }

@@ -238,6 +238,11 @@ test("own-key live recording works after trial expiry and persists the selected 
   assert.equal(fixture.transactions.length, 0);
   native.listener.onMessage(transcript("Hello"));
   await settle();
+  assert.equal(
+    updates.at(-1).text,
+    "",
+    "Committed words are read from SQLite, not repeated as a partial",
+  );
   fixture.finalize = (listener) => listener.onMessage(transcript("Hello!"));
   assert.equal(await live.stop(), true);
   assert.equal(native.cancelled, true);

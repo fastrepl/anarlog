@@ -1,17 +1,15 @@
+import { BottomSheet, RNHostView } from "@expo/ui";
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
+  FlatList,
+  Keyboard,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
 
 import type {
   RecorderFailure,
@@ -22,13 +20,11 @@ import {
   CornerCurve,
   LISTENING_CONTROL_HEIGHT,
   LISTENING_CONTROL_RADIUS,
-  Radius,
   Spacing,
   Typography,
 } from "@/constants/theme";
+import type { TranscriptSegment } from "@/data/transcripts";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
-
-const DETAIL_HEIGHT = 124;
 
 function formatDuration(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
@@ -70,22 +66,28 @@ function transcriptionLabel(status: "connecting" | "live" | "fallback") {
 }
 
 export function ListeningSheet({
+  active,
   phase,
   failure,
   amplitude,
   durationMs,
   liveStatus,
   liveTranscript,
+  transcripts,
+  recordingDetails,
   onStop,
   onRetry,
   onOpenSettings,
 }: {
+  active: boolean;
   phase: RecorderPhase;
   failure: RecorderFailure | null;
   amplitude: number;
   durationMs: number;
   liveStatus: "connecting" | "live" | "fallback";
   liveTranscript: string;
+  transcripts: TranscriptSegment[];
+  recordingDetails: ReactNode;
   onStop: () => void;
   onRetry: () => void;
   onOpenSettings: () => void;
@@ -93,19 +95,8 @@ export function ListeningSheet({
   const styles = useStyles();
   const Colors = useColors();
   const [expanded, setExpanded] = useState(false);
-  const detailHeight = useSharedValue(0);
-
-  const toggle = () => {
-    const next = !expanded;
-    setExpanded(next);
-    detailHeight.value = withTiming(next ? DETAIL_HEIGHT : 0, {
-      duration: 240,
-    });
-  };
-
-  const detailStyle = useAnimatedStyle(() => ({
-    height: detailHeight.value,
-  }));
+  const listRef = useRef<FlatList<TranscriptSegment>>(null);
+  const following = useRef(active);
   const permissionDenied =
     phase === "unavailable" &&
     (failure === "permission_denied" ||
@@ -116,132 +107,195 @@ export function ListeningSheet({
     : recoverable
       ? onRetry
       : onStop;
-
-  return (
-    <View style={styles.sheet}>
-      <Pressable hitSlop={12} onPress={toggle} style={styles.chevron}>
-        <Ionicons
-          name={expanded ? "chevron-down" : "chevron-up"}
-          size={22}
-          color={Colors.muted}
-        />
-      </Pressable>
-
-      <Animated.View style={[styles.detail, detailStyle]}>
-        <View style={styles.detailRow}>
-          <View style={styles.recordingDot} />
-          <Text style={styles.detailStatus}>
-            {statusLabel(phase, durationMs)}
+  const control = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={
+        permissionDenied
+          ? "Open recording settings"
+          : recoverable
+            ? "Recover recording"
+            : "Stop listening"
+      }
+      onPress={handlePanelPress}
+      disabled={phase === "saving"}
+      style={({ pressed }) => [styles.panel, pressed && styles.panelPressed]}
+    >
+      {phase === "saving" ? (
+        <View style={styles.panelCenter}>
+          <ActivityIndicator color={Colors.inkInverse} />
+        </View>
+      ) : permissionDenied ? (
+        <View style={styles.panelCenter}>
+          <Text style={styles.panelMessage}>
+            {failure === "notification_permission_denied"
+              ? "Allow recording notifications in Settings"
+              : "Microphone access is off — open Settings"}
           </Text>
         </View>
-        <Text style={styles.transcriptionStatus}>
-          {transcriptionLabel(liveStatus)}
-        </Text>
-        <Text numberOfLines={2} style={styles.detailHint}>
-          {liveTranscript ||
-            "Leave your phone on the table and talk. Audio stays locally durable while Anarlog listens."}
-        </Text>
-      </Animated.View>
+      ) : phase === "interrupted" ? (
+        <View style={styles.panelCenter}>
+          <Text style={styles.panelMessage}>
+            Interrupted — tap to save or retry
+          </Text>
+        </View>
+      ) : phase === "save_error" ? (
+        <View style={styles.panelCenter}>
+          <Text style={styles.panelMessage}>Couldn't save — tap to retry</Text>
+        </View>
+      ) : phase === "error" ? (
+        <View style={styles.panelCenter}>
+          <Text style={styles.panelMessage}>Tap to recover recording</Text>
+        </View>
+      ) : (
+        <DancingSticks
+          amplitude={amplitude}
+          color={Colors.inkInverse}
+          height={36}
+          width={80}
+          stickWidth={3}
+          gap={3}
+        />
+      )}
+    </Pressable>
+  );
+  const label = active ? statusLabel(phase, durationMs) : "Transcript";
 
-      <Pressable
-        onPress={handlePanelPress}
-        disabled={phase === "saving"}
-        style={({ pressed }) => [styles.panel, pressed && styles.panelPressed]}
+  return (
+    <>
+      <View style={styles.dock}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open full transcript"
+          onPress={() => {
+            Keyboard.dismiss();
+            following.current = active;
+            setExpanded(true);
+          }}
+          style={styles.heading}
+        >
+          {active && <View style={styles.recordingDot} />}
+          <Text style={styles.headingText}>{label}</Text>
+          <Ionicons name="chevron-up" size={20} color={Colors.muted} />
+        </Pressable>
+        {active && control}
+      </View>
+      <BottomSheet
+        isPresented={expanded}
+        onDismiss={() => setExpanded(false)}
+        snapPoints={["half", "full"]}
+        contentPadding={0}
       >
-        {phase === "saving" ? (
-          <View style={styles.panelCenter}>
-            <ActivityIndicator color={Colors.inkInverse} />
+        <RNHostView>
+          <View style={styles.content}>
+            <View style={styles.heading}>
+              {active && <View style={styles.recordingDot} />}
+              <Text style={styles.headingText}>{label}</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close transcript"
+                hitSlop={12}
+                onPress={() => setExpanded(false)}
+              >
+                <Ionicons name="chevron-down" size={22} color={Colors.muted} />
+              </Pressable>
+            </View>
+            <FlatList
+              ref={listRef}
+              style={styles.list}
+              contentContainerStyle={styles.transcriptContent}
+              data={transcripts}
+              keyExtractor={(item) => item.id}
+              onScroll={({
+                nativeEvent: { contentOffset, contentSize, layoutMeasurement },
+              }) => {
+                following.current =
+                  contentSize.height -
+                    layoutMeasurement.height -
+                    contentOffset.y <
+                  80;
+              }}
+              scrollEventThrottle={100}
+              onContentSizeChange={() => {
+                if (active && following.current)
+                  listRef.current?.scrollToEnd({ animated: true });
+              }}
+              renderItem={({ item }) => (
+                <View style={styles.turn}>
+                  <Text style={styles.speaker}>{item.speaker}</Text>
+                  <Text selectable style={styles.transcriptText}>
+                    {item.text}
+                  </Text>
+                </View>
+              )}
+              ListEmptyComponent={
+                !liveTranscript ? (
+                  <Text style={styles.hint}>
+                    {active
+                      ? liveStatus === "fallback"
+                        ? "Your recording will be transcribed after you stop listening."
+                        : "Your transcript will appear here as you speak."
+                      : "No transcript yet."}
+                  </Text>
+                ) : null
+              }
+              ListFooterComponent={
+                <View>
+                  {active && liveTranscript !== "" && (
+                    <View style={styles.turn}>
+                      <Text style={styles.speaker}>Speaking…</Text>
+                      <Text style={styles.hint}>{liveTranscript}</Text>
+                    </View>
+                  )}
+                  {!active && recordingDetails}
+                </View>
+              }
+            />
+            {active && (
+              <View style={styles.controls}>
+                <Text style={styles.hint}>
+                  {transcriptionLabel(liveStatus)}
+                </Text>
+                {control}
+              </View>
+            )}
           </View>
-        ) : permissionDenied ? (
-          <View style={styles.panelCenter}>
-            <Text style={styles.panelMessage}>
-              {failure === "notification_permission_denied"
-                ? "Allow recording notifications in Settings"
-                : "Microphone access is off — open Settings"}
-            </Text>
-          </View>
-        ) : phase === "interrupted" ? (
-          <View style={styles.panelCenter}>
-            <Text style={styles.panelMessage}>
-              Interrupted — tap to save or retry
-            </Text>
-          </View>
-        ) : phase === "save_error" ? (
-          <View style={styles.panelCenter}>
-            <Text style={styles.panelMessage}>
-              Couldn't save — tap to retry
-            </Text>
-          </View>
-        ) : phase === "error" ? (
-          <View style={styles.panelCenter}>
-            <Text style={styles.panelMessage}>Tap to recover recording</Text>
-          </View>
-        ) : (
-          <DancingSticks
-            amplitude={amplitude}
-            color={Colors.inkInverse}
-            height={36}
-            width={80}
-            stickWidth={3}
-            gap={3}
-          />
-        )}
-      </Pressable>
-    </View>
+        </RNHostView>
+      </BottomSheet>
+    </>
   );
 }
 
 const useStyles = createStyleHook((Colors) => ({
-  sheet: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: 0,
+  dock: {
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: Colors.border,
-    borderTopLeftRadius: Radius.sheet,
-    borderTopRightRadius: Radius.sheet,
-    backgroundColor: Colors.background,
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.md,
-    shadowColor: Colors.ink,
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 4,
   },
-  chevron: {
-    alignSelf: "center",
-    paddingVertical: Spacing.sm,
-  },
-  detail: {
-    overflow: "hidden",
-  },
-  detailRow: {
+  content: { flex: 1 },
+  heading: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
+    padding: Spacing.md,
   },
+  headingText: { flex: 1, ...Typography.bodyStrong, color: Colors.ink },
+  list: { flex: 1 },
+  transcriptContent: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
+  },
+  turn: { paddingVertical: Spacing.sm, gap: Spacing.xs },
+  speaker: { ...Typography.captionStrong, color: Colors.muted },
+  transcriptText: { ...Typography.body, color: Colors.ink },
+  hint: { ...Typography.caption, color: Colors.muted },
+  controls: { padding: Spacing.md, gap: Spacing.sm },
   recordingDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.accent,
-  },
-  detailStatus: {
-    ...Typography.bodyStrong,
-    color: Colors.ink,
-  },
-  detailHint: {
-    paddingHorizontal: Spacing.sm,
-    paddingTop: Spacing.sm,
-    ...Typography.caption,
-    color: Colors.muted,
-  },
-  transcriptionStatus: {
-    paddingHorizontal: Spacing.sm,
-    paddingTop: Spacing.xs,
-    ...Typography.captionStrong,
-    color: Colors.ink,
   },
   panel: {
     height: LISTENING_CONTROL_HEIGHT,
@@ -251,16 +305,7 @@ const useStyles = createStyleHook((Colors) => ({
     borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.accent,
   },
-  panelPressed: {
-    opacity: 0.9,
-  },
-  panelCenter: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  panelMessage: {
-    ...Typography.label,
-    color: Colors.inkInverse,
-  },
+  panelPressed: { opacity: 0.9 },
+  panelCenter: { flex: 1, alignItems: "center", justifyContent: "center" },
+  panelMessage: { ...Typography.label, color: Colors.inkInverse },
 }));

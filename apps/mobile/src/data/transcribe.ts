@@ -22,6 +22,7 @@ import {
 import { batchTranscriptionModel } from "@/settings/transcription-mode";
 
 import { requestProviderTranscription } from "./provider-transcription";
+import { generateSummaryAfterTranscription } from "./summarize";
 import { TranscriptionAdmission } from "./transcription-admission";
 import {
   assertBoundedTranscriptionResponse,
@@ -526,6 +527,7 @@ async function runTranscription(sessionId: string): Promise<void> {
   ]).catch((error) => {
     throw withTranscriptionStage(error, "persist");
   });
+  generateSummaryAfterTranscription(sessionId);
 }
 
 export function transcribeSession(sessionId: string): Promise<void> {

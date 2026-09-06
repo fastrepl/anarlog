@@ -1,8 +1,11 @@
+import { useMutationState } from "@tanstack/react-query";
 import { fetch } from "expo/fetch";
 
 import { execute, executeTransaction } from "@/db";
 import { env } from "@/lib/env";
+import { captureOperationalError } from "@/lib/error-reporting";
 import { id, nowIso } from "@/lib/ids";
+import { queryClient } from "@/lib/query-client";
 import { readPreferences } from "@/settings/preferences";
 import { resolveProvider } from "@/settings/providers";
 
@@ -11,24 +14,27 @@ import { summaryRequest } from "./provider-summary";
 import { buildSummaryPrompt, readSummaryText } from "./summary-model";
 import { readBoundedTranscriptionResponse } from "./transcription-response";
 
-export async function summarizeSession(sessionId: string): Promise<void> {
-  const [notes, transcripts, existing, preferences, provider] =
-    await Promise.all([
-      execute<{ body: string; body_format: string }>(
-        "SELECT body, body_format FROM session_documents WHERE session_id = ? AND kind = 'note' AND deleted_at IS NULL ORDER BY CASE WHEN id = session_id THEN 0 ELSE 1 END, sort_order, id LIMIT 1",
-        [sessionId],
-      ),
-      execute<{ words_json: string }>(
-        "SELECT words_json FROM transcripts WHERE session_id = ? AND deleted_at IS NULL ORDER BY started_at_ms, id",
-        [sessionId],
-      ),
-      execute<{ id: string; updated_at: string }>(
-        "SELECT id, updated_at FROM session_documents WHERE session_id = ? AND kind = 'summary' AND deleted_at IS NULL ORDER BY sort_order, created_at, id LIMIT 1",
-        [sessionId],
-      ),
-      readPreferences(),
-      resolveProvider("llm"),
-    ]);
+async function runSummary(
+  sessionId: string,
+  automatic: boolean,
+): Promise<void> {
+  const existing = await execute<{ id: string; updated_at: string }>(
+    "SELECT id, updated_at FROM session_documents WHERE session_id = ? AND kind = 'summary' AND deleted_at IS NULL ORDER BY sort_order, created_at, id LIMIT 1",
+    [sessionId],
+  );
+  if (automatic && existing.length > 0) return;
+  const [notes, transcripts, preferences, provider] = await Promise.all([
+    execute<{ body: string; body_format: string }>(
+      "SELECT body, body_format FROM session_documents WHERE session_id = ? AND kind = 'note' AND deleted_at IS NULL ORDER BY CASE WHEN id = session_id THEN 0 ELSE 1 END, sort_order, id LIMIT 1",
+      [sessionId],
+    ),
+    execute<{ words_json: string }>(
+      "SELECT words_json FROM transcripts WHERE session_id = ? AND deleted_at IS NULL ORDER BY started_at_ms, id",
+      [sessionId],
+    ),
+    readPreferences(),
+    resolveProvider("llm"),
+  ]);
   const note = notes[0];
   const text = note
     ? (note.body_format === "markdown"
@@ -118,4 +124,42 @@ export async function summarizeSession(sessionId: string): Promise<void> {
     throw new Error(
       "This note changed while generating its summary. Please try again.",
     );
+}
+
+const inflight = new Map<string, Promise<void>>();
+
+export function summarizeSession(
+  sessionId: string,
+  automatic = false,
+): Promise<void> {
+  const pending = inflight.get(sessionId);
+  if (pending) return pending;
+  const mutation = queryClient.getMutationCache().build(queryClient, {
+    mutationKey: ["session-summary", sessionId],
+    mutationFn: () => runSummary(sessionId, automatic),
+    retry: false,
+    onError: (error) =>
+      captureOperationalError(error, { operation: "session_summary" }),
+  });
+  const promise = mutation
+    .execute(undefined)
+    .finally(() => inflight.delete(sessionId));
+  inflight.set(sessionId, promise);
+  return promise;
+}
+
+export function generateSummaryAfterTranscription(sessionId: string): void {
+  // Summary failures are visible in the note; they must never fail audio persistence.
+  void summarizeSession(sessionId, true).catch(() => {});
+}
+
+export function useSessionSummaryState(sessionId: string) {
+  const states = useMutationState({
+    filters: { mutationKey: ["session-summary", sessionId], exact: true },
+    select: (mutation) => ({
+      status: mutation.state.status,
+      error: mutation.state.error,
+    }),
+  });
+  return states.at(-1);
 }
