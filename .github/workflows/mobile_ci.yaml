@@ -153,6 +153,9 @@ jobs:
           distribution: temurin
           java-version: "17"
       - run: cargo install cargo-ndk --version 4.1.2 --locked
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          log-accepted-android-sdk-licenses: false
       - name: Select the Android NDK
         run: |
           sdkmanager "ndk;27.1.12297006"
