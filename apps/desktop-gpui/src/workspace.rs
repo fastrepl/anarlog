@@ -226,6 +226,10 @@ pub struct Workspace {
     recording: recording::RecordingState,
     /// The session audio player for the open transcript tab.
     audio_player: Option<audio_player::AudioPlayer>,
+    /// The transcript word under the pointer: `(segment id, word index)`.
+    transcript_hover: Option<(String, usize)>,
+    /// Each rendered segment's text layout, for hit-testing words.
+    transcript_layouts: std::collections::HashMap<String, crate::prose_text::ProseLayout>,
     /// The Dictionary page's term field and the row being edited.
     dictionary_input: Option<gpui::Entity<TextInput>>,
     dictionary_edit: Option<dictionary::DictionaryEdit>,
@@ -368,6 +372,8 @@ impl Workspace {
             onboarding: None,
             recording: recording::RecordingState::default(),
             audio_player: None,
+            transcript_hover: None,
+            transcript_layouts: std::collections::HashMap::new(),
             dictionary_input: None,
             dictionary_edit: None,
             chat_open: false,

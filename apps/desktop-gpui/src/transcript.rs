@@ -31,10 +31,138 @@ pub struct Segment {
     pub end_ms: i64,
     /// Words joined by single spaces (`getWordDisplayText` + the line joins).
     pub text: String,
+    /// `WordSpan` per word, with its byte range in `text`.
+    pub words: Vec<Word>,
+    /// `groupWordsIntoLines`: sentence lines (closing on `.`, `?`, `!`).
+    pub lines: Vec<Line>,
     /// The segmenter's own label and text, which the export uses
     /// (`buildTranscriptExportSegments` reads `speaker_label` / `text`).
     pub export_speaker: String,
     pub export_text: String,
+}
+
+/// One `WordSpan`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Word {
+    pub id: Option<String>,
+    /// `getWordDisplayText`: the trimmed text.
+    pub text: String,
+    pub start_ms: i64,
+    pub end_ms: i64,
+    pub is_final: bool,
+    /// `isTranscriptWordSeekable`: not a `synthetic_text` timing.
+    pub seekable: bool,
+    /// Byte range of the word inside [`Segment::text`].
+    pub range: std::ops::Range<usize>,
+}
+
+/// One `SentenceLine`, as indexes into [`Segment::words`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct Line {
+    pub words: std::ops::Range<usize>,
+    pub start_ms: i64,
+    pub end_ms: i64,
+}
+
+impl Segment {
+    /// `getActiveLineIndex`: the line whose `[offset + start, offset + end]`
+    /// window holds `current_ms` (none at or before 0).
+    pub fn active_line(&self, offset_ms: i64, current_ms: i64) -> Option<usize> {
+        if current_ms <= 0 {
+            return None;
+        }
+        self.lines.iter().position(|line| {
+            current_ms >= offset_ms + line.start_ms && current_ms <= offset_ms + line.end_ms
+        })
+    }
+
+    /// The byte range of `line` in [`Segment::text`].
+    pub fn line_range(&self, line: usize) -> Option<std::ops::Range<usize>> {
+        let line = self.lines.get(line)?;
+        let first = self.words.get(line.words.start)?;
+        let last = self.words.get(line.words.end.checked_sub(1)?)?;
+        Some(first.range.start..last.range.end)
+    }
+
+    /// The word under a byte offset of [`Segment::text`], if any.
+    pub fn word_at(&self, offset: usize) -> Option<usize> {
+        self.words
+            .iter()
+            .position(|word| word.range.start <= offset && offset < word.range.end)
+    }
+}
+
+/// `groupWordsIntoLines` over the display texts: a line closes after a word
+/// ending in `.`, `?` or `!`, and the tail forms the last line.
+pub fn group_words_into_lines(words: &[Word]) -> Vec<Line> {
+    let mut lines = Vec::new();
+    let mut start = 0;
+    for (index, word) in words.iter().enumerate() {
+        let closes =
+            word.text.ends_with('.') || word.text.ends_with('?') || word.text.ends_with('!');
+        if closes || index + 1 == words.len() {
+            lines.push(Line {
+                words: start..index + 1,
+                start_ms: words[start].start_ms,
+                end_ms: word.end_ms,
+            });
+            start = index + 1;
+        }
+    }
+    lines
+}
+
+/// `getTranscriptTimelineOffsetMs`: this transcript's start relative to the
+/// earliest transcript with words in the session (else the earliest at all).
+pub fn timeline_offset_ms(started_at_ms: i64, transcripts: &[(i64, bool)]) -> i64 {
+    let candidates: Vec<&(i64, bool)> = transcripts
+        .iter()
+        .filter(|(started, _)| *started > 0)
+        .collect();
+    let with_words: Vec<&&(i64, bool)> = candidates.iter().filter(|(_, has)| *has).collect();
+    let earliest = if with_words.is_empty() {
+        candidates.iter().map(|(started, _)| *started).min()
+    } else {
+        with_words.iter().map(|(started, _)| *started).min()
+    };
+    match earliest {
+        Some(earliest) => (started_at_ms - earliest).max(0),
+        None => 0,
+    }
+}
+
+/// `getTranscriptTimingSource(word) !== "synthetic_text"` over the stored
+/// word's `metadata`, which `normalizeWordMetadata` also accepts as a JSON
+/// string.
+fn word_is_seekable(word: &Value) -> bool {
+    let parsed = match word.get("metadata") {
+        Some(Value::String(json)) => serde_json::from_str::<Value>(json).ok(),
+        Some(value) => Some(value.clone()),
+        None => None,
+    };
+    let Some(metadata) = parsed.filter(|m| m.is_object()) else {
+        return true;
+    };
+    let source = metadata
+        .get("timing")
+        .filter(|t| t.is_object())
+        .and_then(|timing| timing.get("source"))
+        .and_then(Value::as_str)
+        .filter(|source| is_valid_timing_source(source))
+        .or_else(|| {
+            metadata
+                .get("timing_source")
+                .and_then(Value::as_str)
+                .filter(|source| is_valid_timing_source(source))
+        });
+    source != Some("synthetic_text")
+}
+
+fn is_valid_timing_source(source: &str) -> bool {
+    matches!(
+        source,
+        "provider_word" | "provider_segment_interpolated" | "synthetic_text"
+    )
 }
 
 /// `useRenderedTranscriptData(transcriptId)`: each transcript is rendered on
@@ -73,6 +201,11 @@ pub fn render_transcripts(
                     .map(|human| (human.human_id.clone(), human.name.clone()))
                     .collect(),
             };
+            let non_seekable: std::collections::HashSet<String> = parse_array(&row.words_json)
+                .iter()
+                .filter(|word| !word_is_seekable(word))
+                .filter_map(|word| word.get("id").and_then(Value::as_str).map(str::to_string))
+                .collect();
             let rendered = render_transcript_segments(request);
             // `SpeakerLabelManager.fromSegments` numbers the unknown speakers
             // in order of appearance before any label is rendered.
@@ -91,21 +224,45 @@ pub fn render_transcripts(
                 ended_at_ms: row.ended_at_ms,
                 segments: rendered
                     .into_iter()
-                    .map(|segment| Segment {
-                        id: segment.id,
-                        speaker_label: render_label(&segment.key, &context, &mut labels),
-                        key: segment.key,
-                        start_ms: segment.start_ms,
-                        end_ms: segment.end_ms,
-                        text: segment
-                            .words
-                            .iter()
-                            .map(|word| word.text.trim())
-                            .filter(|text| !text.is_empty())
-                            .collect::<Vec<_>>()
-                            .join(" "),
-                        export_speaker: segment.speaker_label,
-                        export_text: segment.text,
+                    .map(|segment| {
+                        let mut text = String::new();
+                        let mut words = Vec::with_capacity(segment.words.len());
+                        for word in &segment.words {
+                            let display = word.text.trim();
+                            if display.is_empty() {
+                                continue;
+                            }
+                            if !text.is_empty() {
+                                text.push(' ');
+                            }
+                            let start = text.len();
+                            text.push_str(display);
+                            words.push(Word {
+                                seekable: word
+                                    .id
+                                    .as_ref()
+                                    .is_none_or(|id| !non_seekable.contains(id)),
+                                id: word.id.clone(),
+                                text: display.to_string(),
+                                start_ms: word.start_ms,
+                                end_ms: word.end_ms,
+                                is_final: word.is_final,
+                                range: start..text.len(),
+                            });
+                        }
+                        let lines = group_words_into_lines(&words);
+                        Segment {
+                            id: segment.id,
+                            speaker_label: render_label(&segment.key, &context, &mut labels),
+                            key: segment.key,
+                            start_ms: segment.start_ms,
+                            end_ms: segment.end_ms,
+                            text,
+                            words,
+                            lines,
+                            export_speaker: segment.speaker_label,
+                            export_text: segment.text,
+                        }
                     })
                     .collect(),
             })
@@ -514,6 +671,49 @@ mod tests {
         assert_ne!(segments[0].speaker_label, segments[1].speaker_label);
         assert_eq!(segments[0].key.speaker_index, Some(0));
         assert_eq!(segments[1].key.speaker_index, Some(1));
+    }
+
+    #[test]
+    fn words_carry_ranges_lines_and_seekability() {
+        let words = serde_json::json!([
+            {"id": "w1", "text": " Hello ", "start_ms": 0, "end_ms": 400, "channel": 0},
+            {"id": "w2", "text": "there.", "start_ms": 400, "end_ms": 800, "channel": 0},
+            {"id": "w3", "text": "Next", "start_ms": 900, "end_ms": 1200, "channel": 0,
+             "metadata": "{\"timing\":{\"source\":\"synthetic_text\"}}"},
+            {"id": "w4", "text": "one!", "start_ms": 1200, "end_ms": 1500, "channel": 0,
+             "metadata": {"timing_source": "provider_segment_interpolated"}},
+            {"id": "w5", "text": "Tail", "start_ms": 1600, "end_ms": 1900, "channel": 0}
+        ]);
+        let rendered = render_transcripts(&[row(words, serde_json::json!([]))], &[], &[]);
+        let segment = &rendered[0].segments[0];
+        assert_eq!(segment.text, "Hello there. Next one! Tail");
+        assert_eq!(segment.words.len(), 5);
+        assert_eq!(&segment.text[segment.words[1].range.clone()], "there.");
+        assert_eq!(&segment.text[segment.words[4].range.clone()], "Tail");
+        assert!(segment.words[0].seekable);
+        assert!(!segment.words[2].seekable);
+        assert!(segment.words[3].seekable);
+        assert_eq!(segment.lines.len(), 3);
+        assert_eq!(segment.lines[0].words, 0..2);
+        assert_eq!(segment.lines[1].words, 2..4);
+        assert_eq!(segment.lines[2].words, 4..5);
+        assert_eq!(
+            (segment.lines[1].start_ms, segment.lines[1].end_ms),
+            (900, 1500)
+        );
+        assert_eq!(segment.line_range(0), Some(0..12));
+        assert_eq!(segment.active_line(0, 0), None);
+        assert_eq!(segment.active_line(0, 1000), Some(1));
+        assert_eq!(segment.active_line(500, 1000), Some(0));
+        assert_eq!(segment.active_line(0, 1550), None);
+        assert_eq!(segment.word_at(7), Some(1));
+        assert_eq!(segment.word_at(12), None);
+        assert_eq!(
+            timeline_offset_ms(5000, &[(2000, true), (1000, false), (5000, true)]),
+            3000
+        );
+        assert_eq!(timeline_offset_ms(5000, &[(6000, false), (0, true)]), 0);
+        assert_eq!(timeline_offset_ms(5000, &[]), 0);
     }
 
     #[test]

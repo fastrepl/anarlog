@@ -304,6 +304,42 @@ impl Workspace {
         Some(self.render_app_menu(spec, position, Align::Start, window, cx))
     }
 
+    /// `seekAndPlay(word)`: `seek(ms / 1000)` then `startPlayback()`.
+    pub(super) fn seek_and_play(&mut self, ms: i64, cx: &mut Context<Self>) {
+        let Some(player) = self.audio_player.as_mut() else {
+            return;
+        };
+        let position = Duration::from_millis(ms.max(0) as u64);
+        player.position = position;
+        match player.state {
+            PlayerState::Playing => {
+                if let Some(playback) = &player.playback {
+                    playback.seek(position);
+                }
+                cx.notify();
+            }
+            PlayerState::Paused => {
+                if let Some(playback) = &player.playback {
+                    playback.seek(position);
+                    playback.resume();
+                }
+                player.state = PlayerState::Playing;
+                self.tick_audio_player(cx);
+                cx.notify();
+            }
+            PlayerState::Stopped => self.toggle_playback(cx),
+        }
+    }
+
+    /// `timeStore.current` in milliseconds for the open session's player.
+    pub(super) fn audio_position_ms(&self, session_id: &str) -> i64 {
+        self.audio_player
+            .as_ref()
+            .filter(|player| player.session_id == session_id)
+            .map(|player| player.position.as_millis() as i64)
+            .unwrap_or(0)
+    }
+
     /// wavesurfer `interaction` (`dragToSeek`): a press on the lane seeks.
     fn seek_audio_player(&mut self, fraction: f32, cx: &mut Context<Self>) {
         let Some(player) = self.audio_player.as_mut() else {

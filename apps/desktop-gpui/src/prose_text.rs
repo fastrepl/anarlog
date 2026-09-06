@@ -76,6 +76,19 @@ impl ProseText {
         }
     }
 
+    /// A paragraph whose layout handle the caller keeps for hit testing.
+    pub fn with_layout(
+        text: impl Into<SharedString>,
+        runs: Vec<TextRun>,
+        font_size: Pixels,
+        line_height: Pixels,
+        layout: ProseLayout,
+    ) -> Self {
+        let mut this = Self::new(text, runs, font_size, line_height);
+        this.layout = layout;
+        this
+    }
+
     pub fn pretty(mut self) -> Self {
         self.pretty = true;
         self
@@ -336,6 +349,100 @@ impl Element for ProseText {
 }
 
 impl IntoElement for ProseText {
+    type Element = Self;
+
+    fn into_element(self) -> Self::Element {
+        self
+    }
+}
+
+/// A background painted behind a byte range of a [`ProseText`], one quad per
+/// visual line the range touches: `inset_x` widens it like the transcript
+/// line's `-mx-0.5 px-0.5`, `radius` rounds its corners.
+pub struct Highlight {
+    pub range: Range<usize>,
+    pub color: gpui::Rgba,
+    pub inset_x: Pixels,
+    pub radius: Pixels,
+}
+
+/// A [`ProseText`] with range highlights painted under the glyphs (the
+/// transcript's current-line and hovered-word backgrounds, search matches).
+pub struct HighlightedProseText {
+    text: ProseText,
+    highlights: Vec<Highlight>,
+}
+
+impl HighlightedProseText {
+    pub fn new(text: ProseText, highlights: Vec<Highlight>) -> Self {
+        Self { text, highlights }
+    }
+}
+
+impl Element for HighlightedProseText {
+    type RequestLayoutState = ();
+    type PrepaintState = ();
+
+    fn id(&self) -> Option<ElementId> {
+        None
+    }
+
+    fn source_location(&self) -> Option<&'static core::panic::Location<'static>> {
+        None
+    }
+
+    fn request_layout(
+        &mut self,
+        id: Option<&GlobalElementId>,
+        inspector_id: Option<&InspectorElementId>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> (LayoutId, Self::RequestLayoutState) {
+        self.text.request_layout(id, inspector_id, window, cx)
+    }
+
+    fn prepaint(
+        &mut self,
+        id: Option<&GlobalElementId>,
+        inspector_id: Option<&InspectorElementId>,
+        bounds: Bounds<Pixels>,
+        state: &mut Self::RequestLayoutState,
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        self.text
+            .prepaint(id, inspector_id, bounds, state, window, cx);
+    }
+
+    fn paint(
+        &mut self,
+        id: Option<&GlobalElementId>,
+        inspector_id: Option<&InspectorElementId>,
+        bounds: Bounds<Pixels>,
+        state: &mut Self::RequestLayoutState,
+        prepaint: &mut Self::PrepaintState,
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        let layout = self.text.layout().clone();
+        for highlight in &self.highlights {
+            for span in layout.line_spans(highlight.range.clone()) {
+                let quad_bounds = Bounds::new(
+                    Point::new(span.origin.x - highlight.inset_x, span.origin.y),
+                    Size::new(span.size.width + highlight.inset_x * 2.0, span.size.height),
+                );
+                window.paint_quad(
+                    gpui::fill(quad_bounds, highlight.color)
+                        .corner_radii(gpui::Corners::all(highlight.radius)),
+                );
+            }
+        }
+        self.text
+            .paint(id, inspector_id, bounds, state, prepaint, window, cx);
+    }
+}
+
+impl IntoElement for HighlightedProseText {
     type Element = Self;
 
     fn into_element(self) -> Self::Element {
