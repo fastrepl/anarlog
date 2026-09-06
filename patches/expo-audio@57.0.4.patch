@@ -52,7 +52,7 @@ index 9a7683666fe0838b21ed4b8502b91d151f76d601..35026446b76b3a632367b9fa267f883a
      val url = currentFileUrl()
      var durationMillis: Long
 diff --git a/android/src/main/java/expo/modules/audio/AudioStream.kt b/android/src/main/java/expo/modules/audio/AudioStream.kt
-index 8ecdcc126876853204ba8b92ec4ccfaef6faadb0..81967fd77afbaec83a52462e13478dbb465bec5e 100644
+index 8ecdcc126876853204ba8b92ec4ccfaef6faadb0..7e6e29ff01257d50d505a3ee464e33420393b7ab 100644
 --- a/android/src/main/java/expo/modules/audio/AudioStream.kt
 +++ b/android/src/main/java/expo/modules/audio/AudioStream.kt
 @@ -1,10 +1,17 @@
@@ -81,7 +81,7 @@ index 8ecdcc126876853204ba8b92ec4ccfaef6faadb0..81967fd77afbaec83a52462e13478dbb
  
  internal const val AUDIO_STREAM_BUFFER = "audioStreamBuffer"
  internal const val AUDIO_STREAM_STATUS = "audioStreamStatus"
-@@ -34,25 +42,28 @@ private data class ResolvedAudioConfig(
+@@ -34,60 +42,122 @@ private data class ResolvedAudioConfig(
  class AudioStream(
    appContext: AppContext,
    private val options: AudioStreamOptions
@@ -95,6 +95,9 @@ index 8ecdcc126876853204ba8b92ec4ccfaef6faadb0..81967fd77afbaec83a52462e13478dbb
    private val coroutineScope = CoroutineScope(Dispatchers.IO)
 +  private val serviceConnection = AudioRecordingServiceConnection(WeakReference(this), appContext)
 +  private var wakeLock: PowerManager.WakeLock? = null
++  private var isStarting = false
++  private var stopRequested = false
++  private var isReleased = false
  
    var sampleRate: Int = 0
      private set
@@ -108,14 +111,38 @@ index 8ecdcc126876853204ba8b92ec4ccfaef6faadb0..81967fd77afbaec83a52462e13478dbb
  
    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
 -  fun start() {
+-    if (isStreaming) {
+-      return
 +  suspend fun start(allowsBackgroundRecording: Boolean = false) {
-     if (isStreaming) {
-       return
++    synchronized(this) {
++      if (isReleased) throw AudioStreamInitializationException("The audio stream was released")
++      if (isStreaming || isStarting) return
++      isStarting = true
++      stopRequested = false
      }
-@@ -61,12 +72,29 @@ class AudioStream(
-     val recorder = createAudioRecord(config)
  
+-    val config = resolveAudioConfig()
+-    val recorder = createAudioRecord(config)
+-
++    var pendingRecorder: AudioRecord? = null
      try {
+-      recorder.startRecording()
+-    } catch (e: IllegalStateException) {
+-      recorder.release()
+-      throw AudioStreamInitializationException(
+-        "Failed to start the audio stream. The microphone is likely held by another app or by the system"
+-      )
+-    }
+-
+-    sampleRate = config.sampleRate
+-    channels = config.channelCount
+-    audioRecord = recorder
+-    startTimeNanos = System.nanoTime()
+-    isStreaming = true
+-    emitStatus()
++      val config = resolveAudioConfig()
++      val recorder = createAudioRecord(config)
++      pendingRecorder = recorder
 +      if (allowsBackgroundRecording) {
 +        val context = appContext?.reactContext ?: throw AudioStreamInitializationException("React context is unavailable")
 +        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
@@ -125,33 +152,53 @@ index 8ecdcc126876853204ba8b92ec4ccfaef6faadb0..81967fd77afbaec83a52462e13478dbb
 +        }
 +        serviceConnection.startBindingTimeout()
 +        serviceConnection.bindWithService()
-+        val service = serviceConnection.recordingServiceBinder?.service
-+        if (service?.registerRecorder(this) != true) {
-+          throw AudioRecordingServiceException("Could not start the microphone foreground service")
-+        }
-+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "expo-audio:stream").apply {
-+          acquire(24 * 60 * 60 * 1000L)
-+        }
 +      }
-       recorder.startRecording()
--    } catch (e: IllegalStateException) {
-+    } catch (e: Exception) {
-       recorder.release()
--      throw AudioStreamInitializationException(
--        "Failed to start the audio stream. The microphone is likely held by another app or by the system"
--      )
-+      releaseBackgroundService()
-+      throw e
-     }
  
-     sampleRate = config.sampleRate
-@@ -79,15 +107,32 @@ class AudioStream(
-     startCaptureLoop(recorder, config)
+-    startCaptureLoop(recorder, config)
++      // A notification stop must not land between service registration and capture startup.
++      synchronized(this) {
++        if (stopRequested || isReleased) {
++          throw AudioStreamInitializationException("Audio stream startup was cancelled")
++        }
++        if (allowsBackgroundRecording) {
++          val context = appContext?.reactContext ?: throw AudioStreamInitializationException("React context is unavailable")
++          val service = serviceConnection.recordingServiceBinder?.service
++          if (service?.registerRecorder(this) != true) {
++            throw AudioRecordingServiceException("Could not start the microphone foreground service")
++          }
++          val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
++          wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "expo-audio:stream").apply {
++            acquire(24 * 60 * 60 * 1000L)
++          }
++        }
++        recorder.startRecording()
++        sampleRate = config.sampleRate
++        channels = config.channelCount
++        audioRecord = recorder
++        startTimeNanos = System.nanoTime()
++        isStreaming = true
++        isStarting = false
++        emitStatus()
++        startCaptureLoop(recorder, config)
++      }
++    } catch (e: Exception) {
++      pendingRecorder?.release()
++      synchronized(this) {
++        isStarting = false
++        releaseBackgroundService()
++        if (isReleased) serviceConnection.release()
++      }
++      throw e
++    }
    }
  
 +  @Synchronized
    fun stop() {
++    if (isStarting) {
++      stopRequested = true
++      emitStatus()
++      return
++    }
      if (!isStreaming) return
      isStreaming = false
      captureJob?.cancel()
@@ -183,7 +230,7 @@ index 8ecdcc126876853204ba8b92ec4ccfaef6faadb0..81967fd77afbaec83a52462e13478dbb
    }
  
    private fun resolveAudioConfig(): ResolvedAudioConfig {
-@@ -179,6 +224,8 @@ class AudioStream(
+@@ -179,14 +249,17 @@ class AudioStream(
      if (bytesRead > 0) {
        byteBuffer.limit(bytesRead)
        emitBufferEvent(NativeArrayBuffer(byteBuffer), channels, sampleRate)
@@ -192,16 +239,30 @@ index 8ecdcc126876853204ba8b92ec4ccfaef6faadb0..81967fd77afbaec83a52462e13478dbb
      }
    }
  
-@@ -210,5 +257,7 @@ class AudioStream(
+   private fun emitStatus() {
++    val streaming = isStreaming
+     appContext?.mainQueue?.launch {
+       emit(
+         AUDIO_STREAM_STATUS,
+-        mapOf("isStreaming" to isStreaming)
++        mapOf("isStreaming" to streaming)
+       )
+     }
+   }
+@@ -209,6 +282,10 @@ class AudioStream(
+ 
    override fun sharedObjectDidRelease() {
      super.sharedObjectDidRelease()
-     stop()
-+    serviceConnection.release()
-+    releaseBackgroundService()
+-    stop()
++    synchronized(this) {
++      isReleased = true
++      stop()
++      if (!isStarting) serviceConnection.release()
++    }
    }
  }
 diff --git a/android/src/main/java/expo/modules/audio/service/AudioRecordingService.kt b/android/src/main/java/expo/modules/audio/service/AudioRecordingService.kt
-index 2c9230336efc5c2ba9d5c6e5d35bd84a02dfd369..76dc0df07be9097bb31ba69e5b5e7b6fb064eaeb 100644
+index 2c9230336efc5c2ba9d5c6e5d35bd84a02dfd369..ab7bd9d18c5df8e5fed785747a25569835271990 100644
 --- a/android/src/main/java/expo/modules/audio/service/AudioRecordingService.kt
 +++ b/android/src/main/java/expo/modules/audio/service/AudioRecordingService.kt
 @@ -12,7 +12,6 @@ import android.os.Build
@@ -259,12 +320,25 @@ index 2c9230336efc5c2ba9d5c6e5d35bd84a02dfd369..76dc0df07be9097bb31ba69e5b5e7b6f
 -      }
 -      activeRecorders.clear()
 +    val recordings = synchronized(recorderLock) {
-+      activeRecorders.mapNotNull { it.get() }
++      activeRecorders.mapNotNull { it.get() }.also { activeRecorders.clear() }
      }
 +    recordings.forEach { it.stopFromNotification() }
  
      stopForegroundWithNotification()
      stopSelf()
+@@ -186,11 +184,7 @@ class AudioRecordingService : Service() {
+ 
+   override fun onDestroy() {
+     super.onDestroy()
+-    // Ensure notification is removed when service is destroyed
+-    stopForegroundWithNotification()
+-    synchronized(recorderLock) {
+-      activeRecorders.clear()
+-    }
++    stopRecordingAndService()
+   }
+ 
+   companion object {
 diff --git a/android/src/main/java/expo/modules/audio/service/AudioRecordingServiceConnection.kt b/android/src/main/java/expo/modules/audio/service/AudioRecordingServiceConnection.kt
 index 28be72f2207e55ff24604f03a573660fb303d7d9..9c6b15fcdb080368e11428d2cc17f3905158f245 100644
 --- a/android/src/main/java/expo/modules/audio/service/AudioRecordingServiceConnection.kt
