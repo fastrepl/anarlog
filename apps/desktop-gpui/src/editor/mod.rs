@@ -2,6 +2,7 @@
 //! model, with the same persistence cadence as `packages/editor` (changes
 //! flushed 500ms after the last keystroke, at most 10s apart).
 
+pub mod links;
 pub mod model;
 pub mod rules;
 
@@ -213,6 +214,36 @@ impl BodyEditor {
         self.is_selecting = false;
     }
 
+    /// Mouse up in a textblock. A press that did not drag is a click, and
+    /// `linkOpenPlugin` opens the http(s) link under the pointer.
+    pub fn end_mouse_click(
+        &mut self,
+        block: usize,
+        position: Point<Pixels>,
+        cx: &mut Context<Self>,
+    ) {
+        let was_selecting = std::mem::replace(&mut self.is_selecting, false);
+        if !was_selecting || self.selection().is_some() {
+            return;
+        }
+        let Some(Ok(index)) = self
+            .layouts
+            .get(block)
+            .and_then(Option::as_ref)
+            .map(|(layout, _)| layout.index_for_position(position))
+        else {
+            return;
+        };
+        if let Some(href) = self
+            .doc
+            .link_href_at(block, index)
+            .and_then(|href| links::openable_href(&href))
+        {
+            tracing::info!(%href, "opening link from the memo");
+            cx.open_url(&href);
+        }
+    }
+
     pub fn is_dirty(&self) -> bool {
         self.dirty_since.is_some()
     }
@@ -397,6 +428,18 @@ impl BodyEditor {
     }
 
     fn changed(&mut self, cx: &mut Context<Self>) {
+        // `appendTransaction` of the autolink and link-boundary-guard plugins:
+        // the caret's block is the changed textblock; a structural edit (split,
+        // join, lift) may also have reshaped the block before it.
+        if let Some(caret) = self.caret {
+            self.doc
+                .maintain_links(caret.block, caret.offset..caret.offset);
+            if matches!(self.last_edit, Some((_, EditKind::Structural))) && caret.block > 0 {
+                let previous = caret.block - 1;
+                let end = self.doc.text(previous).len();
+                self.doc.maintain_links(previous, end..end);
+            }
+        }
         let now = Instant::now();
         self.dirty_since.get_or_insert(now);
         self.last_input = Some(now);
@@ -997,8 +1040,14 @@ impl EntityInputHandler for BodyEditor {
         cx: &mut Context<Self>,
     ) {
         self.doc.ensure_textblock();
-        // Typing over a selection replaces it.
-        if range_utf16.is_none() && self.marked_range.is_none() && self.selection().is_some() {
+        // Typing over a selection replaces it, carrying a link across the
+        // range like `insertText(text, from, to)` does.
+        let mut carried_link = None;
+        if range_utf16.is_none()
+            && self.marked_range.is_none()
+            && let Some((from, to)) = self.selection()
+        {
+            carried_link = self.doc.link_across(from, to);
             self.record_edit(EditKind::Structural);
             self.delete_selection();
         }
@@ -1029,7 +1078,15 @@ impl EntityInputHandler for BodyEditor {
             }
             first = false;
             if !line.is_empty() {
+                let start = self.caret;
                 self.insert(line, cx);
+                if let (Some(mark), Some(start), Some(end)) =
+                    (carried_link.take(), start, self.caret)
+                    && start.block == end.block
+                {
+                    self.doc
+                        .set_link(start.block, start.offset, end.offset, mark);
+                }
             }
         }
         self.changed(cx);

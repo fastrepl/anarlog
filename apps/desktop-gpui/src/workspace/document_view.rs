@@ -176,6 +176,7 @@ impl DocumentRenderer {
         let paint_editor = editor.clone();
         let click_editor = editor.clone();
         let drag_editor = editor.clone();
+        let up_editor = editor.clone();
         let caret_color = self.theme.foreground;
         let selection_color = self.theme.selection;
         let placeholder = self
@@ -224,6 +225,14 @@ impl DocumentRenderer {
                     drag_editor.update(cx, |editor, cx| editor.drag_to(index, event.position, cx));
                 }
             })
+            .on_mouse_up(
+                MouseButton::Left,
+                move |event: &gpui::MouseUpEvent, _, cx| {
+                    up_editor.update(cx, |editor, cx| {
+                        editor.end_mouse_click(index, event.position, cx)
+                    });
+                },
+            )
             .child(text)
             .child(
                 canvas(

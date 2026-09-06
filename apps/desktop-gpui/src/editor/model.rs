@@ -88,6 +88,35 @@ impl Doc {
         let (index, offset) = locate(inline, caret.offset);
         match index {
             Some(index) if inline[index].get("type").and_then(Value::as_str) == Some("text") => {
+                // `ResolvedPos.marks`: `link` is `inclusive: false`, so text
+                // typed at a link's edge takes the node's other marks only,
+                // unless the neighbour across the edge carries the same link.
+                let len = inline_text(&inline[index]).len();
+                let at_edge = (offset == len && len > 0) || (offset == 0 && index == 0);
+                if at_edge && has_mark(&inline[index], "link") {
+                    let neighbour = if offset == 0 {
+                        None
+                    } else {
+                        inline.get(index + 1)
+                    };
+                    let same_link = neighbour.is_some_and(|next| {
+                        next.get("type").and_then(Value::as_str) == Some("text")
+                            && super::links::link_mark_of(next)
+                                == super::links::link_mark_of(&inline[index])
+                    });
+                    if !same_link {
+                        let mut piece = inline[index].clone();
+                        piece["text"] = Value::String(text.to_string());
+                        set_mark(&mut piece, "link", false);
+                        let at = if offset == 0 { index } else { index + 1 };
+                        inline.insert(at, piece);
+                        merge_adjacent_text(inline);
+                        return Caret {
+                            block: caret.block,
+                            offset: caret.offset + text.len(),
+                        };
+                    }
+                }
                 let node = &mut inline[index];
                 let existing = node.get("text").and_then(Value::as_str).unwrap_or("");
                 let mut updated = String::with_capacity(existing.len() + text.len());
@@ -390,6 +419,149 @@ impl Doc {
             *inline = rebuilt;
             merge_adjacent_text(inline);
         }
+    }
+
+    /// The autolink and link-boundary-guard passes ProseMirror appends to
+    /// every change, over one textblock; `changed` is the block-relative
+    /// range the change touched (zero-width for a deletion or caret edit).
+    pub fn maintain_links(&mut self, block: usize, changed: std::ops::Range<usize>) {
+        use super::links::{autolink_edits, boundary_guard_edits};
+        if self.block_type(block).as_deref() == Some("codeBlock") {
+            return;
+        }
+        let guard_edits = {
+            let Some(node) = self
+                .textblocks
+                .get(block)
+                .and_then(|path| node_at(&self.root, path))
+            else {
+                return;
+            };
+            boundary_guard_edits(&positioned(children(node)), &changed)
+        };
+        for edit in guard_edits {
+            self.apply_link_edit(block, edit);
+        }
+        let auto_edits = {
+            let Some(node) = self
+                .textblocks
+                .get(block)
+                .and_then(|path| node_at(&self.root, path))
+            else {
+                return;
+            };
+            let inline = positioned(children(node));
+            let linked: Vec<(usize, usize)> = inline
+                .iter()
+                .filter(|(_, child)| has_mark(child, "link"))
+                .map(|(pos, child)| (*pos, pos + inline_text(child).len()))
+                .collect();
+            // `rangeHasMark`: any linked text inside the candidate range.
+            autolink_edits(&inline, |from, to| {
+                linked.iter().any(|(a, b)| *a < to && from < *b)
+            })
+        };
+        for edit in auto_edits {
+            self.apply_link_edit(block, edit);
+        }
+    }
+
+    /// `ResolvedPos.marksAcross` for the `link` mark: the link on the text
+    /// under `from`, kept across a replacement only when the text at `to`
+    /// carries the same link (so retyping inside a link keeps it, and
+    /// replacing the whole link drops it).
+    pub fn link_across(&self, from: Caret, to: Caret) -> Option<Value> {
+        if from.block != to.block {
+            return None;
+        }
+        let node = self
+            .textblocks
+            .get(from.block)
+            .and_then(|path| node_at(&self.root, path))?;
+        let inline = positioned(children(node));
+        let node_after = |offset: usize| {
+            inline
+                .iter()
+                .find(|(pos, child)| *pos <= offset && offset < pos + inline_text(child).len())
+                .or_else(|| inline.iter().find(|(pos, _)| *pos == offset))
+                .map(|(_, child)| *child)
+        };
+        let start = node_after(from.offset)?;
+        let mark = super::links::link_mark_of(start)?.clone();
+        let end = node_after(to.offset)?;
+        (super::links::link_mark_of(end) == Some(&mark)).then_some(mark)
+    }
+
+    /// The `href` of the link on the character at `offset`, if any.
+    pub fn link_href_at(&self, block: usize, offset: usize) -> Option<String> {
+        let node = self
+            .textblocks
+            .get(block)
+            .and_then(|path| node_at(&self.root, path))?;
+        positioned(children(node))
+            .into_iter()
+            .find(|(pos, child)| *pos <= offset && offset < pos + inline_text(child).len())
+            .and_then(|(_, child)| super::links::link_href(child).map(str::to_string))
+    }
+
+    /// Puts `mark` (a full `link` mark) on a block-relative byte range.
+    pub fn set_link(&mut self, block: usize, from: usize, to: usize, mark: Value) {
+        self.set_link_range(block, from, to, Some(mark));
+    }
+
+    fn apply_link_edit(&mut self, block: usize, edit: super::links::LinkEdit) {
+        use super::links::LinkEdit;
+        let (from, to, mark) = match edit {
+            LinkEdit::Remove { from, to } => (from, to, None),
+            LinkEdit::Set { from, to, mark } => (from, to, Some(mark)),
+        };
+        self.set_link_range(block, from, to, mark);
+    }
+
+    /// `removeMark` / `addMark` for the `link` mark over a block-relative
+    /// byte range, splitting text nodes at the boundaries like `toggle_mark`.
+    fn set_link_range(&mut self, block: usize, start: usize, end: usize, mark: Option<Value>) {
+        let Some(path) = self.textblocks.get(block).cloned() else {
+            return;
+        };
+        let Some(node) = node_at_mut(&mut self.root, &path) else {
+            return;
+        };
+        let inline = inline_content_mut(node);
+        let mut cursor = 0usize;
+        let mut rebuilt = Vec::with_capacity(inline.len() + 2);
+        for child in inline.drain(..) {
+            let len = inline_text(&child).len();
+            let (a, b) = (cursor, cursor + len);
+            cursor = b;
+            let is_text = child.get("type").and_then(Value::as_str) == Some("text");
+            let (lo, hi) = (a.max(start), b.min(end));
+            if !is_text || lo >= hi {
+                rebuilt.push(child);
+                continue;
+            }
+            let text = child
+                .get("text")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            for (s, e, inside) in [(a, lo, false), (lo, hi, true), (hi, b, false)] {
+                if s >= e {
+                    continue;
+                }
+                let mut piece = child.clone();
+                piece["text"] = Value::String(text[s - a..e - a].to_string());
+                if inside {
+                    set_mark(&mut piece, "link", false);
+                    if let Some(mark) = &mark {
+                        add_mark_value(&mut piece, mark.clone());
+                    }
+                }
+                rebuilt.push(piece);
+            }
+        }
+        *inline = rebuilt;
+        merge_adjacent_text(inline);
     }
 
     /// Node type of a textblock (`paragraph`, `heading`, `codeBlock`).
@@ -936,6 +1108,43 @@ fn set_mark(node: &mut Value, mark: &str, add: bool) {
     }
 }
 
+/// Inline children with their block-relative byte offsets.
+fn positioned(inline: &[Value]) -> Vec<(usize, &Value)> {
+    let mut cursor = 0usize;
+    inline
+        .iter()
+        .map(|child| {
+            let pos = cursor;
+            cursor += inline_text(child).len();
+            (pos, child)
+        })
+        .collect()
+}
+
+/// `Mark.addToSet` with a full mark value (type and attrs), keeping rank order.
+fn add_mark_value(node: &mut Value, mark: Value) {
+    let name = mark
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let mut marks: Vec<Value> = node
+        .get("marks")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    marks.retain(|m| m.get("type").and_then(Value::as_str) != Some(name.as_str()));
+    marks.push(mark);
+    marks.sort_by_key(mark_rank);
+    let object = node.as_object_mut().expect("text node object");
+    let text = object.remove("text");
+    object.remove("marks");
+    object.insert("marks".into(), Value::Array(marks));
+    if let Some(text) = text {
+        object.insert("text".into(), text);
+    }
+}
+
 fn text_node(text: &str, marks: Option<Value>) -> Value {
     let mut node = Map::new();
     node.insert("type".into(), Value::String("text".into()));
@@ -1188,5 +1397,227 @@ mod tests {
             doc.to_json(),
             r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"aXb"}]}]}"#
         );
+    }
+
+    /// Types `text` one character at a time with the link passes after each,
+    /// like `insertText` followed by the plugins' `appendTransaction`.
+    fn type_with_links(doc: &mut Doc, mut at: Caret, text: &str) -> Caret {
+        for ch in text.chars() {
+            at = doc.insert_text(at, &ch.to_string());
+            doc.maintain_links(at.block, at.offset..at.offset);
+        }
+        at
+    }
+
+    fn linked(text: &str, href: &str, target: Value) -> Value {
+        json!({
+            "type": "text",
+            "marks": [{ "type": "link", "attrs": { "href": href, "target": target } }],
+            "text": text
+        })
+    }
+
+    fn paragraph(content: Vec<Value>) -> String {
+        json!({ "type": "doc", "content": [{ "type": "paragraph", "content": content }] })
+            .to_string()
+    }
+
+    // `autolink.test.ts`
+    #[test]
+    fn autolink_links_bare_domains_with_an_https_href() {
+        let mut doc = Doc::parse("");
+        doc.ensure_textblock();
+        type_with_links(&mut doc, caret(0, 0), "x.com");
+        assert_eq!(
+            doc.to_json(),
+            paragraph(vec![linked("x.com", "https://x.com", Value::Null)])
+        );
+    }
+
+    #[test]
+    fn autolink_links_paths_without_swallowing_trailing_sentence_punctuation() {
+        let mut doc = Doc::parse("");
+        doc.ensure_textblock();
+        type_with_links(
+            &mut doc,
+            caret(0, 0),
+            "See linear.app/fastrepl-inc/initiative/product-45dff51a8672/overview.",
+        );
+        assert_eq!(
+            doc.to_json(),
+            paragraph(vec![
+                json!({ "type": "text", "text": "See " }),
+                linked(
+                    "linear.app/fastrepl-inc/initiative/product-45dff51a8672/overview",
+                    "https://linear.app/fastrepl-inc/initiative/product-45dff51a8672/overview",
+                    Value::Null
+                ),
+                json!({ "type": "text", "text": "." }),
+            ])
+        );
+    }
+
+    #[test]
+    fn autolink_does_not_link_email_domains() {
+        let mut doc = Doc::parse("");
+        doc.ensure_textblock();
+        type_with_links(&mut doc, caret(0, 0), "email support@x.com");
+        assert_eq!(
+            doc.to_json(),
+            paragraph(vec![
+                json!({ "type": "text", "text": "email support@x.com" })
+            ])
+        );
+    }
+
+    #[test]
+    fn autolink_extends_a_bare_domain_link_when_adjacent_path_text_is_typed() {
+        let mut doc = Doc::parse("");
+        doc.ensure_textblock();
+        let end = type_with_links(&mut doc, caret(0, 0), "x.com");
+        type_with_links(&mut doc, end, "/getcharnotes");
+        assert_eq!(
+            doc.to_json(),
+            paragraph(vec![linked(
+                "x.com/getcharnotes",
+                "https://x.com/getcharnotes",
+                Value::Null
+            )])
+        );
+    }
+
+    #[test]
+    fn autolink_keeps_a_custom_href_when_unrelated_text_changes() {
+        let mut doc = Doc::parse(&paragraph(vec![
+            linked("x.com", "https://x.com/docs?ref=note", Value::Null),
+            json!({ "type": "text", "text": " note" }),
+        ]));
+        let end = doc.insert_text(caret(0, 10), "!");
+        doc.maintain_links(0, end.offset..end.offset);
+        assert_eq!(
+            doc.to_json(),
+            paragraph(vec![
+                linked("x.com", "https://x.com/docs?ref=note", Value::Null),
+                json!({ "type": "text", "text": " note!" }),
+            ])
+        );
+    }
+
+    #[test]
+    fn autolink_preserves_link_attrs_when_adjacent_path_text_is_typed() {
+        let mut doc = Doc::parse(&paragraph(vec![linked(
+            "x.com",
+            "https://x.com",
+            Value::String("_blank".into()),
+        )]));
+        let end = doc.insert_text(caret(0, 5), "/docs");
+        doc.maintain_links(0, end.offset..end.offset);
+        assert_eq!(
+            doc.to_json(),
+            paragraph(vec![linked(
+                "x.com/docs",
+                "https://x.com/docs",
+                Value::String("_blank".into())
+            )])
+        );
+    }
+
+    #[test]
+    fn typing_after_a_link_does_not_inherit_the_non_inclusive_mark() {
+        let mut doc = Doc::parse(&paragraph(vec![linked(
+            "x.com",
+            "https://x.com",
+            Value::Null,
+        )]));
+        // A space cannot extend the URL, so it stays outside the link.
+        let end = doc.insert_text(caret(0, 5), " ");
+        doc.maintain_links(0, end.offset..end.offset);
+        assert_eq!(
+            doc.to_json(),
+            paragraph(vec![
+                linked("x.com", "https://x.com", Value::Null),
+                json!({ "type": "text", "text": " " }),
+            ])
+        );
+        // Text typed before the link at the block start is unlinked too.
+        let mut doc = Doc::parse(&paragraph(vec![linked(
+            "x.com",
+            "https://x.com",
+            Value::Null,
+        )]));
+        let end = doc.insert_text(caret(0, 0), "go ");
+        doc.maintain_links(0, end.offset..end.offset);
+        assert_eq!(
+            doc.to_json(),
+            paragraph(vec![
+                json!({ "type": "text", "text": "go " }),
+                linked("x.com", "https://x.com", Value::Null),
+            ])
+        );
+    }
+
+    #[test]
+    fn retyping_inside_a_link_keeps_it_and_an_invalid_tld_drops_it() {
+        // `insertText(text, from, to)` carries the link across the replaced
+        // range only while the text after it is still linked (`marksAcross`):
+        // replacing the tail leaves "x." linked and the new text plain.
+        let mut doc = Doc::parse(&paragraph(vec![linked(
+            "x.com",
+            "https://x.com",
+            Value::Null,
+        )]));
+        assert_eq!(doc.link_across(caret(0, 2), caret(0, 5)), None);
+        doc.delete_range(0, 2..5);
+        let end = doc.insert_text(caret(0, 2), "zzz");
+        doc.maintain_links(0, 2..end.offset);
+        assert_eq!(
+            doc.to_json(),
+            paragraph(vec![
+                linked("x.", "https://x.com", Value::Null),
+                json!({ "type": "text", "text": "zzz" }),
+            ])
+        );
+
+        // Replacing inside the link keeps it, and the guard drops it because
+        // "x.zzzom" looks like a URL without being one.
+        let mut doc = Doc::parse(&paragraph(vec![linked(
+            "x.com",
+            "https://x.com",
+            Value::Null,
+        )]));
+        let carried = doc.link_across(caret(0, 2), caret(0, 3)).unwrap();
+        doc.delete_range(0, 2..3);
+        let end = doc.insert_text(caret(0, 2), "zzz");
+        doc.set_link(0, 2, end.offset, carried);
+        doc.maintain_links(0, 2..end.offset);
+        assert_eq!(
+            doc.to_json(),
+            paragraph(vec![json!({ "type": "text", "text": "x.zzzom" })])
+        );
+
+        // Replacing "x" with "y" inside the link rewrites the href instead.
+        let mut doc = Doc::parse(&paragraph(vec![linked(
+            "x.com",
+            "https://x.com",
+            Value::Null,
+        )]));
+        let carried = doc.link_across(caret(0, 0), caret(0, 1)).unwrap();
+        doc.delete_range(0, 0..1);
+        let end = doc.insert_text(caret(0, 0), "y");
+        doc.set_link(0, 0, end.offset, carried);
+        doc.maintain_links(0, 0..end.offset);
+        assert_eq!(
+            doc.to_json(),
+            paragraph(vec![linked("y.com", "https://y.com", Value::Null)])
+        );
+
+        // Replacing the whole link drops the mark (`marksAcross` finds no
+        // node after the range), so the typed text is autolinked afresh.
+        let doc = Doc::parse(&paragraph(vec![linked(
+            "x.com",
+            "https://x.com",
+            Value::Null,
+        )]));
+        assert_eq!(doc.link_across(caret(0, 0), caret(0, 5)), None);
     }
 }
