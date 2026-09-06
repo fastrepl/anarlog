@@ -31,6 +31,8 @@ pub(crate) struct CalendarState {
     /// The first day of the month on screen (`currentMonth`).
     month: NaiveDate,
     popover: Option<Popover>,
+    /// `EventChip`'s `useNativeContextMenu`: the event id and the pointer.
+    context_menu: Option<(String, gpui::Point<gpui::Pixels>)>,
     /// Expanded provider accordions (`google`, `outlook`).
     expanded: HashSet<&'static str>,
 }
@@ -69,6 +71,40 @@ fn ignored_ids(settings: &crate::db::ProviderSettings, key: &str, field: &str) -
                 .map(str::to_string)
         })
         .collect()
+}
+
+/// `mutateSettingList`'s stored shape: the raw JSON array of entries.
+fn ignored_list(settings: &crate::db::ProviderSettings, key: &str) -> Vec<serde_json::Value> {
+    settings
+        .value(key, &[key])
+        .and_then(|value| match value {
+            serde_json::Value::String(text) => serde_json::from_str(&text).ok(),
+            other => Some(other),
+        })
+        .and_then(|value: serde_json::Value| value.as_array().cloned())
+        .unwrap_or_default()
+}
+
+/// `ignoreEvent` / `ignoreSeries`: drop any entry with the same id, then
+/// append `{ <field>: id, last_seen: now }`.
+pub(crate) fn ignore_entry(
+    list: Vec<serde_json::Value>,
+    field: &str,
+    id: &str,
+    now: &str,
+) -> Vec<serde_json::Value> {
+    let mut next: Vec<serde_json::Value> = list
+        .into_iter()
+        .filter(|entry| entry.get(field).and_then(|v| v.as_str()) != Some(id))
+        .collect();
+    let mut entry = serde_json::Map::new();
+    entry.insert(field.to_string(), serde_json::Value::String(id.to_string()));
+    entry.insert(
+        "last_seen".to_string(),
+        serde_json::Value::String(now.to_string()),
+    );
+    next.push(serde_json::Value::Object(entry));
+    next
 }
 
 fn build_calendar_data(
@@ -189,6 +225,7 @@ impl Workspace {
             self.calendar = Some(CalendarState {
                 month: today.with_day(1).unwrap_or(today),
                 popover: None,
+                context_menu: None,
                 expanded: HashSet::new(),
             });
         }
@@ -203,6 +240,82 @@ impl Workspace {
 
     pub(crate) fn calendar_open(&self) -> bool {
         self.calendar.is_some()
+    }
+
+    /// `useIgnoredEvents().ignoreEvent` / `ignoreSeries` over the
+    /// `ignored_events` / `ignored_recurring_series` settings.
+    fn ignore_calendar_entry(
+        &mut self,
+        key: &'static str,
+        field: &str,
+        id: &str,
+        cx: &mut Context<Self>,
+    ) {
+        let now = chrono::Utc::now()
+            .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+            .to_string();
+        let next = ignore_entry(ignored_list(&self.provider_settings, key), field, id, &now);
+        self.set_setting(key, serde_json::Value::Array(next), cx);
+    }
+
+    /// `EventChip`'s context menu: `Delete Event`, or `Delete This Event` +
+    /// `Delete All Recurring Events` for a recurring event.
+    pub(super) fn render_calendar_context_menu(
+        &self,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        use super::menu::{Align, Entry, MenuSpec, Trailing};
+        let state = self.calendar.as_ref()?;
+        let (event_id, position) = state.context_menu.clone()?;
+        let event = self.event_rows.iter().find(|event| event.id == event_id)?;
+        let tracking_id = event.tracking_id_event.clone();
+        let series_id: Option<String> =
+            Some(event.recurrence_series_id.clone()).filter(|id: &String| !id.is_empty());
+        let mut entries = vec![Entry::Item {
+            icon: None,
+            dim_icon: false,
+            label: if series_id.is_some() {
+                "Delete This Event".into()
+            } else {
+                "Delete Event".into()
+            },
+            trailing: Trailing::None,
+            destructive: false,
+            on_select: Some(Box::new(move |this, _, cx| {
+                if !tracking_id.is_empty() {
+                    this.ignore_calendar_entry("ignored_events", "tracking_id", &tracking_id, cx);
+                }
+            })),
+            submenu: None,
+        }];
+        if let Some(series_id) = series_id {
+            entries.push(Entry::Item {
+                icon: None,
+                dim_icon: false,
+                label: "Delete All Recurring Events".into(),
+                trailing: Trailing::None,
+                destructive: false,
+                on_select: Some(Box::new(move |this, _, cx| {
+                    this.ignore_calendar_entry("ignored_recurring_series", "id", &series_id, cx);
+                })),
+                submenu: None,
+            });
+        }
+        let spec = MenuSpec {
+            id: "calendar-event-menu",
+            width: 224.0,
+            entries,
+            open_sub: None,
+            on_hover_sub: |_, _, _| {},
+            on_close: |this, cx| {
+                if let Some(state) = this.calendar.as_mut() {
+                    state.context_menu = None;
+                    cx.notify();
+                }
+            },
+        };
+        Some(self.render_app_menu(spec, position, Align::Start, window, cx))
     }
 
     pub(crate) fn calendar_popover_open(&self) -> bool {
@@ -831,6 +944,16 @@ impl Workspace {
                 chip.cursor_pointer()
                     .hover(|style| style.opacity(0.8))
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_mouse_down(MouseButton::Right, {
+                        let id = id.clone();
+                        cx.listener(move |this, event: &gpui::MouseDownEvent, _, cx| {
+                            cx.stop_propagation();
+                            if let Some(state) = this.calendar.as_mut() {
+                                state.context_menu = Some((id.clone(), event.position));
+                                cx.notify();
+                            }
+                        })
+                    })
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                         if let Some(state) = this.calendar.as_mut() {
                             state.popover = Some(Popover::Event(id.clone()));
@@ -1093,6 +1216,26 @@ impl Workspace {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ignoring_replaces_the_same_id_and_appends_last_seen() {
+        let list = vec![
+            serde_json::json!({ "tracking_id": "a", "last_seen": "old" }),
+            serde_json::json!({ "tracking_id": "b", "last_seen": "old" }),
+        ];
+        let next = ignore_entry(list, "tracking_id", "a", "now");
+        assert_eq!(
+            next,
+            vec![
+                serde_json::json!({ "tracking_id": "b", "last_seen": "old" }),
+                serde_json::json!({ "tracking_id": "a", "last_seen": "now" }),
+            ]
+        );
+        assert_eq!(
+            ignore_entry(Vec::new(), "id", "series-1", "now"),
+            vec![serde_json::json!({ "id": "series-1", "last_seen": "now" })]
+        );
+    }
     use chrono::{TimeZone, Utc};
 
     #[test]
