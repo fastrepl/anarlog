@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "eas-build-post-install": "if [ \"$EAS_BUILD_PLATFORM\" = \"ios\" ]; then cd ../.. && cargo xtask mobile-bridge ios; fi",
+    "eas-build-post-install": "bash scripts/eas-build-post-install.sh",
     "start": "dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f .env -- expo start --dev-client",
     "android": "dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f .env -- expo start --dev-client --android",
     "android:build": "cargo xtask mobile-bridge android && dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f .env -- expo run:android",

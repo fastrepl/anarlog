@@ -13,6 +13,8 @@ on:
       - apps/mobile/**
       - apps/watch/apple/**
       - crates/db-app/**
+      - crates/db-core/**
+      - crates/cloudsync/**
       - crates/db-execute/**
       - crates/mobile-bridge/**
       - crates/xtask/**
@@ -31,6 +33,8 @@ on:
       - apps/mobile/**
       - apps/watch/apple/**
       - crates/db-app/**
+      - crates/db-core/**
+      - crates/cloudsync/**
       - crates/db-execute/**
       - crates/mobile-bridge/**
       - crates/xtask/**
