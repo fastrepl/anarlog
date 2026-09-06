@@ -940,6 +940,65 @@ impl Workspace {
             }
             SettingsTab::Developers => self.render_developers_settings(title, cx),
             SettingsTab::Dictionary => self.render_dictionary_settings(title, window, cx),
+            // `SettingsTeam` signed out: the title and one muted line.
+            SettingsTab::Team => div().flex().flex_col().gap_8().child(title).child(
+                div()
+                    .tw_text_sm()
+                    .text_color(theme.muted_foreground)
+                    .child("Sign in to create a shared workspace for your team."),
+            ),
+            // `SettingsSync` while `settingsQuery` is loading (no API without
+            // an account): the `min-h-48` centred spinner, no title.
+            SettingsTab::Sync => div()
+                .flex()
+                .min_h(px(192.0))
+                .items_center()
+                .justify_center()
+                .child(crate::ui::spinner(
+                    "sync-loading",
+                    px(20.0),
+                    theme.muted_foreground,
+                )),
+            // `SettingsImports`: the title row with the ghost Documentation
+            // button, then `MeetingImportScreen` (full width).
+            SettingsTab::Imports => div()
+                .flex()
+                .flex_col()
+                .gap_8()
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .justify_between()
+                        .gap_4()
+                        .child(title)
+                        .child(
+                            // `Button variant="ghost" size="sm"`: `h-7 px-2 gap-2 text-xs`.
+                            div()
+                                .id("imports-documentation")
+                                .flex()
+                                .h(px(28.0))
+                                .items_center()
+                                .gap_2()
+                                .px_2()
+                                .rounded(px(8.0))
+                                .tw_text_xs()
+                                .font_weight(gpui::FontWeight::MEDIUM)
+                                .text_color(theme.foreground)
+                                .cursor_pointer()
+                                .hover(|s| s.bg(theme.accent))
+                                .on_click(cx.listener(|_, _: &gpui::ClickEvent, _, cx| {
+                                    cx.open_url("https://docs.anarlog.so/imports");
+                                }))
+                                .child("Documentation")
+                                .child(crate::ui::icon(
+                                    "arrow-square-out",
+                                    px(14.0),
+                                    theme.foreground,
+                                )),
+                        ),
+                )
+                .child(self.render_meeting_import_card(false, window, cx)),
             SettingsTab::Account => div()
                 .flex()
                 .flex_col()
@@ -966,7 +1025,6 @@ impl Workspace {
                 .gap_8()
                 .child(title)
                 .child(self.render_meeting_settings(cx)),
-            _ => div().flex().flex_col().gap_8().child(title),
         };
 
         div()

@@ -310,7 +310,7 @@ impl Workspace {
         let sections = div().flex().flex_col().gap_4().px_12().pb_16().children(
             STEPS
                 .iter()
-                .filter_map(|step| self.render_onboarding_section(*step, state, cx)),
+                .filter_map(|step| self.render_onboarding_section(*step, state, window, cx)),
         );
 
         div()
@@ -344,6 +344,7 @@ impl Workspace {
         &self,
         step: Step,
         state: &OnboardingState,
+        window: &Window,
         cx: &Context<Self>,
     ) -> Option<Div> {
         let theme = self.theme;
@@ -465,7 +466,7 @@ impl Workspace {
         let content = match step {
             Step::Login => self.render_login_section(state, cx),
             Step::Calendar => self.render_calendar_section(state, cx),
-            Step::Imports => self.render_import_section(state, cx),
+            Step::Imports => self.render_import_section(window, cx),
             Step::Final => self.render_final_section(state, cx),
         };
 
@@ -709,8 +710,65 @@ impl Workspace {
     /// `MeetingImportScreen compact` with nothing detected: the always
     /// available Google Meet row with its `Connect & import` split button,
     /// then the secondary `Skip for now`.
-    fn render_import_section(&self, state: &OnboardingState, cx: &Context<Self>) -> AnyElement {
+    fn render_import_section(&self, window: &Window, cx: &Context<Self>) -> AnyElement {
         let theme = self.theme;
+        div()
+            .flex()
+            .flex_col()
+            .items_start()
+            .gap_4()
+            .max_w(px(768.0))
+            .child(self.render_meeting_import_card(true, window, cx))
+            .child(
+                // `OnboardingButton variant="secondary"` (`px-6 py-2`).
+                div()
+                    .id("onboarding-skip-for-now")
+                    .flex()
+                    .w_auto()
+                    .px_6()
+                    .py_2()
+                    .rounded(px(8.0))
+                    .border_1()
+                    .border_color(alpha(theme.border, 0.6))
+                    .bg(alpha(theme.card, 0.55))
+                    .text_color(theme.muted_foreground)
+                    .tw_text_sm()
+                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .cursor_pointer()
+                    .hover(move |style| {
+                        style
+                            .bg(alpha(theme.card, 0.75))
+                            .text_color(theme.foreground)
+                    })
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.onboarding_next(cx)))
+                    .child("Skip for now"),
+            )
+            .into_any_element()
+    }
+
+    /// `MeetingImportScreen` with nothing detected: the `rounded-2xl` card
+    /// with the always available Google Meet row (`min-h-16 px-4 py-3`),
+    /// its `text-xs` description (a `p`, so `text-wrap: pretty`), and the
+    /// `Connect & import` split button; `compact` caps the list at `max-h-80`
+    /// inside the onboarding's `max-w-3xl`.
+    pub(super) fn render_meeting_import_card(
+        &self,
+        compact: bool,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let theme = self.theme;
+        let import_menu_open = self
+            .onboarding
+            .as_ref()
+            .is_some_and(|state| state.import_menu_open);
+        // The card's width: the onboarding's `max-w-3xl`, or the settings
+        // content column (`viewport - sidebar - padding`).
+        let card_width = if compact {
+            768.0
+        } else {
+            (f32::from(window.viewport_size().width) - 253.0).max(320.0)
+        };
         let split = div()
             .relative()
             .flex()
@@ -773,7 +831,7 @@ impl Workspace {
                             .bg(theme.border),
                     )
                     .child(icon("caret-down", px(14.0), theme.foreground))
-                    .when(state.import_menu_open, |trigger| {
+                    .when(import_menu_open, |trigger| {
                         trigger.child(self.render_import_files_menu(cx))
                     }),
             );
@@ -795,10 +853,10 @@ impl Workspace {
                     .child(img(super::note::embedded("google-meet.svg")).size(px(32.0))),
             )
             .child(
-                // The text column's width follows from the `max-w-3xl` card:
-                // GPUI measures wrapped text at max-content inside `flex-1`.
+                // The text column's width follows from the card width: GPUI
+                // measures wrapped text at max-content inside `flex-1`.
                 div()
-                    .w(px(768.0 - 32.0 - 32.0 - 24.0 - 162.0))
+                    .w(px(card_width - 2.0 - 32.0 - 32.0 - 24.0 - 162.0))
                     .flex()
                     .flex_col()
                     .child(
@@ -807,56 +865,34 @@ impl Workspace {
                             .font_weight(gpui::FontWeight::MEDIUM)
                             .child("Google Meet"),
                     )
-                    .child(
-                        div()
-                            .mt_1()
-                            .tw_text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child("Connect once to bring over your Google Meet history and keep new meetings coming in while you switch."),
-                    ),
+                    .child(div().mt_1().child({
+                        let mut style = window.text_style();
+                        style.font_size = px(12.0).into();
+                        style.color = theme.muted_foreground.into();
+                        if let Some(font) = &self.font_family {
+                            style.font_family = font.clone();
+                        }
+                        let text = "Connect once to bring over your Google Meet history and keep new meetings coming in while you switch.";
+                        crate::prose_text::ProseText::new(
+                            text.to_string(),
+                            vec![style.to_run(text.len())],
+                            px(12.0),
+                            px(16.0),
+                        )
+                        .pretty()
+                        .max_width(px(card_width - 2.0 - 32.0 - 32.0 - 24.0 - 162.0))
+                    })),
             )
             .child(div().flex().flex_shrink_0().items_center().gap_1().child(split));
 
         div()
-            .flex()
-            .flex_col()
-            .items_start()
-            .gap_4()
-            .max_w(px(768.0))
-            .child(
-                div()
-                    .w_full()
-                    .rounded(px(16.0))
-                    .border_1()
-                    .border_color(theme.border)
-                    .bg(theme.card)
-                    .overflow_hidden()
-                    .child(div().max_h(px(320.0)).child(row)),
-            )
-            .child(
-                // `OnboardingButton variant="secondary"` (`px-6 py-2`).
-                div()
-                    .id("onboarding-skip-for-now")
-                    .flex()
-                    .w_auto()
-                    .px_6()
-                    .py_2()
-                    .rounded(px(8.0))
-                    .border_1()
-                    .border_color(alpha(theme.border, 0.6))
-                    .bg(alpha(theme.card, 0.55))
-                    .text_color(theme.muted_foreground)
-                    .tw_text_sm()
-                    .font_weight(gpui::FontWeight::MEDIUM)
-                    .cursor_pointer()
-                    .hover(move |style| {
-                        style
-                            .bg(alpha(theme.card, 0.75))
-                            .text_color(theme.foreground)
-                    })
-                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.onboarding_next(cx)))
-                    .child("Skip for now"),
-            )
+            .w_full()
+            .rounded(px(16.0))
+            .border_1()
+            .border_color(theme.border)
+            .bg(theme.card)
+            .overflow_hidden()
+            .child(div().when(compact, |list| list.max_h(px(320.0))).child(row))
             .into_any_element()
     }
 

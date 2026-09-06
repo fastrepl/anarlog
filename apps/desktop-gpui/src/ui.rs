@@ -38,6 +38,16 @@ impl<T: Styled> TailwindText for T {}
 
 /// Monochrome Hugeicons glyph. `svg` paints with its own text colour only, so
 /// the colour is passed explicitly rather than inherited.
+/// `<CircleNotch className="animate-spin" />`: Tailwind's 1s linear rotation.
+pub fn spinner(id: impl Into<gpui::ElementId>, size: Pixels, color: Rgba) -> impl IntoElement {
+    use gpui::AnimationExt;
+    icon("circle-notch", size, color).with_animation(
+        id,
+        gpui::Animation::new(std::time::Duration::from_secs(1)).repeat(),
+        |svg, delta| svg.with_transformation(gpui::Transformation::rotate(gpui::percentage(delta))),
+    )
+}
+
 pub fn icon(name: &str, size: Pixels, color: Rgba) -> Svg {
     svg()
         .path(SharedString::from(format!("icons/{name}.svg")))
