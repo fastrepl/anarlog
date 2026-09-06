@@ -2,7 +2,7 @@
   "expo": {
     "name": "Anarlog",
     "slug": "anarlog-mobile",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "ios": {
