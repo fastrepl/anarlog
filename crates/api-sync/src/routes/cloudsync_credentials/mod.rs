@@ -33,8 +33,9 @@ use grants::{
 };
 use grants::{WorkspaceE2eeKeyGrant, fetch_workspace_key_grants};
 use identity::{
-    SyncDeviceRow, claim_personal_e2ee_key, claim_sync_device, is_valid_e2ee_key_id,
-    list_sync_devices, publish_e2ee_member_identity, remove_sync_device, rename_sync_device,
+    SyncDeviceRow, claim_personal_e2ee_key, claim_sync_device, fetch_sync_device_limit,
+    is_valid_e2ee_key_id, list_sync_devices, publish_e2ee_member_identity, remove_sync_device,
+    rename_sync_device,
 };
 pub use projection::CloudsyncWorkspace;
 pub(super) use projection::encode_workspace_token_attributes;
@@ -333,14 +334,15 @@ async fn get_devices(
     if !auth.claims.is_pro() {
         return Err(SyncError::ProPlanRequired);
     }
-    let (devices, pending_devices) = tokio::try_join!(
+    let (devices, pending_devices, max_devices) = tokio::try_join!(
         list_sync_devices(&state, &auth.claims.sub),
-        list_e2ee_device_enrollments(&state, &auth.claims.sub)
+        list_e2ee_device_enrollments(&state, &auth.claims.sub),
+        fetch_sync_device_limit(&state, &auth.claims.sub),
     )?;
     Ok(Json(SyncDevicesResponse {
         devices,
         pending_devices,
-        max_devices: 5,
+        max_devices,
     }))
 }
 

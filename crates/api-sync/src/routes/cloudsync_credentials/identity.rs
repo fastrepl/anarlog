@@ -73,6 +73,32 @@ struct RenameSyncDeviceRpcRequest<'a> {
     p_device_name: &'a str,
 }
 
+pub(super) async fn fetch_sync_device_limit(
+    state: &ReplicaState,
+    account_user_id: &str,
+) -> Result<u8> {
+    let response = state
+        .client
+        .post(format!(
+            "{}/rest/v1/rpc/get_sync_device_limit",
+            state.config.supabase_url
+        ))
+        .header("apikey", &state.config.supabase_service_role_key)
+        .bearer_auth(&state.config.supabase_service_role_key)
+        .json(&serde_json::json!({ "p_actor_user_id": account_user_id }))
+        .timeout(SUPABASE_REQUEST_TIMEOUT)
+        .send()
+        .await
+        .map_err(|_| SyncError::Upstream)?;
+    if !response.status().is_success() {
+        return Err(SyncError::Upstream);
+    }
+    match response.json::<u8>().await {
+        Ok(limit @ (3 | 5)) => Ok(limit),
+        _ => Err(SyncError::Upstream),
+    }
+}
+
 pub(super) async fn list_sync_devices(
     state: &ReplicaState,
     account_user_id: &str,

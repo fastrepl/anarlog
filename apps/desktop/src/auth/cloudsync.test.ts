@@ -2186,7 +2186,7 @@ describe("CloudSync auth lifecycle", () => {
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
     expect(sonnerToast.error).toHaveBeenCalledWith(
-      expect.stringContaining("limited to 5 devices"),
+      expect.stringContaining("sync device limit is reached"),
       expect.objectContaining({ id: "cloudsync-device-limit" }),
     );
     expect(getCloudsyncCredentialBlock()).toBe("device_limit");

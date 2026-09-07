@@ -26,7 +26,7 @@ export class ReplicaCredentialError extends Error {
   constructor(code: ReplicaCredentialErrorCode) {
     super(
       {
-        device_limit: "Cloud sync is limited to five devices.",
+        device_limit: "Your plan’s sync device limit is reached.",
         identity_mismatch: "This account uses a different recovery key.",
         invalid_response: "The sync service returned an invalid response.",
         not_entitled: "Anarlog Pro is required for cloud sync.",

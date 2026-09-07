@@ -80,7 +80,7 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
       { label: "Cloud Transcription", included: true },
       { label: "Cloud LLM", included: true },
       { label: "Better Speaker Identification", included: true },
-      { label: "End-to-end encrypted Cloud Sync", included: true },
+      { label: "End-to-end encrypted sync across 3 devices", included: true },
       {
         label: "Share individual notes",
         included: true,
@@ -113,6 +113,7 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
       "A paid shared workspace with Pro for every member; each workspace has its own per-seat billing.",
     features: [
       { label: "Everything in Pro for every member", included: true },
+      { label: "Sync across 5 devices per member", included: true },
       { label: "Shared workspaces and notes", included: true },
       { label: "Members, roles, and invitations", included: true },
       { label: "Centralized per-seat billing", included: true },
