@@ -6,6 +6,7 @@ import {
   ArrowsClockwise,
   Bell,
   BookOpen,
+  Brain,
   CalendarDots,
   ChartBar,
   Code,
@@ -18,12 +19,12 @@ import {
   Lock,
   MagnifyingGlass,
   ShieldCheck,
-  Sparkle,
   Sun,
   User,
   Users,
   UsersThree,
   VideoCamera,
+  Waveform,
   X,
 } from "@anlg/ui/components/icons";
 import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
@@ -99,8 +100,8 @@ export function SettingsNav() {
     {
       label: "AI",
       items: [
-        { id: "transcription", label: t`Transcription`, icon: Sparkle },
-        { id: "intelligence", label: t`Intelligence`, icon: Sparkle },
+        { id: "transcription", label: t`Transcription`, icon: Waveform },
+        { id: "intelligence", label: t`Intelligence`, icon: Brain },
         {
           id: "dictionary",
           label: t`Dictionary`,
