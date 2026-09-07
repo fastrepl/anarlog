@@ -27,7 +27,8 @@ const phaseCopy: Record<
   },
   device_limit: {
     title: "Device limit reached",
-    description: "Anarlog Pro supports cloud sync on up to five devices.",
+    description:
+      "Pro includes three synced devices. Team includes five per member. Remove a device to free a slot.",
   },
   identity_mismatch: {
     title: "Reconnect this device",

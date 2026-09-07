@@ -131,12 +131,15 @@ export default function SyncSettings() {
       </FieldGroup.Section>
       {!auth.bypass && auth.billing.isPro && (
         <FieldGroup.Section title="Connected devices">
+          {devices.data && (
+            <Text>{`${devices.data.usedDevices} of ${devices.data.maxDevices} device slots in use`}</Text>
+          )}
           {devices.isPending ? (
             <Text>Loading devices…</Text>
           ) : devices.error ? (
             <Button label="Try again" onPress={() => void devices.refetch()} />
           ) : (
-            devices.data?.map((device) => (
+            devices.data?.devices.map((device) => (
               <SettingsRow
                 key={device.deviceFingerprint}
                 title={device.deviceName || "Unnamed device"}

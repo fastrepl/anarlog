@@ -926,7 +926,7 @@ async function activateCloudsync(
           await suspendCloudsyncAfterCredentialRejection(activeGeneration);
           if (deviceLimit) {
             sonnerToast.error(
-              t`Cloud sync is limited to 5 devices. Replace or remove another device to sync here.`,
+              t`Your plan’s sync device limit is reached. Replace or remove another device to sync here.`,
               { id: DEVICE_LIMIT_TOAST_ID },
             );
           }
@@ -1129,7 +1129,7 @@ async function activateCloudsync(
       }
       if (credentialErrorCode === DEVICE_LIMIT_ERROR_CODE) {
         sonnerToast.error(
-          t`Cloud sync is limited to 5 devices. Remove another device to sync here.`,
+          t`Your plan’s sync device limit is reached. Remove another device to sync here.`,
           { id: DEVICE_LIMIT_TOAST_ID },
         );
         console.warn(

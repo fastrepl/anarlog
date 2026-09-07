@@ -301,7 +301,7 @@ async fn register_enrollment(
         return Err(SyncError::E2eeEnrollmentRequiresExistingKey);
     }
     if !row.allowed {
-        if row.device_count == MAX_SYNC_DEVICES {
+        if row.device_count > 0 {
             return Err(SyncError::SyncDeviceLimitReached);
         }
         return Err(SyncError::Upstream);

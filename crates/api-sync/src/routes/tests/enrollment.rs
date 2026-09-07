@@ -128,6 +128,36 @@ async fn distinguishes_first_device_setup_from_a_full_roster() {
             StatusCode::FORBIDDEN,
             "sync_device_limit_reached",
         ),
+        (
+            json!([{
+                "allowed": false,
+                "requires_existing_key": false,
+                "request_id": null,
+                "expires_at": null,
+                "enrollment_status": null,
+                "ephemeral_public_key": null,
+                "nonce": null,
+                "ciphertext": null,
+                "device_count": 3,
+            }]),
+            StatusCode::FORBIDDEN,
+            "sync_device_limit_reached",
+        ),
+        (
+            json!([{
+                "allowed": false,
+                "requires_existing_key": false,
+                "request_id": null,
+                "expires_at": null,
+                "enrollment_status": null,
+                "ephemeral_public_key": null,
+                "nonce": null,
+                "ciphertext": null,
+                "device_count": 4,
+            }]),
+            StatusCode::FORBIDDEN,
+            "sync_device_limit_reached",
+        ),
     ] {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
@@ -279,52 +309,60 @@ async fn acknowledges_a_consumed_enrollment_package() {
 
 #[tokio::test]
 async fn lists_active_and_pending_devices_without_ciphertext() {
-    let server = MockServer::start().await;
-    Mock::given(method("GET"))
-        .and(path("/rest/v1/sync_devices"))
-        .and(query_param("user_id", "eq.user-123"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
-            "device_fingerprint": "fingerprint-active",
-            "device_name": "Active Mac",
-            "created_at": "2026-08-19T00:00:00Z",
-            "last_seen_at": "2026-08-20T00:00:00Z",
-        }])))
-        .mount(&server)
-        .await;
-    Mock::given(method("GET"))
-        .and(path("/rest/v1/e2ee_device_enrollment_requests"))
-        .and(query_param("user_id", "eq.user-123"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
-            "id": REQUEST_ID,
-            "device_fingerprint": "fingerprint-pending",
-            "device_name": "Pending Mac",
-            "recipient_public_key": PUBLIC_KEY,
-            "created_at": "2026-08-20T00:00:00Z",
-            "expires_at": "2099-08-21T00:00:00Z",
-            "sealed_at": null,
-            "consumed_at": null,
-        }])))
-        .mount(&server)
-        .await;
+    for limit in [3, 5] {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/get_sync_device_limit"))
+            .and(body_partial_json(json!({ "p_actor_user_id": "user-123" })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!(limit)))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/rest/v1/sync_devices"))
+            .and(query_param("user_id", "eq.user-123"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "device_fingerprint": "fingerprint-active",
+                "device_name": "Active Mac",
+                "created_at": "2026-08-19T00:00:00Z",
+                "last_seen_at": "2026-08-20T00:00:00Z",
+            }])))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/rest/v1/e2ee_device_enrollment_requests"))
+            .and(query_param("user_id", "eq.user-123"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "id": REQUEST_ID,
+                "device_fingerprint": "fingerprint-pending",
+                "device_name": "Pending Mac",
+                "recipient_public_key": PUBLIC_KEY,
+                "created_at": "2026-08-20T00:00:00Z",
+                "expires_at": "2099-08-21T00:00:00Z",
+                "sealed_at": null,
+                "consumed_at": null,
+            }])))
+            .mount(&server)
+            .await;
 
-    let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
-        .oneshot(Request::get("/devices").body(Body::empty()).unwrap())
-        .await
-        .unwrap();
+        let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+            .oneshot(Request::get("/devices").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
 
-    assert_eq!(response.status(), StatusCode::OK);
-    let body = response_json(response).await;
-    assert_eq!(body["maxDevices"], 5);
-    assert_eq!(
-        body["devices"][0]["deviceFingerprint"],
-        "fingerprint-active"
-    );
-    assert_eq!(
-        body["pendingDevices"][0]["deviceFingerprint"],
-        "fingerprint-pending"
-    );
-    assert_eq!(body["pendingDevices"][0]["status"], "pending");
-    assert!(body["pendingDevices"][0].get("ciphertext").is_none());
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["maxDevices"], limit);
+        assert_eq!(
+            body["devices"][0]["deviceFingerprint"],
+            "fingerprint-active"
+        );
+        assert_eq!(
+            body["pendingDevices"][0]["deviceFingerprint"],
+            "fingerprint-pending"
+        );
+        assert_eq!(body["pendingDevices"][0]["status"], "pending");
+        assert!(body["pendingDevices"][0].get("ciphertext").is_none());
+    }
 }
 
 #[tokio::test]

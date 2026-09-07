@@ -148,7 +148,7 @@ impl IntoResponse for SyncError {
             Self::SyncDeviceLimitReached => (
                 StatusCode::FORBIDDEN,
                 "sync_device_limit_reached",
-                "Cloud sync is limited to 5 devices per account; remove a device before syncing here"
+                "Your plan's sync device limit is reached; remove a device before syncing here"
                     .to_string(),
             ),
             Self::E2eeWitnessForbidden => (

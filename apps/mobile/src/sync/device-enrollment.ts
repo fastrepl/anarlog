@@ -24,7 +24,7 @@ export class DeviceEnrollmentError extends Error {
   constructor(code: DeviceEnrollmentErrorCode) {
     super(
       {
-        device_limit: "Cloud sync is limited to five devices.",
+        device_limit: "Your plan’s sync device limit is reached.",
         first_device: "This is the first encrypted device.",
         invalid_response: "The device service returned an invalid response.",
         not_entitled: "Anarlog Pro is required for cloud sync.",

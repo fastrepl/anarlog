@@ -4,6 +4,13 @@ select plan(27);
 select tests.create_supabase_user('enrollment_owner', 'enrollment-owner@example.com');
 select tests.create_supabase_user('enrollment_other', 'enrollment-other@example.com');
 
+insert into public.workspaces (id, owner_user_id, kind, name)
+values ('04000000-0000-4000-8000-000000000001', tests.get_supabase_uid('enrollment_owner'), 'shared', 'Enrollment Team');
+insert into public.workspace_memberships (workspace_id, user_id, role)
+values ('04000000-0000-4000-8000-000000000001', tests.get_supabase_uid('enrollment_owner'), 'owner');
+select tests.enable_workspace_plan('04000000-0000-4000-8000-000000000001');
+
+
 select ok(
   not has_table_privilege(
     'authenticated',

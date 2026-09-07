@@ -441,6 +441,7 @@ export function SettingsSync() {
       credentialBlock === "approval_pending" ? STATUS_POLL_INTERVAL_MS : false,
     retry: false,
   });
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- Cache by account; rotating access tokens must not become cache keys.
   const devicesQuery = useQuery({
     queryKey: ["sync-devices", session?.user.id],
     queryFn: ({ signal }) => requestSyncDevices(session!.access_token, signal),
@@ -448,6 +449,14 @@ export function SettingsSync() {
     refetchInterval: (query) =>
       query.state.data?.pendingDevices.length ? 5_000 : false,
   });
+  const usedDeviceSlots = new Set([
+    ...(devicesQuery.data?.devices ?? []).map(
+      (device) => device.deviceFingerprint,
+    ),
+    ...(devicesQuery.data?.pendingDevices ?? []).map(
+      (device) => device.deviceFingerprint,
+    ),
+  ]).size;
   const deviceIdentityQuery = useQuery({
     queryKey: ["device-identity"],
     queryFn: getDeviceIdentity,
@@ -1053,6 +1062,11 @@ export function SettingsSync() {
         <div className="mb-4 flex items-center justify-between gap-4">
           <h2 className="font-sans text-lg font-semibold">
             <Trans>Devices</Trans>
+            {devicesQuery.data && (
+              <span className="text-muted-foreground ml-2 font-normal">
+                {usedDeviceSlots} / {devicesQuery.data.maxDevices}
+              </span>
+            )}
           </h2>
           <Button
             variant="outline"
