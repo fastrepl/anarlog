@@ -152,3 +152,7 @@ const PROVIDER_ICONS: Record<string, { light: number; dark: number }> = {
 export function providerIconSource(provider: string, scheme: "light" | "dark") {
   return PROVIDER_ICONS[provider]?.[scheme];
 }
+
+export function providerIconArtworkSize(provider: string, size: number) {
+  return provider === "soniox" ? size : size * 0.6;
+}

@@ -1,8 +1,11 @@
-import { Icon } from "@expo/ui";
+import { Column, Icon } from "@expo/ui";
 import { Image } from "@expo/ui/jetpack-compose";
 import { size as iconSize } from "@expo/ui/jetpack-compose/modifiers";
 
-import { providerIconSource } from "./provider-icon-assets";
+import {
+  providerIconArtworkSize,
+  providerIconSource,
+} from "./provider-icon-assets";
 import { useAppColorScheme, useColors } from "./theme-provider";
 
 export function ProviderIcon({
@@ -15,20 +18,31 @@ export function ProviderIcon({
   const scheme = useAppColorScheme();
   const Colors = useColors();
   const source = providerIconSource(provider, scheme);
-  return source ? (
-    <Image
-      source={source}
-      contentDescription={null}
-      modifiers={[iconSize(size, size)]}
-    />
-  ) : (
-    <Icon
-      name={Icon.select({
-        ios: "shuffle",
-        android: import("@expo/material-symbols/shuffle.xml"),
-      })}
-      size={size}
-      color={Colors.muted}
-    />
+  const artworkSize = providerIconArtworkSize(provider, size);
+  return (
+    <Column
+      alignment="center"
+      style={{
+        width: size,
+        paddingVertical: (size - artworkSize) / 2,
+      }}
+    >
+      {source ? (
+        <Image
+          source={source}
+          contentDescription={null}
+          modifiers={[iconSize(artworkSize, artworkSize)]}
+        />
+      ) : (
+        <Icon
+          name={Icon.select({
+            ios: "shuffle",
+            android: import("@expo/material-symbols/shuffle.xml"),
+          })}
+          size={artworkSize}
+          color={Colors.muted}
+        />
+      )}
+    </Column>
   );
 }

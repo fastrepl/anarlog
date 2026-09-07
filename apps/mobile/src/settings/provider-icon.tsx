@@ -1,7 +1,10 @@
-import { Icon, RNHostView } from "@expo/ui";
+import { Column, Icon, RNHostView } from "@expo/ui";
 import { Image } from "react-native";
 
-import { providerIconSource } from "./provider-icon-assets";
+import {
+  providerIconArtworkSize,
+  providerIconSource,
+} from "./provider-icon-assets";
 import { useAppColorScheme } from "./theme-provider";
 
 export function ProviderIcon({
@@ -12,15 +15,26 @@ export function ProviderIcon({
   size?: number;
 }) {
   const source = providerIconSource(provider, useAppColorScheme());
-  return source ? (
-    <RNHostView matchContents>
-      <Image
-        source={source}
-        style={{ width: size, height: size }}
-        accessible={false}
-      />
-    </RNHostView>
-  ) : (
-    <Icon name="shuffle" size={size} />
+  const artworkSize = providerIconArtworkSize(provider, size);
+  return (
+    <Column
+      alignment="center"
+      style={{
+        width: size,
+        paddingVertical: (size - artworkSize) / 2,
+      }}
+    >
+      {source ? (
+        <RNHostView matchContents>
+          <Image
+            source={source}
+            style={{ width: artworkSize, height: artworkSize }}
+            accessible={false}
+          />
+        </RNHostView>
+      ) : (
+        <Icon name="shuffle" size={artworkSize} />
+      )}
+    </Column>
   );
 }
