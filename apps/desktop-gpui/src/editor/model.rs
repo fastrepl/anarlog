@@ -303,6 +303,26 @@ impl Doc {
         out
     }
 
+    /// `serializeClipboardText`: the selection's text with textblocks joined
+    /// by a blank line (`BLOCK_SEPARATOR`).
+    pub fn clipboard_text_between(&self, from: Caret, to: Caret) -> String {
+        let (from, to) = order(from, to);
+        if from.block == to.block {
+            return self.text_between(from, to);
+        }
+        let mut out = String::new();
+        let first = self.text(from.block);
+        out.push_str(&first[from.offset.min(first.len())..]);
+        for block in from.block + 1..to.block {
+            out.push_str("\n\n");
+            out.push_str(&self.text(block));
+        }
+        out.push_str("\n\n");
+        let last = self.text(to.block);
+        out.push_str(&last[..to.offset.min(last.len())]);
+        out
+    }
+
     /// `deleteSelection`: removes everything between two carets, joining the
     /// end block into the start block. Returns the collapsed caret.
     pub fn delete_between(&mut self, from: Caret, to: Caret) -> Caret {

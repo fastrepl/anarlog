@@ -991,13 +991,17 @@ impl BodyEditor {
 
     fn on_copy(&mut self, _: &Copy, _: &mut Window, cx: &mut Context<Self>) {
         if let Some((from, to)) = self.selection() {
-            cx.write_to_clipboard(ClipboardItem::new_string(self.doc.text_between(from, to)));
+            cx.write_to_clipboard(ClipboardItem::new_string(
+                self.doc.clipboard_text_between(from, to),
+            ));
         }
     }
 
     fn on_cut(&mut self, _: &Cut, _: &mut Window, cx: &mut Context<Self>) {
         if let Some((from, to)) = self.selection() {
-            cx.write_to_clipboard(ClipboardItem::new_string(self.doc.text_between(from, to)));
+            cx.write_to_clipboard(ClipboardItem::new_string(
+                self.doc.clipboard_text_between(from, to),
+            ));
             self.record_edit(EditKind::Structural);
             self.delete_selection();
             self.changed(cx);
@@ -1391,9 +1395,11 @@ impl EntityInputHandler for BodyEditor {
         });
         self.anchor = None;
         self.marked_range = None;
-        // Newlines pasted into a textblock become new blocks, as in ProseMirror.
+        // Newlines pasted into a textblock become new blocks, as in
+        // ProseMirror's `clipboardTextParser`: `text.split(/(?:\r\n?|\n)+/)`,
+        // so a run of line breaks makes one paragraph boundary.
         let mut first = true;
-        for line in new_text.split('\n') {
+        for line in split_pasted_lines(new_text) {
             if !first && let Some(caret) = self.caret {
                 self.caret = Some(self.doc.split_block(caret));
             }
@@ -1511,4 +1517,42 @@ fn next_boundary(text: &str, offset: usize) -> usize {
     text.grapheme_indices(true)
         .find_map(|(index, _)| (index > offset).then_some(index))
         .unwrap_or(text.len())
+}
+
+/// ProseMirror's default `clipboardTextParser` split: each maximal run of
+/// `\r\n`, `\r` or `\n` separates paragraphs (empty ends included).
+fn split_pasted_lines(text: &str) -> Vec<&str> {
+    let mut lines = Vec::new();
+    let mut start = 0;
+    let mut in_break = false;
+    for (index, character) in text.char_indices() {
+        let is_break = character == '\n' || character == '\r';
+        if is_break && !in_break {
+            lines.push(&text[start..index]);
+            in_break = true;
+        } else if !is_break && in_break {
+            start = index;
+            in_break = false;
+        }
+    }
+    if in_break {
+        lines.push("");
+    } else {
+        lines.push(&text[start..]);
+    }
+    lines
+}
+
+#[cfg(test)]
+mod paste_tests {
+    use super::split_pasted_lines;
+
+    #[test]
+    fn pasted_lines_split_on_runs_of_line_breaks() {
+        assert_eq!(split_pasted_lines("a\n\nb"), vec!["a", "b"]);
+        assert_eq!(split_pasted_lines("a\r\nb\nc"), vec!["a", "b", "c"]);
+        assert_eq!(split_pasted_lines("\na\n"), vec!["", "a", ""]);
+        assert_eq!(split_pasted_lines("plain"), vec!["plain"]);
+        assert_eq!(split_pasted_lines(""), vec![""]);
+    }
 }
