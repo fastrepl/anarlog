@@ -29,6 +29,13 @@ const IP_RATE_LIMIT_BUCKETS: u64 = 4096;
 const UNKNOWN_CLIENT_IP_BUCKET: u16 = IP_RATE_LIMIT_BUCKETS as u16;
 const MAX_RATE_LIMIT_QUEUE_WAIT: std::time::Duration = std::time::Duration::from_secs(1);
 
+pub fn device_management_quota() -> Quota {
+    // Five devices can poll the roster every five seconds and enrollment every fifteen seconds.
+    Quota::with_period(std::time::Duration::from_millis(500))
+        .unwrap()
+        .allow_burst(std::num::NonZeroU32::new(20).unwrap())
+}
+
 #[derive(Clone)]
 pub struct IpRateLimitState {
     limiter: Arc<IpKeyedLimiter>,
@@ -232,6 +239,23 @@ fn trusted_client_ip(headers: &HeaderMap) -> Option<IpAddr> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn device_quota_sustains_five_devices_polling_without_removing_the_limit() {
+        let clock = governor::clock::FakeRelativeClock::default();
+        let limiter = RateLimiter::direct_with_clock(device_management_quota(), clock.clone());
+        for seconds in (0..120).step_by(5) {
+            let requests = if seconds % 15 == 0 { 10 } else { 5 };
+            for _ in 0..requests {
+                assert!(
+                    limiter.check().is_ok(),
+                    "normal polling throttled at {seconds}s"
+                );
+            }
+            clock.advance(std::time::Duration::from_secs(5));
+        }
+        assert!((0..21).any(|_| limiter.check().is_err()));
+    }
 
     #[test]
     fn limits_repeated_requests_per_user() {

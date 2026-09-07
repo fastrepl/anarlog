@@ -87,7 +87,14 @@ export default function SyncSettings() {
             "identity_mismatch",
             "approval_pending",
           ].includes(snapshot.phase) && (
-            <Button label="Try again" onPress={retryMobileSync} />
+            <Button
+              label={
+                snapshot.phase === "approval_pending"
+                  ? "Check approval"
+                  : "Try again"
+              }
+              onPress={retryMobileSync}
+            />
           )}
         {snapshot.phase === "reauth_required" && (
           <SettingsRow

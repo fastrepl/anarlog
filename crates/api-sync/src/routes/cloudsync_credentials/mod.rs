@@ -159,6 +159,18 @@ pub(super) fn replica_router() -> Router<ReplicaState> {
     Router::new()
         .route("/replica/credentials", post(create_replica_credentials))
         .route("/e2ee/identity", put(claim_e2ee_identity))
+        .route(
+            "/e2ee/workspaces/{workspace_id}/recipients",
+            get(get_workspace_e2ee_key_recipients),
+        )
+        .route(
+            "/e2ee/workspaces/{workspace_id}/key",
+            put(set_workspace_e2ee_key),
+        )
+}
+
+pub(super) fn device_router() -> Router<ReplicaState> {
+    Router::new()
         .route("/devices", get(get_devices))
         .route(
             "/devices/{fingerprint}",
@@ -175,14 +187,6 @@ pub(super) fn replica_router() -> Router<ReplicaState> {
         .route(
             "/e2ee/device-enrollments/{request_id}/consume",
             post(consume_e2ee_device_enrollment),
-        )
-        .route(
-            "/e2ee/workspaces/{workspace_id}/recipients",
-            get(get_workspace_e2ee_key_recipients),
-        )
-        .route(
-            "/e2ee/workspaces/{workspace_id}/key",
-            put(set_workspace_e2ee_key),
         )
 }
 

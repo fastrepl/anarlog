@@ -37,6 +37,10 @@ pub fn replica_router(state: ReplicaState) -> Router {
     cloudsync_credentials::replica_router().with_state(state)
 }
 
+pub fn device_router(state: ReplicaState) -> Router {
+    cloudsync_credentials::device_router().with_state(state)
+}
+
 pub fn session_share_router(state: AppState) -> Router {
     session_shares::router()
         .merge(shared_attachments::router())

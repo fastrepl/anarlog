@@ -81,7 +81,7 @@ test("prioritizes active and pending sync detail", () => {
   );
 });
 
-test("keeps device approval in the background", () => {
+test("explains the required desktop approval instead of implying sync will finish unaided", () => {
   const presentation = syncStatusPresentation({
     ...ready,
     phase: "approval_pending",
@@ -89,7 +89,10 @@ test("keeps device approval in the background", () => {
     lastSyncAtMs: null,
   });
 
-  assert.equal(presentation.title, "Connecting this device");
-  assert.match(presentation.description, /Keep working here/);
+  assert.equal(presentation.title, "Approve this device on desktop");
+  assert.match(presentation.description, /same account/);
+  assert.match(presentation.description, /Settings → Sync → Devices/);
+  assert.match(presentation.description, /Sync will start automatically/);
   assert.equal(presentation.healthy, false);
+  assert.equal(presentation.pending, true);
 });

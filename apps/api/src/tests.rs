@@ -480,10 +480,39 @@ async fn sync_composition_allows_non_pro_web_edits_but_keeps_other_routes_pro_on
             test_sync_rate_limit(10),
             test_sync_rate_limit(10),
             test_sync_rate_limit(10),
+            test_sync_rate_limit(10),
             AuthState::new(&server.uri()),
         ),
     );
     let token = non_pro_token();
+    for (method, path) in [
+        (Method::GET, "/sync/devices"),
+        (Method::POST, "/sync/e2ee/device-enrollments"),
+        (
+            Method::POST,
+            "/sync/e2ee/device-enrollments/11111111-1111-4111-8111-111111111111/seal",
+        ),
+        (
+            Method::POST,
+            "/sync/e2ee/device-enrollments/11111111-1111-4111-8111-111111111111/consume",
+        ),
+    ] {
+        let request = |authenticated| {
+            let mut builder = Request::builder().method(method.clone()).uri(path);
+            if authenticated {
+                builder = builder.header(header::AUTHORIZATION, format!("Bearer {token}"));
+            }
+            builder.body(Body::empty()).unwrap()
+        };
+        assert_eq!(
+            app.clone().oneshot(request(false)).await.unwrap().status(),
+            StatusCode::UNAUTHORIZED,
+        );
+        assert_eq!(
+            app.clone().oneshot(request(true)).await.unwrap().status(),
+            StatusCode::FORBIDDEN,
+        );
+    }
     let web_edit_response = app
         .clone()
         .oneshot(
@@ -552,7 +581,7 @@ async fn sync_composition_allows_non_pro_web_edits_but_keeps_other_routes_pro_on
 }
 
 #[tokio::test]
-async fn sync_composition_keeps_sharing_available_when_cloudsync_is_rate_limited() {
+async fn sync_composition_keeps_devices_and_sharing_available_when_credentials_are_rate_limited() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/auth/v1/.well-known/jwks.json"))
@@ -582,11 +611,23 @@ async fn sync_composition_keeps_sharing_available_when_cloudsync_is_rate_limited
 
     let sync_state = test_sync_state(&server);
     let replica_state = test_replica_state(&server);
+    for route in [
+        "/rest/v1/sync_devices",
+        "/rest/v1/e2ee_device_enrollment_requests",
+    ] {
+        Mock::given(method("GET"))
+            .and(path(route))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+            .expect(1)
+            .mount(&server)
+            .await;
+    }
     let app = Router::new().nest(
         "/sync",
         build_sync_routes(
             Some(sync_state),
             replica_state,
+            test_sync_rate_limit(1),
             test_sync_rate_limit(1),
             test_sync_rate_limit(1),
             test_sync_rate_limit(1),
@@ -609,6 +650,20 @@ async fn sync_composition_keeps_sharing_available_when_cloudsync_is_rate_limited
     let second_cloudsync_response = app.clone().oneshot(cloudsync_request()).await.unwrap();
     assert_eq!(
         second_cloudsync_response.status(),
+        StatusCode::TOO_MANY_REQUESTS
+    );
+
+    let devices_request = || {
+        Request::get("/sync/devices")
+            .header(header::AUTHORIZATION, format!("Bearer {token}"))
+            .body(Body::empty())
+            .unwrap()
+    };
+    let devices_response = app.clone().oneshot(devices_request()).await.unwrap();
+    assert_eq!(devices_response.status(), StatusCode::OK);
+    let limited_devices_response = app.clone().oneshot(devices_request()).await.unwrap();
+    assert_eq!(
+        limited_devices_response.status(),
         StatusCode::TOO_MANY_REQUESTS
     );
 

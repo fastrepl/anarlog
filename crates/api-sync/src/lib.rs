@@ -8,8 +8,8 @@ mod state;
 pub use config::{ReplicaConfig, SharedNotesConfig, SyncConfig, SyncEnv};
 pub use error::{Result, SyncError};
 pub use routes::{
-    cloudsync_router, e2ee_witness_router, openapi, replica_router, session_share_router,
-    web_edit_router,
+    cloudsync_router, device_router, e2ee_witness_router, openapi, replica_router,
+    session_share_router, web_edit_router,
 };
 pub use shared_notes::{
     SharedNotesState, authenticated_router as authenticated_shared_notes_router,

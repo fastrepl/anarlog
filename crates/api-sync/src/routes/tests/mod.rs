@@ -46,6 +46,7 @@ fn test_router_with_protocol(
     });
     cloudsync_router(state.clone())
         .merge(replica_router(state.replica.clone()))
+        .merge(device_router(state.replica.clone()))
         .merge(session_share_router(state.clone()))
         .merge(web_edit_router(state))
         .layer(Extension(AuthContext {

@@ -80,6 +80,7 @@ fn build_sync_routes(
     state: Option<anlg_api_sync::AppState>,
     replica_state: anlg_api_sync::ReplicaState,
     cloudsync_rate_limit_state: rate_limit::RateLimitState,
+    device_rate_limit_state: rate_limit::RateLimitState,
     session_share_rate_limit_state: rate_limit::RateLimitState,
     witness_rate_limit_state: rate_limit::RateLimitState,
     auth_state: AuthState,
@@ -87,6 +88,16 @@ fn build_sync_routes(
     let replica_routes = anlg_api_sync::replica_router(replica_state.clone())
         .route_layer(middleware::from_fn_with_state(
             cloudsync_rate_limit_state.clone(),
+            rate_limit::rate_limit,
+        ))
+        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
+        .route_layer(middleware::from_fn_with_state(
+            auth_state.clone().with_required_entitlement("hyprnote_pro"),
+            auth::require_auth,
+        ));
+    let device_routes = anlg_api_sync::device_router(replica_state.clone())
+        .route_layer(middleware::from_fn_with_state(
+            device_rate_limit_state,
             rate_limit::rate_limit,
         ))
         .route_layer(middleware::from_fn(auth::sentry_and_analytics))
@@ -104,7 +115,7 @@ fn build_sync_routes(
             auth_state.clone().with_required_entitlement("hyprnote_pro"),
             auth::require_auth,
         ));
-    let replica_routes = replica_routes.merge(witness_routes);
+    let replica_routes = replica_routes.merge(device_routes).merge(witness_routes);
 
     let Some(state) = state else {
         return replica_routes;
@@ -200,6 +211,11 @@ async fn app_with_session_gate(
             .build()
     };
     let cloudsync_rate_limit = build_sync_rate_limit();
+    let device_quota = rate_limit::device_management_quota();
+    let device_rate_limit = rate_limit::RateLimitState::builder()
+        .pro(device_quota)
+        .free(device_quota)
+        .build();
     let session_share_rate_limit = build_sync_rate_limit();
     let e2ee_witness_rate_limit = rate_limit::RateLimitState::builder()
         .pro(
@@ -348,6 +364,7 @@ async fn app_with_session_gate(
         sync_state,
         replica_state,
         cloudsync_rate_limit,
+        device_rate_limit,
         session_share_rate_limit,
         e2ee_witness_rate_limit,
         auth_state.clone(),
