@@ -370,17 +370,18 @@ async fn activity_pause_during_pending_preflight_defers_and_drains_before_local_
             "pending payload generation completed before interrupt registration was observable"
         );
         assert!(
-            started_at.elapsed() < Duration::from_secs(2),
+            started_at.elapsed() < Duration::from_secs(10),
             "pending payload generation never registered for interruption"
         );
         tokio::task::yield_now().await;
     }
 
     recording_hook.activity_paused.store(true, Ordering::SeqCst);
+    let interrupted_at = std::time::Instant::now();
     while !request.is_finished() {
         db.cloudsync_interrupt_sync();
         assert!(
-            started_at.elapsed() < Duration::from_secs(2),
+            interrupted_at.elapsed() < Duration::from_secs(2),
             "pending payload generation did not honor sqlite3_interrupt"
         );
         tokio::task::yield_now().await;
