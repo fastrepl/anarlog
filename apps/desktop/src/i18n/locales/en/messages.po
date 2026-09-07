@@ -1189,14 +1189,6 @@ msgstr "Cloud sync delayed"
 msgid "Cloud sync identity mismatch"
 msgstr "Cloud sync identity mismatch"
 
-#: src/auth/cloudsync.ts
-msgid "Cloud sync is limited to 5 devices. Remove another device to sync here."
-msgstr "Cloud sync is limited to 5 devices. Remove another device to sync here."
-
-#: src/auth/cloudsync.ts
-msgid "Cloud sync is limited to 5 devices. Replace or remove another device to sync here."
-msgstr "Cloud sync is limited to 5 devices. Replace or remove another device to sync here."
-
 #: src/main/sync-status.tsx
 msgid "Cloud sync resumes after this meeting finishes processing"
 msgstr "Cloud sync resumes after this meeting finishes processing"
@@ -5753,6 +5745,14 @@ msgstr "Your notes remain available locally."
 #: src/settings/sync/index.tsx
 msgid "Your notes remain available locally. Try again in a moment."
 msgstr "Your notes remain available locally. Try again in a moment."
+
+#: src/auth/cloudsync.ts
+msgid "Your plan’s sync device limit is reached. Remove another device to sync here."
+msgstr "Your plan’s sync device limit is reached. Remove another device to sync here."
+
+#: src/auth/cloudsync.ts
+msgid "Your plan’s sync device limit is reached. Replace or remove another device to sync here."
+msgstr "Your plan’s sync device limit is reached. Replace or remove another device to sync here."
 
 #: src/billing/trial-payment-reminder-dialog.tsx
 msgid "Your Pro trial ends in {daysRemaining} days"
