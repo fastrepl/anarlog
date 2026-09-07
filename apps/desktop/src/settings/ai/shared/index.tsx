@@ -728,12 +728,12 @@ export function NonAnarlogProviderCard({
 }
 
 function ProviderBadge({ badge }: { badge: string }) {
-  const isBatchOnly = badge === "Batch only";
+  const isAfterRecording = badge === "After recording";
   const badgeNode = (
     <span
       className={cn([
         "text-muted-foreground normal-case",
-        isBatchOnly
+        isAfterRecording
           ? "bg-background/40 cursor-help rounded-md px-1.5 py-0.5 text-[11px] font-medium"
           : "border-border rounded-full border px-2 text-xs font-light",
       ])}
@@ -742,7 +742,7 @@ function ProviderBadge({ badge }: { badge: string }) {
     </span>
   );
 
-  if (!isBatchOnly) {
+  if (!isAfterRecording) {
     return badgeNode;
   }
 

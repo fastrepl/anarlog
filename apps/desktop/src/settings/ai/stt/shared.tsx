@@ -491,7 +491,7 @@ const _PROVIDERS = [
     disabled: false,
     id: "openrouter",
     displayName: "OpenRouter",
-    badge: "Batch only",
+    badge: "After recording",
     icon: <ProviderLobeIcon icon={OpenRouter} />,
     baseUrl: "https://openrouter.ai/api/v1",
     models: [
@@ -549,7 +549,7 @@ const _PROVIDERS = [
     disabled: false,
     id: "zai",
     displayName: "Z.AI",
-    badge: "Batch only",
+    badge: "After recording",
     icon: <ProviderLobeIcon icon={ZAI} />,
     baseUrl: "https://api.z.ai/api/paas/v4",
     models: ["glm-asr-2512"],
@@ -569,7 +569,7 @@ const _PROVIDERS = [
     disabled: false,
     id: "siliconflow",
     displayName: "SiliconFlow",
-    badge: "Batch only",
+    badge: "After recording",
     icon: <ProviderLobeIcon icon={SiliconCloud} />,
     baseUrl: "https://api.siliconflow.com/v1",
     models: ["FunAudioLLM/SenseVoiceSmall", "TeleAI/TeleSpeechASR"],
@@ -589,7 +589,7 @@ const _PROVIDERS = [
     disabled: false,
     id: "groq",
     displayName: "Groq",
-    badge: "Batch only",
+    badge: "After recording",
     icon: <ProviderLobeIcon icon={Groq} />,
     baseUrl: "https://api.groq.com/openai/v1",
     models: ["whisper-large-v3-turbo", "whisper-large-v3"],
@@ -651,7 +651,7 @@ const _PROVIDERS = [
     disabled: false,
     id: "together",
     displayName: "Together AI",
-    badge: "Batch only",
+    badge: "After recording",
     icon: <ProviderLobeIcon icon={Together} />,
     baseUrl: "https://api.together.xyz/v1",
     models: [
@@ -676,7 +676,7 @@ const _PROVIDERS = [
     disabled: false,
     id: "speechmatics",
     displayName: "Speechmatics",
-    badge: "Batch only",
+    badge: "After recording",
     icon: (
       <ProviderBrandImage
         src="/assets/speechmatics-mark.svg"
@@ -701,7 +701,7 @@ const _PROVIDERS = [
     disabled: false,
     id: "azure_speech",
     displayName: "Azure AI Speech",
-    badge: "Batch only",
+    badge: "After recording",
     icon: <ProviderLobeIcon icon={Azure} />,
     baseUrl: undefined,
     models: ["fast-transcription"],
@@ -785,7 +785,7 @@ const _PROVIDERS = [
     disabled: false,
     id: "revai",
     displayName: "Rev AI",
-    badge: "Batch only",
+    badge: "After recording",
     icon: <ProviderBrandImage src="/assets/revai-mark.svg" alt="Rev AI" />,
     baseUrl: "https://api.rev.ai/speechtotext/v1",
     models: ["machine"],
@@ -933,7 +933,7 @@ const _PROVIDERS = [
     disabled: false,
     id: "pyannote",
     displayName: "pyannoteAI",
-    badge: "Batch only",
+    badge: "After recording",
     icon: (
       <ProviderBrandImage
         src="/assets/pyannote-logo-black.png"
@@ -958,7 +958,7 @@ const _PROVIDERS = [
     disabled: false,
     id: "aquavoice",
     displayName: "AquaVoice",
-    badge: "Batch only",
+    badge: "After recording",
     icon: (
       <ProviderBrandImage
         src="/assets/aquavoice-black.png"
@@ -984,7 +984,7 @@ const _PROVIDERS = [
     disabled: false,
     id: "cohere",
     displayName: "Cohere",
-    badge: "Batch only",
+    badge: "After recording",
     icon: <ProviderLobeIcon icon={Cohere} />,
     baseUrl: "https://api.cohere.com/v2",
     models: ["cohere-transcribe-03-2026", "cohere-transcribe-arabic-07-2026"],

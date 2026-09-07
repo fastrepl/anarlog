@@ -142,7 +142,7 @@ describe("STT model display labels", () => {
       "azure_speech",
       "revai",
     ]) {
-      expect(providers[provider]?.badge).toBe("Batch only");
+      expect(providers[provider]?.badge).toBe("After recording");
     }
     expect(providers.aquavoice.baseUrl).toBe("https://api.aquavoice.com/v1");
     expect(providers.aquavoice.models).toEqual(["avalon-v1.5"]);
