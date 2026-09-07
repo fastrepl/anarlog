@@ -872,7 +872,7 @@ const _PROVIDERS = [
       <ProviderBrandImage
         src="/assets/soniox-black.png"
         alt="Soniox"
-        className="rounded-xs"
+        className="scale-[var(--soniox-icon-scale,1)] rounded-xs"
       />
     ),
     baseUrl: "https://api.soniox.com",
