@@ -165,10 +165,8 @@ describe("STT model display labels", () => {
     expect(
       "builtIn" in providers.local_file && providers.local_file.builtIn,
     ).toBe(true);
-    expect(providers.local_file.displayName).toBe("On-device file");
-    expect(
-      "description" in providers.local_file && providers.local_file.description,
-    ).toBe("whisper.cpp .bin");
+    expect(providers.local_file.displayName).toBe("BYO-model");
+    expect(providers.local_file).not.toHaveProperty("description");
     expect(providers.local_file.badge).toBe("On device");
   });
 
