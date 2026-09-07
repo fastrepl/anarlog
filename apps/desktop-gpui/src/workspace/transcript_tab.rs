@@ -89,7 +89,7 @@ impl Workspace {
     /// `element.scrollTo({ top, behavior: "smooth" })` for the transcript
     /// viewer: ease the offset from where it is to `target_top` (a positive
     /// scroll top).
-    fn smooth_scroll_transcript(&mut self, target_top: Pixels, cx: &mut Context<Self>) {
+    pub(super) fn smooth_scroll_transcript(&mut self, target_top: Pixels, cx: &mut Context<Self>) {
         let handle = self.transcript_view.scroll.clone();
         let max = handle.max_offset().height;
         let target = -target_top.max(px(0.0)).min(max);
@@ -584,6 +584,18 @@ impl Workspace {
         let hover_seekable = audio_exists && hovered_word.is_some_and(|word| word.seekable);
         if let Some(range) = selected_text.clone() {
             highlights.push(super::transcript_selection::selection_highlight(range));
+        }
+        // `WordSpan`'s `highlightSegments` from the find bar.
+        if self.note_search.is_some() {
+            for (index, word) in segment.words.iter().enumerate() {
+                highlights.extend(self.note_search_word_highlights(
+                    &segment.id,
+                    index,
+                    &word.text,
+                    word.range.clone(),
+                    cx,
+                ));
+            }
         }
 
         let text = ProseText::with_layout(

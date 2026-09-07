@@ -363,6 +363,7 @@ impl Workspace {
                         cx.notify();
                     }
                     TextInputEvent::Committed => cx.notify(),
+                    TextInputEvent::ShiftEnter | TextInputEvent::ModEnter => {}
                 },
             )
             .detach();
@@ -3166,7 +3167,10 @@ impl Workspace {
                             this.close_select(cx);
                             this.focus_handle.focus(window);
                         }
-                        TextInputEvent::Committed | TextInputEvent::BackspaceEmpty => {}
+                        TextInputEvent::Committed
+                        | TextInputEvent::BackspaceEmpty
+                        | TextInputEvent::ShiftEnter
+                        | TextInputEvent::ModEnter => {}
                     }
                 },
             )

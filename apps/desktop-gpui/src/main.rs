@@ -14,6 +14,7 @@ mod emoji;
 mod folders;
 mod live_transcript;
 mod mention;
+mod note_search;
 mod prose_text;
 mod recording;
 mod search;

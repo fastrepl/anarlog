@@ -146,6 +146,17 @@ pub struct BodyEditor {
     /// trigger position until the caret leaves it.
     mention_dismissed: Option<(usize, usize)>,
     mention_search: Option<mention_picker::Search>,
+    /// `prosemirror-search`'s `SearchQuery` set by the find bar: matches are
+    /// decorated in every textblock.
+    search: Option<SearchSpec>,
+}
+
+/// The find bar's query as `setSearch` / `replace` hand it to the editor.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SearchSpec {
+    pub query: String,
+    pub case_sensitive: bool,
+    pub whole_word: bool,
 }
 
 impl EventEmitter<EditorEvent> for BodyEditor {}
@@ -173,7 +184,134 @@ impl BodyEditor {
             mention: None,
             mention_dismissed: None,
             mention_search: None,
+            search: None,
         }
+    }
+
+    /// `setSearch(query, caseSensitive)`: decorate the matches of `spec`
+    /// (`None` clears them).
+    pub fn set_search(&mut self, spec: Option<SearchSpec>, cx: &mut Context<Self>) {
+        let spec = spec.filter(|spec| !spec.query.trim().is_empty());
+        if self.search != spec {
+            self.search = spec;
+            cx.notify();
+        }
+    }
+
+    /// Every match of the current search as `(textblock, byte range)` in
+    /// document order.
+    pub fn search_matches(&self) -> Vec<(usize, Range<usize>)> {
+        let Some(spec) = &self.search else {
+            return Vec::new();
+        };
+        let query = crate::note_search::prepare_query(&spec.query, spec.case_sensitive);
+        if query.is_empty() {
+            return Vec::new();
+        }
+        let mut matches = Vec::new();
+        for block in 0..self.doc.textblock_count() {
+            let raw = self.doc.text(block);
+            let text = crate::note_search::prepare_text(&raw, spec.case_sensitive);
+            if text.len() != raw.len() {
+                // Case folding changed byte lengths: match on the folded text
+                // and map back through character counts.
+                let starts = crate::note_search::find_occurrences(&text, &query, spec.whole_word);
+                let boundaries: Vec<usize> = raw
+                    .char_indices()
+                    .map(|(i, _)| i)
+                    .chain(std::iter::once(raw.len()))
+                    .collect();
+                for start in starts {
+                    let from = text[..start].chars().count();
+                    let to = text[..start + query.len()].chars().count();
+                    if let (Some(&from), Some(&to)) = (boundaries.get(from), boundaries.get(to)) {
+                        matches.push((block, from..to));
+                    }
+                }
+                continue;
+            }
+            for start in crate::note_search::find_occurrences(&text, &query, spec.whole_word) {
+                matches.push((block, start..start + query.len()));
+            }
+        }
+        matches
+    }
+
+    /// The `.ProseMirror-search-match` ranges of `block`, and whether each
+    /// is the `.ProseMirror-active-search-match` (the selection covers it).
+    pub fn search_ranges_in_block(&self, block: usize) -> Vec<(Range<usize>, bool)> {
+        let selection = self.selection();
+        self.search_matches()
+            .into_iter()
+            .filter(|(b, _)| *b == block)
+            .map(|(_, range)| {
+                let active = selection.is_some_and(|(from, to)| {
+                    from.block == block
+                        && to.block == block
+                        && from.offset == range.start
+                        && to.offset == range.end
+                });
+                (range, active)
+            })
+            .collect()
+    }
+
+    /// `commands.replace`: `replaceAll`, or `findNext` from the selection
+    /// `match_index` times and `replaceCurrent` on that match.
+    pub fn replace_search(
+        &mut self,
+        replacement: &str,
+        all: bool,
+        match_index: usize,
+        cx: &mut Context<Self>,
+    ) {
+        let matches = self.search_matches();
+        if matches.is_empty() {
+            return;
+        }
+        self.record_edit(EditKind::Structural);
+        if all {
+            // Back to front so earlier offsets stay valid.
+            for (block, range) in matches.iter().rev() {
+                self.doc.delete_range(*block, range.clone());
+                self.doc.insert_text(
+                    Caret {
+                        block: *block,
+                        offset: range.start,
+                    },
+                    replacement,
+                );
+            }
+            if let Some((block, range)) = matches.last() {
+                self.caret = Some(Caret {
+                    block: *block,
+                    offset: range.start + replacement.len(),
+                });
+            }
+        } else {
+            // `findNext(state)` starts at the selection's end and wraps.
+            let from = self
+                .caret
+                .map(|caret| (caret.block, caret.offset))
+                .unwrap_or((0, 0));
+            let first = matches
+                .iter()
+                .position(|(block, range)| (*block, range.start) >= from)
+                .unwrap_or(0);
+            let (block, range) = matches[(first + match_index) % matches.len()].clone();
+            self.doc.delete_range(block, range.clone());
+            let caret = self.doc.insert_text(
+                Caret {
+                    block,
+                    offset: range.start,
+                },
+                replacement,
+            );
+            self.caret = Some(caret);
+        }
+        self.anchor = None;
+        self.clamp_caret();
+        self.changed(cx);
     }
 
     /// `mentionConfig`: how `@query` resolves to candidates.
@@ -393,6 +531,14 @@ impl BodyEditor {
         self.layouts = vec![None; self.doc.textblock_count()];
         self.clamp_caret();
         cx.notify();
+    }
+
+    /// The window bounds a textblock was last painted at.
+    pub fn block_bounds(&self, block: usize) -> Option<Bounds<Pixels>> {
+        self.layouts
+            .get(block)
+            .and_then(|slot| slot.as_ref())
+            .map(|(_, bounds)| *bounds)
     }
 
     pub fn record_layout(&mut self, block: usize, layout: ProseLayout, bounds: Bounds<Pixels>) {

@@ -114,7 +114,9 @@ impl Workspace {
                             this.remove_meeting_participant(last, cx);
                         }
                     }
-                    TextInputEvent::Committed => {}
+                    TextInputEvent::Committed
+                    | TextInputEvent::ShiftEnter
+                    | TextInputEvent::ModEnter => {}
                 }
             },
         )

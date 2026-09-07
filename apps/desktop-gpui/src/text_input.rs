@@ -30,6 +30,8 @@ actions!(
         Cut,
         Copy,
         Commit,
+        ShiftEnter,
+        ModEnter,
         Up,
         Down,
         Escape,
@@ -59,6 +61,8 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new(&format!("{m}-c"), Copy, ctx),
         KeyBinding::new(&format!("{m}-x"), Cut, ctx),
         KeyBinding::new("enter", Commit, ctx),
+        KeyBinding::new("shift-enter", ShiftEnter, ctx),
+        KeyBinding::new(&format!("{m}-enter"), ModEnter, ctx),
         KeyBinding::new("up", Up, ctx),
         KeyBinding::new("down", Down, ctx),
         KeyBinding::new("escape", Escape, ctx),
@@ -70,6 +74,9 @@ pub enum TextInputEvent {
     Changed,
     /// Enter, before the field blurs; fires whether or not there were edits.
     Enter,
+    /// Shift+Enter and Cmd/Ctrl+Enter, for fields that step or submit on them.
+    ShiftEnter,
+    ModEnter,
     /// Enter or blur after an edit.
     Committed,
     /// Backspace on an empty field, for chip inputs that pop the last chip.
@@ -124,6 +131,9 @@ pub struct TextInput {
     dirty: bool,
     was_focused: bool,
     scroll_offset: Pixels,
+    /// Enter emits `Enter` without blurring (a find field that steps to the
+    /// next match), instead of committing like a form field.
+    enter_keeps_focus: bool,
 }
 
 impl EventEmitter<TextInputEvent> for TextInput {}
@@ -154,7 +164,13 @@ impl TextInput {
             dirty: false,
             was_focused: false,
             scroll_offset: px(0.0),
+            enter_keeps_focus: false,
         }
+    }
+
+    pub fn enter_keeps_focus(mut self) -> Self {
+        self.enter_keeps_focus = true;
+        self
     }
 
     pub fn text(&self) -> &str {
@@ -197,9 +213,20 @@ impl TextInput {
 
     fn commit(&mut self, _: &Commit, window: &mut Window, cx: &mut Context<Self>) {
         cx.emit(TextInputEvent::Enter);
+        if self.enter_keeps_focus {
+            return;
+        }
         // `e.currentTarget.blur()`: the focus-out handler emits `Committed`.
         window.blur();
         self.blurred(window, cx);
+    }
+
+    fn shift_enter(&mut self, _: &ShiftEnter, _: &mut Window, cx: &mut Context<Self>) {
+        cx.emit(TextInputEvent::ShiftEnter);
+    }
+
+    fn mod_enter(&mut self, _: &ModEnter, _: &mut Window, cx: &mut Context<Self>) {
+        cx.emit(TextInputEvent::ModEnter);
     }
 
     fn up(&mut self, _: &Up, _: &mut Window, cx: &mut Context<Self>) {
@@ -804,6 +831,8 @@ impl Render for TextInput {
             .on_action(cx.listener(Self::cut))
             .on_action(cx.listener(Self::copy))
             .on_action(cx.listener(Self::commit))
+            .on_action(cx.listener(Self::shift_enter))
+            .on_action(cx.listener(Self::mod_enter))
             .on_action(cx.listener(Self::up))
             .on_action(cx.listener(Self::down))
             .on_action(cx.listener(Self::escape))

@@ -216,6 +216,7 @@ embedded!(
     "icons/play.svg",
     "icons/plugs-connected.svg",
     "icons/plus.svg",
+    "icons/repeat.svg",
     "icons/popover-tail-border.svg",
     "icons/popover-tail.svg",
     "icons/push-pin.svg",
@@ -232,7 +233,10 @@ embedded!(
     "icons/speaker-x.svg",
     "icons/square.svg",
     "icons/sun.svg",
+    "icons/swap.svg",
     "icons/text-align-left.svg",
+    "icons/text-aa.svg",
+    "icons/textbox.svg",
     "icons/tpl-activity.svg",
     "icons/tpl-alert.svg",
     "icons/tpl-bar-chart.svg",
@@ -361,6 +365,6 @@ mod tests {
         }
         assert!(Assets.load("icons/search.svg").unwrap().is_some());
         assert!(Assets.load("icons/missing.svg").unwrap().is_none());
-        assert_eq!(Assets.list("icons/").unwrap().len(), 180);
+        assert_eq!(Assets.list("icons/").unwrap().len(), 184);
     }
 }

@@ -279,7 +279,7 @@ impl DocumentRenderer {
                 canvas(
                     |_, _, _| (),
                     move |bounds, _, window, cx| {
-                        let (caret, selection) = paint_editor.update(cx, |editor, _| {
+                        let (caret, selection, matches) = paint_editor.update(cx, |editor, _| {
                             editor.record_layout(index, layout.clone(), bounds);
                             let focused = editor.is_focused(window);
                             (
@@ -287,8 +287,31 @@ impl DocumentRenderer {
                                     .caret()
                                     .filter(|caret| caret.block == index && focused),
                                 editor.selection_in_block(index).filter(|_| focused),
+                                editor.search_ranges_in_block(index),
                             )
                         });
+                        // `.ProseMirror-search-match` (`#ffff0054`) and
+                        // `.ProseMirror-active-search-match` (`#ff6a0054`).
+                        for (range, active) in matches {
+                            let color = if active {
+                                gpui::Rgba {
+                                    r: 1.0,
+                                    g: 0x6a as f32 / 255.0,
+                                    b: 0.0,
+                                    a: 0x54 as f32 / 255.0,
+                                }
+                            } else {
+                                gpui::Rgba {
+                                    r: 1.0,
+                                    g: 1.0,
+                                    b: 0.0,
+                                    a: 0x54 as f32 / 255.0,
+                                }
+                            };
+                            for span in layout.line_spans(range) {
+                                window.paint_quad(fill(span, color));
+                            }
+                        }
                         if let Some(range) = selection {
                             paint_selection(&layout, range, selection_color, window);
                         }

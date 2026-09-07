@@ -748,15 +748,44 @@ impl Workspace {
                 body.child(self.render_transcript(preview, window, cx))
             };
             // `session/index.tsx`: the top audio player sits above `NoteInput`
-            // in the session column (`shrink-0`, then `min-h-0 flex-1`).
+            // in the session column (`shrink-0`, then `min-h-0 flex-1`), and
+            // `NoteInput` opens with the find bar (`showSearchBar`).
+            let search_bar = self
+                .note_search_for(preview, tab, cx)
+                .then(|| self.render_note_search_bar(tab, cx))
+                .flatten();
             return div()
                 .id("note-column")
                 .h_full()
                 .flex()
                 .flex_col()
                 .children(self.render_top_audio_player(preview, cx))
-                .child(div().min_h_0().flex_1().child(body));
+                .child(
+                    div()
+                        .min_h_0()
+                        .flex_1()
+                        .flex()
+                        .flex_col()
+                        .children(search_bar)
+                        .child(div().min_h_0().flex_1().child(body)),
+                );
         }
+        let search_bar = self
+            .note_search_for(preview, tab, cx)
+            .then(|| self.render_note_search_bar(tab, cx))
+            .flatten();
+        // `NoteInput`: the find bar above the `relative flex-1 overflow-hidden`
+        // scroll column.
+        let with_search = |body: Stateful<Div>| match search_bar {
+            None => body,
+            Some(bar) => div()
+                .id("note-body-column")
+                .h_full()
+                .flex()
+                .flex_col()
+                .child(bar)
+                .child(div().min_h_0().flex_1().child(body)),
+        };
 
         // `overflow-y-auto` shows the 6px WebKit scrollbar inside the column.
         let body = div()
@@ -794,11 +823,13 @@ impl Workspace {
             // template suggestions float `top-8` over the empty editor.
             let suggestions = (pristine && !preview.has_transcript)
                 .then(|| self.render_template_suggestions(preview, cx));
-            return body.child(
-                div()
-                    .relative()
-                    .child(root.child(renderer.editable_root(&editor, children, cx)))
-                    .children(suggestions),
+            return with_search(
+                body.child(
+                    div()
+                        .relative()
+                        .child(root.child(renderer.editable_root(&editor, children, cx)))
+                        .children(suggestions),
+                ),
             );
         }
 
@@ -821,19 +852,21 @@ impl Workspace {
             && (self.provider_settings.llm_provider.is_none()
                 || self.provider_settings.llm_model.is_none())
         {
-            return body.child(self.render_summary_config_error(cx));
+            return with_search(body.child(self.render_summary_config_error(cx)));
         }
-        body.when(!has_content, |body| {
-            body.child(
-                div()
-                    .py(px(2.0))
-                    .text_color(theme.muted_foreground)
-                    .child("Start writing..."),
-            )
-        })
-        .when(has_content, |body| {
-            body.children(renderer.blocks(blocks, 0))
-        })
+        with_search(
+            body.when(!has_content, |body| {
+                body.child(
+                    div()
+                        .py(px(2.0))
+                        .text_color(theme.muted_foreground)
+                        .child("Start writing..."),
+                )
+            })
+            .when(has_content, |body| {
+                body.children(renderer.blocks(blocks, 0))
+            }),
+        )
     }
 }
 

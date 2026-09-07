@@ -17,6 +17,7 @@ mod meeting_info;
 mod mention_popup;
 mod menu;
 mod note;
+mod note_search_bar;
 pub(crate) mod onboarding;
 mod open_note;
 mod overflow;
@@ -235,6 +236,8 @@ pub struct Workspace {
     transcript_view: transcript_tab::TranscriptView,
     /// The "Ask anything" pill is hovered (it grows into the prompt bar).
     chat_cta_hovered: bool,
+    /// The find-in-note bar (`SearchProvider` state) while open.
+    note_search: Option<note_search_bar::NoteSearch>,
     /// The Dictionary page's term field and the row being edited.
     dictionary_input: Option<gpui::Entity<TextInput>>,
     dictionary_edit: Option<dictionary::DictionaryEdit>,
@@ -382,6 +385,7 @@ impl Workspace {
             audio_player: None,
             transcript_view: transcript_tab::TranscriptView::default(),
             chat_cta_hovered: false,
+            note_search: None,
             dictionary_input: None,
             dictionary_edit: None,
             chat_open: false,
@@ -1280,12 +1284,20 @@ impl Render for Workspace {
                     cx.propagate();
                 }
             }))
+            // `mod+f` / `mod+h` of the note's `SearchProvider`.
+            .on_action(cx.listener(|this, _: &actions::FocusSearch, window, cx| {
+                this.toggle_note_search(false, window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &actions::ToggleReplace, window, cx| {
+                this.toggle_note_search(true, window, cx);
+            }))
             .on_action(cx.listener(|this, _: &actions::Escape, window, cx| {
                 if this.close_open_menus(cx) {
                     return;
                 }
-                // `useHotkeys("esc")` in edit mode drops the section selection.
-                if this.clear_transcript_selection(cx) {
+                // `useHotkeys("esc")` in edit mode drops the section selection,
+                // and the `SearchProvider`'s closes the find bar.
+                if this.clear_transcript_selection(cx) || this.close_note_search(Some(cx)) {
                     return;
                 }
                 if !this.pending_delete_selected.is_empty() {

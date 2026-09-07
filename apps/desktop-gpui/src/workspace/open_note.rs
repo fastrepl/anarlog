@@ -59,7 +59,10 @@ impl Workspace {
                 TextInputEvent::Navigate(delta) => this.move_open_note_selection(*delta, cx),
                 TextInputEvent::Enter => this.choose_open_note_result(window, cx),
                 TextInputEvent::Escape => this.close_open_note_dialog(window, cx),
-                TextInputEvent::Committed | TextInputEvent::BackspaceEmpty => {}
+                TextInputEvent::Committed
+                | TextInputEvent::BackspaceEmpty
+                | TextInputEvent::ShiftEnter
+                | TextInputEvent::ModEnter => {}
             },
         )
         .detach();
