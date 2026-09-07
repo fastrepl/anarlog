@@ -3,6 +3,7 @@ pub mod fs;
 pub mod global;
 pub mod obsidian;
 mod runtime;
+pub mod shell;
 pub mod vault;
 pub mod windows_auth;
 

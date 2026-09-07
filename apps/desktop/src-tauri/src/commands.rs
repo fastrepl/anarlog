@@ -63,6 +63,26 @@ pub fn is_app_store_build() -> bool {
     cfg!(feature = "app-store")
 }
 
+/// Whether the GPUI sidecar is installed, so the settings toggle only shows
+/// on builds that actually ship the native shell.
+#[tauri::command]
+#[specta::specta]
+pub fn is_native_shell_available() -> bool {
+    crate::shell::gpui_binary().is_some()
+}
+
+/// Records the GPUI preference and relaunches; the launcher hands off to
+/// `anarlog-gpui` on the way back up. GPUI writes `tauri` to switch back.
+#[tauri::command]
+#[specta::specta]
+pub fn switch_to_native_shell<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
+    if !is_native_shell_available() {
+        return Err("native shell is not installed".into());
+    }
+    crate::shell::set_preferred(&app.config().identifier, anlg_storage::shell::Shell::Gpui)?;
+    app.restart();
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn complete_app_exit<R: tauri::Runtime>(app: tauri::AppHandle<R>) {

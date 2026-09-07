@@ -1,0 +1,69 @@
+[package]
+name = "desktop-gpui"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Anarlog Desktop App (GPUI)"
+
+[[bin]]
+name = "anarlog-gpui"
+path = "src/main.rs"
+
+[dependencies]
+anlg-audio = { workspace = true }
+anlg-audio-actual = { workspace = true }
+anlg-audio-mock = { workspace = true }
+anlg-db-app = { workspace = true }
+anlg-db-core = { workspace = true }
+anlg-export-core = { workspace = true }
+anlg-fs-sync-core = { workspace = true }
+anlg-language = { workspace = true }
+anlg-listener-core = { workspace = true }
+anlg-listener2-core = { workspace = true }
+anlg-search-index = { workspace = true }
+anlg-storage = { workspace = true }
+anlg-template-app = { workspace = true }
+anlg-tiptap = { workspace = true }
+anlg-transcript = { workspace = true }
+anlg-tray-core = { workspace = true }
+owhisper-interface = { workspace = true }
+rodio = { workspace = true, features = ["symphonia-all"] }
+
+anyhow = { workspace = true }
+aspasia = "0.2.1"
+base64 = { workspace = true }
+chrono = { workspace = true }
+chrono-tz = { workspace = true }
+dirs = { workspace = true }
+gpui = { workspace = true }
+hmac = { workspace = true }
+iana-time-zone = "0.1"
+image = { workspace = true, features = ["jpeg", "png"] }
+keyring = { workspace = true }
+mime_guess = "2"
+pico-args = { workspace = true }
+ractor = { workspace = true, features = ["async-trait"] }
+regex = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, features = ["preserve_order"] }
+sha2 = { workspace = true }
+smallvec = "1"
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+unicode-normalization = "0.1"
+unicode-segmentation = "1"
+url = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"
+libloading = { workspace = true }
+tray-icon = { version = "0.24.2", default-features = false, features = ["gtk"] }
+
+[dev-dependencies]
+hound = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["rt", "macros"] }

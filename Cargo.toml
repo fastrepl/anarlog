@@ -12,6 +12,7 @@ resolver = "2"
 members = [
   "apps/api",
   "apps/cli",
+  "apps/desktop-gpui",
   "apps/desktop/src-tauri",
   "crates/*",
   "plugins/*",
@@ -126,6 +127,7 @@ anlg-pyannote-local = { path = "crates/pyannote-local", package = "pyannote-loca
 anlg-resampler = { path = "crates/resampler", package = "resampler" }
 anlg-s3 = { path = "crates/s3", package = "s3" }
 anlg-screen-core = { path = "crates/screen-core", package = "screen-core" }
+anlg-search-index = { path = "crates/search-index", package = "search-index" }
 anlg-session-ingest = { path = "crates/session-ingest", package = "session-ingest" }
 anlg-shortcut-macos = { path = "crates/shortcut-macos", package = "shortcut-macos" }
 anlg-slack-web = { path = "crates/slack-web", package = "slack-web" }
@@ -145,6 +147,7 @@ anlg-transcribe-speechanalyzer = { path = "crates/transcribe-speechanalyzer", pa
 anlg-transcribe-whisper-local = { path = "crates/transcribe-whisper-local", package = "transcribe-whisper-local" }
 anlg-transcript = { path = "crates/transcript", package = "transcript" }
 anlg-transcription-core = { path = "crates/transcription-core", package = "transcription-core" }
+anlg-tray-core = { path = "crates/tray-core", package = "tray-core" }
 anlg-user-error = { path = "crates/user-error", package = "user-error" }
 anlg-vad = { path = "crates/vad", package = "vad" }
 anlg-vad-masking = { path = "crates/vad-masking", package = "vad-masking" }
@@ -326,6 +329,7 @@ minijinja = "2.7.0"
 minijinja-contrib = "2.7.0"
 
 env_logger = "0.11.8"
+gpui = "0.2.2"
 log = "0.4"
 opentelemetry = "0.30"
 opentelemetry-otlp = { version = "0.30", features = ["grpc-tonic", "trace"] }

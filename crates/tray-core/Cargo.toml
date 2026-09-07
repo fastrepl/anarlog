@@ -1,0 +1,13 @@
+[package]
+name = "tray-core"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = []
+specta = ["dep:specta"]
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+specta = { workspace = true, optional = true }
+unicode-width = { workspace = true }

@@ -47,6 +47,25 @@ async showDevtool() : Promise<boolean> {
 async isAppStoreBuild() : Promise<boolean> {
     return await TAURI_INVOKE("is_app_store_build");
 },
+/**
+ * Whether the GPUI sidecar is installed, so the settings toggle only shows
+ * on builds that actually ship the native shell.
+ */
+async isNativeShellAvailable() : Promise<boolean> {
+    return await TAURI_INVOKE("is_native_shell_available");
+},
+/**
+ * Records the GPUI preference and relaunches; the launcher hands off to
+ * `anarlog-gpui` on the way back up. GPUI writes `tauri` to switch back.
+ */
+async switchToNativeShell() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("switch_to_native_shell") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async completeAppExit() : Promise<void> {
     await TAURI_INVOKE("complete_app_exit");
 },

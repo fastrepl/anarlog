@@ -380,12 +380,19 @@ jobs:
           platform: ${{ matrix.rust_platform }}
       - uses: ./.github/actions/pnpm_install
       - run: pnpm -F ui build
+      # GPUI shell (opt-in from General settings). Linux is the only lane whose
+      # desktop-gpui build is gated in desktop_ci.yaml; macOS/Windows follow once
+      # their CI checks are required.
+      - run: |
+          sudo apt-get -o Acquire::Retries=5 install -y libxkbcommon-dev libxkbcommon-x11-dev
       - run: |
           TAURI_ENV_TARGET_TRIPLE=${{ matrix.target }} cargo xtask prepare-binaries
           ./scripts/sidecar.sh "./apps/desktop/${{ env.TAURI_CONF_PATH }}" "binaries/char-chrome-native-host"
           ./scripts/sidecar.sh "./apps/desktop/${{ env.TAURI_CONF_PATH }}" "resources/cli/anarlog-cli"
+          ./scripts/sidecar.sh "./apps/desktop/$TAURI_CONF_PATH" "binaries/anarlog-gpui"
         env:
           APP_VERSION: ${{ needs.compute-version.outputs.version }}
+          ANARLOG_GPUI_SIDECAR: "1"
       - run: |
           BUILD_ARGS=(
             --ci

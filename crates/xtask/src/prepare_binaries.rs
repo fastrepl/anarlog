@@ -56,6 +56,27 @@ pub(crate) fn prepare_binaries() -> Result<()> {
     fs::copy(&src, &dst).with_context(|| format!("copy {} -> {}", src.display(), dst.display()))?;
 
     println!("prepare-binaries: resources/cli/anarlog-cli-{triple}{ext}");
+
+    // Opt-in: the GPUI shell ships as a sidecar only on release lanes that
+    // have verified the crate for their target (see desktop_cd.yaml).
+    if env::var_os("ANARLOG_GPUI_SIDECAR").is_some_and(|v| v == "1") {
+        cmd!(
+            sh,
+            "{cargo} build --release --target {triple} -p desktop-gpui"
+        )
+        .run()?;
+
+        let src = src_tauri
+            .join("target")
+            .join(&triple)
+            .join("release")
+            .join(format!("anarlog-gpui{ext}"));
+        let dst = binaries_dir.join(format!("anarlog-gpui-{triple}{ext}"));
+        fs::copy(&src, &dst)
+            .with_context(|| format!("copy {} -> {}", src.display(), dst.display()))?;
+
+        println!("prepare-binaries: binaries/anarlog-gpui-{triple}{ext}");
+    }
     Ok(())
 }
 
