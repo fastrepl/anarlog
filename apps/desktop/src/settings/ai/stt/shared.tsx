@@ -7,7 +7,6 @@ import {
   Cloudflare,
   Cohere,
   ElevenLabs,
-  Fireworks,
   Gemini,
   GoogleCloud,
   Groq,
@@ -1013,17 +1012,6 @@ const _PROVIDERS = [
       { kind: "requires_config", fields: ["base_url", "api_key"] },
     ],
   },
-  {
-    // Fireworks discontinued its audio inference API in June 2026.
-    disabled: true,
-    id: "fireworks",
-    displayName: "Fireworks",
-    badge: "Discontinued",
-    icon: <ProviderLobeIcon icon={Fireworks} />,
-    baseUrl: "https://api.fireworks.ai",
-    models: ["whisper-v3-turbo"],
-    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
-  },
 ] as const satisfies readonly Provider[];
 
 const PROVIDER_ORDER = [
@@ -1051,7 +1039,6 @@ const PROVIDER_ORDER = [
   "cartesia",
   "cloudflare_workers_ai",
   "together",
-  "fireworks",
   "xai",
   "smallestai",
   "pyannote",
