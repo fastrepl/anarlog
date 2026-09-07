@@ -22,7 +22,7 @@ import {
 import type { ReactNode } from "react";
 
 import type { LocalModel } from "@anlg/plugin-local-stt";
-import { FolderOpen, Shuffle, Waveform } from "@anlg/ui/components/icons";
+import { Cpu, Shuffle, Waveform } from "@anlg/ui/components/icons";
 
 import { env } from "~/env";
 import {
@@ -408,12 +408,11 @@ const _PROVIDERS = [
   {
     disabled: false,
     id: "local_file",
-    displayName: "On-device file",
-    description: "whisper.cpp .bin",
+    displayName: "BYO-model",
     badge: "On device",
     baseUrl: "",
     builtIn: true,
-    icon: <FolderOpen />,
+    icon: <Cpu />,
     models: ["local-file"],
     requirements: [],
   },
