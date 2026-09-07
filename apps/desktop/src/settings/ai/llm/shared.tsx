@@ -152,7 +152,7 @@ const _PROVIDERS = [
   {
     id: "apple_foundation",
     displayName: "Apple Intelligence",
-    badge: "Experimental",
+    badge: null,
     icon: <ProviderLobeIcon icon={Apple} />,
     baseUrl: undefined,
     requirements: [],
@@ -467,7 +467,7 @@ const _PROVIDERS = [
   {
     id: "amazon_bedrock",
     displayName: "Amazon Bedrock",
-    badge: "Beta",
+    badge: null,
     icon: <ProviderLobeIcon icon={Aws} />,
     baseUrl: undefined,
     requirements: [
@@ -487,7 +487,7 @@ const _PROVIDERS = [
   {
     id: "google_vertex_ai",
     displayName: "Google Vertex AI",
-    badge: "Beta",
+    badge: null,
     icon: <ProviderLobeIcon icon={GoogleCloud} />,
     baseUrl: undefined,
     requirements: [
@@ -563,7 +563,7 @@ const _PROVIDERS = [
   {
     id: "azure_openai",
     displayName: "Azure OpenAI",
-    badge: "Beta",
+    badge: null,
     icon: <ProviderLobeIcon icon={Azure} />,
     baseUrl: undefined,
     requirements: [
@@ -583,7 +583,7 @@ const _PROVIDERS = [
   {
     id: "azure_ai",
     displayName: "Azure AI Foundry",
-    badge: "Beta",
+    badge: null,
     icon: <ProviderLobeIcon icon={AzureAI} />,
     baseUrl: undefined,
     requirements: [
