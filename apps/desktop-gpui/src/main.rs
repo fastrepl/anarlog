@@ -30,6 +30,7 @@ mod text_input;
 mod theme;
 mod timeline;
 mod transcript;
+mod tray;
 mod ui;
 mod workspace;
 
@@ -39,11 +40,123 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use gpui::{
     App, AppContext as _, Application, Bounds, TitlebarOptions, WindowBounds, WindowDecorations,
-    WindowOptions, point, px, size,
+    WindowHandle, WindowOptions, point, px, size,
 };
 
 use crate::db::Store;
 use crate::workspace::Workspace;
+
+/// The main window the tray menu acts on.
+struct MainWindow {
+    handle: Option<WindowHandle<Workspace>>,
+}
+
+impl gpui::Global for MainWindow {}
+
+fn open_main_window(store: Arc<Store>, cx: &mut App) -> anyhow::Result<WindowHandle<Workspace>> {
+    let bounds = Bounds::centered(None, size(px(1100.0), px(720.0)), cx);
+    // Tauri ships `decorations: false` with its own title bar on Windows
+    // and Linux, and a transparent title bar with inset traffic lights on
+    // macOS (`tauri.macos.conf.json`).
+    let window = cx.open_window(
+        WindowOptions {
+            window_bounds: Some(WindowBounds::Windowed(bounds)),
+            titlebar: Some(TitlebarOptions {
+                title: Some("Anarlog".into()),
+                appears_transparent: cfg!(target_os = "macos"),
+                traffic_light_position: cfg!(target_os = "macos")
+                    .then(|| point(px(12.0), px(12.0))),
+            }),
+            window_decorations: Some(if cfg!(any(target_os = "windows", target_os = "linux")) {
+                WindowDecorations::Client
+            } else {
+                WindowDecorations::Server
+            }),
+            app_id: Some(APP_ID.to_string()),
+            window_min_size: Some(size(px(640.0), px(400.0))),
+            ..Default::default()
+        },
+        |window, cx| {
+            let workspace = cx.new(|cx| Workspace::new(store, window, cx));
+            // Key bindings dispatch through the focused element.
+            workspace.read(cx).focus_handle().focus(window);
+            workspace
+        },
+    )?;
+    cx.global_mut::<MainWindow>().handle = Some(window);
+    Ok(window)
+}
+
+/// A tray menu click: bring the main window back (opening it again when it
+/// was closed) and run the item, like `TrayOpen` / `TrayStart` /
+/// `TraySettings` / `handle_agenda_menu_event`.
+fn handle_tray_action(action: tray::TrayAction, store: &Arc<Store>, cx: &mut App) {
+    use tray::TrayAction;
+    match action {
+        // gpui 0.2.2's X11 client stops the run loop once the last window
+        // closes, so `Hide` iconifies the window instead of unmapping it.
+        TrayAction::Hide => {
+            if let Some(handle) = cx.global::<MainWindow>().handle {
+                handle
+                    .update(cx, |_, window, _| window.minimize_window())
+                    .ok();
+            }
+        }
+        TrayAction::QuitCompletely => {
+            let handle = cx.global::<MainWindow>().handle;
+            match handle {
+                Some(handle) => {
+                    handle
+                        .update(cx, |workspace, window, cx| {
+                            window.activate_window();
+                            workspace.confirm_quit_completely(window, cx);
+                        })
+                        .ok();
+                }
+                None => cx.quit(),
+            }
+        }
+        TrayAction::ToggleShowEvents => {
+            let store_file = store_file::StoreFile::next_to(store.path());
+            let show = !store_file
+                .scoped_bool(tray::SCOPE, tray::SHOW_EVENTS_KEY)
+                .unwrap_or(true);
+            if let Err(error) = store_file.set_scoped(tray::SCOPE, tray::SHOW_EVENTS_KEY, show) {
+                tracing::warn!(%error, "failed to persist tray event visibility");
+            }
+            cx.global::<tray::Tray>()
+                .send(tray::TrayCommand::ShowEvents(show));
+        }
+        TrayAction::Open | TrayAction::Start | TrayAction::Settings | TrayAction::Agenda(_) => {
+            let handle = match cx.global::<MainWindow>().handle {
+                Some(handle) if cx.windows().contains(&handle.into()) => handle,
+                _ => match open_main_window(store.clone(), cx) {
+                    Ok(handle) => handle,
+                    Err(error) => {
+                        tracing::error!(%error, "failed to reopen main window from tray");
+                        return;
+                    }
+                },
+            };
+            cx.activate(true);
+            handle
+                .update(cx, |workspace, window, cx| {
+                    window.activate_window();
+                    match action {
+                        TrayAction::Start => workspace.new_note_and_listen(cx),
+                        TrayAction::Settings => {
+                            workspace.open_settings(workspace::SettingsTab::App, window, cx)
+                        }
+                        TrayAction::Agenda(event_id) => {
+                            workspace.open_event_and_record(event_id, cx)
+                        }
+                        _ => {}
+                    }
+                })
+                .ok();
+        }
+    }
+}
 
 #[cfg(debug_assertions)]
 const DEFAULT_IDENTIFIER: &str = "com.hyprnote.dev";
@@ -112,11 +225,28 @@ fn main() -> anyhow::Result<()> {
     let search = search::SearchIndex::start(&store);
     tracing::info!(path = %store.path().display(), "opened application database");
 
+    let identifier = args.identifier.clone();
     Application::new()
         .with_assets(assets::Assets)
         .run(move |cx: &mut App| {
             cx.set_global(audio::Audio(audio));
             cx.set_global(search::Search(search));
+            cx.set_global(MainWindow { handle: None });
+            let store_file = store_file::StoreFile::next_to(store.path());
+            cx.set_global(tray::Tray::start(tray::TrayState {
+                app_name: tray::app_name(&identifier).to_string(),
+                version_label: anlg_tray_core::labels::version(
+                    env!("CARGO_PKG_VERSION"),
+                    tray::channel(&identifier),
+                ),
+                schedule: Vec::new(),
+                show_events: store_file
+                    .scoped_bool(tray::SCOPE, tray::SHOW_EVENTS_KEY)
+                    .unwrap_or(true),
+                start_disabled: false,
+                recording: false,
+                degraded: false,
+            }));
             actions::bind_keys(cx);
             text_input::bind_keys(cx);
             text_area::bind_keys(cx);
@@ -132,43 +262,33 @@ fn main() -> anyhow::Result<()> {
             })
             .detach();
 
-            let bounds = Bounds::centered(None, size(px(1100.0), px(720.0)), cx);
-            // Tauri ships `decorations: false` with its own title bar on Windows
-            // and Linux, and a transparent title bar with inset traffic lights on
-            // macOS (`tauri.macos.conf.json`).
-            let window = cx.open_window(
-                WindowOptions {
-                    window_bounds: Some(WindowBounds::Windowed(bounds)),
-                    titlebar: Some(TitlebarOptions {
-                        title: Some("Anarlog".into()),
-                        appears_transparent: cfg!(target_os = "macos"),
-                        traffic_light_position: cfg!(target_os = "macos")
-                            .then(|| point(px(12.0), px(12.0))),
-                    }),
-                    window_decorations: Some(
-                        if cfg!(any(target_os = "windows", target_os = "linux")) {
-                            WindowDecorations::Client
-                        } else {
-                            WindowDecorations::Server
-                        },
-                    ),
-                    app_id: Some(APP_ID.to_string()),
-                    window_min_size: Some(size(px(640.0), px(400.0))),
-                    ..Default::default()
-                },
-                |window, cx| {
-                    let workspace = cx.new(|cx| Workspace::new(store, window, cx));
-                    // Key bindings dispatch through the focused element.
-                    workspace.read(cx).focus_handle().focus(window);
-                    workspace
-                },
-            );
-            if let Err(error) = window {
+            if let Err(error) = open_main_window(store.clone(), cx) {
                 tracing::error!(%error, "failed to open main window");
                 cx.quit();
                 return;
             }
             cx.activate(true);
+
+            // Tray menu clicks arrive on the tray thread's channel.
+            let tray_store = store.clone();
+            cx.spawn(async move |cx| {
+                loop {
+                    cx.background_executor()
+                        .timer(std::time::Duration::from_millis(100))
+                        .await;
+                    let stop = cx
+                        .update(|cx| {
+                            for action in cx.global::<tray::Tray>().take_actions() {
+                                handle_tray_action(action, &tray_store, cx);
+                            }
+                        })
+                        .is_err();
+                    if stop {
+                        break;
+                    }
+                }
+            })
+            .detach();
         });
 
     drop(runtime);

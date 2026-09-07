@@ -25,6 +25,7 @@ anlg-storage = { workspace = true }
 anlg-template-app = { workspace = true }
 anlg-tiptap = { workspace = true }
 anlg-transcript = { workspace = true }
+anlg-tray-core = { workspace = true }
 owhisper-interface = { workspace = true }
 rodio = { workspace = true, features = ["symphonia-all"] }
 
@@ -56,6 +57,11 @@ unicode-normalization = "0.1"
 unicode-segmentation = "1"
 url = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"
+libloading = { workspace = true }
+tray-icon = { version = "0.24.2", default-features = false, features = ["gtk"] }
 
 [dev-dependencies]
 hound = { workspace = true }

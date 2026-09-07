@@ -147,6 +147,7 @@ anlg-transcribe-speechanalyzer = { path = "crates/transcribe-speechanalyzer", pa
 anlg-transcribe-whisper-local = { path = "crates/transcribe-whisper-local", package = "transcribe-whisper-local" }
 anlg-transcript = { path = "crates/transcript", package = "transcript" }
 anlg-transcription-core = { path = "crates/transcription-core", package = "transcription-core" }
+anlg-tray-core = { path = "crates/tray-core", package = "tray-core" }
 anlg-user-error = { path = "crates/user-error", package = "user-error" }
 anlg-vad = { path = "crates/vad", package = "vad" }
 anlg-vad-masking = { path = "crates/vad-masking", package = "vad-masking" }

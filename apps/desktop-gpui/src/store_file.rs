@@ -100,6 +100,42 @@ impl StoreFile {
             .collect()
     }
 
+    /// A plugin's `scoped_store(scope).get(key)`: the outer key holds the
+    /// scope's own JSON document as a string.
+    pub fn scoped_bool(&self, scope: &str, key: &str) -> Option<bool> {
+        let text = std::fs::read_to_string(&self.path).ok()?;
+        let outer = serde_json::from_str::<Value>(&text).ok()?;
+        let inner = outer.get(scope)?.as_str()?;
+        serde_json::from_str::<Value>(inner)
+            .ok()?
+            .get(key)?
+            .as_bool()
+    }
+
+    /// A plugin's `scoped_store(scope).set(key, value)`.
+    pub fn set_scoped(&self, scope: &str, key: &str, value: bool) -> std::io::Result<()> {
+        let mut outer = std::fs::read_to_string(&self.path)
+            .ok()
+            .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+            .and_then(|value| value.as_object().cloned())
+            .unwrap_or_default();
+        let mut inner = outer
+            .get(scope)
+            .and_then(Value::as_str)
+            .and_then(|inner| serde_json::from_str::<Value>(inner).ok())
+            .and_then(|inner| inner.as_object().cloned())
+            .unwrap_or_default();
+        inner.insert(key.into(), Value::Bool(value));
+        outer.insert(
+            scope.into(),
+            Value::String(serde_json::to_string(&inner).expect("json map serialises")),
+        );
+        std::fs::write(
+            &self.path,
+            serde_json::to_string(&Value::Object(outer)).expect("json"),
+        )
+    }
+
     /// `getDismissedToasts`
     pub fn dismissed_toasts(&self) -> Vec<String> {
         self.read_desktop()

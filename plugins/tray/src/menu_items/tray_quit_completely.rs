@@ -12,7 +12,13 @@ impl MenuItemHandler for TrayQuitCompletely {
     const ID: &'static str = "anlg_tray_quit_completely";
 
     fn build(app: &AppHandle<tauri::Wry>) -> Result<MenuItemKind<tauri::Wry>> {
-        let item = MenuItem::with_id(app, Self::ID, "Quit Completely…", true, None::<&str>)?;
+        let item = MenuItem::with_id(
+            app,
+            Self::ID,
+            anlg_tray_core::labels::QUIT_COMPLETELY,
+            true,
+            None::<&str>,
+        )?;
         Ok(MenuItemKind::MenuItem(item))
     }
 
@@ -21,11 +27,11 @@ impl MenuItemHandler for TrayQuitCompletely {
         let app = app.clone();
 
         app.dialog()
-            .message(format!("{} will stop running in the background.", app_name))
-            .title(format!("Quit {} Completely?", app_name))
+            .message(anlg_tray_core::labels::quit_completely_message(&app_name))
+            .title(anlg_tray_core::labels::quit_completely_title(&app_name))
             .buttons(MessageDialogButtons::OkCancelCustom(
-                "Quit Completely".to_string(),
-                "Cancel".to_string(),
+                anlg_tray_core::labels::QUIT_COMPLETELY_CONFIRM.to_string(),
+                anlg_tray_core::labels::CANCEL.to_string(),
             ))
             .show(move |confirmed| {
                 if confirmed {

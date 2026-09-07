@@ -23,6 +23,7 @@ mod open_note;
 mod overflow;
 mod recording;
 mod settings;
+pub(crate) use settings::SettingsTab;
 mod share;
 mod speaker_assign;
 pub(crate) use overflow::find_session_dir;
@@ -531,6 +532,7 @@ impl Workspace {
                         this.provider_settings = settings;
                         // `FloatingMeetingWindowSettingsSync`
                         this.sync_floating_bar(cx);
+                        this.sync_tray(cx);
                         cx.notify();
                     }
                 })
@@ -682,6 +684,7 @@ impl Workspace {
             },
         ));
         self.rebuild_rows();
+        self.publish_tray_schedule(cx);
         cx.notify();
     }
 
@@ -781,6 +784,14 @@ impl Workspace {
             tracing::warn!(%error, "failed to save recently opened sessions");
         }
 
+        // `openNew` / `openCurrent` of a sessions tab replaces an overlay tab
+        // (settings, folders, templates, calendar, contacts, automations).
+        self.close_settings(cx);
+        self.close_folders(cx);
+        self.close_templates(cx);
+        self.close_calendar(cx);
+        self.close_contacts(cx);
+        self.close_automations(cx);
         if self.selected.as_deref() == Some(session_id.as_str()) {
             return;
         }
@@ -1085,6 +1096,82 @@ impl Workspace {
             Err(error) => tracing::error!(%error, "failed to create note"),
         })
         .detach();
+    }
+
+    /// The tray agenda row: `/app/new?calendarEventId=…&record=true` opens
+    /// the event's session and starts recording.
+    pub(crate) fn open_event_and_record(&mut self, event_id: String, cx: &mut Context<Self>) {
+        if self.recording.live.is_some() || self.recording.starting {
+            self.open_event(event_id, cx);
+            return;
+        }
+        let task = self.store.open_event_session(event_id);
+        cx.spawn(async move |this, cx| match task.await {
+            Ok(Ok(session_id)) => {
+                this.update(cx, |this, cx| {
+                    this.reload_sessions(cx);
+                    this.select(session_id.clone(), cx);
+                    this.start_listening(session_id, cx);
+                })
+                .ok();
+            }
+            Ok(Err(error)) => tracing::error!(%error, "failed to open calendar event"),
+            Err(error) => tracing::error!(%error, "failed to open calendar event"),
+        })
+        .detach();
+    }
+
+    /// `TrayQuitCompletely`: the confirmation before the app stops running in
+    /// the background.
+    pub(crate) fn confirm_quit_completely(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let app_name = crate::tray::app_name(self.store.identifier()).to_string();
+        let answer = window.prompt(
+            gpui::PromptLevel::Warning,
+            &anlg_tray_core::labels::quit_completely_title(&app_name),
+            Some(&anlg_tray_core::labels::quit_completely_message(&app_name)),
+            &[
+                anlg_tray_core::labels::QUIT_COMPLETELY_CONFIRM,
+                anlg_tray_core::labels::CANCEL,
+            ],
+            cx,
+        );
+        cx.spawn(async move |_, cx| {
+            if answer.await == Ok(0) {
+                cx.update(|cx| cx.quit()).ok();
+            }
+        })
+        .detach();
+    }
+
+    /// `show_tray_icon` → `set_visible`.
+    pub(super) fn sync_tray(&self, cx: &mut Context<Self>) {
+        let visible = self.provider_settings.bool_setting(
+            "show_tray_icon",
+            &["general", "show_tray_icon"],
+            true,
+        );
+        cx.global::<crate::tray::Tray>()
+            .send(crate::tray::TrayCommand::Visible(visible));
+    }
+
+    /// `TrayScheduleSync`: the upcoming events for the tray agenda.
+    fn publish_tray_schedule(&self, cx: &mut Context<Self>) {
+        let ignored_events =
+            workspace_ignored(&self.provider_settings, "ignored_events", "tracking_id");
+        let ignored_series =
+            workspace_ignored(&self.provider_settings, "ignored_recurring_series", "id");
+        let events = crate::tray::schedule_events(
+            &self.event_rows,
+            |event| {
+                ignored_events.contains(&event.tracking_id_event)
+                    || (!event.recurrence_series_id.is_empty()
+                        && ignored_series.contains(&event.recurrence_series_id))
+            },
+            Utc::now(),
+            &Local,
+        );
+        cx.global::<crate::tray::Tray>()
+            .send(crate::tray::TrayCommand::Schedule(events));
     }
 
     /// Clicking a calendar event opens (creating if needed) its session.

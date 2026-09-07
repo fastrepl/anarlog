@@ -681,6 +681,10 @@ impl Workspace {
         if key == "theme" {
             self.theme_preference = value.as_str().unwrap_or("system").to_string();
         }
+        if key == "show_tray_icon" {
+            // `setSettingValues` → `setTrayIconVisible`: the switch drives the tray at once.
+            self.sync_tray(cx);
+        }
         cx.notify();
         let task = self.store.set_setting(key.to_string(), value, synced);
         cx.spawn(async move |this, cx| match task.await {

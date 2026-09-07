@@ -5456,12 +5456,14 @@ dependencies = [
  "export-core",
  "fs-sync-core",
  "gpui",
+ "gtk",
  "hmac 0.13.0",
  "hound",
  "iana-time-zone",
  "image",
  "keyring",
  "language",
+ "libloading 0.8.9",
  "listener-core",
  "listener2-core",
  "mime_guess",
@@ -5485,6 +5487,8 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "transcript",
+ "tray-core",
+ "tray-icon",
  "unicode-normalization",
  "unicode-segmentation",
  "url",
@@ -19425,8 +19429,8 @@ dependencies = [
  "tauri-specta",
  "tokio",
  "tracing",
+ "tray-core",
  "tray-icon",
- "unicode-width 0.2.2",
 ]
 
 [[package]]
@@ -21852,6 +21856,15 @@ checksum = "1ad61aed86bc3faea4300c7aee358b4c6d0c8d6ccc36524c96e4c92ccf26e77e"
 dependencies = [
  "num-integer",
  "strength_reduce",
+]
+
+[[package]]
+name = "tray-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "specta",
+ "unicode-width 0.2.2",
 ]
 
 [[package]]

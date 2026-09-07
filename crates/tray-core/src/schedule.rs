@@ -4,7 +4,8 @@ const MAX_MENU_BAR_LABEL_WIDTH: usize = 30;
 
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
-#[derive(Debug, Clone, serde::Deserialize, specta::Type, PartialEq)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize, PartialEq)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct TrayScheduleEvent {
     pub id: String,

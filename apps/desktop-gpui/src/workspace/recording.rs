@@ -770,6 +770,13 @@ impl Workspace {
             }) => {
                 let requested_live = requested_transcription_mode == TranscriptionMode::Live;
                 let live_active = current_transcription_mode == TranscriptionMode::Live;
+                // The listener runtime's tray updates on `Active`.
+                {
+                    let tray = cx.global::<crate::tray::Tray>();
+                    tray.send(crate::tray::TrayCommand::StartDisabled(true));
+                    tray.send(crate::tray::TrayCommand::Degraded(error.is_some()));
+                    tray.send(crate::tray::TrayCommand::Recording(true));
+                }
                 match self.recording.live.as_mut() {
                     Some(live) if live.session_id == session_id => {
                         live.requested_live = requested_live;
@@ -807,6 +814,11 @@ impl Workspace {
                 }
             }
             Event::Lifecycle(SessionLifecycleEvent::Finalizing { session_id }) => {
+                {
+                    let tray = cx.global::<crate::tray::Tray>();
+                    tray.send(crate::tray::TrayCommand::StartDisabled(false));
+                    tray.send(crate::tray::TrayCommand::Recording(false));
+                }
                 if let Some(live) = self
                     .recording
                     .live
@@ -824,6 +836,12 @@ impl Workspace {
                 audio_path,
                 error,
             }) => {
+                {
+                    let tray = cx.global::<crate::tray::Tray>();
+                    tray.send(crate::tray::TrayCommand::StartDisabled(false));
+                    tray.send(crate::tray::TrayCommand::Recording(false));
+                    tray.send(crate::tray::TrayCommand::Degraded(false));
+                }
                 if let Some(live) = self
                     .recording
                     .live
