@@ -317,6 +317,8 @@ impl Workspace {
         closed |= self.close_templates_menus();
         closed |= self.close_automations_menus();
         closed |= self.close_speaker_assign(cx);
+        // The transcript selection menu's `useAutoCloser` closes on Escape too.
+        closed |= self.clear_text_selection(cx);
         if closed {
             cx.notify();
         }

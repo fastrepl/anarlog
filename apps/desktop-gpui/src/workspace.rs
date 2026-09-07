@@ -33,6 +33,7 @@ mod timeline_selection;
 mod title_bar;
 mod toast;
 mod transcript_edit;
+mod transcript_selection;
 mod transcript_tab;
 
 use std::sync::Arc;

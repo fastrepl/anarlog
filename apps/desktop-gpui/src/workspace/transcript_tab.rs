@@ -41,12 +41,14 @@ pub(super) struct TranscriptView {
     pub picker_generation: u64,
     /// Edit mode and the section selection.
     pub edit: super::transcript_edit::TranscriptEdit,
+    /// The drag / right-click text selection and its floating menu.
+    pub text_selection: Option<super::transcript_selection::TextSelection>,
     /// The in-flight smooth scroll, so a newer one supersedes it.
     animation: u64,
 }
 
 /// What every segment of a transcript renders against.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct SegmentContext<'a> {
     session_id: &'a str,
     transcript_id: &'a str,
@@ -55,6 +57,8 @@ struct SegmentContext<'a> {
     audio_exists: bool,
     /// Edit (and select) mode: editors instead of word spans.
     edit_mode: bool,
+    /// The text selection's range in this segment.
+    selected_text: Option<std::ops::Range<usize>>,
 }
 
 /// `behavior: "smooth"`: WebKit eases a programmatic scroll over ~0.3s.
@@ -225,6 +229,14 @@ impl Workspace {
         if !edit_mode && !self.transcript_view.edit.editors.is_empty() {
             self.transcript_view.edit.editors.clear();
         }
+        let selected_text = self.text_selection_ranges(preview);
+        let dragging = self
+            .transcript_view
+            .text_selection
+            .as_ref()
+            .is_some_and(|selection| selection.dragging);
+        let preview_for_drag = preview.clone();
+        let preview_for_up = preview.clone();
         let playing = self
             .audio_player
             .as_ref()
@@ -247,6 +259,22 @@ impl Workspace {
                     this.transcript_view.user_scrolled = true;
                 }
             }))
+            // The native drag selection: the head follows the pointer across
+            // segments while the button is down, and the release settles it.
+            .when(dragging, |viewer| {
+                viewer
+                    .on_mouse_move(
+                        cx.listener(move |this, event: &gpui::MouseMoveEvent, _, cx| {
+                            this.drag_text_selection(&preview_for_drag, event.position, cx);
+                        }),
+                    )
+                    .on_mouse_up(
+                        gpui::MouseButton::Left,
+                        cx.listener(move |this, _: &gpui::MouseUpEvent, _, cx| {
+                            this.end_text_selection(&preview_for_up, cx);
+                        }),
+                    )
+            })
             .children(
                 preview
                     .transcripts
@@ -255,18 +283,19 @@ impl Workspace {
                     .map(|(index, transcript)| {
                         let is_last = index + 1 == count;
                         let offset_ms = timeline_offset_ms(transcript.started_at_ms, &timeline);
-                        let context = SegmentContext {
-                            session_id: &preview.session.id,
-                            transcript_id: &transcript.id,
-                            offset_ms,
-                            current_ms,
-                            audio_exists,
-                            edit_mode,
-                        };
                         let segments: Vec<AnyElement> = transcript
                             .segments
                             .iter()
                             .map(|segment| {
+                                let context = SegmentContext {
+                                    session_id: &preview.session.id,
+                                    transcript_id: &transcript.id,
+                                    offset_ms,
+                                    current_ms,
+                                    audio_exists,
+                                    edit_mode,
+                                    selected_text: selected_text.get(&segment.id).cloned(),
+                                };
                                 self.render_transcript_segment(segment, &context, window, cx)
                             })
                             .collect();
@@ -308,6 +337,17 @@ impl Workspace {
                     }),
             );
 
+        let preview_for_out = preview.clone();
+        let viewer = viewer.when(dragging, |viewer| {
+            viewer.on_mouse_up_out(
+                gpui::MouseButton::Left,
+                cx.listener(move |this, _: &gpui::MouseUpEvent, _, cx| {
+                    this.end_text_selection(&preview_for_out, cx);
+                }),
+            )
+        });
+        let menu = self.render_text_selection_menu(preview, window, cx);
+
         // `relative flex h-full flex-col` around the scroller and the controls.
         div()
             .relative()
@@ -317,6 +357,7 @@ impl Workspace {
             .min_h_0()
             .child(viewer)
             .children(self.render_transcript_scroll_controls(cx))
+            .children(menu)
     }
 
     /// `canScroll && <div data-transcript-scroll-controls>`: the pill on the
@@ -465,6 +506,7 @@ impl Workspace {
             current_ms,
             audio_exists,
             edit_mode,
+            ref selected_text,
         } = *context;
         let theme = self.theme;
         let color = segment_color(&segment.key, theme.dark);
@@ -540,6 +582,9 @@ impl Workspace {
             });
         }
         let hover_seekable = audio_exists && hovered_word.is_some_and(|word| word.seekable);
+        if let Some(range) = selected_text.clone() {
+            highlights.push(super::transcript_selection::selection_highlight(range));
+        }
 
         let text = ProseText::with_layout(
             segment.text.clone(),
@@ -553,7 +598,7 @@ impl Workspace {
         let words_for_hover = segment.clone();
         let words_for_click = segment.clone();
         let hover_layout = layout.clone();
-        let click_layout = layout;
+        let click_layout = layout.clone();
         div()
             .id(SharedString::from(format!("segment-{}", segment.id)))
             .relative()
@@ -653,6 +698,49 @@ impl Workspace {
                         .line_height(px(22.0))
                         .text_color(theme.foreground)
                         .when(hover_seekable, |words| words.cursor_pointer())
+                        // `select-text-deep`: a plain press starts a text
+                        // selection at the caret under the pointer; a right
+                        // press opens the menu for the selection or the segment.
+                        .on_mouse_down(
+                            gpui::MouseButton::Left,
+                            cx.listener({
+                                let layout = layout.clone();
+                                let segment_id = segment.id.clone();
+                                move |this, event: &gpui::MouseDownEvent, _, cx| {
+                                    let modifiers = event.modifiers;
+                                    if modifiers.platform || modifiers.control || modifiers.shift {
+                                        return;
+                                    }
+                                    if let Some(offset) = layout.nearest_index(event.position) {
+                                        this.begin_text_selection(
+                                            super::transcript_selection::Caret {
+                                                segment_id: segment_id.clone(),
+                                                offset,
+                                            },
+                                            cx,
+                                        );
+                                    }
+                                }
+                            }),
+                        )
+                        .on_mouse_down(
+                            gpui::MouseButton::Right,
+                            cx.listener({
+                                let segment = segment.clone();
+                                move |this, event: &gpui::MouseDownEvent, _, cx| {
+                                    let super::Note::Ready { preview, .. } = &this.note else {
+                                        return;
+                                    };
+                                    let preview = preview.clone();
+                                    this.open_text_context_menu(
+                                        &preview,
+                                        &segment,
+                                        event.position,
+                                        cx,
+                                    );
+                                }
+                            }),
+                        )
                         .on_mouse_move(cx.listener(
                             move |this, event: &gpui::MouseMoveEvent, _, cx| {
                                 let next = hover_layout
@@ -672,9 +760,16 @@ impl Workspace {
                             }
                         }))
                         .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
-                            // A modifier click selects the section instead.
+                            // A modifier click selects the section instead, and
+                            // a drag that selected text is not a word click.
                             let modifiers = event.modifiers();
+                            let selecting = this
+                                .transcript_view
+                                .text_selection
+                                .as_ref()
+                                .is_some_and(|selection| selection.anchor != selection.head);
                             if !audio_exists
+                                || selecting
                                 || modifiers.platform
                                 || modifiers.control
                                 || modifiers.shift

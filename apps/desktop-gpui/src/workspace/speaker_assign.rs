@@ -626,9 +626,11 @@ impl Workspace {
                         if this.transcript_view.picker_generation == generation {
                             this.transcript_view.speaker_assign = None;
                         }
-                        // The bar's `handleAssign` also clears the selection.
+                        // The bar's and the menu's `handleAssign` also clear
+                        // the selection.
                         if for_selection {
                             this.clear_transcript_selection(cx);
+                            this.clear_text_selection(cx);
                         }
                         if this.selected.as_deref() == Some(session_id.as_str()) {
                             this.reload_note(session_id, cx);
@@ -715,6 +717,21 @@ impl Workspace {
         open: &SpeakerAssign,
         cx: &Context<Self>,
     ) -> gpui::Stateful<gpui::Div> {
+        super::menu::menu_chrome(self.theme, "speaker-assign", POPOVER_WIDTH)
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .on_mouse_down_out(cx.listener(|this, _: &MouseDownEvent, _, cx| {
+                this.close_speaker_assign(cx);
+            }))
+            .child(self.render_speaker_picker_body(open, cx))
+    }
+
+    /// `SpeakerParticipantPicker` itself: the `max-h-[min(available, 28rem)]`
+    /// column of the search-and-list panel over the footer.
+    pub(super) fn render_speaker_picker_body(
+        &self,
+        open: &SpeakerAssign,
+        cx: &Context<Self>,
+    ) -> gpui::Div {
         let theme = self.theme;
         let query = open.query.read(cx).text().trim().to_string();
         let (groups, create) = open.options(&query);
@@ -922,22 +939,14 @@ impl Workspace {
                     .child(div().relative().child("Confirm")),
             );
 
-        super::menu::menu_chrome(theme, "speaker-assign", POPOVER_WIDTH)
-            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .on_mouse_down_out(cx.listener(|this, _: &MouseDownEvent, _, cx| {
-                this.close_speaker_assign(cx);
-            }))
-            .child(
-                // `max-h-[min(available, 28rem)]`
-                div()
-                    .flex()
-                    .max_h(px(448.0))
-                    .flex_col()
-                    .gap_1()
-                    .overflow_hidden()
-                    .child(panel)
-                    .child(footer),
-            )
+        div()
+            .flex()
+            .max_h(px(448.0))
+            .flex_col()
+            .gap_1()
+            .overflow_hidden()
+            .child(panel)
+            .child(footer)
     }
 
     /// `text-muted-foreground px-3 pt-2 pb-1 text-[11px] font-medium uppercase`

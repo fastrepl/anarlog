@@ -190,6 +190,42 @@ impl ProseLayout {
             .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
     }
 
+    /// The text's window bounds from its last prepaint.
+    pub fn bounds(&self) -> Option<Bounds<Pixels>> {
+        self.0.borrow().as_ref().and_then(|inner| inner.bounds)
+    }
+
+    /// The character offset nearest to a window position: the caret the
+    /// pointer would land on when dragging a selection, clamped to the line
+    /// under (or nearest to) the point.
+    pub fn nearest_index(&self, position: Point<Pixels>) -> Option<usize> {
+        let inner = self.0.borrow();
+        let inner = inner.as_ref()?;
+        let bounds = inner.bounds?;
+        if inner.lines.is_empty() {
+            return None;
+        }
+        let y = position.y - bounds.top();
+        let line_ix = if y < px(0.0) {
+            0
+        } else {
+            ((f32::from(y) / f32::from(inner.line_height)).floor() as usize)
+                .min(inner.lines.len() - 1)
+        };
+        let line = &inner.lines[line_ix];
+        let x = position.x - bounds.left();
+        if x <= px(0.0) {
+            return Some(line.range.start);
+        }
+        Some(
+            line.shaped
+                .unwrapped_layout
+                .index_for_x(x)
+                .map(|local| line.range.start + local)
+                .unwrap_or(line.range.end - line.hanging),
+        )
+    }
+
     /// Horizontal extents of `range` on each line it touches, in window
     /// coordinates, for painting a selection.
     pub fn line_spans(&self, range: Range<usize>) -> Vec<Bounds<Pixels>> {
