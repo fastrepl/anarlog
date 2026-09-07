@@ -74,6 +74,8 @@ impl Workspace {
     /// `OnboardingNeeded2` defaults to `true` when the store has no value.
     pub(crate) fn start_onboarding_if_needed(&mut self) {
         if self.store_file.onboarding_needed() {
+            // `sfxCommands.play("BGM")` on mount.
+            self.onboarding_bgm = Some(crate::sfx::Sound::play_bgm());
             self.onboarding = Some(OnboardingState {
                 step: Step::Login,
                 did_skip_login: false,
@@ -153,6 +155,8 @@ impl Workspace {
                         cx.notify();
                         return;
                     }
+                    // `sfxCommands.stop("BGM")` in `finishOnboarding`.
+                    this.onboarding_bgm = None;
                     this.onboarding = None;
                     this.select(session_id, cx);
                     cx.notify();
@@ -275,6 +279,14 @@ impl Workspace {
                     .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
                         if let Some(state) = this.onboarding.as_mut() {
                             state.muted = !state.muted;
+                            // `setVolume("BGM", isMuted ? 0 : 0.2)`
+                            if let Some(bgm) = this.onboarding_bgm.as_ref() {
+                                bgm.set_volume(if state.muted {
+                                    0.0
+                                } else {
+                                    crate::sfx::BGM_VOLUME
+                                });
+                            }
                             cx.notify();
                         }
                     }))

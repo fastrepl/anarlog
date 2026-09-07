@@ -239,6 +239,8 @@ pub struct Workspace {
     chat_cta_hovered: bool,
     /// The find-in-note bar (`SearchProvider` state) while open.
     note_search: Option<note_search_bar::NoteSearch>,
+    /// The onboarding's looping BGM while it is shown.
+    onboarding_bgm: Option<crate::sfx::Sound>,
     /// The Dictionary page's term field and the row being edited.
     dictionary_input: Option<gpui::Entity<TextInput>>,
     dictionary_edit: Option<dictionary::DictionaryEdit>,
@@ -387,6 +389,7 @@ impl Workspace {
             transcript_view: transcript_tab::TranscriptView::default(),
             chat_cta_hovered: false,
             note_search: None,
+            onboarding_bgm: None,
             dictionary_input: None,
             dictionary_edit: None,
             chat_open: false,

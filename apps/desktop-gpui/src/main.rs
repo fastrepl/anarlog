@@ -19,6 +19,7 @@ mod prose_text;
 mod recording;
 mod search;
 mod secrets;
+mod sfx;
 mod shell;
 mod speaker_assignment;
 mod squircle;
