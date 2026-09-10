@@ -73,11 +73,11 @@ fn resolve_headphone_only_output(
 
 /// When the default input is a Bluetooth device, returns a wired microphone to use instead.
 ///
-/// Opening a Bluetooth headset's mic forces it into the HFP call profile: the headset gates the
-/// mic to silence between words and the wearer's audio drops to 8–16 kHz. Any wired input avoids
-/// both, so built-in mics are preferred, then USB. Linux reports onboard mics as PCI rather than
-/// built-in, so PCI ranks with built-in. Line-in jacks and output loopbacks are capture endpoints
-/// too but never microphones, so they are skipped.
+/// Opening a Bluetooth headset's mic on Windows forces the HFP call profile: the headset gates
+/// the mic to silence between words and the wearer's audio drops to 8–16 kHz. Any wired input
+/// avoids both, so built-in mics are preferred, then USB. Linux reports onboard mics as PCI
+/// rather than built-in, so PCI ranks with built-in. Line-in jacks and output loopbacks are
+/// capture endpoints too but never microphones, so they are skipped.
 pub fn wired_input_replacing_bluetooth_default() -> Option<AudioDevice> {
     let backend = backend();
     let default = backend.get_default_input_device().ok().flatten()?;
@@ -112,6 +112,127 @@ fn wired_input_rank(transport: TransportType) -> Option<u8> {
         TransportType::Unknown => Some(3),
         TransportType::Bluetooth | TransportType::Virtual => None,
     }
+}
+
+fn bluetooth_input_named<'a>(name: &str, inputs: &'a [AudioDevice]) -> Option<&'a AudioDevice> {
+    inputs.iter().find(|device| {
+        device.direction == AudioDirection::Input
+            && device.transport_type == TransportType::Bluetooth
+            && device.name == name
+    })
+}
+
+fn resolved_capture_name(requested: &AudioDevice, default_after: Option<&AudioDevice>) -> String {
+    default_after
+        .filter(|device| device.transport_type == TransportType::Bluetooth)
+        .map(|device| device.name.clone())
+        .unwrap_or_else(|| requested.name.clone())
+}
+
+/// Keeps a Bluetooth headset in HFP/SCO for the life of a capture stream.
+///
+/// Restores the previous default input when dropped if this activation changed it.
+pub struct BluetoothInputActivation {
+    pub name: String,
+    previous_default: Option<DeviceId>,
+}
+
+impl Drop for BluetoothInputActivation {
+    fn drop(&mut self) {
+        let Some(previous) = self.previous_default.take() else {
+            return;
+        };
+        if let Err(error) = backend().set_default_input_device(&previous) {
+            tracing::warn!(
+                error = %error,
+                device_id = %previous,
+                "bluetooth_input_restore_default_failed"
+            );
+        }
+    }
+}
+
+pub fn default_input_device_name() -> Option<String> {
+    backend()
+        .get_default_input_device()
+        .ok()
+        .flatten()
+        .map(|device| device.name)
+}
+
+/// Prepares a Bluetooth headset so opening it actually receives microphone frames.
+///
+/// On macOS, a Core Audio HAL open against AirPods (and other BT headsets) does not trigger
+/// A2DP→HFP/SCO. Setting the device as the system default input does. After that handoff the
+/// live default may be a different HAL endpoint than the A2DP-named device, so callers should
+/// open the returned name — preferably via the system default input.
+///
+/// Returns `None` when `name` is not a Bluetooth input, or on platforms where opening the
+/// device already negotiates the call profile.
+pub fn prepare_bluetooth_input_for_capture(name: &str) -> Option<BluetoothInputActivation> {
+    #[cfg(target_os = "macos")]
+    {
+        prepare_macos_bluetooth_input(name)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = name;
+        None
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn prepare_macos_bluetooth_input(name: &str) -> Option<BluetoothInputActivation> {
+    use std::time::{Duration, Instant};
+
+    const HANDOFF_TIMEOUT: Duration = Duration::from_millis(1000);
+    const HANDOFF_POLL: Duration = Duration::from_millis(50);
+
+    let backend = backend();
+    let inputs = backend.list_input_devices().ok()?;
+    let requested = bluetooth_input_named(name, &inputs)?.clone();
+    let previous = backend.get_default_input_device().ok().flatten();
+    let previous_default = previous
+        .as_ref()
+        .filter(|device| device.id != requested.id)
+        .map(|device| device.id.clone());
+
+    if let Err(error) = backend.set_default_input_device(&requested.id) {
+        tracing::warn!(
+            error = %error,
+            device = %requested.name,
+            "bluetooth_input_set_default_failed"
+        );
+        return Some(BluetoothInputActivation {
+            name: requested.name,
+            previous_default: None,
+        });
+    }
+
+    let started = Instant::now();
+    let mut default_after = previous.filter(|device| device.id == requested.id);
+    while started.elapsed() < HANDOFF_TIMEOUT {
+        match backend.get_default_input_device() {
+            Ok(Some(device)) if device.transport_type == TransportType::Bluetooth => {
+                default_after = Some(device);
+                break;
+            }
+            _ => std::thread::sleep(HANDOFF_POLL),
+        }
+    }
+
+    let name = resolved_capture_name(&requested, default_after.as_ref());
+    tracing::info!(
+        requested = %requested.name,
+        opened = %name,
+        restored_default = previous_default.is_some(),
+        "bluetooth_input_prepared"
+    );
+
+    Some(BluetoothInputActivation {
+        name,
+        previous_default,
+    })
 }
 
 pub trait AudioDeviceBackend {
@@ -331,6 +452,34 @@ mod tests {
         let result =
             resolve_wired_input_replacement(&input("headset", TransportType::Bluetooth), inputs);
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn bluetooth_input_named_requires_bluetooth_transport() {
+        let inputs = vec![
+            named_input("usb", "AirPods", TransportType::Usb),
+            named_input("bt", "AirPods", TransportType::Bluetooth),
+            named_input("other", "WH-1000XM5", TransportType::Bluetooth),
+        ];
+        assert_eq!(
+            bluetooth_input_named("AirPods", &inputs).map(|device| device.id.0.as_str()),
+            Some("bt")
+        );
+        assert!(bluetooth_input_named("MacBook Pro Microphone", &inputs).is_none());
+    }
+
+    #[test]
+    fn capture_name_follows_the_live_bluetooth_default_after_handoff() {
+        let requested = named_input("a2dp", "AirPods", TransportType::Bluetooth);
+        let handsfree = named_input("tsco", "AirPods Hands-Free", TransportType::Bluetooth);
+        assert_eq!(
+            resolved_capture_name(&requested, Some(&handsfree)),
+            "AirPods Hands-Free"
+        );
+
+        let builtin = named_input("mic", "MacBook Pro Microphone", TransportType::BuiltIn);
+        assert_eq!(resolved_capture_name(&requested, Some(&builtin)), "AirPods");
+        assert_eq!(resolved_capture_name(&requested, None), "AirPods");
     }
 
     #[test]

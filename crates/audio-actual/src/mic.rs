@@ -219,6 +219,7 @@ impl Drop for CpalHandles {
 pub struct MicInput {
     handles: CpalHandles,
     config: cpal::SupportedStreamConfig,
+    bluetooth: Option<Arc<anlg_audio_device::BluetoothInputActivation>>,
 }
 
 const MIC_READ_CHUNK_SIZE: usize = 256;
@@ -305,6 +306,18 @@ impl MicInput {
     }
 
     fn new_locked(device_name: Option<String>) -> Result<Self, crate::Error> {
+        let bluetooth = device_name
+            .as_deref()
+            .filter(|name| !name.is_empty())
+            .map(str::to_string)
+            .or_else(anlg_audio_device::default_input_device_name)
+            .and_then(|name| anlg_audio_device::prepare_bluetooth_input_for_capture(&name))
+            .map(Arc::new);
+        let preferred = bluetooth
+            .as_ref()
+            .map(|activation| activation.name.clone())
+            .or(device_name);
+
         let host = cpal::default_host();
 
         let get_device_name = |d: &cpal::Device| {
@@ -327,11 +340,8 @@ impl MicInput {
             drop_quietly(d);
             name
         });
-        let ranked = rank_input_devices(
-            device_name.as_deref(),
-            default_name.as_deref(),
-            &listed_names,
-        );
+        let ranked =
+            rank_input_devices(preferred.as_deref(), default_name.as_deref(), &listed_names);
 
         let opened = if ranked.is_empty() {
             None
@@ -407,6 +417,7 @@ impl MicInput {
                 Ok(Self {
                     handles: CpalHandles::new(host, device),
                     config,
+                    bluetooth,
                 })
             }
             None => {
@@ -601,6 +612,7 @@ impl MicInput {
         Ok(MicStream {
             drop_tx,
             config: self.config.clone(),
+            _bluetooth: self.bluetooth.clone(),
             reader: RingbufAsyncReader::new(
                 consumer,
                 waker,
@@ -616,6 +628,7 @@ impl MicInput {
 pub struct MicStream {
     drop_tx: std::sync::mpsc::Sender<()>,
     config: cpal::SupportedStreamConfig,
+    _bluetooth: Option<Arc<anlg_audio_device::BluetoothInputActivation>>,
     reader: RingbufAsyncReader<HeapCons<f32>>,
 }
 

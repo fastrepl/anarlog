@@ -1606,6 +1606,7 @@ dependencies = [
  "aec",
  "anyhow",
  "audio",
+ "audio-device",
  "audio-interface",
  "audio-sync",
  "audio-utils",
