@@ -17,6 +17,7 @@ anlg-audio-mock = { workspace = true }
 anlg-db-app = { workspace = true }
 anlg-db-core = { workspace = true }
 anlg-deeplink-core = { workspace = true }
+anlg-desktop-auth = { workspace = true }
 anlg-detect = { workspace = true, features = ["list"] }
 anlg-export-core = { workspace = true }
 anlg-fs-sync-core = { workspace = true }
@@ -27,6 +28,7 @@ anlg-local-api-core = { workspace = true }
 anlg-notification = { workspace = true }
 anlg-search-index = { workspace = true }
 anlg-storage = { workspace = true }
+anlg-supabase-auth = { workspace = true, features = ["refresh"] }
 anlg-template-app = { workspace = true }
 anlg-template-app-legacy = { workspace = true }
 anlg-tiptap = { workspace = true }

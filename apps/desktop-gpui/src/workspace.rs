@@ -251,6 +251,7 @@ pub struct Workspace {
     chat_sent_history: Vec<crate::text_area::Draft>,
     mention_humans: Vec<crate::contacts::Human>,
     mention_organizations: Vec<crate::contacts::Organization>,
+    pub(crate) auth_service: std::sync::Arc<crate::auth::Auth>,
     auth: toast::Auth,
     /// `getDismissedToasts` from `store.json`.
     dismissed_toasts: Vec<String>,
@@ -422,22 +423,29 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    pub fn new(store: Arc<Store>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        Self::with_mode(store, Mode::Main, window, cx)
+    pub fn new(
+        store: Arc<Store>,
+        auth: std::sync::Arc<crate::auth::Auth>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        Self::with_mode(store, auth, Mode::Main, window, cx)
     }
 
     /// `StandaloneNoteWindow`: the note surface alone, showing `session_id`.
     pub fn standalone(
         store: Arc<Store>,
+        auth: std::sync::Arc<crate::auth::Auth>,
         session_id: String,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        Self::with_mode(store, Mode::StandaloneNote(session_id), window, cx)
+        Self::with_mode(store, auth, Mode::StandaloneNote(session_id), window, cx)
     }
 
     fn with_mode(
         store: Arc<Store>,
+        auth: std::sync::Arc<crate::auth::Auth>,
         mode: Mode,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -533,7 +541,12 @@ impl Workspace {
             chat_sent_history: Vec::new(),
             mention_humans: Vec::new(),
             mention_organizations: Vec::new(),
-            auth: toast::Auth::Loading,
+            auth_service: auth.clone(),
+            auth: if auth.signed_in() {
+                toast::Auth::SignedIn
+            } else {
+                toast::Auth::SignedOut
+            },
             dismissed_toasts: Vec::new(),
             theme_preference: "system".to_string(),
             overflow_open: false,
@@ -628,6 +641,26 @@ impl Workspace {
         this.reload_sessions(cx);
         this.reload_settings(cx);
         this.watch_changes(cx);
+        let mut auth_state = auth.subscribe();
+        cx.spawn(async move |this, cx| {
+            while auth_state.changed().await.is_ok() {
+                let signed_in = *auth_state.borrow();
+                if this
+                    .update(cx, |this, cx| {
+                        this.auth = if signed_in {
+                            toast::Auth::SignedIn
+                        } else {
+                            toast::Auth::SignedOut
+                        };
+                        cx.notify();
+                    })
+                    .is_err()
+                {
+                    break;
+                }
+            }
+        })
+        .detach();
         this.observe_window_activity(window, cx);
         match mode {
             Mode::Main => {
@@ -713,6 +746,7 @@ impl Workspace {
             }
         }
         let store = self.store.clone();
+        let auth = self.auth_service.clone();
         let id = session_id.clone();
         let bounds = gpui::Bounds::centered(None, gpui::size(px(720.0), px(820.0)), cx);
         let result = cx.open_window(
@@ -728,7 +762,7 @@ impl Workspace {
                 ..Default::default()
             },
             move |window, cx| {
-                let workspace = cx.new(|cx| Workspace::standalone(store, id, window, cx));
+                let workspace = cx.new(|cx| Workspace::standalone(store, auth, id, window, cx));
                 workspace.read(cx).focus_handle().focus(window);
                 workspace
             },

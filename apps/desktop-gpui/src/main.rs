@@ -7,6 +7,7 @@ mod assets;
 mod audio;
 mod audio_player;
 mod audio_retention;
+mod auth;
 mod automations;
 mod automations_engine;
 mod badges;
@@ -111,11 +112,11 @@ impl gpui::Global for DeepLinks {}
 
 /// `useDeeplinkHandler` + the single-instance callback: bring the main
 /// window back (reopening it when it was closed) and route the link.
-fn handle_deep_link_url(url: &str, store: &Arc<Store>, cx: &mut App) {
+fn handle_deep_link_url(url: &str, store: &Arc<Store>, auth: &Arc<auth::Auth>, cx: &mut App) {
     let incoming = deeplink::classify(url);
     let handle = match cx.global::<MainWindow>().handle {
         Some(handle) if cx.windows().contains(&handle.into()) => handle,
-        _ => match open_main_window(store.clone(), cx) {
+        _ => match open_main_window(store.clone(), auth.clone(), cx) {
             Ok(handle) => handle,
             Err(error) => {
                 tracing::error!(%error, "failed to reopen main window for deep link");
@@ -167,7 +168,11 @@ fn main_window_bounds(identifier: &str, cx: &App) -> (WindowBounds, bool) {
     }
 }
 
-fn open_main_window(store: Arc<Store>, cx: &mut App) -> anyhow::Result<WindowHandle<Workspace>> {
+fn open_main_window(
+    store: Arc<Store>,
+    auth: Arc<auth::Auth>,
+    cx: &mut App,
+) -> anyhow::Result<WindowHandle<Workspace>> {
     let identifier = store.identifier().to_string();
     let (bounds, restored) = main_window_bounds(&identifier, cx);
     // Tauri ships `decorations: false` with its own title bar on Windows
@@ -194,7 +199,7 @@ fn open_main_window(store: Arc<Store>, cx: &mut App) -> anyhow::Result<WindowHan
             ..Default::default()
         },
         |window, cx| {
-            let workspace = cx.new(|cx| Workspace::new(store, window, cx));
+            let workspace = cx.new(|cx| Workspace::new(store, auth, window, cx));
             // Key bindings dispatch through the focused element.
             workspace.read(cx).focus_handle().focus(window);
             workspace
@@ -234,7 +239,12 @@ fn open_main_window(store: Arc<Store>, cx: &mut App) -> anyhow::Result<WindowHan
 /// A tray menu click: bring the main window back (opening it again when it
 /// was closed) and run the item, like `TrayOpen` / `TrayStart` /
 /// `TraySettings` / `handle_agenda_menu_event`.
-fn handle_tray_action(action: tray::TrayAction, store: &Arc<Store>, cx: &mut App) {
+fn handle_tray_action(
+    action: tray::TrayAction,
+    store: &Arc<Store>,
+    auth: &Arc<auth::Auth>,
+    cx: &mut App,
+) {
     use tray::TrayAction;
     match action {
         // `TrayHide`: `window.hide()`; the window stays open (gpui 0.2.2's
@@ -274,7 +284,7 @@ fn handle_tray_action(action: tray::TrayAction, store: &Arc<Store>, cx: &mut App
         TrayAction::Open | TrayAction::Start | TrayAction::Settings | TrayAction::Agenda(_) => {
             let handle = match cx.global::<MainWindow>().handle {
                 Some(handle) if cx.windows().contains(&handle.into()) => handle,
-                _ => match open_main_window(store.clone(), cx) {
+                _ => match open_main_window(store.clone(), auth.clone(), cx) {
                     Ok(handle) => handle,
                     Err(error) => {
                         tracing::error!(%error, "failed to reopen main window from tray");
@@ -304,10 +314,15 @@ fn handle_tray_action(action: tray::TrayAction, store: &Arc<Store>, cx: &mut App
 
 /// A notification's `Open Anarlog`: bring the window back and open the
 /// session it names (`openNew({ type: "sessions", id })`).
-fn handle_notification_open(opened: notifications::Opened, store: &Arc<Store>, cx: &mut App) {
+fn handle_notification_open(
+    opened: notifications::Opened,
+    store: &Arc<Store>,
+    auth: &Arc<auth::Auth>,
+    cx: &mut App,
+) {
     let handle = match cx.global::<MainWindow>().handle {
         Some(handle) if cx.windows().contains(&handle.into()) => handle,
-        _ => match open_main_window(store.clone(), cx) {
+        _ => match open_main_window(store.clone(), auth.clone(), cx) {
             Ok(handle) => handle,
             Err(error) => {
                 tracing::error!(%error, "failed to reopen main window from notification");
@@ -415,6 +430,7 @@ fn main() -> anyhow::Result<()> {
         db_path,
         args.identifier.clone(),
     ))?;
+    let auth = auth::Auth::start(&args.identifier, runtime.handle());
     let audio = audio::provider(&args.identifier);
     let store = Arc::new(store);
     let search = search::SearchIndex::start(&store);
@@ -493,7 +509,7 @@ fn main() -> anyhow::Result<()> {
         })
         .detach();
 
-        if let Err(error) = open_main_window(store.clone(), cx) {
+        if let Err(error) = open_main_window(store.clone(), auth.clone(), cx) {
             tracing::error!(%error, "failed to open main window");
             cx.quit();
             return;
@@ -503,12 +519,13 @@ fn main() -> anyhow::Result<()> {
         // URLs the launcher was started with are queued until the window
         // is up (`take_pending_deep_links`).
         for url in &startup_urls {
-            handle_deep_link_url(url, &store, cx);
+            handle_deep_link_url(url, &store, &auth, cx);
         }
 
         // Tray menu clicks, forwarded launches, and loopback callbacks
         // arrive on their threads' channels.
         let tray_store = store.clone();
+        let tray_auth = auth.clone();
         cx.spawn(async move |cx| {
             loop {
                 cx.background_executor()
@@ -517,13 +534,13 @@ fn main() -> anyhow::Result<()> {
                 let stop = cx
                     .update(|cx| {
                         for action in cx.global::<tray::Tray>().take_actions() {
-                            handle_tray_action(action, &tray_store, cx);
+                            handle_tray_action(action, &tray_store, &tray_auth, cx);
                         }
                         for opened in cx.global::<notifications::Notifications>().take_opened() {
-                            handle_notification_open(opened, &tray_store, cx);
+                            handle_notification_open(opened, &tray_store, &tray_auth, cx);
                         }
                         for url in forwarded.try_iter().chain(deeplink_receiver.try_iter()) {
-                            handle_deep_link_url(&url, &tray_store, cx);
+                            handle_deep_link_url(&url, &tray_store, &tray_auth, cx);
                         }
                         // `onThemeChanged`: windows on the `system` theme re-resolve.
                         if cx.global::<system_theme::SystemTheme>().take_changed() {

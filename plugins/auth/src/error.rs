@@ -1,6 +1,8 @@
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
+    DesktopAuth(#[from] anlg_desktop_auth::Error),
+    #[error(transparent)]
     Auth(#[from] anlg_supabase_auth::client::Error),
     #[error(transparent)]
     Io(#[from] std::io::Error),

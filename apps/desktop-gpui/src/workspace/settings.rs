@@ -1088,7 +1088,11 @@ impl Workspace {
                 .flex_col()
                 .gap_8()
                 .child(title)
-                .child(self.render_account_signed_out(cx))
+                .child(if self.auth_service.signed_in() {
+                    self.render_account_signed_in(cx)
+                } else {
+                    self.render_account_signed_out(cx)
+                })
                 .child(self.render_guest_plans()),
             SettingsTab::Stats => self.render_stats_settings(title, window, cx),
             SettingsTab::Insights => self.render_insights_settings(title, window, cx),
@@ -1777,6 +1781,63 @@ impl Workspace {
                         cx.listener(|this, _: &ClickEvent, window, cx| this.sign_in(window, cx)),
                     )
                     .child("Get started"),
+            )
+    }
+
+    fn render_account_signed_in(&self, cx: &Context<Self>) -> Div {
+        let theme = self.theme;
+        let account = self.auth_service.account_info();
+        let label = account
+            .as_ref()
+            .and_then(|account| account.full_name.as_deref().or(account.email.as_deref()))
+            .unwrap_or("Signed in");
+        div()
+            .flex()
+            .items_center()
+            .justify_between()
+            .gap_4()
+            .pb_4()
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .child(
+                        div()
+                            .tw_text_sm()
+                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .text_color(theme.foreground)
+                            .child(label.to_string()),
+                    )
+                    .when_some(
+                        account.as_ref().and_then(|account| account.email.clone()),
+                        |element, email| {
+                            element.child(
+                                div()
+                                    .tw_text_sm()
+                                    .text_color(theme.muted_foreground)
+                                    .child(email),
+                            )
+                        },
+                    ),
+            )
+            .child(
+                div()
+                    .id("account-sign-out")
+                    .px_3()
+                    .py_2()
+                    .rounded_full()
+                    .tw_text_sm()
+                    .text_color(theme.foreground)
+                    .cursor_pointer()
+                    .hover(|element| element.bg(theme.accent))
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                        if let Err(error) = this.auth_service.sign_out() {
+                            tracing::warn!(%error, "failed to persist desktop auth sign-out");
+                        }
+                        cx.notify();
+                    }))
+                    .child("Sign out"),
             )
     }
 
