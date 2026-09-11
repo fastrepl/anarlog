@@ -3,6 +3,7 @@ use tauri::Manager;
 use crate::{CreatedWebhook, MarkdownExportOptions, WebhookDelivery, WebhookInfo, dispatch};
 
 const MAX_CLOUD_SNAPSHOT_BYTES: usize = 2 * 1024 * 1024;
+static MARKDOWN_EXPORT_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 fn pool<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<sqlx::SqlitePool, String> {
     app.try_state::<tauri_plugin_db::ManagedState>()
@@ -272,6 +273,10 @@ pub(crate) fn write_markdown_export_with_options(
 ) -> Result<std::path::PathBuf, String> {
     use std::io::Write;
 
+    // Native dispatch and desktop workflows can export the same meeting concurrently.
+    let _guard = MARKDOWN_EXPORT_LOCK
+        .lock()
+        .map_err(|error| error.to_string())?;
     let defaults = MarkdownExportOptions::default();
     let selected = options.unwrap_or(&defaults);
     if !(selected.include_memo
@@ -305,26 +310,57 @@ pub(crate) fn write_markdown_export_with_options(
     let path = directory.join(&filename);
     let mut markdown = filtered.to_markdown();
     markdown.push('\n');
-    match std::fs::OpenOptions::new().write(true).create_new(true).open(&path) {
-        Ok(mut file) => file.write_all(markdown.as_bytes()),
-        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-            let existing = std::fs::read_to_string(&path)
-                .map_err(|error| format!("could not read existing export: {error}"))?;
+    let existing = match std::fs::read_to_string(&path) {
+        Ok(content) => {
             let marker = format!("- ID: `{}`", export.meeting.id);
-            let existing_id = existing.split("\n\n").nth(1).and_then(|metadata| metadata.lines().next());
+            let existing_id = content
+                .split("\n\n")
+                .nth(1)
+                .and_then(|metadata| metadata.lines().next());
             if existing_id != Some(marker.as_str()) {
-                return Err(format!("{filename} already exists for another file; choose a different filename or include the meeting ID suffix"));
+                return Err(format!(
+                    "{filename} already exists for another file; choose a different filename or include the meeting ID suffix"
+                ));
             }
-            std::fs::write(&path, &markdown)
+            true
         }
-        Err(error) => Err(error),
-    }.map_err(|error| format!("could not write markdown export: {error}"))?;
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+        Err(error) => return Err(format!("could not read existing export: {error}")),
+    };
+    persist_markdown_export(&path, existing, |file| file.write_all(markdown.as_bytes()))
+        .map_err(|error| format!("could not write markdown export: {error}"))?;
     // Configured actions can export different content for the same meeting to
     // the same folder. Only the legacy export owns its old filename cleanup.
     if options.is_none() {
         remove_stale_exports(directory, &export.meeting.id, &filename);
     }
     Ok(path)
+}
+
+pub(crate) fn persist_markdown_export(
+    path: &std::path::Path,
+    replace_existing: bool,
+    write: impl FnOnce(&mut std::fs::File) -> std::io::Result<()>,
+) -> std::io::Result<()> {
+    use std::io::Write;
+
+    let directory = path
+        .parent()
+        .ok_or_else(|| std::io::Error::other("export has no parent folder"))?;
+    let mut temporary = tempfile::Builder::new()
+        .prefix(".anlg-export-")
+        .tempfile_in(directory)?;
+    write(temporary.as_file_mut())?;
+    temporary.as_file_mut().flush()?;
+    temporary.as_file().sync_all()?;
+    if replace_existing {
+        temporary.persist(path).map_err(|error| error.error)?;
+    } else {
+        temporary
+            .persist_noclobber(path)
+            .map_err(|error| error.error)?;
+    }
+    Ok(())
 }
 
 // A meeting is re-exported when its note is enhanced, and by then the title

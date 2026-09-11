@@ -332,6 +332,91 @@ mod test {
     }
 
     #[tokio::test]
+    async fn failed_markdown_writes_leave_no_partial_export_and_can_be_retried() {
+        use std::io::Write;
+
+        let pool = seeded_pool().await;
+        let export = anlg_agent_access::get_meeting_export(&pool, "meeting-1".to_string())
+            .await
+            .unwrap();
+        let options = MarkdownExportOptions {
+            filename: "Recap".to_string(),
+            include_id_suffix: false,
+            ..Default::default()
+        };
+        for replace_existing in [false, true] {
+            let directory = tempfile::tempdir().unwrap();
+            let path = directory.path().join("Recap.md");
+            if replace_existing {
+                std::fs::write(&path, format!("{}\n", export.to_markdown())).unwrap();
+            }
+            let before = std::fs::read(&path).ok();
+            let error = commands::persist_markdown_export(&path, replace_existing, |file| {
+                file.write_all(b"# Partial")?;
+                Err(std::io::Error::other("simulated write failure"))
+            })
+            .unwrap_err();
+            assert_eq!(error.to_string(), "simulated write failure");
+            assert_eq!(std::fs::read(&path).ok(), before);
+            assert_eq!(
+                std::fs::read_dir(directory.path()).unwrap().count(),
+                usize::from(replace_existing)
+            );
+            commands::write_markdown_export_with_options(directory.path(), &export, Some(&options))
+                .unwrap();
+            assert!(
+                std::fs::read_to_string(&path)
+                    .unwrap()
+                    .contains("hello world")
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn simultaneous_markdown_exports_complete_without_false_collisions() {
+        let pool = seeded_pool().await;
+        let mut export = anlg_agent_access::get_meeting_export(&pool, "meeting-1".to_string())
+            .await
+            .unwrap();
+        export.meeting.note.as_mut().unwrap().markdown = "Memo content. ".repeat(20_000);
+        let directory = tempfile::tempdir().unwrap();
+        let barrier = std::sync::Barrier::new(8);
+        let options = MarkdownExportOptions::default();
+        std::thread::scope(|scope| {
+            let handles = (0..8)
+                .map(|index| {
+                    let export = &export;
+                    let directory = directory.path();
+                    let barrier = &barrier;
+                    let options = &options;
+                    scope.spawn(move || {
+                        barrier.wait();
+                        for _ in 0..4 {
+                            commands::write_markdown_export_with_options(
+                                directory,
+                                export,
+                                (index % 2 == 0).then_some(options),
+                            )
+                            .unwrap();
+                        }
+                    })
+                })
+                .collect::<Vec<_>>();
+            for handle in handles {
+                handle.join().unwrap();
+            }
+        });
+        let path = directory
+            .path()
+            .join(commands::markdown_export_filename(&export.meeting));
+        assert_eq!(
+            std::fs::read_to_string(path).unwrap(),
+            format!("{}\n", export.to_markdown())
+        );
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
+    }
+
+    #[tokio::test]
     async fn configured_markdown_export_updates_its_own_file_but_rejects_collisions() {
         let pool = seeded_pool().await;
         let mut export = anlg_agent_access::get_meeting_export(&pool, "meeting-1".to_string())
