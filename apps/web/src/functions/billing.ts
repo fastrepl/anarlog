@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { randomUUID } from "node:crypto";
 import type Stripe from "stripe";
 import { z } from "zod";
 
@@ -1029,19 +1030,31 @@ export const getAccountSubscription = createServerFn({ method: "GET" }).handler(
   },
 );
 
-export const deleteAccount = createServerFn({ method: "POST" }).handler(
-  async () => {
-    const supabase = getSupabaseServerClient();
-    const { data: sessionData } = await supabase.auth.getSession();
+const deleteAccountInput = z.object({
+  email: z.string().email().trim(),
+});
 
-    if (!sessionData.session) {
+export const deleteAccount = createServerFn({ method: "POST" })
+  .inputValidator(deleteAccountInput)
+  .handler(async ({ data }) => {
+    const supabase = getSupabaseServerClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user?.email) {
       throw new Error("Not authenticated");
+    }
+
+    if (data.email.trim().toLowerCase() !== user.email.toLowerCase()) {
+      throw new Error("Email does not match the authenticated account");
     }
 
     const client = createClient({
       baseUrl: env.VITE_API_URL,
       headers: {
-        Authorization: `Bearer ${sessionData.session.access_token}`,
+        Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token ?? ""}`,
       },
     });
 
@@ -1052,20 +1065,21 @@ export const deleteAccount = createServerFn({ method: "POST" }).handler(
 
     await supabase.auth.signOut({ scope: "local" });
     return { success: true };
-  },
-);
+  });
 
 export const createRetentionOffer = createServerFn({
   method: "POST",
 }).handler(async () => {
   const supabase = getSupabaseServerClient();
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData.session) {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError || !user) {
     throw new Error("Not authenticated");
   }
 
   const stripe = getStripeClient();
-  const user = sessionData.session.user;
   const stripeCustomerId = await getStripeCustomerIdForUser(
     supabase,
     stripe,
@@ -1093,7 +1107,7 @@ export const createRetentionOffer = createServerFn({
   const promotionCode = await stripe.promotionCodes.create({
     promotion: { type: "coupon", coupon: coupon.id },
     customer: stripeCustomerId,
-    code: `RETAIN-${Date.now().toString(36).toUpperCase()}`,
+    code: `RETAIN-${randomUUID().replace(/-/g, "").toUpperCase()}`,
   });
 
   await stripe.subscriptions.update(subscription.id, {

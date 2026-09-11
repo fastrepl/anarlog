@@ -27,7 +27,7 @@ export function DangerAreaSection() {
   const emailConfirmed = confirmEmail.trim() === email;
 
   const deleteAccountMutation = useMutation({
-    mutationFn: () => deleteAccount(),
+    mutationFn: () => deleteAccount({ data: { email: confirmEmail } }),
     onSuccess: () => {
       setOpen(false);
       navigate({ to: "/" });
