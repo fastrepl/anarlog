@@ -1054,3 +1054,54 @@ export const deleteAccount = createServerFn({ method: "POST" }).handler(
     return { success: true };
   },
 );
+
+export const createRetentionOffer = createServerFn({
+  method: "POST",
+}).handler(async () => {
+  const supabase = getSupabaseServerClient();
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session) {
+    throw new Error("Not authenticated");
+  }
+
+  const stripe = getStripeClient();
+  const user = sessionData.session.user;
+  const stripeCustomerId = await getStripeCustomerIdForUser(
+    supabase,
+    stripe,
+    user,
+  );
+  if (!stripeCustomerId) {
+    throw new Error("No billing customer");
+  }
+
+  const subscription = await getCurrentSubscription(stripe, stripeCustomerId, {
+    expandDiscounts: true,
+  });
+  if (!subscription || subscription.status !== "active") {
+    throw new Error("No active personal subscription");
+  }
+
+  const coupon = await stripe.coupons.create({
+    percent_off: 100,
+    duration: "repeating",
+    duration_in_months: 2,
+    name: "2 months free",
+    max_redemptions: 1,
+  });
+
+  const promotionCode = await stripe.promotionCodes.create({
+    promotion: { type: "coupon", coupon: coupon.id },
+    customer: stripeCustomerId,
+    code: `RETAIN-${Date.now().toString(36).toUpperCase()}`,
+  });
+
+  await stripe.subscriptions.update(subscription.id, {
+    discounts: [{ promotion_code: promotionCode.id }],
+    ...(subscription.cancel_at_period_end
+      ? { cancel_at_period_end: false }
+      : {}),
+  });
+
+  return { success: true };
+});

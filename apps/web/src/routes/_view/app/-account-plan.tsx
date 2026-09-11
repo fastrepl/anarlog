@@ -1,12 +1,25 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 
-import { getFixedPlanPrice } from "@anlg/pricing";
+import { getFixedPlanPrice, MARKETING_PLAN_TIERS } from "@anlg/pricing";
+import { Check, Plugs } from "@anlg/ui/components/icons";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@anlg/ui/components/ui/dialog";
 import { cn } from "@anlg/utils";
 
 import { authInputClassName } from "@/components/auth-shell";
-import { getAccountSubscription } from "@/functions/billing";
+import {
+  createRetentionOffer,
+  getAccountSubscription,
+} from "@/functions/billing";
 import { getSupabaseBrowserClient } from "@/functions/supabase";
 import { applyYcPerk } from "@/functions/yc-perk";
 import {
@@ -39,6 +52,7 @@ export function PlanSection({
 }: {
   perk?: "applied" | "claimed" | "invalid";
 }) {
+  const queryClient = useQueryClient();
   const { data, isPending } = useAccountSession();
   const billing = data?.billing;
   const workspacePlanQuery = useQuery({
@@ -123,6 +137,21 @@ export function PlanSection({
     !isCheckingPlan &&
     (workspacePlanQuery.isError || !workspacePlanQuery.isSuccess);
 
+  const [downgradeOpen, setDowngradeOpen] = useState(false);
+  const retentionOffer = useMutation({
+    mutationFn: () => createRetentionOffer(),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: accountSubscriptionQueryKey,
+      });
+      setDowngradeOpen(false);
+    },
+  });
+
+  const currentPlanId =
+    workspacePlan ??
+    (billing?.isPro ? "pro" : billing?.isLite ? "pro" : "free");
+
   return (
     <div className={accountCardClassName}>
       <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
@@ -166,6 +195,14 @@ export function PlanSection({
                 >
                   Manage billing
                 </Link>
+                {billing?.isPro && !billing?.isTrialing ? (
+                  <button
+                    onClick={() => setDowngradeOpen(true)}
+                    className={accountPillSecondaryClassName}
+                  >
+                    Downgrade
+                  </button>
+                ) : null}
               </div>
             ) : billing?.isPaused ? (
               <Link
@@ -208,12 +245,23 @@ export function PlanSection({
           </>
         )}
       </div>
+      {!isCheckingPlan && !couldNotVerifyPlan ? (
+        <PlanComparison currentPlanId={currentPlanId} />
+      ) : null}
       {!isCheckingPlan &&
       !couldNotVerifyPlan &&
       !isWorkspacePlan &&
       !hasYcPerk ? (
         <YcPerkApplyForm perk={perk} />
       ) : null}
+      <DowngradeDialog
+        open={downgradeOpen}
+        onOpenChange={setDowngradeOpen}
+        onAcceptOffer={() => retentionOffer.mutate()}
+        onProceedToDowngrade={() => setDowngradeOpen(false)}
+        isApplyingOffer={retentionOffer.isPending}
+        offerError={retentionOffer.error}
+      />
     </div>
   );
 }
@@ -379,4 +427,152 @@ function FieldError({ errors }: { errors: Array<unknown> }) {
       {message}
     </p>
   ) : null;
+}
+
+function PlanComparison({
+  currentPlanId,
+}: {
+  currentPlanId: "free" | "pro" | "team" | "enterprise";
+}) {
+  return (
+    <div className="border-t border-[#ede7dc] p-6 sm:p-8">
+      <p className="text-sm font-medium text-[#181613]">Available plans</p>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {MARKETING_PLAN_TIERS.map((tier) => {
+          const isCurrent = tier.id === currentPlanId;
+          const priceText =
+            tier.price.kind === "free"
+              ? "$0/month"
+              : tier.price.kind === "custom"
+                ? "Custom"
+                : `$${tier.price.monthly}/${
+                    tier.price.billingUnit ?? "person"
+                  }/mo`;
+
+          return (
+            <div
+              key={tier.id}
+              className={cn([
+                "rounded-2xl border p-4",
+                isCurrent
+                  ? "border-[#181613] bg-[#fffaf0]"
+                  : "border-[#e5ddcf] bg-white",
+              ])}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p
+                  className={cn([
+                    "font-mono text-sm font-medium",
+                    isCurrent ? "text-[#181613]" : "text-[#756b5d]",
+                  ])}
+                >
+                  {tier.name}
+                </p>
+                {isCurrent && (
+                  <span className="rounded-full bg-[#fff0b3] px-2 py-0.5 text-xs font-medium text-[#4f4940]">
+                    Current
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-[#918a80]">{priceText}</p>
+              <ul className="mt-3 space-y-1.5">
+                {tier.features.slice(0, 3).map((feature, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-2 text-xs text-[#57534e]"
+                  >
+                    {feature.included ? (
+                      <Check className="mt-0.5 size-3.5 shrink-0 text-green-600" />
+                    ) : (
+                      <Plugs className="mt-0.5 size-3.5 shrink-0 text-[#918a80]" />
+                    )}
+                    {feature.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function DowngradeDialog({
+  open,
+  onOpenChange,
+  onAcceptOffer,
+  onProceedToDowngrade,
+  isApplyingOffer,
+  offerError,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onAcceptOffer: () => void;
+  onProceedToDowngrade: () => void;
+  isApplyingOffer: boolean;
+  offerError: Error | null;
+}) {
+  const navigate = useNavigate();
+  const lostFeatures = MARKETING_PLAN_TIERS.find(
+    (tier) => tier.id === "pro",
+  )?.features.filter((feature) =>
+    MARKETING_PLAN_TIERS.find((tier) => tier.id === "free")?.features.every(
+      (freeFeature) => freeFeature.label !== feature.label,
+    ),
+  );
+
+  const handleProceed = () => {
+    onProceedToDowngrade();
+    navigate({ to: "/app/portal/" });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Downgrade to Free?</DialogTitle>
+          <DialogDescription>
+            Free is local-first and free forever, but you will lose these Pro
+            benefits.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3 py-2">
+          {lostFeatures?.slice(0, 6).map((feature, i) => (
+            <div
+              key={i}
+              className="flex items-start gap-2 text-sm text-[#57534e]"
+            >
+              <Plugs className="mt-0.5 size-4 shrink-0 text-[#918a80]" />
+              {feature.label}
+            </div>
+          ))}
+          {offerError && (
+            <p className="text-sm text-red-600" role="alert">
+              {offerError.message || "Could not apply the offer. Try again."}
+            </p>
+          )}
+        </div>
+        <DialogFooter>
+          <button
+            onClick={handleProceed}
+            disabled={isApplyingOffer}
+            className={cn([accountPillSecondaryClassName, "w-full sm:w-auto"])}
+          >
+            Continue to Free
+          </button>
+          <button
+            onClick={onAcceptOffer}
+            disabled={isApplyingOffer}
+            className={cn([
+              accountPillPrimaryClassName,
+              "w-full bg-stone-700 hover:bg-stone-600 sm:w-auto",
+            ])}
+          >
+            {isApplyingOffer ? "Applying..." : "Stay on Pro — 2 months free"}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
