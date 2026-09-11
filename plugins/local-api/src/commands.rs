@@ -310,10 +310,16 @@ pub(crate) fn write_markdown_export_with_options(
     let path = directory.join(&filename);
     let mut markdown = filtered.to_markdown();
     markdown.push('\n');
+    let legacy_prefix = legacy_export_prefix(&export.meeting.id);
+    if options.is_none() {
+        markdown.insert_str(0, &legacy_prefix);
+    }
     let existing = match std::fs::read_to_string(&path) {
         Ok(content) => {
             let marker = format!("- ID: `{}`", export.meeting.id);
             let existing_id = content
+                .strip_prefix(&legacy_prefix)
+                .unwrap_or(&content)
                 .split("\n\n")
                 .nth(1)
                 .and_then(|metadata| metadata.lines().next());
@@ -351,6 +357,27 @@ pub(crate) fn persist_markdown_export(
         .prefix(".anlg-export-")
         .tempfile_in(directory)?;
     write(temporary.as_file_mut())?;
+    if replace_existing {
+        let metadata = std::fs::metadata(path)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::{MetadataExt, fchown};
+            let temporary_metadata = temporary.as_file().metadata()?;
+            if metadata.uid() != temporary_metadata.uid()
+                || metadata.gid() != temporary_metadata.gid()
+            {
+                fchown(
+                    temporary.as_file(),
+                    Some(metadata.uid()),
+                    Some(metadata.gid()),
+                )?;
+            }
+        }
+        // Apply modes after ownership, since changing ownership can clear mode bits.
+        temporary
+            .as_file()
+            .set_permissions(metadata.permissions())?;
+    }
     temporary.as_file_mut().flush()?;
     temporary.as_file().sync_all()?;
     if replace_existing {
@@ -363,9 +390,12 @@ pub(crate) fn persist_markdown_export(
     Ok(())
 }
 
-// A meeting is re-exported when its note is enhanced, and by then the title
-// may have changed (e.g. auto-generated), renaming the export. Best-effort
-// remove the meeting's previous file so only the latest export remains.
+fn legacy_export_prefix(meeting_id: &str) -> String {
+    format!("<!-- anarlog:legacy-markdown-export {meeting_id:?} -->\n\n")
+}
+
+// Only remove files explicitly owned by the legacy exporter. Unmarked files
+// may belong to users or configured actions, even when their ID suffix matches.
 fn remove_stale_exports(directory: &std::path::Path, meeting_id: &str, keep_filename: &str) {
     let id_prefix = meeting_id.chars().take(8).collect::<String>();
     if id_prefix.is_empty() {
@@ -375,12 +405,17 @@ fn remove_stale_exports(directory: &std::path::Path, meeting_id: &str, keep_file
     let Ok(entries) = std::fs::read_dir(directory) else {
         return;
     };
+    let owner = legacy_export_prefix(meeting_id);
     for entry in entries.flatten() {
         let name = entry.file_name();
         let Some(name) = name.to_str() else {
             continue;
         };
-        if name != keep_filename && name.ends_with(&marker) {
+        if name != keep_filename
+            && name.ends_with(&marker)
+            && std::fs::read_to_string(entry.path())
+                .is_ok_and(|content| content.starts_with(&owner))
+        {
             let _ = std::fs::remove_file(entry.path());
         }
     }
