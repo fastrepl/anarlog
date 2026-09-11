@@ -38,6 +38,10 @@ import {
   getTranscriptRecord,
   type TranscriptRecord,
 } from "~/stt/queries";
+import {
+  buildRenderTranscriptRequestFromRows,
+  resolveScopedWordHumanIds,
+} from "~/stt/render-transcript";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 
 type RunOptions = {
@@ -108,6 +112,7 @@ export const INCOMPLETE_BATCH_TRANSCRIPT_ERROR_MESSAGE =
 const MIN_TRANSCRIPT_CHARACTER_LOSS = 200;
 const MIN_TRANSCRIPT_RETAINED_RATIO = 0.5;
 const MIN_REFINED_SPEAKER_OVERLAP_RATIO = 0.6;
+const MIN_REFINED_ASSIGNMENT_COVERAGE_RATIO = 0.8;
 const LOCAL_SONIQO_BATCH_TARGET = {
   provider: "soniqo",
   model: "soniqo-parakeet-batch",
@@ -327,7 +332,7 @@ export function reconcileRefinedSpeakerClusters(
   const sourceSpeakerKeys = speakerKeysByWordId(source.speakerHints);
   const targetSpeakerKeys = speakerKeysByWordId(hints);
   if (sourceSpeakerKeys.size === 0 || targetSpeakerKeys.size === 0) {
-    return hints;
+    return reconcileRefinedSpeakerAssignments(source, words, hints);
   }
 
   const sourceIntervalsByChannel = new Map<
@@ -497,7 +502,7 @@ export function reconcileRefinedSpeakerClusters(
     sourceSpeakerByTarget.set(speakerKey, speakerIndex);
   }
 
-  return hints.map((hint) => {
+  const reconciledProviderHints = hints.map((hint) => {
     if (hint.type !== "provider_speaker_index" || !hint.word_id) {
       return hint;
     }
@@ -516,6 +521,119 @@ export function reconcileRefinedSpeakerClusters(
       value: JSON.stringify({ ...value, speaker_index: speakerIndex }),
     };
   });
+
+  return reconcileRefinedSpeakerAssignments(
+    source,
+    words,
+    reconciledProviderHints,
+  );
+}
+
+function reconcileRefinedSpeakerAssignments(
+  source: TranscriptRecord,
+  words: WordWithId[],
+  hints: SpeakerHintWithId[],
+): SpeakerHintWithId[] {
+  if (
+    !source.speakerHints.some((hint) => hint.type === "user_speaker_assignment")
+  )
+    return hints;
+  const previous = buildRenderTranscriptRequestFromRows([
+    {
+      words: source.words,
+      speaker_hints: source.speakerHints.filter(
+        (hint) => hint.type !== "automatic_speaker_assignment",
+      ),
+    },
+  ])?.transcripts[0];
+  const next = buildRenderTranscriptRequestFromRows([
+    { words, speaker_hints: hints },
+  ])?.transcripts[0];
+  if (!previous || !next) return hints;
+
+  const previousHumans = resolveScopedWordHumanIds(previous);
+  const nextHumans = resolveScopedWordHumanIds(next);
+  const channels = new Set(next.words.map((word) => word.channel));
+  const wordIdsByHuman = new Map<string, string[]>();
+  const hasTiming = (word: { start_ms: number; end_ms: number }) =>
+    Number.isFinite(word.start_ms) &&
+    Number.isFinite(word.end_ms) &&
+    word.end_ms > word.start_ms;
+
+  for (const channel of channels) {
+    const candidates = previous.words
+      .filter(
+        (word) =>
+          hasTiming(word) &&
+          (word.channel === channel ||
+            (channel === 2 &&
+              (word.channel === 0 || word.channel === 1) &&
+              !channels.has(word.channel))),
+      )
+      .sort((a, b) => a.start_ms - b.start_ms);
+    const targets = next.words
+      .filter((word) => word.channel === channel && hasTiming(word))
+      .sort((a, b) => a.start_ms - b.start_ms);
+    let cursor = 0;
+    let active: typeof candidates = [];
+
+    for (const word of targets) {
+      if (nextHumans.has(word.id)) continue;
+      while (
+        cursor < candidates.length &&
+        candidates[cursor].start_ms < word.end_ms
+      ) {
+        active.push(candidates[cursor++]);
+      }
+      active = active.filter((candidate) => candidate.end_ms > word.start_ms);
+      let humanId: string | undefined;
+      let coveredMs = 0;
+      let coveredUntil = word.start_ms;
+      let ambiguous = false;
+
+      for (const candidate of active) {
+        const start = Math.max(word.start_ms, candidate.start_ms);
+        const end = Math.min(word.end_ms, candidate.end_ms);
+        if (end <= start) continue;
+        const candidateHuman = previousHumans.get(candidate.id);
+        if (!candidateHuman || (humanId && candidateHuman !== humanId)) {
+          ambiguous = true;
+          break;
+        }
+        humanId = candidateHuman;
+        coveredMs += Math.max(0, end - Math.max(start, coveredUntil));
+        coveredUntil = Math.max(coveredUntil, end);
+      }
+
+      if (
+        ambiguous ||
+        !humanId ||
+        coveredMs / (word.end_ms - word.start_ms) <
+          MIN_REFINED_ASSIGNMENT_COVERAGE_RATIO
+      )
+        continue;
+      const wordIds = wordIdsByHuman.get(humanId) ?? [];
+      wordIds.push(word.id);
+      wordIdsByHuman.set(humanId, wordIds);
+    }
+  }
+
+  return [
+    ...hints,
+    ...[...wordIdsByHuman].map(
+      ([humanId, wordIds]): SpeakerHintWithId => ({
+        id: `${wordIds[0]}:user_speaker_assignment:segment`,
+        word_id: wordIds[0],
+        type: "user_speaker_assignment",
+        value: JSON.stringify({
+          human_id: humanId,
+          scope: "segment",
+          word_ids: wordIds,
+          extend_to_adjacent: false,
+        }),
+      }),
+    ),
+  ];
 }
 
 export function isStoppedTranscriptionError(error: unknown) {

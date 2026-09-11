@@ -125,6 +125,15 @@ impl DeviceChangeWatcher {
                     .map_err(|_| mpsc::RecvTimeoutError::Disconnected),
             };
             match event {
+                Ok(DeviceSwitch::DeviceListChanged) => {}
+                Ok(event)
+                    if !device_switch_restarts_source(
+                        &event,
+                        anlg_audio_device::bluetooth_input_owns_system_defaults(),
+                    ) =>
+                {
+                    tracing::info!(?event, "device_switch_ignored_bluetooth_handoff");
+                }
                 Ok(DeviceSwitch::DefaultInputChanged) => {
                     tracing::info!("default_input_changed_restarting_source");
                     actor.stop(Some("device_change".to_string()));
@@ -133,13 +142,19 @@ impl DeviceChangeWatcher {
                     tracing::info!("default_output_changed_restarting_source");
                     actor.stop(Some("device_change".to_string()));
                 }
-                Ok(DeviceSwitch::DeviceListChanged) => {}
                 Err(mpsc::RecvTimeoutError::Timeout) => {
                     let Some(routing) = routing.as_mut() else {
                         continue;
                     };
                     let observed = headphone_only_output();
                     if routing.observe(observed) {
+                        if anlg_audio_device::bluetooth_input_owns_system_defaults() {
+                            tracing::info!(
+                                headphone_output = observed,
+                                "output_routing_ignored_bluetooth_handoff"
+                            );
+                            continue;
+                        }
                         tracing::info!(
                             headphone_output = observed,
                             "output_routing_changed_restarting_source"
@@ -155,6 +170,17 @@ impl DeviceChangeWatcher {
 
 fn headphone_only_output() -> bool {
     anlg_audio_device::headphone_only_output().is_some()
+}
+
+// Holding a Bluetooth headset in HFP/SCO sets the system default input and can also move
+// the default output. Those Core Audio events must not bounce the source we just opened.
+fn device_switch_restarts_source(event: &DeviceSwitch, bluetooth_owns_defaults: bool) -> bool {
+    match event {
+        DeviceSwitch::DeviceListChanged => false,
+        DeviceSwitch::DefaultInputChanged | DeviceSwitch::DefaultOutputChanged { .. } => {
+            !bluetooth_owns_defaults
+        }
+    }
 }
 
 // A meeting app can start playing through speakers after capture began, flipping the AEC and
@@ -376,6 +402,9 @@ impl Actor for SourceActor {
         _myself: ActorRef<Self::Msg>,
         st: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
+        // Drop the watcher before the capture stream so restoring the previous default
+        // input cannot be observed as a device_change restart of this source.
+        st._device_watcher.take();
         if let Some(cancel_token) = st.stream_cancel_token.take() {
             cancel_token.cancel();
         }
@@ -573,6 +602,34 @@ mod tests {
 
         actor.stop(None);
         let _ = handle.await;
+    }
+
+    #[test]
+    fn bluetooth_handoff_device_switches_do_not_restart_the_source() {
+        assert!(device_switch_restarts_source(
+            &DeviceSwitch::DefaultInputChanged,
+            false
+        ));
+        assert!(device_switch_restarts_source(
+            &DeviceSwitch::DefaultOutputChanged {
+                headphone: Some(true)
+            },
+            false
+        ));
+        assert!(!device_switch_restarts_source(
+            &DeviceSwitch::DefaultInputChanged,
+            true
+        ));
+        assert!(!device_switch_restarts_source(
+            &DeviceSwitch::DefaultOutputChanged {
+                headphone: Some(true)
+            },
+            true
+        ));
+        assert!(!device_switch_restarts_source(
+            &DeviceSwitch::DeviceListChanged,
+            false
+        ));
     }
 
     #[test]

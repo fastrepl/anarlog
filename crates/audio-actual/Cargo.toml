@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 anlg-aec = { workspace = true }
 anlg-audio = { workspace = true }
+anlg-audio-device = { workspace = true }
 anlg-audio-interface = { workspace = true }
 anlg-audio-sync = { workspace = true }
 anlg-audio-utils = { workspace = true }

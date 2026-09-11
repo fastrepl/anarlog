@@ -23,6 +23,7 @@ const TRANSCRIPTION_MODELS: Record<string, readonly string[]> = {
     "fish-audio/transcribe-1",
     "x-ai/grok-stt-1.0",
     "deepgram/nova-3",
+    "microsoft/mai-transcribe-2",
     "microsoft/mai-transcribe-1.5",
     "nvidia/parakeet-tdt-0.6b-v3",
     "qwen/qwen3-asr-flash-2026-02-10",

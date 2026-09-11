@@ -202,7 +202,6 @@ const ItemBase = memo(function ItemBase({
     typeof upcomingProgress === "number"
       ? Math.round(Math.max(0, Math.min(upcomingProgress, 1)) * 100)
       : 0;
-  const showTrailingStatus = showLiveStop || showSpinner;
   const folderLabel = folder ?? "";
   const tagLine = formatSidebarItemTags(tags ?? []);
   const extraRows = Number(Boolean(folderLabel)) + Number(Boolean(tagLine));
@@ -239,7 +238,7 @@ const ItemBase = memo(function ItemBase({
         className={cn([
           "w-full rounded-lg px-3 py-2 text-left",
           showUpcomingGauge && "pl-4",
-          showTrailingStatus && "pr-10",
+          showLiveStop && "pr-10",
           ignored ? "cursor-default" : "cursor-pointer",
           multiSelected && "bg-accent",
           !multiSelected && selected && "bg-accent",
@@ -319,7 +318,13 @@ const ItemBase = memo(function ItemBase({
               />
             )
           ) : null}
-          {isShared ? (
+          {showSpinner ? (
+            <Spinner
+              size={14}
+              aria-hidden
+              className="text-muted-foreground shrink-0"
+            />
+          ) : isShared ? (
             <Users
               aria-label={t`Shared note`}
               className="text-muted-foreground size-3.5 shrink-0"
@@ -338,14 +343,6 @@ const ItemBase = memo(function ItemBase({
             className="bg-destructive absolute bottom-0 left-0 w-full rounded-full transition-[height] duration-300 ease-linear"
             style={{ height: `${upcomingGaugePercent}%` }}
           />
-        </div>
-      ) : null}
-      {showSpinner ? (
-        <div
-          aria-hidden
-          className="text-muted-foreground pointer-events-none absolute top-1/2 right-3 flex size-5 -translate-y-1/2 items-center justify-center"
-        >
-          <Spinner size={14} />
         </div>
       ) : null}
       {showLiveStop ? (

@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { randomUUID } from "node:crypto";
 import type Stripe from "stripe";
 import { z } from "zod";
 
@@ -36,6 +37,7 @@ import {
 } from "@/lib/stripe-customer";
 import {
   getPlanSwitchRoute,
+  getSubscriptionBillingPeriod,
   selectCurrentSubscription,
   selectPersonalPlanReplacement,
 } from "@/lib/subscription-selection";
@@ -182,6 +184,42 @@ const getTeamPriceId = (period: "monthly" | "yearly") => {
   );
 };
 
+const createSubscriptionUpdateConfirmUrl = async (
+  stripe: Stripe,
+  stripeCustomerId: string,
+  subscription: Stripe.Subscription,
+  targetPriceId: string,
+  returnUrl: string,
+) => {
+  const subscriptionItem = subscription.items.data[0];
+  if (!subscriptionItem) {
+    throw new Error("Subscription item is unavailable");
+  }
+
+  const portalSession = await stripe.billingPortal.sessions.create({
+    customer: stripeCustomerId,
+    return_url: returnUrl,
+    flow_data: {
+      type: "subscription_update_confirm",
+      subscription_update_confirm: {
+        subscription: subscription.id,
+        items: [
+          {
+            id: subscriptionItem.id,
+            price: targetPriceId,
+          },
+        ],
+      },
+      after_completion: {
+        type: "redirect",
+        redirect: { return_url: returnUrl },
+      },
+    },
+  });
+
+  return portalSession.url;
+};
+
 async function getCurrentSubscription(
   stripe: Stripe,
   stripeCustomerId: string,
@@ -313,7 +351,7 @@ function getAccountYcPerkUrl(
 async function createCheckoutUrl({
   supabase,
   user,
-  period,
+  period = "monthly",
   scheme,
   trial = false,
   reservationId,
@@ -324,7 +362,7 @@ async function createCheckoutUrl({
 }: {
   supabase: SupabaseClient;
   user: AuthUser & { email?: string | null };
-  period: "monthly" | "yearly";
+  period?: "monthly" | "yearly";
   scheme?: z.infer<typeof desktopSchemeSchema>;
   trial?: boolean;
   reservationId?: string;
@@ -441,7 +479,7 @@ async function createCheckoutUrl({
 }
 
 const createCheckoutSessionInput = z.object({
-  period: z.enum(["monthly", "yearly"]),
+  period: z.enum(["monthly", "yearly"]).optional(),
   plan: z.enum(["pro"]).default("pro").optional(),
   scheme: desktopSchemeSchema.optional(),
   trial: z.boolean().default(false),
@@ -531,8 +569,9 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
           }
 
           // Resuming reuses the subscription's existing price. Checkout entry
-          // points often default to monthly, which must not silently rewrite a
-          // paused yearly trial.
+          // points without an explicit period must not rewrite a paused yearly
+          // trial; an explicitly chosen period on an active subscription goes
+          // through Stripe's confirm-update page instead.
 
           if (ycPromotion) {
             const result = await applyYcPromotionToCustomer({
@@ -562,6 +601,24 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
             const returnUrl = data.scheme
               ? `${getBillingReturnUrl(data.scheme)}&source=${data.source}`
               : toAbsoluteInternalReturnUrl(getRequestAppOrigin(), returnTo);
+            if (
+              data.period &&
+              currentSubscription.status === "active" &&
+              getPlanSwitchRoute(
+                currentSubscription,
+                getProPriceId(data.period),
+              ) === "update"
+            ) {
+              return {
+                url: await createSubscriptionUpdateConfirmUrl(
+                  stripe,
+                  stripeCustomerId,
+                  currentSubscription,
+                  getProPriceId(data.period),
+                  returnUrl,
+                ),
+              };
+            }
             // Stripe's portal can reactivate a trial that ended in `paused`.
             // Trialing subscriptions only need the focused add-card form.
             const portalSession = await stripe.billingPortal.sessions.create({
@@ -868,33 +925,15 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
       return { url: portalSession.url };
     }
 
-    const subscriptionItem = activeSubscription.items.data[0];
-    if (!subscriptionItem) {
-      throw new Error("Subscription item is unavailable");
-    }
-
-    const portalSession = await stripe.billingPortal.sessions.create({
-      customer: stripeCustomerId,
-      return_url: returnUrl,
-      flow_data: {
-        type: "subscription_update_confirm",
-        subscription_update_confirm: {
-          subscription: activeSubscription.id,
-          items: [
-            {
-              id: subscriptionItem.id,
-              price: targetPriceId,
-            },
-          ],
-        },
-        after_completion: {
-          type: "redirect",
-          redirect: { return_url: returnUrl },
-        },
-      },
-    });
-
-    return { url: portalSession.url };
+    return {
+      url: await createSubscriptionUpdateConfirmUrl(
+        stripe,
+        stripeCustomerId,
+        activeSubscription,
+        targetPriceId,
+        returnUrl,
+      ),
+    };
   });
 
 const createPortalSessionInput = z.object({
@@ -960,6 +999,7 @@ export const getAccountSubscription = createServerFn({ method: "GET" }).handler(
         cancelAtPeriodEnd: false,
         currentPeriodEnd: null,
         hasYcPerk: false,
+        period: null,
       };
     }
 
@@ -974,6 +1014,7 @@ export const getAccountSubscription = createServerFn({ method: "GET" }).handler(
         cancelAtPeriodEnd: false,
         currentPeriodEnd: null,
         hasYcPerk: false,
+        period: null,
       };
     }
 
@@ -981,23 +1022,39 @@ export const getAccountSubscription = createServerFn({ method: "GET" }).handler(
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
       currentPeriodEnd: getSubscriptionAccessEnd(subscription),
       hasYcPerk: subscriptionHasYcPerk(subscription),
+      period:
+        subscription.status === "paused"
+          ? null
+          : getSubscriptionBillingPeriod(subscription),
     };
   },
 );
 
-export const deleteAccount = createServerFn({ method: "POST" }).handler(
-  async () => {
-    const supabase = getSupabaseServerClient();
-    const { data: sessionData } = await supabase.auth.getSession();
+const deleteAccountInput = z.object({
+  email: z.string().trim().email(),
+});
 
-    if (!sessionData.session) {
+export const deleteAccount = createServerFn({ method: "POST" })
+  .inputValidator(deleteAccountInput)
+  .handler(async ({ data }) => {
+    const supabase = getSupabaseServerClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user?.email) {
       throw new Error("Not authenticated");
+    }
+
+    if (data.email.trim().toLowerCase() !== user.email.toLowerCase()) {
+      throw new Error("Email does not match the authenticated account");
     }
 
     const client = createClient({
       baseUrl: env.VITE_API_URL,
       headers: {
-        Authorization: `Bearer ${sessionData.session.access_token}`,
+        Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token ?? ""}`,
       },
     });
 
@@ -1008,5 +1065,64 @@ export const deleteAccount = createServerFn({ method: "POST" }).handler(
 
     await supabase.auth.signOut({ scope: "local" });
     return { success: true };
-  },
-);
+  });
+
+export const createRetentionOffer = createServerFn({
+  method: "POST",
+}).handler(async () => {
+  const supabase = getSupabaseServerClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError || !user) {
+    throw new Error("Not authenticated");
+  }
+
+  const stripe = getStripeClient();
+  const stripeCustomerId = await getStripeCustomerIdForUser(
+    supabase,
+    stripe,
+    user,
+  );
+  if (!stripeCustomerId) {
+    throw new Error("No billing customer");
+  }
+
+  const subscription = await getCurrentSubscription(stripe, stripeCustomerId, {
+    expandDiscounts: true,
+  });
+  if (!subscription || subscription.status !== "active") {
+    throw new Error("No active personal subscription");
+  }
+
+  if (
+    subscriptionHasYcPerk(subscription) ||
+    (subscription.discounts && subscription.discounts.length > 0)
+  ) {
+    throw new Error("Cannot combine retention offer with existing discount");
+  }
+
+  const coupon = await stripe.coupons.create({
+    percent_off: 100,
+    duration: "repeating",
+    duration_in_months: 2,
+    name: "2 months free",
+    max_redemptions: 1,
+  });
+
+  const promotionCode = await stripe.promotionCodes.create({
+    promotion: { type: "coupon", coupon: coupon.id },
+    customer: stripeCustomerId,
+    code: `RETAIN-${randomUUID().replace(/-/g, "").toUpperCase()}`,
+  });
+
+  await stripe.subscriptions.update(subscription.id, {
+    discounts: [{ promotion_code: promotionCode.id }],
+    ...(subscription.cancel_at_period_end
+      ? { cancel_at_period_end: false }
+      : {}),
+  });
+
+  return { success: true };
+});
