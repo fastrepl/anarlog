@@ -6,10 +6,14 @@ edition = "2024"
 [features]
 default = []
 specta = ["dep:specta"]
-contract-fixtures = []
+contract-fixtures = ["dep:serde_json"]
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
+serde_json = { workspace = true, optional = true }
 specta = { workspace = true, optional = true }
 unicode-width = { workspace = true }
+
+[dev-dependencies]
+anlg-tray-core = { path = ".", package = "tray-core", features = ["contract-fixtures"] }
+serde_json = { workspace = true }

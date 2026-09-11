@@ -601,7 +601,7 @@ mod tests {
     }
 
     #[test]
-    fn schedule_conversion_preserves_contract_titles() {
+    fn schedule_conversion_preserves_contract_events() {
         let case = contract::cases()
             .into_iter()
             .find(|case| case.name == "upcoming today")
@@ -628,7 +628,12 @@ mod tests {
             .collect();
         let now = chrono::DateTime::from_timestamp_millis(case.now_ms as i64).unwrap();
         let converted = schedule_events(&rows, |_| false, now, &Utc);
-        assert_eq!(converted[0].title, case.events[0].title);
-        assert_eq!(converted[0].id, case.events[0].id);
+        assert_eq!(converted.len(), case.events.len());
+        for (actual, expected) in converted.iter().zip(&case.events) {
+            assert_eq!(actual.id, expected.id);
+            assert_eq!(actual.title, expected.title);
+            assert_eq!(actual.starts_at_ms, expected.starts_at_ms);
+            assert_eq!(actual.ends_at_ms, expected.ends_at_ms);
+        }
     }
 }

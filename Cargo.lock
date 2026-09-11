@@ -16095,6 +16095,7 @@ dependencies = [
  "db-app",
  "db-core",
  "language",
+ "search-index",
  "serde",
  "serde_json",
  "specta",
@@ -21260,6 +21261,7 @@ dependencies = [
  "serde",
  "serde_json",
  "specta",
+ "tray-core",
  "unicode-width 0.2.2",
 ]
 
