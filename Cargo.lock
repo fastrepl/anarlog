@@ -17221,6 +17221,7 @@ dependencies = [
  "tauri-plugin",
  "tauri-plugin-db",
  "tauri-specta",
+ "tempfile",
  "tokio",
  "tracing",
  "uuid",
