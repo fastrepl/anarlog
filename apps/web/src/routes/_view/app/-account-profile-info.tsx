@@ -28,6 +28,7 @@ export function ProfileInfoSection({ email }: { email?: string }) {
   const [draftLinkedin, setDraftLinkedin] = useState("");
   const [draftX, setDraftX] = useState("");
   const [draftWebsite, setDraftWebsite] = useState("");
+  const [websiteError, setWebsiteError] = useState<string | null>(null);
   const { data: accountSession } = useAccountSession();
   const queryClient = useQueryClient();
   const profile = accountSession?.profile;
@@ -63,17 +64,24 @@ export function ProfileInfoSection({ email }: { email?: string }) {
     setDraftLinkedin(profile?.linkedinUrl ?? "");
     setDraftX(profile?.xHandle ?? "");
     setDraftWebsite(profile?.websiteUrl ?? "");
+    setWebsiteError(null);
     updateDetailsMutation.reset();
     setIsEditingDetails(true);
   };
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const websiteUrl = normalizeWebsiteUrl(draftWebsite);
+    if (draftWebsite.trim() && websiteUrl === null) {
+      setWebsiteError("Please enter a valid website URL");
+      return;
+    }
+    setWebsiteError(null);
     updateDetailsMutation.mutate({
       fullName: draftName.trim() || null,
       linkedinUrl: normalizeLinkedinUrl(draftLinkedin),
       xHandle: normalizeXHandle(draftX),
-      websiteUrl: normalizeWebsiteUrl(draftWebsite),
+      websiteUrl,
     });
   };
 
@@ -213,6 +221,7 @@ export function ProfileInfoSection({ email }: { email?: string }) {
                 value={draftWebsite}
                 onChange={setDraftWebsite}
                 placeholder="yourdomain.com"
+                error={websiteError}
               />
               {updateDetailsMutation.isError && (
                 <p className="text-sm text-red-600">
@@ -336,22 +345,29 @@ function DetailsField({
   value,
   onChange,
   placeholder,
+  error,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
+  error?: string | null;
 }) {
   return (
     <label className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
       <span className="text-sm font-medium text-[#756b5d]">{label}</span>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={cn([authInputClassName, "md:max-w-[420px]"])}
-      />
+      <div className="flex w-full flex-col gap-1 md:max-w-[420px]">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={cn([authInputClassName])}
+          aria-invalid={error ? "true" : undefined}
+          aria-errormessage={error || undefined}
+        />
+        {error && <p className="text-sm text-red-600">{error}</p>}
+      </div>
     </label>
   );
 }

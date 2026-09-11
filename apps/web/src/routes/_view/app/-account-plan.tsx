@@ -152,23 +152,23 @@ export function PlanSection({
     <div className={accountCardClassName}>
       <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
         {isCheckingPlan ? (
-          <p className="text-sm leading-6 text-[#756b5d]">
+          <p className="text-color-muted text-sm leading-6">
             Checking your plan...
           </p>
         ) : couldNotVerifyPlan ? (
-          <p className="text-sm leading-6 text-[#756b5d]">
+          <p className="text-color-muted text-sm leading-6">
             Couldn't verify your plan. Refresh to try again.
           </p>
         ) : (
           <>
             <div>
-              <p className="text-base font-medium text-[#181613]">
+              <p className="text-color text-base font-medium">
                 You're on{" "}
-                <mark className="bg-[#fff0b3] px-1 font-semibold">
+                <mark className="brand-yellow px-1 font-semibold">
                   {planLabel}
                 </mark>
               </p>
-              <p className="mt-1 text-sm leading-6 text-[#756b5d]">
+              <p className="text-color-muted mt-1 text-sm leading-6">
                 {planDetail}
               </p>
             </div>
@@ -257,6 +257,7 @@ export function PlanSection({
         onProceedToDowngrade={() => setDowngradeOpen(false)}
         isApplyingOffer={retentionOffer.isPending}
         offerError={retentionOffer.error}
+        hasYcPerk={hasYcPerk}
       />
     </div>
   );
@@ -318,8 +319,8 @@ function YcPerkApplyForm({
 
   if (applied) {
     return (
-      <div className="border-t border-[#ede7dc] px-6 py-5 sm:px-8">
-        <p className="text-sm leading-6 text-[#756b5d]">
+      <div className="border-color-subtle border-t px-6 py-5 sm:px-8">
+        <p className="text-color-muted text-sm leading-6">
           YC founder year is applied to personal Pro.
         </p>
       </div>
@@ -327,8 +328,8 @@ function YcPerkApplyForm({
   }
 
   return (
-    <div className="border-t border-[#ede7dc] px-6 py-5 sm:px-8">
-      <p className="text-sm leading-6 text-[#756b5d]">
+    <div className="border-color-subtle border-t px-6 py-5 sm:px-8">
+      <p className="text-color-muted text-sm leading-6">
         YC founder? Paste your verification link or Pro code.
       </p>
       <form
@@ -387,20 +388,20 @@ function YcPerkApplyForm({
           {errorMessage}
         </p>
       ) : null}
-      <p className="mt-2 text-sm text-[#918a80]">
+      <p className="text-color-muted mt-2 text-sm">
         Need a verification link?{" "}
         <a
           href="https://www.ycombinator.com/verify"
           target="_blank"
           rel="noreferrer"
-          className="underline decoration-[#b8afa4] underline-offset-4 transition hover:text-[#181613]"
+          className="hover:text-color underline decoration-[var(--color-border)] underline-offset-4 transition"
         >
           Get one from YC
         </a>
         {" · "}
         <Link
           to="/yc/"
-          className="underline decoration-[#b8afa4] underline-offset-4 transition hover:text-[#181613]"
+          className="hover:text-color underline decoration-[var(--color-border)] underline-offset-4 transition"
         >
           Learn more
         </Link>
@@ -431,8 +432,8 @@ function PlanComparison({
   currentPlanId: "free" | "pro" | "team" | "enterprise";
 }) {
   return (
-    <div className="border-t border-[#ede7dc] p-6 sm:p-8">
-      <p className="text-sm font-medium text-[#181613]">Available plans</p>
+    <div className="border-color-subtle border-t p-6 sm:p-8">
+      <p className="text-color text-sm font-medium">Available plans</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {MARKETING_PLAN_TIERS.map((tier) => {
           const isCurrent = tier.id === currentPlanId;
@@ -451,36 +452,36 @@ function PlanComparison({
               className={cn([
                 "rounded-2xl border p-4",
                 isCurrent
-                  ? "border-[#181613] bg-[#fffaf0]"
-                  : "border-[#e5ddcf] bg-white",
+                  ? "bg-surface border-[var(--color-fg)]"
+                  : "border-color-subtle bg-white",
               ])}
             >
               <div className="flex items-center justify-between gap-2">
                 <p
                   className={cn([
                     "font-mono text-sm font-medium",
-                    isCurrent ? "text-[#181613]" : "text-[#756b5d]",
+                    isCurrent ? "text-color" : "text-color-muted",
                   ])}
                 >
                   {tier.name}
                 </p>
                 {isCurrent && (
-                  <span className="rounded-full bg-[#fff0b3] px-2 py-0.5 text-xs font-medium text-[#4f4940]">
+                  <span className="brand-yellow text-color rounded-full px-2 py-0.5 text-xs font-medium">
                     Current
                   </span>
                 )}
               </div>
-              <p className="mt-1 text-sm text-[#918a80]">{priceText}</p>
+              <p className="text-color-muted mt-1 text-sm">{priceText}</p>
               <ul className="mt-3 space-y-1.5">
                 {tier.features.slice(0, 3).map((feature, i) => (
                   <li
                     key={i}
-                    className="flex items-start gap-2 text-xs text-[#57534e]"
+                    className="text-color-muted flex items-start gap-2 text-xs"
                   >
                     {feature.included ? (
                       <Check className="mt-0.5 size-3.5 shrink-0 text-green-600" />
                     ) : (
-                      <Plugs className="mt-0.5 size-3.5 shrink-0 text-[#918a80]" />
+                      <Plugs className="text-color-muted mt-0.5 size-3.5 shrink-0" />
                     )}
                     {feature.label}
                   </li>
@@ -501,6 +502,7 @@ function DowngradeDialog({
   onProceedToDowngrade,
   isApplyingOffer,
   offerError,
+  hasYcPerk,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -508,14 +510,17 @@ function DowngradeDialog({
   onProceedToDowngrade: () => void;
   isApplyingOffer: boolean;
   offerError: Error | null;
+  hasYcPerk: boolean;
 }) {
   const navigate = useNavigate();
   const lostFeatures = MARKETING_PLAN_TIERS.find(
     (tier) => tier.id === "pro",
-  )?.features.filter((feature) =>
-    MARKETING_PLAN_TIERS.find((tier) => tier.id === "free")?.features.every(
-      (freeFeature) => freeFeature.label !== feature.label,
-    ),
+  )?.features.filter(
+    (feature) =>
+      !feature.label.startsWith("Everything in") &&
+      MARKETING_PLAN_TIERS.find((tier) => tier.id === "free")?.features.every(
+        (freeFeature) => freeFeature.label !== feature.label,
+      ),
   );
 
   const handleProceed = () => {
@@ -537,9 +542,9 @@ function DowngradeDialog({
           {lostFeatures?.slice(0, 6).map((feature, i) => (
             <div
               key={i}
-              className="flex items-start gap-2 text-sm text-[#57534e]"
+              className="text-color-muted flex items-start gap-2 text-sm"
             >
-              <Plugs className="mt-0.5 size-4 shrink-0 text-[#918a80]" />
+              <Plugs className="text-color-muted mt-0.5 size-4 shrink-0" />
               {feature.label}
             </div>
           ))}
@@ -557,16 +562,18 @@ function DowngradeDialog({
           >
             Continue to Free
           </button>
-          <button
-            onClick={onAcceptOffer}
-            disabled={isApplyingOffer}
-            className={cn([
-              accountPillPrimaryClassName,
-              "w-full bg-stone-700 hover:bg-stone-600 sm:w-auto",
-            ])}
-          >
-            {isApplyingOffer ? "Applying..." : "Stay on Pro — 2 months free"}
-          </button>
+          {!hasYcPerk && (
+            <button
+              onClick={onAcceptOffer}
+              disabled={isApplyingOffer}
+              className={cn([
+                accountPillPrimaryClassName,
+                "w-full bg-stone-700 hover:bg-stone-600 sm:w-auto",
+              ])}
+            >
+              {isApplyingOffer ? "Applying..." : "Stay on Pro — 2 months free"}
+            </button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

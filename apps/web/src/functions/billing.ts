@@ -1031,7 +1031,7 @@ export const getAccountSubscription = createServerFn({ method: "GET" }).handler(
 );
 
 const deleteAccountInput = z.object({
-  email: z.string().email().trim(),
+  email: z.string().trim().email(),
 });
 
 export const deleteAccount = createServerFn({ method: "POST" })
@@ -1094,6 +1094,13 @@ export const createRetentionOffer = createServerFn({
   });
   if (!subscription || subscription.status !== "active") {
     throw new Error("No active personal subscription");
+  }
+
+  if (
+    subscriptionHasYcPerk(subscription) ||
+    (subscription.discounts && subscription.discounts.length > 0)
+  ) {
+    throw new Error("Cannot combine retention offer with existing discount");
   }
 
   const coupon = await stripe.coupons.create({
