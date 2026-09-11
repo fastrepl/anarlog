@@ -1,7 +1,8 @@
 -- Referral eligibility previously required a personal active Stripe
 -- subscription, so members whose Pro came from a paid workspace seat were
--- excluded even though the access token grants them hyprnote_pro. Mirror the
--- cloud_api_user_has_pro hook for both creating invites and claiming them.
+-- excluded even though the access token grants them hyprnote_pro. Keep the
+-- original personal active-subscription check and additionally allow
+-- workspace-based Pro entitlements.
 CREATE OR REPLACE FUNCTION public.get_or_create_referral_invites()
 RETURNS TABLE (
   slot smallint,
@@ -17,7 +18,18 @@ AS $$
 DECLARE
   v_user_id uuid := auth.uid();
 BEGIN
-  IF v_user_id IS NULL OR NOT private.cloud_api_user_has_pro(v_user_id)
+  IF v_user_id IS NULL
+    OR NOT (
+      EXISTS (
+        SELECT 1
+        FROM public.profiles AS profile
+        JOIN stripe.subscriptions AS subscription
+          ON subscription.customer = profile.stripe_customer_id
+        WHERE profile.id = v_user_id
+          AND subscription.status = 'active'
+      )
+      OR private.cloud_api_user_has_pro(v_user_id)
+    )
     OR EXISTS (
       SELECT 1
       FROM private.account_deletion_jobs AS deletion
@@ -61,7 +73,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.get_or_create_referral_invites()
-  IS 'Returns three referral slots for paid Pro subscribers, including workspace seats, creating missing slots atomically.';
+  IS 'Returns three referral slots for active paid Pro subscribers, including workspace seats, creating missing slots atomically.';
 
 CREATE OR REPLACE FUNCTION public.claim_referral(p_code text)
 RETURNS boolean
@@ -110,7 +122,17 @@ BEGIN
           WHERE deletion.owner_user_id = v_user_id
         )
     )
-    OR NOT private.cloud_api_user_has_pro(v_referral.referrer_user_id)
+    OR NOT (
+      EXISTS (
+        SELECT 1
+        FROM public.profiles AS referrer_profile
+        JOIN stripe.subscriptions AS referrer_subscription
+          ON referrer_subscription.customer = referrer_profile.stripe_customer_id
+        WHERE referrer_profile.id = v_referral.referrer_user_id
+          AND referrer_subscription.status = 'active'
+      )
+      OR private.cloud_api_user_has_pro(v_referral.referrer_user_id)
+    )
   THEN
     RETURN false;
   END IF;
