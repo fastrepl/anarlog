@@ -14,7 +14,7 @@ impl MenuItemHandler for TrayOpen {
         let item = MenuItem::with_id(
             app,
             Self::ID,
-            format!("Open {}", app.package_info().name.as_str()),
+            anlg_tray_core::labels::open(app.package_info().name.as_str()),
             true,
             None::<&str>,
         )?;

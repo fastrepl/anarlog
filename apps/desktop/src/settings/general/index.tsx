@@ -16,6 +16,7 @@ import {
 } from "./language";
 import { MainLanguageView } from "./main-language";
 import { MeetingSettingsView } from "./meeting-settings";
+import { NativeShellRow } from "./native-shell";
 import { NotificationSettingsView } from "./notification";
 import { Permissions } from "./permissions";
 import { SpokenLanguagesView } from "./spoken-languages";
@@ -237,6 +238,7 @@ function SettingsSectionContent({
               />
             )}
           </form.Subscribe>
+          <NativeShellRow />
 
           <div>
             <h2 className="mb-4 font-sans text-lg font-semibold">

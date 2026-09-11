@@ -12,6 +12,7 @@ resolver = "2"
 members = [
   "apps/api",
   "apps/cli",
+  "apps/desktop-gpui",
   "apps/desktop/src-tauri",
   "crates/*",
   "plugins/*",
@@ -73,6 +74,7 @@ anlg-db-execute = { path = "crates/db-execute", package = "db-execute" }
 anlg-db-migrate = { path = "crates/db-migrate", package = "db-migrate" }
 anlg-db-reactive = { path = "crates/db-reactive", package = "db-reactive" }
 anlg-db-sync = { path = "crates/db-sync", package = "db-sync" }
+anlg-deeplink-core = { path = "crates/deeplink-core", package = "deeplink-core" }
 anlg-detect = { path = "crates/detect", package = "detect" }
 anlg-device-monitor = { path = "crates/device-monitor", package = "device-monitor" }
 anlg-dictation-ui-macos = { path = "crates/dictation-ui-macos", package = "dictation-ui-macos" }
@@ -102,6 +104,7 @@ anlg-listener-core = { path = "crates/listener-core", package = "listener-core" 
 anlg-listener2-core = { path = "crates/listener2-core", package = "listener2-core" }
 anlg-llm-proxy = { path = "crates/llm-proxy", package = "llm-proxy" }
 anlg-lmstudio = { path = "crates/lmstudio", package = "lmstudio" }
+anlg-local-api-core = { path = "crates/local-api-core", package = "local-api-core" }
 anlg-local-llm-core = { path = "crates/local-llm-core", package = "local-llm-core" }
 anlg-local-model = { path = "crates/local-model", package = "local-model" }
 anlg-local-stt-core = { path = "crates/local-stt-core", package = "local-stt-core" }
@@ -126,6 +129,7 @@ anlg-pyannote-local = { path = "crates/pyannote-local", package = "pyannote-loca
 anlg-resampler = { path = "crates/resampler", package = "resampler" }
 anlg-s3 = { path = "crates/s3", package = "s3" }
 anlg-screen-core = { path = "crates/screen-core", package = "screen-core" }
+anlg-search-index = { path = "crates/search-index", package = "search-index" }
 anlg-session-ingest = { path = "crates/session-ingest", package = "session-ingest" }
 anlg-shortcut-macos = { path = "crates/shortcut-macos", package = "shortcut-macos" }
 anlg-slack-web = { path = "crates/slack-web", package = "slack-web" }
@@ -145,10 +149,12 @@ anlg-transcribe-speechanalyzer = { path = "crates/transcribe-speechanalyzer", pa
 anlg-transcribe-whisper-local = { path = "crates/transcribe-whisper-local", package = "transcribe-whisper-local" }
 anlg-transcript = { path = "crates/transcript", package = "transcript" }
 anlg-transcription-core = { path = "crates/transcription-core", package = "transcription-core" }
+anlg-tray-core = { path = "crates/tray-core", package = "tray-core" }
 anlg-user-error = { path = "crates/user-error", package = "user-error" }
 anlg-vad = { path = "crates/vad", package = "vad" }
 anlg-vad-masking = { path = "crates/vad-masking", package = "vad-masking" }
 anlg-voiceprint = { path = "crates/voiceprint", package = "voiceprint" }
+anlg-voiceprint-service = { path = "crates/voiceprint-service", package = "voiceprint-service" }
 anlg-whisper = { path = "crates/whisper", package = "whisper" }
 anlg-whisper-local = { path = "crates/whisper-local", package = "whisper-local" }
 anlg-whisper-local-model = { path = "crates/whisper-local-model", package = "whisper-local-model" }
@@ -326,6 +332,7 @@ minijinja = "2.7.0"
 minijinja-contrib = "2.7.0"
 
 env_logger = "0.11.8"
+gpui = "0.2.2"
 log = "0.4"
 opentelemetry = "0.30"
 opentelemetry-otlp = { version = "0.30", features = ["grpc-tonic", "trace"] }

@@ -1,9 +1,9 @@
 mod commands;
-mod dispatch;
-mod types;
 
-pub use dispatch::{EVENT_MEETING_COMPLETED, EVENT_NOTE_ENHANCED, KNOWN_EVENTS};
-pub use types::*;
+pub use anlg_local_api_core::dispatch::{
+    EVENT_MEETING_COMPLETED, EVENT_NOTE_ENHANCED, KNOWN_EVENTS,
+};
+pub use anlg_local_api_core::types::*;
 
 const PLUGIN_NAME: &str = "local-api";
 
@@ -93,7 +93,7 @@ mod test {
             .unwrap();
 
         assert_eq!(
-            commands::markdown_export_filename(&export.meeting),
+            anlg_local_api_core::export::markdown_export_filename(&export.meeting),
             "2026-07-13 Planning [meeting-].md"
         );
 
@@ -104,7 +104,7 @@ mod test {
             ..export.meeting.clone()
         };
         assert_eq!(
-            commands::markdown_export_filename(&untitled),
+            anlg_local_api_core::export::markdown_export_filename(&untitled),
             "Untitled meeting [meeting-].md"
         );
 
@@ -113,13 +113,13 @@ mod test {
             ..export.meeting.clone()
         };
         assert_eq!(
-            commands::markdown_export_filename(&hostile),
+            anlg_local_api_core::export::markdown_export_filename(&hostile),
             "2026-07-13 a_b_c_d_ [meeting-].md"
         );
 
         let directory =
             std::env::temp_dir().join(format!("anlg-md-export-{}", uuid::Uuid::new_v4()));
-        let path = commands::write_markdown_export(&directory, &export).unwrap();
+        let path = anlg_local_api_core::export::write_markdown_export(&directory, &export).unwrap();
         assert_eq!(
             path.file_name().unwrap().to_string_lossy(),
             "2026-07-13 Planning [meeting-].md"
@@ -134,7 +134,8 @@ mod test {
             .await
             .unwrap();
         retitled.meeting.title = "Planning follow-up".to_string();
-        let renamed = commands::write_markdown_export(&directory, &retitled).unwrap();
+        let renamed =
+            anlg_local_api_core::export::write_markdown_export(&directory, &retitled).unwrap();
         assert_eq!(
             renamed.file_name().unwrap().to_string_lossy(),
             "2026-07-13 Planning follow-up [meeting-].md"
@@ -166,7 +167,7 @@ mod test {
                 .unwrap();
         }
 
-        commands::run_markdown_export_automation(&pool, "meeting-1").await;
+        anlg_local_api_core::export::run_markdown_export_automation(&pool, "meeting-1").await;
 
         let exported = directory.join("2026-07-13 Planning [meeting-].md");
         assert!(exported.exists());
@@ -191,7 +192,7 @@ mod test {
     async fn note_enhanced_export_skips_silently_without_configuration() {
         let pool = seeded_pool().await;
 
-        commands::run_markdown_export_automation(&pool, "meeting-1").await;
+        anlg_local_api_core::export::run_markdown_export_automation(&pool, "meeting-1").await;
 
         let row: Option<String> = sqlx::query_scalar(
             "SELECT value_json FROM app_settings \
@@ -213,7 +214,7 @@ mod test {
             vec![serde_json::json!({ "text": "x".repeat(2 * 1024 * 1024) })];
         export.transcripts[0].speaker_hints = vec![serde_json::json!({ "name": "x".repeat(1024) })];
 
-        let snapshot = commands::prepare_cloud_snapshot(export).unwrap();
+        let snapshot = anlg_local_api_core::export::prepare_cloud_snapshot(export).unwrap();
 
         assert_eq!(snapshot["id"], "meeting-1");
         assert!(snapshot.get("meeting").is_none());

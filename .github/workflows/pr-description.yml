@@ -15,21 +15,23 @@ jobs:
   validate:
     runs-on: ubuntu-24.04
     steps:
-      - env:
-          PR_AUTHOR_ASSOCIATION: ${{ github.event.pull_request.author_association }}
-          PR_AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        run: |
+      - run: |
           node <<'NODE'
-          const title = (process.env.PR_TITLE || "").trim();
-          const body = process.env.PR_BODY || "";
+          // The payload is read from the event file: a description passed
+          // through `env` fails to start the step once it exceeds the kernel's
+          // 128 KiB per-argument limit.
+          const event = JSON.parse(
+            require("node:fs").readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"),
+          );
+          const pullRequest = event.pull_request || {};
+          const title = (pullRequest.title || "").trim();
+          const body = pullRequest.body || "";
           const errors = [];
           const maintainerAssociations = new Set(["COLLABORATOR", "MEMBER", "OWNER"]);
 
           if (
-            process.env.PR_AUTHOR_TYPE === "Bot" ||
-            maintainerAssociations.has(process.env.PR_AUTHOR_ASSOCIATION)
+            pullRequest.user?.type === "Bot" ||
+            maintainerAssociations.has(pullRequest.author_association)
           ) {
             console.log(
               "Maintainer or bot pull request; description validation is not required.",

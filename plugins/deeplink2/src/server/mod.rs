@@ -1,27 +1,17 @@
 use std::collections::HashMap;
-use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use askama::Template;
 use axum::response::Html;
 use axum::routing::get;
 use tauri::Manager;
 use tauri_specta::Event;
 use tokio::sync::Notify;
 
-use crate::types::{AuthCallbackSearch, DeepLink, DeepLinkEvent};
+use crate::types::{DeepLink, DeepLinkEvent};
+pub use anlg_deeplink_core::{parse_callback, render_html, render_html_from_callback};
 
 const CALLBACK_SERVER_TTL: Duration = Duration::from_secs(600);
-
-#[derive(Template)]
-#[template(path = "callback.html")]
-struct CallbackTemplate {
-    deeplink_url: String,
-    is_success: bool,
-    title: String,
-    description: String,
-}
 
 struct ServerHandle {
     shutdown: Arc<Notify>,
@@ -45,143 +35,6 @@ impl Default for CallbackServerState {
 impl CallbackServerState {
     pub fn new() -> Self {
         Self::default()
-    }
-}
-
-pub fn render_html(deep_link: &DeepLink, scheme: &str) -> String {
-    let (is_success, title, description) = ui_content(deep_link);
-    render_template_html(scheme, is_success, title, description, Some(deep_link))
-}
-
-pub fn render_html_from_callback(path: &str, query: &str, scheme: &str) -> String {
-    let parse_result = parse_callback(path, query);
-    render_html_from_parse_result(parse_result.as_ref(), scheme)
-}
-
-pub fn parse_callback(path: &str, query: &str) -> Result<DeepLink, crate::Error> {
-    let path = path.trim_start_matches('/');
-    let pseudo_url = if query.is_empty() {
-        format!("local://{path}")
-    } else {
-        format!("local://{path}?{query}")
-    };
-
-    DeepLink::from_str(&pseudo_url)
-}
-
-fn render_html_from_parse_result<E>(parse_result: Result<&DeepLink, &E>, scheme: &str) -> String {
-    let deep_link = parse_result.ok();
-    let (is_success, title, description) =
-        deep_link.map(ui_content).unwrap_or_else(default_ui_content);
-    render_template_html(scheme, is_success, title, description, deep_link)
-}
-
-fn render_template_html(
-    scheme: &str,
-    is_success: bool,
-    title: &str,
-    description: &str,
-    deep_link: Option<&DeepLink>,
-) -> String {
-    CallbackTemplate {
-        deeplink_url: return_to_app_url(scheme, deep_link),
-        is_success,
-        title: title.to_string(),
-        description: description.to_string(),
-    }
-    .render()
-    .unwrap_or_default()
-}
-
-fn return_to_app_url(scheme: &str, deep_link: Option<&DeepLink>) -> String {
-    if let Some(DeepLink::AuthCallback(search)) = deep_link
-        && let Some(url) = subscription_auth_deeplink(scheme, search)
-    {
-        return url;
-    }
-
-    format!("{scheme}://focus")
-}
-
-pub(crate) fn subscription_auth_deeplink(
-    scheme: &str,
-    search: &AuthCallbackSearch,
-) -> Option<String> {
-    let code = search.code.as_deref()?.trim();
-    if code.is_empty() || !search.access_token.is_empty() || !search.refresh_token.is_empty() {
-        return None;
-    }
-
-    let mut url = url::Url::parse(&format!("{scheme}://auth/callback")).ok()?;
-    {
-        let mut pairs = url.query_pairs_mut();
-        pairs.append_pair("code", code);
-        if let Some(state) = search
-            .state
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-        {
-            pairs.append_pair("state", state);
-        }
-    }
-    Some(url.into())
-}
-
-fn default_ui_content() -> (bool, &'static str, &'static str) {
-    (
-        false,
-        "Something went wrong",
-        "Please close this window and try again.",
-    )
-}
-
-fn ui_content(deep_link: &DeepLink) -> (bool, &'static str, &'static str) {
-    match deep_link {
-        DeepLink::AuthCallback(search)
-            if search
-                .code
-                .as_deref()
-                .is_some_and(|code| !code.trim().is_empty())
-                && search.access_token.is_empty()
-                && search.refresh_token.is_empty() =>
-        {
-            (
-                true,
-                "Connected successfully",
-                "Returning to Anarlog to finish connecting.",
-            )
-        }
-        DeepLink::AuthCallback(_) => (
-            true,
-            "Signed in successfully",
-            "Click the button below to return to the app.",
-        ),
-        DeepLink::BillingRefresh(_) => (
-            true,
-            "Subscription updated",
-            "Click the button below to return to the app.",
-        ),
-        DeepLink::IntegrationCallback(s) if s.status == "success" => (
-            true,
-            "Connected successfully",
-            "Click the button below to return to the app.",
-        ),
-        DeepLink::IntegrationCallback(s) if s.status == "upgrade_required" => (
-            false,
-            "Upgrade required",
-            "You can close this window and upgrade your plan to connect this integration.",
-        ),
-        DeepLink::IntegrationCallback(_) => (
-            false,
-            "Connection failed",
-            "Something went wrong. Please close this window and try again.",
-        ),
-        DeepLink::OnboardingDemoComplete(_) => (
-            true,
-            "Demo complete",
-            "Anarlog is finishing your transcript and creating your summary.",
-        ),
     }
 }
 
@@ -215,7 +68,7 @@ async fn handle_request<R: tauri::Runtime>(
     tracing::info!(path = %path, "callback_received");
 
     let parse_result = parse_callback(path, query);
-    let html = render_html_from_parse_result(parse_result.as_ref(), &scheme);
+    let html = render_html_from_callback(path, query, &scheme);
 
     emit_deeplink(&app, parse_result, path);
     shutdown.notify_one();
@@ -330,60 +183,4 @@ pub async fn stop<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), Str
     }
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::types::AuthCallbackSearch;
-
-    fn subscription_search() -> AuthCallbackSearch {
-        AuthCallbackSearch {
-            code: Some("ac_nf5hq".to_string()),
-            state: Some("state-1".to_string()),
-            ..AuthCallbackSearch::default()
-        }
-    }
-
-    #[test]
-    fn subscription_code_bounces_through_custom_scheme_deeplink() {
-        assert_eq!(
-            subscription_auth_deeplink("anarlog", &subscription_search()).as_deref(),
-            Some("anarlog://auth/callback?code=ac_nf5hq&state=state-1")
-        );
-        let html = render_html(&DeepLink::AuthCallback(subscription_search()), "anarlog");
-        assert!(html.contains("anarlog://auth/callback?code=ac_nf5hq"));
-        assert!(html.contains("state=state-1"));
-        assert!(html.contains(r#"id="open-app""#));
-        assert!(html.contains(r#"document.getElementById("open-app")?.click()"#));
-        assert!(html.contains("Connected successfully"));
-        assert!(!html.contains("anarlog://focus"));
-    }
-
-    #[test]
-    fn token_login_stays_focus_only() {
-        let html = render_html(
-            &DeepLink::AuthCallback(AuthCallbackSearch {
-                access_token: "access".to_string(),
-                refresh_token: "refresh".to_string(),
-                code: Some("should-ignore".to_string()),
-                ..AuthCallbackSearch::default()
-            }),
-            "anarlog-dev",
-        );
-        assert!(html.contains("anarlog-dev://focus"));
-        assert!(!html.contains("code=should-ignore"));
-        assert!(html.contains("Signed in successfully"));
-    }
-
-    #[test]
-    fn loopback_query_renders_subscription_deeplink() {
-        let html = render_html_from_callback(
-            "/auth/callback",
-            "code=codex-code&state=s1&scope=openid",
-            "anarlog",
-        );
-        assert!(html.contains("anarlog://auth/callback?code=codex-code"));
-        assert!(html.contains("state=s1"));
-    }
 }

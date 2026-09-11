@@ -23,17 +23,15 @@ tauri = { workspace = true, features = ["test"] }
 tauri-plugin-deep-link = { workspace = true }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
-askama = { workspace = true }
+anlg-deeplink-core = { workspace = true }
 axum = { workspace = true }
 tokio = { workspace = true, features = ["net", "rt", "sync", "time"] }
 
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_qs = { workspace = true }
 specta = { workspace = true }
 strum = { workspace = true, features = ["derive"] }
 
-thiserror = { workspace = true }
 tracing = { workspace = true }
 url = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }

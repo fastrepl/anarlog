@@ -2,8 +2,10 @@ mod commands;
 mod ext;
 mod macos_position;
 mod menu_items;
-mod schedule;
 mod tray_icon;
+
+/// The schedule logic shared with the GPUI shell.
+pub use anlg_tray_core::schedule;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 

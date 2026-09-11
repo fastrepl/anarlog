@@ -199,13 +199,19 @@ jobs:
       - run: echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> $GITHUB_ENV
       - uses: ./.github/actions/pnpm_install
       - run: pnpm -F ui build
+      # GPUI shell is opt-in from General settings; macOS is best-effort until
+      # its desktop-gpui check is required in desktop_ci.yaml.
       - run: |
           TAURI_ENV_TARGET_TRIPLE=${{ matrix.target }} cargo xtask prepare-binaries
           ./scripts/sidecar.sh "./apps/desktop/$TAURI_CONF_PATH" "binaries/char-chrome-native-host"
           ./scripts/sidecar.sh "./apps/desktop/$TAURI_CONF_PATH" "binaries/check-permissions"
           ./scripts/sidecar.sh "./apps/desktop/$TAURI_CONF_PATH" "resources/cli/anarlog-cli"
+          if [[ -f "./apps/desktop/src-tauri/binaries/anarlog-gpui-${{ matrix.target }}" ]]; then
+            ./scripts/sidecar.sh "./apps/desktop/$TAURI_CONF_PATH" "binaries/anarlog-gpui"
+          fi
         env:
           APP_VERSION: ${{ needs.compute-version.outputs.version }}
+          ANARLOG_GPUI_SIDECAR: optional
       - uses: ./.github/actions/apple_cert
         id: apple-cert
         with:
@@ -433,12 +439,19 @@ jobs:
           platform: ${{ matrix.rust_platform }}
       - uses: ./.github/actions/pnpm_install
       - run: pnpm -F ui build
+      # GPUI shell is opt-in from General settings; Linux is required while
+      # macOS is best-effort until its desktop-gpui check is required.
       - run: |
-          TAURI_ENV_TARGET_TRIPLE=${{ matrix.target }} cargo xtask prepare-binaries
+          sudo apt-get -o Acquire::Retries=5 install -y libxkbcommon-dev libxkbcommon-x11-dev
+      - run: |
+          cargo xtask prepare-binaries
           ./scripts/sidecar.sh "./apps/desktop/$TAURI_CONF_PATH" "binaries/char-chrome-native-host"
           ./scripts/sidecar.sh "./apps/desktop/$TAURI_CONF_PATH" "resources/cli/anarlog-cli"
+          ./scripts/sidecar.sh "./apps/desktop/$TAURI_CONF_PATH" "binaries/anarlog-gpui"
         env:
           APP_VERSION: ${{ needs.compute-version.outputs.version }}
+          ANARLOG_GPUI_SIDECAR: "1"
+          TAURI_ENV_TARGET_TRIPLE: ${{ matrix.target }}
       - run: |
           BUILD_ARGS=(
             --ci

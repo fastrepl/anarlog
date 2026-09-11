@@ -1,0 +1,532 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "list_meetings",
+      "description": "List recent Anarlog meetings with pagination metadata. Use query to narrow by title or meeting id, then pass next_offset as offset to continue.",
+      "parameters": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "query": {
+            "description": "Case-insensitive title or meeting id substring",
+            "type": "string"
+          },
+          "series_id": {
+            "description": "Exact recurring series id",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Maximum results; defaults to 20 and is capped at 200",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "offset": {
+            "description": "Number of results to skip; defaults to 0",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_meeting",
+      "description": "Get one Anarlog meeting with its canonical note, summaries, participants, and action items. Use get_meeting_transcript separately for transcript words.",
+      "parameters": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "type": "string",
+            "description": "Anarlog meeting id"
+          }
+        },
+        "required": [
+          "meeting_id"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_meeting_transcript",
+      "description": "Get a bounded page of transcript words and readable text for an Anarlog meeting. Pass pagination.next_offset as offset to continue.",
+      "parameters": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "type": "string",
+            "description": "Anarlog meeting id"
+          },
+          "offset": {
+            "description": "Word offset; defaults to 0",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "description": "Maximum words; defaults to 200 and is capped at 500",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          }
+        },
+        "required": [
+          "meeting_id"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_recurring_meeting_history",
+      "description": "List meetings in the same recurring series as the supplied meeting, newest first, with pagination metadata.",
+      "parameters": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "type": "string",
+            "description": "A meeting id used to resolve its recurring series"
+          },
+          "limit": {
+            "description": "Maximum meetings; defaults to 20 and is capped at 200",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "offset": {
+            "description": "Number of meetings to skip; defaults to 0",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "meeting_id"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "search_meeting_content",
+      "description": "Search local meeting notes and transcripts for exact words or phrases. Use search_meetings first for open-ended questions about past meetings, people, decisions, or topics. This is lexical content search, not vector search.",
+      "parameters": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Text to search for in meeting content"
+          },
+          "meeting_ids": {
+            "description": "Optional meeting ids to restrict the content search",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limit": {
+            "description": "Maximum matching notes to return",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "read_folder_material",
+      "description": "Read a folder material such as a syllabus, PDF, or text file attached to the current folder. Use the material IDs listed in folder context.",
+      "parameters": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "materialId": {
+            "type": "string",
+            "description": "Folder material id from the folder context list"
+          },
+          "maxChars": {
+            "description": "Maximum material characters to return to the model",
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 30000
+          }
+        },
+        "required": [
+          "materialId"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "find_related_meetings",
+      "description": "Find meetings related to the current or given meeting by shared participants, the same calendar event, or nearby dates.",
+      "parameters": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "description": "Meeting id to find related meetings for. Defaults to the currently open meeting.",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Maximum related meetings to return",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "search_meetings",
+      "description": "Search for meetings using note and transcript content plus optional date filters.\nUse this first for open-ended questions about past meetings, people, decisions, or topics when the answer may be in meeting notes and no meeting note context is attached.\nUse filters.created_at.kind=\"relative\" with recent_days for natural-language date ranges.\nUse an empty query string when the user only wants meetings by date/time filter.\nReturns relevant meetings with matching content excerpts.",
+      "parameters": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "query": {
+            "description": "Optional text query for finding relevant meetings. Omit this when filtering only by date/time.",
+            "type": "string"
+          },
+          "filters": {
+            "description": "Optional meeting filters",
+            "type": "object",
+            "properties": {
+              "created_at": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "absolute"
+                      },
+                      "gte": {
+                        "description": "Include meetings on or after this Unix timestamp in milliseconds",
+                        "type": "number"
+                      },
+                      "lte": {
+                        "description": "Include meetings on or before this Unix timestamp in milliseconds",
+                        "type": "number"
+                      },
+                      "gt": {
+                        "description": "Include meetings after this Unix timestamp in milliseconds",
+                        "type": "number"
+                      },
+                      "lt": {
+                        "description": "Include meetings before this Unix timestamp in milliseconds",
+                        "type": "number"
+                      },
+                      "eq": {
+                        "description": "Include only meetings at this exact Unix timestamp in milliseconds",
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "description": "Absolute timestamp bounds using Unix milliseconds. Use this only when you already know the exact timestamps.",
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "relative"
+                      },
+                      "recent_days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "description": "Use for requests like 'last N days'. Includes today and counts backward in local time."
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "recent_days"
+                    ],
+                    "description": "Relative date filter. Prefer this over absolute timestamps for natural-language time ranges.",
+                    "additionalProperties": false
+                  }
+                ],
+                "description": "Date filter for meetings. Uses event started_at for event-backed meetings, otherwise meeting created_at."
+              }
+            },
+            "additionalProperties": false
+          },
+          "limit": {
+            "description": "Maximum number of meetings to return",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "search_contacts",
+      "description": "Search contacts and return names, emails, phone numbers, roles, and organizations.",
+      "parameters": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query for contacts"
+          },
+          "limit": {
+            "description": "Maximum number of contacts to return",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "search_calendar_events",
+      "description": "Search calendar events and return schedule, location, and linked session info.",
+      "parameters": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query for calendar events"
+          },
+          "limit": {
+            "description": "Maximum number of events to return",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_search",
+      "description": "Search the public web for current or external information.\nUse this for questions about public websites, URLs, companies, products, people, news, or facts that may not be in local notes.\nReturn source URLs in the final answer when web results are used.\nDo not use this when the user is asking only about local notes, meetings, contacts, or calendar events.",
+      "parameters": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Search query for public web information."
+          },
+          "includeDomains": {
+            "description": "Optional domains to search within, for example ['char.com']. Use only when the user names a specific site or domain.",
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "excludeDomains": {
+            "description": "Optional domains to exclude from the search results.",
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "limit": {
+            "description": "Maximum number of web results to return.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "edit_memo",
+      "description": "Propose a complete replacement for a session memo and open a diff review where the user can apply or cancel it. Use this to create or revise meeting preparation, agendas, talking points, and notes before or during a meeting. Preserve relevant existing memo content in the replacement markdown.",
+      "parameters": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "description": "The session ID to edit. Defaults to the current session.",
+            "type": "string"
+          },
+          "content": {
+            "type": "string",
+            "description": "The complete replacement memo in markdown format"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "edit_summary",
+      "description": "Propose a complete replacement for an existing session summary and open a diff review where the user can apply or cancel it. Use this for broad rewrites such as refocusing, shortening, or restructuring a summary. The content must be the full replacement markdown, not instructions or a partial patch.",
+      "parameters": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "description": "The session ID to edit. Defaults to the current session.",
+            "type": "string"
+          },
+          "enhancedNoteId": {
+            "description": "The specific summary ID (enhanced note ID) to edit. Defaults to the active summary in the session tab when possible.",
+            "type": "string"
+          },
+          "content": {
+            "type": "string",
+            "description": "The complete replacement summary in markdown format"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "apply_session_correction",
+      "description": "Apply a correction to a session summary, visible session title, and/or transcript. Use this when the user corrects note content, for example 'it's not X but Y'. Prefer summary_and_transcript for factual meeting corrections unless the user explicitly asks for one target only. Read the note first if you need exact summary text.",
+      "parameters": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "description": "The session ID to edit. Defaults to the current session.",
+            "type": "string"
+          },
+          "target": {
+            "default": "summary_and_transcript",
+            "description": "Which session content to correct. Use summary only or transcript only when the user explicitly scopes the correction.",
+            "type": "string",
+            "enum": [
+              "summary",
+              "transcript",
+              "summary_and_transcript"
+            ]
+          },
+          "enhancedNoteId": {
+            "description": "Optional summary ID to restrict summary edits. Defaults to summaries in the target session.",
+            "type": "string"
+          },
+          "oldText": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Exact text currently present in the note or transcript."
+          },
+          "newText": {
+            "type": "string",
+            "description": "Replacement text."
+          },
+          "dictionaryTerms": {
+            "default": [],
+            "description": "Uncommon names, company/product names, acronyms, or jargon from the correction to save for future transcription. Skip common names.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "oldText",
+          "newText"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "move_meeting_contents",
+      "description": "Move a finished recording, transcript, generated summaries, notes, and action items from one meeting onto another existing meeting. Use this when the user says a recording or notes landed on the wrong meeting. Resolve both meeting IDs with list_meetings or search_meetings first and never guess IDs. The target meeting must not already have a recording or transcript.",
+      "parameters": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "sourceMeetingId": {
+            "description": "Meeting that currently has the recording or notes. Defaults to the current meeting.",
+            "type": "string"
+          },
+          "targetMeetingId": {
+            "type": "string",
+            "description": "Existing meeting that should receive the recording and notes."
+          }
+        },
+        "required": [
+          "targetMeetingId"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+]

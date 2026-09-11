@@ -1,0 +1,83 @@
+[package]
+name = "desktop-gpui"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Anarlog Desktop App (GPUI)"
+
+[[bin]]
+name = "anarlog-gpui"
+path = "src/main.rs"
+
+[dependencies]
+anlg-agent-access = { workspace = true }
+anlg-audio = { workspace = true }
+anlg-audio-actual = { workspace = true }
+anlg-audio-mock = { workspace = true }
+anlg-db-app = { workspace = true }
+anlg-db-core = { workspace = true }
+anlg-deeplink-core = { workspace = true }
+anlg-detect = { workspace = true, features = ["list"] }
+anlg-export-core = { workspace = true }
+anlg-fs-sync-core = { workspace = true }
+anlg-language = { workspace = true }
+anlg-listener-core = { workspace = true }
+anlg-listener2-core = { workspace = true }
+anlg-local-api-core = { workspace = true }
+anlg-notification = { workspace = true }
+anlg-search-index = { workspace = true }
+anlg-storage = { workspace = true }
+anlg-template-app = { workspace = true }
+anlg-template-app-legacy = { workspace = true }
+anlg-tiptap = { workspace = true }
+anlg-transcript = { workspace = true }
+anlg-tray-core = { workspace = true }
+anlg-voiceprint-service = { workspace = true }
+markdown = { workspace = true }
+owhisper-interface = { workspace = true }
+rodio = { workspace = true, features = ["symphonia-all"] }
+
+anyhow = { workspace = true }
+aspasia = "0.2.1"
+base64 = { workspace = true }
+chrono = { workspace = true }
+chrono-tz = { workspace = true }
+dirs = { workspace = true }
+futures-util = { workspace = true }
+gpui = { workspace = true }
+hound = { workspace = true }
+html5ever = "0.29"
+iana-time-zone = "0.1"
+image = { workspace = true, features = ["gif", "jpeg", "png"] }
+keyring = { workspace = true }
+kuchikiki = "0.8.8-speedreader"
+mime_guess = "2"
+open = { workspace = true }
+pico-args = { workspace = true }
+ractor = { workspace = true, features = ["async-trait"] }
+regex = { workspace = true }
+reqwest = { workspace = true, features = ["json", "stream"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, features = ["preserve_order"] }
+sha2 = { workspace = true }
+smallvec = "1"
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "net", "rt-multi-thread", "sync", "time"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+unicode-normalization = "0.1"
+unicode-segmentation = "1"
+url = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+zbus = { version = "5", default-features = false, features = ["tokio"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"
+libloading = { workspace = true }
+tray-icon = { version = "0.24.2", default-features = false, features = ["gtk"] }
+x11-clipboard = "0.9.3"
+x11rb = "0.13.1"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros"] }

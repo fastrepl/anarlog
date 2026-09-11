@@ -31,7 +31,7 @@ impl MenuItemHandler for TrayVersion {
         let app_version = app.package_info().version.to_string();
         let channel = Self::get_channel(identifier, app_name);
 
-        let text = format!("v{} ({})", app_version, channel);
+        let text = anlg_tray_core::labels::version(&app_version, channel);
         let item = MenuItem::with_id(app, Self::ID, text, false, None::<&str>)?;
         Ok(MenuItemKind::MenuItem(item))
     }

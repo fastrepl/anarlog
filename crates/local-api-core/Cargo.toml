@@ -1,0 +1,25 @@
+[package]
+name = "local-api-core"
+version = "0.1.0"
+edition = "2024"
+description = "Outbound meeting webhooks, markdown export, and cloud snapshot preparation"
+
+[dev-dependencies]
+anlg-db-core = { workspace = true }
+
+[dependencies]
+anlg-agent-access = { workspace = true }
+anlg-db-app = { workspace = true }
+
+bytes = { workspace = true }
+chrono = { workspace = true }
+hmac = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+specta = { workspace = true, features = ["derive"] }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
+tokio = { workspace = true, features = ["macros", "sync", "rt", "time"] }
+tracing = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }

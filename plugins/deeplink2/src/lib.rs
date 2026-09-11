@@ -1,5 +1,4 @@
 mod commands;
-mod error;
 mod pending_deep_link;
 mod pending_share_open;
 pub mod server;
@@ -8,7 +7,7 @@ mod types;
 #[cfg(test)]
 mod docs;
 
-pub use error::{Error, Result};
+pub use anlg_deeplink_core::{Error, Result};
 pub use types::{
     AuthCallbackSearch, BillingRefreshSearch, DeepLink, DeepLinkEvent, IntegrationCallbackSearch,
     OnboardingDemoCompleteSearch, ShareOpenPendingEvent, ShareOpenRequest,
@@ -21,18 +20,6 @@ use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_specta::Event;
 
 const PLUGIN_NAME: &str = "deeplink2";
-
-fn redact_url(url_str: &str) -> String {
-    match url::Url::parse(url_str) {
-        Ok(parsed) => {
-            let scheme = parsed.scheme();
-            let host = parsed.host_str().unwrap_or("");
-            let path = parsed.path();
-            format!("{}://{}{}", scheme, host, path)
-        }
-        Err(_) => "[invalid_url]".to_string(),
-    }
-}
 
 fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
     tauri_specta::Builder::<R>::new()
@@ -60,7 +47,7 @@ enum Delivery {
 
 fn process_url<R: Runtime>(app_handle: &AppHandle<R>, url: &url::Url, delivery: Delivery) {
     let url_str = url.as_str();
-    let redacted = redact_url(url_str);
+    let redacted = anlg_deeplink_core::redact_url(url_str);
     tracing::info!(url = %redacted, "deeplink_received");
 
     match types::IncomingDeepLink::from_str(url_str) {
@@ -167,14 +154,6 @@ mod test {
 
         let content = std::fs::read_to_string(OUTPUT_FILE).unwrap();
         std::fs::write(OUTPUT_FILE, format!("// @ts-nocheck\n{content}")).unwrap();
-    }
-
-    #[test]
-    fn redacts_query_and_fragment_from_logged_urls() {
-        let value = redact_url(
-            "anarlog://share/open?mode=handoff&request_id=ba5ca57a-8f88-44e8-ab92-f9e10c89425c#secret",
-        );
-        assert_eq!(value, "anarlog://share/open");
     }
 
     fn export_docs() {

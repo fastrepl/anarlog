@@ -16,15 +16,11 @@ specta-typescript = { workspace = true }
 [dependencies]
 anlg-agent-access = { workspace = true }
 anlg-db-app = { workspace = true }
+anlg-local-api-core = { workspace = true }
 tauri-plugin-db = { workspace = true }
 
-bytes = { workspace = true }
-chrono = { workspace = true }
-hmac = { workspace = true }
-reqwest = { workspace = true, features = ["json"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-sha2 = { workspace = true }
 specta = { workspace = true }
 sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
 tauri = { workspace = true, features = ["test"] }

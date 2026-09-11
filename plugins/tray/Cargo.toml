@@ -19,6 +19,7 @@ specta-typescript = { workspace = true }
 [dependencies]
 anlg-host = { workspace = true }
 anlg-intercept = { workspace = true }
+anlg-tray-core = { workspace = true, features = ["specta"] }
 
 tauri = { workspace = true, features = ["tray-icon", "image-png"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
@@ -36,7 +37,6 @@ serde_json = { workspace = true }
 specta = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
 tracing = { workspace = true }
-unicode-width = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libloading = { workspace = true }
