@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicU64, Ordering},
@@ -9,11 +10,14 @@ use anlg_desktop_db_runtime::{
     CloudsyncWorkspaceProjectionEntry, DesktopDbRuntime, QueryEventSink,
     cloudsync_config::{
         E2eeSecretReader, E2eeSecretWriter, create_e2ee_recovery_code, import_e2ee_recovery_key,
-        inspect_e2ee_recovery_key, load_e2ee_recovery_key,
+        inspect_e2ee_recovery_key, load_e2ee_recovery_key, open_shared_workspace_keyrings,
+        shared_workspace_ids,
     },
+    runtime::{CloudsyncTokenConfiguration, E2eeWorkspaceKeyConfiguration},
 };
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::db::Store;
 
@@ -96,7 +100,7 @@ pub struct LegacyCredentials {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct E2eeCredentials {
     pub encryption_version: u8,
@@ -112,7 +116,7 @@ pub struct E2eeCredentials {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReplicaCredentials {
     pub transport: String,
@@ -166,7 +170,7 @@ impl CredentialResponse {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Workspace {
     pub id: String,
@@ -181,7 +185,7 @@ pub struct Workspace {
     pub updated_at: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Grant {
     pub workspace_id: String,
@@ -220,6 +224,96 @@ impl From<Grant> for CloudsyncWorkspaceKeyGrant {
             is_active: value.is_active,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum KeyProvisioning {
+    Ready,
+    Provisioned,
+    Waiting,
+}
+
+#[derive(Debug, Clone)]
+struct WorkspaceRecipient {
+    user_id: String,
+    public_key: Option<String>,
+}
+
+fn credentials_expired(expires_at_ms: u64, now_ms: u64) -> bool {
+    expires_at_ms <= now_ms
+}
+
+fn parse_recipients(
+    value: Value,
+    account_user_id: &str,
+    active_grant: Option<&Grant>,
+) -> anyhow::Result<(Vec<WorkspaceRecipient>, bool, bool)> {
+    let values = value
+        .as_array()
+        .filter(|values| !values.is_empty())
+        .ok_or_else(|| anyhow!("workspace E2EE recipients are invalid"))?;
+    let mut recipient_ids = HashSet::with_capacity(values.len());
+    let mut recipients = Vec::with_capacity(values.len());
+    let mut waiting_for_identity = false;
+    let mut all_granted = true;
+    for value in values {
+        let recipient = value
+            .as_object()
+            .ok_or_else(|| anyhow!("workspace E2EE recipients are invalid"))?;
+        let user_id = recipient
+            .get("userId")
+            .and_then(Value::as_str)
+            .filter(|user_id| !user_id.is_empty())
+            .ok_or_else(|| anyhow!("workspace E2EE recipients are invalid"))?
+            .to_string();
+        if !recipient_ids.insert(user_id.clone()) {
+            return Err(anyhow!("workspace E2EE recipients are invalid"));
+        }
+        let public_key = match recipient.get("publicKey") {
+            Some(Value::Null) => {
+                waiting_for_identity = true;
+                None
+            }
+            Some(Value::String(public_key))
+                if public_key.len() == 43
+                    && public_key.bytes().all(|byte| {
+                        byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-'
+                    }) =>
+            {
+                Some(public_key.clone())
+            }
+            _ => return Err(anyhow!("workspace E2EE recipients are invalid")),
+        };
+        let granted_key_ids = recipient
+            .get("grantedKeyIds")
+            .and_then(Value::as_array)
+            .ok_or_else(|| anyhow!("workspace E2EE recipients are invalid"))?
+            .iter()
+            .map(|key_id| {
+                let key_id = key_id
+                    .as_str()
+                    .filter(|key_id| {
+                        key_id.len() == 22
+                            && key_id.bytes().all(|byte| {
+                                byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-'
+                            })
+                    })
+                    .ok_or_else(|| anyhow!("workspace E2EE recipients are invalid"))?;
+                Ok(key_id.to_string())
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        if active_grant.is_some_and(|grant| !granted_key_ids.iter().any(|id| id == &grant.key_id)) {
+            all_granted = false;
+        }
+        recipients.push(WorkspaceRecipient {
+            user_id,
+            public_key,
+        });
+    }
+    if !recipient_ids.contains(account_user_id) {
+        return Err(anyhow!("workspace E2EE issuer is missing"));
+    }
+    Ok((recipients, waiting_for_identity, all_granted))
 }
 
 pub fn sanitize_device_name(name: Option<&str>) -> Option<String> {
@@ -286,6 +380,7 @@ pub struct Cloudsync<S: QueryEventSink> {
     pub http: reqwest::Client,
     state: Mutex<State>,
     generation: AtomicU64,
+    ops: tokio::sync::Mutex<()>,
     timer: Mutex<Option<tokio::task::JoinHandle<()>>>,
     handle: tokio::runtime::Handle,
     app_id: String,
@@ -307,6 +402,7 @@ impl<S: QueryEventSink> Cloudsync<S> {
                 block: None,
             }),
             generation: AtomicU64::new(0),
+            ops: tokio::sync::Mutex::new(()),
             timer: Mutex::new(None),
             handle,
             app_id: app_id.into(),
@@ -359,26 +455,70 @@ impl<S: QueryEventSink> Cloudsync<S> {
         });
     }
 
-    fn cancel_timer(&self) {
+    fn cancel_timer_locked(&self) {
         if let Some(timer) = self.timer.lock().expect("cloudsync timer poisoned").take() {
             timer.abort();
         }
     }
 
-    fn schedule(self: &Arc<Self>, generation: u64, delay: Duration, enabled: bool) {
+    fn schedule_locked(self: &Arc<Self>, generation: u64, delay: Duration, enabled: bool) {
         let service = Arc::clone(self);
         let task = self.handle.spawn(async move {
             tokio::time::sleep(delay).await;
-            if service.generation.load(Ordering::SeqCst) == generation {
-                service
-                    .timer
-                    .lock()
-                    .expect("cloudsync timer poisoned")
-                    .take();
+            let activate = {
+                let _ops = service.ops.lock().await;
+                if service.generation.load(Ordering::SeqCst) != generation {
+                    false
+                } else {
+                    service
+                        .timer
+                        .lock()
+                        .expect("cloudsync timer poisoned")
+                        .take();
+                    true
+                }
+            };
+            if activate {
                 let _ = service.activate_with_enabled(enabled).await;
             }
         });
         *self.timer.lock().expect("cloudsync timer poisoned") = Some(task);
+    }
+
+    async fn schedule_if_current(
+        self: &Arc<Self>,
+        generation: u64,
+        delay: Duration,
+        enabled: bool,
+    ) -> bool {
+        let _ops = self.ops.lock().await;
+        if self.generation.load(Ordering::SeqCst) != generation {
+            return false;
+        }
+        self.schedule_locked(generation, delay, enabled);
+        true
+    }
+
+    async fn suspend_and_set_state(
+        &self,
+        generation: u64,
+        sign_out: bool,
+        state: State,
+    ) -> anyhow::Result<bool> {
+        let _ops = self.ops.lock().await;
+        if self.generation.load(Ordering::SeqCst) != generation {
+            return Ok(false);
+        }
+        if sign_out {
+            self.runtime.suspend_cloudsync_for_sign_out().await?;
+        } else {
+            self.runtime.suspend_cloudsync().await?;
+        }
+        if self.generation.load(Ordering::SeqCst) != generation {
+            return Ok(false);
+        }
+        *self.state.lock().expect("cloudsync state poisoned") = state;
+        Ok(true)
     }
 
     fn api_url() -> anyhow::Result<&'static str> {
@@ -461,7 +601,147 @@ impl<S: QueryEventSink> Cloudsync<S> {
         create_e2ee_recovery_code().map_err(anyhow::Error::msg)
     }
 
-    pub async fn finish_e2ee_setup(self: &Arc<Self>, code: &str) -> anyhow::Result<()> {
+    fn workspace_projection(
+        credentials: &CredentialResponse,
+    ) -> Option<(Vec<Workspace>, Vec<Grant>)> {
+        match credentials {
+            CredentialResponse::E2ee(credentials) => Some((
+                credentials.workspaces.clone(),
+                credentials.workspace_key_grants.clone(),
+            )),
+            CredentialResponse::Replica(credentials) => {
+                credentials.personal_workspace_id.as_ref().map(|_| {
+                    (
+                        credentials.workspaces.clone().unwrap_or_default(),
+                        credentials.workspace_key_grants.clone().unwrap_or_default(),
+                    )
+                })
+            }
+            CredentialResponse::Legacy(_) => None,
+        }
+    }
+
+    async fn provision_missing_workspace_keys(
+        &self,
+        credentials: &CredentialResponse,
+        access_token: &str,
+        account_user_id: &str,
+    ) -> anyhow::Result<KeyProvisioning> {
+        let Some((workspaces, grants)) = Self::workspace_projection(credentials) else {
+            return Ok(KeyProvisioning::Ready);
+        };
+        let active_grants = grants
+            .into_iter()
+            .filter(|grant| grant.is_active)
+            .map(|grant| (grant.workspace_id.clone(), grant))
+            .collect::<HashMap<_, _>>();
+        let shared_workspaces = workspaces
+            .into_iter()
+            .filter(|workspace| workspace.kind == "shared")
+            .collect::<Vec<_>>();
+        if shared_workspaces.is_empty() {
+            return Ok(KeyProvisioning::Ready);
+        }
+
+        let api_url = Self::api_url()?;
+        let secrets = GpuiE2eeSecrets {
+            app_id: self.app_id.clone(),
+        };
+        let mut provisioned = false;
+        let mut waiting = false;
+        for workspace in shared_workspaces {
+            let active_grant = active_grants.get(&workspace.id);
+            if workspace.role != "owner" && workspace.role != "admin" {
+                waiting |= active_grant.is_none();
+                continue;
+            }
+
+            let mut recipients_url = url::Url::parse(api_url)?;
+            recipients_url
+                .path_segments_mut()
+                .map_err(|_| anyhow!("API URL cannot contain path segments"))?
+                .extend(["sync", "e2ee", "workspaces", &workspace.id, "recipients"]);
+            let response = self
+                .http
+                .get(recipients_url)
+                .bearer_auth(access_token)
+                .send()
+                .await?;
+            if !response.status().is_success() {
+                return Err(anyhow!("workspace E2EE recipients are unavailable"));
+            }
+            let value = response.json::<Value>().await?;
+            let (recipients, waiting_for_identity, all_granted) =
+                parse_recipients(value, account_user_id, active_grant)?;
+            if active_grant.is_some() && all_granted {
+                continue;
+            }
+            if waiting_for_identity {
+                waiting = true;
+                continue;
+            }
+
+            let sealed =
+                self.runtime
+                    .seal_workspace_e2ee_key_for_recipients(
+                        &secrets,
+                        account_user_id,
+                        &workspace.id,
+                        recipients
+                            .iter()
+                            .map(|recipient| {
+                                Ok(anlg_desktop_db_runtime::WorkspaceE2eeKeyRecipient {
+                                    user_id: recipient.user_id.clone(),
+                                    public_key: recipient.public_key.clone().ok_or_else(|| {
+                                        anyhow!("workspace E2EE identity is missing")
+                                    })?,
+                                })
+                            })
+                            .collect::<anyhow::Result<Vec<_>>>()?,
+                        active_grant.is_none(),
+                        active_grant.map(|grant| grant.clone().into()),
+                    )
+                    .await
+                    .map_err(anyhow::Error::msg)?;
+
+            let mut publication_url = url::Url::parse(api_url)?;
+            publication_url
+                .path_segments_mut()
+                .map_err(|_| anyhow!("API URL cannot contain path segments"))?
+                .extend(["sync", "e2ee", "workspaces", &workspace.id, "key"]);
+            let response = self
+                .http
+                .put(publication_url)
+                .bearer_auth(access_token)
+                .json(&sealed)
+                .send()
+                .await?;
+            if !response.status().is_success() {
+                return Err(anyhow!("workspace E2EE key publication failed"));
+            }
+            let publication = response.json::<Value>().await?;
+            if publication.get("keyId").and_then(Value::as_str) != Some(sealed.key_id.as_str()) {
+                return Err(anyhow!(
+                    "workspace E2EE key publication response is invalid"
+                ));
+            }
+            provisioned = true;
+        }
+
+        Ok(if provisioned {
+            KeyProvisioning::Provisioned
+        } else if waiting {
+            KeyProvisioning::Waiting
+        } else {
+            KeyProvisioning::Ready
+        })
+    }
+
+    pub async fn finish_e2ee_setup(
+        self: &Arc<Self>,
+        code: &str,
+        enabled: bool,
+    ) -> anyhow::Result<()> {
         let session = self
             .auth
             .session()
@@ -478,7 +758,7 @@ impl<S: QueryEventSink> Cloudsync<S> {
         import_e2ee_recovery_key(&secrets, &user.id, code)
             .await
             .map_err(anyhow::Error::msg)?;
-        self.activate().await
+        self.activate_with_enabled(enabled).await
     }
 
     pub async fn request_credentials(
@@ -542,27 +822,34 @@ impl<S: QueryEventSink> Cloudsync<S> {
         Ok(response.json().await?)
     }
 
-    pub async fn activate(self: &Arc<Self>) -> anyhow::Result<()> {
-        self.activate_with_enabled(true).await
-    }
-
     pub async fn activate_with_enabled(self: &Arc<Self>, enabled: bool) -> anyhow::Result<()> {
-        self.cancel_timer();
         let generation = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        {
+            let _ops = self.ops.lock().await;
+            self.cancel_timer_locked();
+        }
         let Some(session) = self.auth.session().map_err(anyhow::Error::msg)? else {
-            self.runtime.suspend_cloudsync_for_sign_out().await?;
-            *self.state.lock().expect("cloudsync state poisoned") = State {
-                status: CloudsyncStatus::Off,
-                block: None,
-            };
+            self.suspend_and_set_state(
+                generation,
+                true,
+                State {
+                    status: CloudsyncStatus::Off,
+                    block: None,
+                },
+            )
+            .await?;
             return Ok(());
         };
         if !enabled {
-            self.runtime.suspend_cloudsync().await?;
-            *self.state.lock().expect("cloudsync state poisoned") = State {
-                status: CloudsyncStatus::Off,
-                block: None,
-            };
+            self.suspend_and_set_state(
+                generation,
+                false,
+                State {
+                    status: CloudsyncStatus::Off,
+                    block: None,
+                },
+            )
+            .await?;
             return Ok(());
         }
         let api_url = Self::api_url()?;
@@ -576,11 +863,15 @@ impl<S: QueryEventSink> Cloudsync<S> {
             .await
             .map_err(anyhow::Error::msg)?;
         let Some(recovery) = recovery else {
-            self.runtime.suspend_cloudsync().await?;
-            *self.state.lock().expect("cloudsync state poisoned") = State {
-                status: CloudsyncStatus::Blocked,
-                block: Some(CredentialBlock::SetupRequired),
-            };
+            self.suspend_and_set_state(
+                generation,
+                false,
+                State {
+                    status: CloudsyncStatus::Blocked,
+                    block: Some(CredentialBlock::SetupRequired),
+                },
+            )
+            .await?;
             return Ok(());
         };
         let member_public_key = recovery.member_identity_key()?.public_key();
@@ -598,14 +889,23 @@ impl<S: QueryEventSink> Cloudsync<S> {
                     .downcast_ref::<CredentialBlockError>()
                     .map(|error| error.0)
                 {
-                    self.runtime.suspend_cloudsync().await?;
-                    *self.state.lock().expect("cloudsync state poisoned") = State {
-                        status: CloudsyncStatus::Blocked,
-                        block: Some(block),
-                    };
+                    self.suspend_and_set_state(
+                        generation,
+                        false,
+                        State {
+                            status: CloudsyncStatus::Blocked,
+                            block: Some(block),
+                        },
+                    )
+                    .await?;
                     return Ok(());
                 }
-                self.schedule(generation, Duration::from_millis(RETRY_DELAY_MS), enabled);
+                self.schedule_if_current(
+                    generation,
+                    Duration::from_millis(RETRY_DELAY_MS),
+                    enabled,
+                )
+                .await;
                 return Ok(());
             }
         };
@@ -613,11 +913,15 @@ impl<S: QueryEventSink> Cloudsync<S> {
             return Ok(());
         }
         if credentials.encryption_key_id() != recovery.key_id() {
-            self.runtime.suspend_cloudsync().await?;
-            *self.state.lock().expect("cloudsync state poisoned") = State {
-                status: CloudsyncStatus::Blocked,
-                block: Some(CredentialBlock::IdentityMismatch),
-            };
+            self.suspend_and_set_state(
+                generation,
+                false,
+                State {
+                    status: CloudsyncStatus::Blocked,
+                    block: Some(CredentialBlock::IdentityMismatch),
+                },
+            )
+            .await?;
             return Ok(());
         }
         let expires_at_ms = match chrono::DateTime::parse_from_rfc3339(credentials.expires_at())
@@ -626,130 +930,259 @@ impl<S: QueryEventSink> Cloudsync<S> {
         {
             Some(expires_at_ms) => expires_at_ms,
             None => {
-                self.schedule(generation, Duration::from_millis(RETRY_DELAY_MS), enabled);
+                self.schedule_if_current(
+                    generation,
+                    Duration::from_millis(RETRY_DELAY_MS),
+                    enabled,
+                )
+                .await;
                 return Ok(());
             }
-        };
-        if credentials.account_user_id() != user.id {
-            self.runtime.suspend_cloudsync().await?;
-            *self.state.lock().expect("cloudsync state poisoned") = State {
-                status: CloudsyncStatus::Blocked,
-                block: Some(CredentialBlock::IdentityMismatch),
-            };
-            return Ok(());
-        }
-        let result = match credentials {
-            CredentialResponse::Replica(credentials) => {
-                let witness_workspace_id = credentials
-                    .personal_workspace_id
-                    .clone()
-                    .unwrap_or_else(|| credentials.workspace_id.clone());
-                let projection = credentials.personal_workspace_id.map(|personal| {
-                    CloudsyncWorkspaceProjection {
-                        account_user_id: credentials.account_user_id.clone(),
-                        personal_workspace_id: personal,
-                        workspaces: credentials
-                            .workspaces
-                            .unwrap_or_default()
-                            .into_iter()
-                            .map(Into::into)
-                            .collect(),
-                    }
-                });
-                self.runtime
-                    .configure_e2ee_replica_with_keys(
-                        &secrets,
-                        credentials.workspace_id,
-                        CloudsyncE2eeWitness {
-                            endpoint: format!(
-                                "{api}/sync/e2ee/witness/{id}",
-                                api = api_url,
-                                id = witness_workspace_id
-                            ),
-                            access_token: session.access_token.clone(),
-                        },
-                        projection,
-                        Some(
-                            credentials
-                                .workspace_key_grants
-                                .unwrap_or_default()
-                                .into_iter()
-                                .map(Into::into)
-                                .collect(),
-                        ),
-                    )
-                    .await
-            }
-            CredentialResponse::E2ee(credentials) => {
-                let projection = CloudsyncWorkspaceProjection {
-                    account_user_id: credentials.account_user_id.clone(),
-                    personal_workspace_id: credentials.personal_workspace_id.clone(),
-                    workspaces: credentials.workspaces.into_iter().map(Into::into).collect(),
-                };
-                self.runtime
-                    .configure_cloudsync_token_with_keys(
-                        &secrets,
-                        credentials.database_id,
-                        credentials.token,
-                        credentials.account_user_id,
-                        Some(projection),
-                        Some(
-                            credentials
-                                .workspace_key_grants
-                                .into_iter()
-                                .map(Into::into)
-                                .collect(),
-                        ),
-                        CloudsyncE2eeWitness {
-                            endpoint: format!(
-                                "{api}/sync/e2ee/witness/{id}",
-                                api = api_url,
-                                id = credentials.personal_workspace_id
-                            ),
-                            access_token: session.access_token.clone(),
-                        },
-                    )
-                    .await
-            }
-            CredentialResponse::Legacy(credentials) => {
-                self.runtime
-                    .configure_cloudsync_token_with_keys(
-                        &secrets,
-                        credentials.database_id,
-                        credentials.token,
-                        credentials.workspace_id.clone(),
-                        None,
-                        None,
-                        CloudsyncE2eeWitness {
-                            endpoint: format!(
-                                "{api}/sync/e2ee/witness/{id}",
-                                api = api_url,
-                                id = credentials.workspace_id
-                            ),
-                            access_token: session.access_token.clone(),
-                        },
-                    )
-                    .await
-            }
-        };
-        if let Err(error) = result {
-            self.schedule(generation, Duration::from_millis(RETRY_DELAY_MS), enabled);
-            return Err(anyhow::Error::msg(error));
-        }
-        if let Err(error) = self.runtime.start_cloudsync().await {
-            self.schedule(generation, Duration::from_millis(RETRY_DELAY_MS), enabled);
-            return Err(error.into());
-        }
-        *self.state.lock().expect("cloudsync state poisoned") = State {
-            status: CloudsyncStatus::Syncing,
-            block: None,
         };
         let now_ms = chrono::Utc::now()
             .timestamp_millis()
             .try_into()
             .unwrap_or(0);
-        self.schedule(generation, refresh_delay(expires_at_ms, now_ms), enabled);
-        Ok(())
+        if credentials_expired(expires_at_ms, now_ms) {
+            self.suspend_and_set_state(
+                generation,
+                false,
+                State {
+                    status: CloudsyncStatus::Blocked,
+                    block: Some(CredentialBlock::ClockSkew),
+                },
+            )
+            .await?;
+            self.schedule_if_current(generation, Duration::from_millis(RETRY_DELAY_MS), enabled)
+                .await;
+            return Ok(());
+        }
+        if credentials.account_user_id() != user.id {
+            self.suspend_and_set_state(
+                generation,
+                false,
+                State {
+                    status: CloudsyncStatus::Blocked,
+                    block: Some(CredentialBlock::IdentityMismatch),
+                },
+            )
+            .await?;
+            return Ok(());
+        }
+        if Self::workspace_projection(&credentials).is_some() {
+            let provisioning = match self
+                .provision_missing_workspace_keys(
+                    &credentials,
+                    &session.access_token,
+                    credentials.account_user_id(),
+                )
+                .await
+            {
+                Ok(provisioning) => provisioning,
+                Err(error) => {
+                    if generation != self.generation.load(Ordering::SeqCst) {
+                        return Ok(());
+                    }
+                    self.schedule_if_current(
+                        generation,
+                        Duration::from_millis(RETRY_DELAY_MS),
+                        enabled,
+                    )
+                    .await;
+                    tracing::warn!(%error, "CloudSync workspace key provisioning failed");
+                    return Ok(());
+                }
+            };
+            if generation != self.generation.load(Ordering::SeqCst) {
+                return Ok(());
+            }
+            match provisioning {
+                KeyProvisioning::Provisioned => {
+                    self.schedule_if_current(
+                        generation,
+                        Duration::from_millis(MIN_REFRESH_DELAY_MS),
+                        enabled,
+                    )
+                    .await;
+                    return Ok(());
+                }
+                KeyProvisioning::Waiting => {
+                    self.schedule_if_current(
+                        generation,
+                        Duration::from_millis(RETRY_DELAY_MS),
+                        enabled,
+                    )
+                    .await;
+                    return Ok(());
+                }
+                KeyProvisioning::Ready => {}
+            }
+        }
+        let workspace_projection = match &credentials {
+            CredentialResponse::Replica(credentials) => credentials
+                .personal_workspace_id
+                .clone()
+                .map(|personal_workspace_id| CloudsyncWorkspaceProjection {
+                    account_user_id: credentials.account_user_id.clone(),
+                    personal_workspace_id,
+                    workspaces: credentials
+                        .workspaces
+                        .clone()
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(Into::into)
+                        .collect(),
+                }),
+            CredentialResponse::E2ee(credentials) => Some(CloudsyncWorkspaceProjection {
+                account_user_id: credentials.account_user_id.clone(),
+                personal_workspace_id: credentials.personal_workspace_id.clone(),
+                workspaces: credentials
+                    .workspaces
+                    .clone()
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
+            }),
+            CredentialResponse::Legacy(_) => None,
+        };
+        let workspace_key_grants = match &credentials {
+            CredentialResponse::Replica(credentials) => credentials
+                .workspace_key_grants
+                .clone()
+                .unwrap_or_default()
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+            CredentialResponse::E2ee(credentials) => credentials
+                .workspace_key_grants
+                .clone()
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+            CredentialResponse::Legacy(_) => Vec::new(),
+        };
+        let workspace_keys = if let Some(projection) = workspace_projection.as_ref() {
+            let keyrings = open_shared_workspace_keyrings(
+                &recovery,
+                &user.id,
+                shared_workspace_ids(Some(projection)),
+                workspace_key_grants,
+            )
+            .map_err(anyhow::Error::msg)?;
+            Some(E2eeWorkspaceKeyConfiguration::new(
+                projection.personal_workspace_id.clone(),
+                recovery,
+                keyrings,
+            ))
+        } else {
+            None
+        };
+        {
+            let _ops = self.ops.lock().await;
+            if self.generation.load(Ordering::SeqCst) != generation {
+                return Ok(());
+            }
+            let result = match &credentials {
+                CredentialResponse::Replica(credentials) => {
+                    let witness_workspace_id = credentials
+                        .personal_workspace_id
+                        .clone()
+                        .unwrap_or_else(|| credentials.workspace_id.clone());
+                    let runtime_generation = self.runtime.begin_cloudsync_auth_configuration();
+                    self.runtime
+                        .configure_replica_transport_at_generation(
+                            credentials.workspace_id.clone(),
+                            CloudsyncE2eeWitness {
+                                endpoint: format!(
+                                    "{api}/sync/e2ee/witness/{id}",
+                                    api = api_url,
+                                    id = witness_workspace_id
+                                ),
+                                access_token: session.access_token.clone(),
+                            },
+                            workspace_keys
+                                .ok_or_else(|| anyhow!("E2EE workspace keys are unavailable"))?,
+                            workspace_projection.clone().map(Into::into),
+                            runtime_generation,
+                        )
+                        .await
+                }
+                CredentialResponse::E2ee(credentials) => {
+                    let runtime_generation = self.runtime.begin_cloudsync_auth_configuration();
+                    self.runtime
+                        .configure_cloudsync_token_with_projection_at_generation(
+                            CloudsyncTokenConfiguration::new(
+                                credentials.database_id.clone(),
+                                credentials.token.clone(),
+                                credentials.account_user_id.clone(),
+                                workspace_projection.clone().map(Into::into),
+                                CloudsyncE2eeWitness {
+                                    endpoint: format!(
+                                        "{api}/sync/e2ee/witness/{id}",
+                                        api = api_url,
+                                        id = credentials.personal_workspace_id
+                                    ),
+                                    access_token: session.access_token.clone(),
+                                },
+                            ),
+                            workspace_keys,
+                            runtime_generation,
+                        )
+                        .await
+                }
+                CredentialResponse::Legacy(credentials) => {
+                    let runtime_generation = self.runtime.begin_cloudsync_auth_configuration();
+                    self.runtime
+                        .configure_cloudsync_token_with_projection_at_generation(
+                            CloudsyncTokenConfiguration::new(
+                                credentials.database_id.clone(),
+                                credentials.token.clone(),
+                                credentials.workspace_id.clone(),
+                                None,
+                                CloudsyncE2eeWitness {
+                                    endpoint: format!(
+                                        "{api}/sync/e2ee/witness/{id}",
+                                        api = api_url,
+                                        id = credentials.workspace_id
+                                    ),
+                                    access_token: session.access_token.clone(),
+                                },
+                            ),
+                            None,
+                            runtime_generation,
+                        )
+                        .await
+                }
+            };
+            if let Err(error) = result {
+                self.schedule_locked(generation, Duration::from_millis(RETRY_DELAY_MS), enabled);
+                return Err(anyhow::Error::msg(error));
+            }
+            if self.generation.load(Ordering::SeqCst) != generation {
+                if let Err(error) = self.runtime.suspend_cloudsync().await {
+                    tracing::debug!(%error, "stale_cloudsync_configuration_suspend_failed");
+                }
+                tracing::debug!("stale_cloudsync_configuration");
+                return Ok(());
+            }
+            if let Err(error) = self.runtime.start_cloudsync().await {
+                self.schedule_locked(generation, Duration::from_millis(RETRY_DELAY_MS), enabled);
+                return Err(error.into());
+            }
+            if self.generation.load(Ordering::SeqCst) != generation {
+                if let Err(error) = self.runtime.suspend_cloudsync().await {
+                    tracing::debug!(%error, "stale_cloudsync_start_suspend_failed");
+                }
+                tracing::debug!("stale_cloudsync_start");
+                return Ok(());
+            }
+            *self.state.lock().expect("cloudsync state poisoned") = State {
+                status: CloudsyncStatus::Syncing,
+                block: None,
+            };
+            self.schedule_locked(generation, refresh_delay(expires_at_ms, now_ms), enabled);
+            Ok(())
+        }
     }
 }
 
@@ -780,6 +1213,92 @@ mod tests {
             refresh_delay(2_000_000, 900_000),
             Duration::from_millis(980_000)
         );
+    }
+
+    #[test]
+    fn expired_credentials_include_the_current_timestamp() {
+        assert!(credentials_expired(10, 10));
+        assert!(credentials_expired(9, 10));
+        assert!(!credentials_expired(11, 10));
+    }
+
+    #[test]
+    fn recipient_validation_rejects_invalid_shapes_duplicates_and_missing_issuer() {
+        let grant = Grant {
+            workspace_id: "workspace".into(),
+            key_id: "abcdefghijklmnopqrstuv".into(),
+            ephemeral_public_key: "key".into(),
+            nonce: "nonce".into(),
+            ciphertext: "ciphertext".into(),
+            is_active: true,
+        };
+        assert!(parse_recipients(serde_json::json!({}), "issuer", Some(&grant)).is_err());
+        assert!(
+            parse_recipients(
+                serde_json::json!([
+                    {"userId": "issuer", "publicKey": null, "grantedKeyIds": []},
+                    {"userId": "issuer", "publicKey": null, "grantedKeyIds": []}
+                ]),
+                "issuer",
+                Some(&grant)
+            )
+            .is_err()
+        );
+        assert!(
+            parse_recipients(
+                serde_json::json!([
+                    {"userId": "member", "publicKey": null, "grantedKeyIds": []}
+                ]),
+                "issuer",
+                Some(&grant)
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn recipient_validation_waits_for_null_identity() {
+        let (recipients, waiting, all_granted) = parse_recipients(
+            serde_json::json!([
+                {
+                    "userId": "issuer",
+                    "publicKey": null,
+                    "grantedKeyIds": []
+                }
+            ]),
+            "issuer",
+            None,
+        )
+        .unwrap();
+        assert_eq!(recipients.len(), 1);
+        assert!(waiting);
+        assert!(all_granted);
+    }
+
+    #[test]
+    fn recipient_validation_skips_when_everyone_has_the_active_key() {
+        let grant = Grant {
+            workspace_id: "workspace".into(),
+            key_id: "abcdefghijklmnopqrstuv".into(),
+            ephemeral_public_key: "key".into(),
+            nonce: "nonce".into(),
+            ciphertext: "ciphertext".into(),
+            is_active: true,
+        };
+        let (_, waiting, all_granted) = parse_recipients(
+            serde_json::json!([
+                {
+                    "userId": "issuer",
+                    "publicKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                    "grantedKeyIds": ["abcdefghijklmnopqrstuv"]
+                }
+            ]),
+            "issuer",
+            Some(&grant),
+        )
+        .unwrap();
+        assert!(!waiting);
+        assert!(all_granted);
     }
 
     #[test]

@@ -1562,12 +1562,10 @@ impl QueryEventSink for GpuiQueryEventSink {
     }
 }
 
-/// Access to the SQLite database shared with the Tauri desktop app.
-///
-/// The GPUI shell coexists with the Tauri app during the migration: it never
-/// runs migrations (the Tauri app stays the schema owner) and every write it
-/// performs uses the same statements the Tauri frontend issues, so both apps
-/// produce identical rows.
+/// Access to the shared SQLite database through `open_app_db`, with shared
+/// `db-app` migrations applied by `ensure_app_schema`, as in the Tauri shell.
+/// Migrations are append-only and downgrade-safe, so either shell may run them
+/// first; every write uses the same statements issued by the Tauri frontend.
 pub struct Store {
     runtime: tokio::runtime::Handle,
     db: Arc<Db>,

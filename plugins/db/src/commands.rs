@@ -8,7 +8,8 @@ use anlg_desktop_db_runtime::cloudsync_config::{
 };
 #[cfg(test)]
 use anlg_desktop_db_runtime::cloudsync_config::{
-    E2EE_SECRET_READ_TIMEOUT_ERROR, open_shared_workspace_keyrings,
+    E2EE_SECRET_READ_TIMEOUT_ERROR, open_shared_workspace_keyrings, open_workspace_e2ee_source_key,
+    seal_workspace_e2ee_key,
 };
 
 static E2EE_DEVICE_IDENTITY_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
@@ -366,95 +367,16 @@ pub(crate) async fn seal_workspace_e2ee_key_for_recipients<R: tauri::Runtime>(
     rotate: bool,
     source_grant: Option<crate::CloudsyncWorkspaceKeyGrant>,
 ) -> Result<crate::SealedWorkspaceE2eeKey, String> {
-    let account_user_id = canonical_e2ee_account_user_id(&account_user_id)?;
-    let workspace_id = uuid::Uuid::parse_str(workspace_id.trim())
-        .map(|workspace_id| workspace_id.to_string())
-        .map_err(|_| "E2EE workspace ID is invalid".to_string())?;
-    if recipients.is_empty() || recipients.len() > 256 {
-        return Err("workspace E2EE recipients are invalid".to_string());
-    }
-
-    let key = if rotate {
-        anlg_e2ee::WorkspaceKey::generate().map_err(|error| error.to_string())
-    } else {
-        match state.workspace_key(&workspace_id) {
-            Some(key) => Ok(key),
-            None => {
-                let source_grant = source_grant
-                    .ok_or_else(|| "workspace E2EE source grant is invalid".to_string())?;
-                let recovery_key = load_e2ee_recovery_key(app, &account_user_id)
-                    .await?
-                    .ok_or_else(|| "E2EE recovery key is not configured".to_string())?;
-                open_workspace_e2ee_source_key(
-                    &recovery_key,
-                    &account_user_id,
-                    &workspace_id,
-                    source_grant,
-                )
-            }
-        }
-    }?;
-    seal_workspace_e2ee_key(key, &account_user_id, &workspace_id, recipients)
-}
-
-fn open_workspace_e2ee_source_key(
-    recovery_key: &anlg_e2ee::RecoveryKey,
-    account_user_id: &str,
-    workspace_id: &str,
-    source_grant: crate::CloudsyncWorkspaceKeyGrant,
-) -> Result<anlg_e2ee::WorkspaceKey, String> {
-    if source_grant.workspace_id != workspace_id || !source_grant.is_active {
-        return Err("workspace E2EE source grant is invalid".to_string());
-    }
-    recovery_key
-        .member_identity_key()
-        .and_then(|identity| {
-            identity.open_workspace_key(workspace_id, account_user_id, &source_grant.into())
-        })
-        .map_err(|error| error.to_string())
-}
-
-fn seal_workspace_e2ee_key(
-    key: anlg_e2ee::WorkspaceKey,
-    account_user_id: &str,
-    workspace_id: &str,
-    recipients: Vec<crate::WorkspaceE2eeKeyRecipient>,
-) -> Result<crate::SealedWorkspaceE2eeKey, String> {
-    if recipients.is_empty() || recipients.len() > 256 {
-        return Err("workspace E2EE recipients are invalid".to_string());
-    }
-    let mut recipient_ids = std::collections::HashSet::with_capacity(recipients.len());
-    if recipients.iter().any(|recipient| {
-        uuid::Uuid::parse_str(recipient.user_id.trim()).is_err()
-            || !recipient_ids.insert(recipient.user_id.trim())
-    }) || !recipient_ids.contains(account_user_id)
-    {
-        return Err("workspace E2EE recipients are invalid".to_string());
-    }
-
-    let key_id = key.key_id().to_string();
-    let grants = recipients
-        .into_iter()
-        .map(|recipient| {
-            let user_id = uuid::Uuid::parse_str(recipient.user_id.trim())
-                .expect("recipient IDs were validated")
-                .to_string();
-            let grant = anlg_e2ee::seal_workspace_key_for_member(
-                &key,
-                &recipient.public_key,
-                &workspace_id,
-                &user_id,
-            )
-            .map_err(|error| error.to_string())?;
-            Ok(crate::WorkspaceE2eeKeyGrantUpload {
-                user_id,
-                ephemeral_public_key: grant.ephemeral_public_key,
-                nonce: grant.nonce,
-                ciphertext: grant.ciphertext,
-            })
-        })
-        .collect::<Result<Vec<_>, String>>()?;
-    Ok(crate::SealedWorkspaceE2eeKey { key_id, grants })
+    state
+        .seal_workspace_e2ee_key_for_recipients(
+            &TauriE2eeSecrets(app),
+            &account_user_id,
+            &workspace_id,
+            recipients,
+            rotate,
+            source_grant,
+        )
+        .await
 }
 
 #[tauri::command]

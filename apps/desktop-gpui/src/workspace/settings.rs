@@ -1826,8 +1826,13 @@ impl Workspace {
         self.e2ee_setup_pending = true;
         self.e2ee_setup_error = None;
         let cloudsync = self.cloudsync_service.clone();
+        let enabled = self.provider_settings.bool_setting(
+            "cloud_sync_enabled",
+            &["general", "cloud_sync_enabled"],
+            true,
+        );
         cx.spawn(async move |this, cx| {
-            let result = cloudsync.finish_e2ee_setup(&code).await;
+            let result = cloudsync.finish_e2ee_setup(&code, enabled).await;
             this.update(cx, |this, cx| {
                 this.e2ee_setup_pending = false;
                 match result {
