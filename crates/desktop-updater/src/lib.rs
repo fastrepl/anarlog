@@ -1,6 +1,8 @@
 use std::{
     collections::HashSet,
+    fs::{self, File},
     future::Future,
+    io::Write,
     path::{Path, PathBuf},
     pin::Pin,
     sync::Arc,
@@ -285,14 +287,29 @@ pub fn cache_path(updates_dir: &Path, version: &str) -> PathBuf {
 pub fn cache_update_bytes(updates_dir: &Path, version: &str, bytes: &[u8]) -> Result<()> {
     let path = cache_path(updates_dir, version);
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
+        fs::create_dir_all(parent)?;
     }
-    std::fs::write(path, bytes)?;
-    Ok(())
+    let temp_path = updates_dir.join(format!("{version}.bin.part"));
+    let result = (|| -> Result<()> {
+        let mut file = File::create(&temp_path)?;
+        file.write_all(bytes)?;
+        file.sync_all()?;
+        drop(file);
+        fs::rename(&temp_path, path)?;
+        Ok(())
+    })();
+    if result.is_err() {
+        if temp_path.is_dir() {
+            let _ = fs::remove_dir(&temp_path);
+        } else {
+            let _ = fs::remove_file(&temp_path);
+        }
+    }
+    result
 }
 
 pub fn get_cached_update_bytes(updates_dir: &Path, version: &str) -> Result<Vec<u8>> {
-    Ok(std::fs::read(cache_path(updates_dir, version))?)
+    Ok(fs::read(cache_path(updates_dir, version))?)
 }
 
 pub fn prune_updates_dir(dir: &Path, keep: Option<&str>) {
@@ -301,13 +318,17 @@ pub fn prune_updates_dir(dir: &Path, keep: Option<&str>) {
     };
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.extension().and_then(|extension| extension.to_str()) != Some("bin") {
+        let is_temp = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.ends_with(".bin.part"));
+        if !is_temp && path.extension().and_then(|extension| extension.to_str()) != Some("bin") {
             continue;
         }
-        if keep.is_some() && path.file_stem().and_then(|stem| stem.to_str()) == keep {
+        if !is_temp && keep.is_some() && path.file_stem().and_then(|stem| stem.to_str()) == keep {
             continue;
         }
-        match std::fs::remove_file(&path) {
+        match fs::remove_file(&path) {
             Ok(()) => tracing::info!(?path, "pruned_cached_update"),
             Err(error) => tracing::warn!(?path, %error, "failed_to_prune_cached_update"),
         }
@@ -727,5 +748,43 @@ mod tests {
         assert!(dir.path().join("2.0.0.bin").exists());
         assert!(!dir.path().join("1.0.0.bin").exists());
         assert!(dir.path().join("notes.txt").exists());
+    }
+
+    #[test]
+    fn cache_write_replaces_stale_temp_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let temp_path = dir.path().join("2.0.0.bin.part");
+        std::fs::write(&temp_path, b"stale").unwrap();
+
+        cache_update_bytes(dir.path(), "2.0.0", b"update").unwrap();
+
+        assert_eq!(
+            std::fs::read(cache_path(dir.path(), "2.0.0")).unwrap(),
+            b"update"
+        );
+        assert!(!temp_path.exists());
+    }
+
+    #[test]
+    fn cache_write_failure_cleans_temp_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let temp_path = dir.path().join("2.0.0.bin.part");
+        std::fs::create_dir(&temp_path).unwrap();
+
+        assert!(cache_update_bytes(dir.path(), "2.0.0", b"update").is_err());
+        assert!(!cache_path(dir.path(), "2.0.0").exists());
+        assert!(!cache_path(dir.path(), "2.0.0").is_file());
+        assert!(!temp_path.exists());
+    }
+
+    #[test]
+    fn prune_removes_temp_cache_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let temp_path = dir.path().join("2.0.0.bin.part");
+        std::fs::write(&temp_path, b"partial").unwrap();
+
+        prune_updates_dir(dir.path(), Some("2.0.0"));
+
+        assert!(!temp_path.exists());
     }
 }
