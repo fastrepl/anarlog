@@ -171,6 +171,50 @@ function option(
 }
 
 describe("SpeakerAssignPopover", () => {
+  it("offers only word-scoped assignment when a segment has no speaker index", async () => {
+    render(
+      createElement(SpeakerAssignPopover, {
+        segment: {
+          id: "segment-1",
+          key: {
+            channel: "MixedCapture",
+            speaker_index: null,
+            speaker_human_id: null,
+          },
+          start_ms: 0,
+          end_ms: 100,
+          text: "hello",
+          words: [
+            {
+              id: "word-1",
+              text: "hello",
+              start_ms: 0,
+              end_ms: 100,
+              channel: "MixedCapture",
+              is_final: true,
+            },
+          ],
+        } as Segment,
+        transcriptId: "transcript-1",
+        sessionId: "session-1",
+        color: "red",
+        label: "Unknown speaker",
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Unknown speaker" }));
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Alice" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+    await waitFor(() =>
+      expect(assignTranscriptSpeakerMock).toHaveBeenCalledWith(
+        expect.objectContaining({ mode: "segment", wordIds: ["word-1"] }),
+      ),
+    );
+    expect(assignSessionTranscriptSpeakerMock).not.toHaveBeenCalled();
+  });
+
   it("assigns only after confirmation and defaults to all matching segments", async () => {
     render(
       createElement(SpeakerAssignPopover, {
@@ -254,6 +298,7 @@ describe("SpeakerAssignPopover", () => {
         },
         humanId: "human-1",
         anchorWordId: "word-1",
+        wordIds: ["word-1"],
       });
     });
   });

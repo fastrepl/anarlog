@@ -93,6 +93,14 @@ pub(crate) fn name_suggests_microphone(name: &str) -> bool {
     name.to_lowercase().contains("mic")
 }
 
+/// Hands-Free / HFP capture endpoints created after an A2DP→SCO handoff.
+pub(crate) fn name_suggests_hands_free(name: &str) -> bool {
+    let name_lower = name.to_lowercase();
+    name_lower.contains("hands-free")
+        || name_lower.contains("handsfree")
+        || name_lower.contains("hands free")
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 pub struct AudioDevice {
     pub id: DeviceId,
@@ -142,7 +150,10 @@ impl AudioDevice {
 
 #[cfg(test)]
 mod tests {
-    use super::{name_suggests_microphone, name_suggests_non_microphone, name_suggests_speaker};
+    use super::{
+        name_suggests_hands_free, name_suggests_microphone, name_suggests_non_microphone,
+        name_suggests_speaker,
+    };
 
     #[test]
     fn loopbacks_and_jacks_are_not_microphones() {
@@ -192,6 +203,26 @@ mod tests {
     fn bluetooth_headphones_without_keywords_are_not_speakers() {
         for name in ["WH-1000XM5", "Bose QC45", "AirPods Pro", "Jabra Elite 85t"] {
             assert!(!name_suggests_speaker(name), "{name}");
+        }
+    }
+
+    #[test]
+    fn hands_free_capture_names_are_recognized() {
+        for name in [
+            "AirPods Hands-Free",
+            "AirPods Handsfree",
+            "WH-1000XM5 Hands Free",
+            "Headset (Jabra Elite 85t Hands-Free AG Audio)",
+        ] {
+            assert!(name_suggests_hands_free(name), "{name}");
+        }
+        for name in [
+            "AirPods",
+            "AirPods Pro",
+            "WH-1000XM5",
+            "MacBook Pro Microphone",
+        ] {
+            assert!(!name_suggests_hands_free(name), "{name}");
         }
     }
 }

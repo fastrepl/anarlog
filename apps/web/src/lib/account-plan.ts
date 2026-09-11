@@ -87,8 +87,6 @@ export function getAccountPlanCopy({
   isTrialing,
   isPaused = false,
   isPaid,
-  isLite,
-  isPro,
   trialDaysRemaining,
   trialEnd,
   cancelAtPeriodEnd,
@@ -99,8 +97,6 @@ export function getAccountPlanCopy({
   isTrialing: boolean;
   isPaused?: boolean;
   isPaid: boolean;
-  isLite?: boolean;
-  isPro?: boolean;
   trialDaysRemaining: number | null;
   trialEnd: Date | null;
   cancelAtPeriodEnd: boolean;
@@ -122,13 +118,7 @@ export function getAccountPlanCopy({
     };
   }
 
-  const planLabel = isTrialing
-    ? "Pro trial"
-    : isPaid
-      ? isLite && !isPro
-        ? "Lite"
-        : "Pro"
-      : "Free";
+  const planLabel = isTrialing ? "Pro trial" : isPaid ? "Pro" : "Free";
 
   if (isTrialing) {
     return {
