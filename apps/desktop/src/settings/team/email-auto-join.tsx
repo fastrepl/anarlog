@@ -41,7 +41,8 @@ export function WorkspaceEmailAutoJoin({
           domain ? (
             <Trans>
               People with a verified @{domain} email join this team when they
-              sign in, while seats are available.
+              sign in. Billing starts when they join and is prorated for the
+              remaining billing period.
             </Trans>
           ) : setting.isPending || setting.isError ? undefined : (
             <Trans>

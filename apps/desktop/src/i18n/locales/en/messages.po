@@ -2728,6 +2728,10 @@ msgstr "Invite people to this note."
 msgid "Invite teammates, share notes across the workspace, and manage who has access. Your personal notes stay private."
 msgstr "Invite teammates, share notes across the workspace, and manage who has access. Your personal notes stay private."
 
+#: src/settings/team/index.tsx
+msgid "Invite teammates, share notes across the workspace, and manage who has access. Your personal notes stay private. Pending invitations are free. New members are billed from when they join."
+msgstr "Invite teammates, share notes across the workspace, and manage who has access. Your personal notes stay private. Pending invitations are free. New members are billed from when they join."
+
 #. placeholder {0}: sent.length
 #: src/session-sharing/invitation-management.ts
 msgid "Invited {0}. Could not invite {failed}. Try again."
@@ -3809,8 +3813,8 @@ msgid "People in the meeting"
 msgstr "People in the meeting"
 
 #: src/settings/team/email-auto-join.tsx
-msgid "People with a verified @{domain} email join this team when they sign in, while seats are available."
-msgstr "People with a verified @{domain} email join this team when they sign in, while seats are available."
+msgid "People with a verified @{domain} email join this team when they sign in. Billing starts when they join and is prorated for the remaining billing period."
+msgstr "People with a verified @{domain} email join this team when they sign in. Billing starts when they join and is prorated for the remaining billing period."
 
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx

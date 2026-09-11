@@ -987,7 +987,9 @@ function WorkspacePanel({
             <DialogDescription className="sr-only">
               <Trans>
                 Invite teammates, share notes across the workspace, and manage
-                who has access. Your personal notes stay private.
+                who has access. Your personal notes stay private. Pending
+                invitations are free. New members are billed from when they
+                join.
               </Trans>
             </DialogDescription>
           </DialogHeader>
