@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     future::Future,
     path::{Path, PathBuf},
     pin::Pin,
@@ -71,7 +72,8 @@ pub struct Updater<B: UpdateBackend, E: UpdateEvents> {
     events: Arc<E>,
     updates_dir: PathBuf,
     current_version: String,
-    download_mutex: tokio::sync::Mutex<()>,
+    op_mutex: tokio::sync::Mutex<()>,
+    installed_versions: std::sync::Mutex<HashSet<String>>,
 }
 
 impl<B: UpdateBackend, E: UpdateEvents> Updater<B, E> {
@@ -86,11 +88,13 @@ impl<B: UpdateBackend, E: UpdateEvents> Updater<B, E> {
             events,
             updates_dir: updates_dir.into(),
             current_version: current_version.into(),
-            download_mutex: tokio::sync::Mutex::new(()),
+            op_mutex: tokio::sync::Mutex::new(()),
+            installed_versions: std::sync::Mutex::new(HashSet::new()),
         }
     }
 
     pub async fn check(&self) -> Result<Option<String>> {
+        let _guard = self.op_mutex.lock().await;
         let version = self.backend.check().await?;
         prune_updates_dir(&self.updates_dir, version.as_deref());
         if let Some(version) = &version {
@@ -108,7 +112,7 @@ impl<B: UpdateBackend, E: UpdateEvents> Updater<B, E> {
     }
 
     pub async fn download(&self, version: &str) -> Result<()> {
-        let _guard = self.download_mutex.lock().await;
+        let _guard = self.op_mutex.lock().await;
         if self.has_cached_update(version) {
             self.events.ready(version);
             return Ok(());
@@ -148,6 +152,7 @@ impl<B: UpdateBackend, E: UpdateEvents> Updater<B, E> {
     }
 
     pub async fn install_and_relaunch(&self, version: &str) -> Result<()> {
+        let _guard = self.op_mutex.lock().await;
         let current = self.current_version.clone();
         let is_newer = match (
             semver::Version::parse(version),
@@ -162,13 +167,26 @@ impl<B: UpdateBackend, E: UpdateEvents> Updater<B, E> {
                 current,
             });
         }
+        if self
+            .installed_versions
+            .lock()
+            .expect("installed versions mutex poisoned")
+            .contains(version)
+        {
+            return Ok(());
+        }
 
         let bytes = get_cached_update_bytes(&self.updates_dir, version)?;
         self.backend
             .check()
             .await?
             .ok_or(Error::UpdateNotAvailable)?;
-        self.backend.install(version, &bytes)
+        self.backend.install(version, &bytes)?;
+        self.installed_versions
+            .lock()
+            .expect("installed versions mutex poisoned")
+            .insert(version.to_string());
+        Ok(())
     }
 
     pub async fn tick(&self, policy: &dyn UpdatePolicySource, install_at_open: bool) -> bool {
@@ -428,6 +446,21 @@ mod tests {
             .install_and_relaunch("1.0.0")
             .await;
         assert!(matches!(result, Err(Error::UpdateNotNewer { .. })));
+    }
+
+    #[tokio::test]
+    async fn concurrent_install_attempts_only_install_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let backend = Arc::new(Backend::default());
+        cache_update_bytes(dir.path(), "2.0.0", b"update").unwrap();
+        let updater = Arc::new(updater(backend.clone(), dir.path()));
+        let (first, second) = tokio::join!(
+            updater.install_and_relaunch("2.0.0"),
+            updater.install_and_relaunch("2.0.0")
+        );
+        assert!(first.is_ok());
+        assert!(second.is_ok());
+        assert_eq!(&*backend.installs.lock().unwrap(), &["2.0.0"]);
     }
 
     fn updater_with_backend<B: UpdateBackend>(backend: Arc<B>, dir: &Path) -> Updater<B, Events> {

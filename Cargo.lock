@@ -24533,6 +24533,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "pathdiff",
+ "serde_json",
  "tempfile",
  "toml 0.8.23",
  "xshell",

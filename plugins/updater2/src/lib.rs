@@ -45,8 +45,14 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app, _api| {
             specta_builder.mount_events(app);
-            let shared_updater = ext::create_core(app)?;
-            app.manage(shared_updater);
+            match ext::create_core(app) {
+                Ok(shared_updater) => {
+                    app.manage(shared_updater);
+                }
+                Err(error) => {
+                    tracing::error!(%error, "updater_initialization_failed");
+                }
+            }
 
             #[cfg(target_os = "macos")]
             match startup_migration::maybe_schedule_legacy_bundle_rename_on_launch(app) {

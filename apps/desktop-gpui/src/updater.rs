@@ -72,13 +72,13 @@ impl FeedUpdateBackend {
     }
 
     fn endpoint(&self, endpoint: &str) -> String {
-        endpoint
-            .replace("{{target}}", &self.target)
-            .replace("{{arch}}", &self.arch)
-            .replace(
-                "{{current_version}}",
-                self.current_version.to_string().as_str(),
-            )
+        substitute_endpoint(
+            endpoint,
+            &self.target,
+            &self.arch,
+            self.current_version.to_string().as_str(),
+            updater_bundle_type(),
+        )
     }
 
     async fn check_feed(&self) -> Result<Option<Release>> {
@@ -333,6 +333,32 @@ fn updater_arch() -> Option<&'static str> {
     }
 }
 
+fn updater_bundle_type() -> &'static str {
+    if cfg!(target_os = "linux") {
+        "appimage"
+    } else if cfg!(target_os = "macos") {
+        "app"
+    } else if cfg!(target_os = "windows") {
+        "nsis"
+    } else {
+        "unknown"
+    }
+}
+
+fn substitute_endpoint(
+    endpoint: &str,
+    target: &str,
+    arch: &str,
+    current_version: &str,
+    bundle_type: &str,
+) -> String {
+    endpoint
+        .replace("{{target}}", target)
+        .replace("{{arch}}", arch)
+        .replace("{{current_version}}", current_version)
+        .replace("{{bundle_type}}", bundle_type)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -349,6 +375,20 @@ mod tests {
             .unwrap();
             assert!(manifest.platforms.contains_key(target));
         }
+    }
+
+    #[test]
+    fn substitutes_all_endpoint_placeholders() {
+        assert_eq!(
+            substitute_endpoint(
+                "https://example.test/{{target}}/{{arch}}/{{bundle_type}}/{{current_version}}",
+                "linux",
+                "x86_64",
+                "1.2.3",
+                "appimage",
+            ),
+            "https://example.test/linux/x86_64/appimage/1.2.3"
+        );
     }
 
     #[test]

@@ -85,10 +85,9 @@ impl<R: Runtime> UpdateBackend for TauriUpdateBackend<R> {
             .take()
             .ok_or(anlg_desktop_updater::Error::UpdateNotAvailable)?;
         update.version = version.to_string();
-        self.app
-            .store2()
-            .save()
-            .map_err(|error| anlg_desktop_updater::Error::Backend(error.to_string()))?;
+        if let Err(error) = self.app.store2().save() {
+            tracing::warn!(%error, "failed_to_persist_update_store");
+        }
         update
             .install(bytes)
             .map_err(|error| anlg_desktop_updater::Error::Backend(error.to_string()))?;
