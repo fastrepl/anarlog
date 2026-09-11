@@ -409,11 +409,90 @@ mod test {
         let path = directory
             .path()
             .join(commands::markdown_export_filename(&export.meeting));
-        assert_eq!(
-            std::fs::read_to_string(path).unwrap(),
-            format!("{}\n", export.to_markdown())
-        );
+        let written = std::fs::read_to_string(path).unwrap();
+        let content = written
+            .strip_prefix("<!-- anarlog:legacy-markdown-export \"meeting-1\" -->\n\n")
+            .unwrap_or(&written);
+        assert_eq!(content, format!("{}\n", export.to_markdown()));
         assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn markdown_replacement_keeps_existing_permission_bits() {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+        let pool = seeded_pool().await;
+        let export = anlg_agent_access::get_meeting_export(&pool, "meeting-1".to_string())
+            .await
+            .unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let options = MarkdownExportOptions::default();
+        let path =
+            commands::write_markdown_export_with_options(directory.path(), &export, Some(&options))
+                .unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o640)).unwrap();
+        let original = std::fs::metadata(&path).unwrap();
+        commands::write_markdown_export_with_options(directory.path(), &export, Some(&options))
+            .unwrap();
+        let updated = std::fs::metadata(path).unwrap();
+        assert_eq!(updated.permissions().mode() & 0o777, 0o640);
+        assert_eq!(updated.uid(), original.uid());
+        assert_eq!(updated.gid(), original.gid());
+    }
+
+    #[tokio::test]
+    async fn legacy_cleanup_keeps_configured_and_unmarked_exports() {
+        let pool = seeded_pool().await;
+        let mut export = anlg_agent_access::get_meeting_export(&pool, "meeting-1".to_string())
+            .await
+            .unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let legacy = commands::write_markdown_export(directory.path(), &export).unwrap();
+        let options = MarkdownExportOptions {
+            filename: "Memo".to_string(),
+            ..Default::default()
+        };
+        let configured =
+            commands::write_markdown_export_with_options(directory.path(), &export, Some(&options))
+                .unwrap();
+        let unmarked = directory.path().join("Older export [meeting-].md");
+        std::fs::write(&unmarked, format!("{}\n", export.to_markdown())).unwrap();
+        let mut other = export.clone();
+        other.meeting.id = "meeting-2".to_string();
+        other.meeting.title = "Another meeting".to_string();
+        let same_prefix = commands::write_markdown_export(directory.path(), &other).unwrap();
+
+        export.meeting.title = "Planning updated".to_string();
+        commands::write_markdown_export(directory.path(), &export).unwrap();
+        assert!(!legacy.exists());
+        assert!(configured.exists());
+        assert!(unmarked.exists());
+        assert!(same_prefix.exists());
+    }
+
+    #[tokio::test]
+    async fn configured_export_takes_ownership_of_a_shared_legacy_filename() {
+        let pool = seeded_pool().await;
+        let mut export = anlg_agent_access::get_meeting_export(&pool, "meeting-1".to_string())
+            .await
+            .unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let path = commands::write_markdown_export(directory.path(), &export).unwrap();
+        commands::write_markdown_export_with_options(
+            directory.path(),
+            &export,
+            Some(&MarkdownExportOptions::default()),
+        )
+        .unwrap();
+        assert!(
+            !std::fs::read_to_string(&path)
+                .unwrap()
+                .starts_with("<!-- anarlog:legacy-markdown-export")
+        );
+        export.meeting.title = "Planning updated".to_string();
+        commands::write_markdown_export(directory.path(), &export).unwrap();
+        assert!(path.exists());
     }
 
     #[tokio::test]
