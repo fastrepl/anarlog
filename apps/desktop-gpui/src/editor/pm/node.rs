@@ -46,16 +46,17 @@ fn utf16_len(text: &str) -> usize {
 fn utf16_byte_offset(text: &str, pos: usize) -> usize {
     let mut units = 0;
     for (byte, ch) in text.char_indices() {
-        units += ch.len_utf16();
-        if units >= pos {
+        if units + ch.len_utf16() > pos {
             return byte;
         }
+        units += ch.len_utf16();
     }
     text.len()
 }
 
 fn utf16_slice(text: &str, from: usize, to: usize) -> String {
-    // mid-surrogate positions round down to the containing char so prefix and suffix cuts agree
+    // Mid-surrogate positions round down to the containing char so prefix
+    // and suffix cuts agree.
     let start = utf16_byte_offset(text, from);
     let end = utf16_byte_offset(text, to.max(from));
     text[start..end].to_string()
@@ -702,12 +703,17 @@ mod tests {
         let text = Node::text(s, "a😀b", Vec::new());
         assert_eq!(text.node_size(), 4);
         assert_eq!(text.cut(0, Some(0)).text_content(), "");
-        assert_eq!(utf16_slice("a😀b", 0, 3), "a");
-        assert_eq!(utf16_slice("a😀b", 3, 4), "😀");
-        assert_eq!(utf16_slice("a😀b", 3, 5), "😀b");
-        assert_eq!(utf16_slice("a😀b", 0, 4), "a😀");
+        assert_eq!(utf16_slice("ab", 1, 2), "b");
+        assert_eq!(utf16_slice("a😀b", 0, 1), "a");
+        assert_eq!(utf16_slice("a😀b", 1, 3), "😀");
+        assert_eq!(utf16_slice("a😀b", 0, 3), "a😀");
+        assert_eq!(utf16_slice("a😀b", 3, 4), "b");
+        // Mid-surrogate cuts agree: prefix + suffix keeps one emoji.
+        assert_eq!(utf16_slice("a😀b", 0, 2), "a");
+        assert_eq!(utf16_slice("a😀b", 2, 4), "😀b");
+        assert_eq!(utf16_slice("a😀b", 2, 2), "");
         assert_eq!(text.cut(1, Some(3)).text_content(), "😀");
-        assert_eq!(text.cut(1, Some(2)).text_content(), "😀");
+        assert_eq!(text.cut(1, Some(2)).text_content(), "");
         assert_eq!(text.cut(2, Some(3)).text_content(), "😀");
         assert_eq!(text.cut(3, None).text_content(), "b");
 
