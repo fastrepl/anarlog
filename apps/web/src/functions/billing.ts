@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { randomUUID } from "node:crypto";
 import type Stripe from "stripe";
 import { z } from "zod";
 
@@ -1029,19 +1030,31 @@ export const getAccountSubscription = createServerFn({ method: "GET" }).handler(
   },
 );
 
-export const deleteAccount = createServerFn({ method: "POST" }).handler(
-  async () => {
-    const supabase = getSupabaseServerClient();
-    const { data: sessionData } = await supabase.auth.getSession();
+const deleteAccountInput = z.object({
+  email: z.string().trim().email(),
+});
 
-    if (!sessionData.session) {
+export const deleteAccount = createServerFn({ method: "POST" })
+  .inputValidator(deleteAccountInput)
+  .handler(async ({ data }) => {
+    const supabase = getSupabaseServerClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user?.email) {
       throw new Error("Not authenticated");
+    }
+
+    if (data.email.trim().toLowerCase() !== user.email.toLowerCase()) {
+      throw new Error("Email does not match the authenticated account");
     }
 
     const client = createClient({
       baseUrl: env.VITE_API_URL,
       headers: {
-        Authorization: `Bearer ${sessionData.session.access_token}`,
+        Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token ?? ""}`,
       },
     });
 
@@ -1052,5 +1065,64 @@ export const deleteAccount = createServerFn({ method: "POST" }).handler(
 
     await supabase.auth.signOut({ scope: "local" });
     return { success: true };
-  },
-);
+  });
+
+export const createRetentionOffer = createServerFn({
+  method: "POST",
+}).handler(async () => {
+  const supabase = getSupabaseServerClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError || !user) {
+    throw new Error("Not authenticated");
+  }
+
+  const stripe = getStripeClient();
+  const stripeCustomerId = await getStripeCustomerIdForUser(
+    supabase,
+    stripe,
+    user,
+  );
+  if (!stripeCustomerId) {
+    throw new Error("No billing customer");
+  }
+
+  const subscription = await getCurrentSubscription(stripe, stripeCustomerId, {
+    expandDiscounts: true,
+  });
+  if (!subscription || subscription.status !== "active") {
+    throw new Error("No active personal subscription");
+  }
+
+  if (
+    subscriptionHasYcPerk(subscription) ||
+    (subscription.discounts && subscription.discounts.length > 0)
+  ) {
+    throw new Error("Cannot combine retention offer with existing discount");
+  }
+
+  const coupon = await stripe.coupons.create({
+    percent_off: 100,
+    duration: "repeating",
+    duration_in_months: 2,
+    name: "2 months free",
+    max_redemptions: 1,
+  });
+
+  const promotionCode = await stripe.promotionCodes.create({
+    promotion: { type: "coupon", coupon: coupon.id },
+    customer: stripeCustomerId,
+    code: `RETAIN-${randomUUID().replace(/-/g, "").toUpperCase()}`,
+  });
+
+  await stripe.subscriptions.update(subscription.id, {
+    discounts: [{ promotion_code: promotionCode.id }],
+    ...(subscription.cancel_at_period_end
+      ? { cancel_at_period_end: false }
+      : {}),
+  });
+
+  return { success: true };
+});

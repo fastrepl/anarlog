@@ -337,6 +337,34 @@ describe("applyRenderRequestIdentitiesToSegments", () => {
 
     expect(result[0]?.key.speaker_human_id).toBe("self");
   });
+
+  it("does not apply channel defaults to distinct mixed-capture speakers", () => {
+    const first = createSegment("first", [{ id: "word-a", startMs: 0 }]);
+    const second = createSegment("second", [{ id: "word-b", startMs: 100 }]);
+    first.key.speaker_index = 0;
+    second.key.speaker_index = 1;
+    const request = createRequest(
+      ["word-a", "word-b"],
+      [
+        {
+          human_id: "human-1",
+          scope: { kind: "channel", channel: "MixedCapture" },
+        },
+      ],
+    );
+    request.participant_human_ids = ["self", "remote", "guest"];
+    request.self_human_id = "self";
+
+    const result = applyRenderRequestIdentitiesToSegments(
+      [first, second],
+      request,
+    );
+
+    expect(result.map((segment) => segment.key.speaker_human_id)).toEqual([
+      null,
+      null,
+    ]);
+  });
 });
 
 function createSegment(

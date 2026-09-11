@@ -1,4 +1,12 @@
+import { Icon } from "@iconify-icon/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+
+import {
+  Check,
+  EnvelopeSimple,
+  PlugsConnected,
+} from "@anlg/ui/components/icons";
+import { cn } from "@anlg/utils";
 
 import {
   connectAccountIdentity,
@@ -17,11 +25,15 @@ import {
 } from "./-account-ui";
 
 const providers = [
-  { id: "google", label: "Google" },
-  { id: "apple", label: "Apple" },
-  { id: "azure", label: "Microsoft" },
-  { id: "github", label: "GitHub" },
+  { id: "google", label: "Google", icon: "logos:google-icon" },
+  { id: "apple", label: "Apple", icon: "simple-icons:apple" },
+  { id: "azure", label: "Microsoft", icon: "logos:microsoft-icon" },
+  { id: "github", label: "GitHub", icon: "logos:github-icon" },
 ] as const;
+
+function ProviderIcon({ icon }: { icon: string }) {
+  return <Icon icon={icon} width="20" height="20" />;
+}
 
 export function AccountIdentitiesSection({
   expectedUserId,
@@ -134,17 +146,33 @@ export function AccountIdentitiesSection({
                 key={identity.id}
                 className="flex items-center justify-between gap-4 px-6 py-4 sm:px-8"
               >
-                <div className="min-w-0 text-sm">
-                  <p className="text-sm font-medium">
-                    {identity.provider === "email"
-                      ? "Email"
-                      : identity.provider}
-                  </p>
-                  <p className="text-muted-foreground text-sm break-all">
-                    {identity.email}
-                  </p>
+                <div className="flex min-w-0 items-center gap-3 text-sm">
+                  <span
+                    className="text-muted-foreground shrink-0"
+                    aria-hidden="true"
+                  >
+                    <EnvelopeSimple className="size-5" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium">
+                      {identity.provider === "email"
+                        ? "Email"
+                        : identity.provider}
+                    </p>
+                    <p className="text-muted-foreground text-sm break-all">
+                      {identity.email}
+                    </p>
+                  </div>
                 </div>
-                <span className="text-muted-foreground text-sm">Connected</span>
+                <span
+                  className={cn([
+                    accountPillSecondaryClassName,
+                    "pointer-events-none cursor-default gap-1.5",
+                  ])}
+                >
+                  <Check className="size-4" />
+                  Connected
+                </span>
               </li>
             ))}
           {providers.map((provider) => {
@@ -156,31 +184,47 @@ export function AccountIdentitiesSection({
                 key={provider.id}
                 className="flex items-center justify-between gap-4 px-6 py-4 sm:px-8"
               >
-                <div className="min-w-0 text-sm">
-                  <p className="text-sm font-medium">{provider.label}</p>
-                  {linked.map((identity) => (
-                    <p
-                      key={identity.id}
-                      className="text-muted-foreground text-sm break-all"
-                    >
-                      {identity.email}
-                    </p>
-                  ))}
+                <div className="flex min-w-0 items-center gap-3 text-sm">
+                  <span className="shrink-0" aria-hidden="true">
+                    <ProviderIcon icon={provider.icon} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{provider.label}</p>
+                    {linked.map((identity) => (
+                      <p
+                        key={identity.id}
+                        className="text-muted-foreground text-sm break-all"
+                      >
+                        {identity.email}
+                      </p>
+                    ))}
+                  </div>
                 </div>
                 {linked.length ? (
-                  <span className="text-muted-foreground text-sm">
+                  <span
+                    className={cn([
+                      accountPillSecondaryClassName,
+                      "pointer-events-none cursor-default gap-1.5",
+                    ])}
+                  >
+                    <Check className="size-4" />
                     Connected
                   </span>
                 ) : (
                   <button
                     aria-label={`Connect ${provider.label}`}
-                    className={accountPillSecondaryClassName}
+                    className={cn([accountPillSecondaryClassName, "gap-1.5"])}
                     disabled={connect.isPending || switchAccount.isPending}
                     onClick={() => connect.mutate(provider.id)}
                   >
-                    {connect.isPending && connect.variables === provider.id
-                      ? "Connecting..."
-                      : "Connect"}
+                    {connect.isPending && connect.variables === provider.id ? (
+                      "Connecting..."
+                    ) : (
+                      <>
+                        <PlugsConnected className="size-4" />
+                        Connect
+                      </>
+                    )}
                   </button>
                 )}
               </li>
