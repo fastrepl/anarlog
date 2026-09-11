@@ -19,7 +19,8 @@ anlg-notification-interface = { workspace = true }
 [target.'cfg(target_os = "linux")'.dependencies]
 gdk = "0.18"
 gdk-pixbuf = "0.18"
-glib = "0.20"
+# Must match gtk 0.18's glib; gtk3-rs ended at 0.18, so glib cannot move on its own.
+glib = "0.18"
 gtk = "0.18"
 pango = "0.18"
 indexmap = "2.6"
