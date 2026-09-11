@@ -806,6 +806,10 @@ msgstr ""
 msgid "Beta"
 msgstr ""
 
+#: src/settings/general/account.tsx
+msgid "Billing period"
+msgstr ""
+
 #: src/settings/general/notification.tsx
 msgid "Bloom"
 msgstr ""
@@ -3193,6 +3197,10 @@ msgstr ""
 
 #: src/settings/general/week-start.tsx
 msgid "Monday"
+msgstr ""
+
+#: src/settings/general/account.tsx
+msgid "Monthly · ${monthlyPrice}/mo"
 msgstr ""
 
 #: src/settings/stats/index.tsx
@@ -5870,6 +5878,14 @@ msgstr ""
 
 #: src/automations/starters.tsx
 msgid "Write to a folder"
+msgstr ""
+
+#: src/settings/general/account.tsx
+msgid "Yearly · ${yearlyPrice}/yr"
+msgstr ""
+
+#: src/settings/general/account.tsx
+msgid "Yearly · ${yearlyPrice}/yr (save ${yearlySavings})"
 msgstr ""
 
 #: src/sidebar/timeline/utils/index.ts

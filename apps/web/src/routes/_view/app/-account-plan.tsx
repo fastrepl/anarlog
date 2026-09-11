@@ -2,6 +2,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 
+import { getFixedPlanPrice } from "@anlg/pricing";
 import { cn } from "@anlg/utils";
 
 import { authInputClassName } from "@/components/auth-shell";
@@ -23,6 +24,8 @@ import {
 } from "./-account-ui";
 
 export const accountSubscriptionQueryKey = ["account-subscription"];
+
+const proPrice = getFixedPlanPrice("pro");
 
 const ycPerkApplyErrorMessages = {
   claimed: "This perk has already been claimed.",
@@ -78,6 +81,19 @@ export function PlanSection({
       : (billing?.currentPeriodEnd ?? null);
   const hasYcPerk =
     subscriptionQuery.data?.hasYcPerk === true || perk === "applied";
+  const currentPeriod = subscriptionQuery.data?.period ?? null;
+  const switchTargetPeriod =
+    billing?.isPaid === true &&
+    billing.isTrialing !== true &&
+    billing.isPaused !== true &&
+    !cancelAtPeriodEnd &&
+    proPrice?.yearly != null
+      ? currentPeriod === "monthly"
+        ? ("yearly" as const)
+        : currentPeriod === "yearly"
+          ? ("monthly" as const)
+          : null
+      : null;
   const workspacePlan = workspacePlanQuery.data ?? null;
   const isWorkspacePlan = workspacePlan != null;
 
@@ -132,21 +148,62 @@ export function PlanSection({
               </p>
             </div>
             {isWorkspacePlan ? null : billing?.isPaid || billing?.isTrialing ? (
-              <Link to="/app/portal/" className={accountPillSecondaryClassName}>
-                Manage billing
-              </Link>
-            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                {switchTargetPeriod ? (
+                  <Link
+                    to="/app/switch-plan/"
+                    search={{ targetPeriod: switchTargetPeriod }}
+                    className={accountPillSecondaryClassName}
+                  >
+                    {switchTargetPeriod === "yearly"
+                      ? `Switch to yearly · $${proPrice?.yearly}/yr`
+                      : `Switch to monthly · $${proPrice?.monthly}/mo`}
+                  </Link>
+                ) : null}
+                <Link
+                  to="/app/portal/"
+                  className={accountPillSecondaryClassName}
+                >
+                  Manage billing
+                </Link>
+              </div>
+            ) : billing?.isPaused ? (
               <Link
                 to="/app/checkout/"
-                search={{
-                  period: "monthly",
-                  trial: "false",
-                  source: "settings",
-                }}
+                search={{ trial: "false", source: "settings" }}
                 className={accountPillPrimaryClassName}
               >
-                {billing?.isPaused ? "Resume Pro" : "Upgrade to Pro"}
+                Resume Pro
               </Link>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  to="/app/checkout/"
+                  search={{
+                    period: "monthly",
+                    trial: "false",
+                    source: "settings",
+                  }}
+                  className={accountPillPrimaryClassName}
+                >
+                  {proPrice
+                    ? `Upgrade to Pro · $${proPrice.monthly}/mo`
+                    : "Upgrade to Pro"}
+                </Link>
+                {proPrice?.yearly != null ? (
+                  <Link
+                    to="/app/checkout/"
+                    search={{
+                      period: "yearly",
+                      trial: "false",
+                      source: "settings",
+                    }}
+                    className={accountPillSecondaryClassName}
+                  >
+                    {`Pay yearly · $${proPrice.yearly}/yr`}
+                  </Link>
+                ) : null}
+              </div>
             )}
           </>
         )}

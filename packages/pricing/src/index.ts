@@ -1,5 +1,7 @@
 export {
+  type BillingPeriod,
   getActionForTier,
+  getFixedPlanPrice,
   MARKETING_PLAN_TIERS,
   PLAN_TIERS,
   type MarketingPlanData,

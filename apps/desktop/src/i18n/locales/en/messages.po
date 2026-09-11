@@ -806,6 +806,10 @@ msgstr "Best for this Mac"
 msgid "Beta"
 msgstr "Beta"
 
+#: src/settings/general/account.tsx
+msgid "Billing period"
+msgstr "Billing period"
+
 #: src/settings/general/notification.tsx
 msgid "Bloom"
 msgstr "Bloom"
@@ -3194,6 +3198,10 @@ msgstr "Model is thinking..."
 #: src/settings/general/week-start.tsx
 msgid "Monday"
 msgstr "Monday"
+
+#: src/settings/general/account.tsx
+msgid "Monthly · ${monthlyPrice}/mo"
+msgstr "Monthly · ${monthlyPrice}/mo"
 
 #: src/settings/stats/index.tsx
 msgid "More"
@@ -5871,6 +5879,14 @@ msgstr "Workspace subdomain"
 #: src/automations/starters.tsx
 msgid "Write to a folder"
 msgstr "Write to a folder"
+
+#: src/settings/general/account.tsx
+msgid "Yearly · ${yearlyPrice}/yr"
+msgstr "Yearly · ${yearlyPrice}/yr"
+
+#: src/settings/general/account.tsx
+msgid "Yearly · ${yearlyPrice}/yr (save ${yearlySavings})"
+msgstr "Yearly · ${yearlyPrice}/yr (save ${yearlySavings})"
 
 #: src/sidebar/timeline/utils/index.ts
 msgid "Yesterday"

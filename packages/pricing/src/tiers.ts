@@ -149,6 +149,18 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
   },
 ];
 
+export type BillingPeriod = "monthly" | "yearly";
+
+export function getFixedPlanPrice(
+  tier: MarketingPlanTier,
+): { monthly: number; yearly: number | null } | null {
+  const price = MARKETING_PLAN_TIERS.find((plan) => plan.id === tier)?.price;
+  if (price?.kind !== "fixed") {
+    return null;
+  }
+  return { monthly: price.monthly, yearly: price.yearly };
+}
+
 export const PLAN_TIERS: PlanTierData[] = MARKETING_PLAN_TIERS.map((plan) => {
   if (plan.price.kind === "fixed") {
     const billingUnit = plan.price.billingUnit === "person" ? "/person" : "";

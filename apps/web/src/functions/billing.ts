@@ -36,6 +36,7 @@ import {
 } from "@/lib/stripe-customer";
 import {
   getPlanSwitchRoute,
+  getSubscriptionBillingPeriod,
   selectCurrentSubscription,
   selectPersonalPlanReplacement,
 } from "@/lib/subscription-selection";
@@ -182,6 +183,42 @@ const getTeamPriceId = (period: "monthly" | "yearly") => {
   );
 };
 
+const createSubscriptionUpdateConfirmUrl = async (
+  stripe: Stripe,
+  stripeCustomerId: string,
+  subscription: Stripe.Subscription,
+  targetPriceId: string,
+  returnUrl: string,
+) => {
+  const subscriptionItem = subscription.items.data[0];
+  if (!subscriptionItem) {
+    throw new Error("Subscription item is unavailable");
+  }
+
+  const portalSession = await stripe.billingPortal.sessions.create({
+    customer: stripeCustomerId,
+    return_url: returnUrl,
+    flow_data: {
+      type: "subscription_update_confirm",
+      subscription_update_confirm: {
+        subscription: subscription.id,
+        items: [
+          {
+            id: subscriptionItem.id,
+            price: targetPriceId,
+          },
+        ],
+      },
+      after_completion: {
+        type: "redirect",
+        redirect: { return_url: returnUrl },
+      },
+    },
+  });
+
+  return portalSession.url;
+};
+
 async function getCurrentSubscription(
   stripe: Stripe,
   stripeCustomerId: string,
@@ -313,7 +350,7 @@ function getAccountYcPerkUrl(
 async function createCheckoutUrl({
   supabase,
   user,
-  period,
+  period = "monthly",
   scheme,
   trial = false,
   reservationId,
@@ -324,7 +361,7 @@ async function createCheckoutUrl({
 }: {
   supabase: SupabaseClient;
   user: AuthUser & { email?: string | null };
-  period: "monthly" | "yearly";
+  period?: "monthly" | "yearly";
   scheme?: z.infer<typeof desktopSchemeSchema>;
   trial?: boolean;
   reservationId?: string;
@@ -441,7 +478,7 @@ async function createCheckoutUrl({
 }
 
 const createCheckoutSessionInput = z.object({
-  period: z.enum(["monthly", "yearly"]),
+  period: z.enum(["monthly", "yearly"]).optional(),
   plan: z.enum(["pro"]).default("pro").optional(),
   scheme: desktopSchemeSchema.optional(),
   trial: z.boolean().default(false),
@@ -531,8 +568,9 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
           }
 
           // Resuming reuses the subscription's existing price. Checkout entry
-          // points often default to monthly, which must not silently rewrite a
-          // paused yearly trial.
+          // points without an explicit period must not rewrite a paused yearly
+          // trial; an explicitly chosen period on an active subscription goes
+          // through Stripe's confirm-update page instead.
 
           if (ycPromotion) {
             const result = await applyYcPromotionToCustomer({
@@ -562,6 +600,24 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
             const returnUrl = data.scheme
               ? `${getBillingReturnUrl(data.scheme)}&source=${data.source}`
               : toAbsoluteInternalReturnUrl(getRequestAppOrigin(), returnTo);
+            if (
+              data.period &&
+              currentSubscription.status === "active" &&
+              getPlanSwitchRoute(
+                currentSubscription,
+                getProPriceId(data.period),
+              ) === "update"
+            ) {
+              return {
+                url: await createSubscriptionUpdateConfirmUrl(
+                  stripe,
+                  stripeCustomerId,
+                  currentSubscription,
+                  getProPriceId(data.period),
+                  returnUrl,
+                ),
+              };
+            }
             // Stripe's portal can reactivate a trial that ended in `paused`.
             // Trialing subscriptions only need the focused add-card form.
             const portalSession = await stripe.billingPortal.sessions.create({
@@ -868,33 +924,15 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
       return { url: portalSession.url };
     }
 
-    const subscriptionItem = activeSubscription.items.data[0];
-    if (!subscriptionItem) {
-      throw new Error("Subscription item is unavailable");
-    }
-
-    const portalSession = await stripe.billingPortal.sessions.create({
-      customer: stripeCustomerId,
-      return_url: returnUrl,
-      flow_data: {
-        type: "subscription_update_confirm",
-        subscription_update_confirm: {
-          subscription: activeSubscription.id,
-          items: [
-            {
-              id: subscriptionItem.id,
-              price: targetPriceId,
-            },
-          ],
-        },
-        after_completion: {
-          type: "redirect",
-          redirect: { return_url: returnUrl },
-        },
-      },
-    });
-
-    return { url: portalSession.url };
+    return {
+      url: await createSubscriptionUpdateConfirmUrl(
+        stripe,
+        stripeCustomerId,
+        activeSubscription,
+        targetPriceId,
+        returnUrl,
+      ),
+    };
   });
 
 const createPortalSessionInput = z.object({
@@ -960,6 +998,7 @@ export const getAccountSubscription = createServerFn({ method: "GET" }).handler(
         cancelAtPeriodEnd: false,
         currentPeriodEnd: null,
         hasYcPerk: false,
+        period: null,
       };
     }
 
@@ -974,6 +1013,7 @@ export const getAccountSubscription = createServerFn({ method: "GET" }).handler(
         cancelAtPeriodEnd: false,
         currentPeriodEnd: null,
         hasYcPerk: false,
+        period: null,
       };
     }
 
@@ -981,6 +1021,10 @@ export const getAccountSubscription = createServerFn({ method: "GET" }).handler(
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
       currentPeriodEnd: getSubscriptionAccessEnd(subscription),
       hasYcPerk: subscriptionHasYcPerk(subscription),
+      period:
+        subscription.status === "paused"
+          ? null
+          : getSubscriptionBillingPeriod(subscription),
     };
   },
 );
