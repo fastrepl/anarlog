@@ -4,6 +4,7 @@ use std::sync::{
     atomic::{AtomicU64, Ordering},
 };
 use std::time::Duration;
+use tokio::sync::watch;
 
 use anlg_desktop_db_runtime::{
     CloudsyncE2eeWitness, CloudsyncWorkspaceKeyGrant, CloudsyncWorkspaceProjection,
@@ -378,7 +379,7 @@ pub struct Cloudsync<S: QueryEventSink> {
     pub runtime: Arc<DesktopDbRuntime<S>>,
     pub auth: Arc<crate::auth::Auth>,
     pub http: reqwest::Client,
-    state: Mutex<State>,
+    state_tx: watch::Sender<State>,
     generation: AtomicU64,
     ops: tokio::sync::Mutex<()>,
     timer: Mutex<Option<tokio::task::JoinHandle<()>>>,
@@ -393,14 +394,15 @@ impl<S: QueryEventSink> Cloudsync<S> {
         handle: tokio::runtime::Handle,
         app_id: impl Into<String>,
     ) -> Self {
+        let (state_tx, _) = watch::channel(State {
+            status: CloudsyncStatus::Off,
+            block: None,
+        });
         Self {
             runtime,
             auth,
             http: reqwest::Client::new(),
-            state: Mutex::new(State {
-                status: CloudsyncStatus::Off,
-                block: None,
-            }),
+            state_tx,
             generation: AtomicU64::new(0),
             ops: tokio::sync::Mutex::new(()),
             timer: Mutex::new(None),
@@ -410,7 +412,11 @@ impl<S: QueryEventSink> Cloudsync<S> {
     }
 
     pub fn state(&self) -> State {
-        self.state.lock().expect("cloudsync state poisoned").clone()
+        self.state_tx.borrow().clone()
+    }
+
+    pub fn subscribe(&self) -> watch::Receiver<State> {
+        self.state_tx.subscribe()
     }
 
     pub fn start(self: &Arc<Self>, store: Arc<Store>) {
@@ -517,7 +523,7 @@ impl<S: QueryEventSink> Cloudsync<S> {
         if self.generation.load(Ordering::SeqCst) != generation {
             return Ok(false);
         }
-        *self.state.lock().expect("cloudsync state poisoned") = state;
+        self.state_tx.send_replace(state);
         Ok(true)
     }
 
@@ -852,10 +858,38 @@ impl<S: QueryEventSink> Cloudsync<S> {
             .await?;
             return Ok(());
         }
-        let api_url = Self::api_url()?;
         let Some(user) = session.user.as_ref() else {
             anyhow::bail!("authenticated session has no user");
         };
+        {
+            let _ops = self.ops.lock().await;
+            if self.generation.load(Ordering::SeqCst) != generation {
+                return Ok(());
+            }
+            match self.runtime.bind_cloudsync_account(user.id.clone()).await {
+                Ok(true) => {}
+                Ok(false) => {
+                    if self.generation.load(Ordering::SeqCst) != generation {
+                        return Ok(());
+                    }
+                    self.state_tx.send_replace(State {
+                        status: CloudsyncStatus::Blocked,
+                        block: Some(CredentialBlock::IdentityMismatch),
+                    });
+                    return Ok(());
+                }
+                Err(error) => {
+                    self.schedule_locked(
+                        generation,
+                        Duration::from_millis(RETRY_DELAY_MS),
+                        enabled,
+                    );
+                    tracing::warn!(%error, "failed to bind CloudSync account");
+                    return Ok(());
+                }
+            }
+        }
+        let api_url = Self::api_url()?;
         let secrets = GpuiE2eeSecrets {
             app_id: self.app_id.clone(),
         };
@@ -1168,9 +1202,26 @@ impl<S: QueryEventSink> Cloudsync<S> {
             };
             self.runtime
                 .record_cloudsync_configuration_result(configuration_step, &result);
-            if let Err(error) = result {
-                self.schedule_locked(generation, Duration::from_millis(RETRY_DELAY_MS), enabled);
-                return Err(anyhow::Error::msg(error));
+            match result {
+                Err(error) => {
+                    self.schedule_locked(
+                        generation,
+                        Duration::from_millis(RETRY_DELAY_MS),
+                        enabled,
+                    );
+                    return Err(anyhow::Error::msg(error));
+                }
+                Ok(anlg_desktop_db_runtime::CloudsyncTokenConfigurationResult::AccountMismatch) => {
+                    if self.generation.load(Ordering::SeqCst) != generation {
+                        return Ok(());
+                    }
+                    self.state_tx.send_replace(State {
+                        status: CloudsyncStatus::Blocked,
+                        block: Some(CredentialBlock::IdentityMismatch),
+                    });
+                    return Ok(());
+                }
+                Ok(anlg_desktop_db_runtime::CloudsyncTokenConfigurationResult::Configured) => {}
             }
             if self.generation.load(Ordering::SeqCst) != generation {
                 if let Err(error) = self.runtime.suspend_cloudsync().await {
@@ -1190,10 +1241,10 @@ impl<S: QueryEventSink> Cloudsync<S> {
                 tracing::debug!("stale_cloudsync_start");
                 return Ok(());
             }
-            *self.state.lock().expect("cloudsync state poisoned") = State {
+            self.state_tx.send_replace(State {
                 status: CloudsyncStatus::Syncing,
                 block: None,
-            };
+            });
             self.schedule_locked(generation, refresh_delay(expires_at_ms, now_ms), enabled);
             Ok(())
         }

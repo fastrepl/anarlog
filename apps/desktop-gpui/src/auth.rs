@@ -92,6 +92,9 @@ impl Auth {
         &self,
         callback: AuthCallbackSearch,
     ) -> Result<CallbackOutcome, String> {
+        if !has_auth_tokens(&callback) {
+            return Ok(CallbackOutcome::Ignored);
+        }
         let fingerprint = format!("{}:{}", callback.access_token, callback.refresh_token);
         if !self
             .callbacks
@@ -121,6 +124,11 @@ impl Auth {
 pub enum CallbackOutcome {
     Installed,
     Duplicate,
+    Ignored,
+}
+
+fn has_auth_tokens(callback: &AuthCallbackSearch) -> bool {
+    !callback.access_token.is_empty() && !callback.refresh_token.is_empty()
 }
 
 #[derive(Default)]
@@ -317,5 +325,14 @@ mod tests {
         assert!(deduper.begin("token", now));
         deduper.finish("token", now, true);
         assert!(!deduper.begin("token", now + Duration::from_secs(1)));
+    }
+
+    #[test]
+    fn code_only_callback_is_not_an_auth_callback() {
+        let callback = AuthCallbackSearch {
+            code: Some("subscription-code".into()),
+            ..AuthCallbackSearch::default()
+        };
+        assert!(!has_auth_tokens(&callback));
     }
 }

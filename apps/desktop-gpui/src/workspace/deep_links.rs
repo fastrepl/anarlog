@@ -27,6 +27,9 @@ impl Workspace {
                             .ok();
                         }
                         Ok(crate::auth::CallbackOutcome::Duplicate) => {}
+                        Ok(crate::auth::CallbackOutcome::Ignored) => {
+                            tracing::debug!("ignored non-auth callback");
+                        }
                         Err(error) => tracing::warn!(%error, "failed to install auth callback"),
                     },
                 )

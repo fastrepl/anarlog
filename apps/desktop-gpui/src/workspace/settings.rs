@@ -1100,7 +1100,14 @@ impl Workspace {
                 } else {
                     self.render_account_signed_out(cx)
                 })
-                .child(self.render_guest_plans()),
+                .child(if self.auth_service.signed_in() {
+                    div()
+                        .tw_text_sm()
+                        .text_color(self.theme.muted_foreground)
+                        .child("Plan details aren't available in the native shell yet.")
+                } else {
+                    self.render_guest_plans()
+                }),
             SettingsTab::Stats => self.render_stats_settings(title, window, cx),
             SettingsTab::Insights => self.render_insights_settings(title, window, cx),
             SettingsTab::Permissions => div()

@@ -596,7 +596,7 @@ impl Workspace {
             mention_humans: Vec::new(),
             mention_organizations: Vec::new(),
             auth_service: auth.clone(),
-            cloudsync_service,
+            cloudsync_service: cloudsync_service.clone(),
             e2ee_setup_mode: None,
             e2ee_setup_code: None,
             e2ee_setup_input,
@@ -703,6 +703,7 @@ impl Workspace {
         this.reload_settings(cx);
         this.watch_changes(cx);
         let mut auth_state = auth.subscribe();
+        let mut cloudsync_state = cloudsync_service.subscribe();
         cx.spawn(async move |this, cx| {
             while auth_state.changed().await.is_ok() {
                 let signed_in = *auth_state.borrow();
@@ -717,6 +718,14 @@ impl Workspace {
                     })
                     .is_err()
                 {
+                    break;
+                }
+            }
+        })
+        .detach();
+        cx.spawn(async move |this, cx| {
+            while cloudsync_state.changed().await.is_ok() {
+                if this.update(cx, |_, cx| cx.notify()).is_err() {
                     break;
                 }
             }
