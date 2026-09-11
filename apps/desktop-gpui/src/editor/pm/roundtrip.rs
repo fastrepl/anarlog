@@ -6,9 +6,7 @@ use super::schema::schema;
 const FIXTURES: &str = include_str!("fixtures/roundtrip.gen.json");
 
 const KNOWN_DIVERGENCES: &[&str] = &[
-    "basic-unicode — GPUI node_size counts Unicode scalar values; ProseMirror counts UTF-16 code units",
     "marks-overlap-and-adjacency — GPUI Fragment::from merges adjacent text nodes with identical marks; ProseMirror preserves them",
-    "markdown-table — GPUI node_size counts Unicode scalar values; ProseMirror counts UTF-16 code units",
 ];
 
 const UNCOMPARED_SCHEMA_FIELDS: &[&str] =

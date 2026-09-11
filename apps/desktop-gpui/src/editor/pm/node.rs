@@ -39,15 +39,27 @@ pub struct Slice {
     pub open_end: usize,
 }
 
-fn chars(text: &str) -> usize {
-    text.chars().count()
+fn utf16_len(text: &str) -> usize {
+    text.encode_utf16().count()
 }
 
-fn char_slice(text: &str, from: usize, to: usize) -> String {
-    text.chars()
-        .skip(from)
-        .take(to.saturating_sub(from))
-        .collect()
+fn utf16_byte_offset(text: &str, pos: usize) -> usize {
+    let mut units = 0;
+    for (byte, ch) in text.char_indices() {
+        if units + ch.len_utf16() > pos {
+            return byte;
+        }
+        units += ch.len_utf16();
+    }
+    text.len()
+}
+
+fn utf16_slice(text: &str, from: usize, to: usize) -> String {
+    // Mid-surrogate positions round down to the containing char so prefix
+    // and suffix cuts agree.
+    let start = utf16_byte_offset(text, from);
+    let end = utf16_byte_offset(text, to.max(from));
+    text[start..end].to_string()
 }
 
 impl Mark {
@@ -343,7 +355,7 @@ impl Node {
 
     pub fn node_size(&self) -> usize {
         match &self.text {
-            Some(text) => chars(text),
+            Some(text) => utf16_len(text),
             None if super::schema::schema().nodes[self.type_id].is_leaf() => 1,
             None => self.content.size + 2,
         }
@@ -403,11 +415,11 @@ impl Node {
     pub fn cut(&self, from: usize, to: Option<usize>) -> Node {
         match &self.text {
             Some(text) => {
-                let to = to.unwrap_or_else(|| chars(text));
-                if from == 0 && to == chars(text) {
+                let to = to.unwrap_or_else(|| utf16_len(text));
+                if from == 0 && to == utf16_len(text) {
                     self.clone()
                 } else {
-                    self.with_text(char_slice(text, from, to))
+                    self.with_text(utf16_slice(text, from, to))
                 }
             }
             None => {
@@ -683,6 +695,46 @@ mod tests {
             json.to_string(),
             r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Hello"}]},{"type":"paragraph","content":[{"type":"text","text":"world"}]}]}"#
         );
+    }
+
+    #[test]
+    fn positions_and_cuts_count_utf16_units() {
+        let s = schema();
+        let text = Node::text(s, "a😀b", Vec::new());
+        assert_eq!(text.node_size(), 4);
+        assert_eq!(text.cut(0, Some(0)).text_content(), "");
+        assert_eq!(utf16_slice("ab", 1, 2), "b");
+        assert_eq!(utf16_slice("a😀b", 0, 1), "a");
+        assert_eq!(utf16_slice("a😀b", 1, 3), "😀");
+        assert_eq!(utf16_slice("a😀b", 0, 3), "a😀");
+        assert_eq!(utf16_slice("a😀b", 3, 4), "b");
+        // Mid-surrogate cuts agree: prefix + suffix keeps one emoji.
+        assert_eq!(utf16_slice("a😀b", 0, 2), "a");
+        assert_eq!(utf16_slice("a😀b", 2, 4), "😀b");
+        assert_eq!(utf16_slice("a😀b", 2, 2), "");
+        assert_eq!(text.cut(1, Some(3)).text_content(), "😀");
+        assert_eq!(text.cut(1, Some(2)).text_content(), "");
+        assert_eq!(text.cut(2, Some(3)).text_content(), "😀");
+        assert_eq!(text.cut(3, None).text_content(), "b");
+
+        let doc = Node::new(
+            s,
+            0,
+            None,
+            Fragment::from(vec![para(s, "a😀b")]),
+            Vec::new(),
+        );
+        assert_eq!(doc.content.size, 6);
+
+        let before_emoji = doc.resolve(2);
+        assert_eq!(before_emoji.parent_offset, 1);
+        assert_eq!(before_emoji.node_before().unwrap().text_content(), "a");
+        assert_eq!(before_emoji.node_after().unwrap().text_content(), "😀b");
+
+        let after_emoji = doc.resolve(4);
+        assert_eq!(after_emoji.parent_offset, 3);
+        assert_eq!(after_emoji.node_before().unwrap().text_content(), "a😀");
+        assert_eq!(after_emoji.node_after().unwrap().text_content(), "b");
     }
 
     #[test]

@@ -56,6 +56,27 @@ fn is_textblock(schema: &Schema, node: &Node) -> bool {
     )
 }
 
+fn utf16_len(text: &str) -> usize {
+    text.encode_utf16().count()
+}
+
+fn utf16_byte_offset(text: &str, units: usize) -> usize {
+    let mut consumed = 0;
+    for (byte, ch) in text.char_indices() {
+        let next = consumed + ch.len_utf16();
+        if units < next {
+            // JavaScript can address the middle of a surrogate pair; clamp to
+            // the containing Rust char boundary.
+            return byte;
+        }
+        if units == next {
+            return byte + ch.len_utf8();
+        }
+        consumed = next;
+    }
+    text.len()
+}
+
 /// Every textblock in document order with the position its content starts at.
 fn textblocks(schema: &Schema, doc: &Node) -> Vec<(Vec<usize>, usize)> {
     fn walk(
@@ -97,9 +118,9 @@ pub fn position(doc: &Node, caret: Caret) -> Option<usize> {
         if child.is_text() {
             if caret.offset <= bytes + text.len() {
                 let within = text.get(..caret.offset - bytes).unwrap_or(&text);
-                return Some(pos + within.chars().count());
+                return Some(pos + utf16_len(within));
             }
-            pos += text.chars().count();
+            pos += utf16_len(&text);
         } else {
             // An atom is one position wide whatever its text shows.
             if caret.offset <= bytes {
@@ -139,17 +160,13 @@ pub fn caret(doc: &Node, pos: usize) -> Option<Caret> {
         }
         let text = inline_text(s, child);
         if child.is_text() {
-            let chars = text.chars().count();
-            if remaining < chars {
-                offset += text
-                    .chars()
-                    .take(remaining)
-                    .map(char::len_utf8)
-                    .sum::<usize>();
+            let units = utf16_len(&text);
+            if remaining < units {
+                offset += utf16_byte_offset(&text, remaining);
                 remaining = 0;
                 break;
             }
-            remaining -= chars;
+            remaining -= units;
         } else {
             remaining -= 1;
         }
@@ -279,5 +296,16 @@ mod tests {
             })
         );
         assert_eq!(caret(&d, 12), None);
+    }
+
+    #[test]
+    fn astral_text_carets_use_utf16_positions() {
+        let d = doc(
+            r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"a😀b"}]}]}"#,
+        );
+        for (offset, pos) in [(0, 1), (1, 2), (5, 4), (6, 5)] {
+            assert_eq!(position(&d, Caret { block: 0, offset }), Some(pos));
+            assert_eq!(caret(&d, pos), Some(Caret { block: 0, offset }));
+        }
     }
 }
