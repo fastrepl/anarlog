@@ -138,6 +138,7 @@ select results_eq(
   'Acceptance grants the member role'
 );
 
+reset role;
 select ok(
   (
     select accepted_at is not null
@@ -148,6 +149,7 @@ select ok(
   ),
   'The invitation is marked accepted'
 );
+select tests.authenticate_as('myinv_recipient');
 
 select results_eq(
   $$ select count(*) from public.list_my_workspace_invitations() $$,
@@ -192,10 +194,11 @@ select lives_ok(
   'The invitee can decline their own invitation'
 );
 
+reset role;
 select ok(
   (
     select revoked_at is not null
-      and revoked_by_user_id = auth.uid()
+      and revoked_by_user_id = tests.get_supabase_uid('myinv_recipient2')
     from public.workspace_invitations
     where id = (
       select invitation_id from my_invitations_state where name = 'inv_recipient2'
@@ -203,6 +206,7 @@ select ok(
   ),
   'Declining marks the invitation revoked by the invitee'
 );
+select tests.authenticate_as('myinv_recipient2');
 
 select results_eq(
   $$ select count(*) from public.list_my_workspace_invitations() $$,
