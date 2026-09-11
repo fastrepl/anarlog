@@ -211,6 +211,10 @@ msgstr "A to Z"
 msgid "a week ago"
 msgstr "a week ago"
 
+#: src/settings/team/index.tsx
+msgid "Accept"
+msgstr "Accept"
+
 #: src/shared-notes/index.tsx
 msgid "Access no longer available"
 msgstr "Access no longer available"
@@ -1837,6 +1841,7 @@ msgid "Date range"
 msgstr "Date range"
 
 #: src/edit/tab-content.tsx
+#: src/settings/team/index.tsx
 msgid "Decline"
 msgstr "Decline"
 
@@ -2685,6 +2690,10 @@ msgstr "Invitation pending"
 msgid "Invitation sent."
 msgstr "Invitation sent."
 
+#: src/settings/team/index.tsx
+msgid "Invitations"
+msgstr "Invitations"
+
 #: src/session-sharing/invitation-management.ts
 msgid "Invitations sent."
 msgstr "Invitations sent."
@@ -2713,6 +2722,16 @@ msgstr "Invite teammates, share notes across the workspace, and manage who has a
 msgid "Invited {0}. Could not invite {failed}. Try again."
 msgstr "Invited {0}. Could not invite {failed}. Try again."
 
+#. placeholder {0}: invitation.invitedByEmail
+#: src/settings/team/index.tsx
+#: src/settings/team/invitation-toast.tsx
+msgid "Invited by {0}"
+msgstr "Invited by {0}"
+
+#: src/settings/team/index.tsx
+msgid "Invited to join"
+msgstr "Invited to join"
+
 #: src/contacts/details.tsx
 msgid "Job Title"
 msgstr "Job Title"
@@ -2736,6 +2755,11 @@ msgstr "Join our community and stay updated:"
 #: src/settings/general/meeting-settings.tsx
 msgid "Join scheduled meetings"
 msgstr "Join scheduled meetings"
+
+#. placeholder {0}: invitation.workspaceName
+#: src/settings/team/index.tsx
+msgid "Joined {0}"
+msgstr "Joined {0}"
 
 #: src/session-sharing/management-panel.tsx
 msgid "Keep desktop edits"
@@ -5747,6 +5771,7 @@ msgid "Version history"
 msgstr "Version history"
 
 #: src/main/windows-title-bar.tsx
+#: src/settings/team/invitation-toast.tsx
 msgid "View"
 msgstr "View"
 
@@ -5912,6 +5937,11 @@ msgstr "You're on a Pro trial"
 #: src/settings/general/account.tsx
 msgid "You're on the <0>{planLabel}</0> plan"
 msgstr "You're on the <0>{planLabel}</0> plan"
+
+#. placeholder {0}: invitation.workspaceName
+#: src/settings/team/invitation-toast.tsx
+msgid "You've been invited to join {0}"
+msgstr "You've been invited to join {0}"
 
 #: src/billing/trial-started-dialog.tsx
 msgid "Your {days}-day Pro trial starts now. Add a payment method before it ends to keep Pro."

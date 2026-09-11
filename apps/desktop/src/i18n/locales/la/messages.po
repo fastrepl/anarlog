@@ -211,6 +211,10 @@ msgstr ""
 msgid "a week ago"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Accept"
+msgstr ""
+
 #: src/shared-notes/index.tsx
 msgid "Access no longer available"
 msgstr ""
@@ -1837,6 +1841,7 @@ msgid "Date range"
 msgstr ""
 
 #: src/edit/tab-content.tsx
+#: src/settings/team/index.tsx
 msgid "Decline"
 msgstr ""
 
@@ -2685,6 +2690,10 @@ msgstr ""
 msgid "Invitation sent."
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Invitations"
+msgstr ""
+
 #: src/session-sharing/invitation-management.ts
 msgid "Invitations sent."
 msgstr ""
@@ -2713,6 +2722,16 @@ msgstr ""
 msgid "Invited {0}. Could not invite {failed}. Try again."
 msgstr ""
 
+#. placeholder {0}: invitation.invitedByEmail
+#: src/settings/team/index.tsx
+#: src/settings/team/invitation-toast.tsx
+msgid "Invited by {0}"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Invited to join"
+msgstr ""
+
 #: src/contacts/details.tsx
 msgid "Job Title"
 msgstr ""
@@ -2735,6 +2754,11 @@ msgstr ""
 
 #: src/settings/general/meeting-settings.tsx
 msgid "Join scheduled meetings"
+msgstr ""
+
+#. placeholder {0}: invitation.workspaceName
+#: src/settings/team/index.tsx
+msgid "Joined {0}"
 msgstr ""
 
 #: src/session-sharing/management-panel.tsx
@@ -5747,6 +5771,7 @@ msgid "Version history"
 msgstr ""
 
 #: src/main/windows-title-bar.tsx
+#: src/settings/team/invitation-toast.tsx
 msgid "View"
 msgstr ""
 
@@ -5911,6 +5936,11 @@ msgstr ""
 
 #: src/settings/general/account.tsx
 msgid "You're on the <0>{planLabel}</0> plan"
+msgstr ""
+
+#. placeholder {0}: invitation.workspaceName
+#: src/settings/team/invitation-toast.tsx
+msgid "You've been invited to join {0}"
 msgstr ""
 
 #: src/billing/trial-started-dialog.tsx
