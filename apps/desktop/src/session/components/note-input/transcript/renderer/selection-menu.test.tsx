@@ -6,7 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { createRef, type ReactNode } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { MultiSelectionBar, SelectionMenu } from "./selection-menu";
 import type { TranscriptContextMenuRequest } from "./selection-menu";
@@ -45,30 +45,26 @@ vi.mock("~/shared/hooks/useAutoCloser", () => ({
   useAutoCloser: () => ({ current: null }),
 }));
 
+beforeAll(() => {
+  Object.assign(Range.prototype, {
+    getBoundingClientRect: () => new DOMRect(20, 700, 100, 20),
+    getClientRects(this: Range) {
+      const text = this.toString();
+      return text ? [new DOMRect(20, 700, text.length * 10, 20)] : [];
+    },
+  });
+});
+
 afterEach(() => {
   cleanup();
+  window.getSelection()?.removeAllRanges();
+  document.body.replaceChildren();
   setSessionFabSelectionHost(null);
 });
 
 describe("SelectionMenu", () => {
   it("keeps the speaker picker inside the viewport without a back row", () => {
-    const request = {
-      id: "request-1",
-      range: {
-        getBoundingClientRect: () => new DOMRect(20, 700, 100, 20),
-        getClientRects: () => [],
-        startOffset: 0,
-        endOffset: 4,
-      },
-      selection: {
-        sessionId: "session-1",
-        text: "Test",
-        startMs: 0,
-        groups: [],
-      },
-      x: 20,
-      y: 700,
-    } as unknown as TranscriptContextMenuRequest;
+    const request = createContextRequest();
 
     render(
       <SelectionMenu
@@ -117,6 +113,32 @@ describe("SelectionMenu", () => {
     );
 
     expect(screen.getByRole("button", { name: "Play from here" })).toBeTruthy();
+  });
+
+  it("paints its own highlight only once the native selection is gone", () => {
+    const request = createContextRequest();
+    window.getSelection()?.addRange(request.range);
+
+    render(
+      <SelectionMenu
+        containerRef={createRef()}
+        contextRequest={request}
+        audioExists={false}
+        onContextClose={vi.fn()}
+        onAssignSpeaker={vi.fn()}
+      />,
+    );
+
+    expect(
+      document.querySelectorAll("[data-transcript-selection-overlay]"),
+    ).toHaveLength(0);
+
+    window.getSelection()?.removeAllRanges();
+    fireEvent(document, new Event("selectionchange"));
+
+    expect(
+      document.querySelectorAll("[data-transcript-selection-overlay]"),
+    ).toHaveLength(1);
   });
 });
 
@@ -212,15 +234,16 @@ describe("MultiSelectionBar", () => {
   });
 });
 
-function createContextRequest() {
+function createContextRequest(): TranscriptContextMenuRequest {
+  const container = document.createElement("div");
+  container.textContent = "Test";
+  document.body.append(container);
+  const range = document.createRange();
+  range.selectNodeContents(container);
+
   return {
     id: crypto.randomUUID(),
-    range: {
-      getBoundingClientRect: () => new DOMRect(20, 700, 100, 20),
-      getClientRects: () => [],
-      startOffset: 0,
-      endOffset: 4,
-    },
+    range,
     selection: {
       sessionId: "session-1",
       text: "Test",
@@ -229,5 +252,5 @@ function createContextRequest() {
     },
     x: 20,
     y: 700,
-  } as unknown as TranscriptContextMenuRequest;
+  };
 }
