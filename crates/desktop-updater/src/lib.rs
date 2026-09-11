@@ -190,7 +190,7 @@ impl<B: UpdateBackend, E: UpdateEvents> Updater<B, E> {
         };
 
         if policy.meeting_active() {
-            return true;
+            return install_at_open;
         }
 
         if install_at_open && self.has_cached_update(&version) {
