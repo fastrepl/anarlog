@@ -2075,9 +2075,7 @@ impl Workspace {
             .justify_between()
             .gap_4()
             .pb_4()
-            .child(
-                account_details
-            )
+            .child(account_details)
             .child(
                 div()
                     .id("account-sign-out")
@@ -2089,15 +2087,9 @@ impl Workspace {
                     .cursor_pointer()
                     .hover(|element| element.bg(theme.accent))
                     .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                        this.auth_service.sign_out();
-                        let cloudsync = this.cloudsync_service.clone();
-                        cx.spawn(async move |_this, _cx| {
-                            if let Err(error) = cloudsync.activate().await {
-                                tracing::warn!(%error, "failed to suspend CloudSync after sign-out");
-                            }
-                        })
-                        .detach();
-                        this.auth = super::toast::Auth::SignedOut;
+                        if let Err(error) = this.auth_service.sign_out() {
+                            tracing::warn!(%error, "failed to persist desktop auth sign-out");
+                        }
                         cx.notify();
                     }))
                     .child("Sign out"),

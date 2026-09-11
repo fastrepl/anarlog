@@ -431,31 +431,37 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    pub fn new(store: Arc<Store>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        Self::with_mode(store, Mode::Main, window, cx)
+    pub fn new(
+        store: Arc<Store>,
+        auth: std::sync::Arc<crate::auth::Auth>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        Self::with_mode(store, auth, Mode::Main, window, cx)
     }
 
     /// `StandaloneNoteWindow`: the note surface alone, showing `session_id`.
     pub fn standalone(
         store: Arc<Store>,
+        auth: std::sync::Arc<crate::auth::Auth>,
         session_id: String,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        Self::with_mode(store, Mode::StandaloneNote(session_id), window, cx)
+        Self::with_mode(store, auth, Mode::StandaloneNote(session_id), window, cx)
     }
 
     fn with_mode(
         store: Arc<Store>,
+        auth: std::sync::Arc<crate::auth::Auth>,
         mode: Mode,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
         let font_family = crate::theme::ui_font_family(cx.text_system()).map(SharedString::from);
-        let auth_service = std::sync::Arc::new(crate::auth::Auth::new(store.identifier()));
         let cloudsync_service = std::sync::Arc::new(Cloudsync::new(
             store.db_runtime().clone(),
-            auth_service.clone(),
+            auth.clone(),
             store.runtime().clone(),
             store.identifier(),
         ));
@@ -585,7 +591,7 @@ impl Workspace {
             chat_sent_history: Vec::new(),
             mention_humans: Vec::new(),
             mention_organizations: Vec::new(),
-            auth_service,
+            auth_service: auth.clone(),
             cloudsync_service,
             e2ee_setup_mode: None,
             e2ee_setup_code: None,
@@ -593,7 +599,11 @@ impl Workspace {
             e2ee_setup_code_input,
             e2ee_setup_pending: false,
             e2ee_setup_error: None,
-            auth: toast::Auth::Loading,
+            auth: if auth.signed_in() {
+                toast::Auth::SignedIn
+            } else {
+                toast::Auth::SignedOut
+            },
             dismissed_toasts: Vec::new(),
             theme_preference: "system".to_string(),
             overflow_open: false,
@@ -688,12 +698,50 @@ impl Workspace {
         this.reload_sessions(cx);
         this.reload_settings(cx);
         this.watch_changes(cx);
-        let auth_service = this.auth_service.clone();
         let cloudsync_service = this.cloudsync_service.clone();
         let store = this.store.clone();
+        let startup_cloudsync = async move {
+            let enabled = store
+                .load_provider_settings()
+                .await
+                .ok()
+                .and_then(|settings| settings.ok())
+                .map(|settings| {
+                    settings.bool_setting(
+                        "cloud_sync_enabled",
+                        &["general", "cloud_sync_enabled"],
+                        true,
+                    )
+                })
+                .unwrap_or(true);
+            if let Err(error) = cloudsync_service.activate_with_enabled(enabled).await {
+                tracing::warn!(%error, "failed to activate CloudSync");
+            }
+        };
         cx.spawn(async move |_this, _cx| {
-            loop {
-                auth_service.refresh().await;
+            startup_cloudsync.await;
+        })
+        .detach();
+
+        let mut auth_state = auth.subscribe();
+        let cloudsync_service = this.cloudsync_service.clone();
+        let store = this.store.clone();
+        cx.spawn(async move |this, cx| {
+            while auth_state.changed().await.is_ok() {
+                let signed_in = *auth_state.borrow();
+                if this
+                    .update(cx, |this, cx| {
+                        this.auth = if signed_in {
+                            toast::Auth::SignedIn
+                        } else {
+                            toast::Auth::SignedOut
+                        };
+                        cx.notify();
+                    })
+                    .is_err()
+                {
+                    break;
+                }
                 let enabled = store
                     .load_provider_settings()
                     .await
@@ -710,7 +758,6 @@ impl Workspace {
                 if let Err(error) = cloudsync_service.activate_with_enabled(enabled).await {
                     tracing::warn!(%error, "failed to activate CloudSync");
                 }
-                tokio::time::sleep(std::time::Duration::from_secs(300)).await;
             }
         })
         .detach();
@@ -799,6 +846,7 @@ impl Workspace {
             }
         }
         let store = self.store.clone();
+        let auth = self.auth_service.clone();
         let id = session_id.clone();
         let bounds = gpui::Bounds::centered(None, gpui::size(px(720.0), px(820.0)), cx);
         let result = cx.open_window(
@@ -814,7 +862,7 @@ impl Workspace {
                 ..Default::default()
             },
             move |window, cx| {
-                let workspace = cx.new(|cx| Workspace::standalone(store, id, window, cx));
+                let workspace = cx.new(|cx| Workspace::standalone(store, auth, id, window, cx));
                 workspace.read(cx).focus_handle().focus(window);
                 workspace
             },
