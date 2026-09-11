@@ -24,3 +24,18 @@ updates:
         applies-to: security-updates
         patterns:
           - "*"
+    # These families only build when every member moves together, and 0.x minor
+    # bumps are breaking. Advisories in them are handled by hand.
+    ignore:
+      - dependency-name: glib
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
+      - dependency-name: opentelemetry*
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
+      - dependency-name: tracing-opentelemetry
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major

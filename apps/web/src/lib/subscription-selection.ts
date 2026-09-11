@@ -44,6 +44,23 @@ export function selectPersonalPlanReplacement<
   return null;
 }
 
+export type BillingPeriod = "monthly" | "yearly";
+
+export function getSubscriptionBillingPeriod(subscription: {
+  items: {
+    data: Array<{ price: { recurring?: { interval: string } | null } }>;
+  };
+}): BillingPeriod | null {
+  const interval = subscription.items.data[0]?.price.recurring?.interval;
+  if (interval === "month") {
+    return "monthly";
+  }
+  if (interval === "year") {
+    return "yearly";
+  }
+  return null;
+}
+
 export function getPlanSwitchRoute(
   subscription: Pick<Stripe.Subscription, "status" | "items">,
   targetPriceId: string,

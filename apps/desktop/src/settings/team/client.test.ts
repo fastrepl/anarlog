@@ -1,14 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  acceptMyWorkspaceInvitation,
   checkWorkspaceShareSlugAvailability,
   createWorkspace,
   createWorkspaceInvitation,
+  declineMyWorkspaceInvitation,
   getSeatUsage,
   getWorkspaceAccess,
   getWorkspaceEmailAutoJoin,
   getWorkspacePolicy,
   intersectAllowedShareScopes,
+  listMyWorkspaceInvitations,
   listWorkspaceInvitations,
   listWorkspaceMembers,
   removeMember,
@@ -369,5 +372,107 @@ describe("invitations", () => {
         fromName: "Owner",
       }),
     );
+  });
+});
+
+describe("my workspace invitations", () => {
+  it("lists pending invitations addressed to the signed-in account", async () => {
+    const { context: ctx, rpc } = context([
+      {
+        invitation_id: USER_ID,
+        workspace_id: WORKSPACE_ID,
+        workspace_name: "Fastrepl",
+        workspace_logo_data: "data:image/jpeg;base64,/9j/4AAQ",
+        invited_by_email: "owner@example.com",
+        expires_at: "2026-09-01T00:00:00Z",
+      },
+      {
+        invitation_id: WORKSPACE_ID,
+        workspace_id: USER_ID,
+        workspace_name: "Other",
+        workspace_logo_data: null,
+        invited_by_email: null,
+        expires_at: "2026-09-02T00:00:00Z",
+      },
+    ]);
+
+    await expect(listMyWorkspaceInvitations(ctx)).resolves.toEqual([
+      {
+        invitationId: USER_ID,
+        workspaceId: WORKSPACE_ID,
+        workspaceName: "Fastrepl",
+        workspaceLogoDataUrl: "data:image/jpeg;base64,/9j/4AAQ",
+        invitedByEmail: "owner@example.com",
+        expiresAt: "2026-09-01T00:00:00Z",
+      },
+      {
+        invitationId: WORKSPACE_ID,
+        workspaceId: USER_ID,
+        workspaceName: "Other",
+        workspaceLogoDataUrl: null,
+        invitedByEmail: null,
+        expiresAt: "2026-09-02T00:00:00Z",
+      },
+    ]);
+    expect(rpc).toHaveBeenCalledWith("list_my_workspace_invitations", {});
+  });
+
+  it("rejects invitation rows with malformed identifiers", async () => {
+    const { context: ctx } = context([
+      {
+        invitation_id: "not-a-uuid",
+        workspace_id: WORKSPACE_ID,
+        workspace_name: "Fastrepl",
+        workspace_logo_data: null,
+        invited_by_email: null,
+        expires_at: "2026-09-01T00:00:00Z",
+      },
+    ]);
+
+    await expect(listMyWorkspaceInvitations(ctx)).rejects.toThrow(TeamError);
+  });
+
+  it("accepts an invitation and returns the joined workspace id", async () => {
+    const { context: ctx, rpc } = context([
+      { workspace_id: WORKSPACE_ID, membership_id: USER_ID },
+    ]);
+
+    await expect(acceptMyWorkspaceInvitation(ctx, USER_ID)).resolves.toEqual({
+      workspaceId: WORKSPACE_ID,
+    });
+    expect(rpc).toHaveBeenCalledWith("accept_my_workspace_invitation", {
+      p_invitation_id: USER_ID,
+    });
+  });
+
+  it("treats an empty accept response as a failure", async () => {
+    const { context: ctx } = context([]);
+
+    await expect(acceptMyWorkspaceInvitation(ctx, USER_ID)).rejects.toThrow(
+      TeamError,
+    );
+  });
+
+  it("declines an invitation", async () => {
+    const { context: ctx, rpc } = context(null);
+
+    await expect(
+      declineMyWorkspaceInvitation(ctx, USER_ID),
+    ).resolves.toBeUndefined();
+    expect(rpc).toHaveBeenCalledWith("decline_my_workspace_invitation", {
+      p_invitation_id: USER_ID,
+    });
+  });
+
+  it("rejects malformed invitation ids before reaching the network", async () => {
+    const { context: ctx, rpc } = context([]);
+
+    await expect(
+      declineMyWorkspaceInvitation(ctx, "not-a-uuid"),
+    ).rejects.toThrow(TeamError);
+    await expect(
+      acceptMyWorkspaceInvitation(ctx, "not-a-uuid"),
+    ).rejects.toThrow(TeamError);
+    expect(rpc).not.toHaveBeenCalled();
   });
 });
