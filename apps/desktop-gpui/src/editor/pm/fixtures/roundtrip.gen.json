@@ -1,0 +1,1744 @@
+{
+  "schema": {
+    "nodes": {
+      "doc": {
+        "content": "block+",
+        "inline": false,
+        "atom": false,
+        "attrs": {}
+      },
+      "paragraph": {
+        "content": "inline*",
+        "group": "block",
+        "inline": false,
+        "atom": false,
+        "attrs": {}
+      },
+      "text": {
+        "group": "inline",
+        "inline": true,
+        "atom": true,
+        "attrs": {}
+      },
+      "heading": {
+        "content": "inline*",
+        "group": "block",
+        "inline": false,
+        "atom": false,
+        "attrs": {
+          "level": {
+            "default": 1
+          }
+        }
+      },
+      "blockquote": {
+        "content": "block+",
+        "group": "block",
+        "inline": false,
+        "atom": false,
+        "attrs": {}
+      },
+      "codeBlock": {
+        "content": "text*",
+        "group": "block",
+        "inline": false,
+        "atom": false,
+        "marks": "",
+        "attrs": {}
+      },
+      "horizontalRule": {
+        "group": "block",
+        "inline": false,
+        "atom": true,
+        "attrs": {}
+      },
+      "hardBreak": {
+        "group": "inline",
+        "inline": true,
+        "atom": true,
+        "attrs": {}
+      },
+      "bulletList": {
+        "content": "listItem+",
+        "group": "block",
+        "inline": false,
+        "atom": false,
+        "attrs": {}
+      },
+      "orderedList": {
+        "content": "listItem+",
+        "group": "block",
+        "inline": false,
+        "atom": false,
+        "attrs": {
+          "start": {
+            "default": 1
+          }
+        }
+      },
+      "listItem": {
+        "content": "paragraph block*",
+        "inline": false,
+        "atom": false,
+        "attrs": {}
+      },
+      "table": {
+        "content": "tableRow+",
+        "group": "block",
+        "inline": false,
+        "atom": false,
+        "attrs": {}
+      },
+      "tableRow": {
+        "content": "(tableCell | tableHeader)*",
+        "inline": false,
+        "atom": false,
+        "attrs": {}
+      },
+      "tableCell": {
+        "content": "block+",
+        "inline": false,
+        "atom": false,
+        "attrs": {
+          "colspan": {
+            "default": 1
+          },
+          "rowspan": {
+            "default": 1
+          },
+          "colwidth": {
+            "default": null
+          }
+        }
+      },
+      "tableHeader": {
+        "content": "block+",
+        "inline": false,
+        "atom": false,
+        "attrs": {
+          "colspan": {
+            "default": 1
+          },
+          "rowspan": {
+            "default": 1
+          },
+          "colwidth": {
+            "default": null
+          }
+        }
+      },
+      "taskList": {
+        "content": "taskItem+",
+        "group": "block",
+        "inline": false,
+        "atom": false,
+        "attrs": {}
+      },
+      "taskItem": {
+        "content": "paragraph block*",
+        "inline": false,
+        "atom": false,
+        "attrs": {
+          "status": {
+            "default": "todo"
+          },
+          "checked": {
+            "default": false
+          },
+          "taskId": {
+            "default": null
+          },
+          "taskItemId": {
+            "default": null
+          }
+        }
+      },
+      "image": {
+        "group": "block",
+        "inline": false,
+        "atom": true,
+        "attrs": {
+          "src": {
+            "default": null
+          },
+          "alt": {
+            "default": null
+          },
+          "title": {
+            "default": null
+          },
+          "attachmentId": {
+            "default": null
+          },
+          "sharedAttachmentId": {
+            "default": null
+          },
+          "editorWidth": {
+            "default": 80
+          }
+        }
+      },
+      "fileAttachment": {
+        "group": "block",
+        "inline": false,
+        "atom": true,
+        "attrs": {
+          "attachmentId": {
+            "default": null
+          },
+          "sharedAttachmentId": {
+            "default": null
+          },
+          "name": {
+            "default": ""
+          },
+          "mimeType": {
+            "default": ""
+          },
+          "src": {
+            "default": null
+          },
+          "path": {
+            "default": null
+          },
+          "size": {
+            "default": null
+          }
+        }
+      },
+      "appLink": {
+        "group": "inline",
+        "inline": true,
+        "atom": true,
+        "attrs": {
+          "provider": {
+            "default": "github"
+          },
+          "kind": {
+            "default": null
+          },
+          "url": {
+            "default": null
+          },
+          "owner": {
+            "default": null
+          },
+          "repo": {
+            "default": null
+          },
+          "number": {
+            "default": null
+          },
+          "subId": {
+            "default": null
+          },
+          "workspace": {
+            "default": null
+          },
+          "channelId": {
+            "default": null
+          },
+          "messageTs": {
+            "default": null
+          },
+          "threadTs": {
+            "default": null
+          },
+          "guildId": {
+            "default": null
+          },
+          "messageId": {
+            "default": null
+          },
+          "inviteCode": {
+            "default": null
+          },
+          "resourceId": {
+            "default": null
+          },
+          "resourceTitle": {
+            "default": null
+          }
+        }
+      },
+      "mention-@": {
+        "group": "inline",
+        "inline": true,
+        "atom": true,
+        "attrs": {
+          "id": {
+            "default": null
+          },
+          "type": {
+            "default": null
+          },
+          "label": {
+            "default": null
+          }
+        }
+      },
+      "session": {
+        "content": "paragraph",
+        "group": "block",
+        "inline": false,
+        "atom": false,
+        "marks": "",
+        "attrs": {
+          "sessionId": {
+            "default": null
+          },
+          "status": {
+            "default": null
+          },
+          "checked": {
+            "default": null
+          }
+        }
+      },
+      "clip": {
+        "group": "block",
+        "inline": false,
+        "atom": true,
+        "attrs": {
+          "src": {
+            "default": null
+          }
+        }
+      }
+    },
+    "marks": {
+      "bold": {
+        "attrs": {}
+      },
+      "italic": {
+        "attrs": {}
+      },
+      "underline": {
+        "attrs": {}
+      },
+      "strike": {
+        "attrs": {}
+      },
+      "code": {
+        "attrs": {},
+        "excludes": "_"
+      },
+      "link": {
+        "attrs": {
+          "href": {},
+          "target": {
+            "default": null
+          }
+        },
+        "inclusive": false
+      },
+      "highlight": {
+        "attrs": {}
+      }
+    },
+    "topNode": "doc"
+  },
+  "docs": [
+    {
+      "name": "basic-unicode",
+      "source": "hand",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Hello, 세계! Café "
+              },
+              {
+                "type": "text",
+                "marks": [
+                  {
+                    "type": "bold"
+                  },
+                  {
+                    "type": "italic"
+                  }
+                ],
+                "text": "👩‍💻 日本語"
+              }
+            ]
+          }
+        ]
+      },
+      "nodeSize": 29,
+      "textContent": "Hello, 세계! Café 👩‍💻 日本語",
+      "textBetween": "Hello, 세계! Café 👩‍💻 日本語"
+    },
+    {
+      "name": "empty-paragraph",
+      "source": "hand",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph"
+          }
+        ]
+      },
+      "nodeSize": 4,
+      "textContent": "",
+      "textBetween": ""
+    },
+    {
+      "name": "empty-doc",
+      "source": "hand",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph"
+          }
+        ]
+      },
+      "nodeSize": 4,
+      "textContent": "",
+      "textBetween": ""
+    },
+    {
+      "name": "headings-all-levels",
+      "source": "hand",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "heading",
+            "attrs": {
+              "level": 1
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Heading 1"
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "attrs": {
+              "level": 2
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Heading 2"
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "attrs": {
+              "level": 3
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Heading 3"
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "attrs": {
+              "level": 4
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Heading 4"
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "attrs": {
+              "level": 5
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Heading 5"
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "attrs": {
+              "level": 6
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Heading 6"
+              }
+            ]
+          }
+        ]
+      },
+      "nodeSize": 68,
+      "textContent": "Heading 1Heading 2Heading 3Heading 4Heading 5Heading 6",
+      "textBetween": "Heading 1\nHeading 2\nHeading 3\nHeading 4\nHeading 5\nHeading 6"
+    },
+    {
+      "name": "blockquote",
+      "source": "hand",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "blockquote",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "A quoted paragraph"
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "A second paragraph"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "nodeSize": 44,
+      "textContent": "A quoted paragraphA second paragraph",
+      "textBetween": "A quoted paragraph\nA second paragraph"
+    },
+    {
+      "name": "code-block-with-language",
+      "source": "hand",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "codeBlock",
+            "content": [
+              {
+                "type": "text",
+                "text": "fn main() {\n  println!(\"こんにちは\");\n}"
+              }
+            ]
+          }
+        ]
+      },
+      "nodeSize": 38,
+      "textContent": "fn main() {\n  println!(\"こんにちは\");\n}",
+      "textBetween": "fn main() {\n  println!(\"こんにちは\");\n}"
+    },
+    {
+      "name": "horizontal-rule-and-hard-break",
+      "source": "hand",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "before"
+              },
+              {
+                "type": "hardBreak"
+              },
+              {
+                "type": "text",
+                "text": "after"
+              }
+            ]
+          },
+          {
+            "type": "horizontalRule"
+          }
+        ]
+      },
+      "nodeSize": 17,
+      "textContent": "beforeafter",
+      "textBetween": "before￼after\n￼"
+    },
+    {
+      "name": "nested-lists-three-deep",
+      "source": "hand",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "bulletList",
+            "content": [
+              {
+                "type": "listItem",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "level one"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "orderedList",
+                    "attrs": {
+                      "start": 4
+                    },
+                    "content": [
+                      {
+                        "type": "listItem",
+                        "content": [
+                          {
+                            "type": "paragraph",
+                            "content": [
+                              {
+                                "type": "text",
+                                "text": "level two"
+                              }
+                            ]
+                          },
+                          {
+                            "type": "bulletList",
+                            "content": [
+                              {
+                                "type": "listItem",
+                                "content": [
+                                  {
+                                    "type": "paragraph",
+                                    "content": [
+                                      {
+                                        "type": "text",
+                                        "text": "level three"
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "nodeSize": 49,
+      "textContent": "level onelevel twolevel three",
+      "textBetween": "level one\nlevel two\nlevel three"
+    },
+    {
+      "name": "ordered-list-non-default-start",
+      "source": "hand",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "orderedList",
+            "attrs": {
+              "start": 7
+            },
+            "content": [
+              {
+                "type": "listItem",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "seven"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "listItem",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "eight"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "nodeSize": 22,
+      "textContent": "seveneight",
+      "textBetween": "seven\neight"
+    },
+    {
+      "name": "table-with-spans",
+      "source": "hand",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "table",
+            "content": [
+              {
+                "type": "tableRow",
+                "content": [
+                  {
+                    "type": "tableHeader",
+                    "attrs": {
+                      "colspan": 2,
+                      "rowspan": 1,
+                      "colwidth": [
+                        120,
+                        180
+                      ]
+                    },
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "Header"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableHeader",
+                    "attrs": {
+                      "colspan": 1,
+                      "rowspan": 2,
+                      "colwidth": null
+                    },
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "Side"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "tableRow",
+                "content": [
+                  {
+                    "type": "tableCell",
+                    "attrs": {
+                      "colspan": 1,
+                      "rowspan": 1,
+                      "colwidth": null
+                    },
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "Cell"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "attrs": {
+                      "colspan": 1,
+                      "rowspan": 1,
+                      "colwidth": [
+                        90
+                      ]
+                    },
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "Cell 2"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "nodeSize": 44,
+      "textContent": "HeaderSideCellCell 2",
+      "textBetween": "Header\nSide\nCell\nCell 2"
+    },
+    {
+      "name": "tasks-checked-and-unchecked",
+      "source": "hand",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "taskList",
+            "content": [
+              {
+                "type": "taskItem",
+                "attrs": {
+                  "status": "todo",
+                  "checked": true,
+                  "taskId": null,
+                  "taskItemId": null
+                },
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "Done"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "taskItem",
+                "attrs": {
+                  "status": "todo",
+                  "checked": false,
+                  "taskId": null,
+                  "taskItemId": null
+                },
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "Todo"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "nodeSize": 20,
+      "textContent": "DoneTodo",
+      "textBetween": "Done\nTodo"
+    },
+    {
+      "name": "image-all-attrs",
+      "source": "hand",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "image",
+            "attrs": {
+              "src": "https://example.com/image.png",
+              "alt": "An image",
+              "title": "title",
+              "attachmentId": "attachment-1",
+              "sharedAttachmentId": "shared-1",
+              "editorWidth": 72
+            }
+          }
+        ]
+      },
+      "nodeSize": 3,
+      "textContent": "",
+      "textBetween": "￼"
+    },
+    {
+      "name": "file-attachment-all-attrs",
+      "source": "hand",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "fileAttachment",
+            "attrs": {
+              "attachmentId": "attachment-2",
+              "sharedAttachmentId": "shared-2",
+              "name": "report.pdf",
+              "mimeType": "application/pdf",
+              "src": "asset://report.pdf",
+              "path": "/tmp/report.pdf",
+              "size": 4096
+            }
+          }
+        ]
+      },
+      "nodeSize": 3,
+      "textContent": "",
+      "textBetween": "￼"
+    },
+    {
+      "name": "app-link-all-attrs",
+      "source": "hand",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "See "
+              },
+              {
+                "type": "appLink",
+                "attrs": {
+                  "provider": "github",
+                  "kind": "issue",
+                  "url": "https://github.com/acme/project/issues/42",
+                  "owner": "acme",
+                  "repo": "project",
+                  "number": 42,
+                  "subId": "sub-1",
+                  "workspace": "acme",
+                  "channelId": "C123",
+                  "messageTs": "123.456",
+                  "threadTs": "123.456",
+                  "guildId": "guild-1",
+                  "messageId": "message-1",
+                  "inviteCode": "invite-1",
+                  "resourceId": "resource-1",
+                  "resourceTitle": "Issue 42"
+                }
+              },
+              {
+                "type": "text",
+                "text": " "
+              }
+            ]
+          }
+        ]
+      },
+      "nodeSize": 10,
+      "textContent": "See  ",
+      "textBetween": "See ￼ "
+    },
+    {
+      "name": "mention-session-and-clip",
+      "source": "hand",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Mention: "
+              },
+              {
+                "type": "mention-@",
+                "attrs": {
+                  "id": "user-1",
+                  "type": "human",
+                  "label": "Ada"
+                }
+              },
+              {
+                "type": "text",
+                "text": " "
+              }
+            ]
+          },
+          {
+            "type": "session",
+            "attrs": {
+              "sessionId": "session-1",
+              "status": "done",
+              "checked": true
+            },
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Embedded session"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "clip",
+            "attrs": {
+              "src": "https://youtube.com/embed/abc"
+            }
+          }
+        ]
+      },
+      "nodeSize": 36,
+      "textContent": "Mention:  Embedded session",
+      "textBetween": "Mention: ￼ \nEmbedded session\n￼"
+    },
+    {
+      "name": "marks-overlap-and-adjacency",
+      "source": "hand",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "marks": [
+                  {
+                    "type": "bold"
+                  },
+                  {
+                    "type": "italic"
+                  }
+                ],
+                "text": "bold italic"
+              },
+              {
+                "type": "text",
+                "marks": [
+                  {
+                    "type": "bold"
+                  },
+                  {
+                    "type": "italic"
+                  }
+                ],
+                "text": " adjacent"
+              },
+              {
+                "type": "text",
+                "marks": [
+                  {
+                    "type": "link",
+                    "attrs": {
+                      "href": "https://example.com",
+                      "target": "_blank"
+                    }
+                  },
+                  {
+                    "type": "highlight"
+                  }
+                ],
+                "text": " linked"
+              },
+              {
+                "type": "text",
+                "marks": [
+                  {
+                    "type": "code"
+                  }
+                ],
+                "text": " code"
+              }
+            ]
+          }
+        ]
+      },
+      "nodeSize": 36,
+      "textContent": "bold italic adjacent linked code",
+      "textBetween": "bold italic adjacent linked code"
+    },
+    {
+      "name": "explicit-default-attrs",
+      "source": "hand",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "orderedList",
+            "attrs": {
+              "start": 1
+            },
+            "content": [
+              {
+                "type": "listItem",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "one"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "image",
+            "attrs": {
+              "src": null,
+              "alt": null,
+              "title": null,
+              "attachmentId": null,
+              "sharedAttachmentId": null,
+              "editorWidth": 80
+            }
+          }
+        ]
+      },
+      "nodeSize": 12,
+      "textContent": "one",
+      "textBetween": "one\n￼"
+    },
+    {
+      "name": "default-and-null-attachments",
+      "source": "hand",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "fileAttachment",
+            "attrs": {
+              "attachmentId": null,
+              "sharedAttachmentId": null,
+              "name": "",
+              "mimeType": "",
+              "src": null,
+              "path": null,
+              "size": null
+            }
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "appLink",
+                "attrs": {
+                  "provider": "github",
+                  "kind": null,
+                  "url": null,
+                  "owner": null,
+                  "repo": null,
+                  "number": null,
+                  "subId": null,
+                  "workspace": null,
+                  "channelId": null,
+                  "messageTs": null,
+                  "threadTs": null,
+                  "guildId": null,
+                  "messageId": null,
+                  "inviteCode": null,
+                  "resourceId": null,
+                  "resourceTitle": null
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "nodeSize": 6,
+      "textContent": "",
+      "textBetween": "￼\n￼"
+    },
+    {
+      "name": "all-block-types",
+      "source": "hand",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "paragraph"
+              }
+            ]
+          },
+          {
+            "type": "horizontalRule"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "appLink",
+                "attrs": {
+                  "provider": "github",
+                  "kind": "issue",
+                  "url": null,
+                  "owner": null,
+                  "repo": null,
+                  "number": null,
+                  "subId": null,
+                  "workspace": null,
+                  "channelId": null,
+                  "messageTs": null,
+                  "threadTs": null,
+                  "guildId": null,
+                  "messageId": null,
+                  "inviteCode": null,
+                  "resourceId": null,
+                  "resourceTitle": null
+                }
+              }
+            ]
+          },
+          {
+            "type": "clip",
+            "attrs": {
+              "src": null
+            }
+          },
+          {
+            "type": "fileAttachment",
+            "attrs": {
+              "attachmentId": null,
+              "sharedAttachmentId": null,
+              "name": "file.txt",
+              "mimeType": "text/plain",
+              "src": null,
+              "path": null,
+              "size": null
+            }
+          }
+        ]
+      },
+      "nodeSize": 19,
+      "textContent": "paragraph",
+      "textBetween": "paragraph\n￼\n￼\n￼\n￼"
+    },
+    {
+      "name": "markdown-headings-and-marks",
+      "source": "markdown",
+      "input": "# Heading\n\n**bold** *italic* ~~strike~~ ==highlight== [link](https://example.com)",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "heading",
+            "attrs": {
+              "level": 1
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Heading"
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "marks": [
+                  {
+                    "type": "bold"
+                  }
+                ],
+                "text": "bold"
+              },
+              {
+                "type": "text",
+                "text": " "
+              },
+              {
+                "type": "text",
+                "marks": [
+                  {
+                    "type": "italic"
+                  }
+                ],
+                "text": "italic"
+              },
+              {
+                "type": "text",
+                "text": " "
+              },
+              {
+                "type": "text",
+                "marks": [
+                  {
+                    "type": "strike"
+                  }
+                ],
+                "text": "strike"
+              },
+              {
+                "type": "text",
+                "text": " "
+              },
+              {
+                "type": "text",
+                "marks": [
+                  {
+                    "type": "highlight"
+                  }
+                ],
+                "text": "highlight"
+              },
+              {
+                "type": "text",
+                "text": " "
+              },
+              {
+                "type": "text",
+                "marks": [
+                  {
+                    "type": "link",
+                    "attrs": {
+                      "href": "https://example.com",
+                      "target": null
+                    }
+                  }
+                ],
+                "text": "link"
+              }
+            ]
+          }
+        ]
+      },
+      "nodeSize": 46,
+      "textContent": "Headingbold italic strike highlight link",
+      "textBetween": "Heading\nbold italic strike highlight link"
+    },
+    {
+      "name": "markdown-blocks-and-lists",
+      "source": "markdown",
+      "input": "> quote\n>\n> second\n\n- one\n- two\n\n1. three\n2. four",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "blockquote",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "quote"
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "second"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "bulletList",
+            "content": [
+              {
+                "type": "listItem",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "one"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "listItem",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "two"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "orderedList",
+            "attrs": {
+              "start": 1
+            },
+            "content": [
+              {
+                "type": "listItem",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "three"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "listItem",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "four"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "nodeSize": 54,
+      "textContent": "quotesecondonetwothreefour",
+      "textBetween": "quote\nsecond\none\ntwo\nthree\nfour"
+    },
+    {
+      "name": "markdown-tasks-and-breaks",
+      "source": "markdown",
+      "input": "- [ ] Todo\n- [x] Done\n\nfirst  \nsecond",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "taskList",
+            "content": [
+              {
+                "type": "taskItem",
+                "attrs": {
+                  "status": "todo",
+                  "checked": false,
+                  "taskId": null,
+                  "taskItemId": null
+                },
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "Todo"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "taskItem",
+                "attrs": {
+                  "status": "todo",
+                  "checked": true,
+                  "taskId": null,
+                  "taskItemId": null
+                },
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "Done"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "first"
+              },
+              {
+                "type": "hardBreak"
+              },
+              {
+                "type": "text",
+                "text": "second"
+              }
+            ]
+          }
+        ]
+      },
+      "nodeSize": 34,
+      "textContent": "TodoDonefirstsecond",
+      "textBetween": "Todo\nDone\nfirst￼second"
+    },
+    {
+      "name": "markdown-table",
+      "source": "markdown",
+      "input": "| Name | Value |\n| --- | --- |\n| 日本語 | 42 |\n| emoji | 👩‍💻 |",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "table",
+            "content": [
+              {
+                "type": "tableRow",
+                "content": [
+                  {
+                    "type": "tableHeader",
+                    "attrs": {
+                      "colspan": 1,
+                      "rowspan": 1,
+                      "colwidth": null
+                    },
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "Name"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableHeader",
+                    "attrs": {
+                      "colspan": 1,
+                      "rowspan": 1,
+                      "colwidth": null
+                    },
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "Value"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "tableRow",
+                "content": [
+                  {
+                    "type": "tableCell",
+                    "attrs": {
+                      "colspan": 1,
+                      "rowspan": 1,
+                      "colwidth": null
+                    },
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "日本語"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "attrs": {
+                      "colspan": 1,
+                      "rowspan": 1,
+                      "colwidth": null
+                    },
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "42"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "tableRow",
+                "content": [
+                  {
+                    "type": "tableCell",
+                    "attrs": {
+                      "colspan": 1,
+                      "rowspan": 1,
+                      "colwidth": null
+                    },
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "emoji"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "attrs": {
+                      "colspan": 1,
+                      "rowspan": 1,
+                      "colwidth": null
+                    },
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "👩‍💻"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "nodeSize": 58,
+      "textContent": "NameValue日本語42emoji👩‍💻",
+      "textBetween": "Name\nValue\n日本語\n42\nemoji\n👩‍💻"
+    },
+    {
+      "name": "markdown-image-and-attachment",
+      "source": "markdown",
+      "input": "![alt](https://example.com/a.png \"title\")\n\n[report.pdf](attachment://report.pdf)",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "image",
+            "attrs": {
+              "src": "https://example.com/a.png",
+              "alt": "alt",
+              "title": "title",
+              "attachmentId": null,
+              "sharedAttachmentId": null,
+              "editorWidth": 80
+            }
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "marks": [
+                  {
+                    "type": "link",
+                    "attrs": {
+                      "href": "attachment://report.pdf",
+                      "target": null
+                    }
+                  }
+                ],
+                "text": "report.pdf"
+              }
+            ]
+          }
+        ]
+      },
+      "nodeSize": 15,
+      "textContent": "report.pdf",
+      "textBetween": "￼\nreport.pdf"
+    },
+    {
+      "name": "markdown-code-and-horizontal-rule",
+      "source": "markdown",
+      "input": "```rust\nfn main() {}\n```\n\n---\n\n`inline code`",
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "codeBlock",
+            "content": [
+              {
+                "type": "text",
+                "text": "fn main() {}"
+              }
+            ]
+          },
+          {
+            "type": "horizontalRule"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "marks": [
+                  {
+                    "type": "code"
+                  }
+                ],
+                "text": "inline code"
+              }
+            ]
+          }
+        ]
+      },
+      "nodeSize": 30,
+      "textContent": "fn main() {}inline code",
+      "textBetween": "fn main() {}\n￼\ninline code"
+    }
+  ]
+}

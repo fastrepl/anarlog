@@ -15,3 +15,6 @@ pub mod resolved;
 pub mod schema;
 pub mod serialize;
 pub mod transform;
+
+#[cfg(test)]
+mod roundtrip;
