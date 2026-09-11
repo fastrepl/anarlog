@@ -254,8 +254,9 @@ describe("RenderTranscript", () => {
     expect(screen.getByRole("button", { name: "Ada" })).toBeTruthy();
   });
 
-  it("applies current SQLite speaker assignments to settled segments", () => {
+  it("renders identities resolved by the native settled renderer", () => {
     const settled = createSegment("settled", 0);
+    settled.key.speaker_human_id = "human-1";
     const assignments: IdentityAssignment[] = [
       {
         human_id: "human-1",

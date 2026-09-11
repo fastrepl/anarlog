@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { beginCloudsyncActivity, endCloudsyncActivity } from "@anlg/plugin-db";
 
 import { BatchResponseProcessingError } from "./batch-response-processing-error";
+import type { SpeakerHintWithId, WordWithId } from "./types";
 import {
   canRunBatchTranscription,
   EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE,
@@ -473,82 +474,222 @@ describe("reconcileRefinedSpeakerClusters", () => {
     ]);
   });
 
-  test("keeps apply-to-all speaker assignments after refinement", () => {
-    const source = {
-      id: "live-transcript",
-      ownerUserId: "user-1",
-      sessionId: "session-1",
-      startedAt: 0,
-      words: [
-        {
-          id: "live-word",
-          text: "hello",
-          start_ms: 0,
-          end_ms: 100,
-          channel: 1,
-        },
-      ],
-      speakerHints: [
-        {
-          id: "live-word-provider",
-          word_id: "live-word",
-          type: "provider_speaker_index" as const,
-          value: JSON.stringify({ channel: 1, speaker_index: 0 }),
-        },
-        {
-          id: "live-word-user",
-          word_id: "live-word",
-          type: "user_speaker_assignment" as const,
-          value: JSON.stringify({
-            human_id: "human-1",
-            scope: "speaker",
-            channel: 1,
-            speaker_index: 0,
-          }),
-        },
-      ],
-    } satisfies Parameters<typeof reconcileRefinedSpeakerClusters>[0];
-    const words = [
-      {
-        id: "batch-word",
-        text: "hello",
-        start_ms: 0,
-        end_ms: 100,
-        channel: 1,
-      },
-    ];
-    const hints = [
-      {
-        id: "batch-word-provider",
-        word_id: "batch-word",
-        type: "provider_speaker_index" as const,
-        value: JSON.stringify({
-          provider: "anarlog",
-          channel: 1,
-          speaker_index: 2,
-        }),
-      },
-    ];
+  function word(
+    id: string,
+    start: number,
+    end: number,
+    channel = 1,
+  ): WordWithId {
+    return { id, text: id, start_ms: start, end_ms: end, channel };
+  }
 
-    const result = reconcileRefinedSpeakerClusters(source, words, hints);
+  function provider(word: WordWithId, speakerIndex: number): SpeakerHintWithId {
+    return {
+      id: `${word.id}:provider_speaker_index`,
+      word_id: word.id,
+      type: "provider_speaker_index",
+      value: JSON.stringify({
+        channel: word.channel,
+        speaker_index: speakerIndex,
+      }),
+    };
+  }
 
-    expect(result).toEqual([
-      expect.objectContaining({
-        word_id: "batch-word",
-        type: "provider_speaker_index",
-      }),
-      expect.objectContaining({
-        word_id: "live-word",
-        type: "user_speaker_assignment",
-      }),
+  function assignment(value: Record<string, unknown>): SpeakerHintWithId {
+    return {
+      id: "old-a:user_speaker_assignment",
+      word_id: "old-a",
+      type: "user_speaker_assignment",
+      value: JSON.stringify({ human_id: "alice", ...value }),
+    };
+  }
+
+  function refineAssignments(
+    sourceWords: WordWithId[],
+    sourceHints: SpeakerHintWithId[],
+    words: WordWithId[],
+    hints: SpeakerHintWithId[],
+  ) {
+    const result = reconcileRefinedSpeakerClusters(
+      {
+        id: "live-transcript",
+        ownerUserId: "self",
+        sessionId: "session-1",
+        startedAt: 0,
+        words: sourceWords,
+        speakerHints: sourceHints,
+      },
+      words,
+      hints,
+    );
+    return result
+      .filter((hint) => hint.type === "user_speaker_assignment")
+      .map((hint) => {
+        const { extend_to_adjacent, ...value } = JSON.parse(hint.value);
+        expect(extend_to_adjacent).toBe(false);
+        return { word_id: hint.word_id, ...value };
+      });
+  }
+
+  const fullSpeaker = () =>
+    assignment({ scope: "speaker", channel: 1, speaker_index: 0 });
+
+  test.each([1, 2])(
+    "reanchors manual names to validated replacement words on channel %s",
+    (channel) => {
+      const source = word("old-a", 0, 100);
+      const next = word("new-a", 0, 100, channel);
+      expect(
+        refineAssignments(
+          [source],
+          [provider(source, 0), fullSpeaker()],
+          [next],
+          [provider(next, 7)],
+        ),
+      ).toEqual([
+        {
+          word_id: "new-a",
+          human_id: "alice",
+          scope: "segment",
+          word_ids: ["new-a"],
+        },
+      ]);
+    },
+  );
+
+  test("does not carry a name to a reused index without overlapping evidence", () => {
+    const source = word("old-a", 0, 100);
+    const next = word("new-a", 200, 300);
+    expect(
+      refineAssignments(
+        [source],
+        [provider(source, 0), fullSpeaker()],
+        [next],
+        [provider(next, 0)],
+      ),
+    ).toEqual([]);
+  });
+
+  test("does not name an ambiguous cluster that reused an assigned index", () => {
+    const sources = [word("old-a", 0, 100), word("old-b", 100, 200)];
+    const next = word("new-ab", 0, 200);
+    expect(
+      refineAssignments(
+        sources,
+        [provider(sources[0], 0), provider(sources[1], 1), fullSpeaker()],
+        [next],
+        [provider(next, 0)],
+      ),
+    ).toEqual([]);
+  });
+
+  test("does not infer names from simultaneous mic and remote speech after downmixing", () => {
+    const sources = [word("old-a", 0, 100), word("mic", 0, 100, 0)];
+    const next = word("mixed", 0, 100, 2);
+    expect(
+      refineAssignments(
+        sources,
+        [provider(sources[0], 0), provider(sources[1], 0), fullSpeaker()],
+        [next],
+        [provider(next, 0)],
+      ),
+    ).toEqual([]);
+  });
+
+  test("keeps stereo channels separate when simultaneous words remain separate", () => {
+    const sources = [word("old-a", 0, 100), word("mic", 0, 100, 0)];
+    const next = word("remote", 0, 100);
+    expect(
+      refineAssignments(
+        sources,
+        [provider(sources[0], 0), provider(sources[1], 0), fullSpeaker()],
+        [next],
+        [provider(next, 0)],
+      ),
+    ).toEqual([
+      {
+        word_id: "remote",
+        human_id: "alice",
+        scope: "segment",
+        word_ids: ["remote"],
+      },
     ]);
-    expect(JSON.parse(String(result[0]?.value)).speaker_index).toBe(0);
-    expect(JSON.parse(String(result[1]?.value))).toEqual({
-      human_id: "human-1",
-      scope: "speaker",
-      channel: 1,
-      speaker_index: 0,
-    });
+  });
+
+  test("remaps a segment override to replacement word IDs without extending it", () => {
+    const sources = [word("old-a", 0, 100), word("old-b", 100, 200)];
+    const next = [
+      word("new-a", 0, 50),
+      word("new-b", 50, 100),
+      word("new-c", 100, 200),
+    ];
+    expect(
+      refineAssignments(
+        sources,
+        [assignment({ scope: "segment", word_ids: ["old-a"] })],
+        next,
+        [],
+      ),
+    ).toEqual([
+      {
+        word_id: "new-a",
+        human_id: "alice",
+        scope: "segment",
+        word_ids: ["new-a", "new-b"],
+      },
+    ]);
+  });
+
+  test("keeps segment overrides ahead of full-speaker names during refinement", () => {
+    const sources = [word("old-a", 0, 100), word("old-b", 100, 200)];
+    const next = [word("new-a", 0, 100), word("new-b", 100, 200)];
+    const hints = [
+      ...sources.map((word) => provider(word, 0)),
+      assignment({ human_id: "bob", scope: "segment", word_ids: ["old-b"] }),
+      fullSpeaker(),
+    ];
+    expect(
+      refineAssignments(
+        sources,
+        hints,
+        next,
+        next.map((word) => provider(word, 0)),
+      ),
+    ).toEqual([
+      {
+        word_id: "new-a",
+        human_id: "alice",
+        scope: "segment",
+        word_ids: ["new-a"],
+      },
+      {
+        word_id: "new-b",
+        human_id: "bob",
+        scope: "segment",
+        word_ids: ["new-b"],
+      },
+    ]);
+  });
+
+  test("requires substantial timing coverage before carrying a manual name", () => {
+    const source = word("old-a", 0, 100);
+    const next = word("new-a", 0, 1_000);
+    expect(
+      refineAssignments(
+        [source],
+        [provider(source, 0), fullSpeaker()],
+        [next],
+        [provider(next, 0)],
+      ),
+    ).toEqual([]);
+  });
+
+  test("does not treat a legacy mixed-channel hint as one identified person", () => {
+    const source = word("old-a", 0, 100, 2);
+    const next = word("new-a", 0, 100, 2);
+    expect(refineAssignments([source], [assignment({})], [next], [])).toEqual(
+      [],
+    );
   });
 
   test("keeps an ambiguous batch cluster unchanged", () => {

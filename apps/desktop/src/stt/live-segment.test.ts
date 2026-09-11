@@ -338,11 +338,11 @@ describe("applyRenderRequestIdentitiesToSegments", () => {
     expect(result[0]?.key.speaker_human_id).toBe("self");
   });
 
-  it("applies channel-wide assignments to mixed capture speakers", () => {
+  it("does not apply channel defaults to distinct mixed-capture speakers", () => {
     const first = createSegment("first", [{ id: "word-a", startMs: 0 }]);
     const second = createSegment("second", [{ id: "word-b", startMs: 100 }]);
     first.key.speaker_index = 0;
-    second.key.speaker_index = 0;
+    second.key.speaker_index = 1;
     const request = createRequest(
       ["word-a", "word-b"],
       [
@@ -361,8 +361,8 @@ describe("applyRenderRequestIdentitiesToSegments", () => {
     );
 
     expect(result.map((segment) => segment.key.speaker_human_id)).toEqual([
-      "human-1",
-      "human-1",
+      null,
+      null,
     ]);
   });
 });

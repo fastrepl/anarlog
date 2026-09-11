@@ -264,6 +264,7 @@ export function applyRenderRequestIdentitiesToSegments(
     return segments;
   }
 
+  const completeChannels = getCompleteChannels(request);
   const assignmentsByWordId = new Map<string, string>();
   const assignmentsByChannel = new Map<SegmentChannelProfile, string>();
   const assignmentsByChannelSpeaker = new Map<string, string>();
@@ -285,7 +286,7 @@ export function applyRenderRequestIdentitiesToSegments(
         ),
         assignment.human_id,
       );
-    } else {
+    } else if (completeChannels.has(assignment.scope.channel)) {
       assignmentsByChannel.set(assignment.scope.channel, assignment.human_id);
     }
   }
@@ -347,6 +348,22 @@ export function applyRenderRequestIdentitiesToSegments(
       key: { ...segment.key, speaker_human_id: humanId },
     }));
   });
+}
+
+function getCompleteChannels(
+  request: RenderTranscriptRequest,
+): Set<SegmentChannelProfile> {
+  const participantHumanIds = new Set(
+    request.participant_human_ids.filter(Boolean),
+  );
+  if (request.self_human_id) {
+    participantHumanIds.add(request.self_human_id);
+  }
+
+  return new Set([
+    "DirectMic",
+    ...(participantHumanIds.size === 2 ? (["RemoteParty"] as const) : []),
+  ]);
 }
 
 function channelSpeakerKey(
