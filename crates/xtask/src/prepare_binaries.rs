@@ -122,14 +122,14 @@ fn build_gpui_sidecar(
         sh,
         "{cargo} build --release --target {triple} -p desktop-gpui"
     );
-    if release_channel.is_none() {
-        build = build
-            .env_remove("ANARLOG_UPDATER_ENDPOINTS")
-            .env_remove("ANARLOG_UPDATER_PUBKEY");
-    } else if let (Some(endpoints), Some(pubkey)) = (endpoints, pubkey) {
+    if let (Some(endpoints), Some(pubkey)) = (endpoints, pubkey) {
         build = build
             .env("ANARLOG_UPDATER_ENDPOINTS", endpoints)
             .env("ANARLOG_UPDATER_PUBKEY", pubkey);
+    } else {
+        build = build
+            .env_remove("ANARLOG_UPDATER_ENDPOINTS")
+            .env_remove("ANARLOG_UPDATER_PUBKEY");
     }
     build.run()?;
 
@@ -165,10 +165,24 @@ fn updater_env_from_tauri_conf(
         src_tauri.join(format!("tauri.conf.{channel}.json"))
     };
     let config = read_json(&config_path)?;
-    let endpoints = config
-        .pointer("/plugins/updater/endpoints")
-        .and_then(Value::as_array)
-        .context("plugins.updater.endpoints is missing from channel config")?
+    let Some(updater) = config.pointer("/plugins/updater") else {
+        println!(
+            "prepare-binaries: GPUI updater disabled ({channel} config has no updater endpoints)"
+        );
+        return Ok(None);
+    };
+    let updater = updater
+        .as_object()
+        .context("plugins.updater must be an object")?;
+    let Some(raw_endpoints) = updater.get("endpoints") else {
+        println!(
+            "prepare-binaries: GPUI updater disabled ({channel} config has no updater endpoints)"
+        );
+        return Ok(None);
+    };
+    let endpoints = raw_endpoints
+        .as_array()
+        .context("plugins.updater.endpoints must be an array")?
         .iter()
         .map(|endpoint| {
             endpoint
@@ -254,6 +268,27 @@ mod tests {
         assert_eq!(
             updater_env_from_tauri_conf(src_tauri, "stable", "aarch64-apple-darwin").unwrap(),
             Some(("macos-one".into(), "public-key".into()))
+        );
+    }
+
+    #[test]
+    fn treats_channel_without_updater_endpoints_as_disabled() {
+        let root = tempfile::tempdir().unwrap();
+        let src_tauri = root.path();
+        fs::write(
+            src_tauri.join("tauri.conf.json"),
+            r#"{"plugins":{"updater":{"pubkey":"public-key"}}}"#,
+        )
+        .unwrap();
+        fs::write(
+            src_tauri.join("tauri.conf.staging.json"),
+            r#"{"plugins":{}}"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            updater_env_from_tauri_conf(src_tauri, "staging", "x86_64-unknown-linux-gnu").unwrap(),
+            None
         );
     }
 }

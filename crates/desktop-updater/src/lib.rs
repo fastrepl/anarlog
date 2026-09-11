@@ -57,6 +57,12 @@ pub trait UpdatePolicySource: Send + Sync {
     fn meeting_active(&self) -> bool;
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InstallOutcome {
+    Installed,
+    Deferred,
+}
+
 impl<F: Fn() -> UpdatePolicy + Send + Sync> UpdatePolicySource for F {
     fn automatic_updates_enabled(&self) -> bool {
         self().automatic_updates_enabled
@@ -152,6 +158,20 @@ impl<B: UpdateBackend, E: UpdateEvents> Updater<B, E> {
     }
 
     pub async fn install_and_relaunch(&self, version: &str) -> Result<()> {
+        let never_defer = || UpdatePolicy {
+            automatic_updates_enabled: true,
+            meeting_active: false,
+        };
+        self.install_and_relaunch_unless(version, &never_defer)
+            .await
+            .map(|_| ())
+    }
+
+    pub async fn install_and_relaunch_unless(
+        &self,
+        version: &str,
+        defer: &dyn UpdatePolicySource,
+    ) -> Result<InstallOutcome> {
         let _guard = self.op_mutex.lock().await;
         let current = self.current_version.clone();
         let is_newer = match (
@@ -173,7 +193,7 @@ impl<B: UpdateBackend, E: UpdateEvents> Updater<B, E> {
             .expect("installed versions mutex poisoned")
             .contains(version)
         {
-            return Ok(());
+            return Ok(InstallOutcome::Installed);
         }
 
         let bytes = get_cached_update_bytes(&self.updates_dir, version)?;
@@ -181,12 +201,15 @@ impl<B: UpdateBackend, E: UpdateEvents> Updater<B, E> {
             .check()
             .await?
             .ok_or(Error::UpdateNotAvailable)?;
+        if defer.meeting_active() {
+            return Ok(InstallOutcome::Deferred);
+        }
         self.backend.install(version, &bytes)?;
         self.installed_versions
             .lock()
             .expect("installed versions mutex poisoned")
             .insert(version.to_string());
-        Ok(())
+        Ok(InstallOutcome::Installed)
     }
 
     pub async fn tick(&self, policy: &dyn UpdatePolicySource, install_at_open: bool) -> bool {
@@ -219,8 +242,9 @@ impl<B: UpdateBackend, E: UpdateEvents> Updater<B, E> {
                 tracing::debug!("update_install_unsupported");
                 return false;
             }
-            return match self.install_and_relaunch(&version).await {
-                Ok(()) => false,
+            return match self.install_and_relaunch_unless(&version, policy).await {
+                Ok(InstallOutcome::Installed) => false,
+                Ok(InstallOutcome::Deferred) => true,
                 Err(error) => {
                     tracing::error!(%error, "cached_update_install_failed");
                     true
@@ -241,9 +265,13 @@ impl<B: UpdateBackend, E: UpdateEvents> Updater<B, E> {
                 tracing::debug!("update_install_unsupported");
                 return false;
             }
-            if let Err(error) = self.install_and_relaunch(&version).await {
-                tracing::error!(%error, "downloaded_update_install_failed");
-                return true;
+            match self.install_and_relaunch_unless(&version, policy).await {
+                Ok(InstallOutcome::Installed) => {}
+                Ok(InstallOutcome::Deferred) => return true,
+                Err(error) => {
+                    tracing::error!(%error, "downloaded_update_install_failed");
+                    return true;
+                }
             }
         }
         false
@@ -555,6 +583,35 @@ mod tests {
         installs: AtomicUsize,
     }
 
+    struct MeetingBeforeInstallBackend {
+        checks: AtomicUsize,
+        meeting: Arc<AtomicBool>,
+        installs: AtomicUsize,
+    }
+
+    impl UpdateBackend for MeetingBeforeInstallBackend {
+        fn check(&self) -> Pin<Box<dyn Future<Output = Result<Option<String>>> + Send + '_>> {
+            let check = self.checks.fetch_add(1, Ordering::Relaxed) + 1;
+            if check >= 2 {
+                self.meeting.store(true, Ordering::Relaxed);
+            }
+            Box::pin(async { Ok(Some("2.0.0".into())) })
+        }
+
+        fn download<'a>(
+            &'a self,
+            _version: &'a str,
+            _on_progress: &'a (dyn Fn(u64, Option<u64>) + Send + Sync),
+        ) -> Pin<Box<dyn Future<Output = Result<Vec<u8>>> + Send + 'a>> {
+            Box::pin(async { Ok(b"update".to_vec()) })
+        }
+
+        fn install(&self, _version: &str, _bytes: &[u8]) -> Result<()> {
+            self.installs.fetch_add(1, Ordering::Relaxed);
+            Ok(())
+        }
+    }
+
     impl UpdateBackend for UnsupportedInstallBackend {
         fn check(&self) -> Pin<Box<dyn Future<Output = Result<Option<String>>> + Send + '_>> {
             Box::pin(async { Ok(Some("2.0.0".into())) })
@@ -635,6 +692,28 @@ mod tests {
         );
         assert_eq!(backend.installs.load(Ordering::Relaxed), 0);
         assert!(cache_path(dir.path(), "2.0.0").is_file());
+    }
+
+    #[tokio::test]
+    async fn meeting_starting_during_final_install_check_defers_install() {
+        let dir = tempfile::tempdir().unwrap();
+        let meeting = Arc::new(AtomicBool::new(false));
+        let backend = Arc::new(MeetingBeforeInstallBackend {
+            checks: AtomicUsize::new(0),
+            meeting: meeting.clone(),
+            installs: AtomicUsize::new(0),
+        });
+        cache_update_bytes(dir.path(), "2.0.0", b"update").unwrap();
+        let policy = || UpdatePolicy {
+            automatic_updates_enabled: true,
+            meeting_active: meeting.load(Ordering::Relaxed),
+        };
+        assert!(
+            updater_with_backend(backend.clone(), dir.path())
+                .tick(&policy, true)
+                .await
+        );
+        assert_eq!(backend.installs.load(Ordering::Relaxed), 0);
     }
 
     #[test]

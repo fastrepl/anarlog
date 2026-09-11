@@ -27,7 +27,30 @@ struct Manifest {
     notes: Option<String>,
     #[allow(dead_code)]
     pub_date: Option<String>,
-    platforms: HashMap<String, ManifestPlatform>,
+    platforms: Option<HashMap<String, ManifestPlatform>>,
+    url: Option<String>,
+    signature: Option<String>,
+}
+
+impl Manifest {
+    fn platform(&self, platform_key: &str) -> Result<ManifestPlatform> {
+        if let Some(platform) = self
+            .platforms
+            .as_ref()
+            .and_then(|platforms| platforms.get(platform_key))
+        {
+            return Ok(platform.clone());
+        }
+        match (self.url.as_ref(), self.signature.as_ref()) {
+            (Some(url), Some(signature)) => Ok(ManifestPlatform {
+                url: url.clone(),
+                signature: signature.clone(),
+            }),
+            _ => Err(Error::Backend(format!(
+                "unsupported updater platform {platform_key}"
+            ))),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -118,9 +141,7 @@ impl FeedUpdateBackend {
             if manifest.version <= self.current_version {
                 return Ok(None);
             }
-            let platform = manifest.platforms.get(&platform_key).ok_or_else(|| {
-                Error::Backend(format!("unsupported updater platform {platform_key}"))
-            })?;
+            let platform = manifest.platform(&platform_key)?;
             return Ok(Some(Release {
                 version: manifest.version,
                 url: platform.url.clone(),
@@ -373,8 +394,21 @@ mod tests {
                 "platforms": {(target): {"url": "https://example.com/update", "signature": "sig"}}
             }))
             .unwrap();
-            assert!(manifest.platforms.contains_key(target));
+            assert!(manifest.platforms.unwrap().contains_key(target));
         }
+    }
+
+    #[test]
+    fn resolves_dynamic_manifest_shape() {
+        let manifest: Manifest = serde_json::from_value(serde_json::json!({
+            "version": "v1.2.3",
+            "url": "https://example.com/update",
+            "signature": "sig"
+        }))
+        .unwrap();
+        let platform = manifest.platform("linux-x86_64").unwrap();
+        assert_eq!(platform.url, "https://example.com/update");
+        assert_eq!(platform.signature, "sig");
     }
 
     #[test]
