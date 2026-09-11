@@ -113,11 +113,17 @@ impl gpui::Global for DeepLinks {}
 
 /// `useDeeplinkHandler` + the single-instance callback: bring the main
 /// window back (reopening it when it was closed) and route the link.
-fn handle_deep_link_url(url: &str, store: &Arc<Store>, auth: &Arc<auth::Auth>, cx: &mut App) {
+fn handle_deep_link_url(
+    url: &str,
+    store: &Arc<Store>,
+    auth: &Arc<auth::Auth>,
+    cloudsync_service: &Arc<cloudsync::Cloudsync<crate::db::GpuiQueryEventSink>>,
+    cx: &mut App,
+) {
     let incoming = deeplink::classify(url);
     let handle = match cx.global::<MainWindow>().handle {
         Some(handle) if cx.windows().contains(&handle.into()) => handle,
-        _ => match open_main_window(store.clone(), auth.clone(), cx) {
+        _ => match open_main_window(store.clone(), auth.clone(), cloudsync_service.clone(), cx) {
             Ok(handle) => handle,
             Err(error) => {
                 tracing::error!(%error, "failed to reopen main window for deep link");
@@ -172,6 +178,7 @@ fn main_window_bounds(identifier: &str, cx: &App) -> (WindowBounds, bool) {
 fn open_main_window(
     store: Arc<Store>,
     auth: Arc<auth::Auth>,
+    cloudsync_service: Arc<cloudsync::Cloudsync<crate::db::GpuiQueryEventSink>>,
     cx: &mut App,
 ) -> anyhow::Result<WindowHandle<Workspace>> {
     let identifier = store.identifier().to_string();
@@ -200,7 +207,7 @@ fn open_main_window(
             ..Default::default()
         },
         |window, cx| {
-            let workspace = cx.new(|cx| Workspace::new(store, auth, window, cx));
+            let workspace = cx.new(|cx| Workspace::new(store, auth, cloudsync_service, window, cx));
             // Key bindings dispatch through the focused element.
             workspace.read(cx).focus_handle().focus(window);
             workspace
@@ -244,6 +251,7 @@ fn handle_tray_action(
     action: tray::TrayAction,
     store: &Arc<Store>,
     auth: &Arc<auth::Auth>,
+    cloudsync_service: &Arc<cloudsync::Cloudsync<crate::db::GpuiQueryEventSink>>,
     cx: &mut App,
 ) {
     use tray::TrayAction;
@@ -285,7 +293,12 @@ fn handle_tray_action(
         TrayAction::Open | TrayAction::Start | TrayAction::Settings | TrayAction::Agenda(_) => {
             let handle = match cx.global::<MainWindow>().handle {
                 Some(handle) if cx.windows().contains(&handle.into()) => handle,
-                _ => match open_main_window(store.clone(), auth.clone(), cx) {
+                _ => match open_main_window(
+                    store.clone(),
+                    auth.clone(),
+                    cloudsync_service.clone(),
+                    cx,
+                ) {
                     Ok(handle) => handle,
                     Err(error) => {
                         tracing::error!(%error, "failed to reopen main window from tray");
@@ -319,11 +332,12 @@ fn handle_notification_open(
     opened: notifications::Opened,
     store: &Arc<Store>,
     auth: &Arc<auth::Auth>,
+    cloudsync_service: &Arc<cloudsync::Cloudsync<crate::db::GpuiQueryEventSink>>,
     cx: &mut App,
 ) {
     let handle = match cx.global::<MainWindow>().handle {
         Some(handle) if cx.windows().contains(&handle.into()) => handle,
-        _ => match open_main_window(store.clone(), auth.clone(), cx) {
+        _ => match open_main_window(store.clone(), auth.clone(), cloudsync_service.clone(), cx) {
             Ok(handle) => handle,
             Err(error) => {
                 tracing::error!(%error, "failed to reopen main window from notification");
@@ -434,6 +448,13 @@ fn main() -> anyhow::Result<()> {
     let auth = auth::Auth::start(&args.identifier, runtime.handle());
     let audio = audio::provider(&args.identifier);
     let store = Arc::new(store);
+    let cloudsync_service = Arc::new(cloudsync::Cloudsync::new(
+        store.db_runtime().clone(),
+        auth.clone(),
+        store.runtime().clone(),
+        store.identifier(),
+    ));
+    cloudsync_service.start(store.clone());
     let search = search::SearchIndex::start(&store);
     tracing::info!(path = %store.path().display(), "opened application database");
     // The direct-distribution Tauri build writes the vault's `AGENTS.md` on
@@ -510,7 +531,9 @@ fn main() -> anyhow::Result<()> {
         })
         .detach();
 
-        if let Err(error) = open_main_window(store.clone(), auth.clone(), cx) {
+        if let Err(error) =
+            open_main_window(store.clone(), auth.clone(), cloudsync_service.clone(), cx)
+        {
             tracing::error!(%error, "failed to open main window");
             cx.quit();
             return;
@@ -520,13 +543,14 @@ fn main() -> anyhow::Result<()> {
         // URLs the launcher was started with are queued until the window
         // is up (`take_pending_deep_links`).
         for url in &startup_urls {
-            handle_deep_link_url(url, &store, &auth, cx);
+            handle_deep_link_url(url, &store, &auth, &cloudsync_service, cx);
         }
 
         // Tray menu clicks, forwarded launches, and loopback callbacks
         // arrive on their threads' channels.
         let tray_store = store.clone();
         let tray_auth = auth.clone();
+        let tray_cloudsync = cloudsync_service.clone();
         cx.spawn(async move |cx| {
             loop {
                 cx.background_executor()
@@ -535,13 +559,31 @@ fn main() -> anyhow::Result<()> {
                 let stop = cx
                     .update(|cx| {
                         for action in cx.global::<tray::Tray>().take_actions() {
-                            handle_tray_action(action, &tray_store, &tray_auth, cx);
+                            handle_tray_action(
+                                action,
+                                &tray_store,
+                                &tray_auth,
+                                &tray_cloudsync,
+                                cx,
+                            );
                         }
                         for opened in cx.global::<notifications::Notifications>().take_opened() {
-                            handle_notification_open(opened, &tray_store, &tray_auth, cx);
+                            handle_notification_open(
+                                opened,
+                                &tray_store,
+                                &tray_auth,
+                                &tray_cloudsync,
+                                cx,
+                            );
                         }
                         for url in forwarded.try_iter().chain(deeplink_receiver.try_iter()) {
-                            handle_deep_link_url(&url, &tray_store, &tray_auth, cx);
+                            handle_deep_link_url(
+                                &url,
+                                &tray_store,
+                                &tray_auth,
+                                &tray_cloudsync,
+                                cx,
+                            );
                         }
                         // `onThemeChanged`: windows on the `system` theme re-resolve.
                         if cx.global::<system_theme::SystemTheme>().take_changed() {

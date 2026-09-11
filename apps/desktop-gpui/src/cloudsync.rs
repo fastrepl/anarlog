@@ -15,6 +15,8 @@ use anlg_desktop_db_runtime::{
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
+use crate::db::Store;
+
 const API_URL: Option<&str> = option_env!("VITE_API_URL");
 const REFRESH_LEAD_MS: u64 = 2 * 60 * 1000;
 const RETRY_DELAY_MS: u64 = 60 * 1000;
@@ -313,6 +315,48 @@ impl<S: QueryEventSink> Cloudsync<S> {
 
     pub fn state(&self) -> State {
         self.state.lock().expect("cloudsync state poisoned").clone()
+    }
+
+    pub fn start(self: &Arc<Self>, store: Arc<Store>) {
+        let service = Arc::clone(self);
+        let mut auth_state = service.auth.subscribe();
+        self.handle.spawn(async move {
+            let enabled = store
+                .load_provider_settings()
+                .await
+                .ok()
+                .and_then(|settings| settings.ok())
+                .map(|settings| {
+                    settings.bool_setting(
+                        "cloud_sync_enabled",
+                        &["general", "cloud_sync_enabled"],
+                        true,
+                    )
+                })
+                .unwrap_or(true);
+            if let Err(error) = service.activate_with_enabled(enabled).await {
+                tracing::warn!(%error, "failed to activate CloudSync");
+            }
+
+            while auth_state.changed().await.is_ok() {
+                let enabled = store
+                    .load_provider_settings()
+                    .await
+                    .ok()
+                    .and_then(|settings| settings.ok())
+                    .map(|settings| {
+                        settings.bool_setting(
+                            "cloud_sync_enabled",
+                            &["general", "cloud_sync_enabled"],
+                            true,
+                        )
+                    })
+                    .unwrap_or(true);
+                if let Err(error) = service.activate_with_enabled(enabled).await {
+                    tracing::warn!(%error, "failed to activate CloudSync");
+                }
+            }
+        });
     }
 
     fn cancel_timer(&self) {
