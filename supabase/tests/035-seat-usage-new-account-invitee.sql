@@ -56,8 +56,8 @@ select results_eq(
       (select workspace_id from cap_test_state where name = 'hq')
     )
   $$,
-  array[2],
-  'The pending invitation holds the second seat'
+  array[1],
+  'The pending invitation does not consume a seat'
 );
 
 select tests.clear_authentication();
@@ -97,16 +97,14 @@ select results_eq(
   'Seating the invitee does not double-count the invitation it consumed'
 );
 
-select throws_ok(
+select lives_ok(
   $$
     select * from public.create_workspace_invitation(
       (select workspace_id from cap_test_state where name = 'hq'),
       'one-too-many@example.com'
     )
   $$,
-  '22023',
-  'workspace seat limit reached',
-  'The seat cap still holds once every seat is taken'
+  'Invitations remain available when all purchased seats are occupied'
 );
 
 select * from finish();

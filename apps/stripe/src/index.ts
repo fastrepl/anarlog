@@ -9,6 +9,7 @@ import { captureOperationalError, sanitizeErrorEvent } from "./error-reporting";
 import type { AppBindings } from "./hono-bindings";
 import { verifyStripeWebhook } from "./middleware";
 import { routes } from "./routes";
+import { startWorkspaceSeatWorker } from "./workspace-seat-worker";
 
 Sentry.init({
   dsn: Bun.env.SENTRY_DSN,
@@ -54,6 +55,13 @@ app.onError((err, c) => {
 });
 
 app.notFound((c) => c.text("not_found", 404));
+
+const stopSeatWorker = startWorkspaceSeatWorker();
+for (const signal of ["SIGTERM", "SIGINT"] as const) {
+  process.once(signal, () => {
+    void stopSeatWorker().finally(() => process.exit(0));
+  });
+}
 
 export default {
   port: env.PORT,

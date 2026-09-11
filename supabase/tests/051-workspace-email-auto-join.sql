@@ -66,10 +66,10 @@ select lives_ok(
   $$ update auth.users set last_sign_in_at = now() where id = tests.get_supabase_uid('join_full') $$,
   'A full team never blocks sign-in'
 );
-select is((select count(*) from public.workspace_memberships where workspace_id = (select workspace_id from email_join_state where name = 'main') and user_id = tests.get_supabase_uid('join_full')), 0::bigint, 'A full team does not add a member or buy a seat');
+select is((select count(*) from public.workspace_memberships where workspace_id = (select workspace_id from email_join_state where name = 'main') and user_id = tests.get_supabase_uid('join_full')), 1::bigint, 'Automatic joining can exceed the previously purchased quantity');
 update public.workspaces set seat_limit = 4 where id = (select workspace_id from email_join_state where name = 'main');
 update auth.users set last_sign_in_at = now() where id = tests.get_supabase_uid('join_full');
-select is((select count(*) from public.workspace_memberships where workspace_id = (select workspace_id from email_join_state where name = 'main') and user_id = tests.get_supabase_uid('join_full')), 1::bigint, 'Sign-in retries joining after a seat becomes available');
+select is((select count(*) from public.workspace_memberships where workspace_id = (select workspace_id from email_join_state where name = 'main') and user_id = tests.get_supabase_uid('join_full')), 1::bigint, 'Repeated sign-in does not create a duplicate membership');
 
 update public.workspaces set seat_limit = 5 where id = (select workspace_id from email_join_state where name = 'main');
 select tests.authenticate_as('join_owner');
@@ -77,7 +77,7 @@ select * from public.create_workspace_invitation((select workspace_id from email
 reset role;
 select lives_ok(
   $$ update auth.users set last_sign_in_at = now() where id = tests.get_supabase_uid('join_invited') $$,
-  'A pending invitation reserves the seat for an automatic join'
+  'A pending invitation is accepted during automatic joining'
 );
 select is((select used_seats from private.workspace_seat_usage((select workspace_id from email_join_state where name = 'main'))), 5, 'An invited auto-joiner takes exactly one seat');
 select ok((select accepted_at is not null from public.workspace_invitations where workspace_id = (select workspace_id from email_join_state where name = 'main') and invitee_email = 'invited@auto-join-company.test'), 'The pending invitation is marked accepted');

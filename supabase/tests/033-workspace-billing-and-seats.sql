@@ -114,20 +114,18 @@ select results_eq(
       (select workspace_id from workspace_billing_test_state where name = 'hq')
     )
   $$,
-  array[2],
-  'A pending invitation holds a seat so it cannot be oversubscribed'
+  array[1],
+  'Pending invitations do not consume billable seats'
 );
 
-select throws_ok(
+select lives_ok(
   $$
     select * from public.create_workspace_invitation(
       (select workspace_id from workspace_billing_test_state where name = 'hq'),
       'seat-extra@example.com'
     )
   $$,
-  '22023',
-  'workspace seat limit reached',
-  'Inviting past the purchased seats is refused'
+  'Inviting past the purchased seats succeeds'
 );
 
 select tests.clear_authentication();
