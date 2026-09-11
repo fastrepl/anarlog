@@ -80,29 +80,7 @@ pub(crate) async fn legacy_migration_verified(pool: &SqlitePool) -> Result<bool,
 }
 
 pub(crate) async fn legacy_migration_ready(pool: &SqlitePool) -> Result<bool, sqlx::Error> {
-    sqlx::query_scalar(
-        "SELECT EXISTS(
-           SELECT 1
-           FROM storage_migration_state AS state
-           LEFT JOIN migration_import_runs AS run ON run.id = state.latest_run_id
-           WHERE state.id = 'legacy_v1'
-             AND (
-               (state.importer_version = ? AND state.parity_verified = 1)
-               OR (
-                 run.importer_version = ?
-                 AND run.dry_run = 0
-                 AND run.status = 'completed_with_conflicts'
-                 AND run.conflict_count > 0
-                 AND run.skipped_count = 0
-                 AND run.error_count = 0
-               )
-             )
-         )",
-    )
-    .bind(anlg_db_app::LEGACY_IMPORTER_VERSION)
-    .bind(anlg_db_app::LEGACY_IMPORTER_VERSION)
-    .fetch_one(pool)
-    .await
+    anlg_desktop_db_runtime::legacy::legacy_migration_ready(pool).await
 }
 
 pub async fn rerun_legacy_import(pool: &SqlitePool, dry_run: bool) -> crate::Result<String> {
@@ -187,10 +165,6 @@ pub async fn get_legacy_cleanup_status(
     pool: &SqlitePool,
 ) -> crate::Result<crate::LegacyCleanupStatus> {
     cleanup::get_status(pool).await
-}
-
-pub async fn cleanup_legacy_files(pool: &SqlitePool) -> crate::Result<crate::LegacyCleanupResult> {
-    cleanup::execute(pool).await
 }
 
 fn resolve_startup_vault_base<R: tauri::Runtime>(

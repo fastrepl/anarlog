@@ -176,8 +176,8 @@ pub(crate) async fn run_legacy_import(
     state: tauri::State<'_, ManagedState>,
     dry_run: bool,
 ) -> Result<String, String> {
-    state
-        .rerun_legacy_import(dry_run)
+    let _write_guard = state.synced_write_guard().await;
+    crate::import::rerun_legacy_import(state.pool(), dry_run)
         .await
         .map_err(|error| error.to_string())
 }

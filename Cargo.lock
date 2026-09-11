@@ -5464,6 +5464,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "desktop-db-runtime"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "db-app",
+ "db-core",
+ "db-execute",
+ "db-migrate",
+ "db-reactive",
+ "db-sync",
+ "e2ee",
+ "fs-sync-core",
+ "futures-util",
+ "reqwest 0.13.2",
+ "serde",
+ "serde_json",
+ "session-ingest",
+ "sha2 0.11.0",
+ "specta",
+ "sqlx",
+ "storage",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+ "wiremock",
+]
+
+[[package]]
 name = "desktop-gpui"
 version = "0.0.0"
 dependencies = [
@@ -18984,6 +19014,7 @@ dependencies = [
  "db-migrate",
  "db-reactive",
  "db-sync",
+ "desktop-db-runtime",
  "e2ee",
  "fs-sync-core",
  "futures-util",

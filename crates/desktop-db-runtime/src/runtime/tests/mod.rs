@@ -86,5 +86,6 @@ mod open_and_status;
 mod recovery_protocol;
 mod recovery_schedule;
 mod startup;
+mod support;
 mod sync_hook;
 mod witness_watch;

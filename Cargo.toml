@@ -75,6 +75,7 @@ anlg-db-migrate = { path = "crates/db-migrate", package = "db-migrate" }
 anlg-db-reactive = { path = "crates/db-reactive", package = "db-reactive" }
 anlg-db-sync = { path = "crates/db-sync", package = "db-sync" }
 anlg-deeplink-core = { path = "crates/deeplink-core", package = "deeplink-core" }
+anlg-desktop-db-runtime = { path = "crates/desktop-db-runtime", package = "desktop-db-runtime" }
 anlg-detect = { path = "crates/detect", package = "detect" }
 anlg-device-monitor = { path = "crates/device-monitor", package = "device-monitor" }
 anlg-dictation-ui-macos = { path = "crates/dictation-ui-macos", package = "dictation-ui-macos" }

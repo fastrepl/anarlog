@@ -93,7 +93,7 @@ async fn replica_transport_hydrates_a_fresh_local_database() {
     )
     .unwrap();
     let (witness_server, witness_config) =
-        crate::tests::support::setup_witness("workspace-1").await;
+        crate::runtime::tests::support::setup_witness("workspace-1").await;
     let configure = |hook: &E2eeSyncHook| {
         hook.set_personal_workspace("workspace-1", &recovery_key)
             .unwrap();
@@ -145,7 +145,7 @@ async fn replica_transport_syncs_every_configured_workspace() {
     .unwrap();
     let shared_key = anlg_e2ee::WorkspaceKey::generate().unwrap();
     let (witness_server, witness_config) =
-        crate::tests::support::setup_witnesses(&["user-a", "workspace-shared"]).await;
+        crate::runtime::tests::support::setup_witnesses(&["user-a", "workspace-shared"]).await;
     let configure = |hook: &E2eeSyncHook| {
         hook.set_workspaces(
             "user-a",
@@ -235,7 +235,8 @@ async fn replica_transport_rejects_a_witness_set_that_misses_a_workspace() {
         )]),
     )
     .unwrap();
-    let (_witness_server, witness_config) = crate::tests::support::setup_witness("user-a").await;
+    let (_witness_server, witness_config) =
+        crate::runtime::tests::support::setup_witness("user-a").await;
     hook.set_replica_witness(
         crate::e2ee_witness::E2eeWitnessClient::new(witness_config, "user-a").unwrap(),
     );
@@ -739,7 +740,9 @@ async fn nonfinal_receive_keeps_reconciliation_pending_for_final_snapshot() {
 async fn activity_drains_large_no_mismatch_preflight_before_local_write() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = std::sync::Arc::new(PluginDbRuntime::new(std::sync::Arc::clone(&db)));
+    let runtime = std::sync::Arc::new(DesktopDbRuntime::<TestQueryEventSink>::for_test(
+        std::sync::Arc::clone(&db),
+    ));
     let recovery_key = anlg_e2ee::RecoveryKey::parse(
         "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
     )

@@ -203,7 +203,8 @@ async fn cancelled_transaction_returns_a_clean_connection_to_the_pool() {
 #[tokio::test]
 async fn open_memory_app_db_subscribe_sees_app_schema() {
     let db = runtime::open_app_db(None).await.unwrap();
-    let runtime = runtime::PluginDbRuntime::new(Arc::new(db));
+    let runtime =
+        runtime::PluginDbRuntime::new(Arc::new(db), tauri::async_runtime::handle().inner().clone());
     let (channel, events) = capture_channel();
 
     let registration = runtime

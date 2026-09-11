@@ -21,7 +21,7 @@ fn local_write_activities_wait_longer_than_capture_to_drain() {
 async fn cloudsync_activity_leases_are_idempotent_and_preserved_by_identity_clear() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(db);
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
 
     runtime
         .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
@@ -68,7 +68,7 @@ async fn cloudsync_activity_leases_are_idempotent_and_preserved_by_identity_clea
 async fn cloudsync_activity_pause_is_process_scoped() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(std::sync::Arc::clone(&db));
     runtime
         .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
         .await
@@ -76,7 +76,7 @@ async fn cloudsync_activity_pause_is_process_scoped() {
     assert!(runtime.e2ee_sync_hook.activity_paused());
     drop(runtime);
 
-    let restarted_runtime = PluginDbRuntime::new(db);
+    let restarted_runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
     let status = restarted_runtime.cloudsync_status().await.unwrap();
     assert_eq!(status["activity_paused"], false);
     assert_eq!(status["deferred_for_capture"], false);
@@ -125,7 +125,7 @@ async fn clearing_activities_wakes_resume_waiters() {
 async fn paused_cloudsync_status_does_not_probe_the_busy_database() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(std::sync::Arc::clone(&db));
     runtime
         .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
         .await
@@ -148,7 +148,7 @@ async fn paused_cloudsync_status_does_not_probe_the_busy_database() {
 async fn activity_begin_waits_for_an_in_flight_cloudsync_control_operation() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(db);
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
     let control_operation = runtime.cloudsync_control_operation.lock().await;
     let mut begin =
         Box::pin(runtime.begin_cloudsync_activity("capture".to_string(), "session-1".to_string()));
@@ -171,7 +171,7 @@ async fn activity_begin_waits_for_an_in_flight_cloudsync_control_operation() {
 async fn activity_begin_timeout_fails_closed_and_releases_the_new_lease() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(db);
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
     let control_operation = runtime.cloudsync_control_operation.lock().await;
 
     let error = tokio::time::timeout(
@@ -200,7 +200,7 @@ async fn activity_begin_timeout_fails_closed_and_releases_the_new_lease() {
 async fn duplicate_activity_begin_timeout_preserves_the_existing_lease() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(db);
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
     runtime
         .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
         .await
@@ -233,7 +233,7 @@ async fn duplicate_activity_begin_timeout_preserves_the_existing_lease() {
 async fn activity_end_cancels_a_begin_waiting_for_cloudsync_control() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(db);
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
     let control_operation = runtime.cloudsync_control_operation.lock().await;
     let mut begin =
         Box::pin(runtime.begin_cloudsync_activity("capture".to_string(), "session-1".to_string()));
@@ -264,7 +264,7 @@ async fn activity_end_cancels_a_begin_waiting_for_cloudsync_control() {
 async fn cloudsync_configuration_and_start_fail_promptly_during_activity() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(db);
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
     runtime
         .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
         .await
@@ -338,7 +338,7 @@ async fn cloudsync_start_prearms_reconciliation() {
     .execute(db.pool())
     .await
     .unwrap();
-    let runtime = PluginDbRuntime::new(db);
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
     let recovery_key = anlg_e2ee::RecoveryKey::parse(
         "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
     )
@@ -361,7 +361,7 @@ async fn cloudsync_start_prearms_reconciliation() {
 async fn cloudsync_control_rechecks_activity_after_acquiring_serialization() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(db);
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
     let control_operation = runtime.cloudsync_control_operation.lock().await;
     let mut start = Box::pin(runtime.start_cloudsync());
 
@@ -386,7 +386,7 @@ async fn cloudsync_control_rechecks_activity_after_acquiring_serialization() {
 async fn local_account_binding_is_not_deferred_by_cloudsync_activity() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(db);
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
     runtime
         .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
         .await
@@ -411,7 +411,7 @@ async fn local_account_binding_is_not_deferred_by_cloudsync_activity() {
 async fn local_account_binding_times_out_before_mutation_and_remains_fail_closed() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(std::sync::Arc::clone(&db));
     let control = runtime.cloudsync_control_operation.lock().await;
 
     let error = runtime
@@ -465,7 +465,7 @@ async fn local_account_binding_times_out_before_mutation_and_remains_fail_closed
 async fn stop_suspend_and_logout_are_not_deferred_by_cloudsync_activity() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(db);
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
     runtime
         .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
         .await
@@ -511,7 +511,7 @@ async fn stop_suspend_and_logout_are_not_deferred_by_cloudsync_activity() {
 async fn sign_out_suspend_preserves_activity_leases() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(db);
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
     runtime
         .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
         .await
@@ -535,7 +535,7 @@ async fn sign_out_suspend_preserves_activity_leases() {
 #[tokio::test]
 async fn sign_out_suspend_preserves_activity_leases_after_non_busy_error() {
     let db = std::sync::Arc::new(Db::connect_memory().await.unwrap());
-    let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(std::sync::Arc::clone(&db));
     runtime
         .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
         .await
@@ -559,7 +559,7 @@ async fn sign_out_suspend_preserves_activity_leases_after_non_busy_error() {
 #[tokio::test]
 async fn auth_loss_suspend_preserves_activity_leases_after_non_busy_error() {
     let db = std::sync::Arc::new(Db::connect_memory().await.unwrap());
-    let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(std::sync::Arc::clone(&db));
     runtime
         .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
         .await
@@ -587,7 +587,7 @@ async fn auth_loss_suspend_preserves_activity_leases_after_non_busy_error() {
 async fn auth_suspension_bypasses_activity_acquisition_without_clearing_leases() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(db);
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
     runtime
         .e2ee_sync_hook
         .begin_activity("capture".to_string(), "session-1".to_string());
@@ -614,7 +614,7 @@ async fn auth_suspension_bypasses_activity_acquisition_without_clearing_leases()
 async fn raw_suspend_bypasses_activity_acquisition_and_preserves_leases() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(db);
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
     runtime
         .e2ee_sync_hook
         .begin_activity("chat".to_string(), "chat-1".to_string());
@@ -652,7 +652,7 @@ async fn raw_suspend_bypasses_activity_acquisition_and_preserves_leases() {
 async fn final_activity_release_resets_the_recovery_delay_clock() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(db);
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
     runtime
         .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
         .await
@@ -678,7 +678,7 @@ async fn final_activity_release_resets_the_recovery_delay_clock() {
 async fn activity_release_does_not_hide_a_recovery_failure() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(db);
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
     runtime
         .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
         .await

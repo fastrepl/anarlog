@@ -5,8 +5,9 @@ use super::sync_result::{
     cloudsync_send_made_progress,
 };
 use super::{
-    CLOUDSYNC_WRITE_FILTER, CloudsyncOperationCancellation, E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT,
-    PluginDbRuntime, cloudsync_recovery_cancelled, wait_until_cloudsync_auth_generation_changes,
+    CLOUDSYNC_WRITE_FILTER, CloudsyncOperationCancellation, DesktopDbRuntime,
+    E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT, cloudsync_recovery_cancelled,
+    wait_until_cloudsync_auth_generation_changes,
 };
 use crate::Result;
 
@@ -21,9 +22,7 @@ pub(super) const CLOUDSYNC_REPLICA_TABLE: &str = "e2ee_records";
 const E2EE_CLOUDSYNC_WITNESS_REPAIR_BYTE_LIMIT: usize = 16 * 1024 * 1024;
 
 pub(super) struct CloudsyncFullResyncTask {
-    #[cfg(test)]
     pub(super) config: anlg_db_core::CloudsyncRuntimeConfig,
-    #[cfg(test)]
     pub(super) generation: String,
     pub(super) shutdown_tx: Option<tokio::sync::oneshot::Sender<()>>,
     pub(super) join_handle: tokio::task::JoinHandle<()>,
@@ -133,7 +132,7 @@ impl CloudsyncFullResyncSchedule {
     }
 }
 
-impl PluginDbRuntime {
+impl<S: anlg_db_reactive::QueryEventSink> DesktopDbRuntime<S> {
     pub(super) async fn schedule_cloudsync_full_resync(
         &self,
         generation: String,
@@ -153,9 +152,7 @@ impl PluginDbRuntime {
             .unwrap()
             .claim(&generation);
 
-        #[cfg(test)]
         let task_config = config.clone();
-        #[cfg(test)]
         let task_generation = generation.clone();
         let db = std::sync::Arc::clone(&self.db);
         let scheduled = std::sync::Arc::clone(&self.scheduled_cloudsync_full_resync);
@@ -807,9 +804,7 @@ impl PluginDbRuntime {
             }
         });
         *task_slot = Some(CloudsyncFullResyncTask {
-            #[cfg(test)]
             config: task_config,
-            #[cfg(test)]
             generation: task_generation,
             shutdown_tx: Some(shutdown_tx),
             join_handle,
@@ -827,8 +822,7 @@ impl PluginDbRuntime {
         }
     }
 
-    #[cfg(test)]
-    pub(crate) async fn cloudsync_full_resync_task_snapshot(
+    pub async fn cloudsync_full_resync_task_snapshot(
         &self,
     ) -> Option<(String, anlg_db_core::CloudsyncAuth)> {
         self.cloudsync_full_resync_task
@@ -839,7 +833,7 @@ impl PluginDbRuntime {
     }
 }
 
-impl Drop for PluginDbRuntime {
+impl<S: anlg_db_reactive::QueryEventSink> Drop for DesktopDbRuntime<S> {
     fn drop(&mut self) {
         self.scheduled_cloudsync_full_resync
             .lock()

@@ -8,7 +8,7 @@ fn failed_extension_probe_error() -> DbOpenError {
     DbOpenError::Io(std::io::Error::other("cloudsync extension probe failed"))
 }
 
-async fn wait_for_unsent_changes(runtime: &PluginDbRuntime) {
+async fn wait_for_unsent_changes(runtime: &DesktopDbRuntime<TestQueryEventSink>) {
     tokio::time::timeout(std::time::Duration::from_secs(1), async {
         loop {
             let status = runtime.cloudsync_status().await.unwrap();
@@ -193,7 +193,7 @@ async fn failed_cloudsync_preflight_clears_new_credentials() {
     .await
     .unwrap();
     anlg_db_app::prepare_schema(&db).await.unwrap();
-    let runtime = PluginDbRuntime::new(std::sync::Arc::new(db));
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(std::sync::Arc::new(db));
     let cancellation = crate::e2ee_witness::E2eeWitnessCancellation::default();
 
     runtime
@@ -228,7 +228,7 @@ async fn failed_cloudsync_preflight_clears_new_credentials() {
 async fn cloudsync_status_reports_pending_e2ee_dirty_rows() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(std::sync::Arc::clone(&db));
     let recovery_key = anlg_e2ee::RecoveryKey::parse(
         "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
     )
@@ -251,7 +251,7 @@ async fn cloudsync_status_reports_pending_e2ee_dirty_rows() {
 async fn cloudsync_status_does_not_treat_inbound_reconciliation_as_unsent() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(std::sync::Arc::clone(&db));
     let recovery_key = anlg_e2ee::RecoveryKey::parse(
         "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
     )
@@ -285,7 +285,7 @@ async fn cloudsync_status_does_not_treat_inbound_reconciliation_as_unsent() {
 async fn cloudsync_status_ignores_only_the_active_transcript() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(std::sync::Arc::clone(&db));
     let recovery_key = anlg_e2ee::RecoveryKey::parse(
         "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
     )
@@ -341,7 +341,7 @@ async fn cloudsync_status_ignores_only_the_active_transcript() {
 async fn repeated_cloudsync_status_polling_returns_base_status_on_a_busy_pool() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(std::sync::Arc::clone(&db));
     let mut held_connection = db.pool().acquire().await.unwrap();
     let started = std::time::Instant::now();
 

@@ -13,7 +13,7 @@ async fn configures_replica_transport_without_the_cloudsync_extension() {
     .execute(db.pool())
     .await
     .unwrap();
-    let runtime = PluginDbRuntime::new(db);
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
     let witness_state = InitiallyUninitializedWitness::default();
     witness_state.initialized.store(true, Ordering::SeqCst);
     let witness_server = MockServer::start().await;
@@ -67,9 +67,9 @@ async fn configures_replica_transport_for_shared_workspaces() {
     .execute(db.pool())
     .await
     .unwrap();
-    let runtime = PluginDbRuntime::new(db);
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
     let (witness_server, witness_config) =
-        crate::tests::support::setup_witnesses(&["user-a", "workspace-shared"]).await;
+        crate::runtime::tests::support::setup_witnesses(&["user-a", "workspace-shared"]).await;
     let recovery_key = anlg_e2ee::RecoveryKey::parse(
         "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
     )
@@ -172,7 +172,7 @@ async fn replica_transport_rejects_a_projection_for_another_account() {
     .execute(db.pool())
     .await
     .unwrap();
-    let runtime = PluginDbRuntime::new(db);
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
     let recovery_key = anlg_e2ee::RecoveryKey::parse(
         "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
     )
@@ -198,7 +198,7 @@ async fn replica_transport_rejects_a_projection_for_another_account() {
     let error = runtime
         .configure_replica_transport_at_generation(
             "user-a".to_string(),
-            crate::tests::support::unreachable_witness("user-a"),
+            crate::runtime::tests::support::unreachable_witness("user-a"),
             E2eeWorkspaceKeyConfiguration::new(
                 "user-a".to_string(),
                 recovery_key,
@@ -225,7 +225,7 @@ async fn replica_transport_rejects_a_projection_for_another_account() {
 #[tokio::test]
 async fn refreshed_workspace_keys_forget_revoked_memberships() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
-    let runtime = PluginDbRuntime::new(db);
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
     let recovery_key = anlg_e2ee::RecoveryKey::parse(
         "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
     )
@@ -289,7 +289,7 @@ fn test_full_resync_config(token: &str) -> anlg_db_core::CloudsyncRuntimeConfig 
 }
 
 async fn install_waiting_full_resync_task(
-    runtime: &PluginDbRuntime,
+    runtime: &DesktopDbRuntime<TestQueryEventSink>,
 ) -> tokio::sync::oneshot::Receiver<()> {
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
     let (finished_tx, finished_rx) = tokio::sync::oneshot::channel();
@@ -312,7 +312,7 @@ async fn install_waiting_full_resync_task(
 }
 
 async fn install_blocked_full_resync_cancellation(
-    runtime: &PluginDbRuntime,
+    runtime: &DesktopDbRuntime<TestQueryEventSink>,
 ) -> (
     tokio::sync::oneshot::Sender<()>,
     tokio::sync::oneshot::Receiver<()>,
@@ -342,7 +342,7 @@ async fn install_blocked_full_resync_cancellation(
 async fn assert_auth_invalidation_cancels_inflight_configuration(logout: bool) {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = std::sync::Arc::new(PluginDbRuntime::new(db));
+    let runtime = std::sync::Arc::new(DesktopDbRuntime::<TestQueryEventSink>::for_test(db));
     let recovery_key = anlg_e2ee::RecoveryKey::parse(
         "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
     )
@@ -426,7 +426,7 @@ async fn logout_invalidates_and_fails_closed_an_inflight_token_configuration() {
 
 async fn spawn_stalled_witness_configuration() -> (
     tempfile::TempDir,
-    std::sync::Arc<PluginDbRuntime>,
+    std::sync::Arc<DesktopDbRuntime<TestQueryEventSink>>,
     MockServer,
     tokio::task::JoinHandle<Result<crate::CloudsyncTokenConfigurationResult>>,
 ) {
@@ -451,7 +451,9 @@ async fn spawn_stalled_witness_configuration() -> (
     .execute(db.pool())
     .await
     .unwrap();
-    let runtime = std::sync::Arc::new(PluginDbRuntime::new(std::sync::Arc::new(db)));
+    let runtime = std::sync::Arc::new(DesktopDbRuntime::<TestQueryEventSink>::for_test(
+        std::sync::Arc::new(db),
+    ));
     let recovery_key = anlg_e2ee::RecoveryKey::parse(
         "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
     )
@@ -594,7 +596,9 @@ async fn suspend_drains_token_configuration_during_large_replica_cleanup() {
         .await
         .unwrap();
 
-    let runtime = std::sync::Arc::new(PluginDbRuntime::new(std::sync::Arc::clone(&db)));
+    let runtime = std::sync::Arc::new(DesktopDbRuntime::<TestQueryEventSink>::for_test(
+        std::sync::Arc::clone(&db),
+    ));
     let recovery_key = anlg_e2ee::RecoveryKey::parse(
         "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
     )
@@ -738,7 +742,7 @@ async fn activity_begin_cancels_and_drains_a_stalled_witness_configuration() {
 async fn stale_configuration_waiting_after_a_newer_attempt_does_not_clear_its_key() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(db);
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(db);
     let stale_generation = runtime.begin_cloudsync_auth_configuration();
     let _newer_generation = runtime.begin_cloudsync_auth_configuration();
     let recovery_key = anlg_e2ee::RecoveryKey::parse(
@@ -781,7 +785,7 @@ async fn stale_configuration_waiting_after_a_newer_attempt_does_not_clear_its_ke
 
 #[tokio::test]
 async fn suspend_joins_full_resync_before_returning() {
-    let runtime = PluginDbRuntime::new(std::sync::Arc::new(
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(std::sync::Arc::new(
         Db::connect_memory_plain().await.unwrap(),
     ));
     let finished = install_waiting_full_resync_task(&runtime).await;
@@ -804,7 +808,7 @@ async fn suspend_joins_full_resync_before_returning() {
 
 #[tokio::test]
 async fn suspend_cancels_recovery_before_waiting_for_its_control_guard() {
-    let runtime = PluginDbRuntime::new(std::sync::Arc::new(
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(std::sync::Arc::new(
         Db::connect_memory_plain().await.unwrap(),
     ));
     let control_operation = std::sync::Arc::clone(&runtime.cloudsync_control_operation);
@@ -842,7 +846,7 @@ async fn suspend_cancels_recovery_before_waiting_for_its_control_guard() {
 
 #[tokio::test]
 async fn full_resync_cancellation_drains_while_control_is_held() {
-    let runtime = PluginDbRuntime::new(std::sync::Arc::new(
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(std::sync::Arc::new(
         Db::connect_memory_plain().await.unwrap(),
     ));
     let control = runtime.cloudsync_control_operation.lock().await;
@@ -878,7 +882,7 @@ async fn full_resync_cancellation_drains_while_control_is_held() {
 
 #[tokio::test]
 async fn logout_joins_full_resync_before_returning() {
-    let runtime = PluginDbRuntime::new(std::sync::Arc::new(
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(std::sync::Arc::new(
         Db::connect_memory_plain().await.unwrap(),
     ));
     let finished = install_waiting_full_resync_task(&runtime).await;
@@ -894,7 +898,7 @@ async fn logout_joins_full_resync_before_returning() {
 
 #[tokio::test]
 async fn dropping_runtime_signals_full_resync_task_shutdown() {
-    let runtime = PluginDbRuntime::new(std::sync::Arc::new(
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(std::sync::Arc::new(
         Db::connect_memory_plain().await.unwrap(),
     ));
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();

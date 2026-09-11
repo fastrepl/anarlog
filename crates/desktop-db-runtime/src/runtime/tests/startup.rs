@@ -4,7 +4,7 @@ use super::*;
 async fn wait_until_ready_resolves_after_startup_finishes() {
     let db = Db::connect_memory_plain().await.unwrap();
     anlg_db_app::prepare_schema(&db).await.unwrap();
-    let runtime = PluginDbRuntime::new(std::sync::Arc::new(db));
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(std::sync::Arc::new(db));
 
     assert_eq!(
         runtime.startup_status().phase,
@@ -20,7 +20,7 @@ async fn wait_until_ready_resolves_after_startup_finishes() {
 async fn wait_until_ready_surfaces_startup_failure() {
     let db = Db::connect_memory_plain().await.unwrap();
     anlg_db_app::prepare_schema(&db).await.unwrap();
-    let runtime = PluginDbRuntime::new(std::sync::Arc::new(db));
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(std::sync::Arc::new(db));
 
     let wait = runtime.wait_until_ready();
     runtime.finish_startup(Err(
@@ -40,7 +40,7 @@ async fn wait_until_ready_surfaces_startup_failure() {
 async fn wait_until_ready_resolves_when_startup_already_finished() {
     let db = Db::connect_memory_plain().await.unwrap();
     anlg_db_app::prepare_schema(&db).await.unwrap();
-    let runtime = PluginDbRuntime::new(std::sync::Arc::new(db));
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(std::sync::Arc::new(db));
 
     runtime.finish_startup(Ok(()));
     runtime.wait_until_ready().await.unwrap();
@@ -49,7 +49,7 @@ async fn wait_until_ready_resolves_when_startup_already_finished() {
 #[tokio::test]
 async fn terminal_startup_status_ignores_late_schema_progress() {
     let db = Db::connect_memory_plain().await.unwrap();
-    let runtime = PluginDbRuntime::new(std::sync::Arc::new(db));
+    let runtime = DesktopDbRuntime::<TestQueryEventSink>::for_test(std::sync::Arc::new(db));
 
     runtime.finish_startup(Err("startup failed".into()));
     runtime.set_startup_status_if_running(crate::StartupStatus {
