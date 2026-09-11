@@ -110,6 +110,79 @@ describe("membership-driven Team billing", () => {
     expect(f.updates[0].params.proration_behavior).toBe("none");
   });
 
+  test.each(["past_due", "unpaid"] as const)(
+    "%s removal and restoration never double-charge, including after payment",
+    async (status) => {
+      const f = fixture();
+      f.subscription.status = status;
+      await reconcileWorkspaceSeatEvent({ ...event, quantity: 1 }, f.api);
+      await reconcileWorkspaceSeatEvent(
+        { ...event, id: "43", quantity: 2 },
+        f.api,
+      );
+      f.subscription.status = "active";
+      await reconcileWorkspaceSeatEvent(
+        { ...event, id: "44", quantity: 3 },
+        f.api,
+      );
+      expect(f.updates.map((u) => u.params.proration_behavior)).toEqual([
+        "none",
+        "none",
+        "none",
+      ]);
+      f.subscription.items.data[0].current_period_start = 1_750_003_000;
+      f.subscription.items.data[0].current_period_end = 1_750_006_000;
+      await reconcileWorkspaceSeatEvent(
+        {
+          ...event,
+          id: "45",
+          quantity: 4,
+          occurred_at: new Date(1_750_003_500_000),
+        },
+        f.api,
+      );
+      expect(f.updates[3].params.proration_behavior).toBe("create_prorations");
+    },
+  );
+
+  test("canceled subscription history is paginated before deciding uniqueness", async () => {
+    const f = fixture();
+    const cursors: Array<string | undefined> = [];
+    f.api.subscriptions.list = (async (
+      params: Stripe.SubscriptionListParams,
+    ) => {
+      cursors.push(params.starting_after);
+      return params.starting_after
+        ? { data: [f.subscription], has_more: false }
+        : {
+            data: [{ ...f.subscription, id: "sub_old", status: "canceled" }],
+            has_more: true,
+          };
+    }) as typeof f.api.subscriptions.list;
+    await reconcileWorkspaceSeatEvent(event, f.api);
+    expect(cursors).toEqual([undefined, "sub_old"]);
+    expect(f.updates).toHaveLength(1);
+  });
+
+  test("a second current subscription on a later page is rejected", async () => {
+    const f = fixture();
+    f.api.subscriptions.list = (async (
+      params: Stripe.SubscriptionListParams,
+    ) => ({
+      data: [
+        {
+          ...f.subscription,
+          id: params.starting_after ? "sub_second" : "sub_first",
+        },
+      ],
+      has_more: !params.starting_after,
+    })) as typeof f.api.subscriptions.list;
+    await expect(reconcileWorkspaceSeatEvent(event, f.api)).rejects.toThrow(
+      "exactly one",
+    );
+    expect(f.updates).toHaveLength(0);
+  });
+
   test("annual plans preserve their existing renewal schedule", async () => {
     const f = fixture();
     f.subscription.items.data[0].price.recurring!.interval = "year";

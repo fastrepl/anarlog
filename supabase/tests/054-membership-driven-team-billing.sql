@@ -41,5 +41,11 @@ update public.workspaces set seat_limit = 2 where id = (select workspace_id from
 select is((select count(*) from private.workspace_seat_billing_events where workspace_id = (select workspace_id from seat_billing_state) and processed_at is null), 0::bigint, 'Matching Stripe echoes create no new billing event');
 update public.workspaces set seat_limit = 1 where id = (select workspace_id from seat_billing_state);
 select is((select quantity from private.workspace_seat_billing_events where workspace_id = (select workspace_id from seat_billing_state) and processed_at is null), 2, 'External quantity edits reconcile back to actual membership');
+select tests.authenticate_as('billing_owner');
+select lives_ok($$ select * from public.delete_workspace((select workspace_id from seat_billing_state)) $$, 'Owner can delete the paid workspace');
+reset role;
+select is((select quantity from private.workspace_seat_billing_events where workspace_id = (select workspace_id from seat_billing_state) order by id desc limit 1), 0, 'Workspace deletion queues zero seats after previous membership events');
+update public.workspace_memberships set deleted_at = now() where workspace_id = (select workspace_id from seat_billing_state) and user_id = tests.get_supabase_uid('billing_joiner');
+select is((select quantity from private.workspace_seat_billing_events where workspace_id = (select workspace_id from seat_billing_state) order by id desc limit 1), 0, 'Cleanup of a deleted workspace cannot restore billed seats');
 select * from finish();
 rollback;

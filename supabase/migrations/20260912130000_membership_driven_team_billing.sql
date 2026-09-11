@@ -8,7 +8,8 @@ CREATE OR REPLACE FUNCTION private.workspace_seat_usage(p_workspace_id uuid)
 RETURNS TABLE (seat_limit integer, used_seats integer)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
 AS $$
-  SELECT workspace.seat_limit, count(membership.user_id)::integer
+  SELECT workspace.seat_limit, CASE WHEN workspace.deleted_at IS NULL
+    THEN count(membership.user_id)::integer ELSE 0 END
   FROM public.workspaces AS workspace
   LEFT JOIN public.workspace_memberships AS membership
     ON membership.workspace_id = workspace.id AND membership.deleted_at IS NULL
@@ -72,6 +73,11 @@ REVOKE ALL ON FUNCTION private.enqueue_workspace_seat_billing() FROM PUBLIC, ano
 CREATE TRIGGER after_workspace_seat_billing
 AFTER INSERT OR UPDATE OR DELETE ON public.workspace_memberships
 FOR EACH ROW EXECUTE FUNCTION private.enqueue_workspace_seat_billing();
+CREATE TRIGGER after_workspace_deleted_seat_billing
+AFTER UPDATE OF deleted_at ON public.workspaces
+FOR EACH ROW WHEN (NEW.deleted_at IS DISTINCT FROM OLD.deleted_at)
+EXECUTE FUNCTION private.enqueue_workspace_seat_billing();
+
 CREATE FUNCTION private.reconcile_workspace_seat_snapshot()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 BEGIN

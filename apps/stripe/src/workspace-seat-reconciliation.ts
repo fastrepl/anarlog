@@ -22,15 +22,29 @@ export async function reconcileWorkspaceSeatEvent(
     throw new Error("Workspace billing customer ownership mismatch");
   }
 
-  const subscriptions = await stripe.subscriptions.list({
-    customer: event.customer_id,
-    status: "all",
-    limit: 100,
-  });
-  const active = subscriptions.data.filter((subscription) =>
-    ["active", "trialing", "past_due", "unpaid"].includes(subscription.status),
-  );
-  if (subscriptions.has_more || active.length !== 1) {
+  const active: Stripe.Subscription[] = [];
+  let startingAfter: string | undefined;
+  for (;;) {
+    const page = await stripe.subscriptions.list({
+      customer: event.customer_id,
+      status: "all",
+      limit: 100,
+      ...(startingAfter ? { starting_after: startingAfter } : {}),
+    });
+    active.push(
+      ...page.data.filter((subscription) =>
+        ["active", "trialing", "past_due", "unpaid"].includes(
+          subscription.status,
+        ),
+      ),
+    );
+    if (active.length > 1 || !page.has_more) break;
+    const last = page.data.at(-1)?.id;
+    if (!last || last === startingAfter)
+      throw new Error("Invalid subscription pagination");
+    startingAfter = last;
+  }
+  if (active.length !== 1) {
     throw new Error("Expected exactly one current workspace subscription");
   }
   const subscription = active[0];
@@ -66,17 +80,25 @@ export async function reconcileWorkspaceSeatEvent(
     );
   }
 
+  // Once an unpaid change resets the quantity baseline without credits, keep
+  // that policy through this period even if the original invoice is paid later.
+  const suppressProrations =
+    ["past_due", "unpaid"].includes(subscription.status) ||
+    Number(subscription.metadata.anarlog_seat_no_proration_until) >
+      item.current_period_start;
+
   await stripe.subscriptions.update(
     subscription.id,
     {
       items: [{ id: item.id, quantity: event.quantity }],
-      metadata: { anarlog_seat_event_id: `${event.workspace_id}:${event.id}` },
+      metadata: {
+        anarlog_seat_event_id: `${event.workspace_id}:${event.id}`,
+        ...(suppressProrations
+          ? { anarlog_seat_no_proration_until: String(item.current_period_end) }
+          : {}),
+      },
       proration_date: prorationDate,
-      proration_behavior:
-        ["past_due", "unpaid"].includes(subscription.status) &&
-        event.quantity < (item.quantity ?? 0)
-          ? "none"
-          : "create_prorations",
+      proration_behavior: suppressProrations ? "none" : "create_prorations",
     },
     { idempotencyKey: `workspace-seat-${event.workspace_id}-${event.id}` },
   );
