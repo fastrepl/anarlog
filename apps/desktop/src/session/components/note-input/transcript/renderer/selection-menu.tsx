@@ -26,7 +26,11 @@ import {
 } from "@anlg/ui/components/ui/popover";
 import { cn } from "@anlg/utils";
 
-import { getTranscriptSelectionFromRange } from "./selection";
+import {
+  getTranscriptRangeRects,
+  getTranscriptSelectionFromRange,
+  isRangeCoveredBySelection,
+} from "./selection";
 import type { TranscriptWordSelection } from "./selection";
 import { SpeakerParticipantPicker } from "./speaker-assign";
 
@@ -446,13 +450,15 @@ function SelectionHighlight({
 }) {
   const [rects, setRects] = useState<DOMRect[]>([]);
 
+  // The native selection paints the range while it lasts; the overlay takes
+  // over once focus moves into the menu and the selection is gone.
   const updateRects = useCallback(() => {
-    if (!range) {
-      setRects([]);
+    if (!range || isRangeCoveredBySelection(range, window.getSelection())) {
+      setRects((prev) => (prev.length === 0 ? prev : []));
       return;
     }
 
-    setRects(Array.from(range.getClientRects()));
+    setRects(getTranscriptRangeRects(range));
   }, [range]);
 
   useMountEffect(() => {
@@ -463,10 +469,12 @@ function SelectionHighlight({
     updateRects();
     const container = containerRef.current;
     window.addEventListener("resize", updateRects);
+    document.addEventListener("selectionchange", updateRects);
     container?.addEventListener("scroll", updateRects, { passive: true });
 
     return () => {
       window.removeEventListener("resize", updateRects);
+      document.removeEventListener("selectionchange", updateRects);
       container?.removeEventListener("scroll", updateRects);
     };
   });
@@ -480,6 +488,7 @@ function SelectionHighlight({
       {rects.map((rect, index) => (
         <div
           key={index}
+          data-transcript-selection-overlay
           style={{
             position: "fixed",
             left: rect.left,

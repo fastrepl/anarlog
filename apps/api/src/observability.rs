@@ -286,11 +286,11 @@ impl<E: SpanExporter> SpanExporter for SanitizingSpanExporter<E> {
         self.inner.export(batch)
     }
 
-    fn shutdown_with_timeout(&self, timeout: Duration) -> OTelSdkResult {
+    fn shutdown_with_timeout(&mut self, timeout: Duration) -> OTelSdkResult {
         self.inner.shutdown_with_timeout(timeout)
     }
 
-    fn force_flush(&self) -> OTelSdkResult {
+    fn force_flush(&mut self) -> OTelSdkResult {
         self.inner.force_flush()
     }
 

@@ -399,12 +399,15 @@ pub fn log(path: &Path, limit: u32) -> Result<Vec<CommitInfo>, crate::Error> {
             .decode()
             .map_err(|e| crate::Error::Custom(e.to_string()))?;
 
+        let author = commit_ref
+            .author()
+            .map_err(|e| crate::Error::Custom(e.to_string()))?;
+
         commits.push(CommitInfo {
             id: oid.to_string(),
             message: commit_ref.message.to_string(),
-            author: commit_ref.author.name.to_string(),
-            timestamp: commit_ref
-                .author
+            author: author.name.to_string(),
+            timestamp: author
                 .time
                 .split_whitespace()
                 .next()

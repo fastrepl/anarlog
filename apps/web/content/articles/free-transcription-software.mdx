@@ -1,12 +1,12 @@
 ---
 meta_title: "Best Free Transcription Software in 2026: 6 Useful Options"
 display_title: "Best Free Transcription Software in 2026"
-meta_description: "Compare six genuinely free transcription tools by usage limits, local or cloud processing, meeting capture, exports, and the point where you need to pay."
+meta_description: "Compare six genuinely free transcription tools by usage limits, local or cloud processing, meeting capture, exports, and the point where you need to pay. Includes manual and open-source programs."
 author:
   - "John Jeong"
 featured: false
 category: "Comparisons"
-date: "2026-08-25"
+date: "2026-09-11"
 ---
 
 Free transcription software is not one category.
@@ -21,6 +21,8 @@ The short version:
 - **Choose Transcript LOL** when the source is a URL or cloud file and two short transcripts per day are enough.
 - **Choose Otter** for automatic calendar meetings and a searchable cloud meeting workspace.
 - **Choose Notta** for multilingual cloud transcription, while treating its three-minute free-session limit as an evaluation tier.
+- **Choose oTranscribe** for a permanently free manual program with zero cloud upload, on any desktop OS.
+- **Choose Whisper or whisper.cpp** for a free automatic engine you run yourself, if you are comfortable with a command line.
 
 ## Free transcription software compared
 
@@ -181,15 +183,36 @@ The free tier looks larger in minutes than it feels in use. Notta's public pages
 Paid plans raise the recording duration, add transcript export and translation capabilities, and expand collaboration and integrations. Check [Notta's pricing page](https://www.notta.ai/en/pricing) because the regional free allowance and paid pricing can differ.
 
 
-## Tools we did not count as genuinely free automatic transcription
+## Completely free manual and open-source programs
 
-Some useful products do not fit this list:
+The six tools above are all *automatic*: you give them audio, and they produce a transcript with no typing. That is not the only kind of genuinely free program. If you want something you can install once, keep forever, and never pay for even at scale, two options are worth knowing about, with a real trade-off attached to each.
 
-- **oTranscribe** is free and open source, but it is a manual transcription workspace. It helps you type while controlling playback; it does not automatically convert speech to text.
-- **Rev, Sonix, Trint, and Happy Scribe** offer trials or small introductory allowances, but the automatic transcription workflow becomes paid after the trial or starter credit.
-- **OpenAI Whisper** is open source and free to run, but it is a model rather than a ready-made end-user workflow. If you are comfortable with a command line, it remains a strong building block. MacWhisper and other desktop apps package that kind of local model into a usable interface.
+### oTranscribe: manual transcription with zero cloud upload
 
-A free trial can still be the right answer for one critical file. It simply should not be confused with software you can keep using every week without paying.
+[oTranscribe](https://otranscribe.com/) is a free, open-source browser app built by journalist Elliot Bentley as a MuckRock Foundation project. It does not transcribe automatically. It puts an audio or video player and a text editor in the same window so you type your own transcript without switching applications. For someone on Windows or Linux searching for "a free program to transcribe audio to text", where MacWhisper is not an option, this is the direct answer.
+
+![oTranscribe's transcription workspace with a file-upload prompt and a plain-text editor](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/otranscribe/interface/2026-09-11-manual-editor.png)
+
+*oTranscribe's own app screen shows the file/YouTube import step and the manual transcript editor. Source: [oTranscribe](https://otranscribe.com/).*
+
+### What it includes
+
+- No signup, no install beyond a browser, and no daily or monthly limit
+- The audio file and transcript never leave your computer
+- Keyboard shortcuts to pause, rewind, and insert a timestamp without leaving the keyboard
+- Autosave to browser storage as you type
+- Export to Markdown, plain text, or Google Docs
+- MIT-licensed and open source
+
+The trade-off is in the name: there is no speech-to-text model here, so you are typing the transcript yourself while the player does the pausing and rewinding for you. Use it when privacy matters more than speed, or when one file needs doing today and an account is not worth creating.
+
+### Whisper and whisper.cpp: free automatic transcription for developers
+
+[OpenAI's Whisper](https://github.com/openai/whisper) is an open-source speech-recognition model, and [whisper.cpp](https://github.com/ggml-org/whisper.cpp) is a widely used C/C++ port that runs it efficiently on ordinary laptop hardware, including Apple Silicon and consumer Windows and Linux machines. Both are free to download and run locally, with no per-minute cost and no account.
+
+Unlike oTranscribe, this is automatic: point it at an audio file from the command line and it produces a transcript entirely on your machine. The catch is packaging, not capability. Running the raw model means installing dependencies, picking a model size for your hardware, and working from a terminal instead of a graphical app. MacWhisper exists precisely to remove that friction: it wraps the same class of local model in a normal interface, at the cost of being Mac-only and partly paid instead of free and cross-platform.
+
+Rev, Sonix, Trint, and Happy Scribe are a different case. Each offers a trial or a small starter allowance, and the automatic transcription becomes paid the moment that credit runs out, so none of them belong on a genuinely free list either.
 
 ## Which free transcription tool should you choose?
 
@@ -201,6 +224,8 @@ Use the input and privacy boundary to decide:
 - **Short online media or cloud files:** Transcript LOL
 - **Automatic scheduled meetings:** Otter
 - **Multilingual cloud evaluation:** Notta
+- **Permanently free manual program, any OS:** oTranscribe
+- **Permanently free automatic program you run yourself:** Whisper or whisper.cpp
 
 For sensitive material, do not stop at a product's marketing page. Confirm consent requirements, the exact capture path, enabled AI providers, retention settings, and the current privacy agreement for every service that receives the audio.
 
@@ -208,7 +233,7 @@ For sensitive material, do not stop at a product's marketing page. Confirm conse
 
 ### Is there completely free transcription software?
 
-Yes. Anarlog provides unlimited local meeting transcription, MacWhisper provides unlimited local file transcription on Mac, and Riverside offers a free standalone browser transcriber. The catch differs: local apps need your computer to run the model, while a browser tool requires uploading the file to a cloud service.
+Yes. Anarlog provides unlimited local meeting transcription, MacWhisper provides unlimited local file transcription on Mac, Riverside offers a free standalone browser transcriber, and oTranscribe and whisper.cpp are free and open source on any desktop OS. The catch differs: local apps need your computer to run the model, a browser tool requires uploading the file to a cloud service, and oTranscribe specifically is manual rather than automatic.
 
 ### What is the best free transcribing software for Mac?
 
@@ -216,7 +241,7 @@ Use MacWhisper for existing audio and video files. Use Anarlog for live meetings
 
 ### Can I transcribe audio for free without uploading it?
 
-Yes. Use an on-device tool such as MacWhisper, or use Anarlog for live meetings and imported recordings. Keep the speech-to-text model and any summary model local if the audio must not leave your computer.
+Yes. Use an on-device tool such as MacWhisper or whisper.cpp for files, oTranscribe for manual transcription, or Anarlog for live meetings and imported recordings. Keep the speech-to-text model and any summary model local if the audio must not leave your computer.
 
 ### Which free transcription software works for meetings?
 
@@ -225,5 +250,9 @@ Anarlog captures meetings from your desktop without a bot. Otter can automatical
 ### Are free transcription tools accurate?
 
 Accuracy depends more on the recording than the price label. Clear audio, separate microphones, limited crosstalk, and the right language model matter. Treat vendor percentage claims as marketing unless they publish a reproducible benchmark. Test the tool with your own speakers, accents, terminology, and worst normal audio before building a workflow around it.
+
+### What is a free program to transcribe audio to text?
+
+It depends on whether you need automatic speech-to-text or are willing to type it yourself. For a fully automatic, permanently free program, use Anarlog for live meetings or MacWhisper for existing files on a Mac; on Windows or Linux, whisper.cpp runs the same class of open-source model from the command line. For a completely free manual option on any desktop OS, use oTranscribe: nothing uploads, there is no account, and you control playback while you type.
 
 <CtaCard/>

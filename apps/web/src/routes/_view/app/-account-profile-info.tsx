@@ -1,6 +1,8 @@
+import { Icon } from "@iconify-icon/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { Globe, XLogo } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import {
@@ -25,6 +27,8 @@ export function ProfileInfoSection({ email }: { email?: string }) {
   const [draftName, setDraftName] = useState("");
   const [draftLinkedin, setDraftLinkedin] = useState("");
   const [draftX, setDraftX] = useState("");
+  const [draftWebsite, setDraftWebsite] = useState("");
+  const [websiteError, setWebsiteError] = useState<string | null>(null);
   const { data: accountSession } = useAccountSession();
   const queryClient = useQueryClient();
   const profile = accountSession?.profile;
@@ -34,6 +38,7 @@ export function ProfileInfoSection({ email }: { email?: string }) {
       fullName: string | null;
       linkedinUrl: string | null;
       xHandle: string | null;
+      websiteUrl: string | null;
     }) => {
       const supabase = getSupabaseBrowserClient();
       const { error } = await supabase.auth.updateUser({
@@ -41,6 +46,7 @@ export function ProfileInfoSection({ email }: { email?: string }) {
           full_name: details.fullName,
           linkedin_url: details.linkedinUrl,
           x_handle: details.xHandle,
+          website_url: details.websiteUrl,
         },
       });
       if (error) {
@@ -57,16 +63,25 @@ export function ProfileInfoSection({ email }: { email?: string }) {
     setDraftName(profile?.fullName ?? "");
     setDraftLinkedin(profile?.linkedinUrl ?? "");
     setDraftX(profile?.xHandle ?? "");
+    setDraftWebsite(profile?.websiteUrl ?? "");
+    setWebsiteError(null);
     updateDetailsMutation.reset();
     setIsEditingDetails(true);
   };
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const websiteUrl = normalizeWebsiteUrl(draftWebsite);
+    if (draftWebsite.trim() && websiteUrl === null) {
+      setWebsiteError("Please enter a valid website URL");
+      return;
+    }
+    setWebsiteError(null);
     updateDetailsMutation.mutate({
       fullName: draftName.trim() || null,
       linkedinUrl: normalizeLinkedinUrl(draftLinkedin),
       xHandle: normalizeXHandle(draftX),
+      websiteUrl,
     });
   };
 
@@ -201,6 +216,13 @@ export function ProfileInfoSection({ email }: { email?: string }) {
                 onChange={setDraftX}
                 placeholder="@yourhandle"
               />
+              <DetailsField
+                label="Website"
+                value={draftWebsite}
+                onChange={setDraftWebsite}
+                placeholder="yourdomain.com"
+                error={websiteError}
+              />
               {updateDetailsMutation.isError && (
                 <p className="text-sm text-red-600">
                   {updateDetailsMutation.error?.message ||
@@ -244,7 +266,8 @@ export function ProfileInfoSection({ email }: { email?: string }) {
                 </div>
               </div>
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <span className="text-sm font-medium text-[#756b5d]">
+                <span className="flex items-center gap-2 text-sm font-medium text-[#756b5d]">
+                  <Icon icon="logos:linkedin-icon" width="16" height="16" />
                   LinkedIn
                 </span>
                 {profile?.linkedinUrl ? (
@@ -261,7 +284,9 @@ export function ProfileInfoSection({ email }: { email?: string }) {
                 )}
               </div>
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <span className="text-sm font-medium text-[#756b5d]">X</span>
+                <span className="flex items-center gap-2 text-sm font-medium text-[#756b5d]">
+                  <XLogo size={16} />X
+                </span>
                 {profile?.xHandle ? (
                   <a
                     href={`https://x.com/${profile.xHandle}`}
@@ -270,6 +295,24 @@ export function ProfileInfoSection({ email }: { email?: string }) {
                     className="text-base text-[#181613] underline decoration-[#d9cdb8] underline-offset-4"
                   >
                     @{profile.xHandle}
+                  </a>
+                ) : (
+                  <span className="text-base text-[#756b5d]">Not set</span>
+                )}
+              </div>
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <span className="flex items-center gap-2 text-sm font-medium text-[#756b5d]">
+                  <Globe size={16} />
+                  Website
+                </span>
+                {profile?.websiteUrl ? (
+                  <a
+                    href={profile.websiteUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-base text-[#181613] underline decoration-[#d9cdb8] underline-offset-4"
+                  >
+                    {profile.websiteUrl.replace(/^https?:\/\/(www\.)?/, "")}
                   </a>
                 ) : (
                   <span className="text-base text-[#756b5d]">Not set</span>
@@ -302,22 +345,29 @@ function DetailsField({
   value,
   onChange,
   placeholder,
+  error,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
+  error?: string | null;
 }) {
   return (
     <label className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
       <span className="text-sm font-medium text-[#756b5d]">{label}</span>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={cn([authInputClassName, "md:max-w-[420px]"])}
-      />
+      <div className="flex w-full flex-col gap-1 md:max-w-[420px]">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={cn([authInputClassName])}
+          aria-invalid={error ? "true" : undefined}
+          aria-errormessage={error || undefined}
+        />
+        {error && <p className="text-sm text-red-600">{error}</p>}
+      </div>
     </label>
   );
 }
@@ -348,4 +398,21 @@ function normalizeXHandle(input: string): string | null {
     .replace(/^@/, "")
     .replace(/\/+$/, "");
   return handle || null;
+}
+
+function normalizeWebsiteUrl(input: string): string | null {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return null;
+  }
+  let url = trimmed.replace(/^@/, "").replace(/\/+$/, "");
+  if (!/^https?:\/\//i.test(url)) {
+    url = `https://${url}`;
+  }
+  try {
+    new URL(url);
+    return url;
+  } catch {
+    return null;
+  }
 }

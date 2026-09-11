@@ -254,6 +254,45 @@ describe("RenderTranscript", () => {
     expect(screen.getByRole("button", { name: "Ada" })).toBeTruthy();
   });
 
+  it("renders identities resolved by the native settled renderer", () => {
+    const settled = createSegment("settled", 0);
+    settled.key.speaker_human_id = "human-1";
+    const assignments: IdentityAssignment[] = [
+      {
+        human_id: "human-1",
+        scope: {
+          kind: "channel_speaker",
+          channel: "MixedCapture",
+          speaker_index: 0,
+        },
+      },
+    ];
+    const request = createRenderRequest([settled], assignments);
+    request.humans = [{ human_id: "human-1", name: "Ada" }];
+    mocks.useRenderedTranscriptData.mockReturnValue({
+      maxSpeakerNumber: undefined,
+      request,
+      segments: [settled],
+    });
+
+    render(
+      <RenderTranscript
+        scrollElement={null}
+        isLastTranscript
+        shouldScrollToEnd={false}
+        transcriptId="transcript-1"
+        currentActive={false}
+        liveSegments={[]}
+        currentMs={0}
+        seek={vi.fn()}
+        startPlayback={vi.fn()}
+        audioExists
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Ada" })).toBeTruthy();
+  });
+
   it("keeps the DOM bounded for a multi-hour transcript fixture", () => {
     const segments = createSegments(10_000);
     mocks.useRenderedTranscriptData.mockReturnValue({

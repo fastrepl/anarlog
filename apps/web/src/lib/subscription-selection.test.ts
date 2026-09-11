@@ -4,6 +4,7 @@ import type Stripe from "stripe";
 
 import {
   getPlanSwitchRoute,
+  getSubscriptionBillingPeriod,
   selectCurrentSubscription,
   selectPersonalPlanReplacement,
 } from "./subscription-selection.ts";
@@ -47,6 +48,29 @@ test("preserves the selected paused subscription and its billing period", () => 
 
   assert.equal(selected, paused);
   assert.equal(selected?.items.data[0]?.price.id, "price_yearly");
+});
+
+test("derives the billing period from the subscription price interval", () => {
+  const withInterval = (interval: string | null) =>
+    ({
+      items: {
+        data: [
+          {
+            id: "si_pro",
+            price: {
+              id: "price",
+              recurring: interval ? { interval } : null,
+            },
+          },
+        ],
+      },
+    }) as unknown as Stripe.Subscription;
+
+  assert.equal(getSubscriptionBillingPeriod(withInterval("month")), "monthly");
+  assert.equal(getSubscriptionBillingPeriod(withInterval("year")), "yearly");
+  assert.equal(getSubscriptionBillingPeriod(withInterval("week")), null);
+  assert.equal(getSubscriptionBillingPeriod(withInterval(null)), null);
+  assert.equal(getSubscriptionBillingPeriod({ items: { data: [] } }), null);
 });
 
 test("routes paused plan switches to the resume portal", () => {
