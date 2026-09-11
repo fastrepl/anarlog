@@ -1,6 +1,6 @@
 pub use anlg_deeplink_core::{
-    AuthCallbackSearch, BillingRefreshSearch, DeepLink, IncomingDeepLink,
-    IntegrationCallbackSearch, OnboardingDemoCompleteSearch, ShareOpenRequest,
+    AuthCallbackSearch, BillingRefreshSearch, DeepLink, IntegrationCallbackSearch,
+    OnboardingDemoCompleteSearch, ShareOpenRequest,
 };
 use specta::Type;
 

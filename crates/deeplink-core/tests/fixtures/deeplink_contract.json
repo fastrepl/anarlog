@@ -1,0 +1,138 @@
+[
+  {
+    "name": "auth callback anarlog",
+    "url": "anarlog://auth/callback?code=code-1&state=state-1",
+    "expect": { "kind": "deep_link", "path": "/auth/callback", "redacted": "anarlog://auth/callback" }
+  },
+  {
+    "name": "auth callback staging",
+    "url": "anarlog-staging://auth/callback?code=code-2&state=state-2",
+    "expect": { "kind": "deep_link", "path": "/auth/callback", "redacted": "anarlog-staging://auth/callback" }
+  },
+  {
+    "name": "auth callback dev",
+    "url": "anarlog-dev://auth/callback?code=code-3&state=state-3",
+    "expect": { "kind": "deep_link", "path": "/auth/callback", "redacted": "anarlog-dev://auth/callback" }
+  },
+  {
+    "name": "billing refresh anarlog",
+    "url": "anarlog://billing/refresh",
+    "expect": { "kind": "deep_link", "path": "/billing/refresh", "redacted": "anarlog://billing/refresh" }
+  },
+  {
+    "name": "billing refresh staging",
+    "url": "anarlog-staging://billing/refresh",
+    "expect": { "kind": "deep_link", "path": "/billing/refresh", "redacted": "anarlog-staging://billing/refresh" }
+  },
+  {
+    "name": "billing refresh dev",
+    "url": "anarlog-dev://billing/refresh",
+    "expect": { "kind": "deep_link", "path": "/billing/refresh", "redacted": "anarlog-dev://billing/refresh" }
+  },
+  {
+    "name": "integration callback anarlog",
+    "url": "anarlog://integration/callback?integration_id=calendar&status=success",
+    "expect": { "kind": "deep_link", "path": "/integration/callback", "redacted": "anarlog://integration/callback" }
+  },
+  {
+    "name": "integration callback staging",
+    "url": "anarlog-staging://integration/callback?integration_id=calendar&status=success",
+    "expect": {
+      "kind": "deep_link",
+      "path": "/integration/callback",
+      "redacted": "anarlog-staging://integration/callback"
+    }
+  },
+  {
+    "name": "integration callback dev",
+    "url": "anarlog-dev://integration/callback?integration_id=calendar&status=success",
+    "expect": { "kind": "deep_link", "path": "/integration/callback", "redacted": "anarlog-dev://integration/callback" }
+  },
+  {
+    "name": "onboarding demo complete anarlog",
+    "url": "anarlog://onboarding-demo/complete",
+    "expect": {
+      "kind": "deep_link",
+      "path": "/onboarding-demo/complete",
+      "redacted": "anarlog://onboarding-demo/complete"
+    }
+  },
+  {
+    "name": "onboarding demo complete staging",
+    "url": "anarlog-staging://onboarding-demo/complete",
+    "expect": {
+      "kind": "deep_link",
+      "path": "/onboarding-demo/complete",
+      "redacted": "anarlog-staging://onboarding-demo/complete"
+    }
+  },
+  {
+    "name": "onboarding demo complete dev",
+    "url": "anarlog-dev://onboarding-demo/complete",
+    "expect": {
+      "kind": "deep_link",
+      "path": "/onboarding-demo/complete",
+      "redacted": "anarlog-dev://onboarding-demo/complete"
+    }
+  },
+  {
+    "name": "account share open anarlog",
+    "url": "anarlog://share/open?mode=account&share_id=40bc9d36-7634-4c48-988f-6a3e301467e7",
+    "expect": { "kind": "share_open", "path": "/share/open", "redacted": "anarlog://share/open" }
+  },
+  {
+    "name": "account share open staging",
+    "url": "anarlog-staging://share/open?mode=account&share_id=40bc9d36-7634-4c48-988f-6a3e301467e7",
+    "expect": { "kind": "share_open", "path": "/share/open", "redacted": "anarlog-staging://share/open" }
+  },
+  {
+    "name": "account share open dev",
+    "url": "anarlog-dev://share/open?mode=account&share_id=40bc9d36-7634-4c48-988f-6a3e301467e7",
+    "expect": { "kind": "share_open", "path": "/share/open", "redacted": "anarlog-dev://share/open" }
+  },
+  {
+    "name": "handoff share open anarlog",
+    "url": "anarlog://share/open?mode=handoff&request_id=ba5ca57a-8f88-44e8-ab92-f9e10c89425c",
+    "expect": { "kind": "share_open", "path": "/share/open", "redacted": "anarlog://share/open" }
+  },
+  {
+    "name": "handoff share open staging",
+    "url": "anarlog-staging://share/open?mode=handoff&request_id=ba5ca57a-8f88-44e8-ab92-f9e10c89425c",
+    "expect": { "kind": "share_open", "path": "/share/open", "redacted": "anarlog-staging://share/open" }
+  },
+  {
+    "name": "handoff share open dev",
+    "url": "anarlog-dev://share/open?mode=handoff&request_id=ba5ca57a-8f88-44e8-ab92-f9e10c89425c",
+    "expect": { "kind": "share_open", "path": "/share/open", "redacted": "anarlog-dev://share/open" }
+  },
+  {
+    "name": "malformed URL",
+    "url": "anarlog://%zz",
+    "expect": { "kind": "invalid", "redacted": "anarlog://%zz" }
+  },
+  {
+    "name": "unknown path",
+    "url": "anarlog://unknown/path",
+    "expect": { "kind": "invalid", "redacted": "anarlog://unknown/path" }
+  },
+  {
+    "name": "non URL string",
+    "url": "not a url",
+    "expect": { "kind": "invalid", "redacted": "[invalid_url]" }
+  },
+  {
+    "name": "HTTP callback remains a deep link",
+    "url": "http://auth/callback?code=http-code",
+    "expect": { "kind": "deep_link", "path": "/auth/callback", "redacted": "http://auth/callback" }
+  },
+  {
+    "name": "share open with bad UUID",
+    "url": "anarlog://share/open?mode=account&share_id=not-a-uuid",
+    "expect": { "kind": "invalid", "redacted": "anarlog://share/open" }
+  },
+  {
+    "name": "sensitive auth query is redacted",
+    "url": "anarlog-dev://auth/callback?access_token=secret-access&refresh_token=secret-refresh&code=secret-code&state=state",
+    "expect": { "kind": "deep_link", "path": "/auth/callback", "redacted": "anarlog-dev://auth/callback" }
+  }
+]

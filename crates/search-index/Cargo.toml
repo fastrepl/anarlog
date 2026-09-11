@@ -6,6 +6,7 @@ edition = "2024"
 [features]
 default = []
 specta = ["dep:specta"]
+contract-fixtures = []
 
 [dependencies]
 anlg-language = { workspace = true, features = ["detect"] }
@@ -23,5 +24,6 @@ tracing = { workspace = true }
 [dev-dependencies]
 anlg-db-app = { workspace = true }
 anlg-db-core = { workspace = true }
+anlg-search-index = { path = ".", package = "search-index", features = ["contract-fixtures"] }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt"] }

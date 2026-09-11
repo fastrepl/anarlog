@@ -11,6 +11,7 @@ description = ""
 tauri-plugin = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
+anlg-deeplink-core = { workspace = true, features = ["contract-fixtures"] }
 specta-typescript = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 

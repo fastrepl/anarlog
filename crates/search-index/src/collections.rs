@@ -395,6 +395,16 @@ impl Collections {
         Ok(SearchResult { hits, count })
     }
 
+    pub async fn reload(&self, collection: Option<String>) -> Result<(), crate::Error> {
+        let collection_name = Self::get_collection_name(collection);
+        let guard = self.inner.read().await;
+        let collection_index = guard
+            .get(&collection_name)
+            .ok_or_else(|| crate::Error::CollectionNotFound(collection_name.clone()))?;
+        collection_index.reader.reload()?;
+        Ok(())
+    }
+
     pub async fn reindex(&self, collection: Option<String>) -> Result<(), crate::Error> {
         let collection_name = Self::get_collection_name(collection);
         let mut guard = self.inner.write().await;

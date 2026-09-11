@@ -80,4 +80,6 @@ x11-clipboard = "0.9.3"
 x11rb = "0.13.1"
 
 [dev-dependencies]
+anlg-deeplink-core = { workspace = true, features = ["contract-fixtures"] }
+anlg-tray-core = { workspace = true, features = ["contract-fixtures"] }
 tokio = { workspace = true, features = ["rt", "macros"] }

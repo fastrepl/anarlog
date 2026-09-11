@@ -61,6 +61,47 @@ pub fn classify(url: &str) -> Incoming {
     }
 }
 
+#[cfg(test)]
+mod contract_tests {
+    use super::{Incoming, classify, scheme};
+    use anlg_deeplink_core::contract::deeplink_cases;
+
+    #[test]
+    fn adapter_matches_deeplink_contract() {
+        for case in deeplink_cases() {
+            match (classify(&case.url), case.expect.kind.as_str()) {
+                (Incoming::DeepLink(deep_link), "deep_link") => {
+                    assert_eq!(
+                        Some(deep_link.path()),
+                        case.expect.path.as_deref(),
+                        "{}",
+                        case.name
+                    );
+                }
+                (Incoming::ShareOpen(_), "share_open") => {
+                    assert_eq!(
+                        case.expect.path.as_deref(),
+                        Some("/share/open"),
+                        "{}",
+                        case.name
+                    );
+                }
+                (Incoming::Focus, "invalid") => {}
+                (incoming, expected) => {
+                    panic!("{}: expected {expected}, got {incoming:?}", case.name)
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn adapter_uses_fixture_schemes_for_bundle_identifiers() {
+        assert_eq!(scheme("com.hyprnote.stable"), "anarlog");
+        assert_eq!(scheme("com.hyprnote.staging"), "anarlog-staging");
+        assert_eq!(scheme("com.hyprnote.dev"), "anarlog-dev");
+    }
+}
+
 /// Command-line arguments that are URLs: the OS passes the clicked link as
 /// the only positional argument.
 pub fn urls_from_args(args: &[std::ffi::OsString]) -> Vec<String> {

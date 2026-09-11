@@ -3,11 +3,19 @@ name = "deeplink-core"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = []
+contract-fixtures = ["dep:serde_json"]
+
 [dependencies]
 askama = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, optional = true }
 serde_qs = { workspace = true }
 specta = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 url = { workspace = true }
 uuid = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

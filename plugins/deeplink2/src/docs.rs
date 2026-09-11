@@ -133,10 +133,10 @@ fn deeplink_union(module: &Module) -> Option<&TsType> {
 }
 
 fn extract_literal_string_value(type_ann: &TsType) -> Option<String> {
-    if let TsType::TsLitType(lit_type) = type_ann {
-        if let anlg_docs::TsLit::Str(s) = &lit_type.lit {
-            return s.value.as_str().map(|s| s.to_string());
-        }
+    if let TsType::TsLitType(lit_type) = type_ann
+        && let anlg_docs::TsLit::Str(s) = &lit_type.lit
+    {
+        return s.value.as_str().map(|s| s.to_string());
     }
     None
 }

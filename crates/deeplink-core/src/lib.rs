@@ -5,6 +5,9 @@ mod callback;
 mod error;
 mod types;
 
+#[cfg(feature = "contract-fixtures")]
+pub mod contract;
+
 pub use callback::{
     parse_callback, redact_url, render_html, render_html_from_callback, subscription_auth_deeplink,
 };
