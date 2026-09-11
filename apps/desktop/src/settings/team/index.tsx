@@ -33,13 +33,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@anlg/ui/components/ui/select";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 import { cn } from "@anlg/utils";
 
 import {
+  acceptMyWorkspaceInvitation,
   checkWorkspaceShareSlugAvailability,
   claimWorkspaceDomain,
   createWorkspace,
+  declineMyWorkspaceInvitation,
   deleteWorkspace,
   getWorkspaceAccess,
   getWorkspacePolicy,
@@ -57,6 +60,7 @@ import {
   setWorkspacePolicy,
   setWorkspaceShareSlug,
   transferOwnership,
+  type MyWorkspaceInvitation,
   type WorkspaceCapability,
   type WorkspaceMember,
   type WorkspacePolicy,
@@ -70,6 +74,10 @@ import {
 } from "./invitation";
 import { WorkspaceLogoButton, WorkspaceLogoMark } from "./logo-button";
 import { MY_WORKSPACES_QUERY_KEY, useMyWorkspacesWithMirror } from "./mirror";
+import {
+  MY_INVITATIONS_QUERY_KEY,
+  useMyWorkspaceInvitations,
+} from "./my-invitations";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
@@ -101,6 +109,7 @@ export function SettingsTeam() {
   // Shares the query (and therefore the mirror refresh) with the app-level
   // mount, so opening this page is never what makes sharing scopes appear.
   const workspaces = useMyWorkspacesWithMirror();
+  const invitations = useMyWorkspaceInvitations();
   const selectedWorkspace =
     isCreating || !workspaces.data
       ? undefined
@@ -146,6 +155,16 @@ export function SettingsTeam() {
     <div className="flex flex-col gap-8">
       <SettingsPageTitle title={<Trans>Teams</Trans>} />
 
+      {invitations.data && invitations.data.length > 0 ? (
+        <PendingInvitations
+          invitations={invitations.data}
+          onJoined={(workspaceId) => {
+            setIsCreating(false);
+            setSelectedId(workspaceId);
+          }}
+        />
+      ) : null}
+
       {workspaces.isPending ? (
         <TeamSkeleton />
       ) : workspaces.data && workspaces.data.length > 0 ? (
@@ -189,6 +208,120 @@ export function SettingsTeam() {
         createForm
       )}
     </div>
+  );
+}
+
+function PendingInvitations({
+  invitations,
+  onJoined,
+}: {
+  invitations: MyWorkspaceInvitation[];
+  onJoined: (workspaceId: string) => void;
+}) {
+  const auth = useAuth();
+  const { t } = useLingui();
+  const queryClient = useQueryClient();
+
+  const accept = useMutation({
+    mutationFn: (invitation: MyWorkspaceInvitation) =>
+      acceptMyWorkspaceInvitation(
+        requireTeamContext(auth),
+        invitation.invitationId,
+      ),
+    onSuccess: (result, invitation) => {
+      onJoined(result.workspaceId);
+      void queryClient.invalidateQueries({
+        queryKey: [MY_WORKSPACES_QUERY_KEY],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: [MY_INVITATIONS_QUERY_KEY],
+      });
+      sonnerToast.success(t`Joined ${invitation.workspaceName}`);
+      sonnerToast.dismiss(`team-invitation:${invitation.invitationId}`);
+    },
+    onError: (error) => {
+      sonnerToast.error(error.message);
+    },
+  });
+  const decline = useMutation({
+    mutationFn: (invitation: MyWorkspaceInvitation) =>
+      declineMyWorkspaceInvitation(
+        requireTeamContext(auth),
+        invitation.invitationId,
+      ),
+    onSuccess: (_result, invitation) => {
+      void queryClient.invalidateQueries({
+        queryKey: [MY_INVITATIONS_QUERY_KEY],
+      });
+      sonnerToast.dismiss(`team-invitation:${invitation.invitationId}`);
+    },
+    onError: (error) => {
+      sonnerToast.error(error.message);
+    },
+  });
+
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="font-sans text-lg font-semibold">
+        <Trans>Invitations</Trans>
+      </h2>
+      {invitations.map((invitation) => {
+        const accepting =
+          accept.isPending &&
+          accept.variables?.invitationId === invitation.invitationId;
+        const declining =
+          decline.isPending &&
+          decline.variables?.invitationId === invitation.invitationId;
+        return (
+          <div
+            key={invitation.invitationId}
+            className="flex items-center gap-3"
+          >
+            <WorkspaceLogoMark
+              logoDataUrl={invitation.workspaceLogoDataUrl}
+              className="size-8 rounded-lg"
+            />
+            <div className="flex min-w-0 flex-col">
+              <span className="text-sm font-medium">
+                {invitation.workspaceName}
+              </span>
+              <span className="text-muted-foreground text-xs">
+                {invitation.invitedByEmail ? (
+                  <Trans>Invited by {invitation.invitedByEmail}</Trans>
+                ) : (
+                  <Trans>Invited to join</Trans>
+                )}
+              </span>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                disabled={accept.isPending || decline.isPending}
+                onClick={() => accept.mutate(invitation)}
+              >
+                {accepting ? (
+                  <CircleNotch className="size-4 animate-spin" />
+                ) : null}
+                <Trans>Accept</Trans>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={accept.isPending || decline.isPending}
+                onClick={() => decline.mutate(invitation)}
+              >
+                {declining ? (
+                  <CircleNotch className="size-4 animate-spin" />
+                ) : null}
+                <Trans>Decline</Trans>
+              </Button>
+            </div>
+          </div>
+        );
+      })}
+    </section>
   );
 }
 

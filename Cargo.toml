@@ -336,11 +336,11 @@ minijinja-contrib = "2.7.0"
 env_logger = "0.11.8"
 gpui = "0.2.2"
 log = "0.4"
-opentelemetry = "0.32"
-opentelemetry-otlp = { version = "0.32", features = ["grpc-tonic", "trace"] }
-opentelemetry_sdk = "0.32"
+opentelemetry = "0.30"
+opentelemetry-otlp = { version = "0.30", features = ["grpc-tonic", "trace"] }
+opentelemetry_sdk = "0.30"
 tracing = "0.1"
-tracing-opentelemetry = "0.33"
+tracing-opentelemetry = "0.31"
 tracing-subscriber = "0.3"
 
 apalis = "1.0.0-rc.7"

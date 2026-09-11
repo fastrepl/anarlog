@@ -163,19 +163,6 @@ fn remember_identity(
         .map(|value| value.speaker_index.is_some() || value.human_id.is_some())
         .unwrap_or(false);
 
-    if let (Some(speaker_index), Some(human_id)) = (identity.speaker_index, &identity.human_id) {
-        state
-            .human_id_by_scoped_speaker
-            .insert((word.channel, speaker_index), human_id.clone());
-    }
-
-    if state.complete_channels.contains(&word.channel)
-        && identity.speaker_index.is_none()
-        && let Some(human_id) = identity.human_id.clone()
-    {
-        state.human_id_by_channel.insert(word.channel, human_id);
-    }
-
     if (!word.is_final || identity.speaker_index.is_some() || has_explicit_assignment)
         && !identity.is_empty()
     {

@@ -95,9 +95,10 @@ fn resolve_capture_settings(
 // needs a PulseAudio/PipeWire mic capture path.
 const SWAPS_BLUETOOTH_DEFAULT_MIC: bool = cfg!(any(target_os = "macos", target_os = "windows"));
 
-// Opening a Bluetooth headset's mic forces it into HFP: the headset gates the mic to silence
-// between words and the wearer's audio drops to 16 kHz. Only the system default is swapped; an
-// explicit selection is respected.
+// Opening a Bluetooth headset's mic on Windows forces HFP: the headset gates the mic to silence
+// between words and the wearer's audio drops to 16 kHz. On macOS a HAL open does not, so capture
+// later sets the headset as the default input to complete A2DP→HFP/SCO. Only the system default
+// is swapped to wired; an explicit selection is respected.
 fn active_mic_device(explicit: Option<String>, audio: &dyn AudioProvider) -> Option<String> {
     if explicit.is_some() || !SWAPS_BLUETOOTH_DEFAULT_MIC {
         return explicit;

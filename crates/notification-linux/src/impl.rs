@@ -120,14 +120,14 @@ impl NotificationInstance {
             if event.detail() != NotifyType::Inferior {
                 NotificationManager::set_hovered(&hover_key, true);
             }
-            gtk::glib::Propagation::Proceed
+            glib::Propagation::Proceed
         });
         let hover_key = self.key.clone();
         hover_box.connect_leave_notify_event(move |_, event| {
             if event.detail() != NotifyType::Inferior {
                 NotificationManager::set_hovered(&hover_key, false);
             }
-            gtk::glib::Propagation::Proceed
+            glib::Propagation::Proceed
         });
 
         self.window.add(&hover_box);
@@ -266,7 +266,7 @@ impl NotificationInstance {
                 callbacks::confirm(content_key.clone());
                 NotificationManager::dismiss_global(&content_key, DismissReason::Action);
             }
-            gtk::glib::Propagation::Stop
+            glib::Propagation::Stop
         });
 
         let root = GtkBox::new(Orientation::Vertical, 0);

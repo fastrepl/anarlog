@@ -252,6 +252,118 @@ describe("TranscriptAccumulator", () => {
     ]);
   });
 
+  it.each([false, true])(
+    "does not expand an unindexed assignment as live words arrive (replacement: %s)",
+    (replace) => {
+      const store = createStore({
+        words: JSON.stringify([
+          {
+            id: "selected",
+            text: "hello",
+            start_ms: 0,
+            end_ms: 100,
+            channel: 2,
+          },
+        ]),
+      });
+      upsertSpeakerAssignment(
+        store,
+        "transcript-1",
+        { channel: "MixedCapture", speaker_index: null },
+        "alice",
+        "selected",
+        { mode: "segment", wordIds: ["selected"] },
+      );
+      const accumulator = createTranscriptAccumulator(store, "transcript-1");
+      accumulator.applyLiveDelta(
+        liveDelta(
+          [
+            ...(replace
+              ? [
+                  {
+                    id: "replacement",
+                    text: "hello",
+                    start_ms: 0,
+                    end_ms: 100,
+                    channel: 2,
+                    state: "final" as const,
+                  },
+                ]
+              : []),
+            {
+              id: "other",
+              text: "another voice",
+              start_ms: 100,
+              end_ms: 200,
+              channel: 2,
+              state: "final",
+            },
+          ],
+          replace ? ["selected"] : [],
+        ),
+      );
+      accumulator.dispose();
+
+      const hints = JSON.parse(store.readCell("speaker_hints"));
+      expect(JSON.parse(hints[0].value).word_ids).toEqual([
+        replace ? "replacement" : "selected",
+      ]);
+    },
+  );
+
+  it("keeps reconstructed indexed word selections fixed during live persistence", () => {
+    const words = ["first", "other", "last"].map((id, index) => ({
+      id,
+      text: id,
+      start_ms: index * 100,
+      end_ms: index * 100 + 100,
+      channel: 1,
+    }));
+    const store = createStore({
+      words: JSON.stringify(words),
+      speaker_hints: JSON.stringify(
+        words.map((word) => ({
+          id: `${word.id}:provider_speaker_index`,
+          word_id: word.id,
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 0 }),
+        })),
+      ),
+    });
+    upsertSpeakerAssignment(
+      store,
+      "transcript-1",
+      remoteSpeakerKey(0),
+      "alice",
+      "first",
+      {
+        mode: "segment",
+        wordIds: ["first", "last"],
+        extendToAdjacent: false,
+      },
+    );
+    const accumulator = createTranscriptAccumulator(store, "transcript-1");
+    accumulator.applyLiveDelta(
+      liveDelta([
+        {
+          id: "appended",
+          text: "another",
+          start_ms: 300,
+          end_ms: 400,
+          channel: 1,
+          speaker_index: 0,
+          state: "final",
+        },
+      ]),
+    );
+    accumulator.dispose();
+
+    const hint = JSON.parse(store.readCell("speaker_hints")).find(
+      (hint: { type: string }) => hint.type === "user_speaker_assignment",
+    );
+    expect(JSON.parse(hint.value).word_ids).toEqual(["first", "last"]);
+  });
+
   it("adds appended live words to a continuing segment assignment", () => {
     const store = createStore({});
     const accumulator = createTranscriptAccumulator(store, "transcript-1", {
@@ -747,6 +859,146 @@ describe("findSpeakerAssignmentAnchorWordId", () => {
 });
 
 describe("upsertSpeakerAssignment", () => {
+  it.each(["DirectMic", "RemoteParty", "MixedCapture"] as const)(
+    "limits an unindexed %s assignment to the selected words",
+    (channel) => {
+      const store = createStore({});
+      upsertSpeakerAssignment(
+        store,
+        "transcript-1",
+        { channel, speaker_index: null, speaker_human_id: null },
+        "alice",
+        "word-1",
+        { mode: "all", wordIds: ["word-1", "word-2"] },
+      );
+
+      const hints = JSON.parse(store.readCell("speaker_hints"));
+      expect(hints).toHaveLength(1);
+      expect(JSON.parse(hints[0].value)).toEqual({
+        human_id: "alice",
+        scope: "segment",
+        word_ids: ["word-1", "word-2"],
+        extend_to_adjacent: false,
+      });
+    },
+  );
+
+  it.each(["segment", "all"] as const)(
+    "preserves untouched word overrides when assigning %s scope",
+    (mode) => {
+      const store = createStore({
+        words: JSON.stringify(
+          ["word-1", "word-2"].map((id, index) => ({
+            id,
+            text: id,
+            start_ms: index * 100,
+            end_ms: index * 100 + 100,
+            channel: 1,
+          })),
+        ),
+        speaker_hints: JSON.stringify([
+          ...["word-1", "word-2"].map((id, index) => ({
+            id: `${id}:provider_speaker_index`,
+            word_id: id,
+            type: "provider_speaker_index",
+            value: JSON.stringify({ channel: 1, speaker_index: index }),
+          })),
+          {
+            id: "word-1:user_speaker_assignment:segment",
+            word_id: "word-1",
+            type: "user_speaker_assignment",
+            value: JSON.stringify({
+              human_id: "alice",
+              scope: "segment",
+              word_ids: ["word-1", "word-2"],
+            }),
+          },
+        ]),
+      });
+
+      upsertSpeakerAssignment(
+        store,
+        "transcript-1",
+        remoteSpeakerKey(0),
+        "bob",
+        "word-1",
+        {
+          mode,
+          wordIds: ["word-1"],
+        },
+      );
+
+      const hints = JSON.parse(store.readCell("speaker_hints"));
+      expect(hints).toContainEqual({
+        id: "word-2:user_speaker_assignment:segment",
+        word_id: "word-2",
+        type: "user_speaker_assignment",
+        value: JSON.stringify({
+          human_id: "alice",
+          scope: "segment",
+          word_ids: ["word-2"],
+        }),
+      });
+      expect(
+        hints.filter(
+          (hint: { type: string }) => hint.type === "user_speaker_assignment",
+        ),
+      ).toHaveLength(2);
+    },
+  );
+
+  it("matches the rendered channel and latest provider index when replacing word overrides", () => {
+    const store = createStore({
+      words: JSON.stringify([
+        { id: "word-1", text: "hello", start_ms: 0, end_ms: 100, channel: 1 },
+      ]),
+      speaker_hints: JSON.stringify([
+        {
+          id: "old-provider",
+          word_id: "word-1",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 0 }),
+        },
+        {
+          id: "new-provider",
+          word_id: "word-1",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 2, speaker_index: 7 }),
+        },
+        {
+          id: "override",
+          word_id: "word-1",
+          type: "user_speaker_assignment",
+          value: JSON.stringify({
+            human_id: "alice",
+            scope: "segment",
+            word_ids: ["word-1"],
+          }),
+        },
+      ]),
+    });
+
+    upsertSpeakerAssignment(
+      store,
+      "transcript-1",
+      { channel: "MixedCapture", speaker_index: 7 },
+      "bob",
+      "word-1",
+    );
+
+    const assignments = JSON.parse(store.readCell("speaker_hints")).filter(
+      (hint: { type: string }) => hint.type === "user_speaker_assignment",
+    );
+    expect(assignments).toHaveLength(1);
+    expect(JSON.parse(assignments[0].value)).toEqual({
+      human_id: "bob",
+      scope: "speaker",
+      channel: 2,
+      speaker_index: 7,
+    });
+    expect(JSON.parse(store.readCell("words"))[0].channel).toBe(1);
+  });
+
   it("removes a conflicting automatic assignment when a user assigns the speaker", () => {
     const store = createStore({
       words: JSON.stringify([

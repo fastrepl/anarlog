@@ -11,7 +11,7 @@ import { checkoutSourceSchema } from "@/lib/checkout-source";
 import { captureOperationalError } from "@/lib/error-reporting";
 
 const validateSearch = z.object({
-  period: z.enum(["monthly", "yearly"]).catch("monthly"),
+  period: z.enum(["monthly", "yearly"]).optional().catch(undefined),
   plan: z.enum(["pro"]).catch("pro").optional(),
   scheme: desktopSchemeSchema.optional(),
   trial: z
@@ -50,7 +50,7 @@ export const Route = createFileRoute("/_view/app/checkout")({
         operation: "checkout_session_create",
         context: {
           checkout_type: search.trial ? "trial" : "paid",
-          period: search.period,
+          period: search.period ?? "monthly",
           source: search.source,
         },
       });
