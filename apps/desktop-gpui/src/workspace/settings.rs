@@ -1832,8 +1832,9 @@ impl Workspace {
                     .cursor_pointer()
                     .hover(|element| element.bg(theme.accent))
                     .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                        this.auth_service.sign_out();
-                        this.auth = super::toast::Auth::SignedOut;
+                        if let Err(error) = this.auth_service.sign_out() {
+                            tracing::warn!(%error, "failed to persist desktop auth sign-out");
+                        }
                         cx.notify();
                     }))
                     .child("Sign out"),

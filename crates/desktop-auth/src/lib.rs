@@ -161,9 +161,9 @@ impl SessionManager {
         Ok(Some(refreshed))
     }
 
-    pub fn sign_out(&self) {
+    pub fn sign_out(&self) -> Result<()> {
         let _ = self.store.clear();
-        let _ = self.persistence.clear();
+        self.persistence.clear()
     }
 
     pub fn account_info(&self) -> Result<Option<AccountInfo>> {

@@ -7,6 +7,7 @@ use anlg_deeplink_core::AuthCallbackSearch;
 use anlg_desktop_auth::{AccountInfo, Persistence, SessionManager, paths, storage_key};
 #[cfg(target_os = "linux")]
 use anlg_desktop_auth::{LinuxSecurePersistence, SecretStore};
+use tokio::sync::watch;
 
 const AUTH_SCOPE: &str = "auth";
 const AUTH_KEY: &str = "supabase-storage";
@@ -16,6 +17,7 @@ const SUPABASE_ANON_KEY: Option<&str> = option_env!("VITE_SUPABASE_ANON_KEY");
 pub struct Auth {
     session: Arc<SessionManager>,
     callbacks: Mutex<CallbackDeduper>,
+    signed_in: watch::Sender<bool>,
 }
 
 impl Auth {
@@ -30,30 +32,62 @@ impl Auth {
                 tracing::warn!(%error, "failed to load desktop auth persistence");
                 SessionManager::in_memory(key, HashMap::new(), client)
             });
+        let signed_in = session.session().ok().flatten().is_some();
+        let (signed_in_tx, _) = watch::channel(signed_in);
         Self {
             session: Arc::new(session),
             callbacks: Mutex::new(CallbackDeduper::default()),
+            signed_in: signed_in_tx,
         }
+    }
+
+    pub fn start(identifier: &str, runtime: &tokio::runtime::Handle) -> Arc<Self> {
+        let auth = Arc::new(Self::new(identifier));
+        let refresh_auth = auth.clone();
+        runtime.spawn(async move {
+            loop {
+                refresh_auth.refresh().await;
+                tokio::time::sleep(Duration::from_secs(300)).await;
+            }
+        });
+        auth
+    }
+
+    pub fn signed_in(&self) -> bool {
+        *self.signed_in.borrow()
+    }
+
+    pub fn subscribe(&self) -> watch::Receiver<bool> {
+        self.signed_in.subscribe()
     }
 
     pub fn account_info(&self) -> Option<AccountInfo> {
         self.session.account_info().ok().flatten()
     }
 
-    pub fn sign_out(&self) {
-        self.session.sign_out();
+    pub fn sign_out(&self) -> Result<(), String> {
+        let result = self.session.sign_out().map_err(|error| error.to_string());
+        self.signed_in.send_replace(false);
+        result
     }
 
     pub async fn refresh(&self) {
         if let Err(error) = self.session.ensure_fresh(Duration::from_secs(60)).await {
             tracing::warn!(%error, "failed to refresh desktop auth session");
-            if matches!(error, anlg_desktop_auth::Error::Refresh(error) if error.is_fatal()) {
-                self.sign_out();
+            if matches!(error, anlg_desktop_auth::Error::Refresh(error) if error.is_fatal())
+                && let Err(sign_out_error) = self.sign_out()
+            {
+                tracing::error!(error = %sign_out_error, "failed to sign out after fatal auth refresh error");
             }
         }
+        let signed_in = self.session.session().ok().flatten().is_some();
+        self.signed_in.send_replace(signed_in);
     }
 
-    pub async fn handle_callback(&self, callback: AuthCallbackSearch) -> Result<(), String> {
+    pub async fn handle_callback(
+        &self,
+        callback: AuthCallbackSearch,
+    ) -> Result<CallbackOutcome, String> {
         let fingerprint = format!("{}:{}", callback.access_token, callback.refresh_token);
         if !self
             .callbacks
@@ -61,20 +95,28 @@ impl Auth {
             .unwrap()
             .begin(&fingerprint, SystemTime::now())
         {
-            return Ok(());
+            return Ok(CallbackOutcome::Duplicate);
         }
         let result = self
             .session
             .install_tokens(&callback.access_token, &callback.refresh_token)
             .await
-            .map(|_| ())
+            .map(|_| {
+                self.signed_in.send_replace(true);
+                CallbackOutcome::Installed
+            })
             .map_err(|error| error.to_string());
         self.callbacks
             .lock()
             .unwrap()
-            .finish(&fingerprint, SystemTime::now());
+            .finish(&fingerprint, SystemTime::now(), result.is_ok());
         result
     }
+}
+
+pub enum CallbackOutcome {
+    Installed,
+    Duplicate,
 }
 
 #[derive(Default)]
@@ -98,10 +140,12 @@ impl CallbackDeduper {
         true
     }
 
-    fn finish(&mut self, fingerprint: &str, now: SystemTime) {
+    fn finish(&mut self, fingerprint: &str, now: SystemTime, succeeded: bool) {
         if self.in_flight.as_deref() == Some(fingerprint) {
             self.in_flight = None;
-            self.recent = Some((fingerprint.to_string(), now));
+            if succeeded {
+                self.recent = Some((fingerprint.to_string(), now));
+            }
         }
     }
 }
@@ -248,8 +292,26 @@ mod tests {
         let now = SystemTime::UNIX_EPOCH;
         assert!(deduper.begin("token", now));
         assert!(!deduper.begin("token", now + Duration::from_secs(1)));
-        deduper.finish("token", now);
+        deduper.finish("token", now, true);
         assert!(!deduper.begin("token", now + Duration::from_secs(4)));
         assert!(deduper.begin("token", now + Duration::from_secs(5)));
+    }
+
+    #[test]
+    fn failed_callback_can_retry_within_five_seconds() {
+        let mut deduper = CallbackDeduper::default();
+        let now = SystemTime::UNIX_EPOCH;
+        assert!(deduper.begin("token", now));
+        deduper.finish("token", now, false);
+        assert!(deduper.begin("token", now + Duration::from_secs(1)));
+    }
+
+    #[test]
+    fn successful_callback_is_recent() {
+        let mut deduper = CallbackDeduper::default();
+        let now = SystemTime::UNIX_EPOCH;
+        assert!(deduper.begin("token", now));
+        deduper.finish("token", now, true);
+        assert!(!deduper.begin("token", now + Duration::from_secs(1)));
     }
 }

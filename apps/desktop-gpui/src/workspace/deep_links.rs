@@ -19,14 +19,14 @@ impl Workspace {
                 let auth = self.auth_service.clone();
                 cx.spawn(
                     async move |this, cx| match auth.handle_callback(search).await {
-                        Ok(()) => {
+                        Ok(crate::auth::CallbackOutcome::Installed) => {
                             this.update(cx, |this, cx| {
-                                this.auth = super::toast::Auth::SignedIn;
                                 this.instruction = None;
                                 cx.notify();
                             })
                             .ok();
                         }
+                        Ok(crate::auth::CallbackOutcome::Duplicate) => {}
                         Err(error) => tracing::warn!(%error, "failed to install auth callback"),
                     },
                 )
