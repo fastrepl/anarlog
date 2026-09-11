@@ -1075,6 +1075,7 @@ msgid "Choose custom color"
 msgstr ""
 
 #: src/settings/automations/starter-config.tsx
+#: src/settings/general/storage/export-location.tsx
 msgid "Choose export folder"
 msgstr ""
 
@@ -1091,6 +1092,7 @@ msgid "Choose files exported from this app."
 msgstr ""
 
 #: src/settings/automations/starter-config.tsx
+#: src/settings/general/storage/export-location.tsx
 msgid "Choose folder"
 msgstr ""
 
@@ -1587,6 +1589,10 @@ msgstr ""
 msgid "Could not email the meeting notes."
 msgstr ""
 
+#: src/session/components/outer-header/overflow/export-modal.tsx
+msgid "Could not export. Check the export location in Settings and try again."
+msgstr ""
+
 #: src/session/insights/past-notes.ts
 msgid "Could not generate meeting insights. Try again."
 msgstr ""
@@ -1678,6 +1684,7 @@ msgid "Could not update the automation"
 msgstr ""
 
 #: src/settings/automations/starter-config.tsx
+#: src/settings/general/storage/export-location.tsx
 msgid "Could not update the export folder"
 msgstr ""
 
@@ -2244,6 +2251,10 @@ msgstr ""
 
 #: src/settings/automations/starter-config.tsx
 msgid "Export folder"
+msgstr ""
+
+#: src/settings/general/storage/export-location.tsx
+msgid "Export location"
 msgstr ""
 
 #: src/settings/automations/workflow-builder.tsx
@@ -4222,6 +4233,10 @@ msgstr ""
 msgid "Reset to default format"
 msgstr ""
 
+#: src/settings/general/storage/export-location.tsx
+msgid "Reset to Downloads"
+msgstr ""
+
 #: src/session-sharing/management-panel.tsx
 msgid "Resolve the web and desktop edits before inviting anyone."
 msgstr ""
@@ -4312,6 +4327,10 @@ msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Save draft"
+msgstr ""
+
+#: src/settings/general/storage/export-location.tsx
+msgid "Save PDF, text, Markdown, and Org exports to this folder."
 msgstr ""
 
 #: src/settings/team/index.tsx

@@ -1075,6 +1075,7 @@ msgid "Choose custom color"
 msgstr "Choose custom color"
 
 #: src/settings/automations/starter-config.tsx
+#: src/settings/general/storage/export-location.tsx
 msgid "Choose export folder"
 msgstr "Choose export folder"
 
@@ -1091,6 +1092,7 @@ msgid "Choose files exported from this app."
 msgstr "Choose files exported from this app."
 
 #: src/settings/automations/starter-config.tsx
+#: src/settings/general/storage/export-location.tsx
 msgid "Choose folder"
 msgstr "Choose folder"
 
@@ -1587,6 +1589,10 @@ msgstr "Could not delete this note. Please try again."
 msgid "Could not email the meeting notes."
 msgstr "Could not email the meeting notes."
 
+#: src/session/components/outer-header/overflow/export-modal.tsx
+msgid "Could not export. Check the export location in Settings and try again."
+msgstr "Could not export. Check the export location in Settings and try again."
+
 #: src/session/insights/past-notes.ts
 msgid "Could not generate meeting insights. Try again."
 msgstr "Could not generate meeting insights. Try again."
@@ -1678,6 +1684,7 @@ msgid "Could not update the automation"
 msgstr "Could not update the automation"
 
 #: src/settings/automations/starter-config.tsx
+#: src/settings/general/storage/export-location.tsx
 msgid "Could not update the export folder"
 msgstr "Could not update the export folder"
 
@@ -2245,6 +2252,10 @@ msgstr "Export every meeting as Markdown"
 #: src/settings/automations/starter-config.tsx
 msgid "Export folder"
 msgstr "Export folder"
+
+#: src/settings/general/storage/export-location.tsx
+msgid "Export location"
+msgstr "Export location"
 
 #: src/settings/automations/workflow-builder.tsx
 msgid "Export the meeting as Markdown"
@@ -4222,6 +4233,10 @@ msgstr "Reset"
 msgid "Reset to default format"
 msgstr "Reset to default format"
 
+#: src/settings/general/storage/export-location.tsx
+msgid "Reset to Downloads"
+msgstr "Reset to Downloads"
+
 #: src/session-sharing/management-panel.tsx
 msgid "Resolve the web and desktop edits before inviting anyone."
 msgstr "Resolve the web and desktop edits before inviting anyone."
@@ -4313,6 +4328,10 @@ msgstr "Save date"
 #: src/settings/automations/index.tsx
 msgid "Save draft"
 msgstr "Save draft"
+
+#: src/settings/general/storage/export-location.tsx
+msgid "Save PDF, text, Markdown, and Org exports to this folder."
+msgstr "Save PDF, text, Markdown, and Org exports to this folder."
 
 #: src/settings/team/index.tsx
 msgid "Save policies"
