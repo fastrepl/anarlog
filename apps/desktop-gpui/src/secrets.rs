@@ -108,6 +108,10 @@ pub fn write(app_id: &str, scope: &str, key: &str, value: &str) -> Result<(), St
     entry.set_password(value).map_err(describe)
 }
 
+pub fn delete(app_id: &str, scope: &str, key: &str) -> Result<(), String> {
+    write(app_id, scope, key, "")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

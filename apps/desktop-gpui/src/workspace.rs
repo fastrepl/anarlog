@@ -68,7 +68,8 @@ use gpui::{
 };
 
 use crate::actions;
-use crate::db::{NotePreview, ProviderSettings, Store};
+use crate::cloudsync::Cloudsync;
+use crate::db::{GpuiQueryEventSink, NotePreview, ProviderSettings, Store};
 use crate::editor::{BodyEditor, EditorEvent};
 use crate::store_file::StoreFile;
 use crate::text_input::{TextInput, TextInputEvent, TextInputStyle};
@@ -251,6 +252,14 @@ pub struct Workspace {
     chat_sent_history: Vec<crate::text_area::Draft>,
     mention_humans: Vec<crate::contacts::Human>,
     mention_organizations: Vec<crate::contacts::Organization>,
+    pub(crate) auth_service: std::sync::Arc<crate::auth::Auth>,
+    pub(crate) cloudsync_service: std::sync::Arc<Cloudsync<GpuiQueryEventSink>>,
+    e2ee_setup_mode: Option<settings::E2eeSetupMode>,
+    e2ee_setup_code: Option<String>,
+    e2ee_setup_input: gpui::Entity<TextInput>,
+    e2ee_setup_code_input: gpui::Entity<TextInput>,
+    e2ee_setup_pending: bool,
+    e2ee_setup_error: Option<String>,
     auth: toast::Auth,
     /// `getDismissedToasts` from `store.json`.
     dismissed_toasts: Vec<String>,
@@ -422,22 +431,39 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    pub fn new(store: Arc<Store>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        Self::with_mode(store, Mode::Main, window, cx)
+    pub fn new(
+        store: Arc<Store>,
+        auth: std::sync::Arc<crate::auth::Auth>,
+        cloudsync_service: std::sync::Arc<Cloudsync<GpuiQueryEventSink>>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        Self::with_mode(store, auth, cloudsync_service, Mode::Main, window, cx)
     }
 
     /// `StandaloneNoteWindow`: the note surface alone, showing `session_id`.
     pub fn standalone(
         store: Arc<Store>,
+        auth: std::sync::Arc<crate::auth::Auth>,
+        cloudsync_service: std::sync::Arc<Cloudsync<GpuiQueryEventSink>>,
         session_id: String,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        Self::with_mode(store, Mode::StandaloneNote(session_id), window, cx)
+        Self::with_mode(
+            store,
+            auth,
+            cloudsync_service,
+            Mode::StandaloneNote(session_id),
+            window,
+            cx,
+        )
     }
 
     fn with_mode(
         store: Arc<Store>,
+        auth: std::sync::Arc<crate::auth::Auth>,
+        cloudsync_service: std::sync::Arc<Cloudsync<GpuiQueryEventSink>>,
         mode: Mode,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -475,6 +501,42 @@ impl Workspace {
             }
         })
         .detach();
+        let e2ee_setup_input = cx.new(|cx| {
+            TextInput::new(
+                "Enter recovery key",
+                TextInputStyle {
+                    text: theme.foreground,
+                    placeholder: theme.muted_foreground,
+                    selection: theme.selection,
+                    underline_when_focused: false,
+                    masked: false,
+                },
+                window,
+                cx,
+            )
+        });
+        cx.subscribe(&e2ee_setup_input, |this, _, event: &TextInputEvent, cx| {
+            if *event == TextInputEvent::Changed {
+                this.e2ee_setup_error = None;
+                cx.notify();
+            }
+        })
+        .detach();
+        let e2ee_setup_code_input = cx.new(|cx| {
+            TextInput::new(
+                "",
+                TextInputStyle {
+                    text: theme.foreground,
+                    placeholder: theme.muted_foreground,
+                    selection: theme.selection,
+                    underline_when_focused: false,
+                    masked: false,
+                },
+                window,
+                cx,
+            )
+            .read_only()
+        });
         let store_file = StoreFile::in_vault(store.vault_base());
         let sidebar_fraction = Self::load_sidebar_fraction(&store, &store_file);
         let chat_panel_fraction = Self::load_chat_panel_fraction(&store, &store_file);
@@ -533,7 +595,19 @@ impl Workspace {
             chat_sent_history: Vec::new(),
             mention_humans: Vec::new(),
             mention_organizations: Vec::new(),
-            auth: toast::Auth::Loading,
+            auth_service: auth.clone(),
+            cloudsync_service: cloudsync_service.clone(),
+            e2ee_setup_mode: None,
+            e2ee_setup_code: None,
+            e2ee_setup_input,
+            e2ee_setup_code_input,
+            e2ee_setup_pending: false,
+            e2ee_setup_error: None,
+            auth: if auth.signed_in() {
+                toast::Auth::SignedIn
+            } else {
+                toast::Auth::SignedOut
+            },
             dismissed_toasts: Vec::new(),
             theme_preference: "system".to_string(),
             overflow_open: false,
@@ -628,6 +702,35 @@ impl Workspace {
         this.reload_sessions(cx);
         this.reload_settings(cx);
         this.watch_changes(cx);
+        let mut auth_state = auth.subscribe();
+        let mut cloudsync_state = cloudsync_service.subscribe();
+        cx.spawn(async move |this, cx| {
+            while auth_state.changed().await.is_ok() {
+                let signed_in = *auth_state.borrow();
+                if this
+                    .update(cx, |this, cx| {
+                        this.auth = if signed_in {
+                            toast::Auth::SignedIn
+                        } else {
+                            toast::Auth::SignedOut
+                        };
+                        cx.notify();
+                    })
+                    .is_err()
+                {
+                    break;
+                }
+            }
+        })
+        .detach();
+        cx.spawn(async move |this, cx| {
+            while cloudsync_state.changed().await.is_ok() {
+                if this.update(cx, |_, cx| cx.notify()).is_err() {
+                    break;
+                }
+            }
+        })
+        .detach();
         this.observe_window_activity(window, cx);
         match mode {
             Mode::Main => {
@@ -713,6 +816,8 @@ impl Workspace {
             }
         }
         let store = self.store.clone();
+        let auth = self.auth_service.clone();
+        let cloudsync_service = self.cloudsync_service.clone();
         let id = session_id.clone();
         let bounds = gpui::Bounds::centered(None, gpui::size(px(720.0), px(820.0)), cx);
         let result = cx.open_window(
@@ -728,7 +833,9 @@ impl Workspace {
                 ..Default::default()
             },
             move |window, cx| {
-                let workspace = cx.new(|cx| Workspace::standalone(store, id, window, cx));
+                let workspace = cx.new(|cx| {
+                    Workspace::standalone(store, auth, cloudsync_service, id, window, cx)
+                });
                 workspace.read(cx).focus_handle().focus(window);
                 workspace
             },

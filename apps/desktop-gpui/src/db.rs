@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anlg_db_core::Db;
+use anlg_desktop_db_runtime::{DesktopDbRuntime, QueryEvent, QueryEventSink};
 use anyhow::Context as _;
 
 use crate::document::{self, Block};
@@ -1542,15 +1543,33 @@ pub enum SpeakerTarget {
 /// next pair or `None` to persist nothing.
 type TranscriptMutation = Box<dyn Fn(&str, &str) -> Option<(String, String)> + Send + Sync>;
 
-/// Access to the SQLite database shared with the Tauri desktop app.
-///
-/// The GPUI shell coexists with the Tauri app during the migration: it never
-/// runs migrations (the Tauri app stays the schema owner) and every write it
-/// performs uses the same statements the Tauri frontend issues, so both apps
-/// produce identical rows.
+#[derive(Clone)]
+pub struct GpuiQueryEventSink {
+    sender: std::sync::mpsc::Sender<QueryEvent>,
+}
+
+impl QueryEventSink for GpuiQueryEventSink {
+    fn send_result(&self, rows: Vec<serde_json::Value>) -> Result<(), String> {
+        self.sender
+            .send(QueryEvent::Result(rows))
+            .map_err(|error| error.to_string())
+    }
+
+    fn send_error(&self, error: String) -> Result<(), String> {
+        self.sender
+            .send(QueryEvent::Error(error))
+            .map_err(|error| error.to_string())
+    }
+}
+
+/// Access to the shared SQLite database through `open_app_db`, with shared
+/// `db-app` migrations applied by `ensure_app_schema`, as in the Tauri shell.
+/// Migrations are append-only and downgrade-safe, so either shell may run them
+/// first; every write uses the same statements issued by the Tauri frontend.
 pub struct Store {
     runtime: tokio::runtime::Handle,
     db: Arc<Db>,
+    db_runtime: Arc<DesktopDbRuntime<GpuiQueryEventSink>>,
     path: PathBuf,
     changes: tokio::sync::watch::Receiver<u64>,
     /// The Tauri bundle identifier whose data (and credential-store entries)
@@ -1577,17 +1596,14 @@ impl Store {
         path: PathBuf,
         identifier: String,
     ) -> anyhow::Result<Self> {
-        if !path.is_file() {
-            anyhow::bail!(
-                "no Anarlog database at {}. Launch the desktop app once to create it, or pass --db-path.",
-                path.display()
-            );
-        }
         let db = Arc::new(
-            Db::connect_local_read_write(&path)
+            anlg_desktop_db_runtime::runtime::open_app_db(Some(&path))
                 .await
                 .with_context(|| format!("failed to open {}", path.display()))?,
         );
+        let db_runtime = Arc::new(DesktopDbRuntime::new(db.clone(), runtime.clone()));
+        db_runtime.ensure_app_schema().await?;
+        db_runtime.finish_startup(Ok(()));
         let changes = spawn_change_watcher(&runtime, db.clone()).await?;
         let db_dir = path.parent().map(Path::to_path_buf).unwrap_or_default();
         // The app's own layout resolves like the settings plugin; a database
@@ -1604,6 +1620,7 @@ impl Store {
         Ok(Self {
             runtime,
             db,
+            db_runtime,
             path,
             changes,
             identifier,
@@ -1686,6 +1703,10 @@ impl Store {
 
     pub fn runtime(&self) -> &tokio::runtime::Handle {
         &self.runtime
+    }
+
+    pub fn db_runtime(&self) -> &Arc<DesktopDbRuntime<GpuiQueryEventSink>> {
+        &self.db_runtime
     }
 
     pub fn identifier(&self) -> &str {
@@ -1962,6 +1983,7 @@ impl Store {
         Store {
             runtime: self.runtime.clone(),
             db: self.db.clone(),
+            db_runtime: self.db_runtime.clone(),
             path: self.path.clone(),
             changes: self.changes.clone(),
             identifier: self.identifier.clone(),
@@ -5921,18 +5943,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn store_refuses_to_create_a_database() {
+    async fn store_creates_a_database() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join(DB_FILENAME);
-        let error = Store::open(
+        Store::open(
             tokio::runtime::Handle::current(),
             path.clone(),
             "com.hyprnote.dev".to_string(),
         )
         .await
-        .err()
         .unwrap();
-        assert!(error.to_string().contains("--db-path"));
-        assert!(!path.exists());
+        assert!(path.exists());
     }
 }

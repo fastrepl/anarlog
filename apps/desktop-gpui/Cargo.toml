@@ -17,9 +17,12 @@ anlg-audio-mock = { workspace = true }
 anlg-db-app = { workspace = true }
 anlg-db-core = { workspace = true }
 anlg-deeplink-core = { workspace = true }
+anlg-desktop-auth = { workspace = true }
+anlg-desktop-db-runtime = { workspace = true }
 anlg-detect = { workspace = true, features = ["list"] }
 anlg-export-core = { workspace = true }
 anlg-fs-sync-core = { workspace = true }
+anlg-host = { workspace = true }
 anlg-language = { workspace = true }
 anlg-listener-core = { workspace = true }
 anlg-listener2-core = { workspace = true }
@@ -27,6 +30,7 @@ anlg-local-api-core = { workspace = true }
 anlg-notification = { workspace = true }
 anlg-search-index = { workspace = true }
 anlg-storage = { workspace = true }
+anlg-supabase-auth = { workspace = true, features = ["refresh"] }
 anlg-template-app = { workspace = true }
 anlg-template-app-legacy = { workspace = true }
 anlg-tiptap = { workspace = true }
@@ -62,6 +66,7 @@ serde_json = { workspace = true, features = ["preserve_order"] }
 sha2 = { workspace = true }
 smallvec = "1"
 sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
+sysinfo = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "net", "rt-multi-thread", "sync", "time"] }
 tracing = { workspace = true }

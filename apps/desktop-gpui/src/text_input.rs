@@ -255,6 +255,7 @@ pub struct TextInput {
     /// (`if (e.key === "Enter" || e.key === "Tab") && inputValue.trim()`);
     /// an empty field lets Tab move the focus on like any other.
     tab_submits_when_filled: bool,
+    read_only: bool,
 }
 
 impl EventEmitter<TextInputEvent> for TextInput {}
@@ -290,6 +291,7 @@ impl TextInput {
             scroll_offset: px(0.0),
             enter_keeps_focus: false,
             tab_submits_when_filled: false,
+            read_only: false,
         }
     }
 
@@ -300,6 +302,11 @@ impl TextInput {
 
     pub fn tab_submits_when_filled(mut self) -> Self {
         self.tab_submits_when_filled = true;
+        self
+    }
+
+    pub fn read_only(mut self) -> Self {
+        self.read_only = true;
         self
     }
 
@@ -732,6 +739,9 @@ impl EntityInputHandler for TextInput {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.read_only {
+            return;
+        }
         let range = range_utf16
             .as_ref()
             .map(|range_utf16| self.range_from_utf16(range_utf16))
@@ -752,6 +762,9 @@ impl EntityInputHandler for TextInput {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.read_only {
+            return;
+        }
         let range = range_utf16
             .as_ref()
             .map(|range_utf16| self.range_from_utf16(range_utf16))

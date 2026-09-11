@@ -1,17 +1,18 @@
 use tauri::ipc::Channel;
 
 use crate::{ExecuteProxyResult, ManagedState, QueryEvent, TransactionStatement};
+use anlg_desktop_db_runtime::cloudsync_config::{
+    E2EE_SECRET_READ_TIMEOUT, E2EE_SECRET_SCOPE, E2eeSecretReader, E2eeSecretWriter,
+    canonical_e2ee_account_user_id, e2ee_recovery_key_name,
+    load_e2ee_recovery_key as load_e2ee_recovery_key_with_secrets, read_e2ee_secret_with_timeout,
+};
+#[cfg(test)]
+use anlg_desktop_db_runtime::cloudsync_config::{
+    E2EE_SECRET_READ_TIMEOUT_ERROR, open_shared_workspace_keyrings, open_workspace_e2ee_source_key,
+    seal_workspace_e2ee_key,
+};
 
-const E2EE_SECRET_SCOPE: &str = "e2ee";
-const E2EE_SECRET_READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(25);
-const E2EE_SECRET_READ_TIMEOUT_ERROR: &str = "E2EE secret read timed out";
 static E2EE_DEVICE_IDENTITY_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
-
-fn canonical_e2ee_account_user_id(account_user_id: &str) -> Result<String, String> {
-    uuid::Uuid::parse_str(account_user_id.trim())
-        .map(|account_user_id| account_user_id.to_string())
-        .map_err(|_| "E2EE account ID is invalid".to_string())
-}
 
 fn canonical_e2ee_request_id(request_id: &str) -> Result<String, String> {
     uuid::Uuid::parse_str(request_id.trim())
@@ -19,37 +20,50 @@ fn canonical_e2ee_request_id(request_id: &str) -> Result<String, String> {
         .map_err(|_| "E2EE enrollment request ID is invalid".to_string())
 }
 
-fn e2ee_recovery_key_name(account_user_id: &str) -> Result<String, String> {
-    let account_user_id = canonical_e2ee_account_user_id(account_user_id)?;
-    Ok(format!("account:{account_user_id}:recovery-v1"))
-}
-
 fn e2ee_device_key_name(account_user_id: &str) -> Result<String, String> {
     let account_user_id = canonical_e2ee_account_user_id(account_user_id)?;
     Ok(format!("account:{account_user_id}:device-enrollment-v1"))
+}
+
+struct TauriE2eeSecrets<R: tauri::Runtime>(tauri::AppHandle<R>);
+
+impl<R: tauri::Runtime> E2eeSecretReader for TauriE2eeSecrets<R> {
+    fn read(
+        &self,
+        scope: &str,
+        key: &str,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<Option<String>, String>> + Send + '_>,
+    > {
+        Box::pin(tauri_plugin_store2::read_secret(
+            self.0.clone(),
+            scope.to_string(),
+            key.to_string(),
+        ))
+    }
+}
+
+impl<R: tauri::Runtime> E2eeSecretWriter for TauriE2eeSecrets<R> {
+    fn write(
+        &self,
+        scope: &str,
+        key: &str,
+        value: &str,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
+        Box::pin(tauri_plugin_store2::write_secret(
+            self.0.clone(),
+            scope.to_string(),
+            key.to_string(),
+            value.to_string(),
+        ))
+    }
 }
 
 async fn load_e2ee_recovery_key<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     account_user_id: &str,
 ) -> Result<Option<anlg_e2ee::RecoveryKey>, String> {
-    let key = e2ee_recovery_key_name(account_user_id)?;
-    read_e2ee_secret_with_timeout(
-        E2EE_SECRET_READ_TIMEOUT,
-        tauri_plugin_store2::read_secret(app, E2EE_SECRET_SCOPE.to_string(), key),
-    )
-    .await?
-    .map(|value| anlg_e2ee::RecoveryKey::parse(&value).map_err(|error| error.to_string()))
-    .transpose()
-}
-
-async fn read_e2ee_secret_with_timeout(
-    timeout: std::time::Duration,
-    read: impl std::future::Future<Output = Result<Option<String>, String>>,
-) -> Result<Option<String>, String> {
-    tokio::time::timeout(timeout, read)
-        .await
-        .map_err(|_| E2EE_SECRET_READ_TIMEOUT_ERROR.to_string())?
+    load_e2ee_recovery_key_with_secrets(&TauriE2eeSecrets(app), account_user_id).await
 }
 
 #[tauri::command]
@@ -243,11 +257,9 @@ pub(crate) async fn get_e2ee_identity_status<R: tauri::Runtime>(
 pub(crate) fn inspect_e2ee_recovery_key(
     recovery_key: String,
 ) -> Result<crate::E2eeRecoveryKeyIdentity, String> {
-    let recovery_key =
-        anlg_e2ee::RecoveryKey::parse(&recovery_key).map_err(|error| error.to_string())?;
-    Ok(crate::E2eeRecoveryKeyIdentity {
-        key_id: recovery_key.key_id(),
-    })
+    let key_id =
+        anlg_desktop_db_runtime::cloudsync_config::inspect_e2ee_recovery_key(&recovery_key)?;
+    Ok(crate::E2eeRecoveryKeyIdentity { key_id })
 }
 
 #[tauri::command]
@@ -264,9 +276,7 @@ pub(crate) async fn create_e2ee_identity<R: tauri::Runtime>(
         return Err("E2EE recovery key is already configured".to_string());
     }
 
-    let recovery_key = anlg_e2ee::RecoveryKey::generate().map_err(|error| error.to_string())?;
-    let recovery_code = recovery_key.expose_code();
-    Ok(recovery_code.to_string())
+    anlg_desktop_db_runtime::cloudsync_config::create_e2ee_recovery_code()
 }
 
 #[tauri::command]
@@ -276,21 +286,10 @@ pub(crate) async fn import_e2ee_identity<R: tauri::Runtime>(
     account_user_id: String,
     recovery_key: String,
 ) -> Result<(), String> {
-    let key_name = e2ee_recovery_key_name(&account_user_id)?;
-    if load_e2ee_recovery_key(app.clone(), &account_user_id)
-        .await?
-        .is_some()
-    {
-        return Err("E2EE recovery key is already configured".to_string());
-    }
-
-    let recovery_key =
-        anlg_e2ee::RecoveryKey::parse(&recovery_key).map_err(|error| error.to_string())?;
-    tauri_plugin_store2::write_secret(
-        app,
-        E2EE_SECRET_SCOPE.to_string(),
-        key_name,
-        recovery_key.expose_code().to_string(),
+    anlg_desktop_db_runtime::cloudsync_config::import_e2ee_recovery_key(
+        &TauriE2eeSecrets(app),
+        &account_user_id,
+        &recovery_key,
     )
     .await
 }
@@ -368,95 +367,16 @@ pub(crate) async fn seal_workspace_e2ee_key_for_recipients<R: tauri::Runtime>(
     rotate: bool,
     source_grant: Option<crate::CloudsyncWorkspaceKeyGrant>,
 ) -> Result<crate::SealedWorkspaceE2eeKey, String> {
-    let account_user_id = canonical_e2ee_account_user_id(&account_user_id)?;
-    let workspace_id = uuid::Uuid::parse_str(workspace_id.trim())
-        .map(|workspace_id| workspace_id.to_string())
-        .map_err(|_| "E2EE workspace ID is invalid".to_string())?;
-    if recipients.is_empty() || recipients.len() > 256 {
-        return Err("workspace E2EE recipients are invalid".to_string());
-    }
-
-    let key = if rotate {
-        anlg_e2ee::WorkspaceKey::generate().map_err(|error| error.to_string())
-    } else {
-        match state.workspace_key(&workspace_id) {
-            Some(key) => Ok(key),
-            None => {
-                let source_grant = source_grant
-                    .ok_or_else(|| "workspace E2EE source grant is invalid".to_string())?;
-                let recovery_key = load_e2ee_recovery_key(app, &account_user_id)
-                    .await?
-                    .ok_or_else(|| "E2EE recovery key is not configured".to_string())?;
-                open_workspace_e2ee_source_key(
-                    &recovery_key,
-                    &account_user_id,
-                    &workspace_id,
-                    source_grant,
-                )
-            }
-        }
-    }?;
-    seal_workspace_e2ee_key(key, &account_user_id, &workspace_id, recipients)
-}
-
-fn open_workspace_e2ee_source_key(
-    recovery_key: &anlg_e2ee::RecoveryKey,
-    account_user_id: &str,
-    workspace_id: &str,
-    source_grant: crate::CloudsyncWorkspaceKeyGrant,
-) -> Result<anlg_e2ee::WorkspaceKey, String> {
-    if source_grant.workspace_id != workspace_id || !source_grant.is_active {
-        return Err("workspace E2EE source grant is invalid".to_string());
-    }
-    recovery_key
-        .member_identity_key()
-        .and_then(|identity| {
-            identity.open_workspace_key(workspace_id, account_user_id, &source_grant.into())
-        })
-        .map_err(|error| error.to_string())
-}
-
-fn seal_workspace_e2ee_key(
-    key: anlg_e2ee::WorkspaceKey,
-    account_user_id: &str,
-    workspace_id: &str,
-    recipients: Vec<crate::WorkspaceE2eeKeyRecipient>,
-) -> Result<crate::SealedWorkspaceE2eeKey, String> {
-    if recipients.is_empty() || recipients.len() > 256 {
-        return Err("workspace E2EE recipients are invalid".to_string());
-    }
-    let mut recipient_ids = std::collections::HashSet::with_capacity(recipients.len());
-    if recipients.iter().any(|recipient| {
-        uuid::Uuid::parse_str(recipient.user_id.trim()).is_err()
-            || !recipient_ids.insert(recipient.user_id.trim())
-    }) || !recipient_ids.contains(account_user_id)
-    {
-        return Err("workspace E2EE recipients are invalid".to_string());
-    }
-
-    let key_id = key.key_id().to_string();
-    let grants = recipients
-        .into_iter()
-        .map(|recipient| {
-            let user_id = uuid::Uuid::parse_str(recipient.user_id.trim())
-                .expect("recipient IDs were validated")
-                .to_string();
-            let grant = anlg_e2ee::seal_workspace_key_for_member(
-                &key,
-                &recipient.public_key,
-                &workspace_id,
-                &user_id,
-            )
-            .map_err(|error| error.to_string())?;
-            Ok(crate::WorkspaceE2eeKeyGrantUpload {
-                user_id,
-                ephemeral_public_key: grant.ephemeral_public_key,
-                nonce: grant.nonce,
-                ciphertext: grant.ciphertext,
-            })
-        })
-        .collect::<Result<Vec<_>, String>>()?;
-    Ok(crate::SealedWorkspaceE2eeKey { key_id, grants })
+    state
+        .seal_workspace_e2ee_key_for_recipients(
+            &TauriE2eeSecrets(app),
+            &account_user_id,
+            &workspace_id,
+            recipients,
+            rotate,
+            source_grant,
+        )
+        .await
 }
 
 #[tauri::command]
@@ -554,118 +474,17 @@ pub(crate) async fn configure_cloudsync_token<R: tauri::Runtime>(
     workspace_key_grants: Option<Vec<crate::CloudsyncWorkspaceKeyGrant>>,
     e2ee_witness: crate::CloudsyncE2eeWitness,
 ) -> Result<crate::CloudsyncTokenConfigurationResult, String> {
-    let result = async {
-        let auth_generation = state.begin_cloudsync_auth_configuration();
-        let personal_workspace_id = workspace_projection
-            .as_ref()
-            .map(|projection| projection.personal_workspace_id.clone())
-            .unwrap_or_else(|| workspace_id.clone());
-        let recovery_key = load_e2ee_recovery_key(app, &workspace_id)
-            .await?
-            .ok_or_else(|| {
-                "end-to-end encryption recovery key setup is required before CloudSync can start"
-                    .to_string()
-            })?;
-        let shared_workspace_ids = shared_workspace_ids(workspace_projection.as_ref());
-        let shared_keyrings = open_shared_workspace_keyrings(
-            &recovery_key,
-            &workspace_id,
-            shared_workspace_ids,
-            workspace_key_grants.unwrap_or_default(),
-        )?;
-        state
-            .configure_cloudsync_token_with_projection_at_generation(
-                crate::runtime::CloudsyncTokenConfiguration::new(
-                    database_id,
-                    token,
-                    workspace_id,
-                    workspace_projection.map(Into::into),
-                    e2ee_witness,
-                ),
-                Some(crate::runtime::E2eeWorkspaceKeyConfiguration::new(
-                    personal_workspace_id,
-                    recovery_key,
-                    shared_keyrings,
-                )),
-                auth_generation,
-            )
-            .await
-            .map_err(|error| error.to_string())
-    }
-    .await;
-    state.record_cloudsync_configuration_result("configure_token", &result);
-    result
-}
-
-fn shared_workspace_ids(
-    workspace_projection: Option<&crate::CloudsyncWorkspaceProjection>,
-) -> std::collections::HashSet<String> {
-    workspace_projection
-        .into_iter()
-        .flat_map(|projection| projection.workspaces.iter())
-        .filter(|workspace| workspace.kind == "shared")
-        .map(|workspace| workspace.id.clone())
-        .collect()
-}
-
-fn open_shared_workspace_keyrings(
-    recovery_key: &anlg_e2ee::RecoveryKey,
-    account_user_id: &str,
-    shared_workspace_ids: std::collections::HashSet<String>,
-    grants: Vec<crate::CloudsyncWorkspaceKeyGrant>,
-) -> Result<std::collections::HashMap<String, anlg_e2ee::WorkspaceKeyring>, String> {
-    struct PendingKeyring {
-        active: Option<anlg_e2ee::WorkspaceKey>,
-        retired: Vec<anlg_e2ee::WorkspaceKey>,
-        key_ids: std::collections::HashSet<String>,
-    }
-
-    let member_identity = recovery_key
-        .member_identity_key()
-        .map_err(|error| error.to_string())?;
-    let mut pending = std::collections::HashMap::<String, PendingKeyring>::new();
-    for grant in grants {
-        if !shared_workspace_ids.contains(&grant.workspace_id) {
-            return Err("workspace E2EE grant targets an unavailable workspace".to_string());
-        }
-        let workspace_id = grant.workspace_id.clone();
-        let is_active = grant.is_active;
-        let key_id = grant.key_id.clone();
-        let key = member_identity
-            .open_workspace_key(&workspace_id, account_user_id, &grant.into())
-            .map_err(|error| error.to_string())?;
-        let keyring = pending
-            .entry(workspace_id)
-            .or_insert_with(|| PendingKeyring {
-                active: None,
-                retired: Vec::new(),
-                key_ids: std::collections::HashSet::new(),
-            });
-        if !keyring.key_ids.insert(key_id) || (is_active && keyring.active.is_some()) {
-            return Err("workspace E2EE grant generations are invalid".to_string());
-        }
-        if is_active {
-            keyring.active = Some(key);
-        } else {
-            keyring.retired.push(key);
-        }
-    }
-
-    let mut keyrings = std::collections::HashMap::with_capacity(shared_workspace_ids.len());
-    for workspace_id in shared_workspace_ids {
-        let Some(pending) = pending.remove(&workspace_id) else {
-            return Err("shared workspace E2EE key is unavailable".to_string());
-        };
-        let Some(active) = pending.active else {
-            return Err("shared workspace active E2EE key is unavailable".to_string());
-        };
-        let mut keyring = anlg_e2ee::WorkspaceKeyring::new(active);
-        for key in pending.retired {
-            keyring.insert_retired(key);
-        }
-        keyrings.insert(workspace_id, keyring);
-    }
-    Ok(keyrings)
+    state
+        .configure_cloudsync_token_with_keys(
+            &TauriE2eeSecrets(app),
+            database_id,
+            token,
+            workspace_id,
+            workspace_projection,
+            workspace_key_grants,
+            e2ee_witness,
+        )
+        .await
 }
 
 #[tauri::command]
@@ -678,39 +497,15 @@ pub(crate) async fn configure_e2ee_replica<R: tauri::Runtime>(
     workspace_projection: Option<crate::CloudsyncWorkspaceProjection>,
     workspace_key_grants: Option<Vec<crate::CloudsyncWorkspaceKeyGrant>>,
 ) -> Result<crate::CloudsyncTokenConfigurationResult, String> {
-    let result = async {
-        let auth_generation = state.begin_cloudsync_auth_configuration();
-        let recovery_key = load_e2ee_recovery_key(app, &workspace_id)
-            .await?
-            .ok_or_else(|| {
-                "end-to-end encryption recovery key setup is required before sync can start"
-                    .to_string()
-            })?;
-        let shared_workspace_ids = shared_workspace_ids(workspace_projection.as_ref());
-        let shared_keyrings = open_shared_workspace_keyrings(
-            &recovery_key,
-            &workspace_id,
-            shared_workspace_ids,
-            workspace_key_grants.unwrap_or_default(),
-        )?;
-        state
-            .configure_replica_transport_at_generation(
-                workspace_id.clone(),
-                e2ee_witness,
-                crate::runtime::E2eeWorkspaceKeyConfiguration::new(
-                    workspace_id,
-                    recovery_key,
-                    shared_keyrings,
-                ),
-                workspace_projection.map(Into::into),
-                auth_generation,
-            )
-            .await
-            .map_err(|error| error.to_string())
-    }
-    .await;
-    state.record_cloudsync_configuration_result("configure_replica", &result);
-    result
+    state
+        .configure_e2ee_replica_with_keys(
+            &TauriE2eeSecrets(app),
+            workspace_id,
+            e2ee_witness,
+            workspace_projection,
+            workspace_key_grants,
+        )
+        .await
 }
 
 #[tauri::command]

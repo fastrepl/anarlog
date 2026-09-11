@@ -5,8 +5,8 @@
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, ClickEvent, Context, Div, Focusable as _, MouseButton, SharedString, Stateful,
-    Window, div, prelude::*, px, relative, rgb,
+    AnyElement, ClickEvent, ClipboardItem, Context, Div, Focusable as _, MouseButton, SharedString,
+    Stateful, Window, div, prelude::*, px, relative, rgb,
 };
 
 use super::Workspace;
@@ -33,6 +33,13 @@ pub(crate) enum SettingsTab {
     Privacy,
     Permissions,
     Developers,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum E2eeSetupMode {
+    Choose,
+    Create,
+    Import,
 }
 
 impl SettingsTab {
@@ -1088,8 +1095,19 @@ impl Workspace {
                 .flex_col()
                 .gap_8()
                 .child(title)
-                .child(self.render_account_signed_out(cx))
-                .child(self.render_guest_plans()),
+                .child(if self.auth_service.signed_in() {
+                    self.render_account_signed_in(cx)
+                } else {
+                    self.render_account_signed_out(cx)
+                })
+                .child(if self.auth_service.signed_in() {
+                    div()
+                        .tw_text_sm()
+                        .text_color(self.theme.muted_foreground)
+                        .child("Plan details aren't available in the native shell yet.")
+                } else {
+                    self.render_guest_plans()
+                }),
             SettingsTab::Stats => self.render_stats_settings(title, window, cx),
             SettingsTab::Insights => self.render_insights_settings(title, window, cx),
             SettingsTab::Permissions => div()
@@ -1777,6 +1795,316 @@ impl Workspace {
                         cx.listener(|this, _: &ClickEvent, window, cx| this.sign_in(window, cx)),
                     )
                     .child("Get started"),
+            )
+    }
+
+    fn start_e2ee_create(&mut self, cx: &mut Context<Self>) {
+        if self.e2ee_setup_pending {
+            return;
+        }
+        self.e2ee_setup_mode = Some(E2eeSetupMode::Create);
+        self.e2ee_setup_code = None;
+        self.e2ee_setup_error = None;
+        self.e2ee_setup_pending = true;
+        let cloudsync = self.cloudsync_service.clone();
+        cx.spawn(async move |this, cx| {
+            let result = cloudsync.create_e2ee_recovery_code().await;
+            this.update(cx, |this, cx| {
+                this.e2ee_setup_pending = false;
+                match result {
+                    Ok(code) => {
+                        this.e2ee_setup_code_input
+                            .update(cx, |input, cx| input.set_text(code.clone(), cx));
+                        this.e2ee_setup_code = Some(code);
+                    }
+                    Err(error) => this.e2ee_setup_error = Some(error.to_string()),
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    fn finish_e2ee_setup(&mut self, code: String, cx: &mut Context<Self>) {
+        if self.e2ee_setup_pending {
+            return;
+        }
+        self.e2ee_setup_pending = true;
+        self.e2ee_setup_error = None;
+        let cloudsync = self.cloudsync_service.clone();
+        let enabled = self.provider_settings.bool_setting(
+            "cloud_sync_enabled",
+            &["general", "cloud_sync_enabled"],
+            true,
+        );
+        cx.spawn(async move |this, cx| {
+            let result = cloudsync.finish_e2ee_setup(&code, enabled).await;
+            this.update(cx, |this, cx| {
+                this.e2ee_setup_pending = false;
+                match result {
+                    Ok(()) => {
+                        this.e2ee_setup_mode = None;
+                        this.e2ee_setup_code = None;
+                    }
+                    Err(error) => this.e2ee_setup_error = Some(error.to_string()),
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    fn render_e2ee_setup(&self, cx: &Context<Self>) -> Div {
+        let theme = self.theme;
+        let pending = self.e2ee_setup_pending;
+        let mut setup = div()
+            .mt_3()
+            .rounded_md()
+            .border_1()
+            .border_color(theme.border)
+            .p_3()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(
+                div()
+                    .tw_text_sm()
+                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .text_color(theme.foreground)
+                    .child("Cloud sync needs a recovery key"),
+            );
+        match (self.e2ee_setup_mode, self.e2ee_setup_code.as_deref()) {
+            (Some(E2eeSetupMode::Create), Some(code)) => {
+                let code = code.to_string();
+                let copy_code = code.clone();
+                setup = setup
+                    .child(
+                        div()
+                            .min_w_0()
+                            .rounded_sm()
+                            .bg(theme.muted)
+                            .p_2()
+                            .child(self.e2ee_setup_code_input.clone()),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .id("e2ee-copy")
+                                    .px_2()
+                                    .py_1()
+                                    .rounded_sm()
+                                    .tw_text_xs()
+                                    .text_color(theme.foreground)
+                                    .cursor_pointer()
+                                    .on_click(cx.listener(move |_, _: &ClickEvent, _, cx| {
+                                        cx.write_to_clipboard(ClipboardItem::new_string(
+                                            copy_code.clone(),
+                                        ));
+                                    }))
+                                    .child("Copy"),
+                            )
+                            .child(
+                                div()
+                                    .id("e2ee-saved")
+                                    .px_2()
+                                    .py_1()
+                                    .rounded_sm()
+                                    .tw_text_xs()
+                                    .text_color(if pending {
+                                        theme.muted_foreground
+                                    } else {
+                                        theme.foreground
+                                    })
+                                    .when(!pending, |element| element.cursor_pointer())
+                                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                        this.finish_e2ee_setup(code.clone(), cx);
+                                    }))
+                                    .child("I saved it"),
+                            ),
+                    );
+            }
+            (Some(E2eeSetupMode::Import), _) => {
+                let input = self.e2ee_setup_input.clone();
+                let entered = input.read(cx).text().trim().to_string();
+                setup = setup.child(div().min_w_0().child(input)).child(
+                    div()
+                        .flex()
+                        .gap_2()
+                        .child(
+                            div()
+                                .id("e2ee-back")
+                                .px_2()
+                                .py_1()
+                                .rounded_sm()
+                                .tw_text_xs()
+                                .text_color(theme.muted_foreground)
+                                .when(!pending, |element| element.cursor_pointer())
+                                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                    if !this.e2ee_setup_pending {
+                                        this.e2ee_setup_mode = Some(E2eeSetupMode::Choose);
+                                        this.e2ee_setup_error = None;
+                                        cx.notify();
+                                    }
+                                }))
+                                .child("Back"),
+                        )
+                        .child(
+                            div()
+                                .id("e2ee-continue")
+                                .px_2()
+                                .py_1()
+                                .rounded_sm()
+                                .tw_text_xs()
+                                .text_color(if pending {
+                                    theme.muted_foreground
+                                } else {
+                                    theme.foreground
+                                })
+                                .when(!pending, |element| element.cursor_pointer())
+                                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                    this.finish_e2ee_setup(entered.clone(), cx);
+                                }))
+                                .child("Continue"),
+                        ),
+                );
+            }
+            _ => {
+                setup = setup.child(
+                    div()
+                        .flex()
+                        .gap_2()
+                        .child(
+                            div()
+                                .id("e2ee-create")
+                                .px_2()
+                                .py_1()
+                                .rounded_sm()
+                                .tw_text_xs()
+                                .text_color(if pending {
+                                    theme.muted_foreground
+                                } else {
+                                    theme.foreground
+                                })
+                                .when(!pending, |element| element.cursor_pointer())
+                                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                    this.start_e2ee_create(cx);
+                                }))
+                                .child("Create a recovery key"),
+                        )
+                        .child(
+                            div()
+                                .id("e2ee-import")
+                                .px_2()
+                                .py_1()
+                                .rounded_sm()
+                                .tw_text_xs()
+                                .text_color(if pending {
+                                    theme.muted_foreground
+                                } else {
+                                    theme.foreground
+                                })
+                                .when(!pending, |element| element.cursor_pointer())
+                                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                    if !this.e2ee_setup_pending {
+                                        this.e2ee_setup_mode = Some(E2eeSetupMode::Import);
+                                        this.e2ee_setup_error = None;
+                                        cx.notify();
+                                    }
+                                }))
+                                .child("Use an existing key"),
+                        ),
+                );
+            }
+        }
+        if let Some(error) = self.e2ee_setup_error.as_deref() {
+            setup = setup.child(
+                div()
+                    .tw_text_xs()
+                    .text_color(rgb(0xdc2626))
+                    .child(error.to_string()),
+            );
+        }
+        setup
+    }
+
+    fn render_account_signed_in(&self, cx: &Context<Self>) -> Div {
+        let theme = self.theme;
+        let account = self.auth_service.account_info();
+        let cloudsync = self.cloudsync_service.state();
+        let cloudsync_label = match (cloudsync.status, cloudsync.block) {
+            (crate::cloudsync::CloudsyncStatus::Syncing, _) => "syncing".to_string(),
+            (crate::cloudsync::CloudsyncStatus::Off, _) => "off".to_string(),
+            (crate::cloudsync::CloudsyncStatus::Blocked, Some(block)) => {
+                format!("blocked ({})", block.as_str())
+            }
+            (crate::cloudsync::CloudsyncStatus::Blocked, None) => "blocked".to_string(),
+        };
+        let label = account
+            .as_ref()
+            .and_then(|account| account.full_name.as_deref().or(account.email.as_deref()))
+            .unwrap_or("Signed in");
+        let setup_required = cloudsync.status == crate::cloudsync::CloudsyncStatus::Blocked
+            && cloudsync.block == Some(crate::cloudsync::CredentialBlock::SetupRequired);
+        let mut account_details = div()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .child(
+                div()
+                    .tw_text_sm()
+                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .text_color(theme.foreground)
+                    .child(label.to_string()),
+            )
+            .when_some(
+                account.as_ref().and_then(|account| account.email.clone()),
+                |element, email| {
+                    element.child(
+                        div()
+                            .tw_text_sm()
+                            .text_color(theme.muted_foreground)
+                            .child(email),
+                    )
+                },
+            )
+            .child(
+                div()
+                    .tw_text_sm()
+                    .text_color(theme.muted_foreground)
+                    .child(format!("Cloud sync: {cloudsync_label}")),
+            );
+        if setup_required {
+            account_details = account_details.child(self.render_e2ee_setup(cx));
+        }
+        div()
+            .flex()
+            .items_center()
+            .justify_between()
+            .gap_4()
+            .pb_4()
+            .child(account_details)
+            .child(
+                div()
+                    .id("account-sign-out")
+                    .px_3()
+                    .py_2()
+                    .rounded_full()
+                    .tw_text_sm()
+                    .text_color(theme.foreground)
+                    .cursor_pointer()
+                    .hover(|element| element.bg(theme.accent))
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                        if let Err(error) = this.auth_service.sign_out() {
+                            tracing::warn!(%error, "failed to persist desktop auth sign-out");
+                        }
+                        cx.notify();
+                    }))
+                    .child("Sign out"),
             )
     }
 

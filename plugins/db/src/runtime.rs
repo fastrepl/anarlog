@@ -1,9 +1,7 @@
 use anlg_desktop_db_runtime::QueryEvent;
 use tauri::ipc::Channel;
 
-pub use anlg_desktop_db_runtime::runtime::{
-    CloudsyncTokenConfiguration, E2eeWorkspaceKeyConfiguration, open_app_db, open_app_db_unmigrated,
-};
+pub use anlg_desktop_db_runtime::runtime::{open_app_db, open_app_db_unmigrated};
 pub use anlg_desktop_db_runtime::{DesktopDbRuntime, QueryEventSink};
 
 #[derive(Clone)]

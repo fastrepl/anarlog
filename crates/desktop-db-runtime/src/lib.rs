@@ -1,5 +1,6 @@
 #![allow(clippy::module_name_repetitions)]
 
+pub mod cloudsync_config;
 mod e2ee_witness;
 pub mod error;
 pub mod legacy;
