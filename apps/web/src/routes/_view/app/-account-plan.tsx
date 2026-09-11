@@ -115,8 +115,6 @@ export function PlanSection({
     isTrialing: billing?.isTrialing === true,
     isPaused: billing?.isPaused === true,
     isPaid: billing?.isPaid === true,
-    isLite: billing?.isLite,
-    isPro: billing?.isPro,
     trialDaysRemaining: billing?.trialDaysRemaining ?? null,
     trialEnd: billing?.trialEnd ?? null,
     cancelAtPeriodEnd,
@@ -148,9 +146,7 @@ export function PlanSection({
     },
   });
 
-  const currentPlanId =
-    workspacePlan ??
-    (billing?.isPro ? "pro" : billing?.isLite ? "pro" : "free");
+  const currentPlanId = workspacePlan ?? (billing?.isPro ? "pro" : "free");
 
   return (
     <div className={accountCardClassName}>
