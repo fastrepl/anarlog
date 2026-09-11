@@ -103,45 +103,39 @@ describe("membership-driven Team billing", () => {
     expect(f.updates[0].params.items![0].quantity).toBe(1);
   });
 
-  test("does not credit time that has not been paid for", async () => {
-    const f = fixture();
-    f.subscription.status = "past_due";
-    await reconcileWorkspaceSeatEvent({ ...event, quantity: 1 }, f.api);
-    expect(f.updates[0].params.proration_behavior).toBe("none");
-  });
-
   test.each(["past_due", "unpaid"] as const)(
-    "%s removal and restoration never double-charge, including after payment",
+    "%s changes wait for payment, then bill every transition at its original time",
     async (status) => {
       const f = fixture();
       f.subscription.status = status;
-      await reconcileWorkspaceSeatEvent({ ...event, quantity: 1 }, f.api);
-      await reconcileWorkspaceSeatEvent(
-        { ...event, id: "43", quantity: 2 },
-        f.api,
+      const removal = { ...event, quantity: 1 };
+      await expect(reconcileWorkspaceSeatEvent(removal, f.api)).rejects.toThrow(
+        "waiting for invoice payment",
       );
+      await expect(reconcileWorkspaceSeatEvent(event, f.api)).rejects.toThrow(
+        "waiting for invoice payment",
+      );
+      expect(f.updates).toHaveLength(0);
+      expect(f.subscription.items.data[0].quantity).toBe(2);
       f.subscription.status = "active";
-      await reconcileWorkspaceSeatEvent(
-        { ...event, id: "44", quantity: 3 },
-        f.api,
-      );
-      expect(f.updates.map((u) => u.params.proration_behavior)).toEqual([
-        "none",
-        "none",
-        "none",
-      ]);
-      f.subscription.items.data[0].current_period_start = 1_750_003_000;
-      f.subscription.items.data[0].current_period_end = 1_750_006_000;
+      await reconcileWorkspaceSeatEvent(removal, f.api);
       await reconcileWorkspaceSeatEvent(
         {
           ...event,
-          id: "45",
-          quantity: 4,
-          occurred_at: new Date(1_750_003_500_000),
+          id: "43",
+          quantity: 3,
+          occurred_at: new Date(1_750_000_900_000),
         },
         f.api,
       );
-      expect(f.updates[3].params.proration_behavior).toBe("create_prorations");
+      expect(f.updates.map((u) => u.params.proration_behavior)).toEqual([
+        "create_prorations",
+        "create_prorations",
+      ]);
+      expect(f.updates.map((u) => u.params.proration_date)).toEqual([
+        1_750_000_500, 1_750_000_900,
+      ]);
+      expect(f.updates.map((u) => u.params.items![0].quantity)).toEqual([1, 3]);
     },
   );
 

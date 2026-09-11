@@ -80,25 +80,19 @@ export async function reconcileWorkspaceSeatEvent(
     );
   }
 
-  // Once an unpaid change resets the quantity baseline without credits, keep
-  // that policy through this period even if the original invoice is paid later.
-  const suppressProrations =
-    ["past_due", "unpaid"].includes(subscription.status) ||
-    Number(subscription.metadata.anarlog_seat_no_proration_until) >
-      item.current_period_start;
+  // Preserve the invoiced quantity baseline until payment settles. The durable
+  // queue then replays every change at its original time, with valid credits.
+  if (["past_due", "unpaid"].includes(subscription.status)) {
+    throw new Error("Workspace seat billing is waiting for invoice payment");
+  }
 
   await stripe.subscriptions.update(
     subscription.id,
     {
       items: [{ id: item.id, quantity: event.quantity }],
-      metadata: {
-        anarlog_seat_event_id: `${event.workspace_id}:${event.id}`,
-        ...(suppressProrations
-          ? { anarlog_seat_no_proration_until: String(item.current_period_end) }
-          : {}),
-      },
+      metadata: { anarlog_seat_event_id: `${event.workspace_id}:${event.id}` },
       proration_date: prorationDate,
-      proration_behavior: suppressProrations ? "none" : "create_prorations",
+      proration_behavior: "create_prorations",
     },
     { idempotencyKey: `workspace-seat-${event.workspace_id}-${event.id}` },
   );
