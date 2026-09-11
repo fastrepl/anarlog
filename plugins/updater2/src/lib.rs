@@ -6,6 +6,8 @@ mod ext;
 mod startup_migration;
 mod store;
 
+use tauri::Manager;
+
 pub use error::{Error, Result};
 pub use events::*;
 pub use ext::*;
@@ -43,6 +45,8 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app, _api| {
             specta_builder.mount_events(app);
+            let shared_updater = ext::create_core(app)?;
+            app.manage(shared_updater);
 
             #[cfg(target_os = "macos")]
             match startup_migration::maybe_schedule_legacy_bundle_rename_on_launch(app) {

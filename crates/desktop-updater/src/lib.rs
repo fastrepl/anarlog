@@ -31,6 +31,10 @@ pub trait UpdateBackend: Send + Sync {
     ) -> Pin<Box<dyn Future<Output = Result<Vec<u8>>> + Send + 'a>>;
 
     fn install(&self, version: &str, bytes: &[u8]) -> Result<()>;
+
+    fn supports_install(&self) -> bool {
+        true
+    }
 }
 
 pub trait UpdateEvents: Send + Sync {
@@ -45,6 +49,21 @@ pub trait UpdateEvents: Send + Sync {
 pub struct UpdatePolicy {
     pub automatic_updates_enabled: bool,
     pub meeting_active: bool,
+}
+
+pub trait UpdatePolicySource: Send + Sync {
+    fn automatic_updates_enabled(&self) -> bool;
+    fn meeting_active(&self) -> bool;
+}
+
+impl<F: Fn() -> UpdatePolicy + Send + Sync> UpdatePolicySource for F {
+    fn automatic_updates_enabled(&self) -> bool {
+        self().automatic_updates_enabled
+    }
+
+    fn meeting_active(&self) -> bool {
+        self().meeting_active
+    }
 }
 
 pub struct Updater<B: UpdateBackend, E: UpdateEvents> {
@@ -152,11 +171,11 @@ impl<B: UpdateBackend, E: UpdateEvents> Updater<B, E> {
         self.backend.install(version, &bytes)
     }
 
-    pub async fn tick(&self, policy: UpdatePolicy, install_at_open: bool) -> bool {
-        if !policy.automatic_updates_enabled {
+    pub async fn tick(&self, policy: &dyn UpdatePolicySource, install_at_open: bool) -> bool {
+        if !policy.automatic_updates_enabled() {
             return false;
         }
-        if policy.meeting_active {
+        if policy.meeting_active() {
             return install_at_open;
         }
 
@@ -170,7 +189,18 @@ impl<B: UpdateBackend, E: UpdateEvents> Updater<B, E> {
             return false;
         };
 
+        if policy.meeting_active() {
+            return true;
+        }
+
         if install_at_open && self.has_cached_update(&version) {
+            if policy.meeting_active() {
+                return true;
+            }
+            if !self.backend.supports_install() {
+                tracing::debug!("update_install_unsupported");
+                return false;
+            }
             return match self.install_and_relaunch(&version).await {
                 Ok(()) => false,
                 Err(error) => {
@@ -186,8 +216,12 @@ impl<B: UpdateBackend, E: UpdateEvents> Updater<B, E> {
         }
 
         if install_at_open {
-            if policy.meeting_active {
+            if policy.meeting_active() {
                 return true;
+            }
+            if !self.backend.supports_install() {
+                tracing::debug!("update_install_unsupported");
+                return false;
             }
             if let Err(error) = self.install_and_relaunch(&version).await {
                 tracing::error!(%error, "downloaded_update_install_failed");
@@ -237,7 +271,10 @@ pub fn prune_updates_dir(dir: &Path, keep: Option<&str>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
+    use std::sync::{
+        Mutex,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    };
 
     #[derive(Default)]
     struct Backend {
@@ -292,7 +329,7 @@ mod tests {
         assert!(
             !updater(backend, dir.path())
                 .tick(
-                    UpdatePolicy {
+                    &|| UpdatePolicy {
                         automatic_updates_enabled: false,
                         meeting_active: false,
                     },
@@ -309,7 +346,7 @@ mod tests {
         assert!(
             updater(backend, dir.path())
                 .tick(
-                    UpdatePolicy {
+                    &|| UpdatePolicy {
                         automatic_updates_enabled: true,
                         meeting_active: true,
                     },
@@ -320,7 +357,7 @@ mod tests {
         assert!(
             !updater(Arc::new(Backend::default()), dir.path())
                 .tick(
-                    UpdatePolicy {
+                    &|| UpdatePolicy {
                         automatic_updates_enabled: true,
                         meeting_active: true,
                     },
@@ -338,7 +375,7 @@ mod tests {
         assert!(
             !updater(backend.clone(), dir.path())
                 .tick(
-                    UpdatePolicy {
+                    &|| UpdatePolicy {
                         automatic_updates_enabled: true,
                         meeting_active: false,
                     },
@@ -356,7 +393,7 @@ mod tests {
         assert!(
             updater_with_backend(backend, dir.path())
                 .tick(
-                    UpdatePolicy {
+                    &|| UpdatePolicy {
                         automatic_updates_enabled: true,
                         meeting_active: false,
                     },
@@ -373,7 +410,7 @@ mod tests {
         assert!(
             updater_with_backend(backend, dir.path())
                 .tick(
-                    UpdatePolicy {
+                    &|| UpdatePolicy {
                         automatic_updates_enabled: true,
                         meeting_active: false,
                     },
@@ -429,6 +466,142 @@ mod tests {
         fn install(&self, _version: &str, _bytes: &[u8]) -> Result<()> {
             unreachable!()
         }
+    }
+
+    struct MeetingDuringCheckBackend {
+        meeting: Arc<AtomicBool>,
+        installs: AtomicUsize,
+    }
+
+    impl UpdateBackend for MeetingDuringCheckBackend {
+        fn check(&self) -> Pin<Box<dyn Future<Output = Result<Option<String>>> + Send + '_>> {
+            self.meeting.store(true, Ordering::Relaxed);
+            Box::pin(async { Ok(Some("2.0.0".into())) })
+        }
+
+        fn download<'a>(
+            &'a self,
+            _version: &'a str,
+            _on_progress: &'a (dyn Fn(u64, Option<u64>) + Send + Sync),
+        ) -> Pin<Box<dyn Future<Output = Result<Vec<u8>>> + Send + 'a>> {
+            Box::pin(async { Ok(b"update".to_vec()) })
+        }
+
+        fn install(&self, _version: &str, _bytes: &[u8]) -> Result<()> {
+            self.installs.fetch_add(1, Ordering::Relaxed);
+            Ok(())
+        }
+    }
+
+    struct MeetingDuringDownloadBackend {
+        meeting: Arc<AtomicBool>,
+        installs: AtomicUsize,
+    }
+
+    impl UpdateBackend for MeetingDuringDownloadBackend {
+        fn check(&self) -> Pin<Box<dyn Future<Output = Result<Option<String>>> + Send + '_>> {
+            Box::pin(async { Ok(Some("2.0.0".into())) })
+        }
+
+        fn download<'a>(
+            &'a self,
+            _version: &'a str,
+            _on_progress: &'a (dyn Fn(u64, Option<u64>) + Send + Sync),
+        ) -> Pin<Box<dyn Future<Output = Result<Vec<u8>>> + Send + 'a>> {
+            self.meeting.store(true, Ordering::Relaxed);
+            Box::pin(async { Ok(b"update".to_vec()) })
+        }
+
+        fn install(&self, _version: &str, _bytes: &[u8]) -> Result<()> {
+            self.installs.fetch_add(1, Ordering::Relaxed);
+            Ok(())
+        }
+    }
+
+    struct UnsupportedInstallBackend {
+        installs: AtomicUsize,
+    }
+
+    impl UpdateBackend for UnsupportedInstallBackend {
+        fn check(&self) -> Pin<Box<dyn Future<Output = Result<Option<String>>> + Send + '_>> {
+            Box::pin(async { Ok(Some("2.0.0".into())) })
+        }
+
+        fn download<'a>(
+            &'a self,
+            _version: &'a str,
+            _on_progress: &'a (dyn Fn(u64, Option<u64>) + Send + Sync),
+        ) -> Pin<Box<dyn Future<Output = Result<Vec<u8>>> + Send + 'a>> {
+            Box::pin(async { Ok(b"update".to_vec()) })
+        }
+
+        fn install(&self, _version: &str, _bytes: &[u8]) -> Result<()> {
+            self.installs.fetch_add(1, Ordering::Relaxed);
+            Ok(())
+        }
+
+        fn supports_install(&self) -> bool {
+            false
+        }
+    }
+
+    #[tokio::test]
+    async fn meeting_starting_during_check_defers_install() {
+        let dir = tempfile::tempdir().unwrap();
+        let meeting = Arc::new(AtomicBool::new(false));
+        let backend = Arc::new(MeetingDuringCheckBackend {
+            meeting: meeting.clone(),
+            installs: AtomicUsize::new(0),
+        });
+        let policy = || UpdatePolicy {
+            automatic_updates_enabled: true,
+            meeting_active: meeting.load(Ordering::Relaxed),
+        };
+        assert!(
+            updater_with_backend(backend.clone(), dir.path())
+                .tick(&policy, true)
+                .await
+        );
+        assert_eq!(backend.installs.load(Ordering::Relaxed), 0);
+    }
+
+    #[tokio::test]
+    async fn meeting_starting_during_download_defers_install() {
+        let dir = tempfile::tempdir().unwrap();
+        let meeting = Arc::new(AtomicBool::new(false));
+        let backend = Arc::new(MeetingDuringDownloadBackend {
+            meeting: meeting.clone(),
+            installs: AtomicUsize::new(0),
+        });
+        let policy = || UpdatePolicy {
+            automatic_updates_enabled: true,
+            meeting_active: meeting.load(Ordering::Relaxed),
+        };
+        assert!(
+            updater_with_backend(backend.clone(), dir.path())
+                .tick(&policy, true)
+                .await
+        );
+        assert_eq!(backend.installs.load(Ordering::Relaxed), 0);
+    }
+
+    #[tokio::test]
+    async fn unsupported_install_downloads_without_installing() {
+        let dir = tempfile::tempdir().unwrap();
+        let backend = Arc::new(UnsupportedInstallBackend {
+            installs: AtomicUsize::new(0),
+        });
+        let policy = || UpdatePolicy {
+            automatic_updates_enabled: true,
+            meeting_active: false,
+        };
+        assert!(
+            !updater_with_backend(backend.clone(), dir.path())
+                .tick(&policy, true)
+                .await
+        );
+        assert_eq!(backend.installs.load(Ordering::Relaxed), 0);
+        assert!(cache_path(dir.path(), "2.0.0").is_file());
     }
 
     #[test]

@@ -189,6 +189,10 @@ impl UpdateBackend for FeedUpdateBackend {
             "install is not implemented for the GPUI shell yet".into(),
         ))
     }
+
+    fn supports_install(&self) -> bool {
+        false
+    }
 }
 
 pub(crate) struct FeedUpdateEvents {
@@ -230,7 +234,7 @@ pub(crate) fn spawn_update_loop(
     handle: &tokio::runtime::Handle,
     current_version: &str,
     updates_dir: std::path::PathBuf,
-    automatic_updates_enabled: bool,
+    store: Arc<crate::db::Store>,
 ) {
     static STARTED: OnceLock<()> = OnceLock::new();
     if STARTED.set(()).is_err() {
@@ -250,15 +254,24 @@ pub(crate) fn spawn_update_loop(
     handle.spawn(async move {
         let mut install_at_open = true;
         loop {
-            install_at_open = updater
-                .tick(
-                    UpdatePolicy {
-                        automatic_updates_enabled,
-                        meeting_active: false,
-                    },
-                    install_at_open,
-                )
-                .await;
+            let automatic_updates_enabled = store
+                .load_provider_settings()
+                .await
+                .ok()
+                .and_then(|settings| settings.ok())
+                .map(|settings| {
+                    settings.bool_setting(
+                        "automatic_updates",
+                        &["general", "automatic_updates"],
+                        true,
+                    )
+                })
+                .unwrap_or(true);
+            let policy = || UpdatePolicy {
+                automatic_updates_enabled,
+                meeting_active: false,
+            };
+            install_at_open = updater.tick(&policy, install_at_open).await;
             tokio::time::sleep(std::time::Duration::from_secs(30 * 60)).await;
         }
     });

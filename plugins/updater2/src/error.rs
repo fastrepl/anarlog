@@ -14,6 +14,8 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("cache path unavailable")]
     CachePathUnavailable,
+    #[error("updater is not managed by the application")]
+    UpdaterNotManaged,
     #[error("cached update not found")]
     CachedUpdateNotFound,
     #[error("failed to determine current app path")]

@@ -419,6 +419,14 @@ fn main() -> anyhow::Result<()> {
     let store_file = store_file::StoreFile::in_vault(store.vault_base());
     let audio = audio::provider(&args.identifier);
     let store = Arc::new(store);
+    if let Some(cache_dir) = dirs::cache_dir() {
+        updater::spawn_update_loop(
+            runtime.handle(),
+            APP_VERSION,
+            cache_dir.join(store.identifier()).join("updates"),
+            store.clone(),
+        );
+    }
     let search = search::SearchIndex::start(&store);
     tracing::info!(path = %store.path().display(), "opened application database");
     // The direct-distribution Tauri build writes the vault's `AGENTS.md` on

@@ -1,6 +1,5 @@
 use std::{
     future::Future,
-    path::PathBuf,
     pin::Pin,
     sync::{Arc, Mutex},
 };
@@ -96,6 +95,10 @@ impl<R: Runtime> UpdateBackend for TauriUpdateBackend<R> {
         self.app.restart();
     }
 }
+
+pub(crate) struct SharedUpdater<R: Runtime>(
+    Arc<Updater<TauriUpdateBackend<R>, TauriUpdateEvents<R>>>,
+);
 
 struct TauriUpdateEvents<R: Runtime> {
     app: AppHandle<R>,
@@ -208,22 +211,14 @@ impl<R: Runtime, M: tauri::Manager<R>> Updater2<'_, R, M> {
         }
     }
 
-    fn core(&self) -> Result<Updater<TauriUpdateBackend<R>, TauriUpdateEvents<R>>, crate::Error> {
-        let updates_dir = self
-            .manager
+    fn core(
+        &self,
+    ) -> Result<Arc<Updater<TauriUpdateBackend<R>, TauriUpdateEvents<R>>>, crate::Error> {
+        self.manager
             .app_handle()
-            .path()
-            .app_cache_dir()
-            .map_err(|_| crate::Error::CachePathUnavailable)?
-            .join("updates");
-        let current_version = self.manager.config().version.clone().unwrap_or_default();
-        let app = self.manager.app_handle().clone();
-        Ok(Updater::new(
-            Arc::new(TauriUpdateBackend::new(app.clone())),
-            Arc::new(TauriUpdateEvents { app }),
-            updates_dir,
-            current_version,
-        ))
+            .try_state::<SharedUpdater<R>>()
+            .map(|state| state.0.clone())
+            .ok_or(crate::Error::UpdaterNotManaged)
     }
 
     pub async fn check(&self) -> Result<Option<String>, crate::Error> {
@@ -231,14 +226,8 @@ impl<R: Runtime, M: tauri::Manager<R>> Updater2<'_, R, M> {
     }
 
     pub fn has_cached_update(&self, version: &str) -> bool {
-        self.manager
-            .app_handle()
-            .path()
-            .app_cache_dir()
-            .ok()
-            .map(|path: PathBuf| {
-                anlg_desktop_updater::cache_path(&path.join("updates"), version).is_file()
-            })
+        self.core()
+            .map(|updater| updater.has_cached_update(version))
             .unwrap_or(false)
     }
 
@@ -251,13 +240,6 @@ impl<R: Runtime, M: tauri::Manager<R>> Updater2<'_, R, M> {
     }
 
     pub async fn tick(&self, install_at_open: bool) -> bool {
-        let automatic_updates_enabled = match self.automatic_updates_enabled() {
-            Ok(enabled) => enabled,
-            Err(error) => {
-                tracing::error!("automatic_update_policy_read_failed: {}", error);
-                return false;
-            }
-        };
         let updater = match self.core() {
             Ok(updater) => updater,
             Err(error) => {
@@ -265,16 +247,35 @@ impl<R: Runtime, M: tauri::Manager<R>> Updater2<'_, R, M> {
                 return false;
             }
         };
-        updater
-            .tick(
-                UpdatePolicy {
-                    automatic_updates_enabled,
-                    meeting_active: self.meeting_active(),
+        let app = self.manager.app_handle().clone();
+        let policy = move || UpdatePolicy {
+            automatic_updates_enabled: app.updater2().automatic_updates_enabled().unwrap_or_else(
+                |error| {
+                    tracing::error!("automatic_update_policy_read_failed: {}", error);
+                    false
                 },
-                install_at_open,
-            )
-            .await
+            ),
+            meeting_active: MEETING_ACTIVE.load(std::sync::atomic::Ordering::Relaxed),
+        };
+        updater.tick(&policy, install_at_open).await
     }
+}
+
+pub(crate) fn create_core<R: Runtime>(
+    app: &AppHandle<R>,
+) -> Result<SharedUpdater<R>, crate::Error> {
+    let updates_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|_| crate::Error::CachePathUnavailable)?
+        .join("updates");
+    let current_version = app.config().version.clone().unwrap_or_default();
+    Ok(SharedUpdater(Arc::new(Updater::new(
+        Arc::new(TauriUpdateBackend::new(app.clone())),
+        Arc::new(TauriUpdateEvents { app: app.clone() }),
+        updates_dir,
+        current_version,
+    ))))
 }
 
 pub trait Updater2PluginExt<R: Runtime> {

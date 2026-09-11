@@ -631,16 +631,6 @@ impl Workspace {
         this.observe_window_activity(window, cx);
         match mode {
             Mode::Main => {
-                if let Some(cache_dir) = dirs::cache_dir() {
-                    crate::updater::spawn_update_loop(
-                        this.store.runtime(),
-                        crate::APP_VERSION,
-                        cache_dir.join(this.store.identifier()).join("updates"),
-                        this.store_file
-                            .scoped_bool("updater2", "AutomaticUpdatesEnabled")
-                            .unwrap_or(true),
-                    );
-                }
                 this.restore_tabs(cx);
                 this.start_onboarding_if_needed();
                 this.spawn_recorder(cx);
