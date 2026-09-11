@@ -66,6 +66,7 @@ anlg-claude = { path = "crates/claude", package = "claude" }
 anlg-cli-process = { path = "crates/cli-process", package = "cli-process" }
 anlg-cloudsync = { path = "crates/cloudsync", package = "cloudsync" }
 anlg-codex = { path = "crates/codex", package = "codex" }
+anlg-crash-reporting = { path = "crates/crash-reporting", package = "crash-reporting" }
 anlg-data = { path = "crates/data", package = "data" }
 anlg-db-app = { path = "crates/db-app", package = "db-app" }
 anlg-db-change = { path = "crates/db-change", package = "db-change" }

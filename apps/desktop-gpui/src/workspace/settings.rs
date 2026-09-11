@@ -724,6 +724,9 @@ impl Workspace {
         value: bool,
         cx: &mut Context<Self>,
     ) {
+        if key == "crash_reporting_consent" {
+            anlg_crash_reporting::set_enabled(value);
+        }
         self.set_setting(key, serde_json::Value::Bool(value), cx);
     }
 

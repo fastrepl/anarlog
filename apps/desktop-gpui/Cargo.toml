@@ -14,6 +14,7 @@ anlg-agent-access = { workspace = true }
 anlg-audio = { workspace = true }
 anlg-audio-actual = { workspace = true }
 anlg-audio-mock = { workspace = true }
+anlg-crash-reporting = { workspace = true }
 anlg-db-app = { workspace = true }
 anlg-db-core = { workspace = true }
 anlg-deeplink-core = { workspace = true }

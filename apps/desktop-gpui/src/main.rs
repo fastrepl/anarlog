@@ -86,6 +86,7 @@ pub const APP_VERSION: &str = match option_env!("APP_VERSION") {
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use anlg_crash_reporting::{Options as CrashReportingOptions, consent::CONSENT_QUERY};
 use anyhow::Context as _;
 use gpui::{
     App, AppContext as _, Application, Bounds, TitlebarOptions, WindowBounds, WindowDecorations,
@@ -94,6 +95,7 @@ use gpui::{
 
 use crate::db::Store;
 use crate::workspace::Workspace;
+use tracing_subscriber::prelude::*;
 
 /// The main window the tray menu acts on.
 struct MainWindow {
@@ -367,13 +369,16 @@ fn parse_args() -> anyhow::Result<Args> {
 }
 
 fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(
+    tracing_subscriber::registry()
+        .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
+        .with(anlg_crash_reporting::tracing_layer())
+        .with(tracing_subscriber::fmt::layer().with_writer(|| {
+            anlg_crash_reporting::redaction::RedactingWriter::new(std::io::stderr())
+        }))
         .init();
-
     let args = parse_args()?;
     let db_path = match args.db_path {
         Some(path) => path,
@@ -415,6 +420,22 @@ fn main() -> anyhow::Result<()> {
         db_path,
         args.identifier.clone(),
     ))?;
+    let crash_reporting_enabled = runtime.block_on(async {
+        let rows = sqlx::query_as::<_, (String, String)>(CONSENT_QUERY)
+            .fetch_all(store.pool())
+            .await
+            .unwrap_or_default();
+        anlg_crash_reporting::consent::from_rows(&rows)
+    });
+    let _sentry = anlg_crash_reporting::init(
+        CrashReportingOptions {
+            dsn: option_env!("SENTRY_DSN"),
+            release: Some(format!("anarlog-desktop-gpui@{APP_VERSION}")),
+            release_channel: option_env!("RELEASE_CHANNEL").unwrap_or("dev"),
+            service_name: "desktop-gpui",
+        },
+        crash_reporting_enabled,
+    );
     let audio = audio::provider(&args.identifier);
     let store = Arc::new(store);
     let search = search::SearchIndex::start(&store);

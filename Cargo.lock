@@ -4491,6 +4491,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "crash-reporting"
+version = "0.1.0"
+dependencies = [
+ "dirs 6.0.0",
+ "regex",
+ "sentry",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
+ "user-error",
+]
+
+[[package]]
 name = "crc"
 version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5371,6 +5384,7 @@ dependencies = [
  "audio-actual",
  "audio-mock",
  "chrono",
+ "crash-reporting",
  "db-app",
  "db-core",
  "db-sync",
@@ -5380,7 +5394,6 @@ dependencies = [
  "pico-args",
  "ractor",
  "search-index",
- "sentry",
  "serde",
  "serde_json",
  "specta",
@@ -5476,6 +5489,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "chrono-tz 0.10.4",
+ "crash-reporting",
  "db-app",
  "db-core",
  "deeplink-core",
@@ -19922,8 +19936,8 @@ dependencies = [
 name = "tauri-plugin-tracing"
 version = "0.1.0"
 dependencies = [
+ "crash-reporting",
  "dirs 6.0.0",
- "regex",
  "rquickjs 0.10.0",
  "sentry",
  "serde",
@@ -19932,14 +19946,12 @@ dependencies = [
  "specta-typescript",
  "tauri",
  "tauri-plugin",
- "tauri-plugin-sentry",
  "tauri-specta",
  "tempfile",
  "thiserror 2.0.18",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
- "user-error",
 ]
 
 [[package]]

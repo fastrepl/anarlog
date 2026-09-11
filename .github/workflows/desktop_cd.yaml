@@ -212,6 +212,7 @@ jobs:
         env:
           APP_VERSION: ${{ needs.compute-version.outputs.version }}
           ANARLOG_GPUI_SIDECAR: optional
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN_HYPRNOTE_2 }}
       - uses: ./.github/actions/apple_cert
         id: apple-cert
         with:
@@ -451,6 +452,7 @@ jobs:
         env:
           APP_VERSION: ${{ needs.compute-version.outputs.version }}
           ANARLOG_GPUI_SIDECAR: "1"
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN_HYPRNOTE_2 }}
           TAURI_ENV_TARGET_TRIPLE: ${{ matrix.target }}
       - run: |
           BUILD_ARGS=(
