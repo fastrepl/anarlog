@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   platform: "macos",
   preloadSession: vi.fn(() => Promise.resolve(null)),
   sessionMode: "inactive",
+  isEnhancing: false,
   stop: vi.fn(),
   getOrCreateSessionForEventId: vi.fn(() => Promise.resolve("session-event")),
   storeTitle: "Live Note",
@@ -82,7 +83,7 @@ vi.mock("@anlg/ui/components/ui/tooltip", () => ({
 }));
 
 vi.mock("~/session/hooks/useEnhancedNotes", () => ({
-  useIsSessionEnhancing: () => false,
+  useIsSessionEnhancing: () => mocks.isEnhancing,
 }));
 
 vi.mock("~/session/queries", () => ({
@@ -203,6 +204,7 @@ describe("TimelineItemComponent", () => {
     cleanup();
     mocks.amplitude = { mic: 0.4, speaker: 0.3 };
     mocks.sessionMode = "inactive";
+    mocks.isEnhancing = false;
     mocks.storeTitle = "Live Note";
     mocks.stop.mockClear();
     mocks.openCurrent.mockClear();
@@ -644,11 +646,42 @@ describe("TimelineItemComponent", () => {
     );
 
     const rowButton = screen.getByText("Finalizing Note").closest("button");
-    const spinnerSlot = screen.getByTestId("spinner").parentElement;
+    const spinner = screen.getByTestId("spinner");
 
-    expect(rowButton?.className).toContain("pr-10");
-    expect(spinnerSlot?.className).toContain("absolute");
-    expect(spinnerSlot?.className).toContain("right-3");
+    expect(rowButton?.className).not.toContain("pr-10");
+    expect(spinner.parentElement?.lastElementChild).toBe(spinner);
+  });
+
+  it("replaces the shared icon with the spinner while a shared note regenerates", () => {
+    mocks.isEnhancing = true;
+    mocks.storeTitle = "Shared plan";
+
+    render(
+      <ManagedSharedSessionIdsContext.Provider
+        value={new Set(["session-shared"])}
+      >
+        <TimelineItemComponent
+          item={{
+            type: "session",
+            id: "session-shared",
+            data: {
+              title: "Shared plan",
+              created_at: "2024-01-15T10:30:00.000Z",
+            },
+          }}
+          precision="time"
+          selected={false}
+          timezone="UTC"
+          multiSelected={false}
+          flatItemKeys={["session-session-shared"]}
+        />
+      </ManagedSharedSessionIdsContext.Provider>,
+    );
+
+    const spinner = screen.getByTestId("spinner");
+
+    expect(screen.queryByLabelText("Shared note")).toBeNull();
+    expect(spinner.parentElement?.lastElementChild).toBe(spinner);
   });
 
   it("marks a locally owned shared note with a people icon", () => {

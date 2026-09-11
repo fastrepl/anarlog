@@ -192,10 +192,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
 
       setIsUpgradingToPro(true);
       try {
-        const url = await buildWebAppUrl("/app/checkout", {
-          period: "monthly",
-          source,
-        });
+        const url = await buildWebAppUrl("/app/checkout", { source });
         await openUrlWithInstruction(url, "billing", (u) =>
           openerCommands.openUrl(u, null),
         );

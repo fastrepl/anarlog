@@ -7,6 +7,10 @@ import { commands as transcriptionCommands } from "@anlg/plugin-transcription";
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import type { SegmentKey } from "~/stt/live-segment";
+import {
+  buildRenderTranscriptRequestFromRows,
+  resolveScopedWordHumanIds,
+} from "~/stt/render-transcript";
 import { coalesceLiveTranscriptDeltas } from "~/stt/transcript-persistence-worker";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 import {
@@ -581,12 +585,14 @@ export async function assignSessionTranscriptSpeaker({
   segmentKey,
   humanId,
   anchorWordId,
+  wordIds,
 }: {
   sessionId: string;
   transcriptId: string;
   segmentKey: SegmentKey;
   humanId: string;
   anchorWordId: string;
+  wordIds?: string[];
 }): Promise<void> {
   const transcripts = await liveQueryClient.execute<{ id: string }>(
     `
@@ -597,17 +603,58 @@ export async function assignSessionTranscriptSpeaker({
     `,
     [sessionId],
   );
+  if (!transcripts.some((transcript) => transcript.id === transcriptId)) {
+    throw new Error(
+      `Transcript ${transcriptId} is no longer in session ${sessionId}`,
+    );
+  }
 
   await Promise.all(
-    transcripts.map((transcript) =>
-      assignSpeakerInTranscript({
-        transcriptId: transcript.id,
-        segmentKey,
-        humanId,
-        anchorWordId: transcript.id === transcriptId ? anchorWordId : undefined,
-        mode: "all",
-      }),
-    ),
+    transcripts
+      .filter(
+        (transcript) =>
+          transcript.id === transcriptId || segmentKey.speaker_human_id,
+      )
+      .map((transcript) =>
+        transcript.id === transcriptId
+          ? assignSpeakerInTranscript({
+              transcriptId,
+              segmentKey,
+              humanId,
+              anchorWordId,
+              wordIds,
+              mode: "all",
+            })
+          : mutateTranscript(transcript.id, (store) => {
+              const input = buildRenderTranscriptRequestFromRows([
+                {
+                  words: parseTranscriptWords(store, transcript.id),
+                  speaker_hints: parseTranscriptHints(store, transcript.id),
+                },
+              ])?.transcripts[0];
+              if (!input) return false;
+              const matchingWordIds = [...resolveScopedWordHumanIds(input)]
+                .filter(
+                  ([, assignedHumanId]) =>
+                    assignedHumanId === segmentKey.speaker_human_id,
+                )
+                .map(([wordId]) => wordId);
+              const anchor = matchingWordIds[0];
+              if (!anchor) return false;
+              upsertSpeakerAssignment(
+                store,
+                transcript.id,
+                segmentKey,
+                humanId,
+                anchor,
+                {
+                  mode: "segment",
+                  wordIds: matchingWordIds,
+                  extendToAdjacent: false,
+                },
+              );
+            }),
+      ),
   );
 }
 
@@ -651,7 +698,11 @@ async function assignSpeakerInTranscript({
     return true;
   });
 
-  if (!assigned || (mode ?? "all") !== "all") {
+  if (
+    !assigned ||
+    (mode ?? "all") !== "all" ||
+    !Number.isInteger(segmentKey.speaker_index)
+  ) {
     return;
   }
 

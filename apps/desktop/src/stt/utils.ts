@@ -253,12 +253,16 @@ export function upsertSpeakerAssignment(
   options: {
     mode?: "all" | "segment";
     wordIds?: string[];
+    extendToAdjacent?: boolean;
   } = {},
 ): void {
   const hints = parseTranscriptHints(store, transcriptId);
   const words = parseTranscriptWords(store, transcriptId);
   const wordsById = new Map(words.map((word) => [word.id, word]));
-  const mode = options.mode ?? "all";
+  const mode =
+    options.mode === "segment" || !Number.isInteger(segmentKey.speaker_index)
+      ? "segment"
+      : "all";
   const assignmentWordIds =
     mode === "segment"
       ? getUniqueWordIds([...(options.wordIds ?? []), anchorWordId])
@@ -293,7 +297,15 @@ export function upsertSpeakerAssignment(
     type: "user_speaker_assignment",
     value: JSON.stringify(
       mode === "segment"
-        ? { human_id: humanId, scope: "segment", word_ids: assignmentWordIds }
+        ? {
+            human_id: humanId,
+            scope: "segment",
+            word_ids: assignmentWordIds,
+            ...(options.extendToAdjacent === false ||
+            !Number.isInteger(segmentKey.speaker_index)
+              ? { extend_to_adjacent: false }
+              : {}),
+          }
         : {
             human_id: humanId,
             scope: "speaker",
@@ -303,29 +315,64 @@ export function upsertSpeakerAssignment(
     ),
   };
 
-  const nextHints = hints.filter((hint) => {
+  const speakerIndexes = new Map<string, number>();
+  for (const hint of hints) {
+    if (hint.type !== "provider_speaker_index" || !hint.word_id) continue;
+    const value = parseHintValue(hint.value);
+    if (
+      !value ||
+      typeof value !== "object" ||
+      !("speaker_index" in value) ||
+      typeof value.speaker_index !== "number"
+    )
+      continue;
+    speakerIndexes.set(hint.word_id, value.speaker_index);
+    const word = wordsById.get(hint.word_id);
+    if (word)
+      wordsById.set(word.id, {
+        ...word,
+        channel: getProviderHintChannel(hint, word),
+      });
+  }
+
+  const nextHints = hints.flatMap((hint) => {
     if (
       hint.type !== "automatic_speaker_assignment" &&
       hint.type !== "user_speaker_assignment"
     ) {
-      return true;
-    }
-
-    if (hint.id === newHint.id) {
-      return false;
+      return [hint];
     }
 
     const hintScope = getSpeakerAssignmentScopeForHint(hints, wordsById, hint);
-    if (!hintScope) {
-      return true;
+    if (hintScope?.kind === "words") {
+      const remainingWordIds = [...hintScope.wordIds].filter((wordId) =>
+        nextScope.kind === "words"
+          ? !nextScope.wordIds.has(wordId)
+          : wordsById.get(wordId)?.channel !== nextScope.channel ||
+            (nextScope.speakerIndex != null &&
+              speakerIndexes.get(wordId) !== nextScope.speakerIndex),
+      );
+      if (remainingWordIds.length === hintScope.wordIds.size) return [hint];
+      const anchor = remainingWordIds[0];
+      if (!anchor) return [];
+      return [
+        {
+          ...hint,
+          id: `${anchor}:${hint.type}:segment`,
+          word_id: anchor,
+          value: JSON.stringify({
+            ...(parseHintValue(hint.value) as Record<string, unknown>),
+            word_ids: remainingWordIds,
+          }),
+        },
+      ];
     }
 
-    return !speakerAssignmentScopesConflict(
-      hintScope,
-      nextScope,
-      hints,
-      wordsById,
-    );
+    if (hint.id === newHint.id) return [];
+    return hintScope &&
+      speakerAssignmentScopesConflict(hintScope, nextScope, hints, wordsById)
+      ? []
+      : [hint];
   });
 
   nextHints.push(newHint);
@@ -607,19 +654,21 @@ function findSpeakerIndexForWord(
   hints: SpeakerHintWithId[],
   wordId: string,
 ): number | null {
-  const providerHint = hints.find(
-    (h) => h.type === "provider_speaker_index" && h.word_id === wordId,
-  );
-  if (!providerHint) return null;
-  try {
-    const data =
-      typeof providerHint.value === "string"
-        ? JSON.parse(providerHint.value)
-        : providerHint.value;
-    return typeof data.speaker_index === "number" ? data.speaker_index : null;
-  } catch {
-    return null;
+  for (let index = hints.length - 1; index >= 0; index -= 1) {
+    const hint = hints[index];
+    if (hint.type !== "provider_speaker_index" || hint.word_id !== wordId)
+      continue;
+    const value = parseHintValue(hint.value);
+    if (
+      value &&
+      typeof value === "object" &&
+      "speaker_index" in value &&
+      typeof value.speaker_index === "number"
+    ) {
+      return value.speaker_index;
+    }
   }
+  return null;
 }
 
 function parseHintValue(value: unknown): unknown {
@@ -656,6 +705,7 @@ function reconcileSegmentSpeakerAssignmentHint({
 
   const nextWordIds = getReconciledSegmentWordIds({
     segmentWordIds: segmentAssignment.wordIds,
+    extendToAdjacent: segmentAssignment.value.extend_to_adjacent !== false,
     replacedIds,
     previousWords,
     nextWords,
@@ -686,6 +736,7 @@ function reconcileSegmentSpeakerAssignmentHint({
 
 function getReconciledSegmentWordIds({
   segmentWordIds,
+  extendToAdjacent,
   replacedIds,
   previousWords,
   nextWords,
@@ -693,6 +744,7 @@ function getReconciledSegmentWordIds({
   newFinalWords,
 }: {
   segmentWordIds: string[];
+  extendToAdjacent: boolean;
   replacedIds: Set<string>;
   previousWords: WordWithId[];
   nextWords: WordWithId[];
@@ -745,7 +797,14 @@ function getReconciledSegmentWordIds({
           hints,
           newSpeakerIndexByWordId,
         ) &&
-        isWithinSegmentRange(word, previousRange)
+        (!extendToAdjacent || segmentKey.speakerIndex == null
+          ? scopedPreviousWords.some(
+              (previous) =>
+                replacedIds.has(previous.id) &&
+                Math.min(previous.end_ms ?? 0, word.end_ms) >
+                  Math.max(previous.start_ms ?? 0, word.start_ms),
+            )
+          : isWithinSegmentRange(word, previousRange))
       ) {
         seedWordIds.add(word.id);
       }
@@ -754,6 +813,11 @@ function getReconciledSegmentWordIds({
 
   if (seedWordIds.size === 0) {
     return [];
+  }
+  if (!extendToAdjacent || segmentKey.speakerIndex == null) {
+    return nextWords
+      .filter((word) => seedWordIds.has(word.id))
+      .map((word) => word.id);
   }
 
   const seedIndexes = nextWords.flatMap((word, index) =>
