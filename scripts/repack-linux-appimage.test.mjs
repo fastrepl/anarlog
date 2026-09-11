@@ -18,7 +18,11 @@ import { repackLinuxAppImage } from "./repack-linux-appimage.mjs";
 
 async function createFixture(
   t,
-  { withWaylandLibraries = true, patchedGtkHook = false } = {},
+  {
+    withWaylandLibraries = true,
+    withAudioLibraries = false,
+    patchedGtkHook = false,
+  } = {},
 ) {
   const directory = await mkdtemp(
     path.join(os.tmpdir(), "anarlog-appimage-repack-"),
@@ -65,6 +69,17 @@ async function createFixture(
       path.join(nestedLibraryDirectory, "libwayland-cursor.so.0.22.0"),
       "wayland-cursor",
     );
+  }
+  if (withAudioLibraries) {
+    for (const name of [
+      "libpipewire-0.3.so.0",
+      "libpipewire-0.3.so.0.1000.0",
+      "libspa-support.so",
+      "libpulse.so.0",
+      "libpulsecommon-16.1.so",
+    ]) {
+      await writeFile(path.join(libraryDirectory, name), name);
+    }
   }
   await writeFile(appImage, "original-appimage");
   await writeFile(`${appImage}.sig`, "stale-signature");
@@ -140,6 +155,54 @@ test("removes Wayland libraries, repacks, and regenerates the signature", async 
     args: ["-F", "desktop", "tauri", "signer", "sign", fixture.appImage],
     options: undefined,
   });
+});
+
+test("removes bundled PipeWire libraries and SPA modules but keeps PulseAudio", async (t) => {
+  const fixture = await createFixture(t, {
+    withWaylandLibraries: false,
+    withAudioLibraries: true,
+    patchedGtkHook: true,
+  });
+
+  const result = await repackLinuxAppImage({
+    arch: "aarch64",
+    bundleDirectory: fixture.directory,
+    pluginPath: fixture.plugin,
+    run: async (command) => {
+      if (command === fixture.plugin) {
+        await writeFile(fixture.appImage, "repacked-appimage");
+      } else {
+        await writeFile(`${fixture.appImage}.sig`, "fresh-signature");
+      }
+    },
+  });
+
+  assert.deepEqual(
+    result.removedLibraries.map((library) => path.basename(library)),
+    [
+      "libpipewire-0.3.so.0",
+      "libpipewire-0.3.so.0.1000.0",
+      "libspa-support.so",
+    ],
+  );
+  assert.equal(result.updatedGtkHook, false);
+  for (const kept of ["libpulse.so.0", "libpulsecommon-16.1.so"]) {
+    assert.equal(
+      await readFile(
+        path.join(fixture.appDirectory, "usr", "lib", kept),
+        "utf8",
+      ),
+      kept,
+    );
+  }
+  assert.equal(
+    await readFile(
+      path.join(fixture.appDirectory, "usr", "lib", "libgtk-3.so.0"),
+      "utf8",
+    ),
+    "gtk",
+  );
+  assert.equal(await readFile(fixture.appImage, "utf8"), "repacked-appimage");
 });
 
 test("keeps an already-clean AppImage and its signature unchanged", async (t) => {

@@ -12,8 +12,17 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Host Mesa and WebKitGTK must resolve against the host's matching Wayland ABI.
-const waylandLibraryPattern = /^libwayland-.*\.so(?:\..*)?$/;
+// Libraries that must come from the host rather than the Ubuntu build box:
+// Wayland, because host Mesa and WebKitGTK need the matching ABI; PipeWire and
+// its SPA modules, because libpipewire loads plugins from a directory baked in
+// at build time (Ubuntu's multiarch path does not exist on Fedora), so a bundled
+// copy silently fails to capture there. libpulse stays bundled: it only speaks a
+// stable socket protocol to the daemon, and it dlopens its own libpulsecommon.
+const hostLibraryPatterns = [
+  /^libwayland-.*\.so(?:\..*)?$/,
+  /^libpipewire-.*\.so(?:\..*)?$/,
+  /^libspa-.*\.so(?:\..*)?$/,
+];
 const gdkBackendDefault = 'export GDK_BACKEND="${GDK_BACKEND:-x11,wayland}"';
 
 function patchGtkHook(source) {
@@ -44,7 +53,7 @@ async function findSingleBundleEntry(bundleDirectory, suffix, isExpectedType) {
   return path.join(bundleDirectory, matches[0].name);
 }
 
-export async function findBundledWaylandLibraries(directory) {
+export async function findBundledHostLibraries(directory) {
   const matches = [];
 
   async function walk(currentDirectory) {
@@ -53,7 +62,9 @@ export async function findBundledWaylandLibraries(directory) {
       const entryPath = path.join(currentDirectory, entry.name);
       if (entry.isDirectory()) {
         await walk(entryPath);
-      } else if (waylandLibraryPattern.test(entry.name)) {
+      } else if (
+        hostLibraryPatterns.some((pattern) => pattern.test(entry.name))
+      ) {
         matches.push(entryPath);
       }
     }
@@ -112,7 +123,7 @@ export async function repackLinuxAppImage({
     ".AppImage",
     (entry) => entry.isFile(),
   );
-  const waylandLibraries = await findBundledWaylandLibraries(
+  const hostLibraries = await findBundledHostLibraries(
     path.join(appDirectory, "usr"),
   );
   const gtkHook = path.join(
@@ -124,9 +135,9 @@ export async function repackLinuxAppImage({
   const patchedGtkHook = patchGtkHook(originalGtkHook);
   const updatedGtkHook = originalGtkHook !== patchedGtkHook;
 
-  if (waylandLibraries.length === 0 && !updatedGtkHook) {
+  if (hostLibraries.length === 0 && !updatedGtkHook) {
     console.log(
-      `AppImage already uses host Wayland libraries and GTK backends: ${appImage}`,
+      `AppImage already uses host Wayland and PipeWire libraries and GTK backends: ${appImage}`,
     );
     return { appDirectory, appImage, removedLibraries: [], updatedGtkHook };
   }
@@ -144,20 +155,18 @@ export async function repackLinuxAppImage({
   if (updatedGtkHook) {
     await writeFile(gtkHook, patchedGtkHook);
   }
-  await Promise.all(waylandLibraries.map((library) => rm(library)));
+  await Promise.all(hostLibraries.map((library) => rm(library)));
 
-  const remainingLibraries = await findBundledWaylandLibraries(
+  const remainingLibraries = await findBundledHostLibraries(
     path.join(appDirectory, "usr"),
   );
   if (remainingLibraries.length > 0) {
     throw new Error(
-      `Failed to remove bundled Wayland libraries: ${remainingLibraries.join(", ")}`,
+      `Failed to remove bundled host libraries: ${remainingLibraries.join(", ")}`,
     );
   }
 
-  console.log(
-    `Removed bundled Wayland libraries:\n${waylandLibraries.join("\n")}`,
-  );
+  console.log(`Removed bundled host libraries:\n${hostLibraries.join("\n")}`);
 
   await rm(appImage);
   await run(
@@ -191,7 +200,7 @@ export async function repackLinuxAppImage({
   return {
     appDirectory,
     appImage,
-    removedLibraries: waylandLibraries,
+    removedLibraries: hostLibraries,
     updatedGtkHook,
   };
 }

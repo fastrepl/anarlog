@@ -462,6 +462,71 @@ fn propagates_remote_party_identity_when_channel_marked_complete() {
 }
 
 #[test]
+fn channel_defaults_do_not_identify_speakers_on_incomplete_channels() {
+    for channel in [ChannelProfile::RemoteParty, ChannelProfile::MixedCapture] {
+        let finals = vec![
+            fw_si("0", 0, 100, channel as i32, 0),
+            fw_si("1", 200, 300, channel as i32, 1),
+        ];
+        let assignments = vec![channel_human("alice", channel)];
+        let result = build_segments(&finals, &[], &assignments, None);
+
+        assert_eq!(result.len(), 2);
+        assert!(
+            result
+                .iter()
+                .all(|segment| segment.key.speaker_human_id.is_none())
+        );
+        assert_eq!(texts(&result[0]), vec!["0"]);
+        assert_eq!(texts(&result[1]), vec!["1"]);
+    }
+}
+
+#[test]
+fn word_assignments_do_not_become_speaker_or_channel_defaults() {
+    for channel in [0, 1, 2] {
+        for speaker_index in [None, Some(0)] {
+            let finals = (0..3)
+                .map(|index| FinalizedWord {
+                    speaker_index,
+                    ..fw(&index.to_string(), index * 100, index * 100 + 100, channel)
+                })
+                .collect::<Vec<_>>();
+            let result = build_segments(&finals, &[], &[words_human("alice", &["w-1"])], None);
+
+            for segment in &result {
+                for word in &segment.words {
+                    assert_eq!(
+                        segment.key.speaker_human_id.as_deref(),
+                        (word.id.as_deref() == Some("w-1")).then_some("alice"),
+                        "channel={channel}, speaker_index={speaker_index:?}, word={:?}",
+                        word.id
+                    );
+                }
+            }
+            assert_eq!(
+                result
+                    .iter()
+                    .map(|segment| segment.words.len())
+                    .sum::<usize>(),
+                3
+            );
+        }
+    }
+}
+
+#[test]
+fn word_assignment_still_labels_the_trailing_partial() {
+    let finals = vec![fw_si("0", 0, 100, 2, 0)];
+    let partials = vec![pw("1", 100, 200, 2)];
+    let result = build_segments(&finals, &partials, &[words_human("alice", &["w-0"])], None);
+
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].key.speaker_human_id.as_deref(), Some("alice"));
+    assert_eq!(texts(&result[0]), vec!["0", "1"]);
+}
+
+#[test]
 fn partial_word_ignores_its_own_runtime_hint_and_keeps_previous_segment_key() {
     let finals = vec![fw_si("0", 0, 100, 0, 0)];
     let partials = vec![pw_si("1", 150, 250, 0, 1)];

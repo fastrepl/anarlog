@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
     (_statements: Array<{ sql: string; params: unknown[] }>) =>
       Promise.resolve(_statements.map(() => 1)),
   ),
+  promoteVoiceprintCandidates: vi.fn().mockResolvedValue({ status: "ok" }),
   humanRows: [] as Array<Record<string, unknown>>,
   participantRows: [] as Array<Record<string, unknown>>,
   queryOptions: [] as Array<{
@@ -17,6 +18,10 @@ const mocks = vi.hoisted(() => ({
     enabled?: boolean;
   }>,
   transcriptRows: [] as Array<Record<string, unknown>>,
+}));
+
+vi.mock("@anlg/plugin-transcription", () => ({
+  commands: { promoteVoiceprintCandidates: mocks.promoteVoiceprintCandidates },
 }));
 
 vi.mock("~/db", () => ({
@@ -652,78 +657,43 @@ describe("transcript SQLite queries", () => {
     ]);
   });
 
-  it("applies matching speaker assignments across resumed transcripts", async () => {
-    mocks.execute
-      .mockResolvedValueOnce([
-        { id: "transcript-1" },
-        { id: "transcript-2" },
-        { id: "transcript-3" },
-      ])
-      .mockResolvedValueOnce([
+  function speakerRow(wordId: string, speakerIndex: number, humanId?: string) {
+    return {
+      words_json: JSON.stringify([
+        { id: wordId, text: wordId, start_ms: 0, end_ms: 100, channel: 1 },
+      ]),
+      speaker_hints_json: JSON.stringify([
         {
-          words_json: JSON.stringify([
-            {
-              id: "word-1",
-              text: "First",
-              start_ms: 0,
-              end_ms: 500,
-              channel: 1,
-            },
-          ]),
-          speaker_hints_json: JSON.stringify([
-            {
-              id: "word-1:provider_speaker_index",
-              word_id: "word-1",
-              type: "provider_speaker_index",
-              value: JSON.stringify({ channel: 1, speaker_index: 0 }),
-            },
-          ]),
-          content_revision: 0,
-          pending_deltas_json: "[]",
+          id: `${wordId}:provider_speaker_index`,
+          word_id: wordId,
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: speakerIndex }),
         },
-      ])
-      .mockResolvedValueOnce([
-        {
-          words_json: JSON.stringify([
-            {
-              id: "word-2",
-              text: "Resumed",
-              start_ms: 0,
-              end_ms: 500,
-              channel: 1,
-            },
-          ]),
-          speaker_hints_json: JSON.stringify([
-            {
-              id: "word-2:provider_speaker_index",
-              word_id: "word-2",
-              type: "provider_speaker_index",
-              value: JSON.stringify({ channel: 1, speaker_index: 0 }),
-            },
-          ]),
-          content_revision: 0,
-          pending_deltas_json: "[]",
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          words_json: "[]",
-          speaker_hints_json: "[]",
-          content_revision: 0,
-          pending_deltas_json: JSON.stringify([
-            liveDelta([
+        ...(humanId
+          ? [
               {
-                id: "word-3",
-                text: "Local",
-                start_ms: 0,
-                end_ms: 500,
-                channel: 0,
-                state: "final",
+                id: `${wordId}:user_speaker_assignment`,
+                word_id: wordId,
+                type: "user_speaker_assignment",
+                value: JSON.stringify({
+                  human_id: humanId,
+                  scope: "speaker",
+                  channel: 1,
+                  speaker_index: speakerIndex,
+                }),
               },
-            ]),
-          ]),
-        },
-      ]);
+            ]
+          : []),
+      ]),
+      content_revision: 0,
+      pending_deltas_json: "[]",
+    };
+  }
+
+  it("does not treat a speaker index as an identity across separate captures", async () => {
+    mocks.execute
+      .mockResolvedValueOnce([{ id: "transcript-1" }, { id: "transcript-2" }])
+      .mockResolvedValueOnce([speakerRow("word-1", 0)]);
 
     await assignSessionTranscriptSpeaker({
       sessionId: "session-1",
@@ -733,7 +703,37 @@ describe("transcript SQLite queries", () => {
         speaker_index: 0,
         speaker_human_id: null,
       },
-      humanId: "human-1",
+      humanId: "alice",
+      anchorWordId: "word-1",
+    });
+
+    expect(mocks.execute).toHaveBeenCalledTimes(2);
+    expect(mocks.executeTransaction).toHaveBeenCalledTimes(1);
+    expect(mocks.executeTransaction.mock.calls[0][0][0].params[3]).toBe(
+      "transcript-1",
+    );
+  });
+
+  it("matches already identified people across resumed captures instead of reusing indexes", async () => {
+    mocks.execute
+      .mockResolvedValueOnce([
+        { id: "transcript-1" },
+        { id: "transcript-2" },
+        { id: "transcript-3" },
+      ])
+      .mockResolvedValueOnce([speakerRow("word-1", 0, "alice")])
+      .mockResolvedValueOnce([speakerRow("word-2", 7, "alice")])
+      .mockResolvedValueOnce([speakerRow("word-3", 0, "bob")]);
+
+    await assignSessionTranscriptSpeaker({
+      sessionId: "session-1",
+      transcriptId: "transcript-1",
+      segmentKey: {
+        channel: "RemoteParty",
+        speaker_index: 0,
+        speaker_human_id: "alice",
+      },
+      humanId: "carol",
       anchorWordId: "word-1",
     });
 
@@ -744,21 +744,76 @@ describe("transcript SQLite queries", () => {
       "transcript-1",
       "transcript-2",
     ]);
-    expect(mocks.executeTransaction).toHaveBeenCalledTimes(2);
-    expect(
-      updates.map((statement) =>
-        JSON.parse(String(statement.params[1])).at(-1),
-      ),
-    ).toEqual([
-      expect.objectContaining({
-        word_id: "word-1",
-        type: "user_speaker_assignment",
+    const hints = JSON.parse(String(updates[1].params[1]));
+    expect(JSON.parse(hints.at(-1).value)).toEqual({
+      human_id: "carol",
+      scope: "segment",
+      word_ids: ["word-2"],
+      extend_to_adjacent: false,
+    });
+  });
+
+  it("keeps selected words when Apply to all has no speaker index", async () => {
+    mocks.execute
+      .mockResolvedValueOnce([{ id: "transcript-1" }])
+      .mockResolvedValueOnce([
+        {
+          words_json: JSON.stringify(
+            ["word-1", "word-2"].map((id, index) => ({
+              id,
+              text: id,
+              start_ms: index * 100,
+              end_ms: index * 100 + 100,
+              channel: 2,
+            })),
+          ),
+          speaker_hints_json: "[]",
+          content_revision: 0,
+          pending_deltas_json: "[]",
+        },
+      ]);
+
+    await assignSessionTranscriptSpeaker({
+      sessionId: "session-1",
+      transcriptId: "transcript-1",
+      segmentKey: {
+        channel: "MixedCapture",
+        speaker_index: null,
+        speaker_human_id: null,
+      },
+      humanId: "alice",
+      anchorWordId: "word-1",
+      wordIds: ["word-1", "word-2"],
+    });
+
+    const hints = JSON.parse(
+      String(mocks.executeTransaction.mock.calls[0][0][0].params[1]),
+    );
+    expect(JSON.parse(hints[0].value)).toEqual({
+      human_id: "alice",
+      scope: "segment",
+      word_ids: ["word-1", "word-2"],
+      extend_to_adjacent: false,
+    });
+    expect(mocks.promoteVoiceprintCandidates).not.toHaveBeenCalled();
+  });
+
+  it("rejects a stale source transcript instead of changing other captures", async () => {
+    mocks.execute.mockResolvedValueOnce([{ id: "transcript-2" }]);
+    await expect(
+      assignSessionTranscriptSpeaker({
+        sessionId: "session-1",
+        transcriptId: "transcript-1",
+        segmentKey: {
+          channel: "RemoteParty",
+          speaker_index: 0,
+          speaker_human_id: "alice",
+        },
+        humanId: "bob",
+        anchorWordId: "word-1",
       }),
-      expect.objectContaining({
-        word_id: "word-2",
-        type: "user_speaker_assignment",
-      }),
-    ]);
+    ).rejects.toThrow("no longer in session");
+    expect(mocks.executeTransaction).not.toHaveBeenCalled();
   });
 
   it("persists merged unlabeled speaker indexes through the optimistic transcript update", async () => {

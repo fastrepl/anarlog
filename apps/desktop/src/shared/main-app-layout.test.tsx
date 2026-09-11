@@ -51,6 +51,12 @@ vi.mock("~/settings/team/mirror", () => ({
   useMyWorkspacesWithMirror: vi.fn(),
 }));
 
+vi.mock("~/settings/team/invitation-toast", () => ({
+  WorkspaceInvitationToasts: () => (
+    <div data-testid="workspace-invitation-toasts" />
+  ),
+}));
+
 vi.mock("~/shared/hooks/useMountEffect", () => ({
   useMountEffect: vi.fn(),
 }));
@@ -83,6 +89,9 @@ describe("MainAppLayout", () => {
     expect(
       authProvider.contains(screen.getByTestId("enterprise-capture-sync")),
     ).toBe(true);
+    expect(
+      authProvider.contains(screen.getByTestId("workspace-invitation-toasts")),
+    ).toBe(true);
   });
 
   it("does not mount connected import sync in secondary windows", () => {
@@ -92,5 +101,6 @@ describe("MainAppLayout", () => {
 
     expect(screen.queryByTestId("meeting-import-sync")).toBeNull();
     expect(screen.queryByTestId("enterprise-capture-sync")).toBeNull();
+    expect(screen.queryByTestId("workspace-invitation-toasts")).toBeNull();
   });
 });

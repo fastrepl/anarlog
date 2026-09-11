@@ -6,7 +6,9 @@ import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { openUrlWithInstruction } from "@anlg/plugin-windows";
 import {
+  type BillingPeriod,
   getActionForTier,
+  getFixedPlanPrice,
   type MarketingPlanTier,
   PlanFeatureList,
   PLAN_TIERS,
@@ -269,6 +271,13 @@ function PlanBillingSection({
   const openNew = useTabs((state) => state.openNew);
 
   const [actionPending, setActionPending] = useState(false);
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("monthly");
+  const proPrice = getFixedPlanPrice("pro");
+  const canChooseBillingPeriod =
+    !isCurrentTierPending &&
+    currentTier === "free" &&
+    !isPaused &&
+    proPrice?.yearly != null;
 
   // A cardless trial pauses at the end unless a card is added, so replace the
   // static current-plan status with an explicit payment-method action.
@@ -393,13 +402,13 @@ function PlanBillingSection({
         void analyticsCommands.event({
           event: "trial_checkout_started",
           plan: action.plan,
-          period: "monthly",
+          period: billingPeriod,
           source: "settings",
         });
 
         await openBillingUrl(() =>
           buildWebAppUrl("/app/checkout", {
-            period: "monthly",
+            period: billingPeriod,
             trial: "true",
             source: "settings",
           }),
@@ -415,14 +424,14 @@ function PlanBillingSection({
       void analyticsCommands.event({
         event: "upgrade_clicked",
         plan: action.plan,
-        period: "monthly",
+        period: billingPeriod,
         source: "settings",
       });
 
       await openBillingUrl(() =>
         buildWebAppUrl("/app/checkout", {
           plan: action.plan,
-          period: "monthly",
+          period: billingPeriod,
           source: "settings",
         }),
       );
@@ -468,12 +477,75 @@ function PlanBillingSection({
         <RefreshBillingButton />
       </div>
 
+      {canChooseBillingPeriod && proPrice?.yearly != null && (
+        <BillingPeriodToggle
+          value={billingPeriod}
+          onChange={setBillingPeriod}
+          monthlyPrice={proPrice.monthly}
+          yearlyPrice={proPrice.yearly}
+        />
+      )}
+
       <PlanTierList
         currentTier={isCurrentTierPending ? null : currentTier}
         isTrialing={isTrialing}
         canStartTrial={canStartTrialQuery.data}
         renderAction={renderAction}
       />
+    </div>
+  );
+}
+
+function BillingPeriodToggle({
+  value,
+  onChange,
+  monthlyPrice,
+  yearlyPrice,
+}: {
+  value: BillingPeriod;
+  onChange: (period: BillingPeriod) => void;
+  monthlyPrice: number;
+  yearlyPrice: number;
+}) {
+  const { t } = useLingui();
+  const yearlySavings = monthlyPrice * 12 - yearlyPrice;
+  const options: Array<{ period: BillingPeriod; label: string }> = [
+    { period: "monthly", label: t`Monthly · $${monthlyPrice}/mo` },
+    {
+      period: "yearly",
+      label:
+        yearlySavings > 0
+          ? t`Yearly · $${yearlyPrice}/yr (save $${yearlySavings})`
+          : t`Yearly · $${yearlyPrice}/yr`,
+    },
+  ];
+
+  return (
+    <div
+      role="radiogroup"
+      aria-label={t`Billing period`}
+      className="bg-muted rounded-pill mb-4 inline-flex items-center gap-0.5 p-0.5 [corner-shape:round]"
+    >
+      {options.map((option) => {
+        const selected = option.period === value;
+        return (
+          <button
+            key={option.period}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(option.period)}
+            className={cn([
+              "rounded-pill px-2.5 py-1 text-xs font-medium transition-colors [corner-shape:round]",
+              selected
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            ])}
+          >
+            {option.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
