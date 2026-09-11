@@ -52,6 +52,7 @@ vi.mock("./legacy-cleanup", () => ({
   LegacyMigrationCleanupRow: () => <div>Legacy cleanup</div>,
   useLegacyMigrationCleanup: () => ({ visible: false }),
 }));
+vi.mock("./export-location", () => ({ ExportLocationRow: () => null }));
 
 import { StorageSettingsView } from "./index";
 

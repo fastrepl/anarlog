@@ -64,6 +64,21 @@ import {
 } from "./queries";
 
 describe("SQLite settings", () => {
+  it("persists and reloads export folders as device-local settings", async () => {
+    mocks.executeTransaction.mockClear();
+    await setSettingValues({ export_directory: "/Volumes/Work/Exports" });
+    const [statement] = mocks.executeTransaction.mock.calls[0][0];
+    expect(statement.sql).toContain("INSERT INTO app_settings");
+    const stored = parseSettingRows([
+      {
+        id: String(statement.params[0]),
+        value_json: String(statement.params[1]),
+      },
+    ]);
+    expect(stored.values.export_directory).toBe("/Volumes/Work/Exports");
+    expect(stored.hasValues.has("export_directory")).toBe(true);
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.setDisabled.mockResolvedValue({ status: "ok", data: null });
