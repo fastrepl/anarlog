@@ -462,6 +462,17 @@ fn propagates_remote_party_identity_when_channel_marked_complete() {
 }
 
 #[test]
+fn applies_mixed_capture_channel_identity_to_provider_speakers() {
+    let finals = vec![fw_si("0", 0, 100, 2, 0), fw_si("1", 200, 300, 2, 0)];
+    let assignments = vec![channel_human("alice", ChannelProfile::MixedCapture)];
+    let result = build_segments(&finals, &[], &assignments, None);
+
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].key, key_speaker_human(2, 0, "alice"));
+    assert_eq!(texts(&result[0]), vec!["0", "1"]);
+}
+
+#[test]
 fn partial_word_ignores_its_own_runtime_hint_and_keeps_previous_segment_key() {
     let finals = vec![fw_si("0", 0, 100, 0, 0)];
     let partials = vec![pw_si("1", 150, 250, 0, 1)];

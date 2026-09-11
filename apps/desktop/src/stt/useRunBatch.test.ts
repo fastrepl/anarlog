@@ -473,6 +473,84 @@ describe("reconcileRefinedSpeakerClusters", () => {
     ]);
   });
 
+  test("keeps apply-to-all speaker assignments after refinement", () => {
+    const source = {
+      id: "live-transcript",
+      ownerUserId: "user-1",
+      sessionId: "session-1",
+      startedAt: 0,
+      words: [
+        {
+          id: "live-word",
+          text: "hello",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 1,
+        },
+      ],
+      speakerHints: [
+        {
+          id: "live-word-provider",
+          word_id: "live-word",
+          type: "provider_speaker_index" as const,
+          value: JSON.stringify({ channel: 1, speaker_index: 0 }),
+        },
+        {
+          id: "live-word-user",
+          word_id: "live-word",
+          type: "user_speaker_assignment" as const,
+          value: JSON.stringify({
+            human_id: "human-1",
+            scope: "speaker",
+            channel: 1,
+            speaker_index: 0,
+          }),
+        },
+      ],
+    } satisfies Parameters<typeof reconcileRefinedSpeakerClusters>[0];
+    const words = [
+      {
+        id: "batch-word",
+        text: "hello",
+        start_ms: 0,
+        end_ms: 100,
+        channel: 1,
+      },
+    ];
+    const hints = [
+      {
+        id: "batch-word-provider",
+        word_id: "batch-word",
+        type: "provider_speaker_index" as const,
+        value: JSON.stringify({
+          provider: "anarlog",
+          channel: 1,
+          speaker_index: 2,
+        }),
+      },
+    ];
+
+    const result = reconcileRefinedSpeakerClusters(source, words, hints);
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        word_id: "batch-word",
+        type: "provider_speaker_index",
+      }),
+      expect.objectContaining({
+        word_id: "live-word",
+        type: "user_speaker_assignment",
+      }),
+    ]);
+    expect(JSON.parse(String(result[0]?.value)).speaker_index).toBe(0);
+    expect(JSON.parse(String(result[1]?.value))).toEqual({
+      human_id: "human-1",
+      scope: "speaker",
+      channel: 1,
+      speaker_index: 0,
+    });
+  });
+
   test("keeps an ambiguous batch cluster unchanged", () => {
     const source = {
       id: "live-transcript",

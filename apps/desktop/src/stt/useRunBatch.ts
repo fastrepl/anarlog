@@ -326,8 +326,11 @@ export function reconcileRefinedSpeakerClusters(
 ): SpeakerHintWithId[] {
   const sourceSpeakerKeys = speakerKeysByWordId(source.speakerHints);
   const targetSpeakerKeys = speakerKeysByWordId(hints);
+  const userAssignments = source.speakerHints.filter(
+    (hint) => hint.type === "user_speaker_assignment",
+  );
   if (sourceSpeakerKeys.size === 0 || targetSpeakerKeys.size === 0) {
-    return hints;
+    return userAssignments.length > 0 ? [...hints, ...userAssignments] : hints;
   }
 
   const sourceIntervalsByChannel = new Map<
@@ -497,7 +500,7 @@ export function reconcileRefinedSpeakerClusters(
     sourceSpeakerByTarget.set(speakerKey, speakerIndex);
   }
 
-  return hints.map((hint) => {
+  const reconciledProviderHints = hints.map((hint) => {
     if (hint.type !== "provider_speaker_index" || !hint.word_id) {
       return hint;
     }
@@ -516,6 +519,10 @@ export function reconcileRefinedSpeakerClusters(
       value: JSON.stringify({ ...value, speaker_index: speakerIndex }),
     };
   });
+
+  return userAssignments.length > 0
+    ? [...reconciledProviderHints, ...userAssignments]
+    : reconciledProviderHints;
 }
 
 export function isStoppedTranscriptionError(error: unknown) {

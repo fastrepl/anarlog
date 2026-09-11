@@ -126,9 +126,7 @@ function PersistedTranscript({
       liveSegments,
       currentActive ? request : null,
     );
-    return currentActive
-      ? applyRenderRequestIdentitiesToSegments(merged, request)
-      : merged;
+    return applyRenderRequestIdentitiesToSegments(merged, request);
   }, [currentActive, liveSegments, request, storedSegments]);
 
   return (
