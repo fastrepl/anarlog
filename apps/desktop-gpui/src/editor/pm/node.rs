@@ -43,29 +43,22 @@ fn utf16_len(text: &str) -> usize {
     text.encode_utf16().count()
 }
 
-fn utf16_slice(text: &str, from: usize, to: usize) -> String {
-    // JavaScript can return lone surrogates for split code-unit ranges; clamp
-    // those positions to the containing Rust char boundary instead.
+fn utf16_byte_offset(text: &str, pos: usize) -> usize {
     let mut units = 0;
-    let mut start = text.len();
     for (byte, ch) in text.char_indices() {
-        let next = units + ch.len_utf16();
-        if from < next {
-            start = byte;
-            break;
-        }
-        units = next;
-    }
-    units = 0;
-    let mut end = text.len();
-    for (byte, ch) in text.char_indices() {
-        if to <= units {
-            end = byte;
-            break;
-        }
         units += ch.len_utf16();
+        if units >= pos {
+            return byte;
+        }
     }
-    text[start.min(end)..end].to_string()
+    text.len()
+}
+
+fn utf16_slice(text: &str, from: usize, to: usize) -> String {
+    // mid-surrogate positions round down to the containing char so prefix and suffix cuts agree
+    let start = utf16_byte_offset(text, from);
+    let end = utf16_byte_offset(text, to.max(from));
+    text[start..end].to_string()
 }
 
 impl Mark {
@@ -709,6 +702,10 @@ mod tests {
         let text = Node::text(s, "a😀b", Vec::new());
         assert_eq!(text.node_size(), 4);
         assert_eq!(text.cut(0, Some(0)).text_content(), "");
+        assert_eq!(utf16_slice("a😀b", 0, 3), "a");
+        assert_eq!(utf16_slice("a😀b", 3, 4), "😀");
+        assert_eq!(utf16_slice("a😀b", 3, 5), "😀b");
+        assert_eq!(utf16_slice("a😀b", 0, 4), "a😀");
         assert_eq!(text.cut(1, Some(3)).text_content(), "😀");
         assert_eq!(text.cut(1, Some(2)).text_content(), "😀");
         assert_eq!(text.cut(2, Some(3)).text_content(), "😀");

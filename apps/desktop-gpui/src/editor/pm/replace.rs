@@ -327,5 +327,18 @@ mod tests {
         let flat = d.replace(s, 3, 3, &text).unwrap();
         assert_eq!(flat.child(0).text_content(), "HeXYllo");
         assert_eq!(flat.child(0).child_count(), 1);
+
+        let emoji_doc = doc(
+            r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"a😀b"}]}]}"#,
+        );
+        let inserted = emoji_doc
+            .replace(
+                s,
+                3,
+                3,
+                &Slice::new(Fragment::from(vec![Node::text(s, "X", Vec::new())]), 0, 0),
+            )
+            .unwrap();
+        assert_eq!(inserted.child(0).text_content(), "aX😀b");
     }
 }
