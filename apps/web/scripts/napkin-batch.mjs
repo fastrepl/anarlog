@@ -98,11 +98,16 @@ function storagePath(slug, filename) {
 }
 
 async function figureExists(slug, filename) {
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { persistSession: false, autoRefreshToken: false } },
-  );
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    // Napkin figure checks cannot run without credentials; callers that
+    // pass --check should still validate the manifest and not fail here.
+    return false;
+  }
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
   const { data, error } = await supabase.storage
     .from(BLOG_BUCKET)
     .list(`articles/${slug}`, { search: filename });
