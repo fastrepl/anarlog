@@ -249,6 +249,10 @@ msgstr "Acme"
 msgid "Action"
 msgstr "Action"
 
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Action items"
+msgstr "Action items"
+
 #: src/settings/stats/index.tsx
 msgid "Active days"
 msgstr "Active days"
@@ -413,6 +417,10 @@ msgstr "Add webhook"
 #: src/settings/general/spoken-languages.tsx
 msgid "Additional spoken languages"
 msgstr "Additional spoken languages"
+
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Adds a short ID to distinguish meetings with the same filename. An existing file from another meeting will not be overwritten."
+msgstr "Adds a short ID to distinguish meetings with the same filename. An existing file from another meeting will not be overwritten."
 
 #: src/settings/team/index.tsx
 msgid "Admin"
@@ -1069,6 +1077,10 @@ msgstr "Choose an AI model before generating a format."
 #: src/settings/automations/index.tsx
 msgid "Choose an export folder first."
 msgstr "Choose an export folder first."
+
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Choose at least one element to export."
+msgstr "Choose at least one element to export."
 
 #: src/templates/template-icon-picker.tsx
 msgid "Choose custom color"
@@ -2299,6 +2311,10 @@ msgstr "File each action item as an issue in the selected team."
 msgid "File format"
 msgstr "File format"
 
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Filename"
+msgstr "Filename"
+
 #: src/shared/open-note-dialog.tsx
 msgid "Find a note..."
 msgstr "Find a note..."
@@ -2639,8 +2655,13 @@ msgid "in {weeks} weeks"
 msgstr "in {weeks} weeks"
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Include"
 msgstr "Include"
+
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Include meeting ID suffix"
+msgstr "Include meeting ID suffix"
 
 #: src/settings/stats/index.tsx
 msgid "Includes imported transcripts. Deleted conversations are excluded."
@@ -2852,6 +2873,10 @@ msgstr "Learn more"
 #: src/settings/team/index.tsx
 msgid "Leave {workspaceName}?"
 msgstr "Leave {workspaceName}?"
+
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Leave blank to use the meeting date and title. Use {title} and {date} for a custom pattern. The .md extension is added automatically."
+msgstr "Leave blank to use the meeting date and title. Use {title} and {date} for a custom pattern. The .md extension is added automatically."
 
 #: src/settings/team/index.tsx
 msgid "Leave workspace"
@@ -3081,6 +3106,10 @@ msgstr "Meeting"
 msgid "Meeting chat"
 msgstr "Meeting chat"
 
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Meeting date and title"
+msgstr "Meeting date and title"
+
 #: src/onboarding/permissions.tsx
 msgid "Meeting details access turned on"
 msgstr "Meeting details access turned on"
@@ -3145,6 +3174,7 @@ msgstr "Members on a claimed email domain must sign in with SSO instead of Googl
 
 #: src/edit/tab-content.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Memo"
 msgstr "Memo"
 
@@ -5124,6 +5154,7 @@ msgstr "Summaries"
 #: src/contacts/details.tsx
 #: src/edit/tab-content.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Summary"
 msgstr "Summary"
 
@@ -5447,6 +5478,7 @@ msgstr "Transcribing…"
 
 #: src/session/components/note-input/header-transcript.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Transcript"
 msgstr "Transcript"
 

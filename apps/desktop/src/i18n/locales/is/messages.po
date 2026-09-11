@@ -249,6 +249,10 @@ msgstr ""
 msgid "Action"
 msgstr ""
 
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Action items"
+msgstr ""
+
 #: src/settings/stats/index.tsx
 msgid "Active days"
 msgstr ""
@@ -413,6 +417,10 @@ msgstr ""
 #: src/settings/general/spoken-languages.tsx
 msgid "Additional spoken languages"
 msgstr "Viðbótar töluð tungumál"
+
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Adds a short ID to distinguish meetings with the same filename. An existing file from another meeting will not be overwritten."
+msgstr ""
 
 #: src/settings/team/index.tsx
 msgid "Admin"
@@ -1068,6 +1076,10 @@ msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Choose an export folder first."
+msgstr ""
+
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Choose at least one element to export."
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx
@@ -2299,6 +2311,10 @@ msgstr ""
 msgid "File format"
 msgstr ""
 
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Filename"
+msgstr ""
+
 #: src/shared/open-note-dialog.tsx
 msgid "Find a note..."
 msgstr ""
@@ -2639,7 +2655,12 @@ msgid "in {weeks} weeks"
 msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Include"
+msgstr ""
+
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Include meeting ID suffix"
 msgstr ""
 
 #: src/settings/stats/index.tsx
@@ -2851,6 +2872,10 @@ msgstr ""
 
 #: src/settings/team/index.tsx
 msgid "Leave {workspaceName}?"
+msgstr ""
+
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Leave blank to use the meeting date and title. Use {title} and {date} for a custom pattern. The .md extension is added automatically."
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -3081,6 +3106,10 @@ msgstr ""
 msgid "Meeting chat"
 msgstr ""
 
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Meeting date and title"
+msgstr ""
+
 #: src/onboarding/permissions.tsx
 msgid "Meeting details access turned on"
 msgstr ""
@@ -3145,6 +3174,7 @@ msgstr ""
 
 #: src/edit/tab-content.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Memo"
 msgstr ""
 
@@ -5124,6 +5154,7 @@ msgstr ""
 #: src/contacts/details.tsx
 #: src/edit/tab-content.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Summary"
 msgstr ""
 
@@ -5447,6 +5478,7 @@ msgstr ""
 
 #: src/session/components/note-input/header-transcript.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Transcript"
 msgstr ""
 

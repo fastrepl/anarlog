@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { DEFAULT_MARKDOWN_EXPORT_OPTIONS } from "./markdown-export";
+
 const mocks = vi.hoisted(() => ({
   exportMeetingMarkdown: vi.fn(),
   getStoredSettingValues: vi.fn(),
@@ -159,6 +161,7 @@ describe("runMeetingCompletedAutomations (markdown export)", () => {
     expect(mocks.exportMeetingMarkdown).toHaveBeenCalledWith(
       "session-1",
       "/exports",
+      null,
     );
     expect(recordedRun("automation_markdown_export_last_run")).toMatchObject({
       status: "success",
@@ -728,5 +731,95 @@ describe("custom workflows", () => {
     await runNoteEnhancedAutomations("session-1");
 
     expect(mocks.sendSlackRecap).not.toHaveBeenCalled();
+  });
+});
+
+describe("configured Markdown workflows", () => {
+  it.each(["meeting_completed", "note_enhanced"] as const)(
+    "passes selected options to the writer on %s and saves them with the result",
+    async (trigger) => {
+      const options = {
+        ...DEFAULT_MARKDOWN_EXPORT_OPTIONS,
+        include_memo: false,
+        include_transcript: false,
+        include_action_items: false,
+        filename: "{title} recap",
+        include_id_suffix: false,
+      };
+      storedSettings({
+        automation_workflows: JSON.stringify([
+          {
+            id: "wf-markdown",
+            enabled: true,
+            trigger,
+            steps: [
+              {
+                id: "step",
+                type: "markdown_export",
+                directory: " /exports ",
+                options,
+              },
+            ],
+          },
+        ]),
+      });
+      mocks.exportMeetingMarkdown.mockResolvedValue({
+        status: "ok",
+        data: "/exports/Planning recap.md",
+      });
+      await (
+        trigger === "meeting_completed"
+          ? runMeetingCompletedAutomations
+          : runNoteEnhancedAutomations
+      )("session-1");
+      expect(mocks.exportMeetingMarkdown).toHaveBeenCalledWith(
+        "session-1",
+        "/exports",
+        options,
+      );
+      const saved = JSON.parse(
+        mocks.setSettingValue.mock.calls
+          .filter((entry) => entry[0] === "automation_workflows")
+          .slice(-1)[0]![1] as string,
+      );
+      expect(saved[0].steps[0].options).toEqual(options);
+      expect(saved[0].lastRun).toMatchObject({
+        status: "success",
+        detail: "/exports/Planning recap.md",
+      });
+    },
+  );
+
+  it("records an empty-selection error without writing a file", async () => {
+    storedSettings({
+      automation_workflows: JSON.stringify([
+        {
+          id: "wf-markdown",
+          enabled: true,
+          trigger: "meeting_completed",
+          steps: [
+            {
+              id: "step",
+              type: "markdown_export",
+              directory: "/exports",
+              options: {
+                ...DEFAULT_MARKDOWN_EXPORT_OPTIONS,
+                include_memo: false,
+                include_summary: false,
+                include_transcript: false,
+                include_action_items: false,
+              },
+            },
+          ],
+        },
+      ]),
+    });
+    await runMeetingCompletedAutomations("session-1");
+    expect(mocks.exportMeetingMarkdown).not.toHaveBeenCalled();
+    const saved = JSON.parse(
+      mocks.setSettingValue.mock.calls.slice(-1)[0]![1] as string,
+    );
+    expect(saved[0].lastRun.status).toBe("error");
+    expect(saved[0].processedSessionIds).toEqual([]);
   });
 });
