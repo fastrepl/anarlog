@@ -15,7 +15,7 @@ pub fn install_trace_context_propagator() {
 pub fn set_remote_parent(span: &tracing::Span, headers: &HeaderMap) {
     let parent_context = extract_remote_context(headers);
     if parent_context.span().span_context().is_valid() {
-        let _ = span.set_parent(parent_context);
+        span.set_parent(parent_context);
     }
 }
 

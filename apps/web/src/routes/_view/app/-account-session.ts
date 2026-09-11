@@ -33,6 +33,7 @@ export function useAccountSession() {
           jwtDecode<SupabaseJwtPayload>(session.access_token),
         ),
         createdAt: session.user.created_at ?? null,
+        email: session.user.email ?? null,
         profile: {
           // An explicit full_name (even cleared to null) wins; fall back to
           // the OAuth-provided name only when the user never set one.
@@ -42,6 +43,7 @@ export function useAccountSession() {
               : metadataString("name"),
           linkedinUrl: metadataString("linkedin_url"),
           xHandle: metadataString("x_handle"),
+          websiteUrl: metadataString("website_url"),
         },
       };
     },
