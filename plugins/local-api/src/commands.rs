@@ -359,21 +359,8 @@ pub(crate) fn persist_markdown_export(
     write(temporary.as_file_mut())?;
     if replace_existing {
         let metadata = std::fs::metadata(path)?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::{MetadataExt, fchown};
-            let temporary_metadata = temporary.as_file().metadata()?;
-            if metadata.uid() != temporary_metadata.uid()
-                || metadata.gid() != temporary_metadata.gid()
-            {
-                fchown(
-                    temporary.as_file(),
-                    Some(metadata.uid()),
-                    Some(metadata.gid()),
-                )?;
-            }
-        }
-        // Apply modes after ownership, since changing ownership can clear mode bits.
+        // Atomic replacement keeps the temporary file's ownership. Copying a
+        // foreign owner would require privileges even in a writable shared folder.
         temporary
             .as_file()
             .set_permissions(metadata.permissions())?;
