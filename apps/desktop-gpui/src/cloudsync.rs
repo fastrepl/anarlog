@@ -1061,22 +1061,26 @@ impl<S: QueryEventSink> Cloudsync<S> {
                 .collect(),
             CredentialResponse::Legacy(_) => Vec::new(),
         };
-        let workspace_keys = if let Some(projection) = workspace_projection.as_ref() {
-            let keyrings = open_shared_workspace_keyrings(
-                &recovery,
-                &user.id,
-                shared_workspace_ids(Some(projection)),
-                workspace_key_grants,
-            )
-            .map_err(anyhow::Error::msg)?;
-            Some(E2eeWorkspaceKeyConfiguration::new(
-                projection.personal_workspace_id.clone(),
-                recovery,
-                keyrings,
-            ))
-        } else {
-            None
+        let personal_workspace_id = match &credentials {
+            CredentialResponse::Replica(credentials) => credentials
+                .personal_workspace_id
+                .clone()
+                .unwrap_or_else(|| credentials.workspace_id.clone()),
+            CredentialResponse::E2ee(credentials) => credentials.personal_workspace_id.clone(),
+            CredentialResponse::Legacy(credentials) => credentials.workspace_id.clone(),
         };
+        let keyrings = open_shared_workspace_keyrings(
+            &recovery,
+            &user.id,
+            shared_workspace_ids(workspace_projection.as_ref()),
+            workspace_key_grants,
+        )
+        .map_err(anyhow::Error::msg)?;
+        let mut workspace_keys = Some(E2eeWorkspaceKeyConfiguration::new(
+            personal_workspace_id,
+            recovery,
+            keyrings,
+        ));
         {
             let _ops = self.ops.lock().await;
             if self.generation.load(Ordering::SeqCst) != generation {
@@ -1101,11 +1105,13 @@ impl<S: QueryEventSink> Cloudsync<S> {
                                 access_token: session.access_token.clone(),
                             },
                             workspace_keys
+                                .take()
                                 .ok_or_else(|| anyhow!("E2EE workspace keys are unavailable"))?,
                             workspace_projection.clone().map(Into::into),
                             runtime_generation,
                         )
                         .await
+                        .map_err(|error| error.to_string())
                 }
                 CredentialResponse::E2ee(credentials) => {
                     let runtime_generation = self.runtime.begin_cloudsync_auth_configuration();
@@ -1125,10 +1131,11 @@ impl<S: QueryEventSink> Cloudsync<S> {
                                     access_token: session.access_token.clone(),
                                 },
                             ),
-                            workspace_keys,
+                            workspace_keys.take(),
                             runtime_generation,
                         )
                         .await
+                        .map_err(|error| error.to_string())
                 }
                 CredentialResponse::Legacy(credentials) => {
                     let runtime_generation = self.runtime.begin_cloudsync_auth_configuration();
@@ -1148,12 +1155,19 @@ impl<S: QueryEventSink> Cloudsync<S> {
                                     access_token: session.access_token.clone(),
                                 },
                             ),
-                            None,
+                            workspace_keys.take(),
                             runtime_generation,
                         )
                         .await
+                        .map_err(|error| error.to_string())
                 }
             };
+            let configuration_step = match credentials {
+                CredentialResponse::Replica(_) => "configure_replica",
+                CredentialResponse::E2ee(_) | CredentialResponse::Legacy(_) => "configure_token",
+            };
+            self.runtime
+                .record_cloudsync_configuration_result(configuration_step, &result);
             if let Err(error) = result {
                 self.schedule_locked(generation, Duration::from_millis(RETRY_DELAY_MS), enabled);
                 return Err(anyhow::Error::msg(error));
