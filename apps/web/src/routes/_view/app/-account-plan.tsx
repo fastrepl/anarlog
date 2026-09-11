@@ -146,7 +146,7 @@ export function PlanSection({
     },
   });
 
-  const currentPlanId = workspacePlan ?? (billing?.isPro ? "pro" : "free");
+  const currentPlanId = workspacePlan ?? (billing?.isPaid ? "pro" : "free");
 
   return (
     <div className={accountCardClassName}>

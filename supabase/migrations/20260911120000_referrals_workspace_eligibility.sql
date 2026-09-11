@@ -25,7 +25,9 @@ AS $$
     JOIN stripe.subscriptions AS subscription
       ON subscription.customer = workspace.stripe_customer_id
     WHERE membership.user_id = p_user_id
+      AND membership.deleted_at IS NULL
       AND workspace.kind = 'shared'
+      AND workspace.deleted_at IS NULL
       AND workspace.stripe_customer_id IS NOT NULL
       AND subscription.status = 'active'
   );
@@ -234,9 +236,14 @@ BEGIN
     FROM public.workspace_memberships AS membership
     JOIN public.workspaces AS workspace
       ON workspace.id = membership.workspace_id
+    JOIN stripe.subscriptions AS subscription
+      ON subscription.customer = workspace.stripe_customer_id
     WHERE membership.user_id = v_referral.referrer_user_id
+      AND membership.deleted_at IS NULL
       AND workspace.kind = 'shared'
+      AND workspace.deleted_at IS NULL
       AND workspace.stripe_customer_id IS NOT NULL
+      AND subscription.status = 'active'
     ORDER BY workspace.created_at
     LIMIT 1;
   END IF;
