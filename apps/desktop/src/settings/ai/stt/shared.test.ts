@@ -39,6 +39,7 @@ describe("STT providers", () => {
       "together",
       "xai",
       "smallestai",
+      "nari",
       "pyannote",
       "cohere",
       "aquavoice",
@@ -237,4 +238,20 @@ describe("STT model deprecation", () => {
     );
     expect(providers.soniox.models).toEqual(["stt-rt-v5"]);
   });
+});
+
+test("Nari exposes the documented Free and Partner transcription models", () => {
+  const provider = PROVIDERS.find(({ id }) => id === "nari")!;
+  expect(provider.disabled).toBe(false);
+  expect(provider.baseUrl).toBe("https://api.narilabs.com");
+  expect(provider.models).toEqual([
+    "qwen3-asr-fast:free",
+    "qwen3-asr:free",
+    "qwen3-asr-fast",
+    "qwen3-asr",
+  ]);
+  expect(displayModelLabel("qwen3-asr-fast:free")).toBe(
+    "Qwen3 ASR Fast (Free)",
+  );
+  expect(displayModelLabel("qwen3-asr")).toBe("Qwen3 ASR (Partner)");
 });

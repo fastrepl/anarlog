@@ -140,6 +140,12 @@ export const TRANSCRIPTION_PROVIDERS = [
     model: "xai-stt",
   },
   {
+    id: "nari",
+    name: "Nari Labs",
+    baseUrl: "https://api.narilabs.com",
+    model: "qwen3-asr-fast:free",
+  },
+  {
     id: "smallestai",
     name: "Smallest AI",
     baseUrl: "https://api.smallest.ai",

@@ -119,7 +119,30 @@ impl LiveTranscriptEngine {
         let mut normalized = response.clone();
         self.normalizer.normalize(&mut normalized);
         clamp_response_speaker_indices(&mut normalized, self.max_speaker_index);
-        let transcript_delta: LiveTranscriptDelta = self.processor.process(&normalized)?.into();
+        let delta = match &normalized {
+            StreamResponse::TranscriptResponse {
+                is_final: true,
+                start,
+                duration,
+                channel,
+                channel_index,
+                ..
+            } if matches!(self.normalizer, TranscriptNormalizer::Nari)
+                && *duration > 0.0
+                && channel
+                    .alternatives
+                    .first()
+                    .is_some_and(|alt| alt.transcript.is_empty() && alt.words.is_empty()) =>
+            {
+                self.processor.clear_partials(
+                    channel_index.first().copied().unwrap_or(0),
+                    (*start * 1000.0) as i64,
+                    ((*start + *duration) * 1000.0) as i64,
+                )
+            }
+            _ => self.processor.process(&normalized)?,
+        };
+        let transcript_delta: LiveTranscriptDelta = delta.into();
         let segment_delta = self.rendered_segments.apply_delta(&transcript_delta);
         Some(LiveTranscriptUpdate {
             transcript_delta,

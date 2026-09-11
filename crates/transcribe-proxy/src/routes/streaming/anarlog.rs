@@ -71,6 +71,7 @@ fn build_upstream_url_with_adapter(
         | Provider::Speechmatics
         | Provider::Together
         | Provider::Xai
+        | Provider::Nari
         | Provider::SmallestAI
         | Provider::Meta
         | Provider::GoogleGenerativeAi => {
@@ -115,6 +116,7 @@ fn build_initial_message_with_adapter(
         | Provider::Speechmatics
         | Provider::Together
         | Provider::Xai
+        | Provider::Nari
         | Provider::SmallestAI
         | Provider::Meta
         | Provider::GoogleGenerativeAi => {
@@ -162,6 +164,7 @@ fn build_response_transformer(
             | Provider::Speechmatics
             | Provider::Together
             | Provider::Xai
+            | Provider::Nari
             | Provider::SmallestAI
             | Provider::Meta
             | Provider::GoogleGenerativeAi => {

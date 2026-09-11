@@ -7,8 +7,8 @@ use futures_util::{FutureExt, Stream, StreamExt};
 use owhisper_client::{
     AdapterKind, AssemblyAIAdapter, CartesiaAdapter, DashScopeAdapter, DeepgramAdapter,
     ElevenLabsAdapter, FinalizeHandle, GladiaAdapter, GoogleGenerativeAiAdapter, ListenClient,
-    ListenClientInput, MistralAdapter, OpenAIAdapter, RealtimeSttAdapter, SmallestAIAdapter,
-    SonioxAdapter, XaiAdapter,
+    ListenClientInput, MistralAdapter, NariAdapter, OpenAIAdapter, RealtimeSttAdapter,
+    SmallestAIAdapter, SonioxAdapter, XaiAdapter,
 };
 use owhisper_interface::{ListenParams, MixedMessage, stream::StreamResponse};
 use serde::Deserialize;
@@ -103,6 +103,7 @@ async fn dispatch(
         GoogleGenerativeAi => GoogleGenerativeAiAdapter,
         Mistral => MistralAdapter,
         OpenAI => OpenAIAdapter,
+        Nari => NariAdapter,
         SmallestAI => SmallestAIAdapter,
         Soniox => SonioxAdapter,
         Xai => XaiAdapter,

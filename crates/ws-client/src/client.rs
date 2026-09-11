@@ -59,6 +59,7 @@ pub struct WebSocketClient {
     keep_alive: Option<KeepAliveConfig>,
     connect_policy: WebSocketConnectPolicy,
     on_retry: Option<WebSocketRetryCallback>,
+    initial_response_type: Option<&'static str>,
 }
 
 impl WebSocketClient {
@@ -68,6 +69,7 @@ impl WebSocketClient {
             keep_alive: None,
             connect_policy: WebSocketConnectPolicy::default(),
             on_retry: None,
+            initial_response_type: None,
         }
     }
 
@@ -77,6 +79,11 @@ impl WebSocketClient {
         message: Message,
     ) -> Self {
         self.keep_alive = Some(KeepAliveConfig { interval, message });
+        self
+    }
+
+    pub fn with_initial_response_type(mut self, event_type: &'static str) -> Self {
+        self.initial_response_type = Some(event_type);
         self
     }
 
@@ -110,6 +117,50 @@ impl WebSocketClient {
         .await?;
 
         let (mut ws_sender, mut ws_receiver) = ws_stream.split();
+        let mut initial_message = initial_message;
+        if let Some(expected) = self.initial_response_type {
+            tokio::time::timeout(std::time::Duration::from_secs(10), async {
+                if let Some(message) = initial_message.take() {
+                    ws_sender.send(message).await?;
+                }
+                loop {
+                    match ws_receiver.next().await {
+                        Some(Ok(Message::Text(text))) => {
+                            let event: serde_json::Value =
+                                serde_json::from_str(&text).map_err(|_| {
+                                    crate::Error::ParseError {
+                                        message: "invalid session acknowledgement".into(),
+                                    }
+                                })?;
+                            if event.get("type").and_then(|v| v.as_str()) == Some(expected) {
+                                return Ok::<_, crate::Error>(());
+                            }
+                            return Err(crate::Error::InvalidRequest {
+                                message: format!(
+                                    "session configuration rejected: {}",
+                                    event
+                                        .pointer("/error/code")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("unexpected acknowledgement")
+                                ),
+                            });
+                        }
+                        Some(Ok(Message::Ping(payload))) => {
+                            ws_sender.send(Message::Pong(payload)).await?
+                        }
+                        Some(Ok(Message::Close(_))) | None => {
+                            return Err(crate::Error::InvalidRequest {
+                                message: "connection closed before session acknowledgement".into(),
+                            });
+                        }
+                        Some(Err(error)) => return Err(error.into()),
+                        _ => {}
+                    }
+                }
+            })
+            .await
+            .map_err(crate::Error::Timeout)??;
+        }
 
         let (control_tx, mut control_rx) = tokio::sync::mpsc::unbounded_channel();
         let (error_tx, mut error_rx) = tokio::sync::mpsc::unbounded_channel::<crate::Error>();

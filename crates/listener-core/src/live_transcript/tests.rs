@@ -762,3 +762,33 @@ fn live_transcript_delta_keeps_speaker_index_on_words() {
     assert_eq!(converted.partials[0].speaker_index, Some(2));
     assert_eq!(converted.replaced_ids, vec!["replaced"]);
 }
+
+#[test]
+fn nari_empty_final_clears_only_its_preview_and_never_persists_unconfirmed_text() {
+    let mut engine = LiveTranscriptEngine::new("nari", &[], None);
+    let first = transcript_response_at(
+        "discard this",
+        vec![word("discard this", 0.0, 1.0)],
+        false,
+        0,
+        0.0,
+        1.0,
+    );
+    engine.process(&first).unwrap();
+    let second = transcript_response_at(
+        "still pending",
+        vec![word("still pending", 2.0, 3.0)],
+        false,
+        0,
+        2.0,
+        1.0,
+    );
+    engine.process(&second).unwrap();
+    let empty = transcript_response_at("", vec![], true, 0, 0.0, 1.0);
+    let update = engine.process(&empty).unwrap();
+    assert!(update.transcript_delta.new_words.is_empty());
+    assert_eq!(update.transcript_delta.partials.len(), 1);
+    assert_eq!(update.transcript_delta.partials[0].text, "still pending");
+    let flushed = engine.flush();
+    assert!(flushed.is_none_or(|update| update.transcript_delta.new_words.is_empty()));
+}

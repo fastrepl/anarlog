@@ -62,6 +62,12 @@ const TRANSCRIPTION_MODELS: Record<string, readonly string[]> = {
   ],
   xai: ["xai-stt"],
   smallestai: ["pulse", "pulse-pro"],
+  nari: [
+    "qwen3-asr-fast:free",
+    "qwen3-asr:free",
+    "qwen3-asr-fast",
+    "qwen3-asr",
+  ],
   pyannote: ["parakeet-tdt-0.6b-v3", "faster-whisper-large-v3-turbo"],
   cohere: ["cohere-transcribe-03-2026", "cohere-transcribe-arabic-07-2026"],
   aquavoice: ["avalon-v1.5"],

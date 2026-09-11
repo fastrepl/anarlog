@@ -73,6 +73,11 @@ const OPENROUTER_MODEL_LABELS: Record<string, string> = {
 };
 
 export const displayModelId = (model: string): string => {
+  if (model === "qwen3-asr-fast:free") return "Qwen3 ASR Fast (Free)";
+  if (model === "qwen3-asr:free") return "Qwen3 ASR (Free)";
+  if (model === "qwen3-asr-fast") return "Qwen3 ASR Fast (Partner)";
+  if (model === "qwen3-asr") return "Qwen3 ASR (Partner)";
+
   if (model === "cloud") {
     return "Pro (Cloud)";
   }
@@ -631,6 +636,28 @@ const _PROVIDERS = [
   },
   {
     disabled: false,
+    id: "nari",
+    displayName: "Nari Labs",
+    badge: null,
+    icon: <Waveform className="h-4 w-4" />,
+    baseUrl: "https://api.narilabs.com",
+    models: [
+      "qwen3-asr-fast:free",
+      "qwen3-asr:free",
+      "qwen3-asr-fast",
+      "qwen3-asr",
+    ],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Models & Pricing",
+        url: "https://docs.narilabs.com/models-and-pricing",
+      },
+      setup: { label: "API Keys", url: "https://app.narilabs.com/keys" },
+    },
+  },
+  {
+    disabled: false,
     id: "smallestai",
     displayName: "Smallest AI",
     badge: null,
@@ -1073,6 +1100,7 @@ const PROVIDER_ORDER = [
   "together",
   "xai",
   "smallestai",
+  "nari",
   "pyannote",
   "cohere",
   "aquavoice",

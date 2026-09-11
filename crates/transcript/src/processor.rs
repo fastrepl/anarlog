@@ -132,6 +132,13 @@ impl TranscriptProcessor {
         self
     }
 
+    pub fn clear_partials(&mut self, channel: i32, start_ms: i64, end_ms: i64) -> TranscriptDelta {
+        if let Some(state) = self.channels.get_mut(&channel) {
+            state.clear_partials(start_ms, end_ms);
+        }
+        self.partial_snapshot().into_delta(vec![], vec![])
+    }
+
     pub fn process(&mut self, response: &StreamResponse) -> Option<TranscriptDelta> {
         let parsed = ParsedStreamResponse::from_response(response)?;
         let raw_words = assemble(parsed.words, parsed.transcript, parsed.channel);

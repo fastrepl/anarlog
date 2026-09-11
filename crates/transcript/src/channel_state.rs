@@ -22,6 +22,11 @@ impl ChannelState {
         }
     }
 
+    pub(super) fn clear_partials(&mut self, start_ms: i64, end_ms: i64) {
+        self.partials
+            .retain(|word| word.end_ms <= start_ms || word.start_ms >= end_ms);
+    }
+
     /// Process a confirmed final batch.
     ///
     /// When partial finalization is enabled, partials that end before this

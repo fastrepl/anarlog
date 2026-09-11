@@ -128,3 +128,20 @@ test("rejects malformed and oversized responses without throwing", () => {
     ],
   );
 });
+
+test("an empty Nari final clears the preview without persisting words", () => {
+  assert.deepEqual(
+    parseHostedTranscriptionMessage(
+      JSON.stringify({
+        type: "Results",
+        is_final: true,
+        start: 0,
+        duration: 1,
+        channel: { alternatives: [{ transcript: "", words: [] }] },
+      }),
+      "transcript",
+      "nari",
+    ),
+    [{ type: "partial", text: "" }],
+  );
+});

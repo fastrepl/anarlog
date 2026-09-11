@@ -229,6 +229,12 @@ function credentialRequest({ provider, baseUrl, apiKey }: ProviderCredential) {
       accept = (value) =>
         Array.isArray(value) || Array.isArray(record(value).data);
       break;
+    case "nari":
+      url = `${origin}/v1/voices?model=qwen3-tts:free`;
+      checkAuthentication = true;
+      accept = (value) =>
+        record(value).object === "list" && Array.isArray(record(value).data);
+      break;
     case "smallestai":
       url = `${base}/waves/v1/voice-cloning`;
       checkAuthentication = true;

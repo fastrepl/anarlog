@@ -146,6 +146,14 @@ describe("getSttModelTranscriptionMode", () => {
     );
     expect(getSttModelTranscriptionMode("xai", "xai-stt")).toBeUndefined();
     expect(getSttModelTranscriptionMode("smallestai", "pulse")).toBeUndefined();
+    for (const model of [
+      "qwen3-asr:free",
+      "qwen3-asr-fast:free",
+      "qwen3-asr",
+      "qwen3-asr-fast",
+    ]) {
+      expect(getSttModelTranscriptionMode("nari", model)).toBe("live");
+    }
   });
 });
 
