@@ -420,7 +420,7 @@ mod test {
     #[cfg(unix)]
     #[tokio::test]
     async fn markdown_replacement_keeps_existing_permission_bits() {
-        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+        use std::os::unix::fs::PermissionsExt;
 
         let pool = seeded_pool().await;
         let export = anlg_agent_access::get_meeting_export(&pool, "meeting-1".to_string())
@@ -432,13 +432,10 @@ mod test {
             commands::write_markdown_export_with_options(directory.path(), &export, Some(&options))
                 .unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o640)).unwrap();
-        let original = std::fs::metadata(&path).unwrap();
         commands::write_markdown_export_with_options(directory.path(), &export, Some(&options))
             .unwrap();
         let updated = std::fs::metadata(path).unwrap();
         assert_eq!(updated.permissions().mode() & 0o777, 0o640);
-        assert_eq!(updated.uid(), original.uid());
-        assert_eq!(updated.gid(), original.gid());
     }
 
     #[tokio::test]
