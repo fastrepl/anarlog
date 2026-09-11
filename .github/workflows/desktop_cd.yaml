@@ -212,6 +212,8 @@ jobs:
         env:
           APP_VERSION: ${{ needs.compute-version.outputs.version }}
           ANARLOG_GPUI_SIDECAR: optional
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       - uses: ./.github/actions/apple_cert
         id: apple-cert
         with:
@@ -452,6 +454,8 @@ jobs:
           APP_VERSION: ${{ needs.compute-version.outputs.version }}
           ANARLOG_GPUI_SIDECAR: "1"
           TAURI_ENV_TARGET_TRIPLE: ${{ matrix.target }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       - run: |
           BUILD_ARGS=(
             --ci

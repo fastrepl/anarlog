@@ -1095,7 +1095,7 @@ impl Workspace {
                 .flex_col()
                 .gap_8()
                 .child(title)
-                .child(if self.auth_service.account_info().is_some() {
+                .child(if self.auth_service.signed_in() {
                     self.render_account_signed_in(cx)
                 } else {
                     self.render_account_signed_out(cx)
