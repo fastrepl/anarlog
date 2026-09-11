@@ -369,6 +369,16 @@ fn parse_args() -> anyhow::Result<Args> {
 }
 
 fn main() -> anyhow::Result<()> {
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .with(anlg_crash_reporting::tracing_layer())
+        .with(tracing_subscriber::fmt::layer().with_writer(|| {
+            anlg_crash_reporting::redaction::RedactingWriter::new(std::io::stderr())
+        }))
+        .init();
     let args = parse_args()?;
     let db_path = match args.db_path {
         Some(path) => path,
@@ -426,16 +436,6 @@ fn main() -> anyhow::Result<()> {
         },
         crash_reporting_enabled,
     );
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
-        )
-        .with(anlg_crash_reporting::tracing_layer())
-        .with(tracing_subscriber::fmt::layer().with_writer(|| {
-            anlg_crash_reporting::redaction::RedactingWriter::new(std::io::stderr())
-        }))
-        .init();
     let audio = audio::provider(&args.identifier);
     let store = Arc::new(store);
     let search = search::SearchIndex::start(&store);
