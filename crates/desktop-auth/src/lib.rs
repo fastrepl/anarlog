@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
 use anlg_supabase_auth::client::store::AuthStore;
@@ -89,6 +90,8 @@ pub struct SessionManager {
     pub(crate) key: String,
     pub(crate) client: Option<AuthClient>,
     persistence: Arc<dyn Persistence>,
+    generation: AtomicU64,
+    mutation_lock: Mutex<()>,
 }
 
 impl SessionManager {
@@ -104,6 +107,8 @@ impl SessionManager {
             key: key.into(),
             client,
             persistence,
+            generation: AtomicU64::new(0),
+            mutation_lock: Mutex::new(()),
         })
     }
 
@@ -128,6 +133,7 @@ impl SessionManager {
         _access_token: &str,
         refresh_token: &str,
     ) -> Result<Session> {
+        let generation = self.generation.load(Ordering::SeqCst);
         let client = self
             .client
             .as_ref()
@@ -138,7 +144,11 @@ impl SessionManager {
                 "refresh returned no access token".to_string(),
             ));
         }
-        self.save_session(&session)?;
+        if !self.commit_refresh(generation, &session)? {
+            return Err(Error::InvalidSession(
+                "session changed during refresh".to_string(),
+            ));
+        }
         Ok(session)
     }
 
@@ -156,12 +166,17 @@ impl SessionManager {
             .client
             .as_ref()
             .ok_or_else(|| Error::Persistence("refresh client is not configured".into()))?;
+        let generation = self.generation.load(Ordering::SeqCst);
         let refreshed = client.refresh_session(refresh_token).await?;
-        self.save_session(&refreshed)?;
+        if !self.commit_refresh(generation, &refreshed)? {
+            return Ok(None);
+        }
         Ok(Some(refreshed))
     }
 
     pub fn sign_out(&self) -> Result<()> {
+        let _guard = self.mutation_lock.lock().unwrap();
+        self.generation.fetch_add(1, Ordering::SeqCst);
         let _ = self.store.clear();
         self.persistence.clear()
     }
@@ -179,7 +194,18 @@ impl SessionManager {
         let mut data = self.store.snapshot();
         data.insert(self.key.clone(), value);
         self.store.replace(data.clone());
-        self.persistence.save(&data)
+        self.persistence.save(&data)?;
+        self.generation.fetch_add(1, Ordering::SeqCst);
+        Ok(())
+    }
+
+    fn commit_refresh(&self, generation: u64, session: &Session) -> Result<bool> {
+        let _guard = self.mutation_lock.lock().unwrap();
+        if self.generation.load(Ordering::SeqCst) != generation {
+            return Ok(false);
+        }
+        self.save_session(session)?;
+        Ok(true)
     }
 }
 
@@ -247,5 +273,20 @@ mod tests {
         let result = manager.save_session(&serde_json::from_str(session).unwrap());
         assert!(result.is_err());
         assert_eq!(manager.session().unwrap().unwrap().access_token, "access");
+    }
+
+    #[test]
+    fn stale_refresh_cannot_restore_a_signed_out_session() {
+        let manager = SessionManager::in_memory("session", HashMap::new(), None);
+        let generation = manager.generation.load(Ordering::SeqCst);
+        let session = serde_json::from_str(
+            r#"{"access_token":"access","refresh_token":"refresh","token_type":"bearer"}"#,
+        )
+        .unwrap();
+
+        manager.sign_out().unwrap();
+
+        assert!(!manager.commit_refresh(generation, &session).unwrap());
+        assert!(manager.session().unwrap().is_none());
     }
 }
