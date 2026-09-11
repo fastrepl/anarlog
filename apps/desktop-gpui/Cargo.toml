@@ -17,6 +17,7 @@ anlg-audio-mock = { workspace = true }
 anlg-db-app = { workspace = true }
 anlg-db-core = { workspace = true }
 anlg-deeplink-core = { workspace = true }
+anlg-desktop-updater = { workspace = true }
 anlg-detect = { workspace = true, features = ["list"] }
 anlg-export-core = { workspace = true }
 anlg-fs-sync-core = { workspace = true }
@@ -52,11 +53,13 @@ image = { workspace = true, features = ["gif", "jpeg", "png"] }
 keyring = { workspace = true }
 kuchikiki = "0.8.8-speedreader"
 mime_guess = "2"
+minisign-verify = "0.2"
 open = { workspace = true }
 pico-args = { workspace = true }
 ractor = { workspace = true, features = ["async-trait"] }
 regex = { workspace = true }
 reqwest = { workspace = true, features = ["json", "stream"] }
+semver = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["preserve_order"] }
 sha2 = { workspace = true }

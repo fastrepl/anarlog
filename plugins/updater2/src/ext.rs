@@ -1,9 +1,11 @@
 use std::{
-    path::{Path, PathBuf},
-    sync::LazyLock,
+    future::Future,
+    pin::Pin,
+    sync::{Arc, Mutex},
 };
 
-use tauri::Manager;
+use anlg_desktop_updater::{UpdateBackend, UpdateEvents, UpdatePolicy, Updater};
+use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_store2::Store2PluginExt;
 use tauri_plugin_updater::UpdaterExt;
 use tauri_specta::Event;
@@ -13,23 +15,144 @@ use crate::events::{
     UpdateDownloadingEvent, UpdateReadyEvent, UpdatedEvent,
 };
 
-static DOWNLOAD_MUTEX: LazyLock<tokio::sync::Mutex<()>> =
-    LazyLock::new(|| tokio::sync::Mutex::new(()));
-
 static MEETING_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-pub struct Updater2<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
+struct TauriUpdateBackend<R: Runtime> {
+    app: AppHandle<R>,
+    update: Mutex<Option<tauri_plugin_updater::Update>>,
+}
+
+impl<R: Runtime> TauriUpdateBackend<R> {
+    fn new(app: AppHandle<R>) -> Self {
+        Self {
+            app,
+            update: Mutex::new(None),
+        }
+    }
+}
+
+impl<R: Runtime> UpdateBackend for TauriUpdateBackend<R> {
+    fn check(
+        &self,
+    ) -> Pin<Box<dyn Future<Output = anlg_desktop_updater::Result<Option<String>>> + Send + '_>>
+    {
+        Box::pin(async move {
+            let update = self
+                .app
+                .updater()
+                .map_err(|error| anlg_desktop_updater::Error::Backend(error.to_string()))?
+                .check()
+                .await
+                .map_err(|error| anlg_desktop_updater::Error::Backend(error.to_string()))?;
+            let version = update.as_ref().map(|update| update.version.clone());
+            *self.update.lock().unwrap() = update;
+            Ok(version)
+        })
+    }
+
+    fn download<'a>(
+        &'a self,
+        version: &'a str,
+        on_progress: &'a (dyn Fn(u64, Option<u64>) + Send + Sync),
+    ) -> Pin<Box<dyn Future<Output = anlg_desktop_updater::Result<Vec<u8>>> + Send + 'a>> {
+        Box::pin(async move {
+            let update = self
+                .app
+                .updater()
+                .map_err(|error| anlg_desktop_updater::Error::Backend(error.to_string()))?
+                .check()
+                .await
+                .map_err(|error| anlg_desktop_updater::Error::Backend(error.to_string()))?
+                .ok_or(anlg_desktop_updater::Error::UpdateNotAvailable)?;
+            if update.version != version {
+                return Err(anlg_desktop_updater::Error::VersionMismatch {
+                    expected: version.to_string(),
+                    actual: update.version,
+                });
+            }
+            update
+                .download(|chunk, total| on_progress(chunk as u64, total), || {})
+                .await
+                .map_err(|error| anlg_desktop_updater::Error::Backend(error.to_string()))
+        })
+    }
+
+    fn install(&self, version: &str, bytes: &[u8]) -> anlg_desktop_updater::Result<()> {
+        let mut update = self
+            .update
+            .lock()
+            .unwrap()
+            .take()
+            .ok_or(anlg_desktop_updater::Error::UpdateNotAvailable)?;
+        update.version = version.to_string();
+        if let Err(error) = self.app.store2().save() {
+            tracing::warn!(%error, "failed_to_persist_update_store");
+        }
+        update
+            .install(bytes)
+            .map_err(|error| anlg_desktop_updater::Error::Backend(error.to_string()))?;
+        self.app.restart();
+    }
+}
+
+pub(crate) struct SharedUpdater<R: Runtime>(
+    Arc<Updater<TauriUpdateBackend<R>, TauriUpdateEvents<R>>>,
+);
+
+struct TauriUpdateEvents<R: Runtime> {
+    app: AppHandle<R>,
+}
+
+impl<R: Runtime> UpdateEvents for TauriUpdateEvents<R> {
+    fn available(&self, version: &str) {
+        let _ = (UpdateAvailableEvent {
+            version: version.to_string(),
+        })
+        .emit(&self.app);
+    }
+
+    fn downloading(&self, version: &str) {
+        let _ = (UpdateDownloadingEvent {
+            version: version.to_string(),
+        })
+        .emit(&self.app);
+    }
+
+    fn progress(&self, version: &str, chunk: u64, total: Option<u64>) {
+        let _ = (UpdateDownloadProgressEvent {
+            version: version.to_string(),
+            chunk_length: chunk,
+            content_length: total,
+        })
+        .emit(&self.app);
+    }
+
+    fn download_failed(&self, version: &str) {
+        let _ = (UpdateDownloadFailedEvent {
+            version: version.to_string(),
+        })
+        .emit(&self.app);
+    }
+
+    fn ready(&self, version: &str) {
+        let _ = (UpdateReadyEvent {
+            version: version.to_string(),
+        })
+        .emit(&self.app);
+    }
+}
+
+pub struct Updater2<'a, R: Runtime, M: tauri::Manager<R>> {
     manager: &'a M,
     _runtime: std::marker::PhantomData<fn() -> R>,
 }
 
-impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
+impl<R: Runtime, M: tauri::Manager<R>> Updater2<'_, R, M> {
     pub fn automatic_updates_enabled(&self) -> Result<bool, crate::Error> {
         let store = self.manager.store2().scoped_store(crate::PLUGIN_NAME)?;
-        let enabled = store
+        Ok(store
             .get(crate::StoreKey::AutomaticUpdatesEnabled)?
-            .unwrap_or(true);
-        Ok(enabled)
+            .unwrap_or(true))
     }
 
     pub fn set_automatic_updates_enabled(&self, enabled: bool) -> Result<(), crate::Error> {
@@ -48,8 +171,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
 
     pub fn get_last_seen_version(&self) -> Result<Option<String>, crate::Error> {
         let store = self.manager.store2().scoped_store(crate::PLUGIN_NAME)?;
-        let v = store.get(crate::StoreKey::LastSeenVersion)?;
-        Ok(v)
+        Ok(store.get(crate::StoreKey::LastSeenVersion)?)
     }
 
     pub fn set_last_seen_version(&self, version: String) -> Result<(), crate::Error> {
@@ -59,215 +181,109 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
     }
 
     pub fn maybe_emit_updated(&self) {
-        let current_version = match self.manager.config().version.as_ref() {
-            Some(v) => v.clone(),
-            None => {
-                tracing::warn!("no_version_in_config");
-                return;
-            }
+        let Some(current_version) = self.manager.config().version.clone() else {
+            tracing::warn!("no_version_in_config");
+            return;
         };
-
         let (should_emit, previous) = match self.get_last_seen_version() {
             Ok(Some(last_version)) if !last_version.is_empty() => {
                 (last_version != current_version, Some(last_version))
             }
             Ok(_) => (false, None),
-            Err(e) => {
-                tracing::error!("failed_to_get_last_seen_version: {}", e);
+            Err(error) => {
+                tracing::error!("failed_to_get_last_seen_version: {}", error);
                 (false, None)
             }
         };
-
         if should_emit {
-            let payload = UpdatedEvent {
+            if let Err(error) = (UpdatedEvent {
                 previous,
                 current: current_version.clone(),
-            };
-
-            if let Err(e) = payload.emit(self.manager.app_handle()) {
-                tracing::error!("failed_to_emit_updated_event: {}", e);
+            })
+            .emit(self.manager.app_handle())
+            {
+                tracing::error!("failed_to_emit_updated_event: {}", error);
             }
         }
-
-        if let Err(e) = self.set_last_seen_version(current_version) {
-            tracing::error!("failed_to_update_version: {}", e);
+        if let Err(error) = self.set_last_seen_version(current_version) {
+            tracing::error!("failed_to_update_version: {}", error);
         }
     }
 
-    fn cache_update_bytes(&self, version: &str, bytes: &[u8]) -> Result<(), crate::Error> {
-        let cache_path =
-            get_cache_path(self.manager, version).ok_or(crate::Error::CachePathUnavailable)?;
-
-        if let Some(parent) = cache_path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-
-        std::fs::write(&cache_path, bytes)?;
-        tracing::debug!("cached_update_bytes: {:?}", cache_path);
-        Ok(())
-    }
-
-    fn get_cached_update_bytes(&self, version: &str) -> Result<Vec<u8>, crate::Error> {
-        let cache_path =
-            get_cache_path(self.manager, version).ok_or(crate::Error::CachePathUnavailable)?;
-
-        if !cache_path.exists() {
-            return Err(crate::Error::CachedUpdateNotFound);
-        }
-
-        let bytes = std::fs::read(&cache_path)?;
-        Ok(bytes)
+    fn core(
+        &self,
+    ) -> Result<Arc<Updater<TauriUpdateBackend<R>, TauriUpdateEvents<R>>>, crate::Error> {
+        self.manager
+            .app_handle()
+            .try_state::<SharedUpdater<R>>()
+            .map(|state| state.0.clone())
+            .ok_or(crate::Error::UpdaterNotManaged)
     }
 
     pub async fn check(&self) -> Result<Option<String>, crate::Error> {
-        let updater = self.manager.updater()?;
-        let update = updater.check().await?;
-        let version = update.map(|u| u.version);
-
-        // install_and_relaunch never returns, so this periodic check is the
-        // only place stale cached bins can be cleaned up.
-        prune_cached_updates(self.manager, version.as_deref());
-
-        if let Some(version) = &version {
-            if self.has_cached_update(version) {
-                let _ = UpdateReadyEvent {
-                    version: version.clone(),
-                }
-                .emit(self.manager.app_handle());
-            } else {
-                let _ = UpdateAvailableEvent {
-                    version: version.clone(),
-                }
-                .emit(self.manager.app_handle());
-            }
-        }
-
-        Ok(version)
+        Ok(self.core()?.check().await?)
     }
 
     pub fn has_cached_update(&self, version: &str) -> bool {
-        get_cache_path(self.manager, version)
-            .map(|p| p.exists())
+        self.core()
+            .map(|updater| updater.has_cached_update(version))
             .unwrap_or(false)
     }
 
     pub async fn download(&self, version: &str) -> Result<(), crate::Error> {
-        let _download_guard = DOWNLOAD_MUTEX.lock().await;
-
-        if self.has_cached_update(version) {
-            let _ = UpdateReadyEvent {
-                version: version.to_string(),
-            }
-            .emit(self.manager.app_handle());
-            return Ok(());
-        }
-
-        let updater = self.manager.updater()?;
-        let update = updater
-            .check()
-            .await?
-            .ok_or(crate::Error::UpdateNotAvailable)?;
-
-        if update.version != version {
-            return Err(crate::Error::VersionMismatch {
-                expected: version.to_string(),
-                actual: update.version,
-            });
-        }
-
-        let _ = UpdateDownloadingEvent {
-            version: version.to_string(),
-        }
-        .emit(self.manager.app_handle());
-
-        let app_handle = self.manager.app_handle().clone();
-        let version_string = version.to_string();
-        let result: Result<(), crate::Error> = async {
-            let bytes = update
-                .download(
-                    |chunk_length, content_length| {
-                        let _ = UpdateDownloadProgressEvent {
-                            version: version_string.clone(),
-                            chunk_length: chunk_length as u64,
-                            content_length,
-                        }
-                        .emit(&app_handle);
-                    },
-                    || {},
-                )
-                .await?;
-            self.cache_update_bytes(version, &bytes)?;
-            Ok(())
-        }
-        .await;
-
-        if let Err(e) = &result {
-            tracing::error!("download_failed: {}", e);
-            let _ = UpdateDownloadFailedEvent {
-                version: version.to_string(),
-            }
-            .emit(self.manager.app_handle());
-            return Err(result.unwrap_err());
-        }
-
-        let _ = UpdateReadyEvent {
-            version: version.to_string(),
-        }
-        .emit(self.manager.app_handle());
-
-        Ok(())
+        Ok(self.core()?.download(version).await?)
     }
 
-    // Install and relaunch are one operation so no caller can install without
-    // completing the required restart. The restart only happens after a
-    // successful install; any earlier failure returns without restarting.
-    //
-    // The cached artifact may be older than the latest release (daily releases
-    // outpace app opens); installing it still moves the app forward, and the
-    // relaunched process downloads the newer one. The newer-than-current guard
-    // is what prevents an install/relaunch loop, since the installed artifact
-    // stays cached until check() prunes it.
     pub async fn install_and_relaunch(&self, version: &str) -> Result<(), crate::Error> {
-        let current = self.manager.config().version.clone().unwrap_or_default();
-        let is_newer = match (
-            semver::Version::parse(version),
-            semver::Version::parse(&current),
-        ) {
-            (Ok(cached), Ok(current)) => cached > current,
-            _ => false,
+        Ok(self.core()?.install_and_relaunch(version).await?)
+    }
+
+    pub async fn tick(&self, install_at_open: bool) -> bool {
+        let updater = match self.core() {
+            Ok(updater) => updater,
+            Err(error) => {
+                tracing::error!("updater_initialization_failed: {}", error);
+                return false;
+            }
         };
-        if !is_newer {
-            return Err(crate::Error::UpdateNotNewer {
-                version: version.to_string(),
-                current,
-            });
-        }
-
-        let bytes = self.get_cached_update_bytes(version)?;
-
-        // The check only supplies the platform install plumbing; signature
-        // verification already happened when the cached bytes were downloaded.
-        let updater = self.manager.updater()?;
-        let mut update = updater
-            .check()
-            .await?
-            .ok_or(crate::Error::UpdateNotAvailable)?;
-        update.version = version.to_string();
-
-        let _ = self.manager.store2().save();
-
-        update.install(&bytes)?;
-        self.manager.app_handle().restart();
+        let app = self.manager.app_handle().clone();
+        let policy = move || UpdatePolicy {
+            automatic_updates_enabled: app.updater2().automatic_updates_enabled().unwrap_or_else(
+                |error| {
+                    tracing::error!("automatic_update_policy_read_failed: {}", error);
+                    false
+                },
+            ),
+            meeting_active: MEETING_ACTIVE.load(std::sync::atomic::Ordering::Relaxed),
+        };
+        updater.tick(&policy, install_at_open).await
     }
 }
 
-pub trait Updater2PluginExt<R: tauri::Runtime> {
+pub(crate) fn create_core<R: Runtime>(
+    app: &AppHandle<R>,
+) -> Result<SharedUpdater<R>, crate::Error> {
+    let updates_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|_| crate::Error::CachePathUnavailable)?
+        .join("updates");
+    let current_version = app.config().version.clone().unwrap_or_default();
+    Ok(SharedUpdater(Arc::new(Updater::new(
+        Arc::new(TauriUpdateBackend::new(app.clone())),
+        Arc::new(TauriUpdateEvents { app: app.clone() }),
+        updates_dir,
+        current_version,
+    ))))
+}
+
+pub trait Updater2PluginExt<R: Runtime> {
     fn updater2(&self) -> Updater2<'_, R, Self>
     where
         Self: tauri::Manager<R> + Sized;
 }
 
-impl<R: tauri::Runtime, T: tauri::Manager<R>> Updater2PluginExt<R> for T {
+impl<R: Runtime, T: tauri::Manager<R>> Updater2PluginExt<R> for T {
     fn updater2(&self) -> Updater2<'_, R, Self>
     where
         Self: Sized,
@@ -276,100 +292,5 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> Updater2PluginExt<R> for T {
             manager: self,
             _runtime: std::marker::PhantomData,
         }
-    }
-}
-
-fn get_updates_dir<R: tauri::Runtime, M: tauri::Manager<R>>(manager: &M) -> Option<PathBuf> {
-    manager
-        .app_handle()
-        .path()
-        .app_cache_dir()
-        .ok()
-        .map(|p: PathBuf| p.join("updates"))
-}
-
-fn get_cache_path<R: tauri::Runtime, M: tauri::Manager<R>>(
-    manager: &M,
-    version: &str,
-) -> Option<PathBuf> {
-    Some(get_updates_dir(manager)?.join(format!("{}.bin", version)))
-}
-
-fn prune_cached_updates<R: tauri::Runtime, M: tauri::Manager<R>>(manager: &M, keep: Option<&str>) {
-    if let Some(dir) = get_updates_dir(manager) {
-        prune_updates_dir(&dir, keep);
-    }
-}
-
-fn prune_updates_dir(dir: &Path, keep: Option<&str>) {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return;
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("bin") {
-            continue;
-        }
-        if keep.is_some() && path.file_stem().and_then(|s| s.to_str()) == keep {
-            continue;
-        }
-        match std::fs::remove_file(&path) {
-            Ok(()) => tracing::info!("pruned_cached_update: {:?}", path),
-            Err(e) => tracing::warn!("failed_to_prune_cached_update: {:?}: {}", path, e),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::prune_updates_dir;
-
-    fn write_bins(dir: &std::path::Path, versions: &[&str]) {
-        for v in versions {
-            std::fs::write(dir.join(format!("{v}.bin")), b"update").unwrap();
-        }
-    }
-
-    #[test]
-    fn prune_keeps_only_the_kept_version() {
-        let dir = tempfile::tempdir().unwrap();
-        write_bins(dir.path(), &["1.4.1", "1.4.2", "1.4.8"]);
-
-        prune_updates_dir(dir.path(), Some("1.4.8"));
-
-        assert!(dir.path().join("1.4.8.bin").exists());
-        assert!(!dir.path().join("1.4.1.bin").exists());
-        assert!(!dir.path().join("1.4.2.bin").exists());
-    }
-
-    #[test]
-    fn prune_without_keep_removes_all_bins() {
-        let dir = tempfile::tempdir().unwrap();
-        write_bins(dir.path(), &["1.4.1", "1.4.2"]);
-
-        prune_updates_dir(dir.path(), None);
-
-        assert!(!dir.path().join("1.4.1.bin").exists());
-        assert!(!dir.path().join("1.4.2.bin").exists());
-    }
-
-    #[test]
-    fn prune_ignores_non_bin_files() {
-        let dir = tempfile::tempdir().unwrap();
-        write_bins(dir.path(), &["1.4.1"]);
-        std::fs::write(dir.path().join("notes.txt"), b"keep").unwrap();
-
-        prune_updates_dir(dir.path(), None);
-
-        assert!(dir.path().join("notes.txt").exists());
-        assert!(!dir.path().join("1.4.1.bin").exists());
-    }
-
-    #[test]
-    fn prune_missing_dir_is_noop() {
-        let dir = tempfile::tempdir().unwrap();
-
-        prune_updates_dir(&dir.path().join("does-not-exist"), Some("1.4.8"));
     }
 }

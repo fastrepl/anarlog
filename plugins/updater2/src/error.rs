@@ -5,6 +5,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
+    Core(#[from] anlg_desktop_updater::Error),
+    #[error(transparent)]
     Store2(#[from] tauri_plugin_store2::Error),
     #[error(transparent)]
     Updater(#[from] tauri_plugin_updater::Error),
@@ -12,14 +14,10 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("cache path unavailable")]
     CachePathUnavailable,
+    #[error("updater is not managed by the application")]
+    UpdaterNotManaged,
     #[error("cached update not found")]
     CachedUpdateNotFound,
-    #[error("update not available")]
-    UpdateNotAvailable,
-    #[error("version mismatch: expected {expected}, got {actual}")]
-    VersionMismatch { expected: String, actual: String },
-    #[error("cached update {version} is not newer than current {current}")]
-    UpdateNotNewer { version: String, current: String },
     #[error("failed to determine current app path")]
     FailedToDetermineCurrentAppPath,
     #[error("failed to schedule installed app launch at {path}: {details}")]

@@ -6,6 +6,8 @@ mod ext;
 mod startup_migration;
 mod store;
 
+use tauri::Manager;
+
 pub use error::{Error, Result};
 pub use events::*;
 pub use ext::*;
@@ -43,6 +45,14 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app, _api| {
             specta_builder.mount_events(app);
+            match ext::create_core(app) {
+                Ok(shared_updater) => {
+                    app.manage(shared_updater);
+                }
+                Err(error) => {
+                    tracing::error!(%error, "updater_initialization_failed");
+                }
+            }
 
             #[cfg(target_os = "macos")]
             match startup_migration::maybe_schedule_legacy_bundle_rename_on_launch(app) {
@@ -77,71 +87,7 @@ async fn check_and_download<R: tauri::Runtime>(
         return false;
     }
 
-    let updater2 = app.updater2();
-
-    match updater2.automatic_updates_enabled() {
-        Ok(true) => {}
-        Ok(false) => return false,
-        Err(e) => {
-            tracing::error!("automatic_update_policy_read_failed: {}", e);
-            return false;
-        }
-    }
-
-    // Never install (which restarts the app) or download while a meeting is
-    // being recorded; the next 30-minute tick retries after the meeting.
-    if updater2.meeting_active() {
-        tracing::info!("automatic_update_deferred_meeting_active");
-        return install_at_open;
-    }
-
-    let version = match updater2.check().await {
-        Ok(Some(v)) => v,
-        Ok(None) => return false,
-        Err(e) => {
-            tracing::error!("update_check_failed: {}", e);
-            return install_at_open;
-        }
-    };
-
-    // A meeting may have started while the check was in flight.
-    if updater2.meeting_active() {
-        tracing::info!("automatic_update_deferred_meeting_active");
-        return install_at_open;
-    }
-
-    // install_and_relaunch re-checks the release feed before applying the bin,
-    // so it can fail transiently just like check/download; keep the intent so
-    // a later tick retries instead of disabling auto-install for the session.
-    if install_at_open && updater2.has_cached_update(&version) {
-        if let Err(e) = updater2.install_and_relaunch(&version).await {
-            tracing::error!("cached_update_install_failed: {}", e);
-            return true;
-        }
-        return false;
-    }
-
-    if let Err(e) = updater2.download(&version).await {
-        tracing::error!("update_download_failed: {}", e);
-        return install_at_open;
-    }
-
-    // With frequent releases the cached version is rarely still the latest by
-    // the next open, so deferring the install to the next session would
-    // re-download forever and never install anything. Install as soon as the
-    // at-open download completes instead.
-    if install_at_open {
-        if updater2.meeting_active() {
-            tracing::info!("automatic_update_deferred_meeting_active");
-            return true;
-        }
-        if let Err(e) = updater2.install_and_relaunch(&version).await {
-            tracing::error!("downloaded_update_install_failed: {}", e);
-            return true;
-        }
-    }
-
-    false
+    app.updater2().tick(install_at_open).await
 }
 
 #[cfg(test)]
