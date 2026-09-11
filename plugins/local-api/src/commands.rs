@@ -1,6 +1,6 @@
 use tauri::Manager;
 
-use crate::{CreatedWebhook, WebhookDelivery, WebhookInfo, dispatch};
+use crate::{CreatedWebhook, MarkdownExportOptions, WebhookDelivery, WebhookInfo, dispatch};
 
 const MAX_CLOUD_SNAPSHOT_BYTES: usize = 2 * 1024 * 1024;
 
@@ -170,6 +170,7 @@ pub async fn export_meeting_markdown<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     meeting_id: String,
     directory: String,
+    options: Option<MarkdownExportOptions>,
 ) -> Result<String, String> {
     let directory = directory.trim();
     if directory.is_empty() {
@@ -179,18 +180,69 @@ pub async fn export_meeting_markdown<R: tauri::Runtime>(
     let export = anlg_agent_access::get_meeting_export(&pool, meeting_id)
         .await
         .map_err(|error| error.to_string())?;
-    write_markdown_export(std::path::Path::new(directory), &export)
+    write_markdown_export_with_options(std::path::Path::new(directory), &export, options.as_ref())
         .map(|path| path.to_string_lossy().into_owned())
 }
 
 pub(crate) fn markdown_export_filename(meeting: &anlg_agent_access::Meeting) -> String {
+    configured_markdown_filename(meeting, &MarkdownExportOptions::default())
+}
+
+pub(crate) fn configured_markdown_filename(
+    meeting: &anlg_agent_access::Meeting,
+    options: &MarkdownExportOptions,
+) -> String {
     let title = meeting.title.trim();
     let title = if title.is_empty() {
         "Untitled meeting"
     } else {
         title
     };
-    let sanitized = title
+    let occurred_at = if meeting.started_at.is_empty() {
+        &meeting.created_at
+    } else {
+        &meeting.started_at
+    };
+    let date = occurred_at.get(..10).unwrap_or("");
+    let custom = options.filename.trim();
+    let base = if custom.is_empty() {
+        format!("{date} {title}").trim().to_string()
+    } else {
+        custom.replace("{title}", title).replace("{date}", date)
+    };
+    let base = base.trim();
+    let base = if !custom.is_empty() && base.to_ascii_lowercase().ends_with(".md") {
+        &base[..base.len() - 3]
+    } else {
+        base
+    };
+    let mut sanitized = sanitize_filename_part(base);
+    if sanitized.is_empty() {
+        sanitized = "Untitled meeting".to_string();
+    }
+    let stem = sanitized
+        .split('.')
+        .next()
+        .unwrap_or("")
+        .to_ascii_uppercase();
+    if matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || (stem.len() == 4
+            && (stem.starts_with("COM") || stem.starts_with("LPT"))
+            && matches!(stem.as_bytes()[3], b'1'..=b'9'))
+    {
+        sanitized.insert(0, '_');
+    }
+    let suffix = if options.include_id_suffix {
+        let prefix = meeting.id.chars().take(8).collect::<String>();
+        format!(" [{}]", sanitize_filename_part(&prefix))
+    } else {
+        String::new()
+    };
+    format!("{sanitized}{suffix}.md")
+}
+
+fn sanitize_filename_part(value: &str) -> String {
+    let sanitized = value
         .chars()
         .map(|c| match c {
             '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*' => '_',
@@ -198,37 +250,80 @@ pub(crate) fn markdown_export_filename(meeting: &anlg_agent_access::Meeting) -> 
             c => c,
         })
         .collect::<String>();
-    let sanitized = sanitized.trim_matches([' ', '.']);
-    let sanitized = if sanitized.is_empty() {
-        "Untitled meeting"
-    } else {
-        sanitized
-    };
-    let occurred_at = if meeting.started_at.is_empty() {
-        &meeting.created_at
-    } else {
-        &meeting.started_at
-    };
-    let id_prefix = meeting.id.chars().take(8).collect::<String>();
-    match occurred_at.get(..10) {
-        Some(date) => format!("{date} {sanitized} [{id_prefix}].md"),
-        None => format!("{sanitized} [{id_prefix}].md"),
+    // Leave room for the suffix and extension on filesystems with a 255-byte limit.
+    let mut end = sanitized.len().min(180);
+    while !sanitized.is_char_boundary(end) {
+        end -= 1;
     }
+    sanitized[..end].trim_matches([' ', '.']).to_string()
 }
 
 pub(crate) fn write_markdown_export(
     directory: &std::path::Path,
     export: &anlg_agent_access::MeetingExport,
 ) -> Result<std::path::PathBuf, String> {
+    write_markdown_export_with_options(directory, export, None)
+}
+
+pub(crate) fn write_markdown_export_with_options(
+    directory: &std::path::Path,
+    export: &anlg_agent_access::MeetingExport,
+    options: Option<&MarkdownExportOptions>,
+) -> Result<std::path::PathBuf, String> {
+    use std::io::Write;
+
+    let defaults = MarkdownExportOptions::default();
+    let selected = options.unwrap_or(&defaults);
+    if !(selected.include_memo
+        || selected.include_summary
+        || selected.include_transcript
+        || selected.include_action_items)
+    {
+        return Err("choose at least one element to export".to_string());
+    }
+    let mut filtered = export.clone();
+    if !selected.include_memo {
+        filtered.meeting.note = None;
+    }
+    if !selected.include_summary {
+        filtered.meeting.summaries.clear();
+    }
+    if !selected.include_transcript {
+        filtered.transcripts.clear();
+    }
+    if !selected.include_action_items {
+        filtered.meeting.action_items.clear();
+    }
+
     std::fs::create_dir_all(directory)
         .map_err(|error| format!("could not create export directory: {error}"))?;
-    let filename = markdown_export_filename(&export.meeting);
-    remove_stale_exports(directory, &export.meeting.id, &filename);
+    let filename = if options.is_none() {
+        markdown_export_filename(&export.meeting)
+    } else {
+        configured_markdown_filename(&export.meeting, selected)
+    };
     let path = directory.join(&filename);
-    let mut markdown = export.to_markdown();
+    let mut markdown = filtered.to_markdown();
     markdown.push('\n');
-    std::fs::write(&path, markdown)
-        .map_err(|error| format!("could not write markdown export: {error}"))?;
+    match std::fs::OpenOptions::new().write(true).create_new(true).open(&path) {
+        Ok(mut file) => file.write_all(markdown.as_bytes()),
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+            let existing = std::fs::read_to_string(&path)
+                .map_err(|error| format!("could not read existing export: {error}"))?;
+            let marker = format!("- ID: `{}`", export.meeting.id);
+            let existing_id = existing.split("\n\n").nth(1).and_then(|metadata| metadata.lines().next());
+            if existing_id != Some(marker.as_str()) {
+                return Err(format!("{filename} already exists for another file; choose a different filename or include the meeting ID suffix"));
+            }
+            std::fs::write(&path, &markdown)
+        }
+        Err(error) => Err(error),
+    }.map_err(|error| format!("could not write markdown export: {error}"))?;
+    // Configured actions can export different content for the same meeting to
+    // the same folder. Only the legacy export owns its old filename cleanup.
+    if options.is_none() {
+        remove_stale_exports(directory, &export.meeting.id, &filename);
+    }
     Ok(path)
 }
 

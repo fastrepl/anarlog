@@ -370,6 +370,7 @@ async function executeMarkdownExport(
   const result = await localApiCommands.exportMeetingMarkdown(
     sessionId,
     directory,
+    null,
   );
   if (result.status === "error") {
     throw new Error(result.error);

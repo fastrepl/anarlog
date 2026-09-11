@@ -159,6 +159,7 @@ describe("runMeetingCompletedAutomations (markdown export)", () => {
     expect(mocks.exportMeetingMarkdown).toHaveBeenCalledWith(
       "session-1",
       "/exports",
+      null,
     );
     expect(recordedRun("automation_markdown_export_last_run")).toMatchObject({
       status: "success",
