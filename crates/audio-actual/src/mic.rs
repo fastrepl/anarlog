@@ -313,10 +313,10 @@ impl MicInput {
             .or_else(anlg_audio_device::default_input_device_name)
             .and_then(|name| anlg_audio_device::prepare_bluetooth_input_for_capture(&name))
             .map(Arc::new);
-        let preferred = bluetooth
-            .as_ref()
-            .map(|activation| activation.name.clone())
-            .or(device_name);
+        let preferred = match bluetooth.as_ref() {
+            Some(activation) => activation.name.clone(),
+            None => device_name,
+        };
 
         let host = cpal::default_host();
 

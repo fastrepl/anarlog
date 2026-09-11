@@ -122,32 +122,109 @@ fn bluetooth_input_named<'a>(name: &str, inputs: &'a [AudioDevice]) -> Option<&'
     })
 }
 
-fn resolved_capture_name(requested: &AudioDevice, default_after: Option<&AudioDevice>) -> String {
+fn related_bluetooth_endpoint(requested: &AudioDevice, other: &AudioDevice) -> bool {
+    other.direction == AudioDirection::Input
+        && other.transport_type == TransportType::Bluetooth
+        && (other.id == requested.id || bluetooth_names_share_headset(&requested.name, &other.name))
+}
+
+fn bluetooth_base_name(name: &str) -> String {
+    let lower = name.to_lowercase();
+    for suffix in [
+        " hands-free ag audio",
+        " hands-free",
+        " handsfree",
+        " hands free",
+    ] {
+        if let Some(stripped) = lower.strip_suffix(suffix) {
+            return stripped.trim().to_string();
+        }
+    }
+    lower
+}
+
+fn bluetooth_names_share_headset(left: &str, right: &str) -> bool {
+    bluetooth_base_name(left) == bluetooth_base_name(right)
+}
+
+fn bluetooth_handoff_ready(requested: &AudioDevice, default: &AudioDevice) -> bool {
+    related_bluetooth_endpoint(requested, default)
+        && (default.id != requested.id || device::name_suggests_hands_free(&default.name))
+}
+
+fn listed_hands_free_capture<'a>(
+    requested: &AudioDevice,
+    inputs: &'a [AudioDevice],
+) -> Option<&'a AudioDevice> {
+    inputs.iter().find(|device| {
+        related_bluetooth_endpoint(requested, device)
+            && device::name_suggests_hands_free(&device.name)
+    })
+}
+
+fn resolved_capture_name(
+    requested: &AudioDevice,
+    default_after: Option<&AudioDevice>,
+    listed_after: Option<&[AudioDevice]>,
+) -> Option<String> {
     default_after
-        .filter(|device| device.transport_type == TransportType::Bluetooth)
+        .filter(|device| bluetooth_handoff_ready(requested, device))
         .map(|device| device.name.clone())
-        .unwrap_or_else(|| requested.name.clone())
+        .or_else(|| {
+            listed_after.and_then(|inputs| {
+                listed_hands_free_capture(requested, inputs).map(|device| device.name.clone())
+            })
+        })
+}
+
+static BLUETOOTH_DEFAULT_OWNERS: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
+
+/// True while a macOS Bluetooth capture is holding the system default input for HFP/SCO.
+///
+/// Setting that default (and the A2DP→HFP profile switch) looks like a user device change
+/// to Core Audio. Capture must not restart itself on those events.
+pub fn bluetooth_input_owns_system_defaults() -> bool {
+    BLUETOOTH_DEFAULT_OWNERS.load(std::sync::atomic::Ordering::Acquire) > 0
+}
+
+#[cfg(target_os = "macos")]
+fn retain_bluetooth_system_defaults() {
+    BLUETOOTH_DEFAULT_OWNERS.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+}
+
+fn release_bluetooth_system_defaults() {
+    let _ = BLUETOOTH_DEFAULT_OWNERS.fetch_update(
+        std::sync::atomic::Ordering::AcqRel,
+        std::sync::atomic::Ordering::Acquire,
+        |n| Some(n.saturating_sub(1)),
+    );
 }
 
 /// Keeps a Bluetooth headset in HFP/SCO for the life of a capture stream.
 ///
 /// Restores the previous default input when dropped if this activation changed it.
 pub struct BluetoothInputActivation {
-    pub name: String,
+    /// Post-handoff CPAL name to open. `None` means use the live system default.
+    pub name: Option<String>,
     previous_default: Option<DeviceId>,
+    owns_system_defaults: bool,
 }
 
 impl Drop for BluetoothInputActivation {
     fn drop(&mut self) {
-        let Some(previous) = self.previous_default.take() else {
-            return;
-        };
-        if let Err(error) = backend().set_default_input_device(&previous) {
-            tracing::warn!(
-                error = %error,
-                device_id = %previous,
-                "bluetooth_input_restore_default_failed"
-            );
+        if let Some(previous) = self.previous_default.take() {
+            if let Err(error) = backend().set_default_input_device(&previous) {
+                tracing::warn!(
+                    error = %error,
+                    device_id = %previous,
+                    "bluetooth_input_restore_default_failed"
+                );
+            }
+        }
+        if self.owns_system_defaults {
+            self.owns_system_defaults = false;
+            release_bluetooth_system_defaults();
         }
     }
 }
@@ -164,8 +241,9 @@ pub fn default_input_device_name() -> Option<String> {
 ///
 /// On macOS, a Core Audio HAL open against AirPods (and other BT headsets) does not trigger
 /// A2DP→HFP/SCO. Setting the device as the system default input does. After that handoff the
-/// live default may be a different HAL endpoint than the A2DP-named device, so callers should
-/// open the returned name — preferably via the system default input.
+/// live default may be a different HAL endpoint than the A2DP-named device. `name` is that
+/// endpoint when handoff is visible; `None` means open the live system default instead of the
+/// A2DP-named device, which is usually still silent.
 ///
 /// Returns `None` when `name` is not a Bluetooth input, or on platforms where opening the
 /// device already negotiates the call profile.
@@ -204,16 +282,19 @@ fn prepare_macos_bluetooth_input(name: &str) -> Option<BluetoothInputActivation>
             "bluetooth_input_set_default_failed"
         );
         return Some(BluetoothInputActivation {
-            name: requested.name,
+            name: Some(requested.name),
             previous_default: None,
+            owns_system_defaults: false,
         });
     }
 
+    retain_bluetooth_system_defaults();
+
     let started = Instant::now();
-    let mut default_after = previous.filter(|device| device.id == requested.id);
+    let mut default_after = previous.filter(|device| bluetooth_handoff_ready(&requested, device));
     while started.elapsed() < HANDOFF_TIMEOUT {
         match backend.get_default_input_device() {
-            Ok(Some(device)) if device.transport_type == TransportType::Bluetooth => {
+            Ok(Some(device)) if bluetooth_handoff_ready(&requested, &device) => {
                 default_after = Some(device);
                 break;
             }
@@ -221,10 +302,11 @@ fn prepare_macos_bluetooth_input(name: &str) -> Option<BluetoothInputActivation>
         }
     }
 
-    let name = resolved_capture_name(&requested, default_after.as_ref());
+    let listed_after = backend.list_input_devices().ok();
+    let name = resolved_capture_name(&requested, default_after.as_ref(), listed_after.as_deref());
     tracing::info!(
         requested = %requested.name,
-        opened = %name,
+        opened = %name.as_deref().unwrap_or("default"),
         restored_default = previous_default.is_some(),
         "bluetooth_input_prepared"
     );
@@ -232,6 +314,7 @@ fn prepare_macos_bluetooth_input(name: &str) -> Option<BluetoothInputActivation>
     Some(BluetoothInputActivation {
         name,
         previous_default,
+        owns_system_defaults: true,
     })
 }
 
@@ -473,13 +556,78 @@ mod tests {
         let requested = named_input("a2dp", "AirPods", TransportType::Bluetooth);
         let handsfree = named_input("tsco", "AirPods Hands-Free", TransportType::Bluetooth);
         assert_eq!(
-            resolved_capture_name(&requested, Some(&handsfree)),
-            "AirPods Hands-Free"
+            resolved_capture_name(&requested, Some(&handsfree), None).as_deref(),
+            Some("AirPods Hands-Free")
+        );
+
+        let renamed = named_input("a2dp", "AirPods Hands-Free", TransportType::Bluetooth);
+        assert_eq!(
+            resolved_capture_name(&requested, Some(&renamed), None).as_deref(),
+            Some("AirPods Hands-Free")
         );
 
         let builtin = named_input("mic", "MacBook Pro Microphone", TransportType::BuiltIn);
-        assert_eq!(resolved_capture_name(&requested, Some(&builtin)), "AirPods");
-        assert_eq!(resolved_capture_name(&requested, None), "AirPods");
+        assert_eq!(
+            resolved_capture_name(&requested, Some(&builtin), None),
+            None
+        );
+        assert_eq!(
+            resolved_capture_name(&requested, Some(&requested), None),
+            None
+        );
+        assert_eq!(resolved_capture_name(&requested, None, None), None);
+        assert_eq!(
+            resolved_capture_name(
+                &requested,
+                Some(&requested),
+                Some(&[
+                    requested.clone(),
+                    named_input("tsco", "AirPods Hands-Free", TransportType::Bluetooth),
+                ])
+            )
+            .as_deref(),
+            Some("AirPods Hands-Free")
+        );
+    }
+
+    #[test]
+    fn bluetooth_handoff_ignores_the_a2dp_device_just_selected() {
+        let requested = named_input("a2dp", "AirPods", TransportType::Bluetooth);
+        assert!(!bluetooth_handoff_ready(&requested, &requested));
+        assert!(bluetooth_handoff_ready(
+            &requested,
+            &named_input("tsco", "AirPods Hands-Free", TransportType::Bluetooth)
+        ));
+        assert!(!bluetooth_handoff_ready(
+            &requested,
+            &named_input("mic", "MacBook Pro Microphone", TransportType::BuiltIn)
+        ));
+        assert!(!bluetooth_handoff_ready(
+            &requested,
+            &named_input("other", "WH-1000XM5", TransportType::Bluetooth)
+        ));
+    }
+
+    #[test]
+    fn listed_hands_free_endpoint_is_preferred_over_a2dp_default() {
+        let requested = named_input("a2dp", "AirPods", TransportType::Bluetooth);
+        let inputs = vec![
+            requested.clone(),
+            named_input("tsco", "AirPods Hands-Free", TransportType::Bluetooth),
+            named_input("other", "WH-1000XM5 Hands-Free", TransportType::Bluetooth),
+        ];
+        assert_eq!(
+            listed_hands_free_capture(&requested, &inputs).map(|device| device.id.0.as_str()),
+            Some("tsco")
+        );
+        assert_eq!(
+            bluetooth_base_name("AirPods Hands-Free"),
+            bluetooth_base_name("AirPods")
+        );
+        assert_ne!(
+            bluetooth_base_name("AirPods Pro"),
+            bluetooth_base_name("AirPods")
+        );
     }
 
     #[test]
