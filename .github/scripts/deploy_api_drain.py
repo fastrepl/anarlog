@@ -748,6 +748,38 @@ def deploy(
     print("deployed new machines; old meetings will keep their current connections")
 
 
+def retire_idle_stripe_machine(machine_id: str) -> None:
+    """Retire an explicitly verified idle legacy runtime without a forced-kill deadline."""
+    app = "hyprnote-stripe"
+    machines = list_machines(app)
+    target = next(
+        (machine for machine in machines if machine["id"] == machine_id), None
+    )
+    if target is None or not is_cordoned(target):
+        raise DeployError(
+            "Legacy retirement requires an existing cordoned Stripe machine"
+        )
+    serving = serving_machines(machines)
+    if len(serving) < 2 or not all(checks_passing(machine) for machine in serving):
+        raise DeployError(
+            "Legacy retirement requires two healthy serving Stripe machines"
+        )
+    if is_stopped(target):
+        return
+    api_request(
+        "POST", f"{machine_path(app, machine_id)}/signal", {"signal": "SIGTERM"}
+    )
+    deadline = time.monotonic() + 180
+    while time.monotonic() < deadline:
+        if is_stopped(get_machine(app, machine_id)):
+            print(f"legacy Stripe machine {machine_id} exited after worker shutdown")
+            return
+        time.sleep(5)
+    raise DeployError(
+        "Legacy Stripe worker is still finishing; no forced stop was sent"
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--app", required=True)
@@ -756,11 +788,16 @@ def main() -> None:
     parser.add_argument("--version", required=True)
     parser.add_argument("--image")
     parser.add_argument("--adopt-drain-image")
+    parser.add_argument("--retire-idle-stripe-machine")
     args = parser.parse_args()
+    if args.retire_idle_stripe_machine and args.app != "hyprnote-stripe":
+        raise DeployError("Idle Stripe retirement cannot target another application")
     if args.adopt_drain_image:
         desired_runtime_config(args.app, args.config)
         adopt_drain_image(args.app, args.adopt_drain_image)
     deploy(args.app, args.config, args.dockerfile, args.version, args.image)
+    if args.retire_idle_stripe_machine:
+        retire_idle_stripe_machine(args.retire_idle_stripe_machine)
 
 
 if __name__ == "__main__":
