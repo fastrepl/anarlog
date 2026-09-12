@@ -3,7 +3,7 @@
 import sys
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -797,8 +797,25 @@ def test_idle_legacy_stripe_retirement_requires_cordon_and_healthy_capacity():
         patch.object(deploy_api_drain, "api_request") as api,
     ):
         deploy_api_drain.retire_idle_stripe_machine("old")
+        assert api.call_args_list == [
+            call(
+                "POST",
+                "/apps/hyprnote-stripe/machines/old/signal",
+                {"signal": "SIGTERM"},
+            ),
+            call(
+                "DELETE", "/apps/hyprnote-stripe/machines/old", query={"force": "false"}
+            ),
+        ]
+        api.reset_mock()
+        with patch.object(
+            deploy_api_drain,
+            "list_machines",
+            return_value=[dict(target, state="stopped"), *machines[1:]],
+        ):
+            deploy_api_drain.retire_idle_stripe_machine("old")
         api.assert_called_once_with(
-            "POST", "/apps/hyprnote-stripe/machines/old/signal", {"signal": "SIGTERM"}
+            "DELETE", "/apps/hyprnote-stripe/machines/old", query={"force": "false"}
         )
         with patch.object(deploy_api_drain, "list_machines", return_value=machines[1:]):
             api.reset_mock()
@@ -899,9 +916,12 @@ def test_idle_legacy_api_retirement_sends_only_graceful_signal():
         patch.object(deploy_api_drain, "api_request") as api,
     ):
         deploy_api_drain.retire_idle_legacy_machine("hyprnote-ai", "old")
-        api.assert_called_once_with(
-            "POST", "/apps/hyprnote-ai/machines/old/signal", {"signal": "SIGTERM"}
-        )
+        assert api.call_args_list == [
+            call(
+                "POST", "/apps/hyprnote-ai/machines/old/signal", {"signal": "SIGTERM"}
+            ),
+            call("DELETE", "/apps/hyprnote-ai/machines/old", query={"force": "false"}),
+        ]
         api.reset_mock()
         try:
             deploy_api_drain.retire_idle_legacy_machine("anarlog-inference", "old")

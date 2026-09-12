@@ -190,11 +190,11 @@ def get_machine(app: str, machine_id: str) -> dict[str, Any]:
     return machine
 
 
-def destroy_machine(app: str, machine_id: str) -> None:
+def destroy_machine(app: str, machine_id: str, *, force: bool = True) -> None:
     api_request(
         "DELETE",
         machine_path(app, machine_id),
-        query={"force": "true"},
+        query={"force": str(force).lower()},
     )
 
 
@@ -830,6 +830,7 @@ def retire_idle_legacy_machine(app: str, machine_id: str) -> None:
     ):
         raise DeployError("Legacy retirement requires two healthy serving machines")
     if is_stopped(target):
+        destroy_machine(app, machine_id, force=False)
         return
     api_request(
         "POST", f"{machine_path(app, machine_id)}/signal", {"signal": "SIGTERM"}
@@ -838,6 +839,7 @@ def retire_idle_legacy_machine(app: str, machine_id: str) -> None:
     while time.monotonic() < deadline:
         if is_stopped(get_machine(app, machine_id)):
             print(f"legacy {app} machine {machine_id} exited after worker shutdown")
+            destroy_machine(app, machine_id, force=False)
             return
         time.sleep(5)
     raise DeployError("Legacy worker is still finishing; no forced stop was sent")
