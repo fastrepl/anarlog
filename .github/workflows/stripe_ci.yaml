@@ -4,6 +4,8 @@ on:
     branches:
       - main
     paths:
+      - .github/scripts/deploy_api_drain.py
+      - .github/scripts/test_deploy_api_drain.py
       - apps/stripe/**
       - packages/supabase/**
       - packages/user-error/**
@@ -16,6 +18,8 @@ on:
       - pnpm-workspace.yaml
   pull_request:
     paths:
+      - .github/scripts/deploy_api_drain.py
+      - .github/scripts/test_deploy_api_drain.py
       - apps/stripe/**
       - packages/supabase/**
       - packages/user-error/**
@@ -43,5 +47,6 @@ jobs:
           persist-credentials: false
       - uses: $/.github/actions/pnpm_install
       - uses: $/.github/actions/bun_install
+      - run: python3 .github/scripts/test_deploy_api_drain.py
       - run: pnpm -F @anlg/stripe typecheck
       - run: pnpm -F @anlg/stripe test
