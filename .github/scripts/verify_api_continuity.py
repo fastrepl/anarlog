@@ -47,8 +47,10 @@ async def authenticate(client, secrets_file, email):
 
 
 class Traffic:
-    def __init__(self, base, token, audio):
+    def __init__(self, base, token, audio, gateway=False):
         self.base = base
+        self.gateway = gateway
+        self.business_reads = 0
         self.headers = {"Authorization": "Bearer " + token}
         self.audio = audio
         self.streams = []
@@ -169,7 +171,27 @@ class Traffic:
                         self.errors.append("LLM: " + type(error).__name__)
                     await asyncio.sleep(2)
 
-            await asyncio.gather(health(), llm())
+            async def business_reads():
+                while not self.closing:
+                    for path in ["/nango/connections", "/subscription/can-start-trial"]:
+                        try:
+                            response = await client.get(
+                                self.base + path, headers=self.headers
+                            )
+                            if response.status_code != 200:
+                                self.errors.append(
+                                    f"{path} HTTP {response.status_code}"
+                                )
+                            else:
+                                self.business_reads += 1
+                        except Exception as error:
+                            self.errors.append(f"{path}: {type(error).__name__}")
+                    await asyncio.sleep(2)
+
+            tasks = [health(), llm()]
+            if self.gateway:
+                tasks.append(business_reads())
+            await asyncio.gather(*tasks)
 
     async def hold(self, seconds, stage):
         for elapsed in range(seconds):
@@ -202,18 +224,19 @@ class Traffic:
 
 
 async def run(args):
-    if args.app != "anarlog-inference":
-        raise RuntimeError(
-            "Continuity QA currently supports only the isolated AI runtime"
-        )
+    if args.app not in {"anarlog-inference", "anarlog-ai"}:
+        raise RuntimeError("Continuity QA supports the AI runtime and Anarlog gateway")
+    if args.verified_image_digest:
+        deploy.adopt_drain_image(args.app, args.verified_image_digest, args.image)
     # The immutable candidate is built separately so recording time excludes remote builds.
     machines = deploy.serving_machines(
         await asyncio.to_thread(deploy.list_machines, args.app)
     )
-    if len(machines) < 2 or any(
+    machines = [machine for machine in machines if deploy.is_started(machine)]
+    if not machines or any(
         not deploy.supports_session_drain(machine) for machine in machines
     ):
-        raise RuntimeError("Need two serving machines with a verified drain protocol")
+        raise RuntimeError("Need serving machines with a verified drain protocol")
     digests = {machine["image_ref"]["digest"] for machine in machines}
     if len(digests) != 1:
         raise RuntimeError("Serving set must have one known rollback image")
@@ -233,7 +256,9 @@ async def run(args):
         audio = source.readframes(source.getnframes())
     async with httpx.AsyncClient(timeout=30) as client:
         token = await authenticate(client, args.secrets, args.email)
-    traffic = Traffic("https://" + args.app + ".fly.dev", token, audio)
+    gateway = args.app == "anarlog-ai"
+    base = "https://api.anarlog.so" if gateway else "https://anarlog-inference.fly.dev"
+    traffic = Traffic(base, token, audio, gateway=gateway)
     monitor = asyncio.create_task(traffic.requests())
     result = {
         "passed": False,
@@ -258,6 +283,7 @@ async def run(args):
                 args.dockerfile,
                 args.version,
                 image,
+                args.verified_image_digest,
             )
             await traffic.hold(hold, stage)
             result["stages"].append(stage)
@@ -287,9 +313,16 @@ async def run(args):
                 break
             await asyncio.sleep(5)
         else:
-            raise RuntimeError(
-                "Old machines have not stopped; inspect non-QA sessions before retirement"
-            )
+            if not gateway:
+                raise RuntimeError(
+                    "Old machines have not stopped; inspect non-QA sessions before retirement"
+                )
+            result["pending_customer_drains"] = [
+                machine["id"]
+                for machine in current
+                if machine["id"] in ids and deploy.is_started(machine)
+            ]
+            event("customer_drains_pending", machines=result["pending_customer_drains"])
         result["passed"] = True
     finally:
         await traffic.close()
@@ -297,6 +330,7 @@ async def run(args):
         result.update(
             health=traffic.health,
             llms=traffic.llms,
+            business_reads=traffic.business_reads,
             errors=traffic.errors,
             streams=[state for _, state in traffic.streams],
         )
@@ -323,4 +357,5 @@ if __name__ == "__main__":
         "output",
     ]:
         parser.add_argument("--" + name, required=True)
+    parser.add_argument("--verified-image-digest")
     asyncio.run(run(parser.parse_args()))

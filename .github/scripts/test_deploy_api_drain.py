@@ -835,7 +835,7 @@ def test_unknown_override_does_not_inherit_drain_support():
 def test_override_support_is_verified_before_cleanup():
     digest = "sha256:" + "a" * 64
     image = "registry.fly.io/anarlog-inference@" + digest
-    for verified in [False, True]:
+    for verified, explicit in [(False, False), (True, False), (False, True)]:
         old = {"id": "old", "region": "sjc", "config": {"image": "old"}}
         known = {
             "id": "retired",
@@ -863,9 +863,17 @@ def test_override_support_is_verified_before_cleanup():
             patch.object(deploy_api_drain, "drain_old_machines"),
         ):
             deploy_api_drain.deploy(
-                "anarlog-inference", "apps/api/fly.ai.toml", "Dockerfile", "test", image
+                "anarlog-inference",
+                "apps/api/fly.ai.toml",
+                "Dockerfile",
+                "test",
+                image,
+                digest if explicit else None,
             )
-            assert all(call.args[-1] is verified for call in create.call_args_list)
+            assert all(
+                call.args[-1] is (verified or explicit)
+                for call in create.call_args_list
+            )
 
 
 def test_idle_legacy_api_retirement_sends_only_graceful_signal():
@@ -898,7 +906,28 @@ def test_idle_legacy_api_retirement_sends_only_graceful_signal():
         api.assert_not_called()
 
 
+def test_adoption_of_a_verified_candidate_requires_the_exact_digest():
+    digest = "sha256:" + "a" * 64
+    with (
+        patch.object(deploy_api_drain, "list_machines", return_value=[]),
+        patch.object(deploy_api_drain, "mark_drain_supported") as mark,
+    ):
+        deploy_api_drain.adopt_drain_image(
+            "anarlog-ai", digest, "registry.fly.io/anarlog-core@" + digest
+        )
+        mark.assert_not_called()
+        try:
+            deploy_api_drain.adopt_drain_image(
+                "anarlog-ai", digest, "registry.fly.io/anarlog-core@sha256:" + "b" * 64
+            )
+        except DeployError:
+            pass
+        else:
+            raise AssertionError("Mismatched candidate was accepted")
+
+
 if __name__ == "__main__":
+    test_adoption_of_a_verified_candidate_requires_the_exact_digest()
     test_idle_legacy_api_retirement_sends_only_graceful_signal()
     test_override_support_is_verified_before_cleanup()
     test_unknown_override_does_not_inherit_drain_support()

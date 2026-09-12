@@ -10,7 +10,7 @@ on:
         type: string
         required: false
       continuity_user:
-        description: Optional QA account for live AI deployment and rollback (requires immutable image)
+        description: Optional QA account for live AI or gateway deployment and rollback (requires immutable image)
         type: string
         required: false
       cleanup_owner:
@@ -18,7 +18,7 @@ on:
         type: boolean
         default: false
       adopt_drain_image:
-        description: Verified SIGUSR1-capable existing image digest to mark before deployment
+        description: Verified SIGUSR1-capable image digest to adopt before deployment
         type: string
         required: false
       retire_idle_legacy_machine:
@@ -191,7 +191,7 @@ jobs:
             args+=(--retire-idle-legacy-api-machine "$RETIRE_IDLE_LEGACY_MACHINE")
           fi
           if [ -n "$CONTINUITY_USER" ]; then
-            test "$SERVICE" = ai
+            case "$SERVICE" in ai|gateway) ;; *) exit 1 ;; esac
             test -n "$DEPLOY_IMAGE"
             qa_secrets="$(mktemp)"
             chmod 600 "$qa_secrets"
@@ -200,7 +200,9 @@ jobs:
               --projectId="$INFISICAL_PROJECT_ID" --path=/anarlog/ai --format=json --output-file="$qa_secrets"
             python3 -m venv "$RUNNER_TEMP/continuity-venv"
             "$RUNNER_TEMP/continuity-venv/bin/pip" install httpx==0.28.1 websockets==15.0.1
-            "$RUNNER_TEMP/continuity-venv/bin/python" .github/scripts/verify_api_continuity.py \
+            qa_args=()
+            if [ -n "$ADOPT_DRAIN_IMAGE" ]; then qa_args+=(--verified-image-digest "$ADOPT_DRAIN_IMAGE"); fi
+            "$RUNNER_TEMP/continuity-venv/bin/python" .github/scripts/verify_api_continuity.py "${qa_args[@]}" \
               --app "$FLY_APP" --config "$FLY_CONFIG" --dockerfile apps/api/Dockerfile \
               --version "$API_VERSION" --image "$DEPLOY_IMAGE" --secrets "$qa_secrets" \
               --email "$CONTINUITY_USER" --output "$RUNNER_TEMP/api-continuity.json"

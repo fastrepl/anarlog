@@ -628,7 +628,12 @@ def drain_old_machines(app: str, machine_ids: list[str]) -> None:
 
 
 def bootstrap_deploy(
-    app: str, config: str, dockerfile: str, version: str, image: str | None = None
+    app: str,
+    config: str,
+    dockerfile: str,
+    version: str,
+    image: str | None = None,
+    drain_supported: bool = False,
 ) -> None:
     if image:
         fly("deploy", "--app", app, "--config", config, "--image", image, "--ha=true")
@@ -647,7 +652,7 @@ def bootstrap_deploy(
         )
     for machine in list_machines(app):
         wait_until_healthy(app, machine["id"])
-        if image is None:
+        if image is None or drain_supported:
             mark_drain_supported(app, machine["id"])
 
 
@@ -659,7 +664,7 @@ def mark_drain_supported(app: str, machine_id: str) -> None:
     )
 
 
-def adopt_drain_image(app: str, digest: str) -> None:
+def adopt_drain_image(app: str, digest: str, candidate: str | None = None) -> None:
     if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
         raise DeployError("Drain adoption requires a verified image digest")
     matched = False
@@ -668,8 +673,10 @@ def adopt_drain_image(app: str, digest: str) -> None:
         if image.get("digest") == digest:
             mark_drain_supported(app, machine["id"])
             matched = True
-    if not matched:
-        raise DeployError("No machines match the verified drain image digest")
+    if not matched and (candidate is None or candidate.rsplit("@", 1)[-1] != digest):
+        raise DeployError(
+            "No machines or candidate match the verified drain image digest"
+        )
 
 
 def build_and_push_image(app: str, config: str, dockerfile: str, version: str) -> str:
@@ -699,6 +706,7 @@ def deploy(
     dockerfile: str,
     version: str,
     image_override: str | None = None,
+    verified_image_digest: str | None = None,
 ) -> None:
     if image_override:
         if not re.fullmatch(
@@ -710,11 +718,18 @@ def deploy(
             )
     runtime_config = desired_runtime_config(app, config)
     # Capture verified rollback images before stopped machines are removed.
-    drain_supported = image_override is None or any(
-        supports_session_drain(machine)
-        and (machine.get("image_ref") or {}).get("digest")
-        == image_override.split("@", 1)[1]
-        for machine in list_machines(app)
+    drain_supported = (
+        image_override is None
+        or (
+            verified_image_digest is not None
+            and image_override.rsplit("@", 1)[-1] == verified_image_digest
+        )
+        or any(
+            supports_session_drain(machine)
+            and (machine.get("image_ref") or {}).get("digest")
+            == image_override.split("@", 1)[1]
+            for machine in list_machines(app)
+        )
     )
     destroy_drained_machines(app)
     resume_draining_machines(app)
@@ -722,7 +737,9 @@ def deploy(
     serving = serving_machines(machines)
     if not machines:
         print("no machines present; running a bootstrap fly deploy", file=sys.stderr)
-        bootstrap_deploy(app, config, dockerfile, version, image_override)
+        bootstrap_deploy(
+            app, config, dockerfile, version, image_override, drain_supported
+        )
         return
 
     if not serving:
@@ -820,8 +837,15 @@ def main() -> None:
         )
     if args.adopt_drain_image:
         desired_runtime_config(args.app, args.config)
-        adopt_drain_image(args.app, args.adopt_drain_image)
-    deploy(args.app, args.config, args.dockerfile, args.version, args.image)
+        adopt_drain_image(args.app, args.adopt_drain_image, args.image)
+    deploy(
+        args.app,
+        args.config,
+        args.dockerfile,
+        args.version,
+        args.image,
+        args.adopt_drain_image,
+    )
     if args.retire_idle_stripe_machine:
         retire_idle_stripe_machine(args.retire_idle_stripe_machine)
     if args.retire_idle_legacy_api_machine:
