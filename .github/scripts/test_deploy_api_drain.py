@@ -868,7 +868,38 @@ def test_override_support_is_verified_before_cleanup():
             assert all(call.args[-1] is verified for call in create.call_args_list)
 
 
+def test_idle_legacy_api_retirement_sends_only_graceful_signal():
+    target = {"id": "old", "state": "started", "cordoned": True}
+    healthy = {"state": "started", "checks": [{"status": "passing"}]}
+    with (
+        patch.object(
+            deploy_api_drain,
+            "list_machines",
+            return_value=[target, {"id": "a"}, {"id": "b"}],
+        ),
+        patch.object(
+            deploy_api_drain,
+            "get_machine",
+            side_effect=[healthy, healthy, {"state": "stopped"}],
+        ),
+        patch.object(deploy_api_drain, "api_request") as api,
+    ):
+        deploy_api_drain.retire_idle_legacy_machine("hyprnote-ai", "old")
+        api.assert_called_once_with(
+            "POST", "/apps/hyprnote-ai/machines/old/signal", {"signal": "SIGTERM"}
+        )
+        api.reset_mock()
+        try:
+            deploy_api_drain.retire_idle_legacy_machine("anarlog-inference", "old")
+        except DeployError:
+            pass
+        else:
+            raise AssertionError("Non-legacy application accepted")
+        api.assert_not_called()
+
+
 if __name__ == "__main__":
+    test_idle_legacy_api_retirement_sends_only_graceful_signal()
     test_override_support_is_verified_before_cleanup()
     test_unknown_override_does_not_inherit_drain_support()
     test_idle_legacy_stripe_retirement_requires_cordon_and_healthy_capacity()

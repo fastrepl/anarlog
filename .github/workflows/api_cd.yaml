@@ -18,7 +18,11 @@ on:
         type: boolean
         default: false
       adopt_drain_image:
-        description: Verified SIGUSR1-capable image digest to mark without restarting
+        description: Verified SIGUSR1-capable existing image digest to mark before deployment
+        type: string
+        required: false
+      retire_idle_legacy_machine:
+        description: Legacy API machine verified to have no active client connections; cordon then gracefully retire after deployment
         type: string
         required: false
 
@@ -182,6 +186,10 @@ jobs:
           args=(--app "$FLY_APP" --config "$FLY_CONFIG" --dockerfile apps/api/Dockerfile --version "$API_VERSION")
           if [ -n "$DEPLOY_IMAGE" ]; then args+=(--image "$DEPLOY_IMAGE"); fi
           if [ -n "$ADOPT_DRAIN_IMAGE" ]; then args+=(--adopt-drain-image "$ADOPT_DRAIN_IMAGE"); fi
+          if [ -n "$RETIRE_IDLE_LEGACY_MACHINE" ]; then
+            test "$SERVICE" = legacy
+            args+=(--retire-idle-legacy-api-machine "$RETIRE_IDLE_LEGACY_MACHINE")
+          fi
           if [ -n "$CONTINUITY_USER" ]; then
             test "$SERVICE" = ai
             test -n "$DEPLOY_IMAGE"
@@ -206,6 +214,7 @@ jobs:
           CONTINUITY_USER: ${{ inputs.continuity_user }}
           INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
           ADOPT_DRAIN_IMAGE: ${{ inputs.adopt_drain_image }}
+          RETIRE_IDLE_LEGACY_MACHINE: ${{ inputs.retire_idle_legacy_machine }}
       - run: |
           set -euo pipefail
           curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 "https://${FLY_APP}.fly.dev${HEALTH_PATH}"
