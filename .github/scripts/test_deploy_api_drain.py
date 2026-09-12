@@ -90,12 +90,16 @@ def test_image_ref_uses_the_fly_registry_tag():
     second = image_ref("anarlog-ai", "1.4.14")
     assert first.startswith("registry.fly.io/anarlog-ai:api-1.4.14-")
     assert first != second
-    with patch.object(deploy_api_drain, "fly") as build:
+    with (
+        patch.object(deploy_api_drain, "fly") as build,
+        patch.dict(deploy_api_drain.os.environ, {"GITHUB_SHA": "test-source"}),
+    ):
         image = deploy_api_drain.build_and_push_image(
             "anarlog-ai", "config", "Dockerfile", "1.4.14"
         )
     args = build.call_args.args
     assert args[args.index("--image-label") + 1] == image.rsplit(":", 1)[1]
+    assert args[args.index("--label") + 1] == "GH_SHA=test-source"
 
 
 def test_stop_config_reads_graceful_shutdown_settings():
