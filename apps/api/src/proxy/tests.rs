@@ -24,6 +24,7 @@ async fn gateway(origin: &str, gate: &SessionGate, shutdown: CancellationToken) 
             Router::new().route("/{*path}", any(|| async { StatusCode::IM_A_TEAPOT })),
             &Some(origin.into()),
             gate,
+            "test-signing-key",
         ),
         shutdown,
     )
@@ -206,4 +207,62 @@ fn origins_cannot_enable_a_proxy_loop_on_a_service_or_embed_credentials() {
     };
     assert!(env.validate(crate::service::Service::All).is_ok());
     assert!(env.validate(crate::service::Service::Ai).is_err());
+}
+
+#[tokio::test]
+async fn fly_second_hop_preserves_distinct_client_rate_limit_identities() {
+    let stop = CancellationToken::new();
+    let upstream = serve(
+        Router::new()
+            .route(
+                "/identity",
+                get(|request: Request| async move {
+                    assert!(
+                        !request
+                            .headers()
+                            .contains_key("x-anarlog-client-ip-signature")
+                    );
+                    request.headers()["fly-client-ip"]
+                        .to_str()
+                        .unwrap()
+                        .to_owned()
+                }),
+            )
+            .layer(middleware::from_fn_with_state(
+                Arc::<str>::from("test-signing-key"),
+                client_ip::restore,
+            ))
+            .layer(middleware::from_fn(
+                |mut request: Request, next: Next| async move {
+                    request
+                        .headers_mut()
+                        .insert("fly-client-ip", HeaderValue::from_static("198.51.100.1"));
+                    next.run(request).await
+                },
+            )),
+        stop.clone(),
+    )
+    .await;
+    let base = gateway(&upstream, &SessionGate::new(), stop.clone()).await;
+    let client = reqwest::Client::new();
+    for ip in ["192.0.2.1", "192.0.2.2", "2001:db8::1"] {
+        let response = client
+            .get(format!("{base}/identity"))
+            .header("fly-client-ip", ip)
+            .header("x-anarlog-client-ip", "192.0.2.99")
+            .header("x-anarlog-client-ip-signature", "spoofed")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.text().await.unwrap(), ip);
+    }
+    let direct = client
+        .get(format!("{upstream}/identity"))
+        .header("x-anarlog-client-ip", "192.0.2.99")
+        .header("x-anarlog-client-ip-signature", "spoofed")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(direct.text().await.unwrap(), "198.51.100.1");
+    stop.cancel();
 }
