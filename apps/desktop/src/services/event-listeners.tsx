@@ -542,6 +542,11 @@ function useNotificationEvents() {
             return;
           }
 
+          if (payload.key?.startsWith("team-invitation:")) {
+            openNewRef.current({ type: "settings", state: { tab: "team" } });
+            return;
+          }
+
           const eventId =
             payload.source?.type === "calendar_event"
               ? payload.source.event_id
