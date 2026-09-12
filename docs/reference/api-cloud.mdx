@@ -3,7 +3,7 @@ title: "Cloud API and connectors"
 description: "Opt in to hosted REST and remote MCP access for your Anarlog meetings."
 ---
 
-The Cloud API lets remote agents read your Anarlog meetings while the desktop app is closed. It requires Anarlog Pro and stays off until you enable it.
+The Cloud API lets remote agents read your Anarlog meetings while the desktop app is closed. It requires Pro access, either from your personal plan or membership in an active paid Team, and stays off until you enable it.
 
 <Warning>
   Enabling Cloud API & Connectors uploads a separate server-readable copy of
@@ -51,7 +51,7 @@ Errors use this envelope:
 
 Codes: `unauthorized`, `not_found`, `invalid_request`, `internal_error`. The hosted API can also return:
 
-- `403 subscription_required` when the account does not have an active Pro subscription.
+- `403 subscription_required` when the account does not have Pro access through a personal plan or an active paid Team membership.
 - `403 cloud_api_not_enabled` when the account has opted out.
 - `429` with a plain-text `rate limit exceeded` body and `retry-after` header when you exceed the hosted request limit.
 
@@ -198,4 +198,4 @@ Authorization: Bearer anl_...
 
 Turn off **Cloud API & Connectors** under **Settings → Developers**. Anarlog immediately deletes all server-readable meeting snapshots. Your local meetings and end-to-end encrypted cloud sync data are unchanged.
 
-Revoked keys cannot read snapshots. If your Pro subscription ends, existing cloud keys return `subscription_required`.
+Revoked keys cannot read snapshots. If you lose Pro access from both your personal plan and any paid Team memberships, existing cloud keys return `subscription_required`.
