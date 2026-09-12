@@ -1,5 +1,7 @@
 # Overview
 
+For Anarlog work, read and follow [.agents/skills/anarlog-workflow/SKILL.md](.agents/skills/anarlog-workflow/SKILL.md). Start requested work immediately and record in Linear alongside execution.
+
 Anarlog is a pnpm and Rust workspace. Read the nearest `AGENTS.md` before changing a component.
 
 - `apps/desktop/`: Tauri 2 with React, TypeScript, Vite, and Tailwind. Zustand owns UI state; TanStack Query/Form own queries, mutations, and forms.
