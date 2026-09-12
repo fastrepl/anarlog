@@ -526,6 +526,7 @@ def cut_over(
     old_ids: list[str],
     new_ids: list[str],
     propagation_seconds: float = PROXY_PROPAGATION_SECONDS,
+    verified_drain_ids: set[str] | None = None,
 ) -> None:
     attempted_new_ids: list[str] = []
     attempted_old_ids: list[str] = []
@@ -570,7 +571,7 @@ def cut_over(
                     file=sys.stderr,
                 )
             try:
-                if supports_session_drain(get_machine(app, machine_id)):
+                if machine_id in (verified_drain_ids or set()):
                     signal_machine(app, machine_id)
                 else:
                     print(
@@ -809,7 +810,7 @@ def deploy(
         destroy_replacements(app, replacement_ids)
         raise
 
-    cut_over(app, old_ids, replacement_ids)
+    cut_over(app, old_ids, replacement_ids, verified_drain_ids=set(replacement_ids))
     drain_old_machines(app, old_ids)
     destroy_drained_machines(app)
     print("deployed new machines; old meetings will keep their current connections")

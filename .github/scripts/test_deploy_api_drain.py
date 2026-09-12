@@ -303,9 +303,7 @@ def test_cut_over_drains_an_attempted_replacement_when_activation_fails():
         patch.object(
             deploy_api_drain,
             "get_machine",
-            return_value={
-                "config": {"metadata": {"anarlog_drain_protocol": "sigusr1-v1"}}
-            },
+            side_effect=AssertionError("Rollback must not depend on a status lookup"),
         ),
         patch.object(
             deploy_api_drain,
@@ -325,6 +323,7 @@ def test_cut_over_drains_an_attempted_replacement_when_activation_fails():
                 ["old"],
                 ["new"],
                 propagation_seconds=0,
+                verified_drain_ids={"new"},
             )
         except DeployError:
             pass
@@ -364,16 +363,14 @@ def test_cut_over_restores_old_routing_before_draining_replacements():
 
     def cordon(_app, machine_id):
         operations.append(("cordon", machine_id))
-        if machine_id == "old":
+        if machine_id in {"old", "new"}:
             raise DeployError("cordon failed")
 
     with (
         patch.object(
             deploy_api_drain,
             "get_machine",
-            return_value={
-                "config": {"metadata": {"anarlog_drain_protocol": "sigusr1-v1"}}
-            },
+            side_effect=AssertionError("Rollback must not depend on a status lookup"),
         ),
         patch.object(deploy_api_drain, "cordon_machine", cordon),
         patch.object(
@@ -393,6 +390,7 @@ def test_cut_over_restores_old_routing_before_draining_replacements():
                 ["old"],
                 ["new"],
                 propagation_seconds=0,
+                verified_drain_ids={"new"},
             )
         except DeployError:
             pass
@@ -787,7 +785,10 @@ def test_deploy_restores_minimum_primary_region_capacity():
         )
     assert regions == ["nrt", "sjc", "sjc"]
     cutover.assert_called_once_with(
-        "anarlog-sync", ["old"], ["new-1", "new-2", "new-3"]
+        "anarlog-sync",
+        ["old"],
+        ["new-1", "new-2", "new-3"],
+        verified_drain_ids={"new-1", "new-2", "new-3"},
     )
 
 
