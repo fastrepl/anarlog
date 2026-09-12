@@ -767,7 +767,39 @@ def test_rollback_requires_an_immutable_api_image_before_mutating_machines():
             api.assert_not_called()
 
 
+def test_idle_legacy_stripe_retirement_requires_cordon_and_healthy_capacity():
+    target = {"id": "old", "state": "started", "cordoned": True}
+    healthy = {"state": "started", "checks": [{"status": "passing"}]}
+    machines = [target, dict(healthy, id="new-a"), dict(healthy, id="new-b")]
+    with (
+        patch.object(deploy_api_drain, "list_machines", return_value=machines),
+        patch.object(
+            deploy_api_drain, "get_machine", return_value={"state": "stopped"}
+        ),
+        patch.object(deploy_api_drain, "api_request") as api,
+    ):
+        deploy_api_drain.retire_idle_stripe_machine("old")
+        api.assert_called_once_with(
+            "POST", "/apps/hyprnote-stripe/machines/old/signal", {"signal": "SIGTERM"}
+        )
+        for unsafe in [
+            machines[1:],
+            [target, machines[1]],
+            [dict(target, cordoned=False), *machines[1:]],
+        ]:
+            api.reset_mock()
+            with patch.object(deploy_api_drain, "list_machines", return_value=unsafe):
+                try:
+                    deploy_api_drain.retire_idle_stripe_machine("old")
+                except deploy_api_drain.DeployError:
+                    pass
+                else:
+                    raise AssertionError("Unsafe retirement was accepted")
+            api.assert_not_called()
+
+
 if __name__ == "__main__":
+    test_idle_legacy_stripe_retirement_requires_cordon_and_healthy_capacity()
     test_bootstrap_marks_healthy_machines_for_future_drains()
     test_drain_adoption_only_marks_the_verified_image()
     test_stripe_replacement_migrates_process_group_and_keeps_capacity()

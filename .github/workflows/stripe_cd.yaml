@@ -1,5 +1,10 @@
 on:
   workflow_dispatch:
+    inputs:
+      retire_idle_machine:
+        description: Optional cordoned legacy machine verified to have no active HTTP requests; await its worker on SIGTERM
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -91,7 +96,9 @@ jobs:
             --stage \
             --app hyprnote-stripe
 
-          python3 .github/scripts/deploy_api_drain.py \
+          args=()
+          if [ -n "$RETIRE_IDLE_MACHINE" ]; then args+=(--retire-idle-stripe-machine "$RETIRE_IDLE_MACHINE"); fi
+          python3 .github/scripts/deploy_api_drain.py "${args[@]}" \
             --app hyprnote-stripe \
             --config apps/stripe/fly.toml \
             --dockerfile apps/stripe/Dockerfile \
@@ -126,6 +133,7 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           STRIPE_VERSION: ${{ needs.compute-version.outputs.version }}
+          RETIRE_IDLE_MACHINE: ${{ inputs.retire_idle_machine }}
 
   tag:
     needs: [compute-version, deploy]
