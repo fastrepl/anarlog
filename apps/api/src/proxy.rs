@@ -56,9 +56,15 @@ struct Proxy {
     origin: String,
     client: reqwest::Client,
     gate: SessionGate,
+    signing_key: Arc<str>,
 }
 
-pub fn route(router: Router, origin: &Option<String>, gate: &SessionGate) -> Router {
+pub fn route(
+    router: Router,
+    origin: &Option<String>,
+    gate: &SessionGate,
+    signing_key: &str,
+) -> Router {
     let Some(origin) = origin else { return router };
     let state = Arc::new(Proxy {
         origin: origin.trim_end_matches('/').to_string(),
@@ -74,6 +80,7 @@ pub fn route(router: Router, origin: &Option<String>, gate: &SessionGate) -> Rou
             .build()
             .expect("proxy HTTP client"),
         gate: gate.clone(),
+        signing_key: signing_key.into(),
     });
     router.route_layer(middleware::from_fn_with_state(state, forward))
 }
@@ -127,6 +134,7 @@ async fn forward(State(proxy): State<Arc<Proxy>>, mut request: Request, _next: N
     let host = headers.get(header::HOST).cloned();
     strip_hop_headers(&mut headers);
     headers.remove(header::HOST);
+    client_ip::sign(&mut headers, &proxy.signing_key);
     headers.insert("x-anarlog-proxy-hop", HeaderValue::from_static("1"));
     if let Some(host) = host {
         headers.insert("x-forwarded-host", host);
@@ -188,6 +196,8 @@ async fn forward(State(proxy): State<Arc<Proxy>>, mut request: Request, _next: N
     );
     (status, headers, Body::from_stream(stream)).into_response()
 }
+
+pub mod client_ip;
 
 #[cfg(test)]
 mod tests;

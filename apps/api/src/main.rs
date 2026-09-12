@@ -102,6 +102,7 @@ async fn app_with_session_gate(
             routes::ai(env, session_gate.clone(), analytics.clone()),
             &env.upstreams.anarlog_ai_origin,
             &session_gate,
+            &env.supabase.supabase_service_role_key,
         ));
     }
     if service.includes(Service::Sync) {
@@ -109,6 +110,7 @@ async fn app_with_session_gate(
             routes::sync(env),
             &env.upstreams.anarlog_sync_origin,
             &session_gate,
+            &env.supabase.supabase_service_role_key,
         ));
     }
     if service.includes(Service::Core) {
@@ -116,6 +118,7 @@ async fn app_with_session_gate(
             routes::core(env, analytics.clone()),
             &env.upstreams.anarlog_core_origin,
             &session_gate,
+            &env.supabase.supabase_service_role_key,
         ));
     }
     if service.includes(Service::Billing) {
@@ -123,6 +126,7 @@ async fn app_with_session_gate(
             routes::billing(env, analytics),
             &env.upstreams.anarlog_billing_origin,
             &session_gate,
+            &env.supabase.supabase_service_role_key,
         ));
     }
     let subsystem_health_state = SubsystemHealthState {
@@ -171,6 +175,10 @@ async fn app_with_session_gate(
         .merge(subsystem_health_routes)
         .merge(drain_routes)
         .merge(routes)
+        .layer(axum::middleware::from_fn_with_state(
+            Arc::<str>::from(env.supabase.supabase_service_role_key.as_str()),
+            proxy::client_ip::restore,
+        ))
         .layer(
             CorsLayer::new()
                 .allow_origin(cors::Any)
