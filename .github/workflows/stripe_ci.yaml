@@ -1,0 +1,47 @@
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - apps/stripe/**
+      - packages/supabase/**
+      - packages/user-error/**
+      - packages/pricing/**
+      - .github/workflows/stripe_ci.yaml
+      - .github/actions/pnpm_install/**
+      - .github/actions/bun_install/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+  pull_request:
+    paths:
+      - apps/stripe/**
+      - packages/supabase/**
+      - packages/user-error/**
+      - packages/pricing/**
+      - .github/workflows/stripe_ci.yaml
+      - .github/actions/pnpm_install/**
+      - .github/actions/bun_install/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ci:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: $/.github/actions/pnpm_install
+      - uses: $/.github/actions/bun_install
+      - run: pnpm -F @anlg/stripe typecheck
+      - run: pnpm -F @anlg/stripe test

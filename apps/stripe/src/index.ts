@@ -9,6 +9,7 @@ import { captureOperationalError, sanitizeErrorEvent } from "./error-reporting";
 import type { AppBindings } from "./hono-bindings";
 import { verifyStripeWebhook } from "./middleware";
 import { routes } from "./routes";
+import { drainServer } from "./shutdown";
 import { startWorkspaceSeatWorker } from "./workspace-seat-worker";
 
 Sentry.init({
@@ -57,13 +58,25 @@ app.onError((err, c) => {
 app.notFound((c) => c.text("not_found", 404));
 
 const stopSeatWorker = startWorkspaceSeatWorker();
-for (const signal of ["SIGTERM", "SIGINT"] as const) {
-  process.once(signal, () => {
-    void stopSeatWorker().finally(() => process.exit(0));
-  });
-}
-
-export default {
+const server = Bun.serve({
   port: env.PORT,
   fetch: app.fetch,
-};
+});
+let shuttingDown = false;
+for (const signal of ["SIGTERM", "SIGINT"] as const) {
+  process.on(signal, () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    void (async () => {
+      let exitCode = 0;
+      try {
+        await drainServer(server, stopSeatWorker);
+      } catch (error) {
+        exitCode = 1;
+        captureOperationalError(error, { operation: "server_shutdown" });
+      }
+      await Sentry.flush(2000);
+      process.exit(exitCode);
+    })();
+  });
+}
