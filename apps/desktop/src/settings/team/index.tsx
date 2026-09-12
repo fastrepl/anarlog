@@ -5,9 +5,11 @@ import { useDebounceValue } from "usehooks-ts";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { openUrlWithInstruction } from "@anlg/plugin-windows";
+import { Avatar } from "@anlg/ui/components/avatar";
 import {
   CircleNotch,
   Crown,
+  DotsThree,
   PaperPlaneTilt,
   Plus,
   Trash,
@@ -20,6 +22,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@anlg/ui/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@anlg/ui/components/ui/dropdown-menu";
 import { Input } from "@anlg/ui/components/ui/input";
 import {
   InputGroup,
@@ -786,74 +794,110 @@ function WorkspacePanel({
             </Trans>
           </p>
         ) : (
-          <table className="w-full text-sm">
-            <tbody>
-              {members.data?.map((member) => (
-                <MemberRow
-                  key={member.userId}
-                  member={member}
-                  isViewer={member.userId === viewerId}
-                  viewerRole={isManager ? viewerRole : undefined}
-                  canManageMembers={canManageMembers}
-                  onRoleChange={(role) =>
-                    changeRole.mutate({ userId: member.userId, role })
-                  }
-                  onRemove={() => remove.mutate(member.userId)}
-                  onTransfer={() => transfer.mutate(member.userId)}
-                />
-              ))}
-              {invitations.data?.map((invitation) => (
-                <tr key={invitation.invitationId}>
-                  <td className="py-2.5 pr-3">
-                    <p className="text-muted-foreground truncate">
-                      {invitation.email}
-                    </p>
-                    <p className="text-muted-foreground text-xs">
-                      <Trans>Invitation pending</Trans>
-                    </p>
-                  </td>
-                  <td className="py-2.5 text-right">
-                    {isManager ? (
-                      <div className="flex items-center justify-end gap-1">
-                        {canManageMembers ? (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            title={t`Resend invitation`}
-                            onClick={() =>
-                              resendInvite.mutate({
-                                email: invitation.email,
-                              })
-                            }
-                            disabled={resendInvite.isPending}
-                          >
-                            {resendInvite.isPending &&
-                            resendInvite.variables?.email ===
-                              invitation.email ? (
-                              <CircleNotch className="size-4 animate-spin" />
-                            ) : (
-                              <PaperPlaneTilt className="size-4" />
-                            )}
-                          </Button>
-                        ) : null}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          title={t`Cancel invitation`}
-                          onClick={() =>
-                            cancelInvite.mutate(invitation.invitationId)
-                          }
-                          disabled={cancelInvite.isPending}
-                        >
-                          <Trash className="size-4" />
-                        </Button>
-                      </div>
-                    ) : null}
-                  </td>
+          <div className="border-border overflow-x-auto rounded-lg border">
+            <table
+              className="border-border [&_td]:border-border [&_th]:border-border w-full border-collapse text-left text-sm [&_td:not(:last-child)]:border-r [&_th:not(:last-child)]:border-r"
+              aria-label={t`Members`}
+            >
+              <thead className="bg-muted/40 text-muted-foreground border-border border-b text-xs">
+                <tr>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    <Trans>Name</Trans>
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    <Trans>Email</Trans>
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    <Trans>Permissions</Trans>
+                  </th>
+                  <th scope="col" className="w-12 px-4 py-3">
+                    <span className="sr-only">
+                      <Trans>Actions</Trans>
+                    </span>
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-border divide-y">
+                {members.data?.map((member) => (
+                  <MemberRow
+                    key={member.userId}
+                    member={member}
+                    isViewer={member.userId === viewerId}
+                    viewerRole={isManager ? viewerRole : undefined}
+                    canManageMembers={canManageMembers}
+                    onRoleChange={(role) =>
+                      changeRole.mutate({ userId: member.userId, role })
+                    }
+                    onRemove={() => remove.mutate(member.userId)}
+                    onTransfer={() => transfer.mutate(member.userId)}
+                  />
+                ))}
+                {invitations.data?.map((invitation) => (
+                  <tr key={invitation.invitationId}>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar
+                          seed={invitation.email}
+                          label={invitation.email}
+                          size={32}
+                          className="rounded-full"
+                        />
+                        <span className="text-muted-foreground whitespace-nowrap">
+                          <Trans>Invitation pending</Trans>
+                        </span>
+                      </div>
+                    </td>
+                    <td className="text-muted-foreground px-4 py-3">
+                      {invitation.email}
+                    </td>
+                    <td className="text-muted-foreground px-4 py-3">—</td>
+                    <td className="px-4 py-3">
+                      {isManager ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="size-8"
+                              aria-label={t`Actions for ${invitation.email}`}
+                              disabled={
+                                resendInvite.isPending || cancelInvite.isPending
+                              }
+                            >
+                              <DotsThree className="size-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {canManageMembers ? (
+                              <DropdownMenuItem
+                                onSelect={() =>
+                                  resendInvite.mutate({
+                                    email: invitation.email,
+                                  })
+                                }
+                              >
+                                <PaperPlaneTilt className="size-4" />
+                                <Trans>Resend invitation</Trans>
+                              </DropdownMenuItem>
+                            ) : null}
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onSelect={() =>
+                                cancelInvite.mutate(invitation.invitationId)
+                              }
+                            >
+                              <Trash className="size-4" />
+                              <Trans>Cancel invitation</Trans>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
@@ -1546,56 +1590,95 @@ function MemberRow({
 
   return (
     <tr>
-      <td className="py-2.5 pr-3">
-        <p className="truncate">{member.email}</p>
-        {isViewer ? (
-          <p className="text-muted-foreground text-xs">
-            <Trans>You</Trans>
-          </p>
-        ) : null}
-      </td>
-      <td className="py-2.5 text-right">
-        <div className="flex items-center justify-end gap-2">
-          {!canEditRole ? (
-            <span className="text-muted-foreground text-xs capitalize">
-              {member.role}
-            </span>
-          ) : (
-            <Select
-              value={member.role}
-              onValueChange={(value) =>
-                onRoleChange(value === "admin" ? "admin" : "member")
-              }
-            >
-              <SelectTrigger className="bg-card h-8 w-28 shadow-none">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">
-                  <Trans>Admin</Trans>
-                </SelectItem>
-                <SelectItem value="member">
-                  <Trans>Member</Trans>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-          {canTransfer ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={onTransfer}
-              title={t`Make owner`}
-            >
-              <Crown className="size-4" />
-            </Button>
-          ) : null}
-          {canRemove ? (
-            <Button size="sm" variant="ghost" onClick={onRemove}>
-              <Trash className="size-4" />
-            </Button>
-          ) : null}
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-3">
+          <Avatar
+            seed={member.userId}
+            label={member.name || member.email}
+            imageUrl={member.avatarUrl}
+            size={32}
+            className="rounded-full"
+          />
+          <div className="min-w-0">
+            <p className="font-medium whitespace-nowrap">
+              {member.name || "—"}
+            </p>
+            {isViewer ? (
+              <p className="text-muted-foreground text-xs">
+                <Trans>You</Trans>
+              </p>
+            ) : null}
+          </div>
         </div>
+      </td>
+      <td className="text-muted-foreground px-4 py-3">{member.email}</td>
+      <td className="px-4 py-3">
+        {!canEditRole ? (
+          <span className="text-muted-foreground text-xs">
+            {member.role === "owner" ? (
+              <Trans>Owner</Trans>
+            ) : member.role === "admin" ? (
+              <Trans>Admin</Trans>
+            ) : (
+              <Trans>Member</Trans>
+            )}
+          </span>
+        ) : (
+          <Select
+            value={member.role}
+            onValueChange={(value) =>
+              onRoleChange(value === "admin" ? "admin" : "member")
+            }
+          >
+            <SelectTrigger
+              className="bg-card h-8 w-28 shadow-none"
+              aria-label={t`Permissions for ${member.email}`}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="admin">
+                <Trans>Admin</Trans>
+              </SelectItem>
+              <SelectItem value="member">
+                <Trans>Member</Trans>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+      </td>
+      <td className="px-4 py-3">
+        {canTransfer || canRemove ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="size-8"
+                aria-label={t`Actions for ${member.email}`}
+              >
+                <DotsThree className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {canTransfer ? (
+                <DropdownMenuItem onSelect={onTransfer}>
+                  <Crown className="size-4" />
+                  <Trans>Make owner</Trans>
+                </DropdownMenuItem>
+              ) : null}
+              {canRemove ? (
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onSelect={onRemove}
+                >
+                  <Trash className="size-4" />
+                  <Trans>Remove member</Trans>
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
       </td>
     </tr>
   );

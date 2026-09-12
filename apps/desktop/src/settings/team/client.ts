@@ -10,6 +10,8 @@ export type WorkspaceRole = "owner" | "admin" | "member";
 export type WorkspaceMember = {
   userId: string;
   email: string;
+  name: string | null;
+  avatarUrl: string | null;
   role: WorkspaceRole;
 };
 
@@ -153,7 +155,7 @@ export async function listWorkspaceMembers(
 ): Promise<WorkspaceMember[]> {
   assertWorkspaceId(workspaceId);
   return rows(
-    await callRpc(context, "list_workspace_memberships", {
+    await callRpc(context, "list_workspace_members_with_profiles", {
       p_workspace_id: workspaceId,
     }),
   )
@@ -161,6 +163,9 @@ export async function listWorkspaceMembers(
     .map((row) => ({
       userId: text(row.user_id),
       email: text(row.user_email),
+      name: typeof row.user_name === "string" ? row.user_name : null,
+      avatarUrl:
+        typeof row.user_avatar_url === "string" ? row.user_avatar_url : null,
       role: role(row.role),
     }));
 }

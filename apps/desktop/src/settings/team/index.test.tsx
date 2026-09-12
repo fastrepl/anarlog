@@ -47,6 +47,8 @@ const mocks = vi.hoisted(() => ({
     members: [] as Array<{
       userId: string;
       email: string;
+      name?: string | null;
+      avatarUrl?: string | null;
       role: "owner" | "admin" | "member";
     }>,
     invitations: [] as Array<{
@@ -829,6 +831,61 @@ describe("SettingsTeam", () => {
     expect(screen.getByText("SCIM bearer token")).toBeTruthy();
   });
 
+  it("shows profile details in the roster and keeps owner controls hidden", async () => {
+    mocks.workspaces.data = [
+      {
+        workspaceId: "ws",
+        name: "Fastrepl",
+        ownerUserId: "user-1",
+        role: "owner",
+      },
+    ];
+    mocks.client.members = [
+      {
+        userId: "user-1",
+        email: "owner@example.com",
+        name: "Team Owner",
+        avatarUrl: "https://example.com/owner.png",
+        role: "owner",
+      },
+      {
+        userId: "user-2",
+        email: "member@example.com",
+        name: null,
+        avatarUrl: null,
+        role: "member",
+      },
+    ];
+    renderTeam();
+    const table = await screen.findByRole("table", { name: "Members" });
+    for (const name of ["Name", "Email", "Permissions", "Actions"]) {
+      expect(within(table).getByRole("columnheader", { name })).toBeTruthy();
+    }
+    const ownerRow = within(table).getByText("Team Owner").closest("tr")!;
+    expect(within(ownerRow).getByText("owner@example.com")).toBeTruthy();
+    expect(ownerRow.querySelector("img")?.getAttribute("src")).toBe(
+      "https://example.com/owner.png",
+    );
+    expect(within(ownerRow).queryByRole("button")).toBeNull();
+    expect(
+      within(table).getByRole("combobox", {
+        name: "Permissions for member@example.com",
+      }),
+    ).toBeTruthy();
+    fireEvent.keyDown(
+      within(table).getByRole("button", {
+        name: "Actions for member@example.com",
+      }),
+      { key: "Enter" },
+    );
+    expect(
+      await screen.findByRole("menuitem", { name: "Make owner" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("menuitem", { name: "Remove member" }),
+    ).toBeTruthy();
+  });
+
   it("resends a pending invitation by delivering a fresh invite", async () => {
     mocks.workspaces.data = [
       {
@@ -848,8 +905,14 @@ describe("SettingsTeam", () => {
 
     renderTeam();
 
+    fireEvent.keyDown(
+      await screen.findByRole("button", {
+        name: "Actions for teammate@company.com",
+      }),
+      { key: "Enter" },
+    );
     fireEvent.click(
-      await screen.findByRole("button", { name: "Resend invitation" }),
+      await screen.findByRole("menuitem", { name: "Resend invitation" }),
     );
 
     await waitFor(() =>
