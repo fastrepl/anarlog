@@ -24,6 +24,7 @@ import subprocess
 import sys
 import time
 import tomllib
+import uuid
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -107,7 +108,7 @@ def checks_passing(machine: dict[str, Any]) -> bool:
 
 
 def image_ref(app: str, version: str) -> str:
-    return f"registry.fly.io/{app}:api-{version}"
+    return f"registry.fly.io/{app}:api-{version}-{uuid.uuid4().hex}"
 
 
 def fly(*args: str) -> None:
@@ -725,11 +726,30 @@ def build_and_push_image(app: str, config: str, dockerfile: str, version: str) -
         "--build-only",
         "--push",
         "--image-label",
-        f"api-{version}",
+        image.rsplit(":", 1)[1],
         "--build-arg",
         f"APP_VERSION={version}",
     )
     return image
+
+
+def verify_replacement_image(app: str, machine_id: str, expected_image: str) -> None:
+    actual = get_machine(app, machine_id).get("image_ref") or {}
+    digest = actual.get("digest", "")
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+        raise DeployError(f"replacement {machine_id} has no resolved image digest")
+    if "@" in expected_image:
+        matches = digest == expected_image.rsplit("@", 1)[1]
+    else:
+        matches = actual.get("tag") == expected_image.rsplit(":", 1)[1]
+        source_sha = os.environ.get("GITHUB_SHA")
+        if source_sha:
+            matches = (
+                matches and (actual.get("labels") or {}).get("GH_SHA") == source_sha
+            )
+    if not matches:
+        raise DeployError(f"replacement {machine_id} resolved an unexpected image")
+    print(f"verified replacement {machine_id} image {digest}", file=sys.stderr)
 
 
 def deploy(
@@ -805,6 +825,7 @@ def deploy(
             )
         for machine_id in replacement_ids:
             wait_until_healthy(app, machine_id)
+            verify_replacement_image(app, machine_id, image)
         validate_serving_set(app, set(old_ids), set(replacement_ids))
     except Exception:
         destroy_replacements(app, replacement_ids)

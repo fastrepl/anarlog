@@ -86,7 +86,16 @@ def test_checks_passing_requires_every_reported_check():
 
 
 def test_image_ref_uses_the_fly_registry_tag():
-    assert image_ref("anarlog-ai", "1.4.14") == "registry.fly.io/anarlog-ai:api-1.4.14"
+    first = image_ref("anarlog-ai", "1.4.14")
+    second = image_ref("anarlog-ai", "1.4.14")
+    assert first.startswith("registry.fly.io/anarlog-ai:api-1.4.14-")
+    assert first != second
+    with patch.object(deploy_api_drain, "fly") as build:
+        image = deploy_api_drain.build_and_push_image(
+            "anarlog-ai", "config", "Dockerfile", "1.4.14"
+        )
+    args = build.call_args.args
+    assert args[args.index("--image-label") + 1] == image.rsplit(":", 1)[1]
 
 
 def test_stop_config_reads_graceful_shutdown_settings():
@@ -759,6 +768,69 @@ def test_cutover_preflight_rechecks_candidate_readiness():
             raise AssertionError("unhealthy candidate was accepted")
 
 
+def test_deploy_rejects_stale_image_before_cutover():
+    old = {"id": "old", "region": "sjc", "cordoned": False, "config": {"image": "old"}}
+    with (
+        patch.object(deploy_api_drain, "destroy_drained_machines"),
+        patch.object(deploy_api_drain, "resume_draining_machines"),
+        patch.object(deploy_api_drain, "list_machines", return_value=[old]),
+        patch.object(
+            deploy_api_drain,
+            "build_and_push_image",
+            return_value="registry.fly.io/anarlog-core:new",
+        ),
+        patch.object(
+            deploy_api_drain,
+            "create_replacement_machine",
+            side_effect=["new-a", "new-b"],
+        ),
+        patch.object(deploy_api_drain, "wait_until_healthy"),
+        patch.object(
+            deploy_api_drain,
+            "get_machine",
+            return_value={
+                "image_ref": {
+                    "tag": "new",
+                    "digest": "sha256:" + "a" * 64,
+                    "labels": {"GH_SHA": "old"},
+                }
+            },
+        ),
+        patch.dict(deploy_api_drain.os.environ, {"GITHUB_SHA": "new"}),
+        patch.object(deploy_api_drain, "destroy_replacements") as cleanup,
+        patch.object(deploy_api_drain, "cut_over") as cutover,
+    ):
+        try:
+            deploy_api_drain.deploy(
+                "anarlog-core", "apps/api/fly.core.toml", "Dockerfile", "test"
+            )
+        except DeployError as error:
+            assert "unexpected image" in str(error)
+        else:
+            raise AssertionError("Stale source image was accepted")
+    cleanup.assert_called_once_with("anarlog-core", ["new-a", "new-b"])
+    cutover.assert_not_called()
+
+
+def test_replacement_digest_is_checked_for_immutable_deploys():
+    digest = "sha256:" + "a" * 64
+    with patch.object(
+        deploy_api_drain, "get_machine", return_value={"image_ref": {"digest": digest}}
+    ):
+        deploy_api_drain.verify_replacement_image(
+            "anarlog-core", "new", "registry.fly.io/anarlog-core@" + digest
+        )
+        for wrong in ["sha256:" + "b" * 64, "invalid"]:
+            try:
+                deploy_api_drain.verify_replacement_image(
+                    "anarlog-core", "new", "registry.fly.io/anarlog-core@" + wrong
+                )
+            except DeployError:
+                pass
+            else:
+                raise AssertionError("Mismatched image digest was accepted")
+
+
 def test_deploy_restores_minimum_primary_region_capacity():
     old = {"id": "old", "region": "nrt", "cordoned": False, "config": {"image": "old"}}
     regions = []
@@ -776,6 +848,7 @@ def test_deploy_restores_minimum_primary_region_capacity():
             deploy_api_drain, "create_replacement_machine", side_effect=create
         ),
         patch.object(deploy_api_drain, "wait_until_healthy"),
+        patch.object(deploy_api_drain, "verify_replacement_image"),
         patch.object(deploy_api_drain, "validate_serving_set"),
         patch.object(deploy_api_drain, "cut_over") as cutover,
         patch.object(deploy_api_drain, "drain_old_machines"),
@@ -917,6 +990,7 @@ def test_override_support_is_verified_before_cleanup():
                 side_effect=["new-a", "new-b"],
             ) as create,
             patch.object(deploy_api_drain, "wait_until_healthy"),
+            patch.object(deploy_api_drain, "verify_replacement_image"),
             patch.object(deploy_api_drain, "validate_serving_set"),
             patch.object(deploy_api_drain, "cut_over"),
             patch.object(deploy_api_drain, "drain_old_machines"),
@@ -1050,6 +1124,8 @@ if __name__ == "__main__":
     test_reads_cordon_from_metadata_when_top_level_flag_is_absent()
     test_checks_passing_requires_every_reported_check()
     test_image_ref_uses_the_fly_registry_tag()
+    test_deploy_rejects_stale_image_before_cutover()
+    test_replacement_digest_is_checked_for_immutable_deploys()
     test_stop_config_reads_graceful_shutdown_settings()
     test_replacement_config_updates_image_without_mutating_source()
     test_replacement_config_rejects_volume_mounts()
