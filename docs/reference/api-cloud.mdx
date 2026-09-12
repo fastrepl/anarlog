@@ -90,7 +90,7 @@ https://api.anarlog.so/.well-known/oauth-protected-resource/mcp
 The metadata points the host to Anarlog's existing Supabase authorization server. That server uses dynamic client registration and PKCE with SHA-256. The host sends the MCP `resource` value during authorization and token exchange; Anarlog binds issued OAuth tokens to `https://api.anarlog.so/mcp` and rejects tokens minted for another resource.
 
 <Note>
-  OAuth does not bypass Anarlog's product controls. The account must have an active Pro subscription and **Cloud API & Connectors** must remain enabled. Disabling the feature deletes the uploaded snapshots and makes existing connector tokens unusable for meeting access.
+  OAuth does not bypass Anarlog's product controls. The account must have Pro access through a personal plan or an active paid Team membership, and **Cloud API & Connectors** must remain enabled. Disabling the feature deletes the uploaded snapshots and makes existing connector tokens unusable for meeting access.
 </Note>
 
 ### Claude Code
