@@ -2,7 +2,7 @@ export const WORKSPACE_LOGO_RASTER_SIZE = 128;
 export const MAX_WORKSPACE_LOGO_DATA_LENGTH = 120_000;
 
 const WORKSPACE_LOGO_DATA_PATTERN =
-  /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/;
+  /^data:image\/(?:jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/;
 
 export function isWorkspaceLogoDataUrl(value: string): boolean {
   return (
@@ -25,14 +25,6 @@ export async function compressWorkspaceLogo(file: File): Promise<string> {
     const context = canvas.getContext("2d");
     if (!context) throw new Error("canvas 2d context unavailable");
 
-    // JPEG has no alpha channel; flatten transparency onto white.
-    context.fillStyle = "#ffffff";
-    context.fillRect(
-      0,
-      0,
-      WORKSPACE_LOGO_RASTER_SIZE,
-      WORKSPACE_LOGO_RASTER_SIZE,
-    );
     context.imageSmoothingQuality = "high";
     context.drawImage(
       image,
@@ -45,9 +37,9 @@ export async function compressWorkspaceLogo(file: File): Promise<string> {
       WORKSPACE_LOGO_RASTER_SIZE,
       WORKSPACE_LOGO_RASTER_SIZE,
     );
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    const dataUrl = canvas.toDataURL("image/png");
     if (!isWorkspaceLogoDataUrl(dataUrl)) {
-      throw new Error("compressed logo is not a JPEG");
+      throw new Error("compressed logo is invalid or too large");
     }
     return dataUrl;
   } finally {

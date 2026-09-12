@@ -358,7 +358,7 @@ function WorkspaceTabs({
             aria-pressed={selected}
             onClick={() => onSelect(workspace.workspaceId)}
             className={cn([
-              "flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-colors",
+              "flex items-center gap-2 rounded-full py-1.5 pr-3 pl-1.5 text-sm transition-colors",
               selected
                 ? "bg-muted text-foreground font-medium"
                 : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",

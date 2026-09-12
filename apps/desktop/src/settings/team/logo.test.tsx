@@ -17,8 +17,16 @@ describe("isWorkspaceLogoDataUrl", () => {
     );
   });
 
-  it("rejects non-JPEG and oversized payloads", () => {
-    expect(isWorkspaceLogoDataUrl("data:image/png;base64,AAAA")).toBe(false);
+  it("accepts a bounded PNG data URL", () => {
+    expect(isWorkspaceLogoDataUrl("data:image/png;base64,iVBORw0KGgo=")).toBe(
+      true,
+    );
+  });
+
+  it("rejects unsupported image formats and oversized payloads", () => {
+    expect(isWorkspaceLogoDataUrl("data:image/svg+xml;base64,AAAAAAAA")).toBe(
+      false,
+    );
     expect(isWorkspaceLogoDataUrl("javascript:alert(1)")).toBe(false);
     expect(
       isWorkspaceLogoDataUrl(`data:image/jpeg;base64,${"A".repeat(120_000)}`),
@@ -27,7 +35,7 @@ describe("isWorkspaceLogoDataUrl", () => {
 });
 
 describe("WorkspaceLogoButton", () => {
-  it("crops uploaded logos to a 128 by 128 JPEG", async () => {
+  it("crops uploaded logos to a 128 by 128 PNG without flattening transparency", async () => {
     const context = {
       drawImage: vi.fn(),
       fillRect: vi.fn(),
@@ -35,7 +43,7 @@ describe("WorkspaceLogoButton", () => {
       imageSmoothingQuality: "low",
     };
     const onUpload = vi.fn();
-    const jpeg = "data:image/jpeg;base64,/9j/4AAQ";
+    const png = "data:image/png;base64,iVBORw0KGgo=";
 
     vi.stubGlobal("URL", {
       createObjectURL: vi.fn(() => "blob:logo"),
@@ -61,9 +69,9 @@ describe("WorkspaceLogoButton", () => {
       function (this: HTMLCanvasElement, type, quality) {
         expect(this.width).toBe(128);
         expect(this.height).toBe(128);
-        expect(type).toBe("image/jpeg");
-        expect(quality).toBe(0.85);
-        return jpeg;
+        expect(type).toBe("image/png");
+        expect(quality).toBeUndefined();
+        return png;
       },
     );
 
@@ -90,8 +98,9 @@ describe("WorkspaceLogoButton", () => {
     });
 
     await waitFor(() => {
-      expect(onUpload).toHaveBeenCalledWith(jpeg);
+      expect(onUpload).toHaveBeenCalledWith(png);
     });
+    expect(context.fillRect).not.toHaveBeenCalled();
     expect(context.drawImage).toHaveBeenCalledWith(
       expect.anything(),
       100,
