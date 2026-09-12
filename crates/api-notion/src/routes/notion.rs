@@ -88,7 +88,7 @@ pub async fn search_pages(
             "application/json",
         )
         .map_err(|e| NotionError::Notion(e.to_string()))?
-        .header("Notion-Version", NOTION_VERSION)
+        .header("Nango-Proxy-Notion-Version", NOTION_VERSION)
         .send()
         .await
         .map_err(|e| NotionError::Notion(e.to_string()))?
@@ -159,7 +159,7 @@ pub async fn append_update(
             &json!({ "children": children }),
         )
         .map_err(|e| NotionError::Notion(e.to_string()))?
-        .header("Notion-Version", NOTION_VERSION)
+        .header("Nango-Proxy-Notion-Version", NOTION_VERSION)
         .send()
         .await
         .map_err(|e| NotionError::Notion(e.to_string()))?

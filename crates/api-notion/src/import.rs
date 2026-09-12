@@ -184,7 +184,7 @@ async fn notion_get(proxy: &OwnedNangoProxy, path: &str) -> Result<Value> {
 
 async fn notion_send(builder: reqwest::RequestBuilder) -> Result<Value> {
     let response = builder
-        .header("Notion-Version", MEETING_NOTES_VERSION)
+        .header("Nango-Proxy-Notion-Version", MEETING_NOTES_VERSION)
         .send()
         .await
         .map_err(|e| NotionError::Notion(e.to_string()))?;
@@ -261,4 +261,78 @@ fn rich_text(value: &Value) -> Option<String> {
         .filter_map(|fragment| fragment["plain_text"].as_str())
         .collect::<String>();
     nonempty(Some(&text))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{
+        Json, Router,
+        http::{HeaderMap, StatusCode},
+        routing::{get, post},
+    };
+
+    fn version_is_forwarded(headers: &HeaderMap) -> bool {
+        headers
+            .get("nango-proxy-notion-version")
+            .and_then(|v| v.to_str().ok())
+            == Some("2026-03-11")
+    }
+
+    #[tokio::test]
+    async fn imports_notes_with_the_requested_version_through_nango() {
+        let app = Router::new()
+            .route(
+                "/proxy/v1/blocks/meeting_notes/query",
+                post(|headers: HeaderMap| async move {
+                    if !version_is_forwarded(&headers) {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(json!({"message":"unsupported API version"})),
+                        );
+                    }
+                    (
+                        StatusCode::OK,
+                        Json(json!({"results":[{
+                            "id":"meeting-1", "meeting_notes":{
+                                "title":[{"plain_text":"Fixture meeting"}],
+                                "children":{"summary_block_id":"summary-1"}
+                            }
+                        }]})),
+                    )
+                }),
+            )
+            .route(
+                "/proxy/v1/blocks/summary-1/children",
+                get(|headers: HeaderMap| async move {
+                    if !version_is_forwarded(&headers) {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(json!({"message":"unsupported API version"})),
+                        );
+                    }
+                    (
+                        StatusCode::OK,
+                        Json(json!({"results":[{
+                    "type":"paragraph", "paragraph":{"rich_text":[{"plain_text":"Fixture summary"}]}
+                }], "has_more":false})),
+                    )
+                }),
+            );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let client = anlg_nango::NangoClient::builder()
+            .api_key("fixture-key")
+            .api_base(base)
+            .build()
+            .unwrap();
+        let proxy = OwnedNangoProxy::new(&client, "notion".into(), "fixture-connection".into());
+        let result = import_meetings(&proxy, &[]).await;
+        server.abort();
+        let imported = result.unwrap();
+        assert_eq!(imported.files.len(), 1);
+        assert!(imported.files[0].content.contains("Fixture summary"));
+        assert!(imported.warnings.is_empty());
+    }
 }
