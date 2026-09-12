@@ -2868,6 +2868,10 @@ export type NotionImportMeetingsErrors = {
      */
     401: unknown;
     /**
+     * Notion plan does not include AI meeting notes
+     */
+    424: unknown;
+    /**
      * Notion connection unavailable
      */
     500: unknown;

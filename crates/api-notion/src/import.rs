@@ -197,6 +197,12 @@ async fn notion_send(builder: reqwest::RequestBuilder) -> Result<Value> {
         let message = payload["message"]
             .as_str()
             .unwrap_or("Notion request failed");
+        if status == reqwest::StatusCode::BAD_REQUEST
+            && payload["code"].as_str() == Some("validation_error")
+            && message.contains("requires a plan with AI meeting notes enabled")
+        {
+            return Err(NotionError::MeetingNotesUnavailable);
+        }
         return Err(NotionError::Notion(format!("{status}: {message}")));
     }
     Ok(payload)
@@ -334,5 +340,50 @@ mod tests {
         assert_eq!(imported.files.len(), 1);
         assert!(imported.files[0].content.contains("Fixture summary"));
         assert!(imported.warnings.is_empty());
+    }
+    #[tokio::test]
+    async fn reports_plan_requirements_without_hiding_other_provider_failures() {
+        use axum::response::IntoResponse;
+        for (status, code, message, expected) in [
+            (
+                400,
+                "validation_error",
+                "This endpoint requires a plan with AI meeting notes enabled. Please upgrade your plan to use this feature.",
+                424,
+            ),
+            (400, "validation_error", "Invalid sort property", 500),
+            (503, "service_unavailable", "Notion unavailable", 500),
+        ] {
+            let app = Router::new().fallback(move || async move {
+                (
+                    StatusCode::from_u16(status).unwrap(),
+                    Json(json!({"code":code,"message":message})),
+                )
+            });
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let url = format!("http://{}", listener.local_addr().unwrap());
+            let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+            let error = notion_send(reqwest::Client::new().post(url))
+                .await
+                .unwrap_err();
+            server.abort();
+            let response = error.into_response();
+            assert_eq!(response.status().as_u16(), expected);
+            let body = axum::body::to_bytes(response.into_body(), 4096)
+                .await
+                .unwrap();
+            let body: Value = serde_json::from_slice(&body).unwrap();
+            if expected == 424 {
+                assert_eq!(body["error"]["code"], "notion_meeting_notes_unavailable");
+                assert!(
+                    body["error"]["message"]
+                        .as_str()
+                        .unwrap()
+                        .contains("Notion plan")
+                );
+            } else {
+                assert_eq!(body["error"]["message"], "Internal server error");
+            }
+        }
     }
 }

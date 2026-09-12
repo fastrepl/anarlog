@@ -17,6 +17,9 @@ on:
       - apps/api/**
       - crates/agent-access/**
       - crates/api-auth/**
+      - crates/api-calendar/**
+      - crates/api-nango/**
+      - crates/api-notion/**
       - crates/api-cloud/**
       - crates/api-subscription/**
       - crates/api-sync/**
@@ -40,6 +43,9 @@ on:
       - apps/api/**
       - crates/agent-access/**
       - crates/api-auth/**
+      - crates/api-calendar/**
+      - crates/api-nango/**
+      - crates/api-notion/**
       - crates/api-cloud/**
       - crates/api-subscription/**
       - crates/api-sync/**
@@ -72,6 +78,7 @@ jobs:
       - run: cargo check -p api
       - run: cargo test -p api-cloud
       - run: cargo test -p api-auth
+      - run: cargo test --locked -p api-calendar -p api-nango -p api-notion
       - run: cargo test -p mcp
       - run: cargo test -p supabase-auth --features server
       - run: cargo test -p api-sync

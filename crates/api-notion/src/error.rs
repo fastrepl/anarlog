@@ -11,6 +11,9 @@ pub enum NotionError {
     #[error("Invalid request: {0}")]
     BadRequest(String),
 
+    #[error("Notion AI meeting notes are unavailable on this plan")]
+    MeetingNotesUnavailable,
+
     #[error("Notion error: {0}")]
     Notion(String),
 
@@ -26,6 +29,12 @@ impl IntoResponse for NotionError {
     fn into_response(self) -> Response {
         let (status, code, message) = match self {
             Self::BadRequest(message) => (StatusCode::BAD_REQUEST, "bad_request", message),
+            Self::MeetingNotesUnavailable => (
+                StatusCode::FAILED_DEPENDENCY,
+                "notion_meeting_notes_unavailable",
+                "Enable AI meeting notes on your Notion plan to import them, then try again."
+                    .to_string(),
+            ),
             Self::Notion(message) => (StatusCode::INTERNAL_SERVER_ERROR, "notion_error", message),
             Self::Internal(message) => (
                 StatusCode::INTERNAL_SERVER_ERROR,

@@ -989,6 +989,9 @@
           "401": {
             "description": "Authentication required"
           },
+          "424": {
+            "description": "Notion plan does not include AI meeting notes"
+          },
           "500": {
             "description": "Notion connection unavailable"
           }

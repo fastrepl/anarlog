@@ -199,6 +199,7 @@ pub struct NotionImportMeetingsResponse {
     responses(
         (status = 200, description = "Notion meeting notes fetched for import", body = NotionImportMeetingsResponse),
         (status = 401, description = "Authentication required"),
+        (status = 424, description = "Notion plan does not include AI meeting notes"),
         (status = 500, description = "Notion connection unavailable"),
     ),
     tag = "notion",

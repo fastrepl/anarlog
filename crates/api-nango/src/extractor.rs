@@ -275,6 +275,8 @@ pub fn is_provider_auth_failure(message: &str) -> bool {
         || lower.contains("token is expired")
         || lower.contains("lifetime validation failed")
         || lower.contains("invalid_grant")
+        || lower.contains("access_token_scope_insufficient")
+        || lower.contains("insufficientpermissions")
         || lower.contains("could not refresh")
         || lower.contains("refresh access token")
 }
@@ -338,6 +340,26 @@ mod tests {
         assert!(!is_provider_auth_failure(
             "HTTP status client error (403 Forbidden) for url (https://api.nango.dev/proxy/me/calendars/AAMk)"
         ));
+    }
+
+    #[test]
+    fn detects_missing_google_scopes_without_misclassifying_other_forbidden_errors() {
+        assert!(is_provider_auth_failure(
+            r#"API error (status 403): {"error":{"details":[{"reason":"ACCESS_TOKEN_SCOPE_INSUFFICIENT"}],"status":"PERMISSION_DENIED"}}"#
+        ));
+        assert!(is_provider_auth_failure(
+            r#"API error (status 403): {"error":{"errors":[{"reason":"insufficientPermissions"}]}}"#
+        ));
+        for reason in [
+            "rateLimitExceeded",
+            "quotaExceeded",
+            "accessNotConfigured",
+            "forbidden",
+        ] {
+            assert!(!is_provider_auth_failure(&format!(
+                "API error (status 403): {{\"error\":{{\"reason\":\"{reason}\"}}}}"
+            )));
+        }
     }
 
     #[tokio::test]
