@@ -275,6 +275,9 @@ fn subsystem_health_app(
         .route("/health/transcription", get(transcription_health))
         .route("/health/llm", get(llm_health))
         .with_state(SubsystemHealthState {
+            service: Service::All,
+            integrations_configured: false,
+            billing_configured: false,
             cloudsync_configured,
             transcription_configured,
             llm_configured,
@@ -795,4 +798,57 @@ async fn sync_composition_keeps_devices_and_sharing_available_when_credentials_a
         "shared_note_publication_forbidden"
     );
     server.verify().await;
+}
+
+#[tokio::test]
+async fn readiness_requires_the_expected_role_configuration_and_accepting_state() {
+    for service in [
+        Service::Ai,
+        Service::Sync,
+        Service::Core,
+        Service::Billing,
+        Service::All,
+    ] {
+        let gate = anlg_transcribe_proxy::SessionGate::new();
+        let state = SubsystemHealthState {
+            service,
+            integrations_configured: true,
+            billing_configured: true,
+            cloudsync_configured: true,
+            transcription_configured: true,
+            llm_configured: true,
+            session_gate: gate.clone(),
+        };
+        let router = |state| {
+            Router::new()
+                .route("/health/ready/{service}", get(service_readiness))
+                .with_state(state)
+        };
+        let app = router(state.clone());
+        let path = format!("/health/ready/{}", service.name());
+        assert_eq!(
+            request_status(&app, Method::GET, &path).await,
+            StatusCode::OK
+        );
+        assert_eq!(
+            request_status(&app, Method::GET, "/health/ready/wrong").await,
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+        let mut incomplete = state;
+        match service {
+            Service::Ai | Service::All => incomplete.transcription_configured = false,
+            Service::Sync => incomplete.cloudsync_configured = false,
+            Service::Core => incomplete.integrations_configured = false,
+            Service::Billing => incomplete.billing_configured = false,
+        }
+        assert_eq!(
+            request_status(&router(incomplete), Method::GET, &path).await,
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+        gate.begin_drain();
+        assert_eq!(
+            request_status(&app, Method::GET, &path).await,
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+    }
 }

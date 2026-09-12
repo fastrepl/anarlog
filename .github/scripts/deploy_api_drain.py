@@ -6,7 +6,7 @@ Fly blue/green cordons old machines and then SIGTERMs them immediately.
 script instead:
 
 1. Builds and pushes a new image
-2. Starts cordoned replacements with the current machine configs and new image
+2. Starts cordoned replacements with the desired runtime config and new image
 3. Adds the replacements to Fly Proxy and waits for routing to propagate
 4. Cordons the previous serving set and waits for routing to propagate
 5. Sends SIGUSR1 so those machines reject new STT and exit once idle
@@ -285,10 +285,115 @@ def stop_config(config_path: str) -> dict[str, str]:
     return result
 
 
+def desired_runtime_config(app: str, config_path: str) -> dict[str, Any]:
+    """Translate the supported API Fly profile; reject unsupported configuration."""
+    with open(config_path, "rb") as config_file:
+        config = tomllib.load(config_file)
+    if config.get("app") != app:
+        raise DeployError("deployment app must match the config app")
+
+    def only(value: dict[str, Any], keys: set[str], section: str) -> None:
+        unknown = value.keys() - keys
+        if unknown:
+            raise DeployError(f"unsupported {section} settings: {sorted(unknown)}")
+
+    only(
+        config,
+        {
+            "app",
+            "primary_region",
+            "kill_signal",
+            "kill_timeout",
+            "swap_size_mb",
+            "restart",
+            "env",
+            "http_service",
+            "vm",
+        },
+        "Fly",
+    )
+    http = config["http_service"]
+    only(
+        http,
+        {
+            "processes",
+            "internal_port",
+            "force_https",
+            "auto_stop_machines",
+            "auto_start_machines",
+            "min_machines_running",
+            "http_options",
+            "concurrency",
+            "checks",
+        },
+        "http_service",
+    )
+    (vm,) = config["vm"]
+    (restart,) = config["restart"]
+    only(vm, {"processes", "memory", "cpu_kind", "cpus"}, "vm")
+    only(restart, {"processes", "policy"}, "restart")
+    for section in (http, vm, restart):
+        if section.get("processes") != ["app"]:
+            raise DeployError("drain deploy supports only the app process group")
+    memory = str(vm["memory"]).lower()
+    if memory.endswith("gb"):
+        memory_mb = int(memory[:-2]) * 1024
+    elif memory.endswith("mb"):
+        memory_mb = int(memory[:-2])
+    else:
+        raise DeployError("vm.memory must use integer mb or gb units")
+    checks = []
+    for check in http["checks"]:
+        only(
+            check,
+            {"grace_period", "interval", "method", "path", "protocol", "timeout"},
+            "health check",
+        )
+        checks.append({"type": "http", **check})
+    if not checks:
+        raise DeployError("at least one HTTP readiness check is required")
+    options = http.get("http_options", {})
+    only(options, {"idle_timeout"}, "http_options")
+    concurrency = http["concurrency"]
+    only(concurrency, {"type", "hard_limit", "soft_limit"}, "concurrency")
+    return {
+        "env": {**config.get("env", {}), "PRIMARY_REGION": config["primary_region"]},
+        "guest": {
+            "memory_mb": memory_mb,
+            "cpu_kind": vm["cpu_kind"],
+            "cpus": vm["cpus"],
+        },
+        "swap_size_mb": config.get("swap_size_mb", 0),
+        "restart": {"policy": restart["policy"]},
+        "services": [
+            {
+                "protocol": "tcp",
+                "internal_port": http["internal_port"],
+                "autostart": http.get("auto_start_machines", False),
+                "autostop": http.get("auto_stop_machines", "off"),
+                "min_machines_running": http.get("min_machines_running", 0),
+                "concurrency": concurrency,
+                "checks": checks,
+                "ports": [
+                    {
+                        "port": 80,
+                        "handlers": ["http"],
+                        "force_https": http.get("force_https", False),
+                        "http_options": options,
+                    },
+                    {"port": 443, "handlers": ["tls", "http"], "http_options": options},
+                ],
+            }
+        ],
+        "checks": {},
+    }
+
+
 def replacement_config(
     machine: dict[str, Any],
     image: str,
     desired_stop_config: dict[str, str],
+    runtime_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     host_status = machine.get("host_status")
     if host_status not in {None, "ok"}:
@@ -307,6 +412,8 @@ def replacement_config(
     replacement["image"] = image
     replacement["restart"] = {"policy": "on-failure"}
     replacement["stop_config"] = desired_stop_config
+    if runtime_config is not None:
+        replacement.update(copy.deepcopy(runtime_config))
     metadata = replacement.get("metadata")
     if not isinstance(metadata, dict):
         metadata = {}
@@ -321,9 +428,12 @@ def create_replacement_machine(
     machine: dict[str, Any],
     image: str,
     desired_stop_config: dict[str, str],
+    runtime_config: dict[str, Any] | None = None,
 ) -> str:
     payload: dict[str, Any] = {
-        "config": replacement_config(machine, image, desired_stop_config),
+        "config": replacement_config(
+            machine, image, desired_stop_config, runtime_config
+        ),
         "skip_service_registration": True,
     }
     if machine.get("region"):
@@ -389,6 +499,17 @@ def validate_serving_set(
         raise DeployError(
             "replacement machines were not safely cordoned: "
             + ", ".join(sorted(unsafe_replacements))
+        )
+
+    unhealthy = [
+        machine_id
+        for machine_id in replacement_ids
+        if not checks_passing(get_machine(app, machine_id))
+    ]
+    if unhealthy:
+        raise DeployError(
+            "replacement machines lost readiness before cutover: "
+            + ", ".join(sorted(unhealthy))
         )
 
 
@@ -536,6 +657,7 @@ def build_and_push_image(app: str, config: str, dockerfile: str, version: str) -
 
 
 def deploy(app: str, config: str, dockerfile: str, version: str) -> None:
+    runtime_config = desired_runtime_config(app, config)
     destroy_drained_machines(app)
     resume_draining_machines(app)
     machines = list_machines(app)
@@ -557,7 +679,9 @@ def deploy(app: str, config: str, dockerfile: str, version: str) -> None:
     try:
         for machine in serving:
             replacement_ids.append(
-                create_replacement_machine(app, machine, image, desired_stop_config)
+                create_replacement_machine(
+                    app, machine, image, desired_stop_config, runtime_config
+                )
             )
         for machine_id in replacement_ids:
             wait_until_healthy(app, machine_id)

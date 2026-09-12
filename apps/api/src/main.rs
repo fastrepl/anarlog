@@ -109,6 +109,9 @@ async fn app_with_session_gate(
         routes = routes.merge(routes::billing(env, analytics));
     }
     let subsystem_health_state = SubsystemHealthState {
+        service,
+        integrations_configured: env.nango.is_some(),
+        billing_configured: env.subscription.is_some(),
         cloudsync_configured: service.includes(Service::Sync)
             && anlg_api_sync::SyncConfig::from_env(
                 &env.sync,
@@ -130,6 +133,10 @@ async fn app_with_session_gate(
     };
 
     let subsystem_health_routes = Router::new()
+        .route(
+            "/health/ready/{service}",
+            axum::routing::get(service_readiness),
+        )
         .route("/health/sync", axum::routing::get(sync_health))
         .route(
             "/health/transcription",
@@ -420,10 +427,43 @@ fn main() -> std::io::Result<()> {
 
 #[derive(Clone)]
 struct SubsystemHealthState {
+    service: Service,
+    integrations_configured: bool,
+    billing_configured: bool,
     cloudsync_configured: bool,
     transcription_configured: bool,
     llm_configured: bool,
     session_gate: anlg_transcribe_proxy::SessionGate,
+}
+
+async fn service_readiness(
+    axum::extract::Path(expected): axum::extract::Path<String>,
+    axum::extract::State(state): axum::extract::State<SubsystemHealthState>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let configured = match state.service {
+        Service::Ai => state.transcription_configured && state.llm_configured,
+        Service::Sync => state.cloudsync_configured,
+        Service::Core => state.integrations_configured && state.billing_configured,
+        Service::Billing => state.billing_configured,
+        Service::All => {
+            state.transcription_configured
+                && state.llm_configured
+                && state.cloudsync_configured
+                && state.integrations_configured
+                && state.billing_configured
+        }
+    };
+    let ready = expected == state.service.name() && configured && !state.session_gate.is_draining();
+    subsystem_health_response(
+        ready,
+        serde_json::json!({
+            "ready": ready,
+            "service": state.service,
+            "version": option_env!("APP_VERSION").unwrap_or("unknown"),
+            "configured": configured,
+            "draining": state.session_gate.is_draining(),
+        }),
+    )
 }
 
 fn subsystem_health_response(

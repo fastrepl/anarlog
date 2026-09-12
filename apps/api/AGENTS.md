@@ -38,3 +38,21 @@ Role selection does not change Fly routing or provision applications. The
 existing deployment stays on `all` until service-specific configuration,
 readiness, public routing, and deployment/rollback continuity are verified.
 Keep existing URLs working while clients and webhook providers migrate.
+
+
+Separate candidate profiles are `fly.ai.toml` (`anarlog-inference`),
+`fly.sync.toml` (`anarlog-sync`), `fly.core.toml` (`anarlog-core`), and
+`fly.billing.toml` (`anarlog-billing-api`). These names are deployment targets,
+not evidence that the apps exist. The original `anarlog-ai` profile remains
+combined so existing URLs keep working. Candidate profiles disable cleanup;
+transfer cleanup ownership only when the old owner has stopped its worker.
+
+`/health/ready/{service}` verifies the expected runtime role, configuration of
+its primary subsystems, and that it is not draining. The combined role uses
+`api`; Rust billing uses `billing-api`. These checks do not probe external
+providers or prove request continuity. Keep dependency smoke tests and active
+traffic deploy/rollback tests as separate rollout gates.
+
+The drain deploy helper reconciles the supported single-process Fly profile
+into each candidate. Unsupported settings fail before machine mutations;
+extend its translation and tests before introducing additional Fly features.

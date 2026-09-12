@@ -409,7 +409,7 @@ def test_partial_replacement_failure_destroys_created_machines():
     ]
     destroyed = []
 
-    def create_replacement(_app, machine, _image, _stop_config):
+    def create_replacement(_app, machine, _image, _stop_config, _runtime_config):
         if machine["id"] == "old-b":
             raise DeployError("launch failed")
         return "new-a"
@@ -570,7 +570,106 @@ def test_drain_rejects_unexpected_machine_states():
                 raise AssertionError("expected the unexpected state to fail deployment")
 
 
+def test_desired_runtime_replaces_stale_machine_settings():
+    desired = deploy_api_drain.desired_runtime_config("anarlog-ai", "apps/api/fly.toml")
+    old = {
+        "id": "old",
+        "config": {
+            "env": {"ANARLOG_SERVICE": "sync", "REMOVED_SETTING": "stale"},
+            "guest": {"memory_mb": 256},
+            "checks": {"stale": {"path": "/wrong"}},
+            "services": [{"internal_port": 9999}],
+            "metadata": {"fly_process_group": "app"},
+        },
+    }
+    result = replacement_config(old, "new", {"signal": "SIGTERM"}, desired)
+    assert result["env"] == {
+        "ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED": "true",
+        "PORT": "3001",
+        "PRIMARY_REGION": "sjc",
+    }
+    assert result["guest"] == {"memory_mb": 1024, "cpu_kind": "shared", "cpus": 1}
+    assert result["checks"] == {}
+    (service,) = result["services"]
+    assert service["internal_port"] == 3001
+    assert service["checks"][0]["path"] == "/health"
+    assert service["checks"][0]["type"] == "http"
+    assert service["ports"][1]["http_options"]["idle_timeout"] == 660
+    assert service["autostop"] == "stop"
+    assert result["swap_size_mb"] == 512
+    assert old["config"]["env"]["REMOVED_SETTING"] == "stale"
+    result["env"]["PORT"] = "1234"
+    assert desired["env"]["PORT"] == "3001"
+
+
+def test_invalid_config_fails_before_any_machine_mutation():
+    base = Path("apps/api/fly.toml").read_text()
+    invalid_configs = [
+        base.replace("anarlog-ai", "different-app"),
+        base + "\n[deploy]\nrelease_command = 'unsafe-migration'\n",
+        base.replace(
+            "internal_port = 3001", "internal_port = 3001\nunknown_setting = true"
+        ),
+        base.replace("processes = ['app']", "processes = ['other']"),
+    ]
+    for invalid in invalid_configs:
+        with (
+            NamedTemporaryFile("w") as config,
+            patch.object(deploy_api_drain, "api_request") as api,
+            patch.object(deploy_api_drain, "fly") as fly,
+        ):
+            config.write(invalid)
+            config.flush()
+            try:
+                deploy_api_drain.deploy("anarlog-ai", config.name, "Dockerfile", "test")
+            except DeployError:
+                pass
+            else:
+                raise AssertionError("invalid config was accepted")
+            api.assert_not_called()
+            fly.assert_not_called()
+
+
+def test_standalone_profiles_have_role_checks_and_no_duplicate_cleanup():
+    for role, app, health in [
+        ("ai", "anarlog-inference", "ai"),
+        ("sync", "anarlog-sync", "sync"),
+        ("core", "anarlog-core", "core"),
+        ("billing", "anarlog-billing-api", "billing-api"),
+    ]:
+        config = deploy_api_drain.desired_runtime_config(
+            app, f"apps/api/fly.{role}.toml"
+        )
+        assert config["env"]["ANARLOG_SERVICE"] == role
+        assert config["env"]["ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED"] == "false"
+        (service,) = config["services"]
+        assert service["checks"][0]["path"] == f"/health/ready/{health}"
+        assert service["min_machines_running"] == 2
+        assert service["autostop"] == "off"
+
+
+def test_cutover_preflight_rechecks_candidate_readiness():
+    machines = [{"id": "old", "cordoned": False}, {"id": "new", "cordoned": True}]
+    with (
+        patch.object(deploy_api_drain, "list_machines", return_value=machines),
+        patch.object(deploy_api_drain, "get_machine") as get,
+    ):
+        get.return_value = {"state": "started", "checks": [{"status": "passing"}]}
+        validate_serving_set("anarlog-ai", {"old"}, {"new"})
+        get.return_value = {"state": "started", "checks": [{"status": "critical"}]}
+        try:
+            validate_serving_set("anarlog-ai", {"old"}, {"new"})
+        except DeployError as error:
+            assert "lost readiness" in str(error)
+        else:
+            raise AssertionError("unhealthy candidate was accepted")
+
+
 if __name__ == "__main__":
+    test_cutover_preflight_rechecks_candidate_readiness()
+    test_standalone_profiles_have_role_checks_and_no_duplicate_cleanup()
+    test_desired_runtime_replaces_stale_machine_settings()
+    test_invalid_config_fails_before_any_machine_mutation()
     test_classifies_serving_and_drained_machines()
     test_reads_cordon_from_metadata_when_top_level_flag_is_absent()
     test_checks_passing_requires_every_reported_check()
