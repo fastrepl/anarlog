@@ -302,6 +302,13 @@ def test_cut_over_drains_an_attempted_replacement_when_activation_fails():
     with (
         patch.object(
             deploy_api_drain,
+            "get_machine",
+            return_value={
+                "config": {"metadata": {"anarlog_drain_protocol": "sigusr1-v1"}}
+            },
+        ),
+        patch.object(
+            deploy_api_drain,
             "cordon_machine",
             lambda _app, machine_id: operations.append(("cordon", machine_id)),
         ),
@@ -331,6 +338,27 @@ def test_cut_over_drains_an_attempted_replacement_when_activation_fails():
     ]
 
 
+def test_cut_over_never_signals_an_unverified_replacement():
+    with (
+        patch.object(
+            deploy_api_drain, "uncordon_machine", side_effect=DeployError("timeout")
+        ),
+        patch.object(deploy_api_drain, "cordon_machine") as cordon,
+        patch.object(deploy_api_drain, "get_machine", return_value={"config": {}}),
+        patch.object(deploy_api_drain, "signal_machine") as signal,
+        patch.object(deploy_api_drain, "destroy_machine") as destroy,
+    ):
+        try:
+            cut_over("anarlog-ai", ["old"], ["new"], propagation_seconds=0)
+        except DeployError:
+            pass
+        else:
+            raise AssertionError("Expected failed activation")
+        cordon.assert_called_once_with("anarlog-ai", "new")
+        signal.assert_not_called()
+        destroy.assert_not_called()
+
+
 def test_cut_over_restores_old_routing_before_draining_replacements():
     operations = []
 
@@ -340,6 +368,13 @@ def test_cut_over_restores_old_routing_before_draining_replacements():
             raise DeployError("cordon failed")
 
     with (
+        patch.object(
+            deploy_api_drain,
+            "get_machine",
+            return_value={
+                "config": {"metadata": {"anarlog_drain_protocol": "sigusr1-v1"}}
+            },
+        ),
         patch.object(deploy_api_drain, "cordon_machine", cordon),
         patch.object(
             deploy_api_drain,
@@ -873,8 +908,8 @@ def test_override_support_is_verified_before_cleanup():
             patch.object(
                 deploy_api_drain, "list_machines", side_effect=[[old, known], [old]]
             ),
-            patch.object(deploy_api_drain, "destroy_drained_machines"),
-            patch.object(deploy_api_drain, "resume_draining_machines"),
+            patch.object(deploy_api_drain, "destroy_drained_machines") as cleanup,
+            patch.object(deploy_api_drain, "resume_draining_machines") as resume,
             patch.object(
                 deploy_api_drain,
                 "create_replacement_machine",
@@ -885,6 +920,23 @@ def test_override_support_is_verified_before_cleanup():
             patch.object(deploy_api_drain, "cut_over"),
             patch.object(deploy_api_drain, "drain_old_machines"),
         ):
+            if not (verified or explicit):
+                try:
+                    deploy_api_drain.deploy(
+                        "anarlog-inference",
+                        "apps/api/fly.ai.toml",
+                        "Dockerfile",
+                        "test",
+                        image,
+                    )
+                except DeployError as error:
+                    assert "no verified session drain support" in str(error)
+                else:
+                    raise AssertionError("Unverified image accepted")
+                cleanup.assert_not_called()
+                resume.assert_not_called()
+                create.assert_not_called()
+                continue
             deploy_api_drain.deploy(
                 "anarlog-inference",
                 "apps/api/fly.ai.toml",
@@ -1006,6 +1058,7 @@ if __name__ == "__main__":
     test_validate_serving_set_requires_cordoned_replacements()
     test_cut_over_registers_new_machines_before_cordoning_old_machines()
     test_cut_over_drains_an_attempted_replacement_when_activation_fails()
+    test_cut_over_never_signals_an_unverified_replacement()
     test_cut_over_restores_old_routing_before_draining_replacements()
     test_routing_changes_retry_transient_api_failures()
     test_partial_replacement_failure_destroys_created_machines()

@@ -570,7 +570,13 @@ def cut_over(
                     file=sys.stderr,
                 )
             try:
-                signal_machine(app, machine_id)
+                if supports_session_drain(get_machine(app, machine_id)):
+                    signal_machine(app, machine_id)
+                else:
+                    print(
+                        f"leaving unverified replacement {machine_id} cordoned",
+                        file=sys.stderr,
+                    )
             except Exception as rollback_error:
                 print(
                     f"failed to signal replacement {machine_id} during rollback: {rollback_error}",
@@ -756,6 +762,8 @@ def deploy(
             for machine in list_machines(app)
         )
     )
+    if not drain_supported:
+        raise DeployError("Existing image has no verified session drain support")
     destroy_drained_machines(app)
     resume_draining_machines(app)
     machines = list_machines(app)
