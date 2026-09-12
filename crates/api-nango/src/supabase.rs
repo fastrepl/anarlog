@@ -53,13 +53,22 @@ impl SupabaseClient {
         url: &str,
         auth_token: &str,
     ) -> Result<reqwest::Response, crate::error::NangoError> {
-        self.http_client
+        let response = self
+            .http_client
             .get(url)
             .header("Authorization", format!("Bearer {}", auth_token))
             .header("apikey", &self.supabase_anon_key)
             .send()
             .await
-            .map_err(|e| crate::error::NangoError::Internal(e.to_string()))
+            .map_err(|e| crate::error::NangoError::Internal(e.to_string()))?;
+
+        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            return Err(crate::error::NangoError::Auth(
+                "not authenticated".to_string(),
+            ));
+        }
+
+        Ok(response)
     }
 
     fn service_role_key(&self) -> Result<&str, crate::error::NangoError> {
@@ -315,5 +324,65 @@ impl SupabaseClient {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{http::StatusCode, response::IntoResponse};
+    use wiremock::{Mock, MockServer, ResponseTemplate, matchers::method};
+
+    #[tokio::test]
+    async fn connection_queries_preserve_authentication_failures() {
+        for upstream in [401, 503] {
+            let server = MockServer::start().await;
+            Mock::given(method("GET"))
+                .respond_with(
+                    ResponseTemplate::new(upstream).set_body_string("private upstream details"),
+                )
+                .expect(3)
+                .mount(&server)
+                .await;
+            let client = SupabaseClient::new(server.uri(), "test-anon-key", None);
+            let errors = [
+                client
+                    .list_user_connections("test-token", "test-user")
+                    .await
+                    .err()
+                    .unwrap(),
+                client
+                    .lookup_connection("test-token", "test-user", "google-calendar")
+                    .await
+                    .err()
+                    .unwrap(),
+                client
+                    .verify_connection_ownership(
+                        "test-token",
+                        "test-user",
+                        "test-connection",
+                        "google-calendar",
+                    )
+                    .await
+                    .err()
+                    .unwrap(),
+            ];
+            for error in errors {
+                let response = error.into_response();
+                assert_eq!(
+                    response.status(),
+                    if upstream == 401 {
+                        StatusCode::UNAUTHORIZED
+                    } else {
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    }
+                );
+                let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+                    .await
+                    .unwrap();
+                assert!(!String::from_utf8_lossy(&body).contains("private upstream details"));
+            }
+            server.verify().await;
+        }
     }
 }
