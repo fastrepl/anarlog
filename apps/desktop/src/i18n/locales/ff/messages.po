@@ -45,6 +45,11 @@ msgstr ""
 msgid "{0} min"
 msgstr ""
 
+#. placeholder {0}: transferTarget?.email
+#: src/settings/team/index.tsx
+msgid "{0} must accept before becoming owner. Until then, ownership and permissions stay the same. After acceptance, you become an admin and they control the workspace, including deletion."
+msgstr ""
+
 #. placeholder {0}: issue.user?.login
 #: src/task/resource-view.tsx
 msgid "{0} opened on"
@@ -213,6 +218,14 @@ msgstr ""
 
 #: src/settings/team/index.tsx
 msgid "Accept"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Accept ownership"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Accept workspace ownership?"
 msgstr ""
 
 #: src/shared-notes/index.tsx
@@ -914,6 +927,10 @@ msgstr ""
 
 #: src/settings/team/index.tsx
 msgid "Cancel invitation"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Cancel transfer"
 msgstr ""
 
 #: src/settings/stats/badge-collection.tsx
@@ -3029,10 +3046,6 @@ msgstr ""
 msgid "Main language"
 msgstr "Ɗemngal mawngal"
 
-#: src/settings/team/index.tsx
-msgid "Make owner"
-msgstr ""
-
 #: src/settings/general/account.tsx
 msgid "Manage billing"
 msgstr ""
@@ -3770,6 +3783,10 @@ msgstr ""
 msgid "Owner"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Ownership transfer Pending. Current ownership and permissions remain unchanged until the proposed owner accepts."
+msgstr ""
+
 #: src/shared/control.tsx
 msgid "Page not found"
 msgstr ""
@@ -3817,6 +3834,10 @@ msgstr ""
 
 #: src/settings/developers/webhooks.tsx
 msgid "Paused"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Pending"
 msgstr ""
 
 #: src/contacts/organization-details.tsx
@@ -4225,6 +4246,14 @@ msgstr ""
 msgid "Request {0} permission"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Request ownership transfer?"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Request transfer"
+msgstr ""
+
 #. placeholder {0}: capabilityLabels[entry.capability].toLowerCase()
 #: src/session-sharing/access-management.tsx
 msgid "Requested {0}"
@@ -4322,6 +4351,10 @@ msgstr ""
 
 #: src/session/components/pending-proposals-banner.tsx
 msgid "Review summary"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Review transfer"
 msgstr ""
 
 #: src/settings/developers/api-key-row.tsx
@@ -5973,6 +6006,10 @@ msgstr ""
 
 #: src/onboarding/account/after-login.tsx
 msgid "You have an active plan"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "You will become the owner of {workspaceName}, with control over its members, billing, and deletion. The current owner will become an admin."
 msgstr ""
 
 #: src/settings/general/account.tsx

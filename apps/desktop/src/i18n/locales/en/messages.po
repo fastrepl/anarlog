@@ -45,6 +45,11 @@ msgstr "{0} is ready to use"
 msgid "{0} min"
 msgstr "{0} min"
 
+#. placeholder {0}: transferTarget?.email
+#: src/settings/team/index.tsx
+msgid "{0} must accept before becoming owner. Until then, ownership and permissions stay the same. After acceptance, you become an admin and they control the workspace, including deletion."
+msgstr "{0} must accept before becoming owner. Until then, ownership and permissions stay the same. After acceptance, you become an admin and they control the workspace, including deletion."
+
 #. placeholder {0}: issue.user?.login
 #: src/task/resource-view.tsx
 msgid "{0} opened on"
@@ -214,6 +219,14 @@ msgstr "a week ago"
 #: src/settings/team/index.tsx
 msgid "Accept"
 msgstr "Accept"
+
+#: src/settings/team/index.tsx
+msgid "Accept ownership"
+msgstr "Accept ownership"
+
+#: src/settings/team/index.tsx
+msgid "Accept workspace ownership?"
+msgstr "Accept workspace ownership?"
 
 #: src/shared-notes/index.tsx
 msgid "Access no longer available"
@@ -915,6 +928,10 @@ msgstr "Cancel date edit"
 #: src/settings/team/index.tsx
 msgid "Cancel invitation"
 msgstr "Cancel invitation"
+
+#: src/settings/team/index.tsx
+msgid "Cancel transfer"
+msgstr "Cancel transfer"
 
 #: src/settings/stats/badge-collection.tsx
 msgid "Capture 10 conversations. More moments you can return to."
@@ -3029,10 +3046,6 @@ msgstr "macOS could not access your recovery key. Repair Keychain access, then r
 msgid "Main language"
 msgstr "Main language"
 
-#: src/settings/team/index.tsx
-msgid "Make owner"
-msgstr "Make owner"
-
 #: src/settings/general/account.tsx
 msgid "Manage billing"
 msgstr "Manage billing"
@@ -3770,6 +3783,10 @@ msgstr "Overview"
 msgid "Owner"
 msgstr "Owner"
 
+#: src/settings/team/index.tsx
+msgid "Ownership transfer Pending. Current ownership and permissions remain unchanged until the proposed owner accepts."
+msgstr "Ownership transfer Pending. Current ownership and permissions remain unchanged until the proposed owner accepts."
+
 #: src/shared/control.tsx
 msgid "Page not found"
 msgstr "Page not found"
@@ -3818,6 +3835,10 @@ msgstr "Pause alerts while Do Not Disturb is on."
 #: src/settings/developers/webhooks.tsx
 msgid "Paused"
 msgstr "Paused"
+
+#: src/settings/team/index.tsx
+msgid "Pending"
+msgstr "Pending"
 
 #: src/contacts/organization-details.tsx
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
@@ -4225,6 +4246,14 @@ msgstr "Request {0}"
 msgid "Request {0} permission"
 msgstr "Request {0} permission"
 
+#: src/settings/team/index.tsx
+msgid "Request ownership transfer?"
+msgstr "Request ownership transfer?"
+
+#: src/settings/team/index.tsx
+msgid "Request transfer"
+msgstr "Request transfer"
+
 #. placeholder {0}: capabilityLabels[entry.capability].toLowerCase()
 #: src/session-sharing/access-management.tsx
 msgid "Requested {0}"
@@ -4323,6 +4352,10 @@ msgstr "Review memo"
 #: src/session/components/pending-proposals-banner.tsx
 msgid "Review summary"
 msgstr "Review summary"
+
+#: src/settings/team/index.tsx
+msgid "Review transfer"
+msgstr "Review transfer"
 
 #: src/settings/developers/api-key-row.tsx
 msgid "Revoke"
@@ -5974,6 +6007,10 @@ msgstr "You can use up to three example summaries."
 #: src/onboarding/account/after-login.tsx
 msgid "You have an active plan"
 msgstr "You have an active plan"
+
+#: src/settings/team/index.tsx
+msgid "You will become the owner of {workspaceName}, with control over its members, billing, and deletion. The current owner will become an admin."
+msgstr "You will become the owner of {workspaceName}, with control over its members, billing, and deletion. The current owner will become an admin."
 
 #: src/settings/general/account.tsx
 msgid "You'll need to sign in again to use cloud sync and account features."
