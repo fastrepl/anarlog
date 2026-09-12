@@ -62,6 +62,24 @@ class Traffic:
         self.llms = 0
 
     async def record(self, machine_id):
+        preexisting_streams = 0
+        if not self.gateway:
+            async with httpx.AsyncClient(timeout=15) as client:
+                response = await client.get(
+                    self.base + "/drain",
+                    headers={**self.headers, "fly-force-instance-id": machine_id},
+                )
+                response.raise_for_status()
+                status = response.json()
+                preexisting_streams = status.get("active_streams")
+                if (
+                    status.get("draining") is not False
+                    or type(preexisting_streams) is not int
+                    or preexisting_streams < 0
+                ):
+                    raise RuntimeError(
+                        "Cannot establish session baseline for " + machine_id
+                    )
         socket = await connect(
             self.base.replace("https:", "wss:")
             + "/listen?provider=deepgram&model=nova-3&encoding=linear16&sample_rate=16000&channels=1&language=en&interim_results=true",
@@ -75,6 +93,7 @@ class Traffic:
             "last_transcript": time.monotonic(),
             "sent_bytes": 0,
             "closed": False,
+            "preexisting_streams": preexisting_streams,
         }
         self.streams.append((socket, state))
 
@@ -224,6 +243,34 @@ class Traffic:
         await asyncio.gather(*self.tasks, return_exceptions=True)
 
 
+async def wait_for_qa_drains(app, streams, *, gateway=False, timeout=90):
+    # A production recording observed before QA must not be forced to end for the trial.
+    baseline = {
+        state["id"]: state.get("preexisting_streams", 0) for _, state in streams
+    }
+    deadline = time.monotonic() + timeout
+    while True:
+        current = await asyncio.to_thread(deploy.list_machines, app)
+        pending = [
+            machine["id"]
+            for machine in current
+            if machine["id"] in baseline and deploy.is_started(machine)
+        ]
+        if not pending:
+            event("old_qa_machines_stopped")
+            return []
+        if time.monotonic() >= deadline:
+            break
+        await asyncio.sleep(5)
+    unexplained = [identifier for identifier in pending if baseline[identifier] == 0]
+    if unexplained and not gateway:
+        raise RuntimeError(
+            "QA-only machines have not stopped: " + ", ".join(unexplained)
+        )
+    event("customer_drains_pending", machines=pending)
+    return pending
+
+
 async def run(args):
     if args.app not in {"anarlog-inference", "anarlog-ai"}:
         raise RuntimeError("Continuity QA supports the AI runtime and Anarlog gateway")
@@ -330,30 +377,9 @@ async def run(args):
         await monitor
         if traffic.errors:
             raise RuntimeError(traffic.errors[0])
-        # Closing QA sockets must release every old drain permit without forced termination.
-        deadline = time.monotonic() + 90
-        ids = {state["id"] for _, state in traffic.streams}
-        while time.monotonic() < deadline:
-            current = await asyncio.to_thread(deploy.list_machines, args.app)
-            if all(
-                not deploy.is_started(machine)
-                for machine in current
-                if machine["id"] in ids
-            ):
-                event("old_qa_machines_stopped")
-                break
-            await asyncio.sleep(5)
-        else:
-            if not gateway:
-                raise RuntimeError(
-                    "Old machines have not stopped; inspect non-QA sessions before retirement"
-                )
-            result["pending_customer_drains"] = [
-                machine["id"]
-                for machine in current
-                if machine["id"] in ids and deploy.is_started(machine)
-            ]
-            event("customer_drains_pending", machines=result["pending_customer_drains"])
+        pending = await wait_for_qa_drains(args.app, traffic.streams, gateway=gateway)
+        if pending:
+            result["pending_customer_drains"] = pending
         result["passed"] = True
     finally:
         rollback_file.close()

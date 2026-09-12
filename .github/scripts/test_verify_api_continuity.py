@@ -147,5 +147,72 @@ class ContinuityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["stages"], ["replacement"])
 
 
+class DrainCompletionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_preserves_a_session_observed_before_the_test(self):
+        with patch.object(
+            verify.deploy, "list_machines", return_value=[machine("busy", A)]
+        ):
+            pending = await verify.wait_for_qa_drains(
+                "anarlog-inference",
+                [(None, {"id": "busy", "preexisting_streams": 1})],
+                timeout=0,
+            )
+        self.assertEqual(pending, ["busy"])
+
+    async def test_customer_session_does_not_hide_another_machine_failing_to_exit(self):
+        with patch.object(
+            verify.deploy,
+            "list_machines",
+            return_value=[machine("busy", A), machine("qa-only", A)],
+        ):
+            with self.assertRaisesRegex(RuntimeError, "qa-only"):
+                await verify.wait_for_qa_drains(
+                    "anarlog-inference",
+                    [
+                        (None, {"id": "busy", "preexisting_streams": 1}),
+                        (None, {"id": "qa-only", "preexisting_streams": 0}),
+                    ],
+                    timeout=0,
+                )
+
+    async def test_preexisting_session_that_finishes_leaves_no_pending_drain(self):
+        with patch.object(
+            verify.deploy,
+            "list_machines",
+            return_value=[machine("busy", A, state="stopped")],
+        ):
+            self.assertEqual(
+                await verify.wait_for_qa_drains(
+                    "anarlog-inference",
+                    [(None, {"id": "busy", "preexisting_streams": 1})],
+                    timeout=0,
+                ),
+                [],
+            )
+
+    async def test_rejects_invalid_baseline_before_opening_a_recording(self):
+        for status in [
+            {"draining": True, "active_streams": 1},
+            {"draining": False, "active_streams": -1},
+            {"draining": False, "active_streams": True},
+            {"draining": False},
+        ]:
+            with self.subTest(status=status):
+                response = MagicMock()
+                response.json.return_value = status
+                client = AsyncMock()
+                client.get.return_value = response
+                context = AsyncMock()
+                context.__aenter__.return_value = client
+                with (
+                    patch.object(verify.httpx, "AsyncClient", return_value=context),
+                    patch.object(verify, "connect", AsyncMock()) as connect,
+                ):
+                    traffic = verify.Traffic("https://example.test", "test", b"")
+                    with self.assertRaisesRegex(RuntimeError, "session baseline"):
+                        await traffic.record("busy")
+                    connect.assert_not_awaited()
+
+
 if __name__ == "__main__":
     unittest.main()
