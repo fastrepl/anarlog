@@ -5,6 +5,7 @@ import argparse
 import asyncio
 import json
 import time
+import tempfile
 import wave
 from pathlib import Path
 
@@ -229,23 +230,40 @@ async def run(args):
     if args.verified_image_digest:
         deploy.adopt_drain_image(args.app, args.verified_image_digest, args.image)
     # The immutable candidate is built separately so recording time excludes remote builds.
-    machines = deploy.serving_machines(
-        await asyncio.to_thread(deploy.list_machines, args.app)
-    )
+    all_machines = await asyncio.to_thread(deploy.list_machines, args.app)
+    machines = deploy.serving_machines(all_machines)
     machines = [machine for machine in machines if deploy.is_started(machine)]
     if not machines or any(
         not deploy.supports_session_drain(machine) for machine in machines
     ):
         raise RuntimeError("Need serving machines with a verified drain protocol")
-    digests = {machine["image_ref"]["digest"] for machine in machines}
-    if len(digests) != 1:
-        raise RuntimeError("Serving set must have one known rollback image")
-    repository = machines[0]["config"]["image"].split("@")[0].split(":")[0]
-    rollback = repository + "@" + digests.pop()
+    if args.rollback_image:
+        rollback = args.rollback_image
+        originals = [
+            machine
+            for machine in all_machines
+            if (machine.get("image_ref") or {}).get("digest")
+            == rollback.rsplit("@", 1)[-1]
+            and deploy.supports_session_drain(machine)
+        ]
+        if not originals:
+            raise RuntimeError(
+                "Explicit rollback needs an existing independently verified image"
+            )
+    else:
+        originals = machines
+        digests = {machine["image_ref"]["digest"] for machine in originals}
+        if len(digests) != 1:
+            raise RuntimeError("Serving set must have one known rollback image")
+        repository = originals[0]["config"]["image"].split("@")[0].split(":")[0]
+        rollback = repository + "@" + digests.pop()
     if rollback == args.image:
         raise RuntimeError(
             "Use a different immutable image to exercise a real rollback"
         )
+    rollback_file = tempfile.NamedTemporaryFile(mode="w", suffix=".toml")
+    rollback_file.write(deploy.rollback_health_config(args.config, originals[0]))
+    rollback_file.flush()
     with wave.open("crates/data/src/english_1/audio.wav") as source:
         if (source.getnchannels(), source.getsampwidth(), source.getframerate()) != (
             1,
@@ -279,11 +297,13 @@ async def run(args):
             await asyncio.to_thread(
                 deploy.deploy,
                 args.app,
-                args.config,
+                rollback_file.name if stage == "rollback" else args.config,
                 args.dockerfile,
                 args.version,
                 image,
-                args.verified_image_digest,
+                rollback.rsplit("@", 1)[-1]
+                if stage == "rollback"
+                else args.verified_image_digest,
             )
             serving = deploy.serving_machines(
                 await asyncio.to_thread(deploy.list_machines, args.app)
@@ -336,6 +356,7 @@ async def run(args):
             event("customer_drains_pending", machines=result["pending_customer_drains"])
         result["passed"] = True
     finally:
+        rollback_file.close()
         await traffic.close()
         await monitor
         result.update(
@@ -369,4 +390,5 @@ if __name__ == "__main__":
     ]:
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--verified-image-digest")
+    parser.add_argument("--rollback-image")
     asyncio.run(run(parser.parse_args()))

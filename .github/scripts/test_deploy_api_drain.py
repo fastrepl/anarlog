@@ -932,7 +932,33 @@ def test_adoption_of_a_verified_candidate_requires_the_exact_digest():
             raise AssertionError("Mismatched candidate was accepted")
 
 
+def test_rollback_health_preserves_capacity_and_worker_ownership():
+    import tomllib
+
+    machine = {
+        "config": {
+            "env": {"ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED": "true"},
+            "services": [{"checks": [{"type": "http", "path": "/health"}]}],
+        }
+    }
+    text = deploy_api_drain.rollback_health_config("apps/api/fly.gateway.toml", machine)
+    profile = tomllib.loads(text)
+    assert profile["http_service"]["checks"][0]["path"] == "/health"
+    assert profile["http_service"]["min_machines_running"] == 2
+    assert profile["env"]["ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED"] == "false"
+    assert profile["env"]["ANARLOG_AI_ORIGIN"] == "https://anarlog-inference.fly.dev"
+    try:
+        deploy_api_drain.rollback_health_config(
+            "apps/api/fly.gateway.toml", {"config": {}}
+        )
+    except DeployError:
+        pass
+    else:
+        raise AssertionError("Unknown original health contract accepted")
+
+
 if __name__ == "__main__":
+    test_rollback_health_preserves_capacity_and_worker_ownership()
     test_adoption_of_a_verified_candidate_requires_the_exact_digest()
     test_idle_legacy_api_retirement_sends_only_graceful_signal()
     test_override_support_is_verified_before_cleanup()

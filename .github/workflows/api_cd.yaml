@@ -13,6 +13,10 @@ on:
         description: Optional QA account for live AI or gateway deployment and rollback (requires immutable image)
         type: string
         required: false
+      continuity_rollback_image:
+        description: Optional immutable rollback image already verified on an existing machine
+        type: string
+        required: false
       adopt_drain_image:
         description: Verified SIGUSR1-capable image digest to adopt before deployment
         type: string
@@ -190,6 +194,7 @@ jobs:
             python3 -m venv "$RUNNER_TEMP/continuity-venv"
             "$RUNNER_TEMP/continuity-venv/bin/pip" install httpx==0.28.1 websockets==15.0.1
             qa_args=()
+            if [ -n "$CONTINUITY_ROLLBACK_IMAGE" ]; then qa_args+=(--rollback-image "$CONTINUITY_ROLLBACK_IMAGE"); fi
             if [ -n "$ADOPT_DRAIN_IMAGE" ]; then qa_args+=(--verified-image-digest "$ADOPT_DRAIN_IMAGE"); fi
             "$RUNNER_TEMP/continuity-venv/bin/python" .github/scripts/verify_api_continuity.py "${qa_args[@]}" \
               --app "$FLY_APP" --config "$FLY_CONFIG" --dockerfile apps/api/Dockerfile \
@@ -203,6 +208,7 @@ jobs:
           API_VERSION: ${{ needs.compute-version.outputs.version }}
           DEPLOY_IMAGE: ${{ inputs.image }}
           CONTINUITY_USER: ${{ inputs.continuity_user }}
+          CONTINUITY_ROLLBACK_IMAGE: ${{ inputs.continuity_rollback_image }}
           INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
           ADOPT_DRAIN_IMAGE: ${{ inputs.adopt_drain_image }}
           RETIRE_IDLE_LEGACY_MACHINE: ${{ inputs.retire_idle_legacy_machine }}

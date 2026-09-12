@@ -24,6 +24,7 @@ import subprocess
 import sys
 import time
 import tomllib
+from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
@@ -625,6 +626,30 @@ def drain_old_machines(app: str, machine_ids: list[str]) -> None:
         raise DeployError(
             "traffic cut over, but old machine drain failed: " + "; ".join(failures)
         )
+
+
+def rollback_health_config(config: str, machine: dict[str, Any]) -> str:
+    paths = {
+        check.get("path")
+        for service in machine.get("config", {}).get("services", [])
+        for check in service.get("checks", [])
+        if check.get("type") == "http"
+    }
+    if len(paths) != 1 or not all(
+        isinstance(path, str) and path.startswith("/health") for path in paths
+    ):
+        raise DeployError("Rollback needs one verified original HTTP health path")
+    # Older images may not expose role readiness. Retain current capacity and worker
+    # ownership while restoring the health endpoint actually supported by that image.
+    text, count = re.subn(
+        r"(?m)^path\s*=.*$",
+        lambda _: "path = " + json.dumps(paths.pop()),
+        Path(config).read_text(),
+        count=1,
+    )
+    if count != 1:
+        raise DeployError("Rollback profile has no HTTP health path")
+    return text
 
 
 def bootstrap_deploy(
