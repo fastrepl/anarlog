@@ -285,11 +285,22 @@ async def run(args):
                 image,
                 args.verified_image_digest,
             )
-            await traffic.hold(hold, stage)
-            result["stages"].append(stage)
             serving = deploy.serving_machines(
                 await asyncio.to_thread(deploy.list_machines, args.app)
             )
+            if not serving or any(
+                (machine.get("image_ref") or {}).get("digest")
+                != image.rsplit("@", 1)[-1]
+                for machine in serving
+            ):
+                raise RuntimeError("Serving image does not match " + stage)
+            event(
+                stage + "_serving",
+                image=image,
+                machines=[machine["id"] for machine in serving],
+            )
+            await traffic.hold(hold, stage)
+            result["stages"].append(stage)
             if stage != "rollforward":
                 for machine in serving:
                     await traffic.record(machine["id"])
