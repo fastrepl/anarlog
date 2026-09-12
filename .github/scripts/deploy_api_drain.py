@@ -19,6 +19,7 @@ import argparse
 import copy
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -620,7 +621,12 @@ def drain_old_machines(app: str, machine_ids: list[str]) -> None:
         )
 
 
-def bootstrap_deploy(app: str, config: str, dockerfile: str, version: str) -> None:
+def bootstrap_deploy(
+    app: str, config: str, dockerfile: str, version: str, image: str | None = None
+) -> None:
+    if image:
+        fly("deploy", "--app", app, "--config", config, "--image", image, "--ha=true")
+        return
     fly(
         "deploy",
         "--app",
@@ -656,7 +662,21 @@ def build_and_push_image(app: str, config: str, dockerfile: str, version: str) -
     return image
 
 
-def deploy(app: str, config: str, dockerfile: str, version: str) -> None:
+def deploy(
+    app: str,
+    config: str,
+    dockerfile: str,
+    version: str,
+    image_override: str | None = None,
+) -> None:
+    if image_override:
+        if not re.fullmatch(
+            r"registry\.fly\.io/(anarlog-ai|anarlog-inference|anarlog-sync|anarlog-core|anarlog-billing-api|hyprnote-ai)@sha256:[0-9a-f]{64}",
+            image_override,
+        ):
+            raise DeployError(
+                "Existing image must be an immutable digest from an API application"
+            )
     runtime_config = desired_runtime_config(app, config)
     destroy_drained_machines(app)
     resume_draining_machines(app)
@@ -664,7 +684,7 @@ def deploy(app: str, config: str, dockerfile: str, version: str) -> None:
     serving = serving_machines(machines)
     if not machines:
         print("no machines present; running a bootstrap fly deploy", file=sys.stderr)
-        bootstrap_deploy(app, config, dockerfile, version)
+        bootstrap_deploy(app, config, dockerfile, version, image_override)
         return
 
     if not serving:
@@ -673,11 +693,17 @@ def deploy(app: str, config: str, dockerfile: str, version: str) -> None:
         )
 
     desired_stop_config = stop_config(config)
-    image = build_and_push_image(app, config, dockerfile, version)
+    image = image_override or build_and_push_image(app, config, dockerfile, version)
     old_ids = [machine["id"] for machine in serving]
+    primary_region = runtime_config["env"]["PRIMARY_REGION"]
+    minimum = runtime_config["services"][0]["min_machines_running"]
+    primary_count = sum(machine.get("region") == primary_region for machine in serving)
+    sources = serving + [dict(serving[0], region=primary_region)] * max(
+        0, minimum - primary_count
+    )
     replacement_ids: list[str] = []
     try:
-        for machine in serving:
+        for machine in sources:
             replacement_ids.append(
                 create_replacement_machine(
                     app, machine, image, desired_stop_config, runtime_config
@@ -702,8 +728,9 @@ def main() -> None:
     parser.add_argument("--config", required=True)
     parser.add_argument("--dockerfile", required=True)
     parser.add_argument("--version", required=True)
+    parser.add_argument("--image")
     args = parser.parse_args()
-    deploy(args.app, args.config, args.dockerfile, args.version)
+    deploy(args.app, args.config, args.dockerfile, args.version, args.image)
 
 
 if __name__ == "__main__":

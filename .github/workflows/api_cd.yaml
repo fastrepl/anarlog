@@ -1,10 +1,26 @@
 on:
   workflow_dispatch:
+    inputs:
+      service:
+        type: choice
+        default: all
+        options: [all, ai, sync, core, billing, gateway, legacy]
+      image:
+        description: Existing image digest for a verified rollback or shared build
+        type: string
+        required: false
+      cleanup_owner:
+        description: Run durable cleanup on core after retiring old workers
+        type: boolean
+        default: false
 
 env:
   INFISICAL_ENV: prod
-  FLY_APP: anarlog-ai
+  SERVICE: ${{ inputs.service || 'all' }}
   FLY_ORG: fastrepl
+
+permissions:
+  contents: read
 
 jobs:
   compute-version:
@@ -12,12 +28,13 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
+          persist-credentials: false
           fetch-depth: 0
           fetch-tags: true
       - run: git fetch --tags --force
-      - uses: ./.github/actions/doxxer_install
+      - uses: $/.github/actions/doxxer_install
       - id: version
         run: |
           VERSION=$(doxxer --config doxxer.api.toml next patch)
@@ -35,12 +52,35 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - uses: ./.github/actions/rust_install
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - run: |
+          set -euo pipefail
+          case "$SERVICE" in
+            all) app=anarlog-ai; config=apps/api/fly.toml; health=/health ;;
+            ai) app=anarlog-inference; config=apps/api/fly.ai.toml; health=/health/ready/ai ;;
+            sync) app=anarlog-sync; config=apps/api/fly.sync.toml; health=/health/ready/sync ;;
+            core) app=anarlog-core; config=apps/api/fly.core.toml; health=/health/ready/core ;;
+            billing) app=anarlog-billing-api; config=apps/api/fly.billing.toml; health=/health/ready/billing-api ;;
+            gateway) app=anarlog-ai; config=apps/api/fly.gateway.toml; health=/health/ready/api ;;
+            legacy) app=hyprnote-ai; config=apps/api/fly.legacy.toml; health=/health/ready/api ;;
+            *) exit 1 ;;
+          esac
+          if [ "$CLEANUP_OWNER" = true ]; then
+            test "$SERVICE" = core
+            sed -i 's/ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED = "false"/ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED = "true"/' "$config"
+          fi
+          echo "FLY_APP=$app" >> "$GITHUB_ENV"
+          echo "FLY_CONFIG=$config" >> "$GITHUB_ENV"
+          echo "HEALTH_PATH=$health" >> "$GITHUB_ENV"
+        env:
+          CLEANUP_OWNER: ${{ inputs.cleanup_owner }}
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+      - uses: $/.github/actions/rust_install
         with:
           platform: linux
-      - uses: ./.github/actions/infisical_install
+      - uses: $/.github/actions/infisical_install
       # Machine-identity OIDC login instead of a static service token: scopes
       # live in the identity's editable project role, so secret reorganizations
       # never require re-minting a token into GitHub secrets.
@@ -74,11 +114,13 @@ jobs:
           python3 .github/scripts/verify_cloudsync_e2ee.py "$cloudsync_secrets_json"
         env:
           INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
-      - name: Ensure Fly app exists
-        run: |
+      - run: |
           set -euo pipefail
-          if ! flyctl status --app "$FLY_APP" >/dev/null 2>&1; then
+          apps="$(flyctl apps list --org "$FLY_ORG" --json)"
+          if ! jq -e --arg app "$FLY_APP" 'any(.[]; (.Name // .name) == $app)' <<< "$apps" >/dev/null; then
             flyctl apps create "$FLY_APP" --org "$FLY_ORG" --yes
+            flyctl ips allocate-v6 --app "$FLY_APP"
+            flyctl ips allocate-v4 --shared --app "$FLY_APP"
           fi
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -106,56 +148,9 @@ jobs:
             --format=json \
             --output-file="$cloudsync_secrets_json"
 
-          python3 - "$ai_secrets_json" "$cloudsync_secrets_json" "$secrets_file" <<'PY'
-          import json
-          import sys
-
-          cloudsync_runtime_keys = {
-              "ANARLOG_CLOUDSYNC_DATABASE_ID",
-              "ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID",
-              "ANARLOG_CLOUDSYNC_PROTOCOL_MODE",
-              "ANARLOG_CLOUDSYNC_TOKEN_TTL_SECONDS",
-              "SQLITECLOUD_CLOUDSYNC_MANAGEMENT_API_KEY",
-              "SQLITECLOUD_PROJECT_URL",
-              "SQLITECLOUD_TOKEN_ISSUER_API_KEY",
-          }
-          # Exported when set, but the API defaults them and a deploy must not
-          # depend on them existing in Infisical.
-          optional_cloudsync_runtime_keys = {
-              "ANARLOG_CLOUDSYNC_DESKTOP_TRANSPORT",
-          }
-          cloudsync_allowed_keys = cloudsync_runtime_keys | optional_cloudsync_runtime_keys
-          sources = (
-              (sys.argv[1], None),
-              (sys.argv[2], cloudsync_allowed_keys),
-          )
-
-          secrets_by_key = {}
-          cloudsync_keys = set()
-          for source_path, allowed_keys in sources:
-              with open(source_path) as source:
-                  for secret in json.load(source):
-                      key = secret["key"]
-                      if allowed_keys is not None and key not in allowed_keys:
-                          continue
-                      value = secret.get("value", "")
-                      if allowed_keys is cloudsync_allowed_keys and value:
-                          cloudsync_keys.add(key)
-                      if key in secrets_by_key and secrets_by_key[key] != value:
-                          raise ValueError(f"Conflicting Infisical secret: {key}")
-                      secrets_by_key[key] = value
-
-          missing_cloudsync_keys = sorted(cloudsync_runtime_keys - cloudsync_keys)
-          if missing_cloudsync_keys:
-              raise ValueError(
-                  "Missing required CloudSync secrets: " + ", ".join(missing_cloudsync_keys)
-              )
-
-          with open(sys.argv[-1], "w") as target:
-              for key, value in secrets_by_key.items():
-                  value = value.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\\n")
-                  target.write(f"{key}={value}\n")
-          PY
+          python3 .github/scripts/prepare_api_service_secrets.py \
+            --service "$SERVICE" --api "$ai_secrets_json" \
+            --cloudsync "$cloudsync_secrets_json" --output "$secrets_file"
 
           if [ -s "$secrets_file" ]; then
             flyctl secrets import --app "$FLY_APP" --stage < "$secrets_file"
@@ -165,25 +160,45 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
-      - run: python3 .github/scripts/deploy_api_drain.py --app "$FLY_APP" --config apps/api/fly.toml --dockerfile apps/api/Dockerfile --version "$API_VERSION"
+      - if: inputs.service == 'gateway' || inputs.service == 'legacy'
+        run: |
+          set -euo pipefail
+          for entry in anarlog-inference:ai anarlog-sync:sync anarlog-core:core anarlog-billing-api:billing-api; do
+            app="${entry%%:*}"
+            role="${entry#*:}"
+            curl --fail --silent --show-error --retry 3 "https://${app}.fly.dev/health/ready/${role}"
+          done
+      - run: |
+          set -euo pipefail
+          args=(--app "$FLY_APP" --config "$FLY_CONFIG" --dockerfile apps/api/Dockerfile --version "$API_VERSION")
+          if [ -n "$DEPLOY_IMAGE" ]; then args+=(--image "$DEPLOY_IMAGE"); fi
+          python3 .github/scripts/deploy_api_drain.py "${args[@]}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           API_VERSION: ${{ needs.compute-version.outputs.version }}
-      - name: Verify Fly deployment
-        run: curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 "https://${FLY_APP}.fly.dev/health"
+          DEPLOY_IMAGE: ${{ inputs.image }}
+      - run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 "https://${FLY_APP}.fly.dev${HEALTH_PATH}"
+          flyctl machine list --app "$FLY_APP" --json | jq '[.[] | {id, state, region, image: .config.image, image_ref}]'
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       - if: failure()
         run: timeout 60s flyctl logs --app "$FLY_APP" --no-tail || true
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
   tag:
+    if: ${{ (inputs.service == 'all' || inputs.service == '') && inputs.image == '' }}
     needs: [compute-version, deploy]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: mathieudutour/github-tag-action@v6.2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: mathieudutour/github-tag-action@a22cf08638b34d5badda920f9daf6e72c477b07b
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           custom_tag: api_v${{ needs.compute-version.outputs.version }}

@@ -56,3 +56,20 @@ traffic deploy/rollback tests as separate rollout gates.
 The drain deploy helper reconciles the supported single-process Fly profile
 into each candidate. Unsupported settings fail before machine mutations;
 extend its translation and tests before introducing additional Fly features.
+
+
+The combined compatibility runtime can forward each role through
+`ANARLOG_AI_ORIGIN`, `ANARLOG_SYNC_ORIGIN`, `ANARLOG_CORE_ORIGIN`, and
+`ANARLOG_BILLING_ORIGIN`. Unset origins keep the existing local route behavior.
+The proxy preserves uploads, response streams, and WebSocket upgrades; it does
+not retry writes or follow redirects. Drain permits cover proxied requests and
+upgraded connections through completion. Origins are rejected in standalone
+roles to prevent routing cycles.
+
+`api_cd.yaml` selects one explicit service per dispatch. `gateway` and `legacy`
+retain the existing public URLs with forwarding profiles; deploy and verify all
+standalone services before activating these profiles. `all` retains the local
+combined runtime for rollback. The optional `image` input accepts only an
+immutable API image digest. Keep the image and configuration together in the
+rollout record. Enable `cleanup_owner` only for the core dispatch after the old
+workers have stopped. Secrets are filtered by the selected runtime before staging.

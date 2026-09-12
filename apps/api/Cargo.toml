@@ -39,7 +39,9 @@ tracing = { workspace = true }
 tracing-opentelemetry = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
-reqwest = { workspace = true, features = ["json"] }
+futures-util = { workspace = true }
+hyper = { version = "1", features = ["server", "http1"] }
+reqwest = { workspace = true, features = ["json", "stream"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 url = { workspace = true }
@@ -53,4 +55,5 @@ tower = { workspace = true }
 utoipa = { workspace = true }
 
 [dev-dependencies]
+tokio-tungstenite = { workspace = true }
 wiremock = { workspace = true }

@@ -2,6 +2,7 @@ mod auth;
 mod env;
 mod observability;
 mod openapi;
+mod proxy;
 mod rate_limit;
 mod routes;
 mod service;
@@ -97,16 +98,32 @@ async fn app_with_session_gate(
     let analytics = build_analytics_client(env);
     let mut routes = Router::new();
     if service.includes(Service::Ai) {
-        routes = routes.merge(routes::ai(env, session_gate.clone(), analytics.clone()));
+        routes = routes.merge(proxy::route(
+            routes::ai(env, session_gate.clone(), analytics.clone()),
+            &env.upstreams.anarlog_ai_origin,
+            &session_gate,
+        ));
     }
     if service.includes(Service::Sync) {
-        routes = routes.merge(routes::sync(env));
+        routes = routes.merge(proxy::route(
+            routes::sync(env),
+            &env.upstreams.anarlog_sync_origin,
+            &session_gate,
+        ));
     }
     if service.includes(Service::Core) {
-        routes = routes.merge(routes::core(env, analytics.clone()));
+        routes = routes.merge(proxy::route(
+            routes::core(env, analytics.clone()),
+            &env.upstreams.anarlog_core_origin,
+            &session_gate,
+        ));
     }
     if service.includes(Service::Billing) {
-        routes = routes.merge(routes::billing(env, analytics));
+        routes = routes.merge(proxy::route(
+            routes::billing(env, analytics),
+            &env.upstreams.anarlog_billing_origin,
+            &session_gate,
+        ));
     }
     let subsystem_health_state = SubsystemHealthState {
         service,
