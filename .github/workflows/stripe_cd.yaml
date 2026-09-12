@@ -1,18 +1,22 @@
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   compute-version:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
+          persist-credentials: false
           fetch-depth: 0
           fetch-tags: true
       - run: git fetch --tags --force
-      - uses: ./.github/actions/doxxer_install
+      - uses: $/.github/actions/doxxer_install
       - id: version
         run: |
           VERSION=$(doxxer --config doxxer.stripe.toml next patch)
@@ -28,9 +32,11 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - uses: ./.github/actions/infisical_install
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+      - uses: $/.github/actions/infisical_install
       - name: Infisical OIDC login
         run: |
           set -euo pipefail
@@ -83,10 +89,12 @@ jobs:
             --stage \
             --app hyprnote-stripe
 
-          flyctl deploy \
+          python3 .github/scripts/deploy_api_drain.py \
+            --app hyprnote-stripe \
             --config apps/stripe/fly.toml \
             --dockerfile apps/stripe/Dockerfile \
-            --remote-only
+            --version "$STRIPE_VERSION"
+          curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 https://hyprnote-stripe.fly.dev/health
 
           expected_hash="$(printf %s "$posthog_api_key" | sha256sum | cut -d " " -f 1)"
           actual_hash="$(
@@ -115,6 +123,7 @@ jobs:
           fi
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          STRIPE_VERSION: ${{ needs.compute-version.outputs.version }}
 
   tag:
     needs: [compute-version, deploy]
@@ -122,8 +131,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: mathieudutour/github-tag-action@v6.2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: mathieudutour/github-tag-action@a22cf08638b34d5badda920f9daf6e72c477b07b
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           custom_tag: stripe_v${{ needs.compute-version.outputs.version }}

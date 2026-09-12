@@ -420,6 +420,8 @@ def replacement_config(
         metadata = {}
         replacement["metadata"] = metadata
     metadata.pop("fly_cordoned", None)
+    if runtime_config is not None:
+        metadata["fly_process_group"] = "app"
     metadata[DRAIN_PROTOCOL_METADATA_KEY] = DRAIN_PROTOCOL_METADATA_VALUE
     return replacement
 
@@ -671,7 +673,7 @@ def deploy(
 ) -> None:
     if image_override:
         if not re.fullmatch(
-            r"registry\.fly\.io/(anarlog-ai|anarlog-inference|anarlog-sync|anarlog-core|anarlog-billing-api|hyprnote-ai)@sha256:[0-9a-f]{64}",
+            r"registry\.fly\.io/(anarlog-ai|anarlog-inference|anarlog-sync|anarlog-core|anarlog-billing-api|hyprnote-ai|hyprnote-stripe)@sha256:[0-9a-f]{64}",
             image_override,
         ):
             raise DeployError(

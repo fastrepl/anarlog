@@ -602,6 +602,22 @@ def test_desired_runtime_replaces_stale_machine_settings():
     assert desired["env"]["PORT"] == "3001"
 
 
+def test_stripe_replacement_migrates_process_group_and_keeps_capacity():
+    desired = deploy_api_drain.desired_runtime_config(
+        "hyprnote-stripe", "apps/stripe/fly.toml"
+    )
+    old = {"config": {"metadata": {"fly_process_group": "web", "custom": "keep"}}}
+    result = replacement_config(old, "new", {"signal": "SIGTERM"}, desired)
+    assert result["metadata"]["fly_process_group"] == "app"
+    assert result["metadata"]["custom"] == "keep"
+    assert old["config"]["metadata"]["fly_process_group"] == "web"
+    (service,) = result["services"]
+    assert service["internal_port"] == 8080
+    assert service["min_machines_running"] == 2
+    assert service["autostop"] == "off"
+    assert service["checks"][0]["path"] == "/health"
+
+
 def test_invalid_config_fails_before_any_machine_mutation():
     base = Path("apps/api/fly.toml").read_text()
     invalid_configs = [
@@ -717,6 +733,7 @@ def test_rollback_requires_an_immutable_api_image_before_mutating_machines():
 
 
 if __name__ == "__main__":
+    test_stripe_replacement_migrates_process_group_and_keeps_capacity()
     test_rollback_requires_an_immutable_api_image_before_mutating_machines()
     test_deploy_restores_minimum_primary_region_capacity()
     test_cutover_preflight_rechecks_candidate_readiness()

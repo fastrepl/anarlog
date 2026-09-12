@@ -63,7 +63,7 @@ const server = Bun.serve({
   fetch: app.fetch,
 });
 let shuttingDown = false;
-for (const signal of ["SIGTERM", "SIGINT"] as const) {
+for (const signal of ["SIGTERM", "SIGINT", "SIGUSR1"] as const) {
   process.on(signal, () => {
     if (shuttingDown) return;
     shuttingDown = true;

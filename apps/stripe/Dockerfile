@@ -24,6 +24,8 @@ RUN pnpm install --filter @anlg/stripe --frozen-lockfile
 RUN pnpm --config.allowUnusedPatches=true deploy --filter @anlg/stripe --prod --legacy /runtime
 
 FROM oven/bun:1 AS runtime
+ARG APP_VERSION
+ENV APP_VERSION=${APP_VERSION}
 WORKDIR /app
 
 COPY --from=build /runtime ./
