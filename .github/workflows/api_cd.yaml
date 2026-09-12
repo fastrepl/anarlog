@@ -9,10 +9,18 @@ on:
         description: Existing image digest for a verified rollback or shared build
         type: string
         required: false
+      continuity_user:
+        description: Optional QA account for live AI deployment and rollback (requires immutable image)
+        type: string
+        required: false
       cleanup_owner:
         description: Run durable cleanup on core after retiring old workers
         type: boolean
         default: false
+      adopt_drain_image:
+        description: Verified SIGUSR1-capable image digest to mark without restarting
+        type: string
+        required: false
 
 env:
   INFISICAL_ENV: prod
@@ -76,6 +84,9 @@ jobs:
           echo "HEALTH_PATH=$health" >> "$GITHUB_ENV"
         env:
           CLEANUP_OWNER: ${{ inputs.cleanup_owner }}
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
       - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
       - uses: $/.github/actions/rust_install
         with:
@@ -84,8 +95,7 @@ jobs:
       # Machine-identity OIDC login instead of a static service token: scopes
       # live in the identity's editable project role, so secret reorganizations
       # never require re-minting a token into GitHub secrets.
-      - name: Infisical OIDC login
-        run: |
+      - run: |
           set -euo pipefail
           oidc_jwt=$(curl -sSf -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
             "${ACTIONS_ID_TOKEN_REQUEST_URL}" | jq -r '.value')
@@ -94,8 +104,7 @@ jobs:
             --jwt="$oidc_jwt" --silent --plain)
           echo "::add-mask::$infisical_token"
           echo "INFISICAL_TOKEN=$infisical_token" >> "$GITHUB_ENV"
-      - name: Verify encrypted CloudSync
-        run: |
+      - run: |
           set -euo pipefail
 
           python3 .github/scripts/test_verify_cloudsync_e2ee.py
@@ -172,17 +181,43 @@ jobs:
           set -euo pipefail
           args=(--app "$FLY_APP" --config "$FLY_CONFIG" --dockerfile apps/api/Dockerfile --version "$API_VERSION")
           if [ -n "$DEPLOY_IMAGE" ]; then args+=(--image "$DEPLOY_IMAGE"); fi
-          python3 .github/scripts/deploy_api_drain.py "${args[@]}"
+          if [ -n "$ADOPT_DRAIN_IMAGE" ]; then args+=(--adopt-drain-image "$ADOPT_DRAIN_IMAGE"); fi
+          if [ -n "$CONTINUITY_USER" ]; then
+            test "$SERVICE" = ai
+            test -n "$DEPLOY_IMAGE"
+            qa_secrets="$(mktemp)"
+            chmod 600 "$qa_secrets"
+            trap 'rm -f "$qa_secrets"' EXIT
+            infisical export --token="$INFISICAL_TOKEN" --env="$INFISICAL_ENV" \
+              --projectId="$INFISICAL_PROJECT_ID" --path=/anarlog/ai --format=json --output-file="$qa_secrets"
+            python3 -m venv "$RUNNER_TEMP/continuity-venv"
+            "$RUNNER_TEMP/continuity-venv/bin/pip" install httpx==0.28.1 websockets==15.0.1
+            "$RUNNER_TEMP/continuity-venv/bin/python" .github/scripts/verify_api_continuity.py \
+              --app "$FLY_APP" --config "$FLY_CONFIG" --dockerfile apps/api/Dockerfile \
+              --version "$API_VERSION" --image "$DEPLOY_IMAGE" --secrets "$qa_secrets" \
+              --email "$CONTINUITY_USER" --output "$RUNNER_TEMP/api-continuity.json"
+          else
+            python3 .github/scripts/deploy_api_drain.py "${args[@]}"
+          fi
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           API_VERSION: ${{ needs.compute-version.outputs.version }}
           DEPLOY_IMAGE: ${{ inputs.image }}
+          CONTINUITY_USER: ${{ inputs.continuity_user }}
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
+          ADOPT_DRAIN_IMAGE: ${{ inputs.adopt_drain_image }}
       - run: |
           set -euo pipefail
           curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 "https://${FLY_APP}.fly.dev${HEALTH_PATH}"
           flyctl machine list --app "$FLY_APP" --json | jq '[.[] | {id, state, region, image: .config.image, image_ref}]'
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - if: always() && inputs.continuity_user != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: api-continuity
+          path: ${{ runner.temp }}/api-continuity.json
+          retention-days: 14
       - if: failure()
         run: timeout 60s flyctl logs --app "$FLY_APP" --no-tail || true
         env:

@@ -6,6 +6,7 @@ on:
     paths:
       - .github/scripts/prepare_api_service_secrets.py
       - .github/scripts/test_prepare_api_service_secrets.py
+      - .github/scripts/verify_api_continuity.py
       - .github/scripts/deploy_api_drain.py
       - .github/scripts/test_deploy_api_drain.py
       - .github/scripts/test_verify_cloudsync_e2ee.py
@@ -26,6 +27,7 @@ on:
     paths:
       - .github/scripts/prepare_api_service_secrets.py
       - .github/scripts/test_prepare_api_service_secrets.py
+      - .github/scripts/verify_api_continuity.py
       - .github/scripts/deploy_api_drain.py
       - .github/scripts/test_deploy_api_drain.py
       - .github/scripts/test_verify_cloudsync_e2ee.py
@@ -57,6 +59,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
       - uses: $/.github/actions/rust_install
         with:
           platform: linux
@@ -70,6 +75,7 @@ jobs:
       - run: cargo test -p transcribe-proxy --lib
       - run: cargo test --locked -p api
       - run: python3 .github/scripts/test_verify_cloudsync_e2ee.py
+      - run: python3 -m py_compile .github/scripts/verify_api_continuity.py
       - run: python3 .github/scripts/test_deploy_api_drain.py
       - run: python3 .github/scripts/test_prepare_api_service_secrets.py
       - run: |
