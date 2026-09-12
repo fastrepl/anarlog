@@ -75,4 +75,3 @@ BEGIN
   SELECT p_workspace_id, v_logo_data;
 END;
 $$;
-
