@@ -12,7 +12,7 @@ processes = ["app"]
 
 [env]
 ANARLOG_SERVICE = "core"
-ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED = "false"
+ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED = "true"
 PORT = "3001"
 
 [http_service]

@@ -11,16 +11,20 @@ policy = "on-failure"
 processes = ["app"]
 
 [env]
-ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED = "true"
+ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED = "false"
+ANARLOG_AI_ORIGIN = "https://anarlog-inference.fly.dev"
+ANARLOG_SYNC_ORIGIN = "https://anarlog-sync.fly.dev"
+ANARLOG_CORE_ORIGIN = "https://anarlog-core.fly.dev"
+ANARLOG_BILLING_ORIGIN = "https://anarlog-billing-api.fly.dev"
 PORT = "3001"
 
 [http_service]
 processes = ['app']
 internal_port = 3001
 force_https = true
-auto_stop_machines = 'stop'
+auto_stop_machines = 'off'
 auto_start_machines = true
-min_machines_running = 1
+min_machines_running = 2
 
 [http_service.http_options]
 idle_timeout = 660
@@ -34,7 +38,7 @@ soft_limit = 150
 grace_period = "20s"
 interval = "15s"
 method = "GET"
-path = "/health"
+path = "/health/ready/api"
 protocol = "http"
 timeout = "4s"
 

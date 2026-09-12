@@ -34,18 +34,15 @@ email configuration. Optional integration groups are validated only in their
 owning roles. `ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED` is accepted only by `core`
 and `all`. Assign cleanup to one deployment during migration.
 
-Role selection does not change Fly routing or provision applications. The
-existing deployment stays on `all` until service-specific configuration,
-readiness, public routing, and deployment/rollback continuity are verified.
-Keep existing URLs working while clients and webhook providers migrate.
+Role selection does not change Fly routing or provision applications. Keep
+existing URLs working while clients and webhook providers migrate.
 
-
-Separate candidate profiles are `fly.ai.toml` (`anarlog-inference`),
+Standalone profiles are `fly.ai.toml` (`anarlog-inference`),
 `fly.sync.toml` (`anarlog-sync`), `fly.core.toml` (`anarlog-core`), and
-`fly.billing.toml` (`anarlog-billing-api`). These names are deployment targets,
-not evidence that the apps exist. The original `anarlog-ai` profile remains
-combined so existing URLs keep working. Candidate profiles disable cleanup;
-transfer cleanup ownership only when the old owner has stopped its worker.
+`fly.billing.toml` (`anarlog-billing-api`). The default `fly.toml` and
+`fly.gateway.toml` route the existing `anarlog-ai` URLs to these services. `fly.legacy.toml` preserves legacy `hyprnote-ai` URLs.
+Core owns durable cleanup; other profiles disable it. Never transfer cleanup
+ownership until the previous owner's worker has stopped.
 
 `/health/ready/{service}` verifies the expected runtime role, configuration of
 its primary subsystems, and that it is not draining. The combined role uses
@@ -68,8 +65,10 @@ roles to prevent routing cycles.
 
 `api_cd.yaml` selects one explicit service per dispatch. `gateway` and `legacy`
 retain the existing public URLs with forwarding profiles; deploy and verify all
-standalone services before activating these profiles. `all` retains the local
-combined runtime for rollback. The optional `image` input accepts only an
-immutable API image digest. Keep the image and configuration together in the
-rollout record. Enable `cleanup_owner` only for the core dispatch after the old
-workers have stopped. Secrets are filtered by the selected runtime before staging.
+standalone services before activating these profiles. The default dispatch is
+`gateway`. The optional `image` input accepts only an immutable API image digest.
+Keep the image and configuration together in the rollout record. Explicit drain
+adoption requires independent verification that the exact image handles SIGUSR1;
+health alone does not establish that capability. Secrets are filtered by the
+selected runtime before staging. Core's checked-in profile enables cleanup so
+routine deployments preserve worker ownership.

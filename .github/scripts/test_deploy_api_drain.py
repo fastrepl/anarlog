@@ -588,7 +588,11 @@ def test_desired_runtime_replaces_stale_machine_settings():
     }
     result = replacement_config(old, "new", {"signal": "SIGTERM"}, desired)
     assert result["env"] == {
-        "ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED": "true",
+        "ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED": "false",
+        "ANARLOG_AI_ORIGIN": "https://anarlog-inference.fly.dev",
+        "ANARLOG_SYNC_ORIGIN": "https://anarlog-sync.fly.dev",
+        "ANARLOG_CORE_ORIGIN": "https://anarlog-core.fly.dev",
+        "ANARLOG_BILLING_ORIGIN": "https://anarlog-billing-api.fly.dev",
         "PORT": "3001",
         "PRIMARY_REGION": "sjc",
     }
@@ -596,10 +600,10 @@ def test_desired_runtime_replaces_stale_machine_settings():
     assert result["checks"] == {}
     (service,) = result["services"]
     assert service["internal_port"] == 3001
-    assert service["checks"][0]["path"] == "/health"
+    assert service["checks"][0]["path"] == "/health/ready/api"
     assert service["checks"][0]["type"] == "http"
     assert service["ports"][1]["http_options"]["idle_timeout"] == 660
-    assert service["autostop"] == "stop"
+    assert service["autostop"] == "off"
     assert result["swap_size_mb"] == 512
     assert old["config"]["env"]["REMOVED_SETTING"] == "stale"
     result["env"]["PORT"] = "1234"
@@ -696,7 +700,9 @@ def test_standalone_profiles_have_role_checks_and_no_duplicate_cleanup():
             app, f"apps/api/fly.{role}.toml"
         )
         assert config["env"]["ANARLOG_SERVICE"] == role
-        assert config["env"]["ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED"] == "false"
+        assert config["env"]["ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED"] == (
+            "true" if role == "core" else "false"
+        )
         (service,) = config["services"]
         assert service["checks"][0]["path"] == f"/health/ready/{health}"
         assert service["min_machines_running"] == 2

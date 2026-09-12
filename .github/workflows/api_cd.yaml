@@ -3,8 +3,8 @@ on:
     inputs:
       service:
         type: choice
-        default: all
-        options: [all, ai, sync, core, billing, gateway, legacy]
+        default: gateway
+        options: [ai, sync, core, billing, gateway, legacy]
       image:
         description: Existing image digest for a verified rollback or shared build
         type: string
@@ -13,10 +13,6 @@ on:
         description: Optional QA account for live AI or gateway deployment and rollback (requires immutable image)
         type: string
         required: false
-      cleanup_owner:
-        description: Run durable cleanup on core after retiring old workers
-        type: boolean
-        default: false
       adopt_drain_image:
         description: Verified SIGUSR1-capable image digest to adopt before deployment
         type: string
@@ -28,7 +24,7 @@ on:
 
 env:
   INFISICAL_ENV: prod
-  SERVICE: ${{ inputs.service || 'all' }}
+  SERVICE: ${{ inputs.service || 'gateway' }}
   FLY_ORG: fastrepl
 
 permissions:
@@ -70,7 +66,6 @@ jobs:
       - run: |
           set -euo pipefail
           case "$SERVICE" in
-            all) app=anarlog-ai; config=apps/api/fly.toml; health=/health ;;
             ai) app=anarlog-inference; config=apps/api/fly.ai.toml; health=/health/ready/ai ;;
             sync) app=anarlog-sync; config=apps/api/fly.sync.toml; health=/health/ready/sync ;;
             core) app=anarlog-core; config=apps/api/fly.core.toml; health=/health/ready/core ;;
@@ -79,15 +74,9 @@ jobs:
             legacy) app=hyprnote-ai; config=apps/api/fly.legacy.toml; health=/health/ready/api ;;
             *) exit 1 ;;
           esac
-          if [ "$CLEANUP_OWNER" = true ]; then
-            test "$SERVICE" = core
-            sed -i 's/ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED = "false"/ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED = "true"/' "$config"
-          fi
           echo "FLY_APP=$app" >> "$GITHUB_ENV"
           echo "FLY_CONFIG=$config" >> "$GITHUB_ENV"
           echo "HEALTH_PATH=$health" >> "$GITHUB_ENV"
-        env:
-          CLEANUP_OWNER: ${{ inputs.cleanup_owner }}
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: "3.12"
@@ -235,7 +224,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
   tag:
-    if: ${{ (inputs.service == 'all' || inputs.service == '') && inputs.image == '' }}
+    if: ${{ (inputs.service == 'gateway' || inputs.service == '') && inputs.image == '' }}
     needs: [compute-version, deploy]
     runs-on: ubuntu-latest
     permissions:
