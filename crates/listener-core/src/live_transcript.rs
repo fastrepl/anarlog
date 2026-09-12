@@ -104,7 +104,8 @@ impl LiveTranscriptEngine {
         Self {
             processor: TranscriptProcessor::new()
                 .with_partial_finalization(normalizer.finalize_partials())
-                .with_flush_partial_finalization(normalizer.flush_partials()),
+                .with_flush_partial_finalization(normalizer.flush_partials())
+                .with_final_word_stitching(!matches!(normalizer, TranscriptNormalizer::Nari)),
             normalizer,
             rendered_segments: RenderedSegmentState::new(
                 channel_assignments,

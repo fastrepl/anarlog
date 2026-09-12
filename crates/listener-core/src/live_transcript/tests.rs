@@ -764,6 +764,45 @@ fn live_transcript_delta_keeps_speaker_index_on_words() {
 }
 
 #[test]
+fn nari_completed_utterances_finalize_immediately_without_waiting_for_flush() {
+    let mut engine = LiveTranscriptEngine::new("nari", &[], None);
+    for (start, text) in [(0.0, "First answer"), (1.0, "Second answer")] {
+        let preview = transcript_response_at(
+            "provisional",
+            vec![word("provisional", start, start + 1.0)],
+            false,
+            0,
+            start,
+            1.0,
+        );
+        assert!(
+            engine
+                .process(&preview)
+                .unwrap()
+                .transcript_delta
+                .new_words
+                .is_empty()
+        );
+        let completed = transcript_response_at(
+            text,
+            vec![word(text, start, start + 1.0)],
+            true,
+            0,
+            start,
+            1.0,
+        );
+        let update = engine
+            .process(&completed)
+            .expect("completed utterance delta");
+        assert_eq!(update.transcript_delta.new_words.len(), 1);
+        assert_eq!(update.transcript_delta.new_words[0].text.trim(), text);
+        assert!(update.transcript_delta.partials.is_empty());
+        assert!(engine.process(&completed).is_none());
+    }
+    assert!(engine.flush().is_none());
+}
+
+#[test]
 fn nari_empty_final_clears_only_its_preview_and_never_persists_unconfirmed_text() {
     let mut engine = LiveTranscriptEngine::new("nari", &[], None);
     let first = transcript_response_at(
