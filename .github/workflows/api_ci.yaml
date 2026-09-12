@@ -7,6 +7,7 @@ on:
       - .github/scripts/prepare_api_service_secrets.py
       - .github/scripts/test_prepare_api_service_secrets.py
       - .github/scripts/verify_api_continuity.py
+      - .github/scripts/test_verify_api_continuity.py
       - .github/scripts/deploy_api_drain.py
       - .github/scripts/test_deploy_api_drain.py
       - .github/scripts/test_verify_cloudsync_e2ee.py
@@ -22,12 +23,14 @@ on:
       - crates/llm-proxy/**
       - crates/mcp/**
       - crates/supabase-auth/**
+      - crates/supabase-storage/**
       - crates/transcribe-proxy/**
   pull_request:
     paths:
       - .github/scripts/prepare_api_service_secrets.py
       - .github/scripts/test_prepare_api_service_secrets.py
       - .github/scripts/verify_api_continuity.py
+      - .github/scripts/test_verify_api_continuity.py
       - .github/scripts/deploy_api_drain.py
       - .github/scripts/test_deploy_api_drain.py
       - .github/scripts/test_verify_cloudsync_e2ee.py
@@ -43,6 +46,7 @@ on:
       - crates/llm-proxy/**
       - crates/mcp/**
       - crates/supabase-auth/**
+      - crates/supabase-storage/**
       - crates/transcribe-proxy/**
 
 concurrency:
@@ -71,11 +75,12 @@ jobs:
       - run: cargo test -p mcp
       - run: cargo test -p supabase-auth --features server
       - run: cargo test -p api-sync
+      - run: cargo test --locked -p supabase-storage --test client
       - run: cargo test --locked -p api-subscription
       - run: cargo test -p transcribe-proxy --lib
       - run: cargo test --locked -p api
       - run: python3 .github/scripts/test_verify_cloudsync_e2ee.py
-      - run: python3 -m py_compile .github/scripts/verify_api_continuity.py
+      - run: python3 .github/scripts/test_verify_api_continuity.py
       - run: python3 .github/scripts/test_deploy_api_drain.py
       - run: python3 .github/scripts/test_prepare_api_service_secrets.py
       - run: |
