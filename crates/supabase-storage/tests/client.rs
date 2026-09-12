@@ -408,41 +408,58 @@ async fn percent_encodes_object_path_segments() {
 
 #[tokio::test]
 async fn deleting_a_missing_object_is_idempotent() {
-    let server = MockServer::start().await;
-    Mock::given(method("DELETE"))
-        .respond_with(ResponseTemplate::new(404).set_body_json(serde_json::json!({
-            "statusCode": "404",
-            "code": "NoSuchKey",
-            "message": "Object not found"
-        })))
-        .mount(&server)
-        .await;
+    for status in [400, 404] {
+        let server = MockServer::start().await;
+        Mock::given(method("DELETE"))
+            .respond_with(
+                ResponseTemplate::new(status).set_body_json(serde_json::json!({
+                    "statusCode": "404",
+                    "code": "NoSuchKey",
+                    "message": "Object not found"
+                })),
+            )
+            .mount(&server)
+            .await;
 
-    storage(&server)
-        .delete_file("attachment-backups", "user-id/missing.anb1")
-        .await
-        .unwrap();
+        storage(&server)
+            .delete_file("attachment-backups", "user-id/missing.anb1")
+            .await
+            .unwrap();
+    }
 }
 
 #[tokio::test]
 async fn does_not_hide_other_not_found_errors() {
-    let server = MockServer::start().await;
-    Mock::given(method("DELETE"))
-        .respond_with(ResponseTemplate::new(404).set_body_json(serde_json::json!({
-            "statusCode": "404",
-            "code": "NoSuchBucket",
-            "message": "Bucket not found"
-        })))
-        .mount(&server)
-        .await;
+    for (status, code) in [
+        (400, "NoSuchBucket"),
+        (404, "NoSuchBucket"),
+        (403, "AccessDenied"),
+        (500, "NoSuchKey"),
+    ] {
+        let server = MockServer::start().await;
+        Mock::given(method("DELETE"))
+            .respond_with(
+                ResponseTemplate::new(status).set_body_json(serde_json::json!({
+                    "statusCode": "404",
+                    "code": code,
+                    "message": "Bucket not found"
+                })),
+            )
+            .mount(&server)
+            .await;
 
-    let error = storage(&server)
-        .delete_file("attachment-backups", "user-id/object.anb1")
-        .await
-        .unwrap_err();
+        let error = storage(&server)
+            .delete_file("attachment-backups", "user-id/object.anb1")
+            .await
+            .unwrap_err();
 
-    assert!(error.to_string().contains("failed to delete file: 404"));
-    assert!(!error.to_string().contains("Bucket not found"));
+        assert!(
+            error
+                .to_string()
+                .contains(&format!("failed to delete file: {status}"))
+        );
+        assert!(!error.to_string().contains("Bucket not found"));
+    }
 }
 
 #[tokio::test]
