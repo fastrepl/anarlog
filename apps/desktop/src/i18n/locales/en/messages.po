@@ -249,6 +249,16 @@ msgstr "Acme"
 msgid "Action"
 msgstr "Action"
 
+#: src/settings/team/index.tsx
+msgid "Actions"
+msgstr "Actions"
+
+#. placeholder {0}: invitation.email
+#. placeholder {0}: member.email
+#: src/settings/team/index.tsx
+msgid "Actions for {0}"
+msgstr "Actions for {0}"
+
 #: src/settings/stats/index.tsx
 msgid "Active days"
 msgstr "Active days"
@@ -2096,6 +2106,7 @@ msgstr "Eligible for free trial"
 
 #: src/contacts/details.tsx
 #: src/session-sharing/delivery-panel.tsx
+#: src/settings/team/index.tsx
 msgid "Email"
 msgstr "Email"
 
@@ -3265,6 +3276,7 @@ msgstr "My automations"
 
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
+#: src/settings/team/index.tsx
 msgid "Name"
 msgstr "Name"
 
@@ -3754,6 +3766,10 @@ msgstr "Others"
 msgid "Overview"
 msgstr "Overview"
 
+#: src/settings/team/index.tsx
+msgid "Owner"
+msgstr "Owner"
+
 #: src/shared/control.tsx
 msgid "Page not found"
 msgstr "Page not found"
@@ -3830,9 +3846,15 @@ msgid "permission panel."
 msgstr "permission panel."
 
 #: src/settings/general/index.tsx
+#: src/settings/team/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Permissions"
 msgstr "Permissions"
+
+#. placeholder {0}: member.email
+#: src/settings/team/index.tsx
+msgid "Permissions for {0}"
+msgstr "Permissions for {0}"
 
 #: src/onboarding/index.tsx
 msgid "Permissions granted"
@@ -4113,6 +4135,10 @@ msgstr "Remove automation"
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Remove example {0}"
 msgstr "Remove example {0}"
+
+#: src/settings/team/index.tsx
+msgid "Remove member"
+msgstr "Remove member"
 
 #: src/contacts/contact-page-header.tsx
 msgid "Remove photo"

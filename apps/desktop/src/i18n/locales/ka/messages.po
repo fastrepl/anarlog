@@ -249,6 +249,16 @@ msgstr ""
 msgid "Action"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Actions"
+msgstr ""
+
+#. placeholder {0}: invitation.email
+#. placeholder {0}: member.email
+#: src/settings/team/index.tsx
+msgid "Actions for {0}"
+msgstr ""
+
 #: src/settings/stats/index.tsx
 msgid "Active days"
 msgstr ""
@@ -2096,6 +2106,7 @@ msgstr ""
 
 #: src/contacts/details.tsx
 #: src/session-sharing/delivery-panel.tsx
+#: src/settings/team/index.tsx
 msgid "Email"
 msgstr ""
 
@@ -3265,6 +3276,7 @@ msgstr ""
 
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
+#: src/settings/team/index.tsx
 msgid "Name"
 msgstr ""
 
@@ -3754,6 +3766,10 @@ msgstr ""
 msgid "Overview"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Owner"
+msgstr ""
+
 #: src/shared/control.tsx
 msgid "Page not found"
 msgstr ""
@@ -3830,8 +3846,14 @@ msgid "permission panel."
 msgstr ""
 
 #: src/settings/general/index.tsx
+#: src/settings/team/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Permissions"
+msgstr ""
+
+#. placeholder {0}: member.email
+#: src/settings/team/index.tsx
+msgid "Permissions for {0}"
 msgstr ""
 
 #: src/onboarding/index.tsx
@@ -4112,6 +4134,10 @@ msgstr ""
 #. placeholder {0}: index + 1
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Remove example {0}"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Remove member"
 msgstr ""
 
 #: src/contacts/contact-page-header.tsx
