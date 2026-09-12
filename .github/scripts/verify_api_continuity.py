@@ -125,14 +125,13 @@ class Traffic:
             raise RuntimeError(self.errors[0])
 
     async def requests(self):
+        # Readiness deliberately becomes 503 while draining; probe client liveness here.
         async with httpx.AsyncClient(timeout=60) as client:
 
             async def health():
                 while not self.closing:
                     try:
-                        response = await client.get(
-                            self.base + "/health/ready/ai", timeout=15
-                        )
+                        response = await client.get(self.base + "/health", timeout=15)
                         if response.status_code != 200:
                             self.errors.append(f"health HTTP {response.status_code}")
                         self.health += 1

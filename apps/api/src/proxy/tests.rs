@@ -109,17 +109,19 @@ async fn draining_waits_for_the_last_stream_chunk() {
     let (send, recv) = tokio::sync::mpsc::channel::<Result<&'static str, std::io::Error>>(4);
     let recv = Arc::new(std::sync::Mutex::new(Some(recv)));
     let upstream = serve(
-        Router::new().route(
-            "/stream",
-            get(move || {
-                let recv = recv.lock().unwrap().take().unwrap();
-                async move {
-                    Body::from_stream(futures_util::stream::unfold(recv, |mut recv| async {
-                        recv.recv().await.map(|item| (item, recv))
-                    }))
-                }
-            }),
-        ),
+        Router::new()
+            .route("/late-request", get(|| async { "completed" }))
+            .route(
+                "/stream",
+                get(move || {
+                    let recv = recv.lock().unwrap().take().unwrap();
+                    async move {
+                        Body::from_stream(futures_util::stream::unfold(recv, |mut recv| async {
+                            recv.recv().await.map(|item| (item, recv))
+                        }))
+                    }
+                }),
+            ),
         stop.clone(),
     )
     .await;
@@ -136,11 +138,11 @@ async fn draining_waits_for_the_last_stream_chunk() {
             .is_err()
     );
     assert_eq!(
-        reqwest::get(format!("{base}/stream"))
+        reqwest::get(format!("{base}/late-request"))
             .await
             .unwrap()
             .status(),
-        StatusCode::SERVICE_UNAVAILABLE
+        StatusCode::OK
     );
     send.send(Ok("last\n")).await.unwrap();
     drop(send);
@@ -274,5 +276,59 @@ async fn fly_second_hop_preserves_distinct_client_rate_limit_identities() {
         .await
         .unwrap();
     assert_eq!(direct.text().await.unwrap(), "198.51.100.1");
+    stop.cancel();
+}
+
+#[tokio::test]
+async fn a_late_http_response_finishes_during_graceful_shutdown() {
+    let stop = CancellationToken::new();
+    let (send, recv) = tokio::sync::mpsc::channel::<Result<&'static str, std::io::Error>>(4);
+    let recv = Arc::new(std::sync::Mutex::new(Some(recv)));
+    let upstream = serve(
+        Router::new().route(
+            "/late",
+            get(move || {
+                let recv = recv.lock().unwrap().take().unwrap();
+                async move {
+                    Body::from_stream(futures_util::stream::unfold(recv, |mut recv| async {
+                        recv.recv().await.map(|item| (item, recv))
+                    }))
+                }
+            }),
+        ),
+        stop.clone(),
+    )
+    .await;
+    let gate = SessionGate::new();
+    gate.begin_drain();
+    let base = gateway(&upstream, &gate, stop.clone()).await;
+    send.send(Ok("first")).await.unwrap();
+    let mut response = reqwest::get(format!("{base}/late")).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.chunk().await.unwrap().unwrap(), "first");
+    assert_eq!(gate.active(), 0);
+    stop.cancel();
+    send.send(Ok("last")).await.unwrap();
+    drop(send);
+    assert_eq!(response.chunk().await.unwrap().unwrap(), "last");
+    assert!(response.chunk().await.unwrap().is_none());
+}
+
+#[tokio::test]
+async fn new_websocket_handshakes_are_replayed_before_forwarding_during_drain() {
+    let stop = CancellationToken::new();
+    let gate = SessionGate::new();
+    gate.begin_drain();
+    let base = gateway("http://127.0.0.1:1", &gate, stop.clone()).await;
+    let response = reqwest::Client::new()
+        .get(format!("{base}/listen"))
+        .header(header::CONNECTION, "upgrade")
+        .header(header::UPGRADE, "websocket")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(response.headers()["fly-replay"], "elsewhere=true");
+    assert_eq!(gate.active(), 0);
     stop.cancel();
 }

@@ -113,13 +113,24 @@ async fn forward(State(proxy): State<Arc<Proxy>>, mut request: Request, _next: N
     if request.headers().contains_key("x-anarlog-proxy-hop") {
         return (StatusCode::LOOP_DETECTED, "Upstream routing loop").into_response();
     }
-    let Ok(permit) = proxy.gate.try_acquire() else {
-        return (StatusCode::SERVICE_UNAVAILABLE, "Server is draining").into_response();
-    };
     let websocket = request
         .headers()
         .get(header::UPGRADE)
         .is_some_and(|value| value.as_bytes().eq_ignore_ascii_case(b"websocket"));
+    let permit = match proxy.gate.try_acquire() {
+        Ok(permit) => Some(permit),
+        Err(_) if websocket => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                [("fly-replay", "elsewhere=true")],
+                "Server is draining",
+            )
+                .into_response();
+        }
+        // Axum waits for accepted HTTP responses during graceful shutdown. Residual
+        // requests may still arrive after cordoning; complete them without replaying writes.
+        Err(_) => None,
+    };
     let upgrade = websocket.then(|| hyper::upgrade::on(&mut request));
     let url = format!(
         "{}{}",

@@ -395,6 +395,7 @@ def replacement_config(
     image: str,
     desired_stop_config: dict[str, str],
     runtime_config: dict[str, Any] | None = None,
+    drain_supported: bool = False,
 ) -> dict[str, Any]:
     host_status = machine.get("host_status")
     if host_status not in {None, "ok"}:
@@ -422,7 +423,9 @@ def replacement_config(
     metadata.pop("fly_cordoned", None)
     if runtime_config is not None:
         metadata["fly_process_group"] = "app"
-    metadata[DRAIN_PROTOCOL_METADATA_KEY] = DRAIN_PROTOCOL_METADATA_VALUE
+    metadata.pop(DRAIN_PROTOCOL_METADATA_KEY, None)
+    if drain_supported:
+        metadata[DRAIN_PROTOCOL_METADATA_KEY] = DRAIN_PROTOCOL_METADATA_VALUE
     return replacement
 
 
@@ -432,10 +435,11 @@ def create_replacement_machine(
     image: str,
     desired_stop_config: dict[str, str],
     runtime_config: dict[str, Any] | None = None,
+    drain_supported: bool = False,
 ) -> str:
     payload: dict[str, Any] = {
         "config": replacement_config(
-            machine, image, desired_stop_config, runtime_config
+            machine, image, desired_stop_config, runtime_config, drain_supported
         ),
         "skip_service_registration": True,
     }
@@ -643,7 +647,8 @@ def bootstrap_deploy(
         )
     for machine in list_machines(app):
         wait_until_healthy(app, machine["id"])
-        mark_drain_supported(app, machine["id"])
+        if image is None:
+            mark_drain_supported(app, machine["id"])
 
 
 def mark_drain_supported(app: str, machine_id: str) -> None:
@@ -704,6 +709,13 @@ def deploy(
                 "Existing image must be an immutable digest from an API application"
             )
     runtime_config = desired_runtime_config(app, config)
+    # Capture verified rollback images before stopped machines are removed.
+    drain_supported = image_override is None or any(
+        supports_session_drain(machine)
+        and (machine.get("image_ref") or {}).get("digest")
+        == image_override.split("@", 1)[1]
+        for machine in list_machines(app)
+    )
     destroy_drained_machines(app)
     resume_draining_machines(app)
     machines = list_machines(app)
@@ -732,7 +744,12 @@ def deploy(
         for machine in sources:
             replacement_ids.append(
                 create_replacement_machine(
-                    app, machine, image, desired_stop_config, runtime_config
+                    app,
+                    machine,
+                    image,
+                    desired_stop_config,
+                    runtime_config,
+                    drain_supported,
                 )
             )
         for machine_id in replacement_ids:
@@ -755,7 +772,10 @@ def retire_idle_stripe_machine(machine_id: str) -> None:
     target = next(
         (machine for machine in machines if machine["id"] == machine_id), None
     )
-    if target is None or not is_cordoned(target):
+    if target is None:
+        print(f"legacy Stripe machine {machine_id} is already removed")
+        return
+    if not is_cordoned(target):
         raise DeployError(
             "Legacy retirement requires an existing cordoned Stripe machine"
         )

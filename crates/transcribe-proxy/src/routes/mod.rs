@@ -273,6 +273,10 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
         assert_eq!(response.headers().get("retry-after").unwrap(), "2");
+        assert_eq!(
+            response.headers().get("fly-replay").unwrap(),
+            "elsewhere=true"
+        );
     }
 
     #[test]

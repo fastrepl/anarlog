@@ -115,6 +115,7 @@ def test_replacement_config_updates_image_without_mutating_source():
         machine,
         "registry.fly.io/anarlog-ai:new",
         {"signal": "SIGTERM", "timeout": "300s"},
+        drain_supported=True,
     )
 
     assert config["image"] == "registry.fly.io/anarlog-ai:new"
@@ -187,6 +188,7 @@ def test_create_replacement_starts_cordoned_in_the_source_region():
             machine,
             "registry.fly.io/anarlog-ai:new",
             {"signal": "SIGTERM", "timeout": "300s"},
+            drain_supported=True,
         )
 
     assert created == "new"
@@ -409,7 +411,9 @@ def test_partial_replacement_failure_destroys_created_machines():
     ]
     destroyed = []
 
-    def create_replacement(_app, machine, _image, _stop_config, _runtime_config):
+    def create_replacement(
+        _app, machine, _image, _stop_config, _runtime_config, _supported
+    ):
         if machine["id"] == "old-b":
             raise DeployError("launch failed")
         return "new-a"
@@ -720,7 +724,7 @@ def test_deploy_restores_minimum_primary_region_capacity():
     old = {"id": "old", "region": "nrt", "cordoned": False, "config": {"image": "old"}}
     regions = []
 
-    def create(_app, machine, _image, _stop, _runtime):
+    def create(_app, machine, _image, _stop, _runtime, _supported):
         regions.append(machine["region"])
         return f"new-{len(regions)}"
 
@@ -790,8 +794,11 @@ def test_idle_legacy_stripe_retirement_requires_cordon_and_healthy_capacity():
         api.assert_called_once_with(
             "POST", "/apps/hyprnote-stripe/machines/old/signal", {"signal": "SIGTERM"}
         )
+        with patch.object(deploy_api_drain, "list_machines", return_value=machines[1:]):
+            api.reset_mock()
+            deploy_api_drain.retire_idle_stripe_machine("old")
+            api.assert_not_called()
         for unsafe in [
-            machines[1:],
             [target, machines[1]],
             [dict(target, cordoned=False), *machines[1:]],
         ]:
@@ -806,7 +813,64 @@ def test_idle_legacy_stripe_retirement_requires_cordon_and_healthy_capacity():
             api.assert_not_called()
 
 
+def test_unknown_override_does_not_inherit_drain_support():
+    machine = {
+        "id": "old",
+        "config": {"metadata": {"anarlog_drain_protocol": "sigusr1-v1"}},
+    }
+    config = replacement_config(machine, "unknown", {"signal": "SIGTERM"})
+    assert not supports_session_drain({"config": config})
+    with (
+        patch.object(deploy_api_drain, "fly"),
+        patch.object(deploy_api_drain, "list_machines", return_value=[{"id": "new"}]),
+        patch.object(deploy_api_drain, "wait_until_healthy"),
+        patch.object(deploy_api_drain, "mark_drain_supported") as mark,
+    ):
+        deploy_api_drain.bootstrap_deploy(
+            "anarlog-inference", "config", "Dockerfile", "test", "unknown"
+        )
+        mark.assert_not_called()
+
+
+def test_override_support_is_verified_before_cleanup():
+    digest = "sha256:" + "a" * 64
+    image = "registry.fly.io/anarlog-inference@" + digest
+    for verified in [False, True]:
+        old = {"id": "old", "region": "sjc", "config": {"image": "old"}}
+        known = {
+            "id": "retired",
+            "state": "stopped",
+            "cordoned": True,
+            "image_ref": {"digest": digest},
+            "config": {
+                "metadata": {"anarlog_drain_protocol": "sigusr1-v1"} if verified else {}
+            },
+        }
+        with (
+            patch.object(
+                deploy_api_drain, "list_machines", side_effect=[[old, known], [old]]
+            ),
+            patch.object(deploy_api_drain, "destroy_drained_machines"),
+            patch.object(deploy_api_drain, "resume_draining_machines"),
+            patch.object(
+                deploy_api_drain,
+                "create_replacement_machine",
+                side_effect=["new-a", "new-b"],
+            ) as create,
+            patch.object(deploy_api_drain, "wait_until_healthy"),
+            patch.object(deploy_api_drain, "validate_serving_set"),
+            patch.object(deploy_api_drain, "cut_over"),
+            patch.object(deploy_api_drain, "drain_old_machines"),
+        ):
+            deploy_api_drain.deploy(
+                "anarlog-inference", "apps/api/fly.ai.toml", "Dockerfile", "test", image
+            )
+            assert all(call.args[-1] is verified for call in create.call_args_list)
+
+
 if __name__ == "__main__":
+    test_override_support_is_verified_before_cleanup()
+    test_unknown_override_does_not_inherit_drain_support()
     test_idle_legacy_stripe_retirement_requires_cordon_and_healthy_capacity()
     test_bootstrap_marks_healthy_machines_for_future_drains()
     test_drain_adoption_only_marks_the_verified_image()
