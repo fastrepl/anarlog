@@ -760,7 +760,9 @@ def retire_idle_stripe_machine(machine_id: str) -> None:
             "Legacy retirement requires an existing cordoned Stripe machine"
         )
     serving = serving_machines(machines)
-    if len(serving) < 2 or not all(checks_passing(machine) for machine in serving):
+    if len(serving) < 2 or not all(
+        checks_passing(get_machine(app, machine["id"])) for machine in serving
+    ):
         raise DeployError(
             "Legacy retirement requires two healthy serving Stripe machines"
         )

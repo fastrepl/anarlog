@@ -770,11 +770,19 @@ def test_rollback_requires_an_immutable_api_image_before_mutating_machines():
 def test_idle_legacy_stripe_retirement_requires_cordon_and_healthy_capacity():
     target = {"id": "old", "state": "started", "cordoned": True}
     healthy = {"state": "started", "checks": [{"status": "passing"}]}
-    machines = [target, dict(healthy, id="new-a"), dict(healthy, id="new-b")]
+    machines = [
+        target,
+        {"id": "new-a", "state": "started"},
+        {"id": "new-b", "state": "started"},
+    ]
     with (
         patch.object(deploy_api_drain, "list_machines", return_value=machines),
         patch.object(
-            deploy_api_drain, "get_machine", return_value={"state": "stopped"}
+            deploy_api_drain,
+            "get_machine",
+            side_effect=lambda app, machine_id: {"state": "stopped"}
+            if machine_id == "old"
+            else healthy,
         ),
         patch.object(deploy_api_drain, "api_request") as api,
     ):
