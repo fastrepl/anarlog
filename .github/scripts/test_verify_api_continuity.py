@@ -100,6 +100,11 @@ class ContinuityTests(unittest.IsolatedAsyncioTestCase):
                 patch.object(verify, "Traffic", Traffic),
                 patch.object(verify, "authenticate", AsyncMock(return_value="unused")),
                 patch.object(verify, "event"),
+                patch.object(
+                    verify,
+                    "verify_isolated_drain",
+                    AsyncMock(return_value={"passed": True}),
+                ) as isolation,
                 patch.object(verify.deploy, "adopt_drain_image"),
                 patch.object(
                     verify.deploy,
@@ -114,6 +119,11 @@ class ContinuityTests(unittest.IsolatedAsyncioTestCase):
                 else:
                     await verify.run(args)
             result = json.loads(output.read_text())
+            if wrong_image or fail_rollback:
+                isolation.assert_not_awaited()
+            else:
+                isolation.assert_awaited_once()
+                self.assertTrue(result["isolated_drain"]["passed"])
         self.assertTrue(traffic_instances[0].closed.is_set())
         self.assertTrue(traffic_instances[0].monitor_finished)
         return calls, result
@@ -147,71 +157,91 @@ class ContinuityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["stages"], ["replacement"])
 
 
-class DrainCompletionTests(unittest.IsolatedAsyncioTestCase):
-    async def test_preserves_a_session_observed_before_the_test(self):
-        with patch.object(
-            verify.deploy, "list_machines", return_value=[machine("busy", A)]
-        ):
-            pending = await verify.wait_for_qa_drains(
-                "anarlog-inference",
-                [(None, {"id": "busy", "preexisting_streams": 1})],
-                timeout=0,
-            )
-        self.assertEqual(pending, ["busy"])
+class IsolatedDrainTests(unittest.IsolatedAsyncioTestCase):
+    async def exercise(
+        self, *, state="false 0", address="127.0.0.1:18080", traffic_error=False
+    ):
+        calls = []
+        instances = []
 
-    async def test_customer_session_does_not_hide_another_machine_failing_to_exit(self):
-        with patch.object(
-            verify.deploy,
-            "list_machines",
-            return_value=[machine("busy", A), machine("qa-only", A)],
-        ):
-            with self.assertRaisesRegex(RuntimeError, "qa-only"):
-                await verify.wait_for_qa_drains(
-                    "anarlog-inference",
-                    [
-                        (None, {"id": "busy", "preexisting_streams": 1}),
-                        (None, {"id": "qa-only", "preexisting_streams": 0}),
-                    ],
-                    timeout=0,
-                )
+        async def command(*args):
+            calls.append(args)
+            if args[:2] == ("docker", "port"):
+                return address
+            if args[:2] == ("docker", "inspect"):
+                return state
+            return ""
 
-    async def test_preexisting_session_that_finishes_leaves_no_pending_drain(self):
-        with patch.object(
-            verify.deploy,
-            "list_machines",
-            return_value=[machine("busy", A, state="stopped")],
-        ):
-            self.assertEqual(
-                await verify.wait_for_qa_drains(
-                    "anarlog-inference",
-                    [(None, {"id": "busy", "preexisting_streams": 1})],
-                    timeout=0,
-                ),
-                [],
-            )
+        class Traffic:
+            def __init__(self, *args, **kwargs):
+                self.closed = asyncio.Event()
+                self.errors = ["LLM failed"] if traffic_error else []
+                self.llms = self.health = 2
+                instances.append(self)
 
-    async def test_rejects_invalid_baseline_before_opening_a_recording(self):
-        for status in [
-            {"draining": True, "active_streams": 1},
-            {"draining": False, "active_streams": -1},
-            {"draining": False, "active_streams": True},
-            {"draining": False},
-        ]:
-            with self.subTest(status=status):
-                response = MagicMock()
-                response.json.return_value = status
-                client = AsyncMock()
-                client.get.return_value = response
-                context = AsyncMock()
-                context.__aenter__.return_value = client
-                with (
-                    patch.object(verify.httpx, "AsyncClient", return_value=context),
-                    patch.object(verify, "connect", AsyncMock()) as connect,
-                ):
-                    traffic = verify.Traffic("https://example.test", "test", b"")
-                    with self.assertRaisesRegex(RuntimeError, "session baseline"):
-                        await traffic.record("busy")
-                    connect.assert_not_awaited()
+            async def record(self, identifier):
+                pass
+
+            async def requests(self):
+                await self.closed.wait()
+
+            async def hold(self, seconds, stage):
+                pass
+
+            async def close(self):
+                self.closed.set()
+
+        response = MagicMock(status_code=200)
+        response.json.return_value = {"draining": True, "active_streams": 1}
+        client = AsyncMock()
+        client.get.return_value = response
+        context = AsyncMock()
+        context.__aenter__.return_value = client
+        with tempfile.NamedTemporaryFile(mode="w") as secrets:
+            secrets.write("[]")
+            secrets.flush()
+            args = SimpleNamespace(image=B, secrets=secrets.name)
+            with (
+                patch.object(verify, "command", side_effect=command),
+                patch.object(verify, "Traffic", Traffic),
+                patch.object(verify, "event"),
+                patch.object(verify.httpx, "AsyncClient", return_value=context),
+                patch.object(verify.secrets_config, "select", return_value={}),
+            ):
+                if state != "false 0" or address != "127.0.0.1:18080" or traffic_error:
+                    with self.assertRaises(RuntimeError):
+                        await verify.verify_isolated_drain(
+                            args, "token", b"audio", stop_timeout=0
+                        )
+                else:
+                    result = await verify.verify_isolated_drain(
+                        args, "token", b"audio", stop_timeout=0
+                    )
+                    self.assertTrue(result["passed"])
+                    self.assertEqual(result["image"], B)
+        self.assertEqual(calls[-1][:3], ("docker", "rm", "--force"))
+        self.assertTrue(all(instance.closed.is_set() for instance in instances))
+        return calls
+
+    async def test_exact_image_is_loopback_only_and_exits_without_forced_signal(self):
+        calls = await self.exercise()
+        create = next(call for call in calls if call[:2] == ("docker", "create"))
+        self.assertEqual(create[-1], B)
+        self.assertEqual(create[create.index("--publish") + 1], "127.0.0.1::3001")
+        signals = [call for call in calls if call[:2] == ("docker", "kill")]
+        self.assertEqual([call[2:4] for call in signals], [("--signal", "SIGUSR1")])
+
+    async def test_leaked_permit_fails_even_when_production_has_customer_sessions(self):
+        await self.exercise(state="true 0")
+
+    async def test_crash_is_not_successful_drain(self):
+        await self.exercise(state="false 1")
+
+    async def test_refuses_public_binding_and_removes_only_its_fixture(self):
+        await self.exercise(address="0.0.0.0:18080")
+
+    async def test_request_failure_still_closes_traffic_and_removes_fixture(self):
+        await self.exercise(traffic_error=True)
 
 
 if __name__ == "__main__":

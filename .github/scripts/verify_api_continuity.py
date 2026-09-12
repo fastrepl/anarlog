@@ -4,15 +4,18 @@
 import argparse
 import asyncio
 import json
+import re
 import time
 import tempfile
 import wave
+import uuid
 from pathlib import Path
 
 import httpx
 from websockets.asyncio.client import connect
 
 import deploy_api_drain as deploy
+import prepare_api_service_secrets as secrets_config
 
 
 def event(stage, **details):
@@ -62,26 +65,8 @@ class Traffic:
         self.llms = 0
 
     async def record(self, machine_id):
-        preexisting_streams = 0
-        if not self.gateway:
-            async with httpx.AsyncClient(timeout=15) as client:
-                response = await client.get(
-                    self.base + "/drain",
-                    headers={**self.headers, "fly-force-instance-id": machine_id},
-                )
-                response.raise_for_status()
-                status = response.json()
-                preexisting_streams = status.get("active_streams")
-                if (
-                    status.get("draining") is not False
-                    or type(preexisting_streams) is not int
-                    or preexisting_streams < 0
-                ):
-                    raise RuntimeError(
-                        "Cannot establish session baseline for " + machine_id
-                    )
         socket = await connect(
-            self.base.replace("https:", "wss:")
+            self.base.replace("https:", "wss:").replace("http:", "ws:")
             + "/listen?provider=deepgram&model=nova-3&encoding=linear16&sample_rate=16000&channels=1&language=en&interim_results=true",
             additional_headers={**self.headers, "fly-force-instance-id": machine_id},
             open_timeout=30,
@@ -93,7 +78,6 @@ class Traffic:
             "last_transcript": time.monotonic(),
             "sent_bytes": 0,
             "closed": False,
-            "preexisting_streams": preexisting_streams,
         }
         self.streams.append((socket, state))
 
@@ -243,37 +227,150 @@ class Traffic:
         await asyncio.gather(*self.tasks, return_exceptions=True)
 
 
-async def wait_for_qa_drains(app, streams, *, gateway=False, timeout=90):
-    # A production recording observed before QA must not be forced to end for the trial.
-    baseline = {
-        state["id"]: state.get("preexisting_streams", 0) for _, state in streams
-    }
-    deadline = time.monotonic() + timeout
-    while True:
-        current = await asyncio.to_thread(deploy.list_machines, app)
-        pending = [
-            machine["id"]
-            for machine in current
-            if machine["id"] in baseline and deploy.is_started(machine)
-        ]
-        if not pending:
-            event("old_qa_machines_stopped")
-            return []
-        if time.monotonic() >= deadline:
-            break
-        await asyncio.sleep(5)
-    unexplained = [identifier for identifier in pending if baseline[identifier] == 0]
-    if unexplained and not gateway:
-        raise RuntimeError(
-            "QA-only machines have not stopped: " + ", ".join(unexplained)
-        )
-    event("customer_drains_pending", machines=pending)
-    return pending
+async def command(*args):
+    process = await asyncio.create_subprocess_exec(
+        *args, stdout=asyncio.subprocess.PIPE
+    )
+    output, _ = await process.communicate()
+    if process.returncode:
+        raise RuntimeError(f"{args[0]} {args[1]} failed")
+    return output.decode().strip()
+
+
+def fixture_audio():
+    with wave.open("crates/data/src/english_1/audio.wav") as source:
+        if (source.getnchannels(), source.getsampwidth(), source.getframerate()) != (
+            1,
+            2,
+            16000,
+        ):
+            raise RuntimeError("Unexpected fixture audio format")
+        return source.readframes(source.getnframes())
+
+
+async def verify_isolated_drain(args, token, audio, *, stop_timeout=90):
+    # The exact production image runs on loopback, with no customer ingress or cleanup worker.
+    await command("flyctl", "auth", "docker")
+    await command("docker", "pull", args.image)
+    name = "anlg-drain-qa-" + uuid.uuid4().hex
+    values = secrets_config.select("ai", json.loads(Path(args.secrets).read_text()), [])
+    values.update(
+        ANARLOG_SERVICE="ai", PORT="3001", ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED="false"
+    )
+    traffic = monitor = None
+    created = False
+    with tempfile.NamedTemporaryFile(mode="w") as env_file:
+        for key, value in values.items():
+            env_file.write(
+                key + "=" + value.replace("\n", "\\n").replace("\r", "") + "\n"
+            )
+        env_file.flush()
+        try:
+            await command(
+                "docker",
+                "create",
+                "--name",
+                name,
+                "--env-file",
+                env_file.name,
+                "--publish",
+                "127.0.0.1::3001",
+                args.image,
+            )
+            created = True
+            await command("docker", "start", name)
+            address = await command("docker", "port", name, "3001/tcp")
+            if (
+                not address.startswith("127.0.0.1:")
+                or not address.split(":")[1].isdigit()
+            ):
+                raise RuntimeError("Isolated runtime must bind only to loopback")
+            base = "http://" + address
+            async with httpx.AsyncClient(timeout=5) as client:
+                deadline = time.monotonic() + 90
+                while True:
+                    try:
+                        response = await client.get(base + "/health")
+                        if response.status_code == 200:
+                            break
+                    except httpx.HTTPError:
+                        pass
+                    if time.monotonic() >= deadline:
+                        raise RuntimeError("Isolated runtime did not become ready")
+                    await asyncio.sleep(1)
+                traffic = Traffic(base, token, audio)
+                await traffic.record(name)
+                monitor = asyncio.create_task(traffic.requests())
+                await traffic.hold(5, "isolated_recording")
+                await command("docker", "kill", "--signal", "SIGUSR1", name)
+                response = await client.get(base + "/drain")
+                response.raise_for_status()
+                if response.json() != {"draining": True, "active_streams": 1}:
+                    raise RuntimeError(
+                        "Isolated drain must hold exactly the QA recording"
+                    )
+                await traffic.hold(15, "isolated_drain")
+                await traffic.close()
+                await monitor
+                if traffic.errors or traffic.llms == 0:
+                    raise RuntimeError("Isolated request continuity failed")
+            deadline = time.monotonic() + stop_timeout
+            while True:
+                state = await command(
+                    "docker",
+                    "inspect",
+                    "--format",
+                    "{{.State.Running}} {{.State.ExitCode}}",
+                    name,
+                )
+                if state == "false 0":
+                    break
+                if state.startswith("false") or time.monotonic() >= deadline:
+                    raise RuntimeError(
+                        "Isolated runtime did not exit cleanly after QA closed"
+                    )
+                await asyncio.sleep(1)
+            result = {
+                "passed": True,
+                "image": args.image,
+                "exit_code": 0,
+                "llms": traffic.llms,
+                "health": traffic.health,
+                "errors": traffic.errors,
+            }
+            event("isolated_drain_passed", **result)
+            return result
+        finally:
+            try:
+                if traffic is not None:
+                    await traffic.close()
+                if monitor is not None:
+                    await monitor
+            finally:
+                # Only this runner-owned, loopback-only container can be removed here.
+                if created:
+                    await command("docker", "rm", "--force", name)
 
 
 async def run(args):
     if args.app not in {"anarlog-inference", "anarlog-ai"}:
         raise RuntimeError("Continuity QA supports the AI runtime and Anarlog gateway")
+    if not re.fullmatch(
+        r"registry\.fly\.io/(anarlog-ai|anarlog-inference|anarlog-core|anarlog-sync|anarlog-billing-api|hyprnote-ai)@sha256:[0-9a-f]{64}",
+        args.image,
+    ):
+        raise RuntimeError("Continuity QA requires an immutable API image")
+    audio = fixture_audio()
+    async with httpx.AsyncClient(timeout=30) as client:
+        token = await authenticate(client, args.secrets, args.email)
+    if getattr(args, "isolated_drain_only", False):
+        result = {"passed": False, "candidate": args.image}
+        try:
+            result["isolated_drain"] = await verify_isolated_drain(args, token, audio)
+            result["passed"] = True
+        finally:
+            Path(args.output).write_text(json.dumps(result, indent=2))
+        return
     if args.verified_image_digest:
         deploy.adopt_drain_image(args.app, args.verified_image_digest, args.image)
     # The immutable candidate is built separately so recording time excludes remote builds.
@@ -311,16 +408,6 @@ async def run(args):
     rollback_file = tempfile.NamedTemporaryFile(mode="w", suffix=".toml")
     rollback_file.write(deploy.rollback_health_config(args.config, originals[0]))
     rollback_file.flush()
-    with wave.open("crates/data/src/english_1/audio.wav") as source:
-        if (source.getnchannels(), source.getsampwidth(), source.getframerate()) != (
-            1,
-            2,
-            16000,
-        ):
-            raise RuntimeError("Unexpected fixture audio format")
-        audio = source.readframes(source.getnframes())
-    async with httpx.AsyncClient(timeout=30) as client:
-        token = await authenticate(client, args.secrets, args.email)
     gateway = args.app == "anarlog-ai"
     base = "https://api.anarlog.so" if gateway else "https://anarlog-inference.fly.dev"
     traffic = Traffic(base, token, audio, gateway=gateway)
@@ -377,9 +464,17 @@ async def run(args):
         await monitor
         if traffic.errors:
             raise RuntimeError(traffic.errors[0])
-        pending = await wait_for_qa_drains(args.app, traffic.streams, gateway=gateway)
+        current = await asyncio.to_thread(deploy.list_machines, args.app)
+        qa_ids = {state["id"] for _, state in traffic.streams}
+        pending = [
+            machine["id"]
+            for machine in current
+            if machine["id"] in qa_ids and deploy.is_started(machine)
+        ]
         if pending:
-            result["pending_customer_drains"] = pending
+            result["pending_production_drains"] = pending
+            event("production_drains_pending", machines=pending)
+        result["isolated_drain"] = await verify_isolated_drain(args, token, audio)
         result["passed"] = True
     finally:
         rollback_file.close()
@@ -417,4 +512,5 @@ if __name__ == "__main__":
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--verified-image-digest")
     parser.add_argument("--rollback-image")
+    parser.add_argument("--isolated-drain-only", action="store_true")
     asyncio.run(run(parser.parse_args()))

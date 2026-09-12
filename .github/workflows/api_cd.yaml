@@ -13,6 +13,10 @@ on:
         description: Optional QA account for live AI or gateway deployment and rollback (requires immutable image)
         type: string
         required: false
+      isolated_drain_only:
+        description: Verify the deployed image shutdown in a loopback-only container without changing traffic
+        type: boolean
+        default: false
       continuity_rollback_image:
         description: Optional immutable rollback image already verified on an existing machine
         type: string
@@ -183,6 +187,7 @@ jobs:
             test "$SERVICE" = legacy
             args+=(--retire-idle-legacy-api-machine "$RETIRE_IDLE_LEGACY_MACHINE")
           fi
+          if [ "$ISOLATED_DRAIN_ONLY" = true ]; then test -n "$CONTINUITY_USER"; fi
           if [ -n "$CONTINUITY_USER" ]; then
             case "$SERVICE" in ai|gateway) ;; *) exit 1 ;; esac
             test -n "$DEPLOY_IMAGE"
@@ -194,6 +199,7 @@ jobs:
             python3 -m venv "$RUNNER_TEMP/continuity-venv"
             "$RUNNER_TEMP/continuity-venv/bin/pip" install httpx==0.28.1 websockets==15.0.1
             qa_args=()
+            if [ "$ISOLATED_DRAIN_ONLY" = true ]; then qa_args+=(--isolated-drain-only); fi
             if [ -n "$CONTINUITY_ROLLBACK_IMAGE" ]; then qa_args+=(--rollback-image "$CONTINUITY_ROLLBACK_IMAGE"); fi
             if [ -n "$ADOPT_DRAIN_IMAGE" ]; then qa_args+=(--verified-image-digest "$ADOPT_DRAIN_IMAGE"); fi
             "$RUNNER_TEMP/continuity-venv/bin/python" .github/scripts/verify_api_continuity.py "${qa_args[@]}" \
@@ -208,6 +214,7 @@ jobs:
           API_VERSION: ${{ needs.compute-version.outputs.version }}
           DEPLOY_IMAGE: ${{ inputs.image }}
           CONTINUITY_USER: ${{ inputs.continuity_user }}
+          ISOLATED_DRAIN_ONLY: ${{ inputs.isolated_drain_only }}
           CONTINUITY_ROLLBACK_IMAGE: ${{ inputs.continuity_rollback_image }}
           INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
           ADOPT_DRAIN_IMAGE: ${{ inputs.adopt_drain_image }}
