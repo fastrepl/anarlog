@@ -46,6 +46,13 @@ async fn large_uploads_keep_auth_query_and_response_headers_without_retrying_red
                     );
                     assert_eq!(request.headers()["x-forwarded-host"], "api.example.test");
                     assert!(!request.headers().contains_key("x-remove-me"));
+                    for name in [
+                        "fly-force-instance-id",
+                        "fly-prefer-instance-id",
+                        "fly-force-region",
+                    ] {
+                        assert!(!request.headers().contains_key(name));
+                    }
                     let bytes = axum::body::to_bytes(request.into_body(), 8 * 1024 * 1024)
                         .await
                         .unwrap();
@@ -76,6 +83,9 @@ async fn large_uploads_keep_auth_query_and_response_headers_without_retrying_red
         .bearer_auth("test-token")
         .header(header::CONNECTION, "x-remove-me")
         .header("x-remove-me", "private")
+        .header("fly-force-instance-id", "gateway-machine")
+        .header("fly-prefer-instance-id", "gateway-machine")
+        .header("fly-force-region", "sjc")
         .body(vec![42u8; 3 * 1024 * 1024])
         .send()
         .await
