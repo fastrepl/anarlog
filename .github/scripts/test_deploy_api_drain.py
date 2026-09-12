@@ -602,6 +602,41 @@ def test_desired_runtime_replaces_stale_machine_settings():
     assert desired["env"]["PORT"] == "3001"
 
 
+def test_bootstrap_marks_healthy_machines_for_future_drains():
+    with (
+        patch.object(deploy_api_drain, "fly"),
+        patch.object(deploy_api_drain, "list_machines", return_value=[{"id": "new"}]),
+        patch.object(deploy_api_drain, "wait_until_healthy") as healthy,
+        patch.object(deploy_api_drain, "api_request") as api,
+    ):
+        deploy_api_drain.bootstrap_deploy(
+            "anarlog-inference", "config", "Dockerfile", "test"
+        )
+        healthy.assert_called_once_with("anarlog-inference", "new")
+        api.assert_called_once_with(
+            "POST",
+            "/apps/anarlog-inference/machines/new/metadata/anarlog_drain_protocol",
+            {"value": "sigusr1-v1"},
+        )
+
+
+def test_drain_adoption_only_marks_the_verified_image():
+    digest = "sha256:" + "a" * 64
+    with (
+        patch.object(
+            deploy_api_drain,
+            "list_machines",
+            return_value=[
+                {"id": "verified", "image_ref": {"digest": digest}},
+                {"id": "legacy", "image_ref": {"digest": "sha256:" + "b" * 64}},
+            ],
+        ),
+        patch.object(deploy_api_drain, "mark_drain_supported") as mark,
+    ):
+        deploy_api_drain.adopt_drain_image("anarlog-inference", digest)
+        mark.assert_called_once_with("anarlog-inference", "verified")
+
+
 def test_stripe_replacement_migrates_process_group_and_keeps_capacity():
     desired = deploy_api_drain.desired_runtime_config(
         "hyprnote-stripe", "apps/stripe/fly.toml"
@@ -733,6 +768,8 @@ def test_rollback_requires_an_immutable_api_image_before_mutating_machines():
 
 
 if __name__ == "__main__":
+    test_bootstrap_marks_healthy_machines_for_future_drains()
+    test_drain_adoption_only_marks_the_verified_image()
     test_stripe_replacement_migrates_process_group_and_keeps_capacity()
     test_rollback_requires_an_immutable_api_image_before_mutating_machines()
     test_deploy_restores_minimum_primary_region_capacity()
