@@ -14,6 +14,7 @@ on:
       - crates/agent-access/**
       - crates/api-auth/**
       - crates/api-cloud/**
+      - crates/api-subscription/**
       - crates/api-sync/**
       - crates/llm-proxy/**
       - crates/mcp/**
@@ -31,6 +32,7 @@ on:
       - crates/agent-access/**
       - crates/api-auth/**
       - crates/api-cloud/**
+      - crates/api-subscription/**
       - crates/api-sync/**
       - crates/llm-proxy/**
       - crates/mcp/**
@@ -55,8 +57,9 @@ jobs:
       - run: cargo test -p mcp
       - run: cargo test -p supabase-auth --features server
       - run: cargo test -p api-sync
+      - run: cargo test --locked -p api-subscription
       - run: cargo test -p transcribe-proxy --lib
-      - run: cargo test -p api drain_status_reports_live_streams_without_failing_health
+      - run: cargo test --locked -p api
       - run: python3 .github/scripts/test_verify_cloudsync_e2ee.py
       - run: python3 .github/scripts/test_deploy_api_drain.py
       - run: |

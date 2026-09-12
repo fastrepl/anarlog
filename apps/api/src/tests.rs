@@ -14,6 +14,96 @@ use wiremock::{
 use super::*;
 
 const TEST_KEY_ID: &str = "sync-composition-test";
+
+#[tokio::test]
+async fn standalone_services_build_without_other_services_credentials() {
+    for role in ["ai", "sync", "core", "billing"] {
+        let mut values = vec![
+            ("ANARLOG_SERVICE", role),
+            ("SUPABASE_URL", "http://127.0.0.1:54321"),
+            ("SUPABASE_ANON_KEY", "anon"),
+            ("SUPABASE_SERVICE_ROLE_KEY", "service"),
+        ];
+        match role {
+            "ai" => values.extend([
+                ("OPENROUTER_API_KEY", "key"),
+                ("API_BASE_URL", "http://127.0.0.1:3001"),
+            ]),
+            "sync" => values.extend([
+                ("RESEND_API_KEY", "key"),
+                ("RESEND_FROM_EMAIL", "test@example.com"),
+            ]),
+            "core" | "billing" => values.extend([
+                ("STRIPE_SECRET_KEY", "sk_test_role"),
+                ("STRIPE_MONTHLY_PRICE_ID", "price_monthly"),
+                ("STRIPE_YEARLY_PRICE_ID", "price_yearly"),
+                ("LOOPS_KEY", "loops"),
+            ]),
+            _ => unreachable!(),
+        }
+        let raw = envy::from_iter(
+            values
+                .into_iter()
+                .map(|(key, value)| (key.to_string(), value.to_string())),
+        )
+        .unwrap();
+        let config = crate::env::RuntimeConfig::resolve(raw).unwrap();
+        let app = app_with_env(Box::leak(Box::new(config))).await;
+        assert_eq!(
+            request_status(&app, Method::GET, "/health").await,
+            StatusCode::OK,
+            "{role}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn service_roles_only_expose_owned_routes() {
+    for role in ["all", "ai", "sync", "core", "billing"] {
+        let config = crate::env::RuntimeConfig::resolve(deserialize_api_env([
+            ("ANARLOG_SERVICE", role),
+            ("NANGO_API_KEY", "nango-key"),
+            ("NANGO_WEBHOOK_SIGNING_KEY", "signing-key"),
+            ("STRIPE_SECRET_KEY", "sk_test_role"),
+            ("STRIPE_MONTHLY_PRICE_ID", "price_monthly"),
+            ("STRIPE_YEARLY_PRICE_ID", "price_yearly"),
+            ("LOOPS_KEY", "loops-key"),
+        ]))
+        .unwrap();
+        let app = app_with_env(Box::leak(Box::new(config))).await;
+        for (owner, method, path) in [
+            ("ai", Method::POST, "/llm/chat/completions"),
+            ("ai", Method::GET, "/listen"),
+            ("sync", Method::GET, "/v1/cloud-api/settings"),
+            ("sync", Method::PUT, "/v1/sync-snapshots/session"),
+            ("core", Method::GET, "/nango/connections"),
+            ("core", Method::DELETE, "/subscription/delete-account"),
+            ("core", Method::DELETE, "/rpc/delete-account"),
+            ("core", Method::DELETE, "/billing/delete-account"),
+            ("billing", Method::POST, "/subscription/start-trial"),
+            ("billing", Method::GET, "/rpc/can-start-trial"),
+            ("billing", Method::POST, "/billing/start-trial"),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(method)
+                        .uri(path)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            let expected = if role == "all" || role == owner {
+                StatusCode::UNAUTHORIZED
+            } else {
+                StatusCode::NOT_FOUND
+            };
+            assert_eq!(response.status(), expected, "{role}: {path}");
+        }
+    }
+}
 const TEST_PRIVATE_KEY: &str = "-----BEGIN PRIVATE KEY-----\n\
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgWTFfCGljY6aw3Hrt\n\
 kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\

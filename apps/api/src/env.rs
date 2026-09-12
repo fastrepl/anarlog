@@ -4,6 +4,8 @@ use std::sync::OnceLock;
 use envy::Error as EnvyError;
 use serde::Deserialize;
 
+use crate::service::Service;
+
 fn default_port() -> u16 {
     3001
 }
@@ -44,6 +46,8 @@ struct OptionalLoopsEnv {
 
 #[derive(Deserialize)]
 pub struct Env {
+    #[serde(default)]
+    pub anarlog_service: Service,
     #[serde(default = "default_port")]
     pub port: u16,
     #[serde(default, deserialize_with = "anlg_api_env::filter_empty")]
@@ -78,10 +82,14 @@ pub struct Env {
     #[serde(flatten)]
     pub resend: anlg_api_env::ResendEnv,
 
+    #[serde(default, deserialize_with = "anlg_api_env::filter_empty")]
+    openrouter_api_key: Option<String>,
     #[serde(flatten)]
-    pub llm: anlg_llm_proxy::Env,
-    #[serde(flatten)]
-    pub stt: anlg_transcribe_proxy::Env,
+    stt_api_keys: anlg_transcribe_proxy::SttApiKeysEnv,
+    #[serde(default, deserialize_with = "anlg_api_env::filter_empty")]
+    api_base_url: Option<String>,
+    #[serde(default, deserialize_with = "anlg_api_env::filter_empty")]
+    callback_secret: Option<String>,
 }
 
 // Raw environment resolved exactly once at startup: every optional integration
@@ -93,6 +101,8 @@ pub struct RuntimeConfig {
     pub subscription: Option<(anlg_api_env::StripeEnv, anlg_api_env::LoopsEnv)>,
     pub pyannote: Option<anlg_api_env::PyannoteEnv>,
     pub research: Option<anlg_api_research::ResearchConfig>,
+    pub llm: Option<anlg_llm_proxy::Env>,
+    pub stt: Option<anlg_transcribe_proxy::Env>,
 }
 
 impl std::ops::Deref for RuntimeConfig {
@@ -104,12 +114,54 @@ impl std::ops::Deref for RuntimeConfig {
 }
 
 impl RuntimeConfig {
-    pub(crate) fn resolve(env: Env) -> Result<Self, String> {
+    pub(crate) fn resolve(mut env: Env) -> Result<Self, String> {
         validate_supabase_env(&env.supabase)?;
-        let nango = resolve_nango(&env.nango)?;
-        let subscription = resolve_subscription(&env.stripe, &env.loops)?;
-        let pyannote = resolve_pyannote(&env.pyannote)?;
-        let research = resolve_research(&env.exa_api_key, &env.jina_api_key)?;
+        let service = env.anarlog_service;
+        let nango = if service.includes(Service::Core) {
+            resolve_nango(&env.nango)?
+        } else {
+            None
+        };
+        let subscription = if service.includes(Service::Core) || service.includes(Service::Billing)
+        {
+            resolve_subscription(&env.stripe, &env.loops)?
+        } else {
+            None
+        };
+        let (llm, stt, pyannote, research) = if service.includes(Service::Ai) {
+            let llm = anlg_llm_proxy::Env {
+                openrouter_api_key: required_integration_value(
+                    &env.openrouter_api_key,
+                    "OPENROUTER_API_KEY",
+                    "AI routes are enabled",
+                )?,
+            };
+            let stt = anlg_transcribe_proxy::Env {
+                stt: std::mem::take(&mut env.stt_api_keys),
+                callback: anlg_transcribe_proxy::CallbackEnv {
+                    api_base_url: required_integration_value(
+                        &env.api_base_url,
+                        "API_BASE_URL",
+                        "AI routes are enabled",
+                    )?,
+                    callback_secret: env.callback_secret.clone(),
+                },
+            };
+            (
+                Some(llm),
+                Some(stt),
+                resolve_pyannote(&env.pyannote)?,
+                resolve_research(&env.exa_api_key, &env.jina_api_key)?,
+            )
+        } else {
+            (None, None, None, None)
+        };
+
+        if env.anarlog_attachment_backup_gc_enabled && !service.includes(Service::Core) {
+            return Err(
+                "ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED is only supported by core or all".to_string(),
+            );
+        }
 
         if !cfg!(debug_assertions)
             && subscription
@@ -131,6 +183,8 @@ impl RuntimeConfig {
             subscription,
             pyannote,
             research,
+            llm,
+            stt,
         })
     }
 }
@@ -308,6 +362,98 @@ fn field_name_to_env_var(field: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn role_config(role: &str, extra: &[(&str, &str)]) -> Result<RuntimeConfig, String> {
+        let mut values = vec![
+            ("ANARLOG_SERVICE", role),
+            ("SUPABASE_URL", "http://127.0.0.1:54321"),
+            ("SUPABASE_ANON_KEY", "anon"),
+            ("SUPABASE_SERVICE_ROLE_KEY", "service"),
+        ];
+        values.extend_from_slice(extra);
+        let raw = envy::from_iter(
+            values
+                .into_iter()
+                .map(|(key, value)| (key.to_string(), value.to_string())),
+        )
+        .map_err(|error| error.to_string())?;
+        RuntimeConfig::resolve(raw)
+    }
+
+    #[test]
+    fn non_ai_services_start_without_ai_credentials() {
+        for role in ["sync", "core", "billing"] {
+            let config = role_config(role, &[]).unwrap();
+            assert!(config.llm.is_none());
+            assert!(config.stt.is_none());
+        }
+    }
+
+    #[test]
+    fn ai_configuration_remains_required_for_ai_and_combined_runtime() {
+        for role in ["ai", "all"] {
+            assert!(
+                role_config(role, &[])
+                    .err()
+                    .unwrap()
+                    .contains("OPENROUTER_API_KEY")
+            );
+            assert!(
+                role_config(role, &[("OPENROUTER_API_KEY", "key")])
+                    .err()
+                    .unwrap()
+                    .contains("API_BASE_URL")
+            );
+            let config = role_config(
+                role,
+                &[
+                    ("OPENROUTER_API_KEY", "key"),
+                    ("API_BASE_URL", "http://localhost:3001"),
+                ],
+            )
+            .unwrap();
+            assert!(config.llm.is_some());
+            assert!(config.stt.is_some());
+        }
+    }
+
+    #[test]
+    fn unrelated_partial_integrations_do_not_configure_other_services() {
+        let config = role_config(
+            "sync",
+            &[
+                ("NANGO_API_KEY", "partial"),
+                ("STRIPE_SECRET_KEY", "partial"),
+                ("PYANNOTE_API_BASE", "partial"),
+            ],
+        )
+        .unwrap();
+        assert!(config.nango.is_none());
+        assert!(config.subscription.is_none());
+        assert!(config.pyannote.is_none());
+    }
+
+    #[test]
+    fn only_core_can_own_cleanup_in_split_runtimes() {
+        for role in ["ai", "sync", "billing"] {
+            let error = role_config(
+                role,
+                &[
+                    ("ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED", "true"),
+                    ("OPENROUTER_API_KEY", "key"),
+                    ("API_BASE_URL", "http://localhost:3001"),
+                ],
+            )
+            .err()
+            .unwrap();
+            assert!(error.contains("only supported by core or all"));
+        }
+    }
+
+    #[test]
+    fn invalid_service_role_is_rejected() {
+        assert!(role_config("unknown", &[]).is_err());
+    }
 
     #[derive(Deserialize)]
     struct SyncOnlyEnv {

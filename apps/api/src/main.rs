@@ -3,8 +3,11 @@ mod env;
 mod observability;
 mod openapi;
 mod rate_limit;
+mod routes;
+mod service;
 
 use std::net::SocketAddr;
+#[cfg(test)]
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
@@ -12,7 +15,7 @@ use std::time::SystemTime;
 
 use axum::{
     Json, Router, body::Body, extract::MatchedPath, http::HeaderMap, http::Request,
-    http::StatusCode, middleware,
+    http::StatusCode,
 };
 use sentry::integrations::tower::{NewSentryLayer, SentryHttpLayer};
 use sentry::protocol::{Context, Value};
@@ -25,8 +28,13 @@ use tower_http::{
     trace::TraceLayer,
 };
 
+#[cfg(test)]
 use auth::AuthState;
 use env::env;
+use service::Service;
+
+#[cfg(test)]
+use routes::build_sync_routes;
 
 use crate::env::Env;
 
@@ -76,88 +84,6 @@ fn request_server_endpoint(request: &Request<Body>, scheme: &str) -> (Option<Str
     (host, port)
 }
 
-fn build_sync_routes(
-    state: Option<anlg_api_sync::AppState>,
-    replica_state: anlg_api_sync::ReplicaState,
-    cloudsync_rate_limit_state: rate_limit::RateLimitState,
-    device_rate_limit_state: rate_limit::RateLimitState,
-    session_share_rate_limit_state: rate_limit::RateLimitState,
-    witness_rate_limit_state: rate_limit::RateLimitState,
-    auth_state: AuthState,
-) -> Router {
-    let replica_routes = anlg_api_sync::replica_router(replica_state.clone())
-        .route_layer(middleware::from_fn_with_state(
-            cloudsync_rate_limit_state.clone(),
-            rate_limit::rate_limit,
-        ))
-        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
-        .route_layer(middleware::from_fn_with_state(
-            auth_state.clone().with_required_entitlement("hyprnote_pro"),
-            auth::require_auth,
-        ));
-    let device_routes = anlg_api_sync::device_router(replica_state.clone())
-        .route_layer(middleware::from_fn_with_state(
-            device_rate_limit_state,
-            rate_limit::rate_limit,
-        ))
-        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
-        .route_layer(middleware::from_fn_with_state(
-            auth_state.clone().with_required_entitlement("hyprnote_pro"),
-            auth::require_auth,
-        ));
-    let witness_routes = anlg_api_sync::e2ee_witness_router(replica_state)
-        .route_layer(middleware::from_fn_with_state(
-            witness_rate_limit_state,
-            rate_limit::wait_for_rate_limit,
-        ))
-        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
-        .route_layer(middleware::from_fn_with_state(
-            auth_state.clone().with_required_entitlement("hyprnote_pro"),
-            auth::require_auth,
-        ));
-    let replica_routes = replica_routes.merge(device_routes).merge(witness_routes);
-
-    let Some(state) = state else {
-        return replica_routes;
-    };
-
-    let cloudsync_routes = anlg_api_sync::cloudsync_router(state.clone())
-        .route_layer(middleware::from_fn_with_state(
-            cloudsync_rate_limit_state,
-            rate_limit::rate_limit,
-        ))
-        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
-        .route_layer(middleware::from_fn_with_state(
-            auth_state.clone().with_required_entitlement("hyprnote_pro"),
-            auth::require_auth,
-        ));
-    let session_share_routes = anlg_api_sync::session_share_router(state.clone())
-        .route_layer(middleware::from_fn_with_state(
-            session_share_rate_limit_state.clone(),
-            rate_limit::rate_limit,
-        ))
-        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
-        .route_layer(middleware::from_fn_with_state(
-            auth_state.clone().with_required_entitlement("hyprnote_pro"),
-            auth::require_auth,
-        ));
-    let web_edit_routes = anlg_api_sync::web_edit_router(state)
-        .route_layer(middleware::from_fn_with_state(
-            session_share_rate_limit_state,
-            rate_limit::rate_limit,
-        ))
-        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
-        .route_layer(middleware::from_fn_with_state(
-            auth_state,
-            auth::require_auth,
-        ));
-
-    replica_routes
-        .merge(cloudsync_routes)
-        .merge(session_share_routes)
-        .merge(web_edit_routes)
-}
-
 #[cfg(test)]
 async fn app_with_env(env: &'static crate::env::RuntimeConfig) -> Router {
     app_with_session_gate(env, anlg_transcribe_proxy::SessionGate::new()).await
@@ -167,321 +93,41 @@ async fn app_with_session_gate(
     env: &'static crate::env::RuntimeConfig,
     session_gate: anlg_transcribe_proxy::SessionGate,
 ) -> Router {
+    let service = env.anarlog_service;
     let analytics = build_analytics_client(env);
-
-    let llm_config =
-        anlg_llm_proxy::LlmProxyConfig::new(&env.llm).with_analytics(analytics.clone());
-    let stt_config = anlg_transcribe_proxy::SttProxyConfig::new(&env.stt, &env.supabase)
-        .with_anarlog_routing(anlg_transcribe_proxy::AnarlogRoutingConfig::default())
-        .with_analytics(analytics.clone());
-
-    let stt_rate_limit = rate_limit::RateLimitState::builder()
-        .pro(
-            governor::Quota::with_period(Duration::from_mins(5))
-                .unwrap()
-                .allow_burst(NonZeroU32::new(20).unwrap()),
-        )
-        .free(
-            governor::Quota::with_period(Duration::from_hours(24))
-                .unwrap()
-                .allow_burst(NonZeroU32::new(3).unwrap()),
-        )
-        .build();
-    let llm_rate_limit = rate_limit::RateLimitState::builder()
-        .pro(
-            governor::Quota::with_period(Duration::from_secs(1))
-                .unwrap()
-                .allow_burst(NonZeroU32::new(30).unwrap()),
-        )
-        .free(
-            governor::Quota::with_period(Duration::from_hours(12))
-                .unwrap()
-                .allow_burst(NonZeroU32::new(5).unwrap()),
-        )
-        .build();
-    let build_sync_rate_limit = || {
-        let quota = || {
-            governor::Quota::with_period(Duration::from_secs(30))
-                .unwrap()
-                .allow_burst(NonZeroU32::new(20).unwrap())
-        };
-        rate_limit::RateLimitState::builder()
-            .pro(quota())
-            .free(quota())
-            .build()
-    };
-    let cloudsync_rate_limit = build_sync_rate_limit();
-    let device_quota = rate_limit::device_management_quota();
-    let device_rate_limit = rate_limit::RateLimitState::builder()
-        .pro(device_quota)
-        .free(device_quota)
-        .build();
-    let session_share_rate_limit = build_sync_rate_limit();
-    let e2ee_witness_rate_limit = rate_limit::RateLimitState::builder()
-        .pro(
-            governor::Quota::with_period(Duration::from_millis(100))
-                .unwrap()
-                .allow_burst(NonZeroU32::new(20).unwrap()),
-        )
-        .free(
-            governor::Quota::with_period(Duration::from_millis(100))
-                .unwrap()
-                .allow_burst(NonZeroU32::new(20).unwrap()),
-        )
-        .build();
-    let shared_notes_rate_limit = rate_limit::IpRateLimitState::new(
-        governor::Quota::with_period(Duration::from_secs(1))
-            .unwrap()
-            .allow_burst(NonZeroU32::new(30).unwrap()),
-    );
-    let cloud_api_rate_limit = rate_limit::RateLimitState::builder()
-        .pro(
-            governor::Quota::with_period(Duration::from_millis(200))
-                .unwrap()
-                .allow_burst(NonZeroU32::new(10).unwrap()),
-        )
-        .free(
-            governor::Quota::with_period(Duration::from_millis(200))
-                .unwrap()
-                .allow_burst(NonZeroU32::new(10).unwrap()),
-        )
-        .build();
-
-    let auth_state = AuthState::new(&env.supabase.supabase_url);
-    let auth_state_paid = auth_state.clone().with_required_entitlements(
-        PAID_ENTITLEMENTS
-            .iter()
-            .map(|entitlement| (*entitlement).to_string())
-            .collect(),
-    );
-    let auth_state_basic = auth_state.clone();
-
-    let nango_config = env.nango.as_ref().map(|nango| {
-        anlg_api_nango::NangoConfig::new(
-            nango,
-            &env.supabase,
-            Some(env.supabase.supabase_service_role_key.clone()),
-        )
-    });
-    let subscription_config = env.subscription.as_ref().map(|(stripe, loops)| {
-        anlg_api_subscription::SubscriptionConfig::new(&env.supabase, stripe, loops)
-            .with_analytics(analytics.clone())
-            .with_durable_cleanup_enabled(env.anarlog_attachment_backup_gc_enabled)
-    });
-    let research_config = env.research.clone();
-    let pyannote_config = env
-        .pyannote
-        .as_ref()
-        .map(anlg_api_pyannote::PyannoteConfig::new);
-    let sync_config = anlg_api_sync::SyncConfig::from_env(
-        &env.sync,
-        &env.supabase.supabase_url,
-        &env.supabase.supabase_anon_key,
-        &env.supabase.supabase_service_role_key,
-    )
-    .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
+    let mut routes = Router::new();
+    if service.includes(Service::Ai) {
+        routes = routes.merge(routes::ai(env, session_gate.clone(), analytics.clone()));
+    }
+    if service.includes(Service::Sync) {
+        routes = routes.merge(routes::sync(env));
+    }
+    if service.includes(Service::Core) {
+        routes = routes.merge(routes::core(env, analytics.clone()));
+    }
+    if service.includes(Service::Billing) {
+        routes = routes.merge(routes::billing(env, analytics));
+    }
     let subsystem_health_state = SubsystemHealthState {
-        cloudsync_configured: sync_config.is_some(),
-        transcription_configured: !stt_config.api_keys.is_empty(),
-        llm_configured: !llm_config.api_key.is_empty(),
+        cloudsync_configured: service.includes(Service::Sync)
+            && anlg_api_sync::SyncConfig::from_env(
+                &env.sync,
+                &env.supabase.supabase_url,
+                &env.supabase.supabase_anon_key,
+                &env.supabase.supabase_service_role_key,
+            )
+            .expect("sync configuration validated")
+            .is_some(),
+        transcription_configured: env
+            .stt
+            .as_ref()
+            .is_some_and(|stt| !anlg_transcribe_proxy::ApiKeys::from(&stt.stt).0.is_empty()),
+        llm_configured: env
+            .llm
+            .as_ref()
+            .is_some_and(|llm| !llm.openrouter_api_key.is_empty()),
         session_gate: session_gate.clone(),
     };
-
-    let shared_notes_config = anlg_api_sync::SharedNotesConfig::new(
-        &env.supabase.supabase_url,
-        &env.supabase.supabase_service_role_key,
-    )
-    .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
-    let (Some(resend_api_key), Some(resend_from_email)) = (
-        env.resend.resend_api_key.as_deref(),
-        env.resend.resend_from_email.as_deref(),
-    ) else {
-        panic!(
-            "Failed to load environment: RESEND_API_KEY and RESEND_FROM_EMAIL are required for shared note email"
-        );
-    };
-    let shared_notes_config = shared_notes_config
-        .with_resend_email(resend_api_key, resend_from_email)
-        .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
-    let cloud_api_state = anlg_api_cloud::AppState::new(
-        anlg_api_cloud::CloudApiConfig::new(
-            &env.supabase.supabase_url,
-            &env.supabase.supabase_service_role_key,
-        )
-        .unwrap_or_else(|error| panic!("Failed to load environment: {error}")),
-    );
-
-    use anlg_api_nango::NangoIntegrationId;
-
-    let nango_webhook_routes = match nango_config.clone() {
-        Some(config) => {
-            let mut forward_handlers = anlg_api_nango::ForwardHandlerRegistry::new();
-            forward_handlers.insert(
-                anlg_api_nango::Linear::ID.to_string(),
-                anlg_api_nango::forward_handler(anlg_linear::webhook::handle),
-            );
-            Router::new().nest(
-                "/nango",
-                anlg_api_nango::webhook_router(config, forward_handlers),
-            )
-        }
-        None => Router::new(),
-    };
-
-    let webhook_routes = Router::new().merge(nango_webhook_routes).nest(
-        "/stt",
-        anlg_transcribe_proxy::callback_router(stt_config.clone()),
-    );
-
-    let paid_routes = if research_config.is_none() && pyannote_config.is_none() {
-        Router::new()
-    } else {
-        let mut routes = Router::new();
-        if let Some(config) = research_config {
-            routes = routes.merge(anlg_api_research::router(config));
-        }
-        if let Some(config) = pyannote_config {
-            routes = routes.nest("/pyannote", anlg_api_pyannote::router(config));
-        }
-        routes
-            .route_layer(middleware::from_fn(auth::sentry_and_analytics))
-            .route_layer(middleware::from_fn_with_state(
-                auth_state_paid.clone(),
-                auth::require_auth,
-            ))
-    };
-
-    let replica_state = anlg_api_sync::ReplicaState::new(
-        anlg_api_sync::ReplicaConfig::new(
-            &env.supabase.supabase_url,
-            &env.supabase.supabase_anon_key,
-            &env.supabase.supabase_service_role_key,
-        )
-        .unwrap_or_else(|error| panic!("Failed to load environment: {error}")),
-    );
-    let sync_state = sync_config.map(anlg_api_sync::AppState::new);
-    let sync_routes = build_sync_routes(
-        sync_state,
-        replica_state,
-        cloudsync_rate_limit,
-        device_rate_limit,
-        session_share_rate_limit,
-        e2ee_witness_rate_limit,
-        auth_state.clone(),
-    );
-    let shared_notes_state = anlg_api_sync::SharedNotesState::new(shared_notes_config);
-    let shared_notes_routes = anlg_api_sync::shared_notes_router(shared_notes_state.clone())
-        .route_layer(middleware::from_fn_with_state(
-            shared_notes_rate_limit.clone(),
-            rate_limit::rate_limit_by_ip,
-        ));
-    let authenticated_shared_notes_routes =
-        anlg_api_sync::authenticated_shared_notes_router(shared_notes_state)
-            .route_layer(middleware::from_fn_with_state(
-                shared_notes_rate_limit,
-                rate_limit::rate_limit_by_ip,
-            ))
-            .route_layer(middleware::from_fn(auth::sentry_and_analytics))
-            .route_layer(middleware::from_fn_with_state(
-                auth_state.clone(),
-                auth::require_auth,
-            ));
-    let cloud_api_management_routes = anlg_api_cloud::management_router(cloud_api_state.clone())
-        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
-        .route_layer(middleware::from_fn_with_state(
-            auth_state.clone(),
-            auth::require_auth,
-        ));
-    let cloud_api_connector_routes = anlg_api_cloud::connector_router(cloud_api_state.clone())
-        .route_layer(middleware::from_fn_with_state(
-            cloud_api_rate_limit,
-            rate_limit::rate_limit,
-        ))
-        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
-        .route_layer(middleware::from_fn_with_state(
-            cloud_api_state.clone(),
-            anlg_api_cloud::require_cloud_connector_auth,
-        ));
-    let cloud_api_oauth_routes = anlg_api_cloud::oauth_metadata_router(cloud_api_state);
-
-    let integration_routes = match nango_config.clone() {
-        Some(config) => {
-            let nango_connection_state = anlg_api_nango::NangoConnectionState::from_config(&config);
-            Router::new()
-                .nest("/calendar", anlg_api_calendar::router())
-                .nest("/mail", anlg_api_mail::router())
-                .nest("/messenger", anlg_api_messenger::router())
-                .nest("/notion", anlg_api_notion::router())
-                .nest("/ticket", anlg_api_ticket::router())
-                .nest("/zoom", anlg_api_zoom::router())
-                .merge(anlg_api_meeting_import::router())
-                .nest("/nango", anlg_api_nango::session_router(config))
-                .layer(axum::Extension(nango_connection_state))
-                .route_layer(middleware::from_fn(auth::sentry_and_analytics))
-                .route_layer(middleware::from_fn_with_state(
-                    auth_state_paid,
-                    auth::require_auth,
-                ))
-        }
-        None => Router::new(),
-    };
-
-    let integration_management_routes = match nango_config {
-        Some(config) => Router::new()
-            .nest("/nango", anlg_api_nango::management_router(config))
-            .route_layer(middleware::from_fn(auth::sentry_and_analytics))
-            .route_layer(middleware::from_fn_with_state(
-                auth_state_basic.clone(),
-                auth::require_auth,
-            )),
-        None => Router::new(),
-    };
-
-    let stt_routes = Router::new()
-        .merge(anlg_transcribe_proxy::listen_router_with_session_gate(
-            stt_config.clone(),
-            session_gate.clone(),
-        ))
-        .nest(
-            "/stt",
-            anlg_transcribe_proxy::router_with_session_gate(stt_config, session_gate.clone()),
-        )
-        .route_layer(middleware::from_fn_with_state(
-            stt_rate_limit,
-            rate_limit::rate_limit,
-        ));
-
-    let llm_routes = Router::new()
-        .merge(anlg_llm_proxy::chat_completions_router(llm_config.clone()))
-        .nest("/llm", anlg_llm_proxy::router(llm_config))
-        .route_layer(middleware::from_fn_with_state(
-            llm_rate_limit,
-            rate_limit::rate_limit,
-        ));
-
-    let scim_routes = match subscription_config.clone() {
-        Some(config) => anlg_api_subscription::scim_router(config),
-        None => Router::new(),
-    };
-    let subscription_routes = match subscription_config {
-        Some(config) => {
-            let router = anlg_api_subscription::router(config);
-            Router::new()
-                .nest("/subscription", router.clone())
-                .nest("/rpc", router.clone())
-                .nest("/billing", router)
-        }
-        None => Router::new(),
-    };
-    let auth_routes = Router::new()
-        .merge(stt_routes)
-        .merge(llm_routes)
-        .merge(subscription_routes)
-        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
-        .route_layer(middleware::from_fn_with_state(
-            auth_state_basic,
-            auth::require_auth,
-        ));
 
     let subsystem_health_routes = Router::new()
         .route("/health/sync", axum::routing::get(sync_health))
@@ -500,18 +146,7 @@ async fn app_with_session_gate(
         .route("/openapi.json", axum::routing::get(openapi_json))
         .merge(subsystem_health_routes)
         .merge(drain_routes)
-        .merge(webhook_routes)
-        .merge(paid_routes)
-        .merge(shared_notes_routes)
-        .merge(authenticated_shared_notes_routes)
-        .merge(cloud_api_management_routes)
-        .merge(cloud_api_oauth_routes)
-        .merge(cloud_api_connector_routes)
-        .nest("/sync", sync_routes)
-        .merge(integration_routes)
-        .merge(integration_management_routes)
-        .nest("/scim/v2", scim_routes)
-        .merge(auth_routes)
+        .merge(routes)
         .layer(
             CorsLayer::new()
                 .allow_origin(cors::Any)
@@ -704,12 +339,14 @@ fn main() -> std::io::Result<()> {
 
     sentry::configure_scope(|scope| {
         scope.set_tag("service.namespace", "anarlog");
-        scope.set_tag("service.name", "api");
+        scope.set_tag("service.name", env.anarlog_service.name());
     });
 
-    let observability = observability::init("api", &env.observability);
+    let observability = observability::init(env.anarlog_service.name(), &env.observability);
 
-    anlg_transcribe_proxy::ApiKeys::from(&env.stt.stt).log_configured_providers();
+    if let Some(stt) = &env.stt {
+        anlg_transcribe_proxy::ApiKeys::from(&stt.stt).log_configured_providers();
+    }
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
