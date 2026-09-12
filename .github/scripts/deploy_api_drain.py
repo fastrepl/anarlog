@@ -628,19 +628,43 @@ def bootstrap_deploy(
 ) -> None:
     if image:
         fly("deploy", "--app", app, "--config", config, "--image", image, "--ha=true")
-        return
-    fly(
-        "deploy",
-        "--app",
-        app,
-        "--config",
-        config,
-        "--dockerfile",
-        dockerfile,
-        "--remote-only",
-        "--build-arg",
-        f"APP_VERSION={version}",
+    else:
+        fly(
+            "deploy",
+            "--app",
+            app,
+            "--config",
+            config,
+            "--dockerfile",
+            dockerfile,
+            "--remote-only",
+            "--build-arg",
+            f"APP_VERSION={version}",
+        )
+    for machine in list_machines(app):
+        wait_until_healthy(app, machine["id"])
+        mark_drain_supported(app, machine["id"])
+
+
+def mark_drain_supported(app: str, machine_id: str) -> None:
+    api_request(
+        "POST",
+        f"{machine_path(app, machine_id)}/metadata/{DRAIN_PROTOCOL_METADATA_KEY}",
+        {"value": DRAIN_PROTOCOL_METADATA_VALUE},
     )
+
+
+def adopt_drain_image(app: str, digest: str) -> None:
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+        raise DeployError("Drain adoption requires a verified image digest")
+    matched = False
+    for machine in list_machines(app):
+        image = machine.get("image_ref") or {}
+        if image.get("digest") == digest:
+            mark_drain_supported(app, machine["id"])
+            matched = True
+    if not matched:
+        raise DeployError("No machines match the verified drain image digest")
 
 
 def build_and_push_image(app: str, config: str, dockerfile: str, version: str) -> str:
@@ -731,7 +755,11 @@ def main() -> None:
     parser.add_argument("--dockerfile", required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--image")
+    parser.add_argument("--adopt-drain-image")
     args = parser.parse_args()
+    if args.adopt_drain_image:
+        desired_runtime_config(args.app, args.config)
+        adopt_drain_image(args.app, args.adopt_drain_image)
     deploy(args.app, args.config, args.dockerfile, args.version, args.image)
 
 
