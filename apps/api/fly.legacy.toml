@@ -1,0 +1,49 @@
+app = 'hyprnote-ai'
+primary_region = 'sjc'
+kill_signal = 'SIGTERM'
+# Fly caps this at 300s. Meeting streams can last longer, so api_cd uses
+# cordoned replacement Machines + SIGUSR1 and leaves old Machines up until idle.
+kill_timeout = 300
+swap_size_mb = 512
+
+[[restart]]
+policy = "on-failure"
+processes = ["app"]
+
+[env]
+ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED = "false"
+ANARLOG_AI_ORIGIN = "https://anarlog-inference.fly.dev"
+ANARLOG_SYNC_ORIGIN = "https://anarlog-sync.fly.dev"
+ANARLOG_CORE_ORIGIN = "https://anarlog-core.fly.dev"
+ANARLOG_BILLING_ORIGIN = "https://anarlog-billing-api.fly.dev"
+PORT = "3001"
+
+[http_service]
+processes = ['app']
+internal_port = 3001
+force_https = true
+auto_stop_machines = 'off'
+auto_start_machines = true
+min_machines_running = 2
+
+[http_service.http_options]
+idle_timeout = 660
+
+[http_service.concurrency]
+type = "connections"
+hard_limit = 200
+soft_limit = 150
+
+[[http_service.checks]]
+grace_period = "20s"
+interval = "15s"
+method = "GET"
+path = "/health/ready/api"
+protocol = "http"
+timeout = "4s"
+
+[[vm]]
+processes = ['app']
+memory = '1gb'
+cpu_kind = 'shared'
+cpus = 1

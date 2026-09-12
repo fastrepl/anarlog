@@ -48,6 +48,8 @@ struct OptionalLoopsEnv {
 pub struct Env {
     #[serde(default)]
     pub anarlog_service: Service,
+    #[serde(flatten)]
+    pub upstreams: crate::proxy::Env,
     #[serde(default = "default_port")]
     pub port: u16,
     #[serde(default, deserialize_with = "anlg_api_env::filter_empty")]
@@ -117,6 +119,7 @@ impl RuntimeConfig {
     pub(crate) fn resolve(mut env: Env) -> Result<Self, String> {
         validate_supabase_env(&env.supabase)?;
         let service = env.anarlog_service;
+        env.upstreams.validate(service)?;
         let nango = if service.includes(Service::Core) {
             resolve_nango(&env.nango)?
         } else {

@@ -4,6 +4,8 @@ on:
     branches:
       - main
     paths:
+      - .github/scripts/prepare_api_service_secrets.py
+      - .github/scripts/test_prepare_api_service_secrets.py
       - .github/scripts/deploy_api_drain.py
       - .github/scripts/test_deploy_api_drain.py
       - .github/scripts/test_verify_cloudsync_e2ee.py
@@ -22,6 +24,8 @@ on:
       - crates/transcribe-proxy/**
   pull_request:
     paths:
+      - .github/scripts/prepare_api_service_secrets.py
+      - .github/scripts/test_prepare_api_service_secrets.py
       - .github/scripts/deploy_api_drain.py
       - .github/scripts/test_deploy_api_drain.py
       - .github/scripts/test_verify_cloudsync_e2ee.py
@@ -43,12 +47,17 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/rust_install
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: $/.github/actions/rust_install
         with:
           platform: linux
       - run: cargo check -p api
@@ -62,6 +71,7 @@ jobs:
       - run: cargo test --locked -p api
       - run: python3 .github/scripts/test_verify_cloudsync_e2ee.py
       - run: python3 .github/scripts/test_deploy_api_drain.py
+      - run: python3 .github/scripts/test_prepare_api_service_secrets.py
       - run: |
           cargo test -p api gen_openapi_json
           git diff --exit-code -- apps/api/openapi.gen.json
