@@ -8,7 +8,6 @@ import { openUrlWithInstruction } from "@anlg/plugin-windows";
 import { Avatar } from "@anlg/ui/components/avatar";
 import {
   CircleNotch,
-  Crown,
   DotsThree,
   PaperPlaneTilt,
   Plus,
@@ -68,6 +67,8 @@ import {
   setWorkspacePolicy,
   setWorkspaceShareSlug,
   transferOwnership,
+  listOwnershipRequests,
+  respondOwnershipRequest,
   type MyWorkspaceInvitation,
   type WorkspaceCapability,
   type WorkspaceMember,
@@ -475,6 +476,10 @@ function WorkspacePanel({
   const auth = useAuth();
   const { t } = useLingui();
   const queryClient = useQueryClient();
+  const [transferTarget, setTransferTarget] = useState<WorkspaceMember | null>(
+    null,
+  );
+  const [isAcceptTransferOpen, setIsAcceptTransferOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [nameDraft, setNameDraft] = useState(workspaceName);
   const [isOpeningBilling, setIsOpeningBilling] = useState(false);
@@ -518,6 +523,15 @@ function WorkspacePanel({
     queryFn: () => listWorkspaceMembers(requireTeamContext(auth), workspaceId),
     retry: false,
   });
+  // Credentials and the Supabase client are not serializable cache identity.
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+  const ownershipRequests = useQuery({
+    queryKey: ["team-ownership-requests", workspaceId, auth.session?.user.id],
+    queryFn: () => listOwnershipRequests(requireTeamContext(auth), workspaceId),
+    retry: false,
+    refetchInterval: 15_000,
+  });
+  const ownershipRequest = ownershipRequests.data?.[0];
   const invitations = useQuery({
     queryKey: ["team-invitations", workspaceId],
     queryFn: () =>
@@ -539,6 +553,9 @@ function WorkspacePanel({
   });
 
   const refresh = () => {
+    void queryClient.invalidateQueries({
+      queryKey: ["team-ownership-requests", workspaceId],
+    });
     void queryClient.invalidateQueries({
       queryKey: ["team-access", workspaceId],
     });
@@ -609,7 +626,27 @@ function WorkspacePanel({
   const transfer = useMutation({
     mutationFn: (userId: string) =>
       transferOwnership(requireTeamContext(auth), workspaceId, userId),
-    onSuccess: refresh,
+    onSuccess: () => {
+      setTransferTarget(null);
+      refresh();
+    },
+  });
+  const respondTransfer = useMutation({
+    mutationFn: (action: "accept" | "decline" | "cancel") => {
+      if (!ownershipRequest)
+        throw new Error("Ownership request is no longer available");
+      return respondOwnershipRequest(
+        requireTeamContext(auth),
+        workspaceId,
+        ownershipRequest.id,
+        action,
+      );
+    },
+    onSuccess: () => {
+      setIsAcceptTransferOpen(false);
+      refresh();
+      onWorkspaceRenamed();
+    },
   });
   const rename = useMutation({
     mutationFn: (value: string) =>
@@ -647,6 +684,8 @@ function WorkspacePanel({
     remove.error?.message ??
     cancelInvite.error?.message ??
     resendInvite.error?.message ??
+    respondTransfer.error?.message ??
+    ownershipRequests.error?.message ??
     transfer.error?.message ??
     rename.error?.message ??
     setLogo.error?.message ??
@@ -784,6 +823,50 @@ function WorkspacePanel({
           <WorkspaceEmailAutoJoin workspaceId={workspaceId} />
         ) : null}
 
+        {ownershipRequest ? (
+          <div
+            role="status"
+            className="flex flex-wrap items-center gap-3 rounded-lg border p-3 text-sm"
+          >
+            <p>
+              <Trans>
+                Ownership transfer Pending. Current ownership and permissions
+                remain unchanged until the proposed owner accepts.
+              </Trans>
+            </p>
+            {ownershipRequest.targetUserId === viewerId ? (
+              <>
+                <Button
+                  size="sm"
+                  disabled={respondTransfer.isPending}
+                  onClick={() => {
+                    respondTransfer.reset();
+                    setIsAcceptTransferOpen(true);
+                  }}
+                >
+                  <Trans>Review transfer</Trans>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={respondTransfer.isPending}
+                  onClick={() => respondTransfer.mutate("decline")}
+                >
+                  <Trans>Decline</Trans>
+                </Button>
+              </>
+            ) : ownershipRequest.ownerUserId === viewerId ? (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={respondTransfer.isPending}
+                onClick={() => respondTransfer.mutate("cancel")}
+              >
+                <Trans>Cancel transfer</Trans>
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
         {members.isPending ? (
           <TeamSkeleton />
         ) : members.isError ? (
@@ -829,7 +912,19 @@ function WorkspacePanel({
                       changeRole.mutate({ userId: member.userId, role })
                     }
                     onRemove={() => remove.mutate(member.userId)}
-                    onTransfer={() => transfer.mutate(member.userId)}
+                    ownershipPending={
+                      ownershipRequest?.targetUserId === member.userId
+                    }
+                    transferDisabled={
+                      ownershipRequests.isPending ||
+                      ownershipRequests.isError ||
+                      Boolean(ownershipRequest) ||
+                      transfer.isPending
+                    }
+                    onTransfer={() => {
+                      transfer.reset();
+                      setTransferTarget(member);
+                    }}
                   />
                 ))}
                 {invitations.data?.map((invitation) => (
@@ -998,6 +1093,51 @@ function WorkspacePanel({
           </Button>
         )}
       </div>
+      <DestructiveConfirmationDialog
+        open={transferTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setTransferTarget(null);
+        }}
+        title={t`Request ownership transfer?`}
+        description={
+          <>
+            <Trans>
+              {transferTarget?.email} must accept before becoming owner. Until
+              then, ownership and permissions stay the same. After acceptance,
+              you become an admin and they control the workspace, including
+              deletion.
+            </Trans>
+            {transfer.error ? (
+              <span role="alert">{transfer.error.message}</span>
+            ) : null}
+          </>
+        }
+        confirmLabel={<Trans>Request transfer</Trans>}
+        isPending={transfer.isPending}
+        onConfirm={() => {
+          if (transferTarget) transfer.mutate(transferTarget.userId);
+        }}
+      />
+      <DestructiveConfirmationDialog
+        open={isAcceptTransferOpen && Boolean(ownershipRequest)}
+        onOpenChange={setIsAcceptTransferOpen}
+        title={t`Accept workspace ownership?`}
+        description={
+          <>
+            <Trans>
+              You will become the owner of {workspaceName}, with control over
+              its members, billing, and deletion. The current owner will become
+              an admin.
+            </Trans>
+            {respondTransfer.error ? (
+              <span role="alert">{respondTransfer.error.message}</span>
+            ) : null}
+          </>
+        }
+        confirmLabel={<Trans>Accept ownership</Trans>}
+        isPending={respondTransfer.isPending}
+        onConfirm={() => respondTransfer.mutate("accept")}
+      />
       <DestructiveConfirmationDialog
         open={isDeleteWorkspaceDialogOpen}
         onOpenChange={setIsDeleteWorkspaceDialogOpen}
@@ -1563,6 +1703,8 @@ function MemberRow({
   onRoleChange,
   onRemove,
   onTransfer,
+  ownershipPending,
+  transferDisabled,
 }: {
   member: WorkspaceMember;
   isViewer: boolean;
@@ -1571,6 +1713,8 @@ function MemberRow({
   onRoleChange: (role: "admin" | "member") => void;
   onRemove: () => void;
   onTransfer: () => void;
+  ownershipPending: boolean;
+  transferDisabled: boolean;
 }) {
   const { t } = useLingui();
   const isOwner = member.role === "owner";
@@ -1626,9 +1770,10 @@ function MemberRow({
         ) : (
           <Select
             value={member.role}
-            onValueChange={(value) =>
-              onRoleChange(value === "admin" ? "admin" : "member")
-            }
+            onValueChange={(value) => {
+              if (value === "owner") onTransfer();
+              else onRoleChange(value === "admin" ? "admin" : "member");
+            }}
           >
             <SelectTrigger
               className="bg-card h-8 w-28 shadow-none"
@@ -1637,6 +1782,11 @@ function MemberRow({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              {canTransfer ? (
+                <SelectItem value="owner" disabled={transferDisabled}>
+                  <Trans>Owner</Trans>
+                </SelectItem>
+              ) : null}
               <SelectItem value="admin">
                 <Trans>Admin</Trans>
               </SelectItem>
@@ -1646,9 +1796,14 @@ function MemberRow({
             </SelectContent>
           </Select>
         )}
+        {ownershipPending ? (
+          <span className="text-muted-foreground mt-1 block text-xs">
+            <Trans>Pending</Trans>
+          </span>
+        ) : null}
       </td>
       <td className="px-4 py-3">
-        {canTransfer || canRemove ? (
+        {canRemove ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -1661,12 +1816,6 @@ function MemberRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {canTransfer ? (
-                <DropdownMenuItem onSelect={onTransfer}>
-                  <Crown className="size-4" />
-                  <Trans>Make owner</Trans>
-                </DropdownMenuItem>
-              ) : null}
               {canRemove ? (
                 <DropdownMenuItem
                   className="text-destructive"

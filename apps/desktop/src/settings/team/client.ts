@@ -445,6 +445,37 @@ export async function transferOwnership(
   });
 }
 
+export async function listOwnershipRequests(
+  context: TeamContext,
+  workspaceId: string,
+) {
+  assertWorkspaceId(workspaceId);
+  return rows(
+    await callRpc(context, "list_workspace_ownership_requests", {
+      p_workspace_id: workspaceId,
+    }),
+  ).map((row) => ({
+    id: text(row.id),
+    ownerUserId: text(row.owner_user_id),
+    targetUserId: text(row.target_user_id),
+  }));
+}
+
+export async function respondOwnershipRequest(
+  context: TeamContext,
+  workspaceId: string,
+  requestId: string,
+  action: "accept" | "decline" | "cancel",
+) {
+  assertWorkspaceId(workspaceId);
+  assertWorkspaceId(requestId);
+  await callRpc(context, "respond_workspace_ownership_request", {
+    p_workspace_id: workspaceId,
+    p_request_id: requestId,
+    p_action: action,
+  });
+}
+
 export async function leaveWorkspace(
   context: TeamContext,
   workspaceId: string,

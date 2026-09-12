@@ -33,6 +33,13 @@ const mocks = vi.hoisted(() => ({
   },
   createWorkspace: vi.fn(() => Promise.resolve({ workspaceId: "ws" })),
   client: {
+    ownershipRequests: [] as Array<{
+      id: string;
+      ownerUserId: string;
+      targetUserId: string;
+    }>,
+    transferOwnership: vi.fn(() => Promise.resolve()),
+    respondOwnershipRequest: vi.fn(() => Promise.resolve()),
     access: {
       role: "owner" as const,
       tier: "team" as "free" | "team" | "enterprise",
@@ -198,7 +205,9 @@ vi.mock("./client", () => ({
   setWorkspaceLogo: mocks.client.setWorkspaceLogo,
   revokeInvitation: mocks.client.revokeInvitation,
   setMemberRole: vi.fn(() => Promise.resolve()),
-  transferOwnership: vi.fn(() => Promise.resolve()),
+  transferOwnership: mocks.client.transferOwnership,
+  listOwnershipRequests: () => Promise.resolve(mocks.client.ownershipRequests),
+  respondOwnershipRequest: mocks.client.respondOwnershipRequest,
   getWorkspaceUsageOverview: () => Promise.resolve(mocks.client.usage),
   getWorkspaceAccess: mocks.client.getWorkspaceAccess,
   getWorkspacePolicy: mocks.client.getWorkspacePolicy,
@@ -249,6 +258,9 @@ describe("SettingsTeam", () => {
     mocks.client.declineMyWorkspaceInvitation.mockResolvedValue(undefined);
     mocks.workspaces.isPending = false;
     mocks.client.members = [];
+    mocks.client.ownershipRequests = [];
+    mocks.client.transferOwnership.mockClear();
+    mocks.client.respondOwnershipRequest.mockClear();
     mocks.client.invitations = [];
     mocks.client.usage = {
       memberCount: 1,
@@ -878,12 +890,74 @@ describe("SettingsTeam", () => {
       }),
       { key: "Enter" },
     );
-    expect(
-      await screen.findByRole("menuitem", { name: "Make owner" }),
-    ).toBeTruthy();
+    expect(screen.queryByRole("menuitem", { name: "Make owner" })).toBeNull();
     expect(
       screen.getByRole("menuitem", { name: "Remove member" }),
     ).toBeTruthy();
+  });
+
+  it("requires confirmation before requesting ownership from the role select", async () => {
+    mocks.workspaces.data = [
+      { workspaceId: "ws", name: "Team", ownerUserId: "user-1", role: "owner" },
+    ];
+    mocks.client.members = [
+      { userId: "user-2", email: "member@example.com", role: "admin" },
+    ];
+    renderTeam();
+    Element.prototype.scrollIntoView = vi.fn();
+    const select = await screen.findByRole("combobox", {
+      name: "Permissions for member@example.com",
+    });
+    fireEvent.keyDown(select, { key: "Enter" });
+    fireEvent.click(await screen.findByRole("option", { name: "Owner" }));
+    expect(
+      await screen.findByRole("dialog", {
+        name: "Request ownership transfer?",
+      }),
+    ).toBeTruthy();
+    expect(mocks.client.transferOwnership).not.toHaveBeenCalled();
+    expect(select.textContent).toContain("Admin");
+    fireEvent.click(screen.getByRole("button", { name: "Request transfer" }));
+    await waitFor(() =>
+      expect(mocks.client.transferOwnership).toHaveBeenCalledWith(
+        expect.anything(),
+        "ws",
+        "user-2",
+      ),
+    );
+  });
+
+  it("lets a member review and accept a pending ownership request", async () => {
+    mocks.workspaces.data = [
+      {
+        workspaceId: "ws",
+        name: "Team",
+        ownerUserId: "user-2",
+        role: "member",
+      },
+    ];
+    mocks.client.ownershipRequests = [
+      { id: "request", ownerUserId: "user-2", targetUserId: "user-1" },
+    ];
+    renderTeam();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Review transfer" }),
+    );
+    expect(
+      await screen.findByRole("dialog", {
+        name: "Accept workspace ownership?",
+      }),
+    ).toBeTruthy();
+    expect(mocks.client.respondOwnershipRequest).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Accept ownership" }));
+    await waitFor(() =>
+      expect(mocks.client.respondOwnershipRequest).toHaveBeenCalledWith(
+        expect.anything(),
+        "ws",
+        "request",
+        "accept",
+      ),
+    );
   });
 
   it("resends a pending invitation by delivering a fresh invite", async () => {
