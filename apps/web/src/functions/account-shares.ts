@@ -17,8 +17,8 @@ const accessibleSessionRowSchema = z.object({
 const galleryRowSchema = z.object({
   share_id: z.string().uuid(),
   general_scope: z.enum(["restricted", "workspace", "link", "public"]),
-  title: z.string(),
-  body_json: z.unknown(),
+  title: z.string().nullable(),
+  body_json: z.unknown().nullable(),
   published_at: z.string(),
 });
 
@@ -75,8 +75,8 @@ export const listMyManagedShares = createServerFn({ method: "GET" })
       .slice(0, MANAGED_SHARES_PAGE_SIZE)
       .map((row) => ({
         shareId: row.share_id,
-        title: row.title,
-        preview: getSnapshotPreview(row.body_json, row.title),
+        title: row.title ?? "",
+        preview: getSnapshotPreview(row.body_json, row.title ?? ""),
         scope: row.general_scope,
         updatedAt: row.published_at,
       }));

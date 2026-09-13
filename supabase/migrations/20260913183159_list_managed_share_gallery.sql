@@ -21,28 +21,28 @@ AS $$
     share.general_scope,
     snapshot.title,
     snapshot.body_json,
-    snapshot.published_at
+    COALESCE(snapshot.published_at, share.created_at)
   FROM private.list_my_accessible_sessions() AS access
   JOIN public.session_shares AS share
     ON share.id = access.share_id
-  JOIN public.session_share_snapshots AS snapshot
+  LEFT JOIN public.session_share_snapshots AS snapshot
     ON snapshot.share_id = share.id
   WHERE access.manage_access
     AND share.deleted_at IS NULL
     AND (
       NULLIF(btrim(p_query), '') IS NULL
-      OR strpos(lower(snapshot.title), lower(btrim(p_query))) > 0
+      OR strpos(lower(COALESCE(snapshot.title, '')), lower(btrim(p_query))) > 0
     )
     AND (
       (p_after_published_at IS NULL AND p_after_share_id IS NULL)
       OR (
         p_after_published_at IS NOT NULL
         AND p_after_share_id IS NOT NULL
-        AND (snapshot.published_at, share.id)
+        AND (COALESCE(snapshot.published_at, share.created_at), share.id)
           < (p_after_published_at, p_after_share_id)
       )
     )
-  ORDER BY snapshot.published_at DESC, share.id DESC
+  ORDER BY COALESCE(snapshot.published_at, share.created_at) DESC, share.id DESC
   LIMIT LEAST(GREATEST(COALESCE(p_limit, 13), 1), 13);
 $$;
 
