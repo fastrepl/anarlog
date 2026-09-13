@@ -440,7 +440,17 @@ function PlanComparison({
 }) {
   return (
     <div className="border-color-subtle border-t p-6 sm:p-8">
-      <Carousel opts={{ align: "start" }} aria-label="Available plans">
+      <Carousel
+        key={currentPlanId}
+        opts={{
+          align: "start",
+          startIndex: Math.max(
+            0,
+            MARKETING_PLAN_TIERS.findIndex((tier) => tier.id === currentPlanId),
+          ),
+        }}
+        aria-label="Available plans"
+      >
         <div className="mb-4 flex min-h-8 items-center justify-between gap-4">
           <p className="text-color text-sm font-medium">Available plans</p>
           <div className="flex items-center gap-2">
