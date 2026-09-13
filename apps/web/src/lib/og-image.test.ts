@@ -1,7 +1,6 @@
 import "./og-fonts.ts";
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import sharp from "sharp";
 
@@ -26,10 +25,7 @@ test("renders blog metadata into a post-specific image", async () => {
   assert.doesNotMatch(svg, />Blog<\/text>/);
   assert.doesNotMatch(svg, />anarlog blog<\/text>/);
   assert.doesNotMatch(svg, /anarlog\.so/);
-  assert.match(
-    svg,
-    /font-family="'Redaction', 'Noto Serif KR', Georgia, serif"/,
-  );
+  assert.match(svg, /font-family="'Redaction', 'Noto Serif', serif"/);
   assert.match(svg, /data-wordmark="anarlog"/);
   assert.match(svg, /<rect width="1200" height="630" fill="#ffffff"\/>/);
   assert.doesNotMatch(svg, /<rect x=/);
@@ -76,14 +72,8 @@ test("normalizes shared note metadata", () => {
   assert.match(svg, /data-wordmark="anarlog"/);
   assert.match(svg, /<rect width="1200" height="630" fill="#ffe09d"\/>/);
   assert.doesNotMatch(svg, /#f4f0e8/);
-  assert.match(
-    svg,
-    /font-family="'Redaction', 'Noto Serif KR', Georgia, serif"/,
-  );
-  assert.match(
-    svg,
-    /font-family="'SF Pro Text', 'Noto Sans KR', Arial, Helvetica, sans-serif"/,
-  );
+  assert.match(svg, /font-family="'Redaction', 'Noto Serif', serif"/);
+  assert.match(svg, /font-family="'SF Pro Text', 'Noto Sans', sans-serif"/);
   assert.doesNotMatch(svg, /Redaction 70/);
   assert.doesNotMatch(svg, /anarlog\.so/);
   assert.doesNotMatch(svg, /PARTICIPANTS|WHEN|SHARED NOTE|Read on anarlog\.so/);
@@ -197,13 +187,6 @@ async function countDarkPixels(
 }
 
 test("renders Korean titles with the bundled serif fallback font", async () => {
-  assert.equal(
-    readFileSync(
-      new URL("../../public/fonts/NotoSerifKR-Regular.otf", import.meta.url),
-    ).toString("ascii", 0, 4),
-    "OTTO",
-  );
-
   for (const [createSvg, renderImage] of [
     [createBlogOgSvg, renderBlogOgImage],
     [createSharedNoteOgSvg, renderSharedNoteOgImage],
@@ -215,7 +198,7 @@ test("renders Korean titles with the bundled serif fallback font", async () => {
       .toBuffer();
     const svg = createSvg(input);
     const reference = svg.replaceAll(
-      "'Redaction', 'Noto Serif KR', Georgia, serif",
+      "'Redaction', 'Noto Serif KR', 'Noto Serif', serif",
       "'Noto Serif KR'",
     );
     const expectedPixels = await sharp(Buffer.from(reference)).raw().toBuffer();

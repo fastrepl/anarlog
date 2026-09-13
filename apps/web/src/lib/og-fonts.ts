@@ -5,10 +5,6 @@ import { fileURLToPath } from "node:url";
 
 const FONT_MARKER_FILENAME = "Redaction-Regular.otf";
 
-export const SERIF_FONT_FAMILY = "'Redaction', 'Noto Serif KR', Georgia, serif";
-export const SANS_FONT_FAMILY =
-  "'SF Pro Text', 'Noto Sans KR', Arial, Helvetica, sans-serif";
-
 function resolveOgFontsDir() {
   const candidates = [
     join(fileURLToPath(new URL("../../public/fonts", import.meta.url))),

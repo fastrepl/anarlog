@@ -11,7 +11,7 @@ import {
 } from "@anlg/ui/lib/avatar";
 
 import { ANARLOG_WORDMARK } from "./brand-assets.ts";
-import { SANS_FONT_FAMILY, SERIF_FONT_FAMILY } from "./og-fonts.ts";
+import { getOgFontFamilies } from "./og-font-catalog.ts";
 import { createSharedNoteParticipantPresentation } from "./shared-note-presentation.ts";
 
 const OG_WIDTH = 1200;
@@ -31,6 +31,7 @@ const CACHE_CONTROL =
 const SHARED_NOTE_CACHE_CONTROL = "public, max-age=0, s-maxage=60";
 
 type BlogOgImageInput = {
+  languageHints?: string[];
   title: string;
   description?: string;
   date?: string;
@@ -38,6 +39,7 @@ type BlogOgImageInput = {
 };
 
 type SharedNoteOgImageInput = {
+  languageHints?: string[];
   title: string;
   summary?: string;
   participants?: string[];
@@ -218,6 +220,7 @@ function createParticipantAvatarStack(
   participants: string[],
   avatarImages: string[],
   centerY: number,
+  fontFamily: string,
 ) {
   const avatars = participants.map((participant, index) => ({
     image: avatarImages[index],
@@ -230,7 +233,7 @@ function createParticipantAvatarStack(
       const centerX = CONTENT_INSET_X + AVATAR_RADIUS + index * AVATAR_STEP;
       const gradientId = `avatar-gradient-${index}`;
       const clipId = `avatar-clip-${index}`;
-      return `<defs>${createAvatarGradientSvg(avatar.seed, gradientId)}<clipPath id="${clipId}"><circle cx="${centerX}" cy="${centerY}" r="${AVATAR_RADIUS}"/></clipPath></defs><g data-avatar="participant" data-avatar-renderer="app"><circle cx="${centerX}" cy="${centerY}" r="${AVATAR_RADIUS}" fill="url(#${gradientId})"/>${avatar.image ? `<image href="${avatar.image}" x="${centerX - AVATAR_RADIUS}" y="${centerY - AVATAR_RADIUS}" width="${AVATAR_RADIUS * 2}" height="${AVATAR_RADIUS * 2}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})"/>` : ""}<circle cx="${centerX}" cy="${centerY}" r="${AVATAR_RADIUS + 2}" fill="none" stroke="${ROOT_OG_BACKGROUND}" stroke-width="4"/><text x="${centerX}" y="${centerY + 7}" fill="#ffffff" fill-opacity="0.82" font-family="${SANS_FONT_FAMILY}" font-size="18" font-weight="700" text-anchor="middle" style="mix-blend-mode:overlay">${escapeXml(avatar.label)}</text></g>`;
+      return `<defs>${createAvatarGradientSvg(avatar.seed, gradientId)}<clipPath id="${clipId}"><circle cx="${centerX}" cy="${centerY}" r="${AVATAR_RADIUS}"/></clipPath></defs><g data-avatar="participant" data-avatar-renderer="app"><circle cx="${centerX}" cy="${centerY}" r="${AVATAR_RADIUS}" fill="url(#${gradientId})"/>${avatar.image ? `<image href="${avatar.image}" x="${centerX - AVATAR_RADIUS}" y="${centerY - AVATAR_RADIUS}" width="${AVATAR_RADIUS * 2}" height="${AVATAR_RADIUS * 2}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})"/>` : ""}<circle cx="${centerX}" cy="${centerY}" r="${AVATAR_RADIUS + 2}" fill="none" stroke="${ROOT_OG_BACKGROUND}" stroke-width="4"/><text x="${centerX}" y="${centerY + 7}" fill="#ffffff" fill-opacity="0.82" font-family="${fontFamily}" font-size="18" font-weight="700" text-anchor="middle" style="mix-blend-mode:overlay">${escapeXml(avatar.label)}</text></g>`;
     })
     .reverse()
     .join("");
@@ -264,6 +267,10 @@ async function createParticipantAvatarImages(participants: string[]) {
 }
 
 export function createBlogOgSvg(input: BlogOgImageInput) {
+  const fonts = getOgFontFamilies(
+    [input.title, input.description, input.author].filter(Boolean).join(" "),
+    input.languageHints,
+  );
   const title = wrapText(clampText(input.title, 96), 25, 3);
   const description = wrapText(clampText(input.description, 150), 55, 2);
   const meta = [input.author, formatDate(input.date)]
@@ -289,16 +296,16 @@ export function createBlogOgSvg(input: BlogOgImageInput) {
   ${title
     .map(
       (line, index) =>
-        `<text x="86" y="${titleStartY + index * 86}" fill="#181613" font-family="${SERIF_FONT_FAMILY}" font-size="76" font-weight="400">${escapeXml(line)}</text>`,
+        `<text x="86" y="${titleStartY + index * 86}" fill="#181613" font-family="${fonts.serif}" font-size="76" font-weight="400">${escapeXml(line)}</text>`,
     )
     .join("")}
   ${description
     .map(
       (line, index) =>
-        `<text x="90" y="${descriptionStartY + index * 42}" fill="#57534e" font-family="${SANS_FONT_FAMILY}" font-size="32" font-weight="500">${escapeXml(line)}</text>`,
+        `<text x="90" y="${descriptionStartY + index * 42}" fill="#57534e" font-family="${fonts.sans}" font-size="32" font-weight="500">${escapeXml(line)}</text>`,
     )
     .join("")}
-  <text x="86" y="552" fill="#756b5d" font-family="${SANS_FONT_FAMILY}" font-size="26" font-weight="600">${escapeXml(meta || "anarlog")}</text>
+  <text x="86" y="552" fill="#756b5d" font-family="${fonts.sans}" font-size="26" font-weight="600">${escapeXml(meta || "anarlog")}</text>
   ${createAnarlogWordmark({ x: 962, y: 516, width: 152 })}
 </svg>`;
 }
@@ -307,6 +314,12 @@ export function createSharedNoteOgSvg(
   input: SharedNoteOgImageInput,
   avatarImages: string[] = [],
 ) {
+  const fonts = getOgFontFamilies(
+    [input.title, input.summary, ...(input.participants ?? [])]
+      .filter(Boolean)
+      .join(" "),
+    input.languageHints,
+  );
   const normalizedTitle = clampText(input.title, 120) || "Shared note";
   const titleFontSize = normalizedTitle.length > 72 ? 64 : 76;
   const title = wrapText(
@@ -357,19 +370,19 @@ export function createSharedNoteOgSvg(
   ${title
     .map(
       (line, index) =>
-        `<text x="${CONTENT_INSET_X}" y="${titleStartY + index * 82}" fill="#181613" font-family="${SERIF_FONT_FAMILY}" font-size="${titleFontSize}" font-weight="400">${escapeXml(line)}</text>`,
+        `<text x="${CONTENT_INSET_X}" y="${titleStartY + index * 82}" fill="#181613" font-family="${fonts.serif}" font-size="${titleFontSize}" font-weight="400">${escapeXml(line)}</text>`,
     )
     .join("")}
   ${summary
     .map(
       (line, index) =>
-        `<text data-summary="meeting" x="${CONTENT_INSET_X}" y="${summaryY + index * SUMMARY_LINE_HEIGHT}" fill="#57534e" font-family="${SANS_FONT_FAMILY}" font-size="${SUMMARY_FONT_SIZE}" font-weight="500">${escapeXml(line)}</text>`,
+        `<text data-summary="meeting" x="${CONTENT_INSET_X}" y="${summaryY + index * SUMMARY_LINE_HEIGHT}" fill="#57534e" font-family="${fonts.sans}" font-size="${SUMMARY_FONT_SIZE}" font-weight="500">${escapeXml(line)}</text>`,
     )
     .join("")}
-  ${createParticipantAvatarStack(avatarParticipants, avatarImages, footerCenterY)}
-  <text x="${participantX}" y="${footerCenterY + 9}"${participantTextLength} fill="#37322d" font-family="${SANS_FONT_FAMILY}" font-size="27" font-weight="600">${escapeXml(participantSummary)}</text>
+  ${createParticipantAvatarStack(avatarParticipants, avatarImages, footerCenterY, fonts.sans)}
+  <text x="${participantX}" y="${footerCenterY + 9}"${participantTextLength} fill="#37322d" font-family="${fonts.sans}" font-size="27" font-weight="600">${escapeXml(participantSummary)}</text>
   <circle cx="${separatorX}" cy="${footerCenterY}" r="3" fill="#9d9387"/>
-  <text x="${dateX}" y="${footerCenterY + 9}" fill="#57534e" font-family="${SANS_FONT_FAMILY}" font-size="27" font-weight="500">${escapeXml(date)}</text>
+  <text x="${dateX}" y="${footerCenterY + 9}" fill="#57534e" font-family="${fonts.sans}" font-size="27" font-weight="500">${escapeXml(date)}</text>
   ${createAnarlogWordmark({
     x: CONTENT_RIGHT_X - WORDMARK_WIDTH,
     y: 477,
