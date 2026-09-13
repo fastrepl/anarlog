@@ -187,20 +187,14 @@ export function SharedNotesSection() {
           </div>
         ) : (
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {shares.map((share) => (
-              <li
-                key={share.shareId}
-                className="surface border-color-subtle group hover:border-color-bright relative min-w-0 overflow-hidden rounded-[20px] border transition hover:shadow-lg"
-              >
-                <Link
-                  to="/share/$shareId/"
-                  params={{ shareId: share.shareId }}
-                  search={{ scheme: "anarlog" }}
-                  className="block h-full p-4 pb-5"
-                >
+            {shares.map((share) => {
+              const cardContent = (
+                <>
                   <div className="surface-subtle border-color-subtle text-color-muted h-36 overflow-hidden rounded-xl border p-4 pr-11 text-xs leading-5">
                     <p className="line-clamp-5">
-                      {share.preview || "No text preview available yet."}
+                      {share.hasSnapshot
+                        ? share.preview || "No text preview available yet."
+                        : "Preview isn't available yet. You can still manage sharing from the menu."}
                     </p>
                   </div>
                   <p className="text-color mt-4 truncate text-base font-medium">
@@ -213,25 +207,49 @@ export function SharedNotesSection() {
                       day: "numeric",
                     })}
                   </p>
-                </Link>
-                <ShareCardMenu
-                  shareId={share.shareId}
-                  title={share.title || "Untitled note"}
-                  canRestrict={share.scope !== "restricted"}
-                  disabled={actionsDisabled}
-                  restricting={
-                    restrict.isPending && restrict.variables === share.shareId
-                  }
-                  stopping={
-                    stopSharing.isPending &&
-                    stopSharing.variables === share.shareId
-                  }
-                  onOpenChange={() => setConfirmingAll(false)}
-                  onRestrict={() => restrict.mutate(share.shareId)}
-                  onStopSharing={() => stopSharing.mutate(share.shareId)}
-                />
-              </li>
-            ))}
+                </>
+              );
+
+              return (
+                <li
+                  key={share.shareId}
+                  className={cn([
+                    "surface border-color-subtle relative min-w-0 overflow-hidden rounded-[20px] border transition",
+                    share.hasSnapshot &&
+                      "group hover:border-color-bright hover:shadow-lg",
+                  ])}
+                >
+                  {share.hasSnapshot ? (
+                    <Link
+                      to="/share/$shareId/"
+                      params={{ shareId: share.shareId }}
+                      search={{ scheme: "anarlog" }}
+                      className="block h-full p-4 pb-5"
+                    >
+                      {cardContent}
+                    </Link>
+                  ) : (
+                    <div className="h-full p-4 pb-5">{cardContent}</div>
+                  )}
+                  <ShareCardMenu
+                    shareId={share.shareId}
+                    title={share.title || "Untitled note"}
+                    canRestrict={share.scope !== "restricted"}
+                    disabled={actionsDisabled}
+                    restricting={
+                      restrict.isPending && restrict.variables === share.shareId
+                    }
+                    stopping={
+                      stopSharing.isPending &&
+                      stopSharing.variables === share.shareId
+                    }
+                    onOpenChange={() => setConfirmingAll(false)}
+                    onRestrict={() => restrict.mutate(share.shareId)}
+                    onStopSharing={() => stopSharing.mutate(share.shareId)}
+                  />
+                </li>
+              );
+            })}
           </ul>
         )}
         {sharesQuery.hasNextPage && (

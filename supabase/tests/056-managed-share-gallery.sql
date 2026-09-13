@@ -1,5 +1,5 @@
 begin;
-select plan(7);
+select plan(8);
 
 select tests.create_supabase_user('gallery_owner', 'gallery-owner@example.com');
 select tests.create_supabase_user('gallery_member', 'gallery-member@example.com');
@@ -160,16 +160,25 @@ select is(
     '31000000-0000-4000-8000-000000000014'::uuid,
     '31000000-0000-4000-8000-000000000013'::uuid
   ],
-  'The first page preserves snapshotless shares and orders by content time'
+  'The first page preserves snapshotless shares and orders by snapshot or management time'
 );
 
 select results_eq(
   $$
-    select title, body_json
+    select title, body_json, has_snapshot, published_at
     from public.list_my_managed_share_gallery_page(null, null, null, 1)
   $$,
-  $$values (null::text, null::jsonb)$$,
-  'A snapshotless share retains a management card with empty preview data'
+  $$values (null::text, null::jsonb, false, '2026-09-14T06:00:00Z'::timestamptz)$$,
+  'A snapshotless share retains a management card with its management time'
+);
+
+select is(
+  (
+    select page.has_snapshot
+    from public.list_my_managed_share_gallery_page('Beta', null, null, 13) as page
+  ),
+  true,
+  'A published share is marked as previewable'
 );
 
 select is(

@@ -19,6 +19,7 @@ const galleryRowSchema = z.object({
   general_scope: z.enum(["restricted", "workspace", "link", "public"]),
   title: z.string().nullable(),
   body_json: z.unknown().nullable(),
+  has_snapshot: z.boolean(),
   published_at: z.string(),
 });
 
@@ -39,6 +40,7 @@ export type ManagedShare = {
   shareId: string;
   title: string;
   preview: string;
+  hasSnapshot: boolean;
   scope: "restricted" | "workspace" | "link" | "public";
   updatedAt: string;
 };
@@ -77,6 +79,7 @@ export const listMyManagedShares = createServerFn({ method: "GET" })
         shareId: row.share_id,
         title: row.title ?? "",
         preview: getSnapshotPreview(row.body_json, row.title ?? ""),
+        hasSnapshot: row.has_snapshot,
         scope: row.general_scope,
         updatedAt: row.published_at,
       }));

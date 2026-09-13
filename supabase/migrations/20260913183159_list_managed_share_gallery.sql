@@ -9,6 +9,7 @@ RETURNS TABLE (
   general_scope text,
   title text,
   body_json jsonb,
+  has_snapshot boolean,
   published_at timestamptz
 )
 LANGUAGE sql
@@ -21,7 +22,8 @@ AS $$
     share.general_scope,
     snapshot.title,
     snapshot.body_json,
-    COALESCE(snapshot.published_at, share.created_at)
+    snapshot.share_id IS NOT NULL,
+    COALESCE(snapshot.published_at, share.updated_at)
   FROM private.list_my_accessible_sessions() AS access
   JOIN public.session_shares AS share
     ON share.id = access.share_id
@@ -38,11 +40,11 @@ AS $$
       OR (
         p_after_published_at IS NOT NULL
         AND p_after_share_id IS NOT NULL
-        AND (COALESCE(snapshot.published_at, share.created_at), share.id)
+        AND (COALESCE(snapshot.published_at, share.updated_at), share.id)
           < (p_after_published_at, p_after_share_id)
       )
     )
-  ORDER BY COALESCE(snapshot.published_at, share.created_at) DESC, share.id DESC
+  ORDER BY COALESCE(snapshot.published_at, share.updated_at) DESC, share.id DESC
   LIMIT LEAST(GREATEST(COALESCE(p_limit, 13), 1), 13);
 $$;
 
@@ -70,6 +72,7 @@ RETURNS TABLE (
   general_scope text,
   title text,
   body_json jsonb,
+  has_snapshot boolean,
   published_at timestamptz
 )
 LANGUAGE sql
