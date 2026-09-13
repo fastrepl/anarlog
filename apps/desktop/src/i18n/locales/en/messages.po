@@ -1633,8 +1633,8 @@ msgid "Could not load Slack channels. Reconnect Slack and try again."
 msgstr "Could not load Slack channels. Reconnect Slack and try again."
 
 #: src/settings/team/index.tsx
-msgid "Could not load workspace members. Please try again."
-msgstr "Could not load workspace members. Please try again."
+msgid "Could not load workspace members."
+msgstr "Could not load workspace members."
 
 #: src/settings/sync/index.tsx
 msgid "Could not load your devices."
@@ -5577,6 +5577,7 @@ msgstr "Trigger"
 #: src/session-sharing/management-panel.tsx
 #: src/settings/general/permissions.tsx
 #: src/settings/stats/badge-collection.tsx
+#: src/settings/team/index.tsx
 msgid "Try again"
 msgstr "Try again"
 
