@@ -255,7 +255,7 @@ export function SelectProviderAndModel() {
       <div className="flex flex-row items-center gap-4">
         <div className="min-w-0 flex-2" data-stt-provider-selector>
           <Select value={visibleProvider} onValueChange={handleProviderChange}>
-            <SelectTrigger className="bg-card shadow-none">
+            <SelectTrigger className="bg-card rounded-[18px] shadow-none">
               <SelectValue placeholder={t`Select a provider`} />
             </SelectTrigger>
             <SelectContent>
@@ -328,7 +328,7 @@ export function SelectProviderAndModel() {
             >
               <SelectTrigger
                 className={cn([
-                  "bg-card text-left shadow-none",
+                  "bg-card rounded-[18px] text-left shadow-none",
                   "[&>span]:!flex [&>span]:w-full [&>span]:min-w-0 [&>span]:items-center [&>span]:justify-start [&>span]:gap-2 [&>span]:overflow-visible [&>span]:[-webkit-line-clamp:unset]",
                   isConfigured && "[&>svg:last-child]:hidden",
                 ])}
