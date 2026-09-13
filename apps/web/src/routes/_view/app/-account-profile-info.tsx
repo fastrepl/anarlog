@@ -215,7 +215,7 @@ export function ProfileInfoSection({ email }: { email?: string }) {
       <section aria-labelledby="additional-profile-heading">
         <h3
           id="additional-profile-heading"
-          className="font-hand text-3xl leading-none font-semibold text-[#756b5d]"
+          className="text-color-muted font-hand text-3xl leading-none font-semibold"
         >
           Additional profile
         </h3>
