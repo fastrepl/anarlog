@@ -896,6 +896,46 @@ describe("SettingsTeam", () => {
     ).toBeTruthy();
   });
 
+  it("lets ordinary members see the roster without management controls", async () => {
+    mocks.workspaces.data = [
+      {
+        workspaceId: "ws",
+        name: "Team",
+        ownerUserId: "user-2",
+        role: "member",
+      },
+    ];
+    mocks.client.access.tier = "free";
+    mocks.client.access.capabilities = [];
+    mocks.client.members = [
+      {
+        userId: "user-2",
+        email: "owner@example.com",
+        name: "Team Owner",
+        role: "owner",
+      },
+      { userId: "user-1", email: "member@example.com", role: "member" },
+    ];
+    mocks.client.invitations = [
+      {
+        invitationId: "invite",
+        email: "pending@example.com",
+        expiresAt: "2027-01-01",
+      },
+    ];
+
+    renderTeam();
+
+    const table = await screen.findByRole("table", { name: "Members" });
+    expect(within(table).getByText("Team Owner")).toBeTruthy();
+    expect(within(table).getByText("owner@example.com")).toBeTruthy();
+    expect(within(table).getByText("member@example.com")).toBeTruthy();
+    expect(within(table).queryByRole("combobox")).toBeNull();
+    expect(within(table).queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add members" })).toBeNull();
+    expect(screen.queryByText("pending@example.com")).toBeNull();
+  });
+
   it("requires confirmation before requesting ownership from the role select", async () => {
     mocks.workspaces.data = [
       { workspaceId: "ws", name: "Team", ownerUserId: "user-1", role: "owner" },

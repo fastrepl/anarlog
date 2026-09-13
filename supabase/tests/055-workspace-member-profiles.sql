@@ -1,5 +1,5 @@
 begin;
-select plan(7);
+select plan(10);
 
 select tests.create_supabase_user('roster_owner', 'roster-owner@example.com');
 select tests.create_supabase_user('roster_member', 'roster-member@example.com');
@@ -47,9 +47,18 @@ select results_eq(
 
 select tests.clear_authentication();
 select tests.authenticate_as('roster_member');
+select results_eq(
+  $$select user_name, user_avatar_url from public.list_workspace_members_with_profiles((select workspace_id from roster_state)) where role = 'owner'$$,
+  $$values ('Roster Owner'::text, 'https://example.com/owner.png'::text)$$,
+  'Members can read other members profiles without a paid plan'
+);
 select throws_ok(
-  $$select * from public.list_workspace_members_with_profiles((select workspace_id from roster_state))$$,
-  '42501', 'workspace membership operation not permitted', 'Members cannot read manager-only profiles'
+  $$select * from public.list_workspace_invitations((select workspace_id from roster_state))$$,
+  '42501', 'workspace invitation operation not permitted', 'Members cannot list invitations'
+);
+select throws_ok(
+  $$select public.revoke_workspace_membership((select workspace_id from roster_state), tests.get_supabase_uid('roster_owner'))$$,
+  '42501', 'workspace membership operation not permitted', 'Members cannot remove others'
 );
 select tests.clear_authentication();
 select tests.authenticate_as('roster_outsider');
@@ -63,6 +72,12 @@ select tests.authenticate_as_hyprnote_pro('roster_owner');
 select is(
   (select count(*) from public.list_workspace_members_with_profiles((select workspace_id from roster_state))),
   1::bigint, 'Removed members are excluded'
+);
+select tests.clear_authentication();
+select tests.authenticate_as('roster_member');
+select throws_ok(
+  $$select * from public.list_workspace_members_with_profiles((select workspace_id from roster_state))$$,
+  '42501', 'workspace membership operation not permitted', 'Removed members cannot read profiles'
 );
 select * from finish();
 rollback;

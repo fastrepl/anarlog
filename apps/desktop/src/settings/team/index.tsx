@@ -516,8 +516,6 @@ function WorkspacePanel({
   const hasPaidWorkspacePlan =
     access.data?.tier === "team" || access.data?.tier === "enterprise";
 
-  // The roster, invitation, and seat RPCs are manager-only, so a plain member
-  // gets a permission error rather than data. Retrying cannot fix that.
   const members = useQuery({
     queryKey: ["team-members", workspaceId],
     queryFn: () => listWorkspaceMembers(requireTeamContext(auth), workspaceId),
@@ -537,6 +535,7 @@ function WorkspacePanel({
     queryFn: () =>
       listWorkspaceInvitations(requireTeamContext(auth), workspaceId),
     retry: false,
+    enabled: isManager,
   });
   const usage = useQuery({
     queryKey: ["team-usage", workspaceId],
@@ -871,10 +870,7 @@ function WorkspacePanel({
           <TeamSkeleton />
         ) : members.isError ? (
           <p className="text-muted-foreground text-sm">
-            <Trans>
-              Only workspace admins can see who has access. You are a member of
-              this workspace.
-            </Trans>
+            <Trans>Could not load workspace members. Please try again.</Trans>
           </p>
         ) : (
           <div className="border-border overflow-x-auto rounded-lg border">
@@ -927,7 +923,7 @@ function WorkspacePanel({
                     }}
                   />
                 ))}
-                {invitations.data?.map((invitation) => (
+                {(isManager ? invitations.data : [])?.map((invitation) => (
                   <tr key={invitation.invitationId}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
