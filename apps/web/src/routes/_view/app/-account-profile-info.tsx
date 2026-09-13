@@ -125,7 +125,7 @@ export function ProfileInfoSection({ email }: { email?: string }) {
               isEditing ? "md:items-start" : "md:items-center",
             ])}
           >
-            <span className="text-sm font-medium text-[#756b5d]">Email</span>
+            <span className="text-color-muted text-sm font-medium">Email</span>
             {isEditing ? (
               <form
                 onSubmit={handleSubmit}
@@ -169,7 +169,7 @@ export function ProfileInfoSection({ email }: { email?: string }) {
               </form>
             ) : (
               <div className="flex flex-wrap items-center gap-3">
-                <span className="text-base text-[#181613]">
+                <span className="text-color text-base">
                   {email || "Not available"}
                 </span>
                 <button
@@ -187,18 +187,18 @@ export function ProfileInfoSection({ email }: { email?: string }) {
 
           {successMessage && (
             <div className={authNoticeClassName}>
-              <p className="text-sm font-medium text-[#4f4940]">
+              <p className="text-color-muted text-sm font-medium">
                 {successMessage}
               </p>
             </div>
           )}
 
           {accountSession?.createdAt && (
-            <div className="flex flex-col gap-3 border-t border-[#ede7dc] pt-4 md:flex-row md:items-center md:justify-between">
-              <span className="text-sm font-medium text-[#756b5d]">
+            <div className="border-color-subtle flex flex-col gap-3 border-t pt-4 md:flex-row md:items-center md:justify-between">
+              <span className="text-color-muted text-sm font-medium">
                 Member since
               </span>
-              <span className="text-base text-[#181613]">
+              <span className="text-color text-base">
                 {new Date(accountSession.createdAt).toLocaleDateString(
                   "en-US",
                   {
@@ -278,11 +278,11 @@ export function ProfileInfoSection({ email }: { email?: string }) {
             ) : (
               <>
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <span className="text-sm font-medium text-[#756b5d]">
+                  <span className="text-color-muted text-sm font-medium">
                     Full name
                   </span>
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className="text-base text-[#181613]">
+                    <span className="text-color text-base">
                       {profile?.fullName || "Not set"}
                     </span>
                     <button
@@ -294,7 +294,7 @@ export function ProfileInfoSection({ email }: { email?: string }) {
                   </div>
                 </div>
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <span className="flex items-center gap-2 text-sm font-medium text-[#756b5d]">
+                  <span className="text-color-muted flex items-center gap-2 text-sm font-medium">
                     <Icon icon="logos:linkedin-icon" width="16" height="16" />
                     LinkedIn
                   </span>
@@ -303,16 +303,16 @@ export function ProfileInfoSection({ email }: { email?: string }) {
                       href={profile.linkedinUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-base text-[#181613] underline decoration-[#d9cdb8] underline-offset-4"
+                      className="text-color text-base underline decoration-[var(--color-border)] underline-offset-4"
                     >
                       {profile.linkedinUrl.replace(/^https?:\/\/(www\.)?/, "")}
                     </a>
                   ) : (
-                    <span className="text-base text-[#756b5d]">Not set</span>
+                    <span className="text-color-muted text-base">Not set</span>
                   )}
                 </div>
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <span className="flex items-center gap-2 text-sm font-medium text-[#756b5d]">
+                  <span className="text-color-muted flex items-center gap-2 text-sm font-medium">
                     <XLogo size={16} />X
                   </span>
                   {profile?.xHandle ? (
@@ -320,16 +320,16 @@ export function ProfileInfoSection({ email }: { email?: string }) {
                       href={`https://x.com/${profile.xHandle}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-base text-[#181613] underline decoration-[#d9cdb8] underline-offset-4"
+                      className="text-color text-base underline decoration-[var(--color-border)] underline-offset-4"
                     >
                       @{profile.xHandle}
                     </a>
                   ) : (
-                    <span className="text-base text-[#756b5d]">Not set</span>
+                    <span className="text-color-muted text-base">Not set</span>
                   )}
                 </div>
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <span className="flex items-center gap-2 text-sm font-medium text-[#756b5d]">
+                  <span className="text-color-muted flex items-center gap-2 text-sm font-medium">
                     <Globe size={16} />
                     Website
                   </span>
@@ -338,12 +338,12 @@ export function ProfileInfoSection({ email }: { email?: string }) {
                       href={profile.websiteUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-base text-[#181613] underline decoration-[#d9cdb8] underline-offset-4"
+                      className="text-color text-base underline decoration-[var(--color-border)] underline-offset-4"
                     >
                       {profile.websiteUrl.replace(/^https?:\/\/(www\.)?/, "")}
                     </a>
                   ) : (
-                    <span className="text-base text-[#756b5d]">Not set</span>
+                    <span className="text-color-muted text-base">Not set</span>
                   )}
                 </div>
               </>
@@ -370,7 +370,7 @@ function DetailsField({
 }) {
   return (
     <label className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-      <span className="text-sm font-medium text-[#756b5d]">{label}</span>
+      <span className="text-color-muted text-sm font-medium">{label}</span>
       <div className="flex w-full flex-col gap-1 md:max-w-[420px]">
         <input
           type="text"

@@ -1,6 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useDeferredValue, useState } from "react";
 
 import { DotsThree, MagnifyingGlass } from "@anlg/ui/components/icons";
 import {
@@ -40,19 +44,31 @@ export function SharedNotesSection() {
   const queryClient = useQueryClient();
   const [confirmingAll, setConfirmingAll] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery.trim());
 
-  const sharesQuery = useQuery({
-    queryKey: sharesQueryKey,
+  const sharesQuery = useInfiniteQuery({
+    queryKey: [...sharesQueryKey, deferredSearchQuery],
+    initialPageParam: null as {
+      updatedAt: string;
+      shareId: string;
+    } | null,
     // Skip the SSR fetch: this data is session-scoped and better fetched
     // client-side like the rest of the account queries.
     enabled: typeof window !== "undefined",
-    queryFn: async () => {
-      const result = await listMyManagedShares();
+    queryFn: async ({ pageParam }) => {
+      const result = await listMyManagedShares({
+        data: {
+          query: deferredSearchQuery || undefined,
+          afterUpdatedAt: pageParam?.updatedAt,
+          afterShareId: pageParam?.shareId,
+        },
+      });
       if (result.status !== "ready") {
         throw new Error("Failed to load shared notes");
       }
-      return result.shares;
+      return result;
     },
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
   });
 
   const restrict = useMutation({
@@ -80,8 +96,8 @@ export function SharedNotesSection() {
   });
 
   const stopSharingAll = useMutation({
-    mutationFn: async (shareIds: string[]) => {
-      const result = await deleteMyShares({ data: { shareIds } });
+    mutationFn: async () => {
+      const result = await deleteMyShares();
       if (!result.success) {
         throw new Error(result.message);
       }
@@ -94,15 +110,7 @@ export function SharedNotesSection() {
     },
   });
 
-  const shares = sharesQuery.data ?? [];
-  const normalizedQuery = searchQuery.trim().toLowerCase();
-  const filteredShares = normalizedQuery
-    ? shares.filter((share) =>
-        [share.title, share.preview, SCOPE_LABELS[share.scope]].some((value) =>
-          value.toLowerCase().includes(normalizedQuery),
-        ),
-      )
-    : shares;
+  const shares = sharesQuery.data?.pages.flatMap((page) => page.shares) ?? [];
   const actionsDisabled =
     restrict.isPending || stopSharing.isPending || stopSharingAll.isPending;
 
@@ -119,7 +127,7 @@ export function SharedNotesSection() {
               type="button"
               onClick={() => {
                 if (confirmingAll) {
-                  stopSharingAll.mutate(shares.map((share) => share.shareId));
+                  stopSharingAll.mutate();
                 } else {
                   setConfirmingAll(true);
                 }
@@ -135,7 +143,7 @@ export function SharedNotesSection() {
             </button>
           )}
       </div>
-      {!sharesQuery.isPending && !sharesQuery.isError && shares.length > 0 && (
+      {!sharesQuery.isError && (
         <div
           role="search"
           className="surface border-color-subtle text-color-muted focus-within:border-color-bright mt-6 flex h-11 items-center gap-3 rounded-full border px-4"
@@ -164,14 +172,14 @@ export function SharedNotesSection() {
               Couldn't load your shared notes. Refresh to try again.
             </p>
           </div>
-        ) : shares.length === 0 ? (
+        ) : shares.length === 0 && !deferredSearchQuery ? (
           <div className={accountCardClassName}>
             <p className="text-color-muted p-6 text-sm leading-6 sm:p-8">
               You haven't shared any notes yet. Notes you share from the desktop
               app show up here.
             </p>
           </div>
-        ) : filteredShares.length === 0 ? (
+        ) : shares.length === 0 ? (
           <div className={accountCardClassName}>
             <p className="text-color-muted p-6 text-sm leading-6 sm:p-8">
               No shared notes match “{searchQuery.trim()}”.
@@ -179,7 +187,7 @@ export function SharedNotesSection() {
           </div>
         ) : (
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {filteredShares.map((share) => (
+            {shares.map((share) => (
               <li
                 key={share.shareId}
                 className="surface border-color-subtle group hover:border-color-bright relative min-w-0 overflow-hidden rounded-[20px] border transition hover:shadow-lg"
@@ -225,6 +233,16 @@ export function SharedNotesSection() {
               </li>
             ))}
           </ul>
+        )}
+        {sharesQuery.hasNextPage && (
+          <button
+            type="button"
+            onClick={() => sharesQuery.fetchNextPage()}
+            disabled={sharesQuery.isFetchingNextPage}
+            className="surface border-color-subtle text-color hover:border-color-bright mx-auto mt-6 flex h-10 items-center justify-center rounded-full border px-5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {sharesQuery.isFetchingNextPage ? "Loading..." : "Load more"}
+          </button>
         )}
         {restrict.isError && (
           <p className="px-6 pb-6 text-sm text-red-600 sm:px-8">

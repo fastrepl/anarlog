@@ -62,19 +62,19 @@ export function DevicesSection() {
   return (
     <div className={accountCardClassName}>
       {devicesQuery.isPending ? (
-        <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
+        <p className="text-color-muted p-6 text-sm leading-6 sm:p-8">
           Checking your devices...
         </p>
       ) : devicesQuery.isError ? (
-        <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
+        <p className="text-color-muted p-6 text-sm leading-6 sm:p-8">
           Couldn't load your devices. Refresh to try again.
         </p>
       ) : devices.length === 0 ? (
-        <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
+        <p className="text-color-muted p-6 text-sm leading-6 sm:p-8">
           No synced devices yet. Devices appear here once sync is on.
         </p>
       ) : (
-        <ul className="divide-y divide-[#ede7dc]">
+        <ul className="divide-border-subtle divide-y">
           {devices.map((device) => {
             const deviceType = inferSyncDeviceType(device.device_name);
             const DeviceTypeIcon =
@@ -105,10 +105,10 @@ export function DevicesSection() {
                     <DeviceTypeIcon size={20} aria-hidden="true" />
                   </span>
                   <div>
-                    <p className="text-base font-medium text-[#181613]">
+                    <p className="text-color text-base font-medium">
                       {device.device_name || "Unnamed device"}
                     </p>
-                    <p className="mt-1 text-sm leading-6 text-[#756b5d]">
+                    <p className="text-color-muted mt-1 text-sm leading-6">
                       Last seen{" "}
                       {new Date(device.last_seen_at).toLocaleDateString(
                         "en-US",
