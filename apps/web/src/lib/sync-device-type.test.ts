@@ -13,6 +13,8 @@ test("recognizes common mobile device names", () => {
 test("recognizes common desktop device names", () => {
   assert.equal(inferSyncDeviceType("MacBook-Pro.local"), "desktop");
   assert.equal(inferSyncDeviceType("Johns-M4-Max.local"), "desktop");
+  assert.equal(inferSyncDeviceType("Mac Studio"), "desktop");
+  assert.equal(inferSyncDeviceType("Desk Mac"), "desktop");
   assert.equal(inferSyncDeviceType("Windows desktop"), "desktop");
 });
 
