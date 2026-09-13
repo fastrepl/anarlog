@@ -1,6 +1,7 @@
 import "./og-fonts.ts";
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import sharp from "sharp";
 
@@ -25,7 +26,10 @@ test("renders blog metadata into a post-specific image", async () => {
   assert.doesNotMatch(svg, />Blog<\/text>/);
   assert.doesNotMatch(svg, />anarlog blog<\/text>/);
   assert.doesNotMatch(svg, /anarlog\.so/);
-  assert.match(svg, /font-family="'Redaction', Georgia, serif"/);
+  assert.match(
+    svg,
+    /font-family="'Redaction', 'Noto Serif KR', Georgia, serif"/,
+  );
   assert.match(svg, /data-wordmark="anarlog"/);
   assert.match(svg, /<rect width="1200" height="630" fill="#ffffff"\/>/);
   assert.doesNotMatch(svg, /<rect x=/);
@@ -72,10 +76,13 @@ test("normalizes shared note metadata", () => {
   assert.match(svg, /data-wordmark="anarlog"/);
   assert.match(svg, /<rect width="1200" height="630" fill="#ffe09d"\/>/);
   assert.doesNotMatch(svg, /#f4f0e8/);
-  assert.match(svg, /font-family="'Redaction', Georgia, serif"/);
   assert.match(
     svg,
-    /font-family="'SF Pro Text', Arial, Helvetica, sans-serif"/,
+    /font-family="'Redaction', 'Noto Serif KR', Georgia, serif"/,
+  );
+  assert.match(
+    svg,
+    /font-family="'SF Pro Text', 'Noto Sans KR', Arial, Helvetica, sans-serif"/,
   );
   assert.doesNotMatch(svg, /Redaction 70/);
   assert.doesNotMatch(svg, /anarlog\.so/);
@@ -188,3 +195,36 @@ async function countDarkPixels(
   }
   return dark;
 }
+
+test("renders Korean titles with the bundled serif fallback font", async () => {
+  assert.equal(
+    readFileSync(
+      new URL("../../public/fonts/NotoSerifKR-Regular.otf", import.meta.url),
+    ).toString("ascii", 0, 4),
+    "OTTO",
+  );
+
+  for (const [createSvg, renderImage] of [
+    [createBlogOgSvg, renderBlogOgImage],
+    [createSharedNoteOgSvg, renderSharedNoteOgImage],
+  ] as const) {
+    const input = { title: "덕행지헌" };
+    const response = await renderImage(input);
+    const actualPixels = await sharp(Buffer.from(await response.arrayBuffer()))
+      .raw()
+      .toBuffer();
+    const svg = createSvg(input);
+    const reference = svg.replaceAll(
+      "'Redaction', 'Noto Serif KR', Georgia, serif",
+      "'Noto Serif KR'",
+    );
+    const expectedPixels = await sharp(Buffer.from(reference)).raw().toBuffer();
+    assert.deepEqual(actualPixels, expectedPixels);
+    const sansPixels = await sharp(
+      Buffer.from(reference.replaceAll("Noto Serif KR", "Noto Sans KR")),
+    )
+      .raw()
+      .toBuffer();
+    assert.notDeepEqual(actualPixels, sansPixels);
+  }
+});
