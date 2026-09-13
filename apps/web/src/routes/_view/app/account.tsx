@@ -92,11 +92,8 @@ const accountTabPreloaders: Record<AccountTabId, () => Promise<unknown>> = {
       loadDangerAreaSection(),
     ]),
   connections: () =>
-    Promise.all([
-      loadIntegrationsSection(),
-      loadDevicesSection(),
-      loadSharedNotesSection(),
-    ]),
+    Promise.all([loadIntegrationsSection(), loadDevicesSection()]),
+  notes: () => Promise.all([loadSharedNotesSection()]),
   developer: () => Promise.all([loadApiKeysSection()]),
 };
 
@@ -132,7 +129,7 @@ const validateSearch = z
     source: checkoutSourceSchema,
     referral: z.enum(["ineligible"]),
     perk: z.enum(["applied", "claimed", "invalid"]),
-    tab: z.enum(["account", "connections", "developer"]),
+    tab: z.enum(["account", "connections", "notes", "developer"]),
   })
   .partial();
 

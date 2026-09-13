@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { DotsThree } from "@anlg/ui/components/icons";
+import { DotsThree, MagnifyingGlass } from "@anlg/ui/components/icons";
 import {
   AppFloatingPanel,
   appFloatingMenuPanelClassName,
@@ -39,6 +39,7 @@ const sharesQueryKey = ["account-managed-shares"];
 export function SharedNotesSection() {
   const queryClient = useQueryClient();
   const [confirmingAll, setConfirmingAll] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const sharesQuery = useQuery({
     queryKey: sharesQueryKey,
@@ -94,13 +95,21 @@ export function SharedNotesSection() {
   });
 
   const shares = sharesQuery.data ?? [];
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredShares = normalizedQuery
+    ? shares.filter((share) =>
+        [share.title, share.preview, SCOPE_LABELS[share.scope]].some((value) =>
+          value.toLowerCase().includes(normalizedQuery),
+        ),
+      )
+    : shares;
   const actionsDisabled =
     restrict.isPending || stopSharing.isPending || stopSharingAll.isPending;
 
   return (
     <>
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-brand-dark font-hand text-3xl leading-none font-semibold">
           Shared notes
         </h2>
         {!sharesQuery.isPending &&
@@ -126,40 +135,78 @@ export function SharedNotesSection() {
             </button>
           )}
       </div>
-      <div className={cn([accountCardClassName, "mt-6"])}>
+      {!sharesQuery.isPending && !sharesQuery.isError && shares.length > 0 && (
+        <div
+          role="search"
+          className="surface border-color-subtle text-color-muted focus-within:border-color-bright mt-6 flex h-11 items-center gap-3 rounded-full border px-4"
+        >
+          <MagnifyingGlass size={18} aria-hidden="true" />
+          <input
+            type="search"
+            aria-label="Search shared notes"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search shared notes"
+            className="text-color placeholder:text-color-muted min-w-0 flex-1 bg-transparent text-sm outline-none"
+          />
+        </div>
+      )}
+      <div className="mt-6">
         {sharesQuery.isPending ? (
-          <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
-            Checking your shared notes...
-          </p>
+          <div className={accountCardClassName}>
+            <p className="text-color-muted p-6 text-sm leading-6 sm:p-8">
+              Checking your shared notes...
+            </p>
+          </div>
         ) : sharesQuery.isError ? (
-          <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
-            Couldn't load your shared notes. Refresh to try again.
-          </p>
+          <div className={accountCardClassName}>
+            <p className="text-color-muted p-6 text-sm leading-6 sm:p-8">
+              Couldn't load your shared notes. Refresh to try again.
+            </p>
+          </div>
         ) : shares.length === 0 ? (
-          <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
-            You haven't shared any notes yet. Notes you share from the desktop
-            app show up here.
-          </p>
+          <div className={accountCardClassName}>
+            <p className="text-color-muted p-6 text-sm leading-6 sm:p-8">
+              You haven't shared any notes yet. Notes you share from the desktop
+              app show up here.
+            </p>
+          </div>
+        ) : filteredShares.length === 0 ? (
+          <div className={accountCardClassName}>
+            <p className="text-color-muted p-6 text-sm leading-6 sm:p-8">
+              No shared notes match “{searchQuery.trim()}”.
+            </p>
+          </div>
         ) : (
-          <ul className="divide-y divide-[#ede7dc]">
-            {shares.map((share) => (
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {filteredShares.map((share) => (
               <li
                 key={share.shareId}
-                className="flex items-center justify-between gap-3 p-6 sm:px-8"
+                className="surface border-color-subtle group hover:border-color-bright relative min-w-0 overflow-hidden rounded-[20px] border transition hover:shadow-lg"
               >
-                <div className="min-w-0">
-                  <p className="truncate text-base font-medium text-[#181613]">
+                <Link
+                  to="/share/$shareId/"
+                  params={{ shareId: share.shareId }}
+                  search={{ scheme: "anarlog" }}
+                  className="block h-full p-4 pb-5"
+                >
+                  <div className="surface-subtle border-color-subtle text-color-muted h-36 overflow-hidden rounded-xl border p-4 pr-11 text-xs leading-5">
+                    <p className="line-clamp-5">
+                      {share.preview || "No text preview available yet."}
+                    </p>
+                  </div>
+                  <p className="text-color mt-4 truncate text-base font-medium">
                     {share.title || "Untitled note"}
                   </p>
-                  <p className="mt-1 text-sm leading-6 text-[#756b5d]">
+                  <p className="text-color-muted mt-1 text-xs leading-5">
                     {SCOPE_LABELS[share.scope]} · updated{" "}
                     {new Date(share.updatedAt).toLocaleDateString("en-US", {
                       month: "long",
                       day: "numeric",
                     })}
                   </p>
-                </div>
-                <ShareRowMenu
+                </Link>
+                <ShareCardMenu
                   shareId={share.shareId}
                   title={share.title || "Untitled note"}
                   canRestrict={share.scope !== "restricted"}
@@ -200,7 +247,7 @@ export function SharedNotesSection() {
   );
 }
 
-function ShareRowMenu({
+function ShareCardMenu({
   shareId,
   title,
   canRestrict,
@@ -234,7 +281,10 @@ function ShareRowMenu({
           type="button"
           disabled={disabled}
           aria-label={`Actions for ${title}`}
-          className={accountMenuTriggerClassName}
+          className={cn([
+            accountMenuTriggerClassName,
+            "surface absolute top-6 right-6 shadow-sm",
+          ])}
         >
           <DotsThree size={16} aria-hidden="true" />
         </button>

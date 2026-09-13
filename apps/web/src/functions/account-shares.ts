@@ -6,6 +6,11 @@ import {
   getSupabaseAdminClient,
   getSupabaseServerClient,
 } from "@/functions/supabase";
+import {
+  getSharedNoteDescription,
+  parseSharedNoteDocument,
+  withoutDuplicateLeadingTitle,
+} from "@/lib/shared-notes";
 
 const accessibleSessionRowSchema = z.object({
   share_id: z.string().uuid(),
@@ -22,11 +27,13 @@ const shareDetailRowSchema = z.object({
 const snapshotRowSchema = z.object({
   share_id: z.string().uuid(),
   title: z.string(),
+  body_json: z.unknown(),
 });
 
 export type ManagedShare = {
   shareId: string;
   title: string;
+  preview: string;
   scope: "restricted" | "workspace" | "link" | "public";
   updatedAt: string;
 };
@@ -66,7 +73,7 @@ export const listMyManagedShares = createServerFn({ method: "GET" }).handler(
         .is("deleted_at", null),
       admin
         .from("session_share_snapshots")
-        .select("share_id, title")
+        .select("share_id, title, body_json")
         .in("share_id", managedIds),
     ]);
     if (sharesRes.error || snapshotsRes.error) {
@@ -83,14 +90,21 @@ export const listMyManagedShares = createServerFn({ method: "GET" }).handler(
       return { status: "error" };
     }
 
-    const titles = new Map(
-      parsedSnapshots.data.map((row) => [row.share_id, row.title]),
+    const snapshots = new Map(
+      parsedSnapshots.data.map((row) => [
+        row.share_id,
+        {
+          title: row.title,
+          preview: getSnapshotPreview(row.body_json, row.title),
+        },
+      ]),
     );
 
     const shares = parsedShares.data
       .map((row) => ({
         shareId: row.id,
-        title: titles.get(row.id) ?? "",
+        title: snapshots.get(row.id)?.title ?? "",
+        preview: snapshots.get(row.id)?.preview ?? "",
         scope: row.general_scope,
         updatedAt: row.updated_at,
       }))
@@ -99,6 +113,18 @@ export const listMyManagedShares = createServerFn({ method: "GET" }).handler(
     return { status: "ready", shares };
   },
 );
+
+function getSnapshotPreview(body: unknown, title: string) {
+  try {
+    const document = withoutDuplicateLeadingTitle(
+      parseSharedNoteDocument(body),
+      title,
+    );
+    return getSharedNoteDescription(document);
+  } catch {
+    return "";
+  }
+}
 
 export const deleteMyShare = createServerFn({ method: "POST" })
   .inputValidator(z.object({ shareId: z.string().uuid() }))
