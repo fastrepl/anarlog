@@ -36,7 +36,7 @@ import {
 import { useSessionRecapDelivery } from "./delivery-management";
 import {
   EmailRecapForm,
-  ShareRecapOverflowMenu,
+  ShareLinkActions,
   SlackRecapForm,
   type ShareRecapMode,
 } from "./delivery-panel";
@@ -588,31 +588,33 @@ export function SessionSharePopoverContent({
                 scopeMutation.mutate(target);
               }}
             />
-            <ShareRecapOverflowMenu onValueChange={setRecapMode} />
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={
-                generalCopyMutation.isPending ||
-                scopeMutation.isPending ||
-                !management
-              }
-              onClick={() => {
-                generalCopyMutation.mutate();
-              }}
-              className="h-7 shrink-0 rounded-md px-2.5 text-xs"
-            >
-              {generalCopyMutation.isPending || scopeMutation.isPending ? (
-                <CircleNotch
-                  className="size-4 animate-spin"
-                  aria-hidden="true"
-                />
-              ) : (
-                <Copy className="size-4" aria-hidden="true" />
-              )}
-              <Trans>Copy link</Trans>
-            </Button>
+            <ShareLinkActions onValueChange={setRecapMode}>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                smoothCorners={false}
+                disabled={
+                  generalCopyMutation.isPending ||
+                  scopeMutation.isPending ||
+                  !management
+                }
+                onClick={() => {
+                  generalCopyMutation.mutate();
+                }}
+                className="h-7 shrink-0 rounded-l-md rounded-r-none px-2.5 text-xs"
+              >
+                {generalCopyMutation.isPending || scopeMutation.isPending ? (
+                  <CircleNotch
+                    className="size-4 animate-spin"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <Copy className="size-4" aria-hidden="true" />
+                )}
+                <Trans>Copy link</Trans>
+              </Button>
+            </ShareLinkActions>
           </footer>
         </div>
       </AppFloatingPanel>

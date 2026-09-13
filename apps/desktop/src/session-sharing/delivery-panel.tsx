@@ -6,7 +6,7 @@ import { useState, type ReactNode } from "react";
 import {
   CaretLeft,
   CircleNotch,
-  DotsThree,
+  CaretDown,
   EnvelopeSimple,
   LockSimple,
 } from "@anlg/ui/components/icons";
@@ -52,47 +52,53 @@ function SlackBrandIcon({ size }: { size: number }) {
   );
 }
 
-export function ShareRecapOverflowMenu({
+export function ShareLinkActions({
+  children,
   onValueChange,
 }: {
+  children: ReactNode;
   onValueChange: (value: Exclude<ShareRecapMode, "invite">) => void;
 }) {
   const { t } = useLingui();
 
   return (
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          aria-label={t`More options`}
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <DotsThree className="size-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent variant="app" align="end">
-        <AppFloatingPanel className={appFloatingMenuPanelClassName}>
-          <DropdownMenuItem
-            onSelect={() => onValueChange("email")}
-            className="cursor-pointer"
+    <div className="border-input bg-background flex shrink-0 items-center rounded-md border shadow-xs">
+      {children}
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            aria-label={t`More options`}
+            smoothCorners={false}
+            className="text-muted-foreground hover:text-foreground h-7 w-6 rounded-l-none rounded-r-md"
           >
-            <EnvelopeSimple aria-hidden="true" />
-            <Trans>Email</Trans>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onSelect={() => onValueChange("slack")}
-            className="cursor-pointer"
-          >
-            <span className="flex size-4 items-center justify-center">
-              <SlackBrandIcon size={16} />
-            </span>
-            <Trans>Slack</Trans>
-          </DropdownMenuItem>
-        </AppFloatingPanel>
-      </DropdownMenuContent>
-    </DropdownMenu>
+            <CaretDown className="size-3" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent variant="app" align="end">
+          <AppFloatingPanel className={appFloatingMenuPanelClassName}>
+            <DropdownMenuItem
+              onSelect={() => onValueChange("email")}
+              className="cursor-pointer"
+            >
+              <EnvelopeSimple aria-hidden="true" />
+              <Trans>Email</Trans>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => onValueChange("slack")}
+              className="cursor-pointer"
+            >
+              <span className="flex size-4 items-center justify-center">
+                <SlackBrandIcon size={16} />
+              </span>
+              <Trans>Slack</Trans>
+            </DropdownMenuItem>
+          </AppFloatingPanel>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
 
