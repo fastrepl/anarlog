@@ -983,6 +983,10 @@ msgstr "Change photo"
 msgid "Change speaker"
 msgstr "Change speaker"
 
+#: src/session/components/note-input/transcript/renderer/selection-menu.tsx
+msgid "Change speaker from here"
+msgstr "Change speaker from here"
+
 #: src/settings/team/index.tsx
 msgid "Change workspace logo"
 msgstr "Change workspace logo"
@@ -2112,6 +2116,7 @@ msgid "Earlier versions of this note, newest first."
 msgstr "Earlier versions of this note, newest first."
 
 #: src/main/windows-title-bar.tsx
+#: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 #: src/settings/dictionary/index.tsx
 #: src/sidebar/automations.tsx
 msgid "Edit"
