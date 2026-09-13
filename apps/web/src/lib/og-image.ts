@@ -62,34 +62,56 @@ function escapeXml(value: string) {
     .replace(/'/g, "&#39;");
 }
 
+const graphemeSegmenter = new Intl.Segmenter(undefined, {
+  granularity: "grapheme",
+});
+
+function splitGraphemes(value: string) {
+  return [...graphemeSegmenter.segment(value)].map(({ segment }) => segment);
+}
+
 function wrapText(value: string, maxChars: number, maxLines: number) {
   const words = value.split(/\s+/).filter(Boolean);
+  const pieces = words.flatMap((word) => {
+    const graphemes = splitGraphemes(word);
+    const chunks = Array.from(
+      { length: Math.ceil(graphemes.length / maxChars) },
+      (_, index) =>
+        graphemes.slice(index * maxChars, (index + 1) * maxChars).join(""),
+    );
+    return chunks.map((text, index) => ({
+      text,
+      prependSpace: index === 0,
+    }));
+  });
   const lines: string[] = [];
   let current = "";
+  let truncated = false;
 
-  for (const word of words) {
-    const next = current ? `${current} ${word}` : word;
-    if (next.length <= maxChars) {
+  for (const piece of pieces) {
+    const next = `${current}${current && piece.prependSpace ? " " : ""}${piece.text}`;
+    if (splitGraphemes(next).length <= maxChars) {
       current = next;
       continue;
     }
 
     if (current) lines.push(current);
-    current = word;
-
-    if (lines.length === maxLines) break;
+    if (lines.length === maxLines) {
+      truncated = true;
+      break;
+    }
+    current = piece.text;
   }
 
-  if (current && lines.length < maxLines) {
+  if (!truncated && current && lines.length < maxLines) {
     lines.push(current);
   }
 
-  if (
-    lines.length === maxLines &&
-    words.join(" ").length > lines.join(" ").length
-  ) {
-    lines[lines.length - 1] =
-      `${lines[lines.length - 1].replace(/\.+$/, "")}...`;
+  if (truncated) {
+    const lastLine = splitGraphemes(
+      lines[lines.length - 1].replace(/\.+$/, ""),
+    );
+    lines[lines.length - 1] = `${lastLine.slice(0, maxChars - 3).join("")}...`;
   }
 
   return lines;

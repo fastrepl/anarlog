@@ -77,6 +77,8 @@ test("resolves shared Han glyphs using content and optional language hints", () 
   assert.match(getOgFontFamilies("中文", ["zh-TW"]).serif, /Noto Serif TC/);
   assert.match(getOgFontFamilies("中文", ["zh-CN"]).serif, /Noto Serif SC/);
   assert.match(getOgFontFamilies("中文", ["ja"]).serif, /Noto Serif JP/);
+  assert.match(getOgFontFamilies("會議記錄").serif, /Noto Serif TC/);
+  assert.match(getOgFontFamilies("会议记录").serif, /Noto Serif SC/);
   assert.match(
     getOgFontFamilies("中文", ["invalid_locale"]).serif,
     /Noto Serif SC/,

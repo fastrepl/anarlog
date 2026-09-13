@@ -11,6 +11,10 @@ import {
   renderSharedNoteOgImage,
 } from "./og-image.ts";
 
+const graphemeSegmenter = new Intl.Segmenter(undefined, {
+  granularity: "grapheme",
+});
+
 test("renders blog metadata into a post-specific image", async () => {
   const svg = createBlogOgSvg({
     title: "How to take better meeting notes",
@@ -155,6 +159,30 @@ test("ellipsizes overflow on the last wrapped summary line", () => {
   assert.equal(svg.match(/data-summary="meeting"/g)?.length, 2);
   assert.match(svg, /data-summary="meeting"[^>]*>[^<]*\.\.\./);
   assert.doesNotMatch(svg, /still have room for follow-ups/);
+});
+
+test("wraps long space-free titles by grapheme", () => {
+  for (const title of [
+    "長い会議タイトル".repeat(20),
+    "การประชุมที่ยาวมาก".repeat(10),
+  ]) {
+    for (const [svg, maxChars] of [
+      [createBlogOgSvg({ title }), 25],
+      [createSharedNoteOgSvg({ title }), 31],
+    ] as const) {
+      const titleLines = [
+        ...svg.matchAll(/fill="#181613"[^>]*>([^<]+)<\/text>/g),
+      ].map(([, line]) => line);
+      assert.ok(titleLines.length > 1);
+      assert.ok(titleLines.length <= 3);
+      assert.ok(
+        titleLines.every(
+          (line) => [...graphemeSegmenter.segment(line)].length <= maxChars,
+        ),
+      );
+      assert.match(titleLines.at(-1) ?? "", /\.\.\.$/);
+    }
+  }
 });
 
 test("caps participant avatars in crowded shared-note previews", () => {

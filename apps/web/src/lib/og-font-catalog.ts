@@ -69,6 +69,11 @@ const scriptPatterns = OG_FONT_CATALOG.filter(
   pattern: new RegExp(`\\p{Script_Extensions=${entry.script}}`, "u"),
 }));
 
+const traditionalHanMarkers =
+  /[繁體臺灣萬與專業為會議記錄聽說學習國門開關後來這裡點線網頁]/u;
+const simplifiedHanMarkers =
+  /[简体台湾万与专业为会议记录听说学习国门开关后来这里点线网页]/u;
+
 export function getOgFontFamilies(text: string, languageHints: string[] = []) {
   const matches = scriptPatterns.filter(({ pattern }) => pattern.test(text));
   const families: { serif: string; sans: string }[] = [...matches];
@@ -111,5 +116,10 @@ function getHanScript(text: string, languageHints: string[]) {
   }
   if (/[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(text)) return "Hiragana";
   if (/\p{Script=Hangul}/u.test(text)) return "Hangul";
+  const usesTraditional = traditionalHanMarkers.test(text);
+  const usesSimplified = simplifiedHanMarkers.test(text);
+  if (usesTraditional !== usesSimplified) {
+    return usesTraditional ? "Hant" : "Hans";
+  }
   return "Hans";
 }
