@@ -21,6 +21,25 @@ describe("meeting accessibility activity", () => {
     expect(inspectionShowsActiveMeeting(activeInspection)).toBe(true);
   });
 
+  it("accepts active native calls validated by platform fallbacks", () => {
+    for (const [platform, app] of [
+      ["discord", { id: "com.discordapp.Discord", name: "Discord" }],
+      [
+        "microsoftTeams",
+        { id: "com.microsoft.teams2", name: "Microsoft Teams" },
+      ],
+    ] as const) {
+      expect(
+        inspectionShowsActiveMeeting({
+          ...activeInspection,
+          app,
+          platform,
+          surface: "native",
+        }),
+      ).toBe(true);
+    }
+  });
+
   it("fails closed for incomplete, ambiguous, or unscoped captures", () => {
     expect(
       inspectionShowsActiveMeeting({
