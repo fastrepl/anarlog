@@ -2314,6 +2314,7 @@ describe("ListenerProvider detect events", () => {
         status: "ok",
         data: [
           {
+            activeCall: true,
             app: { id: "com.google.Chrome", name: "Google Chrome" },
             pid: 42,
             platform: "googleMeet",
