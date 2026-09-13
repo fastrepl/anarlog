@@ -24,9 +24,8 @@ Nightly opens the same local notes as your stable Anarlog, while sign-in and set
 
 - Accept or decline invitations in Settings → Teams without opening the email. Background notifications let you know when an invitation arrives.
 - Invite members without buying seats first. Billing adjusts when members join or leave, with prorated changes on the next scheduled invoice.
-- Compare plans in a swipeable account carousel and refresh Pro access automatically when workspace membership changes.
+- Refresh Pro access automatically when workspace membership changes.
 - Let every Team member see the roster. Review member profiles and permissions in a table; ownership transfers now require the recipient to accept.
-- Get a clear error when a sign-in link is expired, invalid, or already used.
 
 ## Providers
 
