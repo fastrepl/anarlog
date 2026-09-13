@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import React, { useEffect, useRef } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 
@@ -247,6 +248,22 @@ function TabContentNoteInner({
       setEditingTranscriptSessionId(editMode ? sessionId : null);
     },
     [sessionId],
+  );
+
+  useHotkeys(
+    "mod+s",
+    () => handleTranscriptEditModeChange(false),
+    {
+      enabled:
+        tab.active &&
+        !lockOverlay &&
+        currentView.type === "transcript" &&
+        transcriptEditMode,
+      enableOnContentEditable: true,
+      enableOnFormTags: true,
+      preventDefault: true,
+    },
+    [handleTranscriptEditModeChange],
   );
   return (
     <>
