@@ -2,10 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { setResponseHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 
-import {
-  getSupabaseAdminClient,
-  getSupabaseServerClient,
-} from "@/functions/supabase";
+import { getSupabaseServerClient } from "@/functions/supabase";
 import {
   getSharedNoteDescription,
   parseSharedNoteDocument,
@@ -17,27 +14,22 @@ const accessibleSessionRowSchema = z.object({
   manage_access: z.boolean(),
 });
 
-const shareDetailRowSchema = z.object({
-  id: z.string().uuid(),
-  general_scope: z.enum(["restricted", "workspace", "link", "public"]),
-  updated_at: z.string(),
-});
-
-const snapshotRowSchema = z.object({
+const galleryRowSchema = z.object({
   share_id: z.string().uuid(),
+  general_scope: z.enum(["restricted", "workspace", "link", "public"]),
   title: z.string(),
   body_json: z.unknown(),
+  published_at: z.string(),
 });
 
-const shareIdRowSchema = z.object({ share_id: z.string().uuid() });
 const listManagedSharesInput = z
   .object({
     query: z.string().trim().max(200).optional(),
-    afterUpdatedAt: z.string().datetime({ offset: true }).optional(),
+    afterPublishedAt: z.string().datetime({ offset: true }).optional(),
     afterShareId: z.string().uuid().optional(),
   })
   .refine(
-    (value) => Boolean(value.afterUpdatedAt) === Boolean(value.afterShareId),
+    (value) => Boolean(value.afterPublishedAt) === Boolean(value.afterShareId),
     "invalid shared note cursor",
   );
 
@@ -55,7 +47,7 @@ export type ManagedSharesResult =
   | {
       status: "ready";
       shares: ManagedShare[];
-      nextCursor: { updatedAt: string; shareId: string } | null;
+      nextCursor: { publishedAt: string; shareId: string } | null;
     }
   | { status: "error" };
 
@@ -64,92 +56,34 @@ export const listMyManagedShares = createServerFn({ method: "GET" })
   .handler(async ({ data }): Promise<ManagedSharesResult> => {
     setResponseHeader("Cache-Control", "no-store");
 
-    const managedIds = await listManagedShareIds();
-    if (!managedIds) {
-      return { status: "error" };
-    }
-    if (managedIds.length === 0) {
-      return { status: "ready", shares: [], nextCursor: null };
-    }
-
-    const admin = getSupabaseAdminClient();
-    let candidateIds = managedIds;
-    if (data.query) {
-      const matchesRes = await admin
-        .from("session_share_snapshots")
-        .select("share_id")
-        .in("share_id", managedIds)
-        .ilike("title", `%${escapeLikePattern(data.query)}%`);
-      const parsedMatches = z
-        .array(shareIdRowSchema)
-        .safeParse(matchesRes.data);
-      if (matchesRes.error || !parsedMatches.success) {
-        return { status: "error" };
-      }
-      candidateIds = parsedMatches.data.map((row) => row.share_id);
-    }
-    if (candidateIds.length === 0) {
-      return { status: "ready", shares: [], nextCursor: null };
-    }
-
-    let sharesQuery = admin
-      .from("session_shares")
-      .select("id, general_scope, updated_at")
-      .in("id", candidateIds)
-      .is("deleted_at", null);
-    if (data.afterUpdatedAt && data.afterShareId) {
-      sharesQuery = sharesQuery.or(
-        `updated_at.lt.${data.afterUpdatedAt},and(updated_at.eq.${data.afterUpdatedAt},id.lt.${data.afterShareId})`,
-      );
-    }
-    const sharesRes = await sharesQuery
-      .order("updated_at", { ascending: false })
-      .order("id", { ascending: false })
-      .limit(MANAGED_SHARES_PAGE_SIZE + 1);
-    const parsedShares = z
-      .array(shareDetailRowSchema)
-      .safeParse(sharesRes.data);
-    if (sharesRes.error || !parsedShares.success) {
-      return { status: "error" };
-    }
-
-    const pageRows = parsedShares.data.slice(0, MANAGED_SHARES_PAGE_SIZE);
-    if (pageRows.length === 0) {
-      return { status: "ready", shares: [], nextCursor: null };
-    }
-    const pageIds = pageRows.map((row) => row.id);
-    const snapshotsRes = await admin
-      .from("session_share_snapshots")
-      .select("share_id, title, body_json")
-      .in("share_id", pageIds);
-    const parsedSnapshots = z
-      .array(snapshotRowSchema)
-      .safeParse(snapshotsRes.data);
-    if (snapshotsRes.error || !parsedSnapshots.success) {
-      return { status: "error" };
-    }
-
-    const snapshots = new Map(
-      parsedSnapshots.data.map((row) => [
-        row.share_id,
-        {
-          title: row.title,
-          preview: getSnapshotPreview(row.body_json, row.title),
-        },
-      ]),
+    const supabase = getSupabaseServerClient();
+    const { data: rows, error } = await supabase.rpc(
+      "list_my_managed_share_gallery_page",
+      {
+        p_query: data.query ?? null,
+        p_after_published_at: data.afterPublishedAt ?? null,
+        p_after_share_id: data.afterShareId ?? null,
+        p_limit: MANAGED_SHARES_PAGE_SIZE + 1,
+      },
     );
+    const parsedRows = z.array(galleryRowSchema).safeParse(rows);
+    if (error || !parsedRows.success) {
+      return { status: "error" };
+    }
 
-    const shares = pageRows.map((row) => ({
-      shareId: row.id,
-      title: snapshots.get(row.id)?.title ?? "",
-      preview: snapshots.get(row.id)?.preview ?? "",
-      scope: row.general_scope,
-      updatedAt: row.updated_at,
-    }));
+    const shares = parsedRows.data
+      .slice(0, MANAGED_SHARES_PAGE_SIZE)
+      .map((row) => ({
+        shareId: row.share_id,
+        title: row.title,
+        preview: getSnapshotPreview(row.body_json, row.title),
+        scope: row.general_scope,
+        updatedAt: row.published_at,
+      }));
     const lastShare = shares.at(-1);
     const nextCursor =
-      parsedShares.data.length > MANAGED_SHARES_PAGE_SIZE && lastShare
-        ? { updatedAt: lastShare.updatedAt, shareId: lastShare.shareId }
+      parsedRows.data.length > MANAGED_SHARES_PAGE_SIZE && lastShare
+        ? { publishedAt: lastShare.updatedAt, shareId: lastShare.shareId }
         : null;
 
     return { status: "ready", shares, nextCursor };
@@ -181,10 +115,6 @@ async function listManagedShareIds() {
   return parsedRows.data
     .filter((row) => row.manage_access)
     .map((row) => row.share_id);
-}
-
-function escapeLikePattern(value: string) {
-  return value.replace(/[\\%_]/g, "\\$&");
 }
 
 export const deleteMyShare = createServerFn({ method: "POST" })

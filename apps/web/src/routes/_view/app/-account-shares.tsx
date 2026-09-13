@@ -49,7 +49,7 @@ export function SharedNotesSection() {
   const sharesQuery = useInfiniteQuery({
     queryKey: [...sharesQueryKey, deferredSearchQuery],
     initialPageParam: null as {
-      updatedAt: string;
+      publishedAt: string;
       shareId: string;
     } | null,
     // Skip the SSR fetch: this data is session-scoped and better fetched
@@ -59,7 +59,7 @@ export function SharedNotesSection() {
       const result = await listMyManagedShares({
         data: {
           query: deferredSearchQuery || undefined,
-          afterUpdatedAt: pageParam?.updatedAt,
+          afterPublishedAt: pageParam?.publishedAt,
           afterShareId: pageParam?.shareId,
         },
       });
@@ -151,10 +151,10 @@ export function SharedNotesSection() {
           <MagnifyingGlass size={18} aria-hidden="true" />
           <input
             type="search"
-            aria-label="Search shared notes"
+            aria-label="Search shared note titles"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search shared notes"
+            placeholder="Search note titles"
             className="text-color placeholder:text-color-muted min-w-0 flex-1 bg-transparent text-sm outline-none"
           />
         </div>
