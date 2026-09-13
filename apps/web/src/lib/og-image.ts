@@ -282,7 +282,7 @@ function estimateTextWidth(value: string, fontSize: number) {
       )
     )
       return width + fontSize;
-    if (/[ilI1.,'`]/u.test(grapheme)) return width + fontSize * 0.3;
+    if (/[ilI.,'`]/u.test(grapheme)) return width + fontSize * 0.3;
     if (/[MW@%]/u.test(grapheme)) return width + fontSize * 0.82;
     return width + fontSize * 0.56;
   }, 0);

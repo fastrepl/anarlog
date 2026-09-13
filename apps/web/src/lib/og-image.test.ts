@@ -220,6 +220,44 @@ test("keeps full-width title glyphs inside the right inset", () => {
   }
 });
 
+test("keeps long numeric text inside image insets", () => {
+  const value = "1".repeat(180);
+  const cases = [
+    {
+      lines: [
+        ...createBlogOgSvg({ title: value, description: value }).matchAll(
+          /font-size="(76|32)"[^>]*>([^<]+)<\/text>/g,
+        ),
+      ],
+      left: 86,
+      right: 1114,
+    },
+    {
+      lines: [
+        ...createSharedNoteOgSvg({ title: value, summary: value }).matchAll(
+          /font-size="(64|31)"[^>]*>([^<]+)<\/text>/g,
+        ),
+      ],
+      left: 72,
+      right: 1128,
+    },
+  ];
+
+  for (const { lines, left, right } of cases) {
+    assert.ok(lines.length > 2);
+    assert.ok(
+      lines.every(([, fontSize, line]) => {
+        const width = [...graphemeSegmenter.segment(line)].reduce(
+          (total, { segment }) =>
+            total + Number(fontSize) * (segment === "." ? 0.3 : 0.56),
+          0,
+        );
+        return left + width <= right;
+      }),
+    );
+  }
+});
+
 test("caps participant avatars in crowded shared-note previews", () => {
   const svg = createSharedNoteOgSvg({
     title: "Large meeting",
