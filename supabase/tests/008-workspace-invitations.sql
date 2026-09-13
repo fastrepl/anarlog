@@ -625,7 +625,7 @@ select results_eq(
   'Repeating acceptance returns the same active membership'
 );
 
-select lives_ok(
+select throws_ok(
   $$
     select *
     from public.list_workspace_memberships(
@@ -636,7 +636,9 @@ select lives_ok(
       )
     )
   $$,
-  'Members can enumerate workspace access'
+  '42501',
+  'workspace membership operation not permitted',
+  'Members cannot enumerate workspace access history'
 );
 
 select tests.clear_authentication();

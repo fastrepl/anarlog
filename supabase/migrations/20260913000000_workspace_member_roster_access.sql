@@ -1,5 +1,6 @@
--- Roster visibility belongs to every active workspace member.
-CREATE OR REPLACE FUNCTION private.list_workspace_memberships(
+-- Every active member can read the current roster. Membership history, including
+-- removed members, stays manager-only through list_workspace_memberships.
+CREATE OR REPLACE FUNCTION public.list_workspace_members_with_profiles(
   p_workspace_id uuid
 )
 RETURNS TABLE (
@@ -8,7 +9,9 @@ RETURNS TABLE (
   user_email text,
   role text,
   created_at timestamptz,
-  deleted_at timestamptz
+  deleted_at timestamptz,
+  user_name text,
+  user_avatar_url text
 )
 LANGUAGE plpgsql
 STABLE
@@ -42,11 +45,20 @@ BEGIN
     lower(btrim(member_user.email)),
     membership.role,
     membership.created_at,
-    membership.deleted_at
+    membership.deleted_at,
+    COALESCE(
+      NULLIF(btrim(member_user.raw_user_meta_data ->> 'full_name'), ''),
+      NULLIF(btrim(member_user.raw_user_meta_data ->> 'name'), '')
+    ),
+    COALESCE(
+      NULLIF(btrim(member_user.raw_user_meta_data ->> 'avatar_url'), ''),
+      NULLIF(btrim(member_user.raw_user_meta_data ->> 'picture'), '')
+    )
   FROM public.workspace_memberships AS membership
   LEFT JOIN auth.users AS member_user
     ON member_user.id = membership.user_id
   WHERE membership.workspace_id = p_workspace_id
+    AND membership.deleted_at IS NULL
   ORDER BY membership.created_at, membership.id;
 END;
 $$;

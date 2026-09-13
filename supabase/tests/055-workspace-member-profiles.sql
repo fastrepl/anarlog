@@ -1,12 +1,13 @@
 begin;
-select plan(10);
+select plan(11);
 
 select tests.create_supabase_user('roster_owner', 'roster-owner@example.com');
 select tests.create_supabase_user('roster_member', 'roster-member@example.com');
+select tests.create_supabase_user('roster_peer', 'roster-peer@example.com');
 select tests.create_supabase_user('roster_outsider', 'roster-outsider@example.com');
 
 update auth.users set email_confirmed_at = now()
-where id in (tests.get_supabase_uid('roster_owner'), tests.get_supabase_uid('roster_member'), tests.get_supabase_uid('roster_outsider'));
+where id in (tests.get_supabase_uid('roster_owner'), tests.get_supabase_uid('roster_member'), tests.get_supabase_uid('roster_peer'), tests.get_supabase_uid('roster_outsider'));
 update auth.users set raw_user_meta_data = raw_user_meta_data || '{"full_name":"  Roster Owner  ","avatar_url":"https://example.com/owner.png","secret":"must not be exposed"}'::jsonb
 where id = tests.get_supabase_uid('roster_owner');
 
@@ -27,7 +28,9 @@ select is(
 
 reset role;
 insert into public.workspace_memberships(workspace_id, user_id, role)
-select workspace_id, tests.get_supabase_uid('roster_member'), 'member' from roster_state;
+select roster_state.workspace_id, member.user_id, 'member'
+from roster_state
+cross join (values (tests.get_supabase_uid('roster_member')), (tests.get_supabase_uid('roster_peer'))) as member(user_id);
 update auth.users set raw_user_meta_data = raw_user_meta_data || '{"name":"Fallback Name","picture":"https://example.com/fallback.png"}'::jsonb
 where id = tests.get_supabase_uid('roster_member');
 select tests.authenticate_as_hyprnote_pro('roster_owner');
@@ -57,8 +60,8 @@ select throws_ok(
   '42501', 'workspace invitation operation not permitted', 'Members cannot list invitations'
 );
 select throws_ok(
-  $$select public.revoke_workspace_membership((select workspace_id from roster_state), tests.get_supabase_uid('roster_owner'))$$,
-  '42501', 'workspace membership operation not permitted', 'Members cannot remove others'
+  $$select public.revoke_workspace_membership((select workspace_id from roster_state), tests.get_supabase_uid('roster_peer'))$$,
+  '42501', 'workspace membership operation not permitted', 'Members cannot remove other members'
 );
 select tests.clear_authentication();
 select tests.authenticate_as('roster_outsider');
@@ -71,7 +74,13 @@ update public.workspace_memberships set deleted_at = now() where user_id = tests
 select tests.authenticate_as_hyprnote_pro('roster_owner');
 select is(
   (select count(*) from public.list_workspace_members_with_profiles((select workspace_id from roster_state))),
-  1::bigint, 'Removed members are excluded'
+  2::bigint, 'Removed members are excluded'
+);
+select tests.clear_authentication();
+select tests.authenticate_as('roster_peer');
+select is(
+  (select count(*) from public.list_workspace_members_with_profiles((select workspace_id from roster_state)) where user_id = tests.get_supabase_uid('roster_member')),
+  0::bigint, 'Members do not see removed members'
 );
 select tests.clear_authentication();
 select tests.authenticate_as('roster_member');
