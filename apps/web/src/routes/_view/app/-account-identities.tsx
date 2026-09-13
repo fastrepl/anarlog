@@ -24,6 +24,11 @@ import {
   accountPillSecondaryClassName,
 } from "./-account-ui";
 
+const identityButtonClassName = cn([
+  accountPillSecondaryClassName,
+  "w-32 shrink-0 gap-1.5 whitespace-nowrap",
+]);
+
 const providers = [
   { id: "google", label: "Google", icon: "logos:google-icon" },
   { id: "apple", label: "Apple", icon: "simple-icons:apple" },
@@ -166,8 +171,8 @@ export function AccountIdentitiesSection({
                 </div>
                 <span
                   className={cn([
-                    accountPillSecondaryClassName,
-                    "pointer-events-none cursor-default gap-1.5",
+                    identityButtonClassName,
+                    "pointer-events-none cursor-default",
                   ])}
                 >
                   <Check className="size-4" />
@@ -203,8 +208,8 @@ export function AccountIdentitiesSection({
                 {linked.length ? (
                   <span
                     className={cn([
-                      accountPillSecondaryClassName,
-                      "pointer-events-none cursor-default gap-1.5",
+                      identityButtonClassName,
+                      "pointer-events-none cursor-default",
                     ])}
                   >
                     <Check className="size-4" />
@@ -213,7 +218,7 @@ export function AccountIdentitiesSection({
                 ) : (
                   <button
                     aria-label={`Connect ${provider.label}`}
-                    className={cn([accountPillSecondaryClassName, "gap-1.5"])}
+                    className={identityButtonClassName}
                     disabled={connect.isPending || switchAccount.isPending}
                     onClick={() => connect.mutate(provider.id)}
                   >
