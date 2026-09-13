@@ -1,4 +1,8 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  focusManager,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -47,8 +51,23 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
+  focusManager.setFocused(undefined);
   cleanup();
   client.clear();
+});
+
+test("focusing after a minute does not refresh unchanged membership claims", async () => {
+  renderHook(useMyWorkspacesWithMirror, { wrapper });
+  await waitFor(() => expect(mocks.refreshSession).toHaveBeenCalledTimes(1));
+  vi.useFakeTimers();
+  await act(async () => {
+    focusManager.setFocused(false);
+    await vi.advanceTimersByTimeAsync(61_000);
+    focusManager.setFocused(true);
+    await vi.advanceTimersByTimeAsync(100);
+  });
+  expect(mocks.refreshSession).toHaveBeenCalledTimes(1);
 });
 
 test("discovering a Team refreshes stale claims once across observers and token changes", async () => {

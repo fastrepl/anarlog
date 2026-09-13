@@ -58,7 +58,7 @@ export function useMyWorkspacesWithMirror() {
       if (!session) throw new Error("Could not refresh workspace entitlements");
       return true;
     },
-    staleTime: 60_000,
+    staleTime: Infinity,
     // Rejoining or leaving must refresh even if this membership set was seen before.
     gcTime: 0,
     retry: 1,
