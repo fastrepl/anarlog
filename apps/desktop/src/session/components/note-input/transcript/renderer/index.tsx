@@ -8,16 +8,19 @@ import {
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import { ArrowDown, ArrowUp } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import {
+  focusTranscriptSelection,
   getTranscriptContextSelection,
   getTranscriptMergeTarget,
   getTranscriptSectionKeyFromElement,
   getTranscriptSectionSelection,
+  getTranscriptSelectionFromHere,
   mergeTranscriptSelections,
   type TranscriptWordSelection,
 } from "./selection";
@@ -54,6 +57,7 @@ export function TranscriptViewer({
   captureGeneration = 0,
   scrollRef,
   editMode = false,
+  onEditModeChange,
 }: {
   transcriptIds: string[];
   liveSegments: Segment[];
@@ -61,6 +65,7 @@ export function TranscriptViewer({
   captureGeneration?: number;
   scrollRef: RefObject<HTMLDivElement | null>;
   editMode?: boolean;
+  onEditModeChange?: (editMode: boolean) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(
@@ -167,7 +172,11 @@ export function TranscriptViewer({
     [audioExists, seek, start],
   );
   const handleAssignSpeaker = useCallback(
-    async (selection: TranscriptWordSelection, humanId: string) => {
+    async (
+      selection: TranscriptWordSelection,
+      humanId: string,
+      extendToAdjacent?: boolean,
+    ) => {
       await preserveScrollPosition(containerRef.current, () =>
         Promise.all(
           selection.groups.map((group) =>
@@ -178,6 +187,7 @@ export function TranscriptViewer({
               anchorWordId: group.wordIds[0]!,
               mode: "segment",
               wordIds: group.wordIds,
+              extendToAdjacent,
             }),
           ),
         ),
@@ -191,6 +201,28 @@ export function TranscriptViewer({
       });
     },
     [],
+  );
+  const handleEditSelection = useCallback(
+    (selection: TranscriptWordSelection) => {
+      flushSync(() => onEditModeChange?.(true));
+      if (containerRef.current) {
+        focusTranscriptSelection(selection, containerRef.current);
+      }
+    },
+    [onEditModeChange],
+  );
+  const handleAssignSpeakerFromHere = useCallback(
+    async (selection: TranscriptWordSelection, humanId: string) => {
+      const { entries } = collectEntries(visibleTranscriptIdsRef.current);
+      const fromHere = getTranscriptSelectionFromHere(
+        selection,
+        entries.values(),
+      );
+      if (fromHere) {
+        await handleAssignSpeaker(fromHere, humanId, false);
+      }
+    },
+    [collectEntries, handleAssignSpeaker],
   );
   const handleMergeSegments = useCallback(async () => {
     const { order, entries } = collectEntries(visibleTranscriptIdsRef.current);
@@ -419,7 +451,8 @@ export function TranscriptViewer({
             audioExists={audioExists}
             onContextClose={handleContextClose}
             onAction={handleSelectionAction}
-            onAssignSpeaker={handleAssignSpeaker}
+            onEdit={onEditModeChange ? handleEditSelection : undefined}
+            onAssignSpeaker={handleAssignSpeakerFromHere}
           />
         </div>
 

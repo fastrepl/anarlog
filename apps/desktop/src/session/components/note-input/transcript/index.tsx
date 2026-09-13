@@ -15,10 +15,12 @@ export function Transcript({
   sessionId,
   scrollRef,
   editMode = false,
+  onEditModeChange,
 }: {
   sessionId: string;
   scrollRef: RefObject<HTMLDivElement | null>;
   editMode?: boolean;
+  onEditModeChange?: (editMode: boolean) => void;
 }) {
   return (
     <TranscriptContent
@@ -26,6 +28,7 @@ export function Transcript({
       sessionId={sessionId}
       scrollRef={scrollRef}
       editMode={editMode}
+      onEditModeChange={onEditModeChange}
     />
   );
 }
@@ -34,10 +37,12 @@ function TranscriptContent({
   sessionId,
   scrollRef,
   editMode,
+  onEditModeChange,
 }: {
   sessionId: string;
   scrollRef: RefObject<HTMLDivElement | null>;
   editMode: boolean;
+  onEditModeChange?: (editMode: boolean) => void;
 }) {
   const screen = useTranscriptScreen({ sessionId });
   const { uploadAudio, uploadTranscript } = useUploadFile(sessionId);
@@ -86,6 +91,7 @@ function TranscriptContent({
           captureGeneration={screen.captureGeneration}
           scrollRef={scrollRef}
           editMode={editMode && !screen.currentActive}
+          onEditModeChange={screen.currentActive ? undefined : onEditModeChange}
         />
       )}
     </div>

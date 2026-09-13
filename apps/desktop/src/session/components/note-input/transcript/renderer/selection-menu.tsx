@@ -18,7 +18,14 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import { ArrowsMerge, Play, UserSwitch, X } from "@anlg/ui/components/icons";
+import {
+  ArrowsMerge,
+  Copy,
+  Pencil,
+  Play,
+  UserSwitch,
+  X,
+} from "@anlg/ui/components/icons";
 import {
   Popover,
   PopoverContent,
@@ -47,7 +54,7 @@ const MENU_CONTAINER_CLASSES = [
 ];
 
 const MENU_BUTTON_CLASSES = [
-  "flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs rounded-xs",
+  "flex w-full items-center justify-start gap-2 px-2 py-1.5 text-left text-xs rounded-xs",
   "hover:bg-accent transition-colors",
 ];
 
@@ -66,6 +73,7 @@ export function SelectionMenu({
   onContextClose,
   onAction,
   onAssignSpeaker,
+  onEdit,
 }: {
   containerRef: React.RefObject<HTMLElement | null>;
   contextRequest: TranscriptContextMenuRequest | null;
@@ -75,6 +83,7 @@ export function SelectionMenu({
     action: "copy" | "play",
     selection: TranscriptWordSelection,
   ) => void;
+  onEdit?: (selection: TranscriptWordSelection) => void;
   onAssignSpeaker?: (
     selection: TranscriptWordSelection,
     humanId: string,
@@ -88,6 +97,7 @@ export function SelectionMenu({
         audioExists={audioExists}
         onAction={onAction}
         onAssignSpeaker={onAssignSpeaker}
+        onEdit={onEdit}
       />
       {contextRequest && (
         <ContextSelectionMenu
@@ -98,6 +108,7 @@ export function SelectionMenu({
           onClose={onContextClose}
           onAction={onAction}
           onAssignSpeaker={onAssignSpeaker}
+          onEdit={onEdit}
         />
       )}
     </>
@@ -212,6 +223,7 @@ function TextSelectionMenu({
   audioExists,
   onAction,
   onAssignSpeaker,
+  onEdit,
 }: {
   containerRef: React.RefObject<HTMLElement | null>;
   suspended: boolean;
@@ -220,6 +232,7 @@ function TextSelectionMenu({
     action: "copy" | "play",
     selection: TranscriptWordSelection,
   ) => void;
+  onEdit?: (selection: TranscriptWordSelection) => void;
   onAssignSpeaker?: (
     selection: TranscriptWordSelection,
     humanId: string,
@@ -258,6 +271,7 @@ function TextSelectionMenu({
       onClose={handleClose}
       onAction={onAction}
       onAssignSpeaker={onAssignSpeaker}
+      onEdit={onEdit}
     />
   );
 }
@@ -269,6 +283,7 @@ function ContextSelectionMenu({
   onClose,
   onAction,
   onAssignSpeaker,
+  onEdit,
 }: {
   request: TranscriptContextMenuRequest;
   containerRef: React.RefObject<HTMLElement | null>;
@@ -278,6 +293,7 @@ function ContextSelectionMenu({
     action: "copy" | "play",
     selection: TranscriptWordSelection,
   ) => void;
+  onEdit?: (selection: TranscriptWordSelection) => void;
   onAssignSpeaker?: (
     selection: TranscriptWordSelection,
     humanId: string,
@@ -328,6 +344,7 @@ function ContextSelectionMenu({
       onClose={handleClose}
       onAction={onAction}
       onAssignSpeaker={onAssignSpeaker}
+      onEdit={onEdit}
     />
   );
 }
@@ -342,6 +359,7 @@ function SelectionFloatingMenu({
   onClose,
   onAction,
   onAssignSpeaker,
+  onEdit,
 }: {
   selection: TranscriptWordSelection;
   range: Range | null;
@@ -354,6 +372,7 @@ function SelectionFloatingMenu({
     action: "copy" | "play",
     selection: TranscriptWordSelection,
   ) => void;
+  onEdit?: (selection: TranscriptWordSelection) => void;
   onAssignSpeaker?: (
     selection: TranscriptWordSelection,
     humanId: string,
@@ -399,6 +418,19 @@ function SelectionFloatingMenu({
         >
           {view === "actions" ? (
             <div className="flex flex-col gap-0.5">
+              {onEdit && (
+                <button
+                  type="button"
+                  className={cn(MENU_BUTTON_CLASSES)}
+                  onClick={() => {
+                    onClose();
+                    onEdit(selection);
+                  }}
+                >
+                  <Pencil className="size-3.5 shrink-0" />
+                  <Trans>Edit</Trans>
+                </button>
+              )}
               {selection.sessionId && onAssignSpeaker && (
                 <button
                   type="button"
@@ -406,7 +438,7 @@ function SelectionFloatingMenu({
                   onClick={() => setView("speaker")}
                 >
                   <UserSwitch className="size-3.5" />
-                  <Trans>Change speaker</Trans>
+                  <Trans>Change speaker from here</Trans>
                 </button>
               )}
               {audioExists && (
@@ -424,7 +456,7 @@ function SelectionFloatingMenu({
                 className={cn(MENU_BUTTON_CLASSES)}
                 onClick={() => handleAction("copy")}
               >
-                <span className="w-3.5 text-center">⌘</span>
+                <Copy className="size-3.5 shrink-0" />
                 <Trans>Copy</Trans>
               </button>
             </div>
@@ -517,7 +549,7 @@ function useSelectionMenuState({
   const isVisible = selection !== null;
   const { refs, floatingStyles, update } = useFloating<HTMLElement>({
     open: isVisible,
-    placement: "bottom",
+    placement: "bottom-start",
     strategy: "fixed",
     transform: false,
     middleware: [offset(6), flip(), shift({ padding: 8 })],

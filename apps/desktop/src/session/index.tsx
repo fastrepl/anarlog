@@ -333,6 +333,7 @@ function TabContentNoteInner({
                 handleTabChange={handleTabChange}
                 sessionMode={sessionMode}
                 transcriptEditMode={transcriptEditMode}
+                onTranscriptEditModeChange={handleTranscriptEditModeChange}
                 hideHeader
               />
             ) : (
