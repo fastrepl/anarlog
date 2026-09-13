@@ -47,13 +47,6 @@ export function GeneralAccessSelector({
 
   return (
     <div className="flex min-w-0 flex-1 items-center gap-1.5">
-      <span className="bg-muted flex size-7 shrink-0 items-center justify-center rounded-md">
-        {pending ? (
-          <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
-        ) : (
-          <AccessIcon className="size-4" aria-hidden="true" />
-        )}
-      </span>
       <Select
         value={value}
         disabled={disabled || pending}
@@ -64,8 +57,16 @@ export function GeneralAccessSelector({
       >
         <SelectTrigger
           aria-label={t`General access`}
-          className="h-7 w-auto max-w-full min-w-0 justify-start gap-1 rounded-md border-0 bg-transparent px-1.5 text-xs shadow-none"
+          className="h-7 w-auto max-w-full min-w-0 justify-start gap-1.5 rounded-md border-0 bg-transparent px-1.5 text-xs shadow-none"
         >
+          {pending ? (
+            <CircleNotch
+              className="size-4 shrink-0 animate-spin"
+              aria-hidden="true"
+            />
+          ) : (
+            <AccessIcon className="size-4 shrink-0" aria-hidden="true" />
+          )}
           <SelectValue />
         </SelectTrigger>
         <SelectContent align="end">
