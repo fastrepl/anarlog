@@ -474,7 +474,7 @@ export function SessionSharePopoverContent({
                     disabled={!canPublish || inviteMutation.isPending}
                   />
 
-                  <div className="border-border/60 mt-2 border-t pt-2">
+                  <div className="mt-2 pt-2">
                     <h4 className="text-muted-foreground mb-1 px-1.5 text-[10px] font-medium">
                       <Trans>People with access</Trans>
                     </h4>
