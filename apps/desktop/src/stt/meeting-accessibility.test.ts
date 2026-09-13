@@ -25,6 +25,12 @@ describe("meeting accessibility activity", () => {
     expect(
       inspectionShowsActiveMeeting({
         ...activeInspection,
+        activeCall: false,
+      }),
+    ).toBe(false);
+    expect(
+      inspectionShowsActiveMeeting({
+        ...activeInspection,
         warnings: ["AX snapshot was incomplete"],
       }),
     ).toBe(false);
