@@ -14,6 +14,9 @@ Nightly opens the same local notes as your stable Anarlog, while sign-in and set
 - Live transcription recovers when output stalls, with cleaner handoffs between meetings.
 - Canceling post-meeting transcription stops that work, and incomplete post-processing no longer replaces a saved transcript.
 - The folder picker sits beside the note header actions. Meeting details and sharing menus are more compact.
+- Edit transcript text directly, save with Command/Ctrl+S, and copy or reassign a speaker from a selection.
+- Recognize speakers from recording context and keep each person's transcript color consistent.
+- See link access from the Share button, then copy the link or send it through email or Slack from one split action.
 - Choose a default export folder in Settings → General.
 - Sync tags, folders, daily notes, and transcript chunks, with clearer errors when sync needs attention.
 
@@ -21,7 +24,9 @@ Nightly opens the same local notes as your stable Anarlog, while sign-in and set
 
 - Accept or decline invitations in Settings → Teams without opening the email. Background notifications let you know when an invitation arrives.
 - Invite members without buying seats first. Billing adjusts when members join or leave, with prorated changes on the next scheduled invoice.
-- Review member profiles and permissions in a table. Ownership transfers now require the recipient to accept.
+- Compare plans in a swipeable account carousel and refresh Pro access automatically when workspace membership changes.
+- Let every Team member see the roster. Review member profiles and permissions in a table; ownership transfers now require the recipient to accept.
+- Get a clear error when a sign-in link is expired, invalid, or already used.
 
 ## Providers
 
