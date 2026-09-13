@@ -185,6 +185,41 @@ test("wraps long space-free titles by grapheme", () => {
   }
 });
 
+test("keeps full-width title glyphs inside the right inset", () => {
+  const title = "会議の重要な決定事項と次のアクション".repeat(8);
+  const cases = [
+    {
+      svg: createBlogOgSvg({ title }),
+      fontSize: 76,
+      left: 86,
+      right: 1114,
+    },
+    {
+      svg: createSharedNoteOgSvg({ title }),
+      fontSize: 64,
+      left: 72,
+      right: 1128,
+    },
+  ];
+
+  for (const { svg, fontSize, left, right } of cases) {
+    const titleLines = [
+      ...svg.matchAll(/fill="#181613"[^>]*>([^<]+)<\/text>/g),
+    ].map(([, line]) => line);
+    assert.ok(titleLines.length > 1);
+    assert.ok(
+      titleLines.every((line) => {
+        const width = [...graphemeSegmenter.segment(line)].reduce(
+          (total, { segment }) =>
+            total + fontSize * (segment === "." ? 0.3 : 1),
+          0,
+        );
+        return left + width <= right;
+      }),
+    );
+  }
+});
+
 test("caps participant avatars in crowded shared-note previews", () => {
   const svg = createSharedNoteOgSvg({
     title: "Large meeting",

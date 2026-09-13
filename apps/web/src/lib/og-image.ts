@@ -70,15 +70,27 @@ function splitGraphemes(value: string) {
   return [...graphemeSegmenter.segment(value)].map(({ segment }) => segment);
 }
 
-function wrapText(value: string, maxChars: number, maxLines: number) {
+function wrapText(
+  value: string,
+  fontSize: number,
+  maxWidth: number,
+  maxLines: number,
+) {
   const words = value.split(/\s+/).filter(Boolean);
   const pieces = words.flatMap((word) => {
-    const graphemes = splitGraphemes(word);
-    const chunks = Array.from(
-      { length: Math.ceil(graphemes.length / maxChars) },
-      (_, index) =>
-        graphemes.slice(index * maxChars, (index + 1) * maxChars).join(""),
-    );
+    const chunks: string[] = [];
+    let current = "";
+    for (const grapheme of splitGraphemes(word)) {
+      if (
+        current &&
+        estimateTextWidth(`${current}${grapheme}`, fontSize) > maxWidth
+      ) {
+        chunks.push(current);
+        current = "";
+      }
+      current += grapheme;
+    }
+    if (current) chunks.push(current);
     return chunks.map((text, index) => ({
       text,
       prependSpace: index === 0,
@@ -90,7 +102,7 @@ function wrapText(value: string, maxChars: number, maxLines: number) {
 
   for (const piece of pieces) {
     const next = `${current}${current && piece.prependSpace ? " " : ""}${piece.text}`;
-    if (splitGraphemes(next).length <= maxChars) {
+    if (estimateTextWidth(next, fontSize) <= maxWidth) {
       current = next;
       continue;
     }
@@ -108,10 +120,11 @@ function wrapText(value: string, maxChars: number, maxLines: number) {
   }
 
   if (truncated) {
-    const lastLine = splitGraphemes(
-      lines[lines.length - 1].replace(/\.+$/, ""),
+    lines[lines.length - 1] = ellipsizeToWidth(
+      lines[lines.length - 1] ?? "",
+      fontSize,
+      maxWidth,
     );
-    lines[lines.length - 1] = `${lastLine.slice(0, maxChars - 3).join("")}...`;
   }
 
   return lines;
@@ -128,8 +141,7 @@ function wrapSansText(
   const words = value.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let current = "";
-  const fits = (text: string) =>
-    estimateSansTextWidth(text, fontSize) <= maxWidth;
+  const fits = (text: string) => estimateTextWidth(text, fontSize) <= maxWidth;
 
   for (const word of words) {
     const next = current ? `${current} ${word}` : word;
@@ -169,8 +181,7 @@ function wrapSansText(
 }
 
 function ellipsizeToWidth(value: string, fontSize: number, maxWidth: number) {
-  const fits = (text: string) =>
-    estimateSansTextWidth(text, fontSize) <= maxWidth;
+  const fits = (text: string) => estimateTextWidth(text, fontSize) <= maxWidth;
   let next = value.replace(/\.+$/, "").trimEnd();
   if (fits(`${next}...`)) return `${next}...`;
 
@@ -181,10 +192,11 @@ function ellipsizeToWidth(value: string, fontSize: number, maxWidth: number) {
     if (fits(`${next}...`)) return `${next}...`;
   }
 
-  next = parts[0] ?? "";
-  while (next.length > 1 && !fits(`${next}...`)) {
-    next = next.slice(0, -1).trimEnd();
+  const graphemes = splitGraphemes(parts[0] ?? "");
+  while (graphemes.length > 1 && !fits(`${graphemes.join("")}...`)) {
+    graphemes.pop();
   }
+  next = graphemes.join("");
   return next ? `${next}...` : "";
 }
 
@@ -261,11 +273,17 @@ function createParticipantAvatarStack(
     .join("");
 }
 
-function estimateSansTextWidth(value: string, fontSize: number) {
-  return Array.from(value).reduce((width, character) => {
-    if (/\s/.test(character)) return width + fontSize * 0.28;
-    if (/[ilI1.,'`]/.test(character)) return width + fontSize * 0.3;
-    if (/[MW@%]/.test(character)) return width + fontSize * 0.82;
+function estimateTextWidth(value: string, fontSize: number) {
+  return splitGraphemes(value).reduce((width, grapheme) => {
+    if (/\s/u.test(grapheme)) return width + fontSize * 0.28;
+    if (
+      /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Extended_Pictographic}]/u.test(
+        grapheme,
+      )
+    )
+      return width + fontSize;
+    if (/[ilI1.,'`]/u.test(grapheme)) return width + fontSize * 0.3;
+    if (/[MW@%]/u.test(grapheme)) return width + fontSize * 0.82;
     return width + fontSize * 0.56;
   }, 0);
 }
@@ -293,8 +311,8 @@ export function createBlogOgSvg(input: BlogOgImageInput) {
     [input.title, input.description, input.author].filter(Boolean).join(" "),
     input.languageHints,
   );
-  const title = wrapText(clampText(input.title, 96), 25, 3);
-  const description = wrapText(clampText(input.description, 150), 55, 2);
+  const title = wrapText(clampText(input.title, 96), 76, 1028, 3);
+  const description = wrapText(clampText(input.description, 150), 32, 1024, 2);
   const meta = [input.author, formatDate(input.date)]
     .filter(Boolean)
     .join(" - ");
@@ -344,11 +362,7 @@ export function createSharedNoteOgSvg(
   );
   const normalizedTitle = clampText(input.title, 120) || "Shared note";
   const titleFontSize = normalizedTitle.length > 72 ? 64 : 76;
-  const title = wrapText(
-    normalizedTitle,
-    normalizedTitle.length > 72 ? 31 : 27,
-    3,
-  );
+  const title = wrapText(normalizedTitle, titleFontSize, 1056, 3);
   const participantPresentation = createSharedNoteParticipantPresentation(
     input.participants ?? [],
   );
@@ -373,7 +387,7 @@ export function createSharedNoteOgSvg(
       AVATAR_RADIUS +
       AVATAR_LABEL_GAP
     : CONTENT_INSET_X;
-  const estimatedParticipantTextWidth = estimateSansTextWidth(
+  const estimatedParticipantTextWidth = estimateTextWidth(
     participantSummary,
     27,
   );
