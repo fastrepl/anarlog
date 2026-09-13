@@ -6,6 +6,13 @@ import { useState } from "react";
 import { getFixedPlanPrice, MARKETING_PLAN_TIERS } from "@anlg/pricing";
 import { Check, Plugs } from "@anlg/ui/components/icons";
 import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@anlg/ui/components/ui/carousel";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -433,64 +440,83 @@ function PlanComparison({
 }) {
   return (
     <div className="border-color-subtle border-t p-6 sm:p-8">
-      <p className="text-color text-sm font-medium">Available plans</p>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {MARKETING_PLAN_TIERS.map((tier) => {
-          const isCurrent = tier.id === currentPlanId;
-          const priceText =
-            tier.price.kind === "free"
-              ? "$0/month"
-              : tier.price.kind === "custom"
-                ? "Custom"
-                : `$${tier.price.monthly}/${
-                    tier.price.billingUnit ?? "person"
-                  }/mo`;
+      <Carousel opts={{ align: "start" }} aria-label="Available plans">
+        <div className="mb-4 flex min-h-8 items-center justify-between gap-4">
+          <p className="text-color text-sm font-medium">Available plans</p>
+          <div className="flex items-center gap-2">
+            <CarouselPrevious
+              className="static translate-y-0"
+              aria-label="Previous plan"
+            />
+            <CarouselNext
+              className="static translate-y-0"
+              aria-label="Next plan"
+            />
+          </div>
+        </div>
+        <CarouselContent>
+          {MARKETING_PLAN_TIERS.map((tier) => {
+            const isCurrent = tier.id === currentPlanId;
+            const priceText =
+              tier.price.kind === "free"
+                ? "$0/month"
+                : tier.price.kind === "custom"
+                  ? "Custom"
+                  : `$${tier.price.monthly}/${
+                      tier.price.billingUnit ?? "person"
+                    }/mo`;
 
-          return (
-            <div
-              key={tier.id}
-              className={cn([
-                "rounded-2xl border p-4",
-                isCurrent
-                  ? "bg-surface border-[var(--color-fg)]"
-                  : "border-color-subtle bg-white",
-              ])}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <p
+            return (
+              <CarouselItem
+                key={tier.id}
+                className="basis-[85%] sm:basis-[45%]"
+                aria-label={tier.name}
+              >
+                <div
                   className={cn([
-                    "font-mono text-sm font-medium",
-                    isCurrent ? "text-color" : "text-color-muted",
+                    "h-full rounded-2xl border p-4",
+                    isCurrent
+                      ? "bg-surface border-[var(--color-fg)]"
+                      : "border-color-subtle bg-white",
                   ])}
                 >
-                  {tier.name}
-                </p>
-                {isCurrent && (
-                  <span className="brand-yellow text-color rounded-full px-2 py-0.5 text-xs font-medium">
-                    Current
-                  </span>
-                )}
-              </div>
-              <p className="text-color-muted mt-1 text-sm">{priceText}</p>
-              <ul className="mt-3 space-y-1.5">
-                {tier.features.slice(0, 3).map((feature, i) => (
-                  <li
-                    key={i}
-                    className="text-color-muted flex items-start gap-2 text-xs"
-                  >
-                    {feature.included ? (
-                      <Check className="mt-0.5 size-3.5 shrink-0 text-green-600" />
-                    ) : (
-                      <Plugs className="text-color-muted mt-0.5 size-3.5 shrink-0" />
+                  <div className="flex items-center justify-between gap-2">
+                    <p
+                      className={cn([
+                        "font-mono text-sm font-medium",
+                        isCurrent ? "text-color" : "text-color-muted",
+                      ])}
+                    >
+                      {tier.name}
+                    </p>
+                    {isCurrent && (
+                      <span className="brand-yellow text-color rounded-full px-2 py-0.5 text-xs font-medium">
+                        Current
+                      </span>
                     )}
-                    {feature.label}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })}
-      </div>
+                  </div>
+                  <p className="text-color-muted mt-1 text-sm">{priceText}</p>
+                  <ul className="mt-3 space-y-1.5">
+                    {tier.features.slice(0, 3).map((feature, i) => (
+                      <li
+                        key={i}
+                        className="text-color-muted flex items-start gap-2 text-xs"
+                      >
+                        {feature.included ? (
+                          <Check className="mt-0.5 size-3.5 shrink-0 text-green-600" />
+                        ) : (
+                          <Plugs className="text-color-muted mt-0.5 size-3.5 shrink-0" />
+                        )}
+                        {feature.label}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </CarouselItem>
+            );
+          })}
+        </CarouselContent>
+      </Carousel>
     </div>
   );
 }
