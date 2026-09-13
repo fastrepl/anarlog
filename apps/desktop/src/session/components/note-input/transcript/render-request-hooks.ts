@@ -14,6 +14,7 @@ import {
   collectAssignedHumanIdsFromTranscriptRows,
   type TranscriptRow,
 } from "~/stt/render-transcript";
+import { useSpeakerContext } from "~/stt/speaker-context-query";
 
 export type TranscriptRowWithId = {
   transcriptId: string;
@@ -52,6 +53,7 @@ function useRenderData(
   request: RenderTranscriptRequest | null;
   transcriptRows: TranscriptRowWithId[];
 } {
+  const speakerContext = useSpeakerContext(sessionId);
   const participantHumanIds = useSessionParticipantHumanIds(sessionId);
   const selfHumanId = transcripts[0]?.ownerUserId;
 
@@ -93,8 +95,9 @@ function useRenderData(
         transcriptRows.map((transcriptRow) => transcriptRow.row),
         { humans, selfHumanId },
         participantHumanIds,
+        speakerContext,
       ),
-    [humans, participantHumanIds, selfHumanId, transcriptRows],
+    [humans, participantHumanIds, selfHumanId, transcriptRows, speakerContext],
   );
 
   return { request, transcriptRows };

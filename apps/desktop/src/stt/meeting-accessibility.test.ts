@@ -6,6 +6,7 @@ import {
 } from "./meeting-accessibility";
 
 const activeInspection = {
+  activeCall: true,
   app: { id: "com.google.Chrome", name: "Google Chrome" },
   pid: 123,
   platform: "googleMeet" as const,

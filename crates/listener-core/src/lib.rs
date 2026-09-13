@@ -34,24 +34,12 @@ pub enum TranscriptionMode {
     Batch,
 }
 
-/// Remote participants per channel, used to cap provider speaker counts and clamp live
-/// speaker indices. Returns `None` when no remote participants are known: an ad-hoc meeting
-/// without calendar attendees may still have several remote speakers, and a wrong cap merges
-/// them irreversibly while a missing cap only forgoes a hint.
+/// Calendar attendance is not an upper bound on the voices in a recording.
 pub(crate) fn expected_speakers_per_channel(
-    participant_human_ids: &[String],
-    self_human_id: Option<&str>,
+    _participant_human_ids: &[String],
+    _self_human_id: Option<&str>,
 ) -> Option<u32> {
-    let mut remote_participants = participant_human_ids
-        .iter()
-        .filter(|participant| Some(participant.as_str()) != self_human_id)
-        .collect::<Vec<_>>();
-    remote_participants.sort();
-    remote_participants.dedup();
-
-    u32::try_from(remote_participants.len())
-        .ok()
-        .filter(|count| *count > 0)
+    None
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

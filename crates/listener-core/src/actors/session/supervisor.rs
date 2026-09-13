@@ -789,14 +789,17 @@ mod tests {
     }
 
     #[test]
-    fn config_update_refreshes_when_expected_speaker_count_changes() {
+    fn config_update_keeps_stream_when_calendar_attendance_changes() {
         let mut ctx = test_ctx();
         ctx.params.participant_human_ids = vec!["self".to_string()];
         ctx.params.self_human_id = Some("self".to_string());
         let state = test_state(ctx);
         let update = test_update(vec![], vec!["self", "remote-a", "remote-b"], Some("self"));
 
-        assert!(update_requires_listener_refresh(&state.ctx.params, &update));
+        assert!(!update_requires_listener_refresh(
+            &state.ctx.params,
+            &update
+        ));
     }
 
     #[test]

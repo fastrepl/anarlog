@@ -1888,6 +1888,10 @@ fn inspect_app(
     });
     let surface = classify_surface(&app.id, &platform);
     MeetingAccessibilityInspection {
+        active_call: accessibility_trusted
+            && nodes
+                .iter()
+                .any(|node| is_platform_active_call_control(&platform, node)),
         app,
         pid,
         platform,

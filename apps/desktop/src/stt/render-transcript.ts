@@ -2,6 +2,7 @@ import type { TranscriptSpeakerHint } from "@anlg/plugin-fs-sync";
 import { commands as listenerCommands } from "@anlg/plugin-transcription";
 import type {
   IdentityAssignment,
+  SpeakerContext,
   RenderTranscriptHuman,
   RenderTranscriptInput,
   RenderTranscriptRequest,
@@ -89,6 +90,8 @@ export function getRenderTranscriptRequestKey(
   };
 
   writeValue(request.self_human_id);
+  writeValue(request.speaker_context);
+  writeValue(request.preview);
 
   for (const humanId of request.participant_human_ids) {
     writeValue(humanId);
@@ -143,8 +146,16 @@ export function buildRenderTranscriptRequestFromRows(
   transcripts: TranscriptRow[],
   humans?: RenderTranscriptRequestHumans,
   participantHumanIds?: string[],
+  speakerContext?: SpeakerContext,
 ): RenderTranscriptRequest | null {
-  return buildRenderTranscriptRequest(transcripts, humans, participantHumanIds);
+  const request = buildRenderTranscriptRequest(
+    transcripts,
+    humans,
+    participantHumanIds,
+  );
+  return request && speakerContext
+    ? { ...request, speaker_context: speakerContext }
+    : request;
 }
 
 export function resolveScopedWordHumanIds(

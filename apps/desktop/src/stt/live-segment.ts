@@ -54,6 +54,8 @@ type SegmentWithWordMetadata<T extends { words: BoundSegmentWord[] }> = Omit<
   "words"
 > & {
   words: SegmentWord[];
+  speaker_label?: string;
+  provisional_speaker?: RenderedTranscriptSegment["provisional_speaker"];
 };
 export type Segment =
   | SegmentWithWordMetadata<LiveTranscriptSegment>
@@ -286,7 +288,10 @@ export function applyRenderRequestIdentitiesToSegments(
         ),
         assignment.human_id,
       );
-    } else if (completeChannels.has(assignment.scope.channel)) {
+    } else if (
+      request.speaker_context ||
+      completeChannels.has(assignment.scope.channel)
+    ) {
       assignmentsByChannel.set(assignment.scope.channel, assignment.human_id);
     }
   }

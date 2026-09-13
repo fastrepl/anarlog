@@ -17,7 +17,7 @@ pub struct RenderTranscriptWordInput {
     pub speaker_index: Option<i32>,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct RenderTranscriptHuman {
     pub human_id: String,
     pub name: String,
@@ -32,6 +32,10 @@ pub struct RenderTranscriptInput {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct RenderTranscriptRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speaker_context: Option<crate::SpeakerContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preview: Option<Vec<RenderedTranscriptSegment>>,
     pub transcripts: Vec<RenderTranscriptInput>,
     pub participant_human_ids: Vec<String>,
     pub self_human_id: Option<String>,
@@ -40,6 +44,8 @@ pub struct RenderTranscriptRequest {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct RenderedTranscriptSegment {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provisional_speaker: Option<crate::ProvisionalSpeakerLabel>,
     pub id: String,
     pub key: SegmentKey,
     pub speaker_label: String,
@@ -57,11 +63,28 @@ pub fn render_transcript_segments(
         participant_human_ids,
         self_human_id,
         humans,
+        speaker_context,
+        preview,
     } = request;
 
     let base_started_at = earliest_started_at(&transcripts);
-    let segment_options =
-        segment_options_for_participants(&participant_human_ids, self_human_id.as_deref());
+    if let Some(mut segments) = preview {
+        for segment in &mut segments {
+            if let Some(id) = &segment.key.speaker_human_id {
+                segment.speaker_label = humans
+                    .iter()
+                    .find(|human| &human.human_id == id)
+                    .map(|human| human.name.clone())
+                    .unwrap_or_else(|| id.clone());
+            }
+        }
+        return match speaker_context {
+            Some(context) => {
+                context.label_segments(segments, base_started_at, self_human_id.as_deref(), &humans)
+            }
+            None => segments,
+        };
+    }
 
     let mut all_segments = Vec::new();
 
@@ -73,9 +96,15 @@ pub fn render_transcript_segments(
 
         let (words, mut assignments) =
             offset_transcript_data(transcript.words, transcript.assignments, offset);
-        let channel_assignments =
-            channel_assignments_for_participants(&participant_human_ids, self_human_id.as_deref());
-        assignments.extend(channel_assignments);
+        let segment_options = if speaker_context.is_some() {
+            crate::segment_options_for_assignments(&assignments)
+        } else {
+            assignments.extend(channel_assignments_for_participants(
+                &participant_human_ids,
+                self_human_id.as_deref(),
+            ));
+            segment_options_for_participants(&participant_human_ids, self_human_id.as_deref())
+        };
 
         let segments = build_segments(&words, &[], &assignments, Some(&segment_options));
         all_segments.extend(segments);
@@ -84,17 +113,25 @@ pub fn render_transcript_segments(
     all_segments.sort_by_key(|seg| seg.words.first().map(|w| w.start_ms).unwrap_or(i64::MAX));
 
     let ctx = SpeakerLabelContext {
-        self_human_id: self_human_id.clone(),
+        self_human_id: if speaker_context.is_none() {
+            self_human_id.clone()
+        } else {
+            None
+        },
         human_name_by_id: humans
-            .into_iter()
+            .iter()
+            .cloned()
             .map(|human| (human.human_id, human.name))
             .collect::<HashMap<_, _>>(),
     };
-    let max_speaker_number =
-        max_speaker_number_for_participants(&participant_human_ids, self_human_id.as_deref());
+    let max_speaker_number = if speaker_context.is_some() {
+        None
+    } else {
+        max_speaker_number_for_participants(&participant_human_ids, self_human_id.as_deref())
+    };
     let mut labeler = SpeakerLabeler::from_segments(&all_segments, Some(&ctx), max_speaker_number);
 
-    all_segments
+    let segments = all_segments
         .into_iter()
         .filter_map(|segment| {
             let words = normalize_rendered_segment_words(segment.words);
@@ -111,6 +148,7 @@ pub fn render_transcript_segments(
             }
 
             Some(RenderedTranscriptSegment {
+                provisional_speaker: None,
                 id: stable_segment_id(&segment.key, &words),
                 speaker_label: render_speaker_label(&segment.key, Some(&ctx), Some(&mut labeler)),
                 start_ms: first.start_ms,
@@ -120,7 +158,13 @@ pub fn render_transcript_segments(
                 key: segment.key,
             })
         })
-        .collect()
+        .collect();
+    match speaker_context {
+        Some(context) => {
+            context.label_segments(segments, base_started_at, self_human_id.as_deref(), &humans)
+        }
+        None => segments,
+    }
 }
 
 fn max_speaker_number_for_participants(
@@ -296,6 +340,8 @@ mod tests {
     #[test]
     fn renders_segments_with_labels() {
         let segments = render_transcript_segments(RenderTranscriptRequest {
+            speaker_context: None,
+            preview: None,
             transcripts: vec![RenderTranscriptInput {
                 started_at: Some(0),
                 words: vec![
@@ -328,6 +374,8 @@ mod tests {
     #[test]
     fn caps_unknown_speaker_labels_to_participant_count() {
         let segments = render_transcript_segments(RenderTranscriptRequest {
+            speaker_context: None,
+            preview: None,
             transcripts: vec![RenderTranscriptInput {
                 started_at: Some(0),
                 words: vec![
@@ -351,6 +399,8 @@ mod tests {
     #[test]
     fn labels_diarized_direct_mic_as_self_without_remote_participant() {
         let segments = render_transcript_segments(RenderTranscriptRequest {
+            speaker_context: None,
+            preview: None,
             transcripts: vec![RenderTranscriptInput {
                 started_at: Some(0),
                 words: vec![word_si("w1", " hello", 0, 100, 0, 2)],
@@ -407,6 +457,8 @@ mod tests {
     #[test]
     fn propagates_remote_labels_when_complete_channel_is_requested() {
         let segments = render_transcript_segments(RenderTranscriptRequest {
+            speaker_context: None,
+            preview: None,
             transcripts: vec![RenderTranscriptInput {
                 started_at: Some(0),
                 words: vec![
@@ -431,6 +483,8 @@ mod tests {
     #[test]
     fn keeps_same_provider_speaker_index_isolated_per_channel() {
         let segments = render_transcript_segments(RenderTranscriptRequest {
+            speaker_context: None,
+            preview: None,
             transcripts: vec![RenderTranscriptInput {
                 started_at: Some(0),
                 words: vec![
@@ -470,6 +524,8 @@ mod tests {
     #[test]
     fn normalizes_multi_row_offsets_from_earliest_transcript() {
         let segments = render_transcript_segments(RenderTranscriptRequest {
+            speaker_context: None,
+            preview: None,
             transcripts: vec![
                 RenderTranscriptInput {
                     started_at: Some(5_000),
@@ -500,6 +556,8 @@ mod tests {
     #[test]
     fn propagates_remote_labels_when_self_not_in_participant_list() {
         let segments = render_transcript_segments(RenderTranscriptRequest {
+            speaker_context: None,
+            preview: None,
             transcripts: vec![RenderTranscriptInput {
                 started_at: Some(0),
                 words: vec![
@@ -532,6 +590,8 @@ mod tests {
     #[test]
     fn keeps_missing_started_at_rows_anchored_at_zero() {
         let segments = render_transcript_segments(RenderTranscriptRequest {
+            speaker_context: None,
+            preview: None,
             transcripts: vec![
                 RenderTranscriptInput {
                     started_at: None,

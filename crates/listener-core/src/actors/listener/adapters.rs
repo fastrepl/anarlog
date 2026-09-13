@@ -679,7 +679,7 @@ mod tests {
     }
 
     #[test]
-    fn expected_speakers_counts_distinct_remote_participants() {
+    fn expected_speakers_does_not_cap_voices_to_calendar_attendance() {
         let mut args = listener_args("https://api.assemblyai.com", "u3-rt-pro");
         args.participant_human_ids = vec![
             "remote-a".to_string(),
@@ -689,7 +689,7 @@ mod tests {
         ];
         args.self_human_id = Some("self".to_string());
 
-        assert_eq!(expected_speakers(&args), Some(2));
+        assert_eq!(expected_speakers(&args), None);
     }
 
     #[test]
@@ -715,7 +715,7 @@ mod tests {
     }
 
     #[test]
-    fn build_listen_params_sets_num_speakers_without_assemblyai_custom_query() {
+    fn build_listen_params_leaves_assemblyai_speaker_counts_open() {
         let mut args = listener_args("https://api.assemblyai.com", "u3-rt-pro");
         args.participant_human_ids = vec!["remote".to_string()];
         args.self_human_id = Some("self".to_string());
@@ -723,8 +723,8 @@ mod tests {
         let params = build_listen_params(&args);
         let custom_query = params.custom_query.expect("custom query");
 
-        assert_eq!(params.num_speakers, Some(1));
-        assert_eq!(params.max_speakers, Some(1));
+        assert_eq!(params.num_speakers, None);
+        assert_eq!(params.max_speakers, None);
         assert!(!custom_query.contains_key("speaker_labels"));
         assert!(!custom_query.contains_key("max_speakers"));
     }
@@ -738,14 +738,14 @@ mod tests {
         let params = build_listen_params(&args);
         let custom_query = params.custom_query.expect("custom query");
 
-        assert_eq!(params.num_speakers, Some(1));
-        assert_eq!(params.max_speakers, Some(1));
+        assert_eq!(params.num_speakers, None);
+        assert_eq!(params.max_speakers, None);
         assert!(!custom_query.contains_key("speaker_labels"));
         assert!(!custom_query.contains_key("max_speakers"));
     }
 
     #[test]
-    fn build_listen_params_limits_each_channel_to_remote_participants() {
+    fn build_listen_params_does_not_limit_channels_to_invited_participants() {
         let mut args = listener_args("https://api.anarlog.so/stt", "cloud");
         args.participant_human_ids = vec![
             "self".to_string(),
@@ -756,8 +756,8 @@ mod tests {
 
         let params = build_listen_params(&args);
 
-        assert_eq!(params.num_speakers, Some(2));
-        assert_eq!(params.max_speakers, Some(2));
+        assert_eq!(params.num_speakers, None);
+        assert_eq!(params.max_speakers, None);
     }
 
     #[test]
