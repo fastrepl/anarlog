@@ -3,7 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { getFixedPlanPrice, MARKETING_PLAN_TIERS } from "@anlg/pricing";
+import {
+  type BillingPeriod,
+  getFixedPlanPrice,
+  MARKETING_PLAN_TIERS,
+} from "@anlg/pricing";
 import { Check, Plugs } from "@anlg/ui/components/icons";
 import {
   Carousel,
@@ -33,6 +37,7 @@ import {
   accountWorkspacePlanQueryKey,
   fetchWorkspacePlan,
   getAccountPlanCopy,
+  getAccountPlanPriceText,
 } from "@/lib/account-plan";
 import { validateYcPerkApplyValue } from "@/lib/yc-perk";
 
@@ -438,6 +443,8 @@ function PlanComparison({
 }: {
   currentPlanId: "free" | "pro" | "team" | "enterprise";
 }) {
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("monthly");
+
   return (
     <div className="border-color-subtle border-t p-6 sm:p-8">
       <Carousel
@@ -451,9 +458,31 @@ function PlanComparison({
         }}
         aria-label="Available plans"
       >
-        <div className="mb-4 flex min-h-8 items-center justify-between gap-4">
+        <div className="mb-4 flex min-h-8 flex-wrap items-center justify-between gap-3">
           <p className="text-color text-sm font-medium">Available plans</p>
           <div className="flex items-center gap-2">
+            <div
+              role="group"
+              aria-label="Billing period"
+              className="surface-subtle border-color-subtle flex rounded-full border p-0.5"
+            >
+              {(["monthly", "yearly"] as const).map((period) => (
+                <button
+                  key={period}
+                  type="button"
+                  aria-pressed={billingPeriod === period}
+                  onClick={() => setBillingPeriod(period)}
+                  className={cn([
+                    "rounded-full px-3 py-1 text-xs font-medium transition",
+                    billingPeriod === period
+                      ? "bg-surface text-color shadow-sm"
+                      : "text-color-muted hover:text-color",
+                  ])}
+                >
+                  {period === "monthly" ? "Monthly" : "Yearly"}
+                </button>
+              ))}
+            </div>
             <CarouselPrevious
               className="static translate-y-0"
               aria-label="Previous plan"
@@ -467,19 +496,15 @@ function PlanComparison({
         <CarouselContent>
           {MARKETING_PLAN_TIERS.map((tier) => {
             const isCurrent = tier.id === currentPlanId;
-            const priceText =
-              tier.price.kind === "free"
-                ? "$0/month"
-                : tier.price.kind === "custom"
-                  ? "Custom"
-                  : `$${tier.price.monthly}/${
-                      tier.price.billingUnit ?? "person"
-                    }/mo`;
+            const priceText = getAccountPlanPriceText(
+              tier.price,
+              billingPeriod,
+            );
 
             return (
               <CarouselItem
                 key={tier.id}
-                className="basis-[85%] sm:basis-[45%]"
+                className="basis-full sm:basis-1/2"
                 aria-label={tier.name}
               >
                 <div
@@ -505,7 +530,12 @@ function PlanComparison({
                       </span>
                     )}
                   </div>
-                  <p className="text-color-muted mt-1 text-sm">{priceText}</p>
+                  <p
+                    aria-live="polite"
+                    className="text-color-muted mt-1 text-sm"
+                  >
+                    {priceText}
+                  </p>
                   <ul className="mt-3 space-y-1.5">
                     {tier.features.slice(0, 3).map((feature, i) => (
                       <li

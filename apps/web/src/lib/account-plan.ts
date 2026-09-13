@@ -1,8 +1,30 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type { BillingPeriod, MarketingPlanPrice } from "@anlg/pricing";
+
 export type WorkspacePlan = "team" | "enterprise";
 
 export const accountWorkspacePlanQueryKey = ["account-workspace-plan"] as const;
+
+export function getAccountPlanPriceText(
+  price: MarketingPlanPrice,
+  period: BillingPeriod,
+) {
+  if (price.kind === "free") {
+    return "$0";
+  }
+
+  if (price.kind === "custom") {
+    return "Custom";
+  }
+
+  const unit = price.billingUnit === "person" ? "/person" : "";
+  if (period === "yearly" && price.yearly != null) {
+    return `$${price.yearly}${unit}/yr`;
+  }
+
+  return `$${price.monthly}${unit}/mo`;
+}
 
 export function getSubscriptionAccessEnd(subscription: {
   cancel_at?: number | null;

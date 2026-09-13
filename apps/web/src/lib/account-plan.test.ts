@@ -6,8 +6,39 @@ import {
   fetchWorkspacePlan,
   formatAccountPlanDate,
   getAccountPlanCopy,
+  getAccountPlanPriceText,
   getSubscriptionAccessEnd,
 } from "./account-plan.ts";
+
+test("account plan prices follow the selected billing period", () => {
+  assert.equal(
+    getAccountPlanPriceText(
+      { kind: "fixed", monthly: 15, yearly: 150 },
+      "monthly",
+    ),
+    "$15/mo",
+  );
+  assert.equal(
+    getAccountPlanPriceText(
+      {
+        kind: "fixed",
+        monthly: 20,
+        yearly: 200,
+        billingUnit: "person",
+      },
+      "yearly",
+    ),
+    "$200/person/yr",
+  );
+});
+
+test("non-billed account plans keep their price copy across periods", () => {
+  assert.equal(getAccountPlanPriceText({ kind: "free" }, "yearly"), "$0");
+  assert.equal(
+    getAccountPlanPriceText({ kind: "custom" }, "monthly"),
+    "Custom",
+  );
+});
 
 test("prefers cancel_at, then item period end, then subscription period end", () => {
   assert.equal(
