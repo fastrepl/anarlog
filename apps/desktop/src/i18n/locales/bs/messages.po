@@ -1632,6 +1632,10 @@ msgstr ""
 msgid "Could not load Slack channels. Reconnect Slack and try again."
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Could not load workspace members. Please try again."
+msgstr ""
+
 #: src/settings/sync/index.tsx
 msgid "Could not load your devices."
 msgstr ""
@@ -3637,10 +3641,6 @@ msgstr ""
 #. placeholder {0}: (config.filterLabel ?? "repository").toLowerCase()
 #: src/settings/todo/provider-content.tsx
 msgid "Only sync items from this {0}."
-msgstr ""
-
-#: src/settings/team/index.tsx
-msgid "Only workspace admins can see who has access. You are a member of this workspace."
 msgstr ""
 
 #: src/calendar/components/apple/permission.tsx

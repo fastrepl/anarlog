@@ -1632,6 +1632,10 @@ msgstr "Could not identify this device. Try again."
 msgid "Could not load Slack channels. Reconnect Slack and try again."
 msgstr "Could not load Slack channels. Reconnect Slack and try again."
 
+#: src/settings/team/index.tsx
+msgid "Could not load workspace members. Please try again."
+msgstr "Could not load workspace members. Please try again."
+
 #: src/settings/sync/index.tsx
 msgid "Could not load your devices."
 msgstr "Could not load your devices."
@@ -3638,10 +3642,6 @@ msgstr "Only public repositories are supported."
 #: src/settings/todo/provider-content.tsx
 msgid "Only sync items from this {0}."
 msgstr "Only sync items from this {0}."
-
-#: src/settings/team/index.tsx
-msgid "Only workspace admins can see who has access. You are a member of this workspace."
-msgstr "Only workspace admins can see who has access. You are a member of this workspace."
 
 #: src/calendar/components/apple/permission.tsx
 #: src/task/resource-view.tsx
