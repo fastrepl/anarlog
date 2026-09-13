@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 
-import { Desktop, DeviceMobile } from "@anlg/ui/components/icons";
+import { Desktop, DeviceMobile, Devices } from "@anlg/ui/components/icons";
 
 import { getSupabaseBrowserClient } from "@/functions/supabase";
 import { inferSyncDeviceType } from "@/lib/sync-device-type";
@@ -78,9 +78,17 @@ export function DevicesSection() {
           {devices.map((device) => {
             const deviceType = inferSyncDeviceType(device.device_name);
             const DeviceTypeIcon =
-              deviceType === "mobile" ? DeviceMobile : Desktop;
+              deviceType === "mobile"
+                ? DeviceMobile
+                : deviceType === "desktop"
+                  ? Desktop
+                  : Devices;
             const deviceTypeLabel =
-              deviceType === "mobile" ? "Mobile device" : "Desktop device";
+              deviceType === "mobile"
+                ? "Mobile device"
+                : deviceType === "desktop"
+                  ? "Desktop device"
+                  : "Device";
 
             return (
               <li

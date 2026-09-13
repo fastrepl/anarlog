@@ -7,10 +7,16 @@ test("recognizes common mobile device names", () => {
   assert.equal(inferSyncDeviceType("John's iPhone"), "mobile");
   assert.equal(inferSyncDeviceType("Pixel 10 Pro"), "mobile");
   assert.equal(inferSyncDeviceType("Galaxy Tab S11"), "mobile");
+  assert.equal(inferSyncDeviceType("SM-S938B"), "mobile");
 });
 
-test("uses a desktop icon for hostnames and missing device names", () => {
+test("recognizes common desktop device names", () => {
   assert.equal(inferSyncDeviceType("MacBook-Pro.local"), "desktop");
-  assert.equal(inferSyncDeviceType("Johndow"), "desktop");
-  assert.equal(inferSyncDeviceType(null), "desktop");
+  assert.equal(inferSyncDeviceType("Johns-M4-Max.local"), "desktop");
+  assert.equal(inferSyncDeviceType("Windows desktop"), "desktop");
+});
+
+test("does not claim a device type for ambiguous names", () => {
+  assert.equal(inferSyncDeviceType("Johndow"), "unknown");
+  assert.equal(inferSyncDeviceType(null), "unknown");
 });
