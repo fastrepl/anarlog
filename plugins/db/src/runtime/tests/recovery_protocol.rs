@@ -278,6 +278,15 @@ async fn legacy_cutover_snapshots_local_state_before_initializing_the_witness() 
 
 #[tokio::test]
 async fn witness_hydration_drains_more_than_one_replica_apply_batch() {
+    check_witness_hydration_drains(false).await;
+}
+
+#[tokio::test]
+async fn witness_hydration_drains_applicable_rows_around_incomplete_transcripts() {
+    check_witness_hydration_drains(true).await;
+}
+
+async fn check_witness_hydration_drains(incomplete_transcript: bool) {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
     let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
@@ -287,12 +296,17 @@ async fn witness_hydration_drains_more_than_one_replica_apply_batch() {
     .unwrap()
     .workspace_key("workspace-1")
     .unwrap();
-    let events = (0..20)
+    let table = if incomplete_transcript {
+        "transcripts"
+    } else {
+        "sessions"
+    };
+    let mut events = (0..20)
         .map(|index| {
             let sealed = workspace_key
                 .seal_field(
                     "workspace-1",
-                    "sessions",
+                    table,
                     &format!("session-{index:02}"),
                     "$row",
                     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -310,6 +324,27 @@ async fn witness_hydration_drains_more_than_one_replica_apply_batch() {
             }
         })
         .collect::<Vec<_>>();
+    if incomplete_transcript {
+        let sealed = workspace_key
+            .seal_field(
+                "workspace-1",
+                table,
+                "session-00",
+                "words_json#n",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                1,
+                false,
+                serde_json::json!(1),
+            )
+            .unwrap();
+        events.push(anlg_db_app::E2eeWitnessEvent {
+            sequence: 21,
+            record_id: sealed.record_id,
+            workspace_id: "workspace-1".to_string(),
+            payload_hash: anlg_e2ee::payload_hash(&sealed.payload),
+            payload: sealed.payload,
+        });
+    }
     anlg_db_app::merge_e2ee_witness_events(db.pool(), &workspace_key, "workspace-1", &events)
         .await
         .unwrap();
@@ -327,10 +362,14 @@ async fn witness_hydration_drains_more_than_one_replica_apply_batch() {
         .unwrap();
 
     assert_eq!(
-        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM sessions WHERE id LIKE 'session-%'",)
-            .fetch_one(db.pool())
-            .await
-            .unwrap(),
+        sqlx::query_scalar::<_, i64>(if incomplete_transcript {
+            "SELECT COUNT(*) FROM transcripts WHERE id LIKE 'session-%'"
+        } else {
+            "SELECT COUNT(*) FROM sessions WHERE id LIKE 'session-%'"
+        })
+        .fetch_one(db.pool())
+        .await
+        .unwrap(),
         20
     );
     assert_eq!(
@@ -338,7 +377,7 @@ async fn witness_hydration_drains_more_than_one_replica_apply_batch() {
             .fetch_one(db.pool())
             .await
             .unwrap(),
-        0
+        i64::from(incomplete_transcript)
     );
 }
 

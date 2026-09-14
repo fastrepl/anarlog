@@ -45,6 +45,7 @@ pub struct ReplicaSyncStatus {
 pub enum ReplicaSyncOutcome {
     Settled,
     MoreWork,
+    WaitingForRemote,
     Paused,
 }
 
@@ -466,28 +467,21 @@ impl E2eeSyncHook {
                         pool,
                         &keys[workspace_id],
                         || async {
-                            loop {
-                                cancellation.check()?;
-                                let stats = anlg_db_app::apply_received_e2ee_replica_changes_with_witness_cancellable(
-                                    pool,
-                                    &keys,
-                                    true,
-                                    || self.received_apply_cancelled(&cancellation),
-                                )
+                            self.hydrate_replica_changes(pool, &keys, &cancellation)
                                 .await
-                                .map_err(|error| {
-                                    std::io::Error::other(format!("E2EE witness hydration failed: {error}"))
-                                })?;
-                                // Deferred records need a later page or local encryption, not another apply pass.
-                                if !stats.remaining_replica_changes || stats.skipped_local_changes > 0 {
-                                    return Ok(());
-                                }
-                            }
+                                .map(|_| ())
                         },
                         &cancellation,
                     )
                     .await?;
                 cancellation.check()?;
+            }
+            let hydrated = self
+                .hydrate_replica_changes(pool, &keys, &cancellation)
+                .await?;
+            // A partial transcript contains placeholder arrays, not edits to publish.
+            if hydrated.incomplete_chunk_columns > 0 {
+                return Ok(ReplicaSyncOutcome::WaitingForRemote);
             }
             anlg_db_app::encrypt_e2ee_replica_changes_bounded_deferring_active_captures_cancellable(
                 pool,
@@ -540,7 +534,11 @@ impl E2eeSyncHook {
                         ))
                     })?;
             cancellation.check()?;
-            Ok(local_work_remaining)
+            Ok(if local_work_remaining {
+                ReplicaSyncOutcome::MoreWork
+            } else {
+                ReplicaSyncOutcome::Settled
+            })
         };
         tokio::pin!(operation);
         tokio::select! {
@@ -550,13 +548,36 @@ impl E2eeSyncHook {
                 let _ = operation.await;
                 Ok(ReplicaSyncOutcome::Paused)
             }
-            result = &mut operation => result.map(|work_remaining| {
-                if work_remaining {
-                    ReplicaSyncOutcome::MoreWork
-                } else {
-                    ReplicaSyncOutcome::Settled
-                }
-            }),
+            result = &mut operation => result,
+        }
+    }
+
+    async fn hydrate_replica_changes(
+        &self,
+        pool: &sqlx::SqlitePool,
+        keys: &HashMap<String, anlg_e2ee::WorkspaceKeyring>,
+        cancellation: &E2eeWitnessCancellation,
+    ) -> std::io::Result<anlg_db_app::E2eeReplicaStats> {
+        loop {
+            cancellation.check()?;
+            let stats = anlg_db_app::apply_received_e2ee_replica_changes_with_witness_cancellable(
+                pool,
+                keys,
+                true,
+                || self.received_apply_cancelled(cancellation),
+            )
+            .await
+            .map_err(|error| {
+                std::io::Error::other(format!("E2EE witness hydration failed: {error}"))
+            })?;
+            cancellation.check()?;
+            warn_parked_records(&stats);
+            // Drain ready records before yielding stalled records to later pages or local encryption.
+            if !stats.remaining_replica_changes
+                || (stats.skipped_local_changes > 0 && stats.applied_fields == 0)
+            {
+                return Ok(stats);
+            }
         }
     }
 }

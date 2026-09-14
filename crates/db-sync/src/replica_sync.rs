@@ -52,11 +52,18 @@ pub fn spawn_replica_sync(db: Arc<Db>, hook: Arc<E2eeSyncHook>) -> ReplicaSyncTa
                 continue;
             }
             match result {
-                Ok(ReplicaSyncOutcome::MoreWork) => {
+                Ok(
+                    outcome @ (ReplicaSyncOutcome::MoreWork | ReplicaSyncOutcome::WaitingForRemote),
+                ) => {
                     hook.replica_sync_succeeded();
+                    let delay = if outcome == ReplicaSyncOutcome::WaitingForRemote {
+                        REPLICA_SYNC_RETRY
+                    } else {
+                        REPLICA_SYNC_PACING
+                    };
                     tokio::select! {
                         _ = &mut shutdown_rx => return,
-                        () = tokio::time::sleep(REPLICA_SYNC_PACING) => {
+                        () = tokio::time::sleep(delay) => {
                             hook.request_replica_sync();
                         }
                     }
