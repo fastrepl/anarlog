@@ -98,15 +98,16 @@ async function compressAvatarImage(file: File): Promise<string> {
     const side = Math.min(image.naturalWidth, image.naturalHeight);
     if (side === 0) throw new Error("image has no pixels");
 
+    const outputSide = Math.min(side, AVATAR_RASTER_SIZE);
     const canvas = document.createElement("canvas");
-    canvas.width = AVATAR_RASTER_SIZE;
-    canvas.height = AVATAR_RASTER_SIZE;
+    canvas.width = outputSide;
+    canvas.height = outputSide;
     const context = canvas.getContext("2d");
     if (!context) throw new Error("canvas 2d context unavailable");
 
     // JPEG has no alpha channel; flatten transparency onto white.
     context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, AVATAR_RASTER_SIZE, AVATAR_RASTER_SIZE);
+    context.fillRect(0, 0, outputSide, outputSide);
     context.imageSmoothingQuality = "high";
     context.drawImage(
       image,
@@ -116,8 +117,8 @@ async function compressAvatarImage(file: File): Promise<string> {
       side,
       0,
       0,
-      AVATAR_RASTER_SIZE,
-      AVATAR_RASTER_SIZE,
+      outputSide,
+      outputSide,
     );
     return canvas.toDataURL("image/jpeg", 0.95);
   } finally {

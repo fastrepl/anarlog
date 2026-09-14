@@ -6,6 +6,7 @@ import type { HumanRecord } from "./queries";
 const mocks = vi.hoisted(() => ({
   humans: [] as HumanRecord[],
   togglePin: vi.fn(),
+  selectContact: vi.fn(),
   contextMenu: vi.fn(),
   ownerId: "self",
   authId: null as string | null,
@@ -24,7 +25,7 @@ vi.mock("~/store/zustand/tabs", () => ({
   useTabs: (select: (state: unknown) => unknown) =>
     select({
       currentTab: { type: "contacts", state: { selected: null } },
-      updateContactsTabState: vi.fn(),
+      updateContactsTabState: mocks.selectContact,
       invalidateResource: vi.fn(),
     }),
 }));
@@ -102,11 +103,11 @@ it("keeps your unpinned card before draggable pins and visible during search", (
   ).toBeTruthy();
   expect(self.closest("li")).toBeNull();
   expect(other.closest("li")).not.toBeNull();
-  const pin = screen.getByRole("button", {
-    name: "Pinned contact",
-  }) as HTMLButtonElement;
-  expect(pin.disabled).toBe(true);
+  const pin = screen.getByRole("img", { name: "Pinned contact" });
   fireEvent.click(pin);
+  expect(mocks.selectContact).toHaveBeenCalledWith(expect.anything(), {
+    selected: { type: "person", id: "self" },
+  });
   fireEvent.contextMenu(self);
   expect(mocks.togglePin).not.toHaveBeenCalled();
   expect(mocks.contextMenu).not.toHaveBeenCalled();
@@ -121,7 +122,7 @@ it("prefers the signed-in identity over the local owner fallback", () => {
   mocks.authId = "self";
   render(<ContactsNav />);
   expect(
-    screen.getByRole("button", { name: "Pinned contact" }).parentElement
+    screen.getByRole("img", { name: "Pinned contact" }).parentElement
       ?.textContent,
   ).toContain("Zoe");
 });
