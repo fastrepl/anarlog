@@ -564,7 +564,7 @@ async fn check_replica_transport_hydrates_transcripts(many_rows: bool) {
             }));
         }
     }
-    let head_sequence = events.len() as u64;
+    let mut head_sequence = events.len() as u64;
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/sync/e2ee/witness/user-a"))
@@ -620,10 +620,53 @@ async fn check_replica_transport_hydrates_transcripts(many_rows: bool) {
             .execute(db.pool())
             .await
             .unwrap();
-        assert_eq!(
-            hook.sync_replica_transport(db.pool()).await.unwrap(),
-            crate::ReplicaSyncOutcome::WaitingForRemote
-        );
+        for index in 0..16 {
+            let row_id = format!("session-conflict-{index:02}");
+            sqlx::query(
+                "INSERT INTO sessions (id, workspace_id, title) VALUES (?, 'user-a', 'local')",
+            )
+            .bind(&row_id)
+            .execute(db.pool())
+            .await
+            .unwrap();
+            let deleted = key
+                .seal_field(
+                    "user-a",
+                    "sessions",
+                    &row_id,
+                    "$row",
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    1,
+                    true,
+                    json!(null),
+                )
+                .unwrap();
+            events.push(json!({
+                "sequence": events.len() + 1,
+                "recordId": deleted.record_id,
+                "payloadHash": anlg_e2ee::payload_hash(&deleted.payload),
+                "payload": deleted.payload,
+            }));
+        }
+        head_sequence = events.len() as u64;
+        server.reset().await;
+        Mock::given(method("GET"))
+            .and(path("/sync/e2ee/witness/user-a"))
+            .respond_with(PagedWitness {
+                events: events.clone(),
+                page_size: 100,
+            })
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/sync/e2ee/witness/user-a"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "initializedAt": "2026-07-17T00:00:00Z", "headSequence": head_sequence,
+            })))
+            .mount(&server)
+            .await;
+        let mut outcome = hook.sync_replica_transport(db.pool()).await.unwrap();
+        let created_at_record_id = key.blind_field_id("transcripts", "transcript-1", "created_at");
         let count_record_id = key.blind_field_id("transcripts", "transcript-1", "words_json#n");
         let payload: String = sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
             .bind(&count_record_id)
@@ -635,6 +678,21 @@ async fn check_replica_transport_hydrates_transcripts(many_rows: bool) {
             .unwrap();
         assert_eq!(count.value, json!(1));
         assert_eq!(count.revision, 1);
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_records WHERE id = ?")
+                .bind(&created_at_record_id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            0
+        );
+        for _ in 0..4 {
+            if outcome != crate::ReplicaSyncOutcome::MoreWork {
+                break;
+            }
+            outcome = hook.sync_replica_transport(db.pool()).await.unwrap();
+        }
+        assert_eq!(outcome, crate::ReplicaSyncOutcome::WaitingForRemote);
         let task = crate::spawn_replica_sync(Arc::clone(&db), Arc::clone(&hook));
         hook.request_replica_sync();
         tokio::time::timeout(std::time::Duration::from_secs(2), async {

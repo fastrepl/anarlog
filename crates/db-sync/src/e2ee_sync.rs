@@ -544,7 +544,9 @@ impl E2eeSyncHook {
                         ))
                     })?;
             cancellation.check()?;
-            Ok(if local_work_remaining {
+            Ok(if stats.incomplete_chunk_columns > 0 {
+                ReplicaSyncOutcome::WaitingForRemote
+            } else if local_work_remaining {
                 ReplicaSyncOutcome::MoreWork
             } else {
                 ReplicaSyncOutcome::Settled

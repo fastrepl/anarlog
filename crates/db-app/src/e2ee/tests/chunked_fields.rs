@@ -104,6 +104,82 @@ async fn chunk_state_fields(db: &anlg_db_core::Db) -> Vec<String> {
 }
 
 #[tokio::test]
+async fn initial_transcript_chunks_must_hydrate_before_local_edits_are_encrypted() {
+    for missing_field in ["words_json#n", "words_json#1"] {
+        for rotate_key in [false, true] {
+            let mut workspace_keys = keys("workspace-a");
+            let key = workspace_keys["workspace-a"].active().clone();
+            let items = words(0..600);
+            let (a, _) = seed_transcript(&workspace_keys, &items).await;
+            let b = test_db().await;
+            copy_replica(a.pool(), b.pool()).await;
+            sqlx::query("DELETE FROM e2ee_records WHERE id = ?")
+                .bind(key.blind_field_id("transcripts", "transcript-1", missing_field))
+                .execute(b.pool())
+                .await
+                .unwrap();
+            if rotate_key {
+                let recovery = RecoveryKey::generate().unwrap();
+                let mut keyring: anlg_e2ee::WorkspaceKeyring =
+                    recovery.workspace_key("workspace-a").unwrap().into();
+                keyring.insert_retired(key.clone());
+                workspace_keys.insert("workspace-a".to_string(), keyring);
+            }
+            let applied = apply_e2ee_replica_changes(b.pool(), &workspace_keys)
+                .await
+                .unwrap();
+            assert!(applied.incomplete_chunk_columns > 0);
+            assert!(read_words(&b).await.is_empty());
+            sqlx::query(
+                "UPDATE transcripts SET created_at = 'local edit' WHERE id = 'transcript-1'",
+            )
+            .execute(b.pool())
+            .await
+            .unwrap();
+            let before: Vec<(String, String)> =
+                sqlx::query_as("SELECT id, payload FROM e2ee_records ORDER BY id")
+                    .fetch_all(b.pool())
+                    .await
+                    .unwrap();
+            let encrypted = tokio::time::timeout(
+                std::time::Duration::from_secs(2),
+                encrypt_e2ee_replica_changes(b.pool(), &workspace_keys),
+            )
+            .await
+            .expect("encryption spun on an incomplete transcript")
+            .unwrap();
+            assert!(encrypted.remaining_replica_changes);
+            assert_eq!(encrypted.encrypted_fields, 0);
+            let after: Vec<(String, String)> =
+                sqlx::query_as("SELECT id, payload FROM e2ee_records ORDER BY id")
+                    .fetch_all(b.pool())
+                    .await
+                    .unwrap();
+            assert_eq!(before, after);
+            copy_replica(a.pool(), b.pool()).await;
+            apply_e2ee_replica_changes(b.pool(), &workspace_keys)
+                .await
+                .unwrap();
+            assert_eq!(read_words(&b).await, items);
+            let encrypted = encrypt_e2ee_replica_changes(b.pool(), &workspace_keys)
+                .await
+                .unwrap();
+            assert!(!encrypted.remaining_replica_changes);
+            assert!(encrypted.encrypted_fields > 0);
+            assert_eq!(
+                sqlx::query_scalar::<_, String>(
+                    "SELECT created_at FROM transcripts WHERE id = 'transcript-1'"
+                )
+                .fetch_one(b.pool())
+                .await
+                .unwrap(),
+                "local edit"
+            );
+        }
+    }
+}
+
+#[tokio::test]
 async fn transcripts_sync_as_chunks_and_an_append_reseals_only_the_tail() {
     let workspace_keys = keys("workspace-a");
     let items = words(0..600);

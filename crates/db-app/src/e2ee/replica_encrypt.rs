@@ -66,12 +66,15 @@ async fn encrypt_e2ee_replica_changes_inner(
         )
         .await?;
         stats.encrypted_fields += batch.encrypted_fields;
+        stats.incomplete_chunk_columns += batch.incomplete_chunk_columns;
         stats.remaining_replica_changes = batch.remaining_replica_changes;
         if is_cancelled() {
             stats.remaining_replica_changes = true;
             break;
         }
-        if !stats.remaining_replica_changes {
+        if !stats.remaining_replica_changes
+            || (batch.incomplete_chunk_columns > 0 && batch.encrypted_fields == 0)
+        {
             break;
         }
         yield_once().await;
@@ -154,9 +157,14 @@ async fn encrypt_e2ee_replica_changes_bounded_inner(
         return Ok(stats);
     }
     for dirty in dirty_rows {
-        let key = keys[&dirty.workspace_id].active();
-        let prepared =
-            prepare_dirty_row_cancellable(pool, key, &writer_id, dirty, is_cancelled).await?;
+        let keyring = &keys[&dirty.workspace_id];
+        let Some(prepared) =
+            prepare_dirty_row_cancellable(pool, keyring, &writer_id, dirty, is_cancelled).await?
+        else {
+            stats.incomplete_chunk_columns += 1;
+            stats.remaining_replica_changes = true;
+            continue;
+        };
         if is_cancelled() {
             stats.remaining_replica_changes = true;
             break;
@@ -354,16 +362,25 @@ pub(super) async fn prepare_dirty_row(
     writer_id: &str,
     dirty: DirtyRow,
 ) -> E2eeReplicaResult<PreparedDirtyRow> {
-    prepare_dirty_row_cancellable(pool, key, writer_id, dirty, &|| false).await
+    prepare_dirty_row_cancellable(
+        pool,
+        &WorkspaceKeyring::new(key.clone()),
+        writer_id,
+        dirty,
+        &|| false,
+    )
+    .await?
+    .ok_or(E2eeReplicaError::InvalidRow)
 }
 
 async fn prepare_dirty_row_cancellable(
     pool: &SqlitePool,
-    key: &WorkspaceKey,
+    keyring: &WorkspaceKeyring,
     writer_id: &str,
     dirty: DirtyRow,
     is_cancelled: &(impl Fn() -> bool + Sync),
-) -> E2eeReplicaResult<PreparedDirtyRow> {
+) -> E2eeReplicaResult<Option<PreparedDirtyRow>> {
+    let key = keyring.active();
     check_e2ee_cancellation(is_cancelled)?;
     if !E2EE_DOMAIN_TABLES.contains(&dirty.table_name.as_str()) {
         return Err(E2eeReplicaError::InvalidField);
@@ -408,6 +425,36 @@ async fn prepare_dirty_row_cancellable(
         && states
             .get(&manifest_id)
             .is_some_and(|state| state.value_tag == tombstone_tag);
+    // A restored row can contain defaults before its first chunked column is
+    // applied. Metadata edits must not publish those placeholders, even when
+    // unrelated conflicts keep the row outside a bounded hydration batch.
+    let restored_row = states.values().any(|state| {
+        state.field_name == ROW_MANIFEST_FIELD
+            && keyring.generations().any(|key| {
+                key.value_tag(
+                    &dirty.table_name,
+                    &dirty.row_id,
+                    ROW_MANIFEST_FIELD,
+                    false,
+                    &json!(true),
+                ) == state.value_tag
+            })
+    });
+    if !recreating
+        && restored_row
+        && row.as_ref().is_some_and(|row| {
+            row.columns().iter().any(|column| {
+                let field_name = column.name();
+                chunk_size_for(&dirty.table_name, field_name).is_some()
+                    && !states.values().any(|state| {
+                        state.field_name == field_name
+                            || state.field_name == chunk_count_field(field_name)
+                    })
+            })
+        })
+    {
+        return Ok(None);
+    }
     let mut values = Vec::new();
     let mut retired_fields = Vec::new();
     if let Some(row) = row.as_ref() {
@@ -525,11 +572,11 @@ async fn prepare_dirty_row_cancellable(
     }
 
     check_e2ee_cancellation(is_cancelled)?;
-    Ok(PreparedDirtyRow {
+    Ok(Some(PreparedDirtyRow {
         dirty,
         fields,
         retired_fields,
-    })
+    }))
 }
 
 async fn load_witness_versions(
