@@ -1005,8 +1005,8 @@ async fn flush_manual_cloudsync_pending(
     let batch = db.cloudsync_manual_pending_payload_batch().await?;
     if !batch.complete || !batch.fits {
         return Err(std::io::Error::other(format!(
-            "CloudSync pending payload is not safely bounded ({} chunks, {} bytes)",
-            batch.chunks, batch.bytes
+            "CloudSync pending payload is not safely bounded ({} chunks, {} rows, {} bytes)",
+            batch.chunks, batch.rows, batch.bytes
         ))
         .into());
     }

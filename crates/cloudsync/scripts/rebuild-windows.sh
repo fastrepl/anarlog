@@ -24,6 +24,7 @@ git clone --quiet https://github.com/sqliteai/sqlite-sync.git "$source_dir"
 git -C "$source_dir" checkout --quiet 6b3acb5f4c7506d419e0432c7d36c993e0fdb815
 git -C "$source_dir" submodule update --init --recursive --quiet
 git -C "$source_dir" apply "$crate_dir/patches/sqlite-sync-1.1.2-request-deadlines.patch"
+git -C "$source_dir" apply "$crate_dir/patches/sqlite-sync-1.1.2-bounded-send.patch"
 make -C "$source_dir" \
   PLATFORM=windows \
   HOST=windows \

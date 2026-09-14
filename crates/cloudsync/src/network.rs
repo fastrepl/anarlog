@@ -14,6 +14,8 @@ pub struct PendingPayloadBatch {
     pub bytes: u64,
     pub complete: bool,
     pub fits: bool,
+    #[serde(default)]
+    pub remaining: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -242,6 +244,36 @@ pub async fn pending_payload_batch(
         return Err(Error::InvalidPendingPayloadLimits);
     }
 
+    let (batch, first_version) =
+        scan_pending_payload_batch(connection, max_chunks, max_rows, max_bytes, None).await?;
+    if batch.fits {
+        return Ok(batch);
+    }
+    let (Some(first_version), Some(mut until)) = (first_version, batch.watermark_db_version) else {
+        return Ok(batch);
+    };
+    // A transport batch must include every change at its final database version.
+    // Shrink the version window, never truncate a chunk stream or skip its tail.
+    while until > first_version {
+        until = first_version + (until - first_version) / 2;
+        let (mut prefix, _) =
+            scan_pending_payload_batch(connection, max_chunks, max_rows, max_bytes, Some(until))
+                .await?;
+        if prefix.fits && prefix.chunks > 0 {
+            prefix.remaining = true;
+            return Ok(prefix);
+        }
+    }
+    Ok(batch)
+}
+
+async fn scan_pending_payload_batch(
+    connection: &mut SqliteConnection,
+    max_chunks: u32,
+    max_rows: u64,
+    max_bytes: u64,
+    until: Option<i64>,
+) -> Result<(PendingPayloadBatch, Option<i64>), Error> {
     let start_db_version: i64 = sqlx::query_scalar(
         "SELECT COALESCE(
             (
@@ -254,12 +286,17 @@ pub async fn pending_payload_batch(
     )
     .fetch_one(&mut *connection)
     .await?;
+    if start_db_version < 0 {
+        return Err(std::io::Error::other("cloudsync send checkpoint is negative").into());
+    }
     let row_limit = i64::from(max_chunks) + 1;
-    let mut chunks = sqlx::query_as::<_, (i64, i64, i64, bool)>(
-        "SELECT payload_size, rows, watermark_db_version, is_final
+    let mut chunks = sqlx::query_as::<_, (i64, i64, i64, bool, i64)>(
+        "SELECT payload_size, rows, watermark_db_version, is_final, db_version_min
          FROM cloudsync_payload_chunks
+         WHERE until_db_version = ?
          LIMIT ?",
     )
+    .bind(until.unwrap_or(0))
     .bind(row_limit)
     .fetch(&mut *connection);
     let mut batch = PendingPayloadBatch {
@@ -269,10 +306,19 @@ pub async fn pending_payload_batch(
         ..Default::default()
     };
     let mut saw_chunk = false;
+    let mut first_version = None;
 
-    while let Some((payload_size, rows, watermark_db_version, is_final)) = chunks.try_next().await?
+    while let Some((payload_size, rows, watermark_db_version, is_final, db_version_min)) =
+        chunks.try_next().await?
     {
         saw_chunk = true;
+        if db_version_min <= start_db_version || watermark_db_version < db_version_min {
+            return Err(std::io::Error::other(
+                "cloudsync pending payload scan returned an invalid version window",
+            )
+            .into());
+        }
+        first_version.get_or_insert(db_version_min);
         let payload_size = u64::try_from(payload_size).map_err(|_| {
             std::io::Error::other("cloudsync pending payload scan returned a negative payload size")
         })?;
@@ -296,11 +342,11 @@ pub async fn pending_payload_batch(
 
         if batch.chunks > max_chunks || batch.rows > max_rows || batch.bytes > max_bytes {
             batch.fits = false;
-            return Ok(batch);
+            return Ok((batch, first_version));
         }
 
         if is_final {
-            return Ok(batch);
+            return Ok((batch, first_version));
         }
     }
 
@@ -308,7 +354,7 @@ pub async fn pending_payload_batch(
         batch.complete = false;
         batch.fits = false;
     }
-    Ok(batch)
+    Ok((batch, first_version))
 }
 
 pub async fn network_status<'e, E>(executor: E) -> Result<NetworkStatus, Error>
@@ -391,6 +437,20 @@ where
         .fetch_one(executor)
         .await?;
 
+    Ok(serde_json::from_str(&response)?)
+}
+
+pub async fn network_send_changes_until<'e, E>(
+    executor: E,
+    until_db_version: i64,
+) -> Result<NetworkResult, Error>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
+    let response: String = sqlx::query_scalar("SELECT cloudsync_network_send_changes(?)")
+        .bind(until_db_version)
+        .fetch_one(executor)
+        .await?;
     Ok(serde_json::from_str(&response)?)
 }
 

@@ -1,0 +1,109 @@
+--- a/src/network/network.c
++++ b/src/network/network.c
+@@ -1698,8 +1698,6 @@
+ 
+ int cloudsync_network_send_changes_internal (sqlite3_context *context, int argc, sqlite3_value **argv, sync_result *out) {
+     DEBUG_FUNCTION("cloudsync_network_send_changes");
+-    UNUSED_PARAMETER(argc);
+-    UNUSED_PARAMETER(argv);
+     
+     // retrieve global context
+     cloudsync_context *data = (cloudsync_context *)sqlite3_user_data(context);
+@@ -1713,11 +1711,19 @@
+         return SQLITE_ERROR;
+     }
+ 
++    bool bounded = argc == 1;
++    int64_t until = bounded ? sqlite3_value_int64(argv[0]) : 0;
++    if (bounded && (sqlite3_value_type(argv[0]) != SQLITE_INTEGER || until < db_version)) {
++        sqlite3_result_error(context, "cloudsync_network_send_changes: invalid upper database version.", -1);
++        return SQLITE_ERROR;
++    }
+     sqlite3 *db = sqlite3_context_db_handle(context);
+     sqlite3_stmt *stmt = NULL;
+-    const char *chunk_sql =
+-        "SELECT payload, payload_size, watermark_db_version, is_final "
+-        "FROM cloudsync_payload_chunks WHERE since_db_version = ?";
++    const char *chunk_sql = bounded
++        ? "SELECT payload, payload_size, watermark_db_version, is_final "
++          "FROM cloudsync_payload_chunks WHERE since_db_version = ? AND until_db_version = ? AND ? > ?"
++        : "SELECT payload, payload_size, watermark_db_version, is_final "
++          "FROM cloudsync_payload_chunks WHERE since_db_version = ?";
+     int rc = sqlite3_prepare_v2(db, chunk_sql, -1, &stmt, NULL);
+     if (rc != SQLITE_OK) {
+         sqlite3_result_error(context, sqlite3_errmsg(db), -1);
+@@ -1725,6 +1731,11 @@
+         return rc;
+     }
+     sqlite3_bind_int64(stmt, 1, db_version);
++    if (bounded) {
++        sqlite3_bind_int64(stmt, 2, until);
++        sqlite3_bind_int64(stmt, 3, until);
++        sqlite3_bind_int64(stmt, 4, db_version);
++    }
+ 
+     int64_t new_db_version = db_version;
+     int64_t last_optimistic_version = -1;
+@@ -1788,7 +1799,7 @@
+ 
+     if (!sent_any) {
+         // Empty local db with no server state: preserve the previous fast no-op path.
+-        if (db_version == 0) {
++        if (db_version == 0 && !bounded) {
+             if (out) {
+                 out->server_version = 0;
+                 out->local_version = 0;
+@@ -1815,21 +1826,34 @@
+ 
+     // update db_version in settings
+     char buf[256];
+-    if (last_optimistic_version >= 0) {
+-        if (last_optimistic_version != db_version) {
+-            snprintf(buf, sizeof(buf), "%" PRId64, last_optimistic_version);
+-            dbutils_settings_set_key_value(data, CLOUDSYNC_KEY_SEND_DBVERSION, buf);
+-        }
+-    } else if (new_db_version != db_version) {
+-        snprintf(buf, sizeof(buf), "%" PRId64, new_db_version);
++    int64_t checkpoint_version = last_optimistic_version >= 0 ? last_optimistic_version : new_db_version;
++    if (bounded && checkpoint_version > until) checkpoint_version = until;
++    if (checkpoint_version != db_version) {
++        snprintf(buf, sizeof(buf), "%" PRId64, checkpoint_version);
+         dbutils_settings_set_key_value(data, CLOUDSYNC_KEY_SEND_DBVERSION, buf);
+     }
+ 
++    // A completed prefix is not a completed backlog, including writes made after preflight.
++    int64_t remaining_local_version = new_db_version;
++    if (bounded) {
++        rc = database_select_int(data,
++            "SELECT COALESCE(MAX(db_version),0) FROM cloudsync_changes "
++            "WHERE site_id = (SELECT site_id FROM cloudsync_site_id WHERE rowid=0)",
++            &remaining_local_version);
++        if (rc != DBRES_OK) {
++            sqlite3_result_error(context, sqlite3_errmsg(db), -1);
++            sqlite3_result_error_code(context, rc);
++            goto cleanup;
++        }
++        if (remaining_local_version < new_db_version) remaining_local_version = new_db_version;
++    }
+     // populate sync result
+     if (out) {
+         out->server_version = last_optimistic_version;
+-        out->local_version = new_db_version;
+-        out->status = network_compute_status(last_optimistic_version, last_confirmed_version, gaps_size, new_db_version);
++        out->local_version = remaining_local_version;
++        out->status = bounded && remaining_local_version > checkpoint_version
++            ? "out-of-sync"
++            : network_compute_status(last_optimistic_version, last_confirmed_version, gaps_size, remaining_local_version);
+         out->send_chunks = sent_chunks;
+         out->send_bytes = sent_bytes;
+         out->apply_failure_json = apply_failure_json;
+@@ -2510,6 +2534,9 @@
+     
+     rc = sqlite3_create_function(db, "cloudsync_network_send_changes", 0, DEFAULT_FLAGS, ctx, cloudsync_network_send_changes, NULL, NULL);
+     if (rc != SQLITE_OK) return rc;
++
++    rc = sqlite3_create_function(db, "cloudsync_network_send_changes", 1, DEFAULT_FLAGS, ctx, cloudsync_network_send_changes, NULL, NULL);
++    if (rc != SQLITE_OK) return rc;
+     
+     rc = sqlite3_create_function(db, "cloudsync_network_receive_changes", 0, DEFAULT_FLAGS, ctx, cloudsync_network_receive_changes, NULL, NULL);
+     if (rc != SQLITE_OK) return rc;
