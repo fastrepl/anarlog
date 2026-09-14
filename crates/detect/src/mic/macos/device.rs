@@ -112,11 +112,17 @@ pub(super) extern "C-unwind" fn system_listener(
                 .err()
         });
         if let Some(error) = previous_removal_error {
-            tracing::error!(
-                ?error,
-                tags.error.code = error.status().0,
-                "removing_previous_device_listener_failed"
-            );
+            // A disconnected device no longer has an AudioObject to unregister.
+            // Retain callback context below even when this cleanup is expected.
+            if error == ca::hardware_err::BAD_OBJ {
+                tracing::debug!("previous_input_device_already_removed");
+            } else {
+                tracing::error!(
+                    ?error,
+                    tags.error.code = error.status().0,
+                    "removing_previous_device_listener_failed"
+                );
+            }
         }
 
         let Ok(new_device) = new_device else {
