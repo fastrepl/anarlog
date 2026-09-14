@@ -451,7 +451,8 @@ function taskListRule() {
       schema.nodes.paragraph.create(),
     );
     const taskList = schema.nodes.taskList.create(null, taskItem);
-    return state.tr.replaceWith(start - 1, end, taskList);
+    const tr = state.tr.replaceWith(start - 1, end, taskList);
+    return tr.setSelection(TextSelection.create(tr.doc, start + 2));
   });
 }
 
