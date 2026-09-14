@@ -34,7 +34,7 @@ pub struct OutlookListEventsRequest {
     responses(
         (status = 200, description = "Outlook calendars fetched", body = ListCalendarsResponse),
         (status = 401, description = "Unauthorized"),
-        (status = 424, description = "Calendar connection requires reconnect"),
+        (status = 424, description = "Calendar connection requires reconnect or mailbox is unavailable"),
         (status = 500, description = "Internal server error"),
     ),
     tag = "calendar",
@@ -75,7 +75,7 @@ pub async fn list_calendars(
     responses(
         (status = 200, description = "Outlook events fetched", body = ListEventsResponse),
         (status = 401, description = "Unauthorized"),
-        (status = 424, description = "Calendar connection requires reconnect"),
+        (status = 424, description = "Calendar connection requires reconnect or mailbox is unavailable"),
         (status = 500, description = "Internal server error"),
     ),
     tag = "calendar",
