@@ -86,6 +86,16 @@ describe("buildTrialEndingEmail", () => {
     ).toBeNull();
   });
 
+  it("skips customers Char bills through Autumn", () => {
+    expect(
+      buildTrialEndingEmail({
+        subscription: subscription(),
+        customer: customer({ metadata: { autumn_id: "member-live-123" } }),
+        now: NOW,
+      }),
+    ).toBeNull();
+  });
+
   it("skips trials that already ended", () => {
     expect(
       buildTrialEndingEmail({
