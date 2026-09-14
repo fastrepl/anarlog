@@ -6,6 +6,7 @@ import { env } from "../env";
 import { captureOperationalError } from "../error-reporting";
 import type { AppBindings } from "../hono-bindings";
 import { stripeSync } from "../integration/stripe-sync";
+import { sendNewCustomerAlert } from "../new-customer-alert";
 import { scheduleReplacedPersonalPlanCancellation } from "../personal-plan-transition";
 import { issueReferralReward } from "../referral-rewards";
 import { sendSubscriptionWelcomeEmail } from "../subscription-welcome-email";
@@ -127,6 +128,18 @@ webhook.post("/stripe", async (c) => {
   } catch (error) {
     captureOperationalError(error, {
       operation: "trial_email_send",
+      tags: {
+        event_type: stripeEvent.type,
+      },
+    });
+  }
+
+  try {
+    await sendNewCustomerAlert(stripeEvent);
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "new_customer_alert_send",
+      level: "warning",
       tags: {
         event_type: stripeEvent.type,
       },

@@ -17,6 +17,8 @@ export const env = createEnv({
     STRIPE_WEBHOOK_SECRET: z.string().min(1),
     POSTHOG_API_KEY: z.string().min(1).optional(),
     LOOPS_API_KEY: requiredInProduction(z.string().min(1)),
+    SLACK_ALERT_ANARLOG_WEBHOOK_URL: z.url().optional(),
+    SLACK_ALERT_CHAR_WEBHOOK_URL: z.url().optional(),
   },
   runtimeEnv: Bun.env,
   emptyStringAsUndefined: true,

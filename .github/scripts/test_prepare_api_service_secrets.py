@@ -53,6 +53,28 @@ class ServiceSecretsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "DATABASE_URL"):
             select("billing", self.api, [])
 
+    def test_slack_alert_webhooks_are_optional_and_billing_only(self):
+        slack = [
+            {
+                "key": "SLACK_ALERT_ANARLOG_WEBHOOK_URL",
+                "value": "https://hooks.example/a",
+            },
+            {"key": "SLACK_ALERT_CHAR_WEBHOOK_URL", "value": "https://hooks.example/c"},
+        ]
+        result = select("billing", self.api, [], self.webhooks + slack)
+        self.assertEqual(
+            result["SLACK_ALERT_ANARLOG_WEBHOOK_URL"], "https://hooks.example/a"
+        )
+        self.assertEqual(
+            result["SLACK_ALERT_CHAR_WEBHOOK_URL"], "https://hooks.example/c"
+        )
+        without_slack = select("billing", self.api, [], self.webhooks)
+        self.assertNotIn("SLACK_ALERT_ANARLOG_WEBHOOK_URL", without_slack)
+        for role in ["core", "gateway", "ai", "sync"]:
+            result = select(role, self.api, [], self.webhooks + slack)
+            self.assertNotIn("SLACK_ALERT_ANARLOG_WEBHOOK_URL", result)
+            self.assertNotIn("SLACK_ALERT_CHAR_WEBHOOK_URL", result)
+
     def test_unknown_role_fails_closed(self):
         with self.assertRaisesRegex(ValueError, "Unknown"):
             select("misspelled", self.api, [])

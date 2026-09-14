@@ -109,6 +109,9 @@ def select(service, api_secrets, cloudsync_secrets, webhook_secrets=()):
         values["LOOPS_API_KEY"] = values.get("LOOPS_KEY", "")
         if webhook_values.get("SENTRY_DSN"):
             values["BILLING_SENTRY_DSN"] = webhook_values["SENTRY_DSN"]
+        for key in ("SLACK_ALERT_ANARLOG_WEBHOOK_URL", "SLACK_ALERT_CHAR_WEBHOOK_URL"):
+            if webhook_values.get(key):
+                values[key] = webhook_values[key]
     missing = sorted(key for key in required if not values.get(key))
     if missing:
         raise ValueError("Missing required service secrets: " + ", ".join(missing))
