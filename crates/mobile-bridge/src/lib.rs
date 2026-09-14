@@ -1237,6 +1237,7 @@ mod tests {
         let hook = bridge
             .with_state(|state| Ok(Arc::clone(&state.e2ee_sync_hook)))
             .unwrap();
+        hook.begin_activity("status-test".to_string(), "manual-status".to_string());
         let recovery_key = anlg_e2ee::RecoveryKey::generate().unwrap();
         hook.set_personal_workspace("user-a", &recovery_key)
             .unwrap();
