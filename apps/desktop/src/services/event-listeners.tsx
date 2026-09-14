@@ -570,6 +570,13 @@ function useNotificationEvents() {
             return;
           }
 
+          if (
+            payload.source?.type !== "calendar_event" &&
+            payload.source?.type !== "mic_detected"
+          ) {
+            return;
+          }
+
           void createNotificationSession(eventId, triggerAppIds)
             .then(({ sessionId, autoStart }) => {
               openNewRef.current({

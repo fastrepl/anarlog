@@ -701,6 +701,29 @@ describe("EventListeners notification events", () => {
     },
   );
 
+  test.each([
+    ["notification_confirm", "cloudsync-initial-sync-complete-user-1"],
+    ["notification_accept", "cloudsync-initial-sync-complete-user-1"],
+    ["notification_confirm", "unknown-informational-notification"],
+    ["notification_accept", "unknown-informational-notification"],
+  ])(
+    "%s for %s leaves the current note and recording alone",
+    async (type, key) => {
+      render(<EventListeners />);
+      await vi.waitFor(() =>
+        expect(notificationListenMock).toHaveBeenCalledTimes(1),
+      );
+
+      await notificationListenMock.mock.calls[0]?.[0]({
+        payload: { type, key, source: null },
+      });
+
+      expect(createSessionMock).not.toHaveBeenCalled();
+      expect(openNewMock).not.toHaveBeenCalled();
+      expect(setTriggerAppIdsMock).not.toHaveBeenCalled();
+    },
+  );
+
   test("notification_confirm with session source opens that session", async () => {
     render(<EventListeners />);
 
