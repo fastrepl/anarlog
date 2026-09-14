@@ -1,12 +1,18 @@
 import type Stripe from "stripe";
 
-import { isAutumnManagedCustomer } from "./customer-metadata";
+import { getCustomerOwner, isAutumnManagedCustomer } from "./customer-metadata";
 
 type Product = "anarlog" | "char";
 
 // Stripe retries deliveries that stall, so a slow Slack call must not hold the
 // webhook response open.
 const SLACK_TIMEOUT_MS = 3_000;
+
+// A subscription that moves from one of these to `active` has just started paying.
+const UNPAID_STATUSES: ReadonlySet<string> = new Set([
+  "trialing",
+  "incomplete",
+]);
 
 export type NewCustomerAlertDependencies = {
   anarlogWebhookUrl: string | undefined;
@@ -17,15 +23,32 @@ export type NewCustomerAlertDependencies = {
 };
 
 // Anarlog and Char share one Stripe account, so Stripe's own Slack app cannot
-// pick a channel. Char's customers come from Autumn and carry `autumn_id`.
-// Char's card-free Max trial never creates a Stripe subscription, so the Char
-// API announces trial starts itself; this covers Anarlog trials and paid
-// subscriptions for both products.
+// pick a channel; Char's customers come from Autumn and carry `autumn_id`.
+// This announces Anarlog signups (Anarlog creates the Stripe customer at signup)
+// and each plan's first paid start for both products. Char signups come from the
+// Char API, because Char creates no Stripe customer when someone signs up.
 export async function sendNewCustomerAlert(
   event: Stripe.Event,
   dependencies?: NewCustomerAlertDependencies,
 ) {
-  if (event.type !== "customer.subscription.created") {
+  if (event.type === "customer.created") {
+    const customer = event.data.object as Stripe.Customer;
+    if (getCustomerOwner(customer.metadata)?.kind !== "user") {
+      return null;
+    }
+    const activeDependencies =
+      dependencies ?? (await createDefaultDependencies());
+    if (!activeDependencies.anarlogWebhookUrl) {
+      return null;
+    }
+    await activeDependencies.postSlackMessage(
+      activeDependencies.anarlogWebhookUrl,
+      `${customerLink(event, customer)} signed up to Anarlog`,
+    );
+    return { product: "anarlog" as Product, kind: "signup" as const };
+  }
+
+  if (!startsPaidPlan(event)) {
     return null;
   }
 
@@ -60,19 +83,29 @@ export async function sendNewCustomerAlert(
   const plan = escapeSlackText(
     planLabel(await activeDependencies.getProductName(productId)),
   );
-  const action =
-    subscription.status === "trialing"
-      ? `started ${plan} trial`
-      : `subscribed to ${plan}`;
-  const dashboardUrl = `https://dashboard.stripe.com/${event.livemode ? "" : "test/"}customers/${customer.id}`;
-  const who = escapeSlackText(customer.email ?? customer.id);
-
   await activeDependencies.postSlackMessage(
     webhookUrl,
-    `<${dashboardUrl}|${who}> ${action}`,
+    `${customerLink(event, customer)} started ${plan} plan`,
   );
 
-  return { product, subscriptionId: subscription.id };
+  return { product, kind: "plan" as const };
+}
+
+function startsPaidPlan(event: Stripe.Event) {
+  if (event.type === "customer.subscription.created") {
+    return (event.data.object as Stripe.Subscription).status === "active";
+  }
+  if (event.type === "customer.subscription.updated") {
+    const previousStatus = (
+      event.data.previous_attributes as { status?: string } | undefined
+    )?.status;
+    return (
+      (event.data.object as Stripe.Subscription).status === "active" &&
+      previousStatus !== undefined &&
+      UNPAID_STATUSES.has(previousStatus)
+    );
+  }
+  return false;
 }
 
 function getProductId(subscription: Stripe.Subscription) {
@@ -81,6 +114,11 @@ function getProductId(subscription: Stripe.Subscription) {
     return null;
   }
   return typeof product === "string" ? product : product.id;
+}
+
+function customerLink(event: Stripe.Event, customer: Stripe.Customer) {
+  const dashboardUrl = `https://dashboard.stripe.com/${event.livemode ? "" : "test/"}customers/${customer.id}`;
+  return `<${dashboardUrl}|${escapeSlackText(customer.email ?? customer.id)}>`;
 }
 
 // "Anarlog Pro" and "Char Max" read as "Pro" and "Max" in their own channels.

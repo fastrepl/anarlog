@@ -8,41 +8,47 @@ import {
 
 type Post = { webhookUrl: string; text: string };
 
-function subscriptionCreated(
-  subscription: Record<string, unknown> = {},
-  livemode = true,
+const LINK = "<https://dashboard.stripe.com/customers/cus_new|new@example.com>";
+
+function stripeEvent(
+  type: string,
+  object: Record<string, unknown>,
+  data: Record<string, unknown> = {},
 ): Stripe.Event {
   return {
-    id: "evt_subscription_created",
-    type: "customer.subscription.created",
-    livemode,
-    data: {
-      object: {
-        id: "sub_new",
-        customer: "cus_new",
-        status: "trialing",
-        items: { data: [{ price: { product: "prod_pro" } }] },
-        ...subscription,
-      } as unknown as Stripe.Subscription,
-    },
-  } as Stripe.Event;
+    id: "evt_1",
+    type,
+    livemode: true,
+    data: { object, ...data },
+  } as unknown as Stripe.Event;
+}
+
+function customer(
+  metadata: Record<string, string>,
+  overrides: Record<string, unknown> = {},
+) {
+  return { id: "cus_new", email: "new@example.com", metadata, ...overrides };
+}
+
+function subscription(status: string) {
+  return {
+    id: "sub_new",
+    customer: "cus_new",
+    status,
+    items: { data: [{ price: { product: "prod_1" } }] },
+  };
 }
 
 function dependencies(
   posts: Post[],
   overrides: Partial<NewCustomerAlertDependencies> = {},
-  customer: Record<string, unknown> = {},
+  customerMetadata: Record<string, string> = { userId: "user-1" },
 ): NewCustomerAlertDependencies {
   return {
     anarlogWebhookUrl: "https://hooks.example/anarlog",
     charWebhookUrl: "https://hooks.example/char",
     getCustomer: async () =>
-      ({
-        id: "cus_new",
-        email: "new@example.com",
-        metadata: { userId: "user-1" },
-        ...customer,
-      }) as unknown as Stripe.Customer,
+      customer(customerMetadata) as unknown as Stripe.Customer,
     getProductName: async () => "Anarlog Pro",
     postSlackMessage: async (webhookUrl, text) => {
       posts.push({ webhookUrl, text });
@@ -52,98 +58,145 @@ function dependencies(
 }
 
 describe("sendNewCustomerAlert", () => {
-  it("announces an Anarlog trial in the Anarlog channel", async () => {
+  it("announces an Anarlog signup when its Stripe customer is created", async () => {
     const posts: Post[] = [];
 
     const result = await sendNewCustomerAlert(
-      subscriptionCreated(),
+      stripeEvent("customer.created", customer({ userId: "user-1" })),
       dependencies(posts),
     );
 
-    expect(result).toEqual({ product: "anarlog", subscriptionId: "sub_new" });
+    expect(result).toEqual({ product: "anarlog", kind: "signup" });
     expect(posts).toEqual([
       {
         webhookUrl: "https://hooks.example/anarlog",
-        text: "<https://dashboard.stripe.com/customers/cus_new|new@example.com> started Pro trial",
+        text: `${LINK} signed up to Anarlog`,
       },
     ]);
   });
 
-  it("announces a paid Char subscription in the Char channel", async () => {
+  it("does not announce workspace or Char customers as signups", async () => {
+    const posts: Post[] = [];
+
+    await sendNewCustomerAlert(
+      stripeEvent("customer.created", customer({ workspaceId: "ws-1" })),
+      dependencies(posts),
+    );
+    await sendNewCustomerAlert(
+      stripeEvent("customer.created", customer({ autumn_id: "member-1" })),
+      dependencies(posts),
+    );
+
+    expect(posts).toEqual([]);
+  });
+
+  it("announces a subscription that starts paid", async () => {
     const posts: Post[] = [];
 
     const result = await sendNewCustomerAlert(
-      subscriptionCreated({ status: "active" }),
+      stripeEvent("customer.subscription.created", subscription("active")),
+      dependencies(posts),
+    );
+
+    expect(result).toEqual({ product: "anarlog", kind: "plan" });
+    expect(posts).toEqual([
+      {
+        webhookUrl: "https://hooks.example/anarlog",
+        text: `${LINK} started Pro plan`,
+      },
+    ]);
+  });
+
+  it("stays quiet when a trial starts", async () => {
+    const posts: Post[] = [];
+
+    const result = await sendNewCustomerAlert(
+      stripeEvent("customer.subscription.created", subscription("trialing")),
+      dependencies(posts),
+    );
+
+    expect(result).toBeNull();
+    expect(posts).toEqual([]);
+  });
+
+  it("announces a Char trial converting to paid in the Char channel", async () => {
+    const posts: Post[] = [];
+
+    const result = await sendNewCustomerAlert(
+      stripeEvent("customer.subscription.updated", subscription("active"), {
+        previous_attributes: { status: "trialing" },
+      }),
       dependencies(
         posts,
         { getProductName: async () => "Char Max" },
-        { metadata: { autumn_id: "member-live-123" } },
+        { autumn_id: "member-1" },
       ),
     );
 
-    expect(result).toEqual({ product: "char", subscriptionId: "sub_new" });
+    expect(result).toEqual({ product: "char", kind: "plan" });
     expect(posts).toEqual([
       {
         webhookUrl: "https://hooks.example/char",
-        text: "<https://dashboard.stripe.com/customers/cus_new|new@example.com> subscribed to Max",
+        text: `${LINK} started Max plan`,
       },
     ]);
   });
 
-  it("links test-mode customers and falls back to the customer id", async () => {
+  it("ignores updates that are not a first paid start", async () => {
     const posts: Post[] = [];
 
     await sendNewCustomerAlert(
-      subscriptionCreated({}, false),
-      dependencies(posts, {}, { email: null }),
-    );
-
-    expect(posts[0]?.text).toBe(
-      "<https://dashboard.stripe.com/test/customers/cus_new|cus_new> started Pro trial",
-    );
-  });
-
-  it("escapes Slack control characters in the email", async () => {
-    const posts: Post[] = [];
-
-    await sendNewCustomerAlert(
-      subscriptionCreated(),
-      dependencies(posts, {}, { email: "a<b>&c@example.com" }),
-    );
-
-    expect(posts[0]?.text).toContain("|a&lt;b&gt;&amp;c@example.com>");
-  });
-
-  it("skips a product whose channel webhook is not configured", async () => {
-    const posts: Post[] = [];
-
-    const result = await sendNewCustomerAlert(
-      subscriptionCreated(),
-      dependencies(posts, { anarlogWebhookUrl: undefined }),
-    );
-
-    expect(result).toBeNull();
-    expect(posts).toEqual([]);
-  });
-
-  it("skips deleted customers", async () => {
-    const posts: Post[] = [];
-
-    const result = await sendNewCustomerAlert(
-      subscriptionCreated(),
-      dependencies(posts, { getCustomer: async () => null }),
-    );
-
-    expect(result).toBeNull();
-    expect(posts).toEqual([]);
-  });
-
-  it("ignores other events, including customer creation", async () => {
-    const posts: Post[] = [];
-
-    const result = await sendNewCustomerAlert(
-      { ...subscriptionCreated(), type: "customer.created" } as Stripe.Event,
+      stripeEvent("customer.subscription.updated", subscription("active"), {
+        previous_attributes: { status: "past_due" },
+      }),
       dependencies(posts),
+    );
+    await sendNewCustomerAlert(
+      stripeEvent("customer.subscription.updated", subscription("active"), {
+        previous_attributes: { cancel_at_period_end: true },
+      }),
+      dependencies(posts),
+    );
+    await sendNewCustomerAlert(
+      stripeEvent("customer.subscription.updated", subscription("canceled"), {
+        previous_attributes: { status: "trialing" },
+      }),
+      dependencies(posts),
+    );
+
+    expect(posts).toEqual([]);
+  });
+
+  it("escapes Slack control characters and links test-mode customers", async () => {
+    const posts: Post[] = [];
+
+    await sendNewCustomerAlert(
+      {
+        ...stripeEvent(
+          "customer.created",
+          customer({ userId: "user-1" }, { email: "a<b>&c@example.com" }),
+        ),
+        livemode: false,
+      } as Stripe.Event,
+      dependencies(posts),
+    );
+    await sendNewCustomerAlert(
+      stripeEvent("customer.subscription.created", subscription("active")),
+      dependencies(posts, { getProductName: async () => "Anarlog <Pro>" }),
+    );
+
+    expect(posts.map((post) => post.text)).toEqual([
+      "<https://dashboard.stripe.com/test/customers/cus_new|a&lt;b&gt;&amp;c@example.com> signed up to Anarlog",
+      `${LINK} started &lt;Pro&gt; plan`,
+    ]);
+  });
+
+  it("skips a channel whose webhook is not configured", async () => {
+    const posts: Post[] = [];
+
+    const result = await sendNewCustomerAlert(
+      stripeEvent("customer.created", customer({ userId: "user-1" })),
+      dependencies(posts, { anarlogWebhookUrl: undefined }),
     );
 
     expect(result).toBeNull();
