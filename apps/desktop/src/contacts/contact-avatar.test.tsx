@@ -10,7 +10,7 @@ afterEach(() => {
 });
 
 describe("AvatarUploadButton", () => {
-  it("crops uploaded avatars to a 70 by 70 JPEG", async () => {
+  it("crops uploaded avatars to a 256 by 256 JPEG for high-density displays", async () => {
     const context = {
       drawImage: vi.fn(),
       fillRect: vi.fn(),
@@ -41,10 +41,10 @@ describe("AvatarUploadButton", () => {
     );
     vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockImplementation(
       function (this: HTMLCanvasElement, type, quality) {
-        expect(this.width).toBe(70);
-        expect(this.height).toBe(70);
+        expect(this.width).toBe(256);
+        expect(this.height).toBe(256);
         expect(type).toBe("image/jpeg");
-        expect(quality).toBe(0.85);
+        expect(quality).toBe(0.95);
         return "data:image/jpeg;base64,compressed";
       },
     );
@@ -78,8 +78,8 @@ describe("AvatarUploadButton", () => {
       200,
       0,
       0,
-      70,
-      70,
+      256,
+      256,
     );
   });
 });

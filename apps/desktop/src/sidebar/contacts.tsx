@@ -4,6 +4,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 
 import type { ContactsSelection } from "@anlg/plugin-windows";
 
+import { useOptionalAuth } from "~/auth";
 import { NewPersonForm } from "~/contacts/new-person-form";
 import { OrganizationItem } from "~/contacts/organization-item";
 import { PersonItem } from "~/contacts/person-item";
@@ -17,6 +18,7 @@ import {
   useOrganizations,
 } from "~/contacts/queries";
 import { ColumnHeader, type SortOption } from "~/contacts/shared";
+import { useOwnerUserId } from "~/shared/owner-user";
 import { useTabs } from "~/store/zustand/tabs";
 
 type ContactItem =
@@ -104,7 +106,11 @@ function ContactsList({
     [],
   );
 
+  const localOwnerUserId = useOwnerUserId();
+  const auth = useOptionalAuth();
+  const ownerUserId = auth?.session?.user.id ?? localOwnerUserId;
   const humans = useHumans();
+  const self = humans.find((human) => human.id === ownerUserId);
   const organizations = useOrganizations();
 
   const { pinnedItems, nonPinnedItems } = useMemo(() => {
@@ -125,6 +131,7 @@ function ContactsList({
     };
     const filteredHumans = humans
       .filter((human) => {
+        if (human.id === ownerUserId) return false;
         if (!q) return true;
         return [human.name, human.email, human.phone].some((value) =>
           value.toLowerCase().includes(q),
@@ -173,7 +180,7 @@ function ContactsList({
       pinnedItems: allPinned,
       nonPinnedItems: [...unpinnedOrgs, ...unpinnedPeople],
     };
-  }, [humans, organizations, searchValue, sortOption]);
+  }, [humans, organizations, searchValue, sortOption, ownerUserId]);
 
   const handleReorderPinned = useCallback(
     (newOrder: string[]) => {
@@ -218,6 +225,14 @@ function ContactsList({
         searchInputRef={searchInputRef}
       />
       <div className="scrollbar-hide flex-1 overflow-y-auto">
+        {self && (
+          <PersonItem
+            person={self}
+            readOnly
+            active={selected?.type === "person" && selected.id === self.id}
+            onClick={() => setSelected({ type: "person", id: self.id })}
+          />
+        )}
         {showNewPerson && (
           <NewPersonForm
             onSave={(humanId) => {

@@ -38,6 +38,9 @@ import {
 import { RelatedNotesSection } from "./related-notes";
 import { ContactFacehash } from "./shared";
 
+import { useOptionalAuth } from "~/auth";
+import { useOwnerUserId } from "~/shared/owner-user";
+
 export function DetailsColumn({
   human,
   humans,
@@ -51,6 +54,10 @@ export function DetailsColumn({
   handleSessionClick: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
+  const localOwnerUserId = useOwnerUserId();
+  const auth = useOptionalAuth();
+  const ownerUserId = auth?.session?.user.id ?? localOwnerUserId;
+  const readOnly = human?.id === ownerUserId;
   const { t } = useLingui();
   const [showCompactIdentity, setShowCompactIdentity] = useState(false);
   const personSessions = useHumanSessions(human?.id ?? "");
@@ -68,10 +75,12 @@ export function DetailsColumn({
       human?.email
         ? humans.filter(
             (candidate) =>
-              candidate.id !== human.id && candidate.email === human.email,
+              candidate.id !== human.id &&
+              candidate.id !== ownerUserId &&
+              candidate.email === human.email,
           )
         : [],
-    [human, humans],
+    [human, humans, ownerUserId],
   );
 
   const handleMergeContacts = useCallback(
@@ -91,6 +100,7 @@ export function DetailsColumn({
       {human ? (
         <>
           <ContactPageHeader
+            readOnly={readOnly}
             title={human.name || human.email || t`Unnamed`}
             compactIdentity={
               human.avatarDataUrl ? (
@@ -121,21 +131,29 @@ export function DetailsColumn({
             }}
           >
             <div className="border-border flex items-center justify-center border-b py-6">
-              <AvatarUploadButton
-                label={t`Change photo`}
-                onUpload={(dataUrl) =>
-                  persistContactAvatar("human", human.id, dataUrl)
-                }
-              >
-                {human.avatarDataUrl ? (
+              {readOnly ? (
+                human.avatarDataUrl ? (
                   <ContactImage src={human.avatarDataUrl} size={64} />
                 ) : (
                   <ContactFacehash name={facehashName} size={64} />
-                )}
-              </AvatarUploadButton>
+                )
+              ) : (
+                <AvatarUploadButton
+                  label={t`Change photo`}
+                  onUpload={(dataUrl) =>
+                    persistContactAvatar("human", human.id, dataUrl)
+                  }
+                >
+                  {human.avatarDataUrl ? (
+                    <ContactImage src={human.avatarDataUrl} size={64} />
+                  ) : (
+                    <ContactFacehash name={facehashName} size={64} />
+                  )}
+                </AvatarUploadButton>
+              )}
             </div>
 
-            {duplicatesWithData.length > 0 && (
+            {!readOnly && duplicatesWithData.length > 0 && (
               <div className="border-border border-b bg-red-50 px-6 py-4">
                 <h4 className="mb-1 text-sm font-semibold text-red-900">
                   Duplicate Contact
@@ -186,64 +204,90 @@ export function DetailsColumn({
               </div>
             )}
 
-            <div>
-              <div className="border-border flex items-center border-b px-4 py-3">
-                <div className="text-muted-foreground w-28 text-sm">
-                  <Trans>Name</Trans>
-                </div>
-                <div className="flex-1">
-                  <EditablePersonNameField
-                    key={`${human.id}:name`}
-                    personId={human.id}
-                    value={human.name}
-                  />
-                </div>
+            {readOnly ? (
+              <div>
+                {[
+                  [t`Name`, human.name],
+                  [t`Job Title`, human.jobTitle],
+                  [t`Company`, organizationName],
+                  [t`Email`, human.email],
+                  [t`Phone`, human.phone],
+                  [t`LinkedIn`, human.linkedinUsername],
+                  [t`Notes`, human.memo],
+                ].map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="border-border flex items-center border-b px-4 py-3"
+                  >
+                    <div className="text-muted-foreground w-28 text-sm">
+                      {label}
+                    </div>
+                    <div className="min-w-0 flex-1 text-base break-words whitespace-pre-wrap">
+                      {value}
+                    </div>
+                  </div>
+                ))}
               </div>
-              <EditablePersonJobTitleField
-                key={`${human.id}:job-title`}
-                personId={human.id}
-                value={human.jobTitle}
-              />
+            ) : (
+              <div>
+                <div className="border-border flex items-center border-b px-4 py-3">
+                  <div className="text-muted-foreground w-28 text-sm">
+                    <Trans>Name</Trans>
+                  </div>
+                  <div className="flex-1">
+                    <EditablePersonNameField
+                      key={`${human.id}:name`}
+                      personId={human.id}
+                      value={human.name}
+                    />
+                  </div>
+                </div>
+                <EditablePersonJobTitleField
+                  key={`${human.id}:job-title`}
+                  personId={human.id}
+                  value={human.jobTitle}
+                />
 
-              <div className="border-border flex items-center border-b px-4 py-3">
-                <div className="text-muted-foreground w-28 text-sm">
-                  <Trans>Company</Trans>
+                <div className="border-border flex items-center border-b px-4 py-3">
+                  <div className="text-muted-foreground w-28 text-sm">
+                    <Trans>Company</Trans>
+                  </div>
+                  <div className="flex-1">
+                    <EditPersonOrganizationSelector
+                      personId={human.id}
+                      organization={
+                        organizations.find(
+                          (organization) =>
+                            organization.id === human.organizationId,
+                        ) ?? null
+                      }
+                      organizations={organizations}
+                    />
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <EditPersonOrganizationSelector
-                    personId={human.id}
-                    organization={
-                      organizations.find(
-                        (organization) =>
-                          organization.id === human.organizationId,
-                      ) ?? null
-                    }
-                    organizations={organizations}
-                  />
-                </div>
+
+                <EditablePersonEmailField
+                  key={`${human.id}:email`}
+                  personId={human.id}
+                  value={human.email}
+                />
+                <EditablePersonPhoneField
+                  key={`${human.id}:phone`}
+                  personId={human.id}
+                  value={human.phone}
+                />
+                <EditablePersonLinkedInField
+                  key={`${human.id}:linkedin`}
+                  personId={human.id}
+                  value={human.linkedinUsername}
+                />
+                <EditablePersonMemoField
+                  key={`${human.id}:memo`}
+                  personId={human.id}
+                  value={human.memo}
+                />
               </div>
-
-              <EditablePersonEmailField
-                key={`${human.id}:email`}
-                personId={human.id}
-                value={human.email}
-              />
-              <EditablePersonPhoneField
-                key={`${human.id}:phone`}
-                personId={human.id}
-                value={human.phone}
-              />
-              <EditablePersonLinkedInField
-                key={`${human.id}:linkedin`}
-                personId={human.id}
-                value={human.linkedinUsername}
-              />
-              <EditablePersonMemoField
-                key={`${human.id}:memo`}
-                personId={human.id}
-                value={human.memo}
-              />
-            </div>
+            )}
 
             {personSessions.length > 0 && (
               <ContactSummarySection summary={contactSummary} />

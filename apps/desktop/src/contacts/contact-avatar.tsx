@@ -15,7 +15,7 @@ export function persistContactAvatar(
   });
 }
 
-const AVATAR_RASTER_SIZE = 70;
+const AVATAR_RASTER_SIZE = 256;
 
 export function ContactImage({
   src,
@@ -69,7 +69,7 @@ export function AvatarUploadButton({
       onClick={() => inputRef.current?.click()}
       aria-label={label}
       title={label}
-      className="group relative block shrink-0 cursor-pointer rounded-full"
+      className="group relative flex shrink-0 cursor-pointer rounded-full"
     >
       {children}
       <span
@@ -119,7 +119,7 @@ async function compressAvatarImage(file: File): Promise<string> {
       AVATAR_RASTER_SIZE,
       AVATAR_RASTER_SIZE,
     );
-    return canvas.toDataURL("image/jpeg", 0.85);
+    return canvas.toDataURL("image/jpeg", 0.95);
   } finally {
     URL.revokeObjectURL(url);
   }
