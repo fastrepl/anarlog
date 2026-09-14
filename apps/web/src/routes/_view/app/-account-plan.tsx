@@ -557,6 +557,12 @@ function PlanComparison({
           })}
         </CarouselContent>
       </Carousel>
+      <p className="text-color-muted mt-5 text-sm">
+        <Link to="/yc/" className="text-color underline underline-offset-4">
+          Are you a YC founder?
+        </Link>{" "}
+        Get one year of personal Pro free.
+      </p>
     </div>
   );
 }
