@@ -33,7 +33,10 @@ export async function sendNewCustomerAlert(
 ) {
   if (event.type === "customer.created") {
     const customer = event.data.object as Stripe.Customer;
-    if (getCustomerOwner(customer.metadata)?.kind !== "user") {
+    if (
+      isAutumnManagedCustomer(customer.metadata) ||
+      getCustomerOwner(customer.metadata)?.kind !== "user"
+    ) {
       return null;
     }
     const activeDependencies =

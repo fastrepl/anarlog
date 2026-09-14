@@ -86,6 +86,13 @@ describe("sendNewCustomerAlert", () => {
       stripeEvent("customer.created", customer({ autumn_id: "member-1" })),
       dependencies(posts),
     );
+    await sendNewCustomerAlert(
+      stripeEvent(
+        "customer.created",
+        customer({ autumn_id: "member-1", userId: "user-1" }),
+      ),
+      dependencies(posts),
+    );
 
     expect(posts).toEqual([]);
   });
@@ -142,6 +149,24 @@ describe("sendNewCustomerAlert", () => {
     ]);
   });
 
+  it("announces a subscription whose first payment completes", async () => {
+    const posts: Post[] = [];
+
+    await sendNewCustomerAlert(
+      stripeEvent("customer.subscription.updated", subscription("active"), {
+        previous_attributes: { status: "incomplete" },
+      }),
+      dependencies(posts),
+    );
+
+    expect(posts).toEqual([
+      {
+        webhookUrl: "https://hooks.example/anarlog",
+        text: `${LINK} started Pro plan`,
+      },
+    ]);
+  });
+
   it("ignores updates that are not a first paid start", async () => {
     const posts: Post[] = [];
 
@@ -189,6 +214,22 @@ describe("sendNewCustomerAlert", () => {
       "<https://dashboard.stripe.com/test/customers/cus_new|a&lt;b&gt;&amp;c@example.com> signed up to Anarlog",
       `${LINK} started &lt;Pro&gt; plan`,
     ]);
+  });
+
+  it("links by customer id when the email is missing", async () => {
+    const posts: Post[] = [];
+
+    await sendNewCustomerAlert(
+      stripeEvent(
+        "customer.created",
+        customer({ userId: "user-1" }, { email: null }),
+      ),
+      dependencies(posts),
+    );
+
+    expect(posts[0]?.text).toBe(
+      "<https://dashboard.stripe.com/customers/cus_new|cus_new> signed up to Anarlog",
+    );
   });
 
   it("skips a channel whose webhook is not configured", async () => {
