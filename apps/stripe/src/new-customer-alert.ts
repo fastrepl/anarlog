@@ -4,6 +4,10 @@ import { getCustomerOwner, isAutumnManagedCustomer } from "./customer-metadata";
 
 type Product = "anarlog" | "char";
 
+// Stripe retries deliveries that stall, so a slow Slack call must not hold the
+// webhook response open.
+const SLACK_TIMEOUT_MS = 3_000;
+
 export type NewCustomerAlertDependencies = {
   anarlogWebhookUrl: string | undefined;
   charWebhookUrl: string | undefined;
@@ -76,6 +80,7 @@ async function createDefaultDependencies(): Promise<NewCustomerAlertDependencies
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ text }),
+        signal: AbortSignal.timeout(SLACK_TIMEOUT_MS),
       });
       if (!response.ok) {
         throw new Error(`Slack webhook responded with ${response.status}`);
