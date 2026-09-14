@@ -24,6 +24,7 @@ export async function reconcileWorkspaceSeatEvent(
 
   const active: Stripe.Subscription[] = [];
   let hasSubscriptions = false;
+  let hasIncompleteSubscription = false;
   let startingAfter: string | undefined;
   for (;;) {
     const page = await stripe.subscriptions.list({
@@ -33,6 +34,9 @@ export async function reconcileWorkspaceSeatEvent(
       ...(startingAfter ? { starting_after: startingAfter } : {}),
     });
     hasSubscriptions ||= page.data.length > 0;
+    hasIncompleteSubscription ||= page.data.some(
+      (subscription) => subscription.status === "incomplete",
+    );
     active.push(
       ...page.data.filter((subscription) =>
         ["active", "trialing", "past_due", "unpaid"].includes(
@@ -46,7 +50,8 @@ export async function reconcileWorkspaceSeatEvent(
       throw new Error("Invalid subscription pagination");
     startingAfter = last;
   }
-  if (!hasSubscriptions) return "waiting_for_subscription" as const;
+  if (!hasSubscriptions || (active.length === 0 && hasIncompleteSubscription))
+    return "waiting_for_subscription" as const;
   if (active.length !== 1) {
     throw new Error("Expected exactly one current workspace subscription");
   }

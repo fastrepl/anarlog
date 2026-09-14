@@ -34,7 +34,7 @@ export async function processWorkspaceSeatEvent(
           // Customer creation can enqueue seats before Checkout completes.
           // Keep ordering intact without reporting an expected wait as a failure.
           await client.query(
-            "UPDATE private.workspace_seat_billing_events SET next_attempt_at = now() + interval '1 minute' WHERE id = $1",
+            "UPDATE private.workspace_seat_billing_events SET next_attempt_at = clock_timestamp() + interval '1 minute' WHERE id = $1",
             [event.id],
           );
         } else {
