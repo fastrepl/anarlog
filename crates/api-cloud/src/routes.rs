@@ -713,6 +713,20 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
 
     #[tokio::test]
     async fn mcp_supports_current_stateless_tool_discovery_on_the_public_api_host() {
+        assert_mcp_tool_discovery("api.anarlog.so").await;
+    }
+
+    #[tokio::test]
+    async fn mcp_supports_tool_discovery_on_the_renamed_gateway_host() {
+        assert_mcp_tool_discovery("anarlog-gateway.fly.dev").await;
+    }
+
+    #[tokio::test]
+    async fn mcp_supports_tool_discovery_on_the_gateway_upstream_host() {
+        assert_mcp_tool_discovery("anarlog-sync.fly.dev").await;
+    }
+
+    async fn assert_mcp_tool_discovery(host: &str) {
         let server = MockServer::start().await;
         let key = format!("anl_{}", "a".repeat(64));
         let key_hash = Sha256::digest(key.as_bytes())
@@ -742,7 +756,7 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
             .clone()
             .oneshot(
                 Request::post("/mcp")
-                    .header("host", "api.anarlog.so")
+                    .header("host", host)
                     .header("authorization", format!("Bearer {key}"))
                     .header("content-type", "application/json")
                     .header("accept", "application/json, text/event-stream")
@@ -778,7 +792,7 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
         let response = app
             .oneshot(
                 Request::post("/mcp")
-                    .header("host", "api.anarlog.so")
+                    .header("host", host)
                     .header("authorization", format!("Bearer {key}"))
                     .header("content-type", "application/json")
                     .header("accept", "application/json, text/event-stream")

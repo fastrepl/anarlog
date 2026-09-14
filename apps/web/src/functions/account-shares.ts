@@ -2,103 +2,123 @@ import { createServerFn } from "@tanstack/react-start";
 import { setResponseHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 
+import { getSupabaseServerClient } from "@/functions/supabase";
 import {
-  getSupabaseAdminClient,
-  getSupabaseServerClient,
-} from "@/functions/supabase";
+  getSharedNoteDescription,
+  parseSharedNoteDocument,
+  withoutDuplicateLeadingTitle,
+} from "@/lib/shared-notes";
 
 const accessibleSessionRowSchema = z.object({
   share_id: z.string().uuid(),
   manage_access: z.boolean(),
 });
 
-const shareDetailRowSchema = z.object({
-  id: z.string().uuid(),
+const galleryRowSchema = z.object({
+  share_id: z.string().uuid(),
   general_scope: z.enum(["restricted", "workspace", "link", "public"]),
-  created_at: z.string(),
-  updated_at: z.string(),
+  title: z.string().nullable(),
+  body_json: z.unknown().nullable(),
+  has_snapshot: z.boolean(),
+  published_at: z.string(),
 });
 
-const snapshotRowSchema = z.object({
-  share_id: z.string().uuid(),
-  title: z.string(),
-});
+const listManagedSharesInput = z
+  .object({
+    query: z.string().trim().max(200).optional(),
+    afterPublishedAt: z.string().datetime({ offset: true }).optional(),
+    afterShareId: z.string().uuid().optional(),
+  })
+  .refine(
+    (value) => Boolean(value.afterPublishedAt) === Boolean(value.afterShareId),
+    "invalid shared note cursor",
+  );
+
+const MANAGED_SHARES_PAGE_SIZE = 12;
 
 export type ManagedShare = {
   shareId: string;
   title: string;
+  preview: string;
+  hasSnapshot: boolean;
   scope: "restricted" | "workspace" | "link" | "public";
   updatedAt: string;
 };
 
 export type ManagedSharesResult =
-  | { status: "ready"; shares: ManagedShare[] }
+  | {
+      status: "ready";
+      shares: ManagedShare[];
+      nextCursor: { publishedAt: string; shareId: string } | null;
+    }
   | { status: "error" };
 
-export const listMyManagedShares = createServerFn({ method: "GET" }).handler(
-  async (): Promise<ManagedSharesResult> => {
+export const listMyManagedShares = createServerFn({ method: "GET" })
+  .inputValidator(listManagedSharesInput)
+  .handler(async ({ data }): Promise<ManagedSharesResult> => {
     setResponseHeader("Cache-Control", "no-store");
 
     const supabase = getSupabaseServerClient();
-    const { data, error } = await supabase.rpc("list_my_accessible_sessions");
-    if (error || !Array.isArray(data)) {
-      return { status: "error" };
-    }
-
-    const parsedRows = z.array(accessibleSessionRowSchema).safeParse(data);
-    if (!parsedRows.success) {
-      return { status: "error" };
-    }
-
-    const managedIds = parsedRows.data
-      .filter((row) => row.manage_access)
-      .map((row) => row.share_id);
-    if (managedIds.length === 0) {
-      return { status: "ready", shares: [] };
-    }
-
-    const admin = getSupabaseAdminClient();
-    const [sharesRes, snapshotsRes] = await Promise.all([
-      admin
-        .from("session_shares")
-        .select("id, general_scope, created_at, updated_at")
-        .in("id", managedIds)
-        .is("deleted_at", null),
-      admin
-        .from("session_share_snapshots")
-        .select("share_id, title")
-        .in("share_id", managedIds),
-    ]);
-    if (sharesRes.error || snapshotsRes.error) {
-      return { status: "error" };
-    }
-
-    const parsedShares = z
-      .array(shareDetailRowSchema)
-      .safeParse(sharesRes.data);
-    const parsedSnapshots = z
-      .array(snapshotRowSchema)
-      .safeParse(snapshotsRes.data);
-    if (!parsedShares.success || !parsedSnapshots.success) {
-      return { status: "error" };
-    }
-
-    const titles = new Map(
-      parsedSnapshots.data.map((row) => [row.share_id, row.title]),
+    const { data: rows, error } = await supabase.rpc(
+      "list_my_managed_share_gallery_page",
+      {
+        p_query: data.query ?? null,
+        p_after_published_at: data.afterPublishedAt ?? null,
+        p_after_share_id: data.afterShareId ?? null,
+        p_limit: MANAGED_SHARES_PAGE_SIZE + 1,
+      },
     );
+    const parsedRows = z.array(galleryRowSchema).safeParse(rows);
+    if (error || !parsedRows.success) {
+      return { status: "error" };
+    }
 
-    const shares = parsedShares.data
+    const shares = parsedRows.data
+      .slice(0, MANAGED_SHARES_PAGE_SIZE)
       .map((row) => ({
-        shareId: row.id,
-        title: titles.get(row.id) ?? "",
+        shareId: row.share_id,
+        title: row.title ?? "",
+        preview: getSnapshotPreview(row.body_json, row.title ?? ""),
+        hasSnapshot: row.has_snapshot,
         scope: row.general_scope,
-        updatedAt: row.updated_at,
-      }))
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+        updatedAt: row.published_at,
+      }));
+    const lastShare = shares.at(-1);
+    const nextCursor =
+      parsedRows.data.length > MANAGED_SHARES_PAGE_SIZE && lastShare
+        ? { publishedAt: lastShare.updatedAt, shareId: lastShare.shareId }
+        : null;
 
-    return { status: "ready", shares };
-  },
-);
+    return { status: "ready", shares, nextCursor };
+  });
+
+function getSnapshotPreview(body: unknown, title: string) {
+  try {
+    const document = withoutDuplicateLeadingTitle(
+      parseSharedNoteDocument(body),
+      title,
+    );
+    return getSharedNoteDescription(document);
+  } catch {
+    return "";
+  }
+}
+
+async function listManagedShareIds() {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase.rpc("list_my_accessible_sessions");
+  if (error || !Array.isArray(data)) {
+    return null;
+  }
+
+  const parsedRows = z.array(accessibleSessionRowSchema).safeParse(data);
+  if (!parsedRows.success) {
+    return null;
+  }
+  return parsedRows.data
+    .filter((row) => row.manage_access)
+    .map((row) => row.share_id);
+}
 
 export const deleteMyShare = createServerFn({ method: "POST" })
   .inputValidator(z.object({ shareId: z.string().uuid() }))
@@ -129,15 +149,23 @@ export const restrictMyShare = createServerFn({ method: "POST" })
     return { success: true as const };
   });
 
-export const deleteMyShares = createServerFn({ method: "POST" })
-  .inputValidator(
-    z.object({ shareIds: z.array(z.string().uuid()).min(1).max(100) }),
-  )
-  .handler(async ({ data }) => {
+export const deleteMyShares = createServerFn({ method: "POST" }).handler(
+  async () => {
+    const shareIds = await listManagedShareIds();
+    if (!shareIds) {
+      return {
+        success: false as const,
+        message: "Failed to load shared notes",
+      };
+    }
+    if (shareIds.length === 0) {
+      return { success: true as const };
+    }
+
     const supabase = getSupabaseServerClient();
     let failed = 0;
 
-    for (const shareId of data.shareIds) {
+    for (const shareId of shareIds) {
       const { error } = await supabase.rpc("delete_session_share", {
         p_share_id: shareId,
       });
@@ -146,7 +174,7 @@ export const deleteMyShares = createServerFn({ method: "POST" })
       }
     }
 
-    if (failed === data.shareIds.length) {
+    if (failed === shareIds.length) {
       return {
         success: false as const,
         message: "Failed to stop sharing your notes",
@@ -161,4 +189,5 @@ export const deleteMyShares = createServerFn({ method: "POST" })
       };
     }
     return { success: true as const };
-  });
+  },
+);

@@ -1,5 +1,5 @@
 begin;
-select plan(10);
+select plan(12);
 
 select tests.create_supabase_user('logo_owner', 'logo-owner@example.com');
 select tests.create_supabase_user('logo_member', 'logo-member@example.com');
@@ -68,16 +68,35 @@ select results_eq(
   'The logo is stored on the workspace'
 );
 
+select lives_ok(
+  $$
+    select * from public.set_workspace_logo(
+      (select workspace_id from workspace_logo_test_state where name = 'owner'),
+      'data:image/png;base64,iVBORw0KGgo='
+    )
+  $$,
+  'A workspace manager can set a transparent PNG logo'
+);
+
+select results_eq(
+  $$
+    select logo_data from public.workspaces
+    where id = (select workspace_id from workspace_logo_test_state where name = 'owner')
+  $$,
+  $$values ('data:image/png;base64,iVBORw0KGgo='::text)$$,
+  'The PNG logo is stored unchanged'
+);
+
 select throws_ok(
   $$
     select * from public.set_workspace_logo(
       (select workspace_id from workspace_logo_test_state where name = 'owner'),
-      'data:image/png;base64,AAAA'
+      'data:image/svg+xml;base64,AAAAAAAA'
     )
   $$,
   '22023',
   'invalid workspace logo',
-  'Non-JPEG data URLs are rejected'
+  'Unsupported image data URLs are rejected'
 );
 
 select throws_ok(
@@ -113,7 +132,7 @@ select results_eq(
       select workspace_id from workspace_logo_test_state where name = 'owner'
     )
   $$,
-  $$values ('data:image/jpeg;base64,/9j/4AAQ'::text)$$,
+  $$values ('data:image/png;base64,iVBORw0KGgo='::text)$$,
   'Workspace members can read the logo used by their clients'
 );
 

@@ -20,6 +20,7 @@ import {
 import { cn } from "@anlg/utils";
 
 export function ContactPageHeader({
+  readOnly = false,
   title,
   compactIdentity,
   showCompactIdentity,
@@ -28,6 +29,7 @@ export function ContactPageHeader({
   onDelete,
   onRemoveAvatar,
 }: {
+  readOnly?: boolean;
   title: string;
   compactIdentity: ReactNode;
   showCompactIdentity: boolean;
@@ -47,61 +49,63 @@ export function ContactPageHeader({
         {showCompactIdentity && compactIdentity}
         <h2 className="min-w-0 truncate text-sm font-semibold">{title}</h2>
       </div>
-      <div
-        data-tauri-drag-region="false"
-        className="flex shrink-0 items-center"
-      >
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              size="icon"
-              variant="ghost"
-              data-tauri-drag-region="false"
-              className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-full"
-              aria-label={t`Contact options`}
-            >
-              <DotsThree size={16} />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent variant="app" align="end" className="w-48">
-            <AppFloatingPanel className={appFloatingMenuPanelClassName}>
-              <DropdownMenuItem
-                onClick={onTogglePin}
-                className="cursor-pointer"
+      {!readOnly && (
+        <div
+          data-tauri-drag-region="false"
+          className="flex shrink-0 items-center"
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                data-tauri-drag-region="false"
+                className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-full"
+                aria-label={t`Contact options`}
               >
-                <PushPin weight={pinned ? "bold" : "regular"} />
-                <span>
-                  {pinned ? <Trans>Unpin</Trans> : <Trans>Pin</Trans>}
-                </span>
-              </DropdownMenuItem>
-              {onRemoveAvatar && (
+                <DotsThree size={16} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent variant="app" align="end" className="w-48">
+              <AppFloatingPanel className={appFloatingMenuPanelClassName}>
                 <DropdownMenuItem
-                  onClick={onRemoveAvatar}
+                  onClick={onTogglePin}
                   className="cursor-pointer"
                 >
-                  <MinusCircle />
+                  <PushPin weight={pinned ? "bold" : "regular"} />
                   <span>
-                    <Trans>Remove photo</Trans>
+                    {pinned ? <Trans>Unpin</Trans> : <Trans>Pin</Trans>}
                   </span>
                 </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={onDelete}
-                className={cn([
-                  "cursor-pointer text-red-600 dark:text-red-400",
-                  "hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/50 dark:hover:text-red-300",
-                ])}
-              >
-                <Trash />
-                <span>
-                  <Trans>Delete</Trans>
-                </span>
-              </DropdownMenuItem>
-            </AppFloatingPanel>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+                {onRemoveAvatar && (
+                  <DropdownMenuItem
+                    onClick={onRemoveAvatar}
+                    className="cursor-pointer"
+                  >
+                    <MinusCircle />
+                    <span>
+                      <Trans>Remove photo</Trans>
+                    </span>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={onDelete}
+                  className={cn([
+                    "cursor-pointer text-red-600 dark:text-red-400",
+                    "hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/50 dark:hover:text-red-300",
+                  ])}
+                >
+                  <Trash />
+                  <span>
+                    <Trans>Delete</Trans>
+                  </span>
+                </DropdownMenuItem>
+              </AppFloatingPanel>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
     </div>
   );
 }

@@ -92,11 +92,8 @@ const accountTabPreloaders: Record<AccountTabId, () => Promise<unknown>> = {
       loadDangerAreaSection(),
     ]),
   connections: () =>
-    Promise.all([
-      loadIntegrationsSection(),
-      loadDevicesSection(),
-      loadSharedNotesSection(),
-    ]),
+    Promise.all([loadIntegrationsSection(), loadDevicesSection()]),
+  notes: () => Promise.all([loadSharedNotesSection()]),
   developer: () => Promise.all([loadApiKeysSection()]),
 };
 
@@ -132,7 +129,7 @@ const validateSearch = z
     source: checkoutSourceSchema,
     referral: z.enum(["ineligible"]),
     perk: z.enum(["applied", "claimed", "invalid"]),
-    tab: z.enum(["account", "connections", "developer"]),
+    tab: z.enum(["account", "connections", "notes", "developer"]),
   })
   .partial();
 
@@ -227,26 +224,26 @@ function Component() {
   };
 
   return (
-    <main className="min-h-screen bg-white text-[#181613]">
+    <main className="surface text-color min-h-screen">
       <div className="mx-auto w-full max-w-[700px] px-5 pt-10 pb-16 md:px-8 md:pt-12 md:pb-24">
         <Link to="/" aria-label="Anarlog home" className="inline-flex">
           <AnarlogLogo className="h-8 w-auto" />
         </Link>
 
         <header className="mt-12 md:mt-16">
-          <p className="font-hand text-2xl leading-none font-semibold text-[#756b5d]">
+          <p className="text-brand-dark font-hand text-2xl leading-none font-semibold">
             Your account
           </p>
           <h1 className="font-hand mt-4 text-5xl leading-[0.98] font-semibold tracking-normal text-balance md:text-6xl">
             Welcome back,{" "}
-            <mark className="bg-[#fff0b3] px-1 text-[#181613]">
+            <mark className="brand-yellow text-color px-1">
               {user?.email?.split("@")[0] || "Guest"}
             </mark>
           </h1>
         </header>
 
         <div className="mt-10 md:mt-12 lg:mt-16">
-          <div className="sticky top-0 z-10 -mx-5 border-b border-[#ede7dc] bg-white px-5 py-3 md:-mx-8 md:px-8">
+          <div className="surface border-color-subtle sticky top-0 z-10 -mx-5 border-b px-5 py-3 md:-mx-8 md:px-8">
             <AccountTabs
               activeId={activeTab}
               onSelect={selectTab}
@@ -289,10 +286,10 @@ function AccountTabFallback({ tabId }: { tabId: AccountTabId }) {
       </span>
       {sectionsForAccountTab(tabId).map((section) => (
         <section key={section.id} aria-hidden="true">
-          <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+          <h2 className="text-brand-dark font-hand text-3xl leading-none font-semibold">
             {section.label}
           </h2>
-          <div className="mt-6 h-28 animate-pulse rounded-[24px] border border-[#e5ddcf] bg-[#faf8f4]" />
+          <div className="surface-subtle border-color-subtle mt-6 h-28 animate-pulse rounded-[24px] border" />
         </section>
       ))}
     </>
@@ -311,7 +308,7 @@ function AccountSection({
   return (
     <section ref={scrollHashSectionIntoView} id={id} className="scroll-mt-20">
       {id !== "shares" && (
-        <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+        <h2 className="text-brand-dark font-hand text-3xl leading-none font-semibold">
           {title}
         </h2>
       )}

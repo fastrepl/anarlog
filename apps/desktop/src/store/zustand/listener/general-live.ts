@@ -51,6 +51,11 @@ import { getSessionResourcePath } from "~/session/resource-path";
 import { isAppStoreBuild } from "~/shared/app-store";
 import { fromResult } from "~/stt/fromResult";
 import { recordDetectedMeetingApps } from "~/stt/meeting-source-apps";
+import {
+  startSpeakerContextCapture,
+  observeSpeakerMicrophone,
+  stopSpeakerContextCapture,
+} from "~/stt/speaker-context-capture";
 
 type EventListeners = {
   lifecycle: (payload: CaptureLifecycleEvent) => void;
@@ -247,6 +252,7 @@ const createSessionEventHandlers = <T extends LiveStore>(
     }
 
     if (payload.type === "started") {
+      startSpeakerContextCapture(targetSessionId);
       const currentLive = get().live;
 
       if (currentLive.status === "active" && currentLive.intervalId) {
@@ -282,6 +288,7 @@ const createSessionEventHandlers = <T extends LiveStore>(
     }
 
     if (payload.type === "finalizing") {
+      void stopSpeakerContextCapture(targetSessionId);
       setLiveState(set, (live) => {
         if (live.sessionId === targetSessionId) {
           clearLiveInterval(live.intervalId);
@@ -291,6 +298,7 @@ const createSessionEventHandlers = <T extends LiveStore>(
       return;
     }
 
+    void stopSpeakerContextCapture(targetSessionId);
     const currentLive = get().live;
     const stoppedSeconds =
       currentLive.sessionId === targetSessionId
@@ -375,6 +383,8 @@ const createSessionEventHandlers = <T extends LiveStore>(
       return;
     }
 
+    if (payload.type === "audio_ready")
+      observeSpeakerMicrophone(targetSessionId, { device: payload.device });
     setLiveState(set, (live) => {
       updateLiveProgress(live, payload);
     });
@@ -384,6 +394,14 @@ const createSessionEventHandlers = <T extends LiveStore>(
       return;
     }
 
+    if (
+      payload.type === "mic_isolated" &&
+      get().live.sessionId === targetSessionId &&
+      (get().live.status === "active" || get().live.loading)
+    ) {
+      observeSpeakerMicrophone(targetSessionId, { isolated: payload.value });
+      return;
+    }
     if (payload.type === "audio_amplitude") {
       if (get().live.sessionId !== targetSessionId) {
         return;
@@ -539,6 +557,7 @@ export const startLiveSession = <T extends LiveStore>(
           delete live.eventUnlistenersBySession[targetSessionId];
           markLiveStartFailed(live, targetSessionId, error);
         });
+        void stopSpeakerContextCapture(targetSessionId);
         return false;
       },
       onSuccess: (micUsingApps) => {
@@ -773,6 +792,7 @@ function applyCaptureSnapshot<T extends LiveStore>(
     snapshot.state === "active" &&
     snapshot.activeSessionId === targetSessionId
   ) {
+    startSpeakerContextCapture(targetSessionId);
     const currentLive = get().live;
     if (currentLive.sessionId !== targetSessionId) {
       clearLiveInterval(currentLive.intervalId);

@@ -33,6 +33,12 @@ const {
   vaultBaseMock: vi.fn(),
 }));
 
+vi.mock("~/stt/speaker-context-capture", () => ({
+  startSpeakerContextCapture: vi.fn(),
+  observeSpeakerMicrophone: vi.fn(),
+  stopSpeakerContextCapture: vi.fn(async () => {}),
+}));
+
 vi.mock("@tauri-apps/api/app", () => ({
   getIdentifier: getIdentifierMock,
 }));

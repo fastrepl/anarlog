@@ -177,6 +177,8 @@ export function getSttModelTranscriptionMode(
     return "batch";
   }
 
+  if (provider === "nari") return "live";
+
   if (provider === "smallestai" && model === "pulse-pro") {
     return "batch";
   }

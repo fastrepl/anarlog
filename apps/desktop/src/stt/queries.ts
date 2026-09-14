@@ -561,6 +561,7 @@ export function assignTranscriptSpeaker({
   anchorWordId,
   mode,
   wordIds,
+  extendToAdjacent,
 }: {
   transcriptId: string;
   segmentKey: SegmentKey;
@@ -568,6 +569,7 @@ export function assignTranscriptSpeaker({
   anchorWordId: string;
   mode?: "all" | "segment";
   wordIds?: string[];
+  extendToAdjacent?: boolean;
 }): Promise<void> {
   return assignSpeakerInTranscript({
     transcriptId,
@@ -576,6 +578,7 @@ export function assignTranscriptSpeaker({
     anchorWordId,
     mode,
     wordIds,
+    extendToAdjacent,
   });
 }
 
@@ -665,6 +668,7 @@ async function assignSpeakerInTranscript({
   anchorWordId,
   mode,
   wordIds,
+  extendToAdjacent,
 }: {
   transcriptId: string;
   segmentKey: SegmentKey;
@@ -672,6 +676,7 @@ async function assignSpeakerInTranscript({
   anchorWordId?: string;
   mode?: "all" | "segment";
   wordIds?: string[];
+  extendToAdjacent?: boolean;
 }): Promise<void> {
   let assigned = false;
   await mutateTranscript(transcriptId, (store) => {
@@ -692,7 +697,7 @@ async function assignSpeakerInTranscript({
       segmentKey,
       humanId,
       resolvedAnchorWordId,
-      { mode, wordIds },
+      { mode, wordIds, extendToAdjacent },
     );
     assigned = true;
     return true;

@@ -86,16 +86,22 @@ export function getSegmentColor(
   key: SegmentKey,
   mode: "light" | "dark" = "light",
 ): string {
-  const speakerIndex = key.speaker_index ?? 0;
+  let speakerIndex = key.speaker_index ?? 0;
+  if (key.speaker_human_id) {
+    speakerIndex = 0;
+    for (const character of key.speaker_human_id) {
+      speakerIndex =
+        (Math.imul(speakerIndex, 31) + character.charCodeAt(0)) >>> 0;
+    }
+  }
 
-  const channelPalettes = [
-    [10, 25, 0, 340, 15, 350],
-    [285, 305, 270, 295, 315, 280],
-  ];
-
-  const paletteIndex = key.channel === "RemoteParty" ? 1 : 0;
-  const hues = channelPalettes[paletteIndex]!;
-  const hue = hues[speakerIndex % hues.length]!;
+  const channelOffset = key.speaker_human_id
+    ? 0
+    : key.channel === "RemoteParty"
+      ? 180
+      : 0;
+  // Golden-angle spacing keeps consecutive speakers visually distinct.
+  const hue = (10 + speakerIndex * 137.508 + channelOffset) % 360;
 
   return chroma.oklch(mode === "dark" ? 0.72 : 0.55, 0.15, hue).hex();
 }

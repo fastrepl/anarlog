@@ -178,6 +178,7 @@ function normalizePath(pathname: string) {
 export function sanitizePostHogEvent(
   event: CaptureResult | null,
   origin: string,
+  projectToken: string,
 ) {
   if (!event) return null;
   const properties = { ...event.properties };
@@ -200,6 +201,10 @@ export function sanitizePostHogEvent(
   return {
     ...event,
     event: sanitizeAnalyticsEventName(event.event),
-    properties: sanitizeAnalyticsProperties(properties),
+    properties: {
+      ...sanitizeAnalyticsProperties(properties),
+      // PostHog authenticates capture with this public project key in the body.
+      token: projectToken,
+    },
   };
 }

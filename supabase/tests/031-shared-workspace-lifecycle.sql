@@ -1,5 +1,5 @@
 begin;
-select plan(27);
+select plan(38);
 
 select tests.create_supabase_user('lifecycle_owner', 'lifecycle-owner@example.com');
 select tests.create_supabase_user('lifecycle_member', 'lifecycle-member@example.com');
@@ -270,8 +270,54 @@ select lives_ok(
       tests.get_supabase_uid('lifecycle_member')
     )
   $$,
-  'The owner can transfer ownership to an active member'
+  'The owner can request ownership transfer to an active member'
 );
+
+select is(
+  (select owner_user_id from public.workspaces where id = (select workspace_id from workspace_lifecycle_test_state where name = 'hq')),
+  tests.get_supabase_uid('lifecycle_owner'),
+  'Pending transfer preserves the current owner'
+);
+select throws_ok(
+  $$select public.respond_workspace_ownership_request(
+    (select workspace_id from workspace_lifecycle_test_state where name = 'hq'),
+    (select id from public.list_workspace_ownership_requests((select workspace_id from workspace_lifecycle_test_state where name = 'hq'))),
+    'accept')$$,
+  '42501', 'ownership response not permitted', 'The requester cannot accept for the recipient'
+);
+select lives_ok($$select public.respond_workspace_ownership_request((select workspace_id from workspace_lifecycle_test_state where name = 'hq'), (select id from public.list_workspace_ownership_requests((select workspace_id from workspace_lifecycle_test_state where name = 'hq'))), 'cancel')$$, 'Current owner can cancel');
+select is((select count(*) from public.list_workspace_ownership_requests((select workspace_id from workspace_lifecycle_test_state where name = 'hq'))), 0::bigint, 'Cancellation clears Pending');
+select * from public.transfer_workspace_ownership((select workspace_id from workspace_lifecycle_test_state where name = 'hq'), tests.get_supabase_uid('lifecycle_member'));
+select tests.clear_authentication();
+select tests.authenticate_as_hyprnote_pro('lifecycle_member');
+select lives_ok($$select public.respond_workspace_ownership_request((select workspace_id from workspace_lifecycle_test_state where name = 'hq'), (select id from public.list_workspace_ownership_requests((select workspace_id from workspace_lifecycle_test_state where name = 'hq'))), 'decline')$$, 'Recipient can decline');
+select is((select count(*) from public.list_workspace_ownership_requests((select workspace_id from workspace_lifecycle_test_state where name = 'hq'))), 0::bigint, 'Decline clears Pending');
+select tests.clear_authentication();
+select tests.authenticate_as_hyprnote_pro('lifecycle_owner');
+select * from public.transfer_workspace_ownership((select workspace_id from workspace_lifecycle_test_state where name = 'hq'), tests.get_supabase_uid('lifecycle_member'));
+select tests.clear_authentication();
+reset role;
+update public.workspace_memberships set deleted_at = now()
+where workspace_id = (select workspace_id from workspace_lifecycle_test_state where name = 'hq') and user_id = tests.get_supabase_uid('lifecycle_member');
+update public.workspace_memberships set deleted_at = null
+where workspace_id = (select workspace_id from workspace_lifecycle_test_state where name = 'hq') and user_id = tests.get_supabase_uid('lifecycle_member');
+select tests.authenticate_as_hyprnote_pro('lifecycle_owner');
+select is((select count(*) from public.list_workspace_ownership_requests((select workspace_id from workspace_lifecycle_test_state where name = 'hq'))), 0::bigint, 'Removing and rejoining invalidates the pending request');
+select is((select role from public.workspace_memberships where workspace_id = (select workspace_id from workspace_lifecycle_test_state where name = 'hq') and user_id = tests.get_supabase_uid('lifecycle_owner')), 'owner', 'Cancel and decline never demote the current owner');
+select * from public.transfer_workspace_ownership((select workspace_id from workspace_lifecycle_test_state where name = 'hq'), tests.get_supabase_uid('lifecycle_member'));
+select tests.clear_authentication();
+select tests.authenticate_as_hyprnote_pro('lifecycle_outsider');
+select is((select count(*) from public.list_workspace_ownership_requests((select workspace_id from workspace_lifecycle_test_state where name = 'hq'))), 0::bigint, 'Outsiders cannot read pending transfers');
+select tests.clear_authentication();
+select tests.authenticate_as_hyprnote_pro('lifecycle_member');
+select lives_ok(
+  $$select public.respond_workspace_ownership_request(
+    (select workspace_id from workspace_lifecycle_test_state where name = 'hq'),
+    (select id from public.list_workspace_ownership_requests((select workspace_id from workspace_lifecycle_test_state where name = 'hq'))),
+    'accept')$$,
+  'Only the proposed owner accepts the transfer'
+);
+select is((select count(*) from public.list_workspace_ownership_requests((select workspace_id from workspace_lifecycle_test_state where name = 'hq'))), 0::bigint, 'Accepted transfer is no longer pending');
 
 select tests.clear_authentication();
 reset role;

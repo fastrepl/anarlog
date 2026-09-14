@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-ARG RUST_VERSION=1.93.0
+ARG RUST_VERSION=1.94.0
 
 FROM rust:${RUST_VERSION}-bookworm AS planner
 RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates && rm -rf /var/lib/apt/lists/*
@@ -33,9 +33,9 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     cargo clean -p progenitor-utils
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-    cargo build --release -p api
+    cargo build --locked --release -p api
 
-FROM debian:bookworm-slim AS runtime
+FROM debian:bookworm-slim AS api-runtime
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libssl3 && rm -rf /var/lib/apt/lists/*
 RUN groupadd -g 1001 appgroup && \
     useradd -u 1001 -g appgroup -d /nonexistent -s /usr/sbin/nologin -M appuser
@@ -44,3 +44,39 @@ USER appuser
 WORKDIR /app
 EXPOSE 3001
 ENTRYPOINT ["/usr/local/bin/api"]
+
+FROM node:22-slim AS billing-node-base
+WORKDIR /repo
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+ENV CI=true
+RUN corepack enable
+
+FROM billing-node-base AS billing-deps
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches patches
+COPY apps/stripe/package.json apps/stripe/package.json
+COPY packages/supabase/package.json packages/supabase/package.json
+COPY packages/user-error/package.json packages/user-error/package.json
+RUN pnpm fetch --prod --filter @anlg/stripe
+
+FROM billing-deps AS billing-build
+COPY apps/stripe apps/stripe
+COPY packages/supabase packages/supabase
+COPY packages/user-error packages/user-error
+RUN pnpm install --filter @anlg/stripe --frozen-lockfile
+# The filtered Stripe runtime excludes mobile-only patched dependencies.
+RUN pnpm --config.allowUnusedPatches=true deploy --filter @anlg/stripe --prod --legacy /runtime
+
+FROM oven/bun:1 AS bun-runtime
+
+FROM api-runtime AS billing-runtime
+ARG APP_VERSION
+ENV APP_VERSION=${APP_VERSION}
+COPY --from=bun-runtime /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=billing-build --chown=appuser:appgroup /runtime /app/billing
+WORKDIR /app/billing
+ENTRYPOINT ["bun", "src/index.ts"]
+
+FROM api-runtime AS runtime

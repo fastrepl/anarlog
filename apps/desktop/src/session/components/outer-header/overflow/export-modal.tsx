@@ -1,6 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useMutation } from "@tanstack/react-query";
 import { downloadDir, join } from "@tauri-apps/api/path";
+import { save } from "@tauri-apps/plugin-dialog";
 import { useMemo, useState } from "react";
 
 import { json2md } from "@anlg/editor/markdown";
@@ -29,6 +30,8 @@ import {
   useSessionParticipants,
 } from "~/session/queries";
 import { getSessionEvent } from "~/session/utils";
+import { getStoredSettingValues } from "~/settings/queries";
+import { isAppStoreBuild } from "~/shared/app-store";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 import { useSessionTranscriptMetadata } from "~/stt/queries";
 
@@ -344,15 +347,24 @@ export function ExportModal({
     };
   };
 
-  const { mutate, isPending } = useMutation({
+  const { mutate, isPending, error } = useMutation({
     mutationFn: async () => {
-      const downloadsPath = await downloadDir();
+      const { values } = await getStoredSettingValues();
+      const directory = values.export_directory || (await downloadDir());
       const sanitizedTitle = (
         (sessionTitle ?? t`Untitled`).trim() || t`Untitled`
       ).replace(/[<>:"/\\|?*]/g, "_");
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       const filename = `${sanitizedTitle}_${timestamp}.${format}`;
-      const path = await join(downloadsPath, filename);
+      const defaultPath = await join(directory, filename);
+      // App Store sandbox grants must be reacquired after relaunch.
+      const path = isAppStoreBuild()
+        ? await save({
+            defaultPath,
+            filters: [{ name: format.toUpperCase(), extensions: [format] }],
+          })
+        : defaultPath;
+      if (!path) return null;
 
       if (format === "pdf") {
         const exportContent = buildPdfContent();
@@ -376,15 +388,14 @@ export function ExportModal({
       return path;
     },
     onSuccess: (path) => {
-      if (path) {
-        void analyticsCommands.event({
-          event: "session_exported",
-          format,
-          include_summary: includeSummary,
-          include_transcript: includeTranscript,
-        });
-        void openerCommands.revealItemInDir(path);
-      }
+      if (!path) return;
+      void analyticsCommands.event({
+        event: "session_exported",
+        format,
+        include_summary: includeSummary,
+        include_transcript: includeTranscript,
+      });
+      void openerCommands.revealItemInDir(path);
       onOpenChange(false);
     },
     onError: console.error,
@@ -489,6 +500,14 @@ export function ExportModal({
             </div>
           </div>
 
+          {error && (
+            <p role="alert" className="text-xs text-red-500">
+              <Trans>
+                Could not export. Check the export location in Settings and try
+                again.
+              </Trans>
+            </p>
+          )}
           <button
             onClick={() => mutate(null)}
             disabled={

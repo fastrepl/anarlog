@@ -37,6 +37,14 @@ export function getCustomerOwner(metadata: Record<string, string> | null) {
   return null;
 }
 
+// Char bills through Autumn on the same Stripe account, and Autumn stamps
+// `autumn_id` on every customer it creates. Those customers are not Anarlog's.
+export function isAutumnManagedCustomer(
+  metadata: Record<string, string> | null | undefined,
+) {
+  return Boolean(metadata?.["autumn_id"]);
+}
+
 function getConsistentMetadataValue(
   metadata: Record<string, string> | null,
   keys: readonly string[],

@@ -1425,6 +1425,21 @@ fn native_meeting_window_is_validated(platform: &MeetingPlatform, nodes: &[AxNod
     }
 }
 
+#[cfg(any(test, target_os = "macos"))]
+fn scoped_meeting_is_active(
+    platform: &MeetingPlatform,
+    nodes: &[AxNode],
+    native_scope: bool,
+) -> bool {
+    if native_scope {
+        native_meeting_window_is_validated(platform, nodes)
+    } else {
+        nodes
+            .iter()
+            .any(|node| is_platform_active_call_control(platform, node))
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn collect_browser_meeting_roots(
     ax_app: &ax::UiElement,
@@ -1810,6 +1825,7 @@ fn inspect_app(
     let mut window_title = None;
     let mut nodes = Vec::new();
     let mut scoped_platform = None;
+    let mut native_scope = false;
 
     if accessibility_trusted {
         let ax_app = ax::UiElement::with_app_pid(pid);
@@ -1824,6 +1840,7 @@ fn inspect_app(
                     let root = roots.remove(0);
                     window_title = Some(root.label);
                     nodes = root.nodes;
+                    native_scope = true;
                 }
                 count => warnings.push(format!(
                     "Slack exposed {count} active Huddle windows; inspection is scoped to none"
@@ -1867,6 +1884,7 @@ fn inspect_app(
                     scoped_platform = Some(bundle_platform.clone());
                     window_title = root.window_title;
                     nodes = root.nodes;
+                    native_scope = true;
                 }
                 UniqueMatch::Ambiguous => {
                     warnings.push(
@@ -1888,6 +1906,8 @@ fn inspect_app(
     });
     let surface = classify_surface(&app.id, &platform);
     MeetingAccessibilityInspection {
+        active_call: accessibility_trusted
+            && scoped_meeting_is_active(&platform, &nodes, native_scope),
         app,
         pid,
         platform,

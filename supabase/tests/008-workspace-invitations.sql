@@ -638,7 +638,7 @@ select throws_ok(
   $$,
   '42501',
   'workspace membership operation not permitted',
-  'Members cannot enumerate workspace access'
+  'Members cannot enumerate workspace access history'
 );
 
 select tests.clear_authentication();

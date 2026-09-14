@@ -16,7 +16,7 @@ pub use analytics::{SttAnalyticsReporter, SttEvent};
 pub use anarlog_routing::{AnarlogRouter, AnarlogRoutingConfig, RetryConfig, is_retryable_error};
 pub use anlg_analytics::{AuthenticatedUserId, DeviceFingerprint};
 pub use config::*;
-pub use env::{ApiKeys, Env};
+pub use env::{ApiKeys, CallbackEnv, Env, SttApiKeysEnv};
 pub use error::*;
 pub use openapi::openapi;
 pub use provider_selector::{ProviderSelector, SelectedProvider};

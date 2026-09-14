@@ -8,6 +8,10 @@ import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { BatchResponseProcessingError } from "./batch-response-processing-error";
 import { useListener } from "./contexts";
 import { persistTranscriptWrite } from "./persist-retry";
+import {
+  restoreRefinedSourceChannels,
+  restoreRefinedSourceHints,
+} from "./refined-source-channels";
 import { useSTTConnection } from "./useSTTConnection";
 
 import { useAuth } from "~/auth";
@@ -953,6 +957,16 @@ export const useRunBatch = (sessionId: string) => {
                 : refinedTranscriptSource
                   ? [refinedTranscriptSource]
                   : [];
+              if (previousTranscripts.length === 1) {
+                promoted.words = restoreRefinedSourceChannels(
+                  previousTranscripts[0]!.words,
+                  promoted.words,
+                );
+                promoted.hints = restoreRefinedSourceHints(
+                  promoted.words,
+                  promoted.hints,
+                );
+              }
               assertTranscriptNotTruncated(
                 previousTranscripts.flatMap((transcript) => transcript.words),
                 promoted.words,
@@ -973,7 +987,12 @@ export const useRunBatch = (sessionId: string) => {
                       sessionId,
                       ownerUserId: session?.user_id ?? "",
                       createdAt,
-                      startedAt: promoted.startedAt ?? startedAt,
+                      startedAt:
+                        promoted.startedAt ??
+                        (previousTranscripts.length === 1
+                          ? previousTranscripts[0]?.startedAt
+                          : undefined) ??
+                        startedAt,
                       memo: memoMd,
                       source: "batch_transcription",
                       provider: target.provider,

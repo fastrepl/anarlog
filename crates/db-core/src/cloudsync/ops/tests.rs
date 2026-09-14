@@ -555,6 +555,7 @@ fn reconciled_send_reports_the_exact_preflighted_batch() {
         bytes: 4096,
         complete: true,
         fits: true,
+        remaining: false,
     };
     let status = anlg_cloudsync::NetworkStatus {
         last_optimistic_version: 12,
@@ -563,7 +564,7 @@ fn reconciled_send_reports_the_exact_preflighted_batch() {
         failures: anlg_cloudsync::NetworkStatusFailures::default(),
     };
 
-    let result = reconciled_send_result(batch, &status);
+    let result = reconciled_send_result(batch, &status, false);
     let send = result.send.unwrap();
 
     assert_eq!(send.status, "synced");
@@ -571,6 +572,17 @@ fn reconciled_send_reports_the_exact_preflighted_batch() {
     assert_eq!(send.server_version, 12);
     assert_eq!(send.chunks, 2);
     assert_eq!(send.bytes, 4096);
+    let partial = reconciled_send_result(
+        anlg_cloudsync::PendingPayloadBatch {
+            remaining: true,
+            ..batch
+        },
+        &status,
+        false,
+    );
+    assert_eq!(partial.send.unwrap().status, "out-of-sync");
+    let late_write = reconciled_send_result(batch, &status, true);
+    assert_eq!(late_write.send.unwrap().status, "out-of-sync");
 }
 
 #[test]
@@ -583,6 +595,7 @@ fn cancelled_send_never_starts_status_reconciliation() {
         bytes: 4096,
         complete: true,
         fits: true,
+        remaining: false,
     };
     let error = anlg_cloudsync::Error::Io(std::io::Error::new(
         std::io::ErrorKind::TimedOut,

@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use axum::{
     extract::{FromRequestParts, State, WebSocketUpgrade},
-    http::{StatusCode, header::RETRY_AFTER, request::Parts},
+    http::{HeaderName, StatusCode, header::RETRY_AFTER, request::Parts},
     response::{IntoResponse, Response},
 };
 use owhisper_client::Provider;
@@ -61,7 +61,10 @@ impl FromRequestParts<AppState> for DrainPermit {
                 tracing::info!("stt_ws_rejected_draining");
                 Err((
                     StatusCode::SERVICE_UNAVAILABLE,
-                    [(RETRY_AFTER, "2")],
+                    [
+                        (RETRY_AFTER, "2"),
+                        (HeaderName::from_static("fly-replay"), "elsewhere=true"),
+                    ],
                     "server is draining existing sessions",
                 )
                     .into_response())

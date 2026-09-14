@@ -2,10 +2,12 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   canMergeTranscriptEntries,
+  focusTranscriptSelection,
   getTranscriptContextSelection,
   getTranscriptMergeTarget,
   getTranscriptRangeRects,
   getTranscriptSelectionFromRange,
+  getTranscriptSelectionFromHere,
   getTranscriptSelectionFromSegment,
   isRangeCoveredBySelection,
   mergeTranscriptSelections,
@@ -16,6 +18,45 @@ afterEach(() => {
 });
 
 describe("transcript word selection", () => {
+  it("changes from the anchor to the segment end, preserving earlier words", () => {
+    const { container, words } = createReadSegment();
+    const fullRange = document.createRange();
+    fullRange.setStartBefore(words[0]);
+    fullRange.setEndAfter(words[2]);
+    const full = getTranscriptSelectionFromRange(fullRange, container)!;
+    const range = document.createRange();
+    range.selectNodeContents(words[1]);
+    const selected = getTranscriptSelectionFromRange(range, container)!;
+    const result = getTranscriptSelectionFromHere(selected, [full]);
+    expect(result?.groups[0].wordIds).toEqual(["word-2", "word-3"]);
+    expect(getTranscriptSelectionFromHere(selected, [])).toBeNull();
+  });
+
+  it("focuses and selects the chosen word after entering edit mode", () => {
+    const { container, words } = createReadSegment();
+    const range = document.createRange();
+    range.selectNodeContents(words[1]);
+    const selection = getTranscriptSelectionFromRange(range, container)!;
+    const editor = document.createElement("div");
+    editor.tabIndex = 0;
+    editor.dataset.transcriptEditor = "";
+    editor.dataset.transcriptEditWordIds = JSON.stringify([
+      "word-1",
+      "word-2",
+      "word-3",
+    ]);
+    editor.dataset.transcriptEditWordTexts = JSON.stringify([
+      "One",
+      "Two",
+      "Three",
+    ]);
+    editor.textContent = "One Two Three";
+    words[0].parentElement!.replaceWith(editor);
+    focusTranscriptSelection(selection, container);
+    expect(document.activeElement).toBe(editor);
+    expect(window.getSelection()?.toString()).toBe("Two");
+  });
+
   it("maps a native text range to stable word ids", () => {
     const { container, words } = createReadSegment();
     const range = document.createRange();

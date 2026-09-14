@@ -113,6 +113,8 @@ describe("workspace reads", () => {
       {
         user_id: USER_ID,
         user_email: "a@example.com",
+        user_name: "Alice",
+        user_avatar_url: "https://example.com/avatar.png",
         role: "owner",
         deleted_at: null,
       },
@@ -125,7 +127,13 @@ describe("workspace reads", () => {
     ]);
 
     await expect(listWorkspaceMembers(ctx, WORKSPACE_ID)).resolves.toEqual([
-      { userId: USER_ID, email: "a@example.com", role: "owner" },
+      {
+        userId: USER_ID,
+        email: "a@example.com",
+        name: "Alice",
+        avatarUrl: "https://example.com/avatar.png",
+        role: "owner",
+      },
     ]);
   });
 

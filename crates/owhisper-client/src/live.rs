@@ -92,6 +92,14 @@ impl<A: RealtimeSttAdapter> ListenClientBuilder<A> {
         params: &ListenParams,
         channels: u8,
     ) -> Result<anlg_ws_client::client::ClientRequestBuilder, crate::Error> {
+        if let Some(rate) = adapter.required_sample_rate()
+            && params.sample_rate != rate
+        {
+            return Err(crate::Error::provider_configuration(
+                adapter.provider_name(),
+                format!("requires {rate} Hz PCM audio"),
+            ));
+        }
         let original_api_base = self.get_api_base();
         let api_base = append_provider_param(original_api_base, adapter.provider_name());
         let url = adapter
@@ -581,6 +589,9 @@ fn websocket_client_with_keep_alive<A: RealtimeSttAdapter>(
     connect_policy: Option<anlg_ws_client::client::WebSocketConnectPolicy>,
 ) -> WebSocketClient {
     let mut client = WebSocketClient::new(request.clone());
+    if let Some(event_type) = adapter.initial_response_type() {
+        client = client.with_initial_response_type(event_type);
+    }
 
     if let Some(connect_policy) = connect_policy {
         client = client.with_connect_policy(connect_policy);

@@ -278,6 +278,15 @@ async fn legacy_cutover_snapshots_local_state_before_initializing_the_witness() 
 
 #[tokio::test]
 async fn witness_hydration_drains_more_than_one_replica_apply_batch() {
+    check_witness_hydration_drains(false).await;
+}
+
+#[tokio::test]
+async fn witness_hydration_drains_applicable_rows_around_incomplete_transcripts() {
+    check_witness_hydration_drains(true).await;
+}
+
+async fn check_witness_hydration_drains(incomplete_transcript: bool) {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
     let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
@@ -287,12 +296,17 @@ async fn witness_hydration_drains_more_than_one_replica_apply_batch() {
     .unwrap()
     .workspace_key("workspace-1")
     .unwrap();
-    let events = (0..20)
+    let table = if incomplete_transcript {
+        "transcripts"
+    } else {
+        "sessions"
+    };
+    let mut events = (0..20)
         .map(|index| {
             let sealed = workspace_key
                 .seal_field(
                     "workspace-1",
-                    "sessions",
+                    table,
                     &format!("session-{index:02}"),
                     "$row",
                     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -310,6 +324,27 @@ async fn witness_hydration_drains_more_than_one_replica_apply_batch() {
             }
         })
         .collect::<Vec<_>>();
+    if incomplete_transcript {
+        let sealed = workspace_key
+            .seal_field(
+                "workspace-1",
+                table,
+                "session-00",
+                "words_json#n",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                1,
+                false,
+                serde_json::json!(1),
+            )
+            .unwrap();
+        events.push(anlg_db_app::E2eeWitnessEvent {
+            sequence: 21,
+            record_id: sealed.record_id,
+            workspace_id: "workspace-1".to_string(),
+            payload_hash: anlg_e2ee::payload_hash(&sealed.payload),
+            payload: sealed.payload,
+        });
+    }
     anlg_db_app::merge_e2ee_witness_events(db.pool(), &workspace_key, "workspace-1", &events)
         .await
         .unwrap();
@@ -327,12 +362,95 @@ async fn witness_hydration_drains_more_than_one_replica_apply_batch() {
         .unwrap();
 
     assert_eq!(
-        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM sessions WHERE id LIKE 'session-%'",)
+        sqlx::query_scalar::<_, i64>(if incomplete_transcript {
+            "SELECT COUNT(*) FROM transcripts WHERE id LIKE 'session-%'"
+        } else {
+            "SELECT COUNT(*) FROM sessions WHERE id LIKE 'session-%'"
+        })
+        .fetch_one(db.pool())
+        .await
+        .unwrap(),
+        20
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_replica_pending")
             .fetch_one(db.pool())
             .await
             .unwrap(),
-        20
+        i64::from(incomplete_transcript)
     );
+}
+
+#[tokio::test]
+async fn witness_hydration_leaves_incomplete_transcripts_for_the_next_page() {
+    let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+    anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
+    let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+    let key = anlg_e2ee::RecoveryKey::parse(
+        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    )
+    .unwrap()
+    .workspace_key("workspace-1")
+    .unwrap();
+    let words = serde_json::json!([{ "text": "restored", "start_ms": 0, "end_ms": 500 }]);
+    let events = [
+        ("$row", serde_json::json!(true)),
+        ("words_json#n", serde_json::json!(1)),
+        ("words_json#0", words.clone()),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(index, (field, value))| {
+        let sealed = key
+            .seal_field(
+                "workspace-1",
+                "transcripts",
+                "transcript-1",
+                field,
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                1,
+                false,
+                value,
+            )
+            .unwrap();
+        anlg_db_app::E2eeWitnessEvent {
+            sequence: index as u64 + 1,
+            record_id: sealed.record_id,
+            workspace_id: "workspace-1".to_string(),
+            payload_hash: anlg_e2ee::payload_hash(&sealed.payload),
+            payload: sealed.payload,
+        }
+    })
+    .collect::<Vec<_>>();
+    let keys = HashMap::from([("workspace-1".to_string(), key.clone().into())]);
+    let cancellation = crate::e2ee_witness::E2eeWitnessCancellation::default();
+
+    for page in [&events[..2], &events[2..]] {
+        anlg_db_app::merge_e2ee_witness_events(db.pool(), &key, "workspace-1", page)
+            .await
+            .unwrap();
+        tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            runtime.materialize_authenticated_e2ee_changes(&keys, &cancellation),
+        )
+        .await
+        .expect("hydration blocked the next witness page on an incomplete transcript")
+        .unwrap();
+        let actual: String =
+            sqlx::query_scalar("SELECT words_json FROM transcripts WHERE id = 'transcript-1'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        let expected = if page.len() == 2 {
+            serde_json::json!([])
+        } else {
+            words.clone()
+        };
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&actual).unwrap(),
+            expected
+        );
+    }
     assert_eq!(
         sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_replica_pending")
             .fetch_one(db.pool())

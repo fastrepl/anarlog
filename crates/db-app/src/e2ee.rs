@@ -103,6 +103,7 @@ pub struct E2eeReplicaStats {
     pub encrypted_fields: u64,
     pub applied_fields: u64,
     pub skipped_local_changes: u64,
+    pub incomplete_chunk_columns: u64,
     pub rejected_rollbacks: u64,
     pub rejected_unwitnessed: u64,
     pub parked_records: u64,

@@ -657,6 +657,32 @@ describe("transcript SQLite queries", () => {
     ]);
   });
 
+  it("persists bounded assignments without expanding to adjacent words", async () => {
+    mocks.execute.mockResolvedValueOnce([speakerRow("word-2", 0)]);
+    await assignTranscriptSpeaker({
+      transcriptId: "transcript-1",
+      segmentKey: {
+        channel: "RemoteParty",
+        speaker_index: 0,
+        speaker_human_id: null,
+      },
+      humanId: "human-1",
+      anchorWordId: "word-2",
+      mode: "segment",
+      wordIds: ["word-2"],
+      extendToAdjacent: false,
+    });
+    const statement = mocks.executeTransaction.mock.calls[0]?.[0]?.[0];
+    const hints = JSON.parse(String(statement?.params[1]));
+    const assignment = hints.find(
+      (hint: { type: string }) => hint.type === "user_speaker_assignment",
+    );
+    expect(JSON.parse(assignment.value)).toMatchObject({
+      word_ids: ["word-2"],
+      extend_to_adjacent: false,
+    });
+  });
+
   function speakerRow(wordId: string, speakerIndex: number, humanId?: string) {
     return {
       words_json: JSON.stringify([

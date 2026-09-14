@@ -169,3 +169,28 @@ fn test_native_meeting_window_validation_is_evidence_backed() {
         &[fixture_node(8, "AXButton", "Leave meeting", &[0])],
     ));
 }
+
+#[test]
+fn test_native_fallback_evidence_marks_calls_active() {
+    let discord_voice = [node(0, "AXStaticText", "Voice connected", None)];
+    let teams_fallback = [
+        fixture_node(1, "AXButton", "Leave", &[0]),
+        fixture_node(2, "AXToolbar", "Meeting controls", &[0]),
+    ];
+
+    assert!(scoped_meeting_is_active(
+        &MeetingPlatform::Discord,
+        &discord_voice,
+        true,
+    ));
+    assert!(scoped_meeting_is_active(
+        &MeetingPlatform::MicrosoftTeams,
+        &teams_fallback,
+        true,
+    ));
+    assert!(!scoped_meeting_is_active(
+        &MeetingPlatform::Discord,
+        &discord_voice,
+        false,
+    ));
+}

@@ -13,9 +13,10 @@ use opentelemetry_sdk::trace::{SdkTracerProvider, SpanData, SpanExporter};
 use serde::Deserialize;
 use tracing::field::{Field, Visit};
 use tracing::{Event, Subscriber};
-use tracing_subscriber::fmt::FmtContext;
+use tracing_subscriber::field::RecordFields;
 use tracing_subscriber::fmt::format::{FormatEvent, FormatFields, Writer};
 use tracing_subscriber::fmt::time::{FormatTime, SystemTime};
+use tracing_subscriber::fmt::{FmtContext, FormattedFields};
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::registry::LookupSpan;
 
@@ -65,19 +66,54 @@ pub fn init(service_name: &str, env: &Env) -> ObservabilityGuard {
         let tracer = provider.tracer(service_name.to_string());
         tracing_subscriber::registry()
             .with(env_filter)
-            .with(tracing_subscriber::fmt::layer().event_format(SafeEventFormatter))
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .fmt_fields(SafeSpanFields)
+                    .event_format(SafeEventFormatter),
+            )
             .with(tracing_opentelemetry::layer().with_tracer(tracer))
             .with(sentry::integrations::tracing::layer())
             .init();
     } else {
         tracing_subscriber::registry()
             .with(env_filter)
-            .with(tracing_subscriber::fmt::layer().event_format(SafeEventFormatter))
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .fmt_fields(SafeSpanFields)
+                    .event_format(SafeEventFormatter),
+            )
             .with(sentry::integrations::tracing::layer())
             .init();
     }
 
     ObservabilityGuard { otel_provider }
+}
+
+struct SafeSpanFields;
+
+impl<'writer> FormatFields<'writer> for SafeSpanFields {
+    fn format_fields<R: RecordFields>(
+        &self,
+        mut writer: Writer<'writer>,
+        fields: R,
+    ) -> std::fmt::Result {
+        let mut visitor = SafeEventVisitor::default();
+        fields.record(&mut visitor);
+        for (key, value) in visitor.safe_fields {
+            if matches!(
+                key.as_str(),
+                "http.route"
+                    | "http.request.method"
+                    | "http.response.status_code"
+                    | "anarlog.error.stage"
+                    | "anarlog.operation"
+                    | "service.peer.name"
+            ) {
+                write!(writer, " {key}={value}")?;
+            }
+        }
+        Ok(())
+    }
 }
 
 struct SafeEventFormatter;
@@ -109,6 +145,9 @@ where
                     "{}:",
                     sanitize_telemetry_name(span.metadata().name(), "span")
                 )?;
+                if let Some(fields) = span.extensions().get::<FormattedFields<SafeSpanFields>>() {
+                    write!(writer, "{} ", fields.fields)?;
+                }
             }
             write!(writer, " ")?;
         }
@@ -671,15 +710,25 @@ mod tests {
     }
 
     #[test]
-    fn stdout_events_keep_safe_span_context_without_span_fields() {
+    fn stdout_events_keep_safe_matched_route_and_drop_private_span_fields() {
         let buffer = LogBuffer::default();
         let subscriber = tracing_subscriber::fmt()
+            .fmt_fields(SafeSpanFields)
             .event_format(SafeEventFormatter)
             .with_writer(buffer.clone())
             .finish();
 
         tracing::subscriber::with_default(subscriber, || {
-            let span = tracing::info_span!("http_request", patient = "Jane Doe");
+            let span = tracing::info_span!(
+                "http_request",
+                http.route = "/calendar/google/list-events",
+                http.request.method = "POST",
+                http.response.status_code = tracing::field::Empty,
+                patient = "Jane Doe",
+                user_id = "private-user",
+                server.address = "private-host",
+            );
+            span.record("http.response.status_code", 500);
             let _entered = span.enter();
             tracing::info!("started processing request");
         });
@@ -688,6 +737,11 @@ mod tests {
             .expect("utf-8 log output");
         assert!(output.contains("http_request:"));
         assert!(!output.contains("Jane Doe"));
+        assert!(!output.contains("private-user"));
+        assert!(!output.contains("private-host"));
+        assert!(output.contains("http.route=/calendar/google/list-events"));
+        assert!(output.contains("http.request.method=POST"));
+        assert!(output.contains("http.response.status_code=500"));
     }
 
     #[test]

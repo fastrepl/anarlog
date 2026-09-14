@@ -31,6 +31,7 @@ const DEFAULT_EXTERNAL_STT_MODELS: Record<string, string> = {
   groq: "whisper-large-v3-turbo",
   xai: "xai-stt",
   smallestai: "pulse",
+  nari: "qwen3-asr-fast:free",
   together: "openai/whisper-large-v3",
   speechmatics: "enhanced",
   azure_speech: "fast-transcription",

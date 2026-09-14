@@ -678,7 +678,7 @@ impl MobileDbBridge {
                 "deferred_for_capture": false,
                 "last_sync": null,
                 "last_sync_at_ms": replica.last_sync_at_ms,
-                "has_unsent_changes": local_work_pending || replica.syncing,
+                "has_unsent_changes": local_work_pending || replica.syncing || replica.pending_changes,
                 "last_error": replica.last_error,
                 "last_error_kind": (replica.consecutive_failures > 0).then_some("transient"),
                 "consecutive_failures": replica.consecutive_failures,
@@ -1229,6 +1229,38 @@ mod tests {
             .unwrap_err();
 
         assert!(matches!(error, BridgeError::CloudsyncFailed { .. }));
+    }
+
+    #[test]
+    fn replica_status_stays_pending_while_waiting_for_remote_chunks() {
+        let (_dir, bridge) = new_bridge(None);
+        let hook = bridge
+            .with_state(|state| Ok(Arc::clone(&state.e2ee_sync_hook)))
+            .unwrap();
+        hook.begin_activity("status-test".to_string(), "manual-status".to_string());
+        let recovery_key = anlg_e2ee::RecoveryKey::generate().unwrap();
+        hook.set_personal_workspace("user-a", &recovery_key)
+            .unwrap();
+        hook.set_replica_witness(
+            anlg_db_sync::E2eeWitnessClient::new(
+                anlg_db_sync::E2eeWitnessConfig {
+                    endpoint: "http://127.0.0.1:9/sync/e2ee/witness/user-a".to_string(),
+                    access_token: "access-token".to_string(),
+                },
+                "user-a",
+            )
+            .unwrap(),
+        );
+        hook.replica_sync_pending();
+        let status: serde_json::Value =
+            serde_json::from_str(&bridge.cloudsync_status().unwrap()).unwrap();
+        assert_eq!(status["has_unsent_changes"], true);
+        assert_eq!(status["last_sync_at_ms"], serde_json::Value::Null);
+
+        hook.replica_sync_succeeded();
+        let status: serde_json::Value =
+            serde_json::from_str(&bridge.cloudsync_status().unwrap()).unwrap();
+        assert_eq!(status["has_unsent_changes"], false);
     }
 
     #[test]

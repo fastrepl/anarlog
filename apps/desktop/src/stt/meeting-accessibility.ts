@@ -4,6 +4,7 @@ export function inspectionShowsActiveMeeting(
   inspection: MeetingAccessibilityInspection,
 ): boolean {
   return Boolean(
+    inspection.activeCall &&
     inspection.accessibilityTrusted &&
     inspection.platform !== "unknown" &&
     inspection.windowTitle?.trim() &&

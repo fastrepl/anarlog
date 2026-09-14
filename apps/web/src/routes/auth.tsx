@@ -1,7 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useRef, useState, type ReactNode } from "react";
-import { z } from "zod";
 
 import { ArrowLeft, Buildings, Envelope } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
@@ -23,10 +22,10 @@ import {
   fetchUser,
 } from "@/functions/auth";
 import { fetchLastSignInMethod } from "@/functions/auth-last-used";
+import { authSearchSchema } from "@/functions/auth-search";
 import {
   DEFAULT_DESKTOP_SCHEME,
   type DesktopScheme,
-  flowSearchSchema,
 } from "@/functions/desktop-flow";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import {
@@ -47,16 +46,8 @@ import {
   identifyPrivateRouteUser,
 } from "@/lib/private-route-analytics";
 
-const commonSearch = {
-  redirect: z.string().optional(),
-  provider: z.enum(["apple", "azure", "github", "google"]).optional(),
-  view: z.enum(["email", "sso"]).optional(),
-};
-
-const validateSearch = flowSearchSchema(commonSearch);
-
 export const Route = createFileRoute("/auth")({
-  validateSearch,
+  validateSearch: authSearchSchema,
   component: Component,
   head: () => ({
     meta: [{ name: "robots", content: "noindex, nofollow" }],

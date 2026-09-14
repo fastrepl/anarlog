@@ -58,6 +58,7 @@ pub(super) struct MeetingChatTarget {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MeetingAccessibilityInspection {
+    pub active_call: bool,
     pub app: MeetingApp,
     pub pid: i32,
     pub platform: MeetingPlatform,

@@ -63,6 +63,27 @@ afterEach(() => {
 });
 
 describe("SelectionMenu", () => {
+  it("closes the menu before editing the selected words", () => {
+    const request = createContextRequest();
+    const calls: string[] = [];
+    const onEdit = vi.fn(() => calls.push("edit"));
+    render(
+      <SelectionMenu
+        containerRef={createRef()}
+        contextRequest={request}
+        audioExists={false}
+        onContextClose={() => calls.push("close")}
+        onEdit={onEdit}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(onEdit).toHaveBeenCalledWith(request.selection);
+    expect(calls).toEqual(["close", "edit"]);
+    expect(
+      screen.getByRole("button", { name: "Copy" }).querySelector("svg"),
+    ).not.toBeNull();
+  });
+
   it("keeps the speaker picker inside the viewport without a back row", () => {
     const request = createContextRequest();
 
@@ -76,7 +97,9 @@ describe("SelectionMenu", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Change speaker" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change speaker from here" }),
+    );
 
     expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
     const confirm = screen.getByRole("button", { name: "Confirm" });
@@ -97,7 +120,9 @@ describe("SelectionMenu", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Play from here" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Change speaker" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Change speaker from here" }),
+    ).toBeTruthy();
     expect(screen.getByRole("button", { name: /Copy$/ })).toBeTruthy();
   });
 

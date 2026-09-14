@@ -1,4 +1,9 @@
 export const SETTING_DEFINITIONS = {
+  export_directory: {
+    type: "string",
+    path: ["general", "export_directory"],
+    default: "" as string,
+  },
   autostart: {
     type: "boolean",
     path: ["general", "autostart"],

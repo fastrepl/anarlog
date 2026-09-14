@@ -6,7 +6,7 @@ import {
 } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { ShareRecapOverflowMenu } from "./delivery-panel";
+import { ShareLinkActions } from "./delivery-panel";
 
 vi.mock("@iconify-icon/react", () => ({
   Icon: (props: Record<string, unknown>) =>
@@ -38,10 +38,19 @@ vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
   ),
 }));
 
-describe("ShareRecapOverflowMenu", () => {
-  it("offers email and Slack delivery from the overflow menu", () => {
+describe("ShareLinkActions", () => {
+  it("keeps copying separate from email and Slack delivery", () => {
     const onValueChange = vi.fn();
-    render(<ShareRecapOverflowMenu onValueChange={onValueChange} />);
+    const onCopy = vi.fn();
+    render(
+      <ShareLinkActions onValueChange={onValueChange}>
+        <button onClick={onCopy}>Copy link</button>
+      </ShareLinkActions>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
+    expect(onCopy).toHaveBeenCalledOnce();
+    expect(onValueChange).not.toHaveBeenCalled();
 
     expect(screen.queryByRole("button", { name: "People" })).toBeNull();
     expect(screen.getByRole("button", { name: "More options" })).toBeTruthy();

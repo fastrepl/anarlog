@@ -107,7 +107,7 @@ pub(in crate::batch) async fn run_direct_batch_for_adapter_kind(
         Together => TogetherAdapter,
         Xai => XaiAdapter,
         SmallestAI => SmallestAIAdapter,
-    }, unsupported: [DashScope])
+    }, unsupported: [DashScope, Nari])
 }
 
 async fn run_anarlog_batch(

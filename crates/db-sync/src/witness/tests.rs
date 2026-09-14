@@ -494,6 +494,287 @@ async fn merged_witness_pages_can_materialize_rows_before_refresh_completes() {
 }
 
 #[tokio::test]
+async fn replica_transport_reads_the_next_page_for_incomplete_transcripts() {
+    check_replica_transport_hydrates_transcripts(false).await;
+}
+
+#[tokio::test]
+async fn replica_transport_drains_ready_rows_and_preserves_incomplete_transcripts() {
+    check_replica_transport_hydrates_transcripts(true).await;
+}
+
+async fn check_replica_transport_hydrates_transcripts(many_rows: bool) {
+    let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+    anlg_db_app::prepare_schema(&db).await.unwrap();
+    let db = Arc::new(db);
+    let recovery_key = anlg_e2ee::RecoveryKey::parse(
+        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    )
+    .unwrap();
+    let key = recovery_key.workspace_key("user-a").unwrap();
+    let words = json!([{ "text": "restored", "start_ms": 0, "end_ms": 500 }]);
+    let mut events: Vec<_> = [
+        ("$row", json!(true)),
+        ("words_json#n", json!(1)),
+        ("words_json#0", words.clone()),
+    ]
+    .into_iter()
+    .take(if many_rows { 2 } else { 3 })
+    .enumerate()
+    .map(|(index, (field, value))| {
+        let sealed = key
+            .seal_field(
+                "user-a",
+                "transcripts",
+                "transcript-1",
+                field,
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                1,
+                false,
+                value,
+            )
+            .unwrap();
+        json!({
+            "sequence": index + 1,
+            "recordId": sealed.record_id,
+            "payloadHash": anlg_e2ee::payload_hash(&sealed.payload),
+            "payload": sealed.payload,
+        })
+    })
+    .collect();
+    if many_rows {
+        for index in 0..40 {
+            let sealed = key
+                .seal_field(
+                    "user-a",
+                    "transcripts",
+                    &format!("transcript-a-{index:02}"),
+                    "$row",
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    1,
+                    false,
+                    json!(true),
+                )
+                .unwrap();
+            events.push(json!({
+                "sequence": events.len() + 1,
+                "recordId": sealed.record_id,
+                "payloadHash": anlg_e2ee::payload_hash(&sealed.payload),
+                "payload": sealed.payload,
+            }));
+        }
+    }
+    let mut head_sequence = events.len() as u64;
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/sync/e2ee/witness/user-a"))
+        .respond_with(PagedWitness {
+            events: events.clone(),
+            page_size: if many_rows { 100 } else { 2 },
+        })
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/sync/e2ee/witness/user-a"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "initializedAt": "2026-07-17T00:00:00Z", "headSequence": head_sequence,
+        })))
+        .mount(&server)
+        .await;
+    let hook = Arc::new(crate::E2eeSyncHook::default());
+    hook.set_personal_workspace("user-a", &recovery_key)
+        .unwrap();
+    hook.set_replica_witness(
+        E2eeWitnessClient::new(
+            E2eeWitnessConfig {
+                endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+                access_token: "access-token".to_string(),
+            },
+            "user-a",
+        )
+        .unwrap(),
+    );
+
+    tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        hook.sync_replica_transport(db.pool()),
+    )
+    .await
+    .expect("replica sync blocked the next witness page on an incomplete transcript")
+    .unwrap();
+    assert_eq!(
+        anlg_db_app::e2ee_witness_cursor(db.pool(), "user-a")
+            .await
+            .unwrap(),
+        head_sequence
+    );
+    if many_rows {
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM transcripts")
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            41
+        );
+        sqlx::query("UPDATE transcripts SET created_at = 'local edit' WHERE id = 'transcript-1'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        for index in 0..16 {
+            let row_id = format!("session-conflict-{index:02}");
+            sqlx::query(
+                "INSERT INTO sessions (id, workspace_id, title) VALUES (?, 'user-a', 'local')",
+            )
+            .bind(&row_id)
+            .execute(db.pool())
+            .await
+            .unwrap();
+            let deleted = key
+                .seal_field(
+                    "user-a",
+                    "sessions",
+                    &row_id,
+                    "$row",
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    1,
+                    true,
+                    json!(null),
+                )
+                .unwrap();
+            events.push(json!({
+                "sequence": events.len() + 1,
+                "recordId": deleted.record_id,
+                "payloadHash": anlg_e2ee::payload_hash(&deleted.payload),
+                "payload": deleted.payload,
+            }));
+        }
+        head_sequence = events.len() as u64;
+        server.reset().await;
+        Mock::given(method("GET"))
+            .and(path("/sync/e2ee/witness/user-a"))
+            .respond_with(PagedWitness {
+                events: events.clone(),
+                page_size: 100,
+            })
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/sync/e2ee/witness/user-a"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "initializedAt": "2026-07-17T00:00:00Z", "headSequence": head_sequence,
+            })))
+            .mount(&server)
+            .await;
+        let mut outcome = hook.sync_replica_transport(db.pool()).await.unwrap();
+        let created_at_record_id = key.blind_field_id("transcripts", "transcript-1", "created_at");
+        let count_record_id = key.blind_field_id("transcripts", "transcript-1", "words_json#n");
+        let payload: String = sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+            .bind(&count_record_id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        let count = key
+            .open_field("user-a", &count_record_id, &payload)
+            .unwrap();
+        assert_eq!(count.value, json!(1));
+        assert_eq!(count.revision, 1);
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_records WHERE id = ?")
+                .bind(&created_at_record_id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            0
+        );
+        for _ in 0..4 {
+            if outcome != crate::ReplicaSyncOutcome::MoreWork {
+                break;
+            }
+            outcome = hook.sync_replica_transport(db.pool()).await.unwrap();
+        }
+        assert_eq!(outcome, crate::ReplicaSyncOutcome::WaitingForRemote);
+        let task = crate::spawn_replica_sync(Arc::clone(&db), Arc::clone(&hook));
+        hook.request_replica_sync();
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while !hook.replica_status().pending_changes {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("missing chunks were reported as successfully synced");
+        assert!(hook.replica_status().last_sync_at_ms.is_none());
+        let requests = server.received_requests().await.unwrap().len();
+        tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+        assert_eq!(server.received_requests().await.unwrap().len(), requests);
+        let chunk = key
+            .seal_field(
+                "user-a",
+                "transcripts",
+                "transcript-1",
+                "words_json#0",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                1,
+                false,
+                words.clone(),
+            )
+            .unwrap();
+        events.push(json!({
+            "sequence": head_sequence + 1,
+            "recordId": chunk.record_id,
+            "payloadHash": anlg_e2ee::payload_hash(&chunk.payload),
+            "payload": chunk.payload,
+        }));
+        server.reset().await;
+        Mock::given(method("GET"))
+            .and(path("/sync/e2ee/witness/user-a"))
+            .respond_with(PagedWitness {
+                events,
+                page_size: 100,
+            })
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/sync/e2ee/witness/user-a"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "initializedAt": "2026-07-17T00:00:00Z", "headSequence": head_sequence + 1,
+            })))
+            .mount(&server)
+            .await;
+        hook.request_replica_sync();
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while hook.replica_status().pending_changes {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("replica sync did not resume after the missing chunk arrived");
+        assert!(hook.replica_status().last_sync_at_ms.is_some());
+        drop(task);
+        let created_at_record_id = key.blind_field_id("transcripts", "transcript-1", "created_at");
+        let payload: String = sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+            .bind(&created_at_record_id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(
+            key.open_field("user-a", &created_at_record_id, &payload)
+                .unwrap()
+                .value,
+            json!("local edit")
+        );
+    }
+    let actual: String =
+        sqlx::query_scalar("SELECT words_json FROM transcripts WHERE id = 'transcript-1'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&actual).unwrap(),
+        words
+    );
+}
+
+#[tokio::test]
 async fn initialization_publishes_local_edits_before_hydrating_conflicting_history() {
     for publish_status in [200, 500] {
         let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();

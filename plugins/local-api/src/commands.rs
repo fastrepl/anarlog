@@ -424,20 +424,65 @@ pub async fn get_cloud_snapshot<R: tauri::Runtime>(
 pub(crate) fn prepare_cloud_snapshot(
     mut export: anlg_agent_access::MeetingExport,
 ) -> Result<serde_json::Value, String> {
-    let serialized = serde_json::to_vec(&export).map_err(|error| error.to_string())?;
-    if serialized.len() > MAX_CLOUD_SNAPSHOT_BYTES {
-        for transcript in &mut export.transcripts {
-            transcript.words.clear();
-            transcript.speaker_hints.clear();
-        }
+    let snapshot = serde_json::to_value(&export).map_err(|error| error.to_string())?;
+    if cloud_snapshot_jsonb_len(&snapshot)? <= MAX_CLOUD_SNAPSHOT_BYTES {
+        return Ok(snapshot);
     }
-    let serialized = serde_json::to_vec(&export).map_err(|error| error.to_string())?;
-    if serialized.len() > MAX_CLOUD_SNAPSHOT_BYTES {
+    drop(snapshot);
+    for transcript in &mut export.transcripts {
+        transcript.words.clear();
+        transcript.speaker_hints.clear();
+    }
+    let snapshot = serde_json::to_value(export).map_err(|error| error.to_string())?;
+    if cloud_snapshot_jsonb_len(&snapshot)? > MAX_CLOUD_SNAPSHOT_BYTES {
         return Err(format!(
             "meeting snapshot exceeds the {MAX_CLOUD_SNAPSHOT_BYTES}-byte limit"
         ));
     }
-    serde_json::to_value(export).map_err(|error| error.to_string())
+    Ok(snapshot)
+}
+
+// The hosted constraint measures jsonb::text, which includes separator spaces
+// and expands exponent notation, rather than the compact JSON sent over HTTP.
+pub(crate) fn cloud_snapshot_jsonb_len(value: &serde_json::Value) -> Result<usize, String> {
+    match value {
+        serde_json::Value::Array(values) => values
+            .iter()
+            .try_fold(2 + values.len().saturating_sub(1) * 2, |len, value| {
+                Ok(len + cloud_snapshot_jsonb_len(value)?)
+            }),
+        serde_json::Value::Object(values) => values.iter().try_fold(
+            2 + values.len().saturating_sub(1) * 2,
+            |len, (key, value)| {
+                let key_len = serde_json::to_vec(key)
+                    .map_err(|error| error.to_string())?
+                    .len();
+                Ok(len + key_len + 2 + cloud_snapshot_jsonb_len(value)?)
+            },
+        ),
+        serde_json::Value::Number(value) => {
+            let number = value.to_string();
+            let Some((mantissa, exponent)) = number.split_once('e') else {
+                return Ok(number.len());
+            };
+            let exponent = exponent.parse::<i32>().map_err(|error| error.to_string())?;
+            let sign = usize::from(mantissa.starts_with('-'));
+            let mantissa = mantissa.trim_start_matches('-');
+            let digits = mantissa.bytes().filter(u8::is_ascii_digit).count();
+            let decimal = mantissa.find('.').unwrap_or(mantissa.len()) as i32 + exponent;
+            Ok(sign
+                + if decimal <= 0 {
+                    2 + (-decimal) as usize + digits
+                } else if decimal as usize >= digits {
+                    decimal as usize
+                } else {
+                    digits + 1
+                })
+        }
+        _ => serde_json::to_vec(value)
+            .map(|serialized| serialized.len())
+            .map_err(|error| error.to_string()),
+    }
 }
 
 #[tauri::command]

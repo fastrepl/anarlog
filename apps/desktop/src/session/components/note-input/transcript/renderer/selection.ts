@@ -524,3 +524,73 @@ function appendLineRect(rects: DOMRect[], rect: DOMRect) {
     last.height,
   );
 }
+
+export function focusTranscriptSelection(
+  selection: TranscriptWordSelection,
+  container: HTMLElement,
+) {
+  const group = selection.groups[0];
+  if (!group) return;
+  for (const editor of container.querySelectorAll<HTMLElement>(
+    "[data-transcript-editor]",
+  )) {
+    if (
+      editor.closest<HTMLElement>("[data-transcript-id]")?.dataset
+        .transcriptId !== group.transcriptId
+    )
+      continue;
+    const ids = parseStringArray(editor.dataset.transcriptEditWordIds);
+    const start = ids.indexOf(group.wordIds[0]);
+    if (start < 0) continue;
+    const texts = parseStringArray(editor.dataset.transcriptEditWordTexts);
+    const end = Math.max(
+      start,
+      ids.indexOf(group.wordIds[group.wordIds.length - 1]),
+    );
+    editor.focus({ preventScroll: true });
+    const text = editor.firstChild;
+    if (text?.nodeType === Node.TEXT_NODE) {
+      const range = document.createRange();
+      const startOffset =
+        texts.slice(0, start).join(" ").length + (start > 0 ? 1 : 0);
+      const endOffset = texts.slice(0, end + 1).join(" ").length;
+      range.setStart(
+        text,
+        Math.min(startOffset, text.textContent?.length ?? 0),
+      );
+      range.setEnd(text, Math.min(endOffset, text.textContent?.length ?? 0));
+      window.getSelection()?.removeAllRanges();
+      window.getSelection()?.addRange(range);
+    }
+    return;
+  }
+}
+
+export function getTranscriptSelectionFromHere(
+  selection: TranscriptWordSelection,
+  entries: Iterable<TranscriptWordSelection>,
+): TranscriptWordSelection | null {
+  const anchor = selection.groups[0];
+  if (!anchor) return null;
+  for (const entry of entries) {
+    const group = entry.groups.find(
+      (group) =>
+        group.transcriptId === anchor.transcriptId &&
+        group.wordIds.includes(anchor.wordIds[0]),
+    );
+    if (group) {
+      return {
+        ...entry,
+        groups: [
+          {
+            ...group,
+            wordIds: group.wordIds.slice(
+              group.wordIds.indexOf(anchor.wordIds[0]),
+            ),
+          },
+        ],
+      };
+    }
+  }
+  return null;
+}

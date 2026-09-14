@@ -66,7 +66,7 @@ You do not need to type the recovery key on a new device. An existing device app
 
 If none of your approved devices is available, click **Use recovery key instead** on the new device and paste the key from your password manager.
 
-One account can sync up to five devices. If you reach the limit, remove an unused device before enabling sync on another one.
+Your plan determines how many devices you can sync. **Settings → Sync → Devices** shows your current usage and limit. If you reach the limit, remove an unused device before enabling sync on another one.
 
 Cloud API & Connectors is a separate, optional feature. If you enable it under **Settings → Developers**, Anarlog uploads a server-readable copy for remote agents; it does not decrypt or weaken your end-to-end encrypted sync data. See [Cloud API and connectors](/reference/api-cloud).
 
@@ -107,15 +107,28 @@ Use **Change** instead of moving or deleting the storage folder manually. If the
 
 Both states mean Anarlog is still retrying in the background. Your notes remain available locally.
 
-- **Connecting...** means this device has not finished setting up encrypted sync. It usually clears within a minute. If it does not, Anarlog shows **Sync needs attention** with the underlying error below the status.
-- **Cloud sync delayed** means this device is rebuilding its synced copy and a step keeps failing. The failing step and error appear below the status.
+- **Connecting...** means this device has not finished setting up encrypted sync. If setup fails, Anarlog may show **Sync needs attention** with more detail.
+- **Cloud sync delayed** means recovery has not finished. Anarlog may be waiting for more synced data or retrying a failed step. An error appears below the status when one is available.
 
 To fix it:
 
-1. Check that the device is online and that a firewall, VPN, or proxy is not blocking `api.anarlog.so`.
+1. Check that the device is online and that a firewall, VPN, or proxy is not blocking `api.anarlog.so`. Opening `https://api.anarlog.so/` in a browser can return **404 Not Found** because there is no page at that address. This alone neither indicates a sync failure nor proves that the app can complete sync.
 2. Check the date and time on this device. A wrong clock makes sync credentials expire immediately; Anarlog reports this as a clock problem.
 3. Keep Anarlog open. A large first download can take several minutes and resumes if the app was closed.
 4. Turn Cloud sync off and on again from **Settings → Sync**.
-5. If it still does not clear, open **Settings → Sync**, expand **Sync log**, and email [founders@anarlog.so](mailto:founders@anarlog.so) with the status text, the error shown under it, and the log entries.
+5. If it still does not clear, click **Sync now** and expand **Sync log**. Note the time you tried it, the status text, any error, and the app version and operating system on each affected device.
+
+**No sync activity yet** does not mean that sync has never run. The in-app log contains recent activity from the current app session and can remain empty while encrypted sync is being set up or recovered.
+
+Email [founders@anarlog.so](mailto:founders@anarlog.so) with those details and any in-app log entries. If the log is empty, include the native `app.log` from the affected computer. For the stable desktop app:
+
+- **macOS:** In Finder, choose **Go → Go to Folder** and enter `~/Library/Logs/com.hyprnote.stable/`.
+- **Windows:** In File Explorer's address bar, enter `%LOCALAPPDATA%\com.hyprnote.stable\logs`.
+
+Nightly and Staging keep separate logs; use `com.hyprnote.nightly` or `com.hyprnote.staging` in place of `com.hyprnote.stable`. Review logs before sharing them, and never send your recovery key, API keys, or sign-in tokens.
+
+<Warning>
+  Do not delete your local data or create a replacement recovery key to troubleshoot delayed sync. Keep the existing notes and recovery key until sync completes and you have verified your notes on another device.
+</Warning>
 
 If sync is paused during recording or an import, let that activity finish. Anarlog resumes background sync when it is safe to do so.

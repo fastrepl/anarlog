@@ -145,6 +145,7 @@ pub fn suggest_providers_for_languages_live(languages: &[anlg_language::Language
         AdapterKind::Mistral,
         AdapterKind::Meta,
         AdapterKind::Xai,
+        AdapterKind::Nari,
         AdapterKind::SmallestAI,
         AdapterKind::GoogleGenerativeAi,
     ];

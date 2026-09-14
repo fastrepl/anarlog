@@ -556,6 +556,7 @@ pub(super) fn inspect_meeting_accessibility() -> Vec<MeetingAccessibilityInspect
                 );
             }
             Some(MeetingAccessibilityInspection {
+                active_call: has_active_call,
                 app: app.clone(),
                 pid: *pid,
                 platform,

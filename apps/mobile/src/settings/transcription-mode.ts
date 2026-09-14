@@ -8,6 +8,7 @@ export function supportsLiveTranscription(provider: string, model: string) {
     case "cloudflare_workers_ai":
     case "cartesia":
     case "dashscope":
+    case "nari":
     case "xai":
     case "meta":
       return true;
@@ -39,7 +40,7 @@ export function supportsLiveTranscription(provider: string, model: string) {
 }
 
 export function batchTranscriptionModel(provider: string, model: string) {
-  if (provider === "dashscope") return null;
+  if (provider === "dashscope" || provider === "nari") return null;
   if (provider === "openai" && model === "gpt-live-transcribe")
     return "gpt-transcribe";
   if (provider === "deepgram" && model.startsWith("flux-"))

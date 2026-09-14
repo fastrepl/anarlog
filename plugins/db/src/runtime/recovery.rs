@@ -512,7 +512,12 @@ impl PluginDbRuntime {
                                 }
                                 return Ok(CloudsyncRecoveryStep::Progressed);
                             }
-                            if repair.remaining || apply.remaining_replica_changes {
+                            // Incomplete transcripts still contain placeholder arrays, not local edits.
+                            if repair.remaining
+                                || apply.incomplete_chunk_columns > 0
+                                || (apply.remaining_replica_changes
+                                    && apply.skipped_local_changes == 0)
+                            {
                                 return Ok(CloudsyncRecoveryStep::Waiting);
                             }
 
@@ -560,6 +565,10 @@ impl PluginDbRuntime {
                                     return Ok(CloudsyncRecoveryStep::Deferred);
                                 }
                                 return Ok(CloudsyncRecoveryStep::Progressed);
+                            }
+                            // Deferred local edits must be encrypted and applied before completion.
+                            if apply.remaining_replica_changes {
+                                return Ok(CloudsyncRecoveryStep::Waiting);
                             }
                             if anlg_db_app::has_pending_e2ee_dirty_rows_deferring_active_captures(
                                 db.pool(),
@@ -996,8 +1005,8 @@ async fn flush_manual_cloudsync_pending(
     let batch = db.cloudsync_manual_pending_payload_batch().await?;
     if !batch.complete || !batch.fits {
         return Err(std::io::Error::other(format!(
-            "CloudSync pending payload is not safely bounded ({} chunks, {} bytes)",
-            batch.chunks, batch.bytes
+            "CloudSync pending payload is not safely bounded ({} chunks, {} rows, {} bytes)",
+            batch.chunks, batch.rows, batch.bytes
         ))
         .into());
     }

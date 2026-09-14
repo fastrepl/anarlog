@@ -56,6 +56,7 @@ describe("getDefaultSttModel", () => {
     expect(getDefaultSttModel("openrouter")).toBe("openai/gpt-transcribe");
     expect(getDefaultSttModel("xai")).toBe("xai-stt");
     expect(getDefaultSttModel("smallestai")).toBe("pulse");
+    expect(getDefaultSttModel("nari")).toBe("qwen3-asr-fast:free");
     expect(getDefaultSttModel("meta")).toBe("muse-voice-transcribe-1.0");
     expect(getDefaultSttModel("google_generative_ai")).toBe(
       "gemini-3.5-transcribe-live",

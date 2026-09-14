@@ -184,7 +184,7 @@ async fn notion_get(proxy: &OwnedNangoProxy, path: &str) -> Result<Value> {
 
 async fn notion_send(builder: reqwest::RequestBuilder) -> Result<Value> {
     let response = builder
-        .header("Notion-Version", MEETING_NOTES_VERSION)
+        .header("Nango-Proxy-Notion-Version", MEETING_NOTES_VERSION)
         .send()
         .await
         .map_err(|e| NotionError::Notion(e.to_string()))?;
@@ -197,6 +197,12 @@ async fn notion_send(builder: reqwest::RequestBuilder) -> Result<Value> {
         let message = payload["message"]
             .as_str()
             .unwrap_or("Notion request failed");
+        if status == reqwest::StatusCode::BAD_REQUEST
+            && payload["code"].as_str() == Some("validation_error")
+            && message.contains("requires a plan with AI meeting notes enabled")
+        {
+            return Err(NotionError::MeetingNotesUnavailable);
+        }
         return Err(NotionError::Notion(format!("{status}: {message}")));
     }
     Ok(payload)
@@ -261,4 +267,123 @@ fn rich_text(value: &Value) -> Option<String> {
         .filter_map(|fragment| fragment["plain_text"].as_str())
         .collect::<String>();
     nonempty(Some(&text))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{
+        Json, Router,
+        http::{HeaderMap, StatusCode},
+        routing::{get, post},
+    };
+
+    fn version_is_forwarded(headers: &HeaderMap) -> bool {
+        headers
+            .get("nango-proxy-notion-version")
+            .and_then(|v| v.to_str().ok())
+            == Some("2026-03-11")
+    }
+
+    #[tokio::test]
+    async fn imports_notes_with_the_requested_version_through_nango() {
+        let app = Router::new()
+            .route(
+                "/proxy/v1/blocks/meeting_notes/query",
+                post(|headers: HeaderMap| async move {
+                    if !version_is_forwarded(&headers) {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(json!({"message":"unsupported API version"})),
+                        );
+                    }
+                    (
+                        StatusCode::OK,
+                        Json(json!({"results":[{
+                            "id":"meeting-1", "meeting_notes":{
+                                "title":[{"plain_text":"Fixture meeting"}],
+                                "children":{"summary_block_id":"summary-1"}
+                            }
+                        }]})),
+                    )
+                }),
+            )
+            .route(
+                "/proxy/v1/blocks/summary-1/children",
+                get(|headers: HeaderMap| async move {
+                    if !version_is_forwarded(&headers) {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(json!({"message":"unsupported API version"})),
+                        );
+                    }
+                    (
+                        StatusCode::OK,
+                        Json(json!({"results":[{
+                    "type":"paragraph", "paragraph":{"rich_text":[{"plain_text":"Fixture summary"}]}
+                }], "has_more":false})),
+                    )
+                }),
+            );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let client = anlg_nango::NangoClient::builder()
+            .api_key("fixture-key")
+            .api_base(base)
+            .build()
+            .unwrap();
+        let proxy = OwnedNangoProxy::new(&client, "notion".into(), "fixture-connection".into());
+        let result = import_meetings(&proxy, &[]).await;
+        server.abort();
+        let imported = result.unwrap();
+        assert_eq!(imported.files.len(), 1);
+        assert!(imported.files[0].content.contains("Fixture summary"));
+        assert!(imported.warnings.is_empty());
+    }
+    #[tokio::test]
+    async fn reports_plan_requirements_without_hiding_other_provider_failures() {
+        use axum::response::IntoResponse;
+        for (status, code, message, expected) in [
+            (
+                400,
+                "validation_error",
+                "This endpoint requires a plan with AI meeting notes enabled. Please upgrade your plan to use this feature.",
+                424,
+            ),
+            (400, "validation_error", "Invalid sort property", 500),
+            (503, "service_unavailable", "Notion unavailable", 500),
+        ] {
+            let app = Router::new().fallback(move || async move {
+                (
+                    StatusCode::from_u16(status).unwrap(),
+                    Json(json!({"code":code,"message":message})),
+                )
+            });
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let url = format!("http://{}", listener.local_addr().unwrap());
+            let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+            let error = notion_send(reqwest::Client::new().post(url))
+                .await
+                .unwrap_err();
+            server.abort();
+            let response = error.into_response();
+            assert_eq!(response.status().as_u16(), expected);
+            let body = axum::body::to_bytes(response.into_body(), 4096)
+                .await
+                .unwrap();
+            let body: Value = serde_json::from_slice(&body).unwrap();
+            if expected == 424 {
+                assert_eq!(body["error"]["code"], "notion_meeting_notes_unavailable");
+                assert!(
+                    body["error"]["message"]
+                        .as_str()
+                        .unwrap()
+                        .contains("Notion plan")
+                );
+            } else {
+                assert_eq!(body["error"]["message"], "Internal server error");
+            }
+        }
+    }
 }

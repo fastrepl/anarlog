@@ -40,7 +40,13 @@ async fn guarded_network_send_changes_with_interrupt(
     cancelled: &(dyn Fn() -> bool + Sync),
 ) -> Result<anlg_cloudsync::NetworkResult, anlg_cloudsync::Error> {
     let batch = ensure_pending_payload_fits(connection, interrupt).await?;
-    match interruptible_network_send_changes(connection, Some(interrupt)).await {
+    match interruptible_network_send_changes(
+        connection,
+        interrupt,
+        batch.watermark_db_version.unwrap_or(batch.start_db_version),
+    )
+    .await
+    {
         Ok(result) => Ok(result),
         Err(send_error) if should_reconcile_send_failure(batch, &send_error, cancelled()) => {
             let status = match interruptible_network_status(connection, Some(interrupt)).await {
@@ -50,7 +56,11 @@ async fn guarded_network_send_changes_with_interrupt(
             match anlg_cloudsync::reconcile_confirmed_pending_payload(connection, batch, &status)
                 .await
             {
-                Ok(true) => Ok(reconciled_send_result(batch, &status)),
+                Ok(true) => {
+                    let has_unsent_changes =
+                        anlg_cloudsync::network_has_unsent_changes(&mut *connection).await?;
+                    Ok(reconciled_send_result(batch, &status, has_unsent_changes))
+                }
                 Ok(false) => Err(send_error),
                 Err(reconcile_error) => Err(reconcile_error),
             }
@@ -69,13 +79,12 @@ pub(super) fn should_reconcile_send_failure(
 
 async fn interruptible_network_send_changes(
     connection: &mut SqliteConnection,
-    interrupt: Option<&CloudsyncInterruptHandle>,
+    interrupt: &CloudsyncInterruptHandle,
+    until_db_version: i64,
 ) -> Result<anlg_cloudsync::NetworkResult, anlg_cloudsync::Error> {
-    let Some(interrupt) = interrupt else {
-        return anlg_cloudsync::network_send_changes(connection).await;
-    };
     let registration = interrupt.register(connection).await?;
-    let result = anlg_cloudsync::network_send_changes(&mut *connection).await;
+    let result =
+        anlg_cloudsync::network_send_changes_until(&mut *connection, until_db_version).await;
     registration.finish(connection).await?;
     result
 }
@@ -96,10 +105,16 @@ pub(super) async fn interruptible_network_status(
 pub(super) fn reconciled_send_result(
     batch: anlg_cloudsync::PendingPayloadBatch,
     status: &anlg_cloudsync::NetworkStatus,
+    has_unsent_changes: bool,
 ) -> anlg_cloudsync::NetworkResult {
     anlg_cloudsync::NetworkResult {
         send: Some(anlg_cloudsync::NetworkSendResult {
-            status: "synced".to_string(),
+            status: if batch.remaining || has_unsent_changes {
+                "out-of-sync"
+            } else {
+                "synced"
+            }
+            .to_string(),
             local_version: batch.watermark_db_version.unwrap_or(batch.start_db_version),
             server_version: status.last_confirmed_version,
             chunks: i64::from(batch.chunks),

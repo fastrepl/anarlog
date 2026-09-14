@@ -22,6 +22,7 @@ pub mod http;
 mod language;
 pub(crate) mod meta;
 mod mistral;
+pub(crate) mod nari;
 mod openai;
 mod openai_compatible_batch;
 mod openrouter;
@@ -56,6 +57,7 @@ pub use groq::*;
 pub use language::{LanguageQuality, LanguageSupport};
 pub use meta::*;
 pub use mistral::*;
+pub use nari::*;
 pub use openai::*;
 pub use openrouter::*;
 pub use pyannote::*;
@@ -168,6 +170,14 @@ pub trait RealtimeSttAdapter: Clone + Default + Send + Sync + 'static {
     }
 
     fn provider_name(&self) -> &'static str;
+
+    fn initial_response_type(&self) -> Option<&'static str> {
+        None
+    }
+
+    fn required_sample_rate(&self) -> Option<u32> {
+        None
+    }
 
     fn is_supported_languages(
         &self,
@@ -513,6 +523,8 @@ pub enum AdapterKind {
     Together,
     #[strum(serialize = "xai")]
     Xai,
+    #[strum(serialize = "nari")]
+    Nari,
     #[strum(serialize = "smallestai")]
     SmallestAI,
     #[strum(serialize = "anarlog")]
@@ -631,6 +643,7 @@ impl AdapterKind {
             | Self::Mistral
             | Self::Meta
             | Self::Xai
+            | Self::Nari
             | Self::SmallestAI
             | Self::GoogleGenerativeAi
             | Self::Anarlog => true,
@@ -671,6 +684,7 @@ impl AdapterKind {
             | Self::Speechmatics
             | Self::Together => LanguageSupport::NotSupported,
             Self::Xai => XaiAdapter::language_support_live(languages),
+            Self::Nari => NariAdapter::language_support_live(languages, model),
             Self::SmallestAI => SmallestAIAdapter::language_support_live(languages, model),
             Self::GoogleGenerativeAi => GoogleGenerativeAiAdapter::language_support_live(languages),
             Self::Anarlog => AnarlogAdapter::language_support_live(languages, model),
@@ -712,6 +726,7 @@ impl AdapterKind {
             Self::Speechmatics => SpeechmaticsAdapter::language_support_batch(languages),
             Self::Together => TogetherAdapter::language_support_batch(languages),
             Self::Xai => XaiAdapter::language_support_batch(languages),
+            Self::Nari => LanguageSupport::NotSupported,
             Self::SmallestAI => SmallestAIAdapter::language_support_batch(languages, model),
             Self::GoogleGenerativeAi => {
                 GoogleGenerativeAiAdapter::language_support_batch(languages)
@@ -784,6 +799,7 @@ impl From<crate::providers::Provider> for AdapterKind {
             Provider::Speechmatics => Self::Speechmatics,
             Provider::Together => Self::Together,
             Provider::Xai => Self::Xai,
+            Provider::Nari => Self::Nari,
             Provider::SmallestAI => Self::SmallestAI,
         }
     }

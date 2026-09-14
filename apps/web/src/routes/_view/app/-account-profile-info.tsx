@@ -116,226 +116,241 @@ export function ProfileInfoSection({ email }: { email?: string }) {
   };
 
   return (
-    <div className={cn([accountCardClassName, "p-6 sm:p-8"])}>
-      <div className="flex flex-col gap-4">
-        <div
-          className={cn([
-            "flex flex-col gap-3 md:flex-row md:justify-between",
-            isEditing ? "md:items-start" : "md:items-center",
-          ])}
-        >
-          <span className="text-sm font-medium text-[#756b5d]">Email</span>
-          {isEditing ? (
-            <form
-              onSubmit={handleSubmit}
-              className="flex w-full flex-col gap-3 md:max-w-[420px]"
-            >
-              <input
-                type="email"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                placeholder={email || "Enter new email"}
-                className={authInputClassName}
-                autoFocus
-              />
-              {updateEmailMutation.isError && (
-                <p className="text-sm text-red-600">
-                  {updateEmailMutation.error?.message ||
-                    "Failed to update email"}
-                </p>
-              )}
-              <div className="flex justify-start gap-2 md:justify-end">
+    <div className="flex flex-col gap-14">
+      <div className={cn([accountCardClassName, "p-6 sm:p-8"])}>
+        <div className="flex flex-col gap-4">
+          <div
+            className={cn([
+              "flex flex-col gap-3 md:flex-row md:justify-between",
+              isEditing ? "md:items-start" : "md:items-center",
+            ])}
+          >
+            <span className="text-color-muted text-sm font-medium">Email</span>
+            {isEditing ? (
+              <form
+                onSubmit={handleSubmit}
+                className="flex w-full flex-col gap-3 md:max-w-[420px]"
+              >
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder={email || "Enter new email"}
+                  className={authInputClassName}
+                  autoFocus
+                />
+                {updateEmailMutation.isError && (
+                  <p className="text-sm text-red-600">
+                    {updateEmailMutation.error?.message ||
+                      "Failed to update email"}
+                  </p>
+                )}
+                <div className="flex justify-start gap-2 md:justify-end">
+                  <button
+                    type="submit"
+                    disabled={
+                      updateEmailMutation.isPending ||
+                      !newEmail ||
+                      newEmail === email
+                    }
+                    className={accountPillPrimaryClassName}
+                  >
+                    {updateEmailMutation.isPending ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    disabled={updateEmailMutation.isPending}
+                    className={accountPillSecondaryClassName}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-color text-base">
+                  {email || "Not available"}
+                </span>
                 <button
-                  type="submit"
-                  disabled={
-                    updateEmailMutation.isPending ||
-                    !newEmail ||
-                    newEmail === email
-                  }
-                  className={accountPillPrimaryClassName}
-                >
-                  {updateEmailMutation.isPending ? "Saving..." : "Save"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  disabled={updateEmailMutation.isPending}
+                  onClick={() => {
+                    setIsEditing(true);
+                    setSuccessMessage(null);
+                  }}
                   className={accountPillSecondaryClassName}
                 >
-                  Cancel
+                  Change
                 </button>
               </div>
-            </form>
-          ) : (
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-base text-[#181613]">
-                {email || "Not available"}
+            )}
+          </div>
+
+          {successMessage && (
+            <div className={authNoticeClassName}>
+              <p className="text-color-muted text-sm font-medium">
+                {successMessage}
+              </p>
+            </div>
+          )}
+
+          {accountSession?.createdAt && (
+            <div className="border-color-subtle flex flex-col gap-3 border-t pt-4 md:flex-row md:items-center md:justify-between">
+              <span className="text-color-muted text-sm font-medium">
+                Member since
               </span>
-              <button
-                onClick={() => {
-                  setIsEditing(true);
-                  setSuccessMessage(null);
-                }}
-                className={accountPillSecondaryClassName}
-              >
-                Change
-              </button>
+              <span className="text-color text-base">
+                {new Date(accountSession.createdAt).toLocaleDateString(
+                  "en-US",
+                  {
+                    month: "long",
+                    year: "numeric",
+                  },
+                )}
+              </span>
             </div>
           )}
         </div>
+      </div>
 
-        {successMessage && (
-          <div className={authNoticeClassName}>
-            <p className="text-sm font-medium text-[#4f4940]">
-              {successMessage}
-            </p>
-          </div>
-        )}
-
-        <div className="flex flex-col gap-4 border-t border-[#ede7dc] pt-4">
-          {isEditingDetails ? (
-            <form
-              onSubmit={handleDetailsSubmit}
-              className="flex flex-col gap-4"
-            >
-              <DetailsField
-                label="Full name"
-                value={draftName}
-                onChange={setDraftName}
-                placeholder="Ada Lovelace"
-              />
-              <DetailsField
-                label="LinkedIn"
-                value={draftLinkedin}
-                onChange={setDraftLinkedin}
-                placeholder="linkedin.com/in/your-name"
-              />
-              <DetailsField
-                label="X"
-                value={draftX}
-                onChange={setDraftX}
-                placeholder="@yourhandle"
-              />
-              <DetailsField
-                label="Website"
-                value={draftWebsite}
-                onChange={setDraftWebsite}
-                placeholder="yourdomain.com"
-                error={websiteError}
-              />
-              {updateDetailsMutation.isError && (
-                <p className="text-sm text-red-600">
-                  {updateDetailsMutation.error?.message ||
-                    "Failed to update profile"}
-                </p>
-              )}
-              <div className="flex justify-start gap-2 md:justify-end">
-                <button
-                  type="submit"
-                  disabled={updateDetailsMutation.isPending}
-                  className={accountPillPrimaryClassName}
-                >
-                  {updateDetailsMutation.isPending ? "Saving..." : "Save"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsEditingDetails(false)}
-                  disabled={updateDetailsMutation.isPending}
-                  className={accountPillSecondaryClassName}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          ) : (
-            <>
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <span className="text-sm font-medium text-[#756b5d]">
-                  Full name
-                </span>
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-base text-[#181613]">
-                    {profile?.fullName || "Not set"}
-                  </span>
+      <section aria-labelledby="additional-profile-heading">
+        <h3
+          id="additional-profile-heading"
+          className="text-brand-dark font-hand text-3xl leading-none font-semibold"
+        >
+          Additional profile
+        </h3>
+        <div className={cn([accountCardClassName, "mt-6 p-6 sm:p-8"])}>
+          <div className="flex flex-col gap-4">
+            {isEditingDetails ? (
+              <form
+                onSubmit={handleDetailsSubmit}
+                className="flex flex-col gap-4"
+              >
+                <DetailsField
+                  label="Full name"
+                  value={draftName}
+                  onChange={setDraftName}
+                  placeholder="Ada Lovelace"
+                />
+                <DetailsField
+                  label="LinkedIn"
+                  value={draftLinkedin}
+                  onChange={setDraftLinkedin}
+                  placeholder="linkedin.com/in/your-name"
+                />
+                <DetailsField
+                  label="X"
+                  value={draftX}
+                  onChange={setDraftX}
+                  placeholder="@yourhandle"
+                />
+                <DetailsField
+                  label="Website"
+                  value={draftWebsite}
+                  onChange={setDraftWebsite}
+                  placeholder="yourdomain.com"
+                  error={websiteError}
+                />
+                {updateDetailsMutation.isError && (
+                  <p className="text-sm text-red-600">
+                    {updateDetailsMutation.error?.message ||
+                      "Failed to update profile"}
+                  </p>
+                )}
+                <div className="flex justify-start gap-2 md:justify-end">
                   <button
-                    onClick={startEditingDetails}
+                    type="submit"
+                    disabled={updateDetailsMutation.isPending}
+                    className={accountPillPrimaryClassName}
+                  >
+                    {updateDetailsMutation.isPending ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingDetails(false)}
+                    disabled={updateDetailsMutation.isPending}
                     className={accountPillSecondaryClassName}
                   >
-                    Edit
+                    Cancel
                   </button>
                 </div>
-              </div>
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <span className="flex items-center gap-2 text-sm font-medium text-[#756b5d]">
-                  <Icon icon="logos:linkedin-icon" width="16" height="16" />
-                  LinkedIn
-                </span>
-                {profile?.linkedinUrl ? (
-                  <a
-                    href={profile.linkedinUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-base text-[#181613] underline decoration-[#d9cdb8] underline-offset-4"
-                  >
-                    {profile.linkedinUrl.replace(/^https?:\/\/(www\.)?/, "")}
-                  </a>
-                ) : (
-                  <span className="text-base text-[#756b5d]">Not set</span>
-                )}
-              </div>
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <span className="flex items-center gap-2 text-sm font-medium text-[#756b5d]">
-                  <XLogo size={16} />X
-                </span>
-                {profile?.xHandle ? (
-                  <a
-                    href={`https://x.com/${profile.xHandle}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-base text-[#181613] underline decoration-[#d9cdb8] underline-offset-4"
-                  >
-                    @{profile.xHandle}
-                  </a>
-                ) : (
-                  <span className="text-base text-[#756b5d]">Not set</span>
-                )}
-              </div>
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <span className="flex items-center gap-2 text-sm font-medium text-[#756b5d]">
-                  <Globe size={16} />
-                  Website
-                </span>
-                {profile?.websiteUrl ? (
-                  <a
-                    href={profile.websiteUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-base text-[#181613] underline decoration-[#d9cdb8] underline-offset-4"
-                  >
-                    {profile.websiteUrl.replace(/^https?:\/\/(www\.)?/, "")}
-                  </a>
-                ) : (
-                  <span className="text-base text-[#756b5d]">Not set</span>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-
-        {accountSession?.createdAt && (
-          <div className="flex flex-col gap-3 border-t border-[#ede7dc] pt-4 md:flex-row md:items-center md:justify-between">
-            <span className="text-sm font-medium text-[#756b5d]">
-              Member since
-            </span>
-            <span className="text-base text-[#181613]">
-              {new Date(accountSession.createdAt).toLocaleDateString("en-US", {
-                month: "long",
-                year: "numeric",
-              })}
-            </span>
+              </form>
+            ) : (
+              <>
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <span className="text-color-muted text-sm font-medium">
+                    Full name
+                  </span>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-color text-base">
+                      {profile?.fullName || "Not set"}
+                    </span>
+                    <button
+                      onClick={startEditingDetails}
+                      className={accountPillSecondaryClassName}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <span className="text-color-muted flex items-center gap-2 text-sm font-medium">
+                    <Icon icon="logos:linkedin-icon" width="16" height="16" />
+                    LinkedIn
+                  </span>
+                  {profile?.linkedinUrl ? (
+                    <a
+                      href={profile.linkedinUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-color text-base underline decoration-[var(--color-border)] underline-offset-4"
+                    >
+                      {profile.linkedinUrl.replace(/^https?:\/\/(www\.)?/, "")}
+                    </a>
+                  ) : (
+                    <span className="text-color-muted text-base">Not set</span>
+                  )}
+                </div>
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <span className="text-color-muted flex items-center gap-2 text-sm font-medium">
+                    <XLogo size={16} />X
+                  </span>
+                  {profile?.xHandle ? (
+                    <a
+                      href={`https://x.com/${profile.xHandle}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-color text-base underline decoration-[var(--color-border)] underline-offset-4"
+                    >
+                      @{profile.xHandle}
+                    </a>
+                  ) : (
+                    <span className="text-color-muted text-base">Not set</span>
+                  )}
+                </div>
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <span className="text-color-muted flex items-center gap-2 text-sm font-medium">
+                    <Globe size={16} />
+                    Website
+                  </span>
+                  {profile?.websiteUrl ? (
+                    <a
+                      href={profile.websiteUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-color text-base underline decoration-[var(--color-border)] underline-offset-4"
+                    >
+                      {profile.websiteUrl.replace(/^https?:\/\/(www\.)?/, "")}
+                    </a>
+                  ) : (
+                    <span className="text-color-muted text-base">Not set</span>
+                  )}
+                </div>
+              </>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -355,7 +370,7 @@ function DetailsField({
 }) {
   return (
     <label className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-      <span className="text-sm font-medium text-[#756b5d]">{label}</span>
+      <span className="text-color-muted text-sm font-medium">{label}</span>
       <div className="flex w-full flex-col gap-1 md:max-w-[420px]">
         <input
           type="text"

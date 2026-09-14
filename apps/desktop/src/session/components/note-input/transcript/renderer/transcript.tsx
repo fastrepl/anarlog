@@ -45,6 +45,7 @@ import {
 } from "~/stt/live-segment";
 import { SpeakerLabelManager } from "~/stt/segment/shared";
 import { isTranscriptWordSeekable } from "~/stt/timing";
+import { useResolvedSpeakerSegments } from "~/stt/useResolvedSpeakerSegments";
 
 export function RenderTranscript({
   scrollElement,
@@ -176,7 +177,11 @@ function TranscriptSegments({
   request: RenderTranscriptRequest | null;
   editMode: boolean;
 }) {
-  const segments = useStableSegments(rawSegments);
+  const resolvedSegments = useResolvedSpeakerSegments(
+    rawSegments,
+    currentActive ? request : null,
+  );
+  const segments = useStableSegments(resolvedSegments);
   const { offsetMs, sessionId } = useTranscriptTimelineMetadata(
     transcriptId,
     !currentActive,
@@ -188,9 +193,13 @@ function TranscriptSegments({
       request.humans.map((human) => [human.human_id, human.name]),
     );
     return {
-      getSelfHumanId: () => request.self_human_id ?? undefined,
+      getSelfHumanId: () =>
+        request.speaker_context
+          ? undefined
+          : (request.self_human_id ?? undefined),
       getHumanName: (humanId) => names.get(humanId),
-      getParticipantHumanIds: () => request.participant_human_ids,
+      getParticipantHumanIds: () =>
+        request.speaker_context ? [] : request.participant_human_ids,
     };
   }, [request]);
 
@@ -211,7 +220,7 @@ function TranscriptSegments({
       seek={seek}
       startPlayback={startPlayback}
       audioExists={audioExists}
-      maxSpeakerNumber={maxSpeakerNumber}
+      maxSpeakerNumber={request?.speaker_context ? undefined : maxSpeakerNumber}
       editMode={editMode}
     />
   );
@@ -270,11 +279,12 @@ const SegmentsList = memo(
       for (const segment of segments) {
         labels.set(
           segment,
-          SegmentKeyUtils.renderLabel(
-            segment.key,
-            labelContext,
-            speakerLabelManager,
-          ),
+          segment.speaker_label ??
+            SegmentKeyUtils.renderLabel(
+              segment.key,
+              labelContext,
+              speakerLabelManager,
+            ),
         );
       }
       return labels;

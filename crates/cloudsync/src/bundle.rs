@@ -13,7 +13,7 @@ use crate::error::Error;
 #[cfg(not(any(target_os = "ios", target_os = "android")))]
 static TEMP_FILE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 #[cfg(not(any(target_os = "ios", target_os = "android")))]
-const CLOUDSYNC_BUNDLE_REVISION: &str = "anarlog-request-cancellation-5";
+const CLOUDSYNC_BUNDLE_REVISION: &str = "anarlog-bounded-send-2";
 
 #[cfg(not(any(target_os = "ios", target_os = "android")))]
 macro_rules! configure_cloudsync_target {

@@ -1,4 +1,4 @@
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -18,6 +18,9 @@ const mocks = vi.hoisted(() => ({
   openNew: vi.fn(),
   toast: vi.fn(),
   dismiss: vi.fn(),
+  inactive: vi.fn(),
+  showNotification: vi.fn(),
+  notificationsDisabled: false,
 }));
 
 vi.mock("@lingui/react/macro", () => ({
@@ -30,6 +33,18 @@ vi.mock("@lingui/react/macro", () => ({
         "",
       ),
   }),
+}));
+
+vi.mock("@anlg/plugin-notification", () => ({
+  commands: { showNotification: mocks.showNotification },
+}));
+
+vi.mock("~/shared/window-activity", () => ({
+  isAppWindowInactive: mocks.inactive,
+}));
+
+vi.mock("~/shared/config", () => ({
+  useConfigValue: () => mocks.notificationsDisabled,
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
@@ -60,6 +75,11 @@ const invitation = {
 describe("WorkspaceInvitationToasts", () => {
   beforeEach(() => {
     mocks.invitations.data = undefined;
+    mocks.notificationsDisabled = false;
+    mocks.inactive.mockReset().mockResolvedValue(false);
+    mocks.showNotification
+      .mockReset()
+      .mockResolvedValue({ status: "ok", data: null });
     mocks.openNew.mockClear();
     mocks.toast.mockClear();
     mocks.dismiss.mockClear();
@@ -111,5 +131,60 @@ describe("WorkspaceInvitationToasts", () => {
       state: { tab: "team" },
     });
     expect(mocks.dismiss).toHaveBeenCalledWith("team-invitation:inv-1");
+  });
+  it("notifies once when the app is inactive", async () => {
+    mocks.inactive.mockResolvedValue(true);
+    mocks.invitations.data = [invitation];
+    const view = render(<WorkspaceInvitationToasts />);
+    await waitFor(() =>
+      expect(mocks.showNotification).toHaveBeenCalledTimes(1),
+    );
+    expect(mocks.showNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: "team-invitation:inv-1",
+        title: "You've been invited to join Fastrepl",
+        message: "Invited by owner@example.com",
+        action_label: "View",
+        source: null,
+      }),
+    );
+    mocks.invitations.data = [{ ...invitation }];
+    view.rerender(<WorkspaceInvitationToasts />);
+    expect(mocks.showNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps foreground invitations in the app", async () => {
+    mocks.invitations.data = [invitation];
+    render(<WorkspaceInvitationToasts />);
+    await waitFor(() => expect(mocks.inactive).toHaveBeenCalled());
+    expect(mocks.showNotification).not.toHaveBeenCalled();
+    expect(mocks.toast).toHaveBeenCalledTimes(1);
+  });
+
+  it("respects disabled notifications while retaining the toast", () => {
+    mocks.notificationsDisabled = true;
+    mocks.invitations.data = [invitation];
+    render(<WorkspaceInvitationToasts />);
+    expect(mocks.showNotification).not.toHaveBeenCalled();
+    expect(mocks.inactive).not.toHaveBeenCalled();
+    expect(mocks.toast).toHaveBeenCalledTimes(1);
+  });
+
+  it("cancels pending notification delivery when an invitation disappears", async () => {
+    let resolveActivity!: (inactive: boolean) => void;
+    mocks.inactive.mockReturnValue(
+      new Promise<boolean>((resolve) => {
+        resolveActivity = resolve;
+      }),
+    );
+    mocks.invitations.data = [invitation];
+    const view = render(<WorkspaceInvitationToasts />);
+    mocks.invitations.data = [];
+    view.rerender(<WorkspaceInvitationToasts />);
+    resolveActivity(true);
+    await waitFor(() =>
+      expect(mocks.dismiss).toHaveBeenCalledWith("team-invitation:inv-1"),
+    );
+    expect(mocks.showNotification).not.toHaveBeenCalled();
   });
 });

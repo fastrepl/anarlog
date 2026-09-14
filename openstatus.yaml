@@ -178,7 +178,7 @@
       target: 200
     - compare: contains
       kind: textBody
-      target: '"status":"ok"'
+      target: '"ready":true'
   description: Verifies the production Stripe webhook and billing service.
   frequency: 1m
   kind: http
@@ -193,7 +193,7 @@
     - jnb
   request:
     method: GET
-    url: https://hyprnote-stripe.fly.dev/health
+    url: https://anarlog-billing-api.fly.dev/health/ready/billing-unified
   retry: 3
   timeout: 45000
 "11519":

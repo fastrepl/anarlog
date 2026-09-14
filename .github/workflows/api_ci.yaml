@@ -4,6 +4,10 @@ on:
     branches:
       - main
     paths:
+      - .github/scripts/prepare_api_service_secrets.py
+      - .github/scripts/test_prepare_api_service_secrets.py
+      - .github/scripts/verify_api_continuity.py
+      - .github/scripts/test_verify_api_continuity.py
       - .github/scripts/deploy_api_drain.py
       - .github/scripts/test_deploy_api_drain.py
       - .github/scripts/test_verify_cloudsync_e2ee.py
@@ -11,16 +15,28 @@ on:
       - .github/workflows/api_cd.yaml
       - .github/workflows/api_ci.yaml
       - apps/api/**
+      - apps/stripe/**
+      - packages/supabase/**
+      - packages/user-error/**
       - crates/agent-access/**
       - crates/api-auth/**
+      - crates/api-calendar/**
+      - crates/api-nango/**
+      - crates/api-notion/**
       - crates/api-cloud/**
+      - crates/api-subscription/**
       - crates/api-sync/**
       - crates/llm-proxy/**
       - crates/mcp/**
       - crates/supabase-auth/**
+      - crates/supabase-storage/**
       - crates/transcribe-proxy/**
   pull_request:
     paths:
+      - .github/scripts/prepare_api_service_secrets.py
+      - .github/scripts/test_prepare_api_service_secrets.py
+      - .github/scripts/verify_api_continuity.py
+      - .github/scripts/test_verify_api_continuity.py
       - .github/scripts/deploy_api_drain.py
       - .github/scripts/test_deploy_api_drain.py
       - .github/scripts/test_verify_cloudsync_e2ee.py
@@ -28,37 +44,58 @@ on:
       - .github/workflows/api_cd.yaml
       - .github/workflows/api_ci.yaml
       - apps/api/**
+      - apps/stripe/**
+      - packages/supabase/**
+      - packages/user-error/**
       - crates/agent-access/**
       - crates/api-auth/**
+      - crates/api-calendar/**
+      - crates/api-nango/**
+      - crates/api-notion/**
       - crates/api-cloud/**
+      - crates/api-subscription/**
       - crates/api-sync/**
       - crates/llm-proxy/**
       - crates/mcp/**
       - crates/supabase-auth/**
+      - crates/supabase-storage/**
       - crates/transcribe-proxy/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/rust_install
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+      - uses: $/.github/actions/rust_install
         with:
           platform: linux
       - run: cargo check -p api
       - run: cargo test -p api-cloud
       - run: cargo test -p api-auth
+      - run: cargo test --locked -p api-calendar -p api-nango -p api-notion
       - run: cargo test -p mcp
       - run: cargo test -p supabase-auth --features server
       - run: cargo test -p api-sync
+      - run: cargo test --locked -p supabase-storage --test client
+      - run: cargo test --locked -p api-subscription
       - run: cargo test -p transcribe-proxy --lib
-      - run: cargo test -p api drain_status_reports_live_streams_without_failing_health
+      - run: cargo test --locked -p api
       - run: python3 .github/scripts/test_verify_cloudsync_e2ee.py
+      - run: python3 .github/scripts/test_verify_api_continuity.py
       - run: python3 .github/scripts/test_deploy_api_drain.py
+      - run: python3 .github/scripts/test_prepare_api_service_secrets.py
       - run: |
           cargo test -p api gen_openapi_json
           git diff --exit-code -- apps/api/openapi.gen.json

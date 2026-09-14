@@ -201,6 +201,9 @@ function parsePayload(
     start,
     duration,
   });
+  if (provider === "nari" && words.length === 0) {
+    return [{ type: "partial", text: "" }];
+  }
   return words.length === 0
     ? []
     : [{ type: "final", segmentId, text: transcript.trim(), words, hints }];

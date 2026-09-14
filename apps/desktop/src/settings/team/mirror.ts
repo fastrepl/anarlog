@@ -24,7 +24,9 @@ export function useMyWorkspacesWithMirror() {
   const auth = useAuth();
   const signedIn = Boolean(auth.supabase && auth.session);
 
-  return useQuery({
+  // Credentials are request context; the user ID owns this cache entry.
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+  const workspaces = useQuery({
     queryKey: [MY_WORKSPACES_QUERY_KEY, auth.session?.user.id],
     enabled: signedIn,
     queryFn: async () => {
@@ -37,7 +39,33 @@ export function useMyWorkspacesWithMirror() {
       }
       return list;
     },
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
   });
+
+  // Membership can change in the browser while the desktop token still says Free.
+  // Key by membership, not the token: refreshing the token must not start a loop.
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+  useQuery({
+    queryKey: [
+      "team-membership-session",
+      auth.session?.user.id,
+      workspaces.data?.map((workspace) => workspace.workspaceId).sort(),
+    ],
+    enabled: signedIn && workspaces.isSuccess,
+    queryFn: async () => {
+      const session = await auth.refreshSession();
+      if (!session) throw new Error("Could not refresh workspace entitlements");
+      return true;
+    },
+    staleTime: Infinity,
+    // Rejoining or leaving must refresh even if this membership set was seen before.
+    gcTime: 0,
+    retry: 1,
+    refetchOnWindowFocus: true,
+  });
+
+  return workspaces;
 }
 
 export type MirroredWorkspace = {

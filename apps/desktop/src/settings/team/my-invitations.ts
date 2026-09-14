@@ -15,6 +15,7 @@ export function useMyWorkspaceInvitations() {
     enabled: signedIn && !auth.session?.user.is_anonymous,
     queryFn: () => listMyWorkspaceInvitations(requireTeamContext(auth)),
     refetchInterval: 60_000,
+    refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
   });
 }

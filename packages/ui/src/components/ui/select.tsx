@@ -1,3 +1,4 @@
+import type { SmoothCornerOptions } from "@lisse/react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import * as React from "react";
 
@@ -14,9 +15,11 @@ const SelectValue = SelectPrimitive.Value;
 
 const SelectTrigger = React.forwardRef<
   React.ComponentRef<typeof SelectPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
->(({ className, children, ...props }, ref) => {
-  const squircleRef = useSquircleRef(ref);
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger> & {
+    corners?: SmoothCornerOptions;
+  }
+>(({ className, children, corners, ...props }, ref) => {
+  const squircleRef = useSquircleRef(ref, corners);
   return (
     <SelectPrimitive.Trigger
       ref={squircleRef}

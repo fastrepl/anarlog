@@ -36,6 +36,7 @@ struct CloudsyncActivity {
 #[derive(Clone, Default)]
 pub struct ReplicaSyncStatus {
     pub syncing: bool,
+    pub pending_changes: bool,
     pub last_sync_at_ms: Option<u64>,
     pub last_error: Option<String>,
     pub consecutive_failures: u32,
@@ -45,6 +46,7 @@ pub struct ReplicaSyncStatus {
 pub enum ReplicaSyncOutcome {
     Settled,
     MoreWork,
+    WaitingForRemote,
     Paused,
 }
 
@@ -248,6 +250,7 @@ impl E2eeSyncHook {
     pub fn replica_sync_succeeded(&self) {
         let mut status = self.replica_status.lock().unwrap();
         status.syncing = false;
+        status.pending_changes = false;
         status.last_sync_at_ms = std::time::SystemTime::now()
             .duration_since(std::time::SystemTime::UNIX_EPOCH)
             .ok()
@@ -258,6 +261,14 @@ impl E2eeSyncHook {
 
     pub fn replica_sync_paused(&self) {
         self.replica_status.lock().unwrap().syncing = false;
+    }
+
+    pub fn replica_sync_pending(&self) {
+        let mut status = self.replica_status.lock().unwrap();
+        status.syncing = false;
+        status.pending_changes = true;
+        status.last_error = None;
+        status.consecutive_failures = 0;
     }
 
     pub fn replica_sync_failed(&self, error: &std::io::Error) {
@@ -466,27 +477,21 @@ impl E2eeSyncHook {
                         pool,
                         &keys[workspace_id],
                         || async {
-                            loop {
-                                cancellation.check()?;
-                                let stats = anlg_db_app::apply_received_e2ee_replica_changes_with_witness_cancellable(
-                                    pool,
-                                    &keys,
-                                    true,
-                                    || self.received_apply_cancelled(&cancellation),
-                                )
+                            self.hydrate_replica_changes(pool, &keys, &cancellation)
                                 .await
-                                .map_err(|error| {
-                                    std::io::Error::other(format!("E2EE witness hydration failed: {error}"))
-                                })?;
-                                if !stats.remaining_replica_changes {
-                                    return Ok(());
-                                }
-                            }
+                                .map(|_| ())
                         },
                         &cancellation,
                     )
                     .await?;
                 cancellation.check()?;
+            }
+            let hydrated = self
+                .hydrate_replica_changes(pool, &keys, &cancellation)
+                .await?;
+            // A partial transcript contains placeholder arrays, not edits to publish.
+            if hydrated.incomplete_chunk_columns > 0 {
+                return Ok(ReplicaSyncOutcome::WaitingForRemote);
             }
             anlg_db_app::encrypt_e2ee_replica_changes_bounded_deferring_active_captures_cancellable(
                 pool,
@@ -539,7 +544,13 @@ impl E2eeSyncHook {
                         ))
                     })?;
             cancellation.check()?;
-            Ok(local_work_remaining)
+            Ok(if stats.incomplete_chunk_columns > 0 {
+                ReplicaSyncOutcome::WaitingForRemote
+            } else if local_work_remaining {
+                ReplicaSyncOutcome::MoreWork
+            } else {
+                ReplicaSyncOutcome::Settled
+            })
         };
         tokio::pin!(operation);
         tokio::select! {
@@ -549,13 +560,36 @@ impl E2eeSyncHook {
                 let _ = operation.await;
                 Ok(ReplicaSyncOutcome::Paused)
             }
-            result = &mut operation => result.map(|work_remaining| {
-                if work_remaining {
-                    ReplicaSyncOutcome::MoreWork
-                } else {
-                    ReplicaSyncOutcome::Settled
-                }
-            }),
+            result = &mut operation => result,
+        }
+    }
+
+    async fn hydrate_replica_changes(
+        &self,
+        pool: &sqlx::SqlitePool,
+        keys: &HashMap<String, anlg_e2ee::WorkspaceKeyring>,
+        cancellation: &E2eeWitnessCancellation,
+    ) -> std::io::Result<anlg_db_app::E2eeReplicaStats> {
+        loop {
+            cancellation.check()?;
+            let stats = anlg_db_app::apply_received_e2ee_replica_changes_with_witness_cancellable(
+                pool,
+                keys,
+                true,
+                || self.received_apply_cancelled(cancellation),
+            )
+            .await
+            .map_err(|error| {
+                std::io::Error::other(format!("E2EE witness hydration failed: {error}"))
+            })?;
+            cancellation.check()?;
+            warn_parked_records(&stats);
+            // Drain ready records before yielding stalled records to later pages or local encryption.
+            if !stats.remaining_replica_changes
+                || (stats.skipped_local_changes > 0 && stats.applied_fields == 0)
+            {
+                return Ok(stats);
+            }
         }
     }
 }
@@ -788,6 +822,29 @@ mod tests {
             workspace_id,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn waiting_for_remote_preserves_the_last_success_until_completion() {
+        let hook = E2eeSyncHook::default();
+        hook.replica_sync_succeeded();
+        let last_success = hook.replica_status().last_sync_at_ms;
+        hook.replica_sync_failed(&std::io::Error::other("temporary failure"));
+        hook.replica_sync_started();
+        hook.replica_sync_pending();
+
+        let waiting = hook.replica_status();
+        assert!(!waiting.syncing);
+        assert!(waiting.pending_changes);
+        assert_eq!(waiting.last_sync_at_ms, last_success);
+        assert!(waiting.last_error.is_none());
+        assert_eq!(waiting.consecutive_failures, 0);
+
+        hook.replica_sync_succeeded();
+        assert!(!hook.replica_status().pending_changes);
+        hook.replica_sync_pending();
+        hook.clear();
+        assert!(!hook.replica_status().pending_changes);
     }
 
     #[test]

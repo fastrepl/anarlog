@@ -14,4 +14,4 @@ pub use cleanup_worker::CleanupWorker;
 pub use config::{CloudsyncCleanupConfig, SubscriptionConfig};
 pub use env::StripeEnv;
 pub use openapi::openapi;
-pub use routes::{router, scim_router};
+pub use routes::{account_router, billing_router, router, scim_router};

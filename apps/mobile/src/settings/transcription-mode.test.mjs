@@ -54,6 +54,8 @@ test("a saved recording uses the corresponding batch model after live failure", 
     ["mistral", "voxtral-mini-transcribe-realtime-2602", "voxtral-mini-2602"],
     ["custom", "own-model", "own-model"],
     ["dashscope", "qwen3-asr-flash-realtime", null],
+    ["nari", "qwen3-asr-fast:free", null],
+    ["nari", "qwen3-asr", null],
   ])
     assert.equal(batchTranscriptionModel(provider, live), batch);
 });

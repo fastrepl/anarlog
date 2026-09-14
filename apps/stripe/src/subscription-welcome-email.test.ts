@@ -170,6 +170,29 @@ describe("sendSubscriptionWelcomeEmail", () => {
     expect(result).toBeNull();
   });
 
+  it("does not send for a customer Char bills through Autumn", async () => {
+    const result = await sendSubscriptionWelcomeEmail(
+      invoiceEvent(),
+      dependencies({
+        getCustomer: async () =>
+          ({
+            id: "cus_char_subscriber",
+            email: "char-user@example.com",
+            name: "Char User",
+            metadata: {
+              autumn_id: "member-live-123",
+              autumn_internal_id: "cus_autumn_123",
+            } as Stripe.Metadata,
+          }) as Stripe.Customer,
+        sendTransactional: async () => {
+          throw new Error("should not send");
+        },
+      }),
+    );
+
+    expect(result).toBeNull();
+  });
+
   it("ignores zero-value trial invoices", async () => {
     const result = await sendSubscriptionWelcomeEmail(
       invoiceEvent({ amount_paid: 0 }),

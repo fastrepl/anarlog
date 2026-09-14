@@ -8,6 +8,7 @@ import { commands as settingsCommands } from "@anlg/plugin-settings";
 import { CircleNotch, FolderSimple } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 
+import { ExportLocationRow } from "./export-location";
 import {
   LegacyMigrationCleanupRow,
   useLegacyMigrationCleanup,
@@ -112,6 +113,7 @@ export function StorageSettingsView() {
       </h2>
       <div className="flex flex-col gap-3">
         <StorageLocationRow />
+        <ExportLocationRow />
         {visible && <LegacyMigrationCleanupRow />}
       </div>
     </div>

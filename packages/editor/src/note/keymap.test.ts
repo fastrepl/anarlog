@@ -52,7 +52,7 @@ describe("buildInputRules", () => {
     );
 
     expect(handled).toBe(true);
-    expect(state.doc.toJSON()).toMatchObject({
+    expect(state.doc.toJSON()).toEqual({
       type: "doc",
       content: [
         {
@@ -72,6 +72,20 @@ describe("buildInputRules", () => {
         },
       ],
     });
+  });
+
+  it("keeps the cursor inside the new task before another paragraph", () => {
+    const doc = schema.node("doc", null, [
+      schema.node("paragraph", null, [schema.text("[]")]),
+      schema.node("paragraph"),
+    ]);
+    const { state } = runTextInput(doc, " ", 3);
+
+    expect(state.selection.$from.parent.type.name).toBe("paragraph");
+    expect(state.selection.$from.node(-1).type.name).toBe("taskItem");
+    expect(state.tr.insertText("My task").doc.firstChild?.textContent).toBe(
+      "My task",
+    );
   });
 
   it("replaces typed arrow shorthand with an arrow symbol", () => {
@@ -482,12 +496,17 @@ function runBackspaceAtTextStart(
   return { state };
 }
 
-function runTextInput(doc: ReturnType<typeof schema.node>, text: string) {
+function runTextInput(
+  doc: ReturnType<typeof schema.node>,
+  text: string,
+  pos?: number,
+) {
   const inputRules = buildInputRules();
   let state = EditorState.create({
     schema,
     doc,
-    selection: Selection.atEnd(doc),
+    selection:
+      pos === undefined ? Selection.atEnd(doc) : TextSelection.create(doc, pos),
     plugins: [inputRules],
   });
 

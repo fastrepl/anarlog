@@ -41,6 +41,7 @@ pub struct TranscriptProcessor {
     next_job_id: u64,
     finalize_partials: bool,
     flush_partials: bool,
+    stitch_final_words: bool,
 }
 
 const MAX_PENDING_CORRECTION_JOBS: usize = 64;
@@ -115,6 +116,7 @@ impl TranscriptProcessor {
             next_job_id: 1,
             finalize_partials: true,
             flush_partials: true,
+            stitch_final_words: true,
         }
     }
 
@@ -130,6 +132,19 @@ impl TranscriptProcessor {
     pub fn with_flush_partial_finalization(mut self, flush_partials: bool) -> Self {
         self.flush_partials = flush_partials;
         self
+    }
+
+    /// Disable for complete utterances that cannot receive word-level continuations.
+    pub fn with_final_word_stitching(mut self, stitch_final_words: bool) -> Self {
+        self.stitch_final_words = stitch_final_words;
+        self
+    }
+
+    pub fn clear_partials(&mut self, channel: i32, start_ms: i64, end_ms: i64) -> TranscriptDelta {
+        if let Some(state) = self.channels.get_mut(&channel) {
+            state.clear_partials(start_ms, end_ms);
+        }
+        self.partial_snapshot().into_delta(vec![], vec![])
     }
 
     pub fn process(&mut self, response: &StreamResponse) -> Option<TranscriptDelta> {
@@ -164,8 +179,12 @@ impl TranscriptProcessor {
                 WordState::Final
             };
 
-            let mut new_words =
-                channel_state.apply_final(raw_words, word_state, self.finalize_partials);
+            let mut new_words = channel_state.apply_final(
+                raw_words,
+                word_state,
+                self.finalize_partials,
+                self.stitch_final_words,
+            );
 
             let mut replaced_ids = vec![];
 
@@ -657,6 +676,7 @@ mod tests {
             }],
             WordState::Final,
             false,
+            true,
         );
 
         let delta = processor.flush();

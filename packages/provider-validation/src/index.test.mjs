@@ -388,3 +388,31 @@ test("never caches a failed verification as accepted", async () => {
   await verifyProviderCredentials(credential, fetcher);
   assert.equal(calls, 2);
 });
+
+test("Nari verifies keys using its non-billable authenticated voice catalog", async () => {
+  const requests = [];
+  await verifyProviderCredentials(
+    {
+      type: "stt",
+      provider: "nari",
+      baseUrl: "https://api.narilabs.com",
+      apiKey: "synthetic-key",
+    },
+    async (url, init) => {
+      requests.push({ url, init });
+      return requests.length === 1
+        ? Response.json({ object: "list", model: "qwen3-tts:free", data: [] })
+        : new Response(null, { status: 401 });
+    },
+  );
+  assert.equal(requests.length, 2);
+  assert.equal(
+    requests[0].url,
+    "https://api.narilabs.com/v1/voices?model=qwen3-tts:free",
+  );
+  assert.equal(requests[0].init.headers.Authorization, "Bearer synthetic-key");
+  assert.equal(
+    requests[1].init.headers.Authorization,
+    "Bearer anarlog-invalid-key-verification",
+  );
+});

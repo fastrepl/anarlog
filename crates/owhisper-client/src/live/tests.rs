@@ -289,3 +289,21 @@ async fn test_proxy_assemblyai_dual() {
 
     run_dual_test(client, "proxy-assemblyai").await;
 }
+
+#[tokio::test]
+async fn nari_rejects_audio_at_an_unsupported_sample_rate() {
+    let error = ListenClient::builder()
+        .adapter::<crate::NariAdapter>()
+        .api_base("https://api.narilabs.com")
+        .params(owhisper_interface::ListenParams {
+            sample_rate: 48_000,
+            ..Default::default()
+        })
+        .build_single()
+        .await
+        .err()
+        .expect("Nari only accepts 16 kHz PCM");
+    assert!(
+        matches!(error, crate::Error::ProviderConfiguration {provider,..} if provider == "nari")
+    );
+}

@@ -1,5 +1,7 @@
 import type Stripe from "stripe";
 
+import { isAutumnManagedCustomer } from "./customer-metadata";
+
 export function buildTrialEndingEmail({
   subscription,
   customer,
@@ -9,7 +11,11 @@ export function buildTrialEndingEmail({
   customer: Stripe.Customer;
   now: number;
 }): { email: string; dataVariables: Record<string, string | number> } | null {
-  if (!customer.email || !subscription.trial_end) {
+  if (
+    !customer.email ||
+    !subscription.trial_end ||
+    isAutumnManagedCustomer(customer.metadata)
+  ) {
     return null;
   }
 

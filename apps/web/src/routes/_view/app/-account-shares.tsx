@@ -1,8 +1,12 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useDeferredValue, useState } from "react";
 
-import { DotsThree } from "@anlg/ui/components/icons";
+import { DotsThree, MagnifyingGlass } from "@anlg/ui/components/icons";
 import {
   AppFloatingPanel,
   appFloatingMenuPanelClassName,
@@ -39,19 +43,32 @@ const sharesQueryKey = ["account-managed-shares"];
 export function SharedNotesSection() {
   const queryClient = useQueryClient();
   const [confirmingAll, setConfirmingAll] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery.trim());
 
-  const sharesQuery = useQuery({
-    queryKey: sharesQueryKey,
+  const sharesQuery = useInfiniteQuery({
+    queryKey: [...sharesQueryKey, deferredSearchQuery],
+    initialPageParam: null as {
+      publishedAt: string;
+      shareId: string;
+    } | null,
     // Skip the SSR fetch: this data is session-scoped and better fetched
     // client-side like the rest of the account queries.
     enabled: typeof window !== "undefined",
-    queryFn: async () => {
-      const result = await listMyManagedShares();
+    queryFn: async ({ pageParam }) => {
+      const result = await listMyManagedShares({
+        data: {
+          query: deferredSearchQuery || undefined,
+          afterPublishedAt: pageParam?.publishedAt,
+          afterShareId: pageParam?.shareId,
+        },
+      });
       if (result.status !== "ready") {
         throw new Error("Failed to load shared notes");
       }
-      return result.shares;
+      return result;
     },
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
   });
 
   const restrict = useMutation({
@@ -79,8 +96,8 @@ export function SharedNotesSection() {
   });
 
   const stopSharingAll = useMutation({
-    mutationFn: async (shareIds: string[]) => {
-      const result = await deleteMyShares({ data: { shareIds } });
+    mutationFn: async () => {
+      const result = await deleteMyShares();
       if (!result.success) {
         throw new Error(result.message);
       }
@@ -93,14 +110,14 @@ export function SharedNotesSection() {
     },
   });
 
-  const shares = sharesQuery.data ?? [];
+  const shares = sharesQuery.data?.pages.flatMap((page) => page.shares) ?? [];
   const actionsDisabled =
     restrict.isPending || stopSharing.isPending || stopSharingAll.isPending;
 
   return (
     <>
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-brand-dark font-hand text-3xl leading-none font-semibold">
           Shared notes
         </h2>
         {!sharesQuery.isPending &&
@@ -110,7 +127,7 @@ export function SharedNotesSection() {
               type="button"
               onClick={() => {
                 if (confirmingAll) {
-                  stopSharingAll.mutate(shares.map((share) => share.shareId));
+                  stopSharingAll.mutate();
                 } else {
                   setConfirmingAll(true);
                 }
@@ -126,58 +143,124 @@ export function SharedNotesSection() {
             </button>
           )}
       </div>
-      <div className={cn([accountCardClassName, "mt-6"])}>
+      {!sharesQuery.isError && (
+        <div
+          role="search"
+          className="surface border-color-subtle text-color-muted focus-within:border-color-bright mt-6 flex h-11 items-center gap-3 rounded-full border px-4"
+        >
+          <MagnifyingGlass size={18} aria-hidden="true" />
+          <input
+            type="search"
+            aria-label="Search shared note titles"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search note titles"
+            className="text-color placeholder:text-color-muted min-w-0 flex-1 bg-transparent text-sm outline-none"
+          />
+        </div>
+      )}
+      <div className="mt-6">
         {sharesQuery.isPending ? (
-          <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
-            Checking your shared notes...
-          </p>
+          <div className={accountCardClassName}>
+            <p className="text-color-muted p-6 text-sm leading-6 sm:p-8">
+              Checking your shared notes...
+            </p>
+          </div>
         ) : sharesQuery.isError ? (
-          <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
-            Couldn't load your shared notes. Refresh to try again.
-          </p>
+          <div className={accountCardClassName}>
+            <p className="text-color-muted p-6 text-sm leading-6 sm:p-8">
+              Couldn't load your shared notes. Refresh to try again.
+            </p>
+          </div>
+        ) : shares.length === 0 && !deferredSearchQuery ? (
+          <div className={accountCardClassName}>
+            <p className="text-color-muted p-6 text-sm leading-6 sm:p-8">
+              You haven't shared any notes yet. Notes you share from the desktop
+              app show up here.
+            </p>
+          </div>
         ) : shares.length === 0 ? (
-          <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
-            You haven't shared any notes yet. Notes you share from the desktop
-            app show up here.
-          </p>
+          <div className={accountCardClassName}>
+            <p className="text-color-muted p-6 text-sm leading-6 sm:p-8">
+              No shared notes match “{searchQuery.trim()}”.
+            </p>
+          </div>
         ) : (
-          <ul className="divide-y divide-[#ede7dc]">
-            {shares.map((share) => (
-              <li
-                key={share.shareId}
-                className="flex items-center justify-between gap-3 p-6 sm:px-8"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-base font-medium text-[#181613]">
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {shares.map((share) => {
+              const cardContent = (
+                <>
+                  <div className="surface-subtle border-color-subtle text-color-muted h-36 overflow-hidden rounded-xl border p-4 pr-11 text-xs leading-5">
+                    <p className="line-clamp-5">
+                      {share.hasSnapshot
+                        ? share.preview || "No text preview available yet."
+                        : "Preview isn't available yet. You can still manage sharing from the menu."}
+                    </p>
+                  </div>
+                  <p className="text-color mt-4 truncate text-base font-medium">
                     {share.title || "Untitled note"}
                   </p>
-                  <p className="mt-1 text-sm leading-6 text-[#756b5d]">
+                  <p className="text-color-muted mt-1 text-xs leading-5">
                     {SCOPE_LABELS[share.scope]} · updated{" "}
                     {new Date(share.updatedAt).toLocaleDateString("en-US", {
                       month: "long",
                       day: "numeric",
                     })}
                   </p>
-                </div>
-                <ShareRowMenu
-                  shareId={share.shareId}
-                  title={share.title || "Untitled note"}
-                  canRestrict={share.scope !== "restricted"}
-                  disabled={actionsDisabled}
-                  restricting={
-                    restrict.isPending && restrict.variables === share.shareId
-                  }
-                  stopping={
-                    stopSharing.isPending &&
-                    stopSharing.variables === share.shareId
-                  }
-                  onOpenChange={() => setConfirmingAll(false)}
-                  onRestrict={() => restrict.mutate(share.shareId)}
-                  onStopSharing={() => stopSharing.mutate(share.shareId)}
-                />
-              </li>
-            ))}
+                </>
+              );
+
+              return (
+                <li
+                  key={share.shareId}
+                  className={cn([
+                    "surface border-color-subtle relative min-w-0 overflow-hidden rounded-[20px] border transition",
+                    share.hasSnapshot &&
+                      "group hover:border-color-bright hover:shadow-lg",
+                  ])}
+                >
+                  {share.hasSnapshot ? (
+                    <Link
+                      to="/share/$shareId/"
+                      params={{ shareId: share.shareId }}
+                      search={{ scheme: "anarlog" }}
+                      className="block h-full p-4 pb-5"
+                    >
+                      {cardContent}
+                    </Link>
+                  ) : (
+                    <div className="h-full p-4 pb-5">{cardContent}</div>
+                  )}
+                  <ShareCardMenu
+                    shareId={share.shareId}
+                    title={share.title || "Untitled note"}
+                    canRestrict={share.scope !== "restricted"}
+                    disabled={actionsDisabled}
+                    restricting={
+                      restrict.isPending && restrict.variables === share.shareId
+                    }
+                    stopping={
+                      stopSharing.isPending &&
+                      stopSharing.variables === share.shareId
+                    }
+                    onOpenChange={() => setConfirmingAll(false)}
+                    onRestrict={() => restrict.mutate(share.shareId)}
+                    onStopSharing={() => stopSharing.mutate(share.shareId)}
+                  />
+                </li>
+              );
+            })}
           </ul>
+        )}
+        {sharesQuery.hasNextPage && (
+          <button
+            type="button"
+            onClick={() => sharesQuery.fetchNextPage()}
+            disabled={sharesQuery.isFetchingNextPage}
+            className="surface border-color-subtle text-color hover:border-color-bright mx-auto mt-6 flex h-10 items-center justify-center rounded-full border px-5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {sharesQuery.isFetchingNextPage ? "Loading..." : "Load more"}
+          </button>
         )}
         {restrict.isError && (
           <p className="px-6 pb-6 text-sm text-red-600 sm:px-8">
@@ -200,7 +283,7 @@ export function SharedNotesSection() {
   );
 }
 
-function ShareRowMenu({
+function ShareCardMenu({
   shareId,
   title,
   canRestrict,
@@ -234,7 +317,10 @@ function ShareRowMenu({
           type="button"
           disabled={disabled}
           aria-label={`Actions for ${title}`}
-          className={accountMenuTriggerClassName}
+          className={cn([
+            accountMenuTriggerClassName,
+            "surface absolute top-6 right-6 shadow-sm",
+          ])}
         >
           <DotsThree size={16} aria-hidden="true" />
         </button>

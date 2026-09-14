@@ -199,11 +199,8 @@ export function SharedNoteLoading({
   loadingLabel?: string;
 } = {}) {
   return (
-    <SharedNoteShell headerLabel={headerLabel}>
-      <div
-        className="surface border-color-subtle rounded-3xl border px-6 py-8 sm:px-10"
-        aria-label={loadingLabel}
-      >
+    <SharedNotePromptShell label={headerLabel}>
+      <div className="p-6 sm:p-8" aria-label={loadingLabel}>
         <CircleNotch
           className="text-color-muted mb-6 size-5 animate-spin"
           aria-hidden="true"
@@ -212,7 +209,7 @@ export function SharedNoteLoading({
         <div className="surface-subtle mt-6 h-4 w-full animate-pulse rounded" />
         <div className="surface-subtle mt-3 h-4 w-4/5 animate-pulse rounded" />
       </div>
-    </SharedNoteShell>
+    </SharedNotePromptShell>
   );
 }
 
@@ -260,24 +257,45 @@ export function SharedNotePrompt({
   title: string;
 }) {
   return (
-    <SharedNoteShell headerLabel={headerLabel}>
-      <section className="surface border-color-subtle rounded-3xl border px-6 py-12 text-center sm:px-10">
+    <SharedNotePromptShell label={headerLabel}>
+      <section className="px-6 py-8 text-center sm:p-10">
         {icon && (
-          <div className="text-color-muted mx-auto mb-4 flex justify-center">
+          <div className="surface-subtle text-fg-muted mx-auto mb-6 flex size-12 items-center justify-center rounded-2xl">
             {icon}
           </div>
         )}
-        <h1 className="text-color text-2xl font-medium">{title}</h1>
-        <p className="text-color-muted mx-auto mt-3 max-w-lg text-base leading-7">
+        <h1 className="text-color text-2xl leading-tight font-semibold text-balance wrap-anywhere">
+          {title}
+        </h1>
+        <p className="text-fg-muted mt-3 text-sm leading-6 text-pretty">
           {description}
         </p>
         {actions && (
-          <div className="mt-7 flex flex-wrap justify-center gap-3">
+          <div className="mt-7 flex flex-col gap-3 [&>a]:min-h-12 [&>button]:min-h-12">
             {actions}
           </div>
         )}
       </section>
-    </SharedNoteShell>
+    </SharedNotePromptShell>
+  );
+}
+
+function SharedNotePromptShell({
+  children,
+  label,
+}: {
+  children: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <main
+      aria-label={label}
+      className="text-color flex min-h-svh items-center justify-center bg-white px-5 py-10 sm:px-8"
+    >
+      <div className="surface border-color-subtle w-full max-w-[440px] overflow-hidden rounded-3xl border shadow-xl shadow-stone-900/5">
+        {children}
+      </div>
+    </main>
   );
 }
 

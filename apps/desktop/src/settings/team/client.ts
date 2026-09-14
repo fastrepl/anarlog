@@ -10,6 +10,8 @@ export type WorkspaceRole = "owner" | "admin" | "member";
 export type WorkspaceMember = {
   userId: string;
   email: string;
+  name: string | null;
+  avatarUrl: string | null;
   role: WorkspaceRole;
 };
 
@@ -153,7 +155,7 @@ export async function listWorkspaceMembers(
 ): Promise<WorkspaceMember[]> {
   assertWorkspaceId(workspaceId);
   return rows(
-    await callRpc(context, "list_workspace_memberships", {
+    await callRpc(context, "list_workspace_members_with_profiles", {
       p_workspace_id: workspaceId,
     }),
   )
@@ -161,6 +163,9 @@ export async function listWorkspaceMembers(
     .map((row) => ({
       userId: text(row.user_id),
       email: text(row.user_email),
+      name: typeof row.user_name === "string" ? row.user_name : null,
+      avatarUrl:
+        typeof row.user_avatar_url === "string" ? row.user_avatar_url : null,
       role: role(row.role),
     }));
 }
@@ -437,6 +442,37 @@ export async function transferOwnership(
   await callRpc(context, "transfer_workspace_ownership", {
     p_workspace_id: workspaceId,
     p_user_id: userId,
+  });
+}
+
+export async function listOwnershipRequests(
+  context: TeamContext,
+  workspaceId: string,
+) {
+  assertWorkspaceId(workspaceId);
+  return rows(
+    await callRpc(context, "list_workspace_ownership_requests", {
+      p_workspace_id: workspaceId,
+    }),
+  ).map((row) => ({
+    id: text(row.id),
+    ownerUserId: text(row.owner_user_id),
+    targetUserId: text(row.target_user_id),
+  }));
+}
+
+export async function respondOwnershipRequest(
+  context: TeamContext,
+  workspaceId: string,
+  requestId: string,
+  action: "accept" | "decline" | "cancel",
+) {
+  assertWorkspaceId(workspaceId);
+  assertWorkspaceId(requestId);
+  await callRpc(context, "respond_workspace_ownership_request", {
+    p_workspace_id: workspaceId,
+    p_request_id: requestId,
+    p_action: action,
   });
 }
 

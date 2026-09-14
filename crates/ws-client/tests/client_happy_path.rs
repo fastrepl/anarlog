@@ -155,3 +155,72 @@ async fn test_input_eof_closes_connection_without_finalize() {
         "connection should close after input EOF without explicit finalize"
     );
 }
+
+#[tokio::test]
+async fn session_acknowledgement_precedes_audio() {
+    let addr = spawn_ws_server(|mut socket| async move {
+        let configure = socket.next().await.unwrap().unwrap();
+        assert_eq!(
+            configure,
+            Message::Text(r#"{"type":"session.configure"}"#.into())
+        );
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(50), socket.next())
+                .await
+                .is_err()
+        );
+        socket
+            .send(Message::Text(r#"{"type":"session.configured"}"#.into()))
+            .await
+            .unwrap();
+        let audio = socket.next().await.unwrap().unwrap();
+        socket.send(audio).await.unwrap();
+    })
+    .await;
+    let client = test_client(addr).with_initial_response_type("session.configured");
+    let (output, _handle) = client
+        .from_audio::<TestIO, _>(
+            Some(Message::Text(r#"{"type":"session.configure"}"#.into())),
+            message_stream("audio"),
+        )
+        .await
+        .unwrap();
+    let received = collect_messages::<TestIO>(output, 1).await;
+    assert_eq!(received[0].text, "audio");
+}
+
+#[tokio::test]
+async fn rejected_session_never_sends_audio() {
+    let (result_tx, result_rx) = oneshot::channel();
+    let addr = spawn_ws_server(|mut socket| async move {
+        socket.next().await.unwrap().unwrap();
+        socket
+            .send(Message::Text(
+                r#"{"type":"error","error":{"code":"INVALID_MODEL","message":"secret payload"}}"#
+                    .into(),
+            ))
+            .await
+            .unwrap();
+        let next = socket.next().await;
+        let no_audio = !matches!(next, Some(Ok(Message::Text(_) | Message::Binary(_))));
+        result_tx.send(no_audio).unwrap();
+    })
+    .await;
+    let client = test_client(addr).with_initial_response_type("session.configured");
+    let error = client
+        .from_audio::<TestIO, _>(
+            Some(Message::Text("configure".into())),
+            message_stream("audio"),
+        )
+        .await
+        .err()
+        .unwrap();
+    assert!(error.to_string().contains("INVALID_MODEL"));
+    assert!(!error.to_string().contains("secret payload"));
+    assert!(
+        tokio::time::timeout(TEST_TIMEOUT, result_rx)
+            .await
+            .unwrap()
+            .unwrap()
+    );
+}

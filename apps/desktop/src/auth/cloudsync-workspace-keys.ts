@@ -94,17 +94,14 @@ export async function provisionMissingWorkspaceKeys(
     }
     if (
       activeGrant &&
-      recipientsValue.every(
-        (recipient) =>
-          recipient &&
-          typeof recipient === "object" &&
-          Array.isArray(recipient.grantedKeyIds) &&
-          recipient.grantedKeyIds.includes(activeGrant.keyId),
+      recipients.every((recipient) =>
+        recipient.grantedKeyIds.includes(activeGrant.keyId),
       )
     ) {
       continue;
     }
-    if (waitingForIdentity) {
+    if (waitingForIdentity && activeGrant === undefined) {
+      // Re-wrap an existing key for ready teammates, but wait before minting a new key.
       waiting = true;
       continue;
     }

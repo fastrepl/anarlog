@@ -22,6 +22,11 @@ impl ChannelState {
         }
     }
 
+    pub(super) fn clear_partials(&mut self, start_ms: i64, end_ms: i64) {
+        self.partials
+            .retain(|word| word.end_ms <= start_ms || word.start_ms >= end_ms);
+    }
+
     /// Process a confirmed final batch.
     ///
     /// When partial finalization is enabled, partials that end before this
@@ -32,6 +37,7 @@ impl ChannelState {
         words: Vec<RawWord>,
         state: WordState,
         finalize_partials: bool,
+        stitch_final_words: bool,
     ) -> Vec<FinalizedWord> {
         let new_words = dedup(words, self.watermark);
         if new_words.is_empty() {
@@ -55,10 +61,15 @@ impl ChannelState {
         self.watermark = final_end;
 
         let mut to_finalize: Vec<RawWord> = pre_final;
-        let (mut emitted, held) = stitch(self.held.take(), new_words);
-        self.held = held;
-        self.release_oversized_held(&mut emitted);
-        to_finalize.extend(emitted);
+        if stitch_final_words {
+            let (mut emitted, held) = stitch(self.held.take(), new_words);
+            self.held = held;
+            self.release_oversized_held(&mut emitted);
+            to_finalize.extend(emitted);
+        } else {
+            to_finalize.extend(self.held.take());
+            to_finalize.extend(new_words);
+        }
 
         finalize_words(to_finalize, state)
     }

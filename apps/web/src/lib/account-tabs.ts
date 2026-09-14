@@ -29,7 +29,12 @@ export const ACCOUNT_TABS = [
   {
     id: "connections",
     label: "Connections",
-    sectionIds: ["integrations", "devices", "shares"],
+    sectionIds: ["integrations", "devices"],
+  },
+  {
+    id: "notes",
+    label: "Shared notes",
+    sectionIds: ["shares"],
   },
   {
     id: "developer",
@@ -51,7 +56,7 @@ const SECTION_TAB: Record<AccountSectionId, AccountTabId> = {
   danger: "account",
   integrations: "connections",
   devices: "connections",
-  shares: "connections",
+  shares: "notes",
   "api-keys": "developer",
 };
 

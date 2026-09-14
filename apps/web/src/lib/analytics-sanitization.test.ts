@@ -143,11 +143,13 @@ test("preserves page attribution through PostHog URL normalization", () => {
     sanitizePostHogEvent(
       { event: "$pageview", properties, uuid: "test-event" },
       origin,
+      "phc_test_project",
     ),
     {
       event: "$pageview",
       uuid: "test-event",
       properties: {
+        token: "phc_test_project",
         $pathname: pathname,
         $current_url: `${origin}${pathname}`,
         $initial_current_url: `${origin}/pricing`,
@@ -158,7 +160,7 @@ test("preserves page attribution through PostHog URL normalization", () => {
   );
   assert.equal(properties.$referrer, "$direct");
   assert.equal(properties.$pathname, `${pathname}?token=secret`);
-  assert.equal(sanitizePostHogEvent(null, origin), null);
+  assert.equal(sanitizePostHogEvent(null, origin, "phc_test_project"), null);
 });
 
 test("redacts sensitive path segments before retaining URL properties", () => {
@@ -177,15 +179,36 @@ test("redacts sensitive path segments before retaining URL properties", () => {
         },
       },
       origin,
+      "phc_test_project",
     ),
     {
       event: "$pageview",
       uuid: "test-event",
       properties: {
+        token: "phc_test_project",
         $pathname: "/people/:id/:id",
         $current_url: `${origin}/people/:id/:id`,
         $referrer: "https://example.com/pricing",
       },
     },
+  );
+});
+
+test("restores only the configured project token at the SDK boundary", () => {
+  const properties = {
+    token: "private-access-token",
+    email: "patient@example.com",
+    nested: { token: "private-nested-token", provider: "openai" },
+  };
+  assert.deepEqual(sanitizeAnalyticsProperties(properties), {
+    nested: { provider: "openai" },
+  });
+  assert.deepEqual(
+    sanitizePostHogEvent(
+      { event: "$pageview", uuid: "test-event", properties },
+      "https://anarlog.so",
+      "phc_public_project_key",
+    )?.properties,
+    { nested: { provider: "openai" }, token: "phc_public_project_key" },
   );
 });

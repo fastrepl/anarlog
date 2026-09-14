@@ -571,4 +571,63 @@ mod test {
             serde_json::json!([])
         );
     }
+
+    #[tokio::test]
+    async fn cloud_snapshot_accounts_for_jsonb_spacing_at_the_size_limit() {
+        let pool = seeded_pool().await;
+        let mut export = anlg_agent_access::get_meeting_export(&pool, "meeting-1".to_string())
+            .await
+            .unwrap();
+        export.transcripts[0].words = vec![serde_json::json!({ "text": "word" }); 110_000];
+        let compact_len = serde_json::to_vec(&export).unwrap().len();
+        assert!(compact_len < 2 * 1024 * 1024);
+        let padding = 2 * 1024 * 1024 - compact_len - 1;
+        export.transcripts[0].words[0]["text"] =
+            serde_json::json!("word".to_string() + &"x".repeat(padding));
+        assert_eq!(
+            serde_json::to_vec(&export).unwrap().len(),
+            2 * 1024 * 1024 - 1
+        );
+
+        let snapshot = commands::prepare_cloud_snapshot(export).unwrap();
+
+        assert_eq!(snapshot["transcripts"][0]["text"], "hello world");
+        assert!(
+            snapshot["transcripts"][0]["words"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn cloud_snapshot_size_matches_jsonb_separators_and_expanded_numbers() {
+        for (value, expected) in [
+            (serde_json::json!({"a": [1, true, "한글"]}), 26),
+            (serde_json::json!({"empty": [], "object": {}}), 27),
+            (serde_json::json!(1e20), 21),
+            (serde_json::json!(1.23e-20), 24),
+            (serde_json::json!(-1.23e20), 22),
+            (serde_json::json!(1.0), 3),
+            (serde_json::json!(1e-308), 310),
+            (serde_json::json!(1e308), 309),
+        ] {
+            assert_eq!(
+                commands::cloud_snapshot_jsonb_len(&value).unwrap(),
+                expected,
+                "{value}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn cloud_snapshot_within_the_jsonb_limit_preserves_word_metadata() {
+        let pool = seeded_pool().await;
+        let export = anlg_agent_access::get_meeting_export(&pool, "meeting-1".to_string())
+            .await
+            .unwrap();
+        let expected = serde_json::to_value(&export).unwrap();
+
+        assert_eq!(commands::prepare_cloud_snapshot(export).unwrap(), expected);
+    }
 }

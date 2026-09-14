@@ -11,6 +11,10 @@ import {
   renderSharedNoteOgImage,
 } from "./og-image.ts";
 
+const graphemeSegmenter = new Intl.Segmenter(undefined, {
+  granularity: "grapheme",
+});
+
 test("renders blog metadata into a post-specific image", async () => {
   const svg = createBlogOgSvg({
     title: "How to take better meeting notes",
@@ -25,7 +29,7 @@ test("renders blog metadata into a post-specific image", async () => {
   assert.doesNotMatch(svg, />Blog<\/text>/);
   assert.doesNotMatch(svg, />anarlog blog<\/text>/);
   assert.doesNotMatch(svg, /anarlog\.so/);
-  assert.match(svg, /font-family="'Redaction', Georgia, serif"/);
+  assert.match(svg, /font-family="'Redaction', 'Noto Serif', serif"/);
   assert.match(svg, /data-wordmark="anarlog"/);
   assert.match(svg, /<rect width="1200" height="630" fill="#ffffff"\/>/);
   assert.doesNotMatch(svg, /<rect x=/);
@@ -72,11 +76,8 @@ test("normalizes shared note metadata", () => {
   assert.match(svg, /data-wordmark="anarlog"/);
   assert.match(svg, /<rect width="1200" height="630" fill="#ffe09d"\/>/);
   assert.doesNotMatch(svg, /#f4f0e8/);
-  assert.match(svg, /font-family="'Redaction', Georgia, serif"/);
-  assert.match(
-    svg,
-    /font-family="'SF Pro Text', Arial, Helvetica, sans-serif"/,
-  );
+  assert.match(svg, /font-family="'Redaction', 'Noto Serif', serif"/);
+  assert.match(svg, /font-family="'SF Pro Text', 'Noto Sans', sans-serif"/);
   assert.doesNotMatch(svg, /Redaction 70/);
   assert.doesNotMatch(svg, /anarlog\.so/);
   assert.doesNotMatch(svg, /PARTICIPANTS|WHEN|SHARED NOTE|Read on anarlog\.so/);
@@ -160,6 +161,103 @@ test("ellipsizes overflow on the last wrapped summary line", () => {
   assert.doesNotMatch(svg, /still have room for follow-ups/);
 });
 
+test("wraps long space-free titles by grapheme", () => {
+  for (const title of [
+    "長い会議タイトル".repeat(20),
+    "การประชุมที่ยาวมาก".repeat(10),
+  ]) {
+    for (const [svg, maxChars] of [
+      [createBlogOgSvg({ title }), 25],
+      [createSharedNoteOgSvg({ title }), 31],
+    ] as const) {
+      const titleLines = [
+        ...svg.matchAll(/fill="#181613"[^>]*>([^<]+)<\/text>/g),
+      ].map(([, line]) => line);
+      assert.ok(titleLines.length > 1);
+      assert.ok(titleLines.length <= 3);
+      assert.ok(
+        titleLines.every(
+          (line) => [...graphemeSegmenter.segment(line)].length <= maxChars,
+        ),
+      );
+      assert.match(titleLines.at(-1) ?? "", /\.\.\.$/);
+    }
+  }
+});
+
+test("keeps full-width title glyphs inside the right inset", () => {
+  const title = "会議の重要な決定事項と次のアクション".repeat(8);
+  const cases = [
+    {
+      svg: createBlogOgSvg({ title }),
+      fontSize: 76,
+      left: 86,
+      right: 1114,
+    },
+    {
+      svg: createSharedNoteOgSvg({ title }),
+      fontSize: 64,
+      left: 72,
+      right: 1128,
+    },
+  ];
+
+  for (const { svg, fontSize, left, right } of cases) {
+    const titleLines = [
+      ...svg.matchAll(/fill="#181613"[^>]*>([^<]+)<\/text>/g),
+    ].map(([, line]) => line);
+    assert.ok(titleLines.length > 1);
+    assert.ok(
+      titleLines.every((line) => {
+        const width = [...graphemeSegmenter.segment(line)].reduce(
+          (total, { segment }) =>
+            total + fontSize * (segment === "." ? 0.3 : 1),
+          0,
+        );
+        return left + width <= right;
+      }),
+    );
+  }
+});
+
+test("keeps long numeric text inside image insets", () => {
+  const value = "1".repeat(180);
+  const cases = [
+    {
+      lines: [
+        ...createBlogOgSvg({ title: value, description: value }).matchAll(
+          /font-size="(76|32)"[^>]*>([^<]+)<\/text>/g,
+        ),
+      ],
+      left: 86,
+      right: 1114,
+    },
+    {
+      lines: [
+        ...createSharedNoteOgSvg({ title: value, summary: value }).matchAll(
+          /font-size="(64|31)"[^>]*>([^<]+)<\/text>/g,
+        ),
+      ],
+      left: 72,
+      right: 1128,
+    },
+  ];
+
+  for (const { lines, left, right } of cases) {
+    assert.ok(lines.length > 2);
+    assert.ok(
+      lines.every(([, fontSize, line]) => {
+        const width = [...graphemeSegmenter.segment(line)].reduce(
+          (total, { segment }) =>
+            total + Number(fontSize) * (segment === "." ? 0.3 : 0.56),
+          0,
+        );
+        return left + width <= right;
+      }),
+    );
+  }
+});
+
 test("caps participant avatars in crowded shared-note previews", () => {
   const svg = createSharedNoteOgSvg({
     title: "Large meeting",
@@ -188,3 +286,29 @@ async function countDarkPixels(
   }
   return dark;
 }
+
+test("renders Korean titles with the bundled serif fallback font", async () => {
+  for (const [createSvg, renderImage] of [
+    [createBlogOgSvg, renderBlogOgImage],
+    [createSharedNoteOgSvg, renderSharedNoteOgImage],
+  ] as const) {
+    const input = { title: "덕행지헌" };
+    const response = await renderImage(input);
+    const actualPixels = await sharp(Buffer.from(await response.arrayBuffer()))
+      .raw()
+      .toBuffer();
+    const svg = createSvg(input);
+    const reference = svg.replaceAll(
+      "'Redaction', 'Noto Serif KR', 'Noto Serif', serif",
+      "'Noto Serif KR'",
+    );
+    const expectedPixels = await sharp(Buffer.from(reference)).raw().toBuffer();
+    assert.deepEqual(actualPixels, expectedPixels);
+    const sansPixels = await sharp(
+      Buffer.from(reference.replaceAll("Noto Serif KR", "Noto Sans KR")),
+    )
+      .raw()
+      .toBuffer();
+    assert.notDeepEqual(actualPixels, sansPixels);
+  }
+});

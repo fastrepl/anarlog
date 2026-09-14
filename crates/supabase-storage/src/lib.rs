@@ -476,7 +476,11 @@ impl SupabaseStorage {
             let code = serde_json::from_slice::<StorageErrorResponse>(&body)
                 .ok()
                 .and_then(|error| error.code);
-            if status == reqwest::StatusCode::NOT_FOUND && code.as_deref() == Some("NoSuchKey") {
+            if matches!(
+                status,
+                reqwest::StatusCode::BAD_REQUEST | reqwest::StatusCode::NOT_FOUND
+            ) && code.as_deref() == Some("NoSuchKey")
+            {
                 return Ok(());
             }
             return Err(Error::Api(format!("failed to delete file: {status}")));

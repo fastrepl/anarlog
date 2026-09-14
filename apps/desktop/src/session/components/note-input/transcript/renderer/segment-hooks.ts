@@ -45,6 +45,9 @@ function segmentsEqual(a: Segment, b: Segment) {
     a.start_ms !== b.start_ms ||
     a.end_ms !== b.end_ms ||
     a.text !== b.text ||
+    a.speaker_label !== b.speaker_label ||
+    JSON.stringify(a.provisional_speaker) !==
+      JSON.stringify(b.provisional_speaker) ||
     a.key.channel !== b.key.channel ||
     a.key.speaker_index !== b.key.speaker_index ||
     a.key.speaker_human_id !== b.key.speaker_human_id ||

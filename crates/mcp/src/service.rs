@@ -5,12 +5,14 @@ use rmcp::{
     },
 };
 
-const ALLOWED_HTTP_HOSTS: [&str; 5] = [
+const ALLOWED_HTTP_HOSTS: [&str; 7] = [
     "localhost",
     "127.0.0.1",
     "::1",
     "api.anarlog.so",
     "anarlog-ai.fly.dev",
+    "anarlog-gateway.fly.dev",
+    "anarlog-sync.fly.dev",
 ];
 
 pub fn create_service<S, F>(factory: F) -> StreamableHttpService<S, LocalSessionManager>

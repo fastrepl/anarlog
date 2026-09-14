@@ -45,6 +45,11 @@ msgstr ""
 msgid "{0} min"
 msgstr ""
 
+#. placeholder {0}: transferTarget?.email
+#: src/settings/team/index.tsx
+msgid "{0} must accept before becoming owner. Until then, ownership and permissions stay the same. After acceptance, you become an admin and they control the workspace, including deletion."
+msgstr ""
+
 #. placeholder {0}: issue.user?.login
 #: src/task/resource-view.tsx
 msgid "{0} opened on"
@@ -215,6 +220,14 @@ msgstr ""
 msgid "Accept"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Accept ownership"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Accept workspace ownership?"
+msgstr ""
+
 #: src/shared-notes/index.tsx
 msgid "Access no longer available"
 msgstr ""
@@ -247,6 +260,16 @@ msgstr ""
 #: src/settings/automations/index.tsx
 #: src/settings/automations/workflow-builder.tsx
 msgid "Action"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Actions"
+msgstr ""
+
+#. placeholder {0}: invitation.email
+#. placeholder {0}: member.email
+#: src/settings/team/index.tsx
+msgid "Actions for {0}"
 msgstr ""
 
 #: src/settings/stats/index.tsx
@@ -906,6 +929,10 @@ msgstr ""
 msgid "Cancel invitation"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Cancel transfer"
+msgstr ""
+
 #: src/settings/stats/badge-collection.tsx
 msgid "Capture 10 conversations. More moments you can return to."
 msgstr ""
@@ -954,6 +981,10 @@ msgstr ""
 
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 msgid "Change speaker"
+msgstr ""
+
+#: src/session/components/note-input/transcript/renderer/selection-menu.tsx
+msgid "Change speaker from here"
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -1075,6 +1106,7 @@ msgid "Choose custom color"
 msgstr ""
 
 #: src/settings/automations/starter-config.tsx
+#: src/settings/general/storage/export-location.tsx
 msgid "Choose export folder"
 msgstr ""
 
@@ -1091,6 +1123,7 @@ msgid "Choose files exported from this app."
 msgstr ""
 
 #: src/settings/automations/starter-config.tsx
+#: src/settings/general/storage/export-location.tsx
 msgid "Choose folder"
 msgstr ""
 
@@ -1588,6 +1621,10 @@ msgstr ""
 msgid "Could not email the meeting notes."
 msgstr ""
 
+#: src/session/components/outer-header/overflow/export-modal.tsx
+msgid "Could not export. Check the export location in Settings and try again."
+msgstr ""
+
 #: src/session/insights/past-notes.ts
 msgid "Could not generate meeting insights. Try again."
 msgstr ""
@@ -1598,6 +1635,10 @@ msgstr ""
 
 #: src/session-sharing/delivery-panel.tsx
 msgid "Could not load Slack channels. Reconnect Slack and try again."
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Could not load workspace members."
 msgstr ""
 
 #: src/settings/sync/index.tsx
@@ -1679,6 +1720,7 @@ msgid "Could not update the automation"
 msgstr ""
 
 #: src/settings/automations/starter-config.tsx
+#: src/settings/general/storage/export-location.tsx
 msgid "Could not update the export folder"
 msgstr ""
 
@@ -2076,6 +2118,7 @@ msgid "Earlier versions of this note, newest first."
 msgstr ""
 
 #: src/main/windows-title-bar.tsx
+#: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 #: src/settings/dictionary/index.tsx
 #: src/sidebar/automations.tsx
 msgid "Edit"
@@ -2091,6 +2134,7 @@ msgstr ""
 
 #: src/contacts/details.tsx
 #: src/session-sharing/delivery-panel.tsx
+#: src/settings/team/index.tsx
 msgid "Email"
 msgstr ""
 
@@ -2246,6 +2290,10 @@ msgstr ""
 
 #: src/settings/automations/starter-config.tsx
 msgid "Export folder"
+msgstr ""
+
+#: src/settings/general/storage/export-location.tsx
+msgid "Export location"
 msgstr ""
 
 #: src/settings/automations/workflow-builder.tsx
@@ -2720,6 +2768,10 @@ msgstr ""
 msgid "Invite teammates, share notes across the workspace, and manage who has access. Your personal notes stay private."
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Invite teammates, share notes across the workspace, and manage who has access. Your personal notes stay private. Pending invitations are free. New members are billed from when they join."
+msgstr ""
+
 #. placeholder {0}: sent.length
 #: src/session-sharing/invitation-management.ts
 msgid "Invited {0}. Could not invite {failed}. Try again."
@@ -3006,10 +3058,6 @@ msgstr ""
 msgid "Main language"
 msgstr "Asụsụ isi"
 
-#: src/settings/team/index.tsx
-msgid "Make owner"
-msgstr ""
-
 #: src/settings/general/account.tsx
 msgid "Manage billing"
 msgstr ""
@@ -3255,6 +3303,7 @@ msgstr ""
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
 #: src/settings/automations/markdown-export-options.tsx
+#: src/settings/team/index.tsx
 msgid "Name"
 msgstr ""
 
@@ -3605,10 +3654,6 @@ msgstr ""
 msgid "Only sync items from this {0}."
 msgstr ""
 
-#: src/settings/team/index.tsx
-msgid "Only workspace admins can see who has access. You are a member of this workspace."
-msgstr ""
-
 #: src/calendar/components/apple/permission.tsx
 #: src/task/resource-view.tsx
 msgid "Open"
@@ -3745,6 +3790,14 @@ msgstr ""
 msgid "Overview"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Owner"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Ownership transfer Pending. Current ownership and permissions remain unchanged until the proposed owner accepts."
+msgstr ""
+
 #: src/shared/control.tsx
 msgid "Page not found"
 msgstr ""
@@ -3794,6 +3847,10 @@ msgstr ""
 msgid "Paused"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Pending"
+msgstr ""
+
 #: src/contacts/organization-details.tsx
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "People"
@@ -3804,7 +3861,7 @@ msgid "People in the meeting"
 msgstr ""
 
 #: src/settings/team/email-auto-join.tsx
-msgid "People with a verified @{domain} email join this team when they sign in, while seats are available."
+msgid "People with a verified @{domain} email join this team when they sign in. Billing starts when they join and is prorated for the remaining billing period."
 msgstr ""
 
 #: src/session-sharing/draft-panel.tsx
@@ -3821,8 +3878,14 @@ msgid "permission panel."
 msgstr ""
 
 #: src/settings/general/index.tsx
+#: src/settings/team/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Permissions"
+msgstr ""
+
+#. placeholder {0}: member.email
+#: src/settings/team/index.tsx
+msgid "Permissions for {0}"
 msgstr ""
 
 #: src/onboarding/index.tsx
@@ -4105,6 +4168,10 @@ msgstr ""
 msgid "Remove example {0}"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Remove member"
+msgstr ""
+
 #: src/contacts/contact-page-header.tsx
 msgid "Remove photo"
 msgstr ""
@@ -4190,6 +4257,14 @@ msgstr ""
 msgid "Request {0} permission"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Request ownership transfer?"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Request transfer"
+msgstr ""
+
 #. placeholder {0}: capabilityLabels[entry.capability].toLowerCase()
 #: src/session-sharing/access-management.tsx
 msgid "Requested {0}"
@@ -4226,6 +4301,10 @@ msgstr ""
 
 #: src/templates/auto-form.tsx
 msgid "Reset to default format"
+msgstr ""
+
+#: src/settings/general/storage/export-location.tsx
+msgid "Reset to Downloads"
 msgstr ""
 
 #: src/session-sharing/management-panel.tsx
@@ -4285,6 +4364,10 @@ msgstr ""
 msgid "Review summary"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Review transfer"
+msgstr ""
+
 #: src/settings/developers/api-key-row.tsx
 msgid "Revoke"
 msgstr ""
@@ -4318,6 +4401,10 @@ msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Save draft"
+msgstr ""
+
+#: src/settings/general/storage/export-location.tsx
+msgid "Save PDF, text, Markdown, and Org exports to this folder."
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -5504,6 +5591,7 @@ msgstr ""
 #: src/session-sharing/management-panel.tsx
 #: src/settings/general/permissions.tsx
 #: src/settings/stats/badge-collection.tsx
+#: src/settings/team/index.tsx
 msgid "Try again"
 msgstr ""
 
@@ -5934,6 +6022,10 @@ msgstr ""
 
 #: src/onboarding/account/after-login.tsx
 msgid "You have an active plan"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "You will become the owner of {workspaceName}, with control over its members, billing, and deletion. The current owner will become an admin."
 msgstr ""
 
 #: src/settings/general/account.tsx

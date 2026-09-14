@@ -127,7 +127,7 @@ export function PostHogProvider({
               window.location.search,
             )
               ? null
-              : sanitizePostHogEvent(event, window.location.origin),
+              : sanitizePostHogEvent(event, window.location.origin, apiKey),
         });
         didInitRef.current = true;
       } else if (routeDisabledRef.current) {

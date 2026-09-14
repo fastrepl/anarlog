@@ -45,6 +45,11 @@ msgstr "{0} is ready to use"
 msgid "{0} min"
 msgstr "{0} min"
 
+#. placeholder {0}: transferTarget?.email
+#: src/settings/team/index.tsx
+msgid "{0} must accept before becoming owner. Until then, ownership and permissions stay the same. After acceptance, you become an admin and they control the workspace, including deletion."
+msgstr "{0} must accept before becoming owner. Until then, ownership and permissions stay the same. After acceptance, you become an admin and they control the workspace, including deletion."
+
 #. placeholder {0}: issue.user?.login
 #: src/task/resource-view.tsx
 msgid "{0} opened on"
@@ -215,6 +220,14 @@ msgstr "a week ago"
 msgid "Accept"
 msgstr "Accept"
 
+#: src/settings/team/index.tsx
+msgid "Accept ownership"
+msgstr "Accept ownership"
+
+#: src/settings/team/index.tsx
+msgid "Accept workspace ownership?"
+msgstr "Accept workspace ownership?"
+
 #: src/shared-notes/index.tsx
 msgid "Access no longer available"
 msgstr "Access no longer available"
@@ -248,6 +261,16 @@ msgstr "Acme"
 #: src/settings/automations/workflow-builder.tsx
 msgid "Action"
 msgstr "Action"
+
+#: src/settings/team/index.tsx
+msgid "Actions"
+msgstr "Actions"
+
+#. placeholder {0}: invitation.email
+#. placeholder {0}: member.email
+#: src/settings/team/index.tsx
+msgid "Actions for {0}"
+msgstr "Actions for {0}"
 
 #: src/settings/stats/index.tsx
 msgid "Active days"
@@ -906,6 +929,10 @@ msgstr "Cancel date edit"
 msgid "Cancel invitation"
 msgstr "Cancel invitation"
 
+#: src/settings/team/index.tsx
+msgid "Cancel transfer"
+msgstr "Cancel transfer"
+
 #: src/settings/stats/badge-collection.tsx
 msgid "Capture 10 conversations. More moments you can return to."
 msgstr "Capture 10 conversations. More moments you can return to."
@@ -955,6 +982,10 @@ msgstr "Change photo"
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 msgid "Change speaker"
 msgstr "Change speaker"
+
+#: src/session/components/note-input/transcript/renderer/selection-menu.tsx
+msgid "Change speaker from here"
+msgstr "Change speaker from here"
 
 #: src/settings/team/index.tsx
 msgid "Change workspace logo"
@@ -1075,6 +1106,7 @@ msgid "Choose custom color"
 msgstr "Choose custom color"
 
 #: src/settings/automations/starter-config.tsx
+#: src/settings/general/storage/export-location.tsx
 msgid "Choose export folder"
 msgstr "Choose export folder"
 
@@ -1091,6 +1123,7 @@ msgid "Choose files exported from this app."
 msgstr "Choose files exported from this app."
 
 #: src/settings/automations/starter-config.tsx
+#: src/settings/general/storage/export-location.tsx
 msgid "Choose folder"
 msgstr "Choose folder"
 
@@ -1588,6 +1621,10 @@ msgstr "Could not delete this note. Please try again."
 msgid "Could not email the meeting notes."
 msgstr "Could not email the meeting notes."
 
+#: src/session/components/outer-header/overflow/export-modal.tsx
+msgid "Could not export. Check the export location in Settings and try again."
+msgstr "Could not export. Check the export location in Settings and try again."
+
 #: src/session/insights/past-notes.ts
 msgid "Could not generate meeting insights. Try again."
 msgstr "Could not generate meeting insights. Try again."
@@ -1599,6 +1636,10 @@ msgstr "Could not identify this device. Try again."
 #: src/session-sharing/delivery-panel.tsx
 msgid "Could not load Slack channels. Reconnect Slack and try again."
 msgstr "Could not load Slack channels. Reconnect Slack and try again."
+
+#: src/settings/team/index.tsx
+msgid "Could not load workspace members."
+msgstr "Could not load workspace members."
 
 #: src/settings/sync/index.tsx
 msgid "Could not load your devices."
@@ -1679,6 +1720,7 @@ msgid "Could not update the automation"
 msgstr "Could not update the automation"
 
 #: src/settings/automations/starter-config.tsx
+#: src/settings/general/storage/export-location.tsx
 msgid "Could not update the export folder"
 msgstr "Could not update the export folder"
 
@@ -2076,6 +2118,7 @@ msgid "Earlier versions of this note, newest first."
 msgstr "Earlier versions of this note, newest first."
 
 #: src/main/windows-title-bar.tsx
+#: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 #: src/settings/dictionary/index.tsx
 #: src/sidebar/automations.tsx
 msgid "Edit"
@@ -2091,6 +2134,7 @@ msgstr "Eligible for free trial"
 
 #: src/contacts/details.tsx
 #: src/session-sharing/delivery-panel.tsx
+#: src/settings/team/index.tsx
 msgid "Email"
 msgstr "Email"
 
@@ -2247,6 +2291,10 @@ msgstr "Export every meeting as Markdown"
 #: src/settings/automations/starter-config.tsx
 msgid "Export folder"
 msgstr "Export folder"
+
+#: src/settings/general/storage/export-location.tsx
+msgid "Export location"
+msgstr "Export location"
 
 #: src/settings/automations/workflow-builder.tsx
 msgid "Export the meeting as Markdown"
@@ -2720,6 +2768,10 @@ msgstr "Invite people to this note."
 msgid "Invite teammates, share notes across the workspace, and manage who has access. Your personal notes stay private."
 msgstr "Invite teammates, share notes across the workspace, and manage who has access. Your personal notes stay private."
 
+#: src/settings/team/index.tsx
+msgid "Invite teammates, share notes across the workspace, and manage who has access. Your personal notes stay private. Pending invitations are free. New members are billed from when they join."
+msgstr "Invite teammates, share notes across the workspace, and manage who has access. Your personal notes stay private. Pending invitations are free. New members are billed from when they join."
+
 #. placeholder {0}: sent.length
 #: src/session-sharing/invitation-management.ts
 msgid "Invited {0}. Could not invite {failed}. Try again."
@@ -3006,10 +3058,6 @@ msgstr "macOS could not access your recovery key. Repair Keychain access, then r
 msgid "Main language"
 msgstr "Main language"
 
-#: src/settings/team/index.tsx
-msgid "Make owner"
-msgstr "Make owner"
-
 #: src/settings/general/account.tsx
 msgid "Manage billing"
 msgstr "Manage billing"
@@ -3255,6 +3303,7 @@ msgstr "My automations"
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
 #: src/settings/automations/markdown-export-options.tsx
+#: src/settings/team/index.tsx
 msgid "Name"
 msgstr "Name"
 
@@ -3605,10 +3654,6 @@ msgstr "Only public repositories are supported."
 msgid "Only sync items from this {0}."
 msgstr "Only sync items from this {0}."
 
-#: src/settings/team/index.tsx
-msgid "Only workspace admins can see who has access. You are a member of this workspace."
-msgstr "Only workspace admins can see who has access. You are a member of this workspace."
-
 #: src/calendar/components/apple/permission.tsx
 #: src/task/resource-view.tsx
 msgid "Open"
@@ -3745,6 +3790,14 @@ msgstr "Others"
 msgid "Overview"
 msgstr "Overview"
 
+#: src/settings/team/index.tsx
+msgid "Owner"
+msgstr "Owner"
+
+#: src/settings/team/index.tsx
+msgid "Ownership transfer Pending. Current ownership and permissions remain unchanged until the proposed owner accepts."
+msgstr "Ownership transfer Pending. Current ownership and permissions remain unchanged until the proposed owner accepts."
+
 #: src/shared/control.tsx
 msgid "Page not found"
 msgstr "Page not found"
@@ -3794,6 +3847,10 @@ msgstr "Pause alerts while Do Not Disturb is on."
 msgid "Paused"
 msgstr "Paused"
 
+#: src/settings/team/index.tsx
+msgid "Pending"
+msgstr "Pending"
+
 #: src/contacts/organization-details.tsx
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "People"
@@ -3804,8 +3861,8 @@ msgid "People in the meeting"
 msgstr "People in the meeting"
 
 #: src/settings/team/email-auto-join.tsx
-msgid "People with a verified @{domain} email join this team when they sign in, while seats are available."
-msgstr "People with a verified @{domain} email join this team when they sign in, while seats are available."
+msgid "People with a verified @{domain} email join this team when they sign in. Billing starts when they join and is prorated for the remaining billing period."
+msgstr "People with a verified @{domain} email join this team when they sign in. Billing starts when they join and is prorated for the remaining billing period."
 
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
@@ -3821,9 +3878,15 @@ msgid "permission panel."
 msgstr "permission panel."
 
 #: src/settings/general/index.tsx
+#: src/settings/team/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Permissions"
 msgstr "Permissions"
+
+#. placeholder {0}: member.email
+#: src/settings/team/index.tsx
+msgid "Permissions for {0}"
+msgstr "Permissions for {0}"
 
 #: src/onboarding/index.tsx
 msgid "Permissions granted"
@@ -4105,6 +4168,10 @@ msgstr "Remove automation"
 msgid "Remove example {0}"
 msgstr "Remove example {0}"
 
+#: src/settings/team/index.tsx
+msgid "Remove member"
+msgstr "Remove member"
+
 #: src/contacts/contact-page-header.tsx
 msgid "Remove photo"
 msgstr "Remove photo"
@@ -4190,6 +4257,14 @@ msgstr "Request {0}"
 msgid "Request {0} permission"
 msgstr "Request {0} permission"
 
+#: src/settings/team/index.tsx
+msgid "Request ownership transfer?"
+msgstr "Request ownership transfer?"
+
+#: src/settings/team/index.tsx
+msgid "Request transfer"
+msgstr "Request transfer"
+
 #. placeholder {0}: capabilityLabels[entry.capability].toLowerCase()
 #: src/session-sharing/access-management.tsx
 msgid "Requested {0}"
@@ -4227,6 +4302,10 @@ msgstr "Reset"
 #: src/templates/auto-form.tsx
 msgid "Reset to default format"
 msgstr "Reset to default format"
+
+#: src/settings/general/storage/export-location.tsx
+msgid "Reset to Downloads"
+msgstr "Reset to Downloads"
 
 #: src/session-sharing/management-panel.tsx
 msgid "Resolve the web and desktop edits before inviting anyone."
@@ -4285,6 +4364,10 @@ msgstr "Review memo"
 msgid "Review summary"
 msgstr "Review summary"
 
+#: src/settings/team/index.tsx
+msgid "Review transfer"
+msgstr "Review transfer"
+
 #: src/settings/developers/api-key-row.tsx
 msgid "Revoke"
 msgstr "Revoke"
@@ -4319,6 +4402,10 @@ msgstr "Save date"
 #: src/settings/automations/index.tsx
 msgid "Save draft"
 msgstr "Save draft"
+
+#: src/settings/general/storage/export-location.tsx
+msgid "Save PDF, text, Markdown, and Org exports to this folder."
+msgstr "Save PDF, text, Markdown, and Org exports to this folder."
 
 #: src/settings/team/index.tsx
 msgid "Save policies"
@@ -5504,6 +5591,7 @@ msgstr "Trigger"
 #: src/session-sharing/management-panel.tsx
 #: src/settings/general/permissions.tsx
 #: src/settings/stats/badge-collection.tsx
+#: src/settings/team/index.tsx
 msgid "Try again"
 msgstr "Try again"
 
@@ -5935,6 +6023,10 @@ msgstr "You can use up to three example summaries."
 #: src/onboarding/account/after-login.tsx
 msgid "You have an active plan"
 msgstr "You have an active plan"
+
+#: src/settings/team/index.tsx
+msgid "You will become the owner of {workspaceName}, with control over its members, billing, and deletion. The current owner will become an admin."
+msgstr "You will become the owner of {workspaceName}, with control over its members, billing, and deletion. The current owner will become an admin."
 
 #: src/settings/general/account.tsx
 msgid "You'll need to sign in again to use cloud sync and account features."

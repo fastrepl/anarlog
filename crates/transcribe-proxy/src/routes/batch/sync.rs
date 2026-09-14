@@ -330,6 +330,7 @@ pub(super) async fn transcribe_with_provider(
         | Provider::Speechmatics
         | Provider::Together
         | Provider::Xai
+        | Provider::Nari
         | Provider::SmallestAI
         | Provider::Meta
         | Provider::GoogleGenerativeAi => {

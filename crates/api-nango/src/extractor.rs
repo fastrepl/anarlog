@@ -102,6 +102,10 @@ impl NangoConnectionState {
             .await
             .map_err(|e| NangoConnectionError::Database(e.to_string()))?;
 
+        if response.status() == StatusCode::UNAUTHORIZED {
+            return Err(NangoConnectionError::NotAuthenticated);
+        }
+
         if !response.status().is_success() {
             let status = response.status();
             return Err(NangoConnectionError::Database(format!(
@@ -170,6 +174,10 @@ impl NangoConnectionState {
             .send()
             .await
             .map_err(|e| NangoConnectionError::Database(e.to_string()))?;
+
+        if response.status() == StatusCode::UNAUTHORIZED {
+            return Err(NangoConnectionError::NotAuthenticated);
+        }
 
         if !response.status().is_success() {
             let status = response.status();
@@ -275,6 +283,8 @@ pub fn is_provider_auth_failure(message: &str) -> bool {
         || lower.contains("token is expired")
         || lower.contains("lifetime validation failed")
         || lower.contains("invalid_grant")
+        || lower.contains("access_token_scope_insufficient")
+        || lower.contains("insufficientpermissions")
         || lower.contains("could not refresh")
         || lower.contains("refresh access token")
 }
@@ -338,6 +348,68 @@ mod tests {
         assert!(!is_provider_auth_failure(
             "HTTP status client error (403 Forbidden) for url (https://api.nango.dev/proxy/me/calendars/AAMk)"
         ));
+    }
+
+    #[test]
+    fn detects_missing_google_scopes_without_misclassifying_other_forbidden_errors() {
+        assert!(is_provider_auth_failure(
+            r#"API error (status 403): {"error":{"details":[{"reason":"ACCESS_TOKEN_SCOPE_INSUFFICIENT"}],"status":"PERMISSION_DENIED"}}"#
+        ));
+        assert!(is_provider_auth_failure(
+            r#"API error (status 403): {"error":{"errors":[{"reason":"insufficientPermissions"}]}}"#
+        ));
+        for reason in [
+            "rateLimitExceeded",
+            "quotaExceeded",
+            "accessNotConfigured",
+            "forbidden",
+        ] {
+            assert!(!is_provider_auth_failure(&format!(
+                "API error (status 403): {{\"error\":{{\"reason\":\"{reason}\"}}}}"
+            )));
+        }
+    }
+
+    #[tokio::test]
+    async fn connection_extractors_preserve_authentication_failures() {
+        for upstream in [401, 503] {
+            let server = MockServer::start().await;
+            Mock::given(method("GET"))
+                .respond_with(ResponseTemplate::new(upstream))
+                .expect(2)
+                .mount(&server)
+                .await;
+            let config = NangoConfig::for_test(&server.uri(), &server.uri());
+            let state = NangoConnectionState::from_config(&config);
+            let errors = [
+                state
+                    .get_connection_id("test-token", "test-user", "google-calendar")
+                    .await
+                    .err()
+                    .unwrap(),
+                state
+                    .build_http_client(
+                        "test-token",
+                        "test-user",
+                        "google-calendar",
+                        "test-connection",
+                    )
+                    .await
+                    .err()
+                    .unwrap(),
+            ];
+            for error in errors {
+                assert_eq!(
+                    error.into_response().status(),
+                    if upstream == 401 {
+                        StatusCode::UNAUTHORIZED
+                    } else {
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    }
+                );
+            }
+            server.verify().await;
+        }
     }
 
     #[tokio::test]

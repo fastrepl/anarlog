@@ -84,16 +84,14 @@ select results_eq(
   'An active Team subscription unlocks workspace management without personal Pro'
 );
 
-select throws_ok(
+select lives_ok(
   $$
     select * from public.create_workspace_invitation(
       (select workspace_id from team_plan_split_test_state),
       'second-seat@example.com'
     )
   $$,
-  '22023',
-  'workspace seat limit reached',
-  'Team management still enforces the purchased seat count'
+  'Paid teams can invite beyond the purchased seat count'
 );
 
 select * from finish();

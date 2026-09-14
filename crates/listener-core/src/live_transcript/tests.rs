@@ -614,53 +614,58 @@ fn apple_speech_engine_drops_unfinalized_hypothesis_on_flush() {
 }
 
 #[test]
-fn clamps_provider_speakers_to_participant_count() {
-    let max_speaker_index = max_speaker_index_for_participants(
-        &[
-            "self".to_string(),
-            "remote-a".to_string(),
-            "remote-b".to_string(),
-        ],
-        Some("self"),
+fn preserves_provider_speakers_beyond_calendar_attendance() {
+    let mut engine = LiveTranscriptEngine::new("deepgram", &["remote".into()], Some("self"));
+    let mut first = word("first", 0.0, 0.5);
+    first.speaker = Some(0);
+    let mut second = word("second", 0.5, 1.0);
+    second.speaker = Some(7);
+    let response = transcript_response_at("first second", vec![first, second], true, 1, 0.0, 1.0);
+    let update = engine.process(&response).unwrap();
+    let flushed = engine.flush().unwrap();
+    assert_eq!(
+        update
+            .transcript_delta
+            .new_words
+            .iter()
+            .chain(&flushed.transcript_delta.new_words)
+            .map(|word| word.speaker_index)
+            .collect::<Vec<_>>(),
+        [Some(0), Some(7)]
     );
-    let mut high_word = word("too-high", 0.0, 0.5);
-    high_word.speaker = Some(2);
-    let mut negative_word = word("negative", 0.5, 1.0);
-    negative_word.speaker = Some(-1);
-    let mut response = transcript_response_at(
-        "too-high negative",
-        vec![high_word, negative_word],
-        true,
-        0,
-        0.0,
-        1.0,
+    let mut segments = update.segment_delta.unwrap().upserts;
+    segments.extend(flushed.segment_delta.unwrap().upserts);
+    assert!(
+        segments
+            .iter()
+            .any(|segment| segment.key.speaker_index == Some(0))
     );
-
-    clamp_response_speaker_indices(&mut response, max_speaker_index);
-
-    let StreamResponse::TranscriptResponse { channel, .. } = response else {
-        panic!("expected transcript response");
-    };
-    let words = &channel.alternatives[0].words;
-
-    assert_eq!(words[0].speaker, Some(1));
-    assert_eq!(words[1].speaker, Some(0));
+    assert!(
+        segments
+            .iter()
+            .any(|segment| segment.key.speaker_index == Some(7))
+    );
+    assert!(
+        segments
+            .iter()
+            .all(|segment| segment.key.speaker_human_id.is_none())
+    );
 }
 
 #[test]
-fn clamps_single_remote_speaker_to_zero() {
-    let max_speaker_index =
-        max_speaker_index_for_participants(&["remote".to_string()], Some("self"));
-    let mut high_word = word("too-high", 0.0, 0.5);
-    high_word.speaker = Some(2);
-    let mut response = transcript_response_at("too-high", vec![high_word], true, 1, 0.0, 0.5);
-
-    clamp_response_speaker_indices(&mut response, max_speaker_index);
-
-    let StreamResponse::TranscriptResponse { channel, .. } = response else {
-        panic!("expected transcript response");
-    };
-    assert_eq!(channel.alternatives[0].words[0].speaker, Some(0));
+fn updating_attendance_does_not_merge_remote_voices() {
+    let mut engine = LiveTranscriptEngine::new("deepgram", &[], Some("self"));
+    engine.update_identities(&["remote".into()], Some("self"), vec![]);
+    let mut spoken = word("hello", 0.0, 0.5);
+    spoken.speaker = Some(7);
+    let response = transcript_response_at("hello", vec![spoken], true, 1, 0.0, 0.5);
+    engine.process(&response);
+    let update = engine.flush().unwrap();
+    assert_eq!(update.transcript_delta.new_words[0].speaker_index, Some(7));
+    assert_eq!(
+        update.segment_delta.unwrap().upserts[0].key.speaker_index,
+        Some(7)
+    );
 }
 
 #[test]
@@ -761,4 +766,73 @@ fn live_transcript_delta_keeps_speaker_index_on_words() {
     assert_eq!(converted.new_words[0].speaker_index, Some(1));
     assert_eq!(converted.partials[0].speaker_index, Some(2));
     assert_eq!(converted.replaced_ids, vec!["replaced"]);
+}
+
+#[test]
+fn nari_completed_utterances_finalize_immediately_without_waiting_for_flush() {
+    let mut engine = LiveTranscriptEngine::new("nari", &[], None);
+    for (start, text) in [(0.0, "First answer"), (1.0, "Second answer")] {
+        let preview = transcript_response_at(
+            "provisional",
+            vec![word("provisional", start, start + 1.0)],
+            false,
+            0,
+            start,
+            1.0,
+        );
+        assert!(
+            engine
+                .process(&preview)
+                .unwrap()
+                .transcript_delta
+                .new_words
+                .is_empty()
+        );
+        let completed = transcript_response_at(
+            text,
+            vec![word(text, start, start + 1.0)],
+            true,
+            0,
+            start,
+            1.0,
+        );
+        let update = engine
+            .process(&completed)
+            .expect("completed utterance delta");
+        assert_eq!(update.transcript_delta.new_words.len(), 1);
+        assert_eq!(update.transcript_delta.new_words[0].text.trim(), text);
+        assert!(update.transcript_delta.partials.is_empty());
+        assert!(engine.process(&completed).is_none());
+    }
+    assert!(engine.flush().is_none());
+}
+
+#[test]
+fn nari_empty_final_clears_only_its_preview_and_never_persists_unconfirmed_text() {
+    let mut engine = LiveTranscriptEngine::new("nari", &[], None);
+    let first = transcript_response_at(
+        "discard this",
+        vec![word("discard this", 0.0, 1.0)],
+        false,
+        0,
+        0.0,
+        1.0,
+    );
+    engine.process(&first).unwrap();
+    let second = transcript_response_at(
+        "still pending",
+        vec![word("still pending", 2.0, 3.0)],
+        false,
+        0,
+        2.0,
+        1.0,
+    );
+    engine.process(&second).unwrap();
+    let empty = transcript_response_at("", vec![], true, 0, 0.0, 1.0);
+    let update = engine.process(&empty).unwrap();
+    assert!(update.transcript_delta.new_words.is_empty());
+    assert_eq!(update.transcript_delta.partials.len(), 1);
+    assert_eq!(update.transcript_delta.partials[0].text, "still pending");
+    let flushed = engine.flush();
+    assert!(flushed.is_none_or(|update| update.transcript_delta.new_words.is_empty()));
 }

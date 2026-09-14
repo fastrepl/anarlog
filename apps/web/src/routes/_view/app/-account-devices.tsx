@@ -1,7 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 
+import { Desktop, DeviceMobile, Devices } from "@anlg/ui/components/icons";
+
 import { getSupabaseBrowserClient } from "@/functions/supabase";
+import { inferSyncDeviceType } from "@/lib/sync-device-type";
 
 import {
   accountCardClassName,
@@ -59,47 +62,77 @@ export function DevicesSection() {
   return (
     <div className={accountCardClassName}>
       {devicesQuery.isPending ? (
-        <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
+        <p className="text-color-muted p-6 text-sm leading-6 sm:p-8">
           Checking your devices...
         </p>
       ) : devicesQuery.isError ? (
-        <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
+        <p className="text-color-muted p-6 text-sm leading-6 sm:p-8">
           Couldn't load your devices. Refresh to try again.
         </p>
       ) : devices.length === 0 ? (
-        <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
+        <p className="text-color-muted p-6 text-sm leading-6 sm:p-8">
           No synced devices yet. Devices appear here once sync is on.
         </p>
       ) : (
-        <ul className="divide-y divide-[#ede7dc]">
-          {devices.map((device) => (
-            <li
-              key={device.id}
-              className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:px-8"
-            >
-              <div>
-                <p className="text-base font-medium text-[#181613]">
-                  {device.device_name || "Unnamed device"}
-                </p>
-                <p className="mt-1 text-sm leading-6 text-[#756b5d]">
-                  Last seen{" "}
-                  {new Date(device.last_seen_at).toLocaleDateString("en-US", {
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </p>
-              </div>
-              <button
-                onClick={() => removeDevice.mutate(device.id)}
-                disabled={removeDevice.isPending}
-                className={accountPillDangerClassName}
+        <ul className="divide-border-subtle divide-y">
+          {devices.map((device) => {
+            const deviceType = inferSyncDeviceType(device.device_name);
+            const DeviceTypeIcon =
+              deviceType === "mobile"
+                ? DeviceMobile
+                : deviceType === "desktop"
+                  ? Desktop
+                  : Devices;
+            const deviceTypeLabel =
+              deviceType === "mobile"
+                ? "Mobile device"
+                : deviceType === "desktop"
+                  ? "Desktop device"
+                  : "Device";
+
+            return (
+              <li
+                key={device.id}
+                className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:px-8"
               >
-                {removeDevice.isPending && removeDevice.variables === device.id
-                  ? "Removing..."
-                  : "Remove"}
-              </button>
-            </li>
-          ))}
+                <div className="flex items-center gap-3">
+                  <span
+                    role="img"
+                    aria-label={deviceTypeLabel}
+                    title={deviceTypeLabel}
+                    className="surface-subtle border-color-subtle text-color-muted flex size-10 shrink-0 items-center justify-center rounded-xl border"
+                  >
+                    <DeviceTypeIcon size={20} aria-hidden="true" />
+                  </span>
+                  <div>
+                    <p className="text-color text-base font-medium">
+                      {device.device_name || "Unnamed device"}
+                    </p>
+                    <p className="text-color-muted mt-1 text-sm leading-6">
+                      Last seen{" "}
+                      {new Date(device.last_seen_at).toLocaleDateString(
+                        "en-US",
+                        {
+                          month: "long",
+                          day: "numeric",
+                        },
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => removeDevice.mutate(device.id)}
+                  disabled={removeDevice.isPending}
+                  className={accountPillDangerClassName}
+                >
+                  {removeDevice.isPending &&
+                  removeDevice.variables === device.id
+                    ? "Removing..."
+                    : "Remove"}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
       {removeDevice.isError && (

@@ -4,7 +4,7 @@ meta_description: "Compare 8 Google Meet AI note takers by capture method, priva
 author: "John Jeong"
 featured: false
 category: "Comparisons"
-date: "2026-08-31"
+date: "2026-09-14"
 ---
 
 Google Meet no longer has one AI note-taking workflow. It has four.
@@ -13,7 +13,7 @@ Google can write notes inside Meet. A bot can join as a participant. A Chrome ex
 
 That choice matters more than another checklist of AI features. It decides whether the tool can attend without you, whether guests see a bot, where the meeting record lives, and whether the same setup works outside Google Meet.
 
-I rechecked the current product docs, pricing, capture modes, and privacy pages for eight serious options. The old bot-versus-no-bot split is already outdated: Fireflies, tl;dv, Otter, and Krisp now offer more than one capture path.
+I rechecked the current product docs, pricing, capture modes, and privacy pages for eight serious options. The old bot-versus-no-bot split is already outdated: Fireflies, tl;dv, Otter, and Krisp now offer more than one capture path. It is also getting harder to rely on a bot showing up at all. Since March 2026, Google Meet has screened third-party notetaker bots and flagged most of them to the host as a "potential risk" before admission, a change Google's own support forums and bot vendors like Nylas have documented since the rollout. Hosts can still admit them, but it is now an extra click and an extra prompt, not a silent join.
 
 ## The short answer
 
@@ -24,7 +24,7 @@ I rechecked the current product docs, pricing, capture modes, and privacy pages 
 - **Use [Tactiq](#5-tactiq-best-lightweight-chrome-extension)** when you want a fast, text-only Chrome workflow with no bot and no audio recording.
 - **Use [Krisp](#6-krisp-best-when-audio-quality-matters-too)** when noise cancellation and meeting notes need to share one desktop audio layer.
 - **Use [Otter](#7-otter-best-familiar-team-workspace)** when your team already works in Otter and wants both bot and bot-free capture.
-- **Use [Sembly](#8-sembly-best-for-structured-deliverables)** when meetings need to become project plans, requirements, and other structured deliverables.
+- **Use [Sembly](#8-sembly-best-for-structured-deliverables)** when you run a consultancy or agency and meetings need to become branded, client-facing deliverables rather than internal notes.
 
 ## Google Meet AI note takers compared
 
@@ -37,7 +37,7 @@ I rechecked the current product docs, pricing, capture modes, and privacy pages 
 | Tactiq | Chrome extension, no bot | Text transcript in Tactiq | Lightweight live transcription | 10 transcripts/month |
 | Krisp | Desktop audio layer, optional bot | Krisp workspace | Noise cancellation + notes | 7-day trial |
 | Otter | Bot, desktop, or Chrome | Otter workspace | Familiar collaborative transcripts | 300 minutes/month |
-| Sembly | Bot for live Meet calls | Sembly workspace | AI documents and meeting analysis | Free trial |
+| Sembly | Bot for live Meet calls | Sembly workspace | Branded client deliverables for consultancies and agencies | Free trial |
 
 ![Four Google Meet AI note-taking capture paths: native, bot, browser extension, and desktop audio](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/articles/best-ai-notetakers-google-meet/google-meet-capture-paths.png)
 
@@ -54,6 +54,8 @@ Google's own [Take notes for me](https://support.google.com/meet/answer/14754931
 Hosts can choose who receives the notes and request a longer format. They can also include screenshots of shared content or use an admin-controlled explicit-consent flow. Late joiners can request a summary so far.
 
 The constraint is the ecosystem. The output is a Google Doc governed by Drive sharing and Meet retention settings. Audio must use one of eight supported languages at a time, and eligibility depends on specific Workspace editions or Google AI Pro/Ultra. If that is already how your company works, the integration is hard to beat. If you want a portable local meeting archive, it is the wrong architecture.
+
+Take notes for me is not the only native AI capability now. [Ask Gemini in Meet](https://support.google.com/meet/answer/16024610) runs alongside it on the same eligible plans and does a different job: any participant can privately ask a question during the live call, such as what was just decided or what they missed by joining late, and Gemini answers from the live captions, Workspace files the user can already see, and public search results. It does not record the meeting or keep the conversation after the call ends, and only the person who asked can see the answer. Use Take notes for me for a shareable record after the meeting, and Ask Gemini for a private answer during it.
 
 **Pricing:** Included with eligible Business Standard, Business Plus, Enterprise Standard, Enterprise Plus, Frontline Plus, Google AI Pro, and Google AI Ultra plans. [Google's plan table](https://support.google.com/meet/answer/13952129) is the reliable place to check eligibility.
 
@@ -125,7 +127,9 @@ Krisp can transcribe only or transcribe and record audio/video. Its current docu
 
 That makes Krisp a strong fit for people who already need its audio cleanup. If you do not, Tactiq is lighter and Anarlog gives you more control over storage and models.
 
-**Pricing:** Seven-day free trial. Core is $16/user/month monthly or $8 billed annually and includes unlimited transcription, noise cancellation, and recording. See [Krisp pricing](https://krisp.ai/pricing).
+Krisp now sits between two paid tiers instead of one. Core covers the note-taking and noise-cancellation basics; a newer Advanced tier adds unlimited accent conversion, a manager view, company-level call grouping, and CRM integrations for Salesforce and ConnectWise.
+
+**Pricing:** Seven-day free trial. Core is $16/user/month monthly or $8 billed annually and includes unlimited transcription, noise cancellation, and recording. Advanced is $30/user/month monthly or $15 billed annually and adds the admin and CRM features above. See [Krisp pricing](https://krisp.ai/pricing).
 
 ## 7. Otter: best familiar team workspace
 
@@ -151,7 +155,7 @@ The privacy model is cloud-first. Otter states that it de-identifies user data b
 
 This is the narrowest capture choice in the group. Sembly supports microphone recording and file uploads for offline or in-person use, but its documented live Google Meet workflow uses a visible participant. That is useful when the agent must attend without you and awkward when guests do not want another participant.
 
-Sembly lists 48 transcription languages and integrations across project management, CRM, storage, and collaboration tools. Higher plans add multi-meeting chat, AI documents, consent tracking, retention controls, SSO, audit logs, and HIPAA support.
+Sembly relaunched as Sembly 3.0 in September 2026 and repositioned around consultancies and agencies rather than general team note-taking: workspaces are now organized by client and brand package, and meetings feed directly into branded deliverables like proposals, case studies, and reports, not just internal notes. Sembly lists 45+ transcription languages and integrations across project management, CRM, storage, and collaboration tools. Higher plans add multi-meeting chat, AI documents, consent tracking, retention controls, SSO, audit logs, and HIPAA support.
 
 **Pricing:** Basic is $10/month billed annually, Pro is $20, and Max is $30. Monthly billing is higher. See [Sembly pricing](https://www.sembly.ai/pricing/).
 
@@ -163,7 +167,7 @@ Google's feature fits meetings that already belong in Workspace and need a Drive
 
 ### Visible meeting bot
 
-A visible bot earns its place when unattended attendance, video recording, or consistent server-side capture matters. Fireflies, tl;dv, Otter, and Sembly can cover meetings even when your laptop is not doing the recording. Guests will see the participant, and admins may block or scrutinize it.
+A visible bot earns its place when unattended attendance, video recording, or consistent server-side capture matters. Fireflies, tl;dv, Otter, and Sembly can cover meetings even when your laptop is not doing the recording. Guests will see the participant, and admins may block or scrutinize it. Since Google's March 2026 screening update, expect an extra "potential risk" prompt on top of that: the host has to actively admit the bot rather than have it join silently, which makes unattended bot capture a little less unattended than it used to be.
 
 ### Browser extension
 
@@ -202,3 +206,7 @@ Anarlog keeps its canonical meeting database in local SQLite. A fully local setu
 ### Should I tell participants that AI notes are running?
 
 Yes. A hidden participant is still recording or transcription. Google Workspace admins can require explicit consent for Google's native feature, but every tool and jurisdiction has different requirements. Make disclosure part of the meeting workflow rather than relying on whether a bot is visible.
+
+### What is Ask Gemini in Meet, and how is it different from Take notes for me?
+
+They are two separate native features on the same eligible Workspace plans. [Take notes for me](https://support.google.com/meet/answer/14754931) generates a shared Google Doc after the meeting. [Ask Gemini in Meet](https://support.google.com/meet/answer/16024610) answers private, in-the-moment questions during the call, such as a recap of what you missed, and does not save the conversation or create a recording once the meeting ends.

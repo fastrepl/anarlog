@@ -5,9 +5,6 @@ import { fileURLToPath } from "node:url";
 
 const FONT_MARKER_FILENAME = "Redaction-Regular.otf";
 
-export const SERIF_FONT_FAMILY = "'Redaction', Georgia, serif";
-export const SANS_FONT_FAMILY = "'SF Pro Text', Arial, Helvetica, sans-serif";
-
 function resolveOgFontsDir() {
   const candidates = [
     join(fileURLToPath(new URL("../../public/fonts", import.meta.url))),
@@ -38,6 +35,8 @@ function configureOgFonts() {
 `,
   );
   process.env.FONTCONFIG_FILE = runtimeConfigPath;
+  // Use bundled fonts on macOS too, instead of Pango's CoreText backend.
+  process.env.PANGOCAIRO_BACKEND = "fc";
 }
 
 configureOgFonts();

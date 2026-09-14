@@ -1,4 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { cleanup, render as renderUi, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,6 +11,18 @@ import type {
 import { RenderTranscript } from "./transcript";
 
 import type { Segment } from "~/stt/live-segment";
+
+function render(ui: ReactNode, options?: Parameters<typeof renderUi>[1]) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return renderUi(ui, {
+    ...options,
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  });
+}
 
 const mocks = vi.hoisted(() => ({
   assignTranscriptSpeaker: vi.fn(),
