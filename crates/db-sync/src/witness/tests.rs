@@ -494,6 +494,98 @@ async fn merged_witness_pages_can_materialize_rows_before_refresh_completes() {
 }
 
 #[tokio::test]
+async fn replica_transport_reads_the_next_page_for_incomplete_transcripts() {
+    let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+    anlg_db_app::prepare_schema(&db).await.unwrap();
+    let recovery_key = anlg_e2ee::RecoveryKey::parse(
+        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    )
+    .unwrap();
+    let key = recovery_key.workspace_key("user-a").unwrap();
+    let words = json!([{ "text": "restored", "start_ms": 0, "end_ms": 500 }]);
+    let events = [
+        ("$row", json!(true)),
+        ("words_json#n", json!(1)),
+        ("words_json#0", words.clone()),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(index, (field, value))| {
+        let sealed = key
+            .seal_field(
+                "user-a",
+                "transcripts",
+                "transcript-1",
+                field,
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                1,
+                false,
+                value,
+            )
+            .unwrap();
+        json!({
+            "sequence": index + 1,
+            "recordId": sealed.record_id,
+            "payloadHash": anlg_e2ee::payload_hash(&sealed.payload),
+            "payload": sealed.payload,
+        })
+    })
+    .collect();
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/sync/e2ee/witness/user-a"))
+        .respond_with(PagedWitness {
+            events,
+            page_size: 2,
+        })
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/sync/e2ee/witness/user-a"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "initializedAt": "2026-07-17T00:00:00Z", "headSequence": 3,
+        })))
+        .mount(&server)
+        .await;
+    let hook = crate::E2eeSyncHook::default();
+    hook.set_personal_workspace("user-a", &recovery_key)
+        .unwrap();
+    hook.set_replica_witness(
+        E2eeWitnessClient::new(
+            E2eeWitnessConfig {
+                endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+                access_token: "access-token".to_string(),
+            },
+            "user-a",
+        )
+        .unwrap(),
+    );
+
+    tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        hook.sync_replica_transport(db.pool()),
+    )
+    .await
+    .expect("replica sync blocked the next witness page on an incomplete transcript")
+    .unwrap();
+    assert_eq!(
+        anlg_db_app::e2ee_witness_cursor(db.pool(), "user-a")
+            .await
+            .unwrap(),
+        3
+    );
+    let actual: String =
+        sqlx::query_scalar("SELECT words_json FROM transcripts WHERE id = 'transcript-1'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&actual).unwrap(),
+        words
+    );
+}
+
+#[tokio::test]
 async fn initialization_publishes_local_edits_before_hydrating_conflicting_history() {
     for publish_status in [200, 500] {
         let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();

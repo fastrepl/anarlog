@@ -1431,7 +1431,8 @@ impl PluginDbRuntime {
                 remaining = stats.remaining_replica_changes,
                 "materialized authenticated E2EE changes"
             );
-            if !stats.remaining_replica_changes {
+            // Deferred records need a later page or local encryption, not another apply pass.
+            if !stats.remaining_replica_changes || stats.skipped_local_changes > 0 {
                 return Ok(());
             }
         }
