@@ -935,6 +935,7 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
             match outcome {
                 ChunkedColumnOutcome::Deferred(record_ids) => {
                     stats.skipped_local_changes += record_ids.len() as u64;
+                    stats.incomplete_chunk_columns += 1;
                     deferred_pending_ids.extend(record_ids);
                 }
                 ChunkedColumnOutcome::Applied {
