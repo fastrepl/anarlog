@@ -16,42 +16,46 @@ afterAll(async () => {
 });
 
 describe.skipIf(!pool)("durable seat queue (isolated Postgres)", () => {
-  test("checkout retry deadline starts after reconciliation finishes", async () => {
-    const workspace = crypto.randomUUID();
-    const errors: unknown[] = [];
-    let finishedAt: Date | undefined;
-    try {
-      await pool!.query(
-        "INSERT INTO private.workspace_seat_billing_events (workspace_id, customer_id, quantity) VALUES ($1, 'cus_waiting', 1)",
-        [workspace],
-      );
-      await processWorkspaceSeatEvent(
-        pool!,
-        async () => {
-          await pool!.query("SELECT pg_sleep(0.2)");
-          const result = await pool!.query(
-            "SELECT clock_timestamp() AS finished_at",
-          );
-          finishedAt = result.rows[0].finished_at;
-          return "waiting_for_subscription";
-        },
-        (error) => errors.push(error),
-      );
-      const result = await pool!.query(
-        "SELECT next_attempt_at FROM private.workspace_seat_billing_events WHERE workspace_id = $1",
-        [workspace],
-      );
-      expect(
-        result.rows[0].next_attempt_at.getTime() - finishedAt!.getTime(),
-      ).toBeGreaterThanOrEqual(60_000);
-      expect(errors).toHaveLength(0);
-    } finally {
-      await pool!.query(
-        "DELETE FROM private.workspace_seat_billing_events WHERE workspace_id = $1",
-        [workspace],
-      );
-    }
-  });
+  test.each(["checkout", "failure"] as const)(
+    "%s retry deadline starts after reconciliation finishes",
+    async (outcome) => {
+      const workspace = crypto.randomUUID();
+      const errors: unknown[] = [];
+      let finishedAt: Date | undefined;
+      try {
+        await pool!.query(
+          "INSERT INTO private.workspace_seat_billing_events (workspace_id, customer_id, quantity) VALUES ($1, 'cus_waiting', 1)",
+          [workspace],
+        );
+        await processWorkspaceSeatEvent(
+          pool!,
+          async () => {
+            await pool!.query("SELECT pg_sleep(0.2)");
+            const result = await pool!.query(
+              "SELECT clock_timestamp() AS finished_at",
+            );
+            finishedAt = result.rows[0].finished_at;
+            if (outcome === "failure") throw new Error("Stripe request failed");
+            return "waiting_for_subscription";
+          },
+          (error) => errors.push(error),
+        );
+        const result = await pool!.query(
+          "SELECT next_attempt_at FROM private.workspace_seat_billing_events WHERE workspace_id = $1",
+          [workspace],
+        );
+        expect(
+          result.rows[0].next_attempt_at.getTime() - finishedAt!.getTime(),
+        ).toBeGreaterThanOrEqual(outcome === "checkout" ? 60_000 : 15_000);
+        expect(errors).toHaveLength(outcome === "checkout" ? 0 : 1);
+      } finally {
+        await pool!.query(
+          "DELETE FROM private.workspace_seat_billing_events WHERE workspace_id = $1",
+          [workspace],
+        );
+      }
+    },
+  );
   test("checkout waits stay pending and block later seats without reporting an error", async () => {
     const workspace = crypto.randomUUID();
     const errors: unknown[] = [];

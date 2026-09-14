@@ -47,7 +47,7 @@ export async function processWorkspaceSeatEvent(
         await client.query(
           `UPDATE private.workspace_seat_billing_events
            SET attempts = attempts + 1,
-               next_attempt_at = now() + make_interval(secs => LEAST(3600, 15 * power(2, LEAST(attempts, 8))::integer))
+               next_attempt_at = clock_timestamp() + make_interval(secs => LEAST(3600, 15 * power(2, LEAST(attempts, 8))::integer))
            WHERE id = $1`,
           [event.id],
         );
