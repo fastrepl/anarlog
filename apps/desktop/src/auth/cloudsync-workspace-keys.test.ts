@@ -202,6 +202,50 @@ test("does nothing when every shared workspace has an active grant", async () =>
   expect(sealWorkspaceE2eeKeyForRecipients).not.toHaveBeenCalled();
 });
 
+test.each(["owner", "admin"])(
+  "keeps an existing %s syncing while another member has no identity",
+  async (role) => {
+    const value = credentials(role);
+    value.workspaceKeyGrants = [
+      {
+        workspaceId: WORKSPACE_ID,
+        keyId: "AAAAAAAAAAAAAAAAAAAAAA",
+        ephemeralPublicKey: "A".repeat(43),
+        nonce: "B".repeat(32),
+        ciphertext: "C".repeat(64),
+        isActive: true,
+      },
+    ];
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(Response.json(recipients(null))),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      provisionMissingWorkspaceKeys(
+        value,
+        "access-token",
+        OWNER_ID,
+        new AbortController().signal,
+      ),
+    ).resolves.toBe("ready");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(sealWorkspaceE2eeKeyForRecipients).not.toHaveBeenCalled();
+
+    value.workspaceKeyGrants[0]!.isActive = false;
+    await expect(
+      provisionMissingWorkspaceKeys(
+        value,
+        "access-token",
+        OWNER_ID,
+        new AbortController().signal,
+      ),
+    ).resolves.toBe("waiting");
+    expect(sealWorkspaceE2eeKeyForRecipients).not.toHaveBeenCalled();
+  },
+);
+
 test("re-wraps the active key for a newly joined member", async () => {
   const value = credentials();
   const sourceGrant = {
