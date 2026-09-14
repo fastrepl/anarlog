@@ -216,8 +216,10 @@ test.each(["owner", "admin"])(
         isActive: true,
       },
     ];
+    const recipientRows = recipients(null);
+    recipientRows[0]!.grantedKeyIds = [value.workspaceKeyGrants[0]!.keyId];
     const fetchMock = vi.fn(() =>
-      Promise.resolve(Response.json(recipients(null))),
+      Promise.resolve(Response.json(recipientRows)),
     );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -246,65 +248,77 @@ test.each(["owner", "admin"])(
   },
 );
 
-test("re-wraps the active key for a newly joined member", async () => {
-  const value = credentials();
-  const sourceGrant = {
-    workspaceId: WORKSPACE_ID,
-    keyId: "AAAAAAAAAAAAAAAAAAAAAA",
-    ephemeralPublicKey: "A".repeat(43),
-    nonce: "B".repeat(32),
-    ciphertext: "C".repeat(64),
-    isActive: true,
-  };
-  value.workspaceKeyGrants = [sourceGrant];
-  const sealed = {
-    keyId: sourceGrant.keyId,
-    grants: [
-      {
-        userId: OWNER_ID,
-        ephemeralPublicKey: "D".repeat(43),
-        nonce: "E".repeat(32),
-        ciphertext: "F".repeat(64),
-      },
-      {
-        userId: MEMBER_ID,
-        ephemeralPublicKey: "G".repeat(43),
-        nonce: "H".repeat(32),
-        ciphertext: "I".repeat(64),
-      },
-    ],
-  };
-  vi.mocked(sealWorkspaceE2eeKeyForRecipients).mockResolvedValue(sealed);
-  const recipientRows = recipients();
-  recipientRows[0]!.grantedKeyIds = [sourceGrant.keyId];
-  const fetchMock = vi
-    .fn()
-    .mockResolvedValueOnce(Response.json(recipientRows))
-    .mockResolvedValueOnce(
-      Response.json({ keyId: sealed.keyId, grantedMemberCount: 2 }),
-    );
-  vi.stubGlobal("fetch", fetchMock);
+test.each([false, true])(
+  "re-wraps the active key with an unready teammate: %s",
+  async (unreadyTeammate) => {
+    const value = credentials();
+    const sourceGrant = {
+      workspaceId: WORKSPACE_ID,
+      keyId: "AAAAAAAAAAAAAAAAAAAAAA",
+      ephemeralPublicKey: "A".repeat(43),
+      nonce: "B".repeat(32),
+      ciphertext: "C".repeat(64),
+      isActive: true,
+    };
+    value.workspaceKeyGrants = [sourceGrant];
+    const sealed = {
+      keyId: sourceGrant.keyId,
+      grants: [
+        {
+          userId: OWNER_ID,
+          ephemeralPublicKey: "D".repeat(43),
+          nonce: "E".repeat(32),
+          ciphertext: "F".repeat(64),
+        },
+        {
+          userId: MEMBER_ID,
+          ephemeralPublicKey: "G".repeat(43),
+          nonce: "H".repeat(32),
+          ciphertext: "I".repeat(64),
+        },
+      ],
+    };
+    vi.mocked(sealWorkspaceE2eeKeyForRecipients).mockResolvedValue(sealed);
+    const recipientRows = recipients();
+    recipientRows[0]!.grantedKeyIds = [sourceGrant.keyId];
+    if (unreadyTeammate) {
+      recipientRows.push({
+        userId: "55555555-5555-4555-8555-555555555555",
+        userEmail: "pending@example.com",
+        role: "member",
+        publicKey: null,
+        grantedKeyIds: [],
+      });
+    }
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(recipientRows))
+      .mockResolvedValueOnce(
+        Response.json({ keyId: sealed.keyId, grantedMemberCount: 2 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
 
-  await expect(
-    provisionMissingWorkspaceKeys(
-      value,
-      "access-token",
+    await expect(
+      provisionMissingWorkspaceKeys(
+        value,
+        "access-token",
+        OWNER_ID,
+        new AbortController().signal,
+      ),
+    ).resolves.toBe("provisioned");
+
+    expect(sealWorkspaceE2eeKeyForRecipients).toHaveBeenCalledWith(
       OWNER_ID,
-      new AbortController().signal,
-    ),
-  ).resolves.toBe("provisioned");
-
-  expect(sealWorkspaceE2eeKeyForRecipients).toHaveBeenCalledWith(
-    OWNER_ID,
-    WORKSPACE_ID,
-    [
-      { userId: OWNER_ID, publicKey: "A".repeat(43) },
-      { userId: MEMBER_ID, publicKey: "B".repeat(43) },
-    ],
-    false,
-    sourceGrant,
-  );
-});
+      WORKSPACE_ID,
+      [
+        { userId: OWNER_ID, publicKey: "A".repeat(43) },
+        { userId: MEMBER_ID, publicKey: "B".repeat(43) },
+      ],
+      false,
+      sourceGrant,
+    );
+  },
+);
 
 test("mints a new generation after membership revocation retires the old key", async () => {
   const value = credentials();
