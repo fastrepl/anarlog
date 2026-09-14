@@ -506,6 +506,7 @@ async fn replica_transport_drains_ready_rows_and_preserves_incomplete_transcript
 async fn check_replica_transport_hydrates_transcripts(many_rows: bool) {
     let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
     anlg_db_app::prepare_schema(&db).await.unwrap();
+    let db = Arc::new(db);
     let recovery_key = anlg_e2ee::RecoveryKey::parse(
         "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
     )
@@ -580,7 +581,7 @@ async fn check_replica_transport_hydrates_transcripts(many_rows: bool) {
         })))
         .mount(&server)
         .await;
-    let hook = crate::E2eeSyncHook::default();
+    let hook = Arc::new(crate::E2eeSyncHook::default());
     hook.set_personal_workspace("user-a", &recovery_key)
         .unwrap();
     hook.set_replica_witness(
@@ -634,6 +635,19 @@ async fn check_replica_transport_hydrates_transcripts(many_rows: bool) {
             .unwrap();
         assert_eq!(count.value, json!(1));
         assert_eq!(count.revision, 1);
+        let task = crate::spawn_replica_sync(Arc::clone(&db), Arc::clone(&hook));
+        hook.request_replica_sync();
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while !hook.replica_status().pending_changes {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("missing chunks were reported as successfully synced");
+        assert!(hook.replica_status().last_sync_at_ms.is_none());
+        let requests = server.received_requests().await.unwrap().len();
+        tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+        assert_eq!(server.received_requests().await.unwrap().len(), requests);
         let chunk = key
             .seal_field(
                 "user-a",
@@ -668,13 +682,16 @@ async fn check_replica_transport_hydrates_transcripts(many_rows: bool) {
             })))
             .mount(&server)
             .await;
-        tokio::time::timeout(
-            std::time::Duration::from_secs(2),
-            hook.sync_replica_transport(db.pool()),
-        )
+        hook.request_replica_sync();
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while hook.replica_status().pending_changes {
+                tokio::task::yield_now().await;
+            }
+        })
         .await
-        .expect("replica sync did not resume after the missing chunk arrived")
-        .unwrap();
+        .expect("replica sync did not resume after the missing chunk arrived");
+        assert!(hook.replica_status().last_sync_at_ms.is_some());
+        drop(task);
         let created_at_record_id = key.blind_field_id("transcripts", "transcript-1", "created_at");
         let payload: String = sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
             .bind(&created_at_record_id)

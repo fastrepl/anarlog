@@ -36,6 +36,7 @@ struct CloudsyncActivity {
 #[derive(Clone, Default)]
 pub struct ReplicaSyncStatus {
     pub syncing: bool,
+    pub pending_changes: bool,
     pub last_sync_at_ms: Option<u64>,
     pub last_error: Option<String>,
     pub consecutive_failures: u32,
@@ -249,6 +250,7 @@ impl E2eeSyncHook {
     pub fn replica_sync_succeeded(&self) {
         let mut status = self.replica_status.lock().unwrap();
         status.syncing = false;
+        status.pending_changes = false;
         status.last_sync_at_ms = std::time::SystemTime::now()
             .duration_since(std::time::SystemTime::UNIX_EPOCH)
             .ok()
@@ -259,6 +261,14 @@ impl E2eeSyncHook {
 
     pub fn replica_sync_paused(&self) {
         self.replica_status.lock().unwrap().syncing = false;
+    }
+
+    pub fn replica_sync_pending(&self) {
+        let mut status = self.replica_status.lock().unwrap();
+        status.syncing = false;
+        status.pending_changes = true;
+        status.last_error = None;
+        status.consecutive_failures = 0;
     }
 
     pub fn replica_sync_failed(&self, error: &std::io::Error) {
@@ -810,6 +820,29 @@ mod tests {
             workspace_id,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn waiting_for_remote_preserves_the_last_success_until_completion() {
+        let hook = E2eeSyncHook::default();
+        hook.replica_sync_succeeded();
+        let last_success = hook.replica_status().last_sync_at_ms;
+        hook.replica_sync_failed(&std::io::Error::other("temporary failure"));
+        hook.replica_sync_started();
+        hook.replica_sync_pending();
+
+        let waiting = hook.replica_status();
+        assert!(!waiting.syncing);
+        assert!(waiting.pending_changes);
+        assert_eq!(waiting.last_sync_at_ms, last_success);
+        assert!(waiting.last_error.is_none());
+        assert_eq!(waiting.consecutive_failures, 0);
+
+        hook.replica_sync_succeeded();
+        assert!(!hook.replica_status().pending_changes);
+        hook.replica_sync_pending();
+        hook.clear();
+        assert!(!hook.replica_status().pending_changes);
     }
 
     #[test]

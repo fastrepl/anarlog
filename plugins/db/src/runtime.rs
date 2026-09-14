@@ -1740,7 +1740,7 @@ impl PluginDbRuntime {
             "deferred_for_capture": self.e2ee_sync_hook.has_activity(CLOUDSYNC_CAPTURE_ACTIVITY),
             "last_sync": null,
             "last_sync_at_ms": replica.last_sync_at_ms,
-            "has_unsent_changes": local_work_pending || replica.syncing,
+            "has_unsent_changes": local_work_pending || replica.syncing || replica.pending_changes,
             "last_error": replica.last_error,
             "last_error_kind": (replica.consecutive_failures > 0).then_some("transient"),
             "consecutive_failures": replica.consecutive_failures,

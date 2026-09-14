@@ -249,7 +249,7 @@ test.each(["owner", "admin"])(
 );
 
 test.each([false, true])(
-  "re-wraps the active key with an unready teammate: %s",
+  "re-wraps the active key (unready teammate: %s)",
   async (unreadyTeammate) => {
     const value = credentials();
     const sourceGrant = {
