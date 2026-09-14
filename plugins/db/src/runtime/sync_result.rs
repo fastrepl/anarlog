@@ -25,6 +25,20 @@ pub(super) fn cloudsync_receive_delivered(result: &anlg_db_core::CloudsyncNetwor
     })
 }
 
+pub(super) fn cloudsync_receive_error(
+    result: &anlg_db_core::CloudsyncNetworkResult,
+) -> Option<String> {
+    let receive = result.receive.as_ref()?;
+    let mut errors = Vec::new();
+    if let Some(error) = &receive.error {
+        errors.push(format!("receive error: {error}"));
+    }
+    if let Some(failure) = &receive.last_failure {
+        errors.push(format!("receive failure: {failure}"));
+    }
+    (!errors.is_empty()).then(|| errors.join("; "))
+}
+
 #[cfg(test)]
 fn cloudsync_receive_incomplete(result: &anlg_db_core::CloudsyncNetworkResult) -> bool {
     result.receive.as_ref().is_some_and(|receive| {

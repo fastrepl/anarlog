@@ -1,8 +1,8 @@
 use anlg_db_core::Db;
 
 use super::sync_result::{
-    cloudsync_receive_delivered, cloudsync_receive_delivered_final, cloudsync_send_completed,
-    cloudsync_send_made_progress,
+    cloudsync_receive_delivered, cloudsync_receive_delivered_final, cloudsync_receive_error,
+    cloudsync_send_completed, cloudsync_send_made_progress,
 };
 use super::{
     CLOUDSYNC_WRITE_FILTER, CloudsyncOperationCancellation, E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT,
@@ -367,6 +367,9 @@ impl PluginDbRuntime {
                             let result = db.cloudsync_manual_receive_one().await?;
                             if cloudsync_recovery_cancelled(&recovery_cancelled) {
                                 return Ok(CloudsyncRecoveryStep::Deferred);
+                            }
+                            if let Some(error) = cloudsync_receive_error(&result) {
+                                return Err(std::io::Error::other(error).into());
                             }
                             witness
                                 .refresh_cancellable(db.pool(), &key, &witness_cancellation)

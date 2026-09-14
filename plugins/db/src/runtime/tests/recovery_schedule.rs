@@ -1,6 +1,60 @@
 use super::*;
 
 #[test]
+fn recovery_reports_embedded_receive_failures_without_marking_progress() {
+    for (details, expected) in [
+        (
+            serde_json::json!({"error": "later chunk failed"}),
+            "receive error: later chunk failed",
+        ),
+        (
+            serde_json::json!({"lastFailure": {"code": "check_failed"}}),
+            "receive failure: {\"code\":\"check_failed\"}",
+        ),
+        (
+            serde_json::json!({
+                "error": "later chunk failed",
+                "lastFailure": {"code": "check_failed"}
+            }),
+            "receive error: later chunk failed; receive failure: {\"code\":\"check_failed\"}",
+        ),
+    ] {
+        let mut receive = serde_json::json!({
+            "rows": 1,
+            "tables": ["e2ee_records"],
+            "chunks": 1,
+            "complete": true
+        });
+        receive
+            .as_object_mut()
+            .unwrap()
+            .extend(details.as_object().unwrap().clone());
+        let result = serde_json::from_value(serde_json::json!({"receive": receive})).unwrap();
+
+        assert_eq!(
+            super::super::sync_result::cloudsync_receive_error(&result).as_deref(),
+            Some(expected)
+        );
+        assert!(!cloudsync_recovery_snapshot_ready(true, &result));
+        assert!(!cloudsync_receive_delivered(&result));
+    }
+}
+
+#[test]
+fn recovery_does_not_report_healthy_partial_or_empty_receives_as_errors() {
+    for result in [
+        receive_result(1, false),
+        receive_result(0, true),
+        receive_result(1, true),
+    ] {
+        assert_eq!(
+            super::super::sync_result::cloudsync_receive_error(&result),
+            None
+        );
+    }
+}
+
+#[test]
 fn recovery_waits_longer_without_progress() {
     assert_eq!(
         cloudsync_recovery_step_delay(CloudsyncRecoveryStep::Progressed),
