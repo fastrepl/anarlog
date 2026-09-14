@@ -57,7 +57,9 @@ export async function sendNewCustomerAlert(
     return null;
   }
 
-  const plan = planLabel(await activeDependencies.getProductName(productId));
+  const plan = escapeSlackText(
+    planLabel(await activeDependencies.getProductName(productId)),
+  );
   const action =
     subscription.status === "trialing"
       ? `started ${plan} trial`
