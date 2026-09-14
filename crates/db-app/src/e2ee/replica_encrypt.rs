@@ -118,13 +118,9 @@ async fn encrypt_e2ee_replica_changes_bounded_inner(
         return Ok(E2eeReplicaStats::default());
     }
 
-    let (dirty_rows, queued_remaining) = load_dirty_rows_page(
-        pool,
-        keys,
-        max_rows.min(E2EE_ENCRYPT_ROW_LIMIT),
-        defer_active_captures,
-    )
-    .await?;
+    let max_rows = max_rows.min(E2EE_ENCRYPT_ROW_LIMIT);
+    let (mut dirty_rows, mut queued_remaining) =
+        load_dirty_rows_page_after(pool, keys, max_rows, defer_active_captures, None).await?;
     if dirty_rows.is_empty() {
         return Ok(E2eeReplicaStats::default());
     }
@@ -156,31 +152,51 @@ async fn encrypt_e2ee_replica_changes_bounded_inner(
         stats.remaining_replica_changes = true;
         return Ok(stats);
     }
-    for dirty in dirty_rows {
-        let keyring = &keys[&dirty.workspace_id];
-        let Some(prepared) =
-            prepare_dirty_row_cancellable(pool, keyring, &writer_id, dirty, is_cancelled).await?
-        else {
-            stats.incomplete_chunk_columns += 1;
-            stats.remaining_replica_changes = true;
-            continue;
-        };
-        if is_cancelled() {
-            stats.remaining_replica_changes = true;
+    let mut prepared_rows = 0;
+    loop {
+        let after = dirty_rows.last().cloned();
+        for dirty in dirty_rows {
+            let keyring = &keys[&dirty.workspace_id];
+            let Some(prepared) =
+                prepare_dirty_row_cancellable(pool, keyring, &writer_id, dirty, is_cancelled)
+                    .await?
+            else {
+                stats.incomplete_chunk_columns += 1;
+                stats.remaining_replica_changes = true;
+                continue;
+            };
+            prepared_rows += 1;
+            if is_cancelled() {
+                stats.remaining_replica_changes = true;
+                break;
+            }
+            stats.encrypted_fields += persist_prepared_dirty_row_cancellable(
+                pool,
+                prepared,
+                defer_active_captures,
+                is_cancelled,
+            )
+            .await?;
+            if is_cancelled() {
+                stats.remaining_replica_changes = true;
+                break;
+            }
+        }
+        if !queued_remaining || prepared_rows >= max_rows || is_cancelled() {
             break;
         }
-        stats.encrypted_fields += persist_prepared_dirty_row_cancellable(
+        // Deferred rows stay dirty, but must not occupy every page forever.
+        yield_once().await;
+        (dirty_rows, queued_remaining) = load_dirty_rows_page_after(
             pool,
-            prepared,
+            keys,
+            max_rows - prepared_rows,
             defer_active_captures,
-            is_cancelled,
+            after.as_ref(),
         )
         .await?;
-        if is_cancelled() {
-            stats.remaining_replica_changes = true;
-            break;
-        }
     }
+    stats.remaining_replica_changes = queued_remaining || stats.incomplete_chunk_columns > 0;
     if !stats.remaining_replica_changes && !is_cancelled() {
         stats.remaining_replica_changes =
             !load_dirty_rows_inner(pool, keys, 1, defer_active_captures)
@@ -249,6 +265,16 @@ async fn load_dirty_rows_inner(
     max_rows: i64,
     defer_active_captures: bool,
 ) -> E2eeReplicaResult<Vec<DirtyRow>> {
+    load_dirty_rows_after(pool, keys, max_rows, defer_active_captures, None).await
+}
+
+async fn load_dirty_rows_after(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKeyring>,
+    max_rows: i64,
+    defer_active_captures: bool,
+    after: Option<&DirtyRow>,
+) -> E2eeReplicaResult<Vec<DirtyRow>> {
     let mut workspace_ids = keys.keys().collect::<Vec<_>>();
     workspace_ids.sort_unstable();
     let mut query = QueryBuilder::<Sqlite>::new(
@@ -265,6 +291,16 @@ async fn load_dirty_rows_inner(
     if defer_active_captures {
         push_active_capture_exclusion(&mut query);
     }
+    if let Some(after) = after {
+        query
+            .push(" AND (dirty.workspace_id, dirty.table_name, dirty.row_id) > (")
+            .push_bind(&after.workspace_id)
+            .push(", ")
+            .push_bind(&after.table_name)
+            .push(", ")
+            .push_bind(&after.row_id)
+            .push(")");
+    }
     query
         .push(" ORDER BY dirty.workspace_id, dirty.table_name, dirty.row_id LIMIT ")
         .push_bind(max_rows);
@@ -278,17 +314,29 @@ fn current_time_ms() -> i64 {
         .unwrap_or(0)
 }
 
+#[cfg(test)]
 pub(super) async fn load_dirty_rows_page(
     pool: &SqlitePool,
     keys: &HashMap<String, WorkspaceKeyring>,
     max_rows: i64,
     defer_active_captures: bool,
 ) -> E2eeReplicaResult<(Vec<DirtyRow>, bool)> {
+    load_dirty_rows_page_after(pool, keys, max_rows, defer_active_captures, None).await
+}
+
+async fn load_dirty_rows_page_after(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKeyring>,
+    max_rows: i64,
+    defer_active_captures: bool,
+    after: Option<&DirtyRow>,
+) -> E2eeReplicaResult<(Vec<DirtyRow>, bool)> {
     if max_rows <= 0 {
         return Ok((Vec::new(), false));
     }
     let page_limit = max_rows.saturating_add(1);
-    let mut rows = load_dirty_rows_inner(pool, keys, page_limit, defer_active_captures).await?;
+    let mut rows =
+        load_dirty_rows_after(pool, keys, page_limit, defer_active_captures, after).await?;
     let max_rows = usize::try_from(max_rows).map_err(|_| E2eeReplicaError::InvalidRow)?;
     let remaining = rows.len() > max_rows;
     rows.truncate(max_rows);

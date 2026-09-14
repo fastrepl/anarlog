@@ -180,6 +180,130 @@ async fn initial_transcript_chunks_must_hydrate_before_local_edits_are_encrypted
 }
 
 #[tokio::test]
+async fn incomplete_transcript_pages_do_not_starve_later_local_edits() {
+    let workspace_keys = keys("workspace-a");
+    let key = workspace_keys["workspace-a"].active();
+    let a = test_db().await;
+    sqlx::query(
+        "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+         VALUES ('session-1', 'workspace-a', 'user-a', 'Meeting')",
+    )
+    .execute(a.pool())
+    .await
+    .unwrap();
+    for index in 0..(E2EE_ENCRYPT_ROW_LIMIT * 2) {
+        sqlx::query(
+            "INSERT INTO transcripts (id, workspace_id, owner_user_id, session_id, words_json)
+             VALUES (?, 'workspace-a', 'user-a', 'session-1', ?)",
+        )
+        .bind(format!("transcript-{index:03}"))
+        .bind(words_json(&words(0..1)))
+        .execute(a.pool())
+        .await
+        .unwrap();
+    }
+    encrypt_e2ee_replica_changes(a.pool(), &workspace_keys)
+        .await
+        .unwrap();
+
+    for bounded in [true, false] {
+        let b = test_db().await;
+        copy_replica(a.pool(), b.pool()).await;
+        for _ in 0..E2EE_ENCRYPT_ROW_LIMIT {
+            if !apply_e2ee_replica_changes(b.pool(), &workspace_keys)
+                .await
+                .unwrap()
+                .remaining_replica_changes
+            {
+                break;
+            }
+        }
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM transcripts")
+                .fetch_one(b.pool())
+                .await
+                .unwrap(),
+            E2EE_ENCRYPT_ROW_LIMIT * 2
+        );
+        for index in 0..(E2EE_ENCRYPT_ROW_LIMIT * 2) {
+            sqlx::query("DELETE FROM e2ee_records WHERE id = ?")
+                .bind(key.blind_field_id(
+                    "transcripts",
+                    &format!("transcript-{index:03}"),
+                    "words_json#0",
+                ))
+                .execute(b.pool())
+                .await
+                .unwrap();
+        }
+        // Model more initially partial rows than a single hydration page can load.
+        sqlx::query("DELETE FROM e2ee_local_state WHERE table_name = 'transcripts' AND field_name LIKE 'words_json%'")
+        .execute(b.pool())
+        .await
+        .unwrap();
+        sqlx::query("UPDATE transcripts SET words_json = '[]', created_at = 'local edit'")
+            .execute(b.pool())
+            .await
+            .unwrap();
+        for index in 0..3 {
+            sqlx::query(
+                "INSERT INTO transcripts (id, workspace_id, owner_user_id, session_id, words_json)
+             VALUES (?, 'workspace-a', 'user-a', 'session-1', ?)",
+            )
+            .bind(format!("transcript-z{index}"))
+            .bind(words_json(&words(0..2)))
+            .execute(b.pool())
+            .await
+            .unwrap();
+        }
+
+        let stats = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            if bounded {
+                encrypt_e2ee_replica_changes_bounded(b.pool(), &workspace_keys, 1).await
+            } else {
+                encrypt_e2ee_replica_changes(b.pool(), &workspace_keys).await
+            }
+        })
+        .await
+        .expect("encryption spun on deferred transcript pages")
+        .unwrap();
+        assert!(
+            stats.encrypted_fields > 0,
+            "later local edit was starved: {stats:?}"
+        );
+        assert!(stats.remaining_replica_changes);
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_dirty_rows")
+                .fetch_one(b.pool())
+                .await
+                .unwrap(),
+            E2EE_ENCRYPT_ROW_LIMIT * 2 + if bounded { 2 } else { 0 }
+        );
+        let restored = test_db().await;
+        copy_replica(b.pool(), restored.pool()).await;
+        copy_replica(a.pool(), restored.pool()).await;
+        for _ in 0..E2EE_ENCRYPT_ROW_LIMIT {
+            if !apply_e2ee_replica_changes(restored.pool(), &workspace_keys)
+                .await
+                .unwrap()
+                .remaining_replica_changes
+            {
+                break;
+            }
+        }
+        let value: String =
+            sqlx::query_scalar("SELECT words_json FROM transcripts WHERE id = 'transcript-z0'")
+                .fetch_one(restored.pool())
+                .await
+                .unwrap();
+        assert_eq!(
+            serde_json::from_str::<Vec<Value>>(&value).unwrap(),
+            words(0..2)
+        );
+    }
+}
+
+#[tokio::test]
 async fn transcripts_sync_as_chunks_and_an_append_reseals_only_the_tail() {
     let workspace_keys = keys("workspace-a");
     let items = words(0..600);
