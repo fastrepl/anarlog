@@ -105,7 +105,8 @@ export async function provisionMissingWorkspaceKeys(
       continue;
     }
     if (waitingForIdentity) {
-      waiting = true;
+      // A teammate without an identity cannot block devices that already have the key.
+      waiting ||= activeGrant === undefined;
       continue;
     }
 

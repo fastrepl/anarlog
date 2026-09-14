@@ -839,6 +839,63 @@ describe("CloudSync auth lifecycle", () => {
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
   });
 
+  test.each(["sqlite-sync", "replica"])(
+    "starts and refreshes %s sync when a teammate has not set up encryption",
+    async (transport) => {
+      const payload = projectedCredentialsPayload();
+      payload.workspaces[1]!.role = "owner";
+      const fetchMock = vi.fn((url: URL | string) => {
+        if (String(url).endsWith("/recipients")) {
+          return Promise.resolve(
+            Response.json([
+              {
+                userId: "user-id",
+                publicKey: E2EE_MEMBER_PUBLIC_KEY,
+                grantedKeyIds: [payload.workspaceKeyGrants[0]!.keyId],
+              },
+              {
+                userId: "new-member",
+                publicKey: null,
+                grantedKeyIds: [],
+              },
+            ]),
+          );
+        }
+        return Promise.resolve(
+          Response.json({
+            ...payload,
+            ...(transport === "replica" ? { transport } : {}),
+          }),
+        );
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await handleCloudsyncAuthChange("SIGNED_IN", session());
+      await handleCloudsyncAuthChange("TOKEN_REFRESHED", session());
+
+      const configure =
+        transport === "replica"
+          ? configureE2eeReplica
+          : configureCloudsyncToken;
+      expect(configure).toHaveBeenCalledTimes(2);
+      expect(configure).toHaveBeenLastCalledWith(
+        ...(transport === "replica"
+          ? ["user-id"]
+          : ["database-id", "sqlite-token", "user-id"]),
+        witness(),
+        {
+          accountUserId: "user-id",
+          personalWorkspaceId: "user-id",
+          workspaces: payload.workspaces,
+        },
+        payload.workspaceKeyGrants,
+      );
+      expect(getCloudsyncCredentialBlock()).toBeNull();
+      expect(startCloudsyncInitialSyncProgress).toHaveBeenCalledWith("user-id");
+      expect(fetchMock).toHaveBeenCalledTimes(4);
+    },
+  );
+
   test("deletes queued folders only after native revocation succeeds", async () => {
     vi.stubGlobal(
       "fetch",
