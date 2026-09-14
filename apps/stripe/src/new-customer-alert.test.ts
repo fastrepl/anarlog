@@ -8,21 +8,22 @@ import {
 
 type Post = { webhookUrl: string; text: string };
 
-function customerCreated(
-  customer: Record<string, unknown> = {},
+function subscriptionCreated(
+  subscription: Record<string, unknown> = {},
   livemode = true,
 ): Stripe.Event {
   return {
-    id: "evt_customer_created",
-    type: "customer.created",
+    id: "evt_subscription_created",
+    type: "customer.subscription.created",
     livemode,
     data: {
       object: {
-        id: "cus_new",
-        email: "new@example.com",
-        metadata: { userId: "user-1" },
-        ...customer,
-      } as unknown as Stripe.Customer,
+        id: "sub_new",
+        customer: "cus_new",
+        status: "trialing",
+        items: { data: [{ price: { product: "prod_pro" } }] },
+        ...subscription,
+      } as unknown as Stripe.Subscription,
     },
   } as Stripe.Event;
 }
@@ -30,10 +31,19 @@ function customerCreated(
 function dependencies(
   posts: Post[],
   overrides: Partial<NewCustomerAlertDependencies> = {},
+  customer: Record<string, unknown> = {},
 ): NewCustomerAlertDependencies {
   return {
     anarlogWebhookUrl: "https://hooks.example/anarlog",
     charWebhookUrl: "https://hooks.example/char",
+    getCustomer: async () =>
+      ({
+        id: "cus_new",
+        email: "new@example.com",
+        metadata: { userId: "user-1" },
+        ...customer,
+      }) as unknown as Stripe.Customer,
+    getProductName: async () => "Anarlog Pro",
     postSlackMessage: async (webhookUrl, text) => {
       posts.push({ webhookUrl, text });
     },
@@ -42,66 +52,54 @@ function dependencies(
 }
 
 describe("sendNewCustomerAlert", () => {
-  it("posts Anarlog customers to the Anarlog channel", async () => {
+  it("announces an Anarlog trial in the Anarlog channel", async () => {
     const posts: Post[] = [];
 
     const result = await sendNewCustomerAlert(
-      customerCreated(),
+      subscriptionCreated(),
       dependencies(posts),
     );
 
-    expect(result).toEqual({ product: "anarlog", customerId: "cus_new" });
+    expect(result).toEqual({ product: "anarlog", subscriptionId: "sub_new" });
     expect(posts).toEqual([
       {
         webhookUrl: "https://hooks.example/anarlog",
-        text: "New Anarlog customer: new@example.com\n<https://dashboard.stripe.com/customers/cus_new|View in Stripe>",
+        text: "<https://dashboard.stripe.com/customers/cus_new|new@example.com> started Pro trial",
       },
     ]);
   });
 
-  it("posts customers Char bills through Autumn to the Char channel", async () => {
+  it("announces a paid Char subscription in the Char channel", async () => {
     const posts: Post[] = [];
 
     const result = await sendNewCustomerAlert(
-      customerCreated({
-        metadata: {
-          autumn_id: "member-live-123",
-          autumn_internal_id: "cus_autumn_123",
-        },
-      }),
-      dependencies(posts),
+      subscriptionCreated({ status: "active" }),
+      dependencies(
+        posts,
+        { getProductName: async () => "Char Max" },
+        { metadata: { autumn_id: "member-live-123" } },
+      ),
     );
 
-    expect(result).toEqual({ product: "char", customerId: "cus_new" });
+    expect(result).toEqual({ product: "char", subscriptionId: "sub_new" });
     expect(posts).toEqual([
       {
         webhookUrl: "https://hooks.example/char",
-        text: "New Char customer: new@example.com\n<https://dashboard.stripe.com/customers/cus_new|View in Stripe>",
+        text: "<https://dashboard.stripe.com/customers/cus_new|new@example.com> subscribed to Max",
       },
     ]);
   });
 
-  it("labels workspace customers as Anarlog Team", async () => {
+  it("links test-mode customers and falls back to the customer id", async () => {
     const posts: Post[] = [];
 
     await sendNewCustomerAlert(
-      customerCreated({ metadata: { workspaceId: "workspace-1" } }),
-      dependencies(posts),
-    );
-
-    expect(posts[0]?.text).toStartWith("New Anarlog Team customer:");
-  });
-
-  it("links test-mode customers and notes a missing email", async () => {
-    const posts: Post[] = [];
-
-    await sendNewCustomerAlert(
-      customerCreated({ email: null }, false),
-      dependencies(posts),
+      subscriptionCreated({}, false),
+      dependencies(posts, {}, { email: null }),
     );
 
     expect(posts[0]?.text).toBe(
-      "New Anarlog customer: (no email)\n<https://dashboard.stripe.com/test/customers/cus_new|View in Stripe>",
+      "<https://dashboard.stripe.com/test/customers/cus_new|cus_new> started Pro trial",
     );
   });
 
@@ -109,32 +107,42 @@ describe("sendNewCustomerAlert", () => {
     const posts: Post[] = [];
 
     await sendNewCustomerAlert(
-      customerCreated({ email: "a<b>&c@example.com" }),
-      dependencies(posts),
+      subscriptionCreated(),
+      dependencies(posts, {}, { email: "a<b>&c@example.com" }),
     );
 
-    expect(posts[0]?.text).toStartWith(
-      "New Anarlog customer: a&lt;b&gt;&amp;c@example.com\n",
-    );
+    expect(posts[0]?.text).toContain("|a&lt;b&gt;&amp;c@example.com>");
   });
 
   it("skips a product whose channel webhook is not configured", async () => {
     const posts: Post[] = [];
 
     const result = await sendNewCustomerAlert(
-      customerCreated({ metadata: { autumn_id: "member-live-123" } }),
-      dependencies(posts, { charWebhookUrl: undefined }),
+      subscriptionCreated(),
+      dependencies(posts, { anarlogWebhookUrl: undefined }),
     );
 
     expect(result).toBeNull();
     expect(posts).toEqual([]);
   });
 
-  it("ignores other events", async () => {
+  it("skips deleted customers", async () => {
     const posts: Post[] = [];
 
     const result = await sendNewCustomerAlert(
-      { ...customerCreated(), type: "customer.updated" } as Stripe.Event,
+      subscriptionCreated(),
+      dependencies(posts, { getCustomer: async () => null }),
+    );
+
+    expect(result).toBeNull();
+    expect(posts).toEqual([]);
+  });
+
+  it("ignores other events, including customer creation", async () => {
+    const posts: Post[] = [];
+
+    const result = await sendNewCustomerAlert(
+      { ...subscriptionCreated(), type: "customer.created" } as Stripe.Event,
       dependencies(posts),
     );
 

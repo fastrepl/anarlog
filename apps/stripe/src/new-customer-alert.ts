@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 
-import { getCustomerOwner, isAutumnManagedCustomer } from "./customer-metadata";
+import { isAutumnManagedCustomer } from "./customer-metadata";
 
 type Product = "anarlog" | "char";
 
@@ -11,25 +11,44 @@ const SLACK_TIMEOUT_MS = 3_000;
 export type NewCustomerAlertDependencies = {
   anarlogWebhookUrl: string | undefined;
   charWebhookUrl: string | undefined;
+  getCustomer: (customerId: string) => Promise<Stripe.Customer | null>;
+  getProductName: (productId: string) => Promise<string>;
   postSlackMessage: (webhookUrl: string, text: string) => Promise<void>;
 };
 
 // Anarlog and Char share one Stripe account, so Stripe's own Slack app cannot
 // pick a channel. Char's customers come from Autumn and carry `autumn_id`.
+// Char's card-free Max trial never creates a Stripe subscription, so the Char
+// API announces trial starts itself; this covers Anarlog trials and paid
+// subscriptions for both products.
 export async function sendNewCustomerAlert(
   event: Stripe.Event,
   dependencies?: NewCustomerAlertDependencies,
 ) {
-  if (event.type !== "customer.created") {
+  if (event.type !== "customer.subscription.created") {
     return null;
   }
 
-  const customer = event.data.object as Stripe.Customer;
+  const subscription = event.data.object as Stripe.Subscription;
+  const productId = getProductId(subscription);
+  if (!productId) {
+    return null;
+  }
+
+  const activeDependencies =
+    dependencies ?? (await createDefaultDependencies());
+  const customer = await activeDependencies.getCustomer(
+    typeof subscription.customer === "string"
+      ? subscription.customer
+      : subscription.customer.id,
+  );
+  if (!customer) {
+    return null;
+  }
+
   const product: Product = isAutumnManagedCustomer(customer.metadata)
     ? "char"
     : "anarlog";
-  const activeDependencies =
-    dependencies ?? (await createDefaultDependencies());
   const webhookUrl =
     product === "char"
       ? activeDependencies.charWebhookUrl
@@ -38,28 +57,33 @@ export async function sendNewCustomerAlert(
     return null;
   }
 
+  const plan = planLabel(await activeDependencies.getProductName(productId));
+  const action =
+    subscription.status === "trialing"
+      ? `started ${plan} trial`
+      : `subscribed to ${plan}`;
+  const dashboardUrl = `https://dashboard.stripe.com/${event.livemode ? "" : "test/"}customers/${customer.id}`;
+  const who = escapeSlackText(customer.email ?? customer.id);
+
   await activeDependencies.postSlackMessage(
     webhookUrl,
-    newCustomerAlertText(event, customer, product),
+    `<${dashboardUrl}|${who}> ${action}`,
   );
 
-  return { product, customerId: customer.id };
+  return { product, subscriptionId: subscription.id };
 }
 
-function newCustomerAlertText(
-  event: Stripe.Event,
-  customer: Stripe.Customer,
-  product: Product,
-) {
-  const label =
-    product === "char"
-      ? "Char"
-      : getCustomerOwner(customer.metadata)?.kind === "workspace"
-        ? "Anarlog Team"
-        : "Anarlog";
-  const dashboardUrl = `https://dashboard.stripe.com/${event.livemode ? "" : "test/"}customers/${customer.id}`;
-  const email = escapeSlackText(customer.email ?? "(no email)");
-  return `New ${label} customer: ${email}\n<${dashboardUrl}|View in Stripe>`;
+function getProductId(subscription: Stripe.Subscription) {
+  const product = subscription.items?.data[0]?.price.product;
+  if (!product) {
+    return null;
+  }
+  return typeof product === "string" ? product : product.id;
+}
+
+// "Anarlog Pro" and "Char Max" read as "Pro" and "Max" in their own channels.
+function planLabel(productName: string) {
+  return productName.replace(/^(Anarlog|Char)\s+/, "");
 }
 
 function escapeSlackText(value: string) {
@@ -70,11 +94,19 @@ function escapeSlackText(value: string) {
 }
 
 async function createDefaultDependencies(): Promise<NewCustomerAlertDependencies> {
-  const { env } = await import("./env");
+  const [{ env }, billingBridge, stripeIntegration] = await Promise.all([
+    import("./env"),
+    import("./billing-bridge"),
+    import("./integration/stripe"),
+  ]);
 
   return {
     anarlogWebhookUrl: env.SLACK_ALERT_ANARLOG_WEBHOOK_URL,
     charWebhookUrl: env.SLACK_ALERT_CHAR_WEBHOOK_URL,
+    getCustomer: billingBridge.getStripeCustomer,
+    async getProductName(productId) {
+      return (await stripeIntegration.stripe.products.retrieve(productId)).name;
+    },
     async postSlackMessage(webhookUrl, text) {
       const response = await fetch(webhookUrl, {
         method: "POST",
