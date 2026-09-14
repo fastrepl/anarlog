@@ -718,6 +718,7 @@ describe("EventListeners notification events", () => {
         payload: { type, key, source: null },
       });
 
+      expect(stopMock).not.toHaveBeenCalled();
       expect(createSessionMock).not.toHaveBeenCalled();
       expect(openNewMock).not.toHaveBeenCalled();
       expect(setTriggerAppIdsMock).not.toHaveBeenCalled();
