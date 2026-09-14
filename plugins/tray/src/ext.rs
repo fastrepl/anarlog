@@ -177,6 +177,12 @@ fn linux_tray_backend_available() -> bool {
 
 impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
     pub fn create_tray_menu(&self) -> Result<()> {
+        on_main_thread(self.manager.app_handle(), |app| {
+            app.tray().create_tray_menu_on_main_thread()
+        })
+    }
+
+    fn create_tray_menu_on_main_thread(&self) -> Result<()> {
         let app = self.manager.app_handle();
 
         if app.tray_by_id(TRAY_ID).is_some() {
@@ -228,6 +234,12 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
     }
 
     pub fn set_visible(&self, visible: bool) -> Result<()> {
+        on_main_thread(self.manager.app_handle(), move |app| {
+            app.tray().set_visible_on_main_thread(visible)
+        })
+    }
+
+    fn set_visible_on_main_thread(&self, visible: bool) -> Result<()> {
         let app = self.manager.app_handle();
         crate::macos_position::set_wanted_visible(visible);
 
@@ -254,11 +266,13 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
     }
 
     pub fn set_title(&self, title: Option<&str>) -> Result<()> {
-        let app = self.manager.app_handle();
-        if let Some(tray) = app.tray_by_id(TRAY_ID) {
-            tray.set_title(title)?;
-        }
-        Ok(())
+        let title = title.map(str::to_owned);
+        on_main_thread(self.manager.app_handle(), move |app| {
+            if let Some(tray) = app.tray_by_id(TRAY_ID) {
+                tray.set_title(title.as_deref())?;
+            }
+            Ok(())
+        })
     }
 
     pub fn set_schedule(&self, mut events: Vec<TrayScheduleEvent>) -> Result<()> {
@@ -321,6 +335,10 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
     }
 
     fn refresh_menu_bar_title(app: &AppHandle<tauri::Wry>) -> Result<()> {
+        on_main_thread(app, |app| Self::refresh_menu_bar_title_on_main_thread(app))
+    }
+
+    fn refresh_menu_bar_title_on_main_thread(app: &AppHandle<tauri::Wry>) -> Result<()> {
         let Some(tray) = app.tray_by_id(TRAY_ID) else {
             return Ok(());
         };
@@ -418,6 +436,10 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
     }
 
     fn install_menu(app: &AppHandle<tauri::Wry>) -> Result<()> {
+        on_main_thread(app, |app| Self::install_menu_on_main_thread(app))
+    }
+
+    fn install_menu_on_main_thread(app: &AppHandle<tauri::Wry>) -> Result<()> {
         let agenda = Self::current_agenda_sections();
         if let Some(tray) = app.tray_by_id(TRAY_ID) {
             tray.set_menu(Some(Self::build_tray_menu(app, &agenda)?))?;
@@ -526,6 +548,10 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
     }
 
     fn refresh_icon(app: &AppHandle<tauri::Wry>) -> Result<()> {
+        on_main_thread(app, |app| Self::refresh_icon_on_main_thread(app))
+    }
+
+    fn refresh_icon_on_main_thread(app: &AppHandle<tauri::Wry>) -> Result<()> {
         {
             let mut task = ANIMATION_TASK.lock().unwrap();
             if let Some(handle) = task.take() {
@@ -539,11 +565,16 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
                     let mut frame = 0usize;
                     loop {
                         interval.tick().await;
-                        if let Some(tray) = app.tray_by_id(TRAY_ID)
-                            && let Ok(image) = Image::from_bytes(RECORDING_FRAMES[frame])
-                        {
-                            let _ = tray.set_icon(Some(image));
-                        }
+                        let _ = on_main_thread(&app, move |app| {
+                            if IS_RECORDING.load(Ordering::SeqCst)
+                                && !IS_DEGRADED.load(Ordering::SeqCst)
+                                && crate::macos_position::wanted_visible()
+                                && let Some(tray) = app.tray_by_id(TRAY_ID)
+                            {
+                                tray.set_icon(Some(Image::from_bytes(RECORDING_FRAMES[frame])?))?;
+                            }
+                            Ok(())
+                        });
                         frame = (frame + 1) % RECORDING_FRAMES.len();
                     }
                 }));
@@ -574,6 +605,28 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
     }
 }
 
+// Tauri's TrayIcon is Send, but cloning/dropping it touches tray-icon's Rc.
+// Dispatch before looking up the handle, not just before calling its setters.
+fn on_main_thread(
+    app: &AppHandle<tauri::Wry>,
+    action: impl FnOnce(&AppHandle<tauri::Wry>) -> Result<()> + Send + 'static,
+) -> Result<()> {
+    let handle = app.clone();
+    dispatch_and_wait(move || action(&handle), |task| app.run_on_main_thread(task))
+}
+
+fn dispatch_and_wait(
+    action: impl FnOnce() -> Result<()> + Send + 'static,
+    dispatch: impl FnOnce(Box<dyn FnOnce() + Send>) -> Result<()>,
+) -> Result<()> {
+    let (tx, rx) = std::sync::mpsc::sync_channel(1);
+    dispatch(Box::new(move || {
+        let _ = tx.send(action());
+    }))?;
+    rx.recv()
+        .map_err(|_| tauri::Error::FailedToReceiveMessage)?
+}
+
 pub(crate) fn scheduled_event(event_id: &str) -> Option<TrayScheduleEvent> {
     SCHEDULE
         .lock()
@@ -598,5 +651,61 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> TrayPluginExt<R> for T {
             manager: self,
             _runtime: std::marker::PhantomData,
         }
+    }
+}
+
+#[cfg(test)]
+mod thread_tests {
+    use super::dispatch_and_wait;
+    use std::{cell::RefCell, rc::Rc, sync::mpsc, thread};
+
+    #[test]
+    fn background_updates_create_use_and_drop_handles_on_the_dispatch_thread() {
+        struct Handle(mpsc::Sender<thread::ThreadId>);
+        impl Drop for Handle {
+            fn drop(&mut self) {
+                self.0.send(thread::current().id()).unwrap();
+            }
+        }
+        let main_thread = thread::current().id();
+        let (tasks, queued) = mpsc::channel::<Box<dyn FnOnce() + Send>>();
+        let (dropped, drops) = mpsc::channel();
+        let worker = thread::spawn(move || {
+            dispatch_and_wait(
+                move || {
+                    assert_eq!(thread::current().id(), main_thread);
+                    let handle = Rc::new(RefCell::new(Handle(dropped)));
+                    let clone = handle.clone();
+                    let _borrow = clone.borrow_mut();
+                    Ok(())
+                },
+                |task| {
+                    tasks.send(task).unwrap();
+                    Ok(())
+                },
+            )
+        });
+        queued.recv().unwrap()();
+        worker.join().unwrap().unwrap();
+        assert_eq!(drops.recv().unwrap(), main_thread);
+    }
+
+    #[test]
+    fn inline_dispatch_and_failures_do_not_block_or_hide_errors() {
+        let error = dispatch_and_wait(
+            || Err(tauri::Error::FailedToReceiveMessage),
+            |task| {
+                task();
+                Ok(())
+            },
+        )
+        .unwrap_err();
+        assert!(matches!(error, tauri::Error::FailedToReceiveMessage));
+        let error = dispatch_and_wait(
+            || panic!("must not run after dispatch failure"),
+            |_| Err(tauri::Error::FailedToReceiveMessage),
+        )
+        .unwrap_err();
+        assert!(matches!(error, tauri::Error::FailedToReceiveMessage));
     }
 }
