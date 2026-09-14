@@ -5,6 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use rayon::prelude::*;
 use serde_json::Value;
+use tauri::Manager;
 use tauri_plugin_notify::{MAX_OWN_WRITES_PER_BATCH, NotifyPluginExt};
 use tauri_plugin_settings::SettingsPluginExt;
 
@@ -436,9 +437,20 @@ pub(crate) async fn audio_path<R: tauri::Runtime>(
     session_id: String,
 ) -> Result<String, String> {
     let session_dir = resolve_session_dir(&app, &session_id)?;
-    crate::audio::path(&session_dir)
+    let path = crate::audio::path(&session_dir)
         .map(|p| p.to_string_lossy().to_string())
-        .ok_or_else(|| "audio_path_not_found".to_string())
+        .ok_or_else(|| "audio_path_not_found".to_string())?;
+    // The webview plays this file through the asset protocol via
+    // `convertFileSrc`. On Linux the vault lives under `~/.local/share/...`,
+    // and Tauri's asset-protocol scope glob (`**/*` in tauri.conf.json)
+    // never matches a path with a dot-leading component there; the
+    // `$APPDATA/**` entry in the same config only covers the
+    // bundle-identifier folder, which this app does not use for its data.
+    // Allow this exact file instead of widening the static scope config.
+    app.asset_protocol_scope()
+        .allow_file(&path)
+        .map_err(|error| error.to_string())?;
+    Ok(path)
 }
 
 #[tauri::command]
@@ -540,11 +552,23 @@ pub(crate) async fn attachment_save<R: tauri::Runtime>(
     data: Vec<u8>,
     filename: String,
 ) -> Result<crate::AttachmentSaveResult, String> {
-    spawn_blocking!({
+    let scope = app.asset_protocol_scope();
+    let result = spawn_blocking!({
         app.fs_sync()
             .attachment_save(&session_id, &data, &filename)
             .map_err(|e| e.to_string())
-    })
+    })?;
+    // The webview previews this attachment through the asset protocol via
+    // `convertFileSrc` (see useFileUpload.ts). On Linux the vault lives
+    // under `~/.local/share/...`; Tauri's asset-protocol scope glob (`**/*`
+    // in tauri.conf.json) never matches a path with a dot-leading component
+    // there, and the `$APPDATA/**` entry only covers the bundle-identifier
+    // folder this app does not use for its data. Allow this exact file
+    // instead of widening the static scope config.
+    scope
+        .allow_file(&result.path)
+        .map_err(|error| error.to_string())?;
+    Ok(result)
 }
 
 #[tauri::command]
@@ -553,11 +577,21 @@ pub(crate) async fn attachment_list<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     session_id: String,
 ) -> Result<Vec<crate::AttachmentInfo>, String> {
-    spawn_blocking!({
+    let scope = app.asset_protocol_scope();
+    let attachments = spawn_blocking!({
         app.fs_sync()
             .attachment_list(&session_id)
             .map_err(|e| e.to_string())
-    })
+    })?;
+    // See attachment_save above: each listed attachment is fed into
+    // `convertFileSrc` by useAttachmentResolver.ts, so allow every file
+    // explicitly for the same dot-leading-directory reason.
+    for attachment in &attachments {
+        scope
+            .allow_file(&attachment.path)
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(attachments)
 }
 
 #[tauri::command]

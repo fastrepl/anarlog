@@ -341,7 +341,7 @@ pub(crate) async fn download_shared_attachment<R: tauri::Runtime>(
     let operation = control
         .start(&operation_id, Some(&scope_id))
         .map_err(|error| error.to_string())?;
-    crate::runtime::download_shared_attachment(
+    let result = crate::runtime::download_shared_attachment(
         &app,
         &operation,
         &scope_id,
@@ -351,7 +351,18 @@ pub(crate) async fn download_shared_attachment<R: tauri::Runtime>(
         expected_size_bytes,
     )
     .await
-    .map_err(|error| error.to_string())
+    .map_err(|error| error.to_string())?;
+    // The webview loads this path through the asset protocol via
+    // `convertFileSrc`. On Linux the cache lives under `~/.local/share/...`,
+    // and Tauri's asset-protocol scope glob (`**/*` in tauri.conf.json)
+    // never matches a path with a dot-leading component there; the
+    // `$APPDATA/**` entry in the same config only covers the
+    // bundle-identifier folder, which this app does not use for its data.
+    // Allow this exact file instead of widening the static scope config.
+    app.asset_protocol_scope()
+        .allow_file(&result.local_path)
+        .map_err(|error| error.to_string())?;
+    Ok(result)
 }
 
 #[tauri::command]
@@ -361,9 +372,19 @@ pub(crate) async fn shared_attachment_path<R: tauri::Runtime>(
     scope_id: String,
     attachment_id: String,
 ) -> Result<Option<String>, String> {
-    crate::runtime::existing_shared_attachment_path(&app, &scope_id, &attachment_id)
+    let path = crate::runtime::existing_shared_attachment_path(&app, &scope_id, &attachment_id)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    if let Some(path) = &path {
+        // See download_shared_attachment above: widen the asset-protocol
+        // scope for this cached attachment path explicitly, since it sits
+        // under a dot-leading Linux data directory the static scope config
+        // cannot match.
+        app.asset_protocol_scope()
+            .allow_file(path)
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(path)
 }
 
 #[tauri::command]
