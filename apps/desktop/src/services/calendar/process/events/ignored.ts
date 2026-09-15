@@ -48,7 +48,8 @@ export function migrateIgnoredEventIds(
         FROM entries
       ), ranked AS (
         SELECT value, position, ROW_NUMBER() OVER (
-          PARTITION BY json_extract(value, '$.tracking_id')
+          PARTITION BY json_extract(value, '$.tracking_id'),
+            CASE WHEN json_extract(value, '$.tracking_id') IS NULL THEN position END
           ORDER BY json_extract(value, '$.last_seen') DESC, position
         ) AS rank
         FROM normalized

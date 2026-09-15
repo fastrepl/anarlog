@@ -191,6 +191,28 @@ describe("Apple occurrence reconciliation in SQLite", () => {
     expect(setting()).toEqual(expected);
   });
 
+  test("preserves ignored entries without tracking IDs during alias migration", async () => {
+    const unidentified = [
+      { last_seen: "2026-09-14", title: "Missing ID" },
+      { last_seen: "2026-09-15", title: "Another missing ID" },
+      { tracking_id: null, last_seen: "2026-09-16" },
+      { tracking_id: null, last_seen: "2026-09-17" },
+    ];
+    db.prepare(
+      "UPDATE app_settings SET value_json = ? WHERE id = 'ignored_events'",
+    ).run(JSON.stringify([...unidentified, ...setting()]));
+
+    await reconcile();
+    const expected = [
+      ...unidentified,
+      { tracking_id: incoming[0].tracking_id_event, last_seen: "2026-09-15" },
+      { tracking_id: "other-event", last_seen: "2026-09-15" },
+    ];
+    expect(setting()).toEqual(expected);
+    await reconcile();
+    expect(setting()).toEqual(expected);
+  });
+
   test("rolls back event, note, and ignore changes together", async () => {
     db.exec(
       "CREATE TRIGGER reject_note BEFORE UPDATE ON sessions BEGIN SELECT RAISE(ABORT, 'test failure'); END",

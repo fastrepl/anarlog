@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import type { ParticipantSyncSnapshot } from "../../storage";
 import { syncSessionParticipants } from "./sync";
@@ -28,6 +28,10 @@ const session = {
 };
 
 describe("syncSessionParticipants", () => {
+  afterEach(() => {
+    vi.mocked(id).mockReset().mockReturnValue("human-new");
+  });
+
   test("updates participants on every note attached to a reconciled occurrence", () => {
     vi.mocked(id)
       .mockReturnValueOnce("human-one")
@@ -49,7 +53,6 @@ describe("syncSessionParticipants", () => {
       "human-one",
       "human-one",
     ]);
-    vi.mocked(id).mockReset().mockReturnValue("human-new");
   });
   test("returns empty output when no events are provided", () => {
     const result = syncSessionParticipants({
