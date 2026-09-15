@@ -17,7 +17,7 @@ tempfile = { workspace = true }
 [dependencies]
 anlg-fs-sync-core = { workspace = true, features = ["tauri-event"] }
 
-tauri = { workspace = true, features = ["test"] }
+tauri = { workspace = true, features = ["test", "protocol-asset"] }
 tauri-plugin-notify = { workspace = true }
 tauri-plugin-opener = { workspace = true }
 tauri-plugin-settings = { workspace = true }
