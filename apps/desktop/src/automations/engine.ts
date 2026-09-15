@@ -7,8 +7,10 @@ import {
 } from "@anlg/api-client";
 import { createClient } from "@anlg/api-client/client";
 import { json2md } from "@anlg/editor/markdown";
+import type { MarkdownExportOptions } from "@anlg/plugin-local-api";
 import { commands as localApiCommands } from "@anlg/plugin-local-api";
 
+import { hasMarkdownExportContent } from "./markdown-export";
 import {
   type AutomationRunRecord,
   type AutomationTargetRef,
@@ -186,7 +188,10 @@ async function executeWorkflowStep(
     if (!directory) {
       throw new Error("choose an export folder first");
     }
-    return await executeMarkdownExport(sessionId, directory);
+    if (step.options && !hasMarkdownExportContent(step.options)) {
+      throw new Error("choose at least one element to export");
+    }
+    return await executeMarkdownExport(sessionId, directory, step.options);
   }
   if (!step.target) {
     throw new Error(`choose a ${stepLabel(step.type)} first`);
@@ -366,10 +371,12 @@ async function runNotionUpdate(sessionId: string): Promise<void> {
 async function executeMarkdownExport(
   sessionId: string,
   directory: string,
+  options?: MarkdownExportOptions,
 ): Promise<string> {
   const result = await localApiCommands.exportMeetingMarkdown(
     sessionId,
     directory,
+    options ?? null,
   );
   if (result.status === "error") {
     throw new Error(result.error);

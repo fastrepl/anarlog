@@ -1299,6 +1299,7 @@ msgid "Collaborator"
 msgstr "Collaborator"
 
 #: src/automations/starters.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Collect action items"
 msgstr "Collect action items"
 
@@ -1870,6 +1871,7 @@ msgstr "Dark"
 msgid "Data"
 msgstr "Data"
 
+#: src/settings/automations/markdown-export-options.tsx
 #: src/sidebar/note-filter-menu.tsx
 msgid "Date"
 msgstr "Date"
@@ -2687,6 +2689,7 @@ msgid "in {weeks} weeks"
 msgstr "in {weeks} weeks"
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Include"
 msgstr "Include"
 
@@ -3193,6 +3196,7 @@ msgstr "Members on a claimed email domain must sign in with SSO instead of Googl
 
 #: src/edit/tab-content.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Memo"
 msgstr "Memo"
 
@@ -3298,10 +3302,12 @@ msgstr "My automations"
 
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
+#: src/settings/automations/markdown-export-options.tsx
 #: src/settings/team/index.tsx
 msgid "Name"
 msgstr "Name"
 
+#: src/settings/automations/markdown-export-options.tsx
 #: src/settings/automations/workflow-builder.tsx
 msgid "Needs setup"
 msgstr "Needs setup"
@@ -4636,6 +4642,7 @@ msgid "Session note views"
 msgstr "Session note views"
 
 #: src/session/components/title-input.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Session title"
 msgstr "Session title"
 
@@ -5211,6 +5218,7 @@ msgstr "Summaries"
 #: src/contacts/details.tsx
 #: src/edit/tab-content.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Summary"
 msgstr "Summary"
 
@@ -5534,6 +5542,7 @@ msgstr "Transcribing…"
 
 #: src/session/components/note-input/header-transcript.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Transcript"
 msgstr "Transcript"
 
@@ -5790,6 +5799,7 @@ msgid "Use 3–63 lowercase letters, numbers, or hyphens."
 msgstr "Use 3–63 lowercase letters, numbers, or hyphens."
 
 #: src/automations/starters.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Use a stable filename in the configured export directory."
 msgstr "Use a stable filename in the configured export directory."
 

@@ -1,3 +1,10 @@
+import type { MarkdownExportOptions } from "@anlg/plugin-local-api";
+
+import {
+  DEFAULT_MARKDOWN_EXPORT_OPTIONS,
+  hasMarkdownExportContent,
+  parseMarkdownExportOptions,
+} from "./markdown-export";
 import type { AutomationRunRecord, AutomationTargetRef } from "./types";
 
 import { setSettingValue, useStoredSettingValue } from "~/settings/queries";
@@ -27,6 +34,7 @@ export type WorkflowStep =
       id: string;
       type: "markdown_export";
       directory: string;
+      options?: MarkdownExportOptions;
     };
 
 export type AutomationWorkflow = {
@@ -64,7 +72,10 @@ export function createWorkflowStep(type: WorkflowStepType): WorkflowStep {
 
 export function isWorkflowStepReady(step: WorkflowStep): boolean {
   if (step.type === "markdown_export") {
-    return step.directory.trim().length > 0;
+    return (
+      step.directory.trim().length > 0 &&
+      hasMarkdownExportContent(step.options ?? DEFAULT_MARKDOWN_EXPORT_OPTIONS)
+    );
   }
   return step.target !== null;
 }
@@ -157,6 +168,9 @@ function parseStep(value: unknown): WorkflowStep | null {
       id: value.id,
       type: "markdown_export",
       directory: typeof value.directory === "string" ? value.directory : "",
+      ...(value.options !== undefined
+        ? { options: parseMarkdownExportOptions(value.options) }
+        : {}),
     };
   }
   if (

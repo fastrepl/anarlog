@@ -1299,6 +1299,7 @@ msgid "Collaborator"
 msgstr ""
 
 #: src/automations/starters.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Collect action items"
 msgstr ""
 
@@ -1870,6 +1871,7 @@ msgstr ""
 msgid "Data"
 msgstr ""
 
+#: src/settings/automations/markdown-export-options.tsx
 #: src/sidebar/note-filter-menu.tsx
 msgid "Date"
 msgstr ""
@@ -2687,6 +2689,7 @@ msgid "in {weeks} weeks"
 msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Include"
 msgstr ""
 
@@ -3193,6 +3196,7 @@ msgstr ""
 
 #: src/edit/tab-content.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Memo"
 msgstr ""
 
@@ -3298,10 +3302,12 @@ msgstr ""
 
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
+#: src/settings/automations/markdown-export-options.tsx
 #: src/settings/team/index.tsx
 msgid "Name"
 msgstr ""
 
+#: src/settings/automations/markdown-export-options.tsx
 #: src/settings/automations/workflow-builder.tsx
 msgid "Needs setup"
 msgstr ""
@@ -4636,6 +4642,7 @@ msgid "Session note views"
 msgstr ""
 
 #: src/session/components/title-input.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Session title"
 msgstr ""
 
@@ -5211,6 +5218,7 @@ msgstr ""
 #: src/contacts/details.tsx
 #: src/edit/tab-content.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Summary"
 msgstr ""
 
@@ -5534,6 +5542,7 @@ msgstr ""
 
 #: src/session/components/note-input/header-transcript.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Transcript"
 msgstr ""
 
@@ -5790,6 +5799,7 @@ msgid "Use 3–63 lowercase letters, numbers, or hyphens."
 msgstr ""
 
 #: src/automations/starters.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Use a stable filename in the configured export directory."
 msgstr ""
 
