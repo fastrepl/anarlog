@@ -60,6 +60,46 @@ function makeIncomingEvent(
 }
 
 describe("syncSessionEmbeddedEvents", () => {
+  test("updates every note linked through a legacy occurrence id", () => {
+    const incoming = makeIncomingEvent({
+      tracking_id_event: "canonical",
+      legacy_tracking_ids: ["old-master", "old-detached"],
+    });
+    const sessions = [
+      { ...makeSession("one"), calendarId: "cal-1", trackingId: "old-master" },
+      {
+        ...makeSession("two"),
+        calendarId: "cal-1",
+        trackingId: "old-detached",
+      },
+      {
+        ...makeSession("other"),
+        calendarId: "other-calendar",
+        trackingId: "old-detached",
+      },
+    ];
+    const updates = syncSessionEmbeddedEvents(
+      createMockCtx(),
+      [incoming],
+      sessions,
+    );
+    expect(
+      updates.map((update) => [update.sessionId, update.trackingId]),
+    ).toEqual([
+      ["one", "canonical"],
+      ["two", "canonical"],
+    ]);
+  });
+
+  test("does not rewrite note snapshots for canceled events", () => {
+    expect(
+      syncSessionEmbeddedEvents(
+        createMockCtx(),
+        [makeIncomingEvent({ is_cancelled: true })],
+        [makeSession("one")],
+      ),
+    ).toEqual([]);
+  });
   test("builds an update for a matching non-recurring event", () => {
     const updates = syncSessionEmbeddedEvents(
       createMockCtx(),
@@ -130,6 +170,7 @@ describe("syncSessionEmbeddedEvents", () => {
   test("resolves the canonical calendar id", () => {
     const updates = syncSessionEmbeddedEvents(
       createMockCtx({
+        calendarIds: new Set(["cal-new"]),
         calendarTrackingIdToId: new Map([["tracking-cal-new", "cal-new"]]),
       }),
       [makeIncomingEvent({ tracking_id_calendar: "tracking-cal-new" })],

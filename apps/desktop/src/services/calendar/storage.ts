@@ -6,6 +6,7 @@ import type {
 import type { Ctx } from "./ctx";
 import type { ExistingEvent, IncomingParticipants } from "./fetch/types";
 import type { SessionEventUpdate } from "./process/events/execute";
+import { migrateIgnoredEventIds } from "./process/events/ignored";
 import type { EventsSyncOutput } from "./process/events/types";
 import type { ParticipantsSyncOutput } from "./process/participants/types";
 
@@ -43,6 +44,7 @@ type SessionSqlRow = {
   owner_user_id: string;
   event_json: string;
   tracking_id: string;
+  calendar_id: string;
 };
 
 export type SessionSyncRow = {
@@ -50,6 +52,7 @@ export type SessionSyncRow = {
   ownerUserId: string;
   eventJson: string;
   trackingId: string;
+  calendarId?: string;
 };
 
 type HumanSqlRow = {
@@ -346,7 +349,9 @@ export async function loadEventsForSync(
           )
           ${incomingClause}
         )
-      ORDER BY deleted_at IS NOT NULL, created_at, id
+      ORDER BY
+        EXISTS (SELECT 1 FROM sessions WHERE sessions.event_id = events.id AND sessions.deleted_at IS NULL) DESC,
+        deleted_at IS NOT NULL, created_at, id
     `,
     [
       ...calendarIds,
@@ -371,7 +376,7 @@ export async function loadSessionsForTrackingIds(
 
   const rows = await liveQueryClient.execute<SessionSqlRow>(
     `
-      SELECT id, owner_user_id, event_json, tracking_id
+      SELECT id, owner_user_id, event_json, tracking_id, calendar_id
       FROM (
         SELECT
           session.id,
@@ -379,6 +384,7 @@ export async function loadSessionsForTrackingIds(
           session.event_json,
           session.created_at,
           COALESCE(
+            NULLIF(event.tracking_id_event, ''),
             CASE
               WHEN json_valid(session.event_json)
               THEN NULLIF(
@@ -387,12 +393,18 @@ export async function loadSessionsForTrackingIds(
               )
               ELSE NULL
             END,
-            NULLIF(session.external_event_id, ''),
-            NULLIF(event.tracking_id_event, '')
-          ) AS tracking_id
+            NULLIF(session.external_event_id, '')
+          ) AS tracking_id,
+          COALESCE(
+            NULLIF(event.calendar_id, ''),
+            CASE WHEN json_valid(session.event_json)
+              THEN json_extract(session.event_json, '$.calendar_id')
+              ELSE NULL END,
+            ''
+          ) AS calendar_id
         FROM sessions AS session
         LEFT JOIN events AS event
-          ON event.id = session.event_id AND event.deleted_at IS NULL
+          ON event.id = session.event_id
         WHERE session.deleted_at IS NULL
       ) AS session_with_event
       WHERE tracking_id IN (${placeholders(ids.length)})
@@ -406,6 +418,7 @@ export async function loadSessionsForTrackingIds(
     ownerUserId: row.owner_user_id,
     eventJson: row.event_json,
     trackingId: row.tracking_id,
+    calendarId: row.calendar_id,
   }));
 }
 
@@ -476,6 +489,11 @@ export async function applyConnectionSync({
   const now = new Date().toISOString();
   const statements: Statement[] = [];
   const eventIdsByKey = new Map<string, string>();
+  if (ctx.provider === "apple") {
+    statements.push(
+      ...migrateIgnoredEventIds([...events.toUpdate, ...events.toAdd], now),
+    );
+  }
 
   for (const eventId of events.toDelete) {
     statements.push({

@@ -26,6 +26,21 @@ const session = {
 };
 
 describe("syncSessionParticipants", () => {
+  test("updates participants on every note attached to a reconciled occurrence", () => {
+    const result = syncSessionParticipants({
+      incomingParticipants: new Map([
+        ["tracking-1", [{ email: "guest@example.com" }]],
+      ]),
+      snapshot: createSnapshot({
+        sessions: [session, { ...session, id: "session-2" }],
+      }),
+    });
+    expect(result.toAdd.map((mapping) => mapping.sessionId)).toEqual([
+      "session-1",
+      "session-2",
+    ]);
+    expect(result.humansToCreate).toHaveLength(1);
+  });
   test("returns empty output when no events are provided", () => {
     const result = syncSessionParticipants({
       incomingParticipants: new Map(),

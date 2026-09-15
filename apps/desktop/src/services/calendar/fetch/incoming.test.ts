@@ -25,6 +25,34 @@ describe("fetchIncomingEvents", () => {
     vi.resetAllMocks();
   });
 
+  test("carries exact legacy aliases and cancellation through the provider boundary", async () => {
+    calendarCommands.listEvents.mockResolvedValue({
+      status: "success",
+      data: [
+        {
+          id: "canonical",
+          legacy_ids: ["old-id"],
+          calendar_id: "primary",
+          title: "Canceled",
+          status: "cancelled",
+          started_at: "2026-06-01T10:00:00Z",
+          ended_at: "2026-06-01T11:00:00Z",
+          attendees: [],
+          organizer: null,
+          has_recurrence_rules: false,
+          is_all_day: false,
+        },
+      ],
+    });
+    const result = await fetchIncomingEvents(ctx);
+    expect(result.events[0]).toMatchObject({
+      tracking_id_event: "canonical",
+      legacy_tracking_ids: ["old-id"],
+      is_cancelled: true,
+    });
+    expect(result.participants.size).toBe(0);
+  });
+
   test("records an empty participant list so stale auto mappings are removed", async () => {
     calendarCommands.listEvents.mockResolvedValue({
       status: "success",

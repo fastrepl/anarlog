@@ -79,6 +79,108 @@ function syncInput(overrides: Partial<EventsSyncInput> = {}): EventsSyncInput {
 }
 
 describe("syncEvents", () => {
+  test("reconciles a moved occurrence and its duplicate through explicit native aliases", () => {
+    const incoming = [
+      createIncomingEvent({
+        tracking_id_event: "apple:occurrence-1",
+        legacy_tracking_ids: [
+          "store:uid:2024-01-15",
+          "store:uid/RID=727092000",
+        ],
+        title: "Changed title",
+        started_at: "2024-01-17T10:00:00Z",
+        ended_at: "2024-01-17T11:00:00Z",
+      }),
+    ];
+    const first = syncEvents(
+      createMockCtx(),
+      syncInput({
+        incoming,
+        existing: [
+          createExistingEvent({
+            id: "linked-row",
+            tracking_id_event: "store:uid:2024-01-15",
+          }),
+          createExistingEvent({
+            id: "duplicate-row",
+            tracking_id_event: "store:uid/RID=727092000",
+          }),
+        ],
+      }),
+    );
+    expect(first.toAdd).toEqual([]);
+    expect(first.toDelete).toEqual(["duplicate-row"]);
+    expect(first.toUpdate).toMatchObject([
+      {
+        id: "linked-row",
+        tracking_id_event: "apple:occurrence-1",
+        title: "Changed title",
+      },
+    ]);
+    const second = syncEvents(
+      createMockCtx(),
+      syncInput({ incoming, existing: first.toUpdate }),
+    );
+    expect(second.toAdd).toEqual([]);
+    expect(second.toDelete).toEqual([]);
+    expect(second.toUpdate[0].id).toBe("linked-row");
+  });
+
+  test("keeps independent events with identical display fields", () => {
+    const result = syncEvents(
+      createMockCtx(),
+      syncInput({
+        incoming: [
+          createIncomingEvent({ tracking_id_event: "uid-A" }),
+          createIncomingEvent({ tracking_id_event: "uid-B" }),
+        ],
+      }),
+    );
+    expect(result.toAdd).toHaveLength(2);
+  });
+
+  test("cancellation deletes an aliased row even outside the current sync window", () => {
+    const result = syncEvents(
+      createMockCtx(),
+      syncInput({
+        incoming: [
+          createIncomingEvent({
+            tracking_id_event: "canonical",
+            legacy_tracking_ids: ["existing-1"],
+            is_cancelled: true,
+          }),
+        ],
+        existing: [
+          createExistingEvent({
+            started_at: "2023-12-15T10:00:00Z",
+            ended_at: "2023-12-15T11:00:00Z",
+          }),
+        ],
+      }),
+    );
+    expect(result).toEqual({ toAdd: [], toUpdate: [], toDelete: ["event-1"] });
+  });
+
+  test("an alias from another calendar cannot update or delete an out-of-window row", () => {
+    const result = syncEvents(
+      createMockCtx(),
+      syncInput({
+        incoming: [
+          createIncomingEvent({ legacy_tracking_ids: ["existing-1"] }),
+        ],
+        existing: [
+          createExistingEvent({
+            calendar_id: "other",
+            started_at: "2023-12-15T10:00:00Z",
+            ended_at: "2023-12-15T11:00:00Z",
+          }),
+        ],
+      }),
+    );
+    expect(result.toUpdate).toEqual([]);
+    expect(result.toDelete).toEqual([]);
+  });
+
   test("adds new incoming events", () => {
     const ctx = createMockCtx();
     const result = syncEvents(

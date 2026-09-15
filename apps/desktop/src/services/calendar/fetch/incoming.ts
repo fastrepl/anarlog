@@ -61,7 +61,9 @@ export async function fetchIncomingEvents(ctx: Ctx): Promise<{
     }
     const { event, eventParticipants } = normalizeCalendarEvent(calendarEvent);
     events.push(event);
-    participants.set(event.tracking_id_event, eventParticipants);
+    if (!event.is_cancelled) {
+      participants.set(event.tracking_id_event, eventParticipants);
+    }
   }
 
   return { events, participants };
@@ -102,6 +104,8 @@ function normalizeCalendarEvent(calendarEvent: CalendarEvent): {
     event: {
       tracking_id_event: calendarEvent.id,
       tracking_id_calendar: calendarEvent.calendar_id,
+      legacy_tracking_ids: calendarEvent.legacy_ids ?? [],
+      is_cancelled: calendarEvent.status === "cancelled",
       title: calendarEvent.title,
       started_at: calendarEvent.started_at,
       ended_at: calendarEvent.ended_at,

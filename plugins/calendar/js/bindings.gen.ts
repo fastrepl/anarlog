@@ -79,9 +79,13 @@ export type AttendeeStatus = "pending" | "accepted" | "tentative" | "declined"
 export type CalendarChangedEvent = null
 export type CalendarEvent = { provider: CalendarProviderType; 
 /**
- * Unique between events. Synthesized for Apple events (eventIdentifier:YYYY-MM-DD for recurring).
+ * Provider occurrence identity. Apple uses calendar, UID and original occurrence date.
  */
 id: string; 
+/**
+ * Exact identifiers emitted by older versions for this same occurrence.
+ */
+legacy_ids?: string[]; 
 /**
  * Calendar id.
  */

@@ -17,15 +17,6 @@ export function syncSessionParticipants({
     toAdd: [],
     humansToCreate: [],
   };
-  const sessionsByTrackingId = new Map<
-    string,
-    (typeof snapshot.sessions)[number]
-  >();
-  for (const session of snapshot.sessions) {
-    if (!sessionsByTrackingId.has(session.trackingId)) {
-      sessionsByTrackingId.set(session.trackingId, session);
-    }
-  }
   const humansByEmail = new Map<string, string>();
   for (const human of snapshot.humans) {
     const email = human.email.trim().toLowerCase();
@@ -47,9 +38,9 @@ export function syncSessionParticipants({
   }
   const humansToCreate = new Map<string, HumanToCreate>();
 
-  for (const [trackingId, eventParticipants] of incomingParticipants) {
-    const session = sessionsByTrackingId.get(trackingId);
-    if (!session) continue;
+  for (const session of snapshot.sessions) {
+    const eventParticipants = incomingParticipants.get(session.trackingId);
+    if (!eventParticipants) continue;
 
     const changes = computeSessionParticipantChanges({
       sessionId: session.id,

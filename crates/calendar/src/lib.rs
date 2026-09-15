@@ -1,3 +1,4 @@
+mod apple_identity;
 mod convert;
 mod error;
 mod fetch;
@@ -226,59 +227,6 @@ pub fn parse_meeting_link(text: &str) -> Option<String> {
     URL_RE.find(text).map(|m| m.as_str().to_string())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn detects_local_api_base_urls() {
-        assert!(is_local_api_base_url("http://localhost:3001"));
-        assert!(is_local_api_base_url("http://127.0.0.1:3001"));
-        assert!(is_local_api_base_url("http://[::1]:3001"));
-        assert!(!is_local_api_base_url("https://api.example.com"));
-        assert!(!is_local_api_base_url("not a url"));
-    }
-
-    #[test]
-    fn parse_meeting_link_real_world() {
-        let cases = vec![
-            (
-                "cal.com",
-                "Where:\nhttps://app.cal.com/video/d713v9w1d2krBptPtwUAnJ\nNeed to reschedule?",
-                "https://app.cal.com/video/d713v9w1d2krBptPtwUAnJ",
-            ),
-            (
-                "zoom with pwd",
-                "Where:\nhttps://us05web.zoom.us/j/87636383039?pwd=NOWbxkY9GNblR0yaLKaIzcy76IWRoj.1\nDescription",
-                "https://us05web.zoom.us/j/87636383039?pwd=NOWbxkY9GNblR0yaLKaIzcy76IWRoj.1",
-            ),
-            (
-                "google meet",
-                "https://meet.google.com/xhv-ubut-zph\ntel:+1%20650-817-8427",
-                "https://meet.google.com/xhv-ubut-zph",
-            ),
-            (
-                "zoom in html",
-                "<p>Join Zoom Meeting<br/>https://anarlog.zoom.us/j/86746313244?pwd=zFIICnVHzPim44QcYGbLCAAqtBrGzx.1<br/></p>",
-                "https://anarlog.zoom.us/j/86746313244?pwd=zFIICnVHzPim44QcYGbLCAAqtBrGzx.1",
-            ),
-            (
-                "korean google meet",
-                "Google Meet으로 참석: https://meet.google.com/xkf-xcmo-rwh\n또는 다음 전화번호로",
-                "https://meet.google.com/xkf-xcmo-rwh",
-            ),
-        ];
-
-        for (name, input, expected) in cases {
-            assert_eq!(
-                parse_meeting_link(input),
-                Some(expected.to_string()),
-                "failed: {name}"
-            );
-        }
-    }
-}
-
 // --- Apple helpers ---
 
 #[cfg(target_os = "macos")]
@@ -389,4 +337,57 @@ fn create_apple_event(_input: CreateEventInput) -> Result<String, Error> {
     Err(Error::ProviderUnavailable {
         provider: CalendarProviderType::Apple,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detects_local_api_base_urls() {
+        assert!(is_local_api_base_url("http://localhost:3001"));
+        assert!(is_local_api_base_url("http://127.0.0.1:3001"));
+        assert!(is_local_api_base_url("http://[::1]:3001"));
+        assert!(!is_local_api_base_url("https://api.example.com"));
+        assert!(!is_local_api_base_url("not a url"));
+    }
+
+    #[test]
+    fn parse_meeting_link_real_world() {
+        let cases = vec![
+            (
+                "cal.com",
+                "Where:\nhttps://app.cal.com/video/d713v9w1d2krBptPtwUAnJ\nNeed to reschedule?",
+                "https://app.cal.com/video/d713v9w1d2krBptPtwUAnJ",
+            ),
+            (
+                "zoom with pwd",
+                "Where:\nhttps://us05web.zoom.us/j/87636383039?pwd=NOWbxkY9GNblR0yaLKaIzcy76IWRoj.1\nDescription",
+                "https://us05web.zoom.us/j/87636383039?pwd=NOWbxkY9GNblR0yaLKaIzcy76IWRoj.1",
+            ),
+            (
+                "google meet",
+                "https://meet.google.com/xhv-ubut-zph\ntel:+1%20650-817-8427",
+                "https://meet.google.com/xhv-ubut-zph",
+            ),
+            (
+                "zoom in html",
+                "<p>Join Zoom Meeting<br/>https://anarlog.zoom.us/j/86746313244?pwd=zFIICnVHzPim44QcYGbLCAAqtBrGzx.1<br/></p>",
+                "https://anarlog.zoom.us/j/86746313244?pwd=zFIICnVHzPim44QcYGbLCAAqtBrGzx.1",
+            ),
+            (
+                "korean google meet",
+                "Google Meet으로 참석: https://meet.google.com/xkf-xcmo-rwh\n또는 다음 전화번호로",
+                "https://meet.google.com/xkf-xcmo-rwh",
+            ),
+        ];
+
+        for (name, input, expected) in cases {
+            assert_eq!(
+                parse_meeting_link(input),
+                Some(expected.to_string()),
+                "failed: {name}"
+            );
+        }
+    }
 }

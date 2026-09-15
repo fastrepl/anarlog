@@ -45,8 +45,11 @@ pub struct CreateEventInput {
 pub struct CalendarEvent {
     pub provider: CalendarProviderType,
 
-    /// Unique between events. Synthesized for Apple events (eventIdentifier:YYYY-MM-DD for recurring).
+    /// Provider occurrence identity. Apple uses calendar, UID and original occurrence date.
     pub id: String,
+    /// Exact identifiers emitted by older versions for this same occurrence.
+    #[serde(default)]
+    pub legacy_ids: Vec<String>,
     /// Calendar id.
     pub calendar_id: String,
 
