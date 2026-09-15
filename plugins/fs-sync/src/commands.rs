@@ -578,25 +578,29 @@ pub(crate) async fn attachment_list<R: tauri::Runtime>(
     session_id: String,
 ) -> Result<Vec<crate::AttachmentInfo>, String> {
     let scope = app.asset_protocol_scope();
-    let attachments = spawn_blocking!({
+    let mut attachments = spawn_blocking!({
         app.fs_sync()
             .attachment_list(&session_id)
             .map_err(|e| e.to_string())
     })?;
     // See attachment_save above: each listed attachment is fed into
     // `convertFileSrc` by useAttachmentResolver.ts, so allow every file
-    // explicitly for the same dot-leading-directory reason.
-    for attachment in &attachments {
-        if let Err(error) = scope.allow_file(&attachment.path) {
-            // One un-allowable path must not hide every other attachment:
-            // the resolver treats any error status as a failed listing.
+    // explicitly for the same dot-leading-directory reason. An attachment
+    // that cannot be allowed is dropped from the listing rather than
+    // returned: the resolver maps a missing id to `null`, which the editor
+    // handles, whereas a returned path the asset protocol refuses renders
+    // as a broken embed with no signal in the webview.
+    attachments.retain(|attachment| match scope.allow_file(&attachment.path) {
+        Ok(()) => true,
+        Err(error) => {
             tracing::warn!(
                 path = %attachment.path,
                 %error,
                 "attachment_asset_scope_allow_failed"
             );
+            false
         }
-    }
+    });
     Ok(attachments)
 }
 
