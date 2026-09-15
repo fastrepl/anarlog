@@ -11,6 +11,11 @@ use crate::types::{ResponsesRequest, ResponsesResponse, ResponsesStreamOutputIte
 const MAX_SSE_LINE_BYTES: usize = 1024 * 1024;
 const MAX_ERROR_BODY_BYTES: usize = 64 * 1024;
 
+// App attribution per https://openrouter.ai/docs/app-attribution
+const APP_REFERER: &str = "https://anarlog.so";
+const APP_TITLE: &str = "Anarlog";
+const APP_CATEGORIES: &str = "writing-assistant,personal-agent";
+
 #[derive(Debug, Clone)]
 pub struct Client {
     api_key: String,
@@ -44,6 +49,16 @@ impl Client {
         self
     }
 
+    // Centralizes the auth + app-attribution headers so every request method
+    // below only has to build the URL/body and pick GET vs POST.
+    fn with_request_headers(&self, builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        builder
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("HTTP-Referer", APP_REFERER)
+            .header("X-Title", APP_TITLE)
+            .header("X-OpenRouter-Categories", APP_CATEGORIES)
+    }
+
     pub async fn chat_completion(
         &self,
         req: &ChatCompletionRequest,
@@ -55,9 +70,7 @@ impl Client {
         };
 
         let resp = self
-            .client
-            .post(&url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
+            .with_request_headers(self.client.post(&url))
             .json(&body)
             .send()
             .await?;
@@ -82,9 +95,7 @@ impl Client {
         };
 
         let resp = self
-            .client
-            .post(&url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
+            .with_request_headers(self.client.post(&url))
             .json(&body)
             .send()
             .await?;
@@ -107,9 +118,7 @@ impl Client {
         };
 
         let resp = self
-            .client
-            .post(&url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
+            .with_request_headers(self.client.post(&url))
             .json(&body)
             .send()
             .await?;
@@ -135,9 +144,7 @@ impl Client {
         };
 
         let resp = self
-            .client
-            .post(&url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
+            .with_request_headers(self.client.post(&url))
             .json(&body)
             .send()
             .await?;
@@ -190,9 +197,7 @@ impl Client {
 
         let url = format!("{}/generation?id={}", self.base_url, generation_id);
         let resp = self
-            .client
-            .get(&url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
+            .with_request_headers(self.client.get(&url))
             .send()
             .await?;
 
