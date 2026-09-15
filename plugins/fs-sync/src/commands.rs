@@ -587,9 +587,15 @@ pub(crate) async fn attachment_list<R: tauri::Runtime>(
     // `convertFileSrc` by useAttachmentResolver.ts, so allow every file
     // explicitly for the same dot-leading-directory reason.
     for attachment in &attachments {
-        scope
-            .allow_file(&attachment.path)
-            .map_err(|error| error.to_string())?;
+        if let Err(error) = scope.allow_file(&attachment.path) {
+            // One un-allowable path must not hide every other attachment:
+            // the resolver treats any error status as a failed listing.
+            tracing::warn!(
+                path = %attachment.path,
+                %error,
+                "attachment_asset_scope_allow_failed"
+            );
+        }
     }
     Ok(attachments)
 }
