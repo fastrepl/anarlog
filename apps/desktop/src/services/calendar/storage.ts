@@ -43,6 +43,11 @@ type SessionSqlRow = {
   owner_user_id: string;
   event_json: string;
   tracking_id: string;
+  calendar_id: string;
+  title: string;
+  started_at: string;
+  ended_at: string;
+  is_all_day: boolean | number;
 };
 
 export type SessionSyncRow = {
@@ -50,6 +55,11 @@ export type SessionSyncRow = {
   ownerUserId: string;
   eventJson: string;
   trackingId: string;
+  calendarId: string;
+  title: string;
+  startedAt: string;
+  endedAt: string;
+  isAllDay: boolean;
 };
 
 type HumanSqlRow = {
@@ -316,6 +326,7 @@ export async function loadEventsForSync(
     trackingIds.length > 0
       ? `OR tracking_id_event IN (${placeholders(trackingIds.length)})`
       : "";
+
   const rows = await liveQueryClient.execute<EventSqlRow>(
     `
       SELECT
@@ -339,14 +350,23 @@ export async function loadEventsForSync(
       WHERE calendar_id IN (${placeholders(calendarIds.length)})
         AND (
           (
-            deleted_at IS NULL
-            AND julianday(started_at) <= julianday(?)
+            julianday(started_at) <= julianday(?)
             AND julianday(CASE WHEN ended_at = '' THEN started_at ELSE ended_at END)
               >= julianday(?)
           )
           ${incomingClause}
+
         )
-      ORDER BY deleted_at IS NOT NULL, created_at, id
+      ORDER BY
+        EXISTS (
+          SELECT 1
+          FROM sessions AS linked_session
+          WHERE linked_session.event_id = events.id
+            AND linked_session.deleted_at IS NULL
+        ) DESC,
+        deleted_at IS NOT NULL,
+        created_at,
+        id
     `,
     [
       ...calendarIds,
@@ -371,7 +391,16 @@ export async function loadSessionsForTrackingIds(
 
   const rows = await liveQueryClient.execute<SessionSqlRow>(
     `
-      SELECT id, owner_user_id, event_json, tracking_id
+      SELECT
+        id,
+        owner_user_id,
+        event_json,
+        tracking_id,
+        calendar_id,
+        title,
+        started_at,
+        ended_at,
+        is_all_day
       FROM (
         SELECT
           session.id,
@@ -389,10 +418,97 @@ export async function loadSessionsForTrackingIds(
             END,
             NULLIF(session.external_event_id, ''),
             NULLIF(event.tracking_id_event, '')
-          ) AS tracking_id
+          ) AS tracking_id,
+          COALESCE(
+            CASE
+              WHEN json_valid(session.event_json)
+              THEN NULLIF(
+                CAST(json_extract(session.event_json, '$.calendar_id') AS TEXT),
+                ''
+              )
+              ELSE NULL
+            END,
+            NULLIF(event.calendar_id, ''),
+            ''
+          ) AS calendar_id,
+          COALESCE(
+            CASE
+              WHEN json_valid(session.event_json)
+              THEN NULLIF(
+                CAST(json_extract(session.event_json, '$.title') AS TEXT),
+                ''
+              )
+              ELSE NULL
+            END,
+            NULLIF(event.title, ''),
+            ''
+          ) AS title,
+          COALESCE(
+            CASE
+              WHEN json_valid(session.event_json)
+              THEN NULLIF(
+                CAST(json_extract(session.event_json, '$.started_at') AS TEXT),
+                ''
+              )
+              ELSE NULL
+            END,
+            NULLIF(event.started_at, ''),
+            ''
+          ) AS started_at,
+          COALESCE(
+            CASE
+              WHEN json_valid(session.event_json)
+              THEN NULLIF(
+                CAST(json_extract(session.event_json, '$.ended_at') AS TEXT),
+                ''
+              )
+              ELSE NULL
+            END,
+            NULLIF(event.ended_at, ''),
+            ''
+          ) AS ended_at,
+          COALESCE(
+            CASE
+              WHEN json_valid(session.event_json)
+              THEN CAST(
+                json_extract(session.event_json, '$.is_all_day')
+                AS INTEGER
+              )
+              ELSE NULL
+            END,
+            event.is_all_day,
+            0
+          ) AS is_all_day
         FROM sessions AS session
         LEFT JOIN events AS event
-          ON event.id = session.event_id AND event.deleted_at IS NULL
+          ON event.id = COALESCE(
+            NULLIF(session.event_id, ''),
+            (
+              SELECT candidate.id
+              FROM events AS candidate
+              WHERE candidate.tracking_id_event = COALESCE(
+                CASE
+                  WHEN json_valid(session.event_json)
+                  THEN NULLIF(
+                    CAST(json_extract(session.event_json, '$.tracking_id') AS TEXT),
+                    ''
+                  )
+                  ELSE NULL
+                END,
+                NULLIF(session.external_event_id, '')
+              )
+                AND candidate.calendar_id = CASE
+                  WHEN json_valid(session.event_json)
+                  THEN NULLIF(
+                    CAST(json_extract(session.event_json, '$.calendar_id') AS TEXT),
+                    ''
+                  )
+                  ELSE NULL
+                END
+              ORDER BY candidate.deleted_at IS NOT NULL, candidate.created_at, candidate.id
+              LIMIT 1
+            )
+          )
         WHERE session.deleted_at IS NULL
       ) AS session_with_event
       WHERE tracking_id IN (${placeholders(ids.length)})
@@ -406,6 +522,11 @@ export async function loadSessionsForTrackingIds(
     ownerUserId: row.owner_user_id,
     eventJson: row.event_json,
     trackingId: row.tracking_id,
+    calendarId: row.calendar_id,
+    title: row.title,
+    startedAt: row.started_at,
+    endedAt: row.ended_at,
+    isAllDay: Boolean(row.is_all_day),
   }));
 }
 

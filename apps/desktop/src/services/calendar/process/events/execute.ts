@@ -3,6 +3,7 @@ import type { SessionEvent } from "@anlg/store";
 import type { Ctx } from "../../ctx";
 import type { IncomingEvent } from "../../fetch/types";
 import type { SessionSyncRow } from "../../storage";
+import { buildIncomingEventIndex, calendarEventKeys } from "./identity";
 
 export type SessionEventUpdate = {
   sessionId: string;
@@ -20,10 +21,28 @@ export function syncSessionEmbeddedEvents(
   const incomingByTrackingId = new Map(
     incoming.map((event) => [event.tracking_id_event, event]),
   );
+  const { expanded: incomingByKey } = buildIncomingEventIndex(
+    ctx.provider,
+    incoming,
+    ctx.calendarTrackingIdToId,
+  );
   const updates: SessionEventUpdate[] = [];
 
   for (const session of sessions) {
-    const incomingEvent = incomingByTrackingId.get(session.trackingId);
+    const hasActiveCalendar = ctx.calendarIds.has(session.calendarId);
+    const incomingEvent = session.calendarId
+      ? hasActiveCalendar
+        ? calendarEventKeys(ctx.provider, session.calendarId, {
+            tracking_id_event: session.trackingId,
+            title: session.title,
+            started_at: session.startedAt,
+            ended_at: session.endedAt,
+            is_all_day: session.isAllDay,
+          })
+            .map((key) => incomingByKey.get(key))
+            .find((event) => event !== undefined)
+        : undefined
+      : incomingByTrackingId.get(session.trackingId);
     if (!incomingEvent) continue;
 
     const calendarId =

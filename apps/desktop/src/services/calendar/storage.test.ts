@@ -21,6 +21,7 @@ import {
   applyCalendarInventory,
   applyConnectionSync,
   loadEventsForSync,
+  loadSessionsForTrackingIds,
   tombstoneCalendarConnection,
 } from "./storage";
 
@@ -174,6 +175,66 @@ describe("calendar SQLite storage", () => {
     });
     expect(mocks.execute.mock.calls[0][0]).toContain(
       "tracking_id_event IN (?)",
+    );
+    expect(mocks.execute.mock.calls[0][0]).toContain(
+      "linked_session.event_id = events.id",
+    );
+    expect(mocks.execute.mock.calls[0][0]).not.toMatch(
+      /deleted_at IS NULL\s+AND julianday\(started_at\)/,
+    );
+  });
+
+  test("maps visible identity fields and prefers the direct event link", async () => {
+    mocks.execute.mockResolvedValue([
+      {
+        id: "session-1",
+        owner_user_id: "user-1",
+        event_json: "{}",
+        tracking_id: "external-1:old-series:2026-06-01",
+        calendar_id: "cal-work",
+        title: "Team planning",
+        started_at: "2026-06-01T10:00:00.000Z",
+        ended_at: "2026-06-01T11:00:00.000Z",
+        is_all_day: 0,
+      },
+    ]);
+
+    const rows = await loadSessionsForTrackingIds([
+      "external-1:old-series:2026-06-01",
+    ]);
+
+    expect(rows).toEqual([
+      {
+        id: "session-1",
+        ownerUserId: "user-1",
+        eventJson: "{}",
+        trackingId: "external-1:old-series:2026-06-01",
+        calendarId: "cal-work",
+        title: "Team planning",
+        startedAt: "2026-06-01T10:00:00.000Z",
+        endedAt: "2026-06-01T11:00:00.000Z",
+        isAllDay: false,
+      },
+    ]);
+    expect(mocks.execute.mock.calls[0][0]).toContain(
+      "ON event.id = COALESCE(\n            NULLIF(session.event_id, ''),",
+    );
+    expect(mocks.execute.mock.calls[0][0]).toContain("NULLIF(event.title, '')");
+    expect(mocks.execute.mock.calls[0][0]).toContain(
+      "NULLIF(event.started_at, '')",
+    );
+    expect(mocks.execute.mock.calls[0][0]).toContain(
+      "NULLIF(event.ended_at, '')",
+    );
+    expect(mocks.execute.mock.calls[0][0]).toContain("event.is_all_day");
+    expect(mocks.execute.mock.calls[0][0]).toContain(
+      "candidate.tracking_id_event = COALESCE",
+    );
+    expect(mocks.execute.mock.calls[0][0]).toContain(
+      "candidate.calendar_id = CASE",
+    );
+    expect(mocks.execute.mock.calls[0][0]).toContain(
+      "ORDER BY candidate.deleted_at IS NOT NULL",
     );
   });
 

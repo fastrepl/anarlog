@@ -128,6 +128,11 @@ pub fn convert_apple_events(events: Vec<AppleEvent>) -> Vec<CalendarEvent> {
 
 fn convert_google_event(event: GoogleEvent, calendar_id: &str) -> CalendarEvent {
     let raw = serde_json::to_string(&event).unwrap_or_default();
+    let provider_modified_at = event
+        .updated
+        .as_ref()
+        .or(event.created.as_ref())
+        .map(|date| date.to_rfc3339());
 
     let is_all_day = event
         .start
@@ -177,6 +182,7 @@ fn convert_google_event(event: GoogleEvent, calendar_id: &str) -> CalendarEvent 
         calendar_id: calendar_id.to_string(),
         provider: CalendarProviderType::Google,
         external_id: event.ical_uid.unwrap_or_default(),
+        provider_modified_at,
         title: event.summary.unwrap_or_default(),
         description: event.description,
         location: event.location,
@@ -197,6 +203,11 @@ fn convert_google_event(event: GoogleEvent, calendar_id: &str) -> CalendarEvent 
 
 fn convert_outlook_event(event: OutlookEvent, calendar_id: &str) -> CalendarEvent {
     let raw = serde_json::to_string(&event).unwrap_or_default();
+    let provider_modified_at = event
+        .last_modified_date_time
+        .as_ref()
+        .or(event.created_date_time.as_ref())
+        .map(|date| date.to_rfc3339());
     let is_all_day = event.is_all_day.unwrap_or(false);
 
     let started_at = event
@@ -252,6 +263,7 @@ fn convert_outlook_event(event: OutlookEvent, calendar_id: &str) -> CalendarEven
         calendar_id: calendar_id.to_string(),
         provider: CalendarProviderType::Outlook,
         external_id: event.ical_uid.unwrap_or_default(),
+        provider_modified_at,
         title: event.subject.unwrap_or_default(),
         description,
         location,
@@ -272,14 +284,21 @@ fn convert_outlook_event(event: OutlookEvent, calendar_id: &str) -> CalendarEven
 
 fn convert_apple_event(event: AppleEvent) -> CalendarEvent {
     let raw = serde_json::to_string(&event).unwrap_or_default();
-
     let id = if event.has_recurrence_rules {
         let date = event.occurrence_date.as_ref().unwrap_or(&event.start_date);
         let day = local_date_string(date, event.time_zone.as_deref());
         format!("{}:{}", event.event_identifier, day)
     } else {
+        // Detached EventKit identifiers already include an occurrence-specific
+        // `/RID=` suffix. Preserve it so legacy rows and sessions retain their
+        // exact tracking alias; cross-series coalescing happens after conversion.
         event.event_identifier.clone()
     };
+    let provider_modified_at = event
+        .last_modified_date
+        .as_ref()
+        .or(event.creation_date.as_ref())
+        .map(|date| date.to_rfc3339());
 
     let organizer = event.organizer.as_ref().map(convert_person);
     let attendees = event.attendees.iter().map(convert_apple_attendee).collect();
@@ -304,6 +323,7 @@ fn convert_apple_event(event: AppleEvent) -> CalendarEvent {
         calendar_id: event.calendar.id,
         provider: CalendarProviderType::Apple,
         external_id: event.external_identifier,
+        provider_modified_at,
         title: event.title,
         description: event.notes,
         location: event.location,
@@ -590,6 +610,25 @@ fn resolve_meeting_link(
     provider_link
         .or_else(|| location.and_then(crate::parse_meeting_link))
         .or_else(|| description.and_then(crate::parse_meeting_link))
+}
+
+#[cfg(test)]
+mod apple_tracking_id_tests {
+    use super::*;
+
+    #[test]
+    fn detached_occurrence_keeps_its_provider_rid() {
+        let mut events: Vec<AppleEvent> = serde_json::from_str(include_str!(
+            "../../apple-calendar/src/fixture/data/default/base/events.json"
+        ))
+        .expect("Apple event fixture must deserialize");
+        let mut event = events.remove(0);
+        event.event_identifier = "series-a/RID=811101600".to_string();
+        event.has_recurrence_rules = false;
+        event.is_detached = true;
+
+        assert_eq!(convert_apple_event(event).id, "series-a/RID=811101600");
+    }
 }
 
 #[cfg(test)]

@@ -184,9 +184,10 @@ async function runForConnection(
     existing,
     incomingParticipants,
   });
-  const sessions = await loadSessionsForTrackingIds(
-    incoming.map((event) => event.tracking_id_event),
-  );
+  const sessions = await loadSessionsForTrackingIds([
+    ...incoming.map((event) => event.tracking_id_event),
+    ...existing.map((event) => event.tracking_id_event),
+  ]);
   if (shouldStop()) return;
 
   const sessionUpdates = syncSessionEmbeddedEvents(ctx, incoming, sessions);
@@ -196,9 +197,19 @@ async function runForConnection(
   );
   if (shouldStop()) return;
 
+  const updatedSessionTrackingIds = new Map(
+    sessionUpdates.map((update) => [update.sessionId, update.trackingId]),
+  );
   const participants = syncSessionParticipants({
     incomingParticipants,
-    snapshot: participantSnapshot,
+    snapshot: {
+      ...participantSnapshot,
+      sessions: participantSnapshot.sessions.map((session) => ({
+        ...session,
+        trackingId:
+          updatedSessionTrackingIds.get(session.id) ?? session.trackingId,
+      })),
+    },
   });
   await enqueueDatabaseWrite("calendar-sync", async () => {
     if (shouldStop()) return;

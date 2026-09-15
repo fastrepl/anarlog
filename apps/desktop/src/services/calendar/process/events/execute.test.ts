@@ -41,6 +41,11 @@ function makeSession(
     ownerUserId: "user-1",
     eventJson: JSON.stringify(event),
     trackingId: event.tracking_id,
+    calendarId: event.calendar_id,
+    title: event.title,
+    startedAt: event.started_at,
+    endedAt: event.ended_at,
+    isAllDay: event.is_all_day,
   };
 }
 
@@ -100,6 +105,134 @@ describe("syncSessionEmbeddedEvents", () => {
     ]);
   });
 
+  test("preserves a session when EventKit replaces its recurring series id", () => {
+    const updates = syncSessionEmbeddedEvents(
+      createMockCtx(),
+      [
+        makeIncomingEvent({
+          tracking_id_event: "external-1:old-series:2024-01-15",
+          recurrence_series_id: "old-series",
+          has_recurrence_rules: true,
+          title: "Team planning",
+          provider_modified_at: "2024-01-01T00:00:00Z",
+        }),
+        makeIncomingEvent({
+          tracking_id_event: "external-1:new-series:2024-01-15",
+          recurrence_series_id: "new-series",
+          has_recurrence_rules: true,
+          title: "Team planning",
+          provider_modified_at: "2024-01-12T00:00:00Z",
+        }),
+      ],
+      [
+        {
+          ...makeSession(
+            "session-1",
+            makeSessionEvent({
+              tracking_id: "external-1:old-series:2024-01-15",
+              title: "Stale embedded title",
+              recurrence_series_id: "old-series",
+              has_recurrence_rules: true,
+            }),
+          ),
+          calendarId: "cal-1",
+        },
+      ],
+    );
+
+    expect(updates).toHaveLength(1);
+    expect(updates[0].trackingId).toBe("external-1:new-series:2024-01-15");
+    expect(JSON.parse(updates[0].eventJson)).toMatchObject({
+      tracking_id: "external-1:new-series:2024-01-15",
+      title: "Team planning",
+    });
+  });
+
+  test("migrates a session attached to a detached EventKit occurrence", () => {
+    const updates = syncSessionEmbeddedEvents(
+      createMockCtx(),
+      [
+        makeIncomingEvent({
+          tracking_id_event: "external-1:2026-09-14",
+          has_recurrence_rules: false,
+          title: "Team planning",
+          started_at: "2026-09-16T05:00:00Z",
+          ended_at: "2026-09-16T06:00:00Z",
+        }),
+      ],
+      [
+        {
+          ...makeSession(
+            "session-1",
+            makeSessionEvent({
+              tracking_id: "external-1:series-b/RID=811141200",
+              title: "Team planning",
+              started_at: "2026-09-16T05:00:00Z",
+              ended_at: "2026-09-16T06:00:00Z",
+            }),
+          ),
+        },
+      ],
+    );
+
+    expect(updates).toHaveLength(1);
+    expect(updates[0].trackingId).toBe("external-1:2026-09-14");
+  });
+
+  test("does not fall back to an event from another known calendar", () => {
+    const updates = syncSessionEmbeddedEvents(
+      createMockCtx({
+        calendarTrackingIdToId: new Map([
+          ["tracking-cal-1", "cal-1"],
+          ["tracking-cal-2", "cal-2"],
+        ]),
+      }),
+      [
+        makeIncomingEvent({
+          tracking_id_event: "shared-tracking-id",
+          tracking_id_calendar: "tracking-cal-2",
+        }),
+      ],
+      [
+        {
+          ...makeSession(
+            "session-1",
+            makeSessionEvent({ tracking_id: "shared-tracking-id" }),
+          ),
+          calendarId: "cal-1",
+        },
+      ],
+    );
+
+    expect(updates).toEqual([]);
+  });
+
+  test("does not fall back when the session calendar was removed", () => {
+    const updates = syncSessionEmbeddedEvents(
+      createMockCtx({
+        calendarIds: new Set(["cal-2"]),
+        calendarTrackingIdToId: new Map([["tracking-cal-2", "cal-2"]]),
+      }),
+      [
+        makeIncomingEvent({
+          tracking_id_event: "shared-tracking-id",
+          tracking_id_calendar: "tracking-cal-2",
+        }),
+      ],
+      [
+        {
+          ...makeSession(
+            "session-1",
+            makeSessionEvent({ tracking_id: "shared-tracking-id" }),
+          ),
+          calendarId: "cal-removed",
+        },
+      ],
+    );
+
+    expect(updates).toEqual([]);
+  });
+
   test("skips sessions without a matching event", () => {
     const updates = syncSessionEmbeddedEvents(
       createMockCtx(),
@@ -110,6 +243,11 @@ describe("syncSessionEmbeddedEvents", () => {
           ownerUserId: "user-1",
           eventJson: "",
           trackingId: "other-event",
+          calendarId: "cal-1",
+          title: "",
+          startedAt: "",
+          endedAt: "",
+          isAllDay: false,
         },
       ],
     );
@@ -130,10 +268,11 @@ describe("syncSessionEmbeddedEvents", () => {
   test("resolves the canonical calendar id", () => {
     const updates = syncSessionEmbeddedEvents(
       createMockCtx({
+        calendarIds: new Set(["cal-new"]),
         calendarTrackingIdToId: new Map([["tracking-cal-new", "cal-new"]]),
       }),
       [makeIncomingEvent({ tracking_id_calendar: "tracking-cal-new" })],
-      [makeSession("session-1")],
+      [{ ...makeSession("session-1"), calendarId: "" }],
     );
 
     expect(JSON.parse(updates[0].eventJson).calendar_id).toBe("cal-new");

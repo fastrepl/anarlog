@@ -53,6 +53,8 @@ pub struct CalendarEvent {
     /// iCal identifier used for deduplication.
     /// Apple: calendarItemExternalIdentifier, Google: iCalUID.
     pub external_id: String,
+    /// Provider modification timestamp used to choose among duplicate records.
+    pub provider_modified_at: Option<String>,
 
     pub title: String,
     pub description: Option<String>,

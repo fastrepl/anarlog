@@ -90,7 +90,7 @@ calendar_id: string;
  * iCal identifier used for deduplication.
  * Apple: calendarItemExternalIdentifier, Google: iCalUID.
  */
-external_id: string; title: string; description: string | null; location: string | null; url: string | null; 
+external_id: string; provider_modified_at: string | null; title: string; description: string | null; location: string | null; url: string | null;
 /**
  * Parsed from notes for Apple, Google provides url directly.
  */

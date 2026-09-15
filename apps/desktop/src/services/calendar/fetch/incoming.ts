@@ -51,6 +51,7 @@ export async function fetchIncomingEvents(ctx: Ctx): Promise<{
   const participants: IncomingParticipants = new Map();
 
   for (const calendarEvent of calendarEvents) {
+    if (calendarEvent.status === "cancelled") continue;
     if (
       calendarEvent.attendees.find(
         (attendee) =>
@@ -102,6 +103,7 @@ function normalizeCalendarEvent(calendarEvent: CalendarEvent): {
     event: {
       tracking_id_event: calendarEvent.id,
       tracking_id_calendar: calendarEvent.calendar_id,
+      provider_modified_at: calendarEvent.provider_modified_at ?? undefined,
       title: calendarEvent.title,
       started_at: calendarEvent.started_at,
       ended_at: calendarEvent.ended_at,
