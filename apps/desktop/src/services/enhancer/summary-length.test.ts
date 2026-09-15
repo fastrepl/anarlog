@@ -7,6 +7,7 @@ import {
   formatSummaryLengthModeGuidance,
   formatSummaryLengthGuidance,
   getSummaryLengthPolicy,
+  getSummaryMaxOutputTokens,
   normalizeSummaryLengthMode,
 } from "./summary-length";
 
@@ -182,6 +183,12 @@ describe("summary length policy", () => {
 
     expect(result).toBe("# Decision\n\n- The team approved the launch.");
     expect(countNormalizedCharacters(result)).toBeLessThanOrEqual(60);
+  });
+
+  it("scales the max output token ceiling per summary mode", () => {
+    expect(getSummaryMaxOutputTokens("crisp")).toBe(3_072);
+    expect(getSummaryMaxOutputTokens("balanced")).toBe(8_192);
+    expect(getSummaryMaxOutputTokens("detailed")).toBe(16_384);
   });
 
   it("keeps period-less bullets at a word boundary", () => {

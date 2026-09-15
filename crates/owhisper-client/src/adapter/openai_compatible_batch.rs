@@ -63,12 +63,11 @@ pub(crate) async fn transcribe(
     };
     append_path_if_missing(&mut url, config.transcription_path);
 
-    let response = client
-        .post(url.to_string())
-        .bearer_auth(api_key)
-        .multipart(form)
-        .send()
-        .await?;
+    let mut request = client.post(url.to_string()).bearer_auth(api_key);
+    if config.provider == "openrouter" {
+        request = super::openrouter::with_attribution_headers(request);
+    }
+    let response = request.multipart(form).send().await?;
 
     parse_response(config.provider, response).await
 }

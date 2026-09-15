@@ -11,17 +11,40 @@ export const SUMMARY_LENGTH_MODES = ["crisp", "balanced", "detailed"] as const;
 export type SummaryLengthMode = (typeof SUMMARY_LENGTH_MODES)[number];
 export const DEFAULT_SUMMARY_LENGTH_MODE: SummaryLengthMode = "detailed";
 
-const SUMMARY_LENGTH_RATIOS: Record<SummaryLengthMode, number> = {
-  crisp: 0.75,
-  balanced: 0.875,
-  detailed: 1,
+export type SummaryLengthModeConfig = {
+  /** Applied to transcript character count to derive the summary's character/section budget. */
+  ratio: number;
+  /** Ceiling for the "stay under N characters" prompt guidance (not a hard limit). */
+  guidanceCharacterLimit: number;
+  /** maxOutputTokens passed to streamText; a generous ceiling, not a precise length control —
+   *  constrainSummaryLength() remains the hard, character-based enforcement after generation. */
+  maxOutputTokens: number;
 };
 
-const SUMMARY_GUIDANCE_CHARACTER_LIMITS: Record<SummaryLengthMode, number> = {
-  crisp: 4_500,
-  balanced: 6_000,
-  detailed: MAX_SUMMARY_GUIDANCE_CHARACTERS,
+export const SUMMARY_LENGTH_CONFIG: Record<
+  SummaryLengthMode,
+  SummaryLengthModeConfig
+> = {
+  crisp: {
+    ratio: 0.75,
+    guidanceCharacterLimit: 4_500,
+    maxOutputTokens: 3_072,
+  },
+  balanced: {
+    ratio: 0.875,
+    guidanceCharacterLimit: 6_000,
+    maxOutputTokens: 8_192,
+  },
+  detailed: {
+    ratio: 1,
+    guidanceCharacterLimit: MAX_SUMMARY_GUIDANCE_CHARACTERS,
+    maxOutputTokens: 16_384,
+  },
 };
+
+export function getSummaryMaxOutputTokens(mode: SummaryLengthMode): number {
+  return SUMMARY_LENGTH_CONFIG[mode].maxOutputTokens;
+}
 
 export type SummaryLengthPolicy = {
   maxCharacters: number;
@@ -72,7 +95,7 @@ export function getSummaryLengthPolicy(
     return null;
   }
 
-  const ratio = SUMMARY_LENGTH_RATIOS[mode];
+  const ratio = SUMMARY_LENGTH_CONFIG[mode].ratio;
   const baseMinSections = clamp(
     Math.ceil(transcriptCharacters / (SECTION_GUIDANCE_CHARACTER_STEP * 2)),
     1,
@@ -98,7 +121,7 @@ export function getSummaryLengthPolicy(
       maxCharacters: clamp(
         Math.round(transcriptCharacters * ratio),
         MIN_SUMMARY_CHARACTERS,
-        SUMMARY_GUIDANCE_CHARACTER_LIMITS[mode],
+        SUMMARY_LENGTH_CONFIG[mode].guidanceCharacterLimit,
       ),
       minSections: Math.ceil(baseMinSections * ratio),
       maxSections: Math.ceil(baseMaxSections * ratio),

@@ -17,13 +17,13 @@ import {
   formatSummaryLengthModeGuidance,
   formatSummaryLengthGuidance,
   getSummaryLengthPolicy,
+  getSummaryMaxOutputTokens,
 } from "~/services/enhancer/summary-length";
 import { normalizeBulletPoints } from "~/store/zustand/ai-task/shared/transform_impl";
 import { withEarlyValidationRetry } from "~/store/zustand/ai-task/shared/validate";
 import { assertCanonicalTemplateSections } from "~/templates/codec";
 
 const AI_GENERATION_MAX_RETRIES = 4;
-const SUMMARY_MAX_OUTPUT_TOKENS = 8192;
 const IMAGE_CONTEXT_NOTE =
   "Attached note images are included as visual context. Use visible text, diagrams, screenshots, and other image content when it materially improves the summary.";
 
@@ -168,7 +168,7 @@ IMPORTANT: Previous attempt failed. ${previousFeedback}`;
         ...createPromptInput(enhancedPrompt, args.imageContext),
         abortSignal: combinedController.signal,
         maxRetries: AI_GENERATION_MAX_RETRIES,
-        maxOutputTokens: SUMMARY_MAX_OUTPUT_TOKENS,
+        maxOutputTokens: getSummaryMaxOutputTokens(args.summaryLength),
       });
       return withCleanup(result.fullStream, () => {
         signal.removeEventListener("abort", abortFromOuter);
