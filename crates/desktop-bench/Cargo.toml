@@ -1,0 +1,21 @@
+[package]
+name = "desktop-bench"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Whole-application benchmark harness for the Tauri vs GPUI desktop comparison"
+
+[[bin]]
+name = "anarlog-bench"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sysinfo = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
