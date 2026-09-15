@@ -930,6 +930,15 @@ msgid "Cancel invitation"
 msgstr ""
 
 #: src/settings/team/index.tsx
+msgid "Cancel invitation?"
+msgstr ""
+
+#. placeholder {0}: cancelInviteTarget?.email
+#: src/settings/team/index.tsx
+msgid "Cancel the invitation for {0}? They will no longer be able to join using this invitation."
+msgstr ""
+
+#: src/settings/team/index.tsx
 msgid "Cancel transfer"
 msgstr ""
 
@@ -4149,6 +4158,11 @@ msgstr ""
 msgid "Remove {0}"
 msgstr ""
 
+#. placeholder {0}: removeTarget?.email
+#: src/settings/team/index.tsx
+msgid "Remove {0} from {workspaceName}? They will lose access to this workspace."
+msgstr ""
+
 #: src/settings/dictionary/index.tsx
 msgid "Remove {term}"
 msgstr ""
@@ -4164,6 +4178,10 @@ msgstr ""
 
 #: src/settings/team/index.tsx
 msgid "Remove member"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Remove member?"
 msgstr ""
 
 #: src/contacts/contact-page-header.tsx
