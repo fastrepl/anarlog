@@ -73,6 +73,7 @@ const mocks = vi.hoisted(() => ({
       usedSeats: 1,
       isBilled: true,
     },
+    removeMember: vi.fn(() => Promise.resolve()),
     revokeInvitation: vi.fn(() => Promise.resolve()),
     deleteWorkspace: vi.fn(() => Promise.resolve()),
     renameWorkspace: vi.fn(() => Promise.resolve()),
@@ -202,7 +203,7 @@ vi.mock("./client", () => ({
   leaveWorkspace: vi.fn(() => Promise.resolve()),
   listWorkspaceInvitations: mocks.client.listWorkspaceInvitations,
   listWorkspaceMembers: mocks.client.listWorkspaceMembers,
-  removeMember: vi.fn(() => Promise.resolve()),
+  removeMember: mocks.client.removeMember,
   renameWorkspace: mocks.client.renameWorkspace,
   setWorkspaceLogo: mocks.client.setWorkspaceLogo,
   revokeInvitation: mocks.client.revokeInvitation,
@@ -301,7 +302,8 @@ describe("SettingsTeam", () => {
     mocks.client.listWorkspaceInvitations.mockImplementation(() =>
       Promise.resolve(mocks.client.invitations),
     );
-    mocks.client.revokeInvitation.mockClear();
+    mocks.client.removeMember.mockReset();
+    mocks.client.revokeInvitation.mockReset();
     mocks.client.deleteWorkspace.mockClear();
     mocks.client.renameWorkspace.mockClear();
     mocks.client.setWorkspaceLogo.mockClear();
@@ -905,6 +907,67 @@ describe("SettingsTeam", () => {
       screen.getByRole("menuitem", { name: "Remove member" }),
     ).toBeTruthy();
   });
+
+  it.each(["member", "invitation"] as const)(
+    "confirms %s removal and allows cancellation and retry",
+    async (kind) => {
+      mocks.workspaces.data = [
+        {
+          workspaceId: "ws",
+          name: "Fastrepl",
+          ownerUserId: "user-1",
+          role: "owner",
+        },
+      ];
+      mocks.client.members = [
+        { userId: "user-2", email: "member@example.com", role: "member" },
+      ];
+      mocks.client.invitations = [
+        {
+          invitationId: "invite",
+          email: "pending@example.com",
+          expiresAt: "2027-01-01",
+        },
+      ];
+      const email =
+        kind === "member" ? "member@example.com" : "pending@example.com";
+      const label = kind === "member" ? "Remove member" : "Cancel invitation";
+      const mutation =
+        kind === "member"
+          ? mocks.client.removeMember
+          : mocks.client.revokeInvitation;
+      mutation.mockRejectedValueOnce(new Error("Try again later"));
+      renderTeam();
+      const openDialog = async () => {
+        fireEvent.keyDown(
+          await screen.findByRole("button", { name: `Actions for ${email}` }),
+          { key: "Enter" },
+        );
+        fireEvent.click(screen.getByRole("menuitem", { name: label }));
+        return screen.findByRole("dialog", { name: `${label}?` });
+      };
+      let dialog = await openDialog();
+      expect(dialog.textContent).toContain(email);
+      expect(mutation).not.toHaveBeenCalled();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(mutation).not.toHaveBeenCalled();
+      dialog = await openDialog();
+      fireEvent.click(within(dialog).getByRole("button", { name: label }));
+      expect(await within(dialog).findByRole("alert")).toHaveProperty(
+        "textContent",
+        "Try again later",
+      );
+      fireEvent.click(within(dialog).getByRole("button", { name: label }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(mutation).toHaveBeenCalledTimes(2);
+      expect(mutation).toHaveBeenCalledWith(
+        ...(kind === "member"
+          ? [expect.anything(), "ws", "user-2"]
+          : [expect.anything(), "invite"]),
+      );
+    },
+  );
 
   it("lets ordinary members see the roster without management controls", async () => {
     mocks.workspaces.data = [

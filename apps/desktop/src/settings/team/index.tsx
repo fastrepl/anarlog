@@ -486,6 +486,13 @@ function WorkspacePanel({
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [isDeleteWorkspaceDialogOpen, setIsDeleteWorkspaceDialogOpen] =
     useState(false);
+  const [removeTarget, setRemoveTarget] = useState<WorkspaceMember | null>(
+    null,
+  );
+  const [cancelInviteTarget, setCancelInviteTarget] = useState<{
+    invitationId: string;
+    email: string;
+  } | null>(null);
   const isManager = workspaceRole === "owner" || workspaceRole === "admin";
 
   const access = useQuery({
@@ -601,12 +608,18 @@ function WorkspacePanel({
   const remove = useMutation({
     mutationFn: (userId: string) =>
       removeMember(requireTeamContext(auth), workspaceId, userId),
-    onSuccess: refresh,
+    onSuccess: async () => {
+      setRemoveTarget(null);
+      await refresh();
+    },
   });
   const cancelInvite = useMutation({
     mutationFn: (invitationId: string) =>
       revokeInvitation(requireTeamContext(auth), invitationId),
-    onSuccess: refresh,
+    onSuccess: async () => {
+      setCancelInviteTarget(null);
+      await refresh();
+    },
   });
   const resendInvite = useMutation({
     mutationFn: (invitation: { email: string }) =>
@@ -921,7 +934,10 @@ function WorkspacePanel({
                     onRoleChange={(role) =>
                       changeRole.mutate({ userId: member.userId, role })
                     }
-                    onRemove={() => remove.mutate(member.userId)}
+                    onRemove={() => {
+                      remove.reset();
+                      setRemoveTarget(member);
+                    }}
                     ownershipPending={
                       ownershipRequest?.targetUserId === member.userId
                     }
@@ -988,9 +1004,10 @@ function WorkspacePanel({
                               ) : null}
                               <DropdownMenuItem
                                 className="text-destructive"
-                                onSelect={() =>
-                                  cancelInvite.mutate(invitation.invitationId)
-                                }
+                                onSelect={() => {
+                                  cancelInvite.reset();
+                                  setCancelInviteTarget(invitation);
+                                }}
                               >
                                 <Trash className="size-4" />
                                 <Trans>Cancel invitation</Trans>
@@ -1104,6 +1121,54 @@ function WorkspacePanel({
           </Button>
         )}
       </div>
+      <DestructiveConfirmationDialog
+        open={removeTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !remove.isPending) setRemoveTarget(null);
+        }}
+        title={t`Remove member?`}
+        description={
+          <>
+            <Trans>
+              Remove {removeTarget?.email} from {workspaceName}? They will lose
+              access to this workspace.
+            </Trans>
+            {remove.error ? (
+              <span role="alert">{remove.error.message}</span>
+            ) : null}
+          </>
+        }
+        confirmLabel={<Trans>Remove member</Trans>}
+        isPending={remove.isPending}
+        onConfirm={() => {
+          if (removeTarget && !remove.isPending)
+            remove.mutate(removeTarget.userId);
+        }}
+      />
+      <DestructiveConfirmationDialog
+        open={cancelInviteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !cancelInvite.isPending) setCancelInviteTarget(null);
+        }}
+        title={t`Cancel invitation?`}
+        description={
+          <>
+            <Trans>
+              Cancel the invitation for {cancelInviteTarget?.email}? They will
+              no longer be able to join using this invitation.
+            </Trans>
+            {cancelInvite.error ? (
+              <span role="alert">{cancelInvite.error.message}</span>
+            ) : null}
+          </>
+        }
+        confirmLabel={<Trans>Cancel invitation</Trans>}
+        isPending={cancelInvite.isPending}
+        onConfirm={() => {
+          if (cancelInviteTarget && !cancelInvite.isPending)
+            cancelInvite.mutate(cancelInviteTarget.invitationId);
+        }}
+      />
       <DestructiveConfirmationDialog
         open={transferTarget !== null}
         onOpenChange={(open) => {
