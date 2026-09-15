@@ -32,7 +32,7 @@ fn recovery_reports_embedded_receive_failures_without_marking_progress() {
         let result = serde_json::from_value(serde_json::json!({"receive": receive})).unwrap();
 
         assert_eq!(
-            super::super::sync_result::cloudsync_receive_error(&result).as_deref(),
+            anlg_db_core::cloudsync_receive_error(&result).as_deref(),
             Some(expected)
         );
         assert!(!cloudsync_recovery_snapshot_ready(true, &result));
@@ -47,10 +47,7 @@ fn recovery_does_not_report_healthy_partial_or_empty_receives_as_errors() {
         receive_result(0, true),
         receive_result(1, true),
     ] {
-        assert_eq!(
-            super::super::sync_result::cloudsync_receive_error(&result),
-            None
-        );
+        assert_eq!(anlg_db_core::cloudsync_receive_error(&result), None);
     }
 }
 

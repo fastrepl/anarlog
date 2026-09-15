@@ -15,7 +15,7 @@ pub use crate::cloudsync::{
     CloudsyncBeforeHookFuture, CloudsyncHookFuture, CloudsyncHookOutcome, CloudsyncNetworkResult,
     CloudsyncRuntimeConfig, CloudsyncRuntimeError, CloudsyncStatus, CloudsyncSyncDirective,
     CloudsyncSyncHook, CloudsyncTableSpec, cloudsync_begin_alter_on, cloudsync_commit_alter_on,
-    cloudsync_is_enabled_on,
+    cloudsync_is_enabled_on, cloudsync_receive_error,
 };
 use crate::cloudsync::{CloudsyncInterruptHandle, CloudsyncRuntimeState};
 
