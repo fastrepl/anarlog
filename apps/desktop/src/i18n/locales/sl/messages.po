@@ -931,12 +931,12 @@ msgstr ""
 
 #: src/settings/team/index.tsx
 msgid "Cancel invitation?"
-msgstr ""
+msgstr "Prekličem povabilo?"
 
 #. placeholder {0}: cancelInviteTarget?.email
 #: src/settings/team/index.tsx
 msgid "Cancel the invitation for {0}? They will no longer be able to join using this invitation."
-msgstr ""
+msgstr "Prekličem povabilo za {0}? S tem povabilom se ne bo več mogoče pridružiti."
 
 #: src/settings/team/index.tsx
 msgid "Cancel transfer"
@@ -4161,7 +4161,7 @@ msgstr ""
 #. placeholder {0}: removeTarget?.email
 #: src/settings/team/index.tsx
 msgid "Remove {0} from {workspaceName}? They will lose access to this workspace."
-msgstr ""
+msgstr "Odstranim {0} iz delovnega prostora {workspaceName}? Dostop do tega delovnega prostora ne bo več mogoč."
 
 #: src/settings/dictionary/index.tsx
 msgid "Remove {term}"
@@ -4182,7 +4182,7 @@ msgstr ""
 
 #: src/settings/team/index.tsx
 msgid "Remove member?"
-msgstr ""
+msgstr "Odstranim člana?"
 
 #: src/contacts/contact-page-header.tsx
 msgid "Remove photo"

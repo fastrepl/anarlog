@@ -950,7 +950,7 @@ describe("SettingsTeam", () => {
       expect(dialog.textContent).toContain(email);
       expect(mutation).not.toHaveBeenCalled();
       fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
-      expect(screen.queryByRole("dialog")).toBeNull();
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
       expect(mutation).not.toHaveBeenCalled();
       dialog = await openDialog();
       fireEvent.click(within(dialog).getByRole("button", { name: label }));
