@@ -5,6 +5,7 @@ import type { Legal } from "content-collections";
 import { ArrowLeft } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
+import { formatBlogDate } from "@/lib/blog-date";
 import { getCanonicalUrl } from "@/lib/seo";
 
 import { mdxComponents } from "./mdx-components";
@@ -49,12 +50,7 @@ export function LegalDocument({ doc }: { doc: Legal }) {
             dateTime={doc.date}
             className="mt-3 block text-sm text-[#756b5d]"
           >
-            Last updated{" "}
-            {new Date(doc.date).toLocaleDateString("en-US", {
-              month: "long",
-              day: "numeric",
-              year: "numeric",
-            })}
+            Last updated {formatBlogDate(doc.date, "long")}
           </time>
         </header>
 

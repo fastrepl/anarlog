@@ -6,6 +6,7 @@ import { cn } from "@anlg/utils";
 import { AnarlogLogo } from "@/components/anarlog-logo";
 import { PricingSection } from "@/components/home-page/pricing-section";
 import { SiteFooter } from "@/components/site-footer";
+import { formatBlogDate } from "@/lib/blog-date";
 import {
   ANARLOG_ROW,
   COMPARISON_ROWS,
@@ -18,10 +19,7 @@ const title = "Pricing · Anarlog";
 const description =
   "Compare Anarlog Free, Pro, Team, and Enterprise. Pro is $15/month for personal cloud features, Team is $20/person/month for shared workspaces, and Enterprise is custom.";
 
-const verifiedOnLabel = new Date(PRICING_VERIFIED_ON).toLocaleDateString(
-  "en-US",
-  { month: "long", day: "numeric", year: "numeric" },
-);
+const verifiedOnLabel = formatBlogDate(PRICING_VERIFIED_ON, "long");
 
 export const Route = createFileRoute("/pricing/")({
   component: PricingPage,
