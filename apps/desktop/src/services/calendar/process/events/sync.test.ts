@@ -179,6 +179,7 @@ describe("syncEvents", () => {
     );
     expect(result.toUpdate).toEqual([]);
     expect(result.toDelete).toEqual([]);
+    expect(result.toAdd).toHaveLength(1);
   });
 
   test("adds new incoming events", () => {

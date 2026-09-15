@@ -32,7 +32,16 @@ pub(super) fn identity(event: &AppleEvent) -> (String, Vec<String>) {
     };
     let occurrence = original.filter(|_| recurring).map(|date| {
         if event.is_all_day {
-            local_date_string(date, event.time_zone.as_deref())
+            local_date_string(
+                date,
+                Some(
+                    event
+                        .time_zone
+                        .as_deref()
+                        .filter(|tz| tz.parse::<chrono_tz::Tz>().is_ok())
+                        .unwrap_or("UTC"),
+                ),
+            )
         } else {
             date.to_rfc3339_opts(SecondsFormat::Secs, true)
         }
@@ -267,6 +276,33 @@ mod tests {
         let mut moved = detached();
         moved.event_identifier = "store-uuid:meeting-uid/RID=1".into();
         assert_eq!(identity(&moved).1, vec![moved.event_identifier]);
+    }
+
+    #[test]
+    fn all_day_identity_without_valid_timezone_uses_provider_utc_date() {
+        let mut event = recurring();
+        event.is_all_day = true;
+        event.occurrence_date = Some("2026-09-15T00:30:00Z".parse().unwrap());
+        let expected = identity(&event).0;
+        for timezone in [None, Some("invalid/timezone".into())] {
+            event.time_zone = timezone;
+            assert_eq!(identity(&event).0, expected);
+        }
+    }
+
+    #[test]
+    fn detached_without_external_uid_preserves_local_series_identity() {
+        let mut event = detached();
+        event.external_identifier.clear();
+        event.calendar_item_identifier = format!(
+            "local-item/RID={}",
+            event.occurrence_date.unwrap().timestamp() - 978_307_200
+        );
+        let converted = convert_apple_events(vec![event]);
+        assert_eq!(
+            converted[0].recurring_event_id.as_deref(),
+            Some("local-item")
+        );
     }
 
     #[test]

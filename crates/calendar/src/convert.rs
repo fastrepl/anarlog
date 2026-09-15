@@ -319,13 +319,13 @@ fn convert_apple_event(event: AppleEvent) -> CalendarEvent {
                 .to_string()
             })
             .or_else(|| {
-                (!event.external_identifier.is_empty()).then(|| {
-                    crate::apple_identity::without_occurrence_suffix(
-                        &event.external_identifier,
-                        &event,
-                    )
-                    .to_string()
-                })
+                [&event.external_identifier, &event.calendar_item_identifier]
+                    .into_iter()
+                    .find(|identifier| !identifier.is_empty())
+                    .map(|identifier| {
+                        crate::apple_identity::without_occurrence_suffix(identifier, &event)
+                            .to_string()
+                    })
             })
     } else {
         None

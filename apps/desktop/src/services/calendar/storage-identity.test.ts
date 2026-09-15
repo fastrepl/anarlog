@@ -164,6 +164,33 @@ describe("Apple occurrence reconciliation in SQLite", () => {
     expect(second.toUpdate[0].id).toBe(kept);
   });
 
+  test("deduplicates ignored aliases and keeps the newest last_seen", async () => {
+    db.prepare(
+      "UPDATE app_settings SET value_json = ? WHERE id = 'ignored_events'",
+    ).run(
+      JSON.stringify([
+        { tracking_id: incoming[0].tracking_id_event, last_seen: "2026-09-14" },
+        {
+          tracking_id: incoming[0].legacy_tracking_ids[0],
+          last_seen: "2026-09-16",
+        },
+        {
+          tracking_id: incoming[0].legacy_tracking_ids[1],
+          last_seen: "2026-09-15",
+        },
+        { tracking_id: "other-event", last_seen: "2026-09-15" },
+      ]),
+    );
+    await reconcile();
+    const expected = [
+      { tracking_id: incoming[0].tracking_id_event, last_seen: "2026-09-16" },
+      { tracking_id: "other-event", last_seen: "2026-09-15" },
+    ];
+    expect(setting()).toEqual(expected);
+    await reconcile();
+    expect(setting()).toEqual(expected);
+  });
+
   test("rolls back event, note, and ignore changes together", async () => {
     db.exec(
       "CREATE TRIGGER reject_note BEFORE UPDATE ON sessions BEGIN SELECT RAISE(ABORT, 'test failure'); END",

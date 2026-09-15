@@ -39,14 +39,25 @@ export function migrateIgnoredEventIds(
         SELECT json_extract(value, '$[0]') AS old_id, json_extract(value, '$[1]') AS new_id
         FROM json_each(?)
       ), entries AS (
-        SELECT item.value, aliases.new_id
+        SELECT item.key AS position, item.value, aliases.new_id
         FROM current, json_each(CASE WHEN json_valid(current.value_json) THEN current.value_json ELSE '[]' END) AS item
         LEFT JOIN aliases ON aliases.old_id = json_extract(item.value, '$.tracking_id')
+      ), normalized AS (
+        SELECT position, CASE WHEN new_id IS NULL THEN value
+          ELSE json_set(value, '$.tracking_id', new_id) END AS value
+        FROM entries
+      ), ranked AS (
+        SELECT value, position, ROW_NUMBER() OVER (
+          PARTITION BY json_extract(value, '$.tracking_id')
+          ORDER BY json_extract(value, '$.last_seen') DESC, position
+        ) AS rank
+        FROM normalized
       )
       INSERT INTO app_settings (id, value_json, updated_at)
       SELECT 'ignored_events', (
-        SELECT json_group_array(json(CASE WHEN new_id IS NULL THEN value
-          ELSE json_set(value, '$.tracking_id', new_id) END)) FROM entries
+        SELECT json_group_array(json(value)) FROM (
+          SELECT value FROM ranked WHERE rank = 1 ORDER BY position
+        )
       ), ?
       WHERE EXISTS (SELECT 1 FROM entries WHERE new_id IS NOT NULL)
       ON CONFLICT(id) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at

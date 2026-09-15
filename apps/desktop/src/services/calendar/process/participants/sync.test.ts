@@ -3,8 +3,10 @@ import { describe, expect, test, vi } from "vitest";
 import type { ParticipantSyncSnapshot } from "../../storage";
 import { syncSessionParticipants } from "./sync";
 
+import { id } from "~/shared/utils";
+
 vi.mock("~/shared/utils", () => ({
-  id: () => "human-new",
+  id: vi.fn(() => "human-new"),
 }));
 
 function createSnapshot(
@@ -27,6 +29,9 @@ const session = {
 
 describe("syncSessionParticipants", () => {
   test("updates participants on every note attached to a reconciled occurrence", () => {
+    vi.mocked(id)
+      .mockReturnValueOnce("human-one")
+      .mockReturnValueOnce("human-two");
     const result = syncSessionParticipants({
       incomingParticipants: new Map([
         ["tracking-1", [{ email: "guest@example.com" }]],
@@ -40,6 +45,11 @@ describe("syncSessionParticipants", () => {
       "session-2",
     ]);
     expect(result.humansToCreate).toHaveLength(1);
+    expect(result.toAdd.map((mapping) => mapping.humanId)).toEqual([
+      "human-one",
+      "human-one",
+    ]);
+    vi.mocked(id).mockReset().mockReturnValue("human-new");
   });
   test("returns empty output when no events are provided", () => {
     const result = syncSessionParticipants({
