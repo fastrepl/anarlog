@@ -1388,10 +1388,6 @@ msgstr "Completion sound"
 msgid "Composer"
 msgstr "Composer"
 
-#: src/session/components/floating/options-menu.tsx
-msgid "Configure"
-msgstr "Configure"
-
 #: src/composer/index.tsx
 msgid "Configure a chat model in Settings"
 msgstr "Configure a chat model in Settings"
@@ -1666,10 +1662,6 @@ msgstr "Could not load your devices."
 #: src/session-sharing/management-panel.tsx
 msgid "Could not open the web copy."
 msgstr "Could not open the web copy."
-
-#: src/shared/useNewNote.ts
-msgid "Could not prepare this upload. Please try again."
-msgstr "Could not prepare this upload. Please try again."
 
 #: src/session-sharing/management-panel.tsx
 msgid "Could not publish the desktop edits. Check the latest web copy and try again."
@@ -3311,7 +3303,6 @@ msgid "More"
 msgstr "More"
 
 #: src/session-sharing/delivery-panel.tsx
-#: src/session/components/floating/options-menu.tsx
 msgid "More options"
 msgstr "More options"
 
@@ -5559,10 +5550,6 @@ msgstr "Today"
 msgid "Tomorrow"
 msgstr "Tomorrow"
 
-#: src/shared/useNewNote.ts
-msgid "Too many uploads are waiting. Open an existing upload and try again."
-msgstr "Too many uploads are waiting. Open an existing upload and try again."
-
 #: src/settings/general/spoken-languages.tsx
 msgid "Transcribe meetings that use more than one language."
 msgstr "Transcribe meetings that use more than one language."
@@ -5796,29 +5783,19 @@ msgstr "Upgrade to Pro to use this provider."
 msgid "Upgrade to use"
 msgstr "Upgrade to use"
 
-#: src/session/components/floating/options-menu.tsx
 #: src/session/components/note-input/transcript/screens/empty.tsx
 #: src/session/components/outer-header/overflow/index.tsx
 msgid "Upload audio"
 msgstr "Upload audio"
 
-#: src/shared/useNewNote.ts
-msgid "Upload Audio"
-msgstr "Upload Audio"
-
 #: src/session/components/note-input/transcript/screens/empty.tsx
 msgid "Upload audio or a transcript file to populate this note."
 msgstr "Upload audio or a transcript file to populate this note."
 
-#: src/session/components/floating/options-menu.tsx
 #: src/session/components/note-input/transcript/screens/empty.tsx
 #: src/session/components/outer-header/overflow/index.tsx
 msgid "Upload transcript"
 msgstr "Upload transcript"
-
-#: src/shared/useNewNote.ts
-msgid "Upload Transcript"
-msgstr "Upload Transcript"
 
 #: src/settings/developers/cloud-api.tsx
 msgid "Uploads meeting content for remote access while Anarlog is closed."

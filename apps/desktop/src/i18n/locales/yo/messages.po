@@ -1388,10 +1388,6 @@ msgstr ""
 msgid "Composer"
 msgstr ""
 
-#: src/session/components/floating/options-menu.tsx
-msgid "Configure"
-msgstr ""
-
 #: src/composer/index.tsx
 msgid "Configure a chat model in Settings"
 msgstr ""
@@ -1665,10 +1661,6 @@ msgstr ""
 
 #: src/session-sharing/management-panel.tsx
 msgid "Could not open the web copy."
-msgstr ""
-
-#: src/shared/useNewNote.ts
-msgid "Could not prepare this upload. Please try again."
 msgstr ""
 
 #: src/session-sharing/management-panel.tsx
@@ -3311,7 +3303,6 @@ msgid "More"
 msgstr ""
 
 #: src/session-sharing/delivery-panel.tsx
-#: src/session/components/floating/options-menu.tsx
 msgid "More options"
 msgstr ""
 
@@ -5559,10 +5550,6 @@ msgstr ""
 msgid "Tomorrow"
 msgstr ""
 
-#: src/shared/useNewNote.ts
-msgid "Too many uploads are waiting. Open an existing upload and try again."
-msgstr ""
-
 #: src/settings/general/spoken-languages.tsx
 msgid "Transcribe meetings that use more than one language."
 msgstr ""
@@ -5796,28 +5783,18 @@ msgstr ""
 msgid "Upgrade to use"
 msgstr ""
 
-#: src/session/components/floating/options-menu.tsx
 #: src/session/components/note-input/transcript/screens/empty.tsx
 #: src/session/components/outer-header/overflow/index.tsx
 msgid "Upload audio"
-msgstr ""
-
-#: src/shared/useNewNote.ts
-msgid "Upload Audio"
 msgstr ""
 
 #: src/session/components/note-input/transcript/screens/empty.tsx
 msgid "Upload audio or a transcript file to populate this note."
 msgstr ""
 
-#: src/session/components/floating/options-menu.tsx
 #: src/session/components/note-input/transcript/screens/empty.tsx
 #: src/session/components/outer-header/overflow/index.tsx
 msgid "Upload transcript"
-msgstr ""
-
-#: src/shared/useNewNote.ts
-msgid "Upload Transcript"
 msgstr ""
 
 #: src/settings/developers/cloud-api.tsx
