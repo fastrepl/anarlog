@@ -100,29 +100,42 @@ pub(crate) mod layout {
         }
     }
 
-    pub fn top_right_origin(
+    pub fn bottom_center_origin(
         work_x: f64,
         work_y: f64,
         work_width: f64,
-        _work_height: f64,
+        work_height: f64,
         window_width: f64,
-        _window_height: f64,
+        window_height: f64,
     ) -> (f64, f64) {
         (
-            work_x + work_width - window_width - SCREEN_MARGIN,
-            work_y + SCREEN_MARGIN,
+            work_x + (work_width - window_width) / 2.0,
+            work_y + work_height - window_height - SCREEN_MARGIN,
         )
     }
 
-    pub fn resize_keep_top_right(
+    #[cfg(any(test, not(target_os = "macos")))]
+    pub fn expands_upward(y: f64, height: f64, work_y: f64, work_height: f64) -> bool {
+        y - work_y > work_y + work_height - y - height
+    }
+
+    pub fn resize_anchored(
         x: f64,
         y: f64,
         current_width: f64,
-        _current_height: f64,
+        current_height: f64,
         next_width: f64,
-        _next_height: f64,
+        next_height: f64,
+        expands_upward: bool,
     ) -> (f64, f64) {
-        (x + current_width - next_width, y)
+        (
+            x + (current_width - next_width) / 2.0,
+            if expands_upward {
+                y + current_height - next_height
+            } else {
+                y
+            },
+        )
     }
 
     pub fn clamp_to_work_area(
@@ -257,12 +270,14 @@ mod platform {
     use tauri_specta::Event;
 
     use super::layout::{
-        clamp_to_work_area, container_size, is_expanded, resize_keep_top_right, top_right_origin,
+        bottom_center_origin, clamp_to_work_area, container_size, expands_upward, is_expanded,
+        resize_anchored,
     };
     use super::{FloatingBarState, WINDOW_LABEL};
     use crate::Error;
 
     static APP_HANDLE: OnceLock<tauri::AppHandle<tauri::Wry>> = OnceLock::new();
+    static EXPANDS_UPWARD: Mutex<bool> = Mutex::new(true);
     static LAST_STATE: Mutex<Option<FloatingBarState>> = Mutex::new(None);
 
     pub fn set_app_handle(app: tauri::AppHandle<tauri::Wry>) {
@@ -382,27 +397,47 @@ mod platform {
         let size_changed = (current_size.width - width).abs() >= 0.5
             || (current_size.height - height).abs() >= 0.5;
 
+        let (next_x, next_y) = if force_default_position {
+            if let Ok(mut direction) = EXPANDS_UPWARD.lock() {
+                *direction = true;
+            }
+            default_origin(window, width, height)?
+        } else if size_changed {
+            let mut direction = EXPANDS_UPWARD.lock().map_err(|_| {
+                Error::PanelError("floating bar placement lock poisoned".to_string())
+            })?;
+            if height > current_size.height {
+                let monitor = window
+                    .current_monitor()?
+                    .or(window.app_handle().primary_monitor()?)
+                    .ok_or(Error::MonitorNotFound)?;
+                let work = monitor.work_area();
+                let origin = work.position.to_logical::<f64>(monitor.scale_factor());
+                let size = work.size.to_logical::<f64>(monitor.scale_factor());
+                *direction = expands_upward(
+                    current_position.y,
+                    current_size.height,
+                    origin.y,
+                    size.height,
+                );
+            }
+            resize_anchored(
+                current_position.x,
+                current_position.y,
+                current_size.width,
+                current_size.height,
+                width,
+                height,
+                *direction,
+            )
+        } else {
+            return Ok(());
+        };
+
+        let (clamped_x, clamped_y) = clamp_origin(window, next_x, next_y, width, height)?;
         if size_changed {
             window.set_size(Size::Logical(next_size))?;
         }
-
-        let (next_x, next_y) =
-            if force_default_position || current_position.x == 0.0 && current_position.y == 0.0 {
-                default_origin(window, width, height)?
-            } else if size_changed {
-                resize_keep_top_right(
-                    current_position.x,
-                    current_position.y,
-                    current_size.width,
-                    current_size.height,
-                    width,
-                    height,
-                )
-            } else {
-                return Ok(());
-            };
-
-        let (clamped_x, clamped_y) = clamp_origin(window, next_x, next_y, width, height)?;
         window.set_position(Position::Logical(LogicalPosition::new(
             clamped_x, clamped_y,
         )))?;
@@ -424,7 +459,7 @@ mod platform {
         let work_area = monitor.work_area();
         let origin = work_area.position.to_logical::<f64>(scale);
         let size = work_area.size.to_logical::<f64>(scale);
-        Ok(top_right_origin(
+        Ok(bottom_center_origin(
             origin.x,
             origin.y,
             size.width,
@@ -502,18 +537,43 @@ mod tests {
     }
 
     #[test]
-    fn pins_the_default_origin_to_the_work_area_top_right() {
+    fn pins_the_default_origin_to_the_work_area_bottom_center() {
         assert_eq!(
-            layout::top_right_origin(0.0, 0.0, 1920.0, 1080.0, 111.0, 67.0),
-            (1801.0, 8.0)
+            layout::bottom_center_origin(0.0, 0.0, 1920.0, 1080.0, 111.0, 67.0),
+            (904.5, 1005.0)
         );
     }
 
     #[test]
-    fn keeps_the_top_right_anchor_when_resizing() {
+    fn keeps_the_top_center_anchor_when_expanding_downward() {
         assert_eq!(
-            layout::resize_keep_top_right(1801.0, 8.0, 111.0, 67.0, 368.0, 459.0),
-            (1544.0, 8.0)
+            layout::resize_anchored(1801.0, 8.0, 111.0, 67.0, 368.0, 459.0, false),
+            (1672.5, 8.0)
+        );
+    }
+
+    #[test]
+    fn keeps_the_bottom_center_anchor_through_expansion_and_collapse() {
+        let (x, y) = layout::resize_anchored(904.5, 1005.0, 111.0, 67.0, 368.0, 459.0, true);
+        assert_eq!((x, y), (776.0, 613.0));
+        assert_eq!(
+            layout::resize_anchored(x, y, 368.0, 459.0, 111.0, 67.0, true),
+            (904.5, 1005.0)
+        );
+    }
+
+    #[test]
+    fn chooses_the_side_with_more_space_on_an_offset_monitor() {
+        assert!(layout::expands_upward(1005.0, 67.0, 40.0, 1040.0));
+        assert!(!layout::expands_upward(48.0, 67.0, 40.0, 1040.0));
+        assert!(!layout::expands_upward(0.0, 67.0, 0.0, 1080.0));
+    }
+
+    #[test]
+    fn centers_on_an_offset_monitor() {
+        assert_eq!(
+            layout::bottom_center_origin(-1920.0, 40.0, 1920.0, 1040.0, 111.0, 67.0),
+            (-1015.5, 1005.0)
         );
     }
 
