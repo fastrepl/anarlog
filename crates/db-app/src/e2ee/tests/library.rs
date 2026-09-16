@@ -379,7 +379,10 @@ async fn migration_stays_compatible_until_another_account_is_explicitly_connecte
     assert!(before < 20260916043000);
     let steps = crate::APP_MIGRATION_STEPS;
     let old_schema = anlg_db_migrate::DbSchema {
-        steps: &steps[..steps.len() - 1],
+        steps: &steps[..steps
+            .iter()
+            .position(|step| step.id == "20260916043000_local_library_connections")
+            .unwrap()],
         validate_cloudsync_table: crate::cloudsync_alter_guard_required,
     };
     anlg_db_migrate::migrate(&db, old_schema).await.unwrap();
@@ -393,7 +396,10 @@ async fn migration_stays_compatible_until_another_account_is_explicitly_connecte
             .unwrap();
     assert_eq!(after, 20260916043000);
     let old_schema = anlg_db_migrate::DbSchema {
-        steps: &steps[..steps.len() - 1],
+        steps: &steps[..steps
+            .iter()
+            .position(|step| step.id == "20260916043000_local_library_connections")
+            .unwrap()],
         validate_cloudsync_table: crate::cloudsync_alter_guard_required,
     };
     assert!(matches!(
@@ -486,4 +492,80 @@ async fn a_third_account_requires_consent_even_before_the_first_upload() {
             .await
             .unwrap()
     );
+}
+
+#[tokio::test]
+async fn an_unclaimed_bound_library_can_connect_another_account() {
+    let db = test_db().await;
+    let local = crate::ensure_cloudsync_workspace_binding(db.pool())
+        .await
+        .unwrap();
+    crate::bind_cloudsync_account(db.pool(), "account-a")
+        .await
+        .unwrap();
+    crate::connect_local_library(db.pool(), "account-b", &local)
+        .await
+        .unwrap();
+    let connections: Vec<String> = sqlx::query_scalar(
+        "SELECT account_user_id FROM local_library_connections ORDER BY account_user_id",
+    )
+    .fetch_all(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(connections, vec!["account-a", "account-b"]);
+    assert_eq!(
+        crate::ensure_cloudsync_workspace_binding(db.pool())
+            .await
+            .unwrap(),
+        local
+    );
+}
+
+#[tokio::test]
+async fn first_connection_with_a_distinct_local_identity_requires_a_compatible_client() {
+    let db = test_db().await;
+    let local = crate::ensure_cloudsync_workspace_binding(db.pool())
+        .await
+        .unwrap();
+    crate::connect_local_library(db.pool(), "account-a", &local)
+        .await
+        .unwrap();
+    assert_eq!(
+        crate::ensure_cloudsync_workspace_binding(db.pool())
+            .await
+            .unwrap(),
+        local
+    );
+    let floor: i64 =
+        sqlx::query_scalar("SELECT min_supported_version FROM _anlg_schema_compat WHERE id = 0")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(floor, 20260916043000);
+}
+
+#[tokio::test]
+async fn forwarded_dirty_updates_preserve_edit_time_for_active_and_inactive_accounts() {
+    let db = personal_library().await;
+    crate::connect_local_library(db.pool(), "account-b", "account-a")
+        .await
+        .unwrap();
+    for active in [true, false] {
+        if !active {
+            crate::claim_cloudsync_workspace(db.pool(), "account-a")
+                .await
+                .unwrap();
+        }
+        sqlx::query("UPDATE e2ee_dirty_rows SET generation = generation + 1, dirtied_at_ms = 1234 WHERE workspace_id = 'account-b' AND table_name = 'sessions' AND row_id = 'note'").execute(db.pool()).await.unwrap();
+        let timestamp: i64 = sqlx::query_scalar("SELECT dirtied_at_ms FROM e2ee_dirty_rows WHERE workspace_id = 'account-b' AND table_name = 'sessions' AND row_id = 'note'").fetch_one(db.pool()).await.unwrap();
+        assert_eq!(timestamp, 1234);
+    }
+    sqlx::query("UPDATE sessions SET title = 'New local edit' WHERE id = 'note'")
+        .execute(db.pool())
+        .await
+        .unwrap();
+    let timestamp: i64 = sqlx::query_scalar("SELECT dirtied_at_ms FROM e2ee_dirty_rows WHERE workspace_id = 'account-a' AND table_name = 'sessions' AND row_id = 'note'").fetch_one(db.pool()).await.unwrap();
+    assert!(timestamp > 1234);
+    let forwarded: i64 = sqlx::query_scalar("SELECT dirtied_at_ms FROM e2ee_dirty_rows WHERE workspace_id = 'account-b' AND table_name = 'sessions' AND row_id = 'note'").fetch_one(db.pool()).await.unwrap();
+    assert_eq!(forwarded, timestamp);
 }

@@ -12,6 +12,8 @@ import {
 } from "@anlg/ui/components/ui/dialog";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
+import { supabase } from "./client";
+
 import {
   GlassDialogCancelButton,
   GlassDialogContent,
@@ -47,9 +49,24 @@ export function ConnectLocalLibraryDialog({
   const connect = useMutation({
     mutationFn: async () => {
       if (!library.data) throw new Error(t`Could not read the local library`);
+      const current = await supabase?.auth.getSession();
+      if (
+        !current ||
+        current.error ||
+        current.data.session?.user.id !== accountUserId
+      )
+        throw new Error("The signed-in account changed");
       await connectLocalLibrary(accountUserId, library.data);
-      await onConnected();
+    },
+    onSuccess: async () => {
       onOpenChange(false);
+      try {
+        await onConnected();
+      } catch {
+        sonnerToast.error(
+          t`Library connected, but sync could not restart. Try again in sync settings.`,
+        );
+      }
     },
     onError: () =>
       sonnerToast.error(
@@ -96,7 +113,7 @@ export function ConnectLocalLibraryDialog({
             onClick={() => connect.mutate()}
           >
             {connect.isPending ? (
-              <Trans>Connecting…</Trans>
+              <Trans>Connecting...</Trans>
             ) : (
               <Trans>Connect library</Trans>
             )}

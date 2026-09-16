@@ -136,14 +136,11 @@ pub async fn connect_local_library(
         return Err(CloudsyncWorkspaceError::AccountMismatch);
     }
     if let Some(previous) = binding.account_user_id.as_deref() {
-        if binding.workspace_id != previous {
-            return Err(CloudsyncWorkspaceError::AccountMismatch);
-        }
         save_connection(&mut transaction, previous, &binding.workspace_id).await?;
     }
-    // Older clients cannot interpret a library with multiple sync identities.
-    // Installing this additive migration alone stays downgrade-safe; explicitly
-    // connecting another account opts this library into the new data semantics.
+    // Older clients cannot interpret separate local and remote identities, even
+    // for the first connection. Installing the migration alone remains safe;
+    // explicitly connecting a distinct account opts into the new semantics.
     if account_user_id != binding.workspace_id {
         sqlx::query("UPDATE _anlg_schema_compat SET min_supported_version = MAX(min_supported_version, 20260916043000) WHERE id = 0")
             .execute(&mut *transaction).await?;

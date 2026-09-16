@@ -1751,6 +1751,21 @@ describe("AuthProvider", () => {
     expect(mocks.toastInfo).toHaveBeenCalledTimes(1);
   });
 
+  it("offers library connection again after signing out and back into the same account", async () => {
+    const session = makeSession("foreign-account");
+    mocks.bindCloudsyncAccountForAuth.mockResolvedValue("mismatch");
+    renderAuthProvider();
+    await waitFor(() => expect(mocks.authCallback).not.toBeNull());
+    act(() => mocks.authCallback?.("SIGNED_IN", session));
+    await waitFor(() => expect(mocks.toastInfo).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    await waitFor(() =>
+      expect(screen.queryByTestId("connect-library")).toBeNull(),
+    );
+    act(() => mocks.authCallback?.("SIGNED_IN", session));
+    await waitFor(() => expect(mocks.toastInfo).toHaveBeenCalledTimes(2));
+  });
+
   it("asks to connect when a stalled admission reports another account", async () => {
     const foreignSession = makeSession("foreign-account");
     const claim = deferred<CloudsyncAccountAdmission>();

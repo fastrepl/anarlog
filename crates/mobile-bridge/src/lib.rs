@@ -621,7 +621,6 @@ impl MobileDbBridge {
         account_user_id: String,
         expected_library_workspace_id: String,
     ) -> Result<(), BridgeError> {
-        self.stop_cloudsync()?;
         let (runtime, db, hook) = self.with_state(|state| {
             Ok((
                 Arc::clone(&state.runtime),
@@ -634,6 +633,7 @@ impl MobileDbBridge {
                 "Finish the current recording before connecting this library",
             ));
         }
+        self.stop_cloudsync()?;
         block_on(
             &runtime,
             anlg_db_app::connect_local_library(
@@ -1258,6 +1258,24 @@ mod tests {
             .unwrap_err();
 
         assert!(matches!(error, BridgeError::CloudsyncFailed { .. }));
+    }
+
+    #[test]
+    fn rejected_library_connection_during_recording_preserves_sync_configuration() {
+        let (_dir, bridge) = new_bridge(None);
+        let hook = bridge
+            .with_state(|state| Ok(Arc::clone(&state.e2ee_sync_hook)))
+            .unwrap();
+        hook.begin_activity("recording".to_string(), "session".to_string());
+        let key = anlg_e2ee::RecoveryKey::generate().unwrap();
+        hook.set_personal_workspace("user-a", &key).unwrap();
+        assert!(
+            bridge
+                .connect_local_library("user-b".to_string(), "user-a".to_string())
+                .is_err()
+        );
+        assert!(hook.has_workspace("user-a"));
+        assert!(hook.activity_paused());
     }
 
     #[test]

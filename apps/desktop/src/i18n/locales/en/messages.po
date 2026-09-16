@@ -1499,13 +1499,10 @@ msgstr "Connected with your {0} subscription."
 msgid "Connected with your existing subscription."
 msgstr "Connected with your existing subscription."
 
+#: src/auth/connect-local-library-dialog.tsx
 #: src/settings/sync/index.tsx
 msgid "Connecting..."
 msgstr "Connecting..."
-
-#: src/auth/connect-local-library-dialog.tsx
-msgid "Connecting…"
-msgstr "Connecting…"
 
 #: src/settings/developers/cloud-api.tsx
 msgid "Connector"
@@ -2954,6 +2951,10 @@ msgstr "Less"
 #: src/session-sharing/attachment-controls.tsx
 msgid "Let people with access play the recording."
 msgstr "Let people with access play the recording."
+
+#: src/auth/connect-local-library-dialog.tsx
+msgid "Library connected, but sync could not restart. Try again in sync settings."
+msgstr "Library connected, but sync could not restart. Try again in sync settings."
 
 #: src/settings/appearance/theme.tsx
 msgid "Light"

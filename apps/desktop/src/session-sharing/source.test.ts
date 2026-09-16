@@ -99,6 +99,19 @@ describe("loadSessionShareSource", () => {
     ).resolves.toMatchObject({ workspaceId: ACCOUNT_ID });
   });
 
+  it("rejects a library connected to another account even when the personal workspace exists", async () => {
+    mocks.execute.mockResolvedValueOnce([
+      sourceRow({
+        workspace_id: "library-a",
+        library_account_id: "other-account",
+        personal_workspace_available: 1,
+      }),
+    ]);
+    await expect(
+      loadSessionShareSource("session-1", ACCOUNT_ID),
+    ).rejects.toThrow();
+  });
+
   it("loads the first summary instead of the raw memo", async () => {
     mocks.execute.mockResolvedValue([sourceRow()]);
 

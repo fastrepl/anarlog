@@ -457,6 +457,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (event === "SIGNED_OUT") {
+        promptedAccountRef.current = null;
+        setConnectLibraryOpen(false);
         let mainSignOutCompleted = false;
         if (event === "SIGNED_OUT" && !managesCloudsync) {
           resetTrackedAuthIdentity();

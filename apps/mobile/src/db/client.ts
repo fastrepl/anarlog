@@ -530,7 +530,14 @@ export async function connectLocalLibrary(
   accountUserId: string,
   expectedLibraryWorkspaceId: string,
 ): Promise<void> {
-  getBridge().connectLocalLibrary(accountUserId, expectedLibraryWorkspaceId);
+  try {
+    getBridge().connectLocalLibrary(accountUserId, expectedLibraryWorkspaceId);
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "database_local_library_connect",
+    });
+    throw error;
+  }
 }
 
 export async function syncNow(): Promise<void> {
