@@ -82,6 +82,7 @@ pub async fn list_google_events(
     };
 
     let mut events = Vec::new();
+    let mut seen = std::collections::HashSet::new();
     loop {
         let response = client
             .google_list_events(&body)
@@ -94,10 +95,12 @@ pub async fn list_google_events(
         if next.is_none() {
             return Ok(events);
         }
-        if next == body.page_token {
-            return Err(Error::Api(
-                "google events.list returned a repeated page token".into(),
-            ));
+        if let Some(token) = &next {
+            if !seen.insert(token.clone()) {
+                return Err(Error::Api(
+                    "google events.list returned a repeated page token".into(),
+                ));
+            }
         }
         body.page_token = next;
     }
@@ -260,15 +263,30 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn google_events_rejects_repeated_page_token() {
+    async fn google_events_rejects_page_token_cycle() {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/calendar/google/list-events"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "items": [{"id": "busy-event"}],
-                "nextPageToken": "same"
-            })))
-            .expect(2)
+            .respond_with(|request: &wiremock::Request| {
+                let body = request.body_json::<serde_json::Value>().unwrap();
+                let page_token = body.get("page_token").and_then(|value| value.as_str());
+                match page_token {
+                    None => ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                        "items": [{"id": "busy-event"}],
+                        "nextPageToken": "a"
+                    })),
+                    Some("a") => ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                        "items": [],
+                        "nextPageToken": "b"
+                    })),
+                    Some("b") => ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                        "items": [],
+                        "nextPageToken": "a"
+                    })),
+                    _ => ResponseTemplate::new(400),
+                }
+            })
+            .expect(3)
             .mount(&server)
             .await;
 
