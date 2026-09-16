@@ -3071,6 +3071,10 @@ msgstr ""
 msgid "Live"
 msgstr ""
 
+#: src/settings/dictation.tsx
+msgid "Live transcript preview"
+msgstr ""
+
 #: src/settings/stats/badge-collection.tsx
 msgid "Living Library"
 msgstr ""
@@ -5003,6 +5007,10 @@ msgstr ""
 
 #: src/settings/general/notification.tsx
 msgid "Show when initial cloud sync finishes."
+msgstr ""
+
+#: src/settings/dictation.tsx
+msgid "Show words in the floating panel as you speak. Uses a live connection to your selected transcription provider when supported. Text is inserted when you finish."
 msgstr ""
 
 #: src/resource-sharing/share-dialog.tsx

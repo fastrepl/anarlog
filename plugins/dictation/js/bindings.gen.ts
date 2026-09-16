@@ -46,6 +46,14 @@ async startRecording(microphoneDevice: string | null, owner: string) : Promise<R
     else return { status: "error", error: e  as any };
 }
 },
+async startSystemRecording(microphoneDevice: string | null, owner: string, preview: PreviewConfig | null, updates: TAURI_CHANNEL<RecordingUpdate>) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|start_system_recording", { microphoneDevice, owner, preview, updates }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async stopRecording(owner: string) : Promise<Result<RecordedAudio, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|stop_recording", { owner }) };
@@ -98,8 +106,12 @@ async insertText(target: string, text: string) : Promise<Result<null, string>> {
 
 /** user-defined types **/
 
+export type ListenParams = { model?: string | null; channels?: number; sample_rate?: number; languages?: string[]; keywords?: string[]; num_speakers?: number | null; min_speakers?: number | null; max_speakers?: number | null; custom_query?: Partial<{ [key in string]: string }> | null }
 export type Phase = "recording" | "processing"
+export type PreviewConfig = { provider: string; baseUrl: string; apiKey: string; params: ListenParams }
 export type RecordedAudio = { filePath: string; durationMs: number }
+export type RecordingUpdate = { type: "amplitude"; amplitude: number } | { type: "transcript"; text: string; partial: string } | { type: "previewUnavailable" }
+export type TAURI_CHANNEL<TSend> = null
 
 /** tauri-specta globals **/
 

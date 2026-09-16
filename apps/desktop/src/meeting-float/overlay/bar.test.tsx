@@ -13,6 +13,7 @@ vi.mock("@anlg/ui/components/ui/dancing-sticks", () => ({
 
 function state(overrides: Partial<FloatingBarState> = {}): FloatingBarState {
   return {
+    dictation: null,
     amplitude: 0.4,
     title: "Weekly sync",
     status: "recording",

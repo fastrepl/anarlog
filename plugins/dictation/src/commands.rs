@@ -108,3 +108,21 @@ pub(crate) async fn discard_recording<R: tauri::Runtime>(
         .discard(file_path)
         .map_err(|error| error.to_string())
 }
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn start_system_recording<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    microphone_device: Option<String>,
+    owner: String,
+    preview: Option<crate::preview::PreviewConfig>,
+    updates: tauri::ipc::Channel<crate::preview::RecordingUpdate>,
+) -> Result<(), String> {
+    let audio = app
+        .state::<Arc<dyn anlg_audio::AudioProvider>>()
+        .inner()
+        .clone();
+    app.state::<Recorder>()
+        .start_with_feedback(audio, microphone_device, owner, preview, Some(updates))
+        .map_err(|error| error.to_string())
+}

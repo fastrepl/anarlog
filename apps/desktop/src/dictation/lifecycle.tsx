@@ -1,14 +1,19 @@
+import { Channel } from "@tauri-apps/api/core";
 import { platform } from "@tauri-apps/plugin-os";
 import { useRef } from "react";
-import { create } from "zustand";
 
-import { commands as dictation } from "@anlg/plugin-dictation";
+import {
+  commands as dictation,
+  type RecordingUpdate,
+} from "@anlg/plugin-dictation";
 import { commands as permissions } from "@anlg/plugin-permissions";
 import { commands as shortcuts, events } from "@anlg/plugin-shortcut";
 import { commands as transcription } from "@anlg/plugin-transcription";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
-import { DictationController, type DictationPhase } from "./controller";
+import { DictationController } from "./controller";
+import { waitForDictationPanel } from "./panel";
+import { useDictationStatus } from "./state";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
@@ -17,22 +22,8 @@ import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useListener } from "~/stt/contexts";
 import { useRunBatch } from "~/stt/useRunBatch";
-
-export const useDictationStatus = create<{
-  phase: DictationPhase;
-  error: string | null;
-  lastTranscript: string;
-  ready: boolean;
-  retry: number;
-  cancel: (() => void) | null;
-}>(() => ({
-  phase: "idle",
-  error: null,
-  lastTranscript: "",
-  ready: false,
-  retry: 0,
-  cancel: null,
-}));
+import { useSTTConnection } from "~/stt/useSTTConnection";
+export { useDictationStatus } from "./state";
 
 let lifecycle: Promise<void> = Promise.resolve();
 
@@ -87,8 +78,31 @@ function ActiveDictation({
   const runBatch = useRunBatch(id);
   const stopTranscription = useListener((state) => state.stopTranscription);
   const microphone = useConfigValue("microphone_device");
-  const current = useRef({ runBatch, microphone });
-  current.current = { runBatch, microphone };
+  const livePreview = useConfigValue("dictation_live_preview");
+  const dictionary = useConfigValue("personalization_dictionary_terms");
+  const languages = useConfigValue("spoken_languages");
+  const { conn, isCloudModel } = useSTTConnection();
+  const auth = useAuth();
+  const current = useRef({
+    runBatch,
+    microphone,
+    livePreview,
+    languages,
+    dictionary,
+    conn,
+    isCloudModel,
+    auth,
+  });
+  current.current = {
+    runBatch,
+    microphone,
+    livePreview,
+    languages,
+    dictionary,
+    conn,
+    isCloudModel,
+    auth,
+  };
 
   useMountEffect(() => {
     let disposed = false;
@@ -107,7 +121,28 @@ function ActiveDictation({
       handsFree,
       start: async () => {
         abort = new AbortController();
-        useDictationStatus.setState({ error: null });
+        const recordingAbort = abort;
+        const owner = `${id}:${crypto.randomUUID()}`;
+        const {
+          microphone,
+          livePreview,
+          conn,
+          isCloudModel,
+          languages,
+          dictionary,
+          auth,
+        } = current.current;
+        useDictationStatus.setState({
+          owner,
+          error: null,
+          text: "",
+          partial: "",
+          amplitude: 0,
+          microphone: microphone || "Default microphone",
+          previewEnabled: livePreview,
+          previewUnavailable: livePreview && !conn,
+          expanded: livePreview,
+        });
         if (platform() === "macos") {
           const permission = unwrap(
             await permissions.checkPermission("microphone"),
@@ -122,15 +157,70 @@ function ActiveDictation({
           throw new Error(
             "Dictation is unavailable while Anarlog is recording a meeting.",
           );
+        const previewSession =
+          livePreview && isCloudModel
+            ? await auth.getSessionForRequest().catch(() => null)
+            : null;
+        const apiKey = isCloudModel
+          ? previewSession?.access_token
+          : conn?.apiKey;
+        const preview =
+          livePreview && conn && (!isCloudModel || previewSession)
+            ? {
+                provider: conn.provider,
+                baseUrl: conn.baseUrl,
+                apiKey: apiKey ?? "",
+                params: {
+                  model: conn.model,
+                  channels: 1,
+                  sample_rate: 16000,
+                  languages: languages || [],
+                  keywords: dictionary || [],
+                  num_speakers: 1,
+                  min_speakers: null,
+                  max_speakers: null,
+                  custom_query: null,
+                },
+              }
+            : null;
+        useDictationStatus.setState({
+          previewUnavailable: livePreview && !preview,
+        });
         abort.signal.throwIfAborted();
         target = unwrap(await dictation.captureTarget());
-        unwrap(await dictation.setPhase("recording"));
-        unwrap(await dictation.show());
+        await waitForDictationPanel(owner, abort.signal);
         abort.signal.throwIfAborted();
         unwrap(
-          await dictation.startRecording(
-            current.current.microphone || null,
+          await dictation.startSystemRecording(
+            microphone || null,
             id,
+            preview,
+            new Channel<RecordingUpdate>((update) => {
+              if (
+                disposed ||
+                recordingAbort.signal.aborted ||
+                recordingAbort !== abort
+              )
+                return;
+              if (
+                !["starting", "recording"].includes(
+                  useDictationStatus.getState().phase,
+                )
+              )
+                return;
+              if (update.type === "amplitude")
+                useDictationStatus.setState({ amplitude: update.amplitude });
+              else if (update.type === "transcript")
+                useDictationStatus.setState({
+                  text: update.text,
+                  partial: update.partial,
+                });
+              else
+                useDictationStatus.setState({
+                  previewUnavailable: true,
+                  partial: "",
+                });
+            }),
           ),
         );
       },
@@ -168,23 +258,20 @@ function ActiveDictation({
       },
       onError,
       onPhase: (phase) => {
-        if (!disposed) useDictationStatus.setState({ phase });
+        if (!disposed)
+          useDictationStatus.setState({
+            phase,
+            ...(phase === "starting" &&
+            useDictationStatus.getState().phase === "idle"
+              ? { owner: null }
+              : {}),
+          });
         presentation = presentation
           .then(async () => {
             try {
               unwrap(await shortcuts.setActive(phase !== "idle" && !disposed));
             } catch (error) {
               onError(error);
-            }
-            if (phase === "idle" || disposed) {
-              unwrap(await dictation.hide());
-            } else {
-              unwrap(
-                await dictation.setPhase(
-                  phase === "transcribing" ? "processing" : "recording",
-                ),
-              );
-              unwrap(await dictation.show());
             }
           })
           .catch(onError);
@@ -212,7 +299,12 @@ function ActiveDictation({
         unwrap(await shortcuts.configure(shortcut));
         armed = !disposed;
         if (!disposed)
-          useDictationStatus.setState({ ready: true, error: null, cancel });
+          useDictationStatus.setState({
+            ready: true,
+            error: null,
+            cancel,
+            finish: () => controller.release(true),
+          });
       })
       .catch(onError);
 
@@ -226,6 +318,10 @@ function ActiveDictation({
         phase: "idle",
         lastTranscript: useDictationStatus.getState().lastTranscript,
         cancel: null,
+        finish: null,
+        owner: null,
+        text: "",
+        partial: "",
       });
       lifecycle = lifecycle
         .then(async () => {
@@ -233,7 +329,6 @@ function ActiveDictation({
           await controller.cancel();
           await presentation;
           unwrap(await shortcuts.configure(null));
-          unwrap(await dictation.hide());
         })
         .catch(() => {});
     };

@@ -6,7 +6,9 @@ let sentTranscriptSessionId: string | null = null;
 let sentTranscriptBubbles: FloatingRouteState["transcriptBubbles"] | null =
   null;
 
-export function createFloatingMeetingWindowSynchronizer() {
+export function createFloatingMeetingWindowSynchronizer(
+  onPresented?: (state: FloatingRouteState | null) => void,
+) {
   let desiredRouteState: FloatingRouteState | null = null;
   let desiredRevision = 0;
   let appliedRevision = 0;
@@ -60,6 +62,7 @@ export function createFloatingMeetingWindowSynchronizer() {
       } else {
         shownSessionId = nextShownSessionId;
         appliedRouteState = routeState;
+        onPresented?.(routeState);
       }
     }
 
@@ -151,7 +154,7 @@ export async function showFloatingMeetingWindow(
     return false;
   }
 
-  if (shouldShow) {
+  if (shouldShow && !routeState.dictation) {
     const showResult = await windowsCommands.floatingBarShow();
     if (!shouldContinue()) {
       await hideFloatingMeetingPanel();
@@ -177,6 +180,7 @@ export async function showFloatingMeetingWindow(
   const updateResult = amplitudeOnly
     ? await windowsCommands.floatingBarUpdateAmplitude(routeState.amplitude)
     : await windowsCommands.floatingBarUpdate({
+        dictation: routeState.dictation ?? null,
         amplitude: routeState.amplitude,
         title: routeState.title,
         status: routeState.status,
@@ -205,6 +209,15 @@ export async function showFloatingMeetingWindow(
     return false;
   }
 
+  if (shouldShow && routeState.dictation) {
+    const shown = await windowsCommands.floatingBarShow();
+    if (!shouldContinue()) {
+      await hideFloatingMeetingPanel();
+      return false;
+    }
+    if (shown.status === "error") return false;
+  }
+
   if (shouldSendTranscript) {
     sentTranscriptSessionId = routeState.sessionId;
     sentTranscriptBubbles = routeState.transcriptBubbles;
@@ -221,6 +234,8 @@ function isAmplitudeOnlyFloatingRouteUpdate(
     previousState.amplitude !== nextState.amplitude &&
     previousState.sessionId === nextState.sessionId &&
     previousState.title === nextState.title &&
+    JSON.stringify(previousState.dictation) ===
+      JSON.stringify(nextState.dictation) &&
     previousState.status === nextState.status &&
     previousState.colorScheme === nextState.colorScheme &&
     previousState.opacity === nextState.opacity &&

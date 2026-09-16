@@ -34,6 +34,8 @@ import {
   showFloatingMeetingWindow,
 } from "./window-panel";
 
+import { getDictationPanelState } from "~/dictation/panel";
+import { useDictationStatus } from "~/dictation/state";
 import {
   getStoredSettingValues,
   setSettingValue,
@@ -66,8 +68,11 @@ export function FloatingMeetingWindowHost() {
           <LiveCaptionDefaultVisibilitySync />
         </>
       )}
-      {floatingOverlaySupported && floatingBarEnabled ? (
-        <FloatingMeetingWindowSync settings={overlaySettings} />
+      {floatingOverlaySupported ? (
+        <FloatingMeetingWindowSync
+          settings={overlaySettings}
+          enabled={floatingBarEnabled}
+        />
       ) : (
         <FloatingMeetingWindowDisabled />
       )}
@@ -163,32 +168,39 @@ function LiveCaptionWindowDisabled() {
 
 function FloatingMeetingWindowSync({
   settings,
+  enabled,
 }: {
   settings: FloatingOverlaySettings;
+  enabled: boolean;
 }) {
   const settingsRef = useLatestRef(settings);
+  const enabledRef = useLatestRef(enabled);
   const refreshSettingsRef = useRef<() => void>(() => {});
 
   useMountEffect(() => {
     let meetingData: MeetingFloatData = { sessions: {}, humanNames: {} };
-    const initialListenerState = listenerStore.getState();
-    let routeState = getCurrentFloatingRouteState(
-      initialListenerState,
-      undefined,
-      settingsRef.current,
-      getFloatingLiveCaptionToggleVisible(initialListenerState),
-      meetingData,
-    );
+    let routeState: FloatingRouteState | null = null;
+    let hasRouteState = false;
     let cancelled = false;
-    const windowSynchronizer = createFloatingMeetingWindowSynchronizer();
+    const windowSynchronizer = createFloatingMeetingWindowSynchronizer(
+      (state) => {
+        useDictationStatus.setState({
+          presentedOwner: state?.dictation?.sessionId ?? null,
+        });
+      },
+    );
     let unsubscribeMeetingData: (() => Promise<void>) | null = null;
     const unlisteners: Array<() => void> = [];
 
     const updateRouteState = (nextRouteState: FloatingRouteState | null) => {
-      if (isSameFloatingRouteState(nextRouteState, routeState)) {
+      if (
+        hasRouteState &&
+        isSameFloatingRouteState(nextRouteState, routeState)
+      ) {
         return;
       }
 
+      hasRouteState = true;
       routeState = nextRouteState;
       windowSynchronizer.update(routeState);
     };
@@ -200,20 +212,29 @@ function FloatingMeetingWindowSync({
           ? routeState.transcriptBubbles
           : undefined;
       updateRouteState(
-        getCurrentFloatingRouteState(
-          state,
-          undefined,
-          settingsRef.current,
-          getFloatingLiveCaptionToggleVisible(state),
-          meetingData,
-          transcriptBubbles,
-        ),
+        state.live.status === "inactive" && !state.live.loading
+          ? getDictationPanelState()
+          : enabledRef.current
+            ? getCurrentFloatingRouteState(
+                state,
+                undefined,
+                settingsRef.current,
+                getFloatingLiveCaptionToggleVisible(state),
+                meetingData,
+                transcriptBubbles,
+              )
+            : null,
       );
     };
     refreshSettingsRef.current = refreshCurrentRouteState;
 
     windowsEvents.floatingBarStop
       .listen(() => {
+        if (
+          routeState?.dictation ||
+          listenerStore.getState().live.status !== "active"
+        )
+          return;
         windowSynchronizer.update(null);
         listenerStore.getState().stop();
       })
@@ -239,7 +260,23 @@ function FloatingMeetingWindowSync({
         unlisteners.push(unlisten);
       });
 
-    windowSynchronizer.update(routeState);
+    windowsEvents.floatingBarDictationAction
+      .listen(({ payload }) => {
+        if (cancelled) return;
+        const state = useDictationStatus.getState();
+        if (state.phase === "idle" || state.owner !== payload.sessionId) return;
+        if (payload.action === "cancel") state.cancel?.();
+        else if (payload.action === "finish") state.finish?.();
+        else useDictationStatus.setState({ expanded: !state.expanded });
+      })
+      .then((unlisten) => {
+        if (cancelled) unlisten();
+        else unlisteners.push(unlisten);
+      });
+    refreshCurrentRouteState();
+    const unsubscribeDictation = useDictationStatus.subscribe(() =>
+      refreshCurrentRouteState(),
+    );
 
     const unsubscribe = listenerStore.subscribe((state, previousState) => {
       if (!haveFloatingRouteInputsChanged(state, previousState)) {
@@ -280,6 +317,7 @@ function FloatingMeetingWindowSync({
       cancelled = true;
       refreshSettingsRef.current = () => {};
       unsubscribe();
+      unsubscribeDictation();
       unsubscribeAppliedTheme();
       void unsubscribeMeetingData?.();
       unlisteners.forEach((unlisten) => unlisten());
@@ -289,7 +327,7 @@ function FloatingMeetingWindowSync({
 
   return (
     <FloatingMeetingWindowSettingsSync
-      key={JSON.stringify(settings)}
+      key={JSON.stringify([settings, enabled])}
       onSettingsChange={() => refreshSettingsRef.current()}
     />
   );

@@ -7,6 +7,8 @@ use tauri::async_runtime::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
 use crate::Error;
+use crate::preview::{Preview, PreviewConfig, RecordingUpdate};
+use tauri::ipc::Channel;
 
 const SAMPLE_RATE: u32 = 16_000;
 const CHUNK_SIZE: usize = 1_600;
@@ -44,6 +46,17 @@ impl Recorder {
         microphone_device: Option<String>,
         owner: String,
     ) -> Result<(), Error> {
+        self.start_with_feedback(audio, microphone_device, owner, None, None)
+    }
+
+    pub fn start_with_feedback(
+        &self,
+        audio: Arc<dyn anlg_audio::AudioProvider>,
+        microphone_device: Option<String>,
+        owner: String,
+        preview: Option<PreviewConfig>,
+        updates: Option<Channel<RecordingUpdate>>,
+    ) -> Result<(), Error> {
         let mut active = self
             .active
             .lock()
@@ -68,7 +81,11 @@ impl Recorder {
         let task_cancellation = cancellation.clone();
         let task_path = path.clone();
         let task = tauri::async_runtime::spawn(async move {
-            let result = record_to_file(stream, task_cancellation, &task_path).await;
+            let preview = preview
+                .zip(updates.clone())
+                .map(|(config, updates)| Preview::start(config, updates));
+            let result =
+                record_to_file(stream, task_cancellation, &task_path, preview, updates).await;
             if result.is_err() {
                 let _ = std::fs::remove_file(&task_path);
             }
@@ -150,6 +167,8 @@ async fn record_to_file(
     mut stream: anlg_audio::CaptureStream,
     cancellation: CancellationToken,
     path: &Path,
+    mut preview: Option<Preview>,
+    updates: Option<Channel<RecordingUpdate>>,
 ) -> Result<RecordedAudio, Error> {
     let specification = hound::WavSpec {
         channels: 1,
@@ -179,6 +198,14 @@ async fn record_to_file(
                         .map_err(|error| Error::Recording(error.to_string()))?;
                 }
                 sample_count += samples.len() as u64;
+                if let Some(updates) = &updates {
+                    let rms = (samples.iter().map(|s| f64::from(*s).powi(2)).sum::<f64>() / samples.len().max(1) as f64).sqrt();
+                    let _ = updates.send(RecordingUpdate::Amplitude { amplitude: (rms * 8.0).clamp(0.0, 1.0) });
+                    if preview.as_ref().is_some_and(|preview| !preview.send(&samples)) {
+                        preview = None;
+                        let _ = updates.send(RecordingUpdate::PreviewUnavailable);
+                    }
+                }
             }
         }
     }
@@ -302,6 +329,47 @@ mod tests {
             .start(Arc::new(TestAudio), None, "system".into())
             .unwrap();
         recorder.cancel("system").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn preview_failure_does_not_interrupt_wav_capture() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let failed = Arc::new(AtomicBool::new(false));
+        let received = failed.clone();
+        let updates = Channel::new(move |body| {
+            if let tauri::ipc::InvokeResponseBody::Json(json) = body
+                && json.contains("previewUnavailable")
+            {
+                received.store(true, Ordering::SeqCst);
+            }
+            Ok(())
+        });
+        let recorder = Recorder::new();
+        recorder
+            .start_with_feedback(
+                Arc::new(TestAudio),
+                None,
+                "test".into(),
+                Some(PreviewConfig {
+                    provider: "unsupported".into(),
+                    base_url: "http://localhost".into(),
+                    api_key: String::new(),
+                    params: Default::default(),
+                }),
+                Some(updates),
+            )
+            .unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            while !failed.load(Ordering::SeqCst) {
+                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        let recorded = recorder.stop("test").await.unwrap();
+        assert!(recorded.duration_ms > 0);
+        recorder.discard(recorded.file_path).unwrap();
     }
 
     #[tokio::test]

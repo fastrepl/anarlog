@@ -9,6 +9,9 @@ private func rustOnFloatingBarOpenMain()
 @_silgen_name("rust_on_floating_bar_settings_change")
 private func rustOnFloatingBarSettingsChange(_ settingsPtr: UnsafePointer<CChar>)
 
+@_silgen_name("rust_on_floating_bar_dictation_action")
+func rust_on_floating_bar_dictation_action(_ payload: UnsafePointer<CChar>)
+
 enum RustBridge {
   static func stopListening() {
     rustOnFloatingBarStop()

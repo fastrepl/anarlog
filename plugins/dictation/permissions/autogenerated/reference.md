@@ -9,6 +9,7 @@ Default permissions for the plugin
 - `allow-set-phase`
 - `allow-update-amplitude`
 - `allow-start-recording`
+- `allow-start-system-recording`
 - `allow-stop-recording`
 - `allow-cancel-recording`
 - `allow-discard-recording`
@@ -228,6 +229,32 @@ Enables the start_recording command without any pre-configured scope.
 <td>
 
 Denies the start_recording command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-start-system-recording`
+
+</td>
+<td>
+
+Enables the start_system_recording command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-start-system-recording`
+
+</td>
+<td>
+
+Denies the start_system_recording command without any pre-configured scope.
 
 </td>
 </tr>

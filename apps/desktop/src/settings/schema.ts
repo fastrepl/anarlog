@@ -1,4 +1,9 @@
 export const SETTING_DEFINITIONS = {
+  dictation_live_preview: {
+    type: "boolean",
+    path: ["dictation", "live_preview"],
+    default: false as boolean,
+  },
   dictation_enabled: {
     type: "boolean",
     path: ["dictation", "enabled"],

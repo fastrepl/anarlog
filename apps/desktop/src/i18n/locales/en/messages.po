@@ -3071,6 +3071,10 @@ msgstr "Little steps worth keeping. Collect them at your own pace."
 msgid "Live"
 msgstr "Live"
 
+#: src/settings/dictation.tsx
+msgid "Live transcript preview"
+msgstr "Live transcript preview"
+
 #: src/settings/stats/badge-collection.tsx
 msgid "Living Library"
 msgstr "Living Library"
@@ -5004,6 +5008,10 @@ msgstr "Show when a transcript is ready."
 #: src/settings/general/notification.tsx
 msgid "Show when initial cloud sync finishes."
 msgstr "Show when initial cloud sync finishes."
+
+#: src/settings/dictation.tsx
+msgid "Show words in the floating panel as you speak. Uses a live connection to your selected transcription provider when supported. Text is inserted when you finish."
+msgstr "Show words in the floating panel as you speak. Uses a live connection to your selected transcription provider when supported. Text is inserted when you finish."
 
 #: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/index.tsx

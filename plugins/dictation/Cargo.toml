@@ -10,9 +10,14 @@ tauri-plugin = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
 specta-typescript = { workspace = true }
+tokio-tungstenite = { workspace = true }
 
 [dependencies]
 anlg-audio = { workspace = true }
+owhisper-client = { workspace = true }
+owhisper-interface = { workspace = true }
+tokio-stream = { workspace = true }
+url = { workspace = true }
 
 futures-util = { workspace = true }
 hound = { workspace = true }

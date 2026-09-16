@@ -72,18 +72,40 @@ export function FloatingBarOverlayScreen() {
     <div className="h-screen w-screen bg-transparent">
       <FloatingBarOverlay
         state={state}
+        onCancel={() => {
+          if (state.dictation) {
+            void windowsEvents.floatingBarDictationAction.emit({
+              sessionId: state.dictation.sessionId,
+              action: "cancel",
+            });
+          }
+        }}
         onStop={() => {
-          void windowsEvents.floatingBarStop.emit({});
+          if (state.dictation) {
+            void windowsEvents.floatingBarDictationAction.emit({
+              sessionId: state.dictation.sessionId,
+              action: "finish",
+            });
+          } else {
+            void windowsEvents.floatingBarStop.emit({});
+          }
         }}
         onToggleExpanded={(expanded) => {
-          void windowsEvents.floatingBarSettingsChange.emit({
-            floatingBarOpacity: null,
-            liveCaptionOpacity: null,
-            liveCaptionWidth: null,
-            liveCaptionLineCount: null,
-            liveCaptionPosition: null,
-            liveCaptionMinimized: !expanded,
-          });
+          if (state.dictation) {
+            void windowsEvents.floatingBarDictationAction.emit({
+              sessionId: state.dictation.sessionId,
+              action: "togglePreview",
+            });
+          } else {
+            void windowsEvents.floatingBarSettingsChange.emit({
+              floatingBarOpacity: null,
+              liveCaptionOpacity: null,
+              liveCaptionWidth: null,
+              liveCaptionLineCount: null,
+              liveCaptionPosition: null,
+              liveCaptionMinimized: !expanded,
+            });
+          }
         }}
       />
     </div>

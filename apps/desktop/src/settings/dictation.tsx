@@ -10,7 +10,7 @@ import { Input } from "@anlg/ui/components/ui/input";
 import { Textarea } from "@anlg/ui/components/ui/textarea";
 
 import { useBillingAccess } from "~/auth/billing-context";
-import { useDictationStatus } from "~/dictation/lifecycle";
+import { useDictationStatus } from "~/dictation/state";
 import { AudioDeviceRow } from "~/settings/general/audio-settings";
 import { SettingsPageTitle } from "~/settings/page-title";
 import { PlanGate } from "~/settings/plan-gate";
@@ -25,6 +25,8 @@ export function SettingsDictation() {
   const enabled = useConfigValue("dictation_enabled");
   const shortcut = useConfigValue("dictation_shortcut");
   const handsFree = useConfigValue("dictation_hands_free");
+  const livePreview = useConfigValue("dictation_live_preview");
+  const setLivePreview = useSetSettingValue("dictation_live_preview");
   const setEnabled = useSetSettingValue("dictation_enabled");
   const setHandsFree = useSetSettingValue("dictation_hands_free");
   const microphone = useConfigValue("microphone_device");
@@ -75,6 +77,18 @@ export function SettingsDictation() {
             value={microphone}
             devices={microphones.data ?? []}
             onChange={setMicrophone}
+          />
+          <SettingSwitchRow
+            title={<Trans>Live transcript preview</Trans>}
+            description={
+              <Trans>
+                Show words in the floating panel as you speak. Uses a live
+                connection to your selected transcription provider when
+                supported. Text is inserted when you finish.
+              </Trans>
+            }
+            checked={livePreview}
+            onChange={setLivePreview}
           />
           <SettingSwitchRow
             title={<Trans>Hands-free dictation</Trans>}

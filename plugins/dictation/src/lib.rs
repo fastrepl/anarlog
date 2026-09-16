@@ -4,6 +4,7 @@ mod events;
 mod ext;
 mod handler;
 mod insertion;
+mod preview;
 mod recorder;
 
 pub use error::*;
@@ -25,6 +26,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::set_phase::<tauri::Wry>,
             commands::update_amplitude::<tauri::Wry>,
             commands::start_recording::<tauri::Wry>,
+            commands::start_system_recording::<tauri::Wry>,
             commands::stop_recording::<tauri::Wry>,
             commands::cancel_recording::<tauri::Wry>,
             commands::discard_recording::<tauri::Wry>,

@@ -41,7 +41,21 @@ pub struct FloatingTranscriptBubble {
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
+pub struct FloatingDictationState {
+    pub session_id: String,
+    pub phase: String,
+    pub microphone: String,
+    pub text: String,
+    pub partial: String,
+    pub preview_enabled: bool,
+    pub preview_unavailable: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
 pub struct FloatingBarState {
+    #[serde(default)]
+    pub dictation: Option<FloatingDictationState>,
     pub amplitude: f64,
     pub title: String,
     pub status: FloatingBarStatus,
@@ -94,6 +108,20 @@ pub(crate) mod layout {
 
     pub fn compact_width(shows_expand: bool) -> f64 {
         compact_controls_width(shows_expand) + COMPACT_HORIZONTAL_PADDING * 2.0
+    }
+
+    #[cfg(any(not(target_os = "macos"), test))]
+    pub fn dictation_container_size(expanded: bool) -> (f64, f64) {
+        let (width, height) = container_size(expanded, true);
+        (
+            width
+                + if expanded {
+                    0.0
+                } else {
+                    COMPACT_ICON_SIZE + COMPACT_GAP
+                },
+            height,
+        )
     }
 
     pub fn container_size(is_expanded: bool, shows_expand: bool) -> (f64, f64) {
@@ -233,6 +261,22 @@ mod platform {
     pub extern "C" fn rust_on_floating_bar_open_main() {
         if let Some(app) = APP_HANDLE.get() {
             let _ = crate::events::FloatingBarOpenMain {}.emit(app);
+        }
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn rust_on_floating_bar_dictation_action(payload: *const c_char) {
+        if payload.is_null() {
+            return;
+        }
+        let Ok(json) = (unsafe { CStr::from_ptr(payload) }).to_str() else {
+            return;
+        };
+        if let (Some(app), Ok(event)) = (
+            APP_HANDLE.get(),
+            serde_json::from_str::<crate::events::FloatingBarDictationAction>(json),
+        ) {
+            let _ = event.emit(app);
         }
     }
 
@@ -399,7 +443,13 @@ mod cross_platform {
     ) -> Result<FloatingBarOverlayLayout, Error> {
         let is_expanded = state.is_some_and(is_expanded);
         let shows_expand = state.is_some_and(|value| value.live_caption_toggle_visible);
-        let (width, height) = container_size(is_expanded, shows_expand);
+        let dictation = state.is_some_and(|state| state.dictation.is_some());
+        window.set_focusable(!dictation)?;
+        let (width, height) = if dictation {
+            super::layout::dictation_container_size(is_expanded)
+        } else {
+            container_size(is_expanded, shows_expand)
+        };
         let next_size = LogicalSize::new(width, height);
         let scale = window.scale_factor()?;
         let current_size = window.outer_size()?.to_logical::<f64>(scale);
@@ -536,6 +586,11 @@ mod tests {
         }
     }
 
+    #[test]
+    fn dictation_sizes_preserve_the_shared_panel_anchors() {
+        assert_eq!(layout::dictation_container_size(false), (144.0, 67.0));
+        assert_eq!(layout::dictation_container_size(true), (368.0, 459.0));
+    }
     #[test]
     fn sizes_the_compact_and_expanded_windows() {
         assert_eq!(layout::container_size(false, false), (84.0, 67.0));

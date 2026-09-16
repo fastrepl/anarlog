@@ -17031,6 +17031,8 @@ dependencies = [
  "dictation-ui-macos",
  "futures-util",
  "hound",
+ "owhisper-client",
+ "owhisper-interface",
  "serde",
  "serde_json",
  "specta",
@@ -17042,8 +17044,11 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-stream",
+ "tokio-tungstenite 0.29.0",
  "tokio-util",
  "tracing",
+ "url",
  "windows 0.62.2",
 ]
 
