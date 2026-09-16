@@ -90,19 +90,16 @@ pub async fn list_google_events(
             .map_err(|e| Error::Api(e.to_string()))?
             .into_inner();
         events.extend(response.items);
-        let next = response.next_page_token.filter(|t| !t.is_empty());
         // Google can return an empty page even when more events match the query.
-        if next.is_none() {
+        let Some(token) = response.next_page_token.filter(|t| !t.is_empty()) else {
             return Ok(events);
+        };
+        if !seen.insert(token.clone()) {
+            return Err(Error::Api(
+                "google events.list returned a repeated page token".into(),
+            ));
         }
-        if let Some(token) = &next {
-            if !seen.insert(token.clone()) {
-                return Err(Error::Api(
-                    "google events.list returned a repeated page token".into(),
-                ));
-            }
-        }
-        body.page_token = next;
+        body.page_token = Some(token);
     }
 }
 
