@@ -247,6 +247,20 @@ describe("SettingsNav", () => {
     expect(screen.queryByText("Personalization")).toBeNull();
   });
 
+  it("opens Account and Billing as separate destinations", () => {
+    render(<SettingsNav />);
+    fireEvent.click(screen.getByRole("button", { name: "Account" }));
+    expect(mocks.updateSettingsTabState).toHaveBeenLastCalledWith(
+      mocks.currentTab,
+      { tab: "account" },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Billing" }));
+    expect(mocks.updateSettingsTabState).toHaveBeenLastCalledWith(
+      mocks.currentTab,
+      { tab: "billing" },
+    );
+  });
+
   it("shows only Insights and opens it for free users", () => {
     mocks.isPro = false;
     render(<SettingsNav />);

@@ -22,6 +22,9 @@ vi.mock("~/settings/developers", () => ({ SettingsDevelopers: () => null }));
 vi.mock("~/settings/dictionary", () => ({ SettingsDictionary: () => null }));
 vi.mock("~/settings/imports", () => ({ SettingsImports: () => null }));
 vi.mock("~/settings/privacy", () => ({ SettingsPrivacy: () => null }));
+vi.mock("~/settings/general/billing", () => ({
+  SettingsBilling: () => <div>Billing settings</div>,
+}));
 vi.mock("~/settings/stats", () => ({
   SettingsInsights: () => <div>Personal insights</div>,
 }));
@@ -38,6 +41,15 @@ import { createSettingsTab } from "~/store/zustand/tabs/test-utils";
 
 describe("TabContentSettings", () => {
   afterEach(cleanup);
+
+  it("opens billing separately from account", () => {
+    render(
+      <TabContentSettings
+        tab={createSettingsTab({ state: { tab: "billing" } })}
+      />,
+    );
+    expect(screen.getByText("Billing settings")).toBeTruthy();
+  });
 
   it("opens personal insights from its settings destination", () => {
     render(

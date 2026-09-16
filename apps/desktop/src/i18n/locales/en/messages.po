@@ -120,11 +120,11 @@ msgstr "{primaryModifier} ↩ to send"
 msgid "{title} deleted"
 msgstr "{title} deleted"
 
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "{trialDaysRemaining} day left"
 msgstr "{trialDaysRemaining} day left"
 
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "{trialDaysRemaining} days left"
 msgstr "{trialDaysRemaining} days left"
 
@@ -405,7 +405,7 @@ msgid "Add organization"
 msgstr "Add organization"
 
 #: src/billing/trial-payment-reminder-dialog.tsx
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "Add payment method"
 msgstr "Add payment method"
 
@@ -829,7 +829,12 @@ msgstr "Best for this Mac"
 msgid "Beta"
 msgstr "Beta"
 
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
+#: src/sidebar/settings.tsx
+msgid "Billing"
+msgstr "Billing"
+
+#: src/settings/general/billing.tsx
 msgid "Billing period"
 msgstr "Billing period"
 
@@ -985,6 +990,7 @@ msgstr "Change"
 
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
+#: src/settings/general/account-profile.tsx
 msgid "Change photo"
 msgstr "Change photo"
 
@@ -1361,10 +1367,11 @@ msgid "comments"
 msgstr "comments"
 
 #: src/contacts/details.tsx
+#: src/settings/general/account-profile.tsx
 msgid "Company"
 msgstr "Company"
 
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "Compare Free, Pro, Team, and Enterprise."
 msgstr "Compare Free, Pro, Team, and Enterprise."
 
@@ -1766,6 +1773,10 @@ msgstr "Couldn't load your badges. Reopen this page to try again."
 msgid "Couldn't load your insights. Reopen this page to try again."
 msgstr "Couldn't load your insights. Reopen this page to try again."
 
+#: src/settings/general/account-profile.tsx
+msgid "Couldn't load your profile. Reopen this page to try again."
+msgstr "Couldn't load your profile. Reopen this page to try again."
+
 #: src/settings/general/account.tsx
 msgid "Couldn't open connected accounts. Try again."
 msgstr "Couldn't open connected accounts. Try again."
@@ -1773,6 +1784,10 @@ msgstr "Couldn't open connected accounts. Try again."
 #: src/settings/stats/badge-collection.tsx
 msgid "Couldn't save your new badges."
 msgstr "Couldn't save your new badges."
+
+#: src/settings/general/account-profile.tsx
+msgid "Couldn't save your profile. Try again."
+msgstr "Couldn't save your profile. Try again."
 
 #: src/folders/sidebar.tsx
 #: src/settings/team/index.tsx
@@ -1852,7 +1867,7 @@ msgstr "Creating brief..."
 msgid "Crisp"
 msgstr "Crisp"
 
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "Current"
 msgstr "Current"
 
@@ -2147,6 +2162,7 @@ msgstr "Eligible for free trial"
 
 #: src/contacts/details.tsx
 #: src/session-sharing/delivery-panel.tsx
+#: src/settings/general/account-profile.tsx
 #: src/settings/team/index.tsx
 msgid "Email"
 msgstr "Email"
@@ -2444,7 +2460,7 @@ msgstr "For enabled notifications"
 msgid "Forever"
 msgstr "Forever"
 
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "Free"
 msgstr "Free"
 
@@ -2800,6 +2816,7 @@ msgid "Invited to join"
 msgstr "Invited to join"
 
 #: src/contacts/details.tsx
+#: src/settings/general/account-profile.tsx
 msgid "Job Title"
 msgstr "Job Title"
 
@@ -2961,6 +2978,7 @@ msgid "Linear team"
 msgstr "Linear team"
 
 #: src/contacts/details.tsx
+#: src/settings/general/account-profile.tsx
 msgid "LinkedIn"
 msgstr "LinkedIn"
 
@@ -3036,6 +3054,7 @@ msgstr "Loading your insights…"
 
 #: src/changelog/index.tsx
 #: src/contacts/details.tsx
+#: src/settings/general/account-profile.tsx
 #: src/task/resource-view.tsx
 msgid "Loading..."
 msgstr "Loading..."
@@ -3074,7 +3093,7 @@ msgstr "macOS could not access your recovery key. Repair Keychain access, then r
 msgid "Main language"
 msgstr "Main language"
 
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "Manage billing"
 msgstr "Manage billing"
 
@@ -3286,7 +3305,7 @@ msgstr "Model is thinking..."
 msgid "Monday"
 msgstr "Monday"
 
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "Monthly · ${monthlyPrice}/mo"
 msgstr "Monthly · ${monthlyPrice}/mo"
 
@@ -3316,6 +3335,7 @@ msgstr "My automations"
 
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
+#: src/settings/general/account-profile.tsx
 #: src/settings/team/index.tsx
 msgid "Name"
 msgstr "Name"
@@ -3590,6 +3610,7 @@ msgid "notes"
 msgstr "notes"
 
 #: src/contacts/details.tsx
+#: src/settings/general/account-profile.tsx
 msgid "Notes"
 msgstr "Notes"
 
@@ -3645,7 +3666,7 @@ msgstr "Oldest"
 msgid "On-device models can take a few minutes to warm up before text appears."
 msgstr "On-device models can take a few minutes to warm up before text appears."
 
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "On-device transcription, recordings, and your own keys."
 msgstr "On-device transcription, recordings, and your own keys."
 
@@ -3734,7 +3755,7 @@ msgid "Open Settings"
 msgstr "Open Settings"
 
 #: src/resource-sharing/share-dialog.tsx
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "Open Teams"
 msgstr "Open Teams"
 
@@ -3901,6 +3922,7 @@ msgid "Permissions granted"
 msgstr "Permissions granted"
 
 #: src/contacts/details.tsx
+#: src/settings/general/account-profile.tsx
 msgid "Phone"
 msgstr "Phone"
 
@@ -3908,11 +3930,11 @@ msgstr "Phone"
 msgid "Pin"
 msgstr "Pin"
 
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "Plan & Billing"
 msgstr "Plan & Billing"
 
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "Plans"
 msgstr "Plans"
 
@@ -3985,7 +4007,7 @@ msgstr "Pro features available"
 msgid "Pro for every member, shared workspaces, roles, and centralized billing. $20 per person monthly or $200 yearly."
 msgstr "Pro for every member, shared workspaces, roles, and centralized billing. $20 per person monthly or $200 yearly."
 
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "Pro trial"
 msgstr "Pro trial"
 
@@ -4111,7 +4133,7 @@ msgstr "Recording status prompts"
 msgid "Redo"
 msgstr "Redo"
 
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "Refresh billing status"
 msgstr "Refresh billing status"
 
@@ -4190,6 +4212,7 @@ msgid "Remove member?"
 msgstr "Remove member?"
 
 #: src/contacts/contact-page-header.tsx
+#: src/settings/general/account-profile.tsx
 msgid "Remove photo"
 msgstr "Remove photo"
 
@@ -4357,7 +4380,7 @@ msgstr "Restore"
 msgid "Restoring cloud sync..."
 msgstr "Restoring cloud sync..."
 
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "Resume"
 msgstr "Resume"
 
@@ -4399,6 +4422,7 @@ msgid "Runs once the AI summary for the meeting is ready."
 msgstr "Runs once the AI summary for the meeting is ready."
 
 #: src/settings/dictionary/index.tsx
+#: src/settings/general/account-profile.tsx
 #: src/settings/sync/index.tsx
 #: src/templates/auto-form.tsx
 msgid "Save"
@@ -4444,9 +4468,17 @@ msgstr "Save this key in a password manager. New devices can usually be approved
 msgid "Save visible chat from supported meetings using Accessibility."
 msgstr "Save visible chat from supported meetings using Accessibility."
 
+#: src/settings/general/account-profile.tsx
+msgid "Saved"
+msgstr "Saved"
+
 #: src/settings/sync/index.tsx
 msgid "Saved locally"
 msgstr "Saved locally"
+
+#: src/settings/general/account-profile.tsx
+msgid "Saving..."
+msgstr "Saving..."
 
 #: src/settings/team/index.tsx
 msgid "SCIM bearer token"
@@ -4887,6 +4919,7 @@ msgid "Sign in to add this folder"
 msgstr "Sign in to add this folder"
 
 #: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "Sign in to Anarlog"
 msgstr "Sign in to Anarlog"
 
@@ -5341,7 +5374,7 @@ msgstr "Take the enhanced note with decisions and action items."
 msgid "Take the enhanced note with decisions and follow-ups."
 msgstr "Take the enhanced note with decisions and follow-ups."
 
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "Talk to sales"
 msgstr "Talk to sales"
 
@@ -5578,7 +5611,7 @@ msgstr "Transcription unavailable"
 msgid "Travel & Places"
 msgstr "Travel & Places"
 
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "Trial"
 msgstr "Trial"
 
@@ -5729,6 +5762,10 @@ msgstr "Update"
 #: src/automations/starters.tsx
 msgid "Update project notes in Notion"
 msgstr "Update project notes in Notion"
+
+#: src/settings/general/account-profile.tsx
+msgid "Update your personal contact card. Your sign-in email is managed separately."
+msgstr "Update your personal contact card. Your sign-in email is managed separately."
 
 #: src/session-sharing/access-management.tsx
 msgid "Updating access"
@@ -5985,11 +6022,11 @@ msgstr "Workspace subdomain"
 msgid "Write to a folder"
 msgstr "Write to a folder"
 
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "Yearly · ${yearlyPrice}/yr"
 msgstr "Yearly · ${yearlyPrice}/yr"
 
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "Yearly · ${yearlyPrice}/yr (save ${yearlySavings})"
 msgstr "Yearly · ${yearlyPrice}/yr (save ${yearlySavings})"
 
@@ -6030,7 +6067,7 @@ msgstr "You'll need to sign in again to use cloud sync and account features."
 msgid "You're on a Pro trial"
 msgstr "You're on a Pro trial"
 
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "You're on the <0>{planLabel}</0> plan"
 msgstr "You're on the <0>{planLabel}</0> plan"
 
@@ -6074,6 +6111,10 @@ msgstr "Your conversation patterns"
 #: src/settings/dictionary/index.tsx
 msgid "Your dictionary is empty"
 msgstr "Your dictionary is empty"
+
+#: src/settings/general/account-profile.tsx
+msgid "Your info"
+msgstr "Your info"
 
 #: src/settings/stats/index.tsx
 msgid "Your insights"
@@ -6124,7 +6165,7 @@ msgid "Your Pro trial ends in 1 day"
 msgstr "Your Pro trial ends in 1 day"
 
 #: src/billing/trial-ended-dialog.tsx
-#: src/settings/general/account.tsx
+#: src/settings/general/billing.tsx
 msgid "Your Pro trial has ended"
 msgstr "Your Pro trial has ended"
 

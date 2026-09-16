@@ -48,6 +48,7 @@ import {
   mergeHumans,
   reorderPinnedContacts,
   searchContacts,
+  savePersonalContact,
   toggleContactPin,
   updateContactAvatar,
   updateHumanContactSummary,
@@ -66,6 +67,45 @@ describe("contact SQLite queries", () => {
     mocks.rows = [];
     mocks.loading = false;
     mocks.execute.mockResolvedValue([]);
+  });
+
+  it("upserts the personal card in one queued transaction without replacing other metadata", async () => {
+    await savePersonalContact("account-1", {
+      name: "Ada",
+      email: "contact@example.com",
+      phone: "123",
+      jobTitle: "Engineer",
+      linkedinUsername: "ada",
+      memo: "Personal notes",
+      organizationId: "org-1",
+      avatarDataUrl: null,
+    });
+    expect(mocks.executeTransaction).toHaveBeenCalledTimes(1);
+    const statements = mocks.executeTransaction.mock.calls[0][0];
+    expect(statements).toHaveLength(1);
+    expect(statements[0].params).toEqual([
+      "account-1",
+      "account-1",
+      "Ada",
+      "contact@example.com",
+      "123",
+      "Engineer",
+      "ada",
+      "Personal notes",
+      "org-1",
+      null,
+      expect.any(String),
+      expect.any(String),
+      null,
+    ]);
+    expect(statements[0].sql).toContain("ON CONFLICT(id) DO UPDATE");
+    expect(statements[0].sql).toContain(
+      "THEN humans.metadata_json ELSE '{}' END",
+    );
+    expect(statements[0].sql).toContain(
+      "local_library_connections WHERE active = 1",
+    );
+    expect(mocks.trackAnalyticsEvent).not.toHaveBeenCalled();
   });
 
   it("maps canonical human rows", () => {

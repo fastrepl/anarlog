@@ -253,8 +253,12 @@ export function DetailsColumn({
                     <Trans>Company</Trans>
                   </div>
                   <div className="flex-1">
-                    <EditPersonOrganizationSelector
-                      personId={human.id}
+                    <ContactOrganizationSelector
+                      onChange={(organizationId) =>
+                        persistHumanUpdate(human.id, {
+                          organizationId: organizationId ?? "",
+                        })
+                      }
                       organization={
                         organizations.find(
                           (organization) =>
@@ -566,22 +570,16 @@ function EditablePersonMemoField({
   );
 }
 
-function EditPersonOrganizationSelector({
-  personId,
+export function ContactOrganizationSelector({
+  onChange: handleChange,
   organization,
   organizations,
 }: {
-  personId: string;
+  onChange: (organizationId: string | null) => void;
   organization: OrganizationRecord | null;
   organizations: OrganizationRecord[];
 }) {
   const [open, setOpen] = useState(false);
-  const handleChange = (organizationId: string | null) => {
-    persistHumanUpdate(personId, {
-      organizationId: organizationId ?? "",
-    });
-  };
-
   const handleRemoveOrganization = () => {
     handleChange(null);
   };

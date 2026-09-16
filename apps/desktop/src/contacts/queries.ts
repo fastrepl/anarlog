@@ -491,6 +491,71 @@ export function createOrganization({
   });
 }
 
+export function usePersonalContact(humanId: string) {
+  return useLiveQuery<HumanSqlRow, HumanRecord | null>({
+    sql: `SELECT *, ${AVATAR_SQL}, ${CONTACT_SUMMARY_SQL}
+      FROM humans WHERE id = ? AND deleted_at IS NULL`,
+    params: [humanId],
+    mapRows: (rows) => (rows[0] ? mapHumanRow(rows[0]) : null),
+  });
+}
+
+export function savePersonalContact(
+  humanId: string,
+  values: Pick<
+    HumanRecord,
+    | "name"
+    | "email"
+    | "phone"
+    | "jobTitle"
+    | "linkedinUsername"
+    | "memo"
+    | "organizationId"
+    | "avatarDataUrl"
+  >,
+): Promise<void> {
+  return enqueueDatabaseWrite(`human:${humanId}`, async () => {
+    const now = new Date().toISOString();
+    await executeTransaction([
+      {
+        sql: `
+        INSERT INTO humans (
+          id, workspace_id, owner_user_id, name, email, phone, job_title,
+          linkedin_username, memo, organization_id, metadata_json, created_at, updated_at, deleted_at
+        ) VALUES (
+          ?, NULLIF((SELECT json_extract(value_json, '$.workspace_id') FROM app_settings
+            WHERE id = 'cloudsync_workspace_binding'), ''),
+          COALESCE((SELECT library_workspace_id FROM local_library_connections WHERE active = 1), ?),
+          ?, ?, ?, ?, ?, ?, ?, json_object('avatarDataUrl', ?), ?, ?, NULL
+        )
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name, email = excluded.email, phone = excluded.phone,
+          job_title = excluded.job_title, linkedin_username = excluded.linkedin_username,
+          memo = excluded.memo, organization_id = excluded.organization_id,
+          metadata_json = json_set(CASE WHEN json_valid(humans.metadata_json)
+            THEN humans.metadata_json ELSE '{}' END, '$.avatarDataUrl', ?),
+          updated_at = excluded.updated_at, deleted_at = NULL
+      `,
+        params: [
+          humanId,
+          humanId,
+          values.name,
+          values.email,
+          values.phone,
+          values.jobTitle,
+          values.linkedinUsername,
+          values.memo,
+          values.organizationId,
+          values.avatarDataUrl,
+          now,
+          now,
+          values.avatarDataUrl,
+        ],
+      },
+    ]);
+  });
+}
+
 export function updateHuman(
   humanId: string,
   changes: Partial<

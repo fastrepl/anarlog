@@ -27,7 +27,7 @@ export function ConfigError() {
         <Button
           className="shadow-none"
           onClick={() =>
-            openNew({ type: "settings", state: { tab: "account" } })
+            openNew({ type: "settings", state: { tab: "billing" } })
           }
         >
           <Trans>Get Pro</Trans>

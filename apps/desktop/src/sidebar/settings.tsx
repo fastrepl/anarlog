@@ -10,6 +10,7 @@ import {
   CalendarDots,
   ChartLineUp,
   Code,
+  CreditCard,
   DownloadSimple,
   FileText,
   FolderSimple,
@@ -91,6 +92,7 @@ export function SettingsNav() {
       items: [
         { id: "app", label: t`General`, icon: Gear },
         { id: "account", label: t`Account`, icon: User },
+        { id: "billing", label: t`Billing`, icon: CreditCard },
         { id: "insights", label: t`Insights`, icon: ChartLineUp },
         {
           id: "team",

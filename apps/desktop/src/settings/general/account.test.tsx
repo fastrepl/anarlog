@@ -79,6 +79,10 @@ vi.mock("~/shared/utils", () => ({
   buildWebAppUrl: mocks.buildWebAppUrl,
 }));
 
+vi.mock("./account-profile", () => ({
+  AccountProfile: () => <div>Profile editor</div>,
+}));
+
 import { SettingsAccount } from "./account";
 
 const renderAccount = () => {
@@ -184,209 +188,15 @@ describe("SettingsAccount", () => {
     );
   });
 
-  it.each([
-    { personalState: "trialing", isTrialing: true, isPaused: false },
-    { personalState: "paused", isTrialing: false, isPaused: true },
-  ])(
-    "shows Team as current without the $personalState Pro status",
-    async ({ isTrialing, isPaused }) => {
-      mocks.billing = {
-        canStartTrial: { data: false, isPending: false },
-        hasPaymentMethod: true,
-        isPaid: true,
-        isTrialing,
-        isPaused,
-        plan: "pro",
-        trialDaysRemaining: null,
-      };
-      mocks.workspaces.data = [
-        { workspaceId: "00000000-0000-4000-8000-000000000001" },
-      ];
-      mocks.getWorkspaceAccess.mockResolvedValue({
-        tier: "team",
-        capabilities: ["team.shared_notes"],
-      });
-
-      renderAccount();
-
-      expect(
-        await screen.findByText(/You're on the .*Team.* plan/),
-      ).toBeTruthy();
-      expect(screen.queryByText("Your Pro trial has ended")).toBeNull();
-      expect(screen.queryByText("Trial")).toBeNull();
-      expect(
-        screen.queryByRole("button", { name: "Manage billing" }),
-      ).toBeNull();
-      expect(screen.getAllByText("Current")).toHaveLength(1);
-    },
-  );
-
-  it("offers to add a payment method during a cardless trial", async () => {
-    mocks.billing = {
-      canStartTrial: { data: false, isPending: false },
-      hasPaymentMethod: false,
-      isPaid: true,
-      isTrialing: true,
-      isPaused: false,
-      plan: "trial",
-      trialDaysRemaining: 3,
-    };
-
-    renderAccount();
-
-    expect(screen.queryByText("Cancel")).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "Add payment method" }));
-
-    await waitFor(() =>
-      expect(mocks.buildWebAppUrl).toHaveBeenCalledWith("/app/portal", {
-        intent: "payment_method_update",
-      }),
-    );
-    expect(mocks.analyticsEvent).toHaveBeenCalledWith({
-      event: "trial_payment_method_clicked",
-      days_remaining: 3,
-      source: "settings",
-    });
-  });
-
-  it("offers to resume a paused cardless trial", async () => {
-    mocks.billing = {
-      canStartTrial: { data: false, isPending: false },
-      hasPaymentMethod: false,
-      isPaid: false,
-      isTrialing: false,
-      isPaused: true,
-      plan: "free",
-      trialDaysRemaining: 0,
-    };
-
-    renderAccount();
-
-    expect(screen.getByText("Your Pro trial has ended")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Resume" }));
-
-    await waitFor(() =>
-      expect(mocks.buildWebAppUrl).toHaveBeenCalledWith("/app/portal"),
-    );
-  });
-
-  it("starts a cardless trial from the behavioral action variant", async () => {
-    mocks.billing = {
-      canStartTrial: { data: true, isPending: false },
-      hasPaymentMethod: false,
-      isPaid: false,
-      isTrialing: false,
-      isPaused: false,
-      plan: "free",
-      trialDaysRemaining: null,
-    };
-
-    renderAccount();
-
-    fireEvent.click(screen.getByRole("button", { name: "Start free trial" }));
-
-    await waitFor(() =>
-      expect(mocks.buildWebAppUrl).toHaveBeenCalledWith("/app/checkout", {
-        period: "monthly",
-        trial: "true",
-        source: "settings",
-      }),
-    );
-    expect(mocks.analyticsEvent).toHaveBeenCalledWith({
-      event: "trial_checkout_started",
-      plan: "pro",
-      period: "monthly",
-      source: "settings",
-    });
-  });
-
-  it("opens checkout for an upgrade when no trial is available", async () => {
-    renderAccount();
-
-    fireEvent.click(screen.getByRole("button", { name: "Get Pro" }));
-
-    await waitFor(() =>
-      expect(mocks.buildWebAppUrl).toHaveBeenCalledWith("/app/checkout", {
-        plan: "pro",
-        period: "monthly",
-        source: "settings",
-      }),
-    );
-    expect(mocks.analyticsEvent).toHaveBeenCalledWith({
-      event: "upgrade_clicked",
-      plan: "pro",
-      period: "monthly",
-      source: "settings",
-    });
-  });
-
-  it("shows all four offers and opens the Enterprise page", async () => {
-    renderAccount();
-
-    expect(screen.getByText("Free")).toBeTruthy();
-    expect(screen.getByText("Pro")).toBeTruthy();
-    expect(screen.getByText("Team")).toBeTruthy();
-    expect(screen.getByText("Enterprise")).toBeTruthy();
-    expect(screen.getByText("$20")).toBeTruthy();
-    expect(screen.getByText("Custom")).toBeTruthy();
-    expect(screen.queryByText("Soon")).toBeNull();
-    expect(screen.getByText("Domain SSO and SCIM")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Open Teams" })).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "Talk to sales" }));
-
-    await waitFor(() =>
-      expect(mocks.openUrl).toHaveBeenCalledWith(
-        "https://anarlog.so/enterprise/",
-        null,
-      ),
-    );
-  });
-
-  it("asks guests to sign in instead of opening checkout", async () => {
-    mocks.session = null;
-
-    renderAccount();
-
+  it("keeps plans out of Account for members and guests", () => {
+    const view = renderAccount();
+    expect(screen.queryByText("Plans")).toBeNull();
     expect(screen.queryByRole("button", { name: "Get Pro" })).toBeNull();
-    expect(
-      screen.queryByRole("button", { name: "Sign in for Pro" }),
-    ).toBeNull();
-    expect(screen.getByText("Current")).toBeTruthy();
-    expect(
-      screen.getByText("Compare Free, Pro, Team, and Enterprise."),
-    ).toBeTruthy();
-    expect(screen.getByText("Cloud Transcription")).toBeTruthy();
-    expect(screen.queryByText("On-device Transcription")).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "Get started" }));
-
-    await waitFor(() => expect(mocks.signIn).toHaveBeenCalled());
-    expect(mocks.buildWebAppUrl).not.toHaveBeenCalledWith(
-      "/app/checkout",
-      expect.anything(),
-    );
-  });
-
-  it("renders the current plan as status once the trial has a payment method", () => {
-    mocks.billing = {
-      canStartTrial: { data: false, isPending: false },
-      hasPaymentMethod: true,
-      isPaid: true,
-      isTrialing: true,
-      isPaused: false,
-      plan: "trial",
-      trialDaysRemaining: 3,
-    };
-
+    expect(screen.getByText("Profile editor")).toBeTruthy();
+    view.unmount();
+    mocks.session = null;
     renderAccount();
-
-    expect(
-      screen.queryByRole("button", { name: "Add payment method" }),
-    ).toBeNull();
-    expect(screen.getByText("Current")).toBeTruthy();
-    expect(screen.queryByText("Cancel")).toBeNull();
-    expect(screen.queryByRole("button", { name: /Current/ })).toBeNull();
+    expect(screen.queryByText("Plans")).toBeNull();
+    expect(screen.getByText("Profile editor")).toBeTruthy();
   });
 });
