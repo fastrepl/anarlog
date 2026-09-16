@@ -987,6 +987,34 @@ describe("Header", () => {
     expect(onTranscriptEditModeChange).toHaveBeenLastCalledWith(false);
   });
 
+  it("enables transcript editing after recording stops before the calendar event ends", () => {
+    hoisted.sessionMode = "active";
+    hoisted.sessionEvent = {
+      ended_at: new Date(hoisted.nowMs + 60 * 60 * 1000).toISOString(),
+    };
+    const onTranscriptEditModeChange = vi.fn();
+    const props = {
+      sessionId: "session-1",
+      editorTabs: [{ type: "raw" }, { type: "transcript" }] as EditorView[],
+      currentTab: { type: "transcript" } as EditorView,
+      handleTabChange: vi.fn(),
+      onTranscriptEditModeChange,
+    };
+    const view = render(<SessionViewSwitcher {...props} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Transcript" }));
+    expect(onTranscriptEditModeChange).not.toHaveBeenCalled();
+
+    hoisted.sessionMode = "inactive";
+    view.rerender(<SessionViewSwitcher {...props} />);
+
+    const transcriptTab = screen.getByRole("button", { name: "Transcript" });
+    expect(transcriptTab.getAttribute("aria-pressed")).toBe("false");
+    expect(transcriptTab.querySelectorAll("svg")).toHaveLength(2);
+    fireEvent.click(transcriptTab);
+    expect(onTranscriptEditModeChange).toHaveBeenCalledWith(true);
+  });
+
   it("keeps transcript editing off while a meeting is active", () => {
     hoisted.sessionMode = "active";
     const handleTabChange = vi.fn();
