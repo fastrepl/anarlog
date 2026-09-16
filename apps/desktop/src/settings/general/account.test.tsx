@@ -188,7 +188,7 @@ describe("SettingsAccount", () => {
     );
   });
 
-  it("keeps plans out of Account for members and guests", () => {
+  it("keeps plans out of Account for members and guests", async () => {
     const view = renderAccount();
     expect(screen.queryByText("Plans")).toBeNull();
     expect(screen.queryByRole("button", { name: "Get Pro" })).toBeNull();
@@ -197,6 +197,10 @@ describe("SettingsAccount", () => {
     mocks.session = null;
     renderAccount();
     expect(screen.queryByText("Plans")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Get Pro" })).toBeNull();
     expect(screen.getByText("Profile editor")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Get started" }));
+    await waitFor(() => expect(mocks.signIn).toHaveBeenCalledOnce());
+    expect(mocks.openUrl).not.toHaveBeenCalled();
   });
 });

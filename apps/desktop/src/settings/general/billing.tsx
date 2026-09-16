@@ -1,3 +1,5 @@
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useQueries } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useRef, useState } from "react";
@@ -86,14 +88,14 @@ export function SettingsBilling() {
   );
 }
 
-function tierActionLabel(action: NonNullable<TierAction>): string {
+function tierActionLabel(action: NonNullable<TierAction>): MessageDescriptor {
   switch (action.kind) {
     case "current":
-      return "Current plan";
+      return msg`Current plan`;
     case "startTrial":
-      return "Start free trial";
+      return msg`Start free trial`;
     case "checkout":
-      return action.direction === "upgrade" ? "Get Pro" : "Switch to Pro";
+      return action.direction === "upgrade" ? msg`Get Pro` : msg`Switch to Pro`;
   }
 }
 
@@ -296,7 +298,7 @@ function PlanBillingSection({
             : "bg-muted text-muted-foreground hover:text-foreground",
         ])}
       >
-        {isPaused ? t`Resume` : tierActionLabel(action)}
+        {isPaused ? t`Resume` : t(tierActionLabel(action))}
       </button>
     );
   };

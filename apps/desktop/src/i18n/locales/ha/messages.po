@@ -1880,6 +1880,10 @@ msgstr ""
 msgid "Current domain"
 msgstr ""
 
+#: src/settings/general/billing.tsx
+msgid "Current plan"
+msgstr ""
+
 #: src/templates/template-sidebar.tsx
 msgid "Customized"
 msgstr ""
@@ -2496,6 +2500,7 @@ msgid "Generating transcript..."
 msgstr ""
 
 #: src/session/components/note-input/enhanced/config-error.tsx
+#: src/settings/general/billing.tsx
 msgid "Get Pro"
 msgstr ""
 
@@ -5104,6 +5109,10 @@ msgstr ""
 msgid "Start Anarlog at login"
 msgstr "Fara Anarlog a login"
 
+#: src/settings/general/billing.tsx
+msgid "Start free trial"
+msgstr ""
+
 #: src/auth/start-fresh-dialog.tsx
 msgid "Start fresh"
 msgstr ""
@@ -5292,6 +5301,10 @@ msgstr ""
 
 #: src/settings/general/week-start.tsx
 msgid "Sunday"
+msgstr ""
+
+#: src/settings/general/billing.tsx
+msgid "Switch to Pro"
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx

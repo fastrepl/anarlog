@@ -166,6 +166,7 @@ function ProfileForm({
               </span>
               <div>
                 <ContactOrganizationSelector
+                  disabled={save.isPending}
                   organization={
                     organizations.find(
                       (organization) => organization.id === field.state.value,

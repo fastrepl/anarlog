@@ -55,10 +55,16 @@ vi.mock("~/contacts/contact-avatar", () => ({
 vi.mock("~/contacts/details", () => ({
   ContactOrganizationSelector: ({
     onChange,
+    disabled,
   }: {
     onChange: (value: string) => void;
+    disabled?: boolean;
   }) => (
-    <button type="button" onClick={() => onChange("company-1")}>
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => onChange("company-1")}
+    >
       Choose company
     </button>
   ),
@@ -162,6 +168,23 @@ it("discards unsaved edits when the account identity changes", () => {
   expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe("Ada");
   expect(mocks.query).toHaveBeenLastCalledWith("account-2");
   expect(mocks.save).not.toHaveBeenCalled();
+});
+
+it("blocks company changes while a save is pending", async () => {
+  mocks.save.mockReturnValue(new Promise(() => {}));
+  render(view());
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "Ada Lovelace" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(mocks.save).toHaveBeenCalledOnce());
+  expect(
+    (
+      screen.getByRole("button", {
+        name: "Choose company",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
 });
 
 it("loads saved contact fields and removes a photo without clearing other details", async () => {

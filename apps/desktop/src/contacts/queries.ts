@@ -516,6 +516,9 @@ export function savePersonalContact(
 ): Promise<void> {
   return enqueueDatabaseWrite(`human:${humanId}`, async () => {
     const now = new Date().toISOString();
+    const hasAvatar = values.avatarDataUrl !== null;
+    const validMetadata =
+      "CASE WHEN json_valid(humans.metadata_json) THEN humans.metadata_json ELSE '{}' END";
     await executeTransaction([
       {
         sql: `
@@ -526,14 +529,19 @@ export function savePersonalContact(
           ?, NULLIF((SELECT json_extract(value_json, '$.workspace_id') FROM app_settings
             WHERE id = 'cloudsync_workspace_binding'), ''),
           COALESCE((SELECT library_workspace_id FROM local_library_connections WHERE active = 1), ?),
-          ?, ?, ?, ?, ?, ?, ?, json_object('avatarDataUrl', ?), ?, ?, NULL
+          ?, ?, ?, ?, ?, ?, ?, ${
+            hasAvatar ? "json_object('avatarDataUrl', ?)" : "'{}'"
+          }, ?, ?, NULL
         )
         ON CONFLICT(id) DO UPDATE SET
           name = excluded.name, email = excluded.email, phone = excluded.phone,
           job_title = excluded.job_title, linkedin_username = excluded.linkedin_username,
           memo = excluded.memo, organization_id = excluded.organization_id,
-          metadata_json = json_set(CASE WHEN json_valid(humans.metadata_json)
-            THEN humans.metadata_json ELSE '{}' END, '$.avatarDataUrl', ?),
+          metadata_json = ${
+            hasAvatar
+              ? `json_set(${validMetadata}, '$.avatarDataUrl', ?)`
+              : `json_remove(${validMetadata}, '$.avatarDataUrl')`
+          },
           updated_at = excluded.updated_at, deleted_at = NULL
       `,
         params: [
@@ -546,10 +554,10 @@ export function savePersonalContact(
           values.linkedinUsername,
           values.memo,
           values.organizationId,
-          values.avatarDataUrl,
+          ...(hasAvatar ? [values.avatarDataUrl] : []),
           now,
           now,
-          values.avatarDataUrl,
+          ...(hasAvatar ? [values.avatarDataUrl] : []),
         ],
       },
     ]);
