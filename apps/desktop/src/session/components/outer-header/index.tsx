@@ -142,7 +142,7 @@ function HeaderMeetingControl({
 
   if (meetingOver) {
     return (
-      <div className="relative mr-1 flex min-w-0 shrink-0 items-center">
+      <div className="relative mr-1 ml-1 flex min-w-0 shrink-0 items-center">
         <SessionShareButton
           key={sessionId}
           sessionId={sessionId}
