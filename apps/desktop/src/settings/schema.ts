@@ -1,4 +1,19 @@
 export const SETTING_DEFINITIONS = {
+  dictation_enabled: {
+    type: "boolean",
+    path: ["dictation", "enabled"],
+    default: false as boolean,
+  },
+  dictation_shortcut: {
+    type: "string",
+    path: ["dictation", "shortcut"],
+    default: "Control+Alt+Space" as string,
+  },
+  dictation_hands_free: {
+    type: "boolean",
+    path: ["dictation", "hands_free"],
+    default: false as boolean,
+  },
   export_directory: {
     type: "string",
     path: ["general", "export_directory"],

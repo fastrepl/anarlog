@@ -295,6 +295,18 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the configure command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-configure",
+          "markdownDescription": "Enables the configure command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the configure command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-configure",
+          "markdownDescription": "Denies the configure command without any pre-configured scope."
+        },
+        {
           "description": "Enables the register_hotkey command without any pre-configured scope.",
           "type": "string",
           "const": "allow-register-hotkey",
@@ -305,6 +317,18 @@
           "type": "string",
           "const": "deny-register-hotkey",
           "markdownDescription": "Denies the register_hotkey command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_active command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-active",
+          "markdownDescription": "Enables the set_active command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_active command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-active",
+          "markdownDescription": "Denies the set_active command without any pre-configured scope."
         },
         {
           "description": "Enables the unregister_hotkey command without any pre-configured scope.",
@@ -319,10 +343,10 @@
           "markdownDescription": "Denies the unregister_hotkey command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-register-hotkey`\n- `allow-unregister-hotkey`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-configure`\n- `allow-set-active`\n- `allow-register-hotkey`\n- `allow-unregister-hotkey`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-register-hotkey`\n- `allow-unregister-hotkey`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-configure`\n- `allow-set-active`\n- `allow-register-hotkey`\n- `allow-unregister-hotkey`"
         }
       ]
     }

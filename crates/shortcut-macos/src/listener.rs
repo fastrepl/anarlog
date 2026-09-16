@@ -21,17 +21,23 @@ impl Listener {
             p
         }));
 
-        let tap = EventTap::start(move |event| {
-            let out = {
+        let tap = EventTap::start_filtered(move |event| {
+            let (out, consume) = {
                 let mut p = processor.lock().unwrap_or_else(|e| e.into_inner());
-                match event {
+                let was_matched = p.is_matched();
+                let out = match event {
                     TapEvent::Key(k) => p.process_key(k),
                     TapEvent::MouseClick => p.process_mouse_click(),
-                }
+                };
+                let consume = hotkey.is_modifier_only()
+                    && matches!(event, TapEvent::Key(k) if k.key.is_none())
+                    && (was_matched || p.is_matched());
+                (out, consume)
             };
             if let Some(out) = out {
                 callback(out);
             }
+            consume
         })?;
 
         Ok(Self { _tap: tap })

@@ -60,12 +60,12 @@ enum StateKind {
 
 impl StateKind {
     fn matches(self, state: State) -> bool {
-        match (self, state) {
-            (Self::Idle, State::Idle) => true,
-            (Self::PressAndHold, State::PressAndHold { .. }) => true,
-            (Self::DoubleTapLock, State::DoubleTapLock) => true,
-            _ => false,
-        }
+        matches!(
+            (self, state),
+            (Self::Idle, State::Idle)
+                | (Self::PressAndHold, State::PressAndHold { .. })
+                | (Self::DoubleTapLock, State::DoubleTapLock)
+        )
     }
 }
 
@@ -603,4 +603,40 @@ fn mouse_click_ignored_for_standard_hotkey() {
     clock.set(0.1);
     assert_eq!(p.process_mouse_click(), None);
     assert!(p.is_matched());
+}
+
+#[test]
+fn right_command_is_distinct_from_left_command() {
+    let mut processor = HotKeyProcessor::new(HotKey::modifier_only(Modifiers::from([
+        Modifier::RightCommand,
+    ])));
+    assert_eq!(
+        processor.process_key(KeyEvent::new(None, Modifiers::from([Modifier::Command]))),
+        None
+    );
+    processor.process_key(KeyEvent::empty());
+    assert_eq!(
+        processor.process_key(KeyEvent::new(
+            None,
+            Modifiers::from([Modifier::Command, Modifier::RightCommand])
+        )),
+        Some(Output::StartRecording)
+    );
+    assert_eq!(
+        processor.process_key(KeyEvent::empty()),
+        Some(Output::StopRecording)
+    );
+}
+
+#[test]
+fn command_shortcut_still_accepts_the_right_command_key() {
+    let mut processor =
+        HotKeyProcessor::new(HotKey::new(Some(K_A), Modifiers::from([Modifier::Command])));
+    assert_eq!(
+        processor.process_key(KeyEvent::new(
+            Some(K_A),
+            Modifiers::from([Modifier::Command, Modifier::RightCommand])
+        )),
+        Some(Output::StartRecording)
+    );
 }

@@ -20,6 +20,7 @@ pub struct RecordedAudio {
 }
 
 struct ActiveRecording {
+    owner: String,
     cancellation: CancellationToken,
     task: JoinHandle<Result<RecordedAudio, Error>>,
 }
@@ -41,6 +42,7 @@ impl Recorder {
         &self,
         audio: Arc<dyn anlg_audio::AudioProvider>,
         microphone_device: Option<String>,
+        owner: String,
     ) -> Result<(), Error> {
         let mut active = self
             .active
@@ -73,12 +75,16 @@ impl Recorder {
             result
         });
 
-        *active = Some(ActiveRecording { cancellation, task });
+        *active = Some(ActiveRecording {
+            owner,
+            cancellation,
+            task,
+        });
         Ok(())
     }
 
-    pub async fn stop(&self) -> Result<RecordedAudio, Error> {
-        let active = self.take_active().ok_or(Error::NotRecording)?;
+    pub async fn stop(&self, owner: &str) -> Result<RecordedAudio, Error> {
+        let active = self.take_active(owner)?.ok_or(Error::NotRecording)?;
         active.cancellation.cancel();
         let recorded = active
             .task
@@ -91,8 +97,8 @@ impl Recorder {
         Ok(recorded)
     }
 
-    pub async fn cancel(&self) -> Result<(), Error> {
-        let Some(active) = self.take_active() else {
+    pub async fn cancel(&self, owner: &str) -> Result<(), Error> {
+        let Some(active) = self.take_active(owner)? else {
             return Ok(());
         };
 
@@ -125,11 +131,18 @@ impl Recorder {
         }
     }
 
-    fn take_active(&self) -> Option<ActiveRecording> {
-        self.active
+    fn take_active(&self, owner: &str) -> Result<Option<ActiveRecording>, Error> {
+        let mut active = self
+            .active
             .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            .take()
+            .unwrap_or_else(|error| error.into_inner());
+        if active
+            .as_ref()
+            .is_some_and(|recording| recording.owner != owner)
+        {
+            return Err(Error::AlreadyRecording);
+        }
+        Ok(active.take())
     }
 }
 
@@ -252,10 +265,12 @@ mod tests {
     #[tokio::test]
     async fn records_and_discards_a_temporary_wav() {
         let recorder = Recorder::new();
-        recorder.start(Arc::new(TestAudio), None).unwrap();
+        recorder
+            .start(Arc::new(TestAudio), None, "test".into())
+            .unwrap();
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
 
-        let recorded = recorder.stop().await.unwrap();
+        let recorded = recorder.stop("test").await.unwrap();
         let path = PathBuf::from(&recorded.file_path);
         let reader = hound::WavReader::open(&path).unwrap();
 
@@ -269,15 +284,38 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn another_owner_cannot_stop_or_cancel_a_recording() {
+        let recorder = Recorder::new();
+        recorder
+            .start(Arc::new(TestAudio), None, "chat".into())
+            .unwrap();
+        assert!(matches!(
+            recorder.stop("system").await,
+            Err(Error::AlreadyRecording)
+        ));
+        assert!(matches!(
+            recorder.cancel("system").await,
+            Err(Error::AlreadyRecording)
+        ));
+        recorder.cancel("chat").await.unwrap();
+        recorder
+            .start(Arc::new(TestAudio), None, "system".into())
+            .unwrap();
+        recorder.cancel("system").await.unwrap();
+    }
+
+    #[tokio::test]
     async fn rejects_parallel_recordings() {
         let recorder = Recorder::new();
-        recorder.start(Arc::new(TestAudio), None).unwrap();
+        recorder
+            .start(Arc::new(TestAudio), None, "test".into())
+            .unwrap();
 
         assert!(matches!(
-            recorder.start(Arc::new(TestAudio), None),
+            recorder.start(Arc::new(TestAudio), None, "test".into()),
             Err(Error::AlreadyRecording)
         ));
 
-        recorder.cancel().await.unwrap();
+        recorder.cancel("test").await.unwrap();
     }
 }

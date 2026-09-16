@@ -4,7 +4,7 @@ use crate::{error::Error, events::Phase};
 pub use self::macos::Handler;
 
 #[cfg(not(target_os = "macos"))]
-pub use self::stub::Handler;
+pub use self::desktop::Handler;
 
 #[cfg(target_os = "macos")]
 mod macos {
@@ -25,7 +25,7 @@ mod macos {
     }
 
     impl Handler {
-        pub fn new() -> Self {
+        pub fn new(_app: tauri::AppHandle) -> Self {
             Self {
                 state: Mutex::new(State {
                     phase: Phase::Recording,
@@ -87,25 +87,70 @@ mod macos {
 }
 
 #[cfg(not(target_os = "macos"))]
-mod stub {
+mod desktop {
     use super::{Error, Phase};
+    use tauri::Manager;
 
-    pub struct Handler;
+    pub struct Handler {
+        app: tauri::AppHandle,
+    }
 
     impl Handler {
-        pub fn new() -> Self {
-            Self
+        pub fn new(app: tauri::AppHandle) -> Self {
+            Self { app }
         }
 
         pub fn show(&self) -> Result<(), Error> {
+            let window = if let Some(window) = self.app.get_webview_window("dictation-overlay") {
+                window
+            } else {
+                let window = tauri::WebviewWindowBuilder::new(
+                    &self.app,
+                    "dictation-overlay",
+                    tauri::WebviewUrl::App("dictation.html".into()),
+                )
+                .title("Anarlog Dictation")
+                .inner_size(240.0, 52.0)
+                .decorations(false)
+                .focused(false)
+                .focusable(false)
+                .visible(false)
+                .always_on_top(true)
+                .skip_taskbar(true)
+                .resizable(false)
+                .build()
+                .map_err(|e| Error::Recording(e.to_string()))?;
+                if let Ok(Some(monitor)) = window.current_monitor() {
+                    let size = monitor.size().to_logical::<f64>(monitor.scale_factor());
+                    let position = monitor.position().to_logical::<f64>(monitor.scale_factor());
+                    let _ = window.set_position(tauri::LogicalPosition::new(
+                        position.x + (size.width - 240.0) / 2.0,
+                        position.y + size.height - 120.0,
+                    ));
+                }
+                window
+            };
+            window.show().map_err(|e| Error::Recording(e.to_string()))?;
             Ok(())
         }
 
         pub fn hide(&self) -> Result<(), Error> {
+            if let Some(window) = self.app.get_webview_window("dictation-overlay") {
+                window.hide().map_err(|e| Error::Recording(e.to_string()))?;
+            }
             Ok(())
         }
 
-        pub fn set_phase(&self, _phase: Phase) -> Result<(), Error> {
+        pub fn set_phase(&self, phase: Phase) -> Result<(), Error> {
+            if let Some(window) = self.app.get_webview_window("dictation-overlay") {
+                let phase = match phase {
+                    Phase::Recording => "recording",
+                    Phase::Processing => "processing",
+                };
+                window
+                    .eval(&format!("document.body.dataset.phase = '{phase}'"))
+                    .map_err(|e| Error::Recording(e.to_string()))?;
+            }
             Ok(())
         }
 

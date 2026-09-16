@@ -25,7 +25,7 @@ pub enum TapEvent {
     MouseClick,
 }
 
-type UserCallback = Arc<dyn Fn(TapEvent) + Send + Sync>;
+type UserCallback = Arc<dyn Fn(TapEvent) -> bool + Send + Sync>;
 
 pub struct EventTap {
     stop_flag: Arc<AtomicBool>,
@@ -36,6 +36,16 @@ impl EventTap {
     pub fn start<F>(callback: F) -> Result<Self, TapError>
     where
         F: Fn(TapEvent) + Send + Sync + 'static,
+    {
+        Self::start_filtered(move |event| {
+            callback(event);
+            false
+        })
+    }
+
+    pub fn start_filtered<F>(callback: F) -> Result<Self, TapError>
+    where
+        F: Fn(TapEvent) -> bool + Send + Sync + 'static,
     {
         let cb: UserCallback = Arc::new(callback);
         let stop_flag = Arc::new(AtomicBool::new(false));
@@ -68,6 +78,9 @@ impl EventTap {
 impl Drop for EventTap {
     fn drop(&mut self) {
         self.stop_flag.store(true, Ordering::SeqCst);
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
     }
 }
 
@@ -171,8 +184,13 @@ extern "C" fn tap_callback(
         } else {
             None
         };
-        let modifiers = decode_flags(flags, fn_is_pressed);
-        (ctx.callback)(TapEvent::Key(KeyEvent::new(key, modifiers)));
+        let mut modifiers = decode_flags(flags, fn_is_pressed);
+        if CGEventSourceKeyState(1, 0x36) {
+            modifiers.insert(Modifier::RightCommand);
+        }
+        if (ctx.callback)(TapEvent::Key(KeyEvent::new(key, modifiers))) {
+            return ptr::null_mut();
+        }
     }
 
     event
@@ -227,8 +245,8 @@ type CGEventTapCallBack = extern "C" fn(
 ) -> *mut c_void;
 
 #[link(name = "CoreGraphics", kind = "framework")]
-#[link(name = "CoreFoundation", kind = "framework")]
 unsafe extern "C" {
+    fn CGEventSourceKeyState(state_id: i32, key: u16) -> bool;
     fn CGEventTapCreate(
         tap: u32,
         place: u32,
@@ -242,7 +260,10 @@ unsafe extern "C" {
 
     fn CGEventGetFlags(event: *mut c_void) -> u64;
     fn CGEventGetIntegerValueField(event: *mut c_void, field: u32) -> i64;
+}
 
+#[link(name = "CoreFoundation", kind = "framework")]
+unsafe extern "C" {
     fn CFMachPortCreateRunLoopSource(
         allocator: *const c_void,
         port: *mut c_void,

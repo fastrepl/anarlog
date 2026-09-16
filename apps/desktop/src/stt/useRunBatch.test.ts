@@ -18,6 +18,7 @@ import { useRunBatch } from "./useRunBatch";
 
 const {
   startTranscriptionMock,
+  stopTranscriptionMock,
   useListenerMock,
   useSessionMock,
   useSessionParticipantsMock,
@@ -40,6 +41,7 @@ const {
   platformMock,
 } = vi.hoisted(() => ({
   startTranscriptionMock: vi.fn(),
+  stopTranscriptionMock: vi.fn(),
   useListenerMock: vi.fn(),
   useSessionMock: vi.fn(),
   useSessionParticipantsMock: vi.fn(),
@@ -818,6 +820,7 @@ describe("reconcileRefinedSpeakerClusters", () => {
 describe("useRunBatch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    stopTranscriptionMock.mockResolvedValue(undefined);
     archMock.mockReturnValue("aarch64");
     platformMock.mockReturnValue("macos");
 
@@ -831,7 +834,10 @@ describe("useRunBatch", () => {
     markSessionAudioTranscriptionCompleteMock.mockResolvedValue(undefined);
     isSupportedLanguagesBatchMock.mockResolvedValue(true);
     useListenerMock.mockImplementation((selector) =>
-      selector({ startTranscription: startTranscriptionMock }),
+      selector({
+        startTranscription: startTranscriptionMock,
+        stopTranscription: stopTranscriptionMock,
+      }),
     );
     useSessionMock.mockReturnValue({
       id: "session-1",
@@ -865,6 +871,50 @@ describe("useRunBatch", () => {
     useConfigValueMock.mockImplementation((key) =>
       key === "ai_language" ? "en" : [],
     );
+  });
+
+  test("does not start a dictation transcription after cancellation", async () => {
+    const abort = new AbortController();
+    abort.abort();
+    const { result } = renderHook(() => useRunBatch("dictation"));
+    await expect(
+      result.current("/tmp/voice.wav", { signal: abort.signal }),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(startTranscriptionMock).not.toHaveBeenCalled();
+  });
+
+  test("cancels the active provider and never retries authentication after abort", async () => {
+    const abort = new AbortController();
+    useSTTConnectionMock.mockReturnValue({
+      conn: {
+        provider: "anarlog",
+        model: "cloud",
+        baseUrl: "https://api.test/stt",
+        apiKey: "stale",
+      },
+    });
+    let fail!: (reason: Error) => void;
+    startTranscriptionMock.mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          fail = reject;
+        }),
+    );
+    const { result } = renderHook(() => useRunBatch("dictation"));
+    const run = result.current("/tmp/voice.wav", { signal: abort.signal });
+    const rejected = expect(run).rejects.toMatchObject({ name: "AbortError" });
+    await waitFor(() => expect(startTranscriptionMock).toHaveBeenCalledOnce());
+    abort.abort();
+    fail(
+      new Error(
+        "Authentication failed. Please check your API key in settings.",
+      ),
+    );
+    await rejected;
+    expect(stopTranscriptionMock).toHaveBeenCalledWith("dictation");
+    expect(refreshSessionMock).not.toHaveBeenCalled();
+    expect(startTranscriptionMock).toHaveBeenCalledOnce();
+    expect(createTranscriptMock).not.toHaveBeenCalled();
   });
 
   test("promotes the complete streamed transcript before retention", async () => {

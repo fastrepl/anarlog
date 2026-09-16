@@ -108,6 +108,12 @@ export function SettingsNav() {
       label: "AI",
       items: [
         { id: "transcription", label: t`Transcription`, icon: Waveform },
+        {
+          id: "dictation",
+          label: t`Dictation`,
+          icon: Waveform,
+          requiresPro: true,
+        },
         { id: "intelligence", label: t`Intelligence`, icon: Brain },
         {
           id: "dictionary",

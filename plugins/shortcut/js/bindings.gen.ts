@@ -21,6 +21,22 @@ async unregisterHotkey() : Promise<Result<null, string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async configure(shortcut: string | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:shortcut|configure", { shortcut }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setActive(active: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:shortcut|set_active", { active }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -40,7 +56,7 @@ shortcutEvent: "plugin:shortcut:shortcut-event"
 /** user-defined types **/
 
 export type HotKey = { key: number | null; modifiers: Modifier[] }
-export type Modifier = "command" | "option" | "shift" | "control" | "fn"
+export type Modifier = "command" | "rightcommand" | "option" | "shift" | "control" | "fn"
 export type Options = { useDoubleTapOnly?: boolean; doubleTapLockEnabled?: boolean; minimumKeyTimeMs?: number }
 export type ShortcutEvent = { type: "pressed" } | { type: "released" } | { type: "cancelled" } | { type: "discarded" }
 

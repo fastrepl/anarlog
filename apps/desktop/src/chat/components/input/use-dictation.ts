@@ -70,12 +70,13 @@ export function useDictation({
 
       const result = await dictationCommands.startRecording(
         microphoneDevice || null,
+        transcriptionSessionId,
       );
       if (result.status === "error") {
         throw new Error(result.error);
       }
       if (!mountedRef.current) {
-        await cancelActiveRecording();
+        await cancelActiveRecording(transcriptionSessionId);
         return;
       }
 
@@ -93,7 +94,7 @@ export function useDictation({
         }
       }, 250);
     } catch (error) {
-      await cancelActiveRecording();
+      await cancelActiveRecording(transcriptionSessionId);
       if (!mountedRef.current) {
         return;
       }
@@ -103,7 +104,14 @@ export function useDictation({
       });
       console.error("[chat-dictation] failed to start recording", error);
     }
-  }, [disabled, microphoneDevice, setPhase, stopElapsedTimer, t]);
+  }, [
+    disabled,
+    microphoneDevice,
+    setPhase,
+    stopElapsedTimer,
+    t,
+    transcriptionSessionId,
+  ]);
 
   const stop = useCallback(async () => {
     if (phaseRef.current !== "recording") {
@@ -115,7 +123,9 @@ export function useDictation({
     let recordedPath: string | null = null;
 
     try {
-      const result = await dictationCommands.stopRecording();
+      const result = await dictationCommands.stopRecording(
+        transcriptionSessionId,
+      );
       if (result.status === "error") {
         throw new Error(result.error);
       }
@@ -163,7 +173,14 @@ export function useDictation({
         editorRef.current?.focus();
       }
     }
-  }, [editorRef, runBatch, setPhase, stopElapsedTimer, t]);
+  }, [
+    editorRef,
+    runBatch,
+    setPhase,
+    stopElapsedTimer,
+    t,
+    transcriptionSessionId,
+  ]);
   stopRef.current = stop;
 
   useMountEffect(() => {
@@ -172,7 +189,7 @@ export function useDictation({
       mountedRef.current = false;
       stopElapsedTimer();
       if (phaseRef.current === "starting" || phaseRef.current === "recording") {
-        void cancelActiveRecording();
+        void cancelActiveRecording(transcriptionSessionId);
       }
     };
   });
@@ -185,9 +202,11 @@ export function useDictation({
   };
 }
 
-async function cancelActiveRecording() {
+async function cancelActiveRecording(transcriptionSessionId: string) {
   try {
-    const result = await dictationCommands.cancelRecording();
+    const result = await dictationCommands.cancelRecording(
+      transcriptionSessionId,
+    );
     if (result.status === "error") {
       throw new Error(result.error);
     }

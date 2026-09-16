@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "lowercase")]
 pub enum Modifier {
     Command,
+    RightCommand,
     Option,
     Shift,
     Control,

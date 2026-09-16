@@ -38,25 +38,25 @@ async updateAmplitude(amplitude: number) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async startRecording(microphoneDevice: string | null) : Promise<Result<null, string>> {
+async startRecording(microphoneDevice: string | null, owner: string) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|start_recording", { microphoneDevice }) };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|start_recording", { microphoneDevice, owner }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async stopRecording() : Promise<Result<RecordedAudio, string>> {
+async stopRecording(owner: string) : Promise<Result<RecordedAudio, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|stop_recording") };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|stop_recording", { owner }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async cancelRecording() : Promise<Result<null, string>> {
+async cancelRecording(owner: string) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|cancel_recording") };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|cancel_recording", { owner }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -65,6 +65,22 @@ async cancelRecording() : Promise<Result<null, string>> {
 async discardRecording(filePath: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|discard_recording", { filePath }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async captureTarget() : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|capture_target") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async insertText(target: string, text: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|insert_text", { target, text }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };

@@ -49,6 +49,7 @@ import {
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 
 type RunOptions = {
+  signal?: AbortSignal;
   deferAudioFinalization?: boolean;
   handlePersist?: BatchPersistCallback;
   notifyOnCompletion?: boolean;
@@ -688,6 +689,7 @@ export const useRunBatch = (sessionId: string) => {
   const participants = useSessionParticipants(sessionId);
 
   const startTranscription = useListener((state) => state.startTranscription);
+  const stopTranscription = useListener((state) => state.stopTranscription);
   const { conn } = useSTTConnection();
   const auth = useAuth();
   const billing = useBillingAccess();
@@ -701,6 +703,7 @@ export const useRunBatch = (sessionId: string) => {
 
   return useCallback(
     async (filePath: string, options?: RunOptions) => {
+      options?.signal?.throwIfAborted();
       if (!startTranscription) {
         throw new Error(
           "STT connection is not available. Please configure your speech-to-text provider.",
@@ -905,12 +908,29 @@ export const useRunBatch = (sessionId: string) => {
             max_speakers: options?.maxSpeakers,
           };
 
+          const run = async (params: TranscriptionParams) => {
+            options?.signal?.throwIfAborted();
+            const abort = () => {
+              void stopTranscription(sessionId).catch(() => {});
+            };
+            options?.signal?.addEventListener("abort", abort, { once: true });
+            try {
+              await startTranscription(params, {
+                handlePersist: (...args) => {
+                  options?.signal?.throwIfAborted();
+                  return persist(...args);
+                },
+                notifyOnCompletion: false,
+              });
+              options?.signal?.throwIfAborted();
+            } finally {
+              options?.signal?.removeEventListener("abort", abort);
+            }
+          };
           try {
-            await startTranscription(params, {
-              handlePersist: persist,
-              notifyOnCompletion: false,
-            });
+            await run(params);
           } catch (error) {
+            options?.signal?.throwIfAborted();
             if (
               target.provider !== "anarlog" ||
               target.model !== "cloud" ||
@@ -927,13 +947,7 @@ export const useRunBatch = (sessionId: string) => {
             if (!handlePersist) {
               resetStagedTranscript();
             }
-            await startTranscription(
-              { ...params, api_key: refreshedSession.access_token },
-              {
-                handlePersist: persist,
-                notifyOnCompletion: false,
-              },
-            );
+            await run({ ...params, api_key: refreshedSession.access_token });
           }
 
           try {
@@ -1058,6 +1072,7 @@ export const useRunBatch = (sessionId: string) => {
       participants,
       spokenLanguages,
       startTranscription,
+      stopTranscription,
       sessionId,
     ],
   );

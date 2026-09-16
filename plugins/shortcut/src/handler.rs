@@ -1,6 +1,6 @@
 use crate::{
     error::Error,
-    events::{HotKey, Modifier, Options},
+    events::{HotKey, Options},
 };
 
 #[cfg(target_os = "macos")]
@@ -17,7 +17,8 @@ mod macos {
     use tauri::{AppHandle, Runtime};
     use tauri_specta::Event;
 
-    use super::{Error, HotKey, Modifier, Options};
+    use super::{Error, HotKey, Options};
+    use crate::events::Modifier;
     use crate::events::ShortcutEvent;
 
     pub struct Handler {
@@ -70,6 +71,7 @@ mod macos {
         for m in &hotkey.modifiers {
             modifiers.insert(match m {
                 Modifier::Command => sm::Modifier::Command,
+                Modifier::RightCommand => sm::Modifier::RightCommand,
                 Modifier::Option => sm::Modifier::Option,
                 Modifier::Shift => sm::Modifier::Shift,
                 Modifier::Control => sm::Modifier::Control,

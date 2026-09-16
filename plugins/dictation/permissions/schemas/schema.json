@@ -307,6 +307,18 @@
           "markdownDescription": "Denies the cancel_recording command without any pre-configured scope."
         },
         {
+          "description": "Enables the capture_target command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-capture-target",
+          "markdownDescription": "Enables the capture_target command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the capture_target command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-capture-target",
+          "markdownDescription": "Denies the capture_target command without any pre-configured scope."
+        },
+        {
           "description": "Enables the discard_recording command without any pre-configured scope.",
           "type": "string",
           "const": "allow-discard-recording",
@@ -329,6 +341,18 @@
           "type": "string",
           "const": "deny-hide",
           "markdownDescription": "Denies the hide command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the insert_text command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-insert-text",
+          "markdownDescription": "Enables the insert_text command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the insert_text command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-insert-text",
+          "markdownDescription": "Denies the insert_text command without any pre-configured scope."
         },
         {
           "description": "Enables the set_phase command without any pre-configured scope.",
@@ -391,10 +415,10 @@
           "markdownDescription": "Denies the update_amplitude command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-show`\n- `allow-hide`\n- `allow-set-phase`\n- `allow-update-amplitude`\n- `allow-start-recording`\n- `allow-stop-recording`\n- `allow-cancel-recording`\n- `allow-discard-recording`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-show`\n- `allow-hide`\n- `allow-set-phase`\n- `allow-update-amplitude`\n- `allow-start-recording`\n- `allow-stop-recording`\n- `allow-cancel-recording`\n- `allow-discard-recording`\n- `allow-capture-target`\n- `allow-insert-text`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-show`\n- `allow-hide`\n- `allow-set-phase`\n- `allow-update-amplitude`\n- `allow-start-recording`\n- `allow-stop-recording`\n- `allow-cancel-recording`\n- `allow-discard-recording`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-show`\n- `allow-hide`\n- `allow-set-phase`\n- `allow-update-amplitude`\n- `allow-start-recording`\n- `allow-stop-recording`\n- `allow-cancel-recording`\n- `allow-discard-recording`\n- `allow-capture-target`\n- `allow-insert-text`"
         }
       ]
     }

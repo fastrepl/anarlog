@@ -2,6 +2,7 @@ mod commands;
 mod error;
 mod events;
 mod ext;
+mod global;
 mod handler;
 
 pub use error::*;
@@ -13,12 +14,14 @@ use tauri::Manager;
 
 const PLUGIN_NAME: &str = "shortcut";
 
-fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
-    tauri_specta::Builder::<R>::new()
+fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
+    tauri_specta::Builder::<tauri::Wry>::new()
         .plugin_name(PLUGIN_NAME)
         .commands(tauri_specta::collect_commands![
             commands::register_hotkey::<tauri::Wry>,
             commands::unregister_hotkey::<tauri::Wry>,
+            global::configure,
+            global::set_active,
         ])
         .events(tauri_specta::collect_events![ShortcutEvent])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
@@ -33,9 +36,19 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             specta_builder.mount_events(app);
             let handler = Handler::new();
             app.manage(handler);
+            app.manage(global::GlobalState::default());
             Ok(())
         })
         .build()
+}
+
+// Call from the application setup hook, after Tauri releases its plugin initialization lock.
+pub fn initialize_global_shortcuts(app: &tauri::AppHandle) {
+    if !global::uses_portal()
+        && let Err(error) = app.plugin(tauri_plugin_global_shortcut::Builder::new().build())
+    {
+        tracing::warn!(%error, "Global shortcuts are unavailable");
+    }
 }
 
 #[cfg(test)]
@@ -46,7 +59,7 @@ mod test {
     fn export_types() {
         const OUTPUT_FILE: &str = "./js/bindings.gen.ts";
 
-        make_specta_builder::<tauri::Wry>()
+        make_specta_builder()
             .export(
                 specta_typescript::Typescript::default()
                     .formatter(specta_typescript::formatter::prettier)

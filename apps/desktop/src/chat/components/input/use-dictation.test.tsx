@@ -101,7 +101,10 @@ describe("useDictation", () => {
       await result.current.start();
     });
     expect(result.current.phase).toBe("recording");
-    expect(mocks.startRecording).toHaveBeenCalledWith("Built-in Microphone");
+    expect(mocks.startRecording).toHaveBeenCalledWith(
+      "Built-in Microphone",
+      expect.stringMatching(/^chat-dictation-/u),
+    );
 
     await act(async () => {
       await result.current.stop();
