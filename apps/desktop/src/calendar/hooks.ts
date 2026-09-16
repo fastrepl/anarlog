@@ -188,7 +188,6 @@ export function useCalendarData(): CalendarData {
 
     if (eventsTable) {
       for (const [eventId, row] of Object.entries(eventsTable)) {
-        if (!row.title) continue;
         if (isIgnored(row.tracking_id_event, row.recurrence_series_id))
           continue;
         const day = eventCalendarDay(row.started_at, row.is_all_day, tz);

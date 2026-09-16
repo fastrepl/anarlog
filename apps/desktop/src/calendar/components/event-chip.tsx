@@ -32,7 +32,7 @@ export function EventChip({
 }) {
   const tz = useTimezone();
   const { ignoreEvent, ignoreSeries } = useIgnoredEvents();
-  const title = event?.title ?? undefined;
+  const title = event?.title || "Busy";
   const trackingId = event?.tracking_id_event ?? undefined;
   const recurrenceSeriesId = event?.recurrence_series_id ?? undefined;
   const isAllDay = !!event?.is_all_day;
@@ -79,7 +79,7 @@ export function EventChip({
   }, [recurrenceSeriesId, handleIgnore, handleIgnoreSeries]);
   const showContextMenu = useNativeContextMenu(contextMenu);
 
-  if (!event || !title) {
+  if (!event) {
     return null;
   }
 
@@ -157,7 +157,7 @@ function EventPopoverContent({
     <div className="flex flex-col gap-3 p-4">
       <EventDisplay
         event={{
-          title: event.title ?? undefined,
+          title: event.title || "Busy",
           startedAt: event.started_at ?? undefined,
           endedAt: event.ended_at ?? undefined,
           location: event.location ?? undefined,
