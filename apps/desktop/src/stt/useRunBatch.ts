@@ -108,10 +108,10 @@ const DIRECT_BATCH_PROVIDERS: Set<TranscriptionParams["provider"]> = new Set([
   "smallestai",
 ]);
 
-export const STOPPED_TRANSCRIPTION_ERROR_MESSAGE = "Transcription stopped.";
+const STOPPED_TRANSCRIPTION_ERROR_MESSAGE = "Transcription stopped.";
 export const EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE =
   "Batch transcription did not include the current recording.";
-export const INCOMPLETE_BATCH_TRANSCRIPT_ERROR_MESSAGE =
+const INCOMPLETE_BATCH_TRANSCRIPT_ERROR_MESSAGE =
   "The new transcription returned much less text. Your saved transcript and recording were kept. Try transcribing again.";
 const MIN_TRANSCRIPT_CHARACTER_LOSS = 200;
 const MIN_TRANSCRIPT_RETAINED_RATIO = 0.5;
@@ -647,7 +647,7 @@ export function isStoppedTranscriptionError(error: unknown) {
   );
 }
 
-export function isTranscriptionAuthenticationError(error: unknown) {
+function isTranscriptionAuthenticationError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   return /authentication failed|invalid_token|unauthorized|\b401\b/i.test(
     message,

@@ -27,14 +27,14 @@ export const createRecentlyOpenedSlice = <T extends RecentlyOpenedState>(
   },
 });
 
-export const saveRecentlyOpenedSessions = async (
+const saveRecentlyOpenedSessions = async (
   sessionIds: string[],
 ): Promise<void> => {
   const serialized = JSON.stringify(sessionIds);
   await commands.setRecentlyOpenedSessions(serialized);
 };
 
-export const loadRecentlyOpenedSessions = async (): Promise<string[]> => {
+const loadRecentlyOpenedSessions = async (): Promise<string[]> => {
   const result = await commands.getRecentlyOpenedSessions();
   if (result.status === "ok" && result.data) {
     try {

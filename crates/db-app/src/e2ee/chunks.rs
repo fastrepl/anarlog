@@ -3,10 +3,11 @@
 //! the array merge instead of replacing each other, and no single record has
 //! to carry a whole transcript.
 //!
-//! A chunked column never syncs as a plain field on current builds. Its
+//! A column already using chunks never syncs as a plain field. Its
 //! records are the virtual fields `column#0`, `column#1`, ... holding one
-//! chunk each, plus `column#n` holding the chunk count. Older builds park the
-//! virtual fields as unknown until they update.
+//! chunk each, plus `column#n` holding the chunk count. New columns keep the
+//! whole-value format while 1.4.23 is supported: it rejects virtual fields.
+//! Readers with unknown-record parking can defer them until they update.
 
 use serde_json::{Value, json};
 

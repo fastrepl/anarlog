@@ -2,6 +2,7 @@ use sqlx::SqliteConnection;
 
 use super::super::CloudsyncInterruptHandle;
 use super::payload::ensure_pending_payload_fits;
+use super::schema::cloudsync_has_local_unsent_changes_on;
 
 pub(crate) async fn guarded_interruptible_network_send_changes<F>(
     connection: &mut SqliteConnection,
@@ -51,17 +52,41 @@ async fn guarded_network_send_changes_with_interrupt(
         Err(send_error) if should_reconcile_send_failure(batch, &send_error, cancelled()) => {
             let status = match interruptible_network_status(connection, Some(interrupt)).await {
                 Ok(status) => status,
-                Err(_) => return Err(send_error),
+                Err(status_error) => {
+                    tracing::warn!(
+                        start_db_version = batch.start_db_version,
+                        watermark_db_version = ?batch.watermark_db_version,
+                        status_error_kind = ?status_error.kind(),
+                        "CloudSync send reconciliation status unavailable"
+                    );
+                    return Err(send_error);
+                }
             };
             match anlg_cloudsync::reconcile_confirmed_pending_payload(connection, batch, &status)
                 .await
             {
                 Ok(true) => {
                     let has_unsent_changes =
-                        anlg_cloudsync::network_has_unsent_changes(&mut *connection).await?;
+                        cloudsync_has_local_unsent_changes_on(&mut *connection).await?;
                     Ok(reconciled_send_result(batch, &status, has_unsent_changes))
                 }
-                Ok(false) => Err(send_error),
+                Ok(false) => {
+                    tracing::warn!(
+                        start_db_version = batch.start_db_version,
+                        watermark_db_version = ?batch.watermark_db_version,
+                        chunks = batch.chunks,
+                        rows = batch.rows,
+                        bytes = batch.bytes,
+                        complete = batch.complete,
+                        fits = batch.fits,
+                        last_optimistic_version = status.last_optimistic_version,
+                        last_confirmed_version = status.last_confirmed_version,
+                        gap_count = status.gaps.len(),
+                        apply_failure = status.failures.apply.is_some(),
+                        "CloudSync pending send could not be reconciled"
+                    );
+                    Err(send_error)
+                }
                 Err(reconcile_error) => Err(reconcile_error),
             }
         }

@@ -1,7 +1,5 @@
 import { useMemo } from "react";
 
-import { Button } from "@anlg/ui/components/ui/button";
-
 import { computeCurrentNoteTab } from "./compute-note-tab";
 
 import { extractPlainText } from "~/search/contexts/engine/utils";
@@ -119,64 +117,5 @@ export function RecordingIcon() {
       <span className="absolute size-2.5 animate-ping rounded-full bg-red-500/40" />
       <span className="relative size-2 rounded-full bg-red-500" />
     </span>
-  );
-}
-
-export function useListenButtonState(sessionId: string) {
-  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
-  const lastError = useListener((state) => state.live.lastError);
-  const lastErrorSessionId = useListener(
-    (state) => state.live.lastErrorSessionId,
-  );
-  const lastErrorIsAudioRelated = useListener(
-    (state) => state.live.lastErrorIsAudioRelated,
-  );
-  const active = sessionMode === "active" || sessionMode === "finalizing";
-  const batching = sessionMode === "running_batch";
-
-  const shouldRender = !active;
-  const isDisabled = batching;
-
-  let warningMessage = "";
-  let recoverySettingsTab: "permissions" | null = null;
-  if (lastError && lastErrorSessionId === sessionId) {
-    warningMessage = `Session failed: ${lastError}`;
-    recoverySettingsTab = lastErrorIsAudioRelated ? "permissions" : null;
-  } else if (batching) {
-    warningMessage = "Batch transcription in progress.";
-  }
-
-  return {
-    shouldRender,
-    isDisabled,
-    warningMessage,
-    recoverySettingsTab,
-  };
-}
-
-export function ActionableTooltipContent({
-  message,
-  action,
-}: {
-  message: string;
-  action?: {
-    label: string;
-    handleClick: () => void;
-  };
-}) {
-  return (
-    <div className="flex flex-row items-center gap-3">
-      <p className="text-xs">{message}</p>
-      {action && (
-        <Button
-          size="sm"
-          variant="outline"
-          className="text-foreground rounded-md"
-          onClick={action.handleClick}
-        >
-          {action.label}
-        </Button>
-      )}
-    </div>
   );
 }

@@ -28,9 +28,9 @@ pub(super) const USER_ID_REFERENCES: &[(&str, &str)] = &[
 ];
 
 #[derive(Deserialize, Serialize)]
-struct CloudsyncWorkspaceBinding {
-    workspace_id: String,
-    account_user_id: Option<String>,
+pub(super) struct CloudsyncWorkspaceBinding {
+    pub workspace_id: String,
+    pub account_user_id: Option<String>,
 }
 
 pub async fn ensure_cloudsync_workspace_binding(
@@ -58,6 +58,27 @@ pub async fn cloudsync_workspace_is_claimed_by(
     };
     let binding = parse_binding(&value_json)?;
 
+    let connected: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM local_library_connections
+         WHERE account_user_id = ? AND library_workspace_id = ? AND active = 1)",
+    )
+    .bind(account_user_id)
+    .bind(&binding.workspace_id)
+    .fetch_one(pool)
+    .await?;
+    if connected {
+        return Ok(true);
+    }
+    let portable: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM local_library_connections WHERE library_workspace_id = ?)",
+    )
+    .bind(&binding.workspace_id)
+    .fetch_one(pool)
+    .await?;
+    if portable {
+        return Ok(false);
+    }
+
     Ok(binding.workspace_id == account_user_id
         && binding.account_user_id.as_deref() == Some(account_user_id))
 }
@@ -69,6 +90,15 @@ pub async fn bind_cloudsync_account(
     let account_user_id = validated_account_user_id(account_user_id)?;
     let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     let binding = load_or_create_binding(&mut transaction).await?;
+    if super::library::has_connection(&mut transaction, account_user_id, &binding.workspace_id)
+        .await?
+    {
+        transaction.commit().await?;
+        return Ok(());
+    }
+    if super::library::has_library_connections(&mut transaction, &binding.workspace_id).await? {
+        return Err(CloudsyncWorkspaceError::AccountMismatch);
+    }
     let binding = release_vestigial_binding(&mut transaction, binding, account_user_id).await?;
 
     if binding.account_user_id.is_none() {
@@ -127,6 +157,14 @@ async fn claim_cloudsync_workspace_in_transaction(
     check_workspace_claim_cancellation(is_cancelled)?;
     let binding = load_or_create_binding(transaction).await?;
     check_workspace_claim_cancellation(is_cancelled)?;
+    if super::library::activate_connection(transaction, account_user_id, &binding.workspace_id)
+        .await?
+    {
+        return Ok(());
+    }
+    if super::library::has_library_connections(transaction, &binding.workspace_id).await? {
+        return Err(CloudsyncWorkspaceError::AccountMismatch);
+    }
     let binding = release_vestigial_binding(transaction, binding, account_user_id).await?;
     if binding.workspace_id == account_user_id
         && binding.account_user_id.as_deref() == Some(account_user_id)
@@ -575,7 +613,7 @@ async fn rekey_user_reference_in_batches(
     }
 }
 
-async fn load_or_create_binding(
+pub(super) async fn load_or_create_binding(
     transaction: &mut Transaction<'_, Sqlite>,
 ) -> Result<CloudsyncWorkspaceBinding, CloudsyncWorkspaceError> {
     if let Some(value_json) =
@@ -614,6 +652,20 @@ pub(super) async fn require_claimed_binding(
         return Err(CloudsyncWorkspaceError::InvalidBinding);
     };
     let binding = parse_binding(&value_json)?;
+    let connected: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM local_library_connections
+         WHERE account_user_id = ? AND library_workspace_id = ? AND active = 1)",
+    )
+    .bind(account_user_id)
+    .bind(&binding.workspace_id)
+    .fetch_one(&mut **transaction)
+    .await?;
+    if connected {
+        return Ok(());
+    }
+    if super::library::has_library_connections(transaction, &binding.workspace_id).await? {
+        return Err(CloudsyncWorkspaceError::AccountMismatch);
+    }
     if binding.workspace_id != account_user_id
         || binding.account_user_id.as_deref() != Some(account_user_id)
     {

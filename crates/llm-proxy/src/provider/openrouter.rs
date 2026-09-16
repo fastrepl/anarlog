@@ -11,6 +11,11 @@ use super::{GenerationMetadata, Provider, ProviderError, StreamAccumulator};
 
 pub const OPENROUTER_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
 
+// App attribution per https://openrouter.ai/docs/app-attribution
+pub const APP_REFERER: &str = "https://anarlog.so";
+pub const APP_TITLE: &str = "Anarlog";
+pub const APP_CATEGORIES: &str = "writing-assistant,personal-agent";
+
 pub struct OpenRouterProvider {
     pub base_url: String,
 }
@@ -110,6 +115,17 @@ impl Provider for OpenRouterProvider {
         );
 
         Ok(body)
+    }
+
+    fn additional_headers(&self) -> Vec<(String, String)> {
+        vec![
+            ("HTTP-Referer".to_string(), APP_REFERER.to_string()),
+            ("X-Title".to_string(), APP_TITLE.to_string()),
+            (
+                "X-OpenRouter-Categories".to_string(),
+                APP_CATEGORIES.to_string(),
+            ),
+        ]
     }
 
     fn parse_response(&self, body: &[u8]) -> Result<GenerationMetadata, ProviderError> {

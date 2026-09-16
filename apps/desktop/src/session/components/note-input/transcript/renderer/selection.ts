@@ -562,7 +562,7 @@ export function focusTranscriptSelection(
       window.getSelection()?.removeAllRanges();
       window.getSelection()?.addRange(range);
     }
-    return;
+    return editor;
   }
 }
 

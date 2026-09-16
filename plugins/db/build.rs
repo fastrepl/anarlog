@@ -23,6 +23,7 @@ const COMMANDS: &[&str] = &[
     "unsubscribe",
     "configure_cloudsync",
     "bind_cloudsync_account",
+    "connect_local_library",
     "configure_cloudsync_token",
     "configure_e2ee_replica",
     "start_cloudsync",

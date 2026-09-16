@@ -226,7 +226,7 @@ export function persistMeetingChatRecords({
   });
 }
 
-export function parseMeetingChatDocument(
+function parseMeetingChatDocument(
   row: MeetingChatDocumentRow,
 ): MeetingChatRecord[] {
   if (textEncoder.encode(row.body).byteLength > MAX_MEETING_CHAT_RECORD_BYTES) {

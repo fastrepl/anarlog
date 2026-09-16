@@ -25,7 +25,7 @@ const commonSearch = {
 
 const validateSearch = flowSearchSchema(commonSearch);
 
-export const INTEGRATION_DISPLAY: Record<
+const INTEGRATION_DISPLAY: Record<
   string,
   { name: string; description: string; connectingHint: string }
 > = {

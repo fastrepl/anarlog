@@ -186,7 +186,7 @@ export function ProviderIconSlot({ children }: { children: ReactNode }) {
   );
 }
 
-export function ProviderButtonIcon({ children }: { children: ReactNode }) {
+function ProviderButtonIcon({ children }: { children: ReactNode }) {
   return (
     <span
       aria-hidden
@@ -287,7 +287,7 @@ export function useProviderAvailability(
   return useMemo(() => Object.fromEntries(entries), [signature]);
 }
 
-export function useIsProviderReady(
+function useIsProviderReady(
   providerId: string,
   providerType: ProviderType,
   providers: readonly ProviderConfig[],

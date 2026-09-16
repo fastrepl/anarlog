@@ -61,7 +61,7 @@ async fn tags_and_folders_written_without_a_workspace_take_the_device_workspace(
 }
 
 #[tokio::test]
-async fn tags_and_session_tags_sync_between_devices() {
+async fn previously_synced_tags_and_session_tags_keep_syncing_between_devices() {
     let workspace_keys = keys("workspace-a");
     let source = test_db().await;
     sqlx::query(
@@ -92,6 +92,21 @@ async fn tags_and_session_tags_sync_between_devices() {
     .execute(source.pool())
     .await
     .unwrap();
+    for (table, row_id) in [
+        ("tags", "planning"),
+        ("session_tags", "session-1:planning"),
+        ("folders", "folder-1"),
+    ] {
+        seed_nightly_field(
+            source.pool(),
+            &workspace_keys,
+            table,
+            row_id,
+            ROW_MANIFEST_FIELD,
+            json!(true),
+        )
+        .await;
+    }
     encrypt_e2ee_replica_changes(source.pool(), &workspace_keys)
         .await
         .unwrap();

@@ -60,6 +60,11 @@ vi.mock("@tauri-apps/plugin-os", () => ({
   platform: () => mocks.platform,
 }));
 
+vi.mock("~/auth/connect-local-library-dialog", () => ({
+  ConnectLocalLibraryDialog: ({ open }: { open: boolean }) =>
+    open ? <div>Connect local library</div> : null,
+}));
+
 vi.mock("~/auth", () => ({
   useAuth: () => ({ session: mocks.session, signOut: mocks.signOut }),
 }));
@@ -703,7 +708,8 @@ describe("SettingsSync", () => {
     );
     fireEvent.click(syncSwitch);
 
-    await vi.waitFor(() => expect(mocks.signOut).toHaveBeenCalledOnce());
+    await screen.findByText("Connect local library");
+    expect(mocks.signOut).not.toHaveBeenCalled();
     expect(mocks.trackAnalyticsEvent).not.toHaveBeenCalledWith(
       "cloud_sync_disabled",
       expect.anything(),

@@ -1,3 +1,5 @@
+import { execute } from "@anlg/plugin-db";
+
 import {
   CLOUDSYNC_ACCEPTED_TRANSPORTS,
   CLOUDSYNC_TRANSPORTS_HEADER,
@@ -13,6 +15,7 @@ import { DEVICE_FINGERPRINT_HEADER } from "~/shared/utils";
 
 export async function requestCloudsyncCredentials({
   accessToken,
+  accountUserId,
   cloudsyncExtensionAvailable,
   encryptionKeyId,
   memberPublicKey,
@@ -20,6 +23,7 @@ export async function requestCloudsyncCredentials({
   signal,
 }: {
   accessToken: string;
+  accountUserId: string;
   cloudsyncExtensionAvailable: boolean;
   encryptionKeyId: string;
   memberPublicKey: string;
@@ -29,6 +33,15 @@ export async function requestCloudsyncCredentials({
   let response: Response | null = null;
 
   try {
+    const connections = await raceWithAbort(
+      execute<{ connected: number }>(
+        "SELECT 1 AS connected FROM local_library_connections WHERE account_user_id = ? LIMIT 1",
+        [accountUserId],
+      ),
+      signal,
+    );
+    const useSqliteTransport =
+      cloudsyncExtensionAvailable && connections.length === 0;
     const device = await raceWithAbort(getDeviceIdentity(), signal);
     if (shouldStop()) {
       return { status: "stopped" as const };
@@ -49,9 +62,7 @@ export async function requestCloudsyncCredentials({
     response = await raceWithAbort(
       fetch(
         new URL(
-          cloudsyncExtensionAvailable
-            ? "/sync/token"
-            : "/sync/replica/credentials",
+          useSqliteTransport ? "/sync/token" : "/sync/replica/credentials",
           env.VITE_API_URL,
         ),
         {
@@ -62,7 +73,7 @@ export async function requestCloudsyncCredentials({
       ),
       signal,
     );
-    if (cloudsyncExtensionAvailable && response.status === 404) {
+    if (useSqliteTransport && response.status === 404) {
       response = await raceWithAbort(
         fetch(new URL("/sync/replica/credentials", env.VITE_API_URL), {
           method: "POST",

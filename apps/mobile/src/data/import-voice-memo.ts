@@ -175,11 +175,13 @@ export async function importWatchRecording(
   const existing = (
     await execute<{
       owner_user_id: string;
+      requested_owner_id: string;
       has_audio: number;
       transcript_status: string;
     }>(
       `SELECT
         owner_user_id,
+        COALESCE((SELECT library_workspace_id FROM local_library_connections WHERE account_user_id = ?2), ?2) AS requested_owner_id,
         EXISTS (
           SELECT 1 FROM session_attachments
           WHERE session_id = sessions.id
@@ -198,12 +200,12 @@ export async function importWatchRecording(
       WHERE id = ?
         AND deleted_at IS NULL
       LIMIT 1`,
-      [recording.id],
+      [recording.id, recording.accountUserId],
     )
   )[0];
   throwIfAborted(signal);
   if (existing) {
-    if (existing.owner_user_id !== recording.accountUserId) {
+    if (existing.owner_user_id !== existing.requested_owner_id) {
       throw new Error("Watch recording belongs to a different session owner");
     }
     if (existing.has_audio === 1) {

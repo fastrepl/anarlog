@@ -18,7 +18,7 @@ import userPromptTemplate from "./pre-meeting-brief.user.md.jinja?raw";
 import { extractPlainText } from "~/search/contexts/engine/utils";
 import type { PastSessionNote } from "~/session/insights/past-notes";
 
-export const MAX_BRIEF_MEETINGS = 5;
+const MAX_BRIEF_MEETINGS = 5;
 
 const AFTER_START_GRACE_MS = 5 * 60 * 1000;
 const MAX_FACTS = 3;
@@ -101,7 +101,7 @@ export function canCreatePreMeetingBrief({
   );
 }
 
-export function getBriefEventParticipantNames(
+function getBriefEventParticipantNames(
   event: PreMeetingBriefEvent | null,
 ): string[] {
   return [

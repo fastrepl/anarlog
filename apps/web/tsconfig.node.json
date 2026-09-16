@@ -2,6 +2,8 @@
   "extends": "./tsconfig.json",
   "include": [
     "vite.config.ts",
+    "changelog-build.ts",
+    "changelog-build.test.ts",
     "vercel-build-config.ts",
     "src/types/**/*.d.ts"
   ],

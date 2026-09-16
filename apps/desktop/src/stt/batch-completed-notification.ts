@@ -1,7 +1,6 @@
 const LEGACY_BATCH_COMPLETED_NOTIFICATION_KEY_PREFIX = "batch-completed-";
 
-export const BATCH_COMPLETED_NOTIFICATION_KEY_PREFIX =
-  "batch-completed:" as const;
+const BATCH_COMPLETED_NOTIFICATION_KEY_PREFIX = "batch-completed:" as const;
 
 export function createBatchCompletedNotificationKey(sessionId: string) {
   return `${BATCH_COMPLETED_NOTIFICATION_KEY_PREFIX}${sessionId}:${crypto.randomUUID()}`;

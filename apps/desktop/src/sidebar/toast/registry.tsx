@@ -203,7 +203,7 @@ export function createToastRegistry({
   ];
 }
 
-export function createDesktopUpdateToast(
+function createDesktopUpdateToast(
   update: DesktopUpdateControl,
 ): ToastType | null {
   if (!update.status || !update.version) {

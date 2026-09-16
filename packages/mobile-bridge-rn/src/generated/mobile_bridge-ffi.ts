@@ -283,6 +283,12 @@ interface NativeModuleInterface {
     recoveryKeyCode: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_connect_local_library(
+    uniffiSelf: bigint,
+    accountUserId: Uint8Array,
+    expectedLibraryWorkspaceId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_describe_attachment_upload(
     uniffiSelf: bigint,
     jobId: Uint8Array,
@@ -419,6 +425,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_attachment_storage(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_cloudsync(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_e2ee_replica(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_connect_local_library(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_describe_attachment_upload(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_proxy(): number;

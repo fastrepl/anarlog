@@ -248,6 +248,39 @@ async fn cloudsync_status_reports_pending_e2ee_dirty_rows() {
 }
 
 #[tokio::test]
+async fn pending_status_uses_the_same_compatible_write_policy_as_encryption() {
+    let db = Db::connect_memory_plain().await.unwrap();
+    anlg_db_app::prepare_schema(&db).await.unwrap();
+    let recovery_key = anlg_e2ee::RecoveryKey::parse(
+        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    )
+    .unwrap();
+    let keys = HashMap::from([(
+        "workspace-1".to_string(),
+        recovery_key.workspace_key("workspace-1").unwrap().into(),
+    )]);
+    sqlx::query(
+        "INSERT INTO tags (id, workspace_id, name) VALUES ('tag-1', 'workspace-1', 'Local tag')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    let mut connection = db.pool().acquire().await.unwrap();
+    assert!(
+        !has_pending_e2ee_dirty_rows_for_status(&mut connection, &keys)
+            .await
+            .unwrap()
+    );
+    sqlx::query("INSERT INTO sessions (id, workspace_id, title) VALUES ('session-1', 'workspace-1', 'Local note')")
+        .execute(&mut *connection).await.unwrap();
+    assert!(
+        has_pending_e2ee_dirty_rows_for_status(&mut connection, &keys)
+            .await
+            .unwrap()
+    );
+}
+
+#[tokio::test]
 async fn cloudsync_status_does_not_treat_inbound_reconciliation_as_unsent() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();

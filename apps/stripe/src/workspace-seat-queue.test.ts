@@ -16,6 +16,104 @@ afterAll(async () => {
 });
 
 describe.skipIf(!pool)("durable seat queue (isolated Postgres)", () => {
+  test.each(["checkout", "failure"] as const)(
+    "%s retry deadline starts after reconciliation finishes",
+    async (outcome) => {
+      const workspace = crypto.randomUUID();
+      const errors: unknown[] = [];
+      let finishedAt: Date | undefined;
+      try {
+        await pool!.query(
+          "INSERT INTO private.workspace_seat_billing_events (workspace_id, customer_id, quantity) VALUES ($1, 'cus_waiting', 1)",
+          [workspace],
+        );
+        await processWorkspaceSeatEvent(
+          pool!,
+          async () => {
+            await pool!.query("SELECT pg_sleep(0.2)");
+            const result = await pool!.query(
+              "SELECT clock_timestamp() AS finished_at",
+            );
+            finishedAt = result.rows[0].finished_at;
+            if (outcome === "failure") throw new Error("Stripe request failed");
+            return "waiting_for_subscription";
+          },
+          (error) => errors.push(error),
+        );
+        const result = await pool!.query(
+          "SELECT next_attempt_at FROM private.workspace_seat_billing_events WHERE workspace_id = $1",
+          [workspace],
+        );
+        expect(
+          result.rows[0].next_attempt_at.getTime() - finishedAt!.getTime(),
+        ).toBeGreaterThanOrEqual(outcome === "checkout" ? 60_000 : 15_000);
+        expect(errors).toHaveLength(outcome === "checkout" ? 0 : 1);
+      } finally {
+        await pool!.query(
+          "DELETE FROM private.workspace_seat_billing_events WHERE workspace_id = $1",
+          [workspace],
+        );
+      }
+    },
+  );
+  test("checkout waits stay pending and block later seats without reporting an error", async () => {
+    const workspace = crypto.randomUUID();
+    const errors: unknown[] = [];
+    try {
+      await pool!.query(
+        "INSERT INTO private.workspace_seat_billing_events (workspace_id, customer_id, quantity) VALUES ($1, 'cus_waiting', 1), ($1, 'cus_waiting', 2)",
+        [workspace],
+      );
+      await processWorkspaceSeatEvent(
+        pool!,
+        async () => "waiting_for_subscription",
+        (error) => errors.push(error),
+      );
+      const state = await pool!.query(
+        "SELECT attempts, processed_at, next_attempt_at > now() AS backed_off FROM private.workspace_seat_billing_events WHERE workspace_id = $1 ORDER BY id",
+        [workspace],
+      );
+      expect(state.rows[0]).toMatchObject({
+        attempts: 0,
+        processed_at: null,
+        backed_off: true,
+      });
+      expect(state.rows[1].processed_at).toBeNull();
+      expect(
+        await processWorkspaceSeatEvent(
+          pool!,
+          async () => {
+            throw new Error("overtook checkout");
+          },
+          (error) => errors.push(error),
+        ),
+      ).toBe(false);
+      await pool!.query(
+        "UPDATE private.workspace_seat_billing_events SET next_attempt_at = now() WHERE workspace_id = $1",
+        [workspace],
+      );
+      const quantities: number[] = [];
+      const consume = () =>
+        processWorkspaceSeatEvent(
+          pool!,
+          async (event) => {
+            quantities.push(event.quantity);
+          },
+          (error) => errors.push(error),
+        );
+      await consume();
+      await consume();
+      expect(quantities).toEqual([1, 2]);
+      expect(await consume()).toBe(false);
+      expect(errors).toHaveLength(0);
+    } finally {
+      await pool!.query(
+        "DELETE FROM private.workspace_seat_billing_events WHERE workspace_id = $1",
+        [workspace],
+      );
+    }
+  });
+
   test("concurrent workers cannot overtake a workspace event; failures persist and retry in order", async () => {
     const workspace = crypto.randomUUID();
     const another = crypto.randomUUID();

@@ -10,6 +10,38 @@ import {
 
 const currentTimestamp = sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`;
 
+export const localLibraryConnections = sqliteTable(
+  "local_library_connections",
+  {
+    accountUserId: text("account_user_id").primaryKey().notNull(),
+    libraryWorkspaceId: text("library_workspace_id").notNull().default(""),
+    active: integer("active", { mode: "boolean" }).notNull().default(false),
+    recoverySettings: text("recovery_settings").notNull().default("{}"),
+    createdAt: text("created_at").notNull().default(currentTimestamp),
+  },
+  (table) => [
+    index("idx_local_library_connections_library").on(table.libraryWorkspaceId),
+    uniqueIndex("idx_local_library_connections_active")
+      .on(table.active)
+      .where(sql`${table.active} = 1`),
+  ],
+);
+
+export const localLibraryAttachmentState = sqliteTable(
+  "local_library_attachment_state",
+  {
+    accountUserId: text("account_user_id").notNull(),
+    attachmentId: text("attachment_id").notNull(),
+    cloudObjectKey: text("cloud_object_key").notNull().default(""),
+    cloudSyncEnabled: integer("cloud_sync_enabled", { mode: "boolean" })
+      .notNull()
+      .default(false),
+  },
+  (table) => [
+    primaryKey({ columns: [table.accountUserId, table.attachmentId] }),
+  ],
+);
+
 export const templates = sqliteTable("templates", {
   id: text("id").primaryKey(),
   title: text("title").notNull().default(""),

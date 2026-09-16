@@ -347,6 +347,16 @@ export async function startCloudsync(): Promise<void> {
   return invoke("plugin:db|start_cloudsync");
 }
 
+export async function connectLocalLibrary(
+  accountUserId: string,
+  expectedLibraryWorkspaceId: string,
+): Promise<void> {
+  return invoke("plugin:db|connect_local_library", {
+    accountUserId,
+    expectedLibraryWorkspaceId,
+  });
+}
+
 export async function stopCloudsync(): Promise<void> {
   return invoke("plugin:db|stop_cloudsync");
 }

@@ -7,7 +7,6 @@ import {
   useCanShowTranscript,
   useCurrentNoteHasContent,
   useCurrentNoteTab,
-  useListenButtonState,
 } from "./shared";
 
 import type { Tab } from "~/store/zustand/tabs/schema";
@@ -117,72 +116,6 @@ describe("useCurrentNoteTab", () => {
     );
 
     expect(result.current).toEqual({ type: "transcript" });
-  });
-});
-
-describe("useListenButtonState", () => {
-  beforeEach(() => {
-    hoisted.liveLastError = null;
-    hoisted.liveLastErrorSessionId = null;
-    hoisted.liveLastErrorIsAudioRelated = false;
-    hoisted.sessionMode = "inactive";
-  });
-
-  it("routes capture failures to audio capability settings", () => {
-    hoisted.liveLastError = "microphone unavailable";
-    hoisted.liveLastErrorSessionId = "session-1";
-    hoisted.liveLastErrorIsAudioRelated = true;
-
-    const { result } = renderHook(() => useListenButtonState("session-1"));
-
-    expect(result.current).toEqual({
-      shouldRender: true,
-      isDisabled: false,
-      warningMessage: "Session failed: microphone unavailable",
-      recoverySettingsTab: "permissions",
-    });
-  });
-
-  it("does not route transcription failures to audio settings", () => {
-    hoisted.liveLastError = "transcription connection closed";
-    hoisted.liveLastErrorSessionId = "session-1";
-
-    const { result } = renderHook(() => useListenButtonState("session-1"));
-
-    expect(result.current).toEqual({
-      shouldRender: true,
-      isDisabled: false,
-      warningMessage: "Session failed: transcription connection closed",
-      recoverySettingsTab: null,
-    });
-  });
-
-  it("does not show another session's capture failure", () => {
-    hoisted.liveLastError = "microphone unavailable";
-    hoisted.liveLastErrorSessionId = "session-2";
-    hoisted.liveLastErrorIsAudioRelated = true;
-
-    const { result } = renderHook(() => useListenButtonState("session-1"));
-
-    expect(result.current).toEqual({
-      shouldRender: true,
-      isDisabled: false,
-      warningMessage: "",
-      recoverySettingsTab: null,
-    });
-  });
-
-  it("does not offer audio configuration for batch progress", () => {
-    hoisted.sessionMode = "running_batch";
-
-    const { result } = renderHook(() => useListenButtonState("session-1"));
-
-    expect(result.current).toEqual({
-      shouldRender: true,
-      isDisabled: true,
-      warningMessage: "Batch transcription in progress.",
-      recoverySettingsTab: null,
-    });
   });
 });
 

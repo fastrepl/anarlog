@@ -1196,6 +1196,24 @@ impl PluginDbRuntime {
         }
     }
 
+    pub async fn connect_local_library(
+        &self,
+        account_user_id: String,
+        expected_library_workspace_id: String,
+    ) -> Result<()> {
+        self.suspend_cloudsync().await?;
+        let _control_operation = self.cloudsync_control_guard().await?;
+        let _write_guard = self.synced_write_barrier.write().await;
+        self.ensure_app_schema().await?;
+        anlg_db_app::connect_local_library(
+            self.db.pool(),
+            &account_user_id,
+            &expected_library_workspace_id,
+        )
+        .await?;
+        Ok(())
+    }
+
     async fn claim_cloudsync_workspace(
         &self,
         account_user_id: String,
@@ -1774,9 +1792,11 @@ async fn has_pending_e2ee_dirty_rows_for_status(
     for workspace_id in workspace_ids {
         separated.push_bind(workspace_id);
     }
-    separated.push_unseparated(
-        ")
-           AND NOT (
+    separated.push_unseparated(")");
+    query.push(" AND ");
+    query.push(anlg_db_app::E2EE_DIRTY_ROW_WRITE_COMPATIBILITY_PREDICATE);
+    query.push(
+        " AND NOT (
              dirty.table_name = 'transcripts'
              AND EXISTS (
                SELECT 1

@@ -15,7 +15,7 @@ import {
 import { loadSessionEvent } from "~/session/queries";
 
 export const AUTO_STOP_CONFIRM_DELAY_MS = 5_000;
-export const AUTO_STOP_CALENDAR_EARLY_START_BUFFER_MS = 5 * 60_000;
+const AUTO_STOP_CALENDAR_EARLY_START_BUFFER_MS = 5 * 60_000;
 export const AUTO_STOP_EVENT_END_GRACE_MS = 10 * 60_000;
 export const AUTO_STOP_NETWORK_HOLD_MS = 8 * 60_000;
 export const AUTO_STOP_RECENT_OFFLINE_MS = 60_000;

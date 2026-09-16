@@ -526,6 +526,20 @@ export async function stopSync(): Promise<void> {
   }
 }
 
+export async function connectLocalLibrary(
+  accountUserId: string,
+  expectedLibraryWorkspaceId: string,
+): Promise<void> {
+  try {
+    getBridge().connectLocalLibrary(accountUserId, expectedLibraryWorkspaceId);
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "database_local_library_connect",
+    });
+    throw error;
+  }
+}
+
 export async function syncNow(): Promise<void> {
   try {
     getBridge().cloudsyncSyncNow();

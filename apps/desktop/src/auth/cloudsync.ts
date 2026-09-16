@@ -1088,6 +1088,7 @@ async function activateCloudsync(
   }, EXCHANGE_TIMEOUT_MS);
 
   const exchange = await requestCloudsyncCredentials({
+    accountUserId: session.user.id,
     accessToken: session.access_token,
     cloudsyncExtensionAvailable: status.extension_loaded,
     encryptionKeyId,

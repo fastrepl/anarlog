@@ -1,8 +1,6 @@
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 
-export async function readJson(
-  response: Response,
-): Promise<Record<string, unknown>> {
+async function readJson(response: Response): Promise<Record<string, unknown>> {
   const text = await response.text();
   if (!text.trim()) {
     return {};

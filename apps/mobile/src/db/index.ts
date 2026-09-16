@@ -5,6 +5,7 @@ import { mobileLiveQueryClient, mobileTransactionClient } from "@/db/client";
 export {
   bootstrapE2eeReplica,
   configureE2eeReplica,
+  connectLocalLibrary,
   generateE2eeDeviceEnrollmentKey,
   generateE2eeRecoveryKey,
   getSyncStatus,

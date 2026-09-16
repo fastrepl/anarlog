@@ -1,10 +1,6 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 
-export const SHARED_RESOURCE_TYPES = [
-  "folder",
-  "template",
-  "automation",
-] as const;
+const SHARED_RESOURCE_TYPES = ["folder", "template", "automation"] as const;
 
 export type SharedResourceType = (typeof SHARED_RESOURCE_TYPES)[number];
 

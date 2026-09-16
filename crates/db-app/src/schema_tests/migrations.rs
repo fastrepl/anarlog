@@ -116,6 +116,8 @@ async fn migrations_apply_cleanly() {
             "folder_attachments",
             "folders",
             "humans",
+            "local_library_attachment_state",
+            "local_library_connections",
             "migration_import_items",
             "migration_import_runs",
             "migration_import_targets",

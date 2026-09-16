@@ -616,6 +616,35 @@ impl MobileDbBridge {
         result
     }
 
+    pub fn connect_local_library(
+        &self,
+        account_user_id: String,
+        expected_library_workspace_id: String,
+    ) -> Result<(), BridgeError> {
+        let (runtime, db, hook) = self.with_state(|state| {
+            Ok((
+                Arc::clone(&state.runtime),
+                Arc::clone(&state.db),
+                Arc::clone(&state.e2ee_sync_hook),
+            ))
+        })?;
+        if hook.activity_paused() {
+            return Err(cloudsync_error(
+                "Finish the current recording before connecting this library",
+            ));
+        }
+        self.stop_cloudsync()?;
+        block_on(
+            &runtime,
+            anlg_db_app::connect_local_library(
+                db.pool(),
+                &account_user_id,
+                &expected_library_workspace_id,
+            ),
+        )
+        .map_err(cloudsync_error)
+    }
+
     pub fn start_cloudsync(&self) -> Result<(), BridgeError> {
         let (runtime, live_query_runtime, e2ee_sync_hook) = self.with_state(|state| {
             Ok((
@@ -1229,6 +1258,24 @@ mod tests {
             .unwrap_err();
 
         assert!(matches!(error, BridgeError::CloudsyncFailed { .. }));
+    }
+
+    #[test]
+    fn rejected_library_connection_during_recording_preserves_sync_configuration() {
+        let (_dir, bridge) = new_bridge(None);
+        let hook = bridge
+            .with_state(|state| Ok(Arc::clone(&state.e2ee_sync_hook)))
+            .unwrap();
+        hook.begin_activity("recording".to_string(), "session".to_string());
+        let key = anlg_e2ee::RecoveryKey::generate().unwrap();
+        hook.set_personal_workspace("user-a", &key).unwrap();
+        assert!(
+            bridge
+                .connect_local_library("user-b".to_string(), "user-a".to_string())
+                .is_err()
+        );
+        assert!(hook.has_workspace("user-a"));
+        assert!(hook.activity_paused());
     }
 
     #[test]

@@ -1,6 +1,6 @@
 ---
-date: "2026-09-12"
-summary: "Try in-app team invitations, membership billing, and more reliable transcription and sync."
+date: "2026-09-16"
+summary: "Try in-app team invitations, membership billing, and more reliable transcription."
 ---
 
 ## Anarlog Nightly is back
@@ -8,6 +8,8 @@ summary: "Try in-app team invitations, membership billing, and more reliable tra
 Nightly is a separate app for trying upcoming improvements before they reach stable. It updates more frequently and may be less reliable. Your existing Anarlog installation stays on stable.
 
 Nightly opens the same local notes as your stable Anarlog, while sign-in and settings stay separate. Quit one app before opening the other. If Nightly updates the database format ahead of stable, stable asks for an update until a release includes that change; keep using Nightly until then.
+
+When trying Nightly with cloud sync, use matching versions on your connected devices. Older builds may not read records written by a newer Nightly.
 
 ## Try in your next meeting
 
@@ -18,7 +20,8 @@ Nightly opens the same local notes as your stable Anarlog, while sign-in and set
 - Recognize speakers from recording context and keep each person's transcript color consistent.
 - See link access from the Share button, then copy the link or send it through email or Slack from one split action.
 - Choose a default export folder in Settings → General.
-- Sync tags, folders, daily notes, and transcript chunks, with clearer errors when sync needs attention.
+- Keep notes and ignored-event choices attached to rescheduled Apple Calendar occurrences without creating duplicates. Thanks [@Diaspar4u](https://github.com/Diaspar4u).
+- See clearer errors when sync needs attention, and retry interrupted uploads when an older attempt is replaced. Cloud sync recovery is still being verified.
 
 ## Teams
 
@@ -26,6 +29,7 @@ Nightly opens the same local notes as your stable Anarlog, while sign-in and set
 - Invite members without buying seats first. Billing adjusts when members join or leave, with prorated changes on the next scheduled invoice.
 - Refresh Pro access automatically when workspace membership changes.
 - Let every Team member see the roster. Review member profiles and permissions in a table; ownership transfers now require the recipient to accept.
+- Confirm who will lose access before removing a Team member or canceling an invitation.
 
 ## Providers
 

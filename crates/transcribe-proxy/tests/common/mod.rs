@@ -128,6 +128,7 @@ pub fn env_with_provider(provider: Provider, api_key: String) -> transcribe_prox
         | Provider::Xai
         | Provider::SmallestAI
         | Provider::Meta
+        | Provider::Nari
         | Provider::GoogleGenerativeAi => panic!("{provider} is not configured in the Pro proxy"),
     }
     env

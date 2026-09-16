@@ -51,7 +51,6 @@ export {
   getFloatingTranscriptBubbles,
   shouldShowFloatingLiveCaptionToggle,
 } from "./route-state";
-export { hideFloatingMeetingPanel, hideLiveCaptionPanel } from "./window-panel";
 
 export function FloatingMeetingWindowHost() {
   const floatingBarEnabled = useConfigValue("floating_bar_enabled");

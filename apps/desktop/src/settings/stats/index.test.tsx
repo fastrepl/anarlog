@@ -31,9 +31,9 @@ vi.mock("~/calendar/hooks", () => ({
   useWeekStartsOn: () => 1,
 }));
 
-import { SettingsStats } from "./index";
+import { SettingsInsights } from "./index";
 
-describe("personal stats page", () => {
+describe("merged insights page", () => {
   afterEach(cleanup);
   beforeEach(() => {
     mocks.activity = { data: [], isLoading: false, error: null };
@@ -41,11 +41,11 @@ describe("personal stats page", () => {
 
   it("waits for activity before showing the badge collection", () => {
     mocks.activity.isLoading = true;
-    const { rerender } = render(<SettingsStats />);
+    const { rerender } = render(<SettingsInsights />);
     expect(screen.getByRole("status").textContent).toContain("Loading");
     expect(screen.queryByRole("progressbar")).toBeNull();
     mocks.activity.isLoading = false;
-    rerender(<SettingsStats />);
+    rerender(<SettingsInsights />);
     expect(screen.getByRole("region", { name: "Your badges" })).toBeTruthy();
     expect(
       screen
@@ -63,17 +63,19 @@ describe("personal stats page", () => {
         duration_ms: 3_600_000,
       }),
     );
-    render(<SettingsStats />);
+    render(<SettingsInsights />);
     const overview = screen.getByRole("region", { name: "Overview" });
     expect(
       within(overview).getByText("Conversations").nextElementSibling
         ?.textContent,
     ).toBe("2");
+    expect(screen.getByText("Conversations: 2")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "7 days" }));
     expect(
       within(overview).getByText("Conversations").nextElementSibling
         ?.textContent,
     ).toBe("1");
+    expect(screen.getByText("Conversations: 1")).toBeTruthy();
     expect(
       screen
         .getByRole("button", { name: "7 days" })
@@ -96,7 +98,7 @@ describe("personal stats page", () => {
 
   it("reports query errors without showing misleading totals", () => {
     mocks.activity.error = new Error("Database unavailable");
-    render(<SettingsStats />);
+    render(<SettingsInsights />);
     expect(screen.getByRole("alert").textContent).toContain("Couldn't load");
     expect(screen.queryByText("Conversations")).toBeNull();
   });

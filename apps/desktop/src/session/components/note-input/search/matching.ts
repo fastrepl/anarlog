@@ -53,17 +53,17 @@ export function registerTranscriptSearchSource(
   };
 }
 
-export function prepareQuery(query: string, caseSensitive: boolean): string {
+function prepareQuery(query: string, caseSensitive: boolean): string {
   const trimmed = query.trim().normalize("NFC");
   return caseSensitive ? trimmed : trimmed.toLowerCase();
 }
 
-export function prepareText(text: string, caseSensitive: boolean): string {
+function prepareText(text: string, caseSensitive: boolean): string {
   const normalized = text.normalize("NFC");
   return caseSensitive ? normalized : normalized.toLowerCase();
 }
 
-export function findOccurrences(
+function findOccurrences(
   text: string,
   query: string,
   wholeWord: boolean,
@@ -245,7 +245,7 @@ export function getTranscriptSearchIndexMatches(
   return result;
 }
 
-export function getEditorMatches(
+function getEditorMatches(
   proseMirror: HTMLElement,
   prepared: string,
   opts: SearchOptions,

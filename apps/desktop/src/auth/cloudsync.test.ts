@@ -896,12 +896,25 @@ describe("CloudSync auth lifecycle", () => {
     },
   );
 
+  test("uses isolated replica credentials for a connected local library", async () => {
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(projectedCredentialsResponse()),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.mocked(execute).mockResolvedValueOnce([{ connected: 1 }]);
+    await handleCloudsyncAuthChange("SIGNED_IN", session());
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      "/sync/replica/credentials",
+    );
+  });
+
   test("deletes queued folders only after native revocation succeeds", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(() => Promise.resolve(projectedCredentialsResponse())),
     );
     vi.mocked(execute)
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
         { sessionId: "session-shared", workspaceId: "workspace-shared" },
       ])
@@ -913,7 +926,7 @@ describe("CloudSync auth lifecycle", () => {
       "session-shared",
     );
     expect(execute).toHaveBeenNthCalledWith(
-      2,
+      3,
       expect.stringContaining("DELETE FROM cloudsync_session_evictions"),
       [
         "session-shared",
@@ -930,6 +943,7 @@ describe("CloudSync auth lifecycle", () => {
       vi.fn(() => Promise.resolve(projectedCredentialsResponse())),
     );
     vi.mocked(execute)
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
         { sessionId: "session-shared", workspaceId: "workspace-shared" },
       ])
@@ -942,14 +956,14 @@ describe("CloudSync auth lifecycle", () => {
     await handleCloudsyncAuthChange("SIGNED_IN", session());
 
     expect(execute).toHaveBeenNthCalledWith(
-      2,
+      3,
       expect.stringContaining("UPDATE cloudsync_session_evictions"),
       ["folder busy", "session-shared", "workspace-shared"],
     );
-    expect(execute).toHaveBeenCalledTimes(2);
+    expect(execute).toHaveBeenCalledTimes(3);
 
     await vi.advanceTimersByTimeAsync(30 * 1000);
-    expect(execute).toHaveBeenCalledTimes(3);
+    expect(execute).toHaveBeenCalledTimes(4);
   });
 
   test("rejects partial workspace metadata instead of treating it as legacy", async () => {

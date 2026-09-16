@@ -27,6 +27,7 @@ Default permissions for the plugin
 - `allow-subscribe`
 - `allow-unsubscribe`
 - `allow-bind-cloudsync-account`
+- `allow-connect-local-library`
 - `allow-configure-cloudsync-token`
 - `allow-configure-e2ee-replica`
 - `allow-stop-cloudsync`
@@ -224,6 +225,32 @@ Enables the configure_e2ee_replica command without any pre-configured scope.
 <td>
 
 Denies the configure_e2ee_replica command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-connect-local-library`
+
+</td>
+<td>
+
+Enables the connect_local_library command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-connect-local-library`
+
+</td>
+<td>
+
+Denies the connect_local_library command without any pre-configured scope.
 
 </td>
 </tr>

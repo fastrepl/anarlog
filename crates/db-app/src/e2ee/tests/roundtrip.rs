@@ -103,7 +103,7 @@ async fn encrypts_and_reconstructs_attachment_metadata() {
 }
 
 #[tokio::test]
-async fn reconstructs_every_protected_table_and_applies_deletions() {
+async fn reconstructs_every_previously_synced_table_and_applies_deletions() {
     let workspace_keys = keys("workspace-a");
     let source = test_db().await;
     for (table, id) in [
@@ -127,6 +127,17 @@ async fn reconstructs_every_protected_table_and_applies_deletions() {
             .execute(source.pool())
             .await
             .unwrap();
+        if matches!(table, "daily_notes" | "folders" | "session_tags" | "tags") {
+            seed_nightly_field(
+                source.pool(),
+                &workspace_keys,
+                table,
+                id,
+                ROW_MANIFEST_FIELD,
+                json!(true),
+            )
+            .await;
+        }
     }
     encrypt_e2ee_replica_changes(source.pool(), &workspace_keys)
         .await

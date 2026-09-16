@@ -15,6 +15,22 @@ const DEFAULT_API_BASE: &str = "https://openrouter.ai/api/v1";
 const DEFAULT_MODEL: &str = "openai/gpt-transcribe";
 const TRANSCRIPTION_PATH: &str = "audio/transcriptions";
 
+// App attribution per https://openrouter.ai/docs/app-attribution
+const APP_REFERER: &str = "https://anarlog.so";
+const APP_TITLE: &str = "Anarlog";
+const APP_CATEGORIES: &str = "writing-assistant,personal-agent";
+
+// Shared with `openai_compatible_batch::transcribe`, whose multipart path
+// also serves non-OpenRouter providers and so must gate this explicitly.
+pub(crate) fn with_attribution_headers(
+    builder: reqwest_middleware::RequestBuilder,
+) -> reqwest_middleware::RequestBuilder {
+    builder
+        .header("HTTP-Referer", APP_REFERER)
+        .header("X-Title", APP_TITLE)
+        .header("X-OpenRouter-Categories", APP_CATEGORIES)
+}
+
 #[derive(Clone, Default)]
 pub struct OpenRouterAdapter;
 
@@ -215,9 +231,7 @@ async fn transcribe_with_provider_options(
     };
     append_path_if_missing(&mut url, TRANSCRIPTION_PATH);
 
-    let response = client
-        .post(url.to_string())
-        .bearer_auth(api_key)
+    let response = with_attribution_headers(client.post(url.to_string()).bearer_auth(api_key))
         .json(&body)
         .send()
         .await?;

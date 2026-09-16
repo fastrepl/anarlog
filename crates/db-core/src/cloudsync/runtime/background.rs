@@ -11,7 +11,7 @@ use tokio::sync::oneshot;
 use super::super::state::CloudsyncRuntimeState;
 use super::super::types::{
     CloudsyncActivityEntry, CloudsyncActivityStatus, CloudsyncActivityTrigger,
-    CloudsyncNetworkResult,
+    CloudsyncNetworkResult, cloudsync_receive_error,
 };
 
 pub(super) const MAX_ACTIVITY_LOG_ENTRIES: usize = 50;
@@ -166,13 +166,8 @@ fn embedded_sync_error(result: &CloudsyncNetworkResult) -> Option<String> {
         }
     }
 
-    if let Some(receive) = &result.receive {
-        if let Some(error) = &receive.error {
-            errors.push(format!("receive error: {error}"));
-        }
-        if let Some(last_failure) = &receive.last_failure {
-            errors.push(format!("receive failure: {last_failure}"));
-        }
+    if let Some(error) = cloudsync_receive_error(result) {
+        errors.push(error);
     }
 
     (!errors.is_empty()).then(|| errors.join("; "))

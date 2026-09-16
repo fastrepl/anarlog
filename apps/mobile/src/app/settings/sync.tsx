@@ -9,9 +9,9 @@ import {
   SettingsPage,
   SettingsRow,
 } from "@/settings/components";
+import { ConnectLibraryRow } from "@/settings/connect-library-row";
 import { FieldGroup } from "@/settings/field-group";
 import { Button, Switch, Text } from "@/settings/fields";
-import { StartFreshRow } from "@/settings/start-fresh-row";
 import { formatStorageBytes, useRecordingStorage } from "@/settings/storage";
 import { requestSyncDeviceList } from "@/settings/sync-devices";
 import {
@@ -123,7 +123,7 @@ export default function SyncSettings() {
             onPress={() => router.push("/settings/account")}
           />
         )}
-        <StartFreshRow phase={snapshot.phase} />
+        <ConnectLibraryRow phase={snapshot.phase} />
         <SettingsError error={optIn.error || sync.error || refresh.error} />
       </FieldGroup.Section>
       {(health.conflictedNotes > 0 ||

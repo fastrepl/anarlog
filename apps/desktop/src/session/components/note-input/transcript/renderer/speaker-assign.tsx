@@ -491,7 +491,7 @@ export function SpeakerParticipantPicker({
   ]);
 
   return (
-    <div className="flex max-h-[min(var(--radix-popover-content-available-height,calc(100vh-1rem)),28rem)] flex-col gap-1 overflow-hidden">
+    <div className="flex max-h-[min(var(--radix-popover-content-available-height,calc(100vh-1rem)),28rem)] min-h-0 flex-col gap-1 overflow-hidden">
       <AppFloatingPanel className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="border-border border-b py-1">
           <div className="flex h-8 items-center gap-2 px-3">
@@ -573,7 +573,7 @@ export function SpeakerParticipantPicker({
           </div>
         </div>
       </AppFloatingPanel>
-      <div className="flex items-center justify-end gap-3 py-1 pl-2">
+      <div className="flex shrink-0 items-center justify-end gap-3 py-1 pl-2">
         {showAssignmentScope && (
           <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
             <Checkbox

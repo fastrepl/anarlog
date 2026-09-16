@@ -200,36 +200,6 @@ export function useTimelineSessionsTable(): TimelineSessionsTable {
   }, [timelineSessionsTable, pendingDeletions]);
 }
 
-export function useCalendarRow(
-  id: string | null | undefined,
-): CalendarRow | null {
-  const { data = null } = useLiveQuery<CalendarSqlRow, CalendarRow | null>({
-    sql: `
-      SELECT
-        id,
-        tracking_id_calendar,
-        name,
-        enabled,
-        provider,
-        source,
-        color,
-        connection_id,
-        created_at
-      FROM calendars
-      WHERE id = ? AND deleted_at IS NULL
-      LIMIT 1
-    `,
-    params: [id ?? ""],
-    enabled: Boolean(id),
-    mapRows: (rows) => {
-      const row = rows[0];
-      return row ? normalizeCalendarRow(row) : null;
-    },
-  });
-
-  return id ? data : null;
-}
-
 export function useEnabledCalendarRows(): CalendarRow[] {
   const { data = EMPTY_CALENDARS } = useLiveQuery<
     CalendarSqlRow,

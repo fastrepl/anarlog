@@ -738,6 +738,20 @@ pub(crate) async fn start_cloudsync(state: tauri::State<'_, ManagedState>) -> Re
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) async fn connect_local_library(
+    state: tauri::State<'_, ManagedState>,
+    account_user_id: String,
+    expected_library_workspace_id: String,
+) -> Result<(), String> {
+    let account_user_id = canonical_e2ee_account_user_id(&account_user_id)?;
+    state
+        .connect_local_library(account_user_id, expected_library_workspace_id)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn stop_cloudsync(state: tauri::State<'_, ManagedState>) -> Result<(), String> {
     state
         .stop_cloudsync()

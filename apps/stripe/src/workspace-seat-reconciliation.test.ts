@@ -79,6 +79,44 @@ function fixture() {
 }
 
 describe("membership-driven Team billing", () => {
+  test("waits for first checkout without updating Stripe, then reconciles the original event", async () => {
+    const f = fixture();
+    const list = f.api.subscriptions.list;
+    f.api.subscriptions.list = (async () => ({
+      data: [],
+      has_more: false,
+    })) as unknown as typeof list;
+    expect(await reconcileWorkspaceSeatEvent(event, f.api)).toBe(
+      "waiting_for_subscription",
+    );
+    expect(f.updates).toHaveLength(0);
+    f.api.subscriptions.list = list;
+    await reconcileWorkspaceSeatEvent(event, f.api);
+    expect(f.updates).toHaveLength(1);
+    expect(f.updates[0].params.proration_date).toBe(1_750_000_500);
+  });
+
+  test("waits for incomplete checkout and resumes after payment", async () => {
+    const f = fixture();
+    f.subscription.status = "incomplete";
+    expect(await reconcileWorkspaceSeatEvent(event, f.api)).toBe(
+      "waiting_for_subscription",
+    );
+    expect(f.updates).toHaveLength(0);
+    f.subscription.status = "active";
+    await reconcileWorkspaceSeatEvent(event, f.api);
+    expect(f.updates).toHaveLength(1);
+  });
+
+  test("expired checkout remains an actionable reconciliation error", async () => {
+    const f = fixture();
+    f.subscription.status = "incomplete_expired";
+    await expect(reconcileWorkspaceSeatEvent(event, f.api)).rejects.toThrow(
+      "exactly one",
+    );
+    expect(f.updates).toHaveLength(0);
+  });
+
   test("adds a member at the join time and accrues proration without an immediate invoice", async () => {
     const f = fixture();
     await reconcileWorkspaceSeatEvent(event, f.api);

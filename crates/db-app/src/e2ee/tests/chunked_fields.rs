@@ -40,6 +40,15 @@ async fn seed_transcript(
         .execute(a.pool())
         .await
         .unwrap();
+    seed_nightly_field(
+        a.pool(),
+        workspace_keys,
+        "transcripts",
+        "transcript-1",
+        "words_json#n",
+        json!(0),
+    )
+    .await;
     encrypt_e2ee_replica_changes(a.pool(), workspace_keys)
         .await
         .unwrap();
@@ -201,6 +210,15 @@ async fn incomplete_transcript_pages_do_not_starve_later_local_edits() {
         .execute(a.pool())
         .await
         .unwrap();
+        seed_nightly_field(
+            a.pool(),
+            &workspace_keys,
+            "transcripts",
+            &format!("transcript-{index:03}"),
+            "words_json#n",
+            json!(0),
+        )
+        .await;
     }
     encrypt_e2ee_replica_changes(a.pool(), &workspace_keys)
         .await

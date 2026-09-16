@@ -39,13 +39,73 @@ fn embedded_sync_failures_update_runtime_error_state() {
         runtime.last_error_kind,
         Some(anlg_cloudsync::ErrorKind::Fatal)
     );
-    assert!(
-        runtime
-            .last_error
-            .as_deref()
-            .unwrap()
-            .contains("schema mismatch")
+    assert_eq!(
+        runtime.last_error.as_deref(),
+        Some("send status: failed; receive error: schema mismatch")
     );
+}
+
+#[test]
+fn background_sync_uses_shared_receive_errors() {
+    assert_eq!(
+        crate::cloudsync_receive_error(&CloudsyncNetworkResult {
+            send: None,
+            receive: None,
+        }),
+        None
+    );
+    for (error, failure, expected) in [
+        (None, None, None),
+        (
+            Some("later chunk failed"),
+            None,
+            Some("receive error: later chunk failed"),
+        ),
+        (
+            None,
+            Some("check_failed"),
+            Some("receive failure: \"check_failed\""),
+        ),
+        (
+            Some("later chunk failed"),
+            Some("check_failed"),
+            Some("receive error: later chunk failed; receive failure: \"check_failed\""),
+        ),
+    ] {
+        for complete in [false, true] {
+            let result = CloudsyncNetworkResult {
+                send: None,
+                receive: Some(anlg_cloudsync::NetworkReceiveResult {
+                    rows: 0,
+                    tables: Vec::new(),
+                    chunks: 0,
+                    bytes: 0,
+                    complete,
+                    error: error.map(str::to_string),
+                    last_failure: failure.map(Into::into),
+                }),
+            };
+            assert_eq!(crate::cloudsync_receive_error(&result).as_deref(), expected);
+
+            let runtime = Mutex::new(CloudsyncRuntimeState::default());
+            record_sync_result(
+                &runtime,
+                result,
+                false,
+                CloudsyncActivityTrigger::Background,
+            );
+
+            let runtime = runtime.lock().unwrap();
+            assert_eq!(runtime.last_error.as_deref(), expected);
+            if expected.is_some() {
+                let activity = runtime.activity_log.back().unwrap();
+                assert_eq!(activity.status, crate::CloudsyncActivityStatus::Failed);
+                assert_eq!(activity.error.as_deref(), expected);
+            } else {
+                assert!(runtime.activity_log.is_empty());
+            }
+        }
+    }
 }
 
 #[test]

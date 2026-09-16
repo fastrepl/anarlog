@@ -287,7 +287,7 @@ export async function getSessionTranscriptRecords(
 
 // Drop excluded people and any contact that is the current user (or a
 // calendar copy with the same email) so a 1:1 meeting still has one remote.
-export const SESSION_REMOTE_PARTICIPANT_IDS_SQL = `
+const SESSION_REMOTE_PARTICIPANT_IDS_SQL = `
       SELECT DISTINCT participant.human_id
       FROM session_participants AS participant
       LEFT JOIN humans AS human
@@ -772,6 +772,93 @@ export function updateTranscriptSegmentText({
           ? word
           : { ...word, text: nextText };
       }),
+    );
+  });
+}
+
+export function splitTranscriptSpeaker({
+  transcriptId,
+  segmentKey,
+  wordIds,
+  text,
+  offset,
+  humanId,
+}: {
+  transcriptId: string;
+  segmentKey: SegmentKey;
+  wordIds: string[];
+  text: string;
+  offset: number;
+  humanId: string;
+}): Promise<void> {
+  const splitWordId = crypto.randomUUID();
+  return mutateTranscript(transcriptId, (store) => {
+    const words = parseTranscriptWords(store, transcriptId);
+    const selectedIds = new Set(wordIds);
+    const selected = words.filter((word) => selectedIds.has(word.id));
+    const tokens = [...text.matchAll(/\S+/g)];
+    if (!selected.length || !text.slice(offset).trim()) return false;
+
+    const lastToken = tokens[tokens.length - 1];
+    const textEnd = lastToken
+      ? lastToken.index + lastToken[0].length
+      : text.length;
+    const replacements = new Map<string, WordWithId[]>();
+    const followingIds: string[] = [];
+    for (const [index, word] of selected.entries()) {
+      const start = tokens[index]?.index ?? text.length;
+      const end =
+        index === selected.length - 1
+          ? textEnd
+          : start + (tokens[index]?.[0].length ?? 0);
+      const nextText = text.slice(start, end).trim();
+      if (offset > start && offset < end) {
+        const before = text.slice(start, offset).trim();
+        const after = text.slice(offset, end).trim();
+        if (before && after) {
+          const boundary =
+            word.start_ms !== undefined && word.end_ms !== undefined
+              ? word.start_ms +
+                (word.end_ms - word.start_ms) *
+                  ((offset - start) / (end - start))
+              : undefined;
+          replacements.set(word.id, [
+            {
+              ...word,
+              text: before,
+              ...(boundary === undefined ? {} : { end_ms: boundary }),
+            },
+            {
+              ...word,
+              id: splitWordId,
+              text: after,
+              ...(boundary === undefined ? {} : { start_ms: boundary }),
+            },
+          ]);
+          followingIds.push(splitWordId);
+          continue;
+        }
+      }
+      replacements.set(word.id, [{ ...word, text: nextText }]);
+      if (nextText && start >= offset) followingIds.push(word.id);
+    }
+    if (!followingIds.length) return false;
+    updateTranscriptWords(
+      store,
+      transcriptId,
+      words.flatMap((word) => replacements.get(word.id) ?? [word]),
+    );
+    upsertSpeakerAssignment(
+      store,
+      transcriptId,
+      segmentKey,
+      humanId,
+      followingIds[0],
+      {
+        mode: "segment",
+        wordIds: followingIds,
+        extendToAdjacent: false,
+      },
     );
   });
 }

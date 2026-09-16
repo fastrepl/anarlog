@@ -102,3 +102,32 @@ test("ignores malformed stored values", () => {
     true,
   );
 });
+
+test("resumes an explicitly connected library and respects sync being disabled", () => {
+  const row = {
+    account_user_id: "user-b",
+    binding_json: claimedBinding,
+    preference_json: null,
+    connected_account: 1,
+  };
+  assert.equal(resolveCloudSyncOptIn([row]), true);
+  assert.equal(
+    resolveCloudSyncOptIn([{ ...row, preference_json: "false" }]),
+    false,
+  );
+});
+
+test("does not fall back to a legacy binding for an inactive connection", () => {
+  assert.equal(
+    resolveCloudSyncOptIn([
+      {
+        account_user_id: "user-a",
+        preference_json: null,
+        binding_json: claimedBinding,
+        connected_account: 0,
+        has_connections: 1,
+      },
+    ]),
+    false,
+  );
+});

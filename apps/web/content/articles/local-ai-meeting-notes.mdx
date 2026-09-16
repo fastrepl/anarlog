@@ -3,7 +3,7 @@ meta_title: "5 Best Local AI Meeting Notetakers in 2026"
 meta_description: "Local AI meeting notes tools that transcribe and summarize on your device. For engineers, legal teams, and anyone whose company banned cloud recording tools."
 author:
   - "John Jeong"
-featured: false
+featured: !!bool "false"
 category: "Comparisons"
 date: "2026-04-10"
 ---
@@ -12,7 +12,7 @@ Every meeting notetaker calls itself "local" or "private" now. The word has beco
 
 Some tools transcribe on your device but send the transcript to a cloud LLM for summarization. Some store notes locally but make them accessible via a shareable link by default. Some process everything on-device but only work on one operating system, or only on recent hardware. And some are fully local until you look at the fine print and discover your data trains their models unless you opt out.
 
-I tested five tools that take different positions on this spectrum. For each one, I dug into what "local" actually means in practice: what stays on your machine, what leaves, what the tradeoffs are, and what it costs.
+This guide compares five tools by their documented processing and storage choices: what stays on your machine, what leaves, what the tradeoffs are, and what it costs. The Anarlog setup instructions below were checked against its documentation on September 16, 2026; they are not a cross-product accuracy benchmark.
 
 ## How These Local AI Meeting Notetakers Compare
 
@@ -28,6 +28,20 @@ I tested five tools that take different positions on this spectrum. For each one
 |                |                                                                    |                                |
 
 
+## How to set up an offline Anarlog meeting
+
+Local transcription and local summaries are separate choices. Selecting Ollama for summaries does not change where your audio is transcribed.
+
+1. **Check model availability.** The built-in on-device transcription paths require a supported Apple Silicon Mac. Open **Settings → Transcription** and check the available models for your installed release. Apple Speech additionally requires macOS 26 and a supported language.
+2. **Prepare speech-to-text.** Download a Soniqo model and select it under **Model being used**. Alternatively, configure Apple Speech's language assets or choose **On-device file** with a downloaded whisper.cpp `.bin`. Read the model's **Live** or **After recording** label; after-recording models do not produce a live transcript.
+3. **Prepare summaries separately.** Download a text model in LM Studio, Ollama, or Unsloth, start its local server on the same computer, and select it in **Settings → Intelligence**. Choose a model that fits your available memory alongside the meeting app. Experimental Apple Intelligence is another option on eligible Macs running macOS 26 or later.
+4. **Run a short offline check.** After all downloads finish, disconnect from the internet and record your own short sample. Verify capture, transcription, summary generation, and export. If a step fails, inspect its selected provider and the local server before relying on it in a meeting.
+5. **Review optional data paths.** For a local-only workflow, leave CloudSync, sharing, Cloud API & Connectors, and hosted providers disabled. Avoid Chat's web search: it sends queries to a hosted endpoint even when both selected models are local.
+
+The canonical meeting record is stored in local SQLite; recordings and attachments are separate local files. Markdown is an export format. Enabling a hosted AI provider sends the content needed for that operation to that provider. Optional encrypted CloudSync and the server-readable Cloud API & Connectors copy are distinct services; review each before enabling it.
+
+Sources: Anarlog's [offline setup](https://docs.anarlog.so/offline), [model compatibility](https://docs.anarlog.so/models-and-providers), and [privacy policy](/privacy/). This is a setup procedure you can verify on your own hardware, not a claim that every model or operating system supports offline transcription.
+
 ## 5 Tools for Local AI Meeting Notes: A Closer Look
 
 ### 1. Anarlog
@@ -42,7 +56,7 @@ The AI stack is yours to choose: Anarlog's managed cloud service, your own API k
 
 #### How local is it actually
 
-- Transcription: local or BYOK. Supports Ollama and LM Studio for fully on-device processing.
+- Transcription: choose an available on-device speech model or a hosted provider. Built-in on-device transcription currently requires a supported Apple Silicon Mac. Ollama and LM Studio serve text models for summaries, not this speech-to-text step.
 - Summarization: your choice. Managed cloud, BYOK API keys, or local models. You control the boundary.
 - Storage: the canonical meeting record is local SQLite on your device, with portable exports when you need them.
 - Open-source codebase. Your security team can audit exactly how data is handled.
@@ -52,8 +66,8 @@ If you use on-device transcription and local models without enabling CloudSync o
 #### Where it falls short
 
 - macOS is the most mature build; Windows and Linux builds are in beta.
-- No mobile app, no video recording.
-- No built-in CRM integrations. If you need notes pushed into Salesforce, you will need to build that yourself.
+- This offline setup describes the desktop app; do not assume the same models are available on another platform.
+- Verify any export or integration separately: sending meeting content to another service changes the data boundary.
 - CloudSync and sharing are optional features; the canonical meeting record remains local by default.
 
 #### Pricing
@@ -207,11 +221,11 @@ Yes. Tools that capture microphone input (Anarlog, Meetily, Talat, Screenpipe) w
 
 ### 3. Do local meeting notetakers work offline?
 
-If both transcription and summarization use local models, yes. Anarlog with Ollama, Meetily with Parakeet + Ollama, Talat with its built-in LLM, and Screenpipe with local Whisper all work without an internet connection. Shadow's transcription works offline but the AI summary features need a connection.
+If both transcription and summarization use local models, yes. Anarlog needs both a downloaded on-device speech model on a supported Apple Silicon Mac and a local summary model such as Ollama; follow the setup steps above. Meetily with Parakeet + Ollama, Talat with its built-in LLM, and Screenpipe with local Whisper plus a local summary model can also work without an internet connection. Shadow's transcription works offline but the AI summary features need a connection.
 
 ### 4. What hardware do I need to run local transcription?
 
-Most tools work on any Mac from the last five years. Apple Silicon (M1 or later) gives the best performance due to the Neural Engine. Intel Macs are supported by Meetily and Screenpipe but transcription will be slower. Talat requires M-series specifically. On Windows, a modern multi-core processor with 8+ GB RAM handles Whisper fine. A dedicated GPU (NVIDIA with CUDA) speeds things up significantly for Meetily and Screenpipe.
+Requirements depend on the app and both selected models. Anarlog's built-in local transcription currently requires a supported Apple Silicon Mac; Apple Speech requires macOS 26 and supported language assets. Local summary models have their own memory requirements. Check the [current model compatibility list](https://docs.anarlog.so/models-and-providers), leave memory for your meeting app, and test a representative recording. There is no single RAM minimum that guarantees every Whisper or summary model will run well.
 
 ### 5. Is it legal to record meetings without telling participants?
 

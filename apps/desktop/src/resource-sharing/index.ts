@@ -1,6 +1,5 @@
 export { ResourceShareButton } from "./share-dialog";
 export { SharedResourceLibrarySection } from "./library";
-export { useSharedResources } from "./hooks";
 export {
   importSharedAutomation,
   importSharedFolder,

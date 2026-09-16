@@ -44,9 +44,9 @@ const phaseCopy: Record<
     description: "Your session expired before cloud sync could connect.",
   },
   account_mismatch: {
-    title: "This device belongs to another account",
+    title: "Connect your local library",
     description:
-      "Your local notes were created by a different account, so sync stays off to protect both workspaces. Sign in with that account, or start fresh on this device to keep using this one.",
+      "Your notes are available locally. Connect this library below to sync its personal notes with your current account.",
   },
 };
 

@@ -1,6 +1,6 @@
 # Overview
 
-For Anarlog work, read and follow [.agents/skills/anarlog-workflow/SKILL.md](.agents/skills/anarlog-workflow/SKILL.md). Start requested work immediately and record in Linear alongside execution.
+For Anarlog work, read and follow [.agents/skills/anarlog-workflow/SKILL.md](.agents/skills/anarlog-workflow/SKILL.md). Start requested work immediately; record useful decisions and non-obvious lessons in Linear, not routine execution logs.
 
 Anarlog is a pnpm and Rust workspace. Read the nearest `AGENTS.md` before changing a component.
 

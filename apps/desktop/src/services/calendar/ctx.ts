@@ -96,7 +96,7 @@ export async function syncCalendars(
   }
 }
 
-export const getDefaultRange = (): CalendarSyncRange => {
+const getDefaultRange = (): CalendarSyncRange => {
   const now = new Date();
   const from = new Date(now);
   from.setHours(0, 0, 0, 0);

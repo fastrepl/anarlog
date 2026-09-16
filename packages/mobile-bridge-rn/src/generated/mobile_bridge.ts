@@ -1351,6 +1351,10 @@ export interface MobileDbBridgeLike {
     witnessAccessToken: string,
     recoveryKeyCode: string,
   ) /*throws*/ : string;
+  connectLocalLibrary(
+    accountUserId: string,
+    expectedLibraryWorkspaceId: string,
+  ) /*throws*/ : void;
   describeAttachmentUpload(
     jobId: string,
     attemptCount: number,
@@ -1769,6 +1773,32 @@ export class MobileDbBridge
         },
         /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
       ),
+    );
+  }
+
+  connectLocalLibrary(
+    accountUserId: string,
+    expectedLibraryWorkspaceId: string,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+        FfiConverterTypeBridgeError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_connect_local_library(
+          uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+          FfiConverterString.lower(
+            accountUserId,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterString.lower(
+            expectedLibraryWorkspaceId,
+            nativeModule().rustbuffer_alloc,
+          ),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
   }
 
@@ -2901,6 +2931,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_e2ee_replica",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_connect_local_library() !==
+    37413
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_connect_local_library",
     );
   }
   if (

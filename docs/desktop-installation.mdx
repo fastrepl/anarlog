@@ -113,10 +113,9 @@ When installation is complete, continue to [Your first meeting](/quickstart). If
 
 ## Nightly
 
-Anarlog Nightly is an optional separate desktop app. Check the
-[Nightly download page](https://anarlog.so/download/nightly/) for availability.
-Your existing installation stays on stable; install Nightly only if you want
-frequent previews that may be less reliable.
+Use the [stable download page](https://anarlog.so/download/) for new installations.
+If you already use Anarlog Nightly, keep these compatibility notes in mind before
+switching to stable.
 
 Nightly opens the same local notes database as stable, so your notes,
 transcripts, and meetings appear in both apps. Sign-in and app settings stay
@@ -127,6 +126,13 @@ Nightly can update the database format before stable does. Most changes stay
 compatible with stable. When a change is not, stable shows an update prompt and
 cannot open your notes until a stable release includes that change. Keep using
 Nightly until then. Your data is not modified by the older app.
+
+<Warning>
+  When trying Nightly with cloud sync, use matching versions on your connected
+  devices. Older builds may not read records written by a newer Nightly, even
+  when both apps can open the local database. Do not reset your notes or recovery
+  key to resolve a version mismatch; see [Cloud sync troubleshooting](/sync).
+</Warning>
 
 Nightly release notes are included in the app and its GitHub prerelease. Only
 stable changelogs appear on the Anarlog website. If you install the bundled CLI

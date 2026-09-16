@@ -30,7 +30,7 @@ describe("ConfigError", () => {
     fireEvent.click(screen.getByRole("button", { name: "Get Pro" }));
     expect(openNew).toHaveBeenNthCalledWith(1, {
       type: "settings",
-      state: { tab: "account" },
+      state: { tab: "billing" },
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Add API key" }));

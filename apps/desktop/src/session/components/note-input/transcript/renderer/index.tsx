@@ -20,7 +20,6 @@ import {
   getTranscriptMergeTarget,
   getTranscriptSectionKeyFromElement,
   getTranscriptSectionSelection,
-  getTranscriptSelectionFromHere,
   mergeTranscriptSelections,
   type TranscriptWordSelection,
 } from "./selection";
@@ -46,6 +45,7 @@ import type { Segment } from "~/stt/live-segment";
 import {
   assignTranscriptSpeaker,
   mergeTranscriptSegments,
+  updateTranscriptSegmentText,
 } from "~/stt/queries";
 
 const LIVE_TRANSCRIPT_PLACEHOLDER_ID = "__live-transcript__";
@@ -211,18 +211,23 @@ export function TranscriptViewer({
     },
     [onEditModeChange],
   );
-  const handleAssignSpeakerFromHere = useCallback(
-    async (selection: TranscriptWordSelection, humanId: string) => {
-      const { entries } = collectEntries(visibleTranscriptIdsRef.current);
-      const fromHere = getTranscriptSelectionFromHere(
-        selection,
-        entries.values(),
+  const handleChangeSpeakerSelection = useCallback(
+    (selection: TranscriptWordSelection) => {
+      flushSync(() => onEditModeChange?.(true));
+      const container = containerRef.current;
+      if (!container) return;
+      const editor = focusTranscriptSelection(selection, container);
+      if (!editor) return;
+      window.getSelection()?.collapseToStart();
+      editor.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          cancelable: true,
+        }),
       );
-      if (fromHere) {
-        await handleAssignSpeaker(fromHere, humanId, false);
-      }
     },
-    [collectEntries, handleAssignSpeaker],
+    [onEditModeChange],
   );
   const handleMergeSegments = useCallback(async () => {
     const { order, entries } = collectEntries(visibleTranscriptIdsRef.current);
@@ -259,6 +264,29 @@ export function TranscriptViewer({
       ),
     });
   }, [collectEntries, selectedEntries]);
+  const handleDeleteSelection = useCallback(
+    async (selection: TranscriptWordSelection) => {
+      const wordsByTranscript = new Map<string, Set<string>>();
+      for (const group of selection.groups) {
+        const wordIds =
+          wordsByTranscript.get(group.transcriptId) ?? new Set<string>();
+        group.wordIds.forEach((wordId) => wordIds.add(wordId));
+        wordsByTranscript.set(group.transcriptId, wordIds);
+      }
+      await preserveScrollPosition(containerRef.current, () =>
+        Promise.all(
+          [...wordsByTranscript].map(([transcriptId, wordIds]) =>
+            updateTranscriptSegmentText({
+              transcriptId,
+              wordIds: [...wordIds],
+              text: "",
+            }),
+          ),
+        ),
+      );
+    },
+    [],
+  );
   const canMergeSelection = useMemo(() => {
     if (selectedEntries.size < 2) {
       return false;
@@ -317,6 +345,38 @@ export function TranscriptViewer({
       clearSelectedEntries();
     },
     { enabled: editMode && selectedEntries.size > 0 },
+  );
+
+  useHotkeys(
+    "mod+shift+up, mod+shift+down",
+    (event) => {
+      if (
+        event.target instanceof Element &&
+        event.target.closest("[data-transcript-editor], [contenteditable=true]")
+      ) {
+        return;
+      }
+      const { order, entries } = collectEntries(
+        visibleTranscriptIdsRef.current,
+      );
+      const anchorIndex = selectionAnchor ? order.indexOf(selectionAnchor) : -1;
+      if (anchorIndex === -1) {
+        return;
+      }
+
+      event.preventDefault();
+      window.getSelection()?.removeAllRanges();
+      const keys =
+        event.key === "ArrowUp"
+          ? order.slice(0, anchorIndex + 1)
+          : order.slice(anchorIndex);
+      setSelectedEntries(new Map(keys.map((key) => [key, entries.get(key)!])));
+    },
+    {
+      enabled: selectedEntries.size > 0,
+      enableOnFormTags: false,
+      enableOnContentEditable: false,
+    },
   );
 
   const handleSegmentSelection = useCallback(
@@ -452,7 +512,9 @@ export function TranscriptViewer({
             onContextClose={handleContextClose}
             onAction={handleSelectionAction}
             onEdit={onEditModeChange ? handleEditSelection : undefined}
-            onAssignSpeaker={handleAssignSpeakerFromHere}
+            onChangeSpeaker={
+              onEditModeChange ? handleChangeSpeakerSelection : undefined
+            }
           />
         </div>
 
@@ -464,6 +526,9 @@ export function TranscriptViewer({
             onClear={clearSelectedEntries}
             onAssignSpeaker={handleAssignSpeaker}
             onMerge={handleMergeSegments}
+            onDelete={
+              editMode && !currentActive ? handleDeleteSelection : undefined
+            }
           />
         )}
 

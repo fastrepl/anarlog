@@ -142,9 +142,11 @@ pub async fn prepare_delete_guard<R: Runtime>(
     }
     let expected = plaintext_metadata(&record.expected_sha256, record.expected_size_bytes)?;
     let expected_size = expected.size_bytes;
-    let key = workspace_key(state, &record.workspace_id)?;
+    let remote_workspace_id =
+        anlg_db_app::local_library_remote_workspace(state.pool(), &record.workspace_id).await?;
+    let key = workspace_key(state, &remote_workspace_id)?;
     let (attachment_ref, version_ref) =
-        attachment_backup_refs(&key, &record.workspace_id, &record.attachment_id, &expected)?;
+        attachment_backup_refs(&key, &remote_workspace_id, &record.attachment_id, &expected)?;
     let prepared = |outcome| PreparedDeleteGuard {
         attachment_ref: attachment_ref.clone(),
         version_ref: version_ref.clone(),
@@ -161,14 +163,14 @@ pub async fn prepare_delete_guard<R: Runtime>(
 
     let object_id = private_object_id(&record.object_key)?;
     let context = AttachmentBlobContext::new(
-        record.workspace_id.clone(),
+        remote_workspace_id.clone(),
         record.attachment_id.clone(),
         object_id,
     )?;
     let guard_root = delete_guard_root(app)?;
     create_delete_guard_root(&guard_root).await?;
 
-    if let Some(metadata) = delete_guard_metadata(&record, &key, &expected)? {
+    if let Some(metadata) = delete_guard_metadata(&record, &key, &remote_workspace_id, &expected)? {
         let guard_path = delete_guard_path(&guard_root, &record.cache_id)?;
         if guarded_file_matches_async(
             guard_path,
@@ -332,11 +334,13 @@ pub async fn commit_delete_guard<R: Runtime>(
             return Err(Error::DeleteGuardChanged);
         }
         let expected = plaintext_metadata(&record.expected_sha256, record.expected_size_bytes)?;
-        let key = workspace_key(state, &record.workspace_id)?;
-        let metadata =
-            delete_guard_metadata(&record, &key, &expected)?.ok_or(Error::DeleteGuardChanged)?;
+        let remote_workspace_id =
+            anlg_db_app::local_library_remote_workspace(state.pool(), &record.workspace_id).await?;
+        let key = workspace_key(state, &remote_workspace_id)?;
+        let metadata = delete_guard_metadata(&record, &key, &remote_workspace_id, &expected)?
+            .ok_or(Error::DeleteGuardChanged)?;
         let context = AttachmentBlobContext::new(
-            record.workspace_id.clone(),
+            remote_workspace_id.clone(),
             record.attachment_id.clone(),
             private_object_id(&record.object_key)?,
         )?;
@@ -737,6 +741,7 @@ async fn clear_delete_guard_link(
 fn delete_guard_metadata(
     record: &DeleteSourcePreflight,
     key: &WorkspaceKey,
+    remote_workspace_id: &str,
     plaintext: &AttachmentBlobPlaintextMetadata,
 ) -> Result<Option<AttachmentBlobMetadata>> {
     if record.cache_id.is_empty()
@@ -750,7 +755,7 @@ fn delete_guard_metadata(
         _ => return Ok(None),
     };
     let expected_size = key.attachment_blob_ciphertext_size(
-        &record.workspace_id,
+        remote_workspace_id,
         &record.attachment_id,
         plaintext.size_bytes,
     )?;

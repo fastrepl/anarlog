@@ -19,7 +19,7 @@ import {
 } from "~/services/task-scheduler";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
-export const TOGGLE_SYNC_DEBOUNCE_MS = 5000;
+const TOGGLE_SYNC_DEBOUNCE_MS = 5000;
 
 export type SyncStatus = "idle" | "scheduled" | "syncing";
 

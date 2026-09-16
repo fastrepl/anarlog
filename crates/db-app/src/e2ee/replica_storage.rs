@@ -9,6 +9,7 @@ use sqlx::sqlite::SqliteRow;
 use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool, Transaction, TypeInfo, ValueRef};
 
 use super::chunks::{chunk_size_for, chunk_value, parse_array, parse_chunk_field, split_chunks};
+use super::library::LibraryIdentity;
 use super::{
     DecryptedRecord, E2EE_DOMAIN_TABLES, E2eeReplicaError, E2eeReplicaResult, LocalState,
     ROW_MANIFEST_FIELD, check_e2ee_cancellation, yield_once,
@@ -201,6 +202,12 @@ pub(super) async fn insert_apply_guard(
     table: &str,
     row_id: &str,
 ) -> E2eeReplicaResult<()> {
+    let identity = LibraryIdentity::load(&mut **transaction, workspace_id).await?;
+    if !identity.active {
+        return Err(E2eeReplicaError::Cancelled);
+    }
+    let workspace_id = identity.local_workspace_id.as_str();
+    let row_id = identity.local_row_id(table, row_id);
     sqlx::query(
         "INSERT INTO e2ee_apply_guard (workspace_id, table_name, row_id)
          VALUES (?, ?, ?)",
@@ -232,6 +239,9 @@ pub(super) async fn remove_apply_guard(
     table: &str,
     row_id: &str,
 ) -> E2eeReplicaResult<()> {
+    let identity = LibraryIdentity::load(&mut **transaction, workspace_id).await?;
+    let workspace_id = identity.local_workspace_id.as_str();
+    let row_id = identity.local_row_id(table, row_id);
     sqlx::query(
         "DELETE FROM e2ee_apply_guard
          WHERE workspace_id = ? AND table_name = ? AND row_id = ?",
@@ -663,6 +673,9 @@ pub(super) async fn row_exists(
     workspace_id: &str,
     row_id: &str,
 ) -> E2eeReplicaResult<bool> {
+    let identity = LibraryIdentity::load(&mut **transaction, workspace_id).await?;
+    let workspace_id = identity.local_workspace_id.as_str();
+    let row_id = identity.local_row_id(table, row_id);
     let sql = format!("SELECT EXISTS(SELECT 1 FROM {table} WHERE id = ? AND workspace_id = ?)");
     Ok(sqlx::query_scalar(sqlx::AssertSqlSafe(sql.as_str()))
         .bind(row_id)
@@ -677,6 +690,9 @@ pub(super) async fn insert_row(
     workspace_id: &str,
     row_id: &str,
 ) -> E2eeReplicaResult<()> {
+    let identity = LibraryIdentity::load(&mut **transaction, workspace_id).await?;
+    let workspace_id = identity.local_workspace_id.as_str();
+    let row_id = identity.local_row_id(table, row_id);
     let sql =
         format!("INSERT INTO {table} (id, workspace_id) VALUES (?, ?) ON CONFLICT(id) DO NOTHING");
     sqlx::query(sqlx::AssertSqlSafe(sql.as_str()))
@@ -693,6 +709,9 @@ pub(super) async fn delete_row(
     workspace_id: &str,
     row_id: &str,
 ) -> E2eeReplicaResult<()> {
+    let identity = LibraryIdentity::load(&mut **transaction, workspace_id).await?;
+    let workspace_id = identity.local_workspace_id.as_str();
+    let row_id = identity.local_row_id(table, row_id);
     let sql = format!("DELETE FROM {table} WHERE id = ? AND workspace_id = ?");
     sqlx::query(sqlx::AssertSqlSafe(sql.as_str()))
         .bind(row_id)
@@ -730,13 +749,29 @@ pub(super) async fn read_column(
     row_id: &str,
     field: &str,
 ) -> E2eeReplicaResult<Option<Value>> {
+    let identity = LibraryIdentity::load(&mut **transaction, workspace_id).await?;
+    let workspace_id = identity.local_workspace_id.as_str();
+    let row_id = identity.local_row_id(table, row_id);
     let sql = format!("SELECT {field} FROM {table} WHERE id = ? AND workspace_id = ? LIMIT 1");
     let row = sqlx::query(sqlx::AssertSqlSafe(sql.as_str()))
         .bind(row_id)
         .bind(workspace_id)
         .fetch_optional(&mut **transaction)
         .await?;
-    row.as_ref().map(|row| sqlite_value(row, 0)).transpose()
+    match row.as_ref() {
+        Some(row) => Ok(Some(
+            identity
+                .remote_value(
+                    &mut **transaction,
+                    table,
+                    row_id,
+                    field,
+                    sqlite_value(row, 0)?,
+                )
+                .await?,
+        )),
+        None => Ok(None),
+    }
 }
 
 pub(super) async fn update_field(
@@ -747,6 +782,10 @@ pub(super) async fn update_field(
     field: &str,
     value: &Value,
 ) -> E2eeReplicaResult<()> {
+    let identity = LibraryIdentity::load(&mut **transaction, workspace_id).await?;
+    let value = &identity.to_local(table, field, value.clone());
+    let workspace_id = identity.local_workspace_id.as_str();
+    let row_id = identity.local_row_id(table, row_id);
     let mut query = QueryBuilder::new(format!("UPDATE {table} SET {field} = "));
     push_json_bind(&mut query, value)?;
     query.push(" WHERE id = ").push_bind(row_id);

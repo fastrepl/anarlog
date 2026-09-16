@@ -3,6 +3,18 @@ use serde::{Deserialize, Serialize};
 pub use anlg_cloudsync::CloudsyncTableSpec;
 pub use anlg_cloudsync::NetworkResult as CloudsyncNetworkResult;
 
+pub fn cloudsync_receive_error(result: &CloudsyncNetworkResult) -> Option<String> {
+    let receive = result.receive.as_ref()?;
+    let mut errors = Vec::new();
+    if let Some(error) = &receive.error {
+        errors.push(format!("receive error: {error}"));
+    }
+    if let Some(failure) = &receive.last_failure {
+        errors.push(format!("receive failure: {failure}"));
+    }
+    (!errors.is_empty()).then(|| errors.join("; "))
+}
+
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CloudsyncAuth {

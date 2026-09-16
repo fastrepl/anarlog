@@ -5,12 +5,13 @@ import viteReact from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { fileURLToPath } from "node:url";
 import { generateSitemap } from "tanstack-router-sitemap";
-import { defineConfig } from "vite";
+import { defineConfig, type UserConfig } from "vite";
 
+import { publishedChangelogs } from "./changelog-build.ts";
 import { getSitemap } from "./src/utils/sitemap";
 import { vercelBuildConfig } from "./vercel-build-config";
 
-const config = defineConfig(() => {
+const config = defineConfig(async ({ command }): Promise<UserConfig> => {
   const generateSourceMaps = Boolean(
     process.env.SENTRY_BUILD_SOURCEMAPS === "1" && process.env.VITE_APP_VERSION,
   );
@@ -21,6 +22,7 @@ const config = defineConfig(() => {
       rolldownOptions: { external: ["sharp"] },
     },
     plugins: [
+      await publishedChangelogs(command),
       contentCollections(),
       tailwindcss(),
       tanstackStart({

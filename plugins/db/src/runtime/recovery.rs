@@ -1,4 +1,4 @@
-use anlg_db_core::Db;
+use anlg_db_core::{Db, cloudsync_receive_error};
 
 use super::sync_result::{
     cloudsync_receive_delivered, cloudsync_receive_delivered_final, cloudsync_send_completed,
@@ -367,6 +367,9 @@ impl PluginDbRuntime {
                             let result = db.cloudsync_manual_receive_one().await?;
                             if cloudsync_recovery_cancelled(&recovery_cancelled) {
                                 return Ok(CloudsyncRecoveryStep::Deferred);
+                            }
+                            if let Some(error) = cloudsync_receive_error(&result) {
+                                return Err(std::io::Error::other(error).into());
                             }
                             witness
                                 .refresh_cancellable(db.pool(), &key, &witness_cancellation)

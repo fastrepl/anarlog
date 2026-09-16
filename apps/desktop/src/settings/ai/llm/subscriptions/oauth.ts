@@ -13,7 +13,7 @@ import {
 } from "./http";
 import { createPkce, randomUrlToken } from "./pkce";
 
-export const SUBSCRIPTION_PROVIDER_IDS = [
+const SUBSCRIPTION_PROVIDER_IDS = [
   "claude",
   "chatgpt",
   "grok",
@@ -93,7 +93,7 @@ const GROK = {
   scope: "openid profile email offline_access grok-cli:access api:access",
 } as const;
 
-export const KIMI_CODE_DOCS_URL =
+const KIMI_CODE_DOCS_URL =
   "https://www.kimi.com/en/help/kimi-code/membership-guide";
 
 export const COPILOT_REQUEST_HEADERS = {

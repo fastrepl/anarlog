@@ -606,6 +606,139 @@ fn cancelled_send_never_starts_status_reconciliation() {
     assert!(!should_reconcile_send_failure(batch, &error, true));
 }
 
+#[tokio::test]
+async fn confirmed_send_recovery_needs_no_additional_network_request() {
+    use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let endpoint = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move {
+        for (method, status) in [("POST ", "503 Service Unavailable"), ("GET ", "200 OK")] {
+            let (stream, _) = tokio::time::timeout(LIVENESS_TIMEOUT, listener.accept())
+                .await
+                .unwrap_or_else(|_| panic!("recovery did not reach the mock server for {method}"))
+                .unwrap();
+            let mut reader = BufReader::new(stream);
+            let mut line = String::new();
+            reader.read_line(&mut line).await.unwrap();
+            assert!(line.starts_with(method), "{line}");
+            let mut content_length = 0;
+            loop {
+                line.clear();
+                assert!(reader.read_line(&mut line).await.unwrap() > 0);
+                if line == "\r\n" {
+                    break;
+                }
+                if let Some((name, value)) = line.split_once(':')
+                    && name.eq_ignore_ascii_case("content-length")
+                {
+                    content_length = value.trim().parse::<usize>().unwrap();
+                }
+            }
+            assert!(content_length < 128 * 1024);
+            let mut body = vec![0; content_length];
+            reader.read_exact(&mut body).await.unwrap();
+            let response = if method == "POST " {
+                r#"{"error":"unable to upload payload chunk"}"#
+            } else {
+                r#"{"lastOptimisticVersion":100,"lastConfirmedVersion":100,"gaps":[]}"#
+            };
+            reader
+                .get_mut()
+                .write_all(
+                    format!(
+                        "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",
+                        response.len()
+                    )
+                    .as_bytes(),
+                )
+                .await
+                .unwrap();
+        }
+        // The confirmed status is sufficient; a third request must not be needed.
+    });
+
+    let db = Db::connect_memory().await.unwrap();
+    sqlx::query(
+        "CREATE TABLE items (id TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL DEFAULT '')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    db.cloudsync_init("items", None, None).await.unwrap();
+    let mut connection = db.pool().acquire().await.unwrap();
+    sqlx::query("SELECT cloudsync_network_init_custom(?, 'reconciliation-test')")
+        .bind(endpoint)
+        .execute(&mut *connection)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO items VALUES ('first', 'pending')")
+        .execute(&mut *connection)
+        .await
+        .unwrap();
+    let result = guarded_interruptible_network_send_changes(
+        &mut connection,
+        &db.cloudsync_interrupt,
+        || false,
+    )
+    .await;
+    let server_result = server.await;
+    assert!(result.is_ok(), "send recovery failed: {result:?}");
+    server_result.unwrap();
+    assert_eq!(result.unwrap().send.unwrap().status, "synced");
+    assert!(
+        !cloudsync_has_local_unsent_changes_on(&mut *connection)
+            .await
+            .unwrap()
+    );
+}
+
+#[tokio::test]
+async fn confirmed_send_recovery_preserves_later_local_edits() {
+    let db = Db::connect_memory().await.unwrap();
+    sqlx::query(
+        "CREATE TABLE items (id TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL DEFAULT '')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    db.cloudsync_init("items", None, None).await.unwrap();
+    let mut connection = db.pool().acquire().await.unwrap();
+    sqlx::query("INSERT INTO items VALUES ('first', 'preflighted')")
+        .execute(&mut *connection)
+        .await
+        .unwrap();
+    let batch = ensure_pending_payload_fits(&mut connection, &db.cloudsync_interrupt)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO items VALUES ('later', 'after preflight')")
+        .execute(&mut *connection)
+        .await
+        .unwrap();
+    let status = anlg_cloudsync::NetworkStatus {
+        last_optimistic_version: 100,
+        last_confirmed_version: 100,
+        gaps: Vec::new(),
+        failures: anlg_cloudsync::NetworkStatusFailures::default(),
+    };
+    assert!(
+        anlg_cloudsync::reconcile_confirmed_pending_payload(&mut connection, batch, &status)
+            .await
+            .unwrap()
+    );
+    let has_unsent_changes = cloudsync_has_local_unsent_changes_on(&mut *connection)
+        .await
+        .unwrap();
+    assert!(has_unsent_changes);
+    assert_eq!(
+        reconciled_send_result(batch, &status, has_unsent_changes)
+            .send
+            .unwrap()
+            .status,
+        "out-of-sync"
+    );
+}
+
 #[test]
 fn bounded_sync_preserves_the_send_and_single_receive_results() {
     let send = anlg_cloudsync::NetworkResult {

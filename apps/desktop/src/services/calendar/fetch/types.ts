@@ -5,6 +5,8 @@ export type { EventParticipant };
 export type IncomingEvent = {
   tracking_id_event: string;
   tracking_id_calendar: string;
+  legacy_tracking_ids?: string[];
+  is_cancelled?: boolean;
   title?: string;
   started_at?: string;
   ended_at?: string;

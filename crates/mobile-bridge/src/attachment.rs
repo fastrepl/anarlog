@@ -237,21 +237,25 @@ pub(crate) async fn describe_upload(
     operation.ensure_active()?;
     let record = load_upload_record(db.pool(), &job_id, attempt_count).await?;
     let plaintext = validate_upload_record(&record)?;
-    let key = workspace_key(&e2ee_sync_hook, &record.workspace_id)?;
+    let remote_workspace_id =
+        anlg_db_app::local_library_remote_workspace(db.pool(), &record.workspace_id)
+            .await
+            .map_err(attachment_error)?;
+    let key = workspace_key(&e2ee_sync_hook, &remote_workspace_id)?;
     let descriptor = UploadDescriptor {
         attachment_ref: key
-            .blind_attachment_backup_ref(&record.workspace_id, &record.attachment_id)
+            .blind_attachment_backup_ref(&remote_workspace_id, &record.attachment_id)
             .map_err(attachment_error)?,
         version_ref: key
             .blind_attachment_backup_version_ref(
-                &record.workspace_id,
+                &remote_workspace_id,
                 &record.attachment_id,
                 &plaintext,
             )
             .map_err(attachment_error)?,
         ciphertext_size_bytes: key
             .attachment_blob_ciphertext_size(
-                &record.workspace_id,
+                &remote_workspace_id,
                 &record.attachment_id,
                 plaintext.size_bytes,
             )
@@ -273,10 +277,14 @@ pub(crate) async fn prepare_upload(
     validate_private_object_identity(&request.object_id, &request.object_key)?;
     let record = load_upload_record(db.pool(), &request.job_id, request.attempt_count).await?;
     let plaintext = validate_upload_record(&record)?;
-    let key = workspace_key(&e2ee_sync_hook, &record.workspace_id)?;
+    let remote_workspace_id =
+        anlg_db_app::local_library_remote_workspace(db.pool(), &record.workspace_id)
+            .await
+            .map_err(attachment_error)?;
+    let key = workspace_key(&e2ee_sync_hook, &remote_workspace_id)?;
     let ciphertext_size_bytes = key
         .attachment_blob_ciphertext_size(
-            &record.workspace_id,
+            &remote_workspace_id,
             &record.attachment_id,
             plaintext.size_bytes,
         )
@@ -322,7 +330,7 @@ pub(crate) async fn prepare_upload(
     let cache_id = Uuid::new_v4().to_string();
     let cache_path = private_cache_path(&cache_root, &cache_id).map_err(attachment_error)?;
     let context = AttachmentBlobContext::new(
-        record.workspace_id.clone(),
+        remote_workspace_id.clone(),
         record.attachment_id.clone(),
         request.object_id.clone(),
     )
@@ -492,12 +500,16 @@ pub(crate) async fn restore_attachment(
     let plaintext_size = u64::try_from(attachment.size_bytes).map_err(attachment_error)?;
     let plaintext = AttachmentBlobPlaintextMetadata::from_hex(plaintext_size, &attachment.sha256)
         .map_err(attachment_error)?;
+    let remote_workspace_id =
+        anlg_db_app::local_library_remote_workspace(db.pool(), &attachment.workspace_id)
+            .await
+            .map_err(attachment_error)?;
     let key = e2ee_sync_hook
-        .workspace_key(&attachment.workspace_id)
+        .workspace_key(&remote_workspace_id)
         .ok_or_else(|| attachment_error("attachment workspace key is unavailable"))?;
     if key
         .attachment_blob_ciphertext_size(
-            &attachment.workspace_id,
+            &remote_workspace_id,
             &attachment.attachment_id,
             plaintext.size_bytes,
         )
@@ -537,7 +549,7 @@ pub(crate) async fn restore_attachment(
         .ok_or_else(|| attachment_error("attachment destination is invalid"))?
         .to_path_buf();
     let context = AttachmentBlobContext::new(
-        attachment.workspace_id.clone(),
+        remote_workspace_id.clone(),
         attachment.attachment_id.clone(),
         request.object_id.clone(),
     )
@@ -967,6 +979,11 @@ mod tests {
 
     #[tokio::test]
     async fn prepares_reads_and_cleans_an_encrypted_audio_upload() {
+        verify_encrypted_audio_upload(false).await;
+        verify_encrypted_audio_upload(true).await;
+    }
+
+    async fn verify_encrypted_audio_upload(connected: bool) {
         let directory = tempfile::tempdir().unwrap();
         let documents = directory.path().join("documents");
         let cache = directory.path().join("cache");
@@ -1038,8 +1055,17 @@ mod tests {
         .await
         .unwrap();
 
+        let remote_workspace_id = if connected {
+            Uuid::new_v4().to_string()
+        } else {
+            workspace_id.clone()
+        };
+        if connected {
+            sqlx::query("INSERT INTO local_library_connections (account_user_id, library_workspace_id, active) VALUES (?, ?, 1)")
+                .bind(&remote_workspace_id).bind(&workspace_id).execute(db.pool()).await.unwrap();
+        }
         let hook = Arc::new(anlg_db_sync::E2eeSyncHook::default());
-        hook.set_personal_workspace(&workspace_id, &recovery_key)
+        hook.set_personal_workspace(&remote_workspace_id, &recovery_key)
             .unwrap();
         let storage = AttachmentStorage::new(
             documents.to_string_lossy().into_owned(),
@@ -1096,9 +1122,10 @@ mod tests {
         )
         .await
         .unwrap();
-        let key = recovery_key.workspace_key(&workspace_id).unwrap();
+        let key = recovery_key.workspace_key(&remote_workspace_id).unwrap();
         let context =
-            AttachmentBlobContext::new(workspace_id, attachment_id, object_id.to_string()).unwrap();
+            AttachmentBlobContext::new(remote_workspace_id, attachment_id, object_id.to_string())
+                .unwrap();
         let expected = AttachmentBlobMetadata {
             version: FORMAT_VERSION,
             plaintext: AttachmentBlobPlaintextMetadata::from_hex(

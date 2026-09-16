@@ -2242,7 +2242,7 @@ export type OutlookListCalendarsErrors = {
      */
     401: unknown;
     /**
-     * Calendar connection requires reconnect
+     * Calendar connection requires reconnect or mailbox is unavailable
      */
     424: unknown;
     /**
@@ -2273,7 +2273,7 @@ export type OutlookListEventsErrors = {
      */
     401: unknown;
     /**
-     * Calendar connection requires reconnect
+     * Calendar connection requires reconnect or mailbox is unavailable
      */
     424: unknown;
     /**

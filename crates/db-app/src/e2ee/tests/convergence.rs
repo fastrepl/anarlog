@@ -275,12 +275,11 @@ async fn local_transcript_edit_rebases_above_witnessed_field_and_tombstone() {
         .await
         .unwrap();
 
-    // Transcript words sync as chunks; the local edit publishes as chunk
-    // records while the row manifest rebases above the witnessed tombstone.
-    let chunk_id = key.blind_field_id("transcripts", "transcript-1", "words_json#0");
-    let local_chunk_payload: String =
+    // Keep the compatible whole-column format and rebase both records above
+    // their witnessed revisions.
+    let local_words_payload: String =
         sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
-            .bind(&chunk_id)
+            .bind(&words_id)
             .fetch_one(db.pool())
             .await
             .unwrap();
@@ -290,16 +289,14 @@ async fn local_transcript_edit_rebases_above_witnessed_field_and_tombstone() {
             .fetch_one(db.pool())
             .await
             .unwrap();
-    let rebased_chunk = key
-        .open_field("workspace-a", &chunk_id, &local_chunk_payload)
+    let rebased_words = key
+        .open_field("workspace-a", &words_id, &local_words_payload)
         .unwrap();
     let rebased_manifest = key
         .open_field("workspace-a", &manifest_id, &local_manifest_payload)
         .unwrap();
-    assert_eq!(
-        rebased_chunk.value,
-        serde_json::from_str::<Value>(local_words).unwrap()
-    );
+    assert_eq!(rebased_words.value, json!(local_words));
+    assert!(rebased_words.revision > 7);
     assert!(!rebased_manifest.deleted);
     assert!(rebased_manifest.revision > 8);
 
@@ -407,6 +404,15 @@ async fn chunked_recreation_materializes_late_transcript_and_summary_fields() {
     .execute(source.pool())
     .await
     .unwrap();
+    seed_nightly_field(
+        source.pool(),
+        &workspace_keys,
+        "transcripts",
+        "transcript-1",
+        "words_json#n",
+        json!(0),
+    )
+    .await;
     encrypt_e2ee_replica_changes(source.pool(), &workspace_keys)
         .await
         .unwrap();

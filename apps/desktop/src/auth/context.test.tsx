@@ -43,6 +43,17 @@ const mocks = vi.hoisted(() => ({
   stopAutoRefresh: vi.fn(),
   toastDismiss: vi.fn(),
   toastError: vi.fn(),
+  toastInfo: vi.fn(),
+}));
+
+vi.mock("./connect-local-library-dialog", () => ({
+  ConnectLocalLibraryDialog: ({
+    open,
+    email,
+  }: {
+    open: boolean;
+    email: string;
+  }) => (open ? <div data-testid="connect-library">{email}</div> : null),
 }));
 
 vi.mock("./client", () => ({
@@ -121,6 +132,7 @@ vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: {
     dismiss: mocks.toastDismiss,
     error: mocks.toastError,
+    info: mocks.toastInfo,
   },
 }));
 
@@ -274,6 +286,7 @@ describe("AuthProvider", () => {
     mocks.stopAutoRefresh.mockReset();
     mocks.toastDismiss.mockReset();
     mocks.toastError.mockReset();
+    mocks.toastInfo.mockReset();
     mocks.bindCloudsyncAccountForAuth.mockResolvedValue("claimed");
     mocks.clearAuthStorage.mockResolvedValue(undefined);
     mocks.emit.mockResolvedValue(undefined);
@@ -434,7 +447,7 @@ describe("AuthProvider", () => {
     expect(mocks.refreshSession).not.toHaveBeenCalled();
   });
 
-  it("rejects a mismatched account found during focus recovery", async () => {
+  it("pauses sync and keeps the account during focus recovery", async () => {
     const foreignSession = makeSession("foreign-account");
     mocks.refreshCloudsyncForSession.mockResolvedValueOnce("account_mismatch");
     mocks.signOut.mockImplementationOnce(async () => {
@@ -480,11 +493,12 @@ describe("AuthProvider", () => {
       foreignSession,
       expect.any(Function),
     );
-    expect(mocks.stopAutoRefresh).toHaveBeenCalled();
-    expect(mocks.signOut).toHaveBeenCalledTimes(1);
-    expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" });
-    expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId("session").textContent).toBe("none");
+    expect(mocks.stopAutoRefresh).not.toHaveBeenCalled();
+    expect(mocks.signOut).not.toHaveBeenCalled();
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+    expect(screen.getByTestId("session").textContent).toBe(
+      foreignSession.user.id,
+    );
   });
 
   it("refreshes an expiring session before cloudsync when focus returns", async () => {
@@ -646,83 +660,23 @@ describe("AuthProvider", () => {
     expect(mocks.refreshCloudsyncForSession).not.toHaveBeenCalled();
   });
 
-  it("routes secondary-window account rejection through the main window", async () => {
+  it("keeps a mismatched secondary-window account signed in without a duplicate dialog", async () => {
     const foreignSession = makeSession("foreign-account");
     mocks.currentWebviewWindowLabel = "note-session-id";
     mocks.bindCloudsyncAccountForAuth.mockResolvedValue("mismatch");
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-
     renderAuthProvider();
-
-    await waitFor(() => {
-      expect(mocks.authCallback).not.toBeNull();
-    });
-
-    act(() => {
-      mocks.authCallback?.("SIGNED_IN", foreignSession);
-    });
-
-    await waitFor(() => {
-      expect(mocks.emitTo).toHaveBeenCalledWith(
-        "main",
-        "anlg:auth-sign-out-request",
-        {
-          requestId: "request-id",
-          sourceLabel: "note-session-id",
-        },
-      );
-    });
-    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
-
-    act(() => {
-      mocks.eventCallbacks.get("anlg:auth-sign-out-result")?.({
-        payload: { requestId: "request-id", completed: true, error: null },
-      });
-    });
-
-    await waitFor(() => {
-      expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
-    });
-    expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalled();
-    expect(screen.getByTestId("session").textContent).toBe("none");
-  });
-
-  it("preserves shared auth when main rejects secondary cleanup", async () => {
-    const foreignSession = makeSession("foreign-account");
-    mocks.currentWebviewWindowLabel = "note-session-id";
-    mocks.bindCloudsyncAccountForAuth.mockResolvedValue("mismatch");
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    renderAuthProvider();
-
-    await waitFor(() => {
-      expect(mocks.authCallback).not.toBeNull();
-    });
-
-    act(() => {
-      mocks.authCallback?.("SIGNED_IN", foreignSession);
-    });
-
-    await waitFor(() => {
-      expect(mocks.emitTo).toHaveBeenCalledWith(
-        "main",
-        "anlg:auth-sign-out-request",
-        expect.objectContaining({ sourceLabel: "note-session-id" }),
-      );
-    });
-
-    act(() => {
-      mocks.eventCallbacks.get("anlg:auth-sign-out-result")?.({
-        payload: { requestId: "request-id", completed: false, error: null },
-      });
-    });
-
-    await waitFor(() => {
-      expect(mocks.eventCallbacks.has("anlg:auth-sign-out-result")).toBe(false);
-    });
-    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+    await waitFor(() => expect(mocks.authCallback).not.toBeNull());
+    act(() => mocks.authCallback?.("SIGNED_IN", foreignSession));
+    await waitFor(() =>
+      expect(screen.getByTestId("session").textContent).toBe(
+        foreignSession.user.id,
+      ),
+    );
     expect(mocks.signOut).not.toHaveBeenCalled();
-    expect(screen.getByTestId("session").textContent).toBe("none");
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+    expect(mocks.emitTo).not.toHaveBeenCalled();
+    expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("connect-library")).toBeNull();
   });
 
   it("routes secondary-window sign-out through the main window", async () => {
@@ -1627,9 +1581,11 @@ describe("AuthProvider", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId("session").textContent).toBe("none");
+      expect(screen.getByTestId("session").textContent).toBe(
+        nextSession.user.id,
+      );
     });
-    expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
   });
 
   it("does not admit late when the stalled bind resolves as superseded", async () => {
@@ -1774,60 +1730,43 @@ describe("AuthProvider", () => {
     );
   });
 
-  it("re-admits a refresh that arrives during account-mismatch cleanup", async () => {
-    const boundSession = makeSession("bound-account");
-    const refreshedSession = {
-      ...boundSession,
-      access_token: "refreshed-access-token",
-    };
-    const clear = deferred();
-    mocks.clearAuthStorage.mockReturnValueOnce(clear.promise);
-    mocks.handleCloudsyncAuthChange.mockResolvedValueOnce("account_mismatch");
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    renderAuthProvider();
-
-    await waitFor(() => {
-      expect(mocks.authCallback).not.toBeNull();
-    });
-
-    act(() => {
-      mocks.authCallback?.("SIGNED_IN", boundSession);
-    });
-    await waitFor(() => {
-      expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
-    });
-    expect(screen.getByTestId("access-token").textContent).toBe(
-      boundSession.access_token,
-    );
-
+  it("preserves refreshed credentials while waiting for library confirmation", async () => {
+    const session = makeSession("foreign-account");
+    const refreshed = { ...session, access_token: "refreshed-access-token" };
     mocks.bindCloudsyncAccountForAuth.mockResolvedValue("mismatch");
-    act(() => {
-      mocks.authCallback?.("TOKEN_REFRESHED", refreshedSession);
-    });
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(screen.getByTestId("access-token").textContent).toBe(
-      boundSession.access_token,
+    renderAuthProvider();
+    await waitFor(() => expect(mocks.authCallback).not.toBeNull());
+    act(() => mocks.authCallback?.("SIGNED_IN", session));
+    await waitFor(() =>
+      expect(screen.getByTestId("connect-library")).toBeTruthy(),
     );
-
-    await act(async () => {
-      clear.resolve();
-      await clear.promise;
-    });
-
-    await waitFor(() => {
-      expect(mocks.bindCloudsyncAccountForAuth).toHaveBeenCalledTimes(2);
-    });
-    await waitFor(() => {
-      expect(screen.getByTestId("session").textContent).toBe("none");
-    });
-    expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(2);
-    expect(mocks.persistAuthSession).not.toHaveBeenCalled();
+    act(() => mocks.authCallback?.("TOKEN_REFRESHED", refreshed));
+    await waitFor(() =>
+      expect(screen.getByTestId("access-token").textContent).toBe(
+        refreshed.access_token,
+      ),
+    );
+    expect(mocks.signOut).not.toHaveBeenCalled();
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+    expect(mocks.toastInfo).toHaveBeenCalledTimes(1);
   });
 
-  it("rejects a stalled admission that later reports another account", async () => {
+  it("offers library connection again after signing out and back into the same account", async () => {
+    const session = makeSession("foreign-account");
+    mocks.bindCloudsyncAccountForAuth.mockResolvedValue("mismatch");
+    renderAuthProvider();
+    await waitFor(() => expect(mocks.authCallback).not.toBeNull());
+    act(() => mocks.authCallback?.("SIGNED_IN", session));
+    await waitFor(() => expect(mocks.toastInfo).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    await waitFor(() =>
+      expect(screen.queryByTestId("connect-library")).toBeNull(),
+    );
+    act(() => mocks.authCallback?.("SIGNED_IN", session));
+    await waitFor(() => expect(mocks.toastInfo).toHaveBeenCalledTimes(2));
+  });
+
+  it("asks to connect when a stalled admission reports another account", async () => {
     const foreignSession = makeSession("foreign-account");
     const claim = deferred<CloudsyncAccountAdmission>();
     mocks.bindCloudsyncAccountForAuth.mockReturnValue(claim.promise);
@@ -1854,18 +1793,20 @@ describe("AuthProvider", () => {
       claim.resolve("mismatch");
       await vi.advanceTimersByTimeAsync(0);
     });
-    expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId("session").textContent).toBe("none");
-    expect(mocks.toastError).toHaveBeenCalledWith(
-      "The notes on this device are linked to another Anarlog account. Sign in with the account previously used here, or start fresh on this device.",
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+    expect(screen.getByTestId("session").textContent).toBe(
+      foreignSession.user.id,
+    );
+    expect(mocks.toastInfo).toHaveBeenCalledWith(
+      "Your local notes are available. Connect this library to sync with your current account.",
       expect.objectContaining({
         id: "auth-account-mismatch",
-        action: expect.objectContaining({ label: "Start fresh" }),
+        action: expect.objectContaining({ label: "Connect library" }),
       }),
     );
   });
 
-  it("rejects a different local database account before admission", async () => {
+  it("keeps another account signed in and asks to connect its library", async () => {
     const foreignSession = makeSession("foreign-account");
     mocks.bindCloudsyncAccountForAuth.mockResolvedValue("mismatch");
     vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -1881,20 +1822,22 @@ describe("AuthProvider", () => {
     });
 
     await waitFor(() => {
-      expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
+      expect(mocks.toastInfo).toHaveBeenCalled();
     });
-    expect(screen.getByTestId("session").textContent).toBe("none");
+    expect(screen.getByTestId("session").textContent).toBe(
+      foreignSession.user.id,
+    );
     expect(mocks.persistAuthSession).not.toHaveBeenCalled();
     expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalledWith(
       "SIGNED_IN",
       foreignSession,
       expect.any(Function),
     );
-    expect(mocks.toastError).toHaveBeenCalledWith(
-      "The notes on this device are linked to another Anarlog account. Sign in with the account previously used here, or start fresh on this device.",
+    expect(mocks.toastInfo).toHaveBeenCalledWith(
+      "Your local notes are available. Connect this library to sync with your current account.",
       expect.objectContaining({
         id: "auth-account-mismatch",
-        action: expect.objectContaining({ label: "Start fresh" }),
+        action: expect.objectContaining({ label: "Connect library" }),
       }),
     );
   });
@@ -1930,58 +1873,48 @@ describe("AuthProvider", () => {
     );
   });
 
-  it("restores a newer accepted session when stale mismatch cleanup was already running", async () => {
+  it("ignores an old account prompt when a new account arrives during sync suspension", async () => {
     const oldSession = makeSession("old-account");
     const newSession = makeSession("new-account");
-    const clear = deferred();
+    const suspension = deferred();
+    mocks.bindCloudsyncAccountForAuth
+      .mockResolvedValueOnce("mismatch")
+      .mockResolvedValue("claimed");
     mocks.handleCloudsyncAuthChange.mockImplementation(
-      async (_event: AuthChangeEvent, nextSession: Session | null) =>
-        nextSession?.user.id === oldSession.user.id ? "account_mismatch" : "ok",
+      async (event: AuthChangeEvent) => {
+        if (event === "SIGNED_OUT") await suspension.promise;
+        return "ok";
+      },
     );
-    mocks.clearAuthStorage.mockReturnValue(clear.promise);
-
     renderAuthProvider();
-
-    await waitFor(() => {
-      expect(mocks.authCallback).not.toBeNull();
-    });
-
-    act(() => {
-      mocks.authCallback?.("SIGNED_IN", oldSession);
-    });
-
-    await waitFor(() => {
-      expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
-    });
-
-    act(() => {
-      mocks.authCallback?.("SIGNED_IN", newSession);
-    });
-
+    await waitFor(() => expect(mocks.authCallback).not.toBeNull());
+    act(() => mocks.authCallback?.("SIGNED_IN", oldSession));
+    await waitFor(() =>
+      expect(mocks.handleCloudsyncAuthChange).toHaveBeenCalledWith(
+        "SIGNED_OUT",
+        null,
+      ),
+    );
+    act(() => mocks.authCallback?.("SIGNED_IN", newSession));
     await act(async () => {
-      clear.resolve();
-      await clear.promise;
+      suspension.resolve();
+      await suspension.promise;
     });
-
-    await waitFor(() => {
+    await waitFor(() =>
       expect(screen.getByTestId("session").textContent).toBe(
         newSession.user.id,
-      );
-    });
-
-    expect(mocks.persistAuthSession).toHaveBeenCalledWith(newSession);
+      ),
+    );
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+    expect(mocks.toastInfo).not.toHaveBeenCalled();
     expect(mocks.handleCloudsyncAuthChange).toHaveBeenCalledWith(
       "SIGNED_IN",
       newSession,
       expect.any(Function),
     );
-    expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalledWith(
-      "SIGNED_OUT",
-      null,
-    );
   });
 
-  it("clears and suspends the current session on an actual account mismatch", async () => {
+  it("suspends sync without clearing auth on an account mismatch", async () => {
     const foreignSession = makeSession("foreign-account");
     mocks.handleCloudsyncAuthChange.mockImplementation(
       async (event: AuthChangeEvent) =>
@@ -2009,15 +1942,16 @@ describe("AuthProvider", () => {
       );
     });
 
-    expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
-    expect(mocks.stopAutoRefresh).toHaveBeenCalled();
-    expect(mocks.signOut).toHaveBeenCalledTimes(1);
-    expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+    expect(mocks.stopAutoRefresh).not.toHaveBeenCalled();
+    expect(mocks.signOut).not.toHaveBeenCalled();
     expect(mocks.persistAuthSession).not.toHaveBeenCalled();
-    expect(screen.getByTestId("session").textContent).toBe("none");
+    expect(screen.getByTestId("session").textContent).toBe(
+      foreignSession.user.id,
+    );
   });
 
-  it("rejects the current session when scheduled CloudSync renewal reports a mismatch", async () => {
+  it("pauses sync when scheduled renewal reports a mismatch", async () => {
     const foreignSession = makeSession("foreign-account");
     let reportAccountMismatch: (() => Promise<void>) | undefined;
     mocks.handleCloudsyncAuthChange.mockImplementation(
@@ -2055,11 +1989,12 @@ describe("AuthProvider", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId("session").textContent).toBe("none");
+      expect(screen.getByTestId("session").textContent).toBe(
+        foreignSession.user.id,
+      );
     });
-    expect(mocks.stopAutoRefresh).toHaveBeenCalled();
-    expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" });
-    expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
+    expect(mocks.stopAutoRefresh).not.toHaveBeenCalled();
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
     expect(mocks.handleCloudsyncAuthChange).toHaveBeenCalledWith(
       "SIGNED_OUT",
       null,

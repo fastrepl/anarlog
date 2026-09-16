@@ -20,5 +20,5 @@ pub(crate) use state::CloudsyncRuntimeState;
 pub use types::{
     CloudsyncActivityEntry, CloudsyncActivityStatus, CloudsyncActivityTrigger, CloudsyncAuth,
     CloudsyncNetworkResult, CloudsyncRuntimeConfig, CloudsyncRuntimeError, CloudsyncStatus,
-    CloudsyncTableSpec,
+    CloudsyncTableSpec, cloudsync_receive_error,
 };

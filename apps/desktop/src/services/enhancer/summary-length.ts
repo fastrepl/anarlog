@@ -1,15 +1,15 @@
 import type { Transcript } from "@anlg/plugin-template";
 
 export const MIN_TRANSCRIPT_CHARACTERS_FOR_SUMMARY = 160;
-export const SHORT_TRANSCRIPT_CHARACTER_LIMIT = 1_200;
+const SHORT_TRANSCRIPT_CHARACTER_LIMIT = 1_200;
 export const MIN_SUMMARY_CHARACTERS = 320;
-export const MAX_SUMMARY_GUIDANCE_CHARACTERS = 7_500;
+const MAX_SUMMARY_GUIDANCE_CHARACTERS = 7_500;
 const SECTION_GUIDANCE_CHARACTER_STEP = 2_000;
 const MAX_GUIDANCE_SECTIONS = 8;
 
-export const SUMMARY_LENGTH_MODES = ["crisp", "balanced", "detailed"] as const;
+const SUMMARY_LENGTH_MODES = ["crisp", "balanced", "detailed"] as const;
 export type SummaryLengthMode = (typeof SUMMARY_LENGTH_MODES)[number];
-export const DEFAULT_SUMMARY_LENGTH_MODE: SummaryLengthMode = "detailed";
+const DEFAULT_SUMMARY_LENGTH_MODE: SummaryLengthMode = "detailed";
 
 const SUMMARY_LENGTH_RATIOS: Record<SummaryLengthMode, number> = {
   crisp: 0.75,

@@ -1,15 +1,8 @@
+import rawEntries from "virtual:published-changelogs";
+
 import { processContent } from "@anlg/changelog";
 
 import { getChangelogVersionFromPath } from "./changelog-path";
-
-const rawEntries = import.meta.glob(
-  "../../../../packages/changelog/content/*.md",
-  {
-    eager: true,
-    import: "default",
-    query: "?raw",
-  },
-) as Record<string, string>;
 
 export const changelogEntries = Object.entries(rawEntries)
   .flatMap(([filePath, raw]) => {

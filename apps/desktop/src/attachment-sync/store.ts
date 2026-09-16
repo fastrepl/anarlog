@@ -10,7 +10,6 @@ import {
   failAttachmentTransferJob,
   markPhase,
   retryAttachmentTransferJob,
-  retryAttachmentTransfersForAttachment,
   setDownloadGrant,
   setUploadReservation,
   subscribeToNextAttachmentTransferAttempt,
@@ -30,7 +29,6 @@ export {
   claimNextAttachmentTransferJob,
   completeCancelledAttachmentTransferDelete,
   completeUpload,
-  completeWithoutTransfer,
   deferAttachmentTransferDeleteForPreservation,
   failAttachmentTransferJob,
   markPhase,
@@ -39,10 +37,6 @@ export {
   recoverInterruptedAttachmentTransfers,
   resetProcessLocalAttachmentTransferAttempts,
   retryAttachmentTransferJob,
-  retryAttachmentTransfersForAttachment,
-  setDownloadGrant,
-  setUploadReservation,
-  subscribeToNextAttachmentTransferAttempt,
 };
 
 export const attachmentTransferStore = {

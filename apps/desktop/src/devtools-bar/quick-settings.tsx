@@ -15,7 +15,7 @@ import { useConfigValues } from "~/shared/config";
  * build can be checked in both states without leaving the current view. This
  * is the closest thing Anarlog has to Linear's feature-flag tiles.
  */
-export const QUICK_TOGGLES = [
+const QUICK_TOGGLES = [
   {
     key: "floating_bar_enabled",
     label: "Floating bar",

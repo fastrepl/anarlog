@@ -1,4 +1,5 @@
 import type { Ctx } from "../../ctx";
+import { eventKey, indexIncomingEvents } from "./identity";
 import type { EventsSyncInput, EventsSyncOutput } from "./types";
 
 export function syncEvents(
@@ -11,45 +12,52 @@ export function syncEvents(
     toAdd: [],
   };
 
-  const incomingByKey = new Map(
-    incoming.flatMap((event) => {
-      const calendarId = ctx.calendarTrackingIdToId.get(
-        event.tracking_id_calendar,
-      );
-      return calendarId
-        ? [[eventKey(calendarId, event.tracking_id_event), event] as const]
-        : [];
-    }),
-  );
+  const incomingByKey = indexIncomingEvents(ctx, incoming);
   const handledKeys = new Set<string>();
 
   for (const storeEvent of existing) {
     const trackingId = storeEvent.tracking_id_event;
-    const key = eventKey(storeEvent.calendar_id, trackingId);
-    const matchingIncomingEvent = incomingByKey.get(key);
+    const matchingIncomingEvent = incomingByKey.get(
+      eventKey(storeEvent.calendar_id, trackingId),
+    );
+    const key = eventKey(
+      storeEvent.calendar_id,
+      matchingIncomingEvent?.tracking_id_event ?? trackingId,
+    );
 
-    if (matchingIncomingEvent && !handledKeys.has(key)) {
+    if (
+      matchingIncomingEvent &&
+      !matchingIncomingEvent.is_cancelled &&
+      !handledKeys.has(key)
+    ) {
       out.toUpdate.push({
         ...storeEvent,
         ...matchingIncomingEvent,
         id: storeEvent.id,
-        tracking_id_event: trackingId,
+        tracking_id_event: matchingIncomingEvent.tracking_id_event,
         created_at: storeEvent.created_at,
         calendar_id: storeEvent.calendar_id,
         has_recurrence_rules: matchingIncomingEvent.has_recurrence_rules,
-        participants: incomingParticipants.get(trackingId) ?? [],
+        participants:
+          incomingParticipants.get(matchingIncomingEvent.tracking_id_event) ??
+          [],
       });
       handledKeys.add(key);
       continue;
     }
 
-    if (!storeEvent.deleted_at) {
+    const overlapsRange =
+      Date.parse(storeEvent.started_at) <= ctx.to.getTime() &&
+      Date.parse(storeEvent.ended_at || storeEvent.started_at) >=
+        ctx.from.getTime();
+    if (!storeEvent.deleted_at && (matchingIncomingEvent || overlapsRange)) {
       out.toDelete.push(storeEvent.id);
     }
   }
 
   const scheduledKeys = new Set(handledKeys);
   for (const incomingEvent of incoming) {
+    if (incomingEvent.is_cancelled) continue;
     const calendarId = ctx.calendarTrackingIdToId.get(
       incomingEvent.tracking_id_calendar,
     );
@@ -67,8 +75,4 @@ export function syncEvents(
   }
 
   return out;
-}
-
-function eventKey(calendarId: string, trackingId: string): string {
-  return `${calendarId}\u0000${trackingId}`;
 }

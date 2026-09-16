@@ -4,7 +4,9 @@ import type { WorkspaceSeatEvent } from "./workspace-seat-reconciliation";
 
 export async function processWorkspaceSeatEvent(
   pool: Pick<pg.Pool, "connect">,
-  reconcile: (event: WorkspaceSeatEvent) => Promise<void>,
+  reconcile: (
+    event: WorkspaceSeatEvent,
+  ) => Promise<void | "waiting_for_subscription">,
   reportError: (error: unknown, event: WorkspaceSeatEvent) => void,
 ) {
   const client = await pool.connect();
@@ -27,16 +29,25 @@ export async function processWorkspaceSeatEvent(
     event = result.rows[0];
     if (event) {
       try {
-        await reconcile(event);
-        await client.query(
-          "UPDATE private.workspace_seat_billing_events SET processed_at = now() WHERE id = $1",
-          [event.id],
-        );
+        const result = await reconcile(event);
+        if (result === "waiting_for_subscription") {
+          // Customer creation can enqueue seats before Checkout completes.
+          // Keep ordering intact without reporting an expected wait as a failure.
+          await client.query(
+            "UPDATE private.workspace_seat_billing_events SET next_attempt_at = clock_timestamp() + interval '1 minute' WHERE id = $1",
+            [event.id],
+          );
+        } else {
+          await client.query(
+            "UPDATE private.workspace_seat_billing_events SET processed_at = now() WHERE id = $1",
+            [event.id],
+          );
+        }
       } catch (error) {
         await client.query(
           `UPDATE private.workspace_seat_billing_events
            SET attempts = attempts + 1,
-               next_attempt_at = now() + make_interval(secs => LEAST(3600, 15 * power(2, LEAST(attempts, 8))::integer))
+               next_attempt_at = clock_timestamp() + make_interval(secs => LEAST(3600, 15 * power(2, LEAST(attempts, 8))::integer))
            WHERE id = $1`,
           [event.id],
         );

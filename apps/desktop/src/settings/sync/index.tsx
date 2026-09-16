@@ -58,6 +58,7 @@ import {
   subscribeCloudsyncCredentialBlock,
 } from "~/auth/cloudsync";
 import { getDeviceIdentity } from "~/auth/cloudsync-credentials";
+import { ConnectLocalLibraryDialog } from "~/auth/connect-local-library-dialog";
 import {
   registerDeviceEnrollment,
   removeSyncDevice,
@@ -400,6 +401,7 @@ function SyncSettingsPreview() {
 }
 
 export function SettingsSync() {
+  const [connectLibraryOpen, setConnectLibraryOpen] = useState(false);
   const { t } = useLingui();
   const auth = useAuth();
   const { isPro, isReady } = useBillingAccess();
@@ -472,7 +474,7 @@ export function SettingsSync() {
       if (credentialBlock === "device_limit") {
         const result = await refreshCloudsyncForSession(session!);
         if (result === "account_mismatch") {
-          await auth.signOut();
+          setConnectLibraryOpen(true);
         }
       }
     },
@@ -534,7 +536,7 @@ export function SettingsSync() {
       });
       const result = await refreshCloudsyncForSession(session!);
       if (result === "account_mismatch") {
-        await auth.signOut();
+        setConnectLibraryOpen(true);
       }
     },
     onSuccess: () =>
@@ -561,7 +563,7 @@ export function SettingsSync() {
       await setSettingValue("cloud_sync_enabled", enabled);
       const result = await applyCloudsyncPreference(session);
       if (result === "account_mismatch") {
-        await auth.signOut();
+        setConnectLibraryOpen(true);
       }
       return result;
     },
@@ -1345,6 +1347,19 @@ export function SettingsSync() {
         </div>
       </section>
 
+      <ConnectLocalLibraryDialog
+        key={session.user.id}
+        open={connectLibraryOpen}
+        onOpenChange={setConnectLibraryOpen}
+        accountUserId={session.user.id}
+        email={session.user.email ?? "this account"}
+        onConnected={async () => {
+          const current = await auth.getSessionForRequest();
+          if (current?.user.id !== session.user.id) return;
+          await applyCloudsyncPreference(current);
+          await queryClient.invalidateQueries({ queryKey: statusQueryKey });
+        }}
+      />
       <E2eeSetupDialog
         open={e2eeSetupOpen}
         onOpenChange={setE2eeSetupOpen}

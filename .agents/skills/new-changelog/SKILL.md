@@ -7,9 +7,11 @@ metadata:
 
 ## Channel contract
 
-Create changelogs for both stable and Nightly. Only stable entries are published
-on the website. The website imports `packages/changelog/content/*.md` and
-accepts only filenames matching `<major>.<minor>.<patch>.md`.
+Create changelogs for both stable and Nightly. Only released stable entries are
+published on the website. Deployable website builds include a versioned file
+from `packages/changelog/content` only when GitHub has a published, non-draft,
+non-prerelease `desktop_v<version>` release. A file on main or its frontmatter
+date is not publication evidence. Local development can preview stable drafts.
 
 - Stable: write `packages/changelog/content/<version>.md`, covering all desktop
   user-facing changes since the previous stable release, including changes
@@ -42,6 +44,10 @@ Check the product changes for CLI, local and hosted MCP, API, agent-package, and
 documentation updates before freezing the release candidate. Record any gaps
 in the release task; a changelog alone does not establish release readiness.
 Creating a changelog does not itself dispatch or publish a release.
+Keep the notes prepared and merged before freezing the desktop candidate, but
+verify that the public index and direct version URL exclude them until release.
+After desktop publication, deploy the website to expose the released notes; the
+Linux package publication workflow normally performs that deployment.
 
 Each changelog file must start with frontmatter that includes both `date` and
 `summary`:

@@ -611,7 +611,9 @@ dependencies = [
  "nango",
  "outlook-calendar",
  "serde",
+ "serde_json",
  "thiserror 2.0.18",
+ "tokio",
  "tracing",
  "utoipa",
 ]
@@ -3003,7 +3005,9 @@ dependencies = [
  "serde_json",
  "specta",
  "thiserror 2.0.18",
+ "tokio",
  "tracing",
+ "wiremock",
 ]
 
 [[package]]
@@ -16721,6 +16725,7 @@ name = "tauri-plugin-attachment-sync"
 version = "0.1.0"
 dependencies = [
  "attachment-sync-core",
+ "db-app",
  "e2ee",
  "fs-sync-core",
  "serde",

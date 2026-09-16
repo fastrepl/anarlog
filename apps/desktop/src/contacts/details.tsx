@@ -253,8 +253,12 @@ export function DetailsColumn({
                     <Trans>Company</Trans>
                   </div>
                   <div className="flex-1">
-                    <EditPersonOrganizationSelector
-                      personId={human.id}
+                    <ContactOrganizationSelector
+                      onChange={(organizationId) =>
+                        persistHumanUpdate(human.id, {
+                          organizationId: organizationId ?? "",
+                        })
+                      }
                       organization={
                         organizations.find(
                           (organization) =>
@@ -566,30 +570,38 @@ function EditablePersonMemoField({
   );
 }
 
-function EditPersonOrganizationSelector({
-  personId,
+export function ContactOrganizationSelector({
+  onChange: handleChange,
   organization,
   organizations,
+  disabled = false,
 }: {
-  personId: string;
+  onChange: (organizationId: string | null) => void;
   organization: OrganizationRecord | null;
   organizations: OrganizationRecord[];
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const handleChange = (organizationId: string | null) => {
-    persistHumanUpdate(personId, {
-      organizationId: organizationId ?? "",
-    });
-  };
-
   const handleRemoveOrganization = () => {
+    if (disabled) return;
     handleChange(null);
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={disabled ? false : open}
+      onOpenChange={(next) => {
+        if (!disabled) setOpen(next);
+      }}
+    >
       <PopoverTrigger asChild>
-        <div className="hover:bg-accent -mx-2 inline-flex cursor-pointer items-center rounded-lg px-2 py-1 transition-colors">
+        <div
+          aria-disabled={disabled || undefined}
+          className={cn(
+            "hover:bg-accent -mx-2 inline-flex cursor-pointer items-center rounded-lg px-2 py-1 transition-colors",
+            disabled && "pointer-events-none opacity-60",
+          )}
+        >
           {organization?.name ? (
             <div className="flex items-center">
               <span className="text-base">{organization.name}</span>

@@ -18,7 +18,7 @@ import type {
   SharedNoteCommentPage,
 } from "@/lib/shared-notes";
 
-export const sharedNoteCommentsQueryKey = (shareId: string) => [
+const sharedNoteCommentsQueryKey = (shareId: string) => [
   "shared-note-comments",
   shareId,
 ];

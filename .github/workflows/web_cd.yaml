@@ -42,6 +42,8 @@ jobs:
     needs: compute-version
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -62,6 +64,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ vars.ANARLOG_VERCEL_PROJECT_ID }}
       - run: pnpm dlx vercel@59.11.7 build --prod --token "$VERCEL_TOKEN"
         env:
+          GITHUB_TOKEN: ${{ github.token }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ vars.ANARLOG_VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ vars.ANARLOG_VERCEL_PROJECT_ID }}

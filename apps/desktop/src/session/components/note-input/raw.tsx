@@ -50,7 +50,7 @@ const defaultSuggestedTemplateIds = [
 ];
 // Structural check: any block beyond a single empty paragraph (checkbox, list,
 // extra empty lines) counts as content, unlike the text-based hasStoredNoteContent
-export function isPristineNoteDoc(doc: JSONContent): boolean {
+function isPristineNoteDoc(doc: JSONContent): boolean {
   const content = doc.content ?? [];
   if (content.length === 0) return true;
   if (content.length > 1) return false;

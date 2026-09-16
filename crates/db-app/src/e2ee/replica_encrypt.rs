@@ -9,14 +9,16 @@ use super::chunks::{
     split_chunks,
 };
 use super::cooperative::yield_once;
+use super::library::LibraryIdentity;
 use super::replica_storage::{
     load_or_create_writer_id, load_row_local_states_from_pool, sqlite_value, upsert_local_state,
 };
 use super::witness::has_pending_e2ee_witness_repairs;
 use super::{
-    ACTIVE_CAPTURE_MARKER_PREDICATE, DirtyRow, E2EE_DOMAIN_TABLES, E2EE_ENCRYPT_ROW_LIMIT,
-    E2eeReplicaError, E2eeReplicaResult, E2eeReplicaStats, LocalState, PreparedDirtyRow,
-    PreparedEncryptedField, ROW_MANIFEST_FIELD, WitnessVersion,
+    ACTIVE_CAPTURE_MARKER_PREDICATE, DirtyRow, E2EE_DIRTY_ROW_WRITE_COMPATIBILITY_PREDICATE,
+    E2EE_DOMAIN_TABLES, E2EE_ENCRYPT_ROW_LIMIT, E2eeReplicaError, E2eeReplicaResult,
+    E2eeReplicaStats, LocalState, PreparedDirtyRow, PreparedEncryptedField, ROW_MANIFEST_FIELD,
+    WitnessVersion,
 };
 
 pub async fn encrypt_e2ee_replica_changes(
@@ -288,6 +290,8 @@ async fn load_dirty_rows_after(
         separated.push_bind(workspace_id);
     }
     separated.push_unseparated(")");
+    query.push(" AND ");
+    query.push(E2EE_DIRTY_ROW_WRITE_COMPATIBILITY_PREDICATE);
     if defer_active_captures {
         push_active_capture_exclusion(&mut query);
     }
@@ -449,9 +453,10 @@ async fn prepare_dirty_row_cancellable(
         "SELECT * FROM {} WHERE id = ? AND workspace_id = ? LIMIT 1",
         dirty.table_name
     );
+    let identity = LibraryIdentity::load(pool, &dirty.workspace_id).await?;
     let row = sqlx::query(sqlx::AssertSqlSafe(sql.as_str()))
-        .bind(&dirty.row_id)
-        .bind(&dirty.workspace_id)
+        .bind(identity.local_row_id(&dirty.table_name, &dirty.row_id))
+        .bind(&identity.local_workspace_id)
         .fetch_optional(pool)
         .await?;
     check_e2ee_cancellation(is_cancelled)?;
@@ -512,8 +517,20 @@ async fn prepare_dirty_row_cancellable(
             if matches!(field_name, "id" | "workspace_id") {
                 continue;
             }
-            let value = sqlite_value(row, index)?;
+            let value = identity
+                .remote_value(
+                    pool,
+                    &dirty.table_name,
+                    &dirty.row_id,
+                    field_name,
+                    sqlite_value(row, index)?,
+                )
+                .await?;
             if let Some(chunk_size) = chunk_size_for(&dirty.table_name, field_name)
+                && states.values().any(|state| {
+                    parse_chunk_field(&dirty.table_name, &state.field_name)
+                        .is_some_and(|(column, _)| column == field_name)
+                })
                 && let Some(items) = parse_array(&value)
             {
                 let chunks = split_chunks(&items, chunk_size);

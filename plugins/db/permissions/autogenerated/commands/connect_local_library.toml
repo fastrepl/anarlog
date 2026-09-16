@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-connect-local-library"
+description = "Enables the connect_local_library command without any pre-configured scope."
+commands.allow = ["connect_local_library"]
+
+[[permission]]
+identifier = "deny-connect-local-library"
+description = "Denies the connect_local_library command without any pre-configured scope."
+commands.deny = ["connect_local_library"]

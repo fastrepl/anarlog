@@ -1,10 +1,18 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { createRef } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TranscriptViewer } from "./index";
+import type { TranscriptWordSelection } from "./selection";
 
 const mocks = vi.hoisted(() => ({
+  updateTranscriptSegmentText: vi.fn().mockResolvedValue(undefined),
   scrollToBottom: vi.fn(),
   scrollToTop: vi.fn(),
   scrollDetection: {
@@ -17,8 +25,36 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("react-hotkeys-hook", () => ({
-  useHotkeys: vi.fn(),
+vi.mock("./selection-context", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./selection-context")>();
+  const { getTranscriptSectionSelection, getTranscriptSectionKeyFromElement } =
+    await import("./selection");
+  return {
+    ...actual,
+    useTranscriptSelectionSources: () => ({
+      registerSource: () => () => {},
+      collectEntries: () => {
+        const container = document.querySelector<HTMLElement>(
+          "[data-transcript-container]",
+        )!;
+        const entries = new Map(
+          [...container.querySelectorAll<HTMLElement>("section")].map(
+            (section) =>
+              [
+                getTranscriptSectionKeyFromElement(section)!,
+                getTranscriptSectionSelection(section, container)!,
+              ] as const,
+          ),
+        );
+        return { order: [...entries.keys()], entries };
+      },
+    }),
+  };
+});
+
+vi.mock("~/stt/queries", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("~/stt/queries")>()),
+  updateTranscriptSegmentText: mocks.updateTranscriptSegmentText,
 }));
 
 vi.mock("~/audio-player", () => ({
@@ -37,9 +73,50 @@ vi.mock("~/audio-player/provider", () => ({
 }));
 
 vi.mock("./selection-menu", () => ({
-  SelectionMenu: () => null,
-  MultiSelectionBar: ({ entryCount }: { entryCount: number }) => (
-    <div data-testid="multi-selection-bar">{entryCount}</div>
+  SelectionMenu: ({
+    onChangeSpeaker,
+  }: {
+    onChangeSpeaker?: (selection: TranscriptWordSelection) => void;
+  }) =>
+    onChangeSpeaker && (
+      <button
+        onClick={() =>
+          onChangeSpeaker?.({
+            text: "Transcript word",
+            startMs: 0,
+            groups: [
+              {
+                transcriptId: "1",
+                segmentKey: { channel: "RemoteParty", speaker_index: 1 },
+                wordIds: ["word-1"],
+              },
+            ],
+          })
+        }
+      >
+        Change speaker from here
+      </button>
+    ),
+  MultiSelectionBar: ({
+    entryCount,
+    selection,
+    onDelete,
+  }: {
+    entryCount: number;
+    selection: TranscriptWordSelection;
+    onDelete?: (selection: TranscriptWordSelection) => Promise<void>;
+  }) => (
+    <div
+      data-testid="multi-selection-bar"
+      data-selected-transcripts={selection.groups
+        .map((group) => group.transcriptId)
+        .join(",")}
+    >
+      {entryCount}
+      {onDelete && (
+        <button aria-label="Delete" onClick={() => void onDelete(selection)} />
+      )}
+    </div>
   ),
 }));
 
@@ -108,6 +185,10 @@ vi.mock("./transcript", () => ({
 }));
 
 vi.mock("./viewport-hooks", () => ({
+  preserveScrollPosition: (
+    _container: unknown,
+    action: () => Promise<unknown>,
+  ) => action(),
   useAutoScroll: vi.fn(),
   usePlaybackAutoScroll: vi.fn(),
   useScrollDetection: () => ({
@@ -120,6 +201,7 @@ vi.mock("./viewport-hooks", () => ({
 describe("TranscriptViewer", () => {
   beforeEach(() => {
     cleanup();
+    mocks.updateTranscriptSegmentText.mockClear();
     mocks.scrollToBottom.mockReset();
     mocks.scrollToTop.mockReset();
     mocks.scrollDetection.isAtTop = true;
@@ -276,6 +358,175 @@ describe("TranscriptViewer", () => {
 
     expect(screen.getByTestId("multi-selection-bar").textContent).toBe("2");
   });
+
+  it.each([
+    ["ArrowUp", 2],
+    ["ArrowDown", 3],
+  ])("extends block selection with Command-Shift-%s", (key, count) => {
+    render(
+      <TranscriptViewer
+        transcriptIds={["1", "2", "3", "4"]}
+        liveSegments={[]}
+        currentActive={false}
+        editMode
+        scrollRef={createRef()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("segment-header-2"));
+    const event = new KeyboardEvent("keydown", {
+      key,
+      code: key,
+      metaKey: true,
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    fireEvent(document, event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(
+      screen
+        .getByTestId("multi-selection-bar")
+        .getAttribute("data-selected-transcripts"),
+    ).toBe(key === "ArrowUp" ? "1,2" : "2,3,4");
+    expect(screen.getByTestId("multi-selection-bar").textContent).toBe(
+      String(count),
+    );
+    fireEvent.keyUp(document, { key, code: key });
+
+    const opposite = key === "ArrowUp" ? "ArrowDown" : "ArrowUp";
+    fireEvent.keyDown(document, {
+      key: opposite,
+      code: opposite,
+      metaKey: true,
+      shiftKey: true,
+    });
+    expect(screen.getByTestId("multi-selection-bar").textContent).toBe(
+      String(5 - count),
+    );
+    fireEvent.keyUp(document, { key: opposite, code: opposite });
+  });
+
+  it("leaves shortcuts alone without a block selection or inside an editor", () => {
+    render(
+      <TranscriptViewer
+        transcriptIds={["1", "2", "3"]}
+        liveSegments={[]}
+        currentActive={false}
+        editMode
+        scrollRef={createRef()}
+      />,
+    );
+    fireEvent.keyDown(document, {
+      key: "ArrowUp",
+      code: "ArrowUp",
+      metaKey: true,
+      shiftKey: true,
+    });
+    expect(screen.queryByTestId("multi-selection-bar")).toBeNull();
+    fireEvent.keyUp(document, { key: "ArrowUp", code: "ArrowUp" });
+    fireEvent.click(screen.getByTestId("segment-header-2"));
+    const editor = screen.getByTestId("editor-2");
+    editor.setAttribute("contenteditable", "true");
+    fireEvent.keyDown(editor, {
+      key: "ArrowUp",
+      code: "ArrowUp",
+      metaKey: true,
+      shiftKey: true,
+    });
+    expect(screen.getByTestId("multi-selection-bar").textContent).toBe("1");
+    fireEvent.keyUp(editor, { key: "ArrowUp", code: "ArrowUp" });
+  });
+
+  it("routes selected text to the editor speaker split at the selection start", () => {
+    const onEditModeChange = vi.fn();
+    render(
+      <TranscriptViewer
+        transcriptIds={["1"]}
+        liveSegments={[]}
+        currentActive={false}
+        editMode
+        onEditModeChange={onEditModeChange}
+        scrollRef={createRef()}
+      />,
+    );
+    const editor = screen.getByTestId("editor-1");
+    const onEnter = vi.fn((event: Event) => {
+      expect((event as KeyboardEvent).key).toBe("Enter");
+      expect(window.getSelection()?.isCollapsed).toBe(true);
+      expect(window.getSelection()?.anchorOffset).toBe(0);
+    });
+    editor.addEventListener("keydown", onEnter);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change speaker from here" }),
+    );
+    expect(onEditModeChange).toHaveBeenCalledWith(true);
+    expect(onEnter).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not offer the speaker picker without an edit-mode callback", () => {
+    render(
+      <TranscriptViewer
+        transcriptIds={["1"]}
+        liveSegments={[]}
+        currentActive={false}
+        editMode
+        scrollRef={createRef()}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: "Change speaker from here" }),
+    ).toBeNull();
+  });
+
+  it("saves removal of selected blocks across transcripts", async () => {
+    render(
+      <TranscriptViewer
+        transcriptIds={["1", "2", "3"]}
+        liveSegments={[]}
+        currentActive={false}
+        editMode
+        scrollRef={createRef()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("segment-header-1"));
+    fireEvent.click(screen.getByTestId("segment-header-3"));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() =>
+      expect(mocks.updateTranscriptSegmentText).toHaveBeenCalledTimes(2),
+    );
+    expect(mocks.updateTranscriptSegmentText).toHaveBeenCalledWith({
+      transcriptId: "1",
+      wordIds: ["word-1"],
+      text: "",
+    });
+    expect(mocks.updateTranscriptSegmentText).toHaveBeenCalledWith({
+      transcriptId: "3",
+      wordIds: ["word-3"],
+      text: "",
+    });
+  });
+
+  it.each([
+    [false, false],
+    [true, true],
+  ])(
+    "does not offer deletion outside inactive edit mode (%s, %s)",
+    (editMode, currentActive) => {
+      render(
+        <TranscriptViewer
+          transcriptIds={["1"]}
+          liveSegments={[]}
+          currentActive={currentActive}
+          editMode={editMode}
+          scrollRef={createRef()}
+        />,
+      );
+      fireEvent.click(screen.getByTestId("segment-header-1"), {
+        metaKey: true,
+      });
+      expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+    },
+  );
 
   it("lets entries be chosen without modifier keys while editing", () => {
     render(

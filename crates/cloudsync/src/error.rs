@@ -92,13 +92,25 @@ fn classify_io_error(error: &std::io::Error) -> ErrorKind {
 }
 
 fn classify_error_message(message: &str) -> Option<ErrorKind> {
-    if message.contains("\"status\":\"409\"") && message.contains("\"code\":\"already_exists\"") {
-        return Some(ErrorKind::Transient);
-    }
-    // SQLite Cloud wraps HTTP JSON in SQLITE_ERROR (code 1). A 404 here is
-    // usually a startup race ("managed database not found") that the next retry wins.
-    if message.contains("\"status\":\"404\"") && message.contains("\"code\":\"not_found\"") {
-        return Some(ErrorKind::Transient);
+    // SQLite Cloud wraps HTTP JSON in SQLITE_ERROR (code 1), sometimes with a prefix.
+    if let Some(response) = message
+        .find('{')
+        .and_then(|start| serde_json::from_str::<serde_json::Value>(&message[start..]).ok())
+        && let Some(errors) = response.get("errors").and_then(serde_json::Value::as_array)
+        && !errors.is_empty()
+    {
+        return errors
+            .iter()
+            .all(|error| {
+                matches!(
+                    (error["status"].as_str(), error["code"].as_str()),
+                    (
+                        Some("409"),
+                        Some("already_exists" | "apply_batch_superseded")
+                    ) | (Some("404"), Some("not_found"))
+                )
+            })
+            .then_some(ErrorKind::Transient);
     }
 
     let message = message.to_ascii_lowercase();
@@ -155,6 +167,59 @@ mod tests {
         assert_eq!(
             classify_database_error(Some("1"), message),
             ErrorKind::Transient
+        );
+    }
+
+    #[test]
+    fn superseded_cloud_batch_is_transient() {
+        let message =
+            r#"{"errors":[{"status":"409","code":"apply_batch_superseded","title":"Conflict"}]}"#;
+
+        assert_eq!(
+            classify_database_error(Some("1"), message),
+            ErrorKind::Transient
+        );
+        assert_eq!(
+            classify_io_error(&std::io::Error::other(format!("sqlx error: {message}"))),
+            ErrorKind::Transient
+        );
+    }
+
+    #[test]
+    fn unrelated_cloud_conflicts_remain_fatal() {
+        for message in [
+            r#"{"errors":[{"status":"409","code":"schema_conflict"}]}"#,
+            r#"{"errors":[{"status":"403","code":"apply_batch_superseded"}]}"#,
+            r#"{"errors":[{"status":"409","code":"schema_conflict"},{"status":"403","code":"apply_batch_superseded"}]}"#,
+            r#"{"errors":[{"status":"409","code":"apply_batch_superseded"},{"status":"409","code":"schema_conflict"}]}"#,
+            r#"{"errors":[{"status":"409","code":"apply_batch_superseded"}]"#,
+        ] {
+            assert_eq!(
+                classify_database_error(Some("1"), message),
+                ErrorKind::Fatal
+            );
+        }
+    }
+
+    #[test]
+    fn cloud_error_classification_ignores_json_formatting() {
+        let message =
+            r#"sqlx error: {"errors": [{"code": "apply_batch_superseded", "status": "409"}]}"#;
+
+        assert_eq!(
+            classify_database_error(Some("1"), message),
+            ErrorKind::Transient
+        );
+    }
+
+    #[test]
+    fn unrecognized_cloud_response_preserves_native_error_kind() {
+        assert_eq!(
+            classify_database_error(
+                Some("10004"),
+                r#"{"errors":[{"status":"401","code":"unauthorized"}]}"#,
+            ),
+            ErrorKind::Auth
         );
     }
 

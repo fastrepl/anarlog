@@ -21,6 +21,7 @@ INSERT INTO sessions (
     SELECT json_extract(value_json, '$.workspace_id')
     FROM app_settings WHERE id = 'cloudsync_workspace_binding'
   ), ''), COALESCE(
+    (SELECT library_workspace_id FROM local_library_connections WHERE active = 1),
     NULLIF(NULLIF(?, ''), '00000000-0000-0000-0000-000000000000'),
     NULLIF((
       SELECT json_extract(value_json, '$.workspace_id')
@@ -73,15 +74,21 @@ export async function createSession(options?: {
   const sessionId = options?.sessionId ?? id();
   if (options?.sessionId) {
     const existing = (
-      await execute<{ owner_user_id: string; deleted_at: string | null }>(
-        "SELECT owner_user_id, deleted_at FROM sessions WHERE id = ? LIMIT 1",
-        [sessionId],
+      await execute<{
+        owner_user_id: string;
+        deleted_at: string | null;
+        requested_owner_id: string;
+      }>(
+        `SELECT owner_user_id, deleted_at,
+          COALESCE((SELECT library_workspace_id FROM local_library_connections WHERE account_user_id = ?2), ?2) AS requested_owner_id
+         FROM sessions WHERE id = ?1 LIMIT 1`,
+        [sessionId, options.ownerUserId ?? ""],
       )
     )[0];
     if (existing) {
       if (
         options.ownerUserId &&
-        existing.owner_user_id !== options.ownerUserId
+        existing.owner_user_id !== existing.requested_owner_id
       ) {
         throw new Error("Session owner does not match the requested owner");
       }

@@ -527,6 +527,18 @@ pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
         },
         sql: include_str!("../migrations/20260909160300_e2ee_dirty_daily_notes_triggers.sql"),
     },
+    anlg_db_migrate::MigrationStep {
+        id: "20260916043000_local_library_connections",
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "session_attachments",
+        },
+        sql: include_str!("../migrations/20260916043000_local_library_connections.sql"),
+    },
+    anlg_db_migrate::MigrationStep {
+        id: "20260916060000_local_library_write_times",
+        scope: anlg_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260916060000_local_library_write_times.sql"),
+    },
 ];
 
 pub fn schema() -> anlg_db_migrate::DbSchema {

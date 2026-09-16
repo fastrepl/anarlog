@@ -17,6 +17,7 @@ jobs:
       - run: >-
           node --test
           scripts/release-version.test.mjs
+          scripts/notarize-dmg.test.mjs
           scripts/changelog-bundle.test.mjs
           scripts/verify-release-candidate.test.mjs
           scripts/desktop-release-provenance.test.mjs

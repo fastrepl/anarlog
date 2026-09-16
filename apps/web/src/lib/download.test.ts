@@ -1,8 +1,9 @@
+import { isRedirect } from "@tanstack/react-router";
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { Route as nightlyDownloadRoute } from "../routes/_view/download/nightly/index.ts";
 import {
-  nightlyDownloadSections,
   comingSoonPlatforms,
   desktopDownloadSections,
   detectDownloadPlatform,
@@ -141,14 +142,7 @@ test("orders the detected platform first", () => {
   );
 });
 
-test("Nightly uses its own feed without changing stable downloads", () => {
-  const nightly = nightlyDownloadSections.flatMap(
-    (section) => section.downloads,
-  );
-  assert.equal(nightly.length, 7);
-  for (const download of nightly) {
-    assert.equal(new URL(download.url).searchParams.get("channel"), "nightly");
-  }
+test("public desktop downloads use only the stable channel", () => {
   for (const section of desktopDownloadSections) {
     for (const download of section.downloads) {
       const url = new URL(download.url);
@@ -157,4 +151,16 @@ test("Nightly uses its own feed without changing stable downloads", () => {
       }
     }
   }
+});
+
+test("old Nightly download links permanently redirect to stable downloads", () => {
+  assert.throws(
+    () => nightlyDownloadRoute.options.beforeLoad!({} as never),
+    (error: unknown) => {
+      assert.ok(isRedirect(error));
+      assert.equal(error.status, 301);
+      assert.equal(error.options.to, "/download/");
+      return true;
+    },
+  );
 });

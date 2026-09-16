@@ -123,7 +123,34 @@ pub fn convert_outlook_events(events: Vec<OutlookEvent>, calendar_id: &str) -> V
 }
 
 pub fn convert_apple_events(events: Vec<AppleEvent>) -> Vec<CalendarEvent> {
-    events.into_iter().map(convert_apple_event).collect()
+    let mut occurrences = std::collections::BTreeMap::new();
+    for event in events {
+        let rank = (
+            event.is_detached,
+            event.last_modified_date,
+            matches!(event.status, AppleEventStatus::Canceled),
+            event.event_identifier.clone(),
+        );
+        let mut converted = convert_apple_event(event);
+        match occurrences.entry(converted.id.clone()) {
+            std::collections::btree_map::Entry::Vacant(entry) => {
+                entry.insert((rank, converted));
+            }
+            std::collections::btree_map::Entry::Occupied(mut entry) => {
+                let (current_rank, current) = entry.get_mut();
+                let mut aliases = current.legacy_ids.clone();
+                aliases.append(&mut converted.legacy_ids);
+                aliases.sort();
+                aliases.dedup();
+                if rank > *current_rank {
+                    *current_rank = rank;
+                    *current = converted;
+                }
+                current.legacy_ids = aliases;
+            }
+        }
+    }
+    occurrences.into_values().map(|(_, event)| event).collect()
 }
 
 fn convert_google_event(event: GoogleEvent, calendar_id: &str) -> CalendarEvent {
@@ -174,6 +201,7 @@ fn convert_google_event(event: GoogleEvent, calendar_id: &str) -> CalendarEvent 
 
     CalendarEvent {
         id: event.id,
+        legacy_ids: Vec::new(),
         calendar_id: calendar_id.to_string(),
         provider: CalendarProviderType::Google,
         external_id: event.ical_uid.unwrap_or_default(),
@@ -249,6 +277,7 @@ fn convert_outlook_event(event: OutlookEvent, calendar_id: &str) -> CalendarEven
 
     CalendarEvent {
         id: event.id,
+        legacy_ids: Vec::new(),
         calendar_id: calendar_id.to_string(),
         provider: CalendarProviderType::Outlook,
         external_id: event.ical_uid.unwrap_or_default(),
@@ -273,25 +302,31 @@ fn convert_outlook_event(event: OutlookEvent, calendar_id: &str) -> CalendarEven
 fn convert_apple_event(event: AppleEvent) -> CalendarEvent {
     let raw = serde_json::to_string(&event).unwrap_or_default();
 
-    let id = if event.has_recurrence_rules {
-        let date = event.occurrence_date.as_ref().unwrap_or(&event.start_date);
-        let day = local_date_string(date, event.time_zone.as_deref());
-        format!("{}:{}", event.event_identifier, day)
-    } else {
-        event.event_identifier.clone()
-    };
+    let (id, legacy_ids) = crate::apple_identity::identity(&event);
 
     let organizer = event.organizer.as_ref().map(convert_person);
     let attendees = event.attendees.iter().map(convert_apple_attendee).collect();
 
-    let recurring_event_id = if event.has_recurrence_rules {
-        Some(
-            event
-                .recurrence
-                .expect("event with has_recurrence_rules: true must have a recurrence")
-                .series_identifier
-                .clone(),
-        )
+    let recurring_event_id = if event.has_recurrence_rules || event.is_detached {
+        event
+            .recurrence
+            .as_ref()
+            .map(|recurrence| {
+                crate::apple_identity::without_occurrence_suffix(
+                    &recurrence.series_identifier,
+                    &event,
+                )
+                .to_string()
+            })
+            .or_else(|| {
+                [&event.external_identifier, &event.calendar_item_identifier]
+                    .into_iter()
+                    .find(|identifier| !identifier.is_empty())
+                    .map(|identifier| {
+                        crate::apple_identity::without_occurrence_suffix(identifier, &event)
+                            .to_string()
+                    })
+            })
     } else {
         None
     };
@@ -301,6 +336,7 @@ fn convert_apple_event(event: AppleEvent) -> CalendarEvent {
 
     CalendarEvent {
         id,
+        legacy_ids,
         calendar_id: event.calendar.id,
         provider: CalendarProviderType::Apple,
         external_id: event.external_identifier,
@@ -567,7 +603,10 @@ fn convert_apple_attendee_role(role: &ParticipantRole) -> AttendeeRole {
     }
 }
 
-fn local_date_string(date: &chrono::DateTime<chrono::Utc>, event_tz: Option<&str>) -> String {
+pub(super) fn local_date_string(
+    date: &chrono::DateTime<chrono::Utc>,
+    event_tz: Option<&str>,
+) -> String {
     if let Some(tz_name) = event_tz
         && let Ok(tz) = tz_name.parse::<chrono_tz::Tz>()
     {

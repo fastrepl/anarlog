@@ -128,7 +128,7 @@
             "description": "Unauthorized"
           },
           "424": {
-            "description": "Calendar connection requires reconnect"
+            "description": "Calendar connection requires reconnect or mailbox is unavailable"
           },
           "500": {
             "description": "Internal server error"
@@ -172,7 +172,7 @@
             "description": "Unauthorized"
           },
           "424": {
-            "description": "Calendar connection requires reconnect"
+            "description": "Calendar connection requires reconnect or mailbox is unavailable"
           },
           "500": {
             "description": "Internal server error"

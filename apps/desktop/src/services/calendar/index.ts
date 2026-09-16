@@ -16,6 +16,7 @@ import {
   syncSessionEmbeddedEvents,
   syncSessionParticipants,
 } from "./process";
+import { eventTrackingIds } from "./process/events/identity";
 import {
   applyConnectionSync,
   loadParticipantSyncSnapshot,
@@ -185,13 +186,21 @@ async function runForConnection(
     incomingParticipants,
   });
   const sessions = await loadSessionsForTrackingIds(
-    incoming.map((event) => event.tracking_id_event),
+    incoming.flatMap(eventTrackingIds),
   );
   if (shouldStop()) return;
 
   const sessionUpdates = syncSessionEmbeddedEvents(ctx, incoming, sessions);
+  const sessionTrackingIds = new Map(
+    sessionUpdates.map((update) => [update.sessionId, update.trackingId]),
+  );
   const participantSnapshot = await loadParticipantSyncSnapshot(
-    sessions,
+    sessions
+      .filter((session) => sessionTrackingIds.has(session.id))
+      .map((session) => ({
+        ...session,
+        trackingId: sessionTrackingIds.get(session.id)!,
+      })),
     incomingParticipants,
   );
   if (shouldStop()) return;

@@ -19,7 +19,7 @@ const REFRESH_INTERVAL_MS = 60 * 1000;
 const PAGE_SIZE = 8;
 const MAX_AGGREGATE_BYTES = 64 * 1024 * 1024;
 
-export async function fetchDurableSharedNoteSnapshots(
+async function fetchDurableSharedNoteSnapshots(
   supabase: SupabaseClient,
   session: Session,
   signal: AbortSignal,

@@ -30,6 +30,7 @@ internal
 
 # Agent scratch / reference material (not for commit)
 .tmp/
+.changelog-hmr-*/
 .codex-security-artifacts-*/
 .codex-security-work-ledger-*.jsonl
 .claude/launch.json

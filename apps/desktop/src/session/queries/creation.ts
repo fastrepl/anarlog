@@ -54,6 +54,7 @@ export async function createSession(
             FROM app_settings
             WHERE id = 'cloudsync_workspace_binding'
           ), ''), COALESCE(
+            (SELECT library_workspace_id FROM local_library_connections WHERE active = 1),
             NULLIF(NULLIF(?, ''), '${DEFAULT_USER_ID}'),
             NULLIF((
               SELECT json_extract(value_json, '$.workspace_id')
@@ -172,6 +173,7 @@ export async function getOrCreateSessionForEventId(
           FROM app_settings
           WHERE id = 'cloudsync_workspace_binding'
         ), ''), COALESCE(
+          (SELECT library_workspace_id FROM local_library_connections WHERE active = 1),
           NULLIF(NULLIF(?, ''), '${DEFAULT_USER_ID}'),
           NULLIF((
             SELECT json_extract(value_json, '$.workspace_id')

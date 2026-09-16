@@ -142,17 +142,6 @@ function Component() {
             );
           })}
 
-          <p className="text-color-muted text-sm leading-6">
-            Want to try upcoming improvements?{" "}
-            <a
-              href="/download/nightly/"
-              className="text-color underline underline-offset-4"
-            >
-              Explore Anarlog Nightly
-            </a>
-            . Your current app stays on stable.
-          </p>
-
           <section aria-labelledby="coming-soon-platforms">
             <h2
               id="coming-soon-platforms"

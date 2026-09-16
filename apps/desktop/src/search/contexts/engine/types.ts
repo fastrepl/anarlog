@@ -3,7 +3,7 @@ import { z } from "zod";
 const searchEntityTypeSchema = z.enum(["session", "human", "organization"]);
 export type SearchEntityType = z.infer<typeof searchEntityTypeSchema>;
 
-export const searchDocumentSchema = z.object({
+const searchDocumentSchema = z.object({
   id: z.string(),
   type: searchEntityTypeSchema,
   title: z.string(),
@@ -23,7 +23,7 @@ const numberFilterSchema = z
   })
   .optional();
 
-export const searchFiltersSchema = z.object({
+const searchFiltersSchema = z.object({
   created_at: numberFilterSchema,
 });
 

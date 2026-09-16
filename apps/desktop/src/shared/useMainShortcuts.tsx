@@ -87,7 +87,7 @@ export function useMainShortcuts() {
   return { runEscapeShortcut };
 }
 
-export function useMainEscapeShortcutAction() {
+function useMainEscapeShortcutAction() {
   const { chat } = useShell();
 
   return useCallback(() => {

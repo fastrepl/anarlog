@@ -3,6 +3,7 @@ use std::sync::LazyLock;
 use anlg_db_core::CloudsyncTableSpec;
 
 mod binding;
+mod library;
 mod projection;
 mod recovery;
 
@@ -11,6 +12,7 @@ pub use binding::{
     claim_cloudsync_workspace_cancellable, cloudsync_workspace_is_claimed_by,
     ensure_cloudsync_workspace_binding,
 };
+pub use library::{connect_local_library, local_library_remote_workspace};
 pub use projection::{
     CloudsyncWorkspaceProjection, CloudsyncWorkspaceProjectionEntry,
     CloudsyncWorkspaceReconciliationPlan, cloudsync_write_filter_installed,

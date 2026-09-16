@@ -1,6 +1,88 @@
 use super::*;
 
 #[tokio::test]
+async fn switching_library_accounts_preserves_personal_files_and_still_evicts_revoked_team_files() {
+    let db = test_db().await;
+    claim_cloudsync_workspace(db.pool(), "user-a")
+        .await
+        .unwrap();
+    sqlx::query(
+        "INSERT INTO sessions (id, workspace_id, title)
+         VALUES ('personal-note', 'user-a', 'Personal'), ('team-note', 'team-b', 'Team');
+         INSERT INTO session_attachments (id, workspace_id, session_id, relative_path)
+         VALUES ('audio', 'user-a', 'personal-note', 'sessions/personal-note/audio.wav')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+
+    let personal = |account: &str| {
+        projection(
+            account,
+            vec![projected_workspace(
+                account, account, "personal", "personal", "owner", "Personal",
+            )],
+        )
+    };
+    replace_cloudsync_workspace_projection(db.pool(), &personal("user-a"))
+        .await
+        .unwrap();
+    crate::connect_local_library(db.pool(), "user-b", "user-a")
+        .await
+        .unwrap();
+    let mut with_team = personal("user-b");
+    with_team.workspaces.push(projected_workspace(
+        "team-b",
+        "team-owner",
+        "shared",
+        "team",
+        "member",
+        "Team",
+    ));
+    let plan = stage_cloudsync_workspace_reconciliation(db.pool(), &with_team)
+        .await
+        .unwrap();
+    assert!(plan.revoked_workspace_ids.is_empty());
+    commit_cloudsync_workspace_projection(db.pool(), &with_team, false)
+        .await
+        .unwrap();
+    let plan = stage_cloudsync_workspace_reconciliation(db.pool(), &personal("user-b"))
+        .await
+        .unwrap();
+    assert_eq!(plan.revoked_workspace_ids, vec!["team-b"]);
+    commit_cloudsync_workspace_projection(db.pool(), &personal("user-b"), false)
+        .await
+        .unwrap();
+    claim_cloudsync_workspace(db.pool(), "user-a")
+        .await
+        .unwrap();
+    stage_cloudsync_workspace_reconciliation(db.pool(), &personal("user-a"))
+        .await
+        .unwrap();
+    commit_cloudsync_workspace_projection(db.pool(), &personal("user-a"), false)
+        .await
+        .unwrap();
+
+    let evicted: Vec<String> = sqlx::query_scalar(
+        "SELECT session_id FROM cloudsync_session_evictions ORDER BY session_id",
+    )
+    .fetch_all(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(evicted, vec!["team-note"]);
+    let attachment: (String, String) = sqlx::query_as(
+        "SELECT workspace_id, relative_path FROM session_attachments WHERE id = 'audio'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(
+        attachment,
+        ("user-a".into(), "sessions/personal-note/audio.wav".into())
+    );
+}
+
+#[tokio::test]
 async fn workspace_projection_replaces_stale_server_rows() {
     let db = test_db().await;
     replace_cloudsync_workspace_projection(

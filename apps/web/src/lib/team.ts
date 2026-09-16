@@ -1,4 +1,4 @@
-export const EDITORS = {
+const EDITORS = {
   john: {
     id: "john",
     name: "John Jeong",

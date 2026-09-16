@@ -35,6 +35,7 @@ type SessionShareSourceSqlRow = {
   assigned_workspace_deleted_at: string | null;
   assigned_workspace_role: string | null;
   binding_json: string | null;
+  library_account_id?: string | null;
 };
 
 type AvailableShareWorkspaceSqlRow = {
@@ -122,7 +123,11 @@ const SESSION_SHARE_SOURCE_SQL = `
       FROM app_settings
       WHERE id = 'cloudsync_workspace_binding'
       LIMIT 1
-    ) AS binding_json
+    ) AS binding_json,
+    (
+      SELECT account_user_id FROM local_library_connections
+      WHERE library_workspace_id = session.workspace_id AND active = 1
+    ) AS library_account_id
   FROM sessions AS session
   LEFT JOIN session_documents AS share_document
     ON share_document.id = (${SESSION_SHARE_DOCUMENT_ID_SQL})
@@ -251,6 +256,13 @@ function resolveSourceWorkspace(
 ): string {
   const personalWorkspaceAvailable = Boolean(row.personal_workspace_available);
   const assignedWorkspaceId = row.workspace_id.trim();
+
+  if (row.library_account_id === accountUserId) {
+    if (!personalWorkspaceAvailable) {
+      throw new Error("The personal workspace is unavailable for sharing");
+    }
+    return accountUserId;
+  }
 
   if (assignedWorkspaceId === accountUserId) {
     if (

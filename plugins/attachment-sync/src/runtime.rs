@@ -117,11 +117,13 @@ pub async fn describe_upload(
         load_transfer_attachment(state.pool(), job_id, attempt_count, "upload", true).await?;
     validate_upload_transfer_version(&record)?;
     let plaintext = plaintext_metadata(&record.expected_sha256, record.expected_size_bytes)?;
-    let key = workspace_key(state, &record.workspace_id)?;
+    let remote_workspace_id =
+        anlg_db_app::local_library_remote_workspace(state.pool(), &record.workspace_id).await?;
+    let key = workspace_key(state, &remote_workspace_id)?;
 
     let (attachment_ref, version_ref) = attachment_backup_refs(
         &key,
-        &record.workspace_id,
+        &remote_workspace_id,
         &record.attachment_id,
         &plaintext,
     )?;
@@ -130,7 +132,7 @@ pub async fn describe_upload(
         attachment_ref,
         version_ref,
         ciphertext_size_bytes: key.attachment_blob_ciphertext_size(
-            &record.workspace_id,
+            &remote_workspace_id,
             &record.attachment_id,
             plaintext.size_bytes,
         )?,
@@ -151,9 +153,11 @@ pub async fn prepare_upload<R: Runtime>(
         load_transfer_attachment(state.pool(), job_id, attempt_count, "upload", true).await?;
     validate_upload_transfer_version(&record)?;
     let expected = plaintext_metadata(&record.expected_sha256, record.expected_size_bytes)?;
-    let key = workspace_key(state, &record.workspace_id)?;
+    let remote_workspace_id =
+        anlg_db_app::local_library_remote_workspace(state.pool(), &record.workspace_id).await?;
+    let key = workspace_key(state, &remote_workspace_id)?;
     let expected_ciphertext_size = key.attachment_blob_ciphertext_size(
-        &record.workspace_id,
+        &remote_workspace_id,
         &record.attachment_id,
         expected.size_bytes,
     )?;
@@ -191,7 +195,7 @@ pub async fn prepare_upload<R: Runtime>(
     let cache_id = Uuid::new_v4().to_string();
     let cache_path = private_cache_path(&cache_root, &cache_id)?;
     let context = AttachmentBlobContext::new(
-        record.workspace_id.clone(),
+        remote_workspace_id.clone(),
         record.attachment_id.clone(),
         object_id.to_string(),
     )?;
@@ -501,9 +505,11 @@ pub async fn download_and_restore<R: Runtime>(
     }
     let expected_plaintext =
         plaintext_metadata(&record.expected_sha256, record.expected_size_bytes)?;
-    let key = workspace_key(state, &record.workspace_id)?;
+    let remote_workspace_id =
+        anlg_db_app::local_library_remote_workspace(state.pool(), &record.workspace_id).await?;
+    let key = workspace_key(state, &remote_workspace_id)?;
     let predicted_size = key.attachment_blob_ciphertext_size(
-        &record.workspace_id,
+        &remote_workspace_id,
         &record.attachment_id,
         expected_plaintext.size_bytes,
     )?;
@@ -572,7 +578,7 @@ pub async fn download_and_restore<R: Runtime>(
 
         let destination = resolve_attachment_path(app, &record.local_attachment(), false)?;
         let context = AttachmentBlobContext::new(
-            record.workspace_id.clone(),
+            remote_workspace_id.clone(),
             record.attachment_id.clone(),
             object_id.to_string(),
         )?;

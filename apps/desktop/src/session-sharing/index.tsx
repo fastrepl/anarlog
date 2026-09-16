@@ -71,8 +71,6 @@ import {
 import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
-export { sessionShareManagementQueryKey };
-
 export function SessionShareButton({
   sessionId,
   variant = "icon",

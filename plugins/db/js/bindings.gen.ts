@@ -198,6 +198,14 @@ async bindCloudsyncAccount(accountUserId: string) : Promise<Result<boolean, stri
     else return { status: "error", error: e  as any };
 }
 },
+async connectLocalLibrary(accountUserId: string, expectedLibraryWorkspaceId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|connect_local_library", { accountUserId, expectedLibraryWorkspaceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async configureCloudsyncToken(databaseId: string, token: string, workspaceId: string, workspaceProjection: CloudsyncWorkspaceProjection | null, workspaceKeyGrants: CloudsyncWorkspaceKeyGrant[] | null, e2eeWitness: CloudsyncE2eeWitness) : Promise<Result<CloudsyncTokenConfigurationResult, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:db|configure_cloudsync_token", { databaseId, token, workspaceId, workspaceProjection, workspaceKeyGrants, e2eeWitness }) };
