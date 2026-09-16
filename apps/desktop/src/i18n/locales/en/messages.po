@@ -876,6 +876,10 @@ msgstr "Build voiceprints from meeting audio so speakers you name in a transcrip
 msgid "Busiest day"
 msgstr "Busiest day"
 
+#: src/calendar/components/event-chip.tsx
+msgid "Busy"
+msgstr "Busy"
+
 #: src/settings/general/permissions.tsx
 #: src/sidebar/settings.tsx
 msgid "Calendar"

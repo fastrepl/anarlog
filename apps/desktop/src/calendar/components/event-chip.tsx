@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useCallback, useMemo } from "react";
@@ -32,7 +33,7 @@ export function EventChip({
 }) {
   const tz = useTimezone();
   const { ignoreEvent, ignoreSeries } = useIgnoredEvents();
-  const title = event?.title || "Busy";
+  const title = event?.title || t`Busy`;
   const trackingId = event?.tracking_id_event ?? undefined;
   const recurrenceSeriesId = event?.recurrence_series_id ?? undefined;
   const isAllDay = !!event?.is_all_day;
@@ -157,7 +158,7 @@ function EventPopoverContent({
     <div className="flex flex-col gap-3 p-4">
       <EventDisplay
         event={{
-          title: event.title || "Busy",
+          title: event.title || t`Busy`,
           startedAt: event.started_at ?? undefined,
           endedAt: event.ended_at ?? undefined,
           location: event.location ?? undefined,

@@ -876,6 +876,10 @@ msgstr ""
 msgid "Busiest day"
 msgstr ""
 
+#: src/calendar/components/event-chip.tsx
+msgid "Busy"
+msgstr ""
+
 #: src/settings/general/permissions.tsx
 #: src/sidebar/settings.tsx
 msgid "Calendar"
