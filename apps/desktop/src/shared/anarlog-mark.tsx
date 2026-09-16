@@ -1,4 +1,4 @@
-export const ANARLOG_MARK_VIEW_BOX = "-2 79 235 180";
+const ANARLOG_MARK_VIEW_BOX = "-2 79 235 180";
 
 export function AnarlogMark({ className }: { className?: string }) {
   return (

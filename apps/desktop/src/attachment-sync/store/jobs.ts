@@ -178,29 +178,6 @@ export async function failAttachmentTransferJob(
   );
 }
 
-export async function retryAttachmentTransfersForAttachment(
-  attachmentId: string,
-): Promise<void> {
-  const now = new Date().toISOString();
-  await enqueueDatabaseWrite("attachment-transfers", () =>
-    executeTransaction([
-      {
-        sql: `
-          UPDATE attachment_transfer_jobs
-          SET
-            phase = 'queued',
-            attempt_count = attempt_count + 1,
-            next_attempt_at = ?,
-            last_error = '',
-            updated_at = ?
-          WHERE attachment_id = ? AND phase = 'failed'
-        `,
-        params: [now, now, attachmentId],
-      },
-    ]),
-  );
-}
-
 async function updateJob(
   job: AttachmentTransferJob,
   phase: AttachmentTransferPhase,

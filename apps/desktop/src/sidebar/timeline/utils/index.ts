@@ -191,7 +191,7 @@ export function getBucketInfo(
   };
 }
 
-export function calculateIndicatorIndex(
+function calculateIndicatorIndex(
   entries: Array<{ timestamp: Date | null }>,
   current: Date,
   sortOrder: TimelineSortOrder = "newest",
@@ -305,7 +305,7 @@ function isAfterTomorrow(date: Date | null, timezone?: string): boolean {
   return date.getTime() >= getTomorrowUpperBound(timezone);
 }
 
-export function sessionMatchesFolderFilter(
+function sessionMatchesFolderFilter(
   folderId: string | null | undefined,
   folderFilter: string | null,
 ): boolean {

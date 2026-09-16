@@ -14,7 +14,7 @@ import { loadHuman, loadOrganization } from "~/contacts/queries";
 import { useToolRegistry } from "~/contexts/tool";
 import { useConfigValue } from "~/shared/config";
 
-export const MEETING_CONTEXT_TOOL_GUIDANCE = `
+const MEETING_CONTEXT_TOOL_GUIDANCE = `
 Context and local meeting tool guidance:
 - Use list_meetings for recent meetings, title or ID lookup, pagination, and exact recurring-series filtering. Never guess a meeting ID.
 - Use search_meetings for open-ended questions about topics, people, decisions, or date ranges across meeting content. Use search_meeting_content when the user needs exact wording from notes or transcripts.

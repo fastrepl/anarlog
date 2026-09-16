@@ -297,7 +297,7 @@ const EditableSegmentText = memo(function EditableSegmentText({
   );
 });
 
-export function normalizeEditableTranscriptText(text: string) {
+function normalizeEditableTranscriptText(text: string) {
   return text.replace(/\s+/g, " ").trim();
 }
 

@@ -1,5 +1,4 @@
 export {
-  ChannelProfile,
   type PartialWord,
   type RenderLabelContext,
   type RuntimeSpeakerHint,

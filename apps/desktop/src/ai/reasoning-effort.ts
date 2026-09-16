@@ -1,6 +1,6 @@
 import type { defaultSettingsMiddleware } from "ai";
 
-export const REASONING_EFFORTS = ["default", "low", "medium", "high"] as const;
+const REASONING_EFFORTS = ["default", "low", "medium", "high"] as const;
 export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
 
 export const normalizeReasoningEffort = (value: unknown): ReasoningEffort =>

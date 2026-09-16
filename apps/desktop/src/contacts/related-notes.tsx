@@ -134,7 +134,7 @@ export function RelatedNotesSection({
   );
 }
 
-export function sortAndFilterRelatedNotes(
+function sortAndFilterRelatedNotes(
   sessions: HumanSessionRecord[],
   search: string,
   sortOrder: "newest" | "oldest",

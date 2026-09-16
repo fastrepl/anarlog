@@ -29,7 +29,7 @@ async function attempt<T>(run: () => Promise<T>): Promise<T | null> {
 }
 
 /** Snapshot of everything the bar knows, for pasting into bug reports. */
-export async function buildDiagnostics() {
+async function buildDiagnostics() {
   const metrics = useDevtoolsMetrics.getState();
   const identifier = await attempt(() => getIdentifier());
   const version = await attempt(() => getVersion());

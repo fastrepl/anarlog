@@ -625,7 +625,7 @@ export type ChatCloudsyncActivityController = ReturnType<
 // Tauri `invoke` rejects with the serialized Rust error (a bare string), and
 // the AI SDK stores whatever `sendMessages` throws as `useChat().error`
 // without checking it is an Error. Normalize so the UI can rely on `.message`.
-export function toChatTransportError(error: unknown): Error {
+function toChatTransportError(error: unknown): Error {
   if (error instanceof Error) {
     return error;
   }

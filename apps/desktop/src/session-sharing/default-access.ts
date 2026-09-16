@@ -10,7 +10,7 @@ import type { AvailableShareWorkspace } from "./source";
 
 import { liveQueryClient } from "~/db";
 
-export const DEFAULT_MEETING_SHARE_ACCESS_VALUES = [
+const DEFAULT_MEETING_SHARE_ACCESS_VALUES = [
   "me",
   "participants",
   "workspace",

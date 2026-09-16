@@ -10,7 +10,7 @@ export const shareLinkIdSchema = z.string().uuid();
 export const invitationIdSchema = z.string().uuid();
 export const publicShareSlugSchema = z.string().regex(/^s_[0-9a-f]{32}$/);
 export const linkSharePreviewTokenSchema = z.string().regex(/^[0-9a-f]{64}$/);
-export const handoffRequestIdSchema = z
+const handoffRequestIdSchema = z
   .string()
   .regex(
     /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,

@@ -3,13 +3,10 @@ import type { AutomationRunRecord, AutomationTargetRef } from "./types";
 import { setSettingValue, useStoredSettingValue } from "~/settings/queries";
 import { id } from "~/shared/utils";
 
-export const WORKFLOW_TRIGGERS = [
-  "note_enhanced",
-  "meeting_completed",
-] as const;
+const WORKFLOW_TRIGGERS = ["note_enhanced", "meeting_completed"] as const;
 export type WorkflowTrigger = (typeof WORKFLOW_TRIGGERS)[number];
 
-export const WORKFLOW_STEP_TYPES = [
+const WORKFLOW_STEP_TYPES = [
   "slack_recap",
   "notion_update",
   "linear_issues",

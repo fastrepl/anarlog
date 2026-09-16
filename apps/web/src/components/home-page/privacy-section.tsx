@@ -104,7 +104,7 @@ function PrivacyVisual({
   return <MeetingCaptureVisual />;
 }
 
-export function LocalFilesVisual() {
+function LocalFilesVisual() {
   return (
     <div className="flex h-20 items-center justify-center gap-2 select-none md:h-28 md:w-full md:justify-between md:gap-1">
       <img
@@ -147,7 +147,7 @@ export function LocalFilesVisual() {
   );
 }
 
-export function MeetingCaptureVisual() {
+function MeetingCaptureVisual() {
   return (
     <div className="flex h-20 items-center justify-center select-none md:h-28 md:w-full">
       <div className="flex w-full max-w-[260px] items-center gap-3 rounded-2xl border border-neutral-200 bg-white py-2 pr-3 pl-4 text-left shadow-[0_3px_10px_rgba(24,22,19,0.04)]">

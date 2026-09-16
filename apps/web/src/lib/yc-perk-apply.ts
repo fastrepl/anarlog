@@ -52,10 +52,7 @@ export function pickCurrentSubscription<T extends { status: string }>(
   return selectCurrentSubscription(subscriptions);
 }
 
-export async function findPromotionCodeByCustomerCode(
-  stripe: Stripe,
-  code: string,
-) {
+async function findPromotionCodeByCustomerCode(stripe: Stripe, code: string) {
   const listed = await stripe.promotionCodes.list({
     code,
     limit: 1,

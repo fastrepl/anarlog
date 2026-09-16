@@ -287,7 +287,7 @@ export async function getSessionTranscriptRecords(
 
 // Drop excluded people and any contact that is the current user (or a
 // calendar copy with the same email) so a 1:1 meeting still has one remote.
-export const SESSION_REMOTE_PARTICIPANT_IDS_SQL = `
+const SESSION_REMOTE_PARTICIPANT_IDS_SQL = `
       SELECT DISTINCT participant.human_id
       FROM session_participants AS participant
       LEFT JOIN humans AS human

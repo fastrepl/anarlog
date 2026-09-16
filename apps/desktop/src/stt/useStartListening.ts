@@ -32,10 +32,7 @@ export {
   getPostCaptureRepairReasons,
   type PostCaptureRepairReason,
 } from "./capture-lifecycle";
-export {
-  MEETING_DISCLOSURE_MESSAGE,
-  sendMeetingRecordingDisclosure,
-} from "./meeting-disclosure";
+export { sendMeetingRecordingDisclosure } from "./meeting-disclosure";
 export { useResumeListeningLifecycle } from "./resume-listening";
 
 export function useStartListening(sessionId: string) {

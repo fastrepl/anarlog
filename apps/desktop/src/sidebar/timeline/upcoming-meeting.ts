@@ -143,7 +143,7 @@ function createUpcomingMeetingStatusStore(
   };
 }
 
-export function getNextUpcomingMeetingStatusRefreshMs(
+function getNextUpcomingMeetingStatusRefreshMs(
   buckets: TimelineBucket[],
   currentTimeMs: number,
   status: SidebarUpcomingMeetingStatus | null,
@@ -180,7 +180,7 @@ export function getNextUpcomingMeetingStatusRefreshMs(
     : null;
 }
 
-export function getUpcomingMeetingStatus(
+function getUpcomingMeetingStatus(
   buckets: TimelineBucket[],
   currentTimeMs: number,
   formatLabel: (diffMs: number) => string = formatUpcomingMeetingLabelEnglish,

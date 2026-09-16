@@ -51,7 +51,7 @@ const PROPOSAL_COLUMNS = `
   FROM session_proposals
 `;
 
-export async function insertSessionProposal(input: {
+async function insertSessionProposal(input: {
   id: string;
   sessionId: string;
   kind: "summary_replace" | "memo_replace";
@@ -97,7 +97,7 @@ export async function loadSessionProposal(
   return rows[0] ? mapProposal(rows[0]) : null;
 }
 
-export async function loadPendingSessionProposals(
+async function loadPendingSessionProposals(
   sessionId: string,
 ): Promise<SessionProposalRecord[]> {
   const rows = await liveQueryClient.execute<ProposalSqlRow>(
@@ -109,7 +109,7 @@ export async function loadPendingSessionProposals(
   return rows.map(mapProposal);
 }
 
-export function sessionProposalsQueryKey(sessionId: string) {
+function sessionProposalsQueryKey(sessionId: string) {
   return ["session-proposals", sessionId] as const;
 }
 

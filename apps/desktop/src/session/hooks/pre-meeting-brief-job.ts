@@ -26,18 +26,18 @@ function emit() {
   }
 }
 
-export function subscribePreMeetingBriefJobs(listener: () => void) {
+function subscribePreMeetingBriefJobs(listener: () => void) {
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
   };
 }
 
-export function isPreMeetingBriefGenerating(sessionId: string) {
+function isPreMeetingBriefGenerating(sessionId: string) {
   return generating.has(sessionId);
 }
 
-export function registerPreMeetingBriefEditor(
+function registerPreMeetingBriefEditor(
   sessionId: string,
   getEditor: () => MemoBriefEditor | null,
 ) {

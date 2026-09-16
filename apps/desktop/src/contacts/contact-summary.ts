@@ -153,7 +153,7 @@ export function buildContactSummarySource(
   return meetings;
 }
 
-export function getIncrementalUpdate(
+function getIncrementalUpdate(
   saved: ContactSummaryRecord | null,
   sessions: HumanSessionRecord[],
 ): { facts: string[]; newSessions: HumanSessionRecord[] } | null {

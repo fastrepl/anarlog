@@ -15,7 +15,7 @@ export type AnchoredSharedNoteComment = SharedNoteComment & {
   range: ResolvedAnchorRange | null;
 };
 
-export function toEditorAnchor(
+function toEditorAnchor(
   anchor: SharedNoteCommentAnchor,
   snapshotRevision: number,
 ): CommentAnchor {

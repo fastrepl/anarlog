@@ -26,7 +26,7 @@ export type LiveStartBlockReason =
 
 export type LiveIntervalId = ReturnType<typeof setInterval>;
 
-export const TRANSCRIPTION_STALL_AMPLITUDE_THRESHOLD = 0.05;
+const TRANSCRIPTION_STALL_AMPLITUDE_THRESHOLD = 0.05;
 export const TRANSCRIPTION_STALL_AUDIBLE_SECONDS = 45;
 export const TRANSCRIPTION_FINAL_STALL_AUDIBLE_SECONDS = 90;
 

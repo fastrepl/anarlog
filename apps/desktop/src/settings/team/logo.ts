@@ -1,5 +1,5 @@
-export const WORKSPACE_LOGO_RASTER_SIZE = 128;
-export const MAX_WORKSPACE_LOGO_DATA_LENGTH = 120_000;
+const WORKSPACE_LOGO_RASTER_SIZE = 128;
+const MAX_WORKSPACE_LOGO_DATA_LENGTH = 120_000;
 
 const WORKSPACE_LOGO_DATA_PATTERN =
   /^data:image\/(?:jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/;

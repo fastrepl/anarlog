@@ -72,7 +72,7 @@ const OPENROUTER_MODEL_LABELS: Record<string, string> = {
   "google/chirp-3": "Chirp 3",
 };
 
-export const displayModelId = (model: string): string => {
+const displayModelId = (model: string): string => {
   if (model === "qwen3-asr-fast:free") return "Qwen3 ASR Fast (Free)";
   if (model === "qwen3-asr:free") return "Qwen3 ASR (Free)";
   if (model === "qwen3-asr-fast") return "Qwen3 ASR Fast (Partner)";

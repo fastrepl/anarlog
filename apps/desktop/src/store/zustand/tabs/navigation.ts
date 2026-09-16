@@ -206,7 +206,7 @@ export const updateHistoryCurrent = (
   return newHistory;
 };
 
-export const isResourceMatch = (
+const isResourceMatch = (
   tab: Tab,
   type: InvalidatableResourceType,
   id: string,
@@ -217,7 +217,7 @@ export const isResourceMatch = (
   return tab.id === id;
 };
 
-export const cleanHistoryStack = (
+const cleanHistoryStack = (
   tabHistory: TabHistory,
   shouldRemove: (tab: Tab) => boolean,
 ): TabHistory | null => {

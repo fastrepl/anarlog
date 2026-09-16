@@ -58,7 +58,7 @@ function textMatchesMarkers(value: unknown, markers: readonly string[]) {
   return markers.some((marker) => text.includes(marker));
 }
 
-export function isIgnoredError(value: unknown): boolean {
+function isIgnoredError(value: unknown): boolean {
   const text = serializeForUserErrorMatch(value);
   return (
     text.startsWith("[String(") ||

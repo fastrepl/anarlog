@@ -45,7 +45,7 @@ export const ACCOUNT_TABS = [
 
 export type AccountTabId = (typeof ACCOUNT_TABS)[number]["id"];
 
-export const DEFAULT_ACCOUNT_TAB: AccountTabId = "account";
+const DEFAULT_ACCOUNT_TAB: AccountTabId = "account";
 
 const SECTION_TAB: Record<AccountSectionId, AccountTabId> = {
   profile: "account",
@@ -60,11 +60,11 @@ const SECTION_TAB: Record<AccountSectionId, AccountTabId> = {
   "api-keys": "developer",
 };
 
-export function isAccountTabId(value: string): value is AccountTabId {
+function isAccountTabId(value: string): value is AccountTabId {
   return ACCOUNT_TABS.some((tab) => tab.id === value);
 }
 
-export function isAccountSectionId(value: string): value is AccountSectionId {
+function isAccountSectionId(value: string): value is AccountSectionId {
   return ACCOUNT_SECTIONS.some((section) => section.id === value);
 }
 

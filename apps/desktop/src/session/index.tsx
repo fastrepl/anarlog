@@ -45,9 +45,7 @@ import {
 import { useSession } from "~/session/queries";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
-import { consumePendingUpload } from "~/stt/pending-upload";
 import { ScheduledSessionAutoStart } from "~/stt/scheduled-session-auto-start";
-import { useUploadFile } from "~/stt/useUploadFile";
 
 export function TabContentNote({
   standaloneWindow = false,
@@ -166,7 +164,6 @@ function TabContentNoteInner({
   const [editingTranscriptSessionId, setEditingTranscriptSessionId] =
     React.useState<string | null>(null);
   const transcriptEditMode = editingTranscriptSessionId === sessionId;
-  usePendingUpload(sessionId, !lockOverlay);
 
   const hasTranscript = useHasTranscript(sessionId);
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
@@ -364,20 +361,6 @@ function SessionContentLoading() {
       <div className="bg-muted/70 h-4 w-2/3 animate-pulse rounded-md" />
     </div>
   );
-}
-
-function usePendingUpload(sessionId: string, enabled = true) {
-  const { processFile } = useUploadFile(sessionId);
-  const processFileRef = useRef(processFile);
-  processFileRef.current = processFile;
-
-  useEffect(() => {
-    if (!enabled) return;
-    const pending = consumePendingUpload(sessionId);
-    if (pending) {
-      processFileRef.current(pending.filePath, pending.kind);
-    }
-  }, [enabled, sessionId]);
 }
 
 function useAutoFocusEditor({

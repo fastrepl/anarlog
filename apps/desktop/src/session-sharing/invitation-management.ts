@@ -36,7 +36,7 @@ export function isInviteEmail(value: string) {
   );
 }
 
-export async function deliverSessionShareInvitation({
+async function deliverSessionShareInvitation({
   context,
   shareId,
   email,

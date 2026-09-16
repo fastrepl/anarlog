@@ -1,7 +1,7 @@
 import { beginCloudsyncActivity, endCloudsyncActivity } from "@anlg/plugin-db";
 
-export const CLOUDSYNC_ACTIVITY_END_RETRY_DELAYS_MS = [100, 300] as const;
-export const CLOUDSYNC_ACTIVITY_END_RETRY_INTERVAL_MS = 5_000;
+const CLOUDSYNC_ACTIVITY_END_RETRY_DELAYS_MS = [100, 300] as const;
+const CLOUDSYNC_ACTIVITY_END_RETRY_INTERVAL_MS = 5_000;
 
 type PendingRelease = {
   handoff: Promise<void>;

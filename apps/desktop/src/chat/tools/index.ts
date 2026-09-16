@@ -8,7 +8,6 @@ import type {
   TranscriptPage,
 } from "@anlg/plugin-db";
 
-import { CONTEXT_TEXT_FIELD } from "./context-text";
 import { buildEditMemoTool } from "./edit-memo";
 import { buildEditSummaryTool } from "./edit-summary";
 import { buildReadFolderMaterialTool } from "./folder-materials";
@@ -38,7 +37,6 @@ import { buildWebSearchTool } from "./web-search";
 import type { SearchFilters } from "~/search/contexts/engine/types";
 
 export type { ToolDependencies };
-export { CONTEXT_TEXT_FIELD };
 
 function withToolLogging<T extends { execute?: (...args: any[]) => any }>(
   name: string,

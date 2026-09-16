@@ -44,7 +44,7 @@ import { commands } from "~/types/tauri.gen";
 
 export type BuildChannel = "dev" | "staging" | "nightly" | "stable";
 
-export function resolveBuildChannel(identifier: string): BuildChannel {
+function resolveBuildChannel(identifier: string): BuildChannel {
   if (identifier.endsWith(".nightly")) return "nightly";
   if (identifier.endsWith(".staging")) return "staging";
   if (identifier.endsWith(".dev")) return "dev";

@@ -77,7 +77,7 @@ export function requireManagementContext(
   return { supabase: auth.supabase, session: auth.session };
 }
 
-export async function copyText(value: string) {
+async function copyText(value: string) {
   if (isTauri()) {
     await writeClipboardText(value);
     return;
@@ -174,6 +174,6 @@ export function withoutSignal(
   return { supabase: context.supabase, session: context.session };
 }
 
-export async function getSessionShareDesktopScheme(): Promise<ShareDesktopScheme> {
+async function getSessionShareDesktopScheme(): Promise<ShareDesktopScheme> {
   return getScheme();
 }

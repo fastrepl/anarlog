@@ -105,7 +105,7 @@ export function GeneralAccessSelector({
   );
 }
 
-export function resolveGeneralAccessTarget(
+function resolveGeneralAccessTarget(
   value: string,
   workspaces: AvailableShareWorkspace[],
 ): GeneralAccessTarget | null {

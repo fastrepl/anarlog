@@ -27,7 +27,7 @@ export type WorkspaceSeatUsage = {
   isBilled: boolean;
 };
 
-export const WORKSPACE_CAPABILITIES = [
+const WORKSPACE_CAPABILITIES = [
   "team.shared_notes",
   "team.shared_resources",
   "team.manage_workspace",

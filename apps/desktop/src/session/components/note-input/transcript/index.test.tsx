@@ -70,10 +70,6 @@ vi.mock("~/stt/useUploadFile", () => ({
   })),
 }));
 
-vi.mock("~/stt/pending-upload", () => ({
-  consumePendingUpload: vi.fn(() => null),
-}));
-
 describe("Transcript", () => {
   const sessionId = "session-1";
   const transcriptId = "transcript-1";

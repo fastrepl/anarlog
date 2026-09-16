@@ -112,7 +112,7 @@ export function createFloatingMeetingWindowSynchronizer() {
   };
 }
 
-export async function syncFloatingMeetingWindow(
+async function syncFloatingMeetingWindow(
   routeState: FloatingRouteState | null,
   shownSessionId: string | null,
   appliedRouteState: FloatingRouteState | null,

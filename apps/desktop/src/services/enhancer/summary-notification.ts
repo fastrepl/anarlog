@@ -7,9 +7,9 @@ import { isAppWindowInactive } from "~/shared/window-activity";
 
 const SUMMARY_READY_NOTIFICATION_TIMEOUT_SECONDS = 15;
 
-export const SUMMARY_READY_NOTIFICATION_KEY_PREFIX = "summary-ready:" as const;
+const SUMMARY_READY_NOTIFICATION_KEY_PREFIX = "summary-ready:" as const;
 
-export function createSummaryReadyNotificationKey(sessionId: string) {
+function createSummaryReadyNotificationKey(sessionId: string) {
   return `${SUMMARY_READY_NOTIFICATION_KEY_PREFIX}${sessionId}:${crypto.randomUUID()}`;
 }
 

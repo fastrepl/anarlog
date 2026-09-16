@@ -59,7 +59,7 @@ export type SettingsTab =
   | "intelligence"
   | "todo";
 
-export const normalizeSettingsTab = (
+const normalizeSettingsTab = (
   tab: string | null | undefined,
 ): Exclude<SettingsTab, "account"> => {
   switch (tab) {

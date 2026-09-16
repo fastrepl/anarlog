@@ -59,7 +59,6 @@ import { isWorkspaceShareSlug } from "./urls";
 
 export {
   ShareManagementError,
-  parseSessionShareComment,
   parseSessionShareDocument,
 } from "./client-contract";
 export type {
@@ -82,7 +81,7 @@ export type {
   ShareManagementContext,
 } from "./client-contract";
 
-export class ShareSnapshotConflictError extends ShareManagementError {
+class ShareSnapshotConflictError extends ShareManagementError {
   constructor(public readonly snapshot: PublishedSessionShareSnapshot) {
     super();
     this.name = "ShareSnapshotConflictError";

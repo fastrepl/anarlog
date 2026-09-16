@@ -3,13 +3,13 @@ import {
   MIN_TRANSCRIPT_CHARACTERS_FOR_SUMMARY,
 } from "./summary-length";
 
-export const MIN_WORDS_FOR_ENHANCEMENT = 5;
+const MIN_WORDS_FOR_ENHANCEMENT = 5;
 
 export type EnhanceEligibilitySkipCode =
   | "no_transcript"
   | "transcript_too_short";
 
-export function countTranscriptWords(
+function countTranscriptWords(
   transcripts: ReadonlyArray<{ words: readonly unknown[] }>,
 ): number {
   return transcripts.reduce(

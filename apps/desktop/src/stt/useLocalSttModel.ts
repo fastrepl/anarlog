@@ -5,7 +5,7 @@ import {
   type LocalModel,
 } from "@anlg/plugin-local-stt";
 
-export const localSttKeys = {
+const localSttKeys = {
   all: ["local-stt"] as const,
   models: () => [...localSttKeys.all, "model"] as const,
   model: (model: LocalModel) => [...localSttKeys.models(), model] as const,
