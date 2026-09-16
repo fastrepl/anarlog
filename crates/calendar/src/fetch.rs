@@ -89,11 +89,17 @@ pub async fn list_google_events(
             .map_err(|e| Error::Api(e.to_string()))?
             .into_inner();
         events.extend(response.items);
-        body.page_token = response.next_page_token;
+        let next = response.next_page_token.filter(|t| !t.is_empty());
         // Google can return an empty page even when more events match the query.
-        if body.page_token.is_none() {
+        if next.is_none() {
             return Ok(events);
         }
+        if next == body.page_token {
+            return Err(Error::Api(
+                "google events.list returned a repeated page token".into(),
+            ));
+        }
+        body.page_token = next;
     }
 }
 
@@ -235,6 +241,34 @@ mod tests {
                     }))
                 }
             })
+            .mount(&server)
+            .await;
+
+        let result = list_google_events(
+            &server.uri(),
+            "test-token",
+            "test-connection",
+            EventFilter {
+                calendar_tracking_id: "shared-calendar".into(),
+                from: "2026-08-31T04:00:00Z".parse().unwrap(),
+                to: "2026-10-05T04:00:00Z".parse().unwrap(),
+            },
+        )
+        .await;
+
+        assert!(matches!(result, Err(Error::Api(_))));
+    }
+
+    #[tokio::test]
+    async fn google_events_rejects_repeated_page_token() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/calendar/google/list-events"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "items": [{"id": "busy-event"}],
+                "nextPageToken": "same"
+            })))
+            .expect(2)
             .mount(&server)
             .await;
 
