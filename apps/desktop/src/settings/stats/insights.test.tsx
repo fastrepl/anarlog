@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
+vi.mock("./badge-collection", () => ({ BadgeCollection: () => null }));
 vi.mock("./queries", () => ({ useActivity: () => mocks.activity }));
 vi.mock("~/calendar/hooks", () => ({
   useNow: () => new Date("2026-09-05T12:00:00Z"),
@@ -24,7 +25,7 @@ vi.mock("~/calendar/hooks", () => ({
   useWeekStartsOn: () => 1,
 }));
 
-import { SettingsInsights } from "./insights";
+import { SettingsInsights } from "./index";
 
 function conversations(dates: string[]) {
   return dates.map((date, index) => ({
@@ -97,7 +98,9 @@ describe("personal insights page", () => {
     mocks.activity.error = null;
     rerender(<SettingsInsights />);
     expect(screen.getByText("A little more history will help")).toBeTruthy();
-    expect(screen.queryByRole("list")).toBeNull();
+    expect(
+      screen.queryByRole("region", { name: "Conversations by weekday" }),
+    ).toBeNull();
     expect(screen.queryByText("Typical conversation length")).toBeNull();
   });
 });

@@ -247,13 +247,14 @@ describe("SettingsNav", () => {
     expect(screen.queryByText("Personalization")).toBeNull();
   });
 
-  it("opens personal stats for free users", () => {
+  it("shows only Insights and opens it for free users", () => {
     mocks.isPro = false;
     render(<SettingsNav />);
-    fireEvent.click(screen.getByRole("button", { name: "Stats" }));
+    expect(screen.queryByRole("button", { name: "Stats" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Insights" }));
     expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
       mocks.currentTab,
-      { tab: "stats" },
+      { tab: "insights" },
     );
   });
 

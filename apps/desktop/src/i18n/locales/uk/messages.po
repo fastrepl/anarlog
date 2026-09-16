@@ -1762,12 +1762,8 @@ msgstr ""
 msgid "Couldn't load your badges. Reopen this page to try again."
 msgstr ""
 
-#: src/settings/stats/insights.tsx
-msgid "Couldn't load your insights. Reopen this page to try again."
-msgstr ""
-
 #: src/settings/stats/index.tsx
-msgid "Couldn't load your stats. Reopen this page to try again."
+msgid "Couldn't load your insights. Reopen this page to try again."
 msgstr ""
 
 #: src/settings/general/account.tsx
@@ -3034,12 +3030,8 @@ msgstr ""
 msgid "Loading your badges…"
 msgstr ""
 
-#: src/settings/stats/insights.tsx
-msgid "Loading your insights…"
-msgstr ""
-
 #: src/settings/stats/index.tsx
-msgid "Loading your stats…"
+msgid "Loading your insights…"
 msgstr ""
 
 #: src/changelog/index.tsx
@@ -3849,10 +3841,6 @@ msgstr ""
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
 msgid "Paste the localhost redirect URL"
-msgstr ""
-
-#: src/settings/stats/insights.tsx
-msgid "Patterns in your captured conversations."
 msgstr ""
 
 #: src/settings/developers/webhooks.tsx
@@ -5151,10 +5139,6 @@ msgstr ""
 msgid "Starting…"
 msgstr ""
 
-#: src/sidebar/settings.tsx
-msgid "Stats"
-msgstr ""
-
 #: src/settings/general/app-settings.tsx
 msgid "Stay current with updates installed the next time Anarlog opens."
 msgstr ""
@@ -6091,7 +6075,7 @@ msgstr ""
 msgid "Your dictionary is empty"
 msgstr ""
 
-#: src/settings/stats/insights.tsx
+#: src/settings/stats/index.tsx
 msgid "Your insights"
 msgstr ""
 
@@ -6150,10 +6134,6 @@ msgstr ""
 
 #: src/settings/general/e2ee-setup.tsx
 msgid "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
-msgstr ""
-
-#: src/settings/stats/index.tsx
-msgid "Your stats"
 msgstr ""
 
 #: src/settings/sync/index.tsx

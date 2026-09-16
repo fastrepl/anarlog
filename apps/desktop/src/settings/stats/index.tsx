@@ -8,6 +8,7 @@ import { cn } from "@anlg/utils";
 import { summarizeActivity } from "./activity";
 import { BadgeCollection } from "./badge-collection";
 import { DateRangeFilter } from "./date-range";
+import { ConversationPatterns } from "./insights";
 import { useActivity } from "./queries";
 import { Tracker } from "./tremor/tracker";
 
@@ -26,7 +27,7 @@ const STATS_BORDER = {
   innerBorder: { width: 1, color: "var(--color-border)", opacity: 1 },
 };
 
-export function SettingsStats() {
+export function SettingsInsights() {
   const { t, i18n } = useLingui();
   const activity = useActivity();
   const now = useNow();
@@ -66,7 +67,7 @@ export function SettingsStats() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
       <div className="flex flex-col gap-2">
-        <SettingsPageTitle title={<Trans>Your stats</Trans>} />
+        <SettingsPageTitle title={<Trans>Your insights</Trans>} />
         <p className="text-muted-foreground text-sm">
           <Trans>Your conversation history.</Trans>
         </p>
@@ -74,12 +75,12 @@ export function SettingsStats() {
       {activity.error ? (
         <p role="alert" className="text-muted-foreground text-sm">
           <Trans>
-            Couldn't load your stats. Reopen this page to try again.
+            Couldn't load your insights. Reopen this page to try again.
           </Trans>
         </p>
       ) : activity.isLoading ? (
         <p role="status" className="text-muted-foreground text-sm">
-          <Trans>Loading your stats…</Trans>
+          <Trans>Loading your insights…</Trans>
         </p>
       ) : (
         <>
@@ -100,6 +101,8 @@ export function SettingsStats() {
               ))}
             </dl>
           </section>
+
+          <ConversationPatterns stats={stats} />
 
           <section
             className="flex flex-col gap-4"

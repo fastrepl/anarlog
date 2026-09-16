@@ -8,7 +8,6 @@ import {
   BookOpen,
   Brain,
   CalendarDots,
-  ChartBar,
   ChartLineUp,
   Code,
   DownloadSimple,
@@ -70,7 +69,12 @@ export function SettingsNav() {
 
   const requestedTab =
     currentTab?.type === "settings" ? (currentTab.state.tab ?? "app") : "app";
-  const activeTab = requestedTab === "audio" ? "meetings" : requestedTab;
+  const activeTab =
+    requestedTab === "audio"
+      ? "meetings"
+      : requestedTab === "stats"
+        ? "insights"
+        : requestedTab;
 
   const setActiveTab = useCallback(
     (tab: SettingsTab) => {
@@ -87,7 +91,6 @@ export function SettingsNav() {
       items: [
         { id: "app", label: t`General`, icon: Gear },
         { id: "account", label: t`Account`, icon: User },
-        { id: "stats", label: t`Stats`, icon: ChartBar },
         { id: "insights", label: t`Insights`, icon: ChartLineUp },
         {
           id: "team",

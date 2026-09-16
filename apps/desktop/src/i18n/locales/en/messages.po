@@ -1762,13 +1762,9 @@ msgstr "Couldn’t check availability. You can still try Save."
 msgid "Couldn't load your badges. Reopen this page to try again."
 msgstr "Couldn't load your badges. Reopen this page to try again."
 
-#: src/settings/stats/insights.tsx
+#: src/settings/stats/index.tsx
 msgid "Couldn't load your insights. Reopen this page to try again."
 msgstr "Couldn't load your insights. Reopen this page to try again."
-
-#: src/settings/stats/index.tsx
-msgid "Couldn't load your stats. Reopen this page to try again."
-msgstr "Couldn't load your stats. Reopen this page to try again."
 
 #: src/settings/general/account.tsx
 msgid "Couldn't open connected accounts. Try again."
@@ -3034,13 +3030,9 @@ msgstr "Loading teams…"
 msgid "Loading your badges…"
 msgstr "Loading your badges…"
 
-#: src/settings/stats/insights.tsx
+#: src/settings/stats/index.tsx
 msgid "Loading your insights…"
 msgstr "Loading your insights…"
-
-#: src/settings/stats/index.tsx
-msgid "Loading your stats…"
-msgstr "Loading your stats…"
 
 #: src/changelog/index.tsx
 #: src/contacts/details.tsx
@@ -3850,10 +3842,6 @@ msgstr "Paste the browser URL here if the browser button did not reopen Anarlog.
 #: src/settings/ai/llm/subscriptions/connect.tsx
 msgid "Paste the localhost redirect URL"
 msgstr "Paste the localhost redirect URL"
-
-#: src/settings/stats/insights.tsx
-msgid "Patterns in your captured conversations."
-msgstr "Patterns in your captured conversations."
 
 #: src/settings/developers/webhooks.tsx
 msgid "Pause"
@@ -5151,10 +5139,6 @@ msgstr "Starting your trial..."
 msgid "Starting…"
 msgstr "Starting…"
 
-#: src/sidebar/settings.tsx
-msgid "Stats"
-msgstr "Stats"
-
 #: src/settings/general/app-settings.tsx
 msgid "Stay current with updates installed the next time Anarlog opens."
 msgstr "Stay current with updates installed the next time Anarlog opens."
@@ -6091,7 +6075,7 @@ msgstr "Your conversation patterns"
 msgid "Your dictionary is empty"
 msgstr "Your dictionary is empty"
 
-#: src/settings/stats/insights.tsx
+#: src/settings/stats/index.tsx
 msgid "Your insights"
 msgstr "Your insights"
 
@@ -6151,10 +6135,6 @@ msgstr "Your Pro trial just started"
 #: src/settings/general/e2ee-setup.tsx
 msgid "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
 msgstr "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
-
-#: src/settings/stats/index.tsx
-msgid "Your stats"
-msgstr "Your stats"
 
 #: src/settings/sync/index.tsx
 msgid "Your storage location is inside {cloudStorageService}"
