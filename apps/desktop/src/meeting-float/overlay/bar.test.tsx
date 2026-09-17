@@ -63,7 +63,7 @@ describe("FloatingBarOverlay", () => {
     expect(screen.getByTestId("waveform")).toBeTruthy();
   });
 
-  it("keeps showing the waveform when live transcription is degraded", () => {
+  it("shows a spinner when live transcription is reconnecting", () => {
     render(
       <FloatingBarOverlay
         state={state({ status: "error" })}
@@ -72,7 +72,10 @@ describe("FloatingBarOverlay", () => {
       />,
     );
 
-    expect(screen.getByTestId("waveform")).toBeTruthy();
+    expect(
+      screen.getByRole("status", { name: "Reconnecting live transcription" }),
+    ).toBeTruthy();
+    expect(screen.queryByTestId("waveform")).toBeNull();
   });
 
   it("expands to the live transcript and can collapse again", () => {

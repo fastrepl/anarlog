@@ -8,6 +8,7 @@ import {
   ArrowsInSimple,
   ArrowsOutSimple,
   CaretDown,
+  CircleNotch,
   Square,
 } from "@anlg/ui/components/icons";
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
@@ -285,6 +286,10 @@ function StopControl({
         <span className="flex items-center gap-1.5 text-xs font-semibold">
           <Square size={9} />
           Stop
+        </span>
+      ) : state.status === "error" ? (
+        <span role="status" aria-label="Reconnecting live transcription">
+          <CircleNotch size={20} className="animate-spin" aria-hidden="true" />
         </span>
       ) : (
         <DancingSticks
