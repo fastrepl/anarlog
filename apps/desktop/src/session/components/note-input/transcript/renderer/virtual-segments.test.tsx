@@ -35,7 +35,7 @@ describe("estimateTranscriptRowHeight", () => {
 
 describe("VirtualSegmentRow", () => {
   it.each([false, true])(
-    "uses observer sizes without reading layout and preserves content (editMode=%s)",
+    "measures once at mount and uses observer sizes during resize (editMode=%s)",
     (editMode) => {
       let notify: ResizeObserverCallback = () => {};
       const observe = vi.fn();
@@ -63,6 +63,7 @@ describe("VirtualSegmentRow", () => {
           Original text
         </div>
       );
+      const readHeight = vi.spyOn(HTMLElement.prototype, "offsetHeight", "get");
       const view = render(
         <VirtualSegmentRow {...props} top={0}>
           {content}
@@ -74,7 +75,8 @@ describe("VirtualSegmentRow", () => {
         editor.focus();
         editor.textContent = "Unsaved text";
       }
-      const readHeight = vi.spyOn(row, "offsetHeight", "get");
+      expect(readHeight).toHaveBeenCalledOnce();
+      readHeight.mockClear();
       onMeasure.mockClear();
       act(() => {
         notify(
@@ -135,6 +137,51 @@ describe("VirtualSegmentRow", () => {
 });
 
 describe("useVirtualSegments measurements", () => {
+  it.each(["removed", "unchanged"])(
+    "prunes stale heights when pending measurements are %s",
+    (pending) => {
+      const frames: FrameRequestCallback[] = [];
+      vi.stubGlobal(
+        "requestAnimationFrame",
+        (callback: FrameRequestCallback) => {
+          frames.push(callback);
+          return frames.length;
+        },
+      );
+      vi.stubGlobal("cancelAnimationFrame", vi.fn());
+      const segments = [createSegment("First"), createSegment("Second")];
+      const { result, rerender } = renderHook(
+        ({ keys }) =>
+          useVirtualSegments({
+            segments,
+            segmentKeys: keys,
+            scrollElement: null,
+            activeMatchId: null,
+            searchEnabled: false,
+            currentMs: 0,
+            offsetMs: 0,
+          }),
+        { initialProps: { keys: ["first", "second"] } },
+      );
+      const estimatedFirstHeight = result.current.virtualItems[1].top;
+      act(() => {
+        result.current.measureRow("first", 500);
+        result.current.measureRow("second", 120);
+      });
+      act(() => frames.shift()!(0));
+      rerender({ keys: ["replacement", "second"] });
+      act(() =>
+        result.current.measureRow(
+          pending === "removed" ? "first" : "second",
+          pending === "removed" ? 500 : 120,
+        ),
+      );
+      act(() => frames.shift()!(0));
+      rerender({ keys: ["first", "second"] });
+      expect(result.current.totalHeight).toBe(estimatedFirstHeight + 120);
+    },
+  );
+
   it("batches a resize burst into one frame and uses the latest row sizes", () => {
     const frames: FrameRequestCallback[] = [];
     vi.stubGlobal(

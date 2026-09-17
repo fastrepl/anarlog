@@ -191,7 +191,10 @@ export function useVirtualSegments({
             (previous === undefined || Math.abs(previous - height) >= 1)
           );
         });
-        if (!changed) return current;
+        const pruneNeeded = Array.from(current.keys()).some(
+          (key) => !keys.has(key),
+        );
+        if (!changed && !pruneNeeded) return current;
 
         const next = new Map<string, number>();
         for (const [key, height] of current) {
