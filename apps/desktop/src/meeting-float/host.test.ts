@@ -182,6 +182,29 @@ describe("getFloatingRouteState", () => {
     ).toBe(true);
   });
 
+  it("shows reconnecting only during a connection attempt", () => {
+    expect(
+      getFloatingRouteState(
+        createListenerState({
+          status: "active",
+          sessionId: "session-1",
+          loadingPhase: "connecting",
+        }),
+      )?.status,
+    ).toBe("reconnecting");
+    expect(
+      getFloatingRouteState(
+        createListenerState({
+          status: "active",
+          sessionId: "session-1",
+          loadingPhase: "connecting",
+          lastError: "microphone unavailable",
+          lastErrorIsAudioRelated: true,
+        }),
+      )?.status,
+    ).toBe("error");
+  });
+
   it("returns error status when live transcription degrades", () => {
     expect(
       getFloatingRouteState(

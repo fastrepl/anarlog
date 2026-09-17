@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  updateLiveProgress,
   type GeneralState,
   initialGeneralState,
   isBatchTranscriptionPending,
@@ -232,4 +233,17 @@ describe("tickTranscriptionStallWatchdog", () => {
     expect(live.transcriptionStalled).toBe(false);
     expect(live.needsBatchRepair).toBe(true);
   });
+});
+
+it("ends the connecting state when an attempt fails", () => {
+  const live = createActiveLive();
+  updateLiveProgress(live, { type: "connecting", session_id: "session-1" });
+  expect(live.loadingPhase).toBe("connecting");
+  updateLiveProgress(live, {
+    type: "connection_error",
+    session_id: "session-1",
+    error: "unavailable",
+  });
+  expect(live.loadingPhase).toBe("idle");
+  expect(live.lastError).toBe("unavailable");
 });

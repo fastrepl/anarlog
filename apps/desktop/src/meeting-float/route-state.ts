@@ -9,7 +9,7 @@ import { LIVE_TRANSCRIPT_PREVIEW_SEGMENT_LIMIT } from "~/store/zustand/listener/
 import { SegmentKeyUtils, type RenderLabelContext } from "~/stt/live-segment";
 
 export type ListenerState = ReturnType<ListenerStore["getState"]>;
-type FloatingBarStatus = "recording" | "error";
+type FloatingBarStatus = "recording" | "reconnecting" | "error";
 type FloatingBarColorScheme = "light" | "dark";
 
 export type FloatingTranscriptBubble = {
@@ -80,7 +80,13 @@ export function getFloatingRouteState(
       Math.hypot(state.live.amplitude.mic, state.live.amplitude.speaker),
       1,
     ),
-    status: state.live.degraded || state.live.lastError ? "error" : "recording",
+    status:
+      state.live.loadingPhase === "connecting" &&
+      !state.live.lastErrorIsAudioRelated
+        ? "reconnecting"
+        : state.live.degraded || state.live.lastError
+          ? "error"
+          : "recording",
     colorScheme,
     opacity: settings.floatingBarOpacity,
     liveCaptionOpacity: settings.liveCaptionOpacity,

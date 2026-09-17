@@ -321,6 +321,9 @@ struct FloatingBarView: View {
               .font(.system(size: 12, weight: .semibold))
           }
           .foregroundStyle(stopColor)
+        } else if model.status == .reconnecting {
+          ProgressView().controlSize(.small)
+            .accessibilityLabel("Reconnecting live transcription")
         } else if model.status == .error {
           ErrorMark(color: errorAccentColor)
             .frame(

@@ -7,6 +7,7 @@ use crate::window::live_caption::LiveCaptionPosition;
 #[serde(rename_all = "camelCase")]
 pub enum FloatingBarStatus {
     Recording,
+    Reconnecting,
     Error,
 }
 

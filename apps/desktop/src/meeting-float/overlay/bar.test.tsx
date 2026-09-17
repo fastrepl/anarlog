@@ -66,16 +66,34 @@ describe("FloatingBarOverlay", () => {
   it("shows a spinner when live transcription is reconnecting", () => {
     render(
       <FloatingBarOverlay
-        state={state({ status: "error" })}
+        state={state({ status: "reconnecting" })}
         onStop={vi.fn()}
         onToggleExpanded={vi.fn()}
       />,
     );
 
     expect(
-      screen.getByRole("status", { name: "Reconnecting live transcription" }),
+      screen.getByRole("button", {
+        name: "Reconnecting live transcription; stop listening",
+      }),
     ).toBeTruthy();
     expect(screen.queryByTestId("waveform")).toBeNull();
+  });
+
+  it("shows a static failure indicator for errors without an active retry", () => {
+    const { container } = render(
+      <FloatingBarOverlay
+        state={state({ status: "error" })}
+        onStop={vi.fn()}
+        onToggleExpanded={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("button", {
+        name: "Transcription unavailable; stop listening",
+      }),
+    ).toBeTruthy();
+    expect(container.querySelector(".animate-spin")).toBeNull();
   });
 
   it("expands to the live transcript and can collapse again", () => {
