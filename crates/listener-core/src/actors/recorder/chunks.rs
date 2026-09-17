@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
@@ -297,7 +297,7 @@ pub fn acknowledge_recovery_chunk(session_dir: &Path, id: &str) -> std::io::Resu
 }
 
 pub fn delete_capture_audio(session_dir: &Path) -> std::io::Result<()> {
-    if !session_dir.exists() {
+    if !session_dir.try_exists()? {
         return Ok(());
     }
     for entry in std::fs::read_dir(session_dir)? {
@@ -376,10 +376,19 @@ fn recover_partial_chunks(session_dir: &Path) -> std::io::Result<()> {
 }
 
 pub fn recover_interrupted_captures(sessions_dir: &Path) -> std::io::Result<()> {
-    if !sessions_dir.exists() {
-        return Ok(());
+    recover_interrupted_captures_except(sessions_dir, &HashSet::new(), &mut |_, _| {}).map(|_| ())
+}
+
+pub(crate) fn recover_interrupted_captures_except(
+    sessions_dir: &Path,
+    active_sessions: &HashSet<String>,
+    on_cleanup: &mut impl FnMut(&str, &std::io::Result<()>),
+) -> std::io::Result<bool> {
+    if !sessions_dir.try_exists()? {
+        return Ok(false);
     }
     let mut first_error = None;
+    let mut deferred = false;
     for entry in std::fs::read_dir(sessions_dir)? {
         let result = (|| {
             let entry = entry?;
@@ -387,12 +396,20 @@ pub fn recover_interrupted_captures(sessions_dir: &Path) -> std::io::Result<()> 
                 return Ok(());
             }
             let dir = entry.path();
-            if dir.join(DELETE_ON_STOP).exists() {
-                delete_capture_audio(&dir)
-            } else if uuid::Uuid::parse_str(&entry.file_name().to_string_lossy()).is_ok() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if active_sessions.contains(&name) {
+                deferred |= dir.join(DELETE_ON_STOP).try_exists()?;
+                return Ok(());
+            }
+            if dir.join(DELETE_ON_STOP).try_exists()? {
+                let result = delete_capture_audio(&dir);
+                on_cleanup(&name, &result);
+                result
+            } else if uuid::Uuid::parse_str(&name).is_ok() {
                 recover_partial_chunks(&dir)
             } else {
-                recover_interrupted_captures(&dir)
+                deferred |= recover_interrupted_captures_except(&dir, active_sessions, on_cleanup)?;
+                Ok(())
             }
         })();
         if let Err(error) = result {
@@ -400,7 +417,7 @@ pub fn recover_interrupted_captures(sessions_dir: &Path) -> std::io::Result<()> 
             first_error.get_or_insert(error);
         }
     }
-    first_error.map_or(Ok(()), Err)
+    first_error.map_or(Ok(deferred), Err)
 }
 
 #[cfg(test)]

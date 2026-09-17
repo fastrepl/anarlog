@@ -14,6 +14,7 @@ vi.mock("~/db/write-queue", () => ({
 import {
   saveIncompleteCapture,
   clearIncompleteCapture,
+  clearCaptureAudioDeletionFailure,
   useIncompleteCapture,
 } from "./capture-result";
 
@@ -43,7 +44,11 @@ it("preserves failed audio deletion across recovery until cleanup is explicitly 
     expect(read()).toEqual({ audioDeleted: false, audioDeletionFailed: true });
     await clearIncompleteCapture("session", "transcript");
     expect(read().audioDeletionFailed).toBe(true);
-    await saveIncompleteCapture("session", "transcript", true, false);
+    await saveIncompleteCapture("session", "audio-cleanup", false, true);
+    await clearCaptureAudioDeletionFailure("session");
+    expect(db.prepare("SELECT count(*) AS n FROM app_settings").get()!.n).toBe(
+      1,
+    );
     expect(read()).toEqual({ audioDeleted: true, audioDeletionFailed: false });
   } finally {
     db.close();

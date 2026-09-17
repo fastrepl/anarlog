@@ -13,6 +13,7 @@ use anlg_transcription_core::listener::actors::{RootActor, RootMsg};
 const LIVE_SEGMENT_SNAPSHOT_LIMIT: usize = 200;
 
 pub struct TauriRuntime {
+    pub audio_cleanup_status: crate::AudioCleanupStatus,
     pub app: tauri::AppHandle,
     pub session_state_cache: SessionStateCache,
     pub mic_isolation_cache: MicIsolationCache,
@@ -146,6 +147,7 @@ impl ListenerRuntime for TauriRuntime {
     }
 
     fn emit_error(&self, event: anlg_transcription_core::listener::SessionErrorEvent) {
+        update_audio_cleanup_status(&self.audio_cleanup_status, &event);
         if let Err(error) = CaptureStatusEvent::from(event).emit(&self.app) {
             tracing::error!(?error, "failed_to_emit_error_event");
         }
@@ -292,5 +294,51 @@ mod tests {
             segments.first().map(|segment| segment.id.as_str()),
             Some("segment-5")
         );
+    }
+}
+
+fn update_audio_cleanup_status(
+    cache: &crate::AudioCleanupStatus,
+    event: &anlg_transcription_core::listener::SessionErrorEvent,
+) {
+    let anlg_transcription_core::listener::SessionErrorEvent::AudioError {
+        session_id, error, ..
+    } = event
+    else {
+        return;
+    };
+    let failed = if error.starts_with("audio_deletion_failed:") {
+        true
+    } else if error == "audio_deletion_completed" {
+        false
+    } else {
+        return;
+    };
+    if let Ok(mut cache) = cache.0.lock() {
+        cache.insert(session_id.clone(), failed);
+    }
+}
+
+#[cfg(test)]
+mod cleanup_status_tests {
+    use super::*;
+    #[test]
+    fn cleanup_status_survives_until_the_frontend_subscribes() {
+        let cache: crate::AudioCleanupStatus = Default::default();
+        for (error, expected) in [
+            ("audio_deletion_failed: denied", true),
+            ("audio_deletion_completed", false),
+        ] {
+            update_audio_cleanup_status(
+                &cache,
+                &anlg_transcription_core::listener::SessionErrorEvent::AudioError {
+                    session_id: "session".into(),
+                    error: error.into(),
+                    device: None,
+                    is_fatal: false,
+                },
+            );
+            assert_eq!(cache.0.lock().unwrap().get("session"), Some(&expected));
+        }
     }
 }

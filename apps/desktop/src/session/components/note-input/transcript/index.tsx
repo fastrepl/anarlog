@@ -67,7 +67,7 @@ function TranscriptContent({
               : "This transcript is incomplete."}
           </span>{" "}
           {incompleteCapture.audioDeletionFailed
-            ? "Anarlog could not remove the temporary audio. Cleanup will be retried when the app restarts."
+            ? "Anarlog could not remove the temporary audio. Cleanup will be retried automatically."
             : incompleteCapture.audioDeleted
               ? "Recovery did not finish before the meeting ended. Audio was deleted according to your retention setting."
               : "Some audio could not be transcribed. Available recordings were kept according to your retention setting."}

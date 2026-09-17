@@ -71,3 +71,22 @@ export function clearIncompleteCapture(
     ]).then(() => undefined),
   );
 }
+
+export function clearCaptureAudioDeletionFailure(sessionId: string) {
+  const prefix = `capture_incomplete:${sessionId}:`;
+  return enqueueDatabaseWrite(`session:${sessionId}`, () =>
+    executeTransaction([
+      {
+        sql: "DELETE FROM app_settings WHERE id = ?",
+        params: [`${prefix}audio-cleanup`],
+      },
+      {
+        sql: `UPDATE app_settings SET value_json = json_set(value_json,
+          '$.audioDeletionFailed', json('false'), '$.audioDeleted', json('true')),
+          updated_at = ? WHERE substr(id, 1, length(?)) = ? AND json_valid(value_json)
+          AND json_extract(value_json, '$.audioDeletionFailed') = 1`,
+        params: [new Date().toISOString(), prefix, prefix],
+      },
+    ]).then(() => undefined),
+  );
+}

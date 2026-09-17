@@ -1,5 +1,6 @@
 mod chunks;
 mod disk;
+pub(crate) use chunks::recover_interrupted_captures_except;
 pub use chunks::{
     RecoveryAudioChunk, acknowledge_recovery_chunk, delete_capture_audio, list_recovery_chunks,
     recover_interrupted_captures,

@@ -14,6 +14,7 @@ Default permissions for the plugin
 - `allow-get-capture-snapshot`
 - `allow-update-capture-credentials`
 - `allow-list-capture-audio-chunks`
+- `allow-get-capture-audio-cleanup-status`
 - `allow-acknowledge-capture-audio-chunk`
 - `allow-is-supported-languages-live`
 - `allow-suggest-providers-for-languages-live`
@@ -142,6 +143,32 @@ Enables the extract_voiceprint_candidates command without any pre-configured sco
 <td>
 
 Denies the extract_voiceprint_candidates command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-get-capture-audio-cleanup-status`
+
+</td>
+<td>
+
+Enables the get_capture_audio_cleanup_status command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-get-capture-audio-cleanup-status`
+
+</td>
+<td>
+
+Denies the get_capture_audio_cleanup_status command without any pre-configured scope.
 
 </td>
 </tr>

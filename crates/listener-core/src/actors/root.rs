@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Instant, SystemTime};
 
@@ -18,6 +18,7 @@ use crate::{ListenerRuntime, SessionLifecycleEvent, Snapshot, StartSessionError,
 use anlg_audio::AudioProvider;
 
 pub enum RootMsg {
+    RetryCleanup,
     StartSession(SessionParams, RpcReplyPort<Result<(), StartSessionError>>),
     UpdateSessionConfig(SessionConfigUpdate, RpcReplyPort<()>),
     StopSession(RpcReplyPort<()>),
@@ -36,6 +37,8 @@ pub struct RootState {
     active_session_id: Option<String>,
     active_supervisor: Option<ActorCell>,
     finalizing_sessions: HashMap<String, ActorCell>,
+    cleanup_failed_sessions: HashSet<String>,
+    cleanup_retry_scheduled: bool,
 }
 
 pub struct RootActor;
@@ -54,16 +57,13 @@ impl Actor for RootActor {
 
     async fn pre_start(
         &self,
-        _myself: ActorRef<Self::Msg>,
+        myself: ActorRef<Self::Msg>,
         args: Self::Arguments,
     ) -> Result<Self::State, ActorProcessingErr> {
-        let sessions_dir = args.runtime.vault_base()?.join("sessions");
-        let cleanup = tokio::task::spawn_blocking(move || {
-            crate::actors::recorder::recover_interrupted_captures(&sessions_dir)
-        })
-        .await;
-        if !matches!(cleanup, Ok(Ok(()))) {
-            tracing::warn!(?cleanup, "capture_startup_cleanup_failed");
+        let (retry, cleanup_failed_sessions) =
+            cleanup_interrupted_audio(args.runtime.clone(), HashSet::new(), HashSet::new()).await;
+        if retry {
+            myself.send_after(std::time::Duration::from_secs(30), || RootMsg::RetryCleanup);
         }
         Ok(RootState {
             runtime: args.runtime,
@@ -71,6 +71,8 @@ impl Actor for RootActor {
             active_session_id: None,
             active_supervisor: None,
             finalizing_sessions: HashMap::new(),
+            cleanup_failed_sessions,
+            cleanup_retry_scheduled: retry,
         })
     }
 
@@ -81,6 +83,25 @@ impl Actor for RootActor {
         state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
         match message {
+            RootMsg::RetryCleanup => {
+                let mut active = state
+                    .finalizing_sessions
+                    .keys()
+                    .cloned()
+                    .collect::<HashSet<_>>();
+                active.extend(state.active_session_id.iter().cloned());
+                let (retry, failed) = cleanup_interrupted_audio(
+                    state.runtime.clone(),
+                    active,
+                    std::mem::take(&mut state.cleanup_failed_sessions),
+                )
+                .await;
+                state.cleanup_failed_sessions = failed;
+                state.cleanup_retry_scheduled = retry;
+                if retry {
+                    myself.send_after(std::time::Duration::from_secs(30), || RootMsg::RetryCleanup);
+                }
+            }
             RootMsg::StartSession(params, reply) => {
                 let result = start_session_impl(myself.get_cell(), params, state).await;
                 let _ = reply.send(result);
@@ -105,12 +126,14 @@ impl Actor for RootActor {
 
     async fn handle_supervisor_evt(
         &self,
-        _myself: ActorRef<Self::Msg>,
+        myself: ActorRef<Self::Msg>,
         message: SupervisionEvent,
         state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
         match message {
-            SupervisionEvent::ActorStarted(_) | SupervisionEvent::ProcessGroupChanged(_) => {}
+            SupervisionEvent::ActorStarted(_) | SupervisionEvent::ProcessGroupChanged(_) => {
+                return Ok(());
+            }
             SupervisionEvent::ActorTerminated(cell, _, reason) => {
                 handle_supervisor_completion(state, cell, reason, false);
             }
@@ -118,8 +141,91 @@ impl Actor for RootActor {
                 handle_supervisor_completion(state, cell, Some(format!("{:?}", error)), true);
             }
         }
+        if !state.cleanup_retry_scheduled {
+            state.cleanup_retry_scheduled = true;
+            myself.send_after(std::time::Duration::from_secs(30), || RootMsg::RetryCleanup);
+        }
         Ok(())
     }
+}
+
+async fn cleanup_interrupted_audio(
+    runtime: Arc<dyn ListenerRuntime>,
+    active: HashSet<String>,
+    previous_failures: HashSet<String>,
+) -> (bool, HashSet<String>) {
+    let cleanup_runtime = runtime.clone();
+    let fallback_failures = previous_failures.clone();
+    let cleanup = tokio::task::spawn_blocking(move || {
+        let mut failures = previous_failures;
+        let result = (|| {
+            let sessions_dir = cleanup_runtime
+                .vault_base()
+                .map_err(std::io::Error::other)?
+                .join("sessions");
+            crate::actors::recorder::recover_interrupted_captures_except(
+                &sessions_dir,
+                &active,
+                &mut |session_id, result| {
+                    match result {
+                        Ok(()) => {
+                            failures.remove(session_id);
+                        }
+                        Err(_) => {
+                            failures.insert(session_id.to_string());
+                        }
+                    }
+                    emit_audio_cleanup(
+                        &*cleanup_runtime,
+                        session_id,
+                        result.as_ref().err().map(ToString::to_string),
+                    );
+                },
+            )
+        })();
+        if result.is_ok() {
+            // A prior attempt may have succeeded elsewhere (for example on stop).
+            let completed: Vec<_> = failures.difference(&active).cloned().collect();
+            for session_id in completed {
+                failures.remove(&session_id);
+                emit_audio_cleanup(&*cleanup_runtime, &session_id, None);
+            }
+        }
+        (result, failures)
+    })
+    .await;
+    let (result, failures) = match cleanup {
+        Ok((result, failures)) => (result.map_err(|error| error.to_string()), failures),
+        Err(error) => (Err(error.to_string()), fallback_failures),
+    };
+    match result {
+        Ok(deferred) => {
+            emit_audio_cleanup(
+                &*runtime,
+                "",
+                (!failures.is_empty())
+                    .then(|| "Cleanup is deferred while the recording is in use".to_string()),
+            );
+            (deferred || !failures.is_empty(), failures)
+        }
+        Err(error) => {
+            tracing::warn!(%error, "capture_startup_cleanup_failed");
+            emit_audio_cleanup(&*runtime, "", Some(error));
+            (true, failures)
+        }
+    }
+}
+
+fn emit_audio_cleanup(runtime: &dyn ListenerRuntime, session_id: &str, error: Option<String>) {
+    runtime.emit_error(crate::SessionErrorEvent::AudioError {
+        session_id: session_id.to_string(),
+        error: error.map_or_else(
+            || "audio_deletion_completed".into(),
+            |error| format!("audio_deletion_failed: {error}"),
+        ),
+        device: None,
+        is_fatal: false,
+    });
 }
 
 fn root_snapshot(state: &RootState) -> Snapshot {
@@ -367,7 +473,7 @@ mod tests {
     use anlg_audio::{CaptureConfig, CaptureStream};
     use std::path::PathBuf;
 
-    struct Runtime(PathBuf);
+    struct Runtime(PathBuf, std::sync::Mutex<Vec<(String, String)>>);
     impl anlg_storage::StorageRuntime for Runtime {
         fn global_base(&self) -> Result<PathBuf, anlg_storage::Error> {
             Ok(self.0.clone())
@@ -379,7 +485,14 @@ mod tests {
     impl ListenerRuntime for Runtime {
         fn emit_lifecycle(&self, _: SessionLifecycleEvent) {}
         fn emit_progress(&self, _: crate::SessionProgressEvent) {}
-        fn emit_error(&self, _: crate::SessionErrorEvent) {}
+        fn emit_error(&self, event: crate::SessionErrorEvent) {
+            if let crate::SessionErrorEvent::AudioError {
+                session_id, error, ..
+            } = event
+            {
+                self.1.lock().unwrap().push((session_id, error));
+            }
+        }
         fn emit_data(&self, _: crate::SessionDataEvent) {}
     }
     impl AudioProvider for Runtime {
@@ -422,10 +535,125 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn stopped_session_failure_starts_cleanup_after_a_clean_startup() {
+        let dir = tempfile::tempdir().unwrap();
+        let runtime = Arc::new(Runtime(dir.path().to_path_buf(), Default::default()));
+        let args = || RootArgs {
+            runtime: runtime.clone(),
+            audio: runtime.clone(),
+        };
+        let (root, task) = Actor::spawn(None, RootActor, args()).await.unwrap();
+        let mut state = RootActor.pre_start(root.clone(), args()).await.unwrap();
+        assert!(!state.cleanup_retry_scheduled);
+
+        let session = dir
+            .path()
+            .join("sessions")
+            .join(uuid::Uuid::new_v4().to_string());
+        std::fs::create_dir_all(&session).unwrap();
+        std::fs::write(session.join(".delete-audio-on-stop"), b"").unwrap();
+        std::fs::write(session.join("audio.mp3"), b"private audio").unwrap();
+        RootActor
+            .handle_supervisor_evt(
+                root.clone(),
+                SupervisionEvent::ActorFailed(
+                    root.get_cell(),
+                    std::io::Error::other("cleanup failed").into(),
+                ),
+                &mut state,
+            )
+            .await
+            .unwrap();
+        assert!(state.cleanup_retry_scheduled);
+        RootActor
+            .handle(root.clone(), RootMsg::RetryCleanup, &mut state)
+            .await
+            .unwrap();
+        assert!(!state.cleanup_retry_scheduled);
+        assert!(!session.join("audio.mp3").exists());
+        root.stop(None);
+        task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn cleanup_retries_failed_deletions_but_preserves_active_capture_audio() {
+        let dir = tempfile::tempdir().unwrap();
+        let session_id = uuid::Uuid::new_v4().to_string();
+        let session = dir.path().join("sessions").join(&session_id);
+        std::fs::create_dir_all(&session).unwrap();
+        std::fs::write(session.join(".delete-audio-on-stop"), b"").unwrap();
+        let recovery = session.join("audio-recovery");
+        std::fs::write(&recovery, b"blocked directory").unwrap();
+        let runtime = Arc::new(Runtime(dir.path().to_path_buf(), Default::default()));
+        let (retry, failed) =
+            cleanup_interrupted_audio(runtime.clone(), HashSet::new(), HashSet::new()).await;
+        assert!(retry);
+        assert!(failed.contains(&session_id));
+        assert!(runtime.1.lock().unwrap().iter().any(|(id, error)| id == &session_id && error.starts_with("audio_deletion_failed:")));
+        std::fs::remove_file(&recovery).unwrap();
+        std::fs::create_dir(&recovery).unwrap();
+        std::fs::write(recovery.join("private.part"), b"private audio").unwrap();
+        let (retry, failed) =
+            cleanup_interrupted_audio(runtime.clone(), HashSet::from([session_id.clone()]), failed)
+                .await;
+        assert!(retry);
+        assert!(recovery.join("private.part").exists());
+        assert!(
+            runtime
+                .1
+                .lock()
+                .unwrap()
+                .last()
+                .unwrap()
+                .1
+                .starts_with("audio_deletion_failed:")
+        );
+        let (retry, failed) =
+            cleanup_interrupted_audio(runtime.clone(), HashSet::new(), failed).await;
+        assert!(!retry);
+        assert!(failed.is_empty());
+        assert!(!recovery.exists());
+        assert!(!session.join(".delete-audio-on-stop").exists());
+        assert!(
+            runtime
+                .1
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|(id, error)| id == &session_id && error == "audio_deletion_completed")
+        );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn unreadable_cleanup_paths_do_not_clear_prior_failures() {
+        let dir = tempfile::tempdir().unwrap();
+        let sessions = dir.path().join("sessions");
+        std::os::unix::fs::symlink(&sessions, &sessions).unwrap();
+        let runtime = Arc::new(Runtime(dir.path().to_path_buf(), Default::default()));
+        let (retry, failed) = cleanup_interrupted_audio(
+            runtime.clone(),
+            HashSet::new(),
+            HashSet::from(["session".to_string()]),
+        )
+        .await;
+        assert!(retry);
+        assert!(failed.contains("session"));
+        assert!(
+            runtime
+                .1
+                .lock()
+                .unwrap()
+                .iter()
+                .all(|(_, error)| error.starts_with("audio_deletion_failed:"))
+        );
+    }
+
+    #[tokio::test]
     async fn root_remains_available_when_startup_cleanup_fails() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("sessions"), b"unreadable directory").unwrap();
-        let runtime = Arc::new(Runtime(dir.path().to_path_buf()));
+        let runtime = Arc::new(Runtime(dir.path().to_path_buf(), Default::default()));
         let (root, task) = Actor::spawn(
             None,
             RootActor,

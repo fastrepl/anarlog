@@ -24,6 +24,19 @@ fn session_audio_dir<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn get_capture_audio_cleanup_status<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<std::collections::HashMap<String, bool>, String> {
+    use tauri::Manager;
+    app.state::<crate::AudioCleanupStatus>()
+        .0
+        .lock()
+        .map(|status| status.clone())
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn list_capture_audio_chunks<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     session_id: String,

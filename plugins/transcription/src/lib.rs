@@ -54,6 +54,9 @@ pub type SessionStateCache = Arc<StdMutex<HashMap<String, SessionStateSnapshot>>
 /// voiceprint extraction, which runs after the recording ends, can still read it.
 pub type MicIsolationCache = Arc<StdMutex<HashMap<String, bool>>>;
 
+#[derive(Clone, Default)]
+pub struct AudioCleanupStatus(Arc<StdMutex<HashMap<String, bool>>>);
+
 pub struct BatchSessionRegistry {
     pub sessions: StdMutex<HashMap<String, BatchSessionEntry>>,
 }
@@ -93,6 +96,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::get_capture_snapshot::<tauri::Wry>,
             listener::commands::update_capture_credentials::<tauri::Wry>,
             listener::commands::list_capture_audio_chunks::<tauri::Wry>,
+            listener::commands::get_capture_audio_cleanup_status::<tauri::Wry>,
             listener::commands::acknowledge_capture_audio_chunk::<tauri::Wry>,
             listener::commands::is_supported_languages_live::<tauri::Wry>,
             listener::commands::suggest_providers_for_languages_live::<tauri::Wry>,
@@ -140,7 +144,10 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             app.manage(session_state_cache.clone());
             let mic_isolation_cache: MicIsolationCache = Arc::new(StdMutex::new(HashMap::new()));
             app.manage(mic_isolation_cache.clone());
+            let audio_cleanup_status = AudioCleanupStatus::default();
+            app.manage(audio_cleanup_status.clone());
             let runtime = Arc::new(listener::TauriRuntime {
+                audio_cleanup_status,
                 app: app_handle.clone(),
                 session_state_cache,
                 mic_isolation_cache,

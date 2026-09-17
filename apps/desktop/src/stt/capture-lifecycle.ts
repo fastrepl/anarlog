@@ -1139,7 +1139,7 @@ export function useCaptureLifecycle(sessionId: string) {
               id: `audio-deletion-${sessionId}`,
               duration: Infinity,
               description:
-                "Anarlog could not remove the temporary audio. Cleanup will be retried when the app restarts.",
+                "Anarlog could not remove the temporary audio. Cleanup will be retried automatically.",
             });
           } else if (!retainAudio && recovery.incomplete) {
             sonnerToast.error("Your transcript is incomplete", {
