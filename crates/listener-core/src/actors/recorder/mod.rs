@@ -1,8 +1,8 @@
 mod chunks;
 mod disk;
 pub use chunks::{
-    RecoveryAudioChunk, acknowledge_recovery_chunk, cleanup_interrupted_zero_retention,
-    delete_capture_audio, list_recovery_chunks,
+    RecoveryAudioChunk, acknowledge_recovery_chunk, delete_capture_audio, list_recovery_chunks,
+    recover_interrupted_captures,
 };
 
 use std::collections::HashSet;

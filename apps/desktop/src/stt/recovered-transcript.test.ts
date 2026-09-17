@@ -29,3 +29,10 @@ it("is idempotent when a committed repair is retried before audio acknowledgemen
     selectRecoveredWords([retry], [saved], [{ start: 0, end: 2000 }]),
   ).toEqual([]);
 });
+
+it("recovers words crossing either edge of a short gap", () => {
+  const words = [word("left", 100, 600), word("right", 650, 1400)];
+  expect(selectRecoveredWords(words, [], [{ start: 550, end: 700 }])).toEqual(
+    words,
+  );
+});

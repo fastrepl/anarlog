@@ -13,7 +13,7 @@ function setup() {
     end_ms: 60_000,
   };
   const list = vi.fn(async () => [chunk]);
-  const acknowledge = vi.fn(async () => {});
+  const acknowledge = vi.fn(async (_chunk: { id: string }) => {});
   const flush = vi.fn(async () => {});
   const repair = vi.fn(async (_chunk, _gaps, _signal: AbortSignal) => {});
   const worker = createCaptureAudioRecovery({
@@ -153,4 +153,39 @@ describe("capture audio recovery", () => {
     expect(acknowledge).not.toHaveBeenCalled();
     expect((await worker.stop(false)).incomplete).toBe(true);
   });
+});
+
+it.each([129, 256])(
+  "drains all %s retained chunks when stopping",
+  async (count) => {
+    const { worker, list, acknowledge, repair, setNow } = setup();
+    let chunks = Array.from({ length: count }, (_, index) => ({
+      id: `${index}.mp3`,
+      path: `/chunk-${index}.mp3`,
+      capture_started_at: 0,
+      start_ms: index * 60_000,
+      audio_start_ms: index * 60_000,
+      end_ms: (index + 1) * 60_000,
+    }));
+    list.mockImplementation(async () => chunks.slice(0, 128));
+    acknowledge.mockImplementation(async (chunk) => {
+      chunks = chunks.filter((candidate) => candidate.id !== chunk.id);
+    });
+    setNow(count * 60_000);
+    worker.recoverPending();
+    expect(await worker.stop(true)).toEqual({ incomplete: false });
+    expect(repair).toHaveBeenCalledTimes(count);
+    expect(chunks).toEqual([]);
+  },
+);
+
+it("stops draining when offline instead of spinning on the same page", async () => {
+  const { worker, list, acknowledge } = setup();
+  const chunk = (await list())[0]!;
+  list.mockResolvedValue(Array.from({ length: 128 }, () => chunk));
+  list.mockClear();
+  worker.interrupted();
+  expect(await worker.stop(true)).toEqual({ incomplete: true });
+  expect(list).toHaveBeenCalledOnce();
+  expect(acknowledge).not.toHaveBeenCalled();
 });

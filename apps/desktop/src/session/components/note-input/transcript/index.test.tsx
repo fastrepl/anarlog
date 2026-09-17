@@ -205,8 +205,11 @@ describe("Transcript", () => {
     ).toBe("true");
   });
   it("keeps the zero-retention incomplete message visible after recording", () => {
+    listenerState.getSessionMode = () => "inactive";
+    transcripts = [{ id: transcriptId, hasWords: true }];
     useIncompleteCaptureMock.mockReturnValue({ audioDeleted: true });
     render(<Transcript sessionId={sessionId} scrollRef={createRef()} />);
+    expect(screen.getByTestId("transcript-viewer")).not.toBeNull();
     expect(screen.getByRole("status").textContent).toContain(
       "Audio was deleted according to your retention setting",
     );

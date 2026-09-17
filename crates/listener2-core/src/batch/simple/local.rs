@@ -140,9 +140,7 @@ where
 
 fn create_channel_tempfile(parent: Option<&Path>) -> std::io::Result<tempfile::NamedTempFile> {
     if let Some(parent) = parent
-        && parent
-            .file_name()
-            .is_some_and(|name| name == "audio-recovery")
+        && crate::batch::upload::is_recovery_directory(parent)
     {
         return tempfile::Builder::new()
             .prefix("anarlog_channel_")
@@ -1100,6 +1098,17 @@ mod cancellation_tests {
         fn is_cancelled(&self) -> bool {
             self.cancelled.load(Ordering::Acquire)
         }
+    }
+
+    #[test]
+    fn recovery_channel_files_never_fall_back_outside_the_capture_directory() {
+        let root = tempfile::tempdir().unwrap();
+        let recovery = root.path().join("audio-recovery");
+        std::fs::create_dir(&recovery).unwrap();
+        let file = create_channel_tempfile(Some(&recovery)).unwrap();
+        assert!(file.path().starts_with(&recovery));
+        std::fs::remove_dir_all(&recovery).unwrap();
+        assert!(create_channel_tempfile(Some(&recovery)).is_err());
     }
 
     #[tokio::test]

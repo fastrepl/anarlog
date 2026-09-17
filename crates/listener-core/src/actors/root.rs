@@ -58,10 +58,13 @@ impl Actor for RootActor {
         args: Self::Arguments,
     ) -> Result<Self::State, ActorProcessingErr> {
         let sessions_dir = args.runtime.vault_base()?.join("sessions");
-        tokio::task::spawn_blocking(move || {
-            crate::actors::recorder::cleanup_interrupted_zero_retention(&sessions_dir)
+        let cleanup = tokio::task::spawn_blocking(move || {
+            crate::actors::recorder::recover_interrupted_captures(&sessions_dir)
         })
-        .await??;
+        .await;
+        if !matches!(cleanup, Ok(Ok(()))) {
+            tracing::warn!(?cleanup, "capture_startup_cleanup_failed");
+        }
         Ok(RootState {
             runtime: args.runtime,
             audio: args.audio,
@@ -355,5 +358,90 @@ fn handle_supervisor_completion(
             reason,
             state.active_session_id.is_none(),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anlg_audio::{CaptureConfig, CaptureStream};
+    use std::path::PathBuf;
+
+    struct Runtime(PathBuf);
+    impl anlg_storage::StorageRuntime for Runtime {
+        fn global_base(&self) -> Result<PathBuf, anlg_storage::Error> {
+            Ok(self.0.clone())
+        }
+        fn vault_base(&self) -> Result<PathBuf, anlg_storage::Error> {
+            Ok(self.0.clone())
+        }
+    }
+    impl ListenerRuntime for Runtime {
+        fn emit_lifecycle(&self, _: SessionLifecycleEvent) {}
+        fn emit_progress(&self, _: crate::SessionProgressEvent) {}
+        fn emit_error(&self, _: crate::SessionErrorEvent) {}
+        fn emit_data(&self, _: crate::SessionDataEvent) {}
+    }
+    impl AudioProvider for Runtime {
+        fn open_capture(&self, _: CaptureConfig) -> Result<CaptureStream, anlg_audio::Error> {
+            unreachable!()
+        }
+        fn open_speaker_capture(
+            &self,
+            _: u32,
+            _: usize,
+        ) -> Result<CaptureStream, anlg_audio::Error> {
+            unreachable!()
+        }
+        fn open_mic_capture(
+            &self,
+            _: Option<String>,
+            _: u32,
+            _: usize,
+        ) -> Result<CaptureStream, anlg_audio::Error> {
+            unreachable!()
+        }
+        fn default_device_name(&self) -> String {
+            "test".into()
+        }
+        fn list_mic_devices(&self) -> Vec<String> {
+            vec![]
+        }
+        fn play_silence(&self) -> std::sync::mpsc::Sender<()> {
+            unreachable!()
+        }
+        fn play_bytes(&self, _: &'static [u8]) -> std::sync::mpsc::Sender<()> {
+            unreachable!()
+        }
+        fn probe_mic(&self, _: Option<String>) -> Result<(), anlg_audio::Error> {
+            Ok(())
+        }
+        fn probe_speaker(&self) -> Result<(), anlg_audio::Error> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn root_remains_available_when_startup_cleanup_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("sessions"), b"unreadable directory").unwrap();
+        let runtime = Arc::new(Runtime(dir.path().to_path_buf()));
+        let (root, task) = Actor::spawn(
+            None,
+            RootActor,
+            RootArgs {
+                runtime: runtime.clone(),
+                audio: runtime,
+            },
+        )
+        .await
+        .unwrap();
+        let state = root
+            .call(RootMsg::GetState, Some(std::time::Duration::from_secs(1)))
+            .await
+            .unwrap();
+        assert!(matches!(state, ractor::rpc::CallResult::Success(_)));
+        root.stop(None);
+        task.await.unwrap();
     }
 }

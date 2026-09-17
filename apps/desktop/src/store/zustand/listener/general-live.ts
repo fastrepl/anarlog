@@ -390,6 +390,7 @@ const createSessionEventHandlers = <T extends LiveStore>(
       payload.type === "audio_error" &&
       payload.error.startsWith("audio_storage_")
     ) {
+      setLiveState(set, (live) => updateLiveProgress(live, payload));
       sonnerToast.error("Audio saving was interrupted", {
         id: `audio-storage-${targetSessionId}`,
         duration: Infinity,

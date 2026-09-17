@@ -4,6 +4,7 @@ use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+use anlg_audio_utils::Source;
 use anlg_mp3::StereoStreamEncoder;
 use ractor::ActorProcessingErr;
 
@@ -90,6 +91,7 @@ impl ChunkedSink {
         if retain_audio && session_dir.join(DELETE_ON_STOP).exists() {
             delete_capture_audio(session_dir)?;
         }
+        recover_partial_chunks(session_dir)?;
         check_storage(session_dir)?;
         if !retain_audio {
             File::create(session_dir.join(DELETE_ON_STOP))?.sync_all()?;
@@ -127,8 +129,8 @@ impl ChunkedSink {
 
     fn partial_path(&self) -> PathBuf {
         self.dir.join(format!(
-            "{}-{}.part",
-            self.capture_started_at, self.start_ms
+            "{}-{}-{}.part",
+            self.capture_started_at, self.start_ms, self.audio_start_ms
         ))
     }
 
@@ -138,13 +140,13 @@ impl ChunkedSink {
             self.last_space_check = Instant::now();
         }
         if self.chunk.is_none() {
+            self.audio_start_ms = self
+                .start_ms
+                .saturating_sub(self.history_samples as u64 * 1000 / SAMPLE_RATE as u64);
             let mut chunk = EncoderFile::new(&self.partial_path(), false)?;
             for (mic, speaker) in &self.history {
                 chunk.write(mic, speaker)?;
             }
-            self.audio_start_ms = self
-                .start_ms
-                .saturating_sub(self.history_samples as u64 * 1000 / SAMPLE_RATE as u64);
             self.chunk = Some(chunk);
         }
         // Frame-sized input and encoded output are the only in-memory audio.
@@ -321,23 +323,84 @@ pub fn delete_capture_audio(session_dir: &Path) -> std::io::Result<()> {
     }
 }
 
-pub fn cleanup_interrupted_zero_retention(sessions_dir: &Path) -> std::io::Result<()> {
+// Call only before a writer starts or during application startup. Active .part
+// files must stay invisible to recovery workers until their writer closes them.
+fn recover_partial_chunks(session_dir: &Path) -> std::io::Result<()> {
+    let dir = session_dir.join(RECOVERY_DIR);
+    let entries = match std::fs::read_dir(&dir) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error),
+    };
+    for entry in entries {
+        let entry = entry?;
+        if !entry.file_type()?.is_file() {
+            continue;
+        }
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        let Some(stem) = name.strip_suffix(".part") else {
+            continue;
+        };
+        let parts: Vec<_> = stem.split('-').collect();
+        let [capture, start, audio_start] = parts.as_slice() else {
+            continue;
+        };
+        let (Ok(capture), Ok(start), Ok(audio_start)) = (
+            capture.parse::<u64>(),
+            start.parse::<u64>(),
+            audio_start.parse::<u64>(),
+        ) else {
+            continue;
+        };
+        let source = match anlg_audio_utils::source_from_path(entry.path()) {
+            Ok(source) => source,
+            Err(error) => {
+                tracing::warn!(?error, path = ?entry.path(), "partial_audio_unreadable");
+                continue;
+            }
+        };
+        let rate = u32::from(source.sample_rate()) as u64;
+        let channels = u16::from(source.channels()) as u64;
+        // Decode a stream to measure its playable tail without loading it into RAM.
+        let end = audio_start.saturating_add(source.count() as u64 * 1000 / rate / channels);
+        if end <= start {
+            continue;
+        }
+        std::fs::rename(
+            entry.path(),
+            dir.join(format!("{capture}-{start}-{end}-{audio_start}.mp3")),
+        )?;
+    }
+    Ok(())
+}
+
+pub fn recover_interrupted_captures(sessions_dir: &Path) -> std::io::Result<()> {
     if !sessions_dir.exists() {
         return Ok(());
     }
+    let mut first_error = None;
     for entry in std::fs::read_dir(sessions_dir)? {
-        let entry = entry?;
-        if !entry.file_type()?.is_dir() {
-            continue;
-        }
-        let dir = entry.path();
-        if dir.join(DELETE_ON_STOP).exists() {
-            delete_capture_audio(&dir)?;
-        } else if uuid::Uuid::parse_str(&entry.file_name().to_string_lossy()).is_err() {
-            cleanup_interrupted_zero_retention(&dir)?;
+        let result = (|| {
+            let entry = entry?;
+            if !entry.file_type()?.is_dir() {
+                return Ok(());
+            }
+            let dir = entry.path();
+            if dir.join(DELETE_ON_STOP).exists() {
+                delete_capture_audio(&dir)
+            } else if uuid::Uuid::parse_str(&entry.file_name().to_string_lossy()).is_ok() {
+                recover_partial_chunks(&dir)
+            } else {
+                recover_interrupted_captures(&dir)
+            }
+        })();
+        if let Err(error) = result {
+            tracing::warn!(?error, "interrupted_capture_cleanup_failed");
+            first_error.get_or_insert(error);
         }
     }
-    Ok(())
+    first_error.map_or(Ok(()), Err)
 }
 
 #[cfg(test)]
@@ -411,6 +474,46 @@ mod tests {
     }
 
     #[test]
+    fn startup_recovers_a_playable_partial_chunk_with_its_overlap_offset() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join(uuid::Uuid::new_v4().to_string());
+        let mut sink = ChunkedSink::new(&dir, 123, 0, true).unwrap();
+        let samples = vec![0.1; SAMPLE_RATE as usize];
+        for _ in 0..70 {
+            sink.write(&samples, &samples).unwrap();
+        }
+        sink.chunk.as_mut().unwrap().file.flush().unwrap();
+        assert_eq!(list_recovery_chunks(&dir).unwrap().len(), 1);
+        drop(sink);
+        recover_interrupted_captures(root.path()).unwrap();
+        let chunks = list_recovery_chunks(&dir).unwrap();
+        assert_eq!(chunks.len(), 2);
+        assert_eq!(chunks[1].start_ms, 60_000);
+        assert_eq!(chunks[1].audio_start_ms, 58_000);
+        assert!((69_000..=70_100).contains(&chunks[1].end_ms));
+        assert!(
+            anlg_audio_utils::source_from_path(&chunks[1].path)
+                .unwrap()
+                .count()
+                > 0
+        );
+    }
+
+    #[test]
+    fn cleanup_continues_after_a_session_cannot_be_deleted() {
+        let root = tempfile::tempdir().unwrap();
+        let broken = root.path().join(uuid::Uuid::new_v4().to_string());
+        let zero = root.path().join(uuid::Uuid::new_v4().to_string());
+        std::fs::create_dir_all(broken.join(DELETE_ON_STOP)).unwrap();
+        std::fs::create_dir_all(&zero).unwrap();
+        std::fs::write(zero.join(DELETE_ON_STOP), b"").unwrap();
+        std::fs::write(zero.join("audio.mp3"), b"private").unwrap();
+        assert!(recover_interrupted_captures(root.path()).is_err());
+        assert!(!zero.join("audio.mp3").exists());
+        assert!(broken.join(DELETE_ON_STOP).exists());
+    }
+
+    #[test]
     fn storage_budget_preserves_database_headroom_and_pending_audio() {
         assert!(storage_budget(Some(DISK_RESERVE_BYTES - 1), 0).is_err());
         assert!(storage_budget(Some(u64::MAX), RECOVERY_BUDGET_BYTES).is_err());
@@ -431,7 +534,7 @@ mod tests {
         )
         .unwrap();
         std::fs::write(retained.join("audio.mp3"), b"keep").unwrap();
-        cleanup_interrupted_zero_retention(dir.path()).unwrap();
+        recover_interrupted_captures(dir.path()).unwrap();
         assert!(!zero.join(RECOVERY_DIR).exists());
         assert_eq!(std::fs::read(retained.join("audio.mp3")).unwrap(), b"keep");
     }

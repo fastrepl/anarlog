@@ -284,12 +284,20 @@ impl RecorderDispatcher {
                 if failed_actor == Some(actor.get_id()) {
                     continue;
                 }
-                if !matches!(
-                    Pipeline::write_to_recorder(&actor, &item).await,
-                    Ok(RecorderEnqueueResult::Accepted)
-                ) {
-                    failed_actor = Some(actor.get_id());
-                    actor.stop(Some("audio_storage_backpressure".into()));
+                for attempt in 0..=8 {
+                    match Pipeline::write_to_recorder(&actor, &item).await {
+                        Ok(RecorderEnqueueResult::Accepted) => break,
+                        Ok(RecorderEnqueueResult::Backpressured) if attempt < 8 => {
+                            tokio::time::sleep(Duration::from_millis(25)).await;
+                        }
+                        _ => {
+                            // A timeout may already have accepted this frame; only
+                            // an explicit rejection can be retried without duplication.
+                            failed_actor = Some(actor.get_id());
+                            actor.stop(Some("audio_storage_backpressure".into()));
+                            break;
+                        }
+                    }
                 }
             }
         });
@@ -1002,6 +1010,68 @@ mod tests {
             }
             Ok(())
         }
+    }
+
+    struct TransientRecorderProbe(tokio::sync::mpsc::UnboundedSender<Vec<f32>>);
+
+    #[ractor::async_trait]
+    impl Actor for TransientRecorderProbe {
+        type Msg = RecMsg;
+        type State = usize;
+        type Arguments = ();
+        async fn pre_start(
+            &self,
+            _: ActorRef<Self::Msg>,
+            _: (),
+        ) -> Result<usize, ActorProcessingErr> {
+            Ok(0)
+        }
+        async fn handle(
+            &self,
+            _: ActorRef<Self::Msg>,
+            message: RecMsg,
+            attempts: &mut usize,
+        ) -> Result<(), ActorProcessingErr> {
+            if let RecMsg::AudioSingle(samples, reply) = message {
+                *attempts += 1;
+                if *attempts <= 2 {
+                    let _ = reply.send(RecorderEnqueueResult::Backpressured);
+                } else {
+                    let _ = self.0.send(samples.to_vec());
+                    let _ = reply.send(RecorderEnqueueResult::Accepted);
+                }
+            }
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn transient_recorder_backpressure_preserves_frame_order_without_duplicates() {
+        let mut pipeline = test_pipeline();
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let (recorder, task) = Actor::spawn(None, TransientRecorderProbe(tx), ())
+            .await
+            .unwrap();
+        for value in [1.0, 2.0, 3.0] {
+            pipeline
+                .dispatch_frame(
+                    source_frame_with_speaker_value(value),
+                    ChannelMode::SpeakerOnly,
+                    &ListenerRouting::Dropped,
+                    Some(&recorder),
+                )
+                .await
+                .unwrap();
+        }
+        tokio::time::timeout(Duration::from_secs(1), pipeline.flush_recorder())
+            .await
+            .unwrap();
+        for value in [1.0, 2.0, 3.0] {
+            assert_eq!(rx.try_recv().unwrap(), vec![value; 4]);
+        }
+        assert!(rx.try_recv().is_err());
+        assert!(!task.is_finished());
+        task.abort();
     }
 
     fn test_pipeline() -> Pipeline {

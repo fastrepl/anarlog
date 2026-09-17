@@ -4,14 +4,17 @@ use std::time::Duration;
 use anlg_audio_utils::Source;
 use owhisper_client::BatchUploadLimit;
 
+pub(in crate::batch) fn is_recovery_directory(path: &std::path::Path) -> bool {
+    path.file_name()
+        .is_some_and(|name| name == "audio-recovery")
+}
+
 pub(in crate::batch) fn temporary_audio_directory(
     source: &str,
 ) -> std::io::Result<tempfile::TempDir> {
     let parent = std::path::Path::new(source).parent();
     if let Some(parent) = parent
-        && parent
-            .file_name()
-            .is_some_and(|name| name == "audio-recovery")
+        && is_recovery_directory(parent)
     {
         // Derived audio must share the capture's deletion boundary, including
         // cancellation while a blocking encoder is still finishing.

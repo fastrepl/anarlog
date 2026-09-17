@@ -11,9 +11,12 @@ export function selectRecoveredWords(
     const end = Number(word.end_ms);
     if (!Number.isFinite(start) || !Number.isFinite(end) || end < start)
       return false;
-    const midpoint = (start + end) / 2;
     return (
-      intervals.some((gap) => midpoint >= gap.start && midpoint < gap.end) &&
+      intervals.some(
+        (gap) =>
+          start < gap.end &&
+          (end > gap.start || (start === end && start >= gap.start)),
+      ) &&
       !existing.some(
         (saved) =>
           saved.id === word.id ||

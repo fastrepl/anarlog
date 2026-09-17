@@ -28,11 +28,12 @@ pub async fn list_capture_audio_chunks<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     session_id: String,
 ) -> Result<Vec<RecoveryAudioChunk>, String> {
-    let dir = session_audio_dir(&app, &session_id)?;
-    tokio::task::spawn_blocking(move || recorder::list_recovery_chunks(&dir))
-        .await
-        .map_err(|error| error.to_string())?
-        .map_err(|error| error.to_string())
+    tokio::task::spawn_blocking(move || {
+        let dir = session_audio_dir(&app, &session_id)?;
+        recorder::list_recovery_chunks(&dir).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -42,11 +43,12 @@ pub async fn acknowledge_capture_audio_chunk<R: tauri::Runtime>(
     session_id: String,
     chunk_id: String,
 ) -> Result<(), String> {
-    let dir = session_audio_dir(&app, &session_id)?;
-    tokio::task::spawn_blocking(move || recorder::acknowledge_recovery_chunk(&dir, &chunk_id))
-        .await
-        .map_err(|error| error.to_string())?
-        .map_err(|error| error.to_string())
+    tokio::task::spawn_blocking(move || {
+        let dir = session_audio_dir(&app, &session_id)?;
+        recorder::acknowledge_recovery_chunk(&dir, &chunk_id).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]

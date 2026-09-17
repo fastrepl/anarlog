@@ -142,12 +142,6 @@ vi.mock("@anlg/plugin-db", () => ({
   subscribe: vi.fn(async () => () => {}),
 }));
 
-vi.mock("@anlg/plugin-transcription", () => ({
-  commands: {
-    isSupportedLanguagesLive: isSupportedLanguagesLiveMock,
-  },
-}));
-
 vi.mock("~/auth", () => ({
   useAuth: () => ({ getSessionForRequest: vi.fn(async () => null) }),
 }));

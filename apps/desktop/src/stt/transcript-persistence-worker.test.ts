@@ -590,3 +590,41 @@ describe("createTranscriptPersistenceWorker", () => {
     expect(onError).toHaveBeenCalledOnce();
   });
 });
+
+it("clears the retry failure before a successful persistence callback checks it", async () => {
+  const persist = vi
+    .fn<() => Promise<void>>()
+    .mockRejectedValueOnce(new Error("disk full"));
+  const worker = createImmediateTranscriptPersistenceWorker(persist, vi.fn());
+  worker.enqueue(delta("word-1"));
+  await worker.flush();
+  expect(worker.hasPendingFailure()).toBe(true);
+  persist.mockReset().mockImplementation(async () => {
+    expect(worker.hasPendingFailure()).toBe(false);
+  });
+  await worker.flush();
+  expect(worker.hasPendingFailure()).toBe(false);
+  worker.dispose();
+});
+
+it("ignores a late persistence failure after disposal", async () => {
+  let reject!: (error: Error) => void;
+  const pending = new Promise<void>((_, fail) => {
+    reject = fail;
+  });
+  const persist = vi.fn(() => pending);
+  const onError = vi.fn();
+  const afterFlush = vi.fn(async () => {});
+  const worker = createImmediateTranscriptPersistenceWorker(persist, onError, {
+    afterFlush,
+  });
+  worker.enqueue(delta("word-1"));
+  await vi.waitFor(() => expect(persist).toHaveBeenCalledOnce());
+  const flush = worker.flush();
+  worker.dispose();
+  reject(new Error("late database error"));
+  await flush;
+  expect(onError).not.toHaveBeenCalled();
+  expect(afterFlush).not.toHaveBeenCalled();
+  expect(worker.hasPendingFailure()).toBe(false);
+});

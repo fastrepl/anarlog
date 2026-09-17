@@ -153,6 +153,12 @@ function parseCaptureLifecycleMarker(
 
     return {
       version: 1,
+      ...(typeof parsed.chunkedAudio === "boolean"
+        ? { chunkedAudio: parsed.chunkedAudio }
+        : {}),
+      ...(typeof parsed.retainAudio === "boolean"
+        ? { retainAudio: parsed.retainAudio }
+        : {}),
       sessionId,
       transcriptId: parsed.transcriptId,
       startedAt: parsed.startedAt,

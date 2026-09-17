@@ -2183,6 +2183,37 @@ describe("General Listener Slice", () => {
       warning.mockRestore();
     });
 
+    test("keeps storage failures in shared live state without stopping capture", async () => {
+      await store.getState().start({
+        session_id: "session-a",
+        languages: [],
+        onboarding: false,
+        model: "test-model",
+        base_url: "http://localhost",
+        api_key: "test-key",
+        keywords: [],
+      });
+      const handler =
+        listenCaptureStatusMock.mock.calls[
+          listenCaptureStatusMock.mock.calls.length - 1
+        ]?.[0];
+      handler?.({
+        payload: {
+          type: "audio_error",
+          session_id: "session-a",
+          error: "audio_storage_backpressure",
+          is_fatal: false,
+          device: null,
+        },
+      });
+      expect(store.getState().live.lastError).toBe(
+        "audio_storage_backpressure",
+      );
+      expect(store.getState().live.lastErrorIsAudioRelated).toBe(true);
+      expect(store.getState().live.sessionId).toBe("session-a");
+      expect(stopCaptureMock).not.toHaveBeenCalled();
+    });
+
     test("preserves explicit audio errors when capture startup fails", async () => {
       const consoleError = vi
         .spyOn(console, "error")

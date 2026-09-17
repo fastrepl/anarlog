@@ -25,7 +25,7 @@ export function createCaptureAudioRecovery(options: {
   const now = options.now ?? Date.now;
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let running: Promise<void> | undefined;
+  let running: Promise<boolean> | undefined;
   let active = false;
   let online = true;
   let confirmedThrough = 0;
@@ -87,12 +87,12 @@ export function createCaptureAudioRecovery(options: {
       if (!settle && coveredThrough < range.end) continue;
       if (intervals.length > 0) {
         pending = true;
-        if (!online || now() < retryAt) return;
+        if (!online || now() < retryAt) return false;
         options.onStatus("repairing");
         await options.repair(chunk, intervals, controller.signal);
         controller.signal.throwIfAborted();
       }
-      if (repairRevision !== revision) return;
+      if (repairRevision !== revision) return false;
       // Network success alone is insufficient: repair resolves after SQLite commits.
       await options.acknowledge(chunk);
       acknowledgedThrough = Math.max(acknowledgedThrough, range.end);
@@ -106,17 +106,19 @@ export function createCaptureAudioRecovery(options: {
     if (settle && chunks.length < 128) gaps = [];
     pending = gapStart !== undefined || gaps.length > 0 || chunks.length >= 128;
     if (!pending && !failed) options.onStatus("complete");
+    return settle && chunks.length >= 128;
   };
 
   const tick = (settle = false) => {
     if (running) return running;
     running = process(settle)
       .catch((error) => {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted) return false;
         pending = true;
         retryAt = now() + 30_000;
         options.onStatus("waiting");
         console.warn("[listener] audio recovery deferred", error);
+        return false;
       })
       .finally(() => {
         running = undefined;
@@ -173,7 +175,9 @@ export function createCaptureAudioRecovery(options: {
       }
       closeGap();
       await running;
-      await tick(true);
+      while (await tick(true)) {
+        controller.signal.throwIfAborted();
+      }
       return { incomplete: pending || failed };
     },
     cancel() {

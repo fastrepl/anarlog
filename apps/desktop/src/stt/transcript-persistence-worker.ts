@@ -46,6 +46,7 @@ export function createTranscriptPersistenceWorker(
   let cancelActivePersist: ((error: Error) => void) | null = null;
 
   const reportError = (error: unknown) => {
+    if (disposed) return;
     try {
       onError(error);
     } catch (callbackError) {
@@ -56,7 +57,7 @@ export function createTranscriptPersistenceWorker(
     }
   };
   const stopAfterTimeout = (error: TranscriptPersistenceTimeoutError) => {
-    if (timedOut) {
+    if (timedOut || disposed) {
       return;
     }
 
@@ -97,7 +98,7 @@ export function createTranscriptPersistenceWorker(
       );
 
       void Promise.resolve()
-        .then(() => persist(delta))
+        .then(() => (disposed ? undefined : persist(delta)))
         .then(
           () => finish(resolve),
           (error) => finish(reject, error),
@@ -105,14 +106,15 @@ export function createTranscriptPersistenceWorker(
     });
 
   const drain = async () => {
-    while (pendingWrite && !timedOut) {
+    while (pendingWrite && !timedOut && !disposed) {
       const write = pendingWrite;
       pendingWrite = null;
 
       try {
-        await persistWithinDeadline(toDelta(write));
         retryPending = false;
+        await persistWithinDeadline(toDelta(write));
       } catch (error) {
+        if (disposed) return;
         if (error instanceof TranscriptPersistenceTimeoutError) {
           stopAfterTimeout(error);
         } else {
@@ -209,7 +211,7 @@ export function createTranscriptPersistenceWorker(
     });
 
     try {
-      while (drainPromise || pendingWrite || batchTimer) {
+      while (!disposed && (drainPromise || pendingWrite || batchTimer)) {
         if (batchTimer) {
           clearTimeout(batchTimer);
           batchTimer = null;
@@ -235,7 +237,7 @@ export function createTranscriptPersistenceWorker(
         }
       }
 
-      if (!timedOut && options.afterFlush) {
+      if (!disposed && !timedOut && options.afterFlush) {
         const result = await Promise.race([
           Promise.resolve()
             .then(options.afterFlush)
@@ -268,6 +270,8 @@ export function createTranscriptPersistenceWorker(
     dispose: () => {
       disposed = true;
       pendingWrite = null;
+      retryPending = false;
+      cancelActivePersist?.(new Error("Transcript persistence disposed"));
       if (batchTimer) clearTimeout(batchTimer);
       batchTimer = null;
     },
