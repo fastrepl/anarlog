@@ -120,6 +120,10 @@ async fn listen<A: RealtimeSttAdapter>(
 ) -> Result<(), ()> {
     config.params.channels = 1;
     config.params.sample_rate = 16_000;
+    let mut transcript = PreviewTranscript {
+        append_turns: config.provider == "cartesia",
+        ..Default::default()
+    };
     let client = ListenClient::builder()
         .adapter::<A>()
         .api_base(config.base_url)
@@ -133,7 +137,6 @@ async fn listen<A: RealtimeSttAdapter>(
         .await
         .map_err(|_| ())?;
     tokio::pin!(responses);
-    let mut transcript = PreviewTranscript::default();
     while let Some(response) = responses.next().await {
         let response = response.map_err(|_| ())?;
         if matches!(response, StreamResponse::ErrorResponse { .. }) {
@@ -148,6 +151,7 @@ async fn listen<A: RealtimeSttAdapter>(
 
 #[derive(Default)]
 struct PreviewTranscript {
+    append_turns: bool,
     segments: Vec<(f64, String)>,
     partial: Option<(f64, String)>,
 }
@@ -167,6 +171,12 @@ impl PreviewTranscript {
         if !start.is_finite() {
             return None;
         }
+        // Cartesia emits ordered turns with a zero start and a connection-wide request ID.
+        let start = if self.append_turns {
+            self.segments.len() as f64
+        } else {
+            start
+        };
         if is_final && !text.is_empty() {
             if let Some(segment) = self.segments.iter_mut().find(|segment| segment.0 == start) {
                 segment.1 = text.clone();
@@ -245,6 +255,30 @@ mod tests {
         assert!(preview.send(&[0.2]));
         drop(receiver);
         assert!(!preview.send(&[0.3]));
+    }
+
+    #[test]
+    fn cartesia_appends_turns_that_reuse_the_same_start() {
+        let mut transcript = PreviewTranscript {
+            append_turns: true,
+            ..Default::default()
+        };
+        transcript.update(response(0.0, "first", false));
+        transcript.update(response(0.0, "First.", true));
+        let Some(RecordingUpdate::Transcript { text, partial }) =
+            transcript.update(response(0.0, "second", false))
+        else {
+            panic!()
+        };
+        assert_eq!(text, "First.");
+        assert_eq!(partial, "second");
+        let Some(RecordingUpdate::Transcript { text, partial }) =
+            transcript.update(response(0.0, "Second.", true))
+        else {
+            panic!()
+        };
+        assert_eq!(text, "First. Second.");
+        assert!(partial.is_empty());
     }
 
     #[test]

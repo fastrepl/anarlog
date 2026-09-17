@@ -107,9 +107,11 @@ private final class DictationTarget {
     item.setDataProvider(provider, forTypes: [.string])
     item.setString("", forType: NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType"))
     item.setString("", forType: NSPasteboard.PasteboardType("org.nspasteboard.TransientType"))
-    pasteboard.clearContents()
+    let clearedCount = pasteboard.clearContents()
     guard pasteboard.writeObjects([item]) else {
-      pasteboard.writeObjects(saved)
+      clipboardSnapshot = saved
+      clipboardChangeCount = clearedCount
+      restoreClipboard(saved, expectedChangeCount: clearedCount, retries: 2)
       return "Could not prepare dictation for insertion."
     }
     let changeCount = pasteboard.changeCount
@@ -117,6 +119,10 @@ private final class DictationTarget {
     clipboardChangeCount = changeCount
     clipboardProvider = provider
     provider.didRead = {
+      self.restoreClipboard(saved, expectedChangeCount: changeCount, retries: 2)
+    }
+    // A destination may ignore Command-V and never request the promised text.
+    DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
       self.restoreClipboard(saved, expectedChangeCount: changeCount, retries: 2)
     }
     down.flags = .maskCommand
@@ -131,9 +137,14 @@ private final class DictationTarget {
     guard clipboardChangeCount == expectedChangeCount else { return }
     let pasteboard = NSPasteboard.general
     if pasteboard.changeCount == expectedChangeCount {
-      pasteboard.clearContents()
-      if !pasteboard.writeObjects(saved) {
-        let count = pasteboard.changeCount
+      let count = pasteboard.clearContents()
+      if !saved.isEmpty && !pasteboard.writeObjects(saved) {
+        guard pasteboard.changeCount == count else {
+          clipboardSnapshot = nil
+          clipboardChangeCount = nil
+          clipboardProvider = nil
+          return
+        }
         clipboardChangeCount = count
         if retries > 0 {
           DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {

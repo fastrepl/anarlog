@@ -154,19 +154,6 @@ export async function showFloatingMeetingWindow(
     return false;
   }
 
-  if (shouldShow && !routeState.dictation) {
-    const showResult = await windowsCommands.floatingBarShow();
-    if (!shouldContinue()) {
-      await hideFloatingMeetingPanel();
-      return false;
-    }
-
-    if (showResult.status === "error") {
-      console.error("Failed to show floating meeting panel:", showResult.error);
-      return false;
-    }
-  }
-
   const amplitudeOnly =
     !shouldShow &&
     appliedRouteState !== null &&
@@ -209,14 +196,14 @@ export async function showFloatingMeetingWindow(
     return false;
   }
 
-  if (shouldShow && routeState.dictation) {
+  if (shouldShow) {
     const shown = await windowsCommands.floatingBarShow();
     if (!shouldContinue()) {
       await hideFloatingMeetingPanel();
       return false;
     }
     if (shown.status === "error") {
-      console.error("Failed to show dictation panel:", shown.error);
+      console.error("Failed to show floating panel:", shown.error);
       return false;
     }
   }

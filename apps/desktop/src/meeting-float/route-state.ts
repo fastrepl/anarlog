@@ -315,7 +315,14 @@ export function isSameFloatingRouteState(
     left?.liveCaptionMinimized === right?.liveCaptionMinimized &&
     left?.liveCaptionToggleVisible === right?.liveCaptionToggleVisible &&
     left?.title === right?.title &&
-    JSON.stringify(left?.dictation) === JSON.stringify(right?.dictation) &&
+    left?.dictation?.sessionId === right?.dictation?.sessionId &&
+    left?.dictation?.phase === right?.dictation?.phase &&
+    left?.dictation?.microphone === right?.dictation?.microphone &&
+    left?.dictation?.text === right?.dictation?.text &&
+    left?.dictation?.partial === right?.dictation?.partial &&
+    left?.dictation?.previewEnabled === right?.dictation?.previewEnabled &&
+    left?.dictation?.previewUnavailable ===
+      right?.dictation?.previewUnavailable &&
     isSameFloatingTranscriptBubbles(
       left?.transcriptBubbles,
       right?.transcriptBubbles,

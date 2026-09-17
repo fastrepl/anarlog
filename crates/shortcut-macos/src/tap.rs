@@ -192,9 +192,9 @@ extern "C" fn tap_callback(
         if CGEventSourceKeyState(1, 0x36) {
             modifiers.insert(Modifier::RightCommand);
         }
-        let consumed = (ctx.callback)(TapEvent::Key(KeyEvent::new(key, modifiers)));
         let modifier_release =
             event_type == KCG_EVENT_FLAGS_CHANGED && !CGEventSourceKeyState(1, keycode);
+        let consumed = (ctx.callback)(TapEvent::Key(KeyEvent::new(key, modifiers)));
         if consumed && event_type != KCG_EVENT_KEY_UP && !modifier_release {
             return ptr::null_mut();
         }

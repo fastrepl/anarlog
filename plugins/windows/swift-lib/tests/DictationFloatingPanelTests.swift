@@ -28,6 +28,37 @@ final class DictationFloatingPanelTests: XCTestCase {
   }
 
   @MainActor
+  func testDictationAppliesSharedSettingsWithoutChangingMeetingMinimizedState() {
+    let settings = FloatingOverlaySettingsModel.shared
+    let saved = (
+      settings.floatingBarOpacity, settings.liveCaptionOpacity,
+      settings.liveCaptionWidth, settings.liveCaptionLineCount,
+      settings.liveCaptionPosition, settings.liveCaptionMinimized
+    )
+    defer {
+      (
+        settings.floatingBarOpacity, settings.liveCaptionOpacity,
+        settings.liveCaptionWidth, settings.liveCaptionLineCount,
+        settings.liveCaptionPosition, settings.liveCaptionMinimized
+      ) = saved
+    }
+    settings.apply(
+      floatingBarState: FloatingBarStatePayload(
+        dictation: FloatingDictationPayload(
+          sessionId: "dictation", phase: "recording", microphone: "Mic", text: "",
+          partial: "", previewEnabled: true, previewUnavailable: false),
+        amplitude: 0, title: "Dictation", status: .recording, colorScheme: .dark,
+        opacity: 0.4, liveCaptionOpacity: 0.6, liveCaptionWidth: 400,
+        liveCaptionLineCount: 2, liveCaptionPosition: .topCenter,
+        liveCaptionMinimized: !saved.5, liveCaptionToggleVisible: true, transcriptBubbles: []))
+    XCTAssertEqual(settings.floatingBarOpacity, 0.4)
+    XCTAssertEqual(settings.liveCaptionOpacity, 0.6)
+    XCTAssertEqual(settings.liveCaptionWidth, 400)
+    XCTAssertEqual(settings.liveCaptionLineCount, 2)
+    XCTAssertEqual(settings.liveCaptionMinimized, saved.5)
+  }
+
+  @MainActor
   func testDictationCannotTakeKeyboardFocusFromTheDestination() {
     _ = NSApplication.shared
     let panel = FloatingBarPanel(

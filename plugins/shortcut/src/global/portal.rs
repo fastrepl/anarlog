@@ -129,6 +129,8 @@ fn portal_trigger(key: Shortcut) -> String {
         "NumpadMultiply" => "KP_Multiply".into(),
         "NumpadDivide" => "KP_Divide".into(),
         "NumpadDecimal" => "KP_Decimal".into(),
+        "NumpadComma" => "KP_Separator".into(),
+        "NumpadEqual" => "KP_Equal".into(),
         code if code
             .strip_prefix("Numpad")
             .is_some_and(|s| s.len() == 1 && s.as_bytes()[0].is_ascii_digit()) =>

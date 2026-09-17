@@ -42,7 +42,9 @@ final class FloatingOverlaySettingsModel: ObservableObject {
     applyLiveCaptionWidth(state.liveCaptionWidth)
     applyLiveCaptionLineCount(state.liveCaptionLineCount)
     _ = applyLiveCaptionPosition(state.liveCaptionPosition)
-    _ = applyLiveCaptionMinimized(state.liveCaptionMinimized)
+    if state.dictation == nil {
+      _ = applyLiveCaptionMinimized(state.liveCaptionMinimized)
+    }
   }
 
   func apply(liveCaptionState state: LiveCaptionStatePayload) -> Bool {

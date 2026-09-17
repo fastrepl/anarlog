@@ -87,6 +87,8 @@ describe("floating meeting window synchronizer", () => {
     synchronizer.update(routeState(0.1));
     await vi.waitFor(() => expect(mocks.update).toHaveBeenCalledOnce());
 
+    expect(mocks.show).not.toHaveBeenCalled();
+
     synchronizer.update(routeState(0.2));
     synchronizer.update(routeState(0.3));
     expect(mocks.update).toHaveBeenCalledOnce();

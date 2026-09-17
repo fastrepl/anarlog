@@ -112,6 +112,7 @@ final class FloatingBarManager {
     isApplyingExternalState = true
     let startsDictation =
       state.dictation?.sessionId != model.dictation?.sessionId && state.dictation != nil
+    if startsDictation { placement.clearPinnedOrigin() }
     if state.dictation != nil, panel?.isKeyWindow == true { panel?.resignKey() }
     model.dictation = state.dictation
     (panel as? FloatingBarPanel)?.dictationMode = state.dictation != nil
@@ -133,9 +134,7 @@ final class FloatingBarManager {
     {
       model.transcriptBubbles = transcriptBubbles
     }
-    if state.dictation == nil {
-      settingsModel.apply(floatingBarState: state)
-    }
+    settingsModel.apply(floatingBarState: state)
     let minimized =
       state.dictation == nil ? settingsModel.liveCaptionMinimized : state.liveCaptionMinimized
     let isExpanded = state.liveCaptionToggleVisible && !minimized
