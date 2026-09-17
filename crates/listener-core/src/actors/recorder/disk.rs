@@ -236,8 +236,11 @@ fn preserve_invalid_wav(path: &Path) -> Result<bool, ActorProcessingErr> {
     }
 
     let recovery_path = path.with_extension(format!("recovery-{}.wav", uuid::Uuid::new_v4()));
-    // Linking refuses to overwrite any backup and keeps the bytes intact if removal fails.
-    std::fs::hard_link(path, &recovery_path)?;
+    // Preserve the original until a durable backup exists, including on filesystems without links.
+    if let Err(link_error) = std::fs::hard_link(path, &recovery_path) {
+        tracing::debug!(?link_error, "recording_backup_copy_fallback");
+        copy_recovery_backup(path, &recovery_path)?;
+    }
     std::fs::OpenOptions::new()
         .write(true)
         .open(&recovery_path)?
@@ -247,6 +250,16 @@ fn preserve_invalid_wav(path: &Path) -> Result<bool, ActorProcessingErr> {
     sync_dir(path);
     tracing::warn!("invalid_recording_preserved_for_recovery");
     Ok(true)
+}
+
+fn copy_recovery_backup(path: &Path, recovery_path: &Path) -> std::io::Result<()> {
+    let mut source = File::open(path)?;
+    let mut backup = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(recovery_path)?;
+    std::io::copy(&mut source, &mut backup)?;
+    backup.sync_all()
 }
 
 fn is_debug_mode() -> bool {
@@ -348,6 +361,23 @@ mod tests {
     use crate::actors::SAMPLE_RATE;
 
     use super::*;
+
+    #[test]
+    fn copy_fallback_preserves_bytes_without_overwriting_an_existing_backup() {
+        let dir = tempdir().unwrap();
+        let original = dir.path().join("audio.wav");
+        let backup = dir.path().join("audio.recovery.wav");
+        std::fs::write(&original, b"damaged recording bytes").unwrap();
+        copy_recovery_backup(&original, &backup).unwrap();
+        assert_eq!(std::fs::read(&backup).unwrap(), b"damaged recording bytes");
+        std::fs::write(&original, b"new damaged recording").unwrap();
+        assert_eq!(
+            copy_recovery_backup(&original, &backup).unwrap_err().kind(),
+            std::io::ErrorKind::AlreadyExists
+        );
+        assert_eq!(std::fs::read(&backup).unwrap(), b"damaged recording bytes");
+        assert_eq!(std::fs::read(&original).unwrap(), b"new damaged recording");
+    }
 
     #[test]
     fn header_is_readable_before_any_audio_arrives() {
