@@ -745,6 +745,7 @@ export const useRunBatch = (sessionId: string) => {
               languages,
             )
           : false;
+      options?.signal?.throwIfAborted();
       const requiresCloudSession =
         billing.isPaid ||
         (selectedTarget?.provider === "anarlog" &&
@@ -752,6 +753,7 @@ export const useRunBatch = (sessionId: string) => {
       const requestSession = requiresCloudSession
         ? await auth.getSessionForRequest().catch(() => null)
         : null;
+      options?.signal?.throwIfAborted();
       const cloudAccessToken =
         requestSession?.access_token ?? auth.session?.access_token;
       const fallbackTarget = getBatchFallbackTarget({
@@ -804,6 +806,7 @@ export const useRunBatch = (sessionId: string) => {
           dictionaryTerms,
         });
       }
+      options?.signal?.throwIfAborted();
       let transcriptId: string | null = null;
       const inferredNumSpeakers =
         options?.numSpeakers === undefined &&
@@ -910,22 +913,17 @@ export const useRunBatch = (sessionId: string) => {
 
           const run = async (params: TranscriptionParams) => {
             options?.signal?.throwIfAborted();
-            const abort = () => {
-              void stopTranscription(sessionId).catch(() => {});
-            };
-            options?.signal?.addEventListener("abort", abort, { once: true });
             try {
               await startTranscription(params, {
                 signal: options?.signal,
                 handlePersist: (...args) => {
-                  options?.signal?.throwIfAborted();
+                  if (options?.signal?.aborted) return;
                   return persist(...args);
                 },
                 notifyOnCompletion: false,
               });
               options?.signal?.throwIfAborted();
             } finally {
-              options?.signal?.removeEventListener("abort", abort);
               if (options?.signal?.aborted) {
                 await stopTranscription(sessionId).catch(() => {});
               }

@@ -33,19 +33,21 @@ pub async fn configure(app: tauri::AppHandle, shortcut: Option<String>) -> Resul
     let state = app.state::<GlobalState>();
     let mut registration = state.registration.lock().await;
     state.active.store(false, Ordering::SeqCst);
+    let native_only =
+        cfg!(target_os = "macos") && matches!(shortcut.as_deref(), Some("Fn" | "RightCommand"));
     if !uses_portal() {
-        let Some(global) =
+        if let Some(global) =
             app.try_state::<tauri_plugin_global_shortcut::GlobalShortcut<tauri::Wry>>()
-        else {
-            return if shortcut.is_none() {
-                Ok(())
-            } else {
-                Err("Global shortcuts are unavailable in this desktop session.".into())
-            };
-        };
-        while let Some(key) = registration.cancel_keys.last().copied() {
-            global.unregister(key).map_err(|e| e.to_string())?;
-            registration.cancel_keys.pop();
+        {
+            while let Some(key) = registration.cancel_keys.last().copied() {
+                global.unregister(key).map_err(|e| e.to_string())?;
+                registration.cancel_keys.pop();
+            }
+        } else if (!native_only && shortcut.is_some())
+            || registration.shortcut.is_some()
+            || !registration.cancel_keys.is_empty()
+        {
+            return Err("Global shortcuts are unavailable in this desktop session.".into());
         }
     }
     app.shortcut().unregister().map_err(|e| e.to_string())?;
@@ -84,15 +86,7 @@ pub async fn configure(app: tauri::AppHandle, shortcut: Option<String>) -> Resul
             .map_err(|e| e.to_string());
     }
 
-    let key: Shortcut = shortcut
-        .parse()
-        .map_err(|e| format!("Invalid dictation shortcut: {e}"))?;
-    if key.mods.is_empty() {
-        return Err("Choose a shortcut with Control, Alt, Shift, or Command.".into());
-    }
-    if key.key == Code::Escape {
-        return Err("Escape is reserved for cancelling dictation. Choose another key.".into());
-    }
+    let key = parse_shortcut(&shortcut)?;
     #[cfg(target_os = "linux")]
     if uses_portal() {
         registration.portal = Some(portal::register(app.clone(), key).await?);
@@ -169,3 +163,37 @@ pub async fn set_active(app: tauri::AppHandle, active: bool) -> Result<(), Strin
 
 #[cfg(target_os = "linux")]
 mod portal;
+
+#[tauri::command]
+#[specta::specta]
+pub fn validate(shortcut: String) -> Result<(), String> {
+    if cfg!(target_os = "macos") && matches!(shortcut.as_str(), "Fn" | "RightCommand") {
+        return Ok(());
+    }
+    parse_shortcut(&shortcut).map(|_| ())
+}
+
+fn parse_shortcut(shortcut: &str) -> Result<Shortcut, String> {
+    let key: Shortcut = shortcut
+        .parse()
+        .map_err(|e| format!("Invalid dictation shortcut: {e}"))?;
+    if key.mods.is_empty() {
+        return Err("Choose a shortcut with Control, Alt, Shift, or Command.".into());
+    }
+    if key.key == Code::Escape {
+        return Err("Escape is reserved for cancelling dictation. Choose another key.".into());
+    }
+    Ok(key)
+}
+
+#[cfg(test)]
+mod validation_tests {
+    use super::*;
+    #[test]
+    fn rejects_invalid_and_reserved_shortcuts_without_registering() {
+        for shortcut in ["", "KeyD", "not-a-shortcut", "Control+Escape"] {
+            assert!(validate(shortcut.into()).is_err());
+        }
+        assert!(validate("Control+Alt+KeyD".into()).is_ok());
+    }
+}

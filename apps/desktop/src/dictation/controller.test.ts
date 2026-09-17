@@ -18,8 +18,8 @@ function setup(handsFree = false) {
   return { ...dependencies, controller: new DictationController(dependencies) };
 }
 
-const settle = async () => {
-  for (let i = 0; i < 20; i++) await Promise.resolve();
+const settle = async (state: ReturnType<typeof setup>, phase = "idle") => {
+  await vi.waitFor(() => expect(state.onPhase).toHaveBeenLastCalledWith(phase));
 };
 
 describe("system dictation", () => {
@@ -29,7 +29,7 @@ describe("system dictation", () => {
     const state = setup();
     state.controller.press();
     state.controller.release();
-    await settle();
+    await settle(state);
     expect(state.insert).toHaveBeenCalledWith("안녕하세요, world.");
     expect(state.discard).toHaveBeenCalledWith("/tmp/dictation.wav");
     expect(state.onPhase).toHaveBeenLastCalledWith("idle");
@@ -39,10 +39,10 @@ describe("system dictation", () => {
     const state = setup(true);
     state.controller.press();
     state.controller.release();
-    await settle();
+    await settle(state, "recording");
     expect(state.stop).not.toHaveBeenCalled();
     state.controller.press();
-    await settle();
+    await settle(state);
     expect(state.insert).toHaveBeenCalledOnce();
   });
 
@@ -59,7 +59,7 @@ describe("system dictation", () => {
     const state = setup();
     state.start.mockRejectedValueOnce(new Error("Already recording"));
     state.controller.press();
-    await settle();
+    await settle(state);
     expect(state.cancel).not.toHaveBeenCalled();
     expect(state.onError).toHaveBeenCalledOnce();
     expect(state.onPhase).toHaveBeenLastCalledWith("idle");
@@ -75,7 +75,7 @@ describe("system dictation", () => {
     );
     state.controller.press();
     state.controller.release();
-    await settle();
+    await vi.waitFor(() => expect(state.transcribe).toHaveBeenCalled());
     const cancel = state.controller.cancel();
     resolve("Do not insert this");
     await cancel;
@@ -89,7 +89,7 @@ describe("system dictation", () => {
     state.insert.mockRejectedValueOnce(new Error("Focus changed"));
     state.controller.press();
     state.controller.release();
-    await settle();
+    await settle(state);
     expect(state.onTranscript).toHaveBeenCalledWith("안녕하세요, world.");
     expect(state.onError).toHaveBeenCalledOnce();
     expect(state.discard).toHaveBeenCalledOnce();
@@ -104,7 +104,7 @@ describe("system dictation", () => {
       state.transcribe.mockReturnValueOnce(transcript);
       state.controller.press();
       state.controller.release();
-      await settle();
+      await settle(state);
       expect(state.insert).not.toHaveBeenCalled();
       expect(state.discard).toHaveBeenCalledOnce();
       expect(state.onError).toHaveBeenCalledOnce();
@@ -115,7 +115,7 @@ describe("system dictation", () => {
     vi.useFakeTimers();
     const state = setup(true);
     state.controller.press();
-    await settle();
+    await settle(state, "recording");
     await vi.advanceTimersByTimeAsync(300_000);
     expect(state.stop).toHaveBeenCalledOnce();
     expect(state.insert).toHaveBeenCalledOnce();
@@ -130,20 +130,20 @@ describe("system dictation", () => {
       }),
     );
     state.controller.press();
-    await settle();
+    await settle(state, "recording");
     state.controller.release();
-    await settle();
+    await vi.waitFor(() => expect(state.transcribe).toHaveBeenCalled());
     expect(state.onPhase).toHaveBeenLastCalledWith("transcribing");
     state.controller.press();
     state.controller.press();
     state.controller.release();
     state.controller.release();
-    await settle();
+    await settle(state, "transcribing");
     expect(state.start).toHaveBeenCalledOnce();
     expect(state.stop).toHaveBeenCalledOnce();
     expect(state.insert).not.toHaveBeenCalled();
     finish("Completed dictation");
-    await settle();
+    await settle(state);
     expect(state.insert).toHaveBeenCalledOnce();
   });
 });

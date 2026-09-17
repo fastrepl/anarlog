@@ -343,10 +343,22 @@
           "markdownDescription": "Denies the unregister_hotkey command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-configure`\n- `allow-set-active`\n- `allow-register-hotkey`\n- `allow-unregister-hotkey`",
+          "description": "Enables the validate command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-validate",
+          "markdownDescription": "Enables the validate command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the validate command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-validate",
+          "markdownDescription": "Denies the validate command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-configure`\n- `allow-validate`\n- `allow-set-active`\n- `allow-register-hotkey`\n- `allow-unregister-hotkey`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-configure`\n- `allow-set-active`\n- `allow-register-hotkey`\n- `allow-unregister-hotkey`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-configure`\n- `allow-validate`\n- `allow-set-active`\n- `allow-register-hotkey`\n- `allow-unregister-hotkey`"
         }
       ]
     }

@@ -315,9 +315,13 @@ function StopControl({
       type="button"
       data-tauri-drag-region="false"
       aria-label={
-        state.dictation ? "Finish dictation"
-          : state.status === "reconnecting" ? "Reconnecting live transcription; stop listening"
-          : state.status === "error" ? "Transcription unavailable; stop listening" : "Stop listening"
+        state.dictation
+          ? "Finish dictation"
+          : state.status === "reconnecting"
+            ? "Reconnecting live transcription; stop listening"
+            : state.status === "error"
+              ? "Transcription unavailable; stop listening"
+              : "Stop listening"
       }
       disabled={state.dictation?.phase === "transcribing"}
       onClick={onStop}

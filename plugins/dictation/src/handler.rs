@@ -88,16 +88,21 @@ mod macos {
 
 #[cfg(not(target_os = "macos"))]
 mod desktop {
-    use super::{Error, Phase};
+    use super::{Error, Phase, phase_name};
+    use std::sync::Mutex;
     use tauri::Manager;
 
     pub struct Handler {
         app: tauri::AppHandle,
+        phase: Mutex<Phase>,
     }
 
     impl Handler {
         pub fn new(app: tauri::AppHandle) -> Self {
-            Self { app }
+            Self {
+                app,
+                phase: Mutex::new(Phase::Recording),
+            }
         }
 
         pub fn show(&self) -> Result<(), Error> {
@@ -109,6 +114,10 @@ mod desktop {
                     "dictation-overlay",
                     tauri::WebviewUrl::App("dictation.html".into()),
                 )
+                .initialization_script(format!(
+                    "window.addEventListener('DOMContentLoaded', () => {{ document.body.dataset.phase = '{}'; }});",
+                    phase_name(*self.phase.lock().unwrap_or_else(|e| e.into_inner()))
+                ))
                 .title("Anarlog Dictation")
                 .inner_size(240.0, 52.0)
                 .decorations(false)
@@ -156,13 +165,13 @@ mod desktop {
         }
 
         pub fn set_phase(&self, phase: Phase) -> Result<(), Error> {
+            *self.phase.lock().unwrap_or_else(|e| e.into_inner()) = phase;
             if let Some(window) = self.app.get_webview_window("dictation-overlay") {
-                let phase = match phase {
-                    Phase::Recording => "recording",
-                    Phase::Processing => "processing",
-                };
+                let phase = phase_name(phase);
                 window
-                    .eval(&format!("document.body.dataset.phase = '{phase}'"))
+                    .eval(&format!(
+                        "if (document.body) document.body.dataset.phase = '{phase}'"
+                    ))
                     .map_err(|e| Error::Recording(e.to_string()))?;
             }
             Ok(())
@@ -171,5 +180,13 @@ mod desktop {
         pub fn update_amplitude(&self, _amplitude: f32) -> Result<(), Error> {
             Ok(())
         }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn phase_name(phase: Phase) -> &'static str {
+    match phase {
+        Phase::Recording => "recording",
+        Phase::Processing => "processing",
     }
 }

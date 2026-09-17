@@ -883,6 +883,25 @@ describe("useRunBatch", () => {
     expect(startTranscriptionMock).not.toHaveBeenCalled();
   });
 
+  test("stops after cancelled auth preflight without starting transcription", async () => {
+    const abort = new AbortController();
+    useBillingAccessMock.mockReturnValue({ isPaid: true });
+    let finish!: (value: null) => void;
+    getSessionForRequestMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const { result } = renderHook(() => useRunBatch("dictation"));
+    const run = result.current("/tmp/voice.wav", { signal: abort.signal });
+    const rejected = expect(run).rejects.toMatchObject({ name: "AbortError" });
+    await waitFor(() => expect(getSessionForRequestMock).toHaveBeenCalled());
+    abort.abort();
+    finish(null);
+    await rejected;
+    expect(startTranscriptionMock).not.toHaveBeenCalled();
+  });
+
   test("cancels the active provider and never retries authentication after abort", async () => {
     const abort = new AbortController();
     useSTTConnectionMock.mockReturnValue({
@@ -905,6 +924,13 @@ describe("useRunBatch", () => {
     const rejected = expect(run).rejects.toMatchObject({ name: "AbortError" });
     await waitFor(() => expect(startTranscriptionMock).toHaveBeenCalledOnce());
     abort.abort();
+    const persist = startTranscriptionMock.mock.calls[0]?.[1]?.handlePersist;
+    expect(() =>
+      persist?.(
+        [{ text: "cancelled", start_ms: 0, end_ms: 100, channel: 0 }],
+        [],
+      ),
+    ).not.toThrow();
     fail(
       new Error(
         "Authentication failed. Please check your API key in settings.",
@@ -931,10 +957,10 @@ describe("useRunBatch", () => {
     const rejected = expect(run).rejects.toMatchObject({ name: "AbortError" });
     await waitFor(() => expect(startTranscriptionMock).toHaveBeenCalledOnce());
     abort.abort();
-    expect(stopTranscriptionMock).toHaveBeenCalledTimes(1);
+    expect(stopTranscriptionMock).not.toHaveBeenCalled();
     started();
     await rejected;
-    expect(stopTranscriptionMock).toHaveBeenCalledTimes(2);
+    expect(stopTranscriptionMock).toHaveBeenCalledTimes(1);
   });
 
   test("promotes the complete streamed transcript before retention", async () => {

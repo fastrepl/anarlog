@@ -5,6 +5,7 @@ Default permissions for the plugin
 #### This default permission set includes the following:
 
 - `allow-configure`
+- `allow-validate`
 - `allow-set-active`
 - `allow-register-hotkey`
 - `allow-unregister-hotkey`
@@ -118,6 +119,32 @@ Enables the unregister_hotkey command without any pre-configured scope.
 <td>
 
 Denies the unregister_hotkey command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`shortcut:allow-validate`
+
+</td>
+<td>
+
+Enables the validate command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`shortcut:deny-validate`
+
+</td>
+<td>
+
+Denies the validate command without any pre-configured scope.
 
 </td>
 </tr>

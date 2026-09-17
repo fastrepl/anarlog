@@ -287,9 +287,11 @@ struct FloatingBarView: View {
     .buttonStyle(.plain)
     .disabled(model.dictation?.phase == "transcribing")
     .accessibilityLabel(
-      model.dictation != nil ? "Finish dictation"
-        : model.status == .reconnecting ? "Reconnecting live transcription; stop listening"
-        : model.status == .error ? "Transcription unavailable; stop listening" : "Stop listening"
+      model.dictation != nil
+        ? "Finish dictation"
+        : model.status == .reconnecting
+          ? "Reconnecting live transcription; stop listening"
+          : model.status == .error ? "Transcription unavailable; stop listening" : "Stop listening"
     )
     .onHover { isStopHovered = $0 }
   }

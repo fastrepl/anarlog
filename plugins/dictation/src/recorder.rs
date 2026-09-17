@@ -203,7 +203,6 @@ async fn record_to_file(
                     let _ = updates.send(RecordingUpdate::Amplitude { amplitude: (rms * 8.0).clamp(0.0, 1.0) });
                     if preview.as_ref().is_some_and(|preview| !preview.send(&samples)) {
                         preview = None;
-                        let _ = updates.send(RecordingUpdate::PreviewUnavailable);
                     }
                 }
             }

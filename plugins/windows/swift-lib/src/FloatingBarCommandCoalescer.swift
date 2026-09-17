@@ -89,6 +89,10 @@ final class FloatingBarCommandCoalescer {
     }
   }
 
+  func flush() {
+    if Thread.isMainThread { drain() } else { DispatchQueue.main.sync { self.drain() } }
+  }
+
   private func drain() {
     lock.lock()
     let actions = [pendingVisibility, pendingUpdate]

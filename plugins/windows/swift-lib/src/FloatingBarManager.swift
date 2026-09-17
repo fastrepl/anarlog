@@ -31,6 +31,7 @@ final class FloatingBarManager {
 
   func show() {
     commandCoalescer.enqueueShow()
+    commandCoalescer.flush()
   }
 
   func hide() {
@@ -109,6 +110,8 @@ final class FloatingBarManager {
 
   private func applyUpdate(_ state: FloatingBarStatePayload) {
     isApplyingExternalState = true
+    let startsDictation =
+      state.dictation?.sessionId != model.dictation?.sessionId && state.dictation != nil
     model.dictation = state.dictation
     (panel as? FloatingBarPanel)?.dictationMode = state.dictation != nil
     if model.status != state.status {
@@ -140,7 +143,11 @@ final class FloatingBarManager {
     }
     isApplyingExternalState = false
     if let panel {
-      resize(panel)
+      if startsDictation {
+        position(panel, force: true, followsPointer: true)
+      } else {
+        resize(panel)
+      }
     }
   }
 
@@ -264,7 +271,7 @@ final class FloatingBarManager {
       queue: .main
     ) { [weak self] _ in
       guard let self, let panel = self.panel else { return }
-      self.position(panel, force: true)
+      self.position(panel, force: true, followsPointer: self.model.dictation != nil)
     }
   }
 

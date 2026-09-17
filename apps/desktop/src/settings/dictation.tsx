@@ -3,7 +3,9 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { platform } from "@tauri-apps/plugin-os";
+import { useShallow } from "zustand/react/shallow";
 
+import { commands as shortcuts } from "@anlg/plugin-shortcut";
 import { commands as transcription } from "@anlg/plugin-transcription";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
@@ -41,10 +43,19 @@ export function SettingsDictation() {
     enabled: isPro,
     refetchInterval: 3_000,
   });
-  const status = useDictationStatus();
+  const status = useDictationStatus(
+    useShallow((state) => ({
+      phase: state.phase,
+      error: state.error,
+      ready: state.ready,
+      retry: state.retry,
+      cancel: state.cancel,
+      lastTranscript: state.lastTranscript,
+    })),
+  );
   const openNew = useTabs((state) => state.openNew);
   const copy = useMutation({
-    mutationFn: () => writeText(status.lastTranscript),
+    mutationFn: (transcript: string) => writeText(transcript),
   });
 
   return (
@@ -215,9 +226,9 @@ export function SettingsDictation() {
                 className="self-start"
                 variant="outline"
                 disabled={copy.isPending}
-                onClick={() => copy.mutate()}
+                onClick={() => copy.mutate(status.lastTranscript)}
               >
-                {copy.isSuccess ? (
+                {copy.isSuccess && copy.variables === status.lastTranscript ? (
                   <Trans>Copied</Trans>
                 ) : (
                   <Trans>Copy last dictation</Trans>
@@ -256,7 +267,15 @@ function ShortcutSetting({ shortcut }: { shortcut: string }) {
         void form.handleSubmit();
       }}
     >
-      <form.Field name="shortcut">
+      <form.Field
+        name="shortcut"
+        validators={{
+          onSubmitAsync: async ({ value }) => {
+            const result = await shortcuts.validate(value.trim());
+            return result.status === "error" ? result.error : undefined;
+          },
+        }}
+      >
         {(field) => (
           <>
             <label htmlFor="dictation-shortcut" className="text-sm font-medium">
@@ -298,6 +317,11 @@ function ShortcutSetting({ shortcut }: { shortcut: string }) {
                 <Trans>Save</Trans>
               </Button>
             </div>
+            {field.state.meta.errors.map((error) => (
+              <p key={error} role="alert" className="text-destructive text-sm">
+                {error}
+              </p>
+            ))}
             <p className="text-muted-foreground text-xs">
               <Trans>
                 Press a key combination here, or type one such as Control+Alt+D.

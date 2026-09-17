@@ -21,6 +21,7 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::register_hotkey::<tauri::Wry>,
             commands::unregister_hotkey::<tauri::Wry>,
             global::configure,
+            global::validate,
             global::set_active,
         ])
         .events(tauri_specta::collect_events![ShortcutEvent])
