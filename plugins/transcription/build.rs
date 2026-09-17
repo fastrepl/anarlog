@@ -10,6 +10,7 @@ const COMMANDS: &[&str] = &[
     "update_capture_credentials",
     "list_capture_audio_chunks",
     "get_capture_audio_cleanup_status",
+    "acknowledge_capture_audio_cleanup_status",
     "acknowledge_capture_audio_chunk",
     "is_supported_languages_live",
     "suggest_providers_for_languages_live",

@@ -14,7 +14,9 @@ export async function handleCaptureCleanupStatus(payload: CaptureStatusEvent) {
   if (payload.type !== "audio_error") return;
   if (payload.error.startsWith("audio_deletion_failed:")) {
     sonnerToast.error("Audio could not be deleted", {
-      id: "audio-cleanup",
+      id: payload.session_id
+        ? `audio-deletion-${payload.session_id}`
+        : "audio-cleanup",
       duration: Infinity,
       description:
         "Anarlog could not remove temporary audio and will retry cleanup automatically.",
@@ -34,29 +36,54 @@ export async function handleCaptureCleanupStatus(payload: CaptureStatusEvent) {
     } else {
       sonnerToast.dismiss("audio-cleanup");
     }
+  } else {
+    return;
   }
+  const result = await commands.acknowledgeCaptureAudioCleanupStatus(
+    payload.session_id,
+    payload.error.startsWith("audio_deletion_failed:"),
+  );
+  if (result.status === "error") throw new Error(result.error);
 }
 
 export async function listenForCaptureCleanup() {
   let changedDuringRead: Set<string> | undefined = new Set();
-  const unlisten = await events.captureStatusEvent.listen(({ payload }) => {
-    if (
-      payload.type === "audio_error" &&
-      (payload.error.startsWith("audio_deletion_failed:") ||
-        payload.error === "audio_deletion_completed")
-    ) {
-      changedDuringRead?.add(payload.session_id);
-    }
-    void handleCaptureCleanupStatus(payload).catch((error) => {
-      console.error("[audio-cleanup] failed to persist cleanup status", error);
+  let pending = Promise.resolve();
+  const consume = (payload: CaptureStatusEvent) => {
+    pending = pending
+      .then(() => handleCaptureCleanupStatus(payload))
+      .catch((error) => {
+        console.error(
+          "[audio-cleanup] failed to persist cleanup status",
+          error,
+        );
+      });
+    return pending;
+  };
+  const unlisten = await events.captureStatusEvent
+    .listen(({ payload }) => {
+      if (
+        payload.type === "audio_error" &&
+        (payload.error.startsWith("audio_deletion_failed:") ||
+          payload.error === "audio_deletion_completed")
+      ) {
+        changedDuringRead?.add(payload.session_id);
+      }
+      void consume(payload);
+    })
+    .catch((error) => {
+      console.error(
+        "[audio-cleanup] failed to subscribe to cleanup status",
+        error,
+      );
+      return () => {};
     });
-  });
   try {
     const result = await commands.getCaptureAudioCleanupStatus();
     if (result.status === "error") throw new Error(result.error);
     for (const [sessionId, failed] of Object.entries(result.data)) {
       if (changedDuringRead.has(sessionId)) continue;
-      await handleCaptureCleanupStatus({
+      await consume({
         type: "audio_error",
         session_id: sessionId,
         is_fatal: false,

@@ -15,6 +15,7 @@ Default permissions for the plugin
 - `allow-update-capture-credentials`
 - `allow-list-capture-audio-chunks`
 - `allow-get-capture-audio-cleanup-status`
+- `allow-acknowledge-capture-audio-cleanup-status`
 - `allow-acknowledge-capture-audio-chunk`
 - `allow-is-supported-languages-live`
 - `allow-suggest-providers-for-languages-live`
@@ -65,6 +66,32 @@ Enables the acknowledge_capture_audio_chunk command without any pre-configured s
 <td>
 
 Denies the acknowledge_capture_audio_chunk command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-acknowledge-capture-audio-cleanup-status`
+
+</td>
+<td>
+
+Enables the acknowledge_capture_audio_cleanup_status command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-acknowledge-capture-audio-cleanup-status`
+
+</td>
+<td>
+
+Denies the acknowledge_capture_audio_cleanup_status command without any pre-configured scope.
 
 </td>
 </tr>

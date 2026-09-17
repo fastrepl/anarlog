@@ -57,6 +57,17 @@ pub type MicIsolationCache = Arc<StdMutex<HashMap<String, bool>>>;
 #[derive(Clone, Default)]
 pub struct AudioCleanupStatus(Arc<StdMutex<HashMap<String, bool>>>);
 
+impl AudioCleanupStatus {
+    fn acknowledge(&self, session_id: &str, failed: bool) -> std::result::Result<(), String> {
+        let mut status = self.0.lock().map_err(|error| error.to_string())?;
+        // Do not remove a newer completion or failure while persistence was pending.
+        if status.get(session_id) == Some(&failed) {
+            status.remove(session_id);
+        }
+        Ok(())
+    }
+}
+
 pub struct BatchSessionRegistry {
     pub sessions: StdMutex<HashMap<String, BatchSessionEntry>>,
 }
@@ -97,6 +108,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::update_capture_credentials::<tauri::Wry>,
             listener::commands::list_capture_audio_chunks::<tauri::Wry>,
             listener::commands::get_capture_audio_cleanup_status::<tauri::Wry>,
+            listener::commands::acknowledge_capture_audio_cleanup_status::<tauri::Wry>,
             listener::commands::acknowledge_capture_audio_chunk::<tauri::Wry>,
             listener::commands::is_supported_languages_live::<tauri::Wry>,
             listener::commands::suggest_providers_for_languages_live::<tauri::Wry>,

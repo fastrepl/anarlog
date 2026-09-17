@@ -37,6 +37,18 @@ pub async fn get_capture_audio_cleanup_status<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn acknowledge_capture_audio_cleanup_status<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+    failed: bool,
+) -> Result<(), String> {
+    use tauri::Manager;
+    app.state::<crate::AudioCleanupStatus>()
+        .acknowledge(&session_id, failed)
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn list_capture_audio_chunks<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     session_id: String,

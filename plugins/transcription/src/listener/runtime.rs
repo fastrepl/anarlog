@@ -323,6 +323,23 @@ fn update_audio_cleanup_status(
 mod cleanup_status_tests {
     use super::*;
     #[test]
+    fn acknowledged_status_is_evicted_without_losing_other_or_newer_failures() {
+        let cache: crate::AudioCleanupStatus = Default::default();
+        cache.0.lock().unwrap().extend([
+            ("completed".into(), false),
+            ("failed".into(), true),
+            ("unacknowledged".into(), true),
+        ]);
+        cache.acknowledge("completed", false).unwrap();
+        cache.acknowledge("failed", false).unwrap();
+        assert_eq!(cache.0.lock().unwrap().get("failed"), Some(&true));
+        cache.acknowledge("failed", true).unwrap();
+        let status = cache.0.lock().unwrap();
+        assert_eq!(status.len(), 1);
+        assert_eq!(status.get("unacknowledged"), Some(&true));
+    }
+
+    #[test]
     fn cleanup_status_survives_until_the_frontend_subscribes() {
         let cache: crate::AudioCleanupStatus = Default::default();
         for (error, expected) in [

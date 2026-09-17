@@ -406,7 +406,11 @@ pub(crate) fn recover_interrupted_captures_except(
                 on_cleanup(&name, &result);
                 result
             } else if uuid::Uuid::parse_str(&name).is_ok() {
-                recover_partial_chunks(&dir)
+                let result = recover_partial_chunks(&dir);
+                if result.is_err() {
+                    on_cleanup(&name, &result);
+                }
+                result
             } else {
                 deferred |= recover_interrupted_captures_except(&dir, active_sessions, on_cleanup)?;
                 Ok(())
@@ -514,6 +518,25 @@ mod tests {
                 .count()
                 > 0
         );
+    }
+
+    #[test]
+    fn partial_recovery_failure_reports_its_session() {
+        let root = tempfile::tempdir().unwrap();
+        let session_id = uuid::Uuid::new_v4().to_string();
+        let dir = root.path().join(&session_id);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join(RECOVERY_DIR), b"not a directory").unwrap();
+        let mut failures = Vec::new();
+        assert!(
+            recover_interrupted_captures_except(root.path(), &HashSet::new(), &mut |id, result| {
+                if result.is_err() {
+                    failures.push(id.to_string());
+                }
+            },)
+            .is_err()
+        );
+        assert_eq!(failures, vec![session_id]);
     }
 
     #[test]

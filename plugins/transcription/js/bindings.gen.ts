@@ -102,6 +102,14 @@ async getCaptureAudioCleanupStatus() : Promise<Result<Partial<{ [key in string]:
     else return { status: "error", error: e  as any };
 }
 },
+async acknowledgeCaptureAudioCleanupStatus(sessionId: string, failed: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|acknowledge_capture_audio_cleanup_status", { sessionId, failed }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async acknowledgeCaptureAudioChunk(sessionId: string, chunkId: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|acknowledge_capture_audio_chunk", { sessionId, chunkId }) };

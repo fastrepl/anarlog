@@ -7,9 +7,13 @@ const mocks = vi.hoisted(() => ({
   dismiss: vi.fn(),
   listen: vi.fn(),
   snapshot: vi.fn(),
+  acknowledge: vi.fn(),
 }));
 vi.mock("@anlg/plugin-transcription", () => ({
-  commands: { getCaptureAudioCleanupStatus: mocks.snapshot },
+  commands: {
+    getCaptureAudioCleanupStatus: mocks.snapshot,
+    acknowledgeCaptureAudioCleanupStatus: mocks.acknowledge,
+  },
   events: { captureStatusEvent: { listen: mocks.listen } },
 }));
 vi.mock("@anlg/ui/components/ui/toast", () => ({
@@ -25,7 +29,10 @@ import {
   listenForCaptureCleanup,
 } from "./audio-cleanup";
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.resetAllMocks();
+  mocks.acknowledge.mockResolvedValue({ status: "ok", data: null });
+});
 
 it("surfaces and persists cleanup failures without an active recording", async () => {
   await handleCaptureCleanupStatus({
@@ -37,7 +44,10 @@ it("surfaces and persists cleanup failures without an active recording", async (
   });
   expect(mocks.error).toHaveBeenCalledWith(
     "Audio could not be deleted",
-    expect.objectContaining({ duration: Infinity }),
+    expect.objectContaining({
+      id: "audio-deletion-old-session",
+      duration: Infinity,
+    }),
   );
   expect(mocks.save).toHaveBeenCalledWith(
     "old-session",
@@ -109,4 +119,101 @@ it("does not let an older startup snapshot overwrite a newer cleanup event", asy
   await listenForCaptureCleanup();
   expect(mocks.clear).toHaveBeenCalledWith("old-session");
   expect(mocks.save).not.toHaveBeenCalled();
+});
+
+it("only acknowledges cleanup after persistence succeeds", async () => {
+  const payload = {
+    type: "audio_error" as const,
+    session_id: "session",
+    error: "audio_deletion_failed: denied",
+    device: null,
+    is_fatal: false,
+  };
+  mocks.save.mockRejectedValueOnce(new Error("database full"));
+  await expect(handleCaptureCleanupStatus(payload)).rejects.toThrow(
+    "database full",
+  );
+  expect(mocks.acknowledge).not.toHaveBeenCalled();
+  await handleCaptureCleanupStatus(payload);
+  expect(mocks.acknowledge).toHaveBeenCalledWith("session", true);
+});
+
+it("continues restoring other sessions when one persistence write fails", async () => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  mocks.listen.mockResolvedValue(vi.fn());
+  mocks.snapshot.mockResolvedValue({
+    status: "ok",
+    data: { broken: true, failed: true, completed: false },
+  });
+  mocks.save.mockRejectedValueOnce(new Error("database full"));
+  await listenForCaptureCleanup();
+  expect(mocks.save).toHaveBeenCalledWith(
+    "failed",
+    "audio-cleanup",
+    false,
+    true,
+  );
+  expect(mocks.clear).toHaveBeenCalledWith("completed");
+  expect(mocks.acknowledge).not.toHaveBeenCalledWith("broken", true);
+  expect(mocks.acknowledge).toHaveBeenCalledWith("failed", true);
+  expect(mocks.acknowledge).toHaveBeenCalledWith("completed", false);
+  vi.restoreAllMocks();
+});
+
+it("handles subscription rejection and returns a safe unsubscriber", async () => {
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  mocks.listen.mockRejectedValue(new Error("event service unavailable"));
+  mocks.snapshot.mockResolvedValue({ status: "ok", data: {} });
+  const stop = await listenForCaptureCleanup();
+  expect(() => stop()).not.toThrow();
+  expect(log).toHaveBeenCalledWith(
+    "[audio-cleanup] failed to subscribe to cleanup status",
+    expect.any(Error),
+  );
+  vi.restoreAllMocks();
+});
+
+it("uses the generic notification ID only for startup-wide failures", async () => {
+  await handleCaptureCleanupStatus({
+    type: "audio_error",
+    session_id: "",
+    error: "audio_deletion_failed: unavailable",
+    device: null,
+    is_fatal: false,
+  });
+  expect(mocks.error).toHaveBeenCalledWith(
+    "Audio could not be deleted",
+    expect.objectContaining({ id: "audio-cleanup" }),
+  );
+  expect(mocks.save).not.toHaveBeenCalled();
+});
+
+it("keeps completion behind an in-flight failure write", async () => {
+  let listener!: (event: { payload: unknown }) => void;
+  let finishSave!: () => void;
+  const saving = new Promise<void>((resolve) => {
+    finishSave = resolve;
+  });
+  mocks.save.mockReturnValue(saving);
+  mocks.listen.mockImplementation(async (callback) => {
+    listener = callback;
+    return vi.fn();
+  });
+  mocks.snapshot.mockResolvedValue({ status: "ok", data: {} });
+  await listenForCaptureCleanup();
+  const event = {
+    type: "audio_error",
+    session_id: "session",
+    is_fatal: false,
+    device: null,
+  };
+  listener({ payload: { ...event, error: "audio_deletion_failed: denied" } });
+  await vi.waitFor(() => expect(mocks.save).toHaveBeenCalled());
+  listener({ payload: { ...event, error: "audio_deletion_completed" } });
+  expect(mocks.clear).not.toHaveBeenCalled();
+  finishSave();
+  await vi.waitFor(() =>
+    expect(mocks.acknowledge).toHaveBeenCalledWith("session", false),
+  );
+  expect(mocks.clear).toHaveBeenCalledWith("session");
 });
