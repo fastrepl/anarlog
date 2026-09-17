@@ -390,6 +390,7 @@ function HoverHandle({ color }: { color: string }) {
         height: FLOATING_BAR_HOVER_HANDLE_HEIGHT,
         width: "100%",
         paddingTop: FLOATING_BAR_HOVER_HANDLE_TOP_PADDING,
+        boxSizing: "content-box",
       }}
     >
       <div
