@@ -119,6 +119,18 @@ pub(crate) mod layout {
         y - work_y > work_y + work_height - y - height
     }
 
+    #[cfg(any(test, not(target_os = "macos")))]
+    pub fn forget_moved_expansion(
+        expansion: &mut Option<((f64, f64, f64, f64), (f64, f64))>,
+        position: (f64, f64),
+    ) {
+        if expansion.is_some_and(|(_, origin)| {
+            (position.0 - origin.0).abs() >= 0.5 || (position.1 - origin.1).abs() >= 0.5
+        }) {
+            *expansion = None;
+        }
+    }
+
     pub fn collapse_anchor(
         current: (f64, f64, f64, f64),
         expansion: Option<((f64, f64, f64, f64), (f64, f64))>,
@@ -390,6 +402,16 @@ mod platform {
             .disable_drag_drop_handler()
             .build()?;
 
+        let moved_window = window.clone();
+        window.on_window_event(move |event| {
+            if let tauri::WindowEvent::Moved(position) = event
+                && let Ok(scale) = moved_window.scale_factor()
+                && let Ok(mut expansion) = EXPANSION.try_lock()
+            {
+                let position = position.to_logical::<f64>(scale);
+                super::layout::forget_moved_expansion(&mut expansion, (position.x, position.y));
+            }
+        });
         crate::window::exclude_from_capture(&window);
 
         Ok(window)
@@ -552,6 +574,18 @@ pub fn update_amplitude(amplitude: f64) -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use super::layout;
+
+    #[test]
+    fn dragging_away_and_back_does_not_restore_the_old_compact_frame() {
+        let mut expansion = Some(((10.0, 20.0, 111.0, 67.0), (0.0, 20.0)));
+        layout::forget_moved_expansion(&mut expansion, (0.0, 20.0));
+        assert!(expansion.is_some());
+        layout::forget_moved_expansion(&mut expansion, (100.0, 20.0));
+        layout::forget_moved_expansion(&mut expansion, (0.0, 20.0));
+        assert!(expansion.is_none());
+        let current = (0.0, 20.0, 368.0, 459.0);
+        assert_eq!(layout::collapse_anchor(current, expansion), current);
+    }
 
     #[test]
     fn sizes_the_compact_and_expanded_windows() {
