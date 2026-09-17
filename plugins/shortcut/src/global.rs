@@ -31,7 +31,7 @@ struct Registration {
 #[specta::specta]
 pub async fn configure(app: tauri::AppHandle, shortcut: Option<String>) -> Result<(), String> {
     if let Some(value) = &shortcut {
-        validate(value.clone())?;
+        validate(app.clone(), value.clone())?;
     }
     let state = app.state::<GlobalState>();
     let mut registration = state.registration.lock().await;
@@ -170,11 +170,22 @@ mod trigger;
 
 #[tauri::command]
 #[specta::specta]
-pub fn validate(shortcut: String) -> Result<(), String> {
-    if cfg!(target_os = "macos") && matches!(shortcut.as_str(), "Fn" | "RightCommand") {
+pub fn validate(app: tauri::AppHandle, shortcut: String) -> Result<(), String> {
+    validate_shortcut(
+        &shortcut,
+        app.try_state::<tauri_plugin_global_shortcut::GlobalShortcut<tauri::Wry>>()
+            .is_some(),
+    )
+}
+
+fn validate_shortcut(shortcut: &str, global_available: bool) -> Result<(), String> {
+    if cfg!(target_os = "macos") && matches!(shortcut, "Fn" | "RightCommand") {
         return Ok(());
     }
-    let key = parse_shortcut(&shortcut)?;
+    let key = parse_shortcut(shortcut)?;
+    if !uses_portal() && !global_available {
+        return Err("Global shortcuts are unavailable in this desktop session.".into());
+    }
     #[cfg(target_os = "linux")]
     if uses_portal() {
         trigger::portal_trigger(key)?;
@@ -202,8 +213,13 @@ mod validation_tests {
     #[test]
     fn rejects_invalid_and_reserved_shortcuts_without_registering() {
         for shortcut in ["", "KeyD", "not-a-shortcut", "Control+Escape"] {
-            assert!(validate(shortcut.into()).is_err());
+            assert!(validate_shortcut(shortcut, true).is_err());
         }
-        assert!(validate("Control+Alt+KeyD".into()).is_ok());
+        assert!(validate_shortcut("Control+Alt+KeyD", true).is_ok());
+        if !uses_portal() {
+            assert!(validate_shortcut("Control+Alt+KeyD", false).is_err());
+        }
+        #[cfg(target_os = "macos")]
+        assert!(validate_shortcut("Fn", false).is_ok());
     }
 }
