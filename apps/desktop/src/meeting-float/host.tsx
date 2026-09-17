@@ -231,6 +231,7 @@ function FloatingMeetingWindowSync({
     windowsEvents.floatingBarStop
       .listen(() => {
         if (
+          !enabledRef.current ||
           routeState?.dictation ||
           listenerStore.getState().live.status !== "active"
         )

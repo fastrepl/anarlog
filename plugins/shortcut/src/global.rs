@@ -30,6 +30,9 @@ struct Registration {
 #[tauri::command]
 #[specta::specta]
 pub async fn configure(app: tauri::AppHandle, shortcut: Option<String>) -> Result<(), String> {
+    if let Some(value) = &shortcut {
+        validate(value.clone())?;
+    }
     let state = app.state::<GlobalState>();
     let mut registration = state.registration.lock().await;
     state.active.store(false, Ordering::SeqCst);

@@ -111,6 +111,8 @@ import { useDictationStatus } from "~/dictation/state";
 describe("FloatingMeetingWindowHost", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.meetingStop = null;
+    mocks.dictationAction = null;
     mocks.enabled = true;
     mocks.listenerState.live.status = "active";
     useDictationStatus.setState(useDictationStatus.getInitialState());
@@ -217,16 +219,16 @@ describe("FloatingMeetingWindowHost", () => {
         mocks.floatingBarShow.mock.invocationCallOrder[0]!,
       );
       await act(async () => {
-        mocks.dictationAction?.({
+        mocks.dictationAction!({
           payload: { sessionId: "old-recording", action: "finish" },
         });
-        mocks.meetingStop?.();
+        mocks.meetingStop!();
       });
       expect(finish).not.toHaveBeenCalled();
       expect(mocks.listenerState.stop).not.toHaveBeenCalled();
       expect(mocks.floatingBarHide).not.toHaveBeenCalled();
       await act(async () => {
-        mocks.dictationAction?.({
+        mocks.dictationAction!({
           payload: { sessionId: "dictation-1", action: "togglePreview" },
         });
       });
@@ -236,10 +238,10 @@ describe("FloatingMeetingWindowHost", () => {
         ),
       );
       await act(async () => {
-        mocks.dictationAction?.({
+        mocks.dictationAction!({
           payload: { sessionId: "dictation-1", action: "finish" },
         });
-        mocks.dictationAction?.({
+        mocks.dictationAction!({
           payload: { sessionId: "dictation-1", action: "cancel" },
         });
       });

@@ -122,6 +122,21 @@ fn portal_trigger(key: Shortcut) -> String {
     parts.push(match code.as_str() {
         "Space" => "space".into(),
         "Backspace" => "BackSpace".into(),
+        "ArrowLeft" => "Left".into(),
+        "ArrowRight" => "Right".into(),
+        "ArrowUp" => "Up".into(),
+        "ArrowDown" => "Down".into(),
+        "Minus" => "minus".into(),
+        "Equal" => "equal".into(),
+        "BracketLeft" => "bracketleft".into(),
+        "BracketRight" => "bracketright".into(),
+        "Backslash" => "backslash".into(),
+        "Semicolon" => "semicolon".into(),
+        "Quote" => "apostrophe".into(),
+        "Backquote" => "grave".into(),
+        "Comma" => "comma".into(),
+        "Period" => "period".into(),
+        "Slash" => "slash".into(),
         _ => code
             .strip_prefix("Key")
             .or_else(|| code.strip_prefix("Digit"))

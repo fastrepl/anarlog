@@ -153,6 +153,9 @@ mod desktop {
                     ))
                     .map_err(|e| Error::Recording(e.to_string()))?;
             }
+            window
+                .set_ignore_cursor_events(true)
+                .map_err(|e| Error::Recording(e.to_string()))?;
             window.show().map_err(|e| Error::Recording(e.to_string()))?;
             Ok(())
         }

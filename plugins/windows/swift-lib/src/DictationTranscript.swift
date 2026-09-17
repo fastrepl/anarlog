@@ -20,9 +20,9 @@ struct DictationTranscript: View {
       if dictation.text.isEmpty && dictation.partial.isEmpty {
         Text(emptyText).foregroundStyle(color.opacity(0.6))
       } else {
-        (Text(dictation.text).foregroundColor(color)
+        (Text(dictation.text).foregroundStyle(color)
           + Text(dictation.text.isEmpty || dictation.partial.isEmpty ? "" : " ")
-          + Text(dictation.partial).foregroundColor(color.opacity(0.6)))
+          + Text(dictation.partial).foregroundStyle(color.opacity(0.6)))
       }
     }
     .font(.system(size: 15)).lineSpacing(5)

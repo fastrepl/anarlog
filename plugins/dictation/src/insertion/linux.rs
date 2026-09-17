@@ -66,7 +66,7 @@ async fn capture_inner() -> Result<String, String> {
 }
 
 pub async fn insert(target: String, text: String) -> Result<(), String> {
-    if capture().await? != target {
+    if capture().await.as_deref() != Ok(target.as_str()) {
         return Err(
             "The focused field changed. Copy your last dictation from Settings > Dictation.".into(),
         );
