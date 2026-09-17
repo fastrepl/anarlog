@@ -57,6 +57,11 @@ impl Actor for RootActor {
         _myself: ActorRef<Self::Msg>,
         args: Self::Arguments,
     ) -> Result<Self::State, ActorProcessingErr> {
+        let sessions_dir = args.runtime.vault_base()?.join("sessions");
+        tokio::task::spawn_blocking(move || {
+            crate::actors::recorder::cleanup_interrupted_zero_retention(&sessions_dir)
+        })
+        .await??;
         Ok(RootState {
             runtime: args.runtime,
             audio: args.audio,

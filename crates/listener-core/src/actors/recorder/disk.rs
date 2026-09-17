@@ -1,19 +1,22 @@
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
+#[cfg(test)]
 use std::time::Instant;
 
 use anlg_audio_utils::{
-    decode_vorbis_to_mono_wav_file, decode_vorbis_to_wav_file, mix_audio_f32,
-    ogg_has_identical_channels,
+    decode_vorbis_to_mono_wav_file, decode_vorbis_to_wav_file, ogg_has_identical_channels,
 };
 use ractor::ActorProcessingErr;
 
 use super::into_actor_err;
+#[cfg(test)]
+use anlg_audio_utils::mix_audio_f32;
 
 const FINAL_AUDIO_FILE: &str = "audio.mp3";
 const WAV_FILE: &str = "audio.wav";
 const OGG_FILE: &str = "audio.ogg";
+#[cfg(test)]
 const FLUSH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(1000);
 
 pub(super) struct DiskSink {
@@ -21,7 +24,9 @@ pub(super) struct DiskSink {
     writer_mic: Option<hound::WavWriter<BufWriter<File>>>,
     writer_spk: Option<hound::WavWriter<BufWriter<File>>>,
     wav_path: PathBuf,
+    #[cfg(test)]
     last_flush: Instant,
+    #[cfg(test)]
     is_stereo: bool,
     pub(super) recovered_audio: bool,
 }
@@ -86,7 +91,9 @@ pub(super) fn create_disk_sink(session_dir: &Path) -> Result<DiskSink, ActorProc
         writer_mic,
         writer_spk,
         wav_path,
+        #[cfg(test)]
         last_flush: Instant::now(),
+        #[cfg(test)]
         is_stereo,
         recovered_audio,
     };
@@ -100,6 +107,7 @@ pub(super) fn create_disk_sink(session_dir: &Path) -> Result<DiskSink, ActorProc
     Ok(sink)
 }
 
+#[cfg(test)]
 pub(super) fn write_single(sink: &mut DiskSink, samples: &[f32]) -> Result<(), ActorProcessingErr> {
     if let Some(writer) = sink.writer.as_mut() {
         if sink.is_stereo {
@@ -113,6 +121,7 @@ pub(super) fn write_single(sink: &mut DiskSink, samples: &[f32]) -> Result<(), A
     Ok(())
 }
 
+#[cfg(test)]
 pub(super) fn write_dual(
     sink: &mut DiskSink,
     mic: &[f32],
@@ -269,6 +278,7 @@ fn is_debug_mode() -> bool {
             .unwrap_or(false)
 }
 
+#[cfg(test)]
 fn flush_if_due(sink: &mut DiskSink) -> Result<(), hound::Error> {
     if sink.last_flush.elapsed() < FLUSH_INTERVAL {
         return Ok(());
@@ -287,10 +297,14 @@ fn flush_all(sink: &mut DiskSink) -> Result<(), hound::Error> {
     if let Some(writer_spk) = sink.writer_spk.as_mut() {
         writer_spk.flush()?;
     }
-    sink.last_flush = Instant::now();
+    #[cfg(test)]
+    {
+        sink.last_flush = Instant::now();
+    }
     Ok(())
 }
 
+#[cfg(test)]
 fn write_mono_samples(
     writer: &mut hound::WavWriter<BufWriter<File>>,
     samples: &[f32],
@@ -301,6 +315,7 @@ fn write_mono_samples(
     Ok(())
 }
 
+#[cfg(test)]
 fn write_mono_as_stereo(
     writer: &mut hound::WavWriter<BufWriter<File>>,
     samples: &[f32],
@@ -312,6 +327,7 @@ fn write_mono_as_stereo(
     Ok(())
 }
 
+#[cfg(test)]
 fn write_interleaved_stereo(
     writer: &mut hound::WavWriter<BufWriter<File>>,
     mic: &[f32],

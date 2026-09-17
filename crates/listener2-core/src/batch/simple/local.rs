@@ -139,6 +139,16 @@ where
 }
 
 fn create_channel_tempfile(parent: Option<&Path>) -> std::io::Result<tempfile::NamedTempFile> {
+    if let Some(parent) = parent
+        && parent
+            .file_name()
+            .is_some_and(|name| name == "audio-recovery")
+    {
+        return tempfile::Builder::new()
+            .prefix("anarlog_channel_")
+            .suffix(".wav")
+            .tempfile_in(parent);
+    }
     let in_parent = parent.and_then(|parent| {
         tempfile::Builder::new()
             .prefix("anarlog_channel_")

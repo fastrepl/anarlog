@@ -17,6 +17,8 @@ pub fn session_span(session_id: &str) -> tracing::Span {
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct SessionParams {
     pub session_id: String,
+    #[serde(default)]
+    pub retain_audio: Option<bool>,
     pub languages: Vec<anlg_language::Language>,
     pub onboarding: bool,
     #[serde(default)]
@@ -156,6 +158,7 @@ mod tests {
     fn session_params(base_url: &str, model: &str, mode: TranscriptionMode) -> SessionParams {
         SessionParams {
             session_id: "session".to_string(),
+            retain_audio: None,
             languages: vec![],
             onboarding: false,
             transcription_mode: mode,

@@ -150,16 +150,18 @@ pub(super) async fn prepare_anarlog_batch_upload(
         .into());
     }
 
-    let temp_dir = tempfile::tempdir().map_err(|_error| {
-        tracing::error!(
-            error.type = "temp_dir_create_failed",
-            "large_batch_audio_temp_dir_failed"
-        );
-        crate::BatchFailure::DirectRequestFailed {
-            provider: AdapterKind::Anarlog.to_string(),
-            message: "Anarlog couldn't prepare this large recording for transcription.".to_string(),
-        }
-    })?;
+    let temp_dir =
+        super::super::upload::temporary_audio_directory(file_path).map_err(|_error| {
+            tracing::error!(
+                error.type = "temp_dir_create_failed",
+                "large_batch_audio_temp_dir_failed"
+            );
+            crate::BatchFailure::DirectRequestFailed {
+                provider: AdapterKind::Anarlog.to_string(),
+                message: "Anarlog couldn't prepare this large recording for transcription."
+                    .to_string(),
+            }
+        })?;
     let encoded_path = temp_dir.path().join("audio.mp3");
     let encode_source = source_path.clone();
     let encode_target = encoded_path.clone();

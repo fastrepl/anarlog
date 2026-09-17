@@ -40,6 +40,8 @@ export function createTranscriptPersistenceWorker(
   let drainPromise: Promise<void> | null = null;
   let batchTimer: ReturnType<typeof setTimeout> | null = null;
   let overflowed = false;
+  let retryPending = false;
+  let disposed = false;
   let timedOut = false;
   let cancelActivePersist: ((error: Error) => void) | null = null;
 
@@ -109,28 +111,46 @@ export function createTranscriptPersistenceWorker(
 
       try {
         await persistWithinDeadline(toDelta(write));
+        retryPending = false;
       } catch (error) {
         if (error instanceof TranscriptPersistenceTimeoutError) {
           stopAfterTimeout(error);
         } else {
-          reportError(error);
+          if (pendingWrite) mergeDelta(write, toDelta(pendingWrite));
+          if (exceedsSafeBounds(write)) {
+            pendingWrite = null;
+            overflowed = true;
+            reportError(
+              new Error(
+                "Transcript persistence backlog exceeded its safe memory bounds",
+              ),
+            );
+          } else {
+            pendingWrite = write;
+            retryPending = true;
+            reportError(error);
+          }
+          return;
         }
       }
     }
   };
 
   const startDrain = (immediate = false) => {
-    if (drainPromise || timedOut) {
+    if (drainPromise || timedOut || disposed) {
       return;
     }
-    if (!immediate && batchWindowMs > 0) {
+    if (!immediate && (batchWindowMs > 0 || retryPending)) {
       if (batchTimer) {
         return;
       }
-      batchTimer = setTimeout(() => {
-        batchTimer = null;
-        startDrain(true);
-      }, batchWindowMs);
+      batchTimer = setTimeout(
+        () => {
+          batchTimer = null;
+          startDrain(true);
+        },
+        retryPending ? 1_000 : batchWindowMs,
+      );
       return;
     }
 
@@ -157,6 +177,7 @@ export function createTranscriptPersistenceWorker(
 
   const enqueue = (delta: LiveTranscriptDelta) => {
     if (
+      disposed ||
       overflowed ||
       timedOut ||
       (delta.new_words.length === 0 && delta.replaced_ids.length === 0)
@@ -180,6 +201,7 @@ export function createTranscriptPersistenceWorker(
   };
 
   const flush = async () => {
+    if (disposed) return;
     let timeoutId: ReturnType<typeof setTimeout>;
     const flushTimedOut = Symbol();
     const timeout = new Promise<typeof flushTimedOut>((resolve) => {
@@ -202,6 +224,7 @@ export function createTranscriptPersistenceWorker(
           drainPromise.then(() => null),
           timeout,
         ]);
+        if (retryPending) return;
         if (result === flushTimedOut) {
           stopAfterTimeout(
             new TranscriptPersistenceTimeoutError(
@@ -238,7 +261,17 @@ export function createTranscriptPersistenceWorker(
     }
   };
 
-  return { enqueue, flush };
+  return {
+    enqueue,
+    flush,
+    hasPendingFailure: () => retryPending || timedOut || overflowed,
+    dispose: () => {
+      disposed = true;
+      pendingWrite = null;
+      if (batchTimer) clearTimeout(batchTimer);
+      batchTimer = null;
+    },
+  };
 }
 
 function createPendingWrite(): PendingTranscriptWrite {

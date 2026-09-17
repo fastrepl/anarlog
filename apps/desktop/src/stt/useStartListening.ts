@@ -13,6 +13,7 @@ import {
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { useShell } from "~/contexts/shell";
+import { normalizeAudioRetention } from "~/services/audio-retention";
 import { getSessionEvent } from "~/session/utils";
 import { getBaseLanguageDisplayName } from "~/settings/general/language";
 import { useConfigValue } from "~/shared/config";
@@ -59,6 +60,8 @@ export function useStartListeningState(
   const spokenLanguages = useConfigValue("spoken_languages");
   const dictionaryTerms = useConfigValue("personalization_dictionary_terms");
   const microphoneDevice = useConfigValue("microphone_device");
+  const retainAudio =
+    normalizeAudioRetention(useConfigValue("audio_retention")) !== "none";
   const meetingDisclosureAutoSendChat = useConfigValue(
     "consent_auto_send_chat",
   );
@@ -144,6 +147,7 @@ export function useStartListeningState(
       started = await start(
         {
           session_id: sessionId,
+          retain_audio: retainAudio,
           languages: liveTranscriptionConfig.languages,
           onboarding: false,
           model: conn?.model ?? "",
@@ -285,6 +289,7 @@ export function useStartListeningState(
     dictionaryTerms,
     getSessionMode,
     microphoneDevice,
+    retainAudio,
     openNew,
     participantHumanIds,
     session,

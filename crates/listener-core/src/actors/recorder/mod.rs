@@ -1,4 +1,9 @@
+mod chunks;
 mod disk;
+pub use chunks::{
+    RecoveryAudioChunk, acknowledge_recovery_chunk, cleanup_interrupted_zero_retention,
+    delete_capture_audio, list_recovery_chunks,
+};
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -23,6 +28,9 @@ pub enum RecorderEnqueueResult {
 pub struct RecArgs {
     pub runtime: Arc<dyn crate::ListenerRuntime>,
     pub app_dir: PathBuf,
+    pub retain_audio: bool,
+    pub capture_started_at: u64,
+    pub offset_ms: u64,
     pub session_id: String,
 }
 
@@ -91,7 +99,12 @@ impl Actor for RecorderActor {
         let writer_path = try_reserve_writer_path(session_dir.clone())?;
         let (sink, writer_permit, writer_path) = tokio::task::spawn_blocking(move || {
             std::fs::create_dir_all(&session_dir)?;
-            let sink = disk::create_disk_sink(&session_dir)?;
+            let sink = chunks::ChunkedSink::new(
+                &session_dir,
+                args.capture_started_at,
+                args.offset_ms,
+                args.retain_audio,
+            )?;
             Ok::<_, ActorProcessingErr>((sink, writer_permit, writer_path))
         })
         .await
@@ -209,14 +222,14 @@ async fn await_writer_shutdown(
 }
 
 fn run_writer(
-    mut sink: disk::DiskSink,
+    mut sink: chunks::ChunkedSink,
     mut writer_rx: tokio::sync::mpsc::Receiver<WriteRequest>,
     actor: ActorRef<RecMsg>,
 ) -> Result<(), String> {
     while let Some(request) = writer_rx.blocking_recv() {
         let result = match &request {
-            WriteRequest::AudioSingle(samples) => disk::write_single(&mut sink, samples),
-            WriteRequest::AudioDual(mic, spk) => disk::write_dual(&mut sink, mic, spk),
+            WriteRequest::AudioSingle(samples) => sink.write(samples, samples),
+            WriteRequest::AudioDual(mic, spk) => sink.write(mic, spk),
         }
         .map_err(|error| error.to_string());
 
@@ -224,12 +237,13 @@ fn run_writer(
             Ok(()) => {}
             Err(error) => {
                 let _ = actor.cast(RecMsg::WriterFailed(error.clone()));
+                let _ = sink.finish();
                 return Err(error);
             }
         }
     }
 
-    disk::finalize_disk_sink(&mut sink).map_err(|error| error.to_string())
+    sink.finish().map_err(|error| error.to_string())
 }
 
 fn actor_error(error: impl Into<String>) -> ActorProcessingErr {

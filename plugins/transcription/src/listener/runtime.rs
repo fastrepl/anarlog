@@ -125,6 +125,7 @@ impl ListenerRuntime for TauriRuntime {
 
                 CaptureLifecycleEvent::Stopped {
                     session_id,
+                    chunked_audio: true,
                     audio_path,
                     requested_live_transcription,
                     live_transcription_active,

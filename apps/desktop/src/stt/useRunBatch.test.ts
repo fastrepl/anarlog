@@ -1051,6 +1051,64 @@ describe("useRunBatch", () => {
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
   });
 
+  test("repairs a chunk separately from live capture and waits for its database commit", async () => {
+    startTranscriptionMock.mockImplementation(async (_params, options) => {
+      options.handlePersist(
+        [{ text: "recovered", start_ms: 0, end_ms: 100, channel: 0 }],
+        [],
+      );
+    });
+    let commit!: () => void;
+    const persist = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          commit = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useRunBatch("session-1"));
+    let completed = false;
+    const run = result
+      .current("/tmp/chunk.mp3", { recovery: { persist } })
+      .then(() => {
+        completed = true;
+      });
+    await waitFor(() => expect(persist).toHaveBeenCalledOnce());
+    expect(startTranscriptionMock.mock.calls[0]?.[0]).toMatchObject({
+      session_id: "session-1:recovery",
+    });
+    expect(completed).toBe(false);
+    expect(createTranscriptMock).not.toHaveBeenCalled();
+    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
+    commit();
+    await act(async () => await run);
+    expect(completed).toBe(true);
+  });
+
+  test("cancels only the background repair when its capture ends", async () => {
+    const abort = new AbortController();
+    let finish!: () => void;
+    startTranscriptionMock.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const persist = vi.fn();
+    const { result } = renderHook(() => useRunBatch("session-1"));
+    const run = result.current("/tmp/chunk.mp3", {
+      signal: abort.signal,
+      recovery: { persist },
+    });
+    const rejected = expect(run).rejects.toMatchObject({ name: "AbortError" });
+    await waitFor(() => expect(startTranscriptionMock).toHaveBeenCalledOnce());
+    abort.abort();
+    finish();
+    await rejected;
+    expect(stopTranscriptionMock).toHaveBeenCalledWith("session-1:recovery");
+    expect(stopTranscriptionMock).not.toHaveBeenCalledWith("session-1");
+    expect(persist).not.toHaveBeenCalled();
+  });
+
   test("does not make completed provider work retryable when persistence fails", async () => {
     startTranscriptionMock.mockImplementation(async (_params, options) => {
       options.handlePersist(

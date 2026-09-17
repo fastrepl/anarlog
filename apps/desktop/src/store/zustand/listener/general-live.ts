@@ -212,7 +212,7 @@ const notifyTranscriptionStalled = () => {
     id: "live-transcription-stalled",
     duration: Infinity,
     description:
-      "Anarlog keeps recording while live transcription reconnects. Any missing text will be rebuilt from the recording after you stop listening.",
+      "Anarlog keeps recording while live transcription reconnects. Missing text will be recovered from temporary audio while the meeting continues.",
   });
 };
 
@@ -354,6 +354,9 @@ const createSessionEventHandlers = <T extends LiveStore>(
       try {
         const stopped = onStopped(targetSessionId, {
           durationSeconds: stoppedSeconds,
+          chunkedAudio: payload.chunked_audio,
+          audioDeletionFailed:
+            payload.error?.includes("audio_deletion_failed:") ?? false,
           audioPath: payload.audio_path ?? null,
           requestedLiveTranscription: payload.requested_live_transcription,
           liveTranscriptionActive: payload.live_transcription_active,
@@ -380,6 +383,19 @@ const createSessionEventHandlers = <T extends LiveStore>(
     }
 
     if (get().live.sessionId !== targetSessionId) {
+      return;
+    }
+
+    if (
+      payload.type === "audio_error" &&
+      payload.error.startsWith("audio_storage_")
+    ) {
+      sonnerToast.error("Audio saving was interrupted", {
+        id: `audio-storage-${targetSessionId}`,
+        duration: Infinity,
+        description:
+          "Live transcription continues. Free up disk space to resume audio saving. Audio missing during this interruption cannot be recovered.",
+      });
       return;
     }
 
