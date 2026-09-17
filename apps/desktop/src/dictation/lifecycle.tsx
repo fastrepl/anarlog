@@ -157,6 +157,8 @@ function ActiveDictation({
           throw new Error(
             "Dictation is unavailable while Anarlog is recording a meeting.",
           );
+        abort.signal.throwIfAborted();
+        target = unwrap(await dictation.captureTarget());
         const previewSession =
           livePreview && isCloudModel
             ? await auth.getSessionForRequest().catch(() => null)
@@ -187,7 +189,6 @@ function ActiveDictation({
           previewUnavailable: livePreview && !preview,
         });
         abort.signal.throwIfAborted();
-        target = unwrap(await dictation.captureTarget());
         await waitForDictationPanel(owner, abort.signal);
         abort.signal.throwIfAborted();
         unwrap(

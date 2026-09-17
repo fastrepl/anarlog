@@ -57,9 +57,10 @@ impl Preview {
             })
             .collect();
         // WAV capture must never wait for a slow preview connection.
-        self.sender
-            .try_send(ListenClientInput::Audio(bytes.into()))
-            .is_ok()
+        !matches!(
+            self.sender.try_send(ListenClientInput::Audio(bytes.into())),
+            Err(mpsc::error::TrySendError::Closed(_))
+        )
     }
 }
 
@@ -89,6 +90,16 @@ async fn run(
         "elevenlabs" => listen::<ElevenLabsAdapter>(config, receiver, updates).await,
         "gladia" => listen::<GladiaAdapter>(config, receiver, updates).await,
         "meta" => listen::<MetaAdapter>(config, receiver, updates).await,
+        "dashscope" => listen::<DashScopeAdapter>(config, receiver, updates).await,
+        "smallestai" => listen::<SmallestAIAdapter>(config, receiver, updates).await,
+        "fireworks" => listen::<FireworksAdapter>(config, receiver, updates).await,
+        "mistral" => listen::<MistralAdapter>(config, receiver, updates).await,
+        "xai" => listen::<XaiAdapter>(config, receiver, updates).await,
+        "argmax" => listen::<ArgmaxAdapter>(config, receiver, updates).await,
+        "nari" => listen::<NariAdapter>(config, receiver, updates).await,
+        "google_generative_ai" => {
+            listen::<GoogleGenerativeAiAdapter>(config, receiver, updates).await
+        }
         _ => Err(()),
     }
 }
@@ -213,6 +224,21 @@ mod tests {
     }
 
     #[test]
+    fn queue_pressure_does_not_disable_a_healthy_preview() {
+        let (sender, mut receiver) = mpsc::channel(1);
+        let preview = Preview {
+            sender,
+            cancellation: CancellationToken::new(),
+        };
+        assert!(preview.send(&[0.0]));
+        assert!(preview.send(&[0.1]));
+        assert!(receiver.try_recv().is_ok());
+        assert!(preview.send(&[0.2]));
+        drop(receiver);
+        assert!(!preview.send(&[0.3]));
+    }
+
+    #[test]
     fn partials_are_replaced_and_final_retries_are_not_duplicated() {
         let mut transcript = PreviewTranscript::default();
         transcript.update(response(0.0, "hel", false));
@@ -236,7 +262,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn converts_audio_to_pcm_and_refuses_backpressure() {
+    async fn converts_audio_to_pcm_and_drops_overflow_without_disabling_preview() {
         let (sender, mut receiver) = mpsc::channel(1);
         let cancellation = CancellationToken::new();
         let preview = Preview {
@@ -244,7 +270,7 @@ mod tests {
             cancellation: cancellation.clone(),
         };
         assert!(preview.send(&[-1.0, 0.0, 1.0]));
-        assert!(!preview.send(&[0.5]));
+        assert!(preview.send(&[0.5]));
         let ListenClientInput::Audio(bytes) = receiver.recv().await.unwrap() else {
             panic!()
         };

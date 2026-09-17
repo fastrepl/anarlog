@@ -355,6 +355,43 @@ describe("dictation access and lifecycle", () => {
     );
   });
 
+  it("captures the destination before waiting for a preview token", async () => {
+    mocks.settings.dictation_live_preview = true;
+    mocks.isCloudModel = true;
+    mocks.connection = {
+      provider: "anarlog",
+      model: "cloud",
+      apiKey: "stale",
+      baseUrl: "https://api.anarlog.so/stt",
+    };
+    let finishAuth!: (session: { access_token: string }) => void;
+    mocks.getSessionForRequest.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishAuth = resolve;
+        }),
+    );
+    render(<DictationLifecycle />);
+    await waitFor(() => expect(useDictationStatus.getState().ready).toBe(true));
+    await act(async () => {
+      mocks.listener?.({ payload: { type: "pressed" } });
+    });
+    expect(mocks.getSessionForRequest).toHaveBeenCalledOnce();
+    expect(mocks.captureTarget).toHaveBeenCalledOnce();
+    expect(mocks.captureTarget.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.getSessionForRequest.mock.invocationCallOrder[0],
+    );
+    mocks.captureTarget.mockResolvedValue({
+      status: "ok",
+      data: "different-field",
+    });
+    await act(async () => {
+      finishAuth({ access_token: "fresh" });
+    });
+    expect(mocks.captureTarget).toHaveBeenCalledOnce();
+    expect(mocks.startSystemRecording).toHaveBeenCalledOnce();
+  });
+
   it("keeps recording available when a cloud preview session cannot be refreshed", async () => {
     mocks.settings.dictation_live_preview = true;
     mocks.isCloudModel = true;

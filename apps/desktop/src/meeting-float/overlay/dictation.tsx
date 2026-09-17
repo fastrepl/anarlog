@@ -24,7 +24,7 @@ export function DictationTranscript({
       className="px-1 text-[15px] leading-6 break-words whitespace-pre-wrap"
       style={{ color: colorScheme === "dark" ? "white" : "rgb(31, 28, 26)" }}
       aria-live="polite"
-      aria-atomic="true"
+      aria-atomic="false"
     >
       {dictation.text || dictation.partial ? (
         <>

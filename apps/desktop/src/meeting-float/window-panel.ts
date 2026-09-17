@@ -215,7 +215,10 @@ export async function showFloatingMeetingWindow(
       await hideFloatingMeetingPanel();
       return false;
     }
-    if (shown.status === "error") return false;
+    if (shown.status === "error") {
+      console.error("Failed to show dictation panel:", shown.error);
+      return false;
+    }
   }
 
   if (shouldSendTranscript) {
