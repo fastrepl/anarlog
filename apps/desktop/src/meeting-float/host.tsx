@@ -323,13 +323,16 @@ function getCurrentFloatingRouteState(
   });
 }
 
-function haveFloatingRouteInputsChanged(
+export function haveFloatingRouteInputsChanged(
   state: ListenerState,
   previousState: ListenerState,
 ) {
   return (
     state.live.status !== previousState.live.status ||
     state.live.sessionId !== previousState.live.sessionId ||
+    state.live.loadingPhase !== previousState.live.loadingPhase ||
+    state.live.lastErrorIsAudioRelated !==
+      previousState.live.lastErrorIsAudioRelated ||
     state.live.amplitude.mic !== previousState.live.amplitude.mic ||
     state.live.amplitude.speaker !== previousState.live.amplitude.speaker ||
     Boolean(state.live.degraded) !== Boolean(previousState.live.degraded) ||

@@ -6,6 +6,7 @@ import {
   getCurrentFloatingBarColorScheme,
   getFloatingRouteState,
   getFloatingTranscriptBubbles,
+  haveFloatingRouteInputsChanged,
   shouldShowFloatingLiveCaptionToggle,
 } from "./host";
 
@@ -517,5 +518,27 @@ describe("shouldShowFloatingLiveCaptionToggle", () => {
         liveTranscriptionActive: false,
       }),
     ).toBe(false);
+  });
+});
+
+describe("floating route refresh", () => {
+  it("refreshes when retry state changes without new audio", () => {
+    const previous = createListenerState({
+      status: "active",
+      sessionId: "session-1",
+    });
+    const retrying = {
+      ...previous,
+      live: { ...previous.live, loadingPhase: "connecting" as const },
+    };
+    expect(haveFloatingRouteInputsChanged(retrying, previous)).toBe(true);
+    expect(haveFloatingRouteInputsChanged(previous, retrying)).toBe(true);
+    expect(haveFloatingRouteInputsChanged(previous, previous)).toBe(false);
+    const audioFailure = {
+      ...retrying,
+      live: { ...retrying.live, lastErrorIsAudioRelated: true },
+    };
+    expect(haveFloatingRouteInputsChanged(audioFailure, retrying)).toBe(true);
+    expect(haveFloatingRouteInputsChanged(retrying, audioFailure)).toBe(true);
   });
 });

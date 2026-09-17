@@ -64,7 +64,7 @@ describe("FloatingBarOverlay", () => {
   });
 
   it("shows a spinner when live transcription is reconnecting", () => {
-    render(
+    const { container } = render(
       <FloatingBarOverlay
         state={state({ status: "reconnecting" })}
         onStop={vi.fn()}
@@ -78,6 +78,7 @@ describe("FloatingBarOverlay", () => {
       }),
     ).toBeTruthy();
     expect(screen.queryByTestId("waveform")).toBeNull();
+    expect(container.querySelector(".animate-spin")).toBeTruthy();
   });
 
   it("shows a static failure indicator for errors without an active retry", () => {
