@@ -6,8 +6,13 @@ enum FloatingBarPlacement {
   }
 
   static func resizedFrame(
-    _ frame: NSRect, size: NSSize, workArea: NSRect, expandsUpward: Bool
+    _ frame: NSRect, size: NSSize, workArea: NSRect, expandsUpward: Bool,
+    expansion: (compact: NSRect, expanded: NSRect)? = nil
   ) -> NSRect {
+    let frame =
+      expansion.flatMap { saved in
+        size.height < frame.height && frame == saved.expanded ? saved.compact : nil
+      } ?? frame
     let x = frame.midX - size.width / 2
     let y = expandsUpward ? frame.minY : frame.maxY - size.height
     return NSRect(

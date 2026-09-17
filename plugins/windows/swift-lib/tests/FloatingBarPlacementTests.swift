@@ -38,5 +38,9 @@ final class FloatingBarPlacementTests: XCTestCase {
       frame, size: expandedSize, workArea: workArea, expandsUpward: true)
     XCTAssertEqual(expanded.maxX, workArea.maxX)
     XCTAssertTrue(workArea.contains(expanded))
+    XCTAssertEqual(
+      FloatingBarPlacement.resizedFrame(
+        expanded, size: compactSize, workArea: workArea, expandsUpward: true,
+        expansion: (frame, expanded)), frame)
   }
 }

@@ -7,6 +7,7 @@ final class FloatingBarManager {
 
   private var panel: NSPanel?
   private var expandsUpward = true
+  private var expansion: (compact: NSRect, expanded: NSRect)?
   private let model = FloatingBarViewModel()
   private let settingsModel = FloatingOverlaySettingsModel.shared
   private let placement = FloatingPanelPositionController()
@@ -72,6 +73,8 @@ final class FloatingBarManager {
       return
     }
 
+    expandsUpward = true
+    expansion = nil
     FloatingBarFonts.register()
 
     let panel = createPanel()
@@ -82,6 +85,7 @@ final class FloatingBarManager {
         panelOrigin: { [weak self] in self?.panel?.frame.origin },
         movePanel: { [weak self] origin in
           guard let self, let panel = self.panel else { return }
+          self.expansion = nil
           self.placement.moveByUserDrag(
             panel,
             to: origin,
@@ -214,7 +218,13 @@ final class FloatingBarManager {
     }
     let nextAnchorOffset = controlAnchorOffset(for: nextLayout)
     let frame = FloatingBarPlacement.resizedFrame(
-      panel.frame, size: size, workArea: workArea, expandsUpward: expandsUpward)
+      panel.frame, size: size, workArea: workArea, expandsUpward: expandsUpward,
+      expansion: expansion)
+    if size.height > previousSize.height {
+      expansion = (panel.frame, frame)
+    } else {
+      expansion = nil
+    }
     placement.setFrame(
       panel,
       to: frame,

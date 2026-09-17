@@ -119,6 +119,18 @@ pub(crate) mod layout {
         y - work_y > work_y + work_height - y - height
     }
 
+    pub fn collapse_anchor(
+        current: (f64, f64, f64, f64),
+        expansion: Option<((f64, f64, f64, f64), (f64, f64))>,
+    ) -> (f64, f64, f64, f64) {
+        if let Some((compact, expanded)) = expansion {
+            if (current.0 - expanded.0).abs() < 0.5 && (current.1 - expanded.1).abs() < 0.5 {
+                return compact;
+            }
+        }
+        current
+    }
+
     pub fn resize_anchored(
         x: f64,
         y: f64,
@@ -278,6 +290,7 @@ mod platform {
 
     static APP_HANDLE: OnceLock<tauri::AppHandle<tauri::Wry>> = OnceLock::new();
     static EXPANDS_UPWARD: Mutex<bool> = Mutex::new(true);
+    static EXPANSION: Mutex<Option<((f64, f64, f64, f64), (f64, f64))>> = Mutex::new(None);
     static LAST_STATE: Mutex<Option<FloatingBarState>> = Mutex::new(None);
 
     pub fn set_app_handle(app: tauri::AppHandle<tauri::Wry>) {
@@ -397,6 +410,20 @@ mod platform {
         let size_changed = (current_size.width - width).abs() >= 0.5
             || (current_size.height - height).abs() >= 0.5;
 
+        let mut expansion = EXPANSION
+            .lock()
+            .map_err(|_| Error::PanelError("floating bar placement lock poisoned".to_string()))?;
+        let mut previous = (
+            current_position.x,
+            current_position.y,
+            current_size.width,
+            current_size.height,
+        );
+        if force_default_position {
+            *expansion = None;
+        } else if height < current_size.height {
+            previous = super::layout::collapse_anchor(previous, expansion.take());
+        }
         let (next_x, next_y) = if force_default_position {
             if let Ok(mut direction) = EXPANDS_UPWARD.lock() {
                 *direction = true;
@@ -422,19 +449,16 @@ mod platform {
                 );
             }
             resize_anchored(
-                current_position.x,
-                current_position.y,
-                current_size.width,
-                current_size.height,
-                width,
-                height,
-                *direction,
+                previous.0, previous.1, previous.2, previous.3, width, height, *direction,
             )
         } else {
             return Ok(());
         };
 
         let (clamped_x, clamped_y) = clamp_origin(window, next_x, next_y, width, height)?;
+        if !force_default_position && height > current_size.height {
+            *expansion = Some((previous, (clamped_x, clamped_y)));
+        }
         if size_changed {
             window.set_size(Size::Logical(next_size))?;
         }
@@ -534,6 +558,30 @@ mod tests {
         assert_eq!(layout::container_size(false, false), (84.0, 67.0));
         assert_eq!(layout::container_size(false, true), (111.0, 67.0));
         assert_eq!(layout::container_size(true, true), (368.0, 459.0));
+    }
+
+    #[test]
+    fn collapse_restores_position_after_expansion_was_clamped() {
+        let compact = (1801.0, 1005.0, 111.0, 67.0);
+        let expanded = layout::resize_anchored(
+            compact.0, compact.1, compact.2, compact.3, 368.0, 459.0, true,
+        );
+        let clamped = layout::clamp_to_work_area(
+            expanded.0, expanded.1, 368.0, 459.0, 0.0, 0.0, 1920.0, 1080.0,
+        );
+        let anchor = layout::collapse_anchor(
+            (clamped.0, clamped.1, 368.0, 459.0),
+            Some((compact, clamped)),
+        );
+        assert_eq!(
+            layout::resize_anchored(anchor.0, anchor.1, anchor.2, anchor.3, 111.0, 67.0, true),
+            (compact.0, compact.1)
+        );
+        let moved = (clamped.0 - 100.0, clamped.1, 368.0, 459.0);
+        assert_eq!(
+            layout::collapse_anchor(moved, Some((compact, clamped))),
+            moved
+        );
     }
 
     #[test]
