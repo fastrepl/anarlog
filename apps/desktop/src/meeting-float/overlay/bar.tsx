@@ -255,7 +255,7 @@ function FloatingControls({
           type="button"
           data-tauri-drag-region="false"
           aria-label="Cancel dictation"
-          title="Cancel dictation (Esc)"
+          title="Cancel dictation"
           onClick={onCancel}
           className="flex items-center justify-center"
           style={{
