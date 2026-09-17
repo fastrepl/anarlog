@@ -42,6 +42,12 @@ export function useFolderPaths(): string[] {
   return data;
 }
 
+export async function loadFolderPaths(): Promise<string[]> {
+  const rows =
+    await liveQueryClient.execute<FolderPathSqlRow>(FOLDER_PATHS_SQL);
+  return collectFolderPaths(rows.map((row) => row.folder_path));
+}
+
 type FolderIconSqlRow = {
   path: string;
   icon_json?: unknown;

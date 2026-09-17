@@ -200,7 +200,15 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
       stopWhen: stepCountIs(MAX_TOOL_STEPS),
       prepareStep: async ({ messages }) => {
         if (messages.length > MESSAGE_WINDOW_THRESHOLD) {
-          return { messages: messages.slice(-MESSAGE_WINDOW_SIZE) };
+          const lastUserIndex = messages
+            .map((message) => message.role)
+            .lastIndexOf("user");
+          // Keep the request and completed batches throughout a multi-step action.
+          const start =
+            lastUserIndex < 0
+              ? 0
+              : Math.min(lastUserIndex, messages.length - MESSAGE_WINDOW_SIZE);
+          return { messages: messages.slice(start) };
         }
         return {};
       },

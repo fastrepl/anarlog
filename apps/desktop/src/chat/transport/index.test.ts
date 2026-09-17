@@ -4,12 +4,16 @@ const mocks = vi.hoisted(() => ({
   agentStream: vi.fn(),
   smoothStream: vi.fn(),
   streamTransform: vi.fn(),
+  agentOptions: vi.fn(),
 }));
 
 vi.mock("ai", async (importOriginal) => ({
   ...(await importOriginal<typeof import("ai")>()),
   smoothStream: mocks.smoothStream,
   ToolLoopAgent: class {
+    constructor(options: unknown) {
+      mocks.agentOptions(options);
+    }
     stream = mocks.agentStream;
   },
 }));
@@ -57,5 +61,47 @@ describe("CustomChatTransport", () => {
         experimental_transform: mocks.streamTransform,
       }),
     );
+  });
+
+  it("allows a paginated action to continue beyond five steps and retains its request and completed batches", async () => {
+    const transport = new CustomChatTransport({} as never, {});
+    await transport.sendMessages({
+      chatId: "folder-chat",
+      abortSignal: undefined,
+      messageId: undefined,
+      messages: [
+        {
+          id: "organize",
+          role: "user",
+          parts: [
+            { type: "text", text: "Move every DEFCON 1 meeting into defcons" },
+          ],
+        },
+      ],
+      trigger: "submit-message",
+    });
+    const { stopWhen, prepareStep } = mocks.agentOptions.mock.calls[0]![0];
+    expect(
+      await stopWhen({ steps: Array.from({ length: 6 }, () => ({})) }),
+    ).toBe(false);
+    expect(
+      await stopWhen({ steps: Array.from({ length: 20 }, () => ({})) }),
+    ).toBe(true);
+
+    const currentTurn = [
+      { role: "user", content: "Move every DEFCON 1 meeting into defcons" },
+      ...Array.from({ length: 22 }, (_, index) => ({
+        role: index % 2 === 0 ? "assistant" : "tool",
+        content: `Batch ${index}`,
+      })),
+    ];
+    await expect(
+      prepareStep({
+        messages: [
+          { role: "user", content: "Old conversation" },
+          ...currentTurn,
+        ],
+      }),
+    ).resolves.toEqual({ messages: currentTurn });
   });
 });
