@@ -248,7 +248,7 @@ function TabContentNoteInner({
   );
 
   useHotkeys(
-    "mod+s",
+    "mod+s, escape",
     () => handleTranscriptEditModeChange(false),
     {
       enabled:

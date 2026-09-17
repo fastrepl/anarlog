@@ -297,6 +297,9 @@ describe("SegmentRenderer", () => {
     );
     expect(editor?.getAttribute("contenteditable")).toBe("true");
     editor!.innerText = "Corrected transcript text";
+    editor!.textContent = "Corrected transcript text";
+    fireEvent.keyDown(editor!, { key: "Escape" });
+    expect(editor!.textContent).toBe("Corrected transcript text");
     fireEvent.blur(editor!);
 
     await waitFor(() => {
