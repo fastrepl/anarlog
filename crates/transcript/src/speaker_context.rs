@@ -95,6 +95,15 @@ impl SpeakerContext {
 
         let mut result = Vec::new();
         for segment in segments {
+            // Context boundaries only affect inferred names, not explicit assignments.
+            if segment.key.speaker_human_id.is_some() {
+                result.push(RenderedTranscriptSegment {
+                    provisional_speaker: None,
+                    ..segment
+                });
+                continue;
+            }
+
             let mut groups: Vec<(Option<usize>, Vec<crate::SegmentWord>)> = Vec::new();
             for word in &segment.words {
                 let interval = self.interval_at(
