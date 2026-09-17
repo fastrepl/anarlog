@@ -165,6 +165,8 @@ pub async fn set_active(app: tauri::AppHandle, active: bool) -> Result<(), Strin
 
 #[cfg(target_os = "linux")]
 mod portal;
+#[cfg(any(target_os = "linux", test))]
+mod trigger;
 
 #[tauri::command]
 #[specta::specta]
@@ -172,7 +174,13 @@ pub fn validate(shortcut: String) -> Result<(), String> {
     if cfg!(target_os = "macos") && matches!(shortcut.as_str(), "Fn" | "RightCommand") {
         return Ok(());
     }
-    parse_shortcut(&shortcut).map(|_| ())
+    let key = parse_shortcut(&shortcut)?;
+    #[cfg(target_os = "linux")]
+    if uses_portal() {
+        trigger::portal_trigger(key)?;
+    }
+    let _ = key;
+    Ok(())
 }
 
 fn parse_shortcut(shortcut: &str) -> Result<Shortcut, String> {

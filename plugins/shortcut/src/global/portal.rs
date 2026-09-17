@@ -1,8 +1,10 @@
 use ashpd::desktop::global_shortcuts::{GlobalShortcuts, NewShortcut};
 use futures_util::StreamExt;
 use tauri::Manager;
-use tauri_plugin_global_shortcut::{Modifiers, Shortcut};
+use tauri_plugin_global_shortcut::Shortcut;
 use tauri_specta::Event;
+
+use super::trigger::portal_trigger;
 
 use crate::ShortcutEvent;
 
@@ -35,7 +37,7 @@ pub async fn register(app: tauri::AppHandle, key: Shortcut) -> Result<Registrati
             .receive_deactivated()
             .await
             .map_err(|e| e.to_string())?;
-        let trigger = portal_trigger(key);
+        let trigger = portal_trigger(key)?;
         portal
             .bind_shortcuts(
                 &session,
@@ -104,59 +106,4 @@ pub async fn register(app: tauri::AppHandle, key: Shortcut) -> Result<Registrati
         let _ = ShortcutEvent::Cancelled.emit(&app);
     });
     Ok(Registration { stop, task })
-}
-
-fn portal_trigger(key: Shortcut) -> String {
-    let mut parts = Vec::new();
-    for (flag, label) in [
-        (Modifiers::CONTROL, "CTRL"),
-        (Modifiers::ALT, "ALT"),
-        (Modifiers::SHIFT, "SHIFT"),
-        (Modifiers::SUPER, "LOGO"),
-    ] {
-        if key.mods.contains(flag) {
-            parts.push(label.to_string());
-        }
-    }
-    let code = key.key.to_string();
-    parts.push(match code.as_str() {
-        "Space" => "space".into(),
-        "Backspace" => "BackSpace".into(),
-        "Enter" => "Return".into(),
-        "NumpadEnter" => "KP_Enter".into(),
-        "NumpadAdd" => "KP_Add".into(),
-        "NumpadSubtract" => "KP_Subtract".into(),
-        "NumpadMultiply" => "KP_Multiply".into(),
-        "NumpadDivide" => "KP_Divide".into(),
-        "NumpadDecimal" => "KP_Decimal".into(),
-        "NumpadComma" => "KP_Separator".into(),
-        "NumpadEqual" => "KP_Equal".into(),
-        code if code
-            .strip_prefix("Numpad")
-            .is_some_and(|s| s.len() == 1 && s.as_bytes()[0].is_ascii_digit()) =>
-        {
-            format!("KP_{}", &code[6..])
-        }
-        "ArrowLeft" => "Left".into(),
-        "ArrowRight" => "Right".into(),
-        "ArrowUp" => "Up".into(),
-        "ArrowDown" => "Down".into(),
-        "Minus" => "minus".into(),
-        "Equal" => "equal".into(),
-        "BracketLeft" => "bracketleft".into(),
-        "BracketRight" => "bracketright".into(),
-        "Backslash" => "backslash".into(),
-        "Semicolon" => "semicolon".into(),
-        "Quote" => "apostrophe".into(),
-        "Backquote" => "grave".into(),
-        "Comma" => "comma".into(),
-        "Period" => "period".into(),
-        "Slash" => "slash".into(),
-        _ => code
-            .strip_prefix("Key")
-            .or_else(|| code.strip_prefix("Digit"))
-            .unwrap_or(&code)
-            .into(),
-    });
-    parts.join("+")
 }
