@@ -33,11 +33,12 @@ export function useIncompleteCapture(sessionId: string) {
     sql: `SELECT json_extract(value_json, '$.audioDeleted') AS audio_deleted,
       json_extract(value_json, '$.audioDeletionFailed') AS audio_deletion_failed
       FROM app_settings WHERE substr(id, 1, length(?)) = ? AND json_valid(value_json)
-      AND (json_extract(value_json, '$.audioDeletionFailed') = 1 OR EXISTS (
+      AND (json_extract(value_json, '$.audioDeletionFailed') = 1 OR id = ? || 'audio-recovery' OR EXISTS (
         SELECT 1 FROM transcripts WHERE session_id = ? AND deleted_at IS NULL
         AND app_settings.id = ? || transcripts.id
       )) ORDER BY audio_deletion_failed DESC, audio_deleted DESC LIMIT 1`,
     params: [
+      `capture_incomplete:${sessionId}:`,
       `capture_incomplete:${sessionId}:`,
       `capture_incomplete:${sessionId}:`,
       sessionId,

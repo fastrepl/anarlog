@@ -26,7 +26,7 @@ fn session_audio_dir<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn get_capture_audio_cleanup_status<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
-) -> Result<std::collections::HashMap<String, bool>, String> {
+) -> Result<std::collections::HashMap<String, String>, String> {
     use tauri::Manager;
     app.state::<crate::AudioCleanupStatus>()
         .0
@@ -40,11 +40,11 @@ pub async fn get_capture_audio_cleanup_status<R: tauri::Runtime>(
 pub async fn acknowledge_capture_audio_cleanup_status<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     session_id: String,
-    failed: bool,
+    error: String,
 ) -> Result<(), String> {
     use tauri::Manager;
     app.state::<crate::AudioCleanupStatus>()
-        .acknowledge(&session_id, failed)
+        .acknowledge(&session_id, &error)
 }
 
 #[tauri::command]

@@ -13,14 +13,20 @@ import {
 export async function handleCaptureCleanupStatus(payload: CaptureStatusEvent) {
   if (payload.type !== "audio_error") return;
   if (payload.error.startsWith("audio_deletion_failed:")) {
-    sonnerToast.error("Audio could not be deleted", {
-      id: payload.session_id
-        ? `audio-deletion-${payload.session_id}`
-        : "audio-cleanup",
-      duration: Infinity,
-      description:
-        "Anarlog could not remove temporary audio and will retry cleanup automatically.",
-    });
+    sonnerToast.error(
+      payload.session_id
+        ? "Audio could not be deleted"
+        : "Audio cleanup could not finish",
+      {
+        id: payload.session_id
+          ? `audio-deletion-${payload.session_id}`
+          : "audio-cleanup",
+        duration: Infinity,
+        description: payload.session_id
+          ? "Anarlog could not remove temporary audio and will retry cleanup automatically."
+          : "Anarlog could not finish audio cleanup or recovery and will retry automatically.",
+      },
+    );
     if (payload.session_id) {
       await saveIncompleteCapture(
         payload.session_id,
@@ -29,6 +35,19 @@ export async function handleCaptureCleanupStatus(payload: CaptureStatusEvent) {
         true,
       );
     }
+  } else if (payload.error.startsWith("audio_recovery_failed:")) {
+    sonnerToast.error("Audio could not be recovered", {
+      id: `audio-recovery-${payload.session_id}`,
+      duration: Infinity,
+      description:
+        "Anarlog could not restore interrupted audio and will retry recovery automatically.",
+    });
+    if (payload.session_id) {
+      await saveIncompleteCapture(payload.session_id, "audio-recovery", false);
+    }
+  } else if (payload.error === "audio_recovery_completed") {
+    // Restoring audio does not prove that the missing transcript was repaired.
+    sonnerToast.dismiss(`audio-recovery-${payload.session_id}`);
   } else if (payload.error === "audio_deletion_completed") {
     if (payload.session_id) {
       await clearCaptureAudioDeletionFailure(payload.session_id);
@@ -41,7 +60,7 @@ export async function handleCaptureCleanupStatus(payload: CaptureStatusEvent) {
   }
   const result = await commands.acknowledgeCaptureAudioCleanupStatus(
     payload.session_id,
-    payload.error.startsWith("audio_deletion_failed:"),
+    payload.error,
   );
   if (result.status === "error") throw new Error(result.error);
 }
@@ -65,7 +84,9 @@ export async function listenForCaptureCleanup() {
       if (
         payload.type === "audio_error" &&
         (payload.error.startsWith("audio_deletion_failed:") ||
-          payload.error === "audio_deletion_completed")
+          payload.error.startsWith("audio_recovery_failed:") ||
+          payload.error === "audio_deletion_completed" ||
+          payload.error === "audio_recovery_completed")
       ) {
         changedDuringRead?.add(payload.session_id);
       }
@@ -81,16 +102,14 @@ export async function listenForCaptureCleanup() {
   try {
     const result = await commands.getCaptureAudioCleanupStatus();
     if (result.status === "error") throw new Error(result.error);
-    for (const [sessionId, failed] of Object.entries(result.data)) {
-      if (changedDuringRead.has(sessionId)) continue;
+    for (const [sessionId, error] of Object.entries(result.data)) {
+      if (!error || changedDuringRead.has(sessionId)) continue;
       await consume({
         type: "audio_error",
         session_id: sessionId,
         is_fatal: false,
         device: null,
-        error: failed
-          ? "audio_deletion_failed: startup cleanup failed"
-          : "audio_deletion_completed",
+        error,
       });
     }
   } catch (error) {

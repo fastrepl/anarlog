@@ -307,15 +307,15 @@ fn update_audio_cleanup_status(
     else {
         return;
     };
-    let failed = if error.starts_with("audio_deletion_failed:") {
-        true
-    } else if error == "audio_deletion_completed" {
-        false
-    } else {
+    if !(error.starts_with("audio_deletion_failed:")
+        || error.starts_with("audio_recovery_failed:")
+        || error == "audio_deletion_completed"
+        || error == "audio_recovery_completed")
+    {
         return;
-    };
+    }
     if let Ok(mut cache) = cache.0.lock() {
-        cache.insert(session_id.clone(), failed);
+        cache.insert(session_id.clone(), error.clone());
     }
 }
 
@@ -326,25 +326,42 @@ mod cleanup_status_tests {
     fn acknowledged_status_is_evicted_without_losing_other_or_newer_failures() {
         let cache: crate::AudioCleanupStatus = Default::default();
         cache.0.lock().unwrap().extend([
-            ("completed".into(), false),
-            ("failed".into(), true),
-            ("unacknowledged".into(), true),
+            ("completed".into(), "audio_deletion_completed".into()),
+            ("failed".into(), "audio_recovery_failed: denied".into()),
+            (
+                "unacknowledged".into(),
+                "audio_deletion_failed: denied".into(),
+            ),
         ]);
-        cache.acknowledge("completed", false).unwrap();
-        cache.acknowledge("failed", false).unwrap();
-        assert_eq!(cache.0.lock().unwrap().get("failed"), Some(&true));
-        cache.acknowledge("failed", true).unwrap();
+        cache
+            .acknowledge("completed", "audio_deletion_completed")
+            .unwrap();
+        cache
+            .acknowledge("failed", "audio_recovery_completed")
+            .unwrap();
+        assert_eq!(
+            cache.0.lock().unwrap().get("failed").map(String::as_str),
+            Some("audio_recovery_failed: denied")
+        );
+        cache
+            .acknowledge("failed", "audio_recovery_failed: denied")
+            .unwrap();
         let status = cache.0.lock().unwrap();
         assert_eq!(status.len(), 1);
-        assert_eq!(status.get("unacknowledged"), Some(&true));
+        assert_eq!(
+            status.get("unacknowledged").map(String::as_str),
+            Some("audio_deletion_failed: denied")
+        );
     }
 
     #[test]
     fn cleanup_status_survives_until_the_frontend_subscribes() {
         let cache: crate::AudioCleanupStatus = Default::default();
-        for (error, expected) in [
-            ("audio_deletion_failed: denied", true),
-            ("audio_deletion_completed", false),
+        for error in [
+            "audio_deletion_failed: denied",
+            "audio_deletion_completed",
+            "audio_recovery_failed: denied",
+            "audio_recovery_completed",
         ] {
             update_audio_cleanup_status(
                 &cache,
@@ -355,7 +372,10 @@ mod cleanup_status_tests {
                     is_fatal: false,
                 },
             );
-            assert_eq!(cache.0.lock().unwrap().get("session"), Some(&expected));
+            assert_eq!(
+                cache.0.lock().unwrap().get("session").map(String::as_str),
+                Some(error)
+            );
         }
     }
 }

@@ -50,6 +50,11 @@ it("preserves failed audio deletion across recovery until cleanup is explicitly 
       1,
     );
     expect(read()).toEqual({ audioDeleted: true, audioDeletionFailed: false });
+    await saveIncompleteCapture("session", "audio-recovery", false);
+    await clearIncompleteCapture("session");
+    expect(db.prepare("SELECT count(*) AS n FROM app_settings").get()!.n).toBe(
+      0,
+    );
   } finally {
     db.close();
     executeTransaction.mockReset();
@@ -66,6 +71,17 @@ it("shows warnings for visible transcript captures and preserves deletion failur
     data: mapRows(db.prepare(sql).all(...params)),
   }));
   try {
+    expect(useIncompleteCapture("session")).toBeNull();
+    db.exec(
+      `INSERT INTO app_settings VALUES ('capture_incomplete:session:audio-recovery', '{"audioDeleted":false}');`,
+    );
+    expect(useIncompleteCapture("session")).toEqual({
+      audioDeleted: false,
+      audioDeletionFailed: false,
+    });
+    db.exec(
+      `DELETE FROM app_settings WHERE id = 'capture_incomplete:session:audio-recovery';`,
+    );
     expect(useIncompleteCapture("session")).toBeNull();
     db.exec(
       `INSERT INTO app_settings VALUES ('capture_incomplete:session:current', '{"audioDeleted":false}');`,

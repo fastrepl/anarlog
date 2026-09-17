@@ -55,13 +55,13 @@ pub type SessionStateCache = Arc<StdMutex<HashMap<String, SessionStateSnapshot>>
 pub type MicIsolationCache = Arc<StdMutex<HashMap<String, bool>>>;
 
 #[derive(Clone, Default)]
-pub struct AudioCleanupStatus(Arc<StdMutex<HashMap<String, bool>>>);
+pub struct AudioCleanupStatus(Arc<StdMutex<HashMap<String, String>>>);
 
 impl AudioCleanupStatus {
-    fn acknowledge(&self, session_id: &str, failed: bool) -> std::result::Result<(), String> {
+    fn acknowledge(&self, session_id: &str, error: &str) -> std::result::Result<(), String> {
         let mut status = self.0.lock().map_err(|error| error.to_string())?;
         // Do not remove a newer completion or failure while persistence was pending.
-        if status.get(session_id) == Some(&failed) {
+        if status.get(session_id).map(String::as_str) == Some(error) {
             status.remove(session_id);
         }
         Ok(())

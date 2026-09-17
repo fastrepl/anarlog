@@ -87,7 +87,7 @@ it("restores a startup failure from native state after subscribing", async () =>
   mocks.listen.mockResolvedValue(stop);
   mocks.snapshot.mockResolvedValue({
     status: "ok",
-    data: { "old-session": true },
+    data: { "old-session": "audio_deletion_failed: denied" },
   });
   expect(await listenForCaptureCleanup()).toBe(stop);
   expect(mocks.save).toHaveBeenCalledWith(
@@ -114,7 +114,10 @@ it("does not let an older startup snapshot overwrite a newer cleanup event", asy
         device: null,
       },
     });
-    return { status: "ok", data: { "old-session": true } };
+    return {
+      status: "ok",
+      data: { "old-session": "audio_deletion_failed: denied" },
+    };
   });
   await listenForCaptureCleanup();
   expect(mocks.clear).toHaveBeenCalledWith("old-session");
@@ -135,7 +138,10 @@ it("only acknowledges cleanup after persistence succeeds", async () => {
   );
   expect(mocks.acknowledge).not.toHaveBeenCalled();
   await handleCaptureCleanupStatus(payload);
-  expect(mocks.acknowledge).toHaveBeenCalledWith("session", true);
+  expect(mocks.acknowledge).toHaveBeenCalledWith(
+    "session",
+    "audio_deletion_failed: denied",
+  );
 });
 
 it("continues restoring other sessions when one persistence write fails", async () => {
@@ -143,7 +149,11 @@ it("continues restoring other sessions when one persistence write fails", async 
   mocks.listen.mockResolvedValue(vi.fn());
   mocks.snapshot.mockResolvedValue({
     status: "ok",
-    data: { broken: true, failed: true, completed: false },
+    data: {
+      broken: "audio_deletion_failed: denied",
+      failed: "audio_deletion_failed: denied",
+      completed: "audio_deletion_completed",
+    },
   });
   mocks.save.mockRejectedValueOnce(new Error("database full"));
   await listenForCaptureCleanup();
@@ -154,9 +164,18 @@ it("continues restoring other sessions when one persistence write fails", async 
     true,
   );
   expect(mocks.clear).toHaveBeenCalledWith("completed");
-  expect(mocks.acknowledge).not.toHaveBeenCalledWith("broken", true);
-  expect(mocks.acknowledge).toHaveBeenCalledWith("failed", true);
-  expect(mocks.acknowledge).toHaveBeenCalledWith("completed", false);
+  expect(mocks.acknowledge).not.toHaveBeenCalledWith(
+    "broken",
+    "audio_deletion_failed: denied",
+  );
+  expect(mocks.acknowledge).toHaveBeenCalledWith(
+    "failed",
+    "audio_deletion_failed: denied",
+  );
+  expect(mocks.acknowledge).toHaveBeenCalledWith(
+    "completed",
+    "audio_deletion_completed",
+  );
   vi.restoreAllMocks();
 });
 
@@ -182,7 +201,7 @@ it("uses the generic notification ID only for startup-wide failures", async () =
     is_fatal: false,
   });
   expect(mocks.error).toHaveBeenCalledWith(
-    "Audio could not be deleted",
+    "Audio cleanup could not finish",
     expect.objectContaining({ id: "audio-cleanup" }),
   );
   expect(mocks.save).not.toHaveBeenCalled();
@@ -213,7 +232,37 @@ it("keeps completion behind an in-flight failure write", async () => {
   expect(mocks.clear).not.toHaveBeenCalled();
   finishSave();
   await vi.waitFor(() =>
-    expect(mocks.acknowledge).toHaveBeenCalledWith("session", false),
+    expect(mocks.acknowledge).toHaveBeenCalledWith(
+      "session",
+      "audio_deletion_completed",
+    ),
   );
   expect(mocks.clear).toHaveBeenCalledWith("session");
+});
+
+it("replays recovery failures without marking retained audio for deletion", async () => {
+  mocks.listen.mockResolvedValue(vi.fn());
+  mocks.snapshot.mockResolvedValue({
+    status: "ok",
+    data: { session: "audio_recovery_failed: rename denied" },
+  });
+  await listenForCaptureCleanup();
+  expect(mocks.save).toHaveBeenCalledWith("session", "audio-recovery", false);
+  expect(mocks.error).toHaveBeenCalledWith(
+    "Audio could not be recovered",
+    expect.objectContaining({ id: "audio-recovery-session" }),
+  );
+  expect(mocks.acknowledge).toHaveBeenCalledWith(
+    "session",
+    "audio_recovery_failed: rename denied",
+  );
+  await handleCaptureCleanupStatus({
+    type: "audio_error",
+    session_id: "session",
+    error: "audio_recovery_completed",
+    device: null,
+    is_fatal: false,
+  });
+  expect(mocks.clear).not.toHaveBeenCalled();
+  expect(mocks.dismiss).toHaveBeenCalledWith("audio-recovery-session");
 });

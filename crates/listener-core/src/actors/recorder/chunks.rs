@@ -376,13 +376,14 @@ fn recover_partial_chunks(session_dir: &Path) -> std::io::Result<()> {
 }
 
 pub fn recover_interrupted_captures(sessions_dir: &Path) -> std::io::Result<()> {
-    recover_interrupted_captures_except(sessions_dir, &HashSet::new(), &mut |_, _| {}).map(|_| ())
+    recover_interrupted_captures_except(sessions_dir, &HashSet::new(), &mut |_, _, _| {})
+        .map(|_| ())
 }
 
 pub(crate) fn recover_interrupted_captures_except(
     sessions_dir: &Path,
     active_sessions: &HashSet<String>,
-    on_cleanup: &mut impl FnMut(&str, &std::io::Result<()>),
+    on_cleanup: &mut impl FnMut(&str, bool, &std::io::Result<()>),
 ) -> std::io::Result<bool> {
     if !sessions_dir.try_exists()? {
         return Ok(false);
@@ -403,13 +404,11 @@ pub(crate) fn recover_interrupted_captures_except(
             }
             if dir.join(DELETE_ON_STOP).try_exists()? {
                 let result = delete_capture_audio(&dir);
-                on_cleanup(&name, &result);
+                on_cleanup(&name, true, &result);
                 result
             } else if uuid::Uuid::parse_str(&name).is_ok() {
                 let result = recover_partial_chunks(&dir);
-                if result.is_err() {
-                    on_cleanup(&name, &result);
-                }
+                on_cleanup(&name, false, &result);
                 result
             } else {
                 deferred |= recover_interrupted_captures_except(&dir, active_sessions, on_cleanup)?;
@@ -529,11 +528,16 @@ mod tests {
         std::fs::write(dir.join(RECOVERY_DIR), b"not a directory").unwrap();
         let mut failures = Vec::new();
         assert!(
-            recover_interrupted_captures_except(root.path(), &HashSet::new(), &mut |id, result| {
-                if result.is_err() {
-                    failures.push(id.to_string());
-                }
-            },)
+            recover_interrupted_captures_except(
+                root.path(),
+                &HashSet::new(),
+                &mut |id, deleting, result| {
+                    assert!(!deleting);
+                    if result.is_err() {
+                        failures.push(id.to_string());
+                    }
+                },
+            )
             .is_err()
         );
         assert_eq!(failures, vec![session_id]);

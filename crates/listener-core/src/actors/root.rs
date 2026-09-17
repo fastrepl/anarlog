@@ -37,7 +37,7 @@ pub struct RootState {
     active_session_id: Option<String>,
     active_supervisor: Option<ActorCell>,
     finalizing_sessions: HashMap<String, ActorCell>,
-    cleanup_failed_sessions: HashSet<String>,
+    cleanup_failed_sessions: HashMap<String, bool>,
     cleanup_retry_scheduled: bool,
 }
 
@@ -61,7 +61,7 @@ impl Actor for RootActor {
         args: Self::Arguments,
     ) -> Result<Self::State, ActorProcessingErr> {
         let (retry, cleanup_failed_sessions) =
-            cleanup_interrupted_audio(args.runtime.clone(), HashSet::new(), HashSet::new()).await;
+            cleanup_interrupted_audio(args.runtime.clone(), HashSet::new(), HashMap::new()).await;
         if retry {
             myself.send_after(std::time::Duration::from_secs(30), || RootMsg::RetryCleanup);
         }
@@ -152,8 +152,8 @@ impl Actor for RootActor {
 async fn cleanup_interrupted_audio(
     runtime: Arc<dyn ListenerRuntime>,
     active: HashSet<String>,
-    previous_failures: HashSet<String>,
-) -> (bool, HashSet<String>) {
+    previous_failures: HashMap<String, bool>,
+) -> (bool, HashMap<String, bool>) {
     let cleanup_runtime = runtime.clone();
     let fallback_failures = previous_failures.clone();
     let cleanup = tokio::task::spawn_blocking(move || {
@@ -166,29 +166,41 @@ async fn cleanup_interrupted_audio(
             crate::actors::recorder::recover_interrupted_captures_except(
                 &sessions_dir,
                 &active,
-                &mut |session_id, result| {
+                &mut |session_id, deleting, result| {
+                    let previous = failures.get(session_id).copied();
                     match result {
                         Ok(()) => {
                             failures.remove(session_id);
                         }
                         Err(_) => {
-                            failures.insert(session_id.to_string());
+                            failures.insert(session_id.to_string(), deleting);
                         }
                     }
-                    emit_audio_cleanup(
-                        &*cleanup_runtime,
-                        session_id,
-                        result.as_ref().err().map(ToString::to_string),
-                    );
+                    if deleting || previous.is_some() || result.is_err() {
+                        emit_audio_cleanup(
+                            &*cleanup_runtime,
+                            session_id,
+                            if result.is_ok() {
+                                previous.unwrap_or(deleting)
+                            } else {
+                                deleting
+                            },
+                            result.as_ref().err().map(ToString::to_string),
+                        );
+                    }
                 },
             )
         })();
         if result.is_ok() {
             // A prior attempt may have succeeded elsewhere (for example on stop).
-            let completed: Vec<_> = failures.difference(&active).cloned().collect();
+            let completed: Vec<_> = failures
+                .keys()
+                .filter(|id| !active.contains(*id))
+                .cloned()
+                .collect();
             for session_id in completed {
-                failures.remove(&session_id);
-                emit_audio_cleanup(&*cleanup_runtime, &session_id, None);
+                let deleting = failures.remove(&session_id).unwrap();
+                emit_audio_cleanup(&*cleanup_runtime, &session_id, deleting, None);
             }
         }
         (result, failures)
@@ -203,6 +215,7 @@ async fn cleanup_interrupted_audio(
             emit_audio_cleanup(
                 &*runtime,
                 "",
+                true,
                 (!failures.is_empty())
                     .then(|| "Cleanup is deferred while the recording is in use".to_string()),
             );
@@ -210,18 +223,24 @@ async fn cleanup_interrupted_audio(
         }
         Err(error) => {
             tracing::warn!(%error, "capture_startup_cleanup_failed");
-            emit_audio_cleanup(&*runtime, "", Some(error));
+            emit_audio_cleanup(&*runtime, "", true, Some(error));
             (true, failures)
         }
     }
 }
 
-fn emit_audio_cleanup(runtime: &dyn ListenerRuntime, session_id: &str, error: Option<String>) {
+fn emit_audio_cleanup(
+    runtime: &dyn ListenerRuntime,
+    session_id: &str,
+    deleting: bool,
+    error: Option<String>,
+) {
+    let operation = if deleting { "deletion" } else { "recovery" };
     runtime.emit_error(crate::SessionErrorEvent::AudioError {
         session_id: session_id.to_string(),
         error: error.map_or_else(
-            || "audio_deletion_completed".into(),
-            |error| format!("audio_deletion_failed: {error}"),
+            || format!("audio_{operation}_completed"),
+            |error| format!("audio_{operation}_failed: {error}"),
         ),
         device: None,
         is_fatal: false,
@@ -586,9 +605,9 @@ mod tests {
         std::fs::write(&recovery, b"blocked directory").unwrap();
         let runtime = Arc::new(Runtime(dir.path().to_path_buf(), Default::default()));
         let (retry, failed) =
-            cleanup_interrupted_audio(runtime.clone(), HashSet::new(), HashSet::new()).await;
+            cleanup_interrupted_audio(runtime.clone(), HashSet::new(), HashMap::new()).await;
         assert!(retry);
-        assert!(failed.contains(&session_id));
+        assert!(failed.contains_key(&session_id));
         assert!(runtime.1.lock().unwrap().iter().any(|(id, error)| id == &session_id && error.starts_with("audio_deletion_failed:")));
         std::fs::remove_file(&recovery).unwrap();
         std::fs::create_dir(&recovery).unwrap();
@@ -624,6 +643,43 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn retained_recovery_failures_retry_without_reporting_audio_deletion() {
+        let dir = tempfile::tempdir().unwrap();
+        let session_id = uuid::Uuid::new_v4().to_string();
+        let session = dir.path().join("sessions").join(&session_id);
+        std::fs::create_dir_all(&session).unwrap();
+        std::fs::write(session.join("audio.mp3"), b"retained").unwrap();
+        let recovery = session.join("audio-recovery");
+        std::fs::write(&recovery, b"blocked directory").unwrap();
+        let runtime = Arc::new(Runtime(dir.path().to_path_buf(), Default::default()));
+        let (retry, failed) =
+            cleanup_interrupted_audio(runtime.clone(), HashSet::new(), HashMap::new()).await;
+        assert!(retry);
+        assert_eq!(failed.get(&session_id), Some(&false));
+        assert!(runtime.1.lock().unwrap().iter().any(|(id, error)| id == &session_id && error.starts_with("audio_recovery_failed:")));
+        std::fs::remove_file(&recovery).unwrap();
+        let (retry, failed) =
+            cleanup_interrupted_audio(runtime.clone(), HashSet::new(), failed).await;
+        assert!(!retry);
+        assert!(failed.is_empty());
+        assert_eq!(
+            std::fs::read(session.join("audio.mp3")).unwrap(),
+            b"retained"
+        );
+        let events = runtime.1.lock().unwrap();
+        assert!(
+            events
+                .iter()
+                .any(|(id, error)| id == &session_id && error == "audio_recovery_completed")
+        );
+        assert!(
+            !events
+                .iter()
+                .any(|(id, error)| id == &session_id && error.starts_with("audio_deletion"))
+        );
+    }
+
     #[cfg(unix)]
     #[tokio::test]
     async fn unreadable_cleanup_paths_do_not_clear_prior_failures() {
@@ -634,11 +690,11 @@ mod tests {
         let (retry, failed) = cleanup_interrupted_audio(
             runtime.clone(),
             HashSet::new(),
-            HashSet::from(["session".to_string()]),
+            HashMap::from([("session".to_string(), true)]),
         )
         .await;
         assert!(retry);
-        assert!(failed.contains("session"));
+        assert!(failed.contains_key("session"));
         assert!(
             runtime
                 .1
