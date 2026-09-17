@@ -104,6 +104,7 @@ pub(super) async fn spawn_recorder(
         Some(RecorderActor::name(&ctx.params.session_id)),
         RecorderActor::new(),
         RecArgs {
+            runtime: ctx.runtime.clone(),
             app_dir: ctx.app_dir.clone(),
             session_id: ctx.params.session_id.clone(),
         },

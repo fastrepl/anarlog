@@ -23,12 +23,18 @@ pub(super) struct DiskSink {
     wav_path: PathBuf,
     last_flush: Instant,
     is_stereo: bool,
+    pub(super) recovered_audio: bool,
 }
 
 pub(super) fn create_disk_sink(session_dir: &Path) -> Result<DiskSink, ActorProcessingErr> {
     let wav_path = session_dir.join(WAV_FILE);
     let ogg_path = session_dir.join(OGG_FILE);
     let encoded_path = session_dir.join(FINAL_AUDIO_FILE);
+    let recovered_audio = if !encoded_path.exists() && !ogg_path.exists() {
+        preserve_invalid_wav(&wav_path)?
+    } else {
+        false
+    };
     let has_existing_audio = encoded_path.exists() || ogg_path.exists() || wav_path.exists();
     let is_stereo =
         prepare_existing_audio_state(&encoded_path, &ogg_path, &wav_path)? || !has_existing_audio;
@@ -55,6 +61,9 @@ pub(super) fn create_disk_sink(session_dir: &Path) -> Result<DiskSink, ActorProc
         let mic_path = session_dir.join("audio_mic.wav");
         let spk_path = session_dir.join("audio_spk.wav");
 
+        preserve_invalid_wav(&mic_path)?;
+        preserve_invalid_wav(&spk_path)?;
+
         let mic_writer = if mic_path.exists() {
             hound::WavWriter::append(&mic_path)?
         } else {
@@ -72,14 +81,23 @@ pub(super) fn create_disk_sink(session_dir: &Path) -> Result<DiskSink, ActorProc
         (None, None)
     };
 
-    Ok(DiskSink {
+    let mut sink = DiskSink {
         writer: Some(writer),
         writer_mic,
         writer_spk,
         wav_path,
         last_flush: Instant::now(),
         is_stereo,
-    })
+        recovered_audio,
+    };
+    // Capture can stall before its first samples; leave a readable header on disk.
+    flush_all(&mut sink)?;
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&sink.wav_path)?
+        .sync_all()?;
+    sync_dir(&sink.wav_path);
+    Ok(sink)
 }
 
 pub(super) fn write_single(sink: &mut DiskSink, samples: &[f32]) -> Result<(), ActorProcessingErr> {
@@ -195,6 +213,42 @@ fn wav_is_stereo(wav_path: &Path) -> Result<bool, hound::Error> {
     Ok(reader.spec().channels == 2)
 }
 
+fn preserve_invalid_wav(path: &Path) -> Result<bool, ActorProcessingErr> {
+    let file = match File::open(path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(error.into()),
+    };
+    let invalid = match hound::WavReader::new(file) {
+        Ok(_) => false,
+        Err(hound::Error::FormatError(_)) => true,
+        Err(hound::Error::IoError(error))
+            if error.kind() == std::io::ErrorKind::UnexpectedEof
+                || (error.kind() == std::io::ErrorKind::Other
+                    && error.to_string() == "Failed to read enough bytes.") =>
+        {
+            true
+        }
+        Err(error) => return Err(error.into()),
+    };
+    if !invalid {
+        return Ok(false);
+    }
+
+    let recovery_path = path.with_extension(format!("recovery-{}.wav", uuid::Uuid::new_v4()));
+    // Linking refuses to overwrite any backup and keeps the bytes intact if removal fails.
+    std::fs::hard_link(path, &recovery_path)?;
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&recovery_path)?
+        .sync_all()?;
+    sync_dir(&recovery_path);
+    std::fs::remove_file(path)?;
+    sync_dir(path);
+    tracing::warn!("invalid_recording_preserved_for_recovery");
+    Ok(true)
+}
+
 fn is_debug_mode() -> bool {
     cfg!(debug_assertions)
         || std::env::var("LISTENER_DEBUG")
@@ -294,6 +348,150 @@ mod tests {
     use crate::actors::SAMPLE_RATE;
 
     use super::*;
+
+    #[test]
+    fn header_is_readable_before_any_audio_arrives() {
+        let dir = tempdir().unwrap();
+        let _sink = create_disk_sink(dir.path()).unwrap();
+        let reader = hound::WavReader::open(dir.path().join(WAV_FILE)).unwrap();
+        assert_eq!(reader.spec().channels, 2);
+        assert_eq!(reader.len(), 0);
+        if is_debug_mode() {
+            for name in ["audio_mic.wav", "audio_spk.wav"] {
+                assert_eq!(
+                    hound::WavReader::open(dir.path().join(name)).unwrap().len(),
+                    0
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn resume_preserves_invalid_wavs_and_records_new_audio() {
+        for bytes in [b"".as_slice(), b"RIFF\x24\x00", b"not a wave file"] {
+            let dir = tempdir().unwrap();
+            let path = dir.path().join(WAV_FILE);
+            std::fs::write(&path, bytes).unwrap();
+            let mut sink = create_disk_sink(dir.path()).unwrap();
+            assert!(sink.recovered_audio);
+            assert!(sink.is_stereo);
+            let backup = std::fs::read_dir(dir.path())
+                .unwrap()
+                .map(|entry| entry.unwrap().path())
+                .find(|path| path.to_string_lossy().contains(".recovery-"))
+                .unwrap();
+            assert_eq!(std::fs::read(&backup).unwrap(), bytes);
+            write_dual(&mut sink, &[0.25], &[0.5]).unwrap();
+            flush_all(&mut sink).unwrap();
+            let samples = hound::WavReader::open(&path)
+                .unwrap()
+                .samples::<f32>()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap();
+            assert_eq!(samples, vec![0.25, 0.5]);
+            assert_eq!(std::fs::read(backup).unwrap(), bytes);
+        }
+    }
+
+    #[test]
+    fn readable_header_keeps_partial_audio_available_for_append() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join(WAV_FILE);
+        write_test_wav(&path, 128);
+        let file = std::fs::OpenOptions::new().write(true).open(&path).unwrap();
+        file.set_len(file.metadata().unwrap().len() - 4).unwrap();
+        let original = std::fs::read(&path).unwrap();
+        assert!(!preserve_invalid_wav(&path).unwrap());
+        assert_eq!(std::fs::read(&path).unwrap(), original);
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn resume_after_startup_without_samples_keeps_valid_audio() {
+        let dir = tempdir().unwrap();
+        let mut sink = create_disk_sink(dir.path()).unwrap();
+        // Copy only the bytes already visible on disk, without dropping/finalizing the writer.
+        let interrupted = tempdir().unwrap();
+        std::fs::copy(dir.path().join(WAV_FILE), interrupted.path().join(WAV_FILE)).unwrap();
+        let mut resumed = create_disk_sink(interrupted.path()).unwrap();
+        assert!(!resumed.recovered_audio);
+        write_single(&mut resumed, &[0.25]).unwrap();
+        flush_all(&mut resumed).unwrap();
+        assert_eq!(
+            hound::WavReader::open(interrupted.path().join(WAV_FILE))
+                .unwrap()
+                .len(),
+            2
+        );
+        write_single(&mut sink, &[0.5]).unwrap();
+        flush_all(&mut sink).unwrap();
+        drop(sink);
+        let mut appended = create_disk_sink(dir.path()).unwrap();
+        assert!(!appended.recovered_audio);
+        write_single(&mut appended, &[0.25]).unwrap();
+        flush_all(&mut appended).unwrap();
+        assert_eq!(
+            hound::WavReader::open(dir.path().join(WAV_FILE))
+                .unwrap()
+                .samples::<f32>()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap(),
+            vec![0.5, 0.5, 0.25, 0.25]
+        );
+    }
+
+    #[test]
+    fn repeated_recovery_keeps_every_backup() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join(WAV_FILE);
+        for bytes in [b"first interrupted header", b"later interrupted header"] {
+            std::fs::write(&path, bytes).unwrap();
+            assert!(preserve_invalid_wav(&path).unwrap());
+        }
+        let mut backups = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|entry| std::fs::read(entry.unwrap().path()).unwrap())
+            .collect::<Vec<_>>();
+        backups.sort();
+        assert_eq!(
+            backups,
+            vec![
+                b"first interrupted header".to_vec(),
+                b"later interrupted header".to_vec()
+            ]
+        );
+    }
+
+    #[test]
+    fn damaged_debug_audio_does_not_block_a_valid_recording() {
+        if !is_debug_mode() {
+            return;
+        }
+        let dir = tempdir().unwrap();
+        write_test_wav(&dir.path().join(WAV_FILE), 128);
+        for name in ["audio_mic.wav", "audio_spk.wav"] {
+            std::fs::write(dir.path().join(name), b"RIFF").unwrap();
+        }
+        let sink = create_disk_sink(dir.path()).unwrap();
+        assert!(!sink.recovered_audio);
+        assert_eq!(
+            hound::WavReader::open(dir.path().join(WAV_FILE))
+                .unwrap()
+                .len(),
+            128
+        );
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 5);
+    }
+
+    #[test]
+    fn recovery_does_not_treat_io_errors_as_corruption() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join(WAV_FILE);
+        std::fs::create_dir(&path).unwrap();
+        assert!(preserve_invalid_wav(&path).is_err());
+        assert!(path.is_dir());
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
+    }
 
     #[test]
     fn create_disk_sink_decodes_existing_mp3_to_wav() {

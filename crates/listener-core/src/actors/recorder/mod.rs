@@ -21,6 +21,7 @@ pub enum RecorderEnqueueResult {
 }
 
 pub struct RecArgs {
+    pub runtime: Arc<dyn crate::ListenerRuntime>,
     pub app_dir: PathBuf,
     pub session_id: String,
 }
@@ -95,6 +96,16 @@ impl Actor for RecorderActor {
         })
         .await
         .map_err(into_actor_err)??;
+
+        if sink.recovered_audio {
+            args.runtime
+                .emit_error(crate::SessionErrorEvent::AudioError {
+                    session_id: args.session_id,
+                    error: "recording_recovered".to_owned(),
+                    device: None,
+                    is_fatal: false,
+                });
+        }
 
         let (writer_tx, writer_rx) = tokio::sync::mpsc::channel(WRITE_QUEUE_CAPACITY);
         let writer_task = tokio::task::spawn_blocking(move || {

@@ -383,6 +383,20 @@ const createSessionEventHandlers = <T extends LiveStore>(
       return;
     }
 
+    if (
+      payload.type === "audio_error" &&
+      !payload.is_fatal &&
+      payload.error === "recording_recovered"
+    ) {
+      sonnerToast.warning("The previous recording needs recovery", {
+        id: `recording-recovered-${targetSessionId}`,
+        duration: Infinity,
+        description:
+          "The unreadable audio was preserved in this note's folder as an audio.recovery-*.wav file. New audio will be recorded separately. Your transcript is unchanged.",
+      });
+      return;
+    }
+
     if (payload.type === "audio_ready")
       observeSpeakerMicrophone(targetSessionId, { device: payload.device });
     setLiveState(set, (live) => {
