@@ -390,6 +390,12 @@ describe("dictation access and lifecycle", () => {
     });
     expect(mocks.captureTarget).toHaveBeenCalledOnce();
     expect(mocks.startSystemRecording).toHaveBeenCalledOnce();
+    await act(async () => {
+      mocks.listener?.({ payload: { type: "released" } });
+    });
+    await waitFor(() =>
+      expect(mocks.insertText).toHaveBeenCalledWith("focused-field", "Hello"),
+    );
   });
 
   it("keeps recording available when a cloud preview session cannot be refreshed", async () => {

@@ -95,7 +95,7 @@ struct FloatingBarView: View {
         floatingControls(isExpanded: model.isExpanded)
           .frame(
             width: FloatingBarLayout.compactControlsWidth(
-              showsExpand: model.liveCaptionToggleVisible),
+              showsExpand: model.liveCaptionToggleVisible, isDictation: model.dictation != nil),
             height: FloatingBarLayout.compactHeight
           )
           .position(
@@ -133,11 +133,14 @@ struct FloatingBarView: View {
   private var expandedPanel: some View {
     VStack(spacing: 12) {
       HStack {
-        Text(model.title)
-          .font(.system(size: 13, weight: .semibold))
-          .foregroundStyle(primaryContentColor)
-          .lineLimit(1)
-          .truncationMode(.tail)
+        Text(
+          model.dictation?.phase == "transcribing"
+            ? "Finishing…" : model.dictation?.phase == "starting" ? "Starting…" : model.title
+        )
+        .font(.system(size: 13, weight: .semibold))
+        .foregroundStyle(primaryContentColor)
+        .lineLimit(1)
+        .truncationMode(.tail)
 
         Spacer(minLength: 12)
       }
@@ -149,14 +152,18 @@ struct FloatingBarView: View {
         ZStack(alignment: .bottom) {
           ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: 8) {
-              ForEach(Array(model.transcriptBubbles.enumerated()), id: \.element.id) {
-                index, bubble in
-                TranscriptBubbleView(
-                  bubble: bubble,
-                  showsSpeakerLabel: showsSpeakerLabel(at: index),
-                  colorScheme: model.colorScheme
-                )
-                .id(bubble.id)
+              if let dictation = model.dictation {
+                DictationTranscript(dictation: dictation, color: primaryContentColor)
+              } else {
+                ForEach(Array(model.transcriptBubbles.enumerated()), id: \.element.id) {
+                  index, bubble in
+                  TranscriptBubbleView(
+                    bubble: bubble,
+                    showsSpeakerLabel: showsSpeakerLabel(at: index),
+                    colorScheme: model.colorScheme
+                  )
+                  .id(bubble.id)
+                }
               }
               Color.clear
                 .frame(height: FloatingBarLayout.expandedPadding)
@@ -173,12 +180,17 @@ struct FloatingBarView: View {
               scrollTranscriptToBottom(proxy)
             }
           }
+          .onChange(of: model.dictation) { _, _ in
+            if shouldAutoScrollTranscript { scrollTranscriptToBottom(proxy) }
+          }
           .onAppear {
             shouldAutoScrollTranscript = true
             scrollTranscriptToBottom(proxy)
           }
 
-          if !shouldAutoScrollTranscript, model.transcriptBubbles.last?.id != nil {
+          if !shouldAutoScrollTranscript,
+            model.dictation != nil || model.transcriptBubbles.last?.id != nil
+          {
             transcriptBottomChip {
               performClick {
                 scrollTranscriptToBottom(proxy, animated: true)
@@ -191,6 +203,7 @@ struct FloatingBarView: View {
         }
         .animation(.easeOut(duration: 0.12), value: shouldAutoScrollTranscript)
       }
+      .id(model.dictation?.sessionId)
       .padding(.horizontal, FloatingBarLayout.expandedPadding)
       .padding(.bottom, FloatingBarLayout.expandedPadding)
     }
@@ -285,7 +298,8 @@ struct FloatingBarView: View {
     model.placement?.frame.size
       ?? FloatingBarLayout.containerSize(
         isExpanded: model.isExpanded,
-        showsExpand: model.liveCaptionToggleVisible
+        showsExpand: model.liveCaptionToggleVisible,
+        isDictation: model.dictation != nil
       )
   }
 
