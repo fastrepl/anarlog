@@ -259,7 +259,7 @@ fn copy_recovery_backup(path: &Path, recovery_path: &Path) -> std::io::Result<()
         .create_new(true)
         .open(recovery_path)?;
     std::io::copy(&mut source, &mut backup)?;
-    backup.sync_all()
+    Ok(())
 }
 
 fn is_debug_mode() -> bool {
