@@ -1,8 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { format } from "date-fns";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("~/shared/config", () => ({ useConfigValue: () => false }));
+vi.mock("~/shared/config", () => ({
+  useConfigValue: () => hoisted.use24HourTime,
+}));
 
 const hoisted = vi.hoisted(() => {
   const transaction = {
@@ -15,7 +17,7 @@ const hoisted = vi.hoisted(() => {
   const openCurrent = vi.fn();
   const openNew = vi.fn();
 
-  return { transaction, view, openCurrent, openNew };
+  return { transaction, view, openCurrent, openNew, use24HourTime: false };
 });
 
 vi.mock("@handlewithcare/react-prosemirror", () => ({
@@ -67,6 +69,9 @@ vi.mock("@anlg/editor/note", () => ({
 import { SessionNodeView } from "./session-view";
 
 describe("SessionNodeView", () => {
+  beforeEach(() => {
+    hoisted.use24HourTime = false;
+  });
   it("toggles the linked session status when clicked", () => {
     hoisted.transaction.setNodeMarkup.mockImplementation(
       (_pos, _type, attrs) => ({ attrs }),
@@ -168,32 +173,42 @@ describe("SessionNodeView", () => {
     });
   });
 
-  it("renders the event start time instead of the session creation time", () => {
-    const expectedEventTime = format(
-      new Date("2026-04-06T02:30:00.000Z"),
-      "h:mm a",
-    );
-    const unexpectedCreatedTime = format(
-      new Date("2026-04-06T00:00:00.000Z"),
-      "h:mm a",
-    );
+  it.each([false, true])(
+    "renders the event start time with 24-hour preference %s",
+    (use24HourTime) => {
+      hoisted.use24HourTime = use24HourTime;
+      const expectedEventTime = format(
+        new Date("2026-04-06T02:30:00.000Z"),
+        use24HourTime ? "HH:mm" : "h:mm a",
+      );
+      const unexpectedCreatedTime = format(
+        new Date("2026-04-06T00:00:00.000Z"),
+        use24HourTime ? "HH:mm" : "h:mm a",
+      );
 
-    render(
-      <SessionNodeView
-        nodeProps={
-          {
-            node: {
-              attrs: { sessionId: "session-1", status: "todo", checked: false },
-            },
-            getPos: () => 7,
-          } as any
-        }
-      >
-        Meeting
-      </SessionNodeView>,
-    );
+      render(
+        <SessionNodeView
+          nodeProps={
+            {
+              node: {
+                attrs: {
+                  sessionId: "session-1",
+                  status: "todo",
+                  checked: false,
+                },
+              },
+              getPos: () => 7,
+            } as any
+          }
+        >
+          Meeting
+        </SessionNodeView>,
+      );
 
-    expect(screen.queryAllByText(expectedEventTime).length).toBeGreaterThan(0);
-    expect(screen.queryAllByText(unexpectedCreatedTime)).toHaveLength(0);
-  });
+      expect(screen.queryAllByText(expectedEventTime).length).toBeGreaterThan(
+        0,
+      );
+      expect(screen.queryAllByText(unexpectedCreatedTime)).toHaveLength(0);
+    },
+  );
 });
