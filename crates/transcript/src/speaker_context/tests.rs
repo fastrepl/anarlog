@@ -302,6 +302,7 @@ fn assigned_speakers_stay_merged_across_context_intervals() {
     context.intervals[0].end_ms = 2000;
     let mut next = context.intervals[0].clone();
     next.start_ms = 3000;
+    next.end_ms = 6000;
     next.shared_microphone = true;
     context.intervals.push(next);
     let mut req = request(context, &[(1, 1), (1, 2), (1, 1), (1, 3), (1, 2)]);
