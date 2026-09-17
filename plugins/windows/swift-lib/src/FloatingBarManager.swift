@@ -62,7 +62,7 @@ final class FloatingBarManager {
 
   private func applyShow() {
     if let panel {
-      position(panel, force: true)
+      position(panel, force: true, followsPointer: model.dictation != nil)
       startObservingDisplayChanges()
       panel.orderFrontRegardless()
       return
@@ -92,7 +92,7 @@ final class FloatingBarManager {
     hostingView.autoresizingMask = [.width, .height]
 
     panel.contentView = hostingView
-    position(panel, force: true)
+    position(panel, force: true, followsPointer: model.dictation != nil)
     panel.orderFrontRegardless()
     self.panel = panel
     startObservingDisplayChanges()
@@ -180,6 +180,7 @@ final class FloatingBarManager {
   private func position(
     _ panel: NSPanel,
     force: Bool = false,
+    followsPointer: Bool = false,
     layout targetLayout: FloatingBarWindowLayout? = nil
   ) {
     let layout = targetLayout ?? currentLayout
@@ -189,7 +190,7 @@ final class FloatingBarManager {
       force: force,
       size: size,
       anchorOffset: controlAnchorOffset(for: layout),
-      followsPointer: false
+      followsPointer: followsPointer
     ) { screen, size in
       let frame = screen.visibleFrame
       let x = frame.midX - size.width / 2

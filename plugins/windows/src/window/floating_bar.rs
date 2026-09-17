@@ -517,10 +517,24 @@ mod cross_platform {
         width: f64,
         height: f64,
     ) -> Result<(f64, f64), Error> {
-        let monitor = window
-            .current_monitor()
-            .ok()
-            .flatten()
+        let pointer_monitor = current_state()
+            .is_some_and(|state| state.dictation.is_some())
+            .then(|| {
+                window
+                    .app_handle()
+                    .cursor_position()
+                    .ok()
+                    .and_then(|cursor| {
+                        window
+                            .app_handle()
+                            .monitor_from_point(cursor.x, cursor.y)
+                            .ok()
+                            .flatten()
+                    })
+            })
+            .flatten();
+        let monitor = pointer_monitor
+            .or_else(|| window.current_monitor().ok().flatten())
             .or_else(|| window.app_handle().primary_monitor().ok().flatten())
             .ok_or(Error::MonitorNotFound)?;
         let scale = monitor.scale_factor();

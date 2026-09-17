@@ -3073,7 +3073,7 @@ msgstr ""
 
 #: src/settings/dictation.tsx
 msgid "Live transcript preview"
-msgstr ""
+msgstr "Vista previa de la transcripción en directo"
 
 #: src/settings/stats/badge-collection.tsx
 msgid "Living Library"
@@ -5011,7 +5011,7 @@ msgstr ""
 
 #: src/settings/dictation.tsx
 msgid "Show words in the floating panel as you speak. Uses a live connection to your selected transcription provider when supported. Text is inserted when you finish."
-msgstr ""
+msgstr "Muestra las palabras en el panel flotante mientras hablas. Usa una conexión en directo con el proveedor de transcripción seleccionado cuando es compatible. El texto se inserta al terminar."
 
 #: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/index.tsx
