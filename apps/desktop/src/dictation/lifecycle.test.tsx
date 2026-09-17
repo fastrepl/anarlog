@@ -81,12 +81,30 @@ vi.mock("@anlg/ui/components/ui/toast", () => ({
 import { DictationLifecycle, useDictationStatus } from "./lifecycle";
 
 describe("dictation access and lifecycle", () => {
+  it("retains the last transcript through reconfiguration and clears it when disabled", async () => {
+    const { rerender } = render(<DictationLifecycle />);
+    await waitFor(() => expect(useDictationStatus.getState().ready).toBe(true));
+    useDictationStatus.setState({ lastTranscript: "Recover this text" });
+    mocks.settings.dictation_shortcut = "Control+Alt+D";
+    rerender(<DictationLifecycle />);
+    await waitFor(() =>
+      expect(mocks.configure).toHaveBeenLastCalledWith("Control+Alt+D"),
+    );
+    expect(useDictationStatus.getState().lastTranscript).toBe(
+      "Recover this text",
+    );
+    mocks.settings.dictation_enabled = false;
+    rerender(<DictationLifecycle />);
+    expect(useDictationStatus.getState().lastTranscript).toBe("");
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.session = { user: { id: "user-1" } };
     mocks.billing = { isPro: true, isReady: true };
     mocks.platform = "macos";
     mocks.settings.dictation_enabled = true;
+    mocks.settings.dictation_shortcut = "Control+Alt+Space";
     mocks.settings.microphone_device = "";
     mocks.meeting = { status: "inactive", loading: false };
     mocks.listener = null;

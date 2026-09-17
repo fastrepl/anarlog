@@ -48,22 +48,25 @@ export function DictationLifecycle() {
     (state) => state.live.status !== "inactive" || state.live.loading,
   );
 
-  if (
-    !session ||
-    !isReady ||
-    !isPro ||
-    !settingsReady ||
-    !enabled ||
-    meetingActive
-  )
-    return null;
+  if (!session || !isReady || !isPro || !settingsReady || !enabled) return null;
   return (
-    <ActiveDictation
-      key={`${session.user.id}:${shortcut}:${handsFree}:${retry}`}
-      shortcut={shortcut}
-      handsFree={handsFree}
-    />
+    <TranscriptRetention key={session.user.id}>
+      {!meetingActive && (
+        <ActiveDictation
+          key={`${shortcut}:${handsFree}:${retry}`}
+          shortcut={shortcut}
+          handsFree={handsFree}
+        />
+      )}
+    </TranscriptRetention>
   );
+}
+
+function TranscriptRetention({ children }: { children: React.ReactNode }) {
+  useMountEffect(() => () => {
+    useDictationStatus.setState({ lastTranscript: "" });
+  });
+  return children;
 }
 
 function unwrap<T>(
@@ -221,7 +224,7 @@ function ActiveDictation({
       useDictationStatus.setState({
         ready: false,
         phase: "idle",
-        lastTranscript: "",
+        lastTranscript: useDictationStatus.getState().lastTranscript,
         cancel: null,
       });
       lifecycle = lifecycle
