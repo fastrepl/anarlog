@@ -38,6 +38,20 @@ fn with_focused<T>(
     {
         return Err("Focus an editable text field before dictating.".into());
     }
+    let read_only = unsafe {
+        if let Ok(value) = element.GetCurrentPatternAs::<IUIAutomationValuePattern>(UIA_ValuePatternId) {
+            value.CurrentIsReadOnly().map(|value| value.as_bool())
+        } else {
+            element.GetCurrentPatternAs::<IUIAutomationTextPattern>(UIA_TextPatternId)
+                .and_then(|text| text.DocumentRange())
+                .and_then(|range| range.GetAttributeValue(UIA_IsReadOnlyAttributeId))
+                .and_then(|value| windows::Win32::System::Variant::VariantToBoolean(&value))
+                .map(|value| value.as_bool())
+        }
+    }.map_err(|_| "This field does not expose whether it is editable. Copy your last dictation from Settings > Dictation.".to_string())?;
+    if read_only {
+        return Err("Focus an editable text field before dictating.".into());
+    }
     work(element)
 }
 

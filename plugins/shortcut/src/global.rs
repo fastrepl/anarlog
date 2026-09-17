@@ -43,15 +43,17 @@ pub async fn configure(app: tauri::AppHandle, shortcut: Option<String>) -> Resul
                 Err("Global shortcuts are unavailable in this desktop session.".into())
             };
         };
-        for key in registration.cancel_keys.drain(..) {
-            let _ = global.unregister(key);
+        while let Some(key) = registration.cancel_keys.last().copied() {
+            global.unregister(key).map_err(|e| e.to_string())?;
+            registration.cancel_keys.pop();
         }
     }
     app.shortcut().unregister().map_err(|e| e.to_string())?;
-    if let Some(previous) = registration.shortcut.take() {
+    if let Some(previous) = registration.shortcut {
         app.global_shortcut()
             .unregister(previous)
             .map_err(|e| e.to_string())?;
+        registration.shortcut = None;
     }
     #[cfg(target_os = "linux")]
     if let Some(portal) = registration.portal.take() {
@@ -155,10 +157,11 @@ pub async fn set_active(app: tauri::AppHandle, active: bool) -> Result<(), Strin
         }
     } else {
         let mut registration = state.registration.lock().await;
-        for key in registration.cancel_keys.drain(..) {
+        while let Some(key) = registration.cancel_keys.last().copied() {
             app.global_shortcut()
                 .unregister(key)
                 .map_err(|e| e.to_string())?;
+            registration.cancel_keys.pop();
         }
     }
     Ok(())

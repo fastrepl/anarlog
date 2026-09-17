@@ -255,7 +255,12 @@ function ShortcutSetting({ shortcut }: { shortcut: string }) {
                 onChange={(event) => field.handleChange(event.target.value)}
                 onKeyDown={(event) => {
                   if (
-                    !(event.ctrlKey || event.altKey || event.metaKey) ||
+                    !(
+                      event.ctrlKey ||
+                      event.altKey ||
+                      event.metaKey ||
+                      event.shiftKey
+                    ) ||
                     ["Control", "Alt", "Meta", "Shift"].includes(event.key)
                   )
                     return;

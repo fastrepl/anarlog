@@ -917,6 +917,26 @@ describe("useRunBatch", () => {
     expect(createTranscriptMock).not.toHaveBeenCalled();
   });
 
+  test("retries cancellation after native startup finishes", async () => {
+    const abort = new AbortController();
+    let started!: () => void;
+    startTranscriptionMock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          started = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useRunBatch("dictation"));
+    const run = result.current("/tmp/voice.wav", { signal: abort.signal });
+    const rejected = expect(run).rejects.toMatchObject({ name: "AbortError" });
+    await waitFor(() => expect(startTranscriptionMock).toHaveBeenCalledOnce());
+    abort.abort();
+    expect(stopTranscriptionMock).toHaveBeenCalledTimes(1);
+    started();
+    await rejected;
+    expect(stopTranscriptionMock).toHaveBeenCalledTimes(2);
+  });
+
   test("promotes the complete streamed transcript before retention", async () => {
     let finishTranscription: (() => void) | undefined;
     startTranscriptionMock.mockImplementation(

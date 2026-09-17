@@ -115,7 +115,13 @@ impl HotKeyProcessor {
             .modifiers
             .contains(crate::hotkey::Modifier::RightCommand)
         {
-            event.modifiers.remove(crate::hotkey::Modifier::Command);
+            if !self
+                .hotkey
+                .modifiers
+                .contains(crate::hotkey::Modifier::Command)
+            {
+                event.modifiers.remove(crate::hotkey::Modifier::Command);
+            }
         } else {
             event
                 .modifiers

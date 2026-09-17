@@ -17045,7 +17045,6 @@ dependencies = [
  "tokio-util",
  "tracing",
  "windows 0.62.2",
- "zbus",
 ]
 
 [[package]]

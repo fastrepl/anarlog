@@ -103,7 +103,7 @@ describe("useDictation", () => {
     expect(result.current.phase).toBe("recording");
     expect(mocks.startRecording).toHaveBeenCalledWith(
       "Built-in Microphone",
-      expect.stringMatching(/^chat-dictation-/u),
+      mocks.useRunBatch.mock.calls[0][0],
     );
 
     await act(async () => {

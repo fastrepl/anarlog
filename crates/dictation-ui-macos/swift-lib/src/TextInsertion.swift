@@ -5,6 +5,8 @@ private final class DictationTarget {
   static let shared = DictationTarget()
   var element: AXUIElement?
   var token = ""
+  var clipboardSnapshot: [NSPasteboardItem]?
+  var clipboardChangeCount: Int?
 
   func focusedElement() -> AXUIElement? {
     guard AXIsProcessTrusted() else { return nil }
@@ -66,13 +68,18 @@ private final class DictationTarget {
     else { return "Could not insert text. Copy your last dictation from Settings > Dictation." }
 
     let pasteboard = NSPasteboard.general
-    let saved = (pasteboard.pasteboardItems ?? []).map { item in
-      let copy = NSPasteboardItem()
-      for type in item.types {
-        if let data = item.data(forType: type) { copy.setData(data, forType: type) }
-      }
-      return copy
+    if clipboardChangeCount != pasteboard.changeCount {
+      clipboardSnapshot = nil
     }
+    let saved =
+      clipboardSnapshot
+      ?? (pasteboard.pasteboardItems ?? []).map { item in
+        let copy = NSPasteboardItem()
+        for type in item.types {
+          if let data = item.data(forType: type) { copy.setData(data, forType: type) }
+        }
+        return copy
+      }
     let item = NSPasteboardItem()
     item.setString(text, forType: .string)
     item.setString("", forType: NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType"))
@@ -83,11 +90,18 @@ private final class DictationTarget {
       return "Could not prepare dictation for insertion."
     }
     let changeCount = pasteboard.changeCount
+    clipboardSnapshot = saved
+    clipboardChangeCount = changeCount
     down.flags = .maskCommand
     up.flags = .maskCommand
     down.post(tap: .cghidEventTap)
     up.post(tap: .cghidEventTap)
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+      guard self.clipboardChangeCount == changeCount else { return }
+      defer {
+        self.clipboardSnapshot = nil
+        self.clipboardChangeCount = nil
+      }
       // Leave a clipboard change made by the user or another application intact.
       if pasteboard.changeCount == changeCount {
         pasteboard.clearContents()

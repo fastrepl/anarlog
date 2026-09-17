@@ -120,16 +120,30 @@ mod desktop {
                 .resizable(false)
                 .build()
                 .map_err(|e| Error::Recording(e.to_string()))?;
-                if let Ok(Some(monitor)) = window.current_monitor() {
-                    let size = monitor.size().to_logical::<f64>(monitor.scale_factor());
-                    let position = monitor.position().to_logical::<f64>(monitor.scale_factor());
-                    let _ = window.set_position(tauri::LogicalPosition::new(
-                        position.x + (size.width - 240.0) / 2.0,
-                        position.y + size.height - 120.0,
-                    ));
-                }
                 window
             };
+            let monitor = self
+                .app
+                .cursor_position()
+                .ok()
+                .and_then(|cursor| {
+                    self.app
+                        .monitor_from_point(cursor.x, cursor.y)
+                        .ok()
+                        .flatten()
+                })
+                .or_else(|| self.app.primary_monitor().ok().flatten());
+            if let Some(monitor) = monitor {
+                let work = monitor.work_area();
+                let size = work.size.to_logical::<f64>(monitor.scale_factor());
+                let position = work.position.to_logical::<f64>(monitor.scale_factor());
+                window
+                    .set_position(tauri::LogicalPosition::new(
+                        position.x + (size.width - 240.0) / 2.0,
+                        position.y + size.height - 120.0,
+                    ))
+                    .map_err(|e| Error::Recording(e.to_string()))?;
+            }
             window.show().map_err(|e| Error::Recording(e.to_string()))?;
             Ok(())
         }

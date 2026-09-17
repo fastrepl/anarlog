@@ -640,3 +640,13 @@ fn command_shortcut_still_accepts_the_right_command_key() {
         Some(Output::StartRecording)
     );
 }
+
+#[test]
+fn combined_command_and_right_command_shortcut_matches() {
+    let modifiers = Modifiers::from([Modifier::Command, Modifier::RightCommand]);
+    let mut processor = HotKeyProcessor::new(HotKey::new(Some(K_A), modifiers));
+    assert_eq!(
+        processor.process_key(KeyEvent::new(Some(K_A), modifiers)),
+        Some(Output::StartRecording)
+    );
+}

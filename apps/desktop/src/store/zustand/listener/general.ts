@@ -61,6 +61,7 @@ export type GeneralActions = {
   startTranscription: (
     params: TranscriptionParams,
     options?: {
+      signal?: AbortSignal;
       handlePersist?: BatchPersistCallback;
       notifyOnCompletion?: boolean;
     },
@@ -223,6 +224,7 @@ export const createGeneralSlice = <
 
     await runBatchSession(get, sessionId, params, {
       notifyOnCompletion: options?.notifyOnCompletion,
+      signal: options?.signal,
     });
   },
   stopTranscription: async (sessionId) => {

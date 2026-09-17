@@ -17,7 +17,7 @@ serde_json = { workspace = true }
 specta = { workspace = true }
 tauri-plugin-global-shortcut = "2.3.2"
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["sync"] }
+tokio = { workspace = true, features = ["macros", "sync", "time"] }
 tracing = { workspace = true }
 
 tauri = { workspace = true, features = ["test"] }

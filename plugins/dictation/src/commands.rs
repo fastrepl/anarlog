@@ -17,7 +17,10 @@ pub(crate) async fn capture_target() -> Result<String, String> {
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn insert_text(target: String, text: String) -> Result<(), String> {
-    if text.is_empty() || text.len() > 100_000 || text.contains('\0') {
+    if text.contains('\0') {
+        return Err("Dictation text contains an unsupported NUL character".into());
+    }
+    if text.is_empty() || text.len() > 100_000 {
         return Err("Dictation text is empty or too long".into());
     }
     crate::insertion::insert(target, text).await

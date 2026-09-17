@@ -916,6 +916,7 @@ export const useRunBatch = (sessionId: string) => {
             options?.signal?.addEventListener("abort", abort, { once: true });
             try {
               await startTranscription(params, {
+                signal: options?.signal,
                 handlePersist: (...args) => {
                   options?.signal?.throwIfAborted();
                   return persist(...args);
@@ -925,6 +926,9 @@ export const useRunBatch = (sessionId: string) => {
               options?.signal?.throwIfAborted();
             } finally {
               options?.signal?.removeEventListener("abort", abort);
+              if (options?.signal?.aborted) {
+                await stopTranscription(sessionId).catch(() => {});
+              }
             }
           };
           try {

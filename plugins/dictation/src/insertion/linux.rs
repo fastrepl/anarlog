@@ -31,9 +31,6 @@ async fn capture_inner() -> Result<String, String> {
     let mut pending = root.get_children().await.map_err(|e| e.to_string())?;
     let mut visited = std::collections::HashSet::new();
     while let Some(object) = pending.pop() {
-        if visited.len() >= 2_000 {
-            break;
-        }
         if !visited.insert((object.name.to_string(), object.path.to_string())) {
             continue;
         }

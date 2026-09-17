@@ -123,6 +123,17 @@ describe("system dictation", () => {
 
   it("ignores repeated presses and releases during transcription", async () => {
     const state = setup();
+    let finish!: (text: string) => void;
+    state.transcribe.mockReturnValueOnce(
+      new Promise<string>((resolve) => {
+        finish = resolve;
+      }),
+    );
+    state.controller.press();
+    await settle();
+    state.controller.release();
+    await settle();
+    expect(state.onPhase).toHaveBeenLastCalledWith("transcribing");
     state.controller.press();
     state.controller.press();
     state.controller.release();
@@ -130,6 +141,9 @@ describe("system dictation", () => {
     await settle();
     expect(state.start).toHaveBeenCalledOnce();
     expect(state.stop).toHaveBeenCalledOnce();
+    expect(state.insert).not.toHaveBeenCalled();
+    finish("Completed dictation");
+    await settle();
     expect(state.insert).toHaveBeenCalledOnce();
   });
 });

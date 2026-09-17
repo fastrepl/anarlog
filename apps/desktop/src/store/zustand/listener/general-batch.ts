@@ -93,7 +93,7 @@ export const runBatchSession = async <T extends BatchStore>(
   get: StoreApi<T>["getState"],
   sessionId: string,
   params: TranscriptionParams,
-  options?: { notifyOnCompletion?: boolean },
+  options?: { notifyOnCompletion?: boolean; signal?: AbortSignal },
 ) => {
   get().handleBatchStarted(sessionId);
 
@@ -264,10 +264,22 @@ export const runBatchSession = async <T extends BatchStore>(
       })
       .then((fn) => {
         unlisten = fn;
+        if (options?.signal?.aborted) {
+          rejectStopped(reject);
+          return;
+        }
 
         transcriptionCommands
           .startTranscription(params)
-          .then((result) => {
+          .then(async (result) => {
+            if (options?.signal?.aborted && result.status === "ok") {
+              try {
+                await transcriptionCommands.stopTranscription(sessionId);
+              } finally {
+                rejectStopped(reject);
+              }
+              return;
+            }
             if (settled) {
               return;
             }
