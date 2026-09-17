@@ -121,6 +121,7 @@ pub async fn configure(app: tauri::AppHandle, shortcut: Option<String>) -> Resul
 #[specta::specta]
 pub async fn set_active(app: tauri::AppHandle, active: bool) -> Result<(), String> {
     let state = app.state::<GlobalState>();
+    let mut registration = state.registration.lock().await;
     state.active.store(active, Ordering::SeqCst);
     #[cfg(target_os = "linux")]
     if uses_portal() {
@@ -133,7 +134,6 @@ pub async fn set_active(app: tauri::AppHandle, active: bool) -> Result<(), Strin
         return Ok(());
     }
     if active {
-        let mut registration = state.registration.lock().await;
         let mut keys = vec![Shortcut::new(None, Code::Escape)];
         if let Some(shortcut) = registration.shortcut {
             keys.push(Shortcut::new(Some(shortcut.mods), Code::Escape));
@@ -153,7 +153,6 @@ pub async fn set_active(app: tauri::AppHandle, active: bool) -> Result<(), Strin
             registration.cancel_keys.push(key);
         }
     } else {
-        let mut registration = state.registration.lock().await;
         while let Some(key) = registration.cancel_keys.last().copied() {
             app.global_shortcut()
                 .unregister(key)

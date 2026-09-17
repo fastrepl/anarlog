@@ -117,17 +117,7 @@ private final class DictationTarget {
     clipboardChangeCount = changeCount
     clipboardProvider = provider
     provider.didRead = {
-      guard self.clipboardChangeCount == changeCount else { return }
-      defer {
-        self.clipboardSnapshot = nil
-        self.clipboardChangeCount = nil
-        self.clipboardProvider = nil
-      }
-      // Leave a clipboard change made by the user or another application intact.
-      if pasteboard.changeCount == changeCount {
-        pasteboard.clearContents()
-        pasteboard.writeObjects(saved)
-      }
+      self.restoreClipboard(saved, expectedChangeCount: changeCount, retries: 2)
     }
     down.flags = .maskCommand
     up.flags = .maskCommand
@@ -135,6 +125,31 @@ private final class DictationTarget {
     up.post(tap: .cghidEventTap)
     return ""
   }
+
+  private func restoreClipboard(_ saved: [NSPasteboardItem], expectedChangeCount: Int, retries: Int)
+  {
+    guard clipboardChangeCount == expectedChangeCount else { return }
+    let pasteboard = NSPasteboard.general
+    if pasteboard.changeCount == expectedChangeCount {
+      pasteboard.clearContents()
+      if !pasteboard.writeObjects(saved) {
+        let count = pasteboard.changeCount
+        clipboardChangeCount = count
+        if retries > 0 {
+          DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.restoreClipboard(saved, expectedChangeCount: count, retries: retries - 1)
+          }
+        } else {
+          NSLog("Could not restore dictation clipboard; keeping its owned snapshot for recovery.")
+        }
+        return
+      }
+    }
+    clipboardSnapshot = nil
+    clipboardChangeCount = nil
+    clipboardProvider = nil
+  }
+
 }
 
 private func onMain<T>(_ work: () -> T) -> T {

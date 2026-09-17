@@ -82,55 +82,64 @@ describe("runBatchSession", () => {
     shouldShowNotificationMock.mockResolvedValue(true);
   });
 
-  test("stops native work when cancellation races registration", async () => {
-    const abort = new AbortController();
-    let resolveStart!: (value: unknown) => void;
-    const unlisten = vi.fn();
-    listenMock.mockResolvedValue(unlisten);
-    startTranscriptionMock.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          resolveStart = resolve;
+  test.each(["ok", "error"])(
+    "handles an aborted %s startup as cancellation",
+    async (status) => {
+      const abort = new AbortController();
+      let resolveStart!: (value: unknown) => void;
+      const unlisten = vi.fn();
+      listenMock.mockResolvedValue(unlisten);
+      startTranscriptionMock.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveStart = resolve;
+          }),
+      );
+      stopTranscriptionMock.mockResolvedValue({ status: "ok", data: null });
+      const stopped = vi.fn();
+      const run = runBatchSession(
+        () => ({
+          batch: {},
+          batchPreview: {},
+          batchPersist: {},
+          handleBatchStarted: vi.fn(),
+          handleBatchResponse: vi.fn(),
+          handleBatchCompleted: vi.fn(),
+          clearBatchPersist: vi.fn(),
+          clearBatchSession: vi.fn(),
+          handleBatchResponseStreamed: vi.fn(),
+          handleBatchFailed: vi.fn(),
+          handleBatchStopped: stopped,
+          updateBatchProgress: vi.fn(),
+          setBatchPersist: vi.fn(),
         }),
-    );
-    stopTranscriptionMock.mockResolvedValue({ status: "ok", data: null });
-    const stopped = vi.fn();
-    const run = runBatchSession(
-      () => ({
-        batch: {},
-        batchPreview: {},
-        batchPersist: {},
-        handleBatchStarted: vi.fn(),
-        handleBatchResponse: vi.fn(),
-        handleBatchCompleted: vi.fn(),
-        clearBatchPersist: vi.fn(),
-        clearBatchSession: vi.fn(),
-        handleBatchResponseStreamed: vi.fn(),
-        handleBatchFailed: vi.fn(),
-        handleBatchStopped: stopped,
-        updateBatchProgress: vi.fn(),
-        setBatchPersist: vi.fn(),
-      }),
-      "dictation",
-      {
-        session_id: "dictation",
-        provider: "anarlog",
-        file_path: "/tmp/dictation.wav",
-        base_url: "",
-        api_key: "",
-      },
-      { signal: abort.signal },
-    );
-    const rejected = expect(run).rejects.toThrow("Transcription stopped.");
-    await Promise.resolve();
-    await Promise.resolve();
-    abort.abort();
-    resolveStart({ status: "ok", data: null });
-    await rejected;
-    expect(stopTranscriptionMock).toHaveBeenCalledWith("dictation");
-    expect(stopped).toHaveBeenCalledWith("dictation");
-    expect(unlisten).toHaveBeenCalledOnce();
-  });
+        "dictation",
+        {
+          session_id: "dictation",
+          provider: "anarlog",
+          file_path: "/tmp/dictation.wav",
+          base_url: "",
+          api_key: "",
+        },
+        { signal: abort.signal },
+      );
+      const rejected = expect(run).rejects.toThrow("Transcription stopped.");
+      await Promise.resolve();
+      await Promise.resolve();
+      abort.abort();
+      resolveStart(
+        status === "ok"
+          ? { status, data: null }
+          : { status, error: "Startup failed" },
+      );
+      await rejected;
+      if (status === "ok")
+        expect(stopTranscriptionMock).toHaveBeenCalledWith("dictation");
+      else expect(stopTranscriptionMock).not.toHaveBeenCalled();
+      expect(stopped).toHaveBeenCalledWith("dictation");
+      expect(unlisten).toHaveBeenCalledOnce();
+    },
+  );
 
   test("uses synthetic progress only for blocking batch providers", () => {
     expect(

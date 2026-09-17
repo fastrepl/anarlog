@@ -122,6 +122,19 @@ fn portal_trigger(key: Shortcut) -> String {
     parts.push(match code.as_str() {
         "Space" => "space".into(),
         "Backspace" => "BackSpace".into(),
+        "Enter" => "Return".into(),
+        "NumpadEnter" => "KP_Enter".into(),
+        "NumpadAdd" => "KP_Add".into(),
+        "NumpadSubtract" => "KP_Subtract".into(),
+        "NumpadMultiply" => "KP_Multiply".into(),
+        "NumpadDivide" => "KP_Divide".into(),
+        "NumpadDecimal" => "KP_Decimal".into(),
+        code if code
+            .strip_prefix("Numpad")
+            .is_some_and(|s| s.len() == 1 && s.as_bytes()[0].is_ascii_digit()) =>
+        {
+            format!("KP_{}", &code[6..])
+        }
         "ArrowLeft" => "Left".into(),
         "ArrowRight" => "Right".into(),
         "ArrowUp" => "Up".into(),

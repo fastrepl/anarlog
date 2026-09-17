@@ -25,6 +25,7 @@ struct DictationTranscript: View {
           + Text(dictation.partial).foregroundStyle(color.opacity(0.6)))
       }
     }
+    .accessibilityAddTraits(.updatesFrequently)
     .font(.system(size: 15)).lineSpacing(5)
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(.horizontal, 4)

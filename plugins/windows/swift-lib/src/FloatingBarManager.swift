@@ -112,6 +112,7 @@ final class FloatingBarManager {
     isApplyingExternalState = true
     let startsDictation =
       state.dictation?.sessionId != model.dictation?.sessionId && state.dictation != nil
+    if state.dictation != nil, panel?.isKeyWindow == true { panel?.resignKey() }
     model.dictation = state.dictation
     (panel as? FloatingBarPanel)?.dictationMode = state.dictation != nil
     if model.status != state.status {

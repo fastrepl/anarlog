@@ -82,6 +82,15 @@ async fn run(
     }
     match config.provider.as_str() {
         "anarlog" => listen::<AnarlogAdapter>(config, receiver, updates).await,
+        "deepgram"
+            if config
+                .params
+                .model
+                .as_deref()
+                .is_some_and(DeepgramFluxAdapter::is_model) =>
+        {
+            listen::<DeepgramFluxAdapter>(config, receiver, updates).await
+        }
         "deepgram" => listen::<DeepgramAdapter>(config, receiver, updates).await,
         "soniox" => listen::<SonioxAdapter>(config, receiver, updates).await,
         "assemblyai" => listen::<AssemblyAIAdapter>(config, receiver, updates).await,

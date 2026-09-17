@@ -272,9 +272,10 @@ export const runBatchSession = async <T extends BatchStore>(
         transcriptionCommands
           .startTranscription(params)
           .then(async (result) => {
-            if (options?.signal?.aborted && result.status === "ok") {
+            if (options?.signal?.aborted) {
               try {
-                await transcriptionCommands.stopTranscription(sessionId);
+                if (result.status === "ok")
+                  await transcriptionCommands.stopTranscription(sessionId);
               } finally {
                 rejectStopped(reject);
               }

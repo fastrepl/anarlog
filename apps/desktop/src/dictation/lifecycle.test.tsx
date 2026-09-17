@@ -1,5 +1,5 @@
-import { act, render, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   isCloudModel: false,
@@ -103,9 +103,17 @@ vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: { error: vi.fn() },
 }));
 
-import { DictationLifecycle, useDictationStatus } from "./lifecycle";
+import {
+  DictationLifecycle,
+  useDictationStatus,
+  waitForDictationCleanup,
+} from "./lifecycle";
 
 describe("dictation access and lifecycle", () => {
+  afterEach(async () => {
+    cleanup();
+    await waitForDictationCleanup();
+  });
   it("retains the last transcript through reconfiguration and clears it when disabled", async () => {
     const { rerender } = render(<DictationLifecycle />);
     await waitFor(() => expect(useDictationStatus.getState().ready).toBe(true));
@@ -241,6 +249,7 @@ describe("dictation access and lifecycle", () => {
     await act(async () => {
       mocks.listener?.({ payload: { type: "pressed" } });
     });
+    expect(useDictationStatus.getState().owner).toBeNull();
     expect(mocks.captureTarget).not.toHaveBeenCalled();
     expect(mocks.startSystemRecording).not.toHaveBeenCalled();
     expect(useDictationStatus.getState().error).toMatch(
@@ -309,7 +318,11 @@ describe("dictation access and lifecycle", () => {
     await act(async () => {
       channel.onmessage({ type: "transcript", text: "Stale", partial: "" });
     });
-    expect(useDictationStatus.getState().text).toBe("Hello");
+    expect(useDictationStatus.getState()).toMatchObject({
+      owner: null,
+      text: "",
+      lastTranscript: "Hello",
+    });
   });
 
   it("drops preview updates after cancellation and does not transcribe or insert", async () => {

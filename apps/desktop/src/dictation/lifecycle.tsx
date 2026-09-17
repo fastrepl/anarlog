@@ -27,6 +27,10 @@ export { useDictationStatus } from "./state";
 
 let lifecycle: Promise<void> = Promise.resolve();
 
+export function waitForDictationCleanup() {
+  return lifecycle;
+}
+
 export function DictationLifecycle() {
   const { session } = useAuth();
   const { isPro, isReady } = useBillingAccess();
@@ -262,6 +266,15 @@ function ActiveDictation({
         if (!disposed)
           useDictationStatus.setState({
             phase,
+            ...(phase === "idle"
+              ? {
+                  owner: null,
+                  presentedOwner: null,
+                  text: "",
+                  partial: "",
+                  amplitude: 0,
+                }
+              : {}),
             ...(phase === "starting" &&
             useDictationStatus.getState().phase === "idle"
               ? { owner: null }
