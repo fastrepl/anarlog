@@ -11,7 +11,6 @@ import {
   CircleNotch,
   Square,
   WarningCircle,
-  X,
 } from "@anlg/ui/components/icons";
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 import { cn } from "@anlg/utils";
@@ -20,6 +19,7 @@ import { DictationTranscript } from "./dictation";
 import {
   FLOATING_BAR_COMPACT_GAP,
   FLOATING_BAR_COMPACT_HEIGHT,
+  FLOATING_BAR_COMPACT_HORIZONTAL_PADDING,
   FLOATING_BAR_COMPACT_ICON_SIZE,
   FLOATING_BAR_COMPACT_SOLO_STOP_WIDTH,
   FLOATING_BAR_COMPACT_STOP_WIDTH,
@@ -47,7 +47,7 @@ export function FloatingBarOverlay({
     state.liveCaptionToggleVisible && !state.liveCaptionMinimized;
   const colors = barColors(state);
   const controlsWidth = compactControlsWidth(state.liveCaptionToggleVisible);
-  const expandsUpward = state.layout?.expandsUpward ?? true;
+  const expandsUpward = state.layout?.expandsUpward ?? false;
 
   return (
     <div
@@ -115,7 +115,7 @@ export function FloatingBarOverlay({
             style={{
               left: state.layout
                 ? state.layout.controlsCenterX - FLOATING_BAR_INSET
-                : "50%",
+                : `calc(100% - ${FLOATING_BAR_COMPACT_HORIZONTAL_PADDING + controlsWidth / 2}px)`,
               top: expandsUpward ? undefined : 0,
               bottom: expandsUpward ? 0 : undefined,
               width: controlsWidth,

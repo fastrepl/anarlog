@@ -47,6 +47,42 @@ describe("FloatingBarOverlay", () => {
     cleanup();
   });
 
+  it.each([true, false])(
+    "keeps legacy backend controls at the top right (minimized=%s)",
+    (liveCaptionMinimized) => {
+      render(
+        <FloatingBarOverlay
+          state={state({ liveCaptionMinimized })}
+          onStop={vi.fn()}
+          onToggleExpanded={vi.fn()}
+        />,
+      );
+      const controls = screen.getByRole("button", { name: "Stop listening" })
+        .parentElement!.parentElement!;
+      expect(controls.style.top).toBe("0px");
+      expect(controls.style.bottom).toBe("");
+      expect(controls.style.left).toBe("calc(100% - 51.5px)");
+    },
+  );
+
+  it("uses backend coordinates when layout metadata is available", () => {
+    render(
+      <FloatingBarOverlay
+        state={state({
+          liveCaptionMinimized: false,
+          layout: { controlsCenterX: 200, expandsUpward: true },
+        })}
+        onStop={vi.fn()}
+        onToggleExpanded={vi.fn()}
+      />,
+    );
+    const controls = screen.getByRole("button", { name: "Stop listening" })
+      .parentElement!.parentElement!;
+    expect(controls.style.top).toBe("");
+    expect(controls.style.bottom).toBe("0px");
+    expect(controls.style.left).toBe("196px");
+  });
+
   it("stops listening from the compact bar", () => {
     const onStop = vi.fn();
 

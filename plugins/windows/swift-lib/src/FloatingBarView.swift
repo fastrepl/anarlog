@@ -93,7 +93,7 @@ struct FloatingBarView: View {
         floatingControls(isExpanded: model.isExpanded)
           .frame(
             width: FloatingBarLayout.compactControlsWidth(
-              showsExpand: model.liveCaptionToggleVisible, isDictation: model.dictation != nil),
+              showsExpand: model.liveCaptionToggleVisible),
             height: FloatingBarLayout.compactHeight
           )
           .position(
@@ -291,8 +291,7 @@ struct FloatingBarView: View {
     model.placement?.frame.size
       ?? FloatingBarLayout.containerSize(
         isExpanded: model.isExpanded,
-        showsExpand: model.liveCaptionToggleVisible,
-        isDictation: model.dictation != nil
+        showsExpand: model.liveCaptionToggleVisible
       )
   }
 
