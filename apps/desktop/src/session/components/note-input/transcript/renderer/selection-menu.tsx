@@ -183,9 +183,8 @@ export function MultiSelectionBar({
           <button
             type="button"
             disabled={deleteMutation.isPending}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-7 items-center gap-1.5 rounded-full px-3 font-medium"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-7 shrink-0 items-center rounded-full px-3 font-medium whitespace-nowrap"
           >
-            <UserSwitch className="size-3.5" />
             <Trans>Change speaker</Trans>
           </button>
         </PopoverTrigger>
