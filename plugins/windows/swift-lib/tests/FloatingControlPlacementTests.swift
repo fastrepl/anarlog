@@ -12,13 +12,27 @@ final class FloatingControlPlacementTests: XCTestCase {
     ] {
       for size in [
         NSSize(width: 111, height: 67), NSSize(width: 368, height: 459),
-        NSSize(width: 111, height: 67),
+        NSSize(width: 220, height: 240),
       ] {
         let layout = FloatingControlPlacement.layout(
           anchor: anchor, size: size, workArea: work, expandsUpward: upwards)
         XCTAssertEqual(layout.frame.minX + layout.controlOffset.x, anchor.x)
         XCTAssertEqual(layout.frame.minY + layout.controlOffset.y, anchor.y)
         XCTAssertTrue(work.contains(layout.frame))
+        XCTAssertGreaterThanOrEqual(layout.frame.height, 67)
+      }
+    }
+  }
+
+  func testControlsDraggedPastDisplayEdgesKeepThePanelVisible() {
+    let work = NSRect(x: 0, y: 40, width: 1920, height: 1040)
+    for anchor in [NSPoint(x: 960, y: 50), NSPoint(x: 960, y: 1070)] {
+      for upwards in [false, true] {
+        let layout = FloatingControlPlacement.layout(
+          anchor: anchor, size: NSSize(width: 368, height: 459),
+          workArea: work, expandsUpward: upwards)
+        XCTAssertTrue(work.contains(layout.frame))
+        XCTAssertGreaterThanOrEqual(layout.frame.height, 67)
       }
     }
   }

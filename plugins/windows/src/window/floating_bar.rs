@@ -126,12 +126,15 @@ pub(crate) mod layout {
         expands_upward: bool,
     ) -> (f64, f64, f64, f64) {
         let width = size.0.min(work.2);
+        let min_height = size.1.min(container_size(false, true).1).min(work.3);
         let (y, height) = if expands_upward {
-            let bottom = anchor.1 + INSET + COMPACT_HEIGHT / 2.0;
+            let bottom = (anchor.1 + INSET + COMPACT_HEIGHT / 2.0)
+                .clamp(work.1 + min_height, work.1 + work.3);
             let height = size.1.min(bottom - work.1);
             (bottom - height, height)
         } else {
-            let y = anchor.1 - controls_center_y(size.1, false);
+            let y = (anchor.1 - controls_center_y(size.1, false))
+                .clamp(work.1, work.1 + work.3 - min_height);
             (y, size.1.min(work.1 + work.3 - y))
         };
         let x = (anchor.0 - width / 2.0).clamp(work.0, work.0 + work.2 - width);
@@ -383,16 +386,6 @@ mod cross_platform {
             .disable_drag_drop_handler()
             .build()?;
 
-        let moved_window = window.clone();
-        window.on_window_event(move |event| {
-            if let tauri::WindowEvent::Moved(position) = event
-                && let Ok(scale) = moved_window.scale_factor()
-                && let Ok(mut expansion) = EXPANSION.try_lock()
-            {
-                let position = position.to_logical::<f64>(scale);
-                super::layout::forget_moved_expansion(&mut expansion, (position.x, position.y));
-            }
-        });
         crate::window::exclude_from_capture(&window);
 
         Ok(window)
@@ -526,15 +519,20 @@ mod tests {
     use super::layout;
 
     #[test]
-    fn dragging_away_and_back_does_not_restore_the_old_compact_frame() {
-        let mut expansion = Some(((10.0, 20.0, 111.0, 67.0), (0.0, 20.0)));
-        layout::forget_moved_expansion(&mut expansion, (0.0, 20.0));
-        assert!(expansion.is_some());
-        layout::forget_moved_expansion(&mut expansion, (100.0, 20.0));
-        layout::forget_moved_expansion(&mut expansion, (0.0, 20.0));
-        assert!(expansion.is_none());
-        let current = (0.0, 20.0, 368.0, 459.0);
-        assert_eq!(layout::collapse_anchor(current, expansion), current);
+    fn controls_dragged_near_vertical_edges_keep_the_panel_visible() {
+        for anchor_y in [-100.0, 10.0, 1070.0, 1200.0] {
+            for upwards in [false, true] {
+                let (x, y, width, height) = layout::frame_at_controls(
+                    (960.0, anchor_y),
+                    (368.0, 459.0),
+                    (0.0, 0.0, 1920.0, 1080.0),
+                    upwards,
+                );
+                assert!(x >= 0.0 && y >= 0.0);
+                assert!(height >= layout::container_size(false, true).1);
+                assert!(x + width <= 1920.0 && y + height <= 1080.0);
+            }
+        }
     }
 
     #[test]

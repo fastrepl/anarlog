@@ -190,6 +190,7 @@ final class FloatingBarManager {
       let y = frame.minY + FloatingBarLayout.screenMargin
       return NSPoint(x: x, y: y)
     }
+    resize(panel, to: layout)
   }
 
   private func resize(_ panel: NSPanel, to targetLayout: FloatingBarWindowLayout? = nil) {

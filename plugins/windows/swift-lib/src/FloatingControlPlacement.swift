@@ -19,15 +19,26 @@ enum FloatingControlPlacement {
   static func layout(anchor: NSPoint, size: NSSize, workArea: NSRect, expandsUpward: Bool) -> Layout
   {
     let width = min(size.width, workArea.width)
+    let minHeight = min(
+      size.height, FloatingBarLayout.containerSize(isExpanded: false, showsExpand: true).height,
+      workArea.height)
     let y: CGFloat
     let height: CGFloat
     if expandsUpward {
-      y = anchor.y - FloatingBarLayout.inset - FloatingBarLayout.compactHeight / 2
+      y = max(
+        workArea.minY,
+        min(
+          anchor.y - FloatingBarLayout.inset - FloatingBarLayout.compactHeight / 2,
+          workArea.maxY - minHeight))
       height = min(size.height, workArea.maxY - y)
     } else {
       let top =
-        anchor.y + FloatingBarLayout.inset + FloatingBarLayout.hoverHandleReservedHeight
-        + FloatingBarLayout.compactHeight / 2
+        min(
+          workArea.maxY,
+          max(
+            workArea.minY + minHeight,
+            anchor.y + FloatingBarLayout.inset + FloatingBarLayout.hoverHandleReservedHeight
+              + FloatingBarLayout.compactHeight / 2))
       height = min(size.height, top - workArea.minY)
       y = top - height
     }
