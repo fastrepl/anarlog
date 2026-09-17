@@ -6,8 +6,6 @@ final class FloatingBarManager {
   static let shared = FloatingBarManager()
 
   private var panel: NSPanel?
-  private var expandsUpward = true
-  private var expansion: (compact: NSRect, expanded: NSRect)?
   private let model = FloatingBarViewModel()
   private let settingsModel = FloatingOverlaySettingsModel.shared
   private let placement = FloatingPanelPositionController()
@@ -26,10 +24,7 @@ final class FloatingBarManager {
         guard let self, let panel = self.panel else { return }
         guard !self.isApplyingExternalState else { return }
         let layout = self.layout(isExpanded: isExpanded)
-        let didResize = self.resize(panel, to: layout)
-        if !didResize {
-          self.position(panel, force: true, layout: layout)
-        }
+        self.resize(panel, to: layout)
       }
       .store(in: &cancellables)
   }
@@ -73,8 +68,7 @@ final class FloatingBarManager {
       return
     }
 
-    expandsUpward = true
-    expansion = nil
+    model.placement = nil
     FloatingBarFonts.register()
 
     let panel = createPanel()
@@ -85,7 +79,6 @@ final class FloatingBarManager {
         panelOrigin: { [weak self] in self?.panel?.frame.origin },
         movePanel: { [weak self] origin in
           guard let self, let panel = self.panel else { return }
-          self.expansion = nil
           self.placement.moveByUserDrag(
             panel,
             to: origin,
@@ -142,10 +135,7 @@ final class FloatingBarManager {
     }
     isApplyingExternalState = false
     if let panel {
-      let didResize = resize(panel)
-      if !didResize {
-        position(panel, force: true)
-      }
+      resize(panel)
     }
   }
 
@@ -187,7 +177,7 @@ final class FloatingBarManager {
     layout targetLayout: FloatingBarWindowLayout? = nil
   ) {
     let layout = targetLayout ?? currentLayout
-    let size = size(for: layout)
+    let size = model.placement?.frame.size ?? size(for: layout)
     placement.position(
       panel,
       force: force,
@@ -202,41 +192,32 @@ final class FloatingBarManager {
     }
   }
 
-  private func resize(
-    _ panel: NSPanel,
-    to targetLayout: FloatingBarWindowLayout? = nil
-  ) -> Bool {
+  private func resize(_ panel: NSPanel, to targetLayout: FloatingBarWindowLayout? = nil) {
     let nextLayout = targetLayout ?? currentLayout
-    let size = size(for: nextLayout)
-    let previousSize = panel.frame.size
-    panel.minSize = size
-    guard previousSize != size else { return false }
-
+    let requestedSize = size(for: nextLayout)
+    let offset = controlAnchorOffset(for: nextLayout)
+    let anchor = NSPoint(x: panel.frame.minX + offset.x, y: panel.frame.minY + offset.y)
     let workArea = (panel.screen ?? NSScreen.main)?.visibleFrame ?? panel.frame
-    if size.height > previousSize.height {
-      expandsUpward = FloatingBarPlacement.expandsUpward(frame: panel.frame, workArea: workArea)
-    }
-    let nextAnchorOffset = controlAnchorOffset(for: nextLayout)
-    let frame = FloatingBarPlacement.resizedFrame(
-      panel.frame, size: size, workArea: workArea, expandsUpward: expandsUpward,
-      expansion: expansion)
-    if size.height > previousSize.height {
-      expansion = (panel.frame, frame)
-    } else {
-      expansion = nil
-    }
+    let grows =
+      nextLayout.isExpanded
+      && panel.frame.height
+        <= FloatingBarLayout.containerSize(isExpanded: false, showsExpand: true).height
+    let expandsUpward =
+      grows
+      ? workArea.maxY - anchor.y > anchor.y - workArea.minY
+      : model.placement?.expandsUpward ?? true
+    let next = FloatingControlPlacement.layout(
+      anchor: anchor, size: requestedSize,
+      workArea: workArea, expandsUpward: expandsUpward)
+    model.placement = next
+    panel.minSize = next.frame.size
     placement.setFrame(
-      panel,
-      to: frame,
-      display: true,
-      animate: false,
-      anchorOffset: nextAnchorOffset)
-    panel.contentView?.frame = NSRect(origin: .zero, size: size)
-    return true
+      panel, to: next.frame, display: true, animate: false, anchorOffset: next.controlOffset)
+    panel.contentView?.frame = NSRect(origin: .zero, size: next.frame.size)
   }
 
   private var currentSize: NSSize {
-    size(for: currentLayout)
+    model.placement?.frame.size ?? size(for: currentLayout)
   }
 
   private var currentLayout: FloatingBarWindowLayout {
@@ -258,8 +239,10 @@ final class FloatingBarManager {
   }
 
   private func controlAnchorOffset(for layout: FloatingBarWindowLayout) -> NSPoint {
-    let size = size(for: layout)
-    return NSPoint(x: size.width / 2, y: expandsUpward ? 0 : size.height)
+    model.placement?.controlOffset
+      ?? NSPoint(
+        x: (panel?.frame.width ?? size(for: layout).width) / 2,
+        y: FloatingBarLayout.inset + FloatingBarLayout.compactHeight / 2)
   }
 
   private func startObservingDisplayChanges() {

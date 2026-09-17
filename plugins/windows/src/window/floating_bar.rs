@@ -12,6 +12,13 @@ pub enum FloatingBarStatus {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
+pub struct FloatingBarOverlayLayout {
+    pub controls_center_x: f64,
+    pub expands_upward: bool,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
 pub enum FloatingBarColorScheme {
     Light,
     Dark,
@@ -47,6 +54,8 @@ pub struct FloatingBarState {
     pub live_caption_toggle_visible: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transcript_bubbles: Option<Vec<FloatingTranscriptBubble>>,
+    #[serde(default)]
+    pub layout: Option<FloatingBarOverlayLayout>,
 }
 
 pub const WINDOW_LABEL: &str = "floating-bar";
@@ -100,6 +109,35 @@ pub(crate) mod layout {
         }
     }
 
+    #[cfg(any(test, not(target_os = "macos")))]
+    pub fn controls_center_y(height: f64, expands_upward: bool) -> f64 {
+        if expands_upward {
+            height - INSET - COMPACT_HEIGHT / 2.0
+        } else {
+            INSET + HOVER_HANDLE_RESERVED_HEIGHT + COMPACT_HEIGHT / 2.0
+        }
+    }
+
+    #[cfg(any(test, not(target_os = "macos")))]
+    pub fn frame_at_controls(
+        anchor: (f64, f64),
+        size: (f64, f64),
+        work: (f64, f64, f64, f64),
+        expands_upward: bool,
+    ) -> (f64, f64, f64, f64) {
+        let width = size.0.min(work.2);
+        let (y, height) = if expands_upward {
+            let bottom = anchor.1 + INSET + COMPACT_HEIGHT / 2.0;
+            let height = size.1.min(bottom - work.1);
+            (bottom - height, height)
+        } else {
+            let y = anchor.1 - controls_center_y(size.1, false);
+            (y, size.1.min(work.1 + work.3 - y))
+        };
+        let x = (anchor.0 - width / 2.0).clamp(work.0, work.0 + work.2 - width);
+        (x, y, width, height)
+    }
+
     pub fn bottom_center_origin(
         work_x: f64,
         work_y: f64,
@@ -112,69 +150,6 @@ pub(crate) mod layout {
             work_x + (work_width - window_width) / 2.0,
             work_y + work_height - window_height - SCREEN_MARGIN,
         )
-    }
-
-    #[cfg(any(test, not(target_os = "macos")))]
-    pub fn expands_upward(y: f64, height: f64, work_y: f64, work_height: f64) -> bool {
-        y - work_y > work_y + work_height - y - height
-    }
-
-    #[cfg(any(test, not(target_os = "macos")))]
-    pub fn forget_moved_expansion(
-        expansion: &mut Option<((f64, f64, f64, f64), (f64, f64))>,
-        position: (f64, f64),
-    ) {
-        if expansion.is_some_and(|(_, origin)| {
-            (position.0 - origin.0).abs() >= 0.5 || (position.1 - origin.1).abs() >= 0.5
-        }) {
-            *expansion = None;
-        }
-    }
-
-    pub fn collapse_anchor(
-        current: (f64, f64, f64, f64),
-        expansion: Option<((f64, f64, f64, f64), (f64, f64))>,
-    ) -> (f64, f64, f64, f64) {
-        if let Some((compact, expanded)) = expansion {
-            if (current.0 - expanded.0).abs() < 0.5 && (current.1 - expanded.1).abs() < 0.5 {
-                return compact;
-            }
-        }
-        current
-    }
-
-    pub fn resize_anchored(
-        x: f64,
-        y: f64,
-        current_width: f64,
-        current_height: f64,
-        next_width: f64,
-        next_height: f64,
-        expands_upward: bool,
-    ) -> (f64, f64) {
-        (
-            x + (current_width - next_width) / 2.0,
-            if expands_upward {
-                y + current_height - next_height
-            } else {
-                y
-            },
-        )
-    }
-
-    pub fn clamp_to_work_area(
-        x: f64,
-        y: f64,
-        window_width: f64,
-        window_height: f64,
-        work_x: f64,
-        work_y: f64,
-        work_width: f64,
-        work_height: f64,
-    ) -> (f64, f64) {
-        let max_x = work_x + (work_width - window_width).max(0.0);
-        let max_y = work_y + (work_height - window_height).max(0.0);
-        (x.clamp(work_x, max_x), y.clamp(work_y, max_y))
     }
 }
 
@@ -283,8 +258,10 @@ mod platform {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
-mod platform {
+// Type-check the webview implementation in macOS tests as well.
+#[cfg(any(test, not(target_os = "macos")))]
+#[cfg_attr(target_os = "macos", allow(dead_code))]
+mod cross_platform {
     use std::sync::{Mutex, OnceLock};
 
     use tauri::{
@@ -294,15 +271,12 @@ mod platform {
     use tauri_specta::Event;
 
     use super::layout::{
-        bottom_center_origin, clamp_to_work_area, container_size, expands_upward, is_expanded,
-        resize_anchored,
+        bottom_center_origin, container_size, controls_center_y, frame_at_controls, is_expanded,
     };
-    use super::{FloatingBarState, WINDOW_LABEL};
+    use super::{FloatingBarOverlayLayout, FloatingBarState, WINDOW_LABEL};
     use crate::Error;
 
     static APP_HANDLE: OnceLock<tauri::AppHandle<tauri::Wry>> = OnceLock::new();
-    static EXPANDS_UPWARD: Mutex<bool> = Mutex::new(true);
-    static EXPANSION: Mutex<Option<((f64, f64, f64, f64), (f64, f64))>> = Mutex::new(None);
     static LAST_STATE: Mutex<Option<FloatingBarState>> = Mutex::new(None);
 
     pub fn set_app_handle(app: tauri::AppHandle<tauri::Wry>) {
@@ -322,8 +296,14 @@ mod platform {
     pub fn show() -> Result<(), Error> {
         let app = app()?;
         let window = ensure_window(app)?;
-        let state = current_state();
-        apply_layout(&window, state.as_ref(), true)?;
+        let mut state = current_state();
+        let layout = apply_layout(&window, state.as_ref(), true)?;
+        if let Some(state) = state.as_mut() {
+            state.layout = Some(layout);
+        }
+        if let Some(state) = state {
+            publish_state(state)?;
+        }
         window.show()?;
         crate::window::exclude_from_capture(&window);
         Ok(())
@@ -341,18 +321,19 @@ mod platform {
         Ok(())
     }
 
-    pub fn update(state: FloatingBarState) -> Result<(), Error> {
+    pub fn update(mut state: FloatingBarState) -> Result<(), Error> {
+        let app = app()?;
+        if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
+            state.layout = Some(apply_layout(&window, Some(&state), false)?);
+        }
+        publish_state(state)
+    }
+
+    fn publish_state(state: FloatingBarState) -> Result<(), Error> {
         if let Ok(mut last) = LAST_STATE.lock() {
             *last = Some(state.clone());
         }
-        let app = app()?;
-        let _ = crate::events::FloatingBarOverlayState {
-            state: state.clone(),
-        }
-        .emit(app);
-        if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
-            apply_layout(&window, Some(&state), false)?;
-        }
+        let _ = crate::events::FloatingBarOverlayState { state }.emit(app()?);
         Ok(())
     }
 
@@ -421,7 +402,7 @@ mod platform {
         window: &WebviewWindow<tauri::Wry>,
         state: Option<&FloatingBarState>,
         force_default_position: bool,
-    ) -> Result<(), Error> {
+    ) -> Result<FloatingBarOverlayLayout, Error> {
         let is_expanded = state.is_some_and(is_expanded);
         let shows_expand = state.is_some_and(|value| value.live_caption_toggle_visible);
         let (width, height) = container_size(is_expanded, shows_expand);
@@ -429,65 +410,62 @@ mod platform {
         let scale = window.scale_factor()?;
         let current_size = window.outer_size()?.to_logical::<f64>(scale);
         let current_position = window.outer_position()?.to_logical::<f64>(scale);
-        let size_changed = (current_size.width - width).abs() >= 0.5
-            || (current_size.height - height).abs() >= 0.5;
-
-        let mut expansion = EXPANSION
-            .lock()
-            .map_err(|_| Error::PanelError("floating bar placement lock poisoned".to_string()))?;
-        let mut previous = (
-            current_position.x,
-            current_position.y,
-            current_size.width,
-            current_size.height,
-        );
+        let size = (next_size.width, next_size.height);
+        let previous = current_state();
+        let old_layout =
+            previous
+                .as_ref()
+                .and_then(|state| state.layout)
+                .unwrap_or(FloatingBarOverlayLayout {
+                    controls_center_x: current_size.width / 2.0,
+                    expands_upward: true,
+                });
         if force_default_position {
-            *expansion = None;
-        } else if height < current_size.height {
-            previous = super::layout::collapse_anchor(previous, expansion.take());
+            let (x, y) = default_origin(window, size.0, size.1)?;
+            window.set_size(Size::Logical(LogicalSize::new(size.0, size.1)))?;
+            window.set_position(Position::Logical(LogicalPosition::new(x, y)))?;
+            return Ok(FloatingBarOverlayLayout {
+                controls_center_x: size.0 / 2.0,
+                expands_upward: true,
+            });
         }
-        let (next_x, next_y) = if force_default_position {
-            if let Ok(mut direction) = EXPANDS_UPWARD.lock() {
-                *direction = true;
-            }
-            default_origin(window, width, height)?
-        } else if size_changed {
-            let mut direction = EXPANDS_UPWARD.lock().map_err(|_| {
-                Error::PanelError("floating bar placement lock poisoned".to_string())
-            })?;
-            if height > current_size.height {
-                let monitor = window
-                    .current_monitor()?
-                    .or(window.app_handle().primary_monitor()?)
-                    .ok_or(Error::MonitorNotFound)?;
-                let work = monitor.work_area();
-                let origin = work.position.to_logical::<f64>(monitor.scale_factor());
-                let size = work.size.to_logical::<f64>(monitor.scale_factor());
-                *direction = expands_upward(
-                    current_position.y,
-                    current_size.height,
-                    origin.y,
-                    size.height,
-                );
-            }
-            resize_anchored(
-                previous.0, previous.1, previous.2, previous.3, width, height, *direction,
-            )
+        let anchor = (
+            current_position.x + old_layout.controls_center_x,
+            current_position.y + controls_center_y(current_size.height, old_layout.expands_upward),
+        );
+        let monitor = window
+            .current_monitor()?
+            .or(window.app_handle().primary_monitor()?)
+            .ok_or(Error::MonitorNotFound)?;
+        let work = monitor.work_area();
+        let origin = work.position.to_logical::<f64>(monitor.scale_factor());
+        let work_size = work.size.to_logical::<f64>(monitor.scale_factor());
+        let grows = is_expanded && !previous.as_ref().is_some_and(super::layout::is_expanded);
+        let upwards = if grows {
+            anchor.1 - origin.y > origin.y + work_size.height - anchor.1
         } else {
-            return Ok(());
+            old_layout.expands_upward
         };
-
-        let (clamped_x, clamped_y) = clamp_origin(window, next_x, next_y, width, height)?;
-        if !force_default_position && height > current_size.height {
-            *expansion = Some((previous, (clamped_x, clamped_y)));
+        let frame = frame_at_controls(
+            anchor,
+            size,
+            (origin.x, origin.y, work_size.width, work_size.height),
+            upwards,
+        );
+        if (current_size.width - frame.2).abs() >= 0.5
+            || (current_size.height - frame.3).abs() >= 0.5
+        {
+            window.set_size(Size::Logical(LogicalSize::new(frame.2, frame.3)))?;
         }
-        if size_changed {
-            window.set_size(Size::Logical(next_size))?;
+        if (current_position.x - frame.0).abs() >= 0.5
+            || (current_position.y - frame.1).abs() >= 0.5
+        {
+            window.set_position(Position::Logical(LogicalPosition::new(frame.0, frame.1)))?;
         }
-        window.set_position(Position::Logical(LogicalPosition::new(
-            clamped_x, clamped_y,
-        )))?;
-        Ok(())
+        Ok(FloatingBarOverlayLayout {
+            controls_center_x: anchor.0 - frame.0,
+            expands_upward: upwards,
+        })
     }
 
     fn default_origin(
@@ -514,38 +492,10 @@ mod platform {
             height,
         ))
     }
-
-    fn clamp_origin(
-        window: &WebviewWindow<tauri::Wry>,
-        x: f64,
-        y: f64,
-        width: f64,
-        height: f64,
-    ) -> Result<(f64, f64), Error> {
-        let monitor = window
-            .current_monitor()
-            .ok()
-            .flatten()
-            .or_else(|| window.app_handle().primary_monitor().ok().flatten());
-        let Some(monitor) = monitor else {
-            return Ok((x, y));
-        };
-        let scale = monitor.scale_factor();
-        let work_area = monitor.work_area();
-        let origin = work_area.position.to_logical::<f64>(scale);
-        let size = work_area.size.to_logical::<f64>(scale);
-        Ok(clamp_to_work_area(
-            x,
-            y,
-            width,
-            height,
-            origin.x,
-            origin.y,
-            size.width,
-            size.height,
-        ))
-    }
 }
+
+#[cfg(not(target_os = "macos"))]
+use cross_platform as platform;
 
 pub fn set_app_handle(app: tauri::AppHandle<tauri::Wry>) {
     platform::set_app_handle(app);
@@ -595,75 +545,53 @@ mod tests {
     }
 
     #[test]
-    fn collapse_restores_position_after_expansion_was_clamped() {
-        let compact = (1801.0, 1005.0, 111.0, 67.0);
-        let expanded = layout::resize_anchored(
-            compact.0, compact.1, compact.2, compact.3, 368.0, 459.0, true,
-        );
-        let clamped = layout::clamp_to_work_area(
-            expanded.0, expanded.1, 368.0, 459.0, 0.0, 0.0, 1920.0, 1080.0,
-        );
-        let anchor = layout::collapse_anchor(
-            (clamped.0, clamped.1, 368.0, 459.0),
-            Some((compact, clamped)),
-        );
-        assert_eq!(
-            layout::resize_anchored(anchor.0, anchor.1, anchor.2, anchor.3, 111.0, 67.0, true),
-            (compact.0, compact.1)
-        );
-        let moved = (clamped.0 - 100.0, clamped.1, 368.0, 459.0);
-        assert_eq!(
-            layout::collapse_anchor(moved, Some((compact, clamped))),
-            moved
-        );
+    fn controls_keep_their_screen_position_through_expansion_and_collapse() {
+        let work = (-1920.0, 40.0, 1920.0, 1040.0);
+        for (anchor, upwards) in [
+            ((-960.0, 1049.0), true),
+            ((-960.0, 92.0), false),
+            ((-64.0, 1049.0), true),
+        ] {
+            for size in [(111.0, 67.0), (368.0, 459.0), (111.0, 67.0)] {
+                let frame = layout::frame_at_controls(anchor, size, work, upwards);
+                assert_eq!(
+                    frame.1 + layout::controls_center_y(frame.3, upwards),
+                    anchor.1
+                );
+                assert!(frame.0 <= anchor.0 && frame.0 + frame.2 >= anchor.0);
+                assert!(frame.0 >= work.0 && frame.0 + frame.2 <= work.0 + work.2);
+                assert!(frame.1 >= work.1 && frame.1 + frame.3 <= work.1 + work.3);
+            }
+        }
     }
 
     #[test]
-    fn pins_the_default_origin_to_the_work_area_bottom_center() {
-        assert_eq!(
-            layout::bottom_center_origin(0.0, 0.0, 1920.0, 1080.0, 111.0, 67.0),
-            (904.5, 1005.0)
+    fn short_displays_reduce_the_panel_instead_of_moving_the_controls() {
+        let frame = layout::frame_at_controls(
+            (150.0, 180.0),
+            (368.0, 459.0),
+            (0.0, 0.0, 300.0, 320.0),
+            true,
         );
+        assert_eq!(frame, (0.0, 0.0, 300.0, 203.0));
+        assert_eq!(frame.1 + layout::controls_center_y(frame.3, true), 180.0);
     }
 
     #[test]
-    fn keeps_the_top_center_anchor_when_expanding_downward() {
-        assert_eq!(
-            layout::resize_anchored(1801.0, 8.0, 111.0, 67.0, 368.0, 459.0, false),
-            (1672.5, 8.0)
-        );
+    fn collapse_after_drag_uses_the_new_control_position() {
+        let work = (0.0, 0.0, 1920.0, 1080.0);
+        let expanded = layout::frame_at_controls((1856.0, 1049.0), (368.0, 459.0), work, true);
+        let controls_x = 1856.0 - expanded.0;
+        let moved_anchor = (expanded.0 - 100.0 + controls_x, 1049.0);
+        let collapsed = layout::frame_at_controls(moved_anchor, (144.0, 67.0), work, true);
+        assert_eq!(collapsed.0 + collapsed.2 / 2.0, 1756.0);
     }
 
     #[test]
-    fn keeps_the_bottom_center_anchor_through_expansion_and_collapse() {
-        let (x, y) = layout::resize_anchored(904.5, 1005.0, 111.0, 67.0, 368.0, 459.0, true);
-        assert_eq!((x, y), (776.0, 613.0));
-        assert_eq!(
-            layout::resize_anchored(x, y, 368.0, 459.0, 111.0, 67.0, true),
-            (904.5, 1005.0)
-        );
-    }
-
-    #[test]
-    fn chooses_the_side_with_more_space_on_an_offset_monitor() {
-        assert!(layout::expands_upward(1005.0, 67.0, 40.0, 1040.0));
-        assert!(!layout::expands_upward(48.0, 67.0, 40.0, 1040.0));
-        assert!(!layout::expands_upward(0.0, 67.0, 0.0, 1080.0));
-    }
-
-    #[test]
-    fn centers_on_an_offset_monitor() {
+    fn default_origin_is_bottom_center_on_offset_displays() {
         assert_eq!(
             layout::bottom_center_origin(-1920.0, 40.0, 1920.0, 1040.0, 111.0, 67.0),
             (-1015.5, 1005.0)
-        );
-    }
-
-    #[test]
-    fn clamps_an_offscreen_window_back_into_the_work_area() {
-        assert_eq!(
-            layout::clamp_to_work_area(1900.0, -20.0, 368.0, 459.0, 0.0, 0.0, 1920.0, 1080.0),
-            (1552.0, 0.0)
         );
     }
 }
