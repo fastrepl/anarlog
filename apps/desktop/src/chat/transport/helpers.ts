@@ -4,7 +4,7 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-export const MAX_TOOL_STEPS = 20;
+export const MAX_TOOL_STEPS = 5;
 export const MESSAGE_WINDOW_THRESHOLD = 20;
 export const MESSAGE_WINDOW_SIZE = 10;
 

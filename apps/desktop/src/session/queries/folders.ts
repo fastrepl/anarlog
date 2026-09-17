@@ -31,13 +31,17 @@ export const FOLDER_PATHS_SQL = `
   )
 `;
 
+function mapFolderPathRows(rows: FolderPathSqlRow[]): string[] {
+  return collectFolderPaths(rows.map((row) => row.folder_path));
+}
+
 export function useFolderPaths(): string[] {
   const { data = EMPTY_FOLDER_PATHS } = useLiveQuery<
     FolderPathSqlRow,
     string[]
   >({
     sql: FOLDER_PATHS_SQL,
-    mapRows: (rows) => collectFolderPaths(rows.map((row) => row.folder_path)),
+    mapRows: mapFolderPathRows,
   });
   return data;
 }
@@ -45,7 +49,7 @@ export function useFolderPaths(): string[] {
 export async function loadFolderPaths(): Promise<string[]> {
   const rows =
     await liveQueryClient.execute<FolderPathSqlRow>(FOLDER_PATHS_SQL);
-  return collectFolderPaths(rows.map((row) => row.folder_path));
+  return mapFolderPathRows(rows);
 }
 
 type FolderIconSqlRow = {

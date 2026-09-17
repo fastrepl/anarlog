@@ -18,6 +18,7 @@ vi.mock("ai", async (importOriginal) => ({
   },
 }));
 
+import { MAX_TOOL_STEPS, MESSAGE_WINDOW_THRESHOLD } from "./helpers";
 import { CustomChatTransport } from "./index";
 
 describe("CustomChatTransport", () => {
@@ -63,7 +64,7 @@ describe("CustomChatTransport", () => {
     );
   });
 
-  it("allows a paginated action to continue beyond five steps and retains its request and completed batches", async () => {
+  it("reserves a final report step and retains the request and completed batches", async () => {
     const transport = new CustomChatTransport({} as never, {});
     await transport.sendMessages({
       chatId: "folder-chat",
@@ -82,21 +83,36 @@ describe("CustomChatTransport", () => {
     });
     const { stopWhen, prepareStep } = mocks.agentOptions.mock.calls[0]![0];
     expect(
-      await stopWhen({ steps: Array.from({ length: 6 }, () => ({})) }),
+      await stopWhen({
+        steps: Array.from({ length: MAX_TOOL_STEPS - 1 }, () => ({})),
+      }),
     ).toBe(false);
     expect(
-      await stopWhen({ steps: Array.from({ length: 20 }, () => ({})) }),
+      await stopWhen({
+        steps: Array.from({ length: MAX_TOOL_STEPS }, () => ({})),
+      }),
     ).toBe(true);
+
+    await expect(
+      prepareStep({ messages: [], stepNumber: MAX_TOOL_STEPS - 1 }),
+    ).resolves.toMatchObject({
+      toolChoice: "none",
+      system: expect.stringContaining("next unprocessed offset"),
+    });
+    await expect(
+      prepareStep({ messages: [], stepNumber: MAX_TOOL_STEPS - 2 }),
+    ).resolves.toEqual({});
 
     const currentTurn = [
       { role: "user", content: "Move every DEFCON 1 meeting into defcons" },
-      ...Array.from({ length: 22 }, (_, index) => ({
+      ...Array.from({ length: MESSAGE_WINDOW_THRESHOLD }, (_, index) => ({
         role: index % 2 === 0 ? "assistant" : "tool",
         content: `Batch ${index}`,
       })),
     ];
     await expect(
       prepareStep({
+        stepNumber: 1,
         messages: [
           { role: "user", content: "Old conversation" },
           ...currentTurn,

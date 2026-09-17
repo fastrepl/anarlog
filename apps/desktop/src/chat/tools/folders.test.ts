@@ -196,6 +196,39 @@ describe("bulk folder assignment", () => {
     expect(mocks.executeTransaction).toHaveBeenCalledTimes(2);
   });
 
+  it("compacts successful model results while retaining counts and failure details", async () => {
+    addMeeting("first");
+    const input = { meeting_ids: ["first", "missing"], folder_path: "defcons" };
+    const output = await moveTool.execute!(input, options);
+    if (Symbol.asyncIterator in output) {
+      throw new Error("Expected a completed folder result");
+    }
+    await expect(
+      moveTool.toModelOutput!({
+        toolCallId: "folder-test",
+        input,
+        output,
+      }),
+    ).toEqual({
+      type: "json",
+      value: expect.objectContaining({
+        moved: 1,
+        unchanged: 0,
+        failed: 1,
+        results: [
+          {
+            meeting_id: "missing",
+            status: "error",
+            message: "Meeting not found or deleted",
+          },
+        ],
+      }),
+    });
+    expect(output).toMatchObject({
+      results: [{ meeting_id: "first" }, { meeting_id: "missing" }],
+    });
+  });
+
   it("can remove folder assignment", async () => {
     addMeeting("first", "defcons");
     await expect(

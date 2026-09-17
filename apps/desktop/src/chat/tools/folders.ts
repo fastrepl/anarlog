@@ -155,4 +155,11 @@ export const buildMoveMeetingsToFolderTool = () =>
         results,
       };
     },
+    toModelOutput: ({ output }) => ({
+      type: "json",
+      value: {
+        ...output,
+        results: output.results.filter((result) => result.status === "error"),
+      },
+    }),
   });
