@@ -109,9 +109,11 @@ describe("FloatingBarOverlay", () => {
       />,
     );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Expand live transcript" }),
-    );
+    const waveform = screen.getByTestId("waveform");
+    const toggle = screen.getByRole("button", {
+      name: "Expand live transcript",
+    });
+    fireEvent.click(toggle);
     expect(onToggleExpanded).toHaveBeenCalledWith(true);
 
     view.rerender(
@@ -122,6 +124,10 @@ describe("FloatingBarOverlay", () => {
       />,
     );
 
+    expect(screen.getByTestId("waveform")).toBe(waveform);
+    expect(
+      screen.getByRole("button", { name: "Collapse live transcript" }),
+    ).toBe(toggle);
     expect(screen.getByText("Weekly sync")).toBeTruthy();
     expect(screen.getByText("Let's start.")).toBeTruthy();
 

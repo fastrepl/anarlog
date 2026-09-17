@@ -242,16 +242,14 @@ final class FloatingBarManager {
   private func layout(isExpanded: Bool) -> FloatingBarWindowLayout {
     FloatingBarWindowLayout(
       isExpanded: isExpanded,
-      showsExpand: model.liveCaptionToggleVisible,
-      isDictation: model.dictation != nil
+      showsExpand: model.liveCaptionToggleVisible
     )
   }
 
   private func size(for layout: FloatingBarWindowLayout) -> NSSize {
     FloatingBarLayout.containerSize(
       isExpanded: layout.isExpanded,
-      showsExpand: layout.showsExpand,
-      isDictation: layout.isDictation
+      showsExpand: layout.showsExpand
     )
   }
 
@@ -287,7 +285,6 @@ final class FloatingBarManager {
 private struct FloatingBarWindowLayout {
   let isExpanded: Bool
   let showsExpand: Bool
-  let isDictation: Bool
 }
 
 final class FloatingBarPanel: NSPanel {

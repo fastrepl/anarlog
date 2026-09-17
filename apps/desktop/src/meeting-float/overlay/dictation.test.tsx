@@ -20,7 +20,7 @@ function state() {
 describe("dictation floating panel", () => {
   afterEach(cleanup);
 
-  it("offers separate cancel, finish and preview controls in the compact pill", () => {
+  it("offers only finish and preview controls in the compact pill", () => {
     useDictationStatus.setState({
       ...useDictationStatus.getInitialState(),
       owner: "test",
@@ -31,23 +31,21 @@ describe("dictation floating panel", () => {
       <FloatingBarOverlay
         state={state()}
         onStop={() => onAction("finish")}
-        onCancel={() => onAction("cancel")}
         onToggleExpanded={() => onAction("togglePreview")}
       />,
     );
     fireEvent.click(
       screen.getByRole("button", { name: "Expand live transcript" }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Cancel dictation" }));
+    expect(screen.getAllByRole("button")).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "Finish dictation" }));
     expect(onAction.mock.calls.map(([action]) => action)).toEqual([
       "togglePreview",
-      "cancel",
       "finish",
     ]);
   });
 
-  it("displays plain live speech without an input or microphone label, and keeps cancellation during finishing", () => {
+  it("displays plain live speech and disables finishing while transcription completes", () => {
     useDictationStatus.setState({
       ...useDictationStatus.getInitialState(),
       owner: "test",
@@ -63,7 +61,6 @@ describe("dictation floating panel", () => {
       <FloatingBarOverlay
         state={state()}
         onStop={() => onAction("finish")}
-        onCancel={() => onAction("cancel")}
         onToggleExpanded={() => onAction("togglePreview")}
       />,
     );
@@ -82,7 +79,6 @@ describe("dictation floating panel", () => {
       <FloatingBarOverlay
         state={state()}
         onStop={() => onAction("finish")}
-        onCancel={() => onAction("cancel")}
         onToggleExpanded={() => onAction("togglePreview")}
       />,
     );
@@ -90,8 +86,7 @@ describe("dictation floating panel", () => {
     expect(screen.getAllByText("Finishing…").length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "Finish dictation" }));
     expect(onAction).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Cancel dictation" }));
-    expect(onAction).toHaveBeenCalledWith("cancel");
+    expect(screen.getAllByRole("button")).toHaveLength(2);
   });
   it("replaces meeting speakers and bubbles with dictation text in the shared transcript area", () => {
     useDictationStatus.setState({
@@ -120,7 +115,6 @@ describe("dictation floating panel", () => {
     };
     const callbacks = {
       onStop: vi.fn(),
-      onCancel: vi.fn(),
       onToggleExpanded: vi.fn(),
     };
     const view = render(

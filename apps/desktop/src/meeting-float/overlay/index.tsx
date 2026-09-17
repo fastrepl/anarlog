@@ -72,14 +72,6 @@ export function FloatingBarOverlayScreen() {
     <div className="h-screen w-screen bg-transparent">
       <FloatingBarOverlay
         state={state}
-        onCancel={() => {
-          if (state.dictation) {
-            void windowsEvents.floatingBarDictationAction.emit({
-              sessionId: state.dictation.sessionId,
-              action: "cancel",
-            });
-          }
-        }}
         onStop={() => {
           if (state.dictation) {
             void windowsEvents.floatingBarDictationAction.emit({

@@ -112,16 +112,7 @@ pub(crate) mod layout {
 
     #[cfg(any(not(target_os = "macos"), test))]
     pub fn dictation_container_size(expanded: bool) -> (f64, f64) {
-        let (width, height) = container_size(expanded, true);
-        (
-            width
-                + if expanded {
-                    0.0
-                } else {
-                    COMPACT_ICON_SIZE + COMPACT_GAP
-                },
-            height,
-        )
+        container_size(expanded, true)
     }
 
     pub fn container_size(is_expanded: bool, shows_expand: bool) -> (f64, f64) {
@@ -602,7 +593,7 @@ mod tests {
 
     #[test]
     fn dictation_sizes_preserve_the_shared_panel_anchors() {
-        assert_eq!(layout::dictation_container_size(false), (144.0, 67.0));
+        assert_eq!(layout::dictation_container_size(false), (111.0, 67.0));
         assert_eq!(layout::dictation_container_size(true), (368.0, 459.0));
     }
     #[test]

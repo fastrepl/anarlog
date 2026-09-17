@@ -31,23 +31,21 @@ enum FloatingBarLayout {
   static let hoverHandleHorizontalPadding: CGFloat = 8
   static let dragClickThreshold: CGFloat = 4
 
-  static func compactControlsWidth(showsExpand: Bool, isDictation: Bool = false) -> CGFloat {
-    let recordingControls =
-      showsExpand ? compactStopWidth + compactGap + compactIconSize : compactSoloStopWidth
-    return recordingControls + (isDictation ? compactIconSize + compactGap : 0)
+  static func compactControlsWidth(showsExpand: Bool) -> CGFloat {
+    showsExpand ? compactStopWidth + compactGap + compactIconSize : compactSoloStopWidth
   }
 
-  static func compactWidth(showsExpand: Bool, isDictation: Bool = false) -> CGFloat {
-    compactControlsWidth(showsExpand: showsExpand, isDictation: isDictation)
+  static func compactWidth(showsExpand: Bool) -> CGFloat {
+    compactControlsWidth(showsExpand: showsExpand)
       + compactHorizontalPadding * 2
   }
 
-  static func containerSize(isExpanded: Bool, showsExpand: Bool, isDictation: Bool = false)
+  static func containerSize(isExpanded: Bool, showsExpand: Bool)
     -> NSSize
   {
     NSSize(
       width: (isExpanded
-        ? expandedWidth : compactWidth(showsExpand: showsExpand, isDictation: isDictation)) + inset
+        ? expandedWidth : compactWidth(showsExpand: showsExpand)) + inset
         * 2,
       height: (isExpanded ? expandedHeight : compactHeight) + hoverHandleReservedHeight + inset * 2)
   }
@@ -211,13 +209,6 @@ struct FloatingBarView: View {
 
   private func floatingControls(isExpanded: Bool) -> some View {
     HStack(spacing: FloatingBarLayout.compactGap) {
-      if model.dictation != nil {
-        FloatingIconButton(
-          systemName: "xmark", accessibilityLabel: "Cancel dictation",
-          color: primaryContentColor, hoverFill: controlHoverFill,
-          size: FloatingBarLayout.compactIconSize,
-          action: { performClick { dictationAction("cancel") } })
-      }
       audioControl(
         width: model.liveCaptionToggleVisible
           ? FloatingBarLayout.compactStopWidth : FloatingBarLayout.compactSoloStopWidth,

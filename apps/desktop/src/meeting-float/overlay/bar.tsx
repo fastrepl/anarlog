@@ -20,210 +20,116 @@ import { DictationTranscript } from "./dictation";
 import {
   FLOATING_BAR_COMPACT_GAP,
   FLOATING_BAR_COMPACT_HEIGHT,
-  FLOATING_BAR_COMPACT_HORIZONTAL_PADDING,
   FLOATING_BAR_COMPACT_ICON_SIZE,
   FLOATING_BAR_COMPACT_SOLO_STOP_WIDTH,
   FLOATING_BAR_COMPACT_STOP_WIDTH,
   FLOATING_BAR_COMPACT_RADIUS,
   FLOATING_BAR_CONTROL_RADIUS,
-  FLOATING_BAR_EXPANDED_HEIGHT,
   FLOATING_BAR_EXPANDED_RADIUS,
-  FLOATING_BAR_EXPANDED_WIDTH,
   FLOATING_BAR_HOVER_HANDLE_HEIGHT,
-  FLOATING_BAR_HOVER_HANDLE_RESERVED_HEIGHT,
   FLOATING_BAR_HOVER_HANDLE_TOP_PADDING,
+  FLOATING_BAR_HOVER_HANDLE_RESERVED_HEIGHT,
   FLOATING_BAR_INSET,
   compactControlsWidth,
-  compactWidth,
 } from "./layout";
 
 export function FloatingBarOverlay({
   state,
   onStop,
-  onCancel,
   onToggleExpanded,
 }: {
   state: FloatingBarState;
   onStop: () => void;
-  onCancel?: () => void;
   onToggleExpanded: (expanded: boolean) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const isExpanded =
     state.liveCaptionToggleVisible && !state.liveCaptionMinimized;
+  const colors = barColors(state);
+  const controlsWidth = compactControlsWidth(state.liveCaptionToggleVisible);
+  const expandsUpward = state.layout?.expandsUpward ?? true;
 
   return (
     <div
-      className="flex h-full w-full items-end justify-end"
-      style={{ padding: FLOATING_BAR_INSET }}
+      className="relative h-full w-full"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {isExpanded ? (
-        <ExpandedPanel
-          state={state}
-          hovered={hovered}
-          onCancel={onCancel}
-          onStop={onStop}
-          onToggleExpanded={onToggleExpanded}
-        />
-      ) : (
-        <CompactPill
-          state={state}
-          hovered={hovered}
-          onCancel={onCancel}
-          onStop={onStop}
-          onToggleExpanded={onToggleExpanded}
-        />
-      )}
-    </div>
-  );
-}
-
-function CompactPill({
-  state,
-  hovered,
-  onStop,
-  onCancel,
-  onToggleExpanded,
-}: {
-  state: FloatingBarState;
-  hovered: boolean;
-  onStop: () => void;
-  onCancel?: () => void;
-  onToggleExpanded: (expanded: boolean) => void;
-}) {
-  const width = compactWidth(state.liveCaptionToggleVisible, !!state.dictation);
-  const height =
-    FLOATING_BAR_COMPACT_HEIGHT +
-    (hovered ? FLOATING_BAR_HOVER_HANDLE_RESERVED_HEIGHT : 0);
-  const colors = barColors(state);
-
-  return (
-    <div
-      className="relative overflow-hidden"
-      style={{
-        width,
-        height,
-        borderRadius: FLOATING_BAR_COMPACT_RADIUS,
-        background: hovered ? colors.envelopeSurface : colors.surface,
-        boxShadow: `inset 0 0 0 0.5px ${colors.outerStroke}`,
-      }}
-    >
-      {hovered ? <HoverHandle color={colors.handle} width={width} /> : null}
       <div
-        className="absolute right-0 bottom-0 flex items-center justify-center"
+        className="absolute overflow-hidden"
         style={{
-          width,
-          height: FLOATING_BAR_COMPACT_HEIGHT,
+          left: FLOATING_BAR_INSET,
+          right: FLOATING_BAR_INSET,
+          bottom: FLOATING_BAR_INSET,
+          top:
+            FLOATING_BAR_INSET +
+            (hovered ? 0 : FLOATING_BAR_HOVER_HANDLE_RESERVED_HEIGHT),
+          borderRadius: isExpanded
+            ? FLOATING_BAR_EXPANDED_RADIUS
+            : FLOATING_BAR_COMPACT_RADIUS,
+          background:
+            hovered && !isExpanded ? colors.envelopeSurface : colors.surface,
+          boxShadow: `inset 0 0 0 0.5px ${colors.outerStroke}`,
         }}
       >
-        <FloatingControls
-          state={state}
-          isExpanded={false}
-          colors={colors}
-          onCancel={onCancel}
-          onStop={onStop}
-          onToggleExpanded={onToggleExpanded}
-        />
-      </div>
-    </div>
-  );
-}
-
-function ExpandedPanel({
-  state,
-  hovered,
-  onStop,
-  onCancel,
-  onToggleExpanded,
-}: {
-  state: FloatingBarState;
-  hovered: boolean;
-  onStop: () => void;
-  onCancel?: () => void;
-  onToggleExpanded: (expanded: boolean) => void;
-}) {
-  const colors = barColors(state);
-
-  return (
-    <div
-      className="relative overflow-hidden"
-      style={{
-        width: FLOATING_BAR_EXPANDED_WIDTH,
-        height:
-          FLOATING_BAR_EXPANDED_HEIGHT +
-          (hovered ? FLOATING_BAR_HOVER_HANDLE_RESERVED_HEIGHT : 0),
-        borderRadius: FLOATING_BAR_EXPANDED_RADIUS,
-        background: colors.surface,
-        boxShadow: `inset 0 0 0 0.5px ${colors.outerStroke}`,
-      }}
-    >
-      <div
-        className="absolute inset-x-0 top-0"
-        style={{
-          height: FLOATING_BAR_HOVER_HANDLE_RESERVED_HEIGHT,
-          paddingTop: FLOATING_BAR_HOVER_HANDLE_TOP_PADDING,
-          opacity: hovered ? 1 : 0,
-        }}
-      >
-        <HoverHandle
-          color={colors.handle}
-          width={FLOATING_BAR_EXPANDED_WIDTH}
-        />
-      </div>
-      <div
-        className="absolute inset-x-0 bottom-0"
-        style={{ height: FLOATING_BAR_EXPANDED_HEIGHT }}
-      >
+        {hovered && <HoverHandle color={colors.handle} />}
         <div
-          className="flex items-center"
+          className="absolute inset-x-0 bottom-0"
           style={{
-            height: FLOATING_BAR_COMPACT_HEIGHT,
-            paddingLeft: 16,
-            paddingRight:
-              compactControlsWidth(
-                state.liveCaptionToggleVisible,
-                !!state.dictation,
-              ) + 12,
+            top: hovered ? FLOATING_BAR_HOVER_HANDLE_RESERVED_HEIGHT : 0,
           }}
         >
-          <p
-            className="min-w-0 truncate text-[13px] font-semibold"
-            style={{ color: colors.content }}
+          {isExpanded && (
+            <div
+              className="absolute inset-x-0"
+              style={{
+                top: expandsUpward ? 0 : FLOATING_BAR_COMPACT_HEIGHT,
+                bottom: expandsUpward ? FLOATING_BAR_COMPACT_HEIGHT : 0,
+              }}
+            >
+              <div
+                className="flex items-center px-4"
+                style={{ height: FLOATING_BAR_COMPACT_HEIGHT }}
+              >
+                <p
+                  className="min-w-0 truncate text-[13px] font-semibold"
+                  style={{ color: colors.content }}
+                >
+                  {state.dictation?.phase === "transcribing"
+                    ? "Finishing…"
+                    : state.dictation?.phase === "starting"
+                      ? "Starting…"
+                      : state.title}
+                </p>
+              </div>
+              <TranscriptList
+                key={state.dictation?.sessionId ?? "meeting"}
+                dictation={state.dictation}
+                bubbles={state.transcriptBubbles ?? []}
+                colorScheme={state.colorScheme}
+              />
+            </div>
+          )}
+          <div
+            className="absolute flex -translate-x-1/2 items-center justify-center"
+            style={{
+              left: state.layout
+                ? state.layout.controlsCenterX - FLOATING_BAR_INSET
+                : "50%",
+              top: expandsUpward ? undefined : 0,
+              bottom: expandsUpward ? 0 : undefined,
+              width: controlsWidth,
+              height: FLOATING_BAR_COMPACT_HEIGHT,
+            }}
           >
-            {state.dictation?.phase === "transcribing"
-              ? "Finishing…"
-              : state.dictation?.phase === "starting"
-                ? "Starting…"
-                : state.title}
-          </p>
-        </div>
-        <TranscriptList
-          key={state.dictation?.sessionId ?? "meeting"}
-          dictation={state.dictation}
-          bubbles={state.transcriptBubbles ?? []}
-          colorScheme={state.colorScheme}
-        />
-        <div
-          className="absolute top-0 right-0 flex items-center justify-center"
-          style={{
-            width: compactControlsWidth(
-              state.liveCaptionToggleVisible,
-              !!state.dictation,
-            ),
-            height: FLOATING_BAR_COMPACT_HEIGHT,
-            marginRight: FLOATING_BAR_COMPACT_HORIZONTAL_PADDING,
-          }}
-        >
-          <FloatingControls
-            state={state}
-            isExpanded
-            colors={colors}
-            onCancel={onCancel}
-            onStop={onStop}
-            onToggleExpanded={onToggleExpanded}
-          />
+            <FloatingControls
+              state={state}
+              isExpanded={isExpanded}
+              colors={colors}
+              onStop={onStop}
+              onToggleExpanded={onToggleExpanded}
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -235,14 +141,12 @@ function FloatingControls({
   isExpanded,
   colors,
   onStop,
-  onCancel,
   onToggleExpanded,
 }: {
   state: FloatingBarState;
   isExpanded: boolean;
   colors: BarColors;
   onStop: () => void;
-  onCancel?: () => void;
   onToggleExpanded: (expanded: boolean) => void;
 }) {
   return (
@@ -250,24 +154,6 @@ function FloatingControls({
       className="flex items-center"
       style={{ gap: FLOATING_BAR_COMPACT_GAP }}
     >
-      {state.dictation && (
-        <button
-          type="button"
-          data-tauri-drag-region="false"
-          aria-label="Cancel dictation"
-          title="Cancel dictation"
-          onClick={onCancel}
-          className="flex items-center justify-center"
-          style={{
-            width: FLOATING_BAR_COMPACT_ICON_SIZE,
-            height: FLOATING_BAR_COMPACT_ICON_SIZE,
-            borderRadius: FLOATING_BAR_CONTROL_RADIUS,
-            color: colors.content,
-          }}
-        >
-          <X size={14} />
-        </button>
-      )}
       <StopControl state={state} colors={colors} onStop={onStop} />
       {state.liveCaptionToggleVisible ? (
         <button
@@ -495,21 +381,22 @@ function TranscriptBubble({
   );
 }
 
-function HoverHandle({ color, width }: { color: string; width: number }) {
+function HoverHandle({ color }: { color: string }) {
   return (
     <div
       data-tauri-drag-region
       className="flex items-center justify-center"
       style={{
         height: FLOATING_BAR_HOVER_HANDLE_HEIGHT,
-        width,
+        width: "100%",
+        paddingTop: FLOATING_BAR_HOVER_HANDLE_TOP_PADDING,
       }}
     >
       <div
         data-tauri-drag-region
         className="h-full"
         style={{
-          width: Math.max(0, width - 16),
+          width: "calc(100% - 16px)",
           backgroundImage: `radial-gradient(circle, ${color} 0.8px, transparent 0.9px)`,
           backgroundSize: "5px 7px",
         }}
