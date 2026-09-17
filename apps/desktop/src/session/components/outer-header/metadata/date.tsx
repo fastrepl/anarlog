@@ -9,9 +9,11 @@ import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { format, safeFormat, safeParseDate } from "@anlg/utils";
 
 import { useSession, useUpdateSession } from "~/session/queries";
+import { useTimeFormat } from "~/shared/hooks/useTimeFormat";
 
 export function DateEditor({ sessionId }: { sessionId: string }) {
   const { t } = useLingui();
+  const timeFormat = useTimeFormat();
   const [isEditing, setIsEditing] = useState(false);
   // Shown between closing the editor and the live query re-emitting, so the
   // read-only label never flashes the pre-save date. It masks the live value
@@ -25,7 +27,7 @@ export function DateEditor({ sessionId }: { sessionId: string }) {
       : createdAt;
   const noteDate = safeFormat(
     effectiveCreatedAt ?? new Date(),
-    "MMM d, yyyy h:mm a",
+    `MMM d, yyyy ${timeFormat}`,
     t`Unknown date`,
   );
 

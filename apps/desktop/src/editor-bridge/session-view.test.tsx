@@ -2,6 +2,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { format } from "date-fns";
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("~/shared/config", () => ({ useConfigValue: () => false }));
+
 const hoisted = vi.hoisted(() => {
   const transaction = {
     setNodeMarkup: vi.fn(),

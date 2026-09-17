@@ -48,6 +48,7 @@ import { getSessionEvent } from "~/session/utils";
 import { openStandaloneNoteWindow } from "~/session/window";
 import { useConfigValue } from "~/shared/config";
 import type { MenuItemDef } from "~/shared/hooks/useNativeContextMenu";
+import { useTimeFormat } from "~/shared/hooks/useTimeFormat";
 import { InteractiveButton } from "~/shared/ui/interactive-button";
 import {
   formatSidebarItemTags,
@@ -460,9 +461,16 @@ const EventItem = memo(
 
     const ignored = isIgnored(trackingIdEvent, recurrenceSeriesId);
 
+    const timeFormat = useTimeFormat();
     const displayTime = useMemo(
-      () => formatDisplayTime(item.data.started_at, precision, timezone),
-      [item.data.started_at, precision, timezone],
+      () =>
+        formatDisplayTime(
+          item.data.started_at,
+          precision,
+          timezone,
+          timeFormat,
+        ),
+      [item.data.started_at, precision, timezone, timeFormat],
     );
 
     const [isOpening, setIsOpening] = useState(false);
@@ -651,14 +659,22 @@ const SessionItem = memo(
 
     const sessionEvent = getSessionEvent(item.data);
 
+    const timeFormat = useTimeFormat();
     const displayTime = useMemo(
       () =>
         formatDisplayTime(
           sessionEvent?.started_at ?? item.data.created_at,
           precision,
           timezone,
+          timeFormat,
         ),
-      [sessionEvent?.started_at, item.data.created_at, precision, timezone],
+      [
+        sessionEvent?.started_at,
+        item.data.created_at,
+        precision,
+        timezone,
+        timeFormat,
+      ],
     );
     const muted = isTimelineItemInFuture(item);
 
@@ -817,7 +833,8 @@ const SessionItem = memo(
 function formatDisplayTime(
   timestamp: string | null | undefined,
   precision: TimelinePrecision,
-  timezone?: string,
+  timezone: string | undefined,
+  timeFormat: string,
 ): string {
   const parsed = safeParseDate(timestamp);
   if (!parsed) {
@@ -825,7 +842,7 @@ function formatDisplayTime(
   }
 
   const date = timezone ? new TZDate(parsed, timezone) : parsed;
-  const time = format(date, "h:mm a").toUpperCase();
+  const time = format(date, timeFormat).toUpperCase();
 
   if (precision === "time") {
     return time;

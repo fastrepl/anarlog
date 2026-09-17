@@ -94,6 +94,12 @@ export const SETTING_DEFINITIONS = {
     path: ["general", "show_tray_icon"],
     default: true as boolean,
   },
+  use_24_hour_time: {
+    type: "boolean",
+    path: ["general", "use_24_hour_time"],
+    synced: true,
+    default: false as boolean,
+  },
   theme: {
     type: "string",
     path: ["general", "theme"],
