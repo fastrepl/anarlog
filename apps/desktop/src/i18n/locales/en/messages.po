@@ -4969,6 +4969,10 @@ msgstr "Show in Finder"
 msgid "Show in folder"
 msgstr "Show in folder"
 
+#: src/settings/appearance/time-format.tsx
+msgid "Show meeting times as 14:00 instead of 2:00 PM."
+msgstr "Show meeting times as 14:00 instead of 2:00 PM."
+
 #: src/main/windows-title-bar.tsx
 msgid "Show sidebar"
 msgstr "Show sidebar"
@@ -5967,6 +5971,10 @@ msgstr "Uploads meeting content for remote access while Anarlog is closed."
 #: src/settings/team/index.tsx
 msgid "Usage"
 msgstr "Usage"
+
+#: src/settings/appearance/time-format.tsx
+msgid "Use 24-hour time"
+msgstr "Use 24-hour time"
 
 #: src/settings/team/index.tsx
 msgid "Use 3–63 lowercase letters, numbers, or hyphens."
