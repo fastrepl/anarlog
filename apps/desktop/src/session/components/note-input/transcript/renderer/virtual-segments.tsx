@@ -3,6 +3,7 @@ import {
   type FocusEvent,
   type ReactNode,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -69,8 +70,21 @@ export function useVirtualSegments({
   const scrollToIndexRef = useRef<
     (index: number, behavior: ScrollBehavior) => void
   >(() => {});
-  const latestKeysRef = useRef(new Set(segmentKeys));
-  latestKeysRef.current = new Set(segmentKeys);
+  const keySet = useMemo(() => new Set(segmentKeys), [segmentKeys]);
+  const latestKeysRef = useRef(keySet);
+  latestKeysRef.current = keySet;
+  const pendingHeightsRef = useRef(new Map<string, number>());
+  const measurementFrameRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (measurementFrameRef.current !== null) {
+        cancelAnimationFrame(measurementFrameRef.current);
+        measurementFrameRef.current = null;
+      }
+      pendingHeightsRef.current.clear();
+    };
+  }, []);
 
   const estimatedHeights = useMemo(
     () =>
@@ -160,19 +174,34 @@ export function useVirtualSegments({
 
   const measureRow = useCallback((key: string, height: number) => {
     if (!Number.isFinite(height) || height <= 0) return;
-    setMeasuredHeights((current) => {
-      const previous = current.get(key);
-      if (previous !== undefined && Math.abs(previous - height) < 1) {
-        return current;
-      }
-      const next = new Map<string, number>();
-      for (const [existingKey, existingHeight] of current) {
-        if (latestKeysRef.current.has(existingKey)) {
-          next.set(existingKey, existingHeight);
+    pendingHeightsRef.current.set(key, height);
+    if (measurementFrameRef.current !== null) return;
+
+    // Resizing reflows many rows together; copy the height cache only once.
+    measurementFrameRef.current = requestAnimationFrame(() => {
+      measurementFrameRef.current = null;
+      const pending = pendingHeightsRef.current;
+      pendingHeightsRef.current = new Map();
+      setMeasuredHeights((current) => {
+        const keys = latestKeysRef.current;
+        const changed = Array.from(pending).some(([key, height]) => {
+          const previous = current.get(key);
+          return (
+            keys.has(key) &&
+            (previous === undefined || Math.abs(previous - height) >= 1)
+          );
+        });
+        if (!changed) return current;
+
+        const next = new Map<string, number>();
+        for (const [key, height] of current) {
+          if (keys.has(key)) next.set(key, height);
         }
-      }
-      next.set(key, height);
-      return next;
+        for (const [key, height] of pending) {
+          if (keys.has(key)) next.set(key, height);
+        }
+        return next;
+      });
     });
   }, []);
 
@@ -334,8 +363,12 @@ export function VirtualSegmentRow({
       const measure = () => onMeasure(rowKey, node.offsetHeight);
       measure();
       if (typeof ResizeObserver !== "undefined") {
-        observerRef.current = new ResizeObserver(measure);
-        observerRef.current.observe(node);
+        observerRef.current = new ResizeObserver((entries) => {
+          const height = entries[0]?.borderBoxSize?.[0]?.blockSize;
+          if (height === undefined) measure();
+          else onMeasure(rowKey, height);
+        });
+        observerRef.current.observe(node, { box: "border-box" });
       }
     },
     [onMeasure, rowKey],
