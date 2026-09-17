@@ -107,6 +107,9 @@ export function getEscapeShortcutContext(target: EventTarget | null) {
     fromProseMirrorEditor,
     fromSessionTitleInput: isFromSessionTitleInput(target),
     fromSessionSurface: isFromSessionSurface(target),
+    fromTranscriptEditor:
+      target instanceof Element &&
+      target.closest("[data-transcript-editor]") !== null,
     hadEditorEscapeConsumer:
       fromProseMirrorEditor &&
       document.querySelector("[data-editor-escape-consumer]") !== null,
@@ -120,12 +123,14 @@ export function shouldSkipEscapeShortcut(
     fromProseMirrorEditor,
     fromSessionTitleInput,
     fromSessionSurface,
+    fromTranscriptEditor,
     hadEditorEscapeConsumer,
     hadMeaningfulFocus,
   }: {
     fromProseMirrorEditor: boolean;
     fromSessionTitleInput: boolean;
     fromSessionSurface: boolean;
+    fromTranscriptEditor: boolean;
     hadEditorEscapeConsumer: boolean;
     hadMeaningfulFocus: boolean;
   },
@@ -136,6 +141,10 @@ export function shouldSkipEscapeShortcut(
 
   if (!hadMeaningfulFocus) {
     return false;
+  }
+
+  if (fromTranscriptEditor) {
+    return true;
   }
 
   if (fromSessionTitleInput || fromSessionSurface) {
