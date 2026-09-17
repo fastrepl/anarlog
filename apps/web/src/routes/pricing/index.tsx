@@ -16,7 +16,7 @@ import { getCanonicalUrl } from "@/lib/seo";
 
 const title = "Pricing · Anarlog";
 const description =
-  "Compare Anarlog Free, Pro, Team, and Enterprise. Pro is $15/month for personal cloud features, Team is $20/person/month for shared workspaces, and Enterprise is custom.";
+  "Compare Anarlog Free, Pro, Team, and Enterprise. Pro includes system-wide dictation and cloud features for $15/month. Team is $20/person/month. Enterprise is custom.";
 
 const verifiedOnLabel = new Date(PRICING_VERIFIED_ON).toLocaleDateString(
   "en-US",
