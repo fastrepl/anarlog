@@ -287,6 +287,20 @@ mod test {
         assert_eq!(std::path::Path::new(&name).components().count(), 1);
         let defaults: MarkdownExportOptions = serde_json::from_str("{}").unwrap();
         assert_eq!(defaults, MarkdownExportOptions::default());
+
+        let literal_title = anlg_agent_access::Meeting {
+            title: "Planning {date} and {title}".to_string(),
+            ..export.meeting.clone()
+        };
+        let options = MarkdownExportOptions {
+            filename: "{date} {title} recap {title}".to_string(),
+            include_id_suffix: false,
+            ..Default::default()
+        };
+        assert_eq!(
+            commands::configured_markdown_filename(&literal_title, &options),
+            "2026-07-13 Planning {date} and {title} recap Planning {date} and {title}.md"
+        );
     }
 
     #[tokio::test]
@@ -532,6 +546,65 @@ mod test {
             "My unrelated notes"
         );
         std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[tokio::test]
+    async fn markdown_reexports_multiline_titles_and_windows_line_endings() {
+        let pool = seeded_pool().await;
+        let mut export = anlg_agent_access::get_meeting_export(&pool, "meeting-1".to_string())
+            .await
+            .unwrap();
+        export.meeting.title = "Planning\n\nfollow-up".to_string();
+        let directory = tempfile::tempdir().unwrap();
+        let options = MarkdownExportOptions::default();
+        for selected in [None, Some(&options)] {
+            let path =
+                commands::write_markdown_export_with_options(directory.path(), &export, selected)
+                    .unwrap();
+            let content = std::fs::read_to_string(&path)
+                .unwrap()
+                .replace('\n', "\r\n");
+            std::fs::write(&path, content).unwrap();
+            export.meeting.note.as_mut().unwrap().markdown = "Updated memo".to_string();
+            commands::write_markdown_export_with_options(directory.path(), &export, selected)
+                .unwrap();
+            assert!(
+                std::fs::read_to_string(path)
+                    .unwrap()
+                    .contains("Updated memo")
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn markdown_collision_checks_the_owner_before_ids_in_the_body() {
+        let pool = seeded_pool().await;
+        let export = anlg_agent_access::get_meeting_export(&pool, "meeting-1".to_string())
+            .await
+            .unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory
+            .path()
+            .join(commands::markdown_export_filename(&export.meeting));
+        let other = "# Another meeting\n\n- ID: `meeting-2`\n- Date: 2026-07-13\n\n## Notes\n\n- ID: `meeting-1`\n";
+        std::fs::write(&path, other).unwrap();
+        assert!(commands::write_markdown_export(directory.path(), &export).is_err());
+        assert_eq!(std::fs::read_to_string(path).unwrap(), other);
+    }
+
+    #[tokio::test]
+    async fn legacy_cleanup_matches_sanitized_id_suffixes() {
+        let pool = seeded_pool().await;
+        let mut export = anlg_agent_access::get_meeting_export(&pool, "meeting-1".to_string())
+            .await
+            .unwrap();
+        export.meeting.id = "meeting/1".to_string();
+        let directory = tempfile::tempdir().unwrap();
+        let original = commands::write_markdown_export(directory.path(), &export).unwrap();
+        export.meeting.title = "Planning updated".to_string();
+        let updated = commands::write_markdown_export(directory.path(), &export).unwrap();
+        assert!(!original.exists());
+        assert!(updated.exists());
     }
 
     #[tokio::test]

@@ -209,7 +209,11 @@ pub(crate) fn configured_markdown_filename(
     let base = if custom.is_empty() {
         format!("{date} {title}").trim().to_string()
     } else {
-        custom.replace("{title}", title).replace("{date}", date)
+        custom
+            .split("{title}")
+            .map(|part| part.replace("{date}", date))
+            .collect::<Vec<_>>()
+            .join(title)
     };
     let base = base.trim();
     let base = if !custom.is_empty() && base.to_ascii_lowercase().ends_with(".md") {
@@ -317,12 +321,7 @@ pub(crate) fn write_markdown_export_with_options(
     let existing = match std::fs::read_to_string(&path) {
         Ok(content) => {
             let marker = format!("- ID: `{}`", export.meeting.id);
-            let existing_id = content
-                .strip_prefix(&legacy_prefix)
-                .unwrap_or(&content)
-                .split("\n\n")
-                .nth(1)
-                .and_then(|metadata| metadata.lines().next());
+            let existing_id = content.lines().find(|line| line.starts_with("- ID: `"));
             if existing_id != Some(marker.as_str()) {
                 return Err(format!(
                     "{filename} already exists for another file; choose a different filename or include the meeting ID suffix"
@@ -388,7 +387,7 @@ fn remove_stale_exports(directory: &std::path::Path, meeting_id: &str, keep_file
     if id_prefix.is_empty() {
         return;
     }
-    let marker = format!(" [{id_prefix}].md");
+    let marker = format!(" [{}].md", sanitize_filename_part(&id_prefix));
     let Ok(entries) = std::fs::read_dir(directory) else {
         return;
     };

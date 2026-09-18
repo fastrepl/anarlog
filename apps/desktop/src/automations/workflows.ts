@@ -62,7 +62,12 @@ export function createEmptyWorkflow(
 
 export function createWorkflowStep(type: WorkflowStepType): WorkflowStep {
   if (type === "markdown_export") {
-    return { id: id(), type, directory: "" };
+    return {
+      id: id(),
+      type,
+      directory: "",
+      options: { ...DEFAULT_MARKDOWN_EXPORT_OPTIONS },
+    };
   }
   return { id: id(), type, target: null };
 }

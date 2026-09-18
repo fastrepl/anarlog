@@ -84,6 +84,32 @@ describe("automation workflows", () => {
 });
 
 describe("Markdown workflow options", () => {
+  it("gives new actions explicit options instead of legacy export behavior", () => {
+    const step = createWorkflowStep("markdown_export");
+    expect(step).toMatchObject({ options: DEFAULT_MARKDOWN_EXPORT_OPTIONS });
+    const workflow = createEmptyWorkflow({ steps: [step] });
+    expect(
+      parseAutomationWorkflows(serializeAutomationWorkflows([workflow])),
+    ).toEqual([workflow]);
+  });
+
+  it.each(["", "   "])(
+    "requires a folder with selected content: %j",
+    (directory) => {
+      const workflow = createEmptyWorkflow({
+        steps: [
+          {
+            id: "export",
+            type: "markdown_export",
+            directory,
+            options: DEFAULT_MARKDOWN_EXPORT_OPTIONS,
+          },
+        ],
+      });
+      expect(isWorkflowReady(workflow)).toBe(false);
+    },
+  );
+
   it("round-trips per-action selections and names independently", () => {
     const options = {
       ...DEFAULT_MARKDOWN_EXPORT_OPTIONS,
@@ -132,7 +158,7 @@ describe("Markdown workflow options", () => {
     );
   });
 
-  it("requires a folder and at least one selected element", () => {
+  it("requires selected content while preserving legacy defaults", () => {
     const workflow = createEmptyWorkflow({
       steps: [
         {
