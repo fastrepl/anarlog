@@ -11,6 +11,7 @@ export function supportsLiveTranscription(provider: string, model: string) {
     case "nari":
     case "xai":
     case "meta":
+    case "wisprflow":
       return true;
     case "assemblyai":
       return !["universal-3-pro", "universal-3-5-pro"].includes(model);

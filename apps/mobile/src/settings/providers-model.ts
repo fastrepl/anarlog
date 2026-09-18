@@ -164,6 +164,12 @@ export const TRANSCRIPTION_PROVIDERS = [
     model: "cohere-transcribe-03-2026",
   },
   {
+    id: "wisprflow",
+    name: "Wispr Flow",
+    baseUrl: "https://platform-api.wisprflow.ai",
+    model: "flow",
+  },
+  {
     id: "aquavoice",
     name: "AquaVoice",
     baseUrl: "https://api.aquavoice.com/v1",

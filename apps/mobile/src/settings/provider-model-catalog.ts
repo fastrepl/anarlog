@@ -70,6 +70,7 @@ const TRANSCRIPTION_MODELS: Record<string, readonly string[]> = {
   ],
   pyannote: ["parakeet-tdt-0.6b-v3", "faster-whisper-large-v3-turbo"],
   cohere: ["cohere-transcribe-03-2026", "cohere-transcribe-arabic-07-2026"],
+  wisprflow: ["flow"],
   aquavoice: ["avalon-v1.5"],
   meta: ["muse-voice-transcribe-1.0"],
   custom: [],
