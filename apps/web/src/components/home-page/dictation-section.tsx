@@ -65,7 +65,7 @@ const polishedSpeechStream = polishedSpeech.repeat(streamCopies);
 
 export function DictationSection() {
   return (
-    <section id="dictation" className="py-16 md:py-20">
+    <section id="dictation" className="pt-16 md:pt-20">
       <h2 className="text-color font-hand text-4xl leading-none font-semibold md:text-5xl">
         <span className="font-hand opacity-45">Stop typing.</span> Start
         talking.
@@ -75,13 +75,6 @@ export function DictationSection() {
         apps you already use.
       </p>
       <SpeechFlowVisual />
-      <p className="text-color mx-auto mt-6 max-w-xl text-base leading-7">
-        Enable dictation, choose your shortcut, and speak into a text field in
-        your desktop apps. Your words appear when you finish.
-      </p>
-      <p className="text-color-secondary mt-3 text-sm leading-6">
-        Included with Pro, Team, and Enterprise on macOS, Windows, and Linux.
-      </p>
     </section>
   );
 }

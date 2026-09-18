@@ -401,7 +401,7 @@ export function TestimonialsSection() {
   };
 
   return (
-    <section className="py-16 md:py-20">
+    <section className="pt-8 pb-16 md:pt-10 md:pb-20">
       <div>
         <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
           What people say
