@@ -19,6 +19,9 @@ const mocks = vi.hoisted(() => ({
   disconnectConnectedImport: vi.fn(),
   disconnectNangoImport: vi.fn(),
   sync: vi.fn(),
+  selectFiles: vi.fn(),
+  readTextFiles: vi.fn(),
+  importMeetingFiles: vi.fn(),
   signIn: vi.fn(),
   signedIn: true,
   connections: [] as Array<{
@@ -49,6 +52,11 @@ vi.mock("~/auth/useConnections", async () => {
   };
 });
 
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: mocks.selectFiles }));
+vi.mock("@anlg/plugin-importer", () => ({
+  commands: { readTextFiles: mocks.readTextFiles },
+}));
+
 vi.mock("./detection", () => ({
   detectImportSources: mocks.detectImportSources,
 }));
@@ -56,7 +64,7 @@ vi.mock("./detection", () => ({
 vi.mock("./queries", () => ({
   EMPTY_MEETING_IMPORT_HISTORY: [],
   importConnectedMeetings: vi.fn(),
-  importMeetingFiles: vi.fn(),
+  importMeetingFiles: mocks.importMeetingFiles,
   useMeetingImportHistory: () => ({ data: [] }),
 }));
 
@@ -157,6 +165,8 @@ function mockDetected(ids: string[]) {
 describe("MeetingImportScreen", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.selectFiles.mockResolvedValue(["export.json"]);
+    mocks.readTextFiles.mockResolvedValue({ status: "ok", data: [] });
     mocks.signedIn = true;
     mocks.connections = [];
     mocks.sync.mockResolvedValue({
@@ -443,6 +453,71 @@ describe("MeetingImportScreen", () => {
     expect(meet.queryByText("Zoom sync failed")).toBeNull();
     expect(zoom.queryByText("Meet transcripts unavailable")).toBeNull();
     expect(screen.queryByText("Everything is already here.")).toBeNull();
+  });
+
+  it("shows a completed file import even when all counts are zero", async () => {
+    mockDetected(["slack-huddles"]);
+    mocks.importMeetingFiles.mockResolvedValue({
+      discovered: 0,
+      imported: 0,
+      matched: 0,
+      conflicts: 0,
+      errors: 0,
+    });
+    renderImports();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Choose files" }),
+    );
+    expect(
+      await screen.findByText("Last import: 0 added, 0 unchanged"),
+    ).toBeTruthy();
+  });
+
+  it("does not show an import result when the file picker is cancelled", async () => {
+    mockDetected(["slack-huddles"]);
+    mocks.selectFiles.mockResolvedValue(null);
+    renderImports();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Choose files" }),
+    );
+    await waitFor(() => expect(mocks.selectFiles).toHaveBeenCalledOnce());
+    expect(mocks.importMeetingFiles).not.toHaveBeenCalled();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("replaces file import counts when a newer sync finishes", async () => {
+    mockDetected(["zoom"]);
+    mocks.connections = [{ connection_id: "zoom-1", integration_id: "zoom" }];
+    mocks.importMeetingFiles.mockResolvedValue({
+      discovered: 2,
+      imported: 2,
+      matched: 0,
+      conflicts: 0,
+      errors: 0,
+    });
+    renderImports();
+    const button = await screen.findByRole("button", { name: "Sync now" });
+    await waitFor(() => expect(button.hasAttribute("disabled")).toBe(false));
+    fireEvent.pointerDown(screen.getByRole("button", { name: "More options" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Use files" }));
+    expect(
+      await screen.findByText("Last import: 2 added, 0 unchanged"),
+    ).toBeTruthy();
+    mocks.sync.mockResolvedValue({
+      result: {
+        discovered: 3,
+        imported: 1,
+        matched: 2,
+        conflicts: 0,
+        errors: 0,
+      },
+      warnings: [],
+    });
+    fireEvent.click(button);
+    expect(
+      await screen.findByText("Last import: 1 added, 2 unchanged"),
+    ).toBeTruthy();
+    expect(screen.queryByText("Last import: 2 added, 0 unchanged")).toBeNull();
   });
 
   it("shows sync progress and blocks repeat clicks until syncing finishes", async () => {

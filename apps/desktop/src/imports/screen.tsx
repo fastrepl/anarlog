@@ -250,7 +250,8 @@ export function MeetingImportScreen({
 
       const filesResult = await importerCommands.readTextFiles(paths);
       if (filesResult.status === "error") throw new Error(filesResult.error);
-      return importMeetingFiles(provider.id, filesResult.data);
+      const result = await importMeetingFiles(provider.id, filesResult.data);
+      return { ...result, completedAt: Date.now() };
     },
   });
 
@@ -437,8 +438,11 @@ export function MeetingImportScreen({
                 );
 
                 const result =
-                  fileImportMutation.variables?.id === provider.id
-                    ? (fileImportMutation.data ?? syncQuery?.data?.result)
+                  fileImportMutation.variables?.id === provider.id &&
+                  fileImportMutation.data &&
+                  fileImportMutation.data.completedAt >=
+                    (syncQuery?.dataUpdatedAt ?? 0)
+                    ? fileImportMutation.data
                     : syncQuery?.data?.result;
                 const error =
                   credentialsQuery?.error ??
@@ -504,11 +508,7 @@ export function MeetingImportScreen({
                           </Trans>
                         </p>
                       )}
-                      {result &&
-                      (result.imported > 0 ||
-                        result.matched > 0 ||
-                        result.errors > 0 ||
-                        result.conflicts > 0) ? (
+                      {result ? (
                         <p
                           className="text-muted-foreground mt-1 text-xs"
                           role="status"
