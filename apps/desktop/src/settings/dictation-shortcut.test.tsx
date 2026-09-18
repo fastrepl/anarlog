@@ -142,7 +142,6 @@ describe("dictation shortcut recorder", () => {
     await waitFor(() =>
       expect((button as HTMLButtonElement).disabled).toBe(true),
     );
-    expect((button as HTMLButtonElement).disabled).toBe(true);
     expect(useDictationStatus.getState().capturingShortcut).toBe(false);
     fireEvent.keyDown(button, { key: "Escape" });
     fireEvent.blur(button);
