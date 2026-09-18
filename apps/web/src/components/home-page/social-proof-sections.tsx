@@ -111,28 +111,32 @@ const testimonials = [
     quote: "Anarlog is great and local.",
     author: "Tobi Lutke",
     username: "tobi",
-    avatar: "https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/testimonials/tobi.jpg",
+    avatar:
+      "https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/testimonials/tobi.jpg",
     url: "https://x.com/tobi/status/1983892259230699921",
   },
   {
     quote: "Anarlog is worth a look.",
     author: "Anand Chowdhary",
     username: "AnandChowdhary",
-    avatar: "https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/testimonials/anand.jpg",
+    avatar:
+      "https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/testimonials/anand.jpg",
     url: "https://x.com/AnandChowdhary/status/1997980479698723119",
   },
   {
     quote: "Anarlog is one of my favorite AI secret weapons.",
     author: "James Koshigoe",
     username: "JamesKoshigoe",
-    avatar: "https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/testimonials/james-k.jpg",
+    avatar:
+      "https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/testimonials/james-k.jpg",
     url: "https://x.com/JamesKoshigoe/status/2024676687980671195",
   },
   {
     quote: "Really liking Anarlog. Open access to my data and a GPL codebase!",
     author: "James LePage",
     username: "jameswlepage",
-    avatar: "https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/testimonials/james-l.jpg",
+    avatar:
+      "https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/testimonials/james-l.jpg",
     url: "https://x.com/jameswlepage/status/2042780872693166169",
   },
   {
@@ -140,7 +144,8 @@ const testimonials = [
       "I love the flexibility that Anarlog gives me to integrate personal notes with AI summaries.",
     author: "Tom Yang",
     username: "tomyang11_",
-    avatar: "https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/testimonials/tom.jpg",
+    avatar:
+      "https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/testimonials/tom.jpg",
     url: "https://twitter.com/tomyang11_/status/1956395933538902092",
   },
 ];
