@@ -88,3 +88,32 @@ describe("provider profile", () => {
     ).toBe("ada@example.com");
   });
 });
+
+it("prefers a shared photo and honors removal over provider identities", () => {
+  const user = {
+    email: "ada@example.com",
+    identities: [],
+    user_metadata: {
+      avatar_url: "https://provider.example/old.jpg",
+      profile_avatar: { url: "https://storage.example/new.jpg" },
+    },
+  };
+  expect(getProviderProfileImageUrl(user)).toBe(
+    "https://storage.example/new.jpg",
+  );
+  expect(
+    getProviderProfileImageUrl({
+      ...user,
+      user_metadata: { ...user.user_metadata, profile_avatar: { url: null } },
+    }),
+  ).toBeNull();
+  expect(
+    getProviderProfileImageUrl({
+      ...user,
+      user_metadata: {
+        ...user.user_metadata,
+        profile_avatar: { url: "javascript:alert(1)" },
+      },
+    }),
+  ).toBeNull();
+});

@@ -377,6 +377,13 @@ async fn sweeps_all_attachment_prefixes_before_deleting_the_auth_user() {
         .mount(&server)
         .await;
     Mock::given(method("POST"))
+        .and(path(format!(
+            "/storage/v1/object/list/{PROFILE_AVATAR_BUCKET}"
+        )))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
         .and(path("/rest/v1/rpc/mark_account_deletion_prefix_swept"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!(true)))
         .mount(&server)
@@ -416,6 +423,7 @@ async fn sweeps_all_attachment_prefixes_before_deleting_the_auth_user() {
             "/storage/v1/object/list/attachment-backups",
             "/storage/v1/object/list/audio-files",
             "/storage/v1/object/list/shared-note-attachments",
+            "/storage/v1/object/list/profile-avatars",
             "/rest/v1/rpc/mark_account_deletion_prefix_swept",
             "/v1/databases/managed-e2ee",
             "/v2/weblite/sql",

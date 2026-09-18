@@ -18,6 +18,7 @@ use crate::{
 
 const ATTACHMENT_BACKUP_BUCKET: &str = "attachment-backups";
 const SHARED_ATTACHMENT_BUCKET: &str = "shared-note-attachments";
+const PROFILE_AVATAR_BUCKET: &str = "profile-avatars";
 const AUDIO_BUCKET: &str = "audio-files";
 const ATTACHMENT_BATCH_SIZE: usize = 32;
 const ATTACHMENT_CONCURRENCY: usize = 4;
@@ -445,6 +446,23 @@ impl CleanupWorker {
                 .storage
                 .clear_prefix_until(
                     SHARED_ATTACHMENT_BUCKET,
+                    &prefix,
+                    MAX_ACCOUNT_PREFIX_OBJECTS,
+                    || cancellation.is_cancelled(),
+                )
+                .await
+            {
+                Ok(_) => {}
+                Err(anlg_supabase_storage::Error::Cancelled) => return Ok(()),
+                Err(error) => return Err(storage_error(error)),
+            }
+            if cancellation.is_cancelled() {
+                return Ok(());
+            }
+            match self
+                .storage
+                .clear_prefix_until(
+                    PROFILE_AVATAR_BUCKET,
                     &prefix,
                     MAX_ACCOUNT_PREFIX_OBJECTS,
                     || cancellation.is_cancelled(),

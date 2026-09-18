@@ -511,12 +511,11 @@ export function savePersonalContact(
     | "linkedinUsername"
     | "memo"
     | "organizationId"
-    | "avatarDataUrl"
-  >,
+  > & { avatarDataUrl?: string | null },
 ): Promise<void> {
   return enqueueDatabaseWrite(`human:${humanId}`, async () => {
     const now = new Date().toISOString();
-    const hasAvatar = values.avatarDataUrl !== null;
+    const hasAvatar = typeof values.avatarDataUrl === "string";
     const validMetadata =
       "CASE WHEN json_valid(humans.metadata_json) THEN humans.metadata_json ELSE '{}' END";
     await executeTransaction([
@@ -540,7 +539,9 @@ export function savePersonalContact(
           metadata_json = ${
             hasAvatar
               ? `json_set(${validMetadata}, '$.avatarDataUrl', ?)`
-              : `json_remove(${validMetadata}, '$.avatarDataUrl')`
+              : values.avatarDataUrl === null
+                ? `json_remove(${validMetadata}, '$.avatarDataUrl')`
+                : validMetadata
           },
           updated_at = excluded.updated_at, deleted_at = NULL
       `,

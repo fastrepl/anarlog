@@ -728,3 +728,22 @@ describe("contact SQLite queries", () => {
     });
   });
 });
+
+it("preserves the photo when autosaving unrelated profile fields", async () => {
+  await savePersonalContact("account-1", {
+    name: "Ada",
+    email: "ada@example.com",
+    phone: "",
+    jobTitle: "",
+    linkedinUsername: "",
+    memo: "",
+    organizationId: "",
+  });
+  const statement =
+    mocks.executeTransaction.mock.calls[
+      mocks.executeTransaction.mock.calls.length - 1
+    ][0][0];
+  expect(statement.sql).not.toContain("json_remove(");
+  expect(statement.sql).not.toContain("json_set(");
+  expect(statement.params).not.toContain(undefined);
+});

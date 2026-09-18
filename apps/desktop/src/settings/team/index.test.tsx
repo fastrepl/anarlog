@@ -234,6 +234,10 @@ vi.mock("./client", () => ({
 
 import { SettingsTeam } from "./index";
 
+vi.mock("~/contacts/profile-photo", () => ({
+  useSharedProfilePhoto: () => ({ data: undefined }),
+}));
+
 vi.mock("~/contacts/queries", () => ({
   usePersonalContact: (id: string) => {
     mocks.personalContactQuery(id);

@@ -5,6 +5,7 @@ import { useDebounceValue } from "usehooks-ts";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { openUrlWithInstruction } from "@anlg/plugin-windows";
+import { getCustomProfileImageUrl } from "@anlg/supabase/profile";
 import { Avatar } from "@anlg/ui/components/avatar";
 import {
   CircleNotch,
@@ -90,6 +91,7 @@ import {
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
+import { useSharedProfilePhoto } from "~/contacts/profile-photo";
 import { usePersonalContact } from "~/contacts/queries";
 import {
   cancelScheduledCapture,
@@ -526,6 +528,7 @@ function WorkspacePanel({
 
   const members = useQuery({
     queryKey: ["team-members", workspaceId],
+    refetchInterval: 30_000,
     queryFn: () => listWorkspaceMembers(requireTeamContext(auth), workspaceId),
     retry: false,
   });
@@ -1926,11 +1929,19 @@ function TeamSkeleton() {
 
 function PersonalMemberAvatar({ member }: { member: WorkspaceMember }) {
   const { data: contact } = usePersonalContact(member.userId);
+  const { data: user } = useSharedProfilePhoto(member.userId);
+  const custom = getCustomProfileImageUrl(user);
   return (
     <Avatar
       seed={member.userId}
       label={member.name || member.email}
-      imageUrl={contact ? contact.avatarDataUrl : member.avatarUrl}
+      imageUrl={
+        custom !== undefined
+          ? custom
+          : contact
+            ? contact.avatarDataUrl
+            : member.avatarUrl
+      }
       size={32}
       className="rounded-full"
     />

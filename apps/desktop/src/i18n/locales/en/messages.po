@@ -998,7 +998,7 @@ msgstr "Change"
 
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
-#: src/settings/general/account-profile.tsx
+#: src/contacts/profile-photo.tsx
 msgid "Change photo"
 msgstr "Change photo"
 
@@ -1815,6 +1815,7 @@ msgstr "Couldn't open connected accounts. Try again."
 msgid "Couldn't save your new badges."
 msgstr "Couldn't save your new badges."
 
+#: src/contacts/profile-photo.tsx
 #: src/settings/general/account-profile.tsx
 msgid "Couldn't save your profile. Try again."
 msgstr "Couldn't save your profile. Try again."
@@ -4335,7 +4336,7 @@ msgid "Remove member?"
 msgstr "Remove member?"
 
 #: src/contacts/contact-page-header.tsx
-#: src/settings/general/account-profile.tsx
+#: src/contacts/profile-photo.tsx
 msgid "Remove photo"
 msgstr "Remove photo"
 
@@ -4512,6 +4513,7 @@ msgid "Retention (days)"
 msgstr "Retention (days)"
 
 #: src/chat/components/message/error.tsx
+#: src/contacts/profile-photo.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 #: src/settings/general/account-profile.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
@@ -4608,6 +4610,7 @@ msgstr "Saved"
 msgid "Saved locally"
 msgstr "Saved locally"
 
+#: src/contacts/profile-photo.tsx
 #: src/settings/general/account-profile.tsx
 msgid "Saving..."
 msgstr "Saving..."

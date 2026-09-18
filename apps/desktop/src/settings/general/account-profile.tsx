@@ -9,15 +9,14 @@ import { Textarea } from "@anlg/ui/components/ui/textarea";
 import { formatProfilePhone } from "./phone";
 
 import { useAuth } from "~/auth";
-import { AvatarUploadButton, ContactImage } from "~/contacts/contact-avatar";
 import { ContactOrganizationSelector } from "~/contacts/details";
+import { ProfilePhoto } from "~/contacts/profile-photo";
 import {
   type HumanRecord,
   savePersonalContact,
   usePersonalContact,
   useOrganizations,
 } from "~/contacts/queries";
-import { ContactFacehash } from "~/contacts/shared";
 import { useOwnerUserId } from "~/shared/owner-user";
 
 export function AccountProfile() {
@@ -80,7 +79,6 @@ function ProfileForm({
       linkedinUsername: human?.linkedinUsername ?? "",
       memo: human?.memo ?? "",
       organizationId: human?.organizationId ?? "",
-      avatarDataUrl: human?.avatarDataUrl ?? (null as string | null),
     },
     listeners: {
       onChange: ({ formApi }) => save.mutate(formApi.state.values),
@@ -113,34 +111,21 @@ function ProfileForm({
         </Trans>
       </p>
       <fieldset className="flex min-w-0 flex-col gap-4">
-        <form.Field name="avatarDataUrl">
-          {(field) => (
-            <div className="flex items-center gap-4">
-              <AvatarUploadButton
-                label={t`Change photo`}
-                onUpload={field.handleChange}
-              >
-                {field.state.value ? (
-                  <ContactImage src={field.state.value} size={64} />
-                ) : (
-                  <ContactFacehash
-                    name={human?.name || human?.email || humanId}
-                    size={64}
-                  />
-                )}
-              </AvatarUploadButton>
-              {field.state.value && (
-                <Button
-                  variant="outline"
-                  type="button"
-                  onClick={() => field.handleChange(null)}
-                >
-                  <Trans>Remove photo</Trans>
-                </Button>
-              )}
-            </div>
-          )}
-        </form.Field>
+        <ProfilePhoto
+          userId={humanId}
+          name={human?.name || human?.email || humanId}
+          localPhoto={human?.avatarDataUrl ?? null}
+          onSave={(avatarDataUrl) =>
+            savePersonalContact(humanId, {
+              ...form.state.values,
+              phone: formatProfilePhone(
+                form.state.values.phone,
+                navigator.language,
+              ),
+              avatarDataUrl,
+            })
+          }
+        />
         {fields.map(({ name, label, type }) => (
           <form.Field key={name} name={name}>
             {(field) => (

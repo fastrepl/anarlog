@@ -22,10 +22,29 @@ const profileMetadata = (
   ...(user.identities?.map((identity) => identity.identity_data) ?? []),
 ];
 
+export function getCustomProfileImageUrl(
+  user: ProviderProfile | null | undefined,
+): string | null | undefined {
+  const avatar = user?.user_metadata?.profile_avatar;
+  if (!avatar || typeof avatar !== "object" || !("url" in avatar))
+    return undefined;
+  if (typeof avatar.url !== "string") return null;
+  try {
+    const url = new URL(avatar.url);
+    return url.protocol === "https:" && !url.username && !url.password
+      ? avatar.url
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export function getProviderProfileImageUrl(
   user: ProviderProfile | null | undefined,
 ): string | null {
   if (!user) return null;
+  const custom = getCustomProfileImageUrl(user);
+  if (custom !== undefined) return custom;
 
   for (const metadata of profileMetadata(user)) {
     const value = metadataValue(metadata, ["avatar_url", "picture"]);
