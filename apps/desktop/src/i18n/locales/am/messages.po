@@ -3419,7 +3419,6 @@ msgstr ""
 msgid "More"
 msgstr ""
 
-#: src/imports/screen.tsx
 #: src/session-sharing/delivery-panel.tsx
 msgid "More options"
 msgstr ""
