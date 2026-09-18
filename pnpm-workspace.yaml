@@ -51,5 +51,3 @@ allowBuilds:
   unix-dgram: true
   workerd: true
 
-patchedDependencies:
-  expo-audio@57.0.4: patches/expo-audio@57.0.4.patch
