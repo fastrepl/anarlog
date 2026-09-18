@@ -22,7 +22,7 @@ vi.mock("@anlg/plugin-db", () => ({
   connectLocalLibrary: mocks.connect,
 }));
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: { error: mocks.error },
+  toast: { error: mocks.error },
 }));
 
 import { ConnectLocalLibraryDialog } from "./connect-local-library-dialog";

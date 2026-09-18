@@ -16,7 +16,7 @@ vi.mock("@anlg/plugin-fs-sync", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: { error: mocks.toastError },
+  toast: { error: mocks.toastError },
 }));
 
 vi.mock("~/services/enhancer", () => ({

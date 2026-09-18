@@ -102,7 +102,7 @@ vi.mock("./starter-config", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: {
+  toast: {
     error: mocks.toastError,
     success: mocks.toastSuccess,
     warning: mocks.toastWarning,

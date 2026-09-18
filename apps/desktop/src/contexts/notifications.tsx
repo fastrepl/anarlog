@@ -14,7 +14,7 @@ import {
   type ServerStatus,
   type LocalModel,
 } from "@anlg/plugin-local-stt";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { useConfigValues } from "~/shared/config";
 import type { DownloadProgress } from "~/sidebar/toast/types";
@@ -95,7 +95,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       if (isFailed) {
         const modelName = MODEL_DISPLAY_NAMES[eventModel] ?? eventModel;
-        sonnerToast.error(`Couldn’t download ${modelName}`, {
+        toast.error(`Couldn’t download ${modelName}`, {
           description: status.failed,
         });
       }

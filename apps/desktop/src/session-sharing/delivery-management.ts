@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 
 import { json2md } from "@anlg/editor/markdown";
 import type { JSONContent } from "@anlg/editor/note";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import type { ShareManagementContext } from "./client";
 import {
@@ -118,13 +118,13 @@ export function useSessionRecapDelivery({
         delivery_method: "email",
         recipient_count: recipientCount,
       });
-      sonnerToast.success(
+      toast.success(
         recipientCount > 1 ? t`Meeting notes sent.` : t`Meeting note sent.`,
       );
     },
     onError: (error) => {
       if (error instanceof ShareOperationAbortedError) return;
-      sonnerToast.error(t`Could not email the meeting notes.`);
+      toast.error(t`Could not email the meeting notes.`);
     },
   });
   const slackMutation = useMutation({
@@ -147,11 +147,11 @@ export function useSessionRecapDelivery({
       trackAnalyticsEvent("share_recap_sent", {
         delivery_method: "slack",
       });
-      sonnerToast.success(t`Meeting notes sent to #${channel.name}.`);
+      toast.success(t`Meeting notes sent to #${channel.name}.`);
     },
     onError: (error) => {
       if (error instanceof ShareOperationAbortedError) return;
-      sonnerToast.error(t`Could not send the meeting notes to Slack.`);
+      toast.error(t`Could not send the meeting notes to Slack.`);
     },
   });
 

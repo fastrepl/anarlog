@@ -3,7 +3,7 @@ import {
   events,
   type CaptureStatusEvent,
 } from "@anlg/plugin-transcription";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import {
   clearCaptureAudioDeletionFailure,
@@ -13,7 +13,7 @@ import {
 export async function handleCaptureCleanupStatus(payload: CaptureStatusEvent) {
   if (payload.type !== "audio_error") return;
   if (payload.error.startsWith("audio_deletion_failed:")) {
-    sonnerToast.error(
+    toast.error(
       payload.session_id
         ? "Audio could not be deleted"
         : "Audio cleanup could not finish",
@@ -36,7 +36,7 @@ export async function handleCaptureCleanupStatus(payload: CaptureStatusEvent) {
       );
     }
   } else if (payload.error.startsWith("audio_recovery_failed:")) {
-    sonnerToast.error("Audio could not be recovered", {
+    toast.error("Audio could not be recovered", {
       id: `audio-recovery-${payload.session_id}`,
       duration: Infinity,
       description:
@@ -47,13 +47,13 @@ export async function handleCaptureCleanupStatus(payload: CaptureStatusEvent) {
     }
   } else if (payload.error === "audio_recovery_completed") {
     // Restoring audio does not prove that the missing transcript was repaired.
-    sonnerToast.dismiss(`audio-recovery-${payload.session_id}`);
+    toast.dismiss(`audio-recovery-${payload.session_id}`);
   } else if (payload.error === "audio_deletion_completed") {
     if (payload.session_id) {
       await clearCaptureAudioDeletionFailure(payload.session_id);
-      sonnerToast.dismiss(`audio-deletion-${payload.session_id}`);
+      toast.dismiss(`audio-deletion-${payload.session_id}`);
     } else {
-      sonnerToast.dismiss("audio-cleanup");
+      toast.dismiss("audio-cleanup");
     }
   } else {
     return;

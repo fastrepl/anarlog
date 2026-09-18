@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@anlg/ui/components/ui/select";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import {
   createSessionAccessInvitation,
@@ -279,7 +279,7 @@ export function useSessionAccessManagement({
         return { deliveredBy: "none" as const };
       }),
     onSuccess: ({ deliveredBy }) => {
-      sonnerToast.success(
+      toast.success(
         deliveredBy === "email"
           ? t`Invitation sent.`
           : deliveredBy === "clipboard"
@@ -289,7 +289,7 @@ export function useSessionAccessManagement({
     },
     onError: (error) => {
       if (error instanceof ShareOperationAbortedError) return;
-      sonnerToast.error(t`Could not update this person's access.`);
+      toast.error(t`Could not update this person's access.`);
     },
     onSettled: onChanged,
   });

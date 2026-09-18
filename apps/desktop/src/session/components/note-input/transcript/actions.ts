@@ -2,7 +2,7 @@ import { t } from "@lingui/core/macro";
 import { useCallback } from "react";
 
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { withCloudsyncActivity } from "~/db/cloudsync-activity";
 import { getEnhancerService } from "~/services/enhancer";
@@ -16,7 +16,7 @@ export function useRegenerateTranscript(sessionId: string) {
   return useCallback(async () => {
     const result = await fsSyncCommands.audioPath(sessionId);
     if (result.status === "error") {
-      sonnerToast.error(t`Recording not found. It may have been deleted.`, {
+      toast.error(t`Recording not found. It may have been deleted.`, {
         id: `transcript-regenerate-audio-missing-${sessionId}`,
       });
       return;
@@ -41,7 +41,7 @@ export function useRegenerateTranscript(sessionId: string) {
       }
       const msg = error instanceof Error ? error.message : String(error);
       handleBatchFailed(sessionId, msg);
-      sonnerToast.error(t`Re-transcription failed`, {
+      toast.error(t`Re-transcription failed`, {
         id: `transcript-regenerate-failed-${sessionId}`,
         description: msg,
       });

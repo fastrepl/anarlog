@@ -12,7 +12,7 @@ import {
   Square,
 } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
 import {
@@ -147,7 +147,7 @@ export function ChatMessageInput({
             mentionConfig={mentionConfig}
             placeholder={placeholder}
             submitShortcut="enter"
-            onAttachmentError={(message) => sonnerToast.error(message)}
+            onAttachmentError={(message) => toast.error(message)}
             onUpdate={handleEditorUpdate}
             onSubmit={handleSubmit}
             onHistoryNavigate={history.navigate}

@@ -9,7 +9,7 @@ import {
 import { commands as permissions } from "@anlg/plugin-permissions";
 import { commands as shortcuts, events } from "@anlg/plugin-shortcut";
 import { commands as transcription } from "@anlg/plugin-transcription";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { DictationController } from "./controller";
 import { waitForDictationPanel } from "./panel";
@@ -119,7 +119,7 @@ function ActiveDictation({
       if (disposed) return;
       const message = error instanceof Error ? error.message : String(error);
       useDictationStatus.setState({ error: message });
-      sonnerToast.error(message);
+      toast.error(message);
     };
     const controller = new DictationController({
       handsFree,

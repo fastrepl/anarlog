@@ -14,14 +14,14 @@ const {
   selectFileMock,
   setSettingValueMock,
   setSettingValuesMock,
-  sonnerToastErrorMock,
+  toastErrorMock,
   startServerForPathMock,
 } = vi.hoisted(() => ({
   inspectCustomModelPathMock: vi.fn(),
   selectFileMock: vi.fn(),
   setSettingValueMock: vi.fn(),
   setSettingValuesMock: vi.fn(),
-  sonnerToastErrorMock: vi.fn(),
+  toastErrorMock: vi.fn(),
   startServerForPathMock: vi.fn(),
 }));
 
@@ -37,8 +37,8 @@ vi.mock("@anlg/plugin-local-stt", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: {
-    error: sonnerToastErrorMock,
+  toast: {
+    error: toastErrorMock,
   },
 }));
 
@@ -116,7 +116,7 @@ describe("LocalFileModel", () => {
       screen.getByRole("button", { name: "Choose a .bin model" }),
     );
 
-    await waitFor(() => expect(sonnerToastErrorMock).toHaveBeenCalled());
+    await waitFor(() => expect(toastErrorMock).toHaveBeenCalled());
     expect(startServerForPathMock).not.toHaveBeenCalled();
     expect(setSettingValuesMock).not.toHaveBeenCalled();
   });

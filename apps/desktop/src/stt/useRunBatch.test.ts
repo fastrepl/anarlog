@@ -29,7 +29,7 @@ const {
   useBillingAccessMock,
   useConfigValueMock,
   isSupportedLanguagesBatchMock,
-  sonnerToastWarningMock,
+  toastWarningMock,
   deleteProcessedAudioForRetentionMock,
   markSessionAudioTranscriptionCompleteMock,
   createTranscriptMock,
@@ -52,7 +52,7 @@ const {
   useBillingAccessMock: vi.fn(),
   useConfigValueMock: vi.fn(),
   isSupportedLanguagesBatchMock: vi.fn(),
-  sonnerToastWarningMock: vi.fn(),
+  toastWarningMock: vi.fn(),
   deleteProcessedAudioForRetentionMock: vi.fn(),
   markSessionAudioTranscriptionCompleteMock: vi.fn(),
   createTranscriptMock: vi.fn(),
@@ -83,8 +83,8 @@ vi.mock("./useSTTConnection", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: {
-    warning: sonnerToastWarningMock,
+  toast: {
+    warning: toastWarningMock,
   },
 }));
 
@@ -1629,7 +1629,7 @@ describe("useRunBatch", () => {
       }),
       expect.objectContaining({ notifyOnCompletion: false }),
     );
-    expect(sonnerToastWarningMock).not.toHaveBeenCalled();
+    expect(toastWarningMock).not.toHaveBeenCalled();
     expect(notifyBatchCompletedMock).not.toHaveBeenCalled();
   });
 
@@ -1659,7 +1659,7 @@ describe("useRunBatch", () => {
       }),
       expect.any(Object),
     );
-    expect(sonnerToastWarningMock).not.toHaveBeenCalled();
+    expect(toastWarningMock).not.toHaveBeenCalled();
   });
 
   test.each(["windows", "linux"] as const)(
@@ -1687,7 +1687,7 @@ describe("useRunBatch", () => {
       );
 
       expect(startTranscriptionMock).not.toHaveBeenCalled();
-      expect(sonnerToastWarningMock).not.toHaveBeenCalled();
+      expect(toastWarningMock).not.toHaveBeenCalled();
     },
   );
 
@@ -1719,7 +1719,7 @@ describe("useRunBatch", () => {
         }),
         expect.any(Object),
       );
-      expect(sonnerToastWarningMock).not.toHaveBeenCalled();
+      expect(toastWarningMock).not.toHaveBeenCalled();
     },
   );
 
@@ -1799,7 +1799,7 @@ describe("useRunBatch", () => {
       }),
       expect.any(Object),
     );
-    expect(sonnerToastWarningMock).toHaveBeenCalledWith(
+    expect(toastWarningMock).toHaveBeenCalledWith(
       "Using a batch transcription provider",
       expect.objectContaining({
         description:

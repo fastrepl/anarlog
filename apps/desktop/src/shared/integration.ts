@@ -6,7 +6,7 @@ import { createSession } from "@anlg/api-client";
 import { createClient } from "@anlg/api-client/client";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { openUrlWithInstruction } from "@anlg/plugin-windows";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { useAuth } from "~/auth";
 import { env } from "~/env";
@@ -82,7 +82,7 @@ export async function openIntegrationUrl(
         mode: action,
       },
     });
-    sonnerToast.error(t`Could not start the integration setup. Try again.`);
+    toast.error(t`Could not start the integration setup. Try again.`);
   }
 }
 

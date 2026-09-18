@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@anlg/ui/components/ui/select";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 import {
   Tooltip,
   TooltipContent,
@@ -470,7 +470,7 @@ function TranscriptionLanguageWarningToastLifecycle({
 }) {
   useMountEffect(() => {
     let shouldRememberDismissal = true;
-    sonnerToast.warning(description, {
+    toast.warning(description, {
       id: TRANSCRIPTION_LANGUAGE_WARNING_TOAST_ID,
       duration: Infinity,
       icon: <Warning className="size-4 shrink-0 text-amber-500" />,
@@ -499,7 +499,7 @@ function TranscriptionLanguageWarningToastLifecycle({
 }
 
 function clearTranscriptionLanguageWarningToast() {
-  sonnerToast.dismiss(TRANSCRIPTION_LANGUAGE_WARNING_TOAST_ID);
+  toast.dismiss(TRANSCRIPTION_LANGUAGE_WARNING_TOAST_ID);
 }
 
 function useTranscriptionLanguageWarning() {

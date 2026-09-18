@@ -72,7 +72,7 @@ vi.mock("~/shared/config", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: { error: mocks.toastError },
+  toast: { error: mocks.toastError },
 }));
 
 vi.mock("@anlg/editor/markdown", () => ({

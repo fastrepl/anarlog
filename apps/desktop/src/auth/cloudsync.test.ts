@@ -17,7 +17,7 @@ import {
 } from "@anlg/plugin-db";
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 import { commands as miscCommands } from "@anlg/plugin-misc";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import {
   applyCloudsyncPreference,
@@ -70,7 +70,7 @@ vi.mock("@tauri-apps/plugin-os", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: { error: vi.fn(), dismiss: vi.fn() },
+  toast: { error: vi.fn(), dismiss: vi.fn() },
 }));
 
 const NOW = new Date("2026-07-13T00:00:00Z");
@@ -474,7 +474,7 @@ describe("CloudSync auth lifecycle", () => {
     await handleCloudsyncAuthChange("SIGNED_IN", session());
 
     expect(getCloudsyncCredentialBlock()).toBe("device_limit");
-    expect(sonnerToast.error).toHaveBeenCalledOnce();
+    expect(toast.error).toHaveBeenCalledOnce();
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
   });
 
@@ -2417,7 +2417,7 @@ describe("CloudSync auth lifecycle", () => {
     );
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
-    expect(sonnerToast.error).toHaveBeenCalledWith(
+    expect(toast.error).toHaveBeenCalledWith(
       expect.stringContaining("sync device limit is reached"),
       expect.objectContaining({ id: "cloudsync-device-limit" }),
     );

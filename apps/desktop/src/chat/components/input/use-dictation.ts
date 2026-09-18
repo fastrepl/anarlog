@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import type { ChatEditorHandle } from "@anlg/editor/chat";
 import { commands as dictationCommands } from "@anlg/plugin-dictation";
 import { commands as transcriptionCommands } from "@anlg/plugin-transcription";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -61,7 +61,7 @@ export function useDictation({
         throw new Error(captureState.error);
       }
       if (captureState.data !== "inactive") {
-        sonnerToast.warning(
+        toast.warning(
           t`Voice input is unavailable while Anarlog is recording a meeting.`,
         );
         setPhase("idle");
@@ -99,7 +99,7 @@ export function useDictation({
         return;
       }
       setPhase("idle");
-      sonnerToast.error(t`Could not start voice input`, {
+      toast.error(t`Could not start voice input`, {
         description: t`Check microphone permission and the selected input device, then try again.`,
       });
       console.error("[chat-dictation] failed to start recording", error);
@@ -155,11 +155,11 @@ export function useDictation({
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (/no speech|empty transcript/iu.test(message)) {
-        sonnerToast.warning(t`No speech detected`, {
+        toast.warning(t`No speech detected`, {
           description: t`Try speaking a little closer to the microphone.`,
         });
       } else {
-        sonnerToast.error(t`Could not transcribe voice input`, {
+        toast.error(t`Could not transcribe voice input`, {
           description: message,
         });
       }

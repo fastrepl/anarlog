@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
 import { AutoFormatExamplesDialog } from "./auto-format-examples-dialog";
@@ -107,7 +107,7 @@ export function AutoFormatForm({
       await setSettingValue("auto_summary_prompt", stored);
       return stored;
     },
-    onError: (error) => sonnerToast.error(error.message),
+    onError: (error) => toast.error(error.message),
   });
 
   const form = useForm({

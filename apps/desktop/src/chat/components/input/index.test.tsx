@@ -127,7 +127,7 @@ vi.mock("@anlg/plugin-analytics", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: { error: toastError },
+  toast: { error: toastError },
 }));
 
 vi.mock("~/contexts/shell", () => ({

@@ -8,7 +8,7 @@ import {
   commands as templateCommands,
   type JsonValue,
 } from "@anlg/plugin-template";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { format, safeParseDate } from "@anlg/utils";
 
 import systemPromptTemplate from "./past-note-key-facts.system.md.jinja?raw";
@@ -157,7 +157,7 @@ export function usePastSessionNotes(
     },
     onError: (error) => {
       console.error("Failed to generate meeting insights", error);
-      sonnerToast.error(t`Could not generate meeting insights. Try again.`, {
+      toast.error(t`Could not generate meeting insights. Try again.`, {
         id: "past-note-key-facts-error",
       });
     },

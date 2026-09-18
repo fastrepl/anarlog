@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { getEnhancerService } from "~/services/enhancer";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
@@ -17,7 +17,7 @@ export function useAutoEnhance(tab: Extract<Tab, { type: "sessions" }>) {
       if (event.type === "auto-enhance-skipped") {
         setSkipReason(event.reason);
         if (event.reasonCode === "transcript_too_short") {
-          sonnerToast.warning("Summary wasn't generated", {
+          toast.warning("Summary wasn't generated", {
             id: `auto-summary-too-short-${sessionId}`,
             description: event.reason,
           });

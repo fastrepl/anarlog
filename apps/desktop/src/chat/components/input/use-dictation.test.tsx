@@ -30,7 +30,7 @@ vi.mock("@anlg/plugin-transcription", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: {
+  toast: {
     error: mocks.toastError,
     warning: mocks.toastWarning,
   },

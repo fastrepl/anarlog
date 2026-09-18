@@ -10,7 +10,7 @@ import {
 import { Copy, Trash } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
 import { copyText } from "./clipboard";
@@ -39,32 +39,32 @@ export function WebhooksSection() {
     mutationFn: (url: string) => unwrap(webhookCommands.createWebhook(url, [])),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: WEBHOOKS_QUERY_KEY }),
-    onError: (error) => sonnerToast.error(error.message),
+    onError: (error) => toast.error(error.message),
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => unwrap(webhookCommands.deleteWebhook(id)),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: WEBHOOKS_QUERY_KEY }),
-    onError: (error) => sonnerToast.error(error.message),
+    onError: (error) => toast.error(error.message),
   });
   const setActiveMutation = useMutation({
     mutationFn: ({ id, active }: { id: string; active: boolean }) =>
       unwrap(webhookCommands.setWebhookActive(id, active)),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: WEBHOOKS_QUERY_KEY }),
-    onError: (error) => sonnerToast.error(error.message),
+    onError: (error) => toast.error(error.message),
   });
   const testMutation = useMutation({
     mutationFn: (id: string) => unwrap(webhookCommands.testWebhook(id)),
     onSuccess: (delivery) => {
       if (delivery.delivered) {
-        sonnerToast.success(t`Test delivered (${delivery.status})`);
+        toast.success(t`Test delivered (${delivery.status})`);
       } else {
-        sonnerToast.error(t`Test failed (${delivery.status})`);
+        toast.error(t`Test failed (${delivery.status})`);
       }
       void queryClient.invalidateQueries({ queryKey: WEBHOOKS_QUERY_KEY });
     },
-    onError: (error) => sonnerToast.error(error.message),
+    onError: (error) => toast.error(error.message),
   });
 
   const form = useForm({

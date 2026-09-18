@@ -43,7 +43,7 @@ vi.mock("~/auth/billing-context", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: { warning: mocks.toastWarning },
+  toast: { warning: mocks.toastWarning },
 }));
 
 vi.mock("~/shared/config", () => ({

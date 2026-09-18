@@ -1,6 +1,6 @@
 import { commands as detectCommands } from "@anlg/plugin-detect";
 import type { MeetingCapturedChatMessage } from "@anlg/plugin-detect";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { getStoredSettingValues } from "~/settings/queries";
 import { resolveConfigValue } from "~/shared/config";
@@ -28,7 +28,7 @@ export function startMeetingChatCapture({
   excludedTexts?: string[];
   onParticipantDeclined?: () => void;
 }) {
-  sonnerToast.dismiss("meeting-chat-capture-warning");
+  toast.dismiss("meeting-chat-capture-warning");
   const excludedMessages = new Set(excludedTexts.map(normalizeMessageText));
   const seenSignatures = new Set<string>();
   let baselineContext: { bundleId: string; contextId: string } | null = null;
@@ -263,7 +263,7 @@ function showCaptureWarning(warnings: string[], previousWarning: string) {
       warning.includes("accessibility bus")) &&
     warning !== previousWarning
   ) {
-    sonnerToast.warning(
+    toast.warning(
       warning.includes("accessibility bus")
         ? "Meeting chat capture needs the desktop accessibility bus"
         : "Meeting chat capture needs Accessibility permission in Settings",

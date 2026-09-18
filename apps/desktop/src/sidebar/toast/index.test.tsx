@@ -60,7 +60,7 @@ vi.mock("@anlg/ui/components/ui/toast", async (importOriginal) => {
     await importOriginal<typeof import("@anlg/ui/components/ui/toast")>();
   return {
     ...actual,
-    sonnerToast: {
+    toast: {
       message: mocks.message,
       error: mocks.error,
       warning: mocks.warning,
@@ -196,7 +196,7 @@ describe("ToastNotifications", () => {
     vi.useRealTimers();
   });
 
-  it("routes the sign-in suggestion through Sonner", () => {
+  it("routes the sign-in suggestion through the shared toaster", () => {
     render(<ToastNotifications />);
 
     act(() => vi.advanceTimersByTime(500));
@@ -219,7 +219,7 @@ describe("ToastNotifications", () => {
     expect(mocks.dismissToast).not.toHaveBeenCalled();
   });
 
-  it("persists explicit Sonner dismissals", () => {
+  it("persists explicit toast dismissals", () => {
     render(<ToastNotifications />);
 
     act(() => vi.advanceTimersByTime(500));
@@ -229,7 +229,7 @@ describe("ToastNotifications", () => {
     expect(mocks.dismissToast).toHaveBeenCalledWith("auth-promotion");
   });
 
-  it("uses a Sonner loading toast for model downloads", () => {
+  it("uses a loading toast for model downloads", () => {
     mocks.notifications.hasActiveDownload = true;
     mocks.notifications.downloadingModel = "Parakeet v3";
     mocks.notifications.activeDownloads = [

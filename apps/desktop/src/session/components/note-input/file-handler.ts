@@ -10,7 +10,7 @@ import {
 } from "react";
 
 import type { FileHandlerConfig } from "@anlg/editor/note";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { useFileUpload } from "~/shared/hooks/useFileUpload";
 import { isAudioUploadFile, useUploadFile } from "~/stt/useUploadFile";
@@ -59,7 +59,7 @@ export function useNoteFileHandlerConfig(sessionId: string) {
     [handleDrop],
   );
   const handleFileUploadError = useCallback((error: unknown) => {
-    sonnerToast.error(
+    toast.error(
       error instanceof Error ? error.message : "Could not add this attachment.",
     );
   }, []);

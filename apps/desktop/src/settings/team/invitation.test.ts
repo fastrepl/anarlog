@@ -22,7 +22,7 @@ vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: { success: vi.fn(), error: vi.fn() },
+  toast: { success: vi.fn(), error: vi.fn() },
 }));
 
 vi.mock("~/env", () => ({

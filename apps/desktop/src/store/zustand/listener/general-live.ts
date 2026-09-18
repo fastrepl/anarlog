@@ -20,7 +20,7 @@ import {
   type LiveTranscriptSegment,
   type LiveTranscriptSegmentDelta,
 } from "@anlg/plugin-transcription";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import {
   type GeneralState,
@@ -208,7 +208,7 @@ const clearLiveInterval = (intervalId?: LiveIntervalId) => {
 };
 
 const notifyTranscriptionStalled = () => {
-  sonnerToast.warning("Live transcription stalled", {
+  toast.warning("Live transcription stalled", {
     id: "live-transcription-stalled",
     duration: Infinity,
     description:
@@ -391,7 +391,7 @@ const createSessionEventHandlers = <T extends LiveStore>(
       payload.error.startsWith("audio_storage_")
     ) {
       setLiveState(set, (live) => updateLiveProgress(live, payload));
-      sonnerToast.error("Audio saving was interrupted", {
+      toast.error("Audio saving was interrupted", {
         id: `audio-storage-${targetSessionId}`,
         duration: Infinity,
         description:
@@ -405,7 +405,7 @@ const createSessionEventHandlers = <T extends LiveStore>(
       !payload.is_fatal &&
       payload.error === "recording_recovered"
     ) {
-      sonnerToast.warning("The previous recording needs recovery", {
+      toast.warning("The previous recording needs recovery", {
         id: `recording-recovered-${targetSessionId}`,
         duration: Infinity,
         description:
@@ -457,7 +457,7 @@ const createSessionEventHandlers = <T extends LiveStore>(
               currentLive.transcriptionStalled)))
       ) {
         if (hasFinalWords && currentLive.transcriptionStalled) {
-          sonnerToast.dismiss("live-transcription-stalled");
+          toast.dismiss("live-transcription-stalled");
         }
         setLiveState(set, (live) => {
           noteLiveTranscriptActivity(live, {

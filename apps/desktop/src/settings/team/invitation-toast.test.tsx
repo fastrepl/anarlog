@@ -48,7 +48,7 @@ vi.mock("~/shared/config", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: Object.assign(mocks.toast, { dismiss: mocks.dismiss }),
+  toast: Object.assign(mocks.toast, { dismiss: mocks.dismiss }),
 }));
 
 vi.mock("~/store/zustand/tabs", () => ({

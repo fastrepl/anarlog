@@ -4,7 +4,7 @@ import { open as selectFile } from "@tauri-apps/plugin-dialog";
 
 import { commands as localSttCommands } from "@anlg/plugin-local-stt";
 import { Check, CircleNotch, FolderOpen, X } from "@anlg/ui/components/icons";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import type { HealthStatus } from "./health";
 
@@ -69,7 +69,7 @@ export function LocalFileModel({
       });
     },
     onError: (error) => {
-      sonnerToast.error(t`Could not use the selected model`, {
+      toast.error(t`Could not use the selected model`, {
         description: error instanceof Error ? error.message : String(error),
       });
     },
@@ -78,7 +78,7 @@ export function LocalFileModel({
   const clearModel = useMutation({
     mutationKey: ["clear-local-stt-model"],
     mutationFn: () => setSettingValue("local_stt_model_path", ""),
-    onError: () => sonnerToast.error(t`Could not clear the selected model`),
+    onError: () => toast.error(t`Could not clear the selected model`),
   });
 
   const pathParts = modelPath.split(/[/\\]/).filter(Boolean);

@@ -38,7 +38,7 @@
     "embla-carousel-react": "^8.6.0",
     "motion": "^11.18.2",
     "react-resizable-panels": "^2.1.9",
-    "sonner": "^1.7.4"
+    "react-dom": "^19.2.5"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.2.2",
@@ -48,6 +48,7 @@
     "postcss": "^8.5.23",
     "react": "^19.2.5",
     "tailwindcss": "^4.2.2",
-    "typescript": "~5.6.3"
+    "typescript": "~5.6.3",
+    "@types/react-dom": "^19.2.3"
   }
 }

@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@anlg/ui/components/ui/select";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
 import { MarkdownExportOptionsConfig } from "./markdown-export-options";
@@ -351,6 +351,6 @@ export function useSaveWorkflow() {
           : [next, ...workflows],
       );
     },
-    onError: () => sonnerToast.error(t`Could not update the automation`),
+    onError: () => toast.error(t`Could not update the automation`),
   });
 }

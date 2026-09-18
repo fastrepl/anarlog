@@ -1,7 +1,7 @@
 import { t } from "@lingui/core/macro";
 import { useCallback, useRef } from "react";
 
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import {
   runPreMeetingBriefJob,
@@ -117,7 +117,7 @@ export function useCreatePreMeetingBrief({
         : getStoredNoteMarkdown(sessionRef.current?.raw_md),
     }).catch((error) => {
       console.error("Failed to create pre-meeting brief", error);
-      sonnerToast.error(t`Could not create the pre-meeting brief. Try again.`, {
+      toast.error(t`Could not create the pre-meeting brief. Try again.`, {
         id: "pre-meeting-brief-error",
       });
     });

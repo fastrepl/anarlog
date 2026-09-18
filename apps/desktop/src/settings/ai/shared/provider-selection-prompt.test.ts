@@ -18,7 +18,7 @@ vi.mock("@lingui/react/macro", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: { success: mocks.toastSuccess },
+  toast: { success: mocks.toastSuccess },
 }));
 
 vi.mock("~/settings/queries", () => ({

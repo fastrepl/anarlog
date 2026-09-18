@@ -6,7 +6,7 @@ import {
   useRef,
 } from "react";
 
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
 import { useBillingAccess } from "~/auth/billing-context";
@@ -26,7 +26,7 @@ export function useNotifyPlanRequired() {
             ? t`This requires Anarlog Team`
             : t`This requires Anarlog Enterprise`;
 
-      sonnerToast.warning(message, {
+      toast.warning(message, {
         ...(plan === "pro"
           ? {
               action: {

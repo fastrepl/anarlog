@@ -40,7 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@anlg/ui/components/ui/select";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 import { cn } from "@anlg/utils";
 
@@ -245,11 +245,11 @@ function PendingInvitations({
       void queryClient.invalidateQueries({
         queryKey: [MY_INVITATIONS_QUERY_KEY],
       });
-      sonnerToast.success(t`Joined ${invitation.workspaceName}`);
-      sonnerToast.dismiss(`team-invitation:${invitation.invitationId}`);
+      toast.success(t`Joined ${invitation.workspaceName}`);
+      toast.dismiss(`team-invitation:${invitation.invitationId}`);
     },
     onError: (error) => {
-      sonnerToast.error(error.message);
+      toast.error(error.message);
     },
   });
   const decline = useMutation({
@@ -262,10 +262,10 @@ function PendingInvitations({
       void queryClient.invalidateQueries({
         queryKey: [MY_INVITATIONS_QUERY_KEY],
       });
-      sonnerToast.dismiss(`team-invitation:${invitation.invitationId}`);
+      toast.dismiss(`team-invitation:${invitation.invitationId}`);
     },
     onError: (error) => {
-      sonnerToast.error(error.message);
+      toast.error(error.message);
     },
   });
 

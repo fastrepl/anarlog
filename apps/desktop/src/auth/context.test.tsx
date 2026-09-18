@@ -129,7 +129,7 @@ vi.mock("@anlg/plugin-windows", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: {
+  toast: {
     dismiss: mocks.toastDismiss,
     error: mocks.toastError,
     info: mocks.toastInfo,

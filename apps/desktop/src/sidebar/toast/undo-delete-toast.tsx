@@ -2,7 +2,7 @@ import { t } from "@lingui/core/macro";
 import { useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useCallback, useMemo } from "react";
 
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { restoreDeletedSession } from "~/session/queries";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -98,7 +98,7 @@ function useRestoreGroup() {
           }
         } catch (error) {
           console.error("[undo-delete] failed to restore session", error);
-          sonnerToast.error(t`Could not restore deleted note`);
+          toast.error(t`Could not restore deleted note`);
           // Re-add the unrestored deletions so their undo toast (and the
           // finalize path) comes back instead of leaving them tombstoned,
           // and close the optimistically reopened tab — it still points at
@@ -130,14 +130,14 @@ export function UndoDeleteToast() {
   const groups = useToastGroups();
 
   return groups.map((group) => (
-    <UndoDeleteSonnerToast
+    <UndoDeleteNotificationToast
       key={`${group.key}:${group.sessionIds.join(":")}`}
       group={group}
     />
   ));
 }
 
-function UndoDeleteSonnerToast({ group }: { group: ToastGroup }) {
+function UndoDeleteNotificationToast({ group }: { group: ToastGroup }) {
   const restoreGroup = useRestoreGroup();
   const pendingDeletions = useUndoDelete((state) => state.pendingDeletions);
   const title =
@@ -155,7 +155,7 @@ function UndoDeleteSonnerToast({ group }: { group: ToastGroup }) {
   useMountEffect(() => {
     const toastId = `undo-delete:${group.key}`;
 
-    sonnerToast.message(label, {
+    toast.message(label, {
       id: toastId,
       duration: Infinity,
       closeButton: false,
@@ -179,7 +179,7 @@ function UndoDeleteSonnerToast({ group }: { group: ToastGroup }) {
       },
     });
 
-    return () => sonnerToast.dismiss(toastId);
+    return () => toast.dismiss(toastId);
   });
 
   return null;

@@ -33,7 +33,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
 import {
@@ -159,7 +159,7 @@ export function MultiSelectionBar({
       await onDelete?.(selection);
     },
     onSuccess: onClear,
-    onError: () => sonnerToast.error(t`Something went wrong`),
+    onError: () => toast.error(t`Something went wrong`),
   });
 
   const bar = (

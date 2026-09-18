@@ -25,7 +25,7 @@ vi.mock("@anlg/plugin-local-stt", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: { error: mocks.toastError },
+  toast: { error: mocks.toastError },
 }));
 
 vi.mock("~/shared/config", () => ({

@@ -21,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { cn, formatDistanceToNow } from "@anlg/utils";
 
 import {
@@ -439,8 +439,8 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
   const saveDraftMutation = useMutation({
     mutationKey: ["automation-draft-template"],
     mutationFn: () => setSettingValue("automation_draft_template", starterId),
-    onSuccess: () => sonnerToast.success(t`Automation draft saved`),
-    onError: () => sonnerToast.error(t`Could not save the automation draft`),
+    onSuccess: () => toast.success(t`Automation draft saved`),
+    onError: () => toast.error(t`Could not save the automation draft`),
   });
 
   const setEnabledMutation = useMutation({
@@ -451,10 +451,8 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
       return setSettingValues(updates);
     },
     onSuccess: (_, { enabled }) =>
-      sonnerToast.success(
-        enabled ? t`Automation enabled` : t`Automation disabled`,
-      ),
-    onError: () => sonnerToast.error(t`Could not update the automation`),
+      toast.success(enabled ? t`Automation enabled` : t`Automation disabled`),
+    onError: () => toast.error(t`Could not update the automation`),
   });
 
   if (!starter) {

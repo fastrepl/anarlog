@@ -37,7 +37,7 @@ vi.mock("~/ai/hooks", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: { error: vi.fn() },
+  toast: { error: vi.fn() },
 }));
 
 vi.mock("~/chat/context/use-chat-context-pipeline", () => ({

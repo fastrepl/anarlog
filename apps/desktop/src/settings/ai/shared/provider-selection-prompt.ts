@@ -1,7 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import { useRef } from "react";
 
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { setSettingValues } from "~/settings/queries";
 
@@ -39,7 +39,7 @@ export function useProviderSelectionPrompt({
       return;
     }
 
-    sonnerToast.success(t`API key saved`, {
+    toast.success(t`API key saved`, {
       id: `provider-selection:${providerType}:${providerId}`,
       duration: Infinity,
       description: t`Set ${providerName} as the current provider?`,

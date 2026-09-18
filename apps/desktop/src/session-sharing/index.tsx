@@ -11,7 +11,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
 import {
@@ -436,7 +436,7 @@ export function SessionShareButton({
           delivery_method: "email",
           recipient_count: actionResult.recipientCount,
         });
-        sonnerToast.success(
+        toast.success(
           actionResult.recipientCount > 1
             ? t`Meeting notes sent.`
             : t`Meeting note sent.`,
@@ -445,16 +445,14 @@ export function SessionShareButton({
         trackAnalyticsEvent("share_recap_sent", {
           delivery_method: "slack",
         });
-        sonnerToast.success(
-          t`Meeting notes sent to #${actionResult.channelName}.`,
-        );
+        toast.success(t`Meeting notes sent to #${actionResult.channelName}.`);
       } else if (actionResult.type === "copy-link") {
         trackAnalyticsEvent("share_link_copied", {
           entry_point: "share_panel",
         });
-        sonnerToast.success(t`Share link copied.`);
+        toast.success(t`Share link copied.`);
       } else {
-        sonnerToast.success(
+        toast.success(
           actionResult.copied
             ? t`Anyone with the link can view. Link copied.`
             : t`Access updated.`,
@@ -477,7 +475,7 @@ export function SessionShareButton({
         return;
       }
       console.error("[session-sharing] could not activate share", error);
-      sonnerToast.error(
+      toast.error(
         variables.action.type === "invite"
           ? variables.action.emails.length > 1
             ? "Could not create these invitations."
@@ -722,7 +720,7 @@ function SessionShareSignInAction() {
   const signInMutation = useMutation({
     mutationFn: () => auth.signIn(),
     onError: () => {
-      sonnerToast.error(t`Could not start sign-in.`);
+      toast.error(t`Could not start sign-in.`);
     },
   });
 

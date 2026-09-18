@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { CheckCircle, CircleNotch, Copy } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
 import { SkillsRow } from "./skills";
@@ -28,11 +28,9 @@ async function copyText(
 ) {
   try {
     await navigator.clipboard.writeText(text);
-    sonnerToast.success(successMessage);
+    toast.success(successMessage);
   } catch (error) {
-    sonnerToast.error(
-      error instanceof Error ? error.message : fallbackErrorMessage,
-    );
+    toast.error(error instanceof Error ? error.message : fallbackErrorMessage);
   }
 }
 
@@ -83,12 +81,12 @@ export function CliSettingsSections() {
       queryClient.setQueryData(CLI_STATUS_QUERY_KEY, status);
       const notification = getCliInstallNotification(status);
       if (notification.type === "success") {
-        sonnerToast.success(notification.message);
+        toast.success(notification.message);
       } else {
-        sonnerToast.error(notification.message);
+        toast.error(notification.message);
       }
     },
-    onError: (error) => sonnerToast.error(error.message),
+    onError: (error) => toast.error(error.message),
   });
 
   const status = statusQuery.data;

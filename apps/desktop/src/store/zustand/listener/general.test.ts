@@ -1,7 +1,7 @@
 import { create as mutate } from "mutative";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 const {
   dispatchEventMock,
@@ -1151,7 +1151,7 @@ describe("General Listener Slice", () => {
     });
 
     test("clears the stall warning only after finalized transcript words resume", async () => {
-      const dismiss = vi.spyOn(sonnerToast, "dismiss");
+      const dismiss = vi.spyOn(toast, "dismiss");
       getCaptureSnapshotMock.mockResolvedValueOnce({
         status: "ok",
         data: {
@@ -2165,12 +2165,12 @@ describe("General Listener Slice", () => {
         is_fatal: false,
       };
       const warning = vi
-        .spyOn(sonnerToast, "warning")
+        .spyOn(toast, "warning")
         .mockImplementation(() => "warning");
       progressHandler?.({ payload });
-      expect(sonnerToast.warning).not.toHaveBeenCalled();
+      expect(toast.warning).not.toHaveBeenCalled();
       progressHandler?.({ payload: { ...payload, session_id: "session-a" } });
-      expect(sonnerToast.warning).toHaveBeenCalledWith(
+      expect(toast.warning).toHaveBeenCalledWith(
         "The previous recording needs recovery",
         expect.objectContaining({
           id: "recording-recovered-session-a",

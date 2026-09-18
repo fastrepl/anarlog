@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { useCaptureLifecycle } from "./capture-lifecycle";
 import { useListener } from "./contexts";
@@ -135,7 +135,7 @@ export function useStartListeningState(
         );
       }
       await releaseCloudsyncDeferral();
-      sonnerToast.error(
+      toast.error(
         "Anarlog could not safely start recording. Please try again.",
         { id: "capture-state-persist-failed" },
       );
@@ -179,7 +179,7 @@ export function useStartListeningState(
       } finally {
         await releaseCloudsyncDeferral();
       }
-      sonnerToast.error(
+      toast.error(
         "Anarlog could not safely start recording. Please try again.",
         { id: "capture-state-persist-failed" },
       );
@@ -195,7 +195,7 @@ export function useStartListeningState(
         await lifecycle.cleanupFailedStart();
       } catch (error) {
         console.error("[listener] failed to clean up capture state", error);
-        sonnerToast.error(
+        toast.error(
           "Anarlog could not safely start recording. Please try again.",
           { id: "capture-state-persist-failed" },
         );
@@ -220,20 +220,17 @@ export function useStartListeningState(
         .map((language) => getBaseLanguageDisplayName(language))
         .join(", ");
 
-      sonnerToast.warning(
-        `Live transcription is using ${primaryLanguageName}`,
-        {
-          id: "recording-with-limited-transcription-languages",
-          duration: Infinity,
-          description: `Live transcription won't include ${omittedLanguageNames}. Audio is still being saved.`,
-          action: {
-            label: "Change",
-            onClick: openTranscriptionSettings,
-          },
+      toast.warning(`Live transcription is using ${primaryLanguageName}`, {
+        id: "recording-with-limited-transcription-languages",
+        duration: Infinity,
+        description: `Live transcription won't include ${omittedLanguageNames}. Audio is still being saved.`,
+        action: {
+          label: "Change",
+          onClick: openTranscriptionSettings,
         },
-      );
+      });
     } else if (!conn) {
-      sonnerToast.warning("Live transcription is not configured", {
+      toast.warning("Live transcription is not configured", {
         id: "recording-without-transcription",
         duration: Infinity,
         description:
@@ -252,7 +249,7 @@ export function useStartListeningState(
         sessionId,
         excludedTexts: [MEETING_DISCLOSURE_MESSAGE],
         onParticipantDeclined: () => {
-          sonnerToast.warning(
+          toast.warning(
             "A participant declined recording. Anarlog stopped listening.",
             { id: "meeting-consent-declined", duration: Infinity },
           );

@@ -13,7 +13,7 @@ vi.mock("@anlg/ui/components/ui/toast", async (importOriginal) => {
     await importOriginal<typeof import("@anlg/ui/components/ui/toast")>();
   return {
     ...actual,
-    sonnerToast: {
+    toast: {
       message: mocks.message,
       error: mocks.error,
       warning: mocks.warning,
@@ -38,7 +38,7 @@ describe("SettingsAlertToast", () => {
     cleanup();
   });
 
-  it("shows persistent settings alerts through Sonner", () => {
+  it("shows persistent settings alerts through the shared toaster", () => {
     render(
       <SettingsAlertToast
         id="settings-alert"
@@ -56,7 +56,7 @@ describe("SettingsAlertToast", () => {
     });
   });
 
-  it("dismisses its Sonner toast when the alert leaves the page", () => {
+  it("dismisses its toast when the alert leaves the page", () => {
     const { unmount } = render(
       <SettingsAlertToast
         id="settings-alert"

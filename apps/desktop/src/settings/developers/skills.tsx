@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { commands, type SkillAgent } from "~/types/tauri.gen";
 
@@ -97,7 +97,7 @@ export function SkillsRow() {
     },
     onSuccess: (statuses) => {
       void queryClient.invalidateQueries({ queryKey: SKILL_AGENTS_QUERY_KEY });
-      sonnerToast.success(
+      toast.success(
         statuses.length === 1
           ? t`Anarlog skill added to ${statuses[0].displayName}`
           : t`Anarlog skill added to ${statuses.length} agents`,
@@ -105,7 +105,7 @@ export function SkillsRow() {
     },
     onError: (error) => {
       void queryClient.invalidateQueries({ queryKey: SKILL_AGENTS_QUERY_KEY });
-      sonnerToast.error(error.message);
+      toast.error(error.message);
     },
   });
 

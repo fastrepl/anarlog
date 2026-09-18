@@ -1,5 +1,5 @@
 import { json2md, parseJsonContent } from "@anlg/editor/markdown";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
 export function getStoredNoteMarkdown(content: string | undefined) {
@@ -170,7 +170,7 @@ export async function copyTextToClipboard(
     }
 
     if (messages) {
-      sonnerToast.success(messages.success);
+      toast.success(messages.success);
     }
 
     return true;
@@ -178,7 +178,7 @@ export async function copyTextToClipboard(
     console.error("Failed to copy note content", error);
 
     if (messages) {
-      sonnerToast.error(messages.error);
+      toast.error(messages.error);
     }
 
     return false;

@@ -8,15 +8,15 @@ const {
   captureMeetingChatMessagesMock,
   persistMeetingChatRecordsMock,
   persistParticipantConsentMock,
-  sonnerToastWarningMock,
-  sonnerToastDismissMock,
+  toastWarningMock,
+  toastDismissMock,
   captureSettingState,
 } = vi.hoisted(() => ({
   captureMeetingChatMessagesMock: vi.fn(),
   persistMeetingChatRecordsMock: vi.fn(),
   persistParticipantConsentMock: vi.fn(),
-  sonnerToastWarningMock: vi.fn(),
-  sonnerToastDismissMock: vi.fn(),
+  toastWarningMock: vi.fn(),
+  toastDismissMock: vi.fn(),
   captureSettingState: { value: true },
 }));
 
@@ -35,9 +35,9 @@ vi.mock("~/stt/meeting-consent-store", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: {
-    warning: sonnerToastWarningMock,
-    dismiss: sonnerToastDismissMock,
+  toast: {
+    warning: toastWarningMock,
+    dismiss: toastDismissMock,
   },
 }));
 
@@ -582,8 +582,8 @@ describe("startMeetingChatCapture", () => {
     await vi.advanceTimersByTimeAsync(5_000);
     stop();
 
-    expect(sonnerToastWarningMock).toHaveBeenCalledOnce();
-    expect(sonnerToastWarningMock).toHaveBeenCalledWith(
+    expect(toastWarningMock).toHaveBeenCalledOnce();
+    expect(toastWarningMock).toHaveBeenCalledWith(
       "Meeting chat capture needs Accessibility permission in Settings",
       {
         id: "meeting-chat-capture-warning",
@@ -611,8 +611,8 @@ describe("startMeetingChatCapture", () => {
     await vi.advanceTimersByTimeAsync(5_000);
     stop();
 
-    expect(sonnerToastWarningMock).toHaveBeenCalledOnce();
-    expect(sonnerToastWarningMock).toHaveBeenCalledWith(
+    expect(toastWarningMock).toHaveBeenCalledOnce();
+    expect(toastWarningMock).toHaveBeenCalledWith(
       "Meeting chat capture needs the desktop accessibility bus",
       {
         id: "meeting-chat-capture-warning",

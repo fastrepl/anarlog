@@ -32,7 +32,7 @@ vi.mock("~/settings/queries", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: {
+  toast: {
     error: mocks.toastError,
     success: mocks.toastSuccess,
   },

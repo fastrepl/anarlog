@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Check, Pencil, X } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { format, safeFormat, safeParseDate } from "@anlg/utils";
 
 import { useSession, useUpdateSession } from "~/session/queries";
@@ -62,7 +62,7 @@ export function DateEditor({ sessionId }: { sessionId: string }) {
         setPendingCreatedAt(nextCreatedAt);
         void commit.catch((error) => {
           console.error("[metadata] failed to update session date", error);
-          sonnerToast.error(t`Could not update the note date.`);
+          toast.error(t`Could not update the note date.`);
           setPendingCreatedAt(null);
         });
       }}

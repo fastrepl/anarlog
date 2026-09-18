@@ -6,7 +6,7 @@ import {
   commands as transcriptionCommands,
   events as transcriptionEvents,
 } from "@anlg/plugin-transcription";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { createCaptureAudioRecovery } from "./capture-audio-recovery";
 import {
@@ -427,7 +427,7 @@ export function useCaptureLifecycle(sessionId: string) {
         (error) => {
           transcriptWriteError = error;
           audioRecovery.persistenceFailed();
-          sonnerToast.error("Your transcript could not be saved", {
+          toast.error("Your transcript could not be saved", {
             id: `transcript-storage-${sessionId}`,
             description:
               "Free up disk space. Anarlog will try to recover the missing text while this meeting is still recording.",
@@ -534,10 +534,10 @@ export function useCaptureLifecycle(sessionId: string) {
         },
         onStatus: (status) => {
           if (status === "complete") {
-            sonnerToast.dismiss(recoveryToastId);
+            toast.dismiss(recoveryToastId);
             return;
           }
-          sonnerToast.info(
+          toast.info(
             status === "repairing"
               ? "Filling in the missing transcript"
               : "Waiting to recover the missing transcript",
@@ -618,7 +618,7 @@ export function useCaptureLifecycle(sessionId: string) {
         recoveryUnlisten.forEach((unlisten) => unlisten());
         recoveryUnlisten = [];
         const result = await audioRecovery.stop(retainAudio);
-        sonnerToast.dismiss(recoveryToastId);
+        toast.dismiss(recoveryToastId);
         return result;
       };
       const marker = async (): Promise<CaptureLifecycleMarker> => ({
@@ -648,10 +648,10 @@ export function useCaptureLifecycle(sessionId: string) {
         details: Parameters<OnStoppedCallback>[1],
         requestRecoveryOnFailure: boolean,
       ) => {
-        sonnerToast.dismiss("recording-without-transcription");
-        sonnerToast.dismiss("recording-with-limited-transcription-languages");
-        sonnerToast.dismiss("live-transcription-stalled");
-        sonnerToast.dismiss("meeting-disclosure-send-failed");
+        toast.dismiss("recording-without-transcription");
+        toast.dismiss("recording-with-limited-transcription-languages");
+        toast.dismiss("live-transcription-stalled");
+        toast.dismiss("meeting-disclosure-send-failed");
         const sessionWasDeleted = async () => {
           try {
             return await isSessionDeleted(sessionId);
@@ -665,7 +665,7 @@ export function useCaptureLifecycle(sessionId: string) {
         };
         const notifyFailure = async (message: string, id: string) => {
           if (requestRecoveryOnFailure && !(await sessionWasDeleted())) {
-            sonnerToast.error(message, { id });
+            toast.error(message, { id });
           }
         };
         const requestRecovery = async () => {
@@ -1135,14 +1135,14 @@ export function useCaptureLifecycle(sessionId: string) {
             );
           }
           if (details.audioDeletionFailed) {
-            sonnerToast.error("Audio could not be deleted", {
+            toast.error("Audio could not be deleted", {
               id: `audio-deletion-${sessionId}`,
               duration: Infinity,
               description:
                 "Anarlog could not remove the temporary audio. Cleanup will be retried automatically.",
             });
           } else if (!retainAudio && recovery.incomplete) {
-            sonnerToast.error("Your transcript is incomplete", {
+            toast.error("Your transcript is incomplete", {
               id: `capture-incomplete-${sessionId}`,
               duration: Infinity,
               description:

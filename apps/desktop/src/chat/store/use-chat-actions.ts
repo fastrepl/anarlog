@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { createFallbackChatTitle, generateChatTitle } from "./chat-title";
 import {
@@ -158,7 +158,7 @@ export function useChatActions({
             }
           } catch (error) {
             console.error("Failed to persist outgoing chat message", error);
-            sonnerToast.error("Could not save this chat message.");
+            toast.error("Could not save this chat message.");
             if (fallbackTitle) {
               markFailedChatGroupCreate(currentGroupId);
               onGroupCreateFailed?.(currentGroupId);

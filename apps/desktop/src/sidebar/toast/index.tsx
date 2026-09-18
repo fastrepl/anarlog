@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { sonnerToast, TOAST_DURATIONS } from "@anlg/ui/components/ui/toast";
+import {
+  toast as notificationToast,
+  TOAST_DURATIONS,
+} from "@anlg/ui/components/ui/toast";
 
 import {
   createDevtoolsToastPreview,
@@ -279,7 +282,7 @@ export function ToastNotifications() {
       : displayToast.id;
 
   return (
-    <SonnerNotification
+    <NotificationToast
       key={previewKey}
       toast={displayToast}
       onDismiss={
@@ -301,7 +304,7 @@ function toastPresentation(toast: ToastType) {
   ].join(":");
 }
 
-function showSonnerNotification(
+function showNotification(
   toast: ToastType,
   toastRef: { current: ToastType },
   onDismissRef: { current?: () => void },
@@ -331,17 +334,17 @@ function showSonnerNotification(
   };
 
   if (toast.loading) {
-    sonnerToast.loading(toast.description, options);
+    notificationToast.loading(toast.description, options);
   } else if (toast.variant === "error") {
-    sonnerToast.error(toast.description, options);
+    notificationToast.error(toast.description, options);
   } else if (toast.variant === "warning") {
-    sonnerToast.warning(toast.description, options);
+    notificationToast.warning(toast.description, options);
   } else {
-    sonnerToast.message(toast.description, options);
+    notificationToast.message(toast.description, options);
   }
 }
 
-function SonnerNotification({
+function NotificationToast({
   toast,
   onDismiss,
 }: {
@@ -359,17 +362,17 @@ function SonnerNotification({
     shownPresentationRef.current !== presentation
   ) {
     shownPresentationRef.current = presentation;
-    showSonnerNotification(toast, toastRef, onDismissRef, dismissalRef.current);
+    showNotification(toast, toastRef, onDismissRef, dismissalRef.current);
   }
 
   useMountEffect(() => {
     dismissalRef.current.persist = true;
     shownPresentationRef.current = toastPresentation(toast);
-    showSonnerNotification(toast, toastRef, onDismissRef, dismissalRef.current);
+    showNotification(toast, toastRef, onDismissRef, dismissalRef.current);
 
     return () => {
       dismissalRef.current.persist = false;
-      sonnerToast.dismiss(toast.id);
+      notificationToast.dismiss(toast.id);
     };
   });
 

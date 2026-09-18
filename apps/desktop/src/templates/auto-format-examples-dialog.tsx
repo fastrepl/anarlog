@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from "@anlg/ui/components/ui/dialog";
 import { Textarea } from "@anlg/ui/components/ui/textarea";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import {
   inferSummaryFormat,
@@ -59,7 +59,7 @@ export function AutoFormatExamplesDialog({
       onGenerated(format);
       onClose();
     },
-    onError: (error) => sonnerToast.error(error.message),
+    onError: (error) => toast.error(error.message),
   });
 
   const updateExample = (index: number, value: string) => {
@@ -85,19 +85,19 @@ export function AutoFormatExamplesDialog({
     const selectedFiles = Array.from(files ?? []);
 
     if (selectedFiles.length > availableSlots) {
-      sonnerToast.error(t`You can use up to three example summaries.`);
+      toast.error(t`You can use up to three example summaries.`);
     }
 
     const loadedExamples: string[] = [];
     for (const file of selectedFiles.slice(0, availableSlots)) {
       if (!isTextExample(file)) {
-        sonnerToast.error(t`Examples must be Markdown or plain text files.`);
+        toast.error(t`Examples must be Markdown or plain text files.`);
         continue;
       }
 
       const content = (await file.text()).replace(/\r\n/g, "\n").trim();
       if (content.length > MAX_FORMAT_EXAMPLE_LENGTH) {
-        sonnerToast.error(t`Each example must be 12,000 characters or fewer.`);
+        toast.error(t`Each example must be 12,000 characters or fewer.`);
         continue;
       }
       if (content) loadedExamples.push(content);
@@ -211,7 +211,7 @@ export function AutoFormatExamplesDialog({
               className="hidden"
               onChange={(event) => {
                 void uploadExamples(event.currentTarget.files).catch((error) =>
-                  sonnerToast.error(error.message),
+                  toast.error(error.message),
                 );
                 event.currentTarget.value = "";
               }}

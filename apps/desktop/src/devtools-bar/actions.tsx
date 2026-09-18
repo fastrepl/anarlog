@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 
 import { commands as notificationCommands } from "@anlg/plugin-notification";
 import { openUrlWithInstruction } from "@anlg/plugin-windows";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { populateRecurringMeetingNotes } from "./recurring-notes";
 
@@ -495,7 +495,7 @@ export function useDevtoolsActions() {
       const sessionId = await populateRecurringMeetingNotes({ userId });
       openNew({ type: "sessions", id: sessionId });
     } catch (error) {
-      sonnerToast.error(
+      toast.error(
         error instanceof Error ? error.message : "Failed to seed notes",
       );
     }

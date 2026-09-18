@@ -1279,12 +1279,12 @@ importers:
       motion:
         specifier: ^11.18.2
         version: 11.18.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      react-dom:
+        specifier: ^19.2.5
+        version: 19.2.5(react@19.2.5)
       react-resizable-panels:
         specifier: ^2.1.9
         version: 2.1.9(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      sonner:
-        specifier: ^1.7.4
-        version: 1.7.4(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
     devDependencies:
       '@tailwindcss/cli':
         specifier: ^4.2.2
@@ -1298,6 +1298,9 @@ importers:
       '@types/react':
         specifier: ^19.2.14
         version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
       postcss:
         specifier: ^8.5.23
         version: 8.5.26
@@ -13426,12 +13429,6 @@ packages:
   socks@2.8.7:
     resolution: {integrity: sha512-HLpt+uLy/pxB+bum/9DzAgiKS8CX1EvbWxI4zlmgGCExImLdiad2iCwXT5Z4c9c3Eq8rP2318mPW2c+QbtjK8A==}
     engines: {node: '>= 10.0.0', npm: '>= 3.0.0'}
-
-  sonner@1.7.4:
-    resolution: {integrity: sha512-DIS8z4PfJRbIyfVFDVnK9rO3eYDtse4Omcm6bt0oEr5/jtLgysmjuBl1frJ9E/EQZrFmKx2A8m/s5s9CRXIzhw==}
-    peerDependencies:
-      react: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
-      react-dom: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
 
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
@@ -28717,11 +28714,6 @@ snapshots:
     dependencies:
       ip-address: 10.1.0
       smart-buffer: 4.2.0
-
-  sonner@1.7.4(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
-    dependencies:
-      react: 19.2.5
-      react-dom: 19.2.5(react@19.2.5)
 
   source-map-js@1.2.1: {}
 

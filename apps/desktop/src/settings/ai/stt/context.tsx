@@ -12,7 +12,7 @@ import {
   commands as localSttCommands,
   type LocalModel,
 } from "@anlg/plugin-local-stt";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { useBillingAccess } from "~/auth/billing-context";
 import { useToastAction } from "~/store/zustand/toast-action";
@@ -64,7 +64,7 @@ export function SttSettingsProvider({
     void localSttCommands.downloadModel(model).then(
       (result) => {
         if (result.status === "error") {
-          sonnerToast.error(t`Model download couldn’t start`, {
+          toast.error(t`Model download couldn’t start`, {
             description: result.error,
           });
           dequeue();
@@ -77,7 +77,7 @@ export function SttSettingsProvider({
         setTimeout(dequeue, DOWNLOAD_PROGRESS_GRACE_MS);
       },
       (error) => {
-        sonnerToast.error(t`Model download couldn’t start`, {
+        toast.error(t`Model download couldn’t start`, {
           description: error instanceof Error ? error.message : String(error),
         });
         dequeue();

@@ -7,7 +7,7 @@ import { CircleNotch, Copy, Key } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
 import { Switch } from "@anlg/ui/components/ui/switch";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { ApiKeyRow } from "./api-key-row";
 import { copyText } from "./clipboard";
@@ -57,20 +57,20 @@ export function CloudApiSection() {
         queryKey: CLOUD_API_KEYS_QUERY_KEY,
       });
       if (backfillFailed) {
-        sonnerToast.error(
+        toast.error(
           t`Cloud API enabled, but existing meetings could not be uploaded. Anarlog will retry.`,
         );
       } else if (settings.enabled) {
-        sonnerToast.success(
+        toast.success(
           uploaded === 1
             ? t`Cloud API enabled — 1 meeting uploaded`
             : t`Cloud API enabled — ${uploaded} meetings uploaded`,
         );
       } else {
-        sonnerToast.success(t`Cloud API disabled and readable copies deleted`);
+        toast.success(t`Cloud API disabled and readable copies deleted`);
       }
     },
-    onError: (error) => sonnerToast.error(error.message),
+    onError: (error) => toast.error(error.message),
   });
   const enabled = settingsQuery.data?.enabled === true;
 
@@ -201,13 +201,13 @@ function CloudApiKeys() {
     mutationFn: createCloudApiKey,
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: CLOUD_API_KEYS_QUERY_KEY }),
-    onError: (error) => sonnerToast.error(error.message),
+    onError: (error) => toast.error(error.message),
   });
   const revokeMutation = useMutation({
     mutationFn: revokeCloudApiKey,
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: CLOUD_API_KEYS_QUERY_KEY }),
-    onError: (error) => sonnerToast.error(error.message),
+    onError: (error) => toast.error(error.message),
   });
   const form = useForm({
     defaultValues: { name: "" },

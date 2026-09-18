@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@anlg/ui/components/ui/dialog";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
 import type { SharedResource, SharedResourceType } from "./client";
@@ -63,11 +63,11 @@ function AuthenticatedSharedResourceLibrarySection({
       await onImport(selected);
     },
     onSuccess: () => {
-      sonnerToast.success("Added a copy to your library");
+      toast.success("Added a copy to your library");
       setSelected(null);
     },
     onError: (error) => {
-      sonnerToast.error(
+      toast.error(
         error instanceof Error ? error.message : "Could not add this item",
       );
     },

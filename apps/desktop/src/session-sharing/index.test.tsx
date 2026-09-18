@@ -300,7 +300,7 @@ vi.mock("@anlg/ui/components/ui/select", async () => {
 });
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: {
+  toast: {
     success: mocks.toastSuccess,
     error: mocks.toastError,
   },

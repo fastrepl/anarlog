@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@anlg/ui/components/ui/select";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { cn, formatDistanceToNow } from "@anlg/utils";
 
 import { useAuth } from "~/auth";
@@ -144,7 +144,7 @@ function useSaveTarget(settingKey: TargetSettingKey) {
     mutationKey: ["automation-target", settingKey],
     mutationFn: (target: AutomationTargetRef) =>
       setSettingValue(settingKey, JSON.stringify(target)),
-    onError: () => sonnerToast.error(t`Could not save the automation setting`),
+    onError: () => toast.error(t`Could not save the automation setting`),
   });
 }
 
@@ -206,7 +206,7 @@ export function MarkdownExportConfig({
         await setSettingValue("automation_markdown_export_directory", selected);
       }
     },
-    onError: () => sonnerToast.error(t`Could not update the export folder`),
+    onError: () => toast.error(t`Could not update the export folder`),
   });
 
   return (

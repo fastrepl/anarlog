@@ -2,7 +2,7 @@ import { t } from "@lingui/core/macro";
 import { isTauri } from "@tauri-apps/api/core";
 import { writeText as writeClipboardText } from "@tauri-apps/plugin-clipboard-manager";
 
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import {
   createWorkspaceInvitation,
@@ -66,7 +66,7 @@ export async function deliverWorkspaceInvitation({
 }
 
 export function reportWorkspaceInvitation(deliveredBy: "email" | "clipboard") {
-  sonnerToast.success(
+  toast.success(
     deliveredBy === "clipboard"
       ? t`Email unavailable. Invite link copied instead.`
       : t`Invitation sent.`,

@@ -100,7 +100,7 @@ vi.mock("@anlg/plugin-transcription", () => ({
   commands: { getCaptureState: mocks.getCaptureState },
 }));
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: { error: vi.fn() },
+  toast: { error: vi.fn() },
 }));
 
 import {

@@ -4,7 +4,7 @@ import { getAllWebviewWindows } from "@tauri-apps/api/webviewWindow";
 import { useCallback, useEffect } from "react";
 
 import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { supabase } from "~/auth/client";
 import { useIgnoredEvents } from "~/calendar/ignored-events";
@@ -68,7 +68,7 @@ async function revokeManagedShare(sessionId: string) {
     .catch(lookupShare)
     .catch((error: unknown) => {
       console.error("[delete-session] failed to look up managed share", error);
-      sonnerToast.warning(
+      toast.warning(
         "Note deleted, but its shared link could not be verified as removed.",
         { id: "shared-link-removal-unverified", duration: Infinity },
       );
@@ -93,10 +93,10 @@ async function revokeManagedShare(sessionId: string) {
       "[delete-session] failed to revoke shared link",
       error instanceof Error ? error.name : typeof error,
     );
-    sonnerToast.warning(
-      "Note deleted, but its shared link could not be removed.",
-      { id: "shared-link-removal-failed", duration: Infinity },
-    );
+    toast.warning("Note deleted, but its shared link could not be removed.", {
+      id: "shared-link-removal-failed",
+      duration: Infinity,
+    });
     return;
   }
 
@@ -237,7 +237,7 @@ export function useDeleteSession() {
                 .getState()
                 .openCurrent({ type: "sessions", id: sessionId });
             }
-            sonnerToast.error(t`Could not delete this note. Please try again.`);
+            toast.error(t`Could not delete this note. Please try again.`);
           } else {
             // The delete committed but main never learned about it, so its
             // finalize-time cleanup will not run. Finalize here — losing the

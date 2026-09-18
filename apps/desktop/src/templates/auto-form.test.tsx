@@ -103,7 +103,7 @@ vi.mock("@anlg/plugin-template", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: { error: mocks.toastError, warning: mocks.toastWarning },
+  toast: { error: mocks.toastError, warning: mocks.toastWarning },
 }));
 
 vi.mock("./auto-format-inference", () => ({

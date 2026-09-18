@@ -2,7 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { useMutation } from "@tanstack/react-query";
 import { relaunch } from "@tauri-apps/plugin-process";
 
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { DestructiveConfirmationDialog } from "~/shared/ui/destructive-confirmation-dialog";
 import { commands } from "~/types/tauri.gen";
@@ -27,7 +27,7 @@ export function StartFreshDialog({
       await relaunch();
     },
     onError: (error) => {
-      sonnerToast.error(t`Could not start fresh: ${error.message}`);
+      toast.error(t`Could not start fresh: ${error.message}`);
     },
   });
 

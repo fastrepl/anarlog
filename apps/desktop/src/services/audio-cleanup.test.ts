@@ -17,7 +17,7 @@ vi.mock("@anlg/plugin-transcription", () => ({
   events: { captureStatusEvent: { listen: mocks.listen } },
 }));
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: { error: mocks.error, dismiss: mocks.dismiss },
+  toast: { error: mocks.error, dismiss: mocks.dismiss },
 }));
 vi.mock("~/stt/capture-result", () => ({
   saveIncompleteCapture: mocks.save,

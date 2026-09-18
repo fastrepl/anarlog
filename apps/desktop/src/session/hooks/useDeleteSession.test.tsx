@@ -64,7 +64,7 @@ vi.mock("@anlg/plugin-windows", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: { error: mocks.toastError, warning: mocks.toastWarning },
+  toast: { error: mocks.toastError, warning: mocks.toastWarning },
 }));
 
 vi.mock("~/auth/client", () => ({

@@ -13,7 +13,7 @@ import {
   Sparkle,
   X,
 } from "@anlg/ui/components/icons";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
 import { useLanguageModel } from "~/ai/hooks";
@@ -245,7 +245,7 @@ function ComposerInput({
 
       <ChatEditor
         ref={editorRef}
-        onAttachmentError={(message) => sonnerToast.error(message)}
+        onAttachmentError={(message) => toast.error(message)}
         className={cn([
           "text-primary-foreground max-h-[88px] min-h-[34px] overflow-y-auto text-[15px] leading-6",
           "[&_.ProseMirror]:min-h-[34px] [&_.ProseMirror]:outline-none",

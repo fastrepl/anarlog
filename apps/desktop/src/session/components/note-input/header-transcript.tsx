@@ -4,7 +4,7 @@ import { useCallback, useMemo } from "react";
 import { CheckCircle, PencilSimple } from "@anlg/ui/components/icons";
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
 import { IconHeaderView, copyTextToClipboard } from "./header-shared";
@@ -253,7 +253,7 @@ function HeaderViewTranscriptActive({
       });
     } catch (error) {
       console.error("Failed to copy transcript", error);
-      sonnerToast.error("Failed to copy transcript");
+      toast.error("Failed to copy transcript");
     }
   }, [transcriptExportRequest]);
   const handleDeleteRecording = useCallback(() => {

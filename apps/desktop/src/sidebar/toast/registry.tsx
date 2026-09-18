@@ -218,7 +218,7 @@ function createDesktopUpdateToast(
 
   if (update.status === "ready") {
     return {
-      // A new ID prevents Sonner from retaining the loading state used while
+      // A new ID separates the finished notification from the loading state while
       // this update was downloading.
       id: `${id}:ready`,
       description: t`Anarlog ${update.version} is ready to install`,

@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { useAITaskTask } from "~/ai/hooks";
 import { useLanguageModel } from "~/ai/hooks";
@@ -39,7 +39,7 @@ export function useEnhancedNoteActions({
       }
 
       if (!model) {
-        sonnerToast.error(
+        toast.error(
           "Set up Intelligence in Settings before regenerating this summary.",
         );
         return;
@@ -52,7 +52,7 @@ export function useEnhancedNoteActions({
           !eligibility.eligible &&
           eligibility.code === "transcript_too_short"
         ) {
-          sonnerToast.warning("Summary wasn't generated", {
+          toast.warning("Summary wasn't generated", {
             id: `auto-summary-too-short-${sessionId}`,
             description: eligibility.reason,
           });

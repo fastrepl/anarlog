@@ -154,7 +154,7 @@ vi.mock("~/auth/billing-context", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: {
+  toast: {
     warning: mocks.toastWarning,
     success: vi.fn(),
     error: vi.fn(),

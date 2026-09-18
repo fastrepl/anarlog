@@ -1,7 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 
 import { commands as notificationCommands } from "@anlg/plugin-notification";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import type { MyWorkspaceInvitation } from "./client";
 import { useMyWorkspaceInvitations } from "./my-invitations";
@@ -39,7 +39,7 @@ function WorkspaceInvitationToast({
       ? t`Invited by ${invitation.invitedByEmail}`
       : undefined;
 
-    sonnerToast(title, {
+    toast(title, {
       id: toastId,
       duration: Infinity,
       description,
@@ -47,7 +47,7 @@ function WorkspaceInvitationToast({
         label: t`View`,
         onClick: () => {
           openNew({ type: "settings", state: { tab: "team" } });
-          sonnerToast.dismiss(toastId);
+          toast.dismiss(toastId);
         },
       },
     });
@@ -88,7 +88,7 @@ function WorkspaceInvitationToast({
 
     return () => {
       cancelled = true;
-      sonnerToast.dismiss(toastId);
+      toast.dismiss(toastId);
     };
   });
 

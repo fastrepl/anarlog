@@ -1,7 +1,7 @@
 import { t } from "@lingui/core/macro";
 import { useMutation } from "@tanstack/react-query";
 
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import {
   prepareSessionShareAttachment,
@@ -80,11 +80,11 @@ export function useSessionAttachmentManagement({
         );
       }),
     onSuccess: () => {
-      sonnerToast.success(t`Attachment settings updated.`);
+      toast.success(t`Attachment settings updated.`);
     },
     onError: (error) => {
       if (error instanceof ShareOperationAbortedError) return;
-      sonnerToast.error(t`Could not update attachment sharing.`);
+      toast.error(t`Could not update attachment sharing.`);
     },
     onSettled: onChanged,
   });

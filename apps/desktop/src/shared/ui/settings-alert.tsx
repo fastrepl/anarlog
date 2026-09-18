@@ -1,6 +1,6 @@
 import type { MouseEvent } from "react";
 
-import { sonnerToast, TOAST_DURATIONS } from "@anlg/ui/components/ui/toast";
+import { toast, TOAST_DURATIONS } from "@anlg/ui/components/ui/toast";
 
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
@@ -73,15 +73,15 @@ function SettingsAlertToastLifecycle({
     };
 
     if (variant === "error") {
-      sonnerToast.error(description, options);
+      toast.error(description, options);
     } else if (variant === "warning") {
-      sonnerToast.warning(description, options);
+      toast.warning(description, options);
     } else {
-      sonnerToast.message(description, options);
+      toast.message(description, options);
     }
 
     return () => {
-      sonnerToast.dismiss(id);
+      toast.dismiss(id);
     };
   });
 

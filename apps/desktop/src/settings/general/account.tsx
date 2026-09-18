@@ -6,7 +6,7 @@ import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { PencilSimple } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { AccountProfile } from "./account-profile";
 
@@ -51,7 +51,7 @@ export function SettingsAccount() {
       const message = String(error).includes("unsent local changes")
         ? t`Sync your changes before signing out.`
         : t`Anarlog couldn't sign you out. Try again.`;
-      sonnerToast.error(message);
+      toast.error(message);
     },
   });
   const openAccountMutation = useMutation({
@@ -73,8 +73,7 @@ export function SettingsAccount() {
       url.hash = "connected-accounts";
       await openerCommands.openUrl(url.toString(), null);
     },
-    onError: () =>
-      sonnerToast.error(t`Couldn't open connected accounts. Try again.`),
+    onError: () => toast.error(t`Couldn't open connected accounts. Try again.`),
   });
 
   if (!isAuthenticated) {

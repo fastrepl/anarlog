@@ -3,7 +3,7 @@ import { arch, platform } from "@tauri-apps/plugin-os";
 import { useCallback } from "react";
 
 import type { TranscriptionParams } from "@anlg/plugin-transcription";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { BatchResponseProcessingError } from "./batch-response-processing-error";
 import { clearIncompleteCapture } from "./capture-result";
@@ -790,7 +790,7 @@ export const useRunBatch = (sessionId: string) => {
       }
 
       if (!shouldUseSelectedTarget && !options?.recovery) {
-        sonnerToast.warning("Using a batch transcription provider", {
+        toast.warning("Using a batch transcription provider", {
           description: `${
             selectedTarget
               ? selectedProviderLabel(conn, selectedModel)

@@ -12,7 +12,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 
 import { CircleNotch } from "@anlg/ui/components/icons";
 import { Badge } from "@anlg/ui/components/ui/badge";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { ParticipantChip } from "./chip";
 import { ParticipantDropdown } from "./dropdown";
@@ -457,21 +457,21 @@ function useEventContactEnhancement(sessionId: string) {
       const toastId = `event-contact-enhancement-${humanId}`;
 
       if (applied.created > 0) {
-        sonnerToast.success("Contact created", { id: toastId });
+        toast.success("Contact created", { id: toastId });
         return;
       }
 
       if (!applied.matched) {
-        sonnerToast.info("No contact detail found", { id: toastId });
+        toast.info("No contact detail found", { id: toastId });
         return;
       }
 
       if (changed === 0) {
-        sonnerToast.info("Contact already up to date", { id: toastId });
+        toast.info("Contact already up to date", { id: toastId });
         return;
       }
 
-      sonnerToast.success("Contact enhanced", { id: toastId });
+      toast.success("Contact enhanced", { id: toastId });
     },
     onError: (error) => {
       const message =
@@ -479,7 +479,7 @@ function useEventContactEnhancement(sessionId: string) {
           ? "Language model needed"
           : "Could not enhance contact";
 
-      sonnerToast.error(message, {
+      toast.error(message, {
         id: "event-contact-enhancement",
       });
     },

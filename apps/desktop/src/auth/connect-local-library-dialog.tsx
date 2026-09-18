@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@anlg/ui/components/ui/dialog";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { supabase } from "./client";
 
@@ -63,13 +63,13 @@ export function ConnectLocalLibraryDialog({
       try {
         await onConnected();
       } catch {
-        sonnerToast.error(
+        toast.error(
           t`Library connected, but sync could not restart. Try again in sync settings.`,
         );
       }
     },
     onError: () =>
-      sonnerToast.error(
+      toast.error(
         t`Could not connect this library. Your local notes are unchanged. Try again.`,
       ),
   });
