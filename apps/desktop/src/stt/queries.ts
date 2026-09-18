@@ -4,6 +4,9 @@ import type {
 } from "@anlg/plugin-transcription";
 import { commands as transcriptionCommands } from "@anlg/plugin-transcription";
 
+import type { RecoveryInterval } from "./capture-audio-recovery";
+import { selectRecoveredWords } from "./recovered-transcript";
+
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import type { SegmentKey } from "~/stt/live-segment";
@@ -536,6 +539,32 @@ export function appendTranscriptWordsAndHints(
   return mutateTranscript(transcriptId, (store) => {
     const accumulator = createTranscriptAccumulator(store, transcriptId);
     accumulator.appendWordsAndHints(words, hints, options);
+    accumulator.dispose();
+  });
+}
+
+export function appendRecoveredTranscriptWords(
+  transcriptId: string,
+  words: WordWithId[],
+  hints: SpeakerHintWithId[],
+  intervals: RecoveryInterval[],
+  beforeRepair: WordWithId[],
+): Promise<void> {
+  return mutateTranscript(transcriptId, (store) => {
+    // Check both snapshots inside the normal revision-checked mutation: words
+    // edited or deleted while the request ran must never be reintroduced.
+    const additions = selectRecoveredWords(
+      words,
+      [...beforeRepair, ...parseTranscriptWords(store, transcriptId)],
+      intervals,
+    );
+    if (!additions.length) return false;
+    const ids = new Set(additions.map((word) => word.id));
+    const accumulator = createTranscriptAccumulator(store, transcriptId);
+    accumulator.appendWordsAndHints(
+      additions,
+      hints.filter((hint) => hint.word_id && ids.has(hint.word_id)),
+    );
     accumulator.dispose();
   });
 }

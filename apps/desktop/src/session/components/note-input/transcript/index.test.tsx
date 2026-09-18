@@ -4,6 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Transcript } from "./index";
 
+const { useIncompleteCaptureMock } = vi.hoisted(() => ({
+  useIncompleteCaptureMock: vi.fn(),
+}));
+vi.mock("~/stt/capture-result", () => ({
+  useIncompleteCapture: useIncompleteCaptureMock,
+}));
+
 const {
   useListenerMock,
   useAudioPlayerMock,
@@ -95,6 +102,7 @@ describe("Transcript", () => {
   });
 
   beforeEach(() => {
+    useIncompleteCaptureMock.mockReturnValue(null);
     transcripts = [{ id: transcriptId, hasWords: false }];
 
     listenerState = {
@@ -195,5 +203,15 @@ describe("Transcript", () => {
     expect(
       screen.getByTestId("transcript-viewer").getAttribute("data-edit-mode"),
     ).toBe("true");
+  });
+  it("keeps the zero-retention incomplete message visible after recording", () => {
+    listenerState.getSessionMode = () => "inactive";
+    transcripts = [{ id: transcriptId, hasWords: true }];
+    useIncompleteCaptureMock.mockReturnValue({ audioDeleted: true });
+    render(<Transcript sessionId={sessionId} scrollRef={createRef()} />);
+    expect(screen.getByTestId("transcript-viewer")).not.toBeNull();
+    expect(screen.getByRole("status").textContent).toContain(
+      "Audio was deleted according to your retention setting",
+    );
   });
 });

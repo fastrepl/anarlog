@@ -132,14 +132,38 @@ describe("summary length policy", () => {
     );
   });
 
-  it("guides crisp summaries toward short bullets and explicit follow-ups", () => {
-    const guidance = formatSummaryLengthModeGuidance("crisp", false);
+  it.each(["crisp", "balanced", "detailed"] as const)(
+    "keeps %s guidance independent of presentation",
+    (mode) => {
+      for (const hasTemplate of [false, true]) {
+        const guidance = formatSummaryLengthModeGuidance(mode, hasTemplate);
+        expect(guidance).not.toMatch(
+          /bullet|list item|# Next Steps|never put prose/,
+        );
+      }
+      expect(formatSummaryLengthModeGuidance(mode, true)).toContain(
+        "Preserve every requested template section",
+      );
+    },
+  );
 
-    expect(guidance).toContain("one idea per bullet");
-    expect(guidance).toContain("# Next Steps");
-    expect(formatSummaryLengthModeGuidance("crisp", true)).toContain(
-      "Preserve every requested template section",
-    );
+  it("preserves custom sections while retaining the length budget", () => {
+    const transcripts = [
+      {
+        startedAt: null,
+        endedAt: null,
+        segments: [{ speaker: "John", text: "a".repeat(636) }],
+      },
+    ];
+    const custom = getSummaryLengthPolicy(transcripts, "detailed", true);
+    const standard = getSummaryLengthPolicy(transcripts, "detailed");
+    expect(custom?.maxSections).toBeNull();
+    expect(standard?.maxSections).toBe(2);
+    expect(custom?.maxCharacters).toBe(standard?.maxCharacters);
+    const guidance = formatSummaryLengthGuidance(custom, true);
+    expect(guidance).toContain("Keep the requested structure");
+    expect(guidance).toContain("under 636 characters");
+    expect(guidance).not.toContain("1 to 2 sections");
   });
 
   it("keeps no more than two sections or the transcript character count", () => {

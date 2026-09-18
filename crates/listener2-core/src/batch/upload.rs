@@ -4,6 +4,26 @@ use std::time::Duration;
 use anlg_audio_utils::Source;
 use owhisper_client::BatchUploadLimit;
 
+pub(in crate::batch) fn is_recovery_directory(path: &std::path::Path) -> bool {
+    path.file_name()
+        .is_some_and(|name| name == "audio-recovery")
+}
+
+pub(in crate::batch) fn temporary_audio_directory(
+    source: &str,
+) -> std::io::Result<tempfile::TempDir> {
+    let parent = std::path::Path::new(source).parent();
+    if let Some(parent) = parent
+        && is_recovery_directory(parent)
+    {
+        // Derived audio must share the capture's deletion boundary, including
+        // cancellation while a blocking encoder is still finishing.
+        tempfile::tempdir_in(parent)
+    } else {
+        tempfile::tempdir()
+    }
+}
+
 pub(super) fn audio_duration(file_path: &str) -> Option<Duration> {
     anlg_audio_utils::source_from_path(file_path)
         .ok()
@@ -45,7 +65,7 @@ pub(super) async fn split_batch_upload(
         message: message.to_string(),
     };
 
-    let temp_dir = tempfile::tempdir().map_err(|_error| {
+    let temp_dir = temporary_audio_directory(file_path).map_err(|_error| {
         tracing::error!(
             error.type = "temp_dir_create_failed",
             "batch_audio_segment_temp_dir_failed"
@@ -88,4 +108,23 @@ pub(super) async fn split_batch_upload(
         _temp_dir: temp_dir,
         paths,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recovery_uploads_stay_inside_the_capture_deletion_boundary() {
+        let root = tempfile::tempdir().unwrap();
+        let recovery = root.path().join("audio-recovery");
+        std::fs::create_dir(&recovery).unwrap();
+        let source = recovery.join("chunk.mp3");
+        let temporary = temporary_audio_directory(source.to_str().unwrap()).unwrap();
+        assert!(temporary.path().starts_with(&recovery));
+        std::fs::write(temporary.path().join("derived.wav"), b"private audio").unwrap();
+        std::fs::remove_dir_all(&recovery).unwrap();
+        assert!(!temporary.path().exists());
+        assert!(temporary_audio_directory(source.to_str().unwrap()).is_err());
+    }
 }

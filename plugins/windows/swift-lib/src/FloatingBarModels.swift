@@ -2,6 +2,7 @@ import Foundation
 
 enum FloatingBarStatus: String, Codable, Equatable {
   case recording
+  case reconnecting
   case error
 }
 
@@ -22,7 +23,18 @@ struct FloatingTranscriptBubblePayload: Codable, Identifiable, Equatable {
   let overlapsNext: Bool
 }
 
+struct FloatingDictationPayload: Codable, Equatable {
+  let sessionId: String
+  let phase: String
+  let microphone: String
+  let text: String
+  let partial: String
+  let previewEnabled: Bool
+  let previewUnavailable: Bool
+}
+
 struct FloatingBarStatePayload: Codable {
+  let dictation: FloatingDictationPayload?
   let amplitude: Double
   let title: String
   let status: FloatingBarStatus

@@ -12,6 +12,11 @@ Default permissions for the plugin
 - `allow-set-mic-muted`
 - `allow-get-capture-state`
 - `allow-get-capture-snapshot`
+- `allow-update-capture-credentials`
+- `allow-list-capture-audio-chunks`
+- `allow-get-capture-audio-cleanup-status`
+- `allow-acknowledge-capture-audio-cleanup-status`
+- `allow-acknowledge-capture-audio-chunk`
 - `allow-is-supported-languages-live`
 - `allow-suggest-providers-for-languages-live`
 - `allow-list-documented-language-codes-live`
@@ -38,6 +43,58 @@ Default permissions for the plugin
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`transcription:allow-acknowledge-capture-audio-chunk`
+
+</td>
+<td>
+
+Enables the acknowledge_capture_audio_chunk command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-acknowledge-capture-audio-chunk`
+
+</td>
+<td>
+
+Denies the acknowledge_capture_audio_chunk command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-acknowledge-capture-audio-cleanup-status`
+
+</td>
+<td>
+
+Enables the acknowledge_capture_audio_cleanup_status command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-acknowledge-capture-audio-cleanup-status`
+
+</td>
+<td>
+
+Denies the acknowledge_capture_audio_cleanup_status command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>
@@ -113,6 +170,32 @@ Enables the extract_voiceprint_candidates command without any pre-configured sco
 <td>
 
 Denies the extract_voiceprint_candidates command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-get-capture-audio-cleanup-status`
+
+</td>
+<td>
+
+Enables the get_capture_audio_cleanup_status command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-get-capture-audio-cleanup-status`
+
+</td>
+<td>
+
+Denies the get_capture_audio_cleanup_status command without any pre-configured scope.
 
 </td>
 </tr>
@@ -269,6 +352,32 @@ Enables the is_supported_languages_live command without any pre-configured scope
 <td>
 
 Denies the is_supported_languages_live command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-list-capture-audio-chunks`
+
+</td>
+<td>
+
+Enables the list_capture_audio_chunks command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-list-capture-audio-chunks`
+
+</td>
+<td>
+
+Denies the list_capture_audio_chunks command without any pre-configured scope.
 
 </td>
 </tr>
@@ -607,6 +716,32 @@ Enables the suggest_providers_for_languages_live command without any pre-configu
 <td>
 
 Denies the suggest_providers_for_languages_live command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-update-capture-credentials`
+
+</td>
+<td>
+
+Enables the update_capture_credentials command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-update-capture-credentials`
+
+</td>
+<td>
+
+Denies the update_capture_credentials command without any pre-configured scope.
 
 </td>
 </tr>

@@ -2143,6 +2143,77 @@ describe("General Listener Slice", () => {
       consoleError.mockRestore();
     });
 
+    test("notifies about preserved audio without marking capture as failed", async () => {
+      await store.getState().start({
+        session_id: "session-a",
+        languages: [],
+        onboarding: false,
+        model: "test-model",
+        base_url: "http://localhost",
+        api_key: "test-key",
+        keywords: [],
+      });
+      const progressHandler =
+        listenCaptureStatusMock.mock.calls[
+          listenCaptureStatusMock.mock.calls.length - 1
+        ]?.[0];
+      const payload = {
+        type: "audio_error",
+        session_id: "session-b",
+        error: "recording_recovered",
+        device: null,
+        is_fatal: false,
+      };
+      const warning = vi
+        .spyOn(sonnerToast, "warning")
+        .mockImplementation(() => "warning");
+      progressHandler?.({ payload });
+      expect(sonnerToast.warning).not.toHaveBeenCalled();
+      progressHandler?.({ payload: { ...payload, session_id: "session-a" } });
+      expect(sonnerToast.warning).toHaveBeenCalledWith(
+        "The previous recording needs recovery",
+        expect.objectContaining({
+          id: "recording-recovered-session-a",
+          duration: Infinity,
+          description: expect.stringContaining("Your transcript is unchanged"),
+        }),
+      );
+      expect(store.getState().live.lastError).toBeNull();
+      expect(stopCaptureMock).not.toHaveBeenCalled();
+      warning.mockRestore();
+    });
+
+    test("keeps storage failures in shared live state without stopping capture", async () => {
+      await store.getState().start({
+        session_id: "session-a",
+        languages: [],
+        onboarding: false,
+        model: "test-model",
+        base_url: "http://localhost",
+        api_key: "test-key",
+        keywords: [],
+      });
+      const handler =
+        listenCaptureStatusMock.mock.calls[
+          listenCaptureStatusMock.mock.calls.length - 1
+        ]?.[0];
+      handler?.({
+        payload: {
+          type: "audio_error",
+          session_id: "session-a",
+          error: "audio_storage_backpressure",
+          is_fatal: false,
+          device: null,
+        },
+      });
+      expect(store.getState().live.lastError).toBe(
+        "audio_storage_backpressure",
+      );
+      expect(store.getState().live.lastErrorIsAudioRelated).toBe(true);
+      expect(store.getState().live.sessionId).toBe("session-a");
+      expect(stopCaptureMock).not.toHaveBeenCalled();
+    });
+
     test("preserves explicit audio errors when capture startup fails", async () => {
       const consoleError = vi
         .spyOn(console, "error")

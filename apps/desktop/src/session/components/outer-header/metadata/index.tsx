@@ -12,6 +12,7 @@ import { ParticipantsDisplay } from "./participants";
 
 import { useSessionEvent } from "~/session/hooks/useSessionEvent";
 import { useConfigValue } from "~/shared/config";
+import { useTimeFormat } from "~/shared/hooks/useTimeFormat";
 
 export function MetadataPopoverContent({ sessionId }: { sessionId: string }) {
   return (
@@ -72,6 +73,7 @@ export function EventDisplay({
   };
   children?: React.ReactNode;
 }) {
+  const timeFormat = useTimeFormat();
   const tz = useConfigValue("timezone") || undefined;
 
   const handleJoinMeeting = () => {
@@ -97,15 +99,15 @@ export function EventDisplay({
     const startDate = toTz(rawStart);
     const endDate = rawEnd ? toTz(rawEnd) : null;
 
-    const startStr = safeFormat(startDate, "MMM d, yyyy h:mm a");
+    const startStr = safeFormat(startDate, `MMM d, yyyy ${timeFormat}`);
     if (!endDate) {
       return startStr;
     }
 
     const sameDay = startDate.toDateString() === endDate.toDateString();
     const endStr = sameDay
-      ? safeFormat(endDate, "h:mm a")
-      : safeFormat(endDate, "MMM d, yyyy h:mm a");
+      ? safeFormat(endDate, timeFormat)
+      : safeFormat(endDate, `MMM d, yyyy ${timeFormat}`);
 
     return `${startStr} to ${endStr}`;
   };

@@ -10,13 +10,19 @@ tauri-plugin = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
 specta-typescript = { workspace = true }
+tokio-tungstenite = { workspace = true }
 
 [dependencies]
 anlg-audio = { workspace = true }
+owhisper-client = { workspace = true }
+owhisper-interface = { workspace = true }
+tokio-stream = { workspace = true }
+url = { workspace = true }
 
 futures-util = { workspace = true }
 hound = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 specta = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
@@ -31,3 +37,9 @@ tauri-plugin-shortcut = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 anlg-dictation-ui-macos = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+atspi = { version = "0.25", default-features = false, features = ["tokio"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { workspace = true, features = ["Win32_Foundation", "Win32_System_Com", "Win32_System_Ole", "Win32_System_Variant", "Win32_UI_Accessibility", "Win32_UI_Input_KeyboardAndMouse"] }

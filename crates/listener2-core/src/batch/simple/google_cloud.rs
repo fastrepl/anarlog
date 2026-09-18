@@ -82,7 +82,7 @@ struct PreparedUploads {
 }
 
 fn prepare_uploads(path: &str) -> Result<PreparedUploads, anlg_audio_utils::Error> {
-    let directory = tempfile::tempdir()?;
+    let directory = super::super::upload::temporary_audio_directory(path)?;
     let source = anlg_audio_utils::source_from_path(path)?;
     let channel_count = usize::from(u16::from(source.channels()));
     if channel_count > 8 {

@@ -3,6 +3,7 @@ import { useRef } from "react";
 
 import { events as appleCalendarEvents } from "@anlg/plugin-calendar";
 
+import { listenForCaptureCleanup } from "./audio-cleanup";
 import {
   AUDIO_RETENTION_INTERVAL,
   AUDIO_RETENTION_TASK_ID,
@@ -40,6 +41,12 @@ const EVENT_NOTIFICATION_MAX_DURATION = 60 * 1000; // 60 sec
 const REPEATING_TASK_MAX_RETRIES = 3;
 
 export function TaskManager() {
+  useMountEffect(() => {
+    const unlisten = listenForCaptureCleanup();
+    return () => {
+      void unlisten.then((stop) => stop());
+    };
+  });
   const queryClient = useQueryClient();
   const manager = useTaskScheduler();
 

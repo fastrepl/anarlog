@@ -12,7 +12,25 @@ func rustOnFloatingBarOpenMain() {}
 @_cdecl("rust_on_floating_bar_settings_change")
 func rustOnFloatingBarSettingsChange(_: UnsafePointer<CChar>) {}
 
+@_cdecl("rust_on_floating_bar_dictation_action")
+func rustOnFloatingBarDictationAction(_: UnsafePointer<CChar>) {}
+
 final class FloatingBarCommandCoalescerTests: XCTestCase {
+  func testFlushAppliesQueuedPresentationBeforeReturning() {
+    let scheduler = ManualScheduler()
+    var presented = false
+    let coalescer = FloatingBarCommandCoalescer(
+      scheduler: scheduler.schedule,
+      apply: { action in
+        if case .show = action { presented = true }
+      })
+    coalescer.enqueueShow()
+    XCTAssertFalse(presented)
+    coalescer.flush()
+    XCTAssertTrue(presented)
+    scheduler.runNext()
+  }
+
   func testCoalescesBurstAndPreservesLatestNonNilTranscript() {
     let scheduler = ManualScheduler()
     var actions: [FloatingBarCommandCoalescer.Action] = []
@@ -276,6 +294,7 @@ final class FloatingBarCommandCoalescerTests: XCTestCase {
     bubbles: [FloatingTranscriptBubblePayload]?
   ) -> FloatingBarStatePayload {
     FloatingBarStatePayload(
+      dictation: nil,
       amplitude: amplitude,
       title: "Meeting",
       status: .recording,

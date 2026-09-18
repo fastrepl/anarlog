@@ -277,13 +277,6 @@ const EditableSegmentText = memo(function EditableSegmentText({
   );
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.currentTarget.textContent = originalText;
-        event.currentTarget.blur();
-        return;
-      }
-
       if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229)
         return;
 
@@ -305,7 +298,7 @@ const EditableSegmentText = memo(function EditableSegmentText({
       event.preventDefault();
       if (text.slice(offset).trim()) setSpeakerChange({ text, offset });
     },
-    [originalText],
+    [],
   );
 
   return (

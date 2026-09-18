@@ -3,6 +3,7 @@ import type { Segment, SegmentKey } from "~/stt/live-segment";
 export type TranscriptWordSelectionGroup = {
   transcriptId: string;
   segmentKey: SegmentKey;
+  inferredHumanId?: string;
   wordIds: string[];
 };
 
@@ -184,7 +185,7 @@ export function getTranscriptSelectionFromSegment({
   transcriptId: string;
   sessionId?: string;
   offsetMs: number;
-  segment: Pick<Segment, "key" | "text" | "words">;
+  segment: Pick<Segment, "key" | "text" | "words" | "provisional_speaker">;
 }): TranscriptWordSelection | null {
   const wordIds = segment.words
     .map((word) => word.id)
@@ -204,6 +205,9 @@ export function getTranscriptSelectionFromSegment({
       {
         transcriptId,
         segmentKey: segment.key,
+        ...(segment.provisional_speaker?.human_id
+          ? { inferredHumanId: segment.provisional_speaker.human_id }
+          : {}),
         wordIds,
       },
     ],
@@ -301,6 +305,7 @@ export function getTranscriptMergeTarget(
   }
   if (
     !targetGroup.segmentKey.speaker_human_id &&
+    !targetGroup.inferredHumanId &&
     typeof targetGroup.segmentKey.speaker_index !== "number"
   ) {
     return null;
@@ -317,6 +322,20 @@ export function getTranscriptMergeTarget(
     }
   }
 
+  if (!targetGroup.segmentKey.speaker_human_id && targetGroup.inferredHumanId) {
+    return {
+      ...first,
+      groups: [
+        {
+          ...targetGroup,
+          segmentKey: {
+            ...targetGroup.segmentKey,
+            speaker_human_id: targetGroup.inferredHumanId,
+          },
+        },
+      ],
+    };
+  }
   return first;
 }
 

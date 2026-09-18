@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "lowercase")]
 pub enum Modifier {
     Command,
+    RightCommand,
     Option,
     Shift,
     Control,
@@ -14,6 +15,7 @@ impl Modifier {
     const fn bit(self) -> u8 {
         match self {
             Self::Command => 1 << 0,
+            Self::RightCommand => 1 << 5,
             Self::Option => 1 << 1,
             Self::Shift => 1 << 2,
             Self::Control => 1 << 3,

@@ -455,6 +455,42 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("button", { name: "Create brief" })).toBeNull();
   });
 
+  it("keeps the title hidden when recording is removed while tabs are shown", () => {
+    mocks.audioExists = true;
+
+    const renderHeader = () => (
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        tab={{
+          active: true,
+          id: "session-1",
+          pinned: false,
+          slotId: "slot-1",
+          state: { autoStart: null, view: { type: "raw" } },
+          type: "sessions",
+        }}
+        viewSwitcher={
+          <div role="group" aria-label="Session note views">
+            Tabs
+          </div>
+        }
+      />
+    );
+    const { rerender } = render(renderHeader());
+
+    expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
+
+    mocks.audioExists = false;
+    rerender(renderHeader());
+
+    expect(
+      screen.getByRole("group", { name: "Session note views" }),
+    ).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Record" })).not.toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
+  });
+
   it("hides the title input after the meeting is over", () => {
     mocks.sessionEvents = {
       "session-1": {

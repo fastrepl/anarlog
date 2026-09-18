@@ -8,6 +8,7 @@ import type { TimelineEventRow } from "~/sidebar/timeline/utils";
 
 const mocks = vi.hoisted(() => ({
   events: {} as Record<string, TimelineEventRow>,
+  use24HourTime: false,
   isIgnored: (trackingId: string | null | undefined) =>
     trackingId === "ignored",
 }));
@@ -22,7 +23,8 @@ vi.mock("./ignored-events", () => ({
   useIgnoredEvents: () => ({ isIgnored: mocks.isIgnored }),
 }));
 vi.mock("~/shared/config", () => ({
-  useConfigValue: () => "America/New_York",
+  useConfigValue: (key: string) =>
+    key === "timezone" ? "America/New_York" : mocks.use24HourTime,
 }));
 vi.mock("~/shared/hooks/useNativeContextMenu", () => ({
   useNativeContextMenu: () => undefined,
@@ -46,7 +48,10 @@ const busyEvent: TimelineEventRow = {
   is_all_day: false,
 };
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  mocks.use24HourTime = false;
+});
 
 describe("untitled calendar events", () => {
   test("groups untitled events by date without bypassing ignored or invalid-date filters", () => {
@@ -69,6 +74,9 @@ describe("untitled calendar events", () => {
     const { rerender } = render(<EventChip eventId="busy" event={busyEvent} />);
     expect(screen.getByRole("button", { name: /Busy/ })).toBeTruthy();
     expect(screen.getByText("4:00 PM")).toBeTruthy();
+    mocks.use24HourTime = true;
+    rerender(<EventChip eventId="busy" event={busyEvent} />);
+    expect(screen.getByText("16:00")).toBeTruthy();
 
     rerender(
       <EventChip eventId="busy" event={{ ...busyEvent, is_all_day: true }} />,

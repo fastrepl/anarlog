@@ -25,12 +25,14 @@ export function buildTrayScheduleEvents(
   nowMs = Date.now(),
   timezone?: string,
   locale?: string,
+  use24HourTime = false,
 ): TrayScheduleEvent[] {
   const upperBoundMs = nowMs + PUBLISHED_SCHEDULE_HORIZON_MS;
   const timeFormatter = new Intl.DateTimeFormat(locale, {
     hour: "numeric",
     minute: "2-digit",
     timeZone: timezone,
+    ...(use24HourTime ? { hourCycle: "h23" as const } : {}),
   });
 
   return Object.entries(rows ?? {})
@@ -95,6 +97,7 @@ export function TrayScheduleSync() {
   const { isIgnored } = useIgnoredEvents();
   const timezone = useConfigValue("timezone") || undefined;
   const currentDay = useCurrentDay(timezone);
+  const use24HourTime = useConfigValue("use_24_hour_time");
   const events = useMemo(
     () =>
       buildTrayScheduleEvents(
@@ -102,8 +105,10 @@ export function TrayScheduleSync() {
         isIgnored,
         Date.now(),
         timezone,
+        undefined,
+        use24HourTime,
       ),
-    [currentDay, isIgnored, timelineEventsTable, timezone],
+    [currentDay, isIgnored, timelineEventsTable, timezone, use24HourTime],
   );
 
   return <TraySchedulePublisher key={JSON.stringify(events)} events={events} />;

@@ -1,6 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+import { events as transcriptionEvents } from "@anlg/plugin-transcription";
+
+import { saveIncompleteCapture } from "./capture-result";
 import {
   MAX_SENT_MEETING_DISCLOSURE_SESSIONS,
   startMeetingRecordingDisclosure,
@@ -139,10 +142,27 @@ vi.mock("@anlg/plugin-db", () => ({
   subscribe: vi.fn(async () => () => {}),
 }));
 
+vi.mock("~/auth", () => ({
+  useAuth: () => ({ getSessionForRequest: vi.fn(async () => null) }),
+}));
 vi.mock("@anlg/plugin-transcription", () => ({
   commands: {
     isSupportedLanguagesLive: isSupportedLanguagesLiveMock,
+    listCaptureAudioChunks: vi.fn(async () => ({ status: "ok", data: [] })),
+    acknowledgeCaptureAudioChunk: vi.fn(async () => ({
+      status: "ok",
+      data: null,
+    })),
+    updateCaptureCredentials: vi.fn(async () => ({ status: "ok", data: null })),
   },
+  events: {
+    captureLifecycleEvent: { listen: vi.fn(async () => () => {}) },
+    captureStatusEvent: { listen: vi.fn(async () => () => {}) },
+  },
+}));
+vi.mock("./capture-result", () => ({
+  saveIncompleteCapture: vi.fn(async () => {}),
+  clearIncompleteCapture: vi.fn(async () => {}),
 }));
 
 vi.mock("./contexts", () => ({
@@ -178,6 +198,7 @@ vi.mock("@anlg/ui/components/ui/toast", () => ({
     warning: sonnerToastWarningMock,
     error: sonnerToastErrorMock,
     dismiss: sonnerToastDismissMock,
+    info: vi.fn(),
   },
 }));
 
@@ -561,6 +582,101 @@ describe("useStartListening", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  test("zero retention deletes the recovery opportunity at stop even after a disconnect", async () => {
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "audio_retention" ? "none" : undefined,
+    );
+    const { result } = renderHook(() => useStartListening("session-1"));
+    await act(async () => {
+      await result.current();
+    });
+    expect(startMock.mock.calls[0]?.[0]).toMatchObject({ retain_audio: false });
+    const progress = vi.mocked(transcriptionEvents.captureStatusEvent.listen)
+      .mock.calls[0]?.[0];
+    progress?.({
+      payload: {
+        type: "connection_error",
+        session_id: "session-1",
+        error: "offline",
+      },
+    } as never);
+    await act(async () => {
+      await startMock.mock.calls[0]?.[1].onStopped("session-1", {
+        chunkedAudio: true,
+        durationSeconds: 60,
+        audioPath: "/tmp/session.mp3",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: false,
+        needsBatchRepair: true,
+      });
+    });
+    expect(runBatchMock).not.toHaveBeenCalled();
+    expect(saveIncompleteCapture).toHaveBeenCalledWith(
+      "session-1",
+      "generated-id",
+      true,
+      false,
+    );
+    expect(sonnerToastErrorMock).toHaveBeenCalledWith(
+      "Your transcript is incomplete",
+      expect.anything(),
+    );
+  });
+
+  test("does not reprocess a whole chunked recording after recovery has completed", async () => {
+    const { result } = renderHook(() => useStartListening("session-1"));
+    await act(async () => {
+      await result.current();
+    });
+    await act(async () => {
+      await startMock.mock.calls[0]?.[1].onStopped("session-1", {
+        chunkedAudio: true,
+        durationSeconds: 60,
+        audioPath: "/tmp/session.mp3",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+        needsBatchRepair: true,
+      });
+    });
+    expect(runBatchMock).not.toHaveBeenCalled();
+  });
+
+  test("never claims that zero-retention audio was deleted when native cleanup failed", async () => {
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "audio_retention" ? "none" : undefined,
+    );
+    const { result } = renderHook(() => useStartListening("session-1"));
+    await act(async () => {
+      await result.current();
+    });
+    await act(async () => {
+      await startMock.mock.calls[0]?.[1].onStopped("session-1", {
+        chunkedAudio: true,
+        audioDeletionFailed: true,
+        durationSeconds: 60,
+        audioPath: "/tmp/session.mp3",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+      });
+    });
+    expect(saveIncompleteCapture).toHaveBeenCalledWith(
+      "session-1",
+      "generated-id",
+      false,
+      true,
+    );
+    expect(sonnerToastErrorMock).toHaveBeenCalledWith(
+      "Audio could not be deleted",
+      expect.anything(),
+    );
+    expect(sonnerToastErrorMock).not.toHaveBeenCalledWith(
+      "Your transcript is incomplete",
+      expect.anything(),
+    );
+    expect(runBatchMock).not.toHaveBeenCalled();
   });
 
   test("collapses the left sidebar after listening starts", async () => {
@@ -2641,7 +2757,10 @@ describe("useStartListening", () => {
       notifyOnCompletion: false,
       promotion: { scope: "whole_session" },
     });
-    expect(sonnerToastErrorMock).not.toHaveBeenCalled();
+    expect(sonnerToastErrorMock).toHaveBeenCalledWith(
+      "Your transcript could not be saved",
+      expect.anything(),
+    );
     expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledWith(
       "session-1",
     );

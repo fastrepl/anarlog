@@ -18,6 +18,7 @@ import { useRunBatch } from "./useRunBatch";
 
 const {
   startTranscriptionMock,
+  stopTranscriptionMock,
   useListenerMock,
   useSessionMock,
   useSessionParticipantsMock,
@@ -40,6 +41,7 @@ const {
   platformMock,
 } = vi.hoisted(() => ({
   startTranscriptionMock: vi.fn(),
+  stopTranscriptionMock: vi.fn(),
   useListenerMock: vi.fn(),
   useSessionMock: vi.fn(),
   useSessionParticipantsMock: vi.fn(),
@@ -818,6 +820,7 @@ describe("reconcileRefinedSpeakerClusters", () => {
 describe("useRunBatch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    stopTranscriptionMock.mockResolvedValue(undefined);
     archMock.mockReturnValue("aarch64");
     platformMock.mockReturnValue("macos");
 
@@ -831,7 +834,10 @@ describe("useRunBatch", () => {
     markSessionAudioTranscriptionCompleteMock.mockResolvedValue(undefined);
     isSupportedLanguagesBatchMock.mockResolvedValue(true);
     useListenerMock.mockImplementation((selector) =>
-      selector({ startTranscription: startTranscriptionMock }),
+      selector({
+        startTranscription: startTranscriptionMock,
+        stopTranscription: stopTranscriptionMock,
+      }),
     );
     useSessionMock.mockReturnValue({
       id: "session-1",
@@ -865,6 +871,96 @@ describe("useRunBatch", () => {
     useConfigValueMock.mockImplementation((key) =>
       key === "ai_language" ? "en" : [],
     );
+  });
+
+  test("does not start a dictation transcription after cancellation", async () => {
+    const abort = new AbortController();
+    abort.abort();
+    const { result } = renderHook(() => useRunBatch("dictation"));
+    await expect(
+      result.current("/tmp/voice.wav", { signal: abort.signal }),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(startTranscriptionMock).not.toHaveBeenCalled();
+  });
+
+  test("stops after cancelled auth preflight without starting transcription", async () => {
+    const abort = new AbortController();
+    useBillingAccessMock.mockReturnValue({ isPaid: true });
+    let finish!: (value: null) => void;
+    getSessionForRequestMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const { result } = renderHook(() => useRunBatch("dictation"));
+    const run = result.current("/tmp/voice.wav", { signal: abort.signal });
+    const rejected = expect(run).rejects.toMatchObject({ name: "AbortError" });
+    await waitFor(() => expect(getSessionForRequestMock).toHaveBeenCalled());
+    abort.abort();
+    finish(null);
+    await rejected;
+    expect(startTranscriptionMock).not.toHaveBeenCalled();
+  });
+
+  test("cancels the active provider and never retries authentication after abort", async () => {
+    const abort = new AbortController();
+    useSTTConnectionMock.mockReturnValue({
+      conn: {
+        provider: "anarlog",
+        model: "cloud",
+        baseUrl: "https://api.test/stt",
+        apiKey: "stale",
+      },
+    });
+    let fail!: (reason: Error) => void;
+    startTranscriptionMock.mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          fail = reject;
+        }),
+    );
+    const { result } = renderHook(() => useRunBatch("dictation"));
+    const run = result.current("/tmp/voice.wav", { signal: abort.signal });
+    const rejected = expect(run).rejects.toMatchObject({ name: "AbortError" });
+    await waitFor(() => expect(startTranscriptionMock).toHaveBeenCalledOnce());
+    abort.abort();
+    const persist = startTranscriptionMock.mock.calls[0]?.[1]?.handlePersist;
+    expect(() =>
+      persist?.(
+        [{ text: "cancelled", start_ms: 0, end_ms: 100, channel: 0 }],
+        [],
+      ),
+    ).not.toThrow();
+    fail(
+      new Error(
+        "Authentication failed. Please check your API key in settings.",
+      ),
+    );
+    await rejected;
+    expect(stopTranscriptionMock).toHaveBeenCalledWith("dictation");
+    expect(refreshSessionMock).not.toHaveBeenCalled();
+    expect(startTranscriptionMock).toHaveBeenCalledOnce();
+    expect(createTranscriptMock).not.toHaveBeenCalled();
+  });
+
+  test("retries cancellation after native startup finishes", async () => {
+    const abort = new AbortController();
+    let started!: () => void;
+    startTranscriptionMock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          started = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useRunBatch("dictation"));
+    const run = result.current("/tmp/voice.wav", { signal: abort.signal });
+    const rejected = expect(run).rejects.toMatchObject({ name: "AbortError" });
+    await waitFor(() => expect(startTranscriptionMock).toHaveBeenCalledOnce());
+    abort.abort();
+    expect(stopTranscriptionMock).not.toHaveBeenCalled();
+    started();
+    await rejected;
+    expect(stopTranscriptionMock).toHaveBeenCalledTimes(1);
   });
 
   test("promotes the complete streamed transcript before retention", async () => {
@@ -953,6 +1049,64 @@ describe("useRunBatch", () => {
     expect(createTranscriptMock).toHaveBeenCalledOnce();
     expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
+  });
+
+  test("repairs a chunk separately from live capture and waits for its database commit", async () => {
+    startTranscriptionMock.mockImplementation(async (_params, options) => {
+      options.handlePersist(
+        [{ text: "recovered", start_ms: 0, end_ms: 100, channel: 0 }],
+        [],
+      );
+    });
+    let commit!: () => void;
+    const persist = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          commit = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useRunBatch("session-1"));
+    let completed = false;
+    const run = result
+      .current("/tmp/chunk.mp3", { recovery: { persist } })
+      .then(() => {
+        completed = true;
+      });
+    await waitFor(() => expect(persist).toHaveBeenCalledOnce());
+    expect(startTranscriptionMock.mock.calls[0]?.[0]).toMatchObject({
+      session_id: "session-1:recovery",
+    });
+    expect(completed).toBe(false);
+    expect(createTranscriptMock).not.toHaveBeenCalled();
+    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
+    commit();
+    await act(async () => await run);
+    expect(completed).toBe(true);
+  });
+
+  test("cancels only the background repair when its capture ends", async () => {
+    const abort = new AbortController();
+    let finish!: () => void;
+    startTranscriptionMock.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const persist = vi.fn();
+    const { result } = renderHook(() => useRunBatch("session-1"));
+    const run = result.current("/tmp/chunk.mp3", {
+      signal: abort.signal,
+      recovery: { persist },
+    });
+    const rejected = expect(run).rejects.toMatchObject({ name: "AbortError" });
+    await waitFor(() => expect(startTranscriptionMock).toHaveBeenCalledOnce());
+    abort.abort();
+    finish();
+    await rejected;
+    expect(stopTranscriptionMock).toHaveBeenCalledWith("session-1:recovery");
+    expect(stopTranscriptionMock).not.toHaveBeenCalledWith("session-1");
+    expect(persist).not.toHaveBeenCalled();
   });
 
   test("does not make completed provider work retryable when persistence fails", async () => {

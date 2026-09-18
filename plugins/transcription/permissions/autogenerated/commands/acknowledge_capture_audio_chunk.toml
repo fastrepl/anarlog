@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-acknowledge-capture-audio-chunk"
+description = "Enables the acknowledge_capture_audio_chunk command without any pre-configured scope."
+commands.allow = ["acknowledge_capture_audio_chunk"]
+
+[[permission]]
+identifier = "deny-acknowledge-capture-audio-chunk"
+description = "Denies the acknowledge_capture_audio_chunk command without any pre-configured scope."
+commands.deny = ["acknowledge_capture_audio_chunk"]

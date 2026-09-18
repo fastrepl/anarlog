@@ -934,6 +934,10 @@ msgstr "Cancel bot"
 msgid "Cancel date edit"
 msgstr "Cancel date edit"
 
+#: src/settings/dictation.tsx
+msgid "Cancel dictation"
+msgstr "Cancel dictation"
+
 #: src/settings/team/index.tsx
 msgid "Cancel invitation"
 msgstr "Cancel invitation"
@@ -1183,6 +1187,7 @@ msgstr "Choose storage location"
 msgid "Choose template icon"
 msgstr "Choose template icon"
 
+#: src/settings/dictation.tsx
 #: src/settings/general/audio-settings.tsx
 msgid "Choose the microphone that captures your voice."
 msgstr "Choose the microphone that captures your voice."
@@ -1233,6 +1238,10 @@ msgstr "Clear selection"
 #: src/settings/developers/cli.tsx
 msgid "CLI & MCP"
 msgstr "CLI & MCP"
+
+#: src/settings/dictation.tsx
+msgid "Click here, then use your dictation shortcut."
+msgstr "Click here, then use your dictation shortcut."
 
 #: src/shared/ui/resource-list/preview-header.tsx
 msgid "Clone"
@@ -1561,6 +1570,10 @@ msgstr "Conversations per active day"
 msgid "Conversations: {total}"
 msgstr "Conversations: {total}"
 
+#: src/settings/dictation.tsx
+msgid "Copied"
+msgstr "Copied"
+
 #: src/main/windows-title-bar.tsx
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
@@ -1576,6 +1589,10 @@ msgstr "Copy {label} URL"
 #: src/settings/developers/cli.tsx
 msgid "Copy config"
 msgstr "Copy config"
+
+#: src/settings/dictation.tsx
+msgid "Copy last dictation"
+msgstr "Copy last dictation"
 
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
@@ -1618,6 +1635,10 @@ msgstr "Could not copy the MCP configuration"
 #: src/session-sharing/management-panel.tsx
 msgid "Could not copy the share link."
 msgstr "Could not copy the share link."
+
+#: src/settings/dictation.tsx
+msgid "Could not copy the transcript. Select the text above to copy it."
+msgstr "Could not copy the transcript. Select the text above to copy it."
 
 #: src/settings/developers/clipboard.ts
 msgid "Could not copy to clipboard"
@@ -2055,6 +2076,20 @@ msgstr "Device name"
 msgid "Devices"
 msgstr "Devices"
 
+#: src/settings/dictation.tsx
+#: src/sidebar/settings.tsx
+msgid "Dictation"
+msgstr "Dictation"
+
+#: src/settings/dictation.tsx
+msgid "Dictation shortcut"
+msgstr "Dictation shortcut"
+
+#: src/settings/dictation.tsx
+msgid "Dictation uses your microphone, transcription provider, languages, and dictionary. Temporary audio is deleted after transcription. Your last transcript stays in memory until dictation is disabled or Anarlog closes."
+msgstr "Dictation uses your microphone, transcription provider, languages, and dictionary. Temporary audio is deleted after transcription. Your last transcript stays in memory until dictation is disabled or Anarlog closes."
+
+#: src/settings/dictation.tsx
 #: src/settings/dictionary/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Dictionary"
@@ -2212,6 +2247,10 @@ msgstr "Enable {0}"
 #: src/settings/developers/cloud-api.tsx
 msgid "Enable Cloud API & Connectors"
 msgstr "Enable Cloud API & Connectors"
+
+#: src/settings/dictation.tsx
+msgid "Enable dictation"
+msgstr "Enable dictation"
 
 #: src/settings/automations/index.tsx
 #: src/settings/automations/workflow-builder.tsx
@@ -2429,6 +2468,10 @@ msgstr "Flags"
 msgid "Float chat"
 msgstr "Float chat"
 
+#: src/settings/dictation.tsx
+msgid "Fn / Globe"
+msgstr "Fn / Globe"
+
 #: src/settings/appearance/sidebar-item-fields.tsx
 #: src/sidebar/note-filter-menu.tsx
 msgid "Folder"
@@ -2578,6 +2621,10 @@ msgstr "guest@company.com"
 msgid "Guide"
 msgstr "Guide"
 
+#: src/settings/dictation.tsx
+msgid "Hands-free dictation"
+msgstr "Hands-free dictation"
+
 #: src/settings/general/app-settings.tsx
 msgid "Have Anarlog ready when you sign in."
 msgstr "Have Anarlog ready when you sign in."
@@ -2655,6 +2702,10 @@ msgstr "History"
 #: src/chat/components/input/index.tsx
 msgid "History {0}/{1}"
 msgstr "History {0}/{1}"
+
+#: src/settings/dictation.tsx
+msgid "Hold your shortcut while speaking, then release it to finish."
+msgstr "Hold your shortcut while speaking, then release it to finish."
 
 #: src/settings/stats/index.tsx
 msgid "Hours transcribed"
@@ -2858,6 +2909,10 @@ msgstr "Join scheduled meetings"
 msgid "Joined {0}"
 msgstr "Joined {0}"
 
+#: src/settings/dictation.tsx
+msgid "Keep Anarlog running to use your shortcut in other apps."
+msgstr "Keep Anarlog running to use your shortcut in other apps."
+
 #: src/session-sharing/management-panel.tsx
 msgid "Keep desktop edits"
 msgstr "Keep desktop edits"
@@ -2902,6 +2957,10 @@ msgstr "Kimi Code API key"
 msgid "Language & Region"
 msgstr "Language & Region"
 
+#: src/settings/dictation.tsx
+msgid "Language & transcription"
+msgstr "Language & transcription"
+
 #: src/sidebar/toast/registry.tsx
 msgid "Language model needed"
 msgstr "Language model needed"
@@ -2910,6 +2969,10 @@ msgstr "Language model needed"
 #: src/settings/developers/webhooks.tsx
 msgid "Last delivery {0}"
 msgstr "Last delivery {0}"
+
+#: src/settings/dictation.tsx
+msgid "Last dictation"
+msgstr "Last dictation"
 
 #. placeholder {0}: lastRun.imported
 #. placeholder {1}: lastRun.matched
@@ -2999,6 +3062,10 @@ msgstr "LinkedIn"
 msgid "List action items."
 msgstr "List action items."
 
+#: src/settings/dictation.tsx
+msgid "Listening…"
+msgstr "Listening…"
+
 #: src/settings/stats/badge-collection.tsx
 msgid "Little steps worth keeping. Collect them at your own pace."
 msgstr "Little steps worth keeping. Collect them at your own pace."
@@ -3006,6 +3073,10 @@ msgstr "Little steps worth keeping. Collect them at your own pace."
 #: src/settings/ai/stt/select.tsx
 msgid "Live"
 msgstr "Live"
+
+#: src/settings/dictation.tsx
+msgid "Live transcript preview"
+msgstr "Live transcript preview"
 
 #: src/settings/stats/badge-collection.tsx
 msgid "Living Library"
@@ -3273,6 +3344,7 @@ msgid "Metadata"
 msgstr "Metadata"
 
 #: src/onboarding/permissions.tsx
+#: src/settings/dictation.tsx
 #: src/settings/general/audio-settings.tsx
 #: src/settings/general/permissions.tsx
 msgid "Microphone"
@@ -3678,6 +3750,10 @@ msgstr "Older files that differ from your current data were kept as recovery cop
 msgid "Oldest"
 msgstr "Oldest"
 
+#: src/settings/dictation.tsx
+msgid "On Wayland, approve the shortcuts in your desktop's prompt. Use Control + Alt + Escape to cancel. On X11, press Escape to cancel. The target app must expose an editable accessibility field."
+msgstr "On Wayland, approve the shortcuts in your desktop's prompt. Use Control + Alt + Escape to cancel. On X11, press Escape to cancel. The target app must expose an editable accessibility field."
+
 #: src/session/components/note-input/enhanced/streaming.tsx
 msgid "On-device models can take a few minutes to warm up before text appears."
 msgstr "On-device models can take a few minutes to warm up before text appears."
@@ -3922,6 +3998,7 @@ msgstr "Permission for {label}"
 msgid "permission panel."
 msgstr "permission panel."
 
+#: src/settings/dictation.tsx
 #: src/settings/general/index.tsx
 #: src/settings/team/index.tsx
 #: src/sidebar/settings.tsx
@@ -3994,6 +4071,18 @@ msgstr "Prepare for events with a 5-minute reminder."
 msgid "Preparing transcript..."
 msgstr "Preparing transcript..."
 
+#: src/settings/dictation.tsx
+msgid "Press a key combination here, or type one such as Control+Alt+D."
+msgstr "Press a key combination here, or type one such as Control+Alt+D."
+
+#: src/settings/dictation.tsx
+msgid "Press Escape to cancel. Dictation stops after five minutes and pauses while Anarlog records a meeting."
+msgstr "Press Escape to cancel. Dictation stops after five minutes and pauses while Anarlog records a meeting."
+
+#: src/settings/dictation.tsx
+msgid "Press your shortcut to start, then press it again to finish."
+msgstr "Press your shortcut to start, then press it again to finish."
+
 #: src/settings/general/notification.tsx
 msgid "Prevent selected apps from triggering meeting detection."
 msgstr "Prevent selected apps from triggering meeting detection."
@@ -4062,6 +4151,10 @@ msgstr "Read meeting controls and visible chat."
 #: src/settings/general/notification.tsx
 msgid "Ready"
 msgstr "Ready"
+
+#: src/settings/dictation.tsx
+msgid "Ready to dictate"
+msgstr "Ready to dictate"
 
 #: src/onboarding/index.tsx
 msgid "Ready to go"
@@ -4412,6 +4505,10 @@ msgstr "Retention (days)"
 msgid "Retry"
 msgstr "Retry"
 
+#: src/settings/dictation.tsx
+msgid "Retry setup"
+msgstr "Retry setup"
+
 #: src/session/components/pending-proposals-banner.tsx
 msgid "Review memo"
 msgstr "Review memo"
@@ -4428,6 +4525,10 @@ msgstr "Review transfer"
 msgid "Revoke"
 msgstr "Revoke"
 
+#: src/settings/dictation.tsx
+msgid "Right Command"
+msgstr "Right Command"
+
 #: src/settings/ai/shared/index.tsx
 #: src/settings/ai/stt/select.tsx
 msgid "Runs after the recording finishes, not during the meeting."
@@ -4437,6 +4538,7 @@ msgstr "Runs after the recording finishes, not during the meeting."
 msgid "Runs once the AI summary for the meeting is ready."
 msgstr "Runs once the AI summary for the meeting is ready."
 
+#: src/settings/dictation.tsx
 #: src/settings/dictionary/index.tsx
 #: src/settings/general/account-profile.tsx
 #: src/settings/sync/index.tsx
@@ -4732,6 +4834,10 @@ msgstr "Set up AI summaries"
 msgid "Set up your recovery key to start encrypted cloud sync."
 msgstr "Set up your recovery key to start encrypted cloud sync."
 
+#: src/settings/dictation.tsx
+msgid "Setting up dictation…"
+msgstr "Setting up dictation…"
+
 #: src/settings/sync/index.tsx
 msgid "Setting up encrypted cloud sync."
 msgstr "Setting up encrypted cloud sync."
@@ -4870,6 +4976,10 @@ msgstr "Show in Finder"
 msgid "Show in folder"
 msgstr "Show in folder"
 
+#: src/settings/appearance/time-format.tsx
+msgid "Show meeting times as 14:00 instead of 2:00 PM."
+msgstr "Show meeting times as 14:00 instead of 2:00 PM."
+
 #: src/main/windows-title-bar.tsx
 msgid "Show sidebar"
 msgstr "Show sidebar"
@@ -4909,6 +5019,10 @@ msgstr "Show when a transcript is ready."
 #: src/settings/general/notification.tsx
 msgid "Show when initial cloud sync finishes."
 msgstr "Show when initial cloud sync finishes."
+
+#: src/settings/dictation.tsx
+msgid "Show words in the floating panel as you speak. Uses a live connection to your selected transcription provider when supported. Text is inserted when you finish."
+msgstr "Show words in the floating panel as you speak. Uses a live connection to your selected transcription provider when supported. Text is inserted when you finish."
 
 #: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/index.tsx
@@ -5106,6 +5220,10 @@ msgstr "Sound"
 msgid "Sparkle"
 msgstr "Sparkle"
 
+#: src/settings/dictation.tsx
+msgid "Speak into the focused text field in your apps. Your transcript appears when you finish."
+msgstr "Speak into the focused text field in your apps. Your transcript appears when you finish."
+
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "SQLite migration verification is incomplete"
 msgstr "SQLite migration verification is incomplete"
@@ -5177,6 +5295,10 @@ msgstr "Starting in {minutesUntil} minutes"
 #: src/services/event-notification/index.ts
 msgid "Starting in 1 minute"
 msgstr "Starting in 1 minute"
+
+#: src/settings/dictation.tsx
+msgid "Starting microphone…"
+msgstr "Starting microphone…"
 
 #: src/sidebar/toast/registry.tsx
 msgid "Starting transcription..."
@@ -5603,6 +5725,7 @@ msgid "Transcribing voice input"
 msgstr "Transcribing voice input"
 
 #: src/chat/components/input/index.tsx
+#: src/settings/dictation.tsx
 msgid "Transcribing…"
 msgstr "Transcribing…"
 
@@ -5660,6 +5783,10 @@ msgstr "Trigger"
 #: src/settings/team/index.tsx
 msgid "Try again"
 msgstr "Try again"
+
+#: src/settings/dictation.tsx
+msgid "Try dictation"
+msgstr "Try dictation"
 
 #: src/chat/components/input/use-dictation.ts
 msgid "Try speaking a little closer to the microphone."
@@ -5853,6 +5980,10 @@ msgstr "Uploads meeting content for remote access while Anarlog is closed."
 #: src/settings/team/index.tsx
 msgid "Usage"
 msgstr "Usage"
+
+#: src/settings/appearance/time-format.tsx
+msgid "Use 24-hour time"
+msgstr "Use 24-hour time"
 
 #: src/settings/team/index.tsx
 msgid "Use 3–63 lowercase letters, numbers, or hyphens."

@@ -21,6 +21,7 @@ import {
   type MenuItemDef,
   useNativeContextMenu,
 } from "~/shared/hooks/useNativeContextMenu";
+import { useTimeFormat } from "~/shared/hooks/useTimeFormat";
 import type { TimelineSessionRow } from "~/sidebar/timeline/utils";
 import { useTabs } from "~/store/zustand/tabs";
 
@@ -33,11 +34,12 @@ export function SessionChip({
 }) {
   const { t } = useLingui();
   const tz = useTimezone();
+  const timeFormat = useTimeFormat();
   const deleteSession = useDeleteSession();
   const title = session?.title ?? undefined;
   const eventJson = session?.event_json;
   const createdAt = session?.created_at
-    ? format(toTz(session.created_at, tz), "h:mm a")
+    ? format(toTz(session.created_at, tz), timeFormat)
     : null;
 
   const handleShowInFolder = useCallback(async () => {
@@ -119,13 +121,14 @@ function SessionPopoverContent({
 }) {
   const openCurrent = useTabs((state) => state.openCurrent);
   const tz = useTimezone();
+  const timeFormat = useTimeFormat();
 
   const handleOpen = useCallback(() => {
     openCurrent({ type: "sessions", id: sessionId });
   }, [openCurrent, sessionId]);
 
   const createdAt = session.created_at
-    ? format(toTz(session.created_at, tz), "MMM d, yyyy h:mm a")
+    ? format(toTz(session.created_at, tz), `MMM d, yyyy ${timeFormat}`)
     : null;
 
   return (

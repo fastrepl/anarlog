@@ -67,7 +67,7 @@ export function AudioSettingsView({
 
 const SYSTEM_DEFAULT_DEVICE = "__system_default_device__";
 
-function AudioDeviceRow({
+export function AudioDeviceRow({
   title,
   description,
   value,

@@ -379,6 +379,7 @@ export const updateLiveProgress = (
       }
       return;
     case "connection_error":
+      live.loadingPhase = "idle";
       live.lastError = payload.error;
       live.lastErrorSessionId = payload.session_id;
       live.lastErrorIsAudioRelated = false;

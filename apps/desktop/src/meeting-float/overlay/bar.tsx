@@ -8,11 +8,14 @@ import {
   ArrowsInSimple,
   ArrowsOutSimple,
   CaretDown,
+  CircleNotch,
   Square,
+  WarningCircle,
 } from "@anlg/ui/components/icons";
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 import { cn } from "@anlg/utils";
 
+import { DictationTranscript } from "./dictation";
 import {
   FLOATING_BAR_COMPACT_GAP,
   FLOATING_BAR_COMPACT_HEIGHT,
@@ -22,15 +25,12 @@ import {
   FLOATING_BAR_COMPACT_STOP_WIDTH,
   FLOATING_BAR_COMPACT_RADIUS,
   FLOATING_BAR_CONTROL_RADIUS,
-  FLOATING_BAR_EXPANDED_HEIGHT,
   FLOATING_BAR_EXPANDED_RADIUS,
-  FLOATING_BAR_EXPANDED_WIDTH,
   FLOATING_BAR_HOVER_HANDLE_HEIGHT,
-  FLOATING_BAR_HOVER_HANDLE_RESERVED_HEIGHT,
   FLOATING_BAR_HOVER_HANDLE_TOP_PADDING,
+  FLOATING_BAR_HOVER_HANDLE_RESERVED_HEIGHT,
   FLOATING_BAR_INSET,
   compactControlsWidth,
-  compactWidth,
 } from "./layout";
 
 export function FloatingBarOverlay({
@@ -45,159 +45,91 @@ export function FloatingBarOverlay({
   const [hovered, setHovered] = useState(false);
   const isExpanded =
     state.liveCaptionToggleVisible && !state.liveCaptionMinimized;
+  const colors = barColors(state);
+  const controlsWidth = compactControlsWidth(state.liveCaptionToggleVisible);
+  const expandsUpward = state.layout?.expandsUpward ?? false;
 
   return (
     <div
-      className="flex h-full w-full items-end justify-end"
-      style={{ padding: FLOATING_BAR_INSET }}
+      className="relative h-full w-full"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {isExpanded ? (
-        <ExpandedPanel
-          state={state}
-          hovered={hovered}
-          onStop={onStop}
-          onToggleExpanded={onToggleExpanded}
-        />
-      ) : (
-        <CompactPill
-          state={state}
-          hovered={hovered}
-          onStop={onStop}
-          onToggleExpanded={onToggleExpanded}
-        />
-      )}
-    </div>
-  );
-}
-
-function CompactPill({
-  state,
-  hovered,
-  onStop,
-  onToggleExpanded,
-}: {
-  state: FloatingBarState;
-  hovered: boolean;
-  onStop: () => void;
-  onToggleExpanded: (expanded: boolean) => void;
-}) {
-  const width = compactWidth(state.liveCaptionToggleVisible);
-  const height =
-    FLOATING_BAR_COMPACT_HEIGHT +
-    (hovered ? FLOATING_BAR_HOVER_HANDLE_RESERVED_HEIGHT : 0);
-  const colors = barColors(state);
-
-  return (
-    <div
-      className="relative overflow-hidden"
-      style={{
-        width,
-        height,
-        borderRadius: FLOATING_BAR_COMPACT_RADIUS,
-        background: hovered ? colors.envelopeSurface : colors.surface,
-        boxShadow: `inset 0 0 0 0.5px ${colors.outerStroke}`,
-      }}
-    >
-      {hovered ? <HoverHandle color={colors.handle} width={width} /> : null}
       <div
-        className="absolute right-0 bottom-0 flex items-center justify-center"
+        className="absolute overflow-hidden"
         style={{
-          width,
-          height: FLOATING_BAR_COMPACT_HEIGHT,
+          left: FLOATING_BAR_INSET,
+          right: FLOATING_BAR_INSET,
+          bottom: FLOATING_BAR_INSET,
+          top:
+            FLOATING_BAR_INSET +
+            (hovered ? 0 : FLOATING_BAR_HOVER_HANDLE_RESERVED_HEIGHT),
+          borderRadius: isExpanded
+            ? FLOATING_BAR_EXPANDED_RADIUS
+            : FLOATING_BAR_COMPACT_RADIUS,
+          background:
+            hovered && !isExpanded ? colors.envelopeSurface : colors.surface,
+          boxShadow: `inset 0 0 0 0.5px ${colors.outerStroke}`,
         }}
       >
-        <FloatingControls
-          state={state}
-          isExpanded={false}
-          colors={colors}
-          onStop={onStop}
-          onToggleExpanded={onToggleExpanded}
-        />
-      </div>
-    </div>
-  );
-}
-
-function ExpandedPanel({
-  state,
-  hovered,
-  onStop,
-  onToggleExpanded,
-}: {
-  state: FloatingBarState;
-  hovered: boolean;
-  onStop: () => void;
-  onToggleExpanded: (expanded: boolean) => void;
-}) {
-  const colors = barColors(state);
-
-  return (
-    <div
-      className="relative overflow-hidden"
-      style={{
-        width: FLOATING_BAR_EXPANDED_WIDTH,
-        height:
-          FLOATING_BAR_EXPANDED_HEIGHT +
-          (hovered ? FLOATING_BAR_HOVER_HANDLE_RESERVED_HEIGHT : 0),
-        borderRadius: FLOATING_BAR_EXPANDED_RADIUS,
-        background: colors.surface,
-        boxShadow: `inset 0 0 0 0.5px ${colors.outerStroke}`,
-      }}
-    >
-      <div
-        className="absolute inset-x-0 top-0"
-        style={{
-          height: FLOATING_BAR_HOVER_HANDLE_RESERVED_HEIGHT,
-          paddingTop: FLOATING_BAR_HOVER_HANDLE_TOP_PADDING,
-          opacity: hovered ? 1 : 0,
-        }}
-      >
-        <HoverHandle
-          color={colors.handle}
-          width={FLOATING_BAR_EXPANDED_WIDTH}
-        />
-      </div>
-      <div
-        className="absolute inset-x-0 bottom-0"
-        style={{ height: FLOATING_BAR_EXPANDED_HEIGHT }}
-      >
+        {hovered && <HoverHandle color={colors.handle} />}
         <div
-          className="flex items-center"
+          className="absolute inset-x-0 bottom-0"
           style={{
-            height: FLOATING_BAR_COMPACT_HEIGHT,
-            paddingLeft: 16,
-            paddingRight:
-              compactControlsWidth(state.liveCaptionToggleVisible) + 12,
+            top: hovered ? FLOATING_BAR_HOVER_HANDLE_RESERVED_HEIGHT : 0,
           }}
         >
-          <p
-            className="min-w-0 truncate text-[13px] font-semibold"
-            style={{ color: colors.content }}
+          {isExpanded && (
+            <div
+              className="absolute inset-x-0"
+              style={{
+                top: expandsUpward ? 0 : FLOATING_BAR_COMPACT_HEIGHT,
+                bottom: expandsUpward ? FLOATING_BAR_COMPACT_HEIGHT : 0,
+              }}
+            >
+              <div
+                className="flex items-center px-4"
+                style={{ height: FLOATING_BAR_COMPACT_HEIGHT }}
+              >
+                <p
+                  className="min-w-0 truncate text-[13px] font-semibold"
+                  style={{ color: colors.content }}
+                >
+                  {state.dictation?.phase === "transcribing"
+                    ? "Finishing…"
+                    : state.dictation?.phase === "starting"
+                      ? "Starting…"
+                      : state.title}
+                </p>
+              </div>
+              <TranscriptList
+                key={state.dictation?.sessionId ?? "meeting"}
+                dictation={state.dictation}
+                bubbles={state.transcriptBubbles ?? []}
+                colorScheme={state.colorScheme}
+              />
+            </div>
+          )}
+          <div
+            className="absolute flex -translate-x-1/2 items-center justify-center"
+            style={{
+              left: state.layout
+                ? state.layout.controlsCenterX - FLOATING_BAR_INSET
+                : `calc(100% - ${FLOATING_BAR_COMPACT_HORIZONTAL_PADDING + controlsWidth / 2}px)`,
+              top: expandsUpward ? undefined : 0,
+              bottom: expandsUpward ? 0 : undefined,
+              width: controlsWidth,
+              height: FLOATING_BAR_COMPACT_HEIGHT,
+            }}
           >
-            {state.title}
-          </p>
-        </div>
-        <TranscriptList
-          bubbles={state.transcriptBubbles ?? []}
-          colorScheme={state.colorScheme}
-        />
-        <div
-          className="absolute top-0 right-0 flex items-center justify-center"
-          style={{
-            width: compactControlsWidth(state.liveCaptionToggleVisible),
-            height: FLOATING_BAR_COMPACT_HEIGHT,
-            marginRight: FLOATING_BAR_COMPACT_HORIZONTAL_PADDING,
-          }}
-        >
-          <FloatingControls
-            state={state}
-            isExpanded
-            colors={colors}
-            onStop={onStop}
-            onToggleExpanded={onToggleExpanded}
-          />
+            <FloatingControls
+              state={state}
+              isExpanded={isExpanded}
+              colors={colors}
+              onStop={onStop}
+              onToggleExpanded={onToggleExpanded}
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -268,7 +200,16 @@ function StopControl({
     <button
       type="button"
       data-tauri-drag-region="false"
-      aria-label="Stop listening"
+      aria-label={
+        state.dictation
+          ? "Finish dictation"
+          : state.status === "reconnecting"
+            ? "Reconnecting live transcription; stop listening"
+            : state.status === "error"
+              ? "Transcription unavailable; stop listening"
+              : "Stop listening"
+      }
+      disabled={state.dictation?.phase === "transcribing"}
       onClick={onStop}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -281,11 +222,19 @@ function StopControl({
         color: colors.accent,
       }}
     >
-      {hovered ? (
+      {state.dictation?.phase === "transcribing" ? (
+        <span role="status" className="text-xs">
+          Finishing…
+        </span>
+      ) : hovered ? (
         <span className="flex items-center gap-1.5 text-xs font-semibold">
           <Square size={9} />
-          Stop
+          {state.dictation ? "Done" : "Stop"}
         </span>
+      ) : state.status === "reconnecting" ? (
+        <CircleNotch size={20} className="animate-spin" aria-hidden="true" />
+      ) : state.status === "error" ? (
+        <WarningCircle size={20} aria-hidden="true" />
       ) : (
         <DancingSticks
           color={colors.accent}
@@ -303,7 +252,9 @@ function StopControl({
 function TranscriptList({
   bubbles,
   colorScheme,
+  dictation,
 }: {
+  dictation: FloatingBarState["dictation"];
   bubbles: FloatingTranscriptBubble[];
   colorScheme: FloatingBarState["colorScheme"];
 }) {
@@ -314,7 +265,7 @@ function TranscriptList({
     if (pinned) {
       bottomRef.current?.scrollIntoView?.({ block: "end" });
     }
-  }, [bubbles, pinned]);
+  }, [bubbles, pinned, dictation?.text, dictation?.partial]);
 
   return (
     <div className="relative h-[calc(100%-38px)] px-3 pb-3">
@@ -327,23 +278,38 @@ function TranscriptList({
           setPinned(distance < 20);
         }}
       >
-        <div className="flex min-h-full flex-col justify-end gap-2">
-          {bubbles.map((bubble, index) => (
-            <TranscriptBubble
-              key={bubble.id}
-              bubble={bubble}
+        <div
+          className={cn([
+            "flex min-h-full flex-col gap-2",
+            dictation ? "justify-start" : "justify-end",
+          ])}
+        >
+          {dictation ? (
+            <DictationTranscript
+              dictation={dictation}
               colorScheme={colorScheme}
-              showsSpeakerLabel={
-                index === 0 ||
-                bubbles[index - 1]?.speakerLabel !== bubble.speakerLabel ||
-                bubbles[index - 1]?.isSelf !== bubble.isSelf
-              }
             />
-          ))}
+          ) : (
+            bubbles.map((bubble, index) => (
+              <TranscriptBubble
+                key={bubble.id}
+                bubble={bubble}
+                colorScheme={colorScheme}
+                showsSpeakerLabel={
+                  index === 0 ||
+                  bubbles[index - 1]?.speakerLabel !== bubble.speakerLabel ||
+                  bubbles[index - 1]?.isSelf !== bubble.isSelf
+                }
+              />
+            ))
+          )}
           <div ref={bottomRef} />
         </div>
       </div>
-      {!pinned && bubbles.length > 0 ? (
+      {!pinned &&
+      (dictation
+        ? !!(dictation.text || dictation.partial)
+        : bubbles.length > 0) ? (
         <button
           type="button"
           data-tauri-drag-region="false"
@@ -415,21 +381,23 @@ function TranscriptBubble({
   );
 }
 
-function HoverHandle({ color, width }: { color: string; width: number }) {
+function HoverHandle({ color }: { color: string }) {
   return (
     <div
       data-tauri-drag-region
       className="flex items-center justify-center"
       style={{
         height: FLOATING_BAR_HOVER_HANDLE_HEIGHT,
-        width,
+        width: "100%",
+        paddingTop: FLOATING_BAR_HOVER_HANDLE_TOP_PADDING,
+        boxSizing: "content-box",
       }}
     >
       <div
         data-tauri-drag-region
         className="h-full"
         style={{
-          width: Math.max(0, width - 16),
+          width: "calc(100% - 16px)",
           backgroundImage: `radial-gradient(circle, ${color} 0.8px, transparent 0.9px)`,
           backgroundSize: "5px 7px",
         }}

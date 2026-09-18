@@ -57,6 +57,7 @@
     "@anlg/plugin-relay": "workspace:*",
     "@anlg/plugin-settings": "workspace:*",
     "@anlg/plugin-sfx": "workspace:*",
+    "@anlg/plugin-shortcut": "workspace:*",
     "@anlg/plugin-store2": "workspace:*",
     "@anlg/plugin-tantivy": "workspace:*",
     "@anlg/plugin-template": "workspace:*",

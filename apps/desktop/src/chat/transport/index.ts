@@ -198,11 +198,32 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
       instructions: this.systemPrompt,
       tools,
       stopWhen: stepCountIs(MAX_TOOL_STEPS),
-      prepareStep: async ({ messages }) => {
+      prepareStep: async ({ messages, stepNumber }) => {
+        const finalStep = stepNumber >= MAX_TOOL_STEPS - 1;
+        const progressReport = finalStep
+          ? {
+              toolChoice: "none" as const,
+              system: [
+                this.systemPrompt,
+                "This is the final step of this turn. Report verified results and failures. If work remains, explicitly say it is incomplete and offer to continue. Include the original selection/query or series ID, exact destination, completed counts, next unprocessed offset, and any listed but unprocessed IDs so the next turn can resume. Never claim all meetings were moved unless pagination and moves both completed.",
+              ]
+                .filter(Boolean)
+                .join("\n\n"),
+            }
+          : {};
+
         if (messages.length > MESSAGE_WINDOW_THRESHOLD) {
-          return { messages: messages.slice(-MESSAGE_WINDOW_SIZE) };
+          const lastUserIndex = messages
+            .map((message) => message.role)
+            .lastIndexOf("user");
+          // Keep the request and completed batches throughout a multi-step action.
+          const start =
+            lastUserIndex < 0
+              ? 0
+              : Math.min(lastUserIndex, messages.length - MESSAGE_WINDOW_SIZE);
+          return { ...progressReport, messages: messages.slice(start) };
         }
-        return {};
+        return progressReport;
       },
     });
 
@@ -249,7 +270,7 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
     }
 
     const result = await agent.stream({
-      messages: await convertToModelMessages(messagesWithContext),
+      messages: await convertToModelMessages(messagesWithContext, { tools }),
       abortSignal: options.abortSignal,
       // Word chunking emits tokens as they arrive. Line chunking holds the
       // whole reply until a newline, so short chat answers only appear at the end.

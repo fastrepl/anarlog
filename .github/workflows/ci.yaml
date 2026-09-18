@@ -16,6 +16,7 @@ jobs:
       - run: node scripts/release-version.mjs --mobile --check
       - run: >-
           node --test
+          scripts/pr-description.test.mjs
           scripts/release-version.test.mjs
           scripts/notarize-dmg.test.mjs
           scripts/changelog-bundle.test.mjs

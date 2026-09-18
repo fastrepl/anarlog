@@ -138,6 +138,51 @@ describe("enhanceSuccess.onSuccess", () => {
     vi.useRealTimers();
   });
 
+  it("persists custom prose, mixed lists, and all requested sections", async () => {
+    mocks.loadSessionContentSnapshot.mockResolvedValue(
+      createSnapshot("Review"),
+    );
+    const text =
+      "# Executive Overview\n\nThe launch is ready.\n\n# Discussion\n\nWe reviewed the plan.\n\n- Ship Friday.\n\n# Risks\n\nNone identified.";
+    await enhanceSuccess.onSuccess?.(
+      createParams({
+        text,
+        transformedArgs: {
+          ...createTransformedArgs(),
+          formatOverride:
+            "Write an executive overview in prose, discussion prose followed by bullets, and risks.",
+          transcripts: [
+            {
+              startedAt: null,
+              endedAt: null,
+              segments: [
+                {
+                  speaker: "John",
+                  text: "The team reviewed the launch plan and agreed to ship Friday.",
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+    const content =
+      mocks.persistGeneratedEnhancedNote.mock.calls[0][0].note.nextContent;
+    expect(json2md(JSON.parse(content)).trim()).toBe(`# Review\n\n${text}`);
+    expect(
+      JSON.parse(content).content.map((node: { type: string }) => node.type),
+    ).toEqual([
+      "heading",
+      "heading",
+      "paragraph",
+      "heading",
+      "paragraph",
+      "bulletList",
+      "heading",
+      "paragraph",
+    ]);
+  });
+
   it("persists generated content and tags through one guarded SQLite write", async () => {
     const params = createParams({
       text: "# Summary\n\nDiscussed #Launch.",

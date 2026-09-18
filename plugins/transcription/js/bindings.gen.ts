@@ -78,6 +78,46 @@ async getCaptureSnapshot() : Promise<Result<CaptureSnapshot, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async updateCaptureCredentials(sessionId: string, apiKey: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|update_capture_credentials", { sessionId, apiKey }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async listCaptureAudioChunks(sessionId: string) : Promise<Result<RecoveryAudioChunk[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|list_capture_audio_chunks", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getCaptureAudioCleanupStatus() : Promise<Result<Partial<{ [key in string]: string }>, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|get_capture_audio_cleanup_status") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async acknowledgeCaptureAudioCleanupStatus(sessionId: string, error: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|acknowledge_capture_audio_cleanup_status", { sessionId, error }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async acknowledgeCaptureAudioChunk(sessionId: string, chunkId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|acknowledge_capture_audio_chunk", { sessionId, chunkId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async isSupportedLanguagesLive(provider: string, model: string | null, languages: string[]) : Promise<Result<boolean, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|is_supported_languages_live", { provider, model, languages }) };
@@ -224,8 +264,8 @@ export type BatchStreamEvent = { type: "progress"; percentage: number; partial_t
 export type BatchWord = { word: string; start: number; end: number; confidence: number; channel?: number; speaker: number | null; punctuated_word: string | null }
 export type CaptureConfigUpdate = { session_id: string; languages: string[]; participant_human_ids?: string[]; self_human_id?: string | null; speaker_assignments?: IdentityAssignment[] }
 export type CaptureDataEvent = { type: "audio_amplitude"; session_id: string; mic: number; speaker: number } | { type: "mic_muted"; session_id: string; value: boolean } | { type: "mic_isolated"; session_id: string; value: boolean } | { type: "mic_dropouts"; session_id: string; ratio: number } | { type: "transcript_delta"; session_id: string; delta: LiveTranscriptDelta } | { type: "transcript_segment_delta"; session_id: string; delta: LiveTranscriptSegmentDelta }
-export type CaptureLifecycleEvent = { type: "started"; session_id: string; requested_live_transcription: boolean; live_transcription_active: boolean; degraded: DegradedError | null } | { type: "finalizing"; session_id: string } | { type: "stopped"; session_id: string; audio_path: string | null; requested_live_transcription: boolean; live_transcription_active: boolean; error: string | null }
-export type CaptureParams = { session_id: string; languages: string[]; onboarding: boolean; model: string; base_url: string; api_key: string; keywords: string[]; mic_device?: string | null; transcription_mode?: TranscriptionMode | null; participant_human_ids?: string[]; self_human_id?: string | null }
+export type CaptureLifecycleEvent = { type: "started"; session_id: string; requested_live_transcription: boolean; live_transcription_active: boolean; degraded: DegradedError | null } | { type: "finalizing"; session_id: string } | { type: "stopped"; session_id: string; chunked_audio?: boolean; audio_path: string | null; requested_live_transcription: boolean; live_transcription_active: boolean; error: string | null }
+export type CaptureParams = { session_id: string; retain_audio?: boolean | null; languages: string[]; onboarding: boolean; model: string; base_url: string; api_key: string; keywords: string[]; mic_device?: string | null; transcription_mode?: TranscriptionMode | null; participant_human_ids?: string[]; self_human_id?: string | null }
 export type CaptureSnapshot = { state: CaptureState; activeSessionId: string | null; finalizingSessionIds: string[]; requestedLiveTranscription: boolean | null; liveTranscriptionActive: boolean | null; liveSegmentsSessionId?: string | null; liveSegments?: LiveTranscriptSegment[] | null }
 export type CaptureState = "active" | "finalizing" | "inactive"
 export type CaptureStatusEvent = { type: "audio_initializing"; session_id: string } | { type: "audio_ready"; session_id: string; device: string | null } | { type: "connecting"; session_id: string } | { type: "connected"; session_id: string; adapter: string } | { type: "audio_error"; session_id: string; error: string; device: string | null; is_fatal: boolean } | { type: "connection_error"; session_id: string; error: string }
@@ -240,6 +280,7 @@ export type LiveTranscriptSegment = { id: string; key: SegmentKey; start_ms: num
 export type LiveTranscriptSegmentDelta = { upserts: LiveTranscriptSegment[]; removed_ids: string[] }
 export type PartialWord = { text: string; start_ms: number; end_ms: number; channel: number; speaker_index?: number | null }
 export type ProvisionalSpeakerLabel = { name: string; human_id: string | null; reason: SpeakerResolutionReason }
+export type RecoveryAudioChunk = { id: string; path: string; capture_started_at: number; start_ms: number; audio_start_ms: number; end_ms: number }
 export type RenderTranscriptHuman = { human_id: string; name: string }
 export type RenderTranscriptInput = { started_at: number | null; words: RenderTranscriptWordInput[]; assignments: IdentityAssignment[] }
 export type RenderTranscriptRequest = { speaker_context?: SpeakerContext | null; preview?: RenderedTranscriptSegment[] | null; transcripts: RenderTranscriptInput[]; participant_human_ids: string[]; self_human_id: string | null; humans: RenderTranscriptHuman[] }

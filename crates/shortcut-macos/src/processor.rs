@@ -109,7 +109,24 @@ impl HotKeyProcessor {
         self.dirty = false;
     }
 
-    pub fn process_key(&mut self, event: KeyEvent) -> Option<Output> {
+    pub fn process_key(&mut self, mut event: KeyEvent) -> Option<Output> {
+        if self
+            .hotkey
+            .modifiers
+            .contains(crate::hotkey::Modifier::RightCommand)
+        {
+            if !self
+                .hotkey
+                .modifiers
+                .contains(crate::hotkey::Modifier::Command)
+            {
+                event.modifiers.remove(crate::hotkey::Modifier::Command);
+            }
+        } else {
+            event
+                .modifiers
+                .remove(crate::hotkey::Modifier::RightCommand);
+        }
         if event.is_escape() && !matches!(self.state, State::Idle) {
             self.dirty = true;
             self.state = State::Idle;

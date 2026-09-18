@@ -36,6 +36,7 @@ futures-util = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 specta = { workspace = true, optional = true }
+sysinfo = { workspace = true }
 tauri-specta = { workspace = true, optional = true, features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }

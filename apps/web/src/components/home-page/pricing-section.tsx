@@ -20,9 +20,9 @@ export function PricingSection({
           Simple pricing
         </h2>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
-          Start local for free, add personal cloud features with Pro, put
-          collaboration on Team, and reserve organization-wide controls for
-          Enterprise.
+          Start local for free, add dictation and personal cloud features with
+          Pro, put collaboration on Team, and reserve organization-wide controls
+          for Enterprise.
         </p>
       </div>
 
@@ -31,6 +31,12 @@ export function PricingSection({
           <PricingCard key={plan.id} plan={plan} />
         ))}
       </div>
+
+      <p className="text-color-muted mx-auto mt-6 max-w-2xl text-sm leading-6">
+        Dictation is included with Pro, Team, and Enterprise. Use a configurable
+        shortcut to turn speech into text in other desktop apps on macOS,
+        Windows, and Linux.
+      </p>
 
       {compareLink ? (
         <div className="mt-8">

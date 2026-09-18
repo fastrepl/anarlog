@@ -52,6 +52,7 @@ async function* executeWorkflow(params: {
     args.transcripts,
     Boolean(args.template?.sections.length),
     args.summaryLength,
+    Boolean(args.formatOverride.trim()),
   );
 
   yield* generateSummary({
@@ -219,13 +220,15 @@ function withLengthGuidance(
   transcripts: TaskArgsMapTransformed["enhance"]["transcripts"],
   hasTemplateSections: boolean,
   summaryLength: TaskArgsMapTransformed["enhance"]["summaryLength"],
+  customFormat: boolean,
 ): string {
   if (hasTemplateSections) {
     return prompt;
   }
 
   const guidance = formatSummaryLengthGuidance(
-    getSummaryLengthPolicy(transcripts, summaryLength),
+    getSummaryLengthPolicy(transcripts, summaryLength, customFormat),
+    customFormat,
   );
   if (!guidance) return prompt;
 

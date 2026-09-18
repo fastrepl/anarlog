@@ -72,7 +72,8 @@ export function OuterHeader({
     sessionMode === "active" || sessionMode === "running_batch";
   const isLiveMeeting = isRecording || sessionMode === "finalizing";
   const meetingOver = !isRecording && (ended || hasTranscript || audioExists);
-  const showTitleInput = Boolean(tab) && !isLiveMeeting && !meetingOver;
+  const showTitleInput =
+    Boolean(tab) && !viewSwitcher && !isLiveMeeting && !meetingOver;
 
   return (
     <div
@@ -90,8 +91,14 @@ export function OuterHeader({
     >
       {viewSwitcher}
       {showTitleInput && tab ? (
-        <div className="max-w-56 min-w-0 shrink">
-          <TitleInput key={tab.id} tab={tab} variant="breadcrumb" />
+        <div className="flex min-w-0 shrink items-center gap-1">
+          <FolderPicker sessionId={sessionId} />
+          <span aria-hidden="true" className="text-muted-foreground shrink-0">
+            /
+          </span>
+          <div className="max-w-56 min-w-0 shrink">
+            <TitleInput key={tab.id} tab={tab} variant="breadcrumb" />
+          </div>
         </div>
       ) : null}
       <div
@@ -103,7 +110,7 @@ export function OuterHeader({
         data-tauri-drag-region
         className="relative z-10 flex shrink-0 items-center pr-1"
       >
-        <FolderPicker sessionId={sessionId} align="end" />
+        {!showTitleInput && <FolderPicker sessionId={sessionId} align="end" />}
         <HeaderMeetingControl
           sessionId={sessionId}
           sessionMode={sessionMode}

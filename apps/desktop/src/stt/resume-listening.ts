@@ -168,6 +168,7 @@ export function useResumeListeningLifecycle(sessionId: string) {
 
       if (result === "attached") {
         try {
+          await state.lifecycle.startAudioRecovery();
           await state.ensureMarker();
         } catch (error) {
           console.error(

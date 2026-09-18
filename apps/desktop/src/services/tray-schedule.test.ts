@@ -112,4 +112,27 @@ describe("buildTrayScheduleEvents", () => {
       timeLabel: "1:00 AM – 2:00 AM",
     });
   });
+  test.each([
+    ["UTC", "00:00 – 12:30"],
+    ["Asia/Seoul", "09:00 – 21:30"],
+  ])(
+    "uses 24-hour times in %s, including midnight and noon",
+    (timezone, timeLabel) => {
+      const events = buildTrayScheduleEvents(
+        {
+          meeting: event({
+            title: "Meeting",
+            started_at: "2026-07-17T00:00:00.000Z",
+            ended_at: "2026-07-17T12:30:00.000Z",
+          }),
+        },
+        () => false,
+        NOW,
+        timezone,
+        "en-US",
+        true,
+      );
+      expect(events[0].timeLabel).toBe(timeLabel);
+    },
+  );
 });

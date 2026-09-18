@@ -1,4 +1,24 @@
 export const SETTING_DEFINITIONS = {
+  dictation_live_preview: {
+    type: "boolean",
+    path: ["dictation", "live_preview"],
+    default: false as boolean,
+  },
+  dictation_enabled: {
+    type: "boolean",
+    path: ["dictation", "enabled"],
+    default: false as boolean,
+  },
+  dictation_shortcut: {
+    type: "string",
+    path: ["dictation", "shortcut"],
+    default: "Control+Alt+Space" as string,
+  },
+  dictation_hands_free: {
+    type: "boolean",
+    path: ["dictation", "hands_free"],
+    default: false as boolean,
+  },
   export_directory: {
     type: "string",
     path: ["general", "export_directory"],
@@ -73,6 +93,12 @@ export const SETTING_DEFINITIONS = {
     type: "boolean",
     path: ["general", "show_tray_icon"],
     default: true as boolean,
+  },
+  use_24_hour_time: {
+    type: "boolean",
+    path: ["general", "use_24_hour_time"],
+    synced: true,
+    default: false as boolean,
   },
   theme: {
     type: "string",

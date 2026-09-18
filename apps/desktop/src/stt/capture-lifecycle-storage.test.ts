@@ -168,3 +168,34 @@ test("rejects when a newer capture marker owns the session", async () => {
     clearCaptureLifecycleMarker("session-1", "stale-transcript"),
   ).rejects.toThrow("expected 1 affected row, got 0");
 });
+
+test.each([true, false])(
+  "round-trips chunked capture and retention flags: %s",
+  async (retainAudio) => {
+    const saved = { ...marker, chunkedAudio: true, retainAudio };
+    await saveCaptureLifecycleMarker(saved);
+    const statement = mocks.executeTransaction.mock.calls[0]![0][0];
+    mocks.execute.mockResolvedValue([{ value_json: statement.params[1] }]);
+    await expect(loadCaptureLifecycleMarker(marker.sessionId)).resolves.toEqual(
+      saved,
+    );
+  },
+);
+
+test.each(["true", 1, null])(
+  "ignores invalid audio flags: %s",
+  async (value) => {
+    mocks.execute.mockResolvedValue([
+      {
+        value_json: JSON.stringify({
+          ...marker,
+          chunkedAudio: value,
+          retainAudio: value,
+        }),
+      },
+    ]);
+    await expect(loadCaptureLifecycleMarker(marker.sessionId)).resolves.toEqual(
+      marker,
+    );
+  },
+);

@@ -3,6 +3,8 @@ mod error;
 mod events;
 mod ext;
 mod handler;
+mod insertion;
+mod preview;
 mod recorder;
 
 pub use error::*;
@@ -24,9 +26,12 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::set_phase::<tauri::Wry>,
             commands::update_amplitude::<tauri::Wry>,
             commands::start_recording::<tauri::Wry>,
+            commands::start_system_recording::<tauri::Wry>,
             commands::stop_recording::<tauri::Wry>,
             commands::cancel_recording::<tauri::Wry>,
             commands::discard_recording::<tauri::Wry>,
+            commands::capture_target,
+            commands::insert_text,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
@@ -37,36 +42,11 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri::plugin::Builder::new(PLUGIN_NAME)
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app, _api| {
-            app.manage(Handler::new());
+            app.manage(Handler::new(app.clone()));
             app.manage(Recorder::new());
-            setup_shortcut_bridge(app);
             Ok(())
         })
         .build()
-}
-
-fn setup_shortcut_bridge(app: &tauri::AppHandle) {
-    use ext::DictationPluginExt;
-    use tauri_plugin_shortcut::ShortcutEvent;
-    use tauri_specta::Event;
-
-    let handle = app.clone();
-    ShortcutEvent::listen(app, move |event| {
-        let d = handle.dictation();
-        match event.payload {
-            ShortcutEvent::Pressed => {
-                let _ = d.set_phase(Phase::Recording);
-                let _ = d.show();
-            }
-            ShortcutEvent::Released => {
-                let _ = d.set_phase(Phase::Processing);
-                let _ = d.hide();
-            }
-            ShortcutEvent::Cancelled | ShortcutEvent::Discarded => {
-                let _ = d.hide();
-            }
-        }
-    });
 }
 
 #[cfg(test)]

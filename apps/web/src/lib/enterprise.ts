@@ -1,8 +1,8 @@
 export const BOOK_CALL_URL = "https://cal.com/john.jeong/yo";
-export const SECURITY_REPORT_EMAIL = "founders@fastrepl.com";
+export const SECURITY_REPORT_EMAIL = "team@fastrepl.com";
 export const SECURITY_ADVISORY_URL =
   "https://github.com/fastrepl/anarlog/security/advisories/new";
-export const PROCUREMENT_EMAIL = "founders@anarlog.so";
+export const PROCUREMENT_EMAIL = "team@fastrepl.com";
 
 export const ENTERPRISE_EVENTS = {
   pageViewed: "enterprise_page_viewed",

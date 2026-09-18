@@ -134,43 +134,65 @@ jobs:
             });
           }
 
+          const nextHeading = /^##\s+/;
           const visibleLines = markCodeLines(stripHtmlComments(body));
+
           const summaryHeading = /^##\s+summary\s*$/i;
-          const verificationHeading = /^##\s+verification\s*$/i;
           const summaryIndex = visibleLines.findIndex(
             (line) => !line.isCode && summaryHeading.test(line.text.trim()),
           );
-          const verificationIndex = visibleLines.findIndex(
-            (line, index) =>
-              index > summaryIndex && !line.isCode && verificationHeading.test(line.text.trim()),
+          const summaryEndIndex = visibleLines.findIndex(
+            (line, index) => index > summaryIndex && !line.isCode && nextHeading.test(line.text.trim()),
           );
           const summaryLines = summaryIndex === -1
             ? []
-            : visibleLines.slice(
-                summaryIndex + 1,
-                verificationIndex === -1 ? visibleLines.length : verificationIndex,
-              );
-          const problemLabel = /^\*\*Problem:\*\*\s*/i;
-          const fixLabel = /^\*\*Fix:\*\*\s*/i;
-          const problemIndex = summaryLines.findIndex(
-            (line) => !line.isCode && problemLabel.test(line.text),
+            : visibleLines.slice(summaryIndex + 1, summaryEndIndex === -1 ? visibleLines.length : summaryEndIndex);
+          const intentLabel = /^\*\*Intent:\*\*\s*/i;
+          const intentIndex = summaryLines.findIndex(
+            (line) => !line.isCode && intentLabel.test(line.text),
           );
-          const fixIndex = summaryLines.findIndex(
-            (line, index) => index > problemIndex && !line.isCode && fixLabel.test(line.text),
-          );
-          const problem = problemIndex === -1
+          const intent = intentIndex === -1
             ? ""
-            : summaryLines[problemIndex].text.replace(problemLabel, "").trim();
-          const fix = fixIndex === -1
-            ? ""
-            : summaryLines[fixIndex].text.replace(fixLabel, "").trim();
+            : summaryLines[intentIndex].text.replace(intentLabel, "").trim();
 
-          if (problem.length < 40) {
-            errors.push("Write at least 40 characters after **Problem:** on its labeled line.");
+          if (intent.length < 20) {
+            errors.push(
+              "Write at least 20 characters after **Intent:** what problem did you see, and what should this change do instead?",
+            );
           }
 
-          if (fix.length < 40) {
-            errors.push("Write at least 40 characters after **Fix:** on its labeled line.");
+          if (intent.length > 400) {
+            errors.push(
+              "Keep **Intent:** to one or two short sentences (400 characters max). Cubic already summarizes the code diff; do not paste a long write-up.",
+            );
+          }
+
+          const demoHeading = /^##\s+demo\s*$/i;
+          const demoIndex = visibleLines.findIndex(
+            (line) => !line.isCode && demoHeading.test(line.text.trim()),
+          );
+          const demoEndIndex = visibleLines.findIndex(
+            (line, index) => index > demoIndex && !line.isCode && nextHeading.test(line.text.trim()),
+          );
+          const demoText = demoIndex === -1
+            ? ""
+            : visibleLines
+                .slice(demoIndex + 1, demoEndIndex === -1 ? visibleLines.length : demoEndIndex)
+                .filter((line) => !line.isCode)
+                .map((line) => line.text)
+                .join("\n")
+                .trim();
+          const videoLinkPattern = /\bhttps?:\/\/[^\s<>"\x60]+/i;
+          const naSkipPattern = /^n\/a\b[ \t]*(?:[-,:—–][ \t]*)?[^\s,:—–-][^\r\n]*$/i;
+
+          if (demoIndex === -1 || demoText.length === 0) {
+            errors.push(
+              "Add a ## Demo section with a short video/GIF link, or write N/A plus a one-line reason for non-functional changes.",
+            );
+          } else if (!videoLinkPattern.test(demoText) && !naSkipPattern.test(demoText)) {
+            errors.push(
+              "## Demo needs a video/GIF link, or N/A plus a one-line reason for non-functional changes.",
+            );
           }
 
           if (errors.length) {
@@ -179,4 +201,5 @@ jobs:
           }
 
           console.log("PR title and summary are complete.");
+
           NODE

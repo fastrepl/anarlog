@@ -1,3 +1,5 @@
+import type { FloatingDictationState } from "@anlg/plugin-windows";
+
 import {
   DEFAULT_FLOATING_OVERLAY_SETTINGS,
   type FloatingOverlaySettings,
@@ -9,7 +11,7 @@ import { LIVE_TRANSCRIPT_PREVIEW_SEGMENT_LIMIT } from "~/store/zustand/listener/
 import { SegmentKeyUtils, type RenderLabelContext } from "~/stt/live-segment";
 
 export type ListenerState = ReturnType<ListenerStore["getState"]>;
-type FloatingBarStatus = "recording" | "error";
+type FloatingBarStatus = "recording" | "reconnecting" | "error";
 type FloatingBarColorScheme = "light" | "dark";
 
 export type FloatingTranscriptBubble = {
@@ -25,6 +27,7 @@ export type FloatingTranscriptBubble = {
 };
 
 export type FloatingRouteState = {
+  dictation?: FloatingDictationState | null;
   sessionId: string;
   title: string;
   amplitude: number;
@@ -80,7 +83,13 @@ export function getFloatingRouteState(
       Math.hypot(state.live.amplitude.mic, state.live.amplitude.speaker),
       1,
     ),
-    status: state.live.degraded || state.live.lastError ? "error" : "recording",
+    status:
+      state.live.loadingPhase === "connecting" &&
+      !state.live.lastErrorIsAudioRelated
+        ? "reconnecting"
+        : state.live.degraded || state.live.lastError
+          ? "error"
+          : "recording",
     colorScheme,
     opacity: settings.floatingBarOpacity,
     liveCaptionOpacity: settings.liveCaptionOpacity,
@@ -306,6 +315,14 @@ export function isSameFloatingRouteState(
     left?.liveCaptionMinimized === right?.liveCaptionMinimized &&
     left?.liveCaptionToggleVisible === right?.liveCaptionToggleVisible &&
     left?.title === right?.title &&
+    left?.dictation?.sessionId === right?.dictation?.sessionId &&
+    left?.dictation?.phase === right?.dictation?.phase &&
+    left?.dictation?.microphone === right?.dictation?.microphone &&
+    left?.dictation?.text === right?.dictation?.text &&
+    left?.dictation?.partial === right?.dictation?.partial &&
+    left?.dictation?.previewEnabled === right?.dictation?.previewEnabled &&
+    left?.dictation?.previewUnavailable ===
+      right?.dictation?.previewUnavailable &&
     isSameFloatingTranscriptBubbles(
       left?.transcriptBubbles,
       right?.transcriptBubbles,

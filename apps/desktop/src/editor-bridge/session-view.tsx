@@ -18,6 +18,7 @@ import { cn, safeParseDate } from "@anlg/utils";
 import { toTz, useTimezone } from "~/calendar/hooks";
 import { useSession } from "~/session/queries";
 import { getSessionEvent } from "~/session/utils";
+import { useTimeFormat } from "~/shared/hooks/useTimeFormat";
 import { useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 
@@ -30,6 +31,7 @@ export const SessionNodeView = forwardRef<
 
   const session = useSession(sessionId);
   const tz = useTimezone();
+  const timeFormat = useTimeFormat();
   const liveSessionId = useListener((state) => state.live.sessionId);
   const liveStatus = useListener((state) => state.live.status);
   const isRecording =
@@ -44,8 +46,14 @@ export const SessionNodeView = forwardRef<
     const rawDate = event?.started_at ?? session?.created_at;
     const parsed = rawDate ? safeParseDate(rawDate) : null;
 
-    return parsed ? format(toTz(parsed, tz), "h:mm a") : null;
-  }, [event?.is_all_day, event?.started_at, session?.created_at, tz]);
+    return parsed ? format(toTz(parsed, tz), timeFormat) : null;
+  }, [
+    event?.is_all_day,
+    event?.started_at,
+    session?.created_at,
+    tz,
+    timeFormat,
+  ]);
 
   const isMeetingOver = useMemo(() => {
     if (!event?.ended_at) return false;

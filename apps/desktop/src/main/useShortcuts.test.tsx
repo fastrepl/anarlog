@@ -657,6 +657,31 @@ describe("useClassicMainShortcuts", () => {
     expect(hoisted.select).not.toHaveBeenCalled();
   });
 
+  it("lets the transcript editor consume escape before it unmounts", () => {
+    hoisted.currentTab = {
+      active: true,
+      slotId: "slot-session",
+      type: "sessions",
+    };
+    const surface = document.createElement("div");
+    surface.setAttribute("data-session-surface", "");
+    const editor = document.createElement("div");
+    editor.setAttribute("data-transcript-editor", "");
+    editor.contentEditable = "true";
+    surface.append(editor);
+    document.body.append(surface);
+    editor.addEventListener("keydown", (event) => {
+      event.preventDefault();
+      editor.remove();
+    });
+    renderHook(() => useClassicMainShortcuts());
+    dispatchEscape(editor);
+    vi.runOnlyPendingTimers();
+    surface.remove();
+    expect(hoisted.openCurrent).not.toHaveBeenCalled();
+    expect(hoisted.select).not.toHaveBeenCalled();
+  });
+
   it("lets focused targets consume escape", () => {
     hoisted.currentTab = {
       active: true,

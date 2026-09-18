@@ -9,9 +9,12 @@ Default permissions for the plugin
 - `allow-set-phase`
 - `allow-update-amplitude`
 - `allow-start-recording`
+- `allow-start-system-recording`
 - `allow-stop-recording`
 - `allow-cancel-recording`
 - `allow-discard-recording`
+- `allow-capture-target`
+- `allow-insert-text`
 
 ## Permission Table
 
@@ -44,6 +47,32 @@ Enables the cancel_recording command without any pre-configured scope.
 <td>
 
 Denies the cancel_recording command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-capture-target`
+
+</td>
+<td>
+
+Enables the capture_target command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-capture-target`
+
+</td>
+<td>
+
+Denies the capture_target command without any pre-configured scope.
 
 </td>
 </tr>
@@ -96,6 +125,32 @@ Enables the hide command without any pre-configured scope.
 <td>
 
 Denies the hide command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-insert-text`
+
+</td>
+<td>
+
+Enables the insert_text command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-insert-text`
+
+</td>
+<td>
+
+Denies the insert_text command without any pre-configured scope.
 
 </td>
 </tr>
@@ -174,6 +229,32 @@ Enables the start_recording command without any pre-configured scope.
 <td>
 
 Denies the start_recording command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-start-system-recording`
+
+</td>
+<td>
+
+Enables the start_system_recording command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-start-system-recording`
+
+</td>
+<td>
+
+Denies the start_system_recording command without any pre-configured scope.
 
 </td>
 </tr>

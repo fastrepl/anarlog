@@ -13,8 +13,11 @@ specta-typescript = { workspace = true }
 
 [dependencies]
 serde = { workspace = true }
+serde_json = { workspace = true }
 specta = { workspace = true }
+tauri-plugin-global-shortcut = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true, features = ["macros", "sync", "time"] }
 tracing = { workspace = true }
 
 tauri = { workspace = true, features = ["test"] }
@@ -22,3 +25,7 @@ tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 anlg-shortcut-macos = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ashpd = { workspace = true, features = ["tokio", "global_shortcuts"] }
+futures-util = { workspace = true }

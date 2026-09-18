@@ -25,7 +25,7 @@ pub enum TapEvent {
     MouseClick,
 }
 
-type UserCallback = Arc<dyn Fn(TapEvent) + Send + Sync>;
+type UserCallback = Arc<dyn Fn(TapEvent) -> bool + Send + Sync>;
 
 pub struct EventTap {
     stop_flag: Arc<AtomicBool>,
@@ -36,6 +36,16 @@ impl EventTap {
     pub fn start<F>(callback: F) -> Result<Self, TapError>
     where
         F: Fn(TapEvent) + Send + Sync + 'static,
+    {
+        Self::start_filtered(move |event| {
+            callback(event);
+            false
+        })
+    }
+
+    pub fn start_filtered<F>(callback: F) -> Result<Self, TapError>
+    where
+        F: Fn(TapEvent) -> bool + Send + Sync + 'static,
     {
         let cb: UserCallback = Arc::new(callback);
         let stop_flag = Arc::new(AtomicBool::new(false));
@@ -60,7 +70,9 @@ impl EventTap {
     pub fn stop(mut self) {
         self.stop_flag.store(true, Ordering::SeqCst);
         if let Some(t) = self.thread.take() {
-            let _ = t.join();
+            if t.thread().id() != thread::current().id() {
+                let _ = t.join();
+            }
         }
     }
 }
@@ -68,6 +80,11 @@ impl EventTap {
 impl Drop for EventTap {
     fn drop(&mut self) {
         self.stop_flag.store(true, Ordering::SeqCst);
+        if let Some(thread) = self.thread.take() {
+            if thread.thread().id() != thread::current().id() {
+                let _ = thread.join();
+            }
+        }
     }
 }
 
@@ -171,8 +188,16 @@ extern "C" fn tap_callback(
         } else {
             None
         };
-        let modifiers = decode_flags(flags, fn_is_pressed);
-        (ctx.callback)(TapEvent::Key(KeyEvent::new(key, modifiers)));
+        let mut modifiers = decode_flags(flags, fn_is_pressed);
+        if CGEventSourceKeyState(1, 0x36) {
+            modifiers.insert(Modifier::RightCommand);
+        }
+        let modifier_release =
+            event_type == KCG_EVENT_FLAGS_CHANGED && !CGEventSourceKeyState(1, keycode);
+        let consumed = (ctx.callback)(TapEvent::Key(KeyEvent::new(key, modifiers)));
+        if consumed && event_type != KCG_EVENT_KEY_UP && !modifier_release {
+            return ptr::null_mut();
+        }
     }
 
     event
@@ -227,8 +252,8 @@ type CGEventTapCallBack = extern "C" fn(
 ) -> *mut c_void;
 
 #[link(name = "CoreGraphics", kind = "framework")]
-#[link(name = "CoreFoundation", kind = "framework")]
 unsafe extern "C" {
+    fn CGEventSourceKeyState(state_id: i32, key: u16) -> bool;
     fn CGEventTapCreate(
         tap: u32,
         place: u32,
@@ -242,7 +267,10 @@ unsafe extern "C" {
 
     fn CGEventGetFlags(event: *mut c_void) -> u64;
     fn CGEventGetIntegerValueField(event: *mut c_void, field: u32) -> i64;
+}
 
+#[link(name = "CoreFoundation", kind = "framework")]
+unsafe extern "C" {
     fn CFMachPortCreateRunLoopSource(
         allocator: *const c_void,
         port: *mut c_void,
@@ -261,4 +289,51 @@ unsafe extern "C" {
 
     static kCFRunLoopCommonModes: *const c_void;
     static kCFRunLoopDefaultMode: *const c_void;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    unsafe extern "C" {
+        fn CGEventCreateKeyboardEvent(source: *const c_void, key: u16, down: bool) -> *mut c_void;
+    }
+
+    #[test]
+    fn consumed_key_up_still_reaches_the_application() {
+        let ctx = TapContext {
+            callback: Arc::new(|_| true),
+            tap_port: AtomicPtr::new(ptr::null_mut()),
+            fn_pressed: AtomicBool::new(false),
+        };
+        let event = unsafe { CGEventCreateKeyboardEvent(ptr::null(), 0, false) };
+        assert!(!event.is_null());
+        let user_info = (&ctx as *const TapContext).cast_mut().cast();
+        assert_eq!(
+            tap_callback(ptr::null_mut(), KCG_EVENT_KEY_UP, event, user_info),
+            event
+        );
+        assert!(tap_callback(ptr::null_mut(), KCG_EVENT_KEY_DOWN, event, user_info).is_null());
+        unsafe { CFRelease(event) };
+    }
+
+    #[test]
+    fn dropping_the_tap_on_its_own_thread_does_not_join_itself() {
+        let (send, receive) = std::sync::mpsc::channel::<EventTap>();
+        let (done, completed) = std::sync::mpsc::channel();
+        let worker = thread::spawn(move || {
+            drop(receive.recv().unwrap());
+            done.send(()).unwrap();
+        });
+        let stopped = Arc::new(AtomicBool::new(false));
+        send.send(EventTap {
+            stop_flag: stopped.clone(),
+            thread: Some(worker),
+        })
+        .unwrap_or_else(|_| panic!("worker exited"));
+        completed
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .expect("tap drop did not finish");
+        assert!(stopped.load(Ordering::SeqCst));
+    }
 }

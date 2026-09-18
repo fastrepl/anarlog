@@ -13,6 +13,7 @@ import { LLM } from "~/settings/ai/llm";
 import { STT } from "~/settings/ai/stt";
 import { SettingsAppearance } from "~/settings/appearance";
 import { SettingsDevelopers } from "~/settings/developers";
+import { SettingsDictation } from "~/settings/dictation";
 import { SettingsDictionary } from "~/settings/dictionary";
 import { SettingsBilling } from "~/settings/general/billing";
 import { SettingsHydrationBoundary } from "~/settings/hydration-boundary";
@@ -80,6 +81,8 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <SettingsDevelopers />;
       case "dictionary":
         return <SettingsDictionary />;
+      case "dictation":
+        return <SettingsDictation />;
       case "transcription":
         return <STT />;
       case "intelligence":

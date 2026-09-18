@@ -2,6 +2,7 @@ import Combine
 import Foundation
 
 final class FloatingBarViewModel: ObservableObject {
+  @Published var dictation: FloatingDictationPayload?
   @Published var amplitude: Double = 0
   @Published var status: FloatingBarStatus = .recording
   @Published var colorScheme: FloatingBarColorScheme = .dark
@@ -9,4 +10,5 @@ final class FloatingBarViewModel: ObservableObject {
   @Published var liveCaptionToggleVisible: Bool = false
   @Published var title: String = "Live transcript"
   @Published var transcriptBubbles: [FloatingTranscriptBubblePayload] = []
+  @Published var placement: FloatingControlPlacement.Layout?
 }

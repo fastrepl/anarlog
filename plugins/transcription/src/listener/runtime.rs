@@ -13,6 +13,7 @@ use anlg_transcription_core::listener::actors::{RootActor, RootMsg};
 const LIVE_SEGMENT_SNAPSHOT_LIMIT: usize = 200;
 
 pub struct TauriRuntime {
+    pub audio_cleanup_status: crate::AudioCleanupStatus,
     pub app: tauri::AppHandle,
     pub session_state_cache: SessionStateCache,
     pub mic_isolation_cache: MicIsolationCache,
@@ -125,6 +126,7 @@ impl ListenerRuntime for TauriRuntime {
 
                 CaptureLifecycleEvent::Stopped {
                     session_id,
+                    chunked_audio: true,
                     audio_path,
                     requested_live_transcription,
                     live_transcription_active,
@@ -145,6 +147,7 @@ impl ListenerRuntime for TauriRuntime {
     }
 
     fn emit_error(&self, event: anlg_transcription_core::listener::SessionErrorEvent) {
+        update_audio_cleanup_status(&self.audio_cleanup_status, &event);
         if let Err(error) = CaptureStatusEvent::from(event).emit(&self.app) {
             tracing::error!(?error, "failed_to_emit_error_event");
         }
@@ -291,5 +294,88 @@ mod tests {
             segments.first().map(|segment| segment.id.as_str()),
             Some("segment-5")
         );
+    }
+}
+
+fn update_audio_cleanup_status(
+    cache: &crate::AudioCleanupStatus,
+    event: &anlg_transcription_core::listener::SessionErrorEvent,
+) {
+    let anlg_transcription_core::listener::SessionErrorEvent::AudioError {
+        session_id, error, ..
+    } = event
+    else {
+        return;
+    };
+    if !(error.starts_with("audio_deletion_failed:")
+        || error.starts_with("audio_recovery_failed:")
+        || error == "audio_deletion_completed"
+        || error == "audio_recovery_completed")
+    {
+        return;
+    }
+    if let Ok(mut cache) = cache.0.lock() {
+        cache.insert(session_id.clone(), error.clone());
+    }
+}
+
+#[cfg(test)]
+mod cleanup_status_tests {
+    use super::*;
+    #[test]
+    fn acknowledged_status_is_evicted_without_losing_other_or_newer_failures() {
+        let cache: crate::AudioCleanupStatus = Default::default();
+        cache.0.lock().unwrap().extend([
+            ("completed".into(), "audio_deletion_completed".into()),
+            ("failed".into(), "audio_recovery_failed: denied".into()),
+            (
+                "unacknowledged".into(),
+                "audio_deletion_failed: denied".into(),
+            ),
+        ]);
+        cache
+            .acknowledge("completed", "audio_deletion_completed")
+            .unwrap();
+        cache
+            .acknowledge("failed", "audio_recovery_completed")
+            .unwrap();
+        assert_eq!(
+            cache.0.lock().unwrap().get("failed").map(String::as_str),
+            Some("audio_recovery_failed: denied")
+        );
+        cache
+            .acknowledge("failed", "audio_recovery_failed: denied")
+            .unwrap();
+        let status = cache.0.lock().unwrap();
+        assert_eq!(status.len(), 1);
+        assert_eq!(
+            status.get("unacknowledged").map(String::as_str),
+            Some("audio_deletion_failed: denied")
+        );
+    }
+
+    #[test]
+    fn cleanup_status_survives_until_the_frontend_subscribes() {
+        let cache: crate::AudioCleanupStatus = Default::default();
+        for error in [
+            "audio_deletion_failed: denied",
+            "audio_deletion_completed",
+            "audio_recovery_failed: denied",
+            "audio_recovery_completed",
+        ] {
+            update_audio_cleanup_status(
+                &cache,
+                &anlg_transcription_core::listener::SessionErrorEvent::AudioError {
+                    session_id: "session".into(),
+                    error: error.into(),
+                    device: None,
+                    is_fatal: false,
+                },
+            );
+            assert_eq!(
+                cache.0.lock().unwrap().get("session").map(String::as_str),
+                Some(error)
+            );
+        }
     }
 }

@@ -104,7 +104,15 @@ pub(super) async fn spawn_recorder(
         Some(RecorderActor::name(&ctx.params.session_id)),
         RecorderActor::new(),
         RecArgs {
+            runtime: ctx.runtime.clone(),
             app_dir: ctx.app_dir.clone(),
+            retain_audio: ctx.params.retain_audio.unwrap_or(true),
+            capture_started_at: ctx
+                .started_at_system
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64,
+            offset_ms: ctx.started_at_instant.elapsed().as_millis() as u64,
             session_id: ctx.params.session_id.clone(),
         },
         supervisor_cell,
@@ -282,8 +290,10 @@ pub(super) async fn shutdown_children(state: &mut SessionState, reason: &str) {
     if let Some(cell) = state.listener_cell.take() {
         stop_child(&cell, reason, "listener").await;
     }
-    if let Some(cell) = state.recorder_cell.take() {
-        stop_child(&cell, reason, "recorder").await;
+    if let Some(cell) = state.recorder_cell.take()
+        && let Err(error) = cell.stop_and_wait(Some(reason.to_string()), None).await
+    {
+        tracing::warn!(?error, "recorder_stop_failed");
     }
 }
 

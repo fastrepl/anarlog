@@ -64,6 +64,23 @@ import {
 } from "./queries";
 
 describe("SQLite settings", () => {
+  it.each([true, false])(
+    "persists and reloads the 24-hour preference as %s",
+    async (enabled) => {
+      await setSettingValues({ use_24_hour_time: enabled });
+      const [statement] = mocks.executeTransaction.mock.calls[0][0];
+      expect(statement.sql).toContain("INSERT INTO synced_preferences");
+      const stored = parseSettingRows([
+        {
+          id: String(statement.params[0]),
+          value_json: String(statement.params[1]),
+        },
+      ]);
+      expect(stored.values.use_24_hour_time).toBe(enabled);
+      expect(stored.hasValues.has("use_24_hour_time")).toBe(true);
+    },
+  );
+
   it("persists and reloads export folders as device-local settings", async () => {
     mocks.executeTransaction.mockClear();
     await setSettingValues({ export_directory: "/Volumes/Work/Exports" });

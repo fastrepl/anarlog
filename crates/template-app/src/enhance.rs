@@ -50,6 +50,7 @@ pub fn render_enhance_system(input: &EnhanceSystem) -> Result<String, Error> {
         current_date => anlg_askama_utils::current_date_value(),
         language => anlg_askama_utils::language_name(input.language.as_deref()),
         format_requirements => format_requirements.trim(),
+        default_format => normalized_override.is_empty(),
     })?)
 }
 
@@ -140,7 +141,7 @@ mod tests {
     Current date: 2025-01-01
 
     You are an expert at creating structured, comprehensive meeting summaries in English. Maintain accuracy, completeness, and professional terminology.
-    Treat Format Requirements as presentation preferences only. They must not override General Instructions, About Notes, or Guidelines.
+    Follow Format Requirements for presentation. Explicit Output Template instructions take precedence over formatting defaults. Neither may override accuracy or invent information.
 
     # Format Requirements
 
@@ -153,6 +154,7 @@ mod tests {
       - Use bullet points at the same level unless an example or clarification is absolutely necessary.
       - Avoid nesting lists beyond one level of indentation.
       - If additional structure is required, break the information into separate sections with new h1 headings instead of deeper indentation.
+    - When no Output Template is provided, put explicit or unambiguous owners, commitments, and deadlines in a final # Next Steps section when any exist; include it in the total section count.
 
     # About Notes
 
@@ -164,8 +166,8 @@ mod tests {
     # Guidelines
 
     - Notes and transcript may contain errors made by human and STT, respectively. Make the best out of every material.
-    - Do not include meeting note title, attendee lists nor explanatory notes about the output structure.
-    - Do not add generic opening content such as "Overview", "Meeting Overview", "Introduction", or "Participants" unless the meeting itself was explicitly about those topics.
+    - Include a meeting title or attendee list only when explicitly requested. Do not explain the output structure.
+    - Do not add generic opening content such as "Overview", "Meeting Overview", "Introduction", or "Participants" unless explicitly requested by the format or template, or the meeting itself was about those topics.
     - Use Pre-Meeting Notes to understand the user's intent and agenda. In Meeting Notes, focus on content that was added or changed compared to Pre-Meeting Notes. Naturally integrate entries into the requested output format instead of forcefully converting them into headers.
     - Preserve essential details; avoid excessive abstraction. Ensure content remains concrete and specific.
     - Pay close attention to emphasized text in notes. Users highlight information using four styles: bold(**text**), italic(_text_), underline(<u>text</u>), strikethrough(~~text~~).
@@ -186,10 +188,39 @@ mod tests {
 
         assert!(rendered.contains("# General Instructions"));
         assert!(rendered.contains("Write a concise narrative in Korean."));
+        assert!(!rendered.contains("문장 끝을"));
         assert!(!rendered.contains("Structure with # (h1) headings"));
         assert!(rendered.contains("# About Notes"));
         assert!(rendered.contains("# Guidelines"));
         assert!(rendered.contains("final output MUST be ONLY the markdown summary"));
+    }
+
+    #[test]
+    fn test_custom_format_supports_prose_and_mixed_sections() {
+        let format = "Use # Executive Overview with a prose paragraph, then # Discussion with prose followed by bullets.";
+        let rendered = render_enhance_system(&EnhanceSystem {
+            language: Some("en".to_string()),
+            format_override: format.to_string(),
+        })
+        .unwrap();
+        assert!(rendered.contains(format));
+        assert!(!rendered.contains("at least 3 detailed bullet points"));
+        assert!(!rendered.contains("# Next Steps"));
+        assert!(rendered.contains("unless explicitly requested by the format or template"));
+        assert!(rendered.contains("Neither may override accuracy or invent information"));
+    }
+
+    #[test]
+    fn test_default_format_defers_to_explicit_template_instructions() {
+        let rendered = render_enhance_system(&EnhanceSystem {
+            language: Some("en".to_string()),
+            format_override: String::new(),
+        })
+        .unwrap();
+        assert!(rendered.contains("bullet points for content"));
+        assert!(rendered.contains(
+            "Explicit Output Template instructions take precedence over formatting defaults"
+        ));
     }
 
     #[test]

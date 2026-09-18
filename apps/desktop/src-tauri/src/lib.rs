@@ -345,7 +345,7 @@ pub fn main() {
         .plugin(
             tauri_plugin_window_state::Builder::default()
                 .with_state_flags(tauri_plugin_windows::persisted_window_state_flags())
-                .with_denylist(&["composer"])
+                .with_denylist(&["composer", "dictation-overlay"])
                 .build(),
         )
         .plugin(tauri_plugin_transcription::init())
@@ -397,6 +397,7 @@ pub fn main() {
         .on_window_event(tauri_plugin_windows::on_window_event)
         .setup(move |app| {
             let app_handle = app.handle().clone();
+            tauri_plugin_shortcut::initialize_global_shortcuts(&app_handle);
 
             specta_builder.mount_events(&app_handle);
 

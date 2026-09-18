@@ -5,6 +5,8 @@ const CAPTURE_LIFECYCLE_SETTING_PREFIX = "capture_lifecycle_pending:";
 
 export type CaptureLifecycleMarker = {
   version: 1;
+  chunkedAudio?: boolean;
+  retainAudio?: boolean;
   phase?: "capturing" | "finalizing";
   sessionId: string;
   transcriptId: string;
@@ -151,6 +153,12 @@ function parseCaptureLifecycleMarker(
 
     return {
       version: 1,
+      ...(typeof parsed.chunkedAudio === "boolean"
+        ? { chunkedAudio: parsed.chunkedAudio }
+        : {}),
+      ...(typeof parsed.retainAudio === "boolean"
+        ? { retainAudio: parsed.retainAudio }
+        : {}),
       sessionId,
       transcriptId: parsed.transcriptId,
       startedAt: parsed.startedAt,

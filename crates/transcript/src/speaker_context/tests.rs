@@ -295,3 +295,48 @@ fn live_preview_and_saved_render_resolve_the_same_names() {
         serde_json::to_value(live).unwrap()
     );
 }
+
+#[test]
+fn assigned_speakers_stay_merged_across_context_intervals() {
+    let mut context = context();
+    context.intervals[0].end_ms = 2000;
+    let mut next = context.intervals[0].clone();
+    next.start_ms = 3000;
+    next.end_ms = 6000;
+    next.shared_microphone = true;
+    context.intervals.push(next);
+    let mut req = request(context, &[(1, 1), (1, 2), (1, 1), (1, 3), (1, 2)]);
+    req.transcripts[0].assignments = [1, 2]
+        .into_iter()
+        .map(|speaker_index| crate::IdentityAssignment {
+            human_id: "self".into(),
+            scope: crate::IdentityScope::ChannelSpeaker {
+                channel: ChannelProfile::RemoteParty,
+                speaker_index,
+            },
+        })
+        .collect();
+
+    let saved = render_transcript_segments(req.clone());
+    assert_eq!(saved.len(), 3);
+    assert_eq!(saved[0].speaker_label, "John");
+    assert_eq!(
+        saved[0]
+            .words
+            .iter()
+            .map(|w| w.id.as_deref())
+            .collect::<Vec<_>>(),
+        [Some("0"), Some("1"), Some("2")]
+    );
+    assert_eq!((saved[0].start_ms, saved[0].end_ms), (0, 2500));
+    assert!(saved[0].provisional_speaker.is_none());
+    assert!(saved[1].key.speaker_human_id.is_none());
+    assert_eq!(saved[2].speaker_label, "John");
+
+    req.preview = Some(saved.clone());
+    let preview = render_transcript_segments(req);
+    assert_eq!(
+        serde_json::to_value(saved).unwrap(),
+        serde_json::to_value(preview).unwrap()
+    );
+}

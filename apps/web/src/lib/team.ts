@@ -2,7 +2,7 @@ const EDITORS = {
   john: {
     id: "john",
     name: "John Jeong",
-    email: "founders@char.com",
+    email: "team@fastrepl.com",
     avatar: "/api/assets/team/john.png",
     role: "Chief Wisdom Seeker",
     bio: "I love designing simple and intuitive user interfaces.",

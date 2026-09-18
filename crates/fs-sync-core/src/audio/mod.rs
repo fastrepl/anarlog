@@ -51,7 +51,17 @@ pub fn exists(session_dir: &Path) -> std::io::Result<bool> {
 }
 
 pub fn delete(session_dir: &Path) -> std::io::Result<bool> {
-    delete_with(session_dir, |path| std::fs::remove_file(path))
+    let recovery_deleted = match std::fs::remove_dir_all(session_dir.join("audio-recovery")) {
+        Ok(()) => true,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+        Err(error) => return Err(error),
+    };
+    let audio_deleted = delete_with(session_dir, |path| std::fs::remove_file(path))?;
+    match std::fs::remove_file(session_dir.join(".delete-audio-on-stop")) {
+        Err(error) if error.kind() != std::io::ErrorKind::NotFound => return Err(error),
+        _ => {}
+    }
+    Ok(audio_deleted || recovery_deleted)
 }
 
 pub fn copy(source_dir: &Path, target_dir: &Path) -> std::io::Result<bool> {
@@ -242,29 +252,36 @@ fn delete_orphaned_expired_in_dir(
 }
 
 fn orphan_audio_expired(session_dir: &Path, expires_before_ms: u64) -> std::io::Result<bool> {
-    let mut latest_modified_ms: Option<u64> = None;
-
-    for artifact in AUDIO_ARTIFACTS {
-        let path = session_dir.join(artifact);
-        let metadata = match std::fs::metadata(&path) {
-            Ok(metadata) => metadata,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
-            Err(error) => return Err(error),
-        };
-
-        let modified_ms = metadata
-            .modified()?
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or(Duration::ZERO)
-            .as_millis()
-            .try_into()
-            .unwrap_or(u64::MAX);
-
-        latest_modified_ms =
-            Some(latest_modified_ms.map_or(modified_ms, |latest| latest.max(modified_ms)));
+    let mut latest_modified_ms = None;
+    for artifact in AUDIO_ARTIFACTS.into_iter().chain(["audio-recovery"]) {
+        collect_audio_modified(&session_dir.join(artifact), &mut latest_modified_ms)?;
     }
-
     Ok(latest_modified_ms.is_some_and(|modified_ms| modified_ms <= expires_before_ms))
+}
+
+fn collect_audio_modified(path: &Path, latest: &mut Option<u64>) -> std::io::Result<()> {
+    let metadata = match std::fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error),
+    };
+    if metadata.is_symlink() {
+        return Ok(());
+    }
+    let modified_ms = metadata
+        .modified()?
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or(Duration::ZERO)
+        .as_millis()
+        .try_into()
+        .unwrap_or(u64::MAX);
+    *latest = Some(latest.map_or(modified_ms, |value| value.max(modified_ms)));
+    if metadata.is_dir() {
+        for entry in std::fs::read_dir(path)? {
+            collect_audio_modified(&entry?.path(), latest)?;
+        }
+    }
+    Ok(())
 }
 
 pub fn import_to_session(
@@ -428,6 +445,53 @@ mod tests {
             assert!(!session_dir.join(artifact).exists());
         }
         assert!(note_path.exists());
+    }
+
+    #[test]
+    fn deleting_audio_also_removes_pending_recovery_and_derived_files() {
+        let temp = TempDir::new().unwrap();
+        let recovery = temp.path().join("audio-recovery");
+        std::fs::create_dir_all(recovery.join("upload")).unwrap();
+        write_audio(&recovery.join("chunk.mp3"));
+        write_audio(&recovery.join("upload").join("channel.wav"));
+        std::fs::write(temp.path().join(".delete-audio-on-stop"), b"").unwrap();
+        assert!(delete(temp.path()).unwrap());
+        assert!(!recovery.exists());
+        assert!(!temp.path().join(".delete-audio-on-stop").exists());
+        assert!(!delete(temp.path()).unwrap());
+    }
+
+    #[test]
+    fn retention_deletes_recovery_even_when_the_archive_cannot_be_removed() {
+        let temp = TempDir::new().unwrap();
+        let recovery = temp.path().join("audio-recovery");
+        std::fs::create_dir_all(&recovery).unwrap();
+        write_audio(&recovery.join("chunk.mp3"));
+        std::fs::create_dir(temp.path().join("audio.mp3")).unwrap();
+        std::fs::write(temp.path().join(".delete-audio-on-stop"), b"").unwrap();
+        assert!(delete(temp.path()).is_err());
+        assert!(!recovery.exists());
+        assert!(temp.path().join(".delete-audio-on-stop").exists());
+    }
+
+    #[test]
+    fn orphan_expiry_observes_recent_writes_inside_an_old_recovery_directory() {
+        let temp = TempDir::new().unwrap();
+        let dir = temp.path().join(ORPHAN_SESSION_ID);
+        let recovery = dir.join("audio-recovery");
+        std::fs::create_dir_all(&recovery).unwrap();
+        let chunk = recovery.join("recording.part");
+        write_audio(&chunk);
+        let created_ms = now_ms();
+        let recent = UNIX_EPOCH + Duration::from_millis(created_ms + 100_000);
+        std::fs::File::options()
+            .write(true)
+            .open(&chunk)
+            .unwrap()
+            .set_times(std::fs::FileTimes::new().set_modified(recent))
+            .unwrap();
+        assert!(!orphan_audio_expired(&dir, created_ms + 50_000).unwrap());
+        assert!(orphan_audio_expired(&dir, created_ms + 150_000).unwrap());
     }
 
     #[test]

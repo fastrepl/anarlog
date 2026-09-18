@@ -25,6 +25,8 @@ pub struct CaptureSnapshot {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct CaptureParams {
     pub session_id: String,
+    #[serde(default)]
+    pub retain_audio: Option<bool>,
     pub languages: Vec<anlg_language::Language>,
     pub onboarding: bool,
     pub model: String,
@@ -68,6 +70,8 @@ pub enum CaptureLifecycleEvent {
     #[serde(rename = "stopped")]
     Stopped {
         session_id: String,
+        #[serde(default)]
+        chunked_audio: bool,
         audio_path: Option<String>,
         requested_live_transcription: bool,
         live_transcription_active: bool,
@@ -196,6 +200,7 @@ impl From<CaptureParams> for listener::actors::SessionParams {
 
         Self {
             session_id: value.session_id,
+            retain_audio: value.retain_audio,
             languages: value.languages,
             onboarding: value.onboarding,
             transcription_mode,
@@ -411,6 +416,7 @@ mod tests {
     ) -> CaptureParams {
         CaptureParams {
             session_id: "session-1".to_string(),
+            retain_audio: None,
             languages,
             onboarding: false,
             model: model.to_string(),

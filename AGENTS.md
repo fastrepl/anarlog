@@ -81,6 +81,7 @@ Fix failures caused by the change before committing. If an existing unrelated fa
 - Keep schema creation, migrations, and DB initialization on the Rust side. TypeScript consumes the shared transport contracts; the Drizzle adapter uses `executeProxy` and must not parse SQL or remap named rows into positional rows.
 - New SQLite migrations must be downgrade-safe (older builds tolerate newer schemas): additive only, new columns nullable or with a DEFAULT. If a migration can't be downgrade-safe, add a `-- breaking` line to the leading comment block of its `.sql` file so older builds refuse the database with an update prompt. Nightly and stable desktop builds share one database, so a breaking migration published in Nightly locks stable out until stable ships it.
 - Branch naming: `fix/`, `chore/`, `refactor/` prefixes.
+- PR titles and commit messages: the title summarizes intent, not the diff or a ticket number. The description is a short summary of what changed, not a generated commit log or file-by-file recap. See `.github/PULL_REQUEST_TEMPLATE.md` for the human-facing Intent/Demo structure.
 
 ## Code Style
 

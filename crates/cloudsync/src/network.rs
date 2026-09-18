@@ -237,15 +237,15 @@ where
 pub async fn pending_payload_batch(
     connection: &mut SqliteConnection,
     max_chunks: u32,
-    max_rows: u64,
+    target_rows: u64,
     max_bytes: u64,
 ) -> Result<PendingPayloadBatch, Error> {
-    if max_chunks == 0 || max_rows == 0 || max_bytes == 0 {
+    if max_chunks == 0 || target_rows == 0 || max_bytes == 0 {
         return Err(Error::InvalidPendingPayloadLimits);
     }
 
     let (batch, first_version) =
-        scan_pending_payload_batch(connection, max_chunks, max_rows, max_bytes, None).await?;
+        scan_pending_payload_batch(connection, max_chunks, target_rows, max_bytes, None).await?;
     if batch.fits {
         return Ok(batch);
     }
@@ -257,12 +257,27 @@ pub async fn pending_payload_batch(
     while until > first_version {
         until = first_version + (until - first_version) / 2;
         let (mut prefix, _) =
-            scan_pending_payload_batch(connection, max_chunks, max_rows, max_bytes, Some(until))
+            scan_pending_payload_batch(connection, max_chunks, target_rows, max_bytes, Some(until))
                 .await?;
         if prefix.fits && prefix.chunks > 0 {
             prefix.remaining = true;
             return Ok(prefix);
         }
+    }
+    // One database version cannot be split. Let it exceed the row target only
+    // when its complete chunk stream still fits both hard resource limits.
+    let (mut first, _) = scan_pending_payload_batch(
+        connection,
+        max_chunks,
+        u64::MAX,
+        max_bytes,
+        Some(first_version),
+    )
+    .await?;
+    if first.fits && first.complete && first.chunks > 0 {
+        // Every chunk carries the watermark for the entire scan, even if we stop early.
+        first.remaining = first.watermark_db_version < batch.watermark_db_version;
+        return Ok(first);
     }
     Ok(batch)
 }

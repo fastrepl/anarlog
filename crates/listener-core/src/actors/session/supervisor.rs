@@ -41,10 +41,11 @@ pub struct SessionState {
 
 pub struct SessionActor;
 
-#[derive(Debug)]
 pub enum SessionMsg {
     Shutdown,
     RetryListener,
+    RetryRecorder,
+    UpdateCredentials(String),
     UpdateConfig(SessionConfigUpdate),
 }
 
@@ -67,11 +68,14 @@ impl Actor for SessionActor {
                 ctx.requested_transcription_mode,
                 ctx.params.transcription_mode,
             );
-            let recorder_cell = Some(
-                children::spawn_recorder(myself.get_cell(), &ctx)
-                    .await
-                    .map_err(|e| -> ActorProcessingErr { Box::new(e) })?,
-            );
+            let recorder_cell = match children::spawn_recorder(myself.get_cell(), &ctx).await {
+                Ok(cell) => Some(cell),
+                Err(error) => {
+                    emit_storage_error(&ctx, &error.to_string());
+                    myself.send_after(Duration::from_secs(30), || SessionMsg::RetryRecorder);
+                    None
+                }
+            };
             let source_ref = children::spawn_source(
                 myself.get_cell(),
                 &ctx,
@@ -143,6 +147,25 @@ impl Actor for SessionActor {
                 children::shutdown_children(state, "session_stop").await;
                 myself.stop(None);
             }
+            SessionMsg::UpdateCredentials(api_key) => {
+                if !api_key.is_empty() && api_key != state.ctx.params.api_key {
+                    state.ctx.params.api_key = api_key;
+                    if state.listener_cell.is_none() && !state.shutting_down {
+                        state.listener_retry_attempt = 0;
+                        retry_listener(myself, state).await;
+                    }
+                }
+            }
+            SessionMsg::RetryRecorder => {
+                if !state.shutting_down && state.recorder_cell.is_none() {
+                    state
+                        .recorder_restarts
+                        .maybe_reset(&children::RECORDER_RESTART_BUDGET);
+                    if !children::try_restart_recorder(myself.get_cell(), state).await {
+                        myself.send_after(Duration::from_secs(30), || SessionMsg::RetryRecorder);
+                    }
+                }
+            }
             SessionMsg::RetryListener => {
                 retry_listener(myself, state).await;
             }
@@ -207,10 +230,12 @@ impl Actor for SessionActor {
                             tracing::info!(?reason, "recorder_terminated_attempting_restart");
                             state.recorder_cell = None;
                             children::sync_source_recorder(state).await;
-                            if !children::try_restart_recorder(myself.get_cell(), state).await {
-                                tracing::error!("recorder_restart_limit_exceeded_meltdown");
-                                meltdown(myself, state).await;
-                            }
+                            emit_storage_error(
+                                &state.ctx,
+                                reason.as_deref().unwrap_or("Audio saving stopped"),
+                            );
+                            myself
+                                .send_after(Duration::from_secs(30), || SessionMsg::RetryRecorder);
                         }
                         None => {
                             tracing::warn!("unknown_child_terminated");
@@ -244,10 +269,9 @@ impl Actor for SessionActor {
                             tracing::warn!(?error, "recorder_failed_attempting_restart");
                             state.recorder_cell = None;
                             children::sync_source_recorder(state).await;
-                            if !children::try_restart_recorder(myself.get_cell(), state).await {
-                                tracing::error!("recorder_restart_limit_exceeded_meltdown");
-                                meltdown(myself, state).await;
-                            }
+                            emit_storage_error(&state.ctx, &error.to_string());
+                            myself
+                                .send_after(Duration::from_secs(30), || SessionMsg::RetryRecorder);
                         }
                         None => {
                             tracing::warn!("unknown_child_failed");
@@ -261,6 +285,47 @@ impl Actor for SessionActor {
         .instrument(span)
         .await
     }
+    async fn post_stop(
+        &self,
+        _myself: ActorRef<Self::Msg>,
+        state: &mut Self::State,
+    ) -> Result<(), ActorProcessingErr> {
+        children::shutdown_children(state, "session_stop").await;
+        if state.ctx.params.retain_audio == Some(false) {
+            let dir = crate::actors::recorder::find_session_dir(
+                &state.ctx.app_dir,
+                &state.ctx.params.session_id,
+            );
+            if let Err(error) = tokio::task::spawn_blocking(move || {
+                crate::actors::recorder::delete_capture_audio(&dir)
+            })
+            .await?
+            {
+                let error = format!("audio_deletion_failed: {error}");
+                state
+                    .ctx
+                    .runtime
+                    .emit_error(crate::SessionErrorEvent::AudioError {
+                        session_id: state.ctx.params.session_id.clone(),
+                        error: error.clone(),
+                        device: None,
+                        is_fatal: false,
+                    });
+                return Err(std::io::Error::other(error).into());
+            }
+        }
+        Ok(())
+    }
+}
+
+fn emit_storage_error(ctx: &SessionContext, error: &str) {
+    ctx.runtime
+        .emit_error(crate::SessionErrorEvent::AudioError {
+            session_id: ctx.params.session_id.clone(),
+            error: format!("audio_storage_unavailable: {error}"),
+            device: None,
+            is_fatal: false,
+        });
 }
 
 pub async fn spawn_session_supervisor(
@@ -700,6 +765,7 @@ mod tests {
             audio: Arc::new(TestRuntime),
             requested_transcription_mode: crate::TranscriptionMode::Live,
             params: SessionParams {
+                retain_audio: None,
                 session_id: "session".to_string(),
                 languages: vec![],
                 onboarding: false,
@@ -999,6 +1065,60 @@ mod tests {
             recorder_handle.await.unwrap();
             supervisor_handle.await.unwrap();
         }
+    }
+
+    #[tokio::test]
+    async fn recorder_failure_keeps_the_listener_and_session_running() {
+        let (supervisor, supervisor_task) = Actor::spawn(None, SessionStopProbe, ()).await.unwrap();
+        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+        let (recorder, recorder_task) = Actor::spawn(
+            None,
+            StopProbe {
+                label: "recorder",
+                tx: tx.clone(),
+            },
+            (),
+        )
+        .await
+        .unwrap();
+        let (listener, listener_task) = Actor::spawn(
+            None,
+            StopProbe {
+                label: "listener",
+                tx,
+            },
+            (),
+        )
+        .await
+        .unwrap();
+        let mut state = test_state(test_ctx());
+        state.recorder_cell = Some(recorder.get_cell());
+        state.listener_cell = Some(listener.get_cell());
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while listener.get_status() != ractor::ActorStatus::Running {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        SessionActor
+            .handle_supervisor_evt(
+                supervisor.clone(),
+                SupervisionEvent::ActorFailed(
+                    recorder.get_cell(),
+                    std::io::Error::other("No space left on device").into(),
+                ),
+                &mut state,
+            )
+            .await
+            .unwrap();
+        assert!(!state.shutting_down);
+        assert!(state.recorder_cell.is_none());
+        assert_eq!(state.listener_cell.unwrap().get_id(), listener.get_id());
+        assert_eq!(listener.get_status(), ractor::ActorStatus::Running);
+        supervisor_task.abort();
+        recorder_task.abort();
+        listener_task.abort();
     }
 
     #[tokio::test]

@@ -6,6 +6,7 @@ import type { TimelineEventsTable, TimelineSessionsTable } from "./utils";
 
 import { getSessionEvent } from "~/session/utils";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
+import { useTimeFormat } from "~/shared/hooks/useTimeFormat";
 
 const MINUTE_MS = 60_000;
 const CURRENT_TIME_TICK_OFFSET_MS = 100;
@@ -18,13 +19,14 @@ export const CurrentTimeIndicator = forwardRef<
   ref,
 ) {
   const currentTimeMs = useCurrentTimeMs();
+  const timeFormat = useTimeFormat();
   const insideOffset = `${(1 - progress) * 100}%`;
   const label = useMemo(() => {
     const now = timezone
       ? new TZDate(new Date(currentTimeMs), timezone)
       : new Date(currentTimeMs);
-    return format(now, "h:mm a").toUpperCase();
-  }, [currentTimeMs, timezone]);
+    return format(now, timeFormat).toUpperCase();
+  }, [currentTimeMs, timezone, timeFormat]);
 
   return (
     <div

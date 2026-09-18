@@ -607,7 +607,7 @@ fn cancelled_send_never_starts_status_reconciliation() {
 }
 
 #[tokio::test]
-async fn confirmed_send_recovery_needs_no_additional_network_request() {
+async fn confirmed_large_version_recovery_needs_no_additional_network_request() {
     use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -672,10 +672,13 @@ async fn confirmed_send_recovery_needs_no_additional_network_request() {
         .execute(&mut *connection)
         .await
         .unwrap();
-    sqlx::query("INSERT INTO items VALUES ('first', 'pending')")
-        .execute(&mut *connection)
-        .await
-        .unwrap();
+    sqlx::query(
+        "WITH RECURSIVE ids(id) AS (SELECT 1 UNION ALL SELECT id + 1 FROM ids WHERE id < 6564)
+         INSERT INTO items SELECT CAST(id AS TEXT), 'pending' FROM ids",
+    )
+    .execute(&mut *connection)
+    .await
+    .unwrap();
     let result = guarded_interruptible_network_send_changes(
         &mut connection,
         &db.cloudsync_interrupt,

@@ -5,7 +5,7 @@ author:
   - "John Jeong"
 featured: false
 category: "Guides"
-date: "2026-03-30"
+date: "2026-09-17"
 ---
 
 Anthropic built its reputation as the privacy-conscious alternative to OpenAI. Constitutional AI, safety-first research, no training on customer data. For a while, that reputation was earned.
@@ -48,11 +48,11 @@ Turning it off does not retroactively remove data already used for training. Lik
 
 The consumer product and the API have meaningfully different data policies, and the API is notably stronger.
 
-As of September 14, 2025, Anthropic reduced API log retention from 30 days to 7 days. API inputs and outputs are automatically deleted after 7 days. They are never used for model training.
+The API's standard retention window is 30 days. Anthropic automatically deletes inputs and outputs from its backend within 30 days of receipt or generation, and none of it is used for model training without your express permission. (A shorter 7-day API window that Anthropic rolled out in September 2025 is no longer current; the commercial baseline has been back at 30 days for a while, per Anthropic's own Privacy Center.)
 
-If your organization needs longer retention for auditing purposes, you can opt in to the 30-day window via your Data Processing Addendum. But the default is 7 days, which is stricter than most providers.
+For enterprise API customers who qualify, Anthropic also offers a Zero Data Retention agreement. Under ZDR, inputs and outputs aren't stored at rest after the API response returns. One caveat that still applies: Anthropic can retain Trust and Safety classifier results even under ZDR, to enforce its usage policy.
 
-For enterprise API customers who qualify, Anthropic also offers a Zero Data Retention agreement. Under ZDR, inputs and outputs are not stored at all beyond what's needed to screen for abuse. One caveat: Anthropic still retains User Safety classifier results even under ZDR, to enforce their usage policy.
+There's a newer, sharper exception too. Since June 2026, Anthropic designates its most capable models, currently Claude Fable 5, Fable 5.1, Mythos 5, and Mythos 5.1, as "Covered Models". Any organization using one of these gets a mandatory 30-day retention window that overrides ZDR entirely, unless Anthropic expressly authorizes an exception. Anthropic's stated reasoning: some abuse patterns, like distributed jailbreak attempts or coordinated misuse campaigns, only become visible when requests are compared across a window of time rather than one at a time. Practically, if you're on a ZDR agreement and want to use a Covered Model, you need to turn on 30-day retention for that specific workspace; your other ZDR workspaces stay at zero retention. Anthropic's non-Covered models, including Claude Opus 5, still get full ZDR with no exceptions. Most meeting-summarization workloads, Anarlog's included, run fine on non-Covered models, so this mainly matters if your organization has specifically opted into the newest reasoning-class models for other work.
 
 ## Claude for Work, Enterprise, Edu, and Gov
 
@@ -62,13 +62,15 @@ Deleted conversations are purged within 30 days unless legally required otherwis
 
 ## What About HIPAA and GDPR?
 
-HIPAA: Anthropic offers HIPAA-eligible services for qualifying healthcare customers, including a Business Associate Agreement. Under the BAA, certain features including web search are disabled. Standard consumer Claude is not HIPAA-compliant and should not be used with Protected Health Information.
+HIPAA: Anthropic offers HIPAA-eligible services for qualifying healthcare customers, including a Business Associate Agreement. Web search itself is now HIPAA-eligible under the BAA; the current exception is web search's "dynamic filtering" sub-feature, which isn't covered. Covered Models (see above) add another wrinkle: they're only accessible under the BAA through the HIPAA-ready API or HIPAA-ready Claude Enterprise chat, not through Claude Code or Cowork. Standard consumer Claude is not HIPAA-compliant and should not be used with Protected Health Information.
 
 GDPR: Anthropic supports GDPR compliance for commercial customers through a Data Processing Addendum. For EU-based consumer users, standard GDPR rights apply including access, deletion, portability, and can be exercised through Anthropic's Privacy Center. Consumer accounts don't automatically come with a DPA.
 
 ## Claude's Reddit Lawsuit Worth Knowing About
 
 In June 2025, [Reddit filed a lawsuit against Anthropic](https://ppc.land/reddit-files-lawsuit-against-anthropic-over-unauthorized-claude-ai-training/) alleging that Anthropic scraped more than 100,000 Reddit posts and comments without authorization to train Claude. Reddit presented evidence that Claude reproduced deleted Reddit posts with near-perfect accuracy.
+
+The case has moved since then. Anthropic tried to move it to federal court, arguing Reddit's claims were really just copyright infringement in disguise. In March 2026, a federal judge disagreed and sent the case back to California state court, ruling that Reddit's breach-of-contract, unjust enrichment, and privacy-related claims raise "extra elements" beyond what copyright law covers: specifically, that Anthropic allegedly bypassed Reddit's technical safeguards and interfered with privacy commitments Reddit owes its own users. By August 2026, the presiding state judge was reportedly skeptical of Anthropic's remaining defenses on the privacy claims. The case is still active and unresolved as of this writing.
 
 This isn't about your personal data directly. But it's relevant context for how Anthropic has approached training data acquisition, and it matters when evaluating whether a company's stated privacy values match their actual behavior.
 
@@ -79,14 +81,16 @@ This isn't about your personal data directly. But it's relevant context for how 
 | ---------------------------- | ---------------------------------- | ----------------------------------- |
 |                              | **Claude.ai (Consumer)**           | **Anthropic API via Anarlog**          |
 | **Where notes are stored**   | Anthropic's servers                | Your device (local SQLite)           |
-| **Retention after deletion** | Up to 30 days on backend           | 7 days (API), then deleted          |
+| **Retention after deletion** | Up to 30 days on backend           | 30 days by default, 0 under ZDR*    |
 | **Used for training**        | Yes — unless opted out (Sept 2025) | Never                               |
 | **If opted into training**   | Up to 5 years, de-identified       | Not applicable                      |
 | **HIPAA BAA available**      | No (consumer)                      | Depends on the AI provider and contract |
 | **Can switch AI providers**  | No                                 | Yes — OpenAI, Mistral, local models |
 
 
-[Anarlog](https://anarlog.so/) is an open-source AI notepad for meetings that lets you bring your own Anthropic API key. When you connect it, your meeting data goes through the API i.e. 7-day retention, never used for training, rather than through the consumer Claude.ai product where training opt-ins and longer retention windows apply.
+\*Covered Models (Claude Fable/Mythos-class) are the exception: they carry a mandatory 30-day retention regardless of ZDR. Anarlog doesn't require those models for meeting summaries.
+
+[Anarlog](https://anarlog.so/) is an open-source AI notepad for meetings that lets you bring your own Anthropic API key. When you connect it, your meeting data goes through the API, so it follows the 30-day (or zero, under ZDR) API retention, never used for training, rather than through the consumer Claude.ai product where training opt-ins and longer retention windows apply.
 
 And if Anthropic's policy trajectory gives you pause, you're not locked in. Anarlog supports OpenAI, Mistral, Google Gemini, and local models via Ollama. Your notes stay on your device regardless of which AI processes them. Switching providers doesn't mean starting over.
 

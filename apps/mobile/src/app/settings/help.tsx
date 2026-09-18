@@ -28,7 +28,7 @@ export default function HelpSettings() {
           title="Contact support"
           onPress={() =>
             open.mutate(
-              "mailto:founders@anarlog.so?subject=Anarlog%20mobile%20support",
+              "mailto:team@fastrepl.com?subject=Anarlog%20mobile%20support",
             )
           }
         />

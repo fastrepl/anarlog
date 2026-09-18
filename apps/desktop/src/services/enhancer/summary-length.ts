@@ -59,6 +59,7 @@ export function countTranscriptWordCharacters(
 export function getSummaryLengthPolicy(
   transcripts: readonly Transcript[],
   mode: SummaryLengthMode = DEFAULT_SUMMARY_LENGTH_MODE,
+  customFormat = false,
 ): SummaryLengthPolicy | null {
   const transcriptCharacters = countNormalizedCharacters(
     transcripts
@@ -93,7 +94,9 @@ export function getSummaryLengthPolicy(
       MIN_SUMMARY_CHARACTERS,
     ),
     maxSections:
-      transcriptCharacters < SHORT_TRANSCRIPT_CHARACTER_LIMIT ? 2 : null,
+      !customFormat && transcriptCharacters < SHORT_TRANSCRIPT_CHARACTER_LIMIT
+        ? 2
+        : null,
     guidance: {
       maxCharacters: clamp(
         Math.round(transcriptCharacters * ratio),
@@ -118,18 +121,15 @@ export function formatSummaryLengthModeGuidance(
 ): string {
   const templateGuidance = hasTemplateSections
     ? "Preserve every requested template section and do not add sections based on this mode."
-    : "Put only explicitly stated or unambiguous owners, commitments, and deadlines in a final # Next Steps section when any exist; do not turn proposals into commitments, and count Next Steps within the overall section limit.";
-  const listGuidance =
-    "Write all section content as unordered Markdown list items beginning with '- '; never put prose paragraphs under a heading.";
+    : "Follow the requested format and include only explicitly stated or unambiguous owners, commitments, and deadlines; do not turn proposals into commitments.";
 
   if (mode === "crisp") {
     return [
       "Summary mode: crisp. Make the summary fast to scan.",
       "Cover only decisions, outcomes, blockers, commitments, and the context required to understand them.",
       "Do not omit any explicit decision, blocker, owner, commitment, or deadline.",
-      "Use direct one-sentence bullets with one idea per bullet and no more than four bullets per section; a section may have fewer than three bullets.",
-      "Merge closely related topics into one section before omitting secondary discussion, repetition, conversational framing, minor examples, and rationale that did not affect the outcome.",
-      listGuidance,
+      "Use short, direct sentences with one idea per sentence.",
+      "Omit secondary discussion, repetition, conversational framing, minor examples, and rationale that did not affect the outcome without changing the requested structure.",
       templateGuidance,
     ].join(" ");
   }
@@ -139,23 +139,22 @@ export function formatSummaryLengthModeGuidance(
       "Summary mode: balanced. Keep the primary discussion complete while remaining concise.",
       "Do not omit any explicit decision, blocker, owner, commitment, or deadline.",
       "Include important supporting context and rationale, but omit repetition, tangents, and minor examples.",
-      "Use three to five direct bullets per section with one or two sentences per bullet.",
-      listGuidance,
+      "Explain each key point briefly with enough context to understand it.",
       templateGuidance,
     ].join(" ");
   }
 
   return [
     "Summary mode: detailed. Capture every material topic, decision, rationale, example, open question, and commitment.",
-    "Use four to seven concrete bullets per section when the source supports it, with one to three sentences and enough context to stand on their own.",
+    "Explain material points with concrete details and enough context to stand on their own.",
     "Retain useful secondary discussion and examples, but remove repetition and conversational filler.",
-    listGuidance,
     templateGuidance,
   ].join(" ");
 }
 
 export function formatSummaryLengthGuidance(
   policy: SummaryLengthPolicy | null,
+  customFormat = false,
 ): string | null {
   const guidance = policy?.guidance;
   if (!policy || !guidance) {
@@ -169,7 +168,9 @@ export function formatSummaryLengthGuidance(
 
   return [
     `Summary length: the transcript contains about ${policy.transcriptCharacters} characters.`,
-    `Keep the summary proportional to it: use ${sections} and stay under ${guidance.maxCharacters} characters overall.`,
+    customFormat
+      ? `Keep the requested structure and stay under ${guidance.maxCharacters} characters overall.`
+      : `Keep the summary proportional to it: use ${sections} and stay under ${guidance.maxCharacters} characters overall.`,
     "A short meeting must produce a short summary; never pad with filler.",
   ].join(" ");
 }

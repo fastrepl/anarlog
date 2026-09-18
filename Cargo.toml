@@ -164,6 +164,7 @@ owhisper-client = { path = "crates/owhisper-client", package = "owhisper-client"
 owhisper-interface = { path = "crates/owhisper-interface", package = "owhisper-interface" }
 soniox = { path = "crates/soniox", package = "soniox" }
 
+ashpd = { version = "0.13.13", default-features = false }
 tauri = "2.11.5"
 tauri-build = "2.6.3"
 tauri-plugin = "2.5"
@@ -171,6 +172,7 @@ tauri-plugin-autostart = "2.5"
 tauri-plugin-clipboard-manager = "2.3"
 tauri-plugin-deep-link = "2.4"
 tauri-plugin-dialog = "2.7"
+tauri-plugin-global-shortcut = "2.3.2"
 tauri-plugin-http = { version = "2.5", features = ["unsafe-headers"] }
 tauri-plugin-opener = "2.5"
 tauri-plugin-os = "2.3"

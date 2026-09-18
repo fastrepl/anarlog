@@ -251,11 +251,18 @@ async fn witness_repair_waits_for_missing_transcript_chunks() {
 }
 
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[tokio::test]
+async fn witness_repair_resumes_after_confirming_a_large_pending_version() {
+    run_witness_repair(WitnessRepairScenario::LargePendingVersion).await;
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 #[derive(Clone, Copy)]
 enum WitnessRepairScenario {
     Refresh,
     LocalEdit,
     IncompleteTranscript,
+    LargePendingVersion,
 }
 
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
@@ -264,6 +271,7 @@ async fn run_witness_repair(scenario: WitnessRepairScenario) {
 
     let local_edit = matches!(scenario, WitnessRepairScenario::LocalEdit);
     let incomplete_transcript = matches!(scenario, WitnessRepairScenario::IncompleteTranscript);
+    let large_pending_version = matches!(scenario, WitnessRepairScenario::LargePendingVersion);
     let head_sequence = if local_edit || incomplete_transcript {
         132
     } else {
@@ -536,6 +544,22 @@ async fn run_witness_repair(scenario: WitnessRepairScenario) {
         .await
         .unwrap();
 
+    if large_pending_version {
+        // The status server confirms this version, as after a lost acknowledgement.
+        // One statement keeps the backlog indivisible by the version-window splitter.
+        sqlx::query(
+            "WITH RECURSIVE ids(id) AS (SELECT 1 UNION ALL SELECT id + 1 FROM ids WHERE id < 6564)
+             INSERT INTO sync_probe SELECT CAST(id AS TEXT), printf('%02048d', id) FROM ids",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let batch = db.cloudsync_manual_pending_payload_batch().await.unwrap();
+        assert_eq!(batch.rows, 6564);
+        assert!(batch.chunks > 1 && batch.chunks <= 8);
+        assert!(batch.bytes <= 32 * 1024 * 1024, "{batch:?}");
+    }
+
     let auth_generation = runtime.cloudsync_auth_generation();
     runtime
         .schedule_cloudsync_full_resync(generation, config, auth_generation)
@@ -575,7 +599,13 @@ async fn run_witness_repair(scenario: WitnessRepairScenario) {
                 )
                 .await
                 .unwrap();
-            if repaired >= events.len() as i64 && !local_pending {
+            let awaiting_apply = large_pending_version
+                && sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM sessions")
+                    .fetch_one(db.pool())
+                    .await
+                    .unwrap()
+                    < events.len() as i64;
+            if repaired >= events.len() as i64 && !local_pending && !awaiting_apply {
                 break;
             }
             tokio::time::sleep(std::time::Duration::from_millis(25)).await;
@@ -610,6 +640,33 @@ async fn run_witness_repair(scenario: WitnessRepairScenario) {
     cloudsync_server.join().unwrap();
     if let Some(failure) = failure {
         panic!("{failure}");
+    }
+
+    if large_pending_version {
+        let batch = db.cloudsync_manual_pending_payload_batch().await.unwrap();
+        assert_eq!(
+            batch.chunks, 0,
+            "confirmed backlog must no longer be pending"
+        );
+        let preserved: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM sync_probe WHERE value = printf('%02048d', CAST(id AS INTEGER))",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(preserved, 6564, "recovery must preserve every pending row");
+        let session_ids: Vec<String> = sqlx::query_scalar("SELECT id FROM sessions ORDER BY id")
+            .fetch_all(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(
+            session_ids,
+            (0..130)
+                .map(|index| format!("session-{index:03}"))
+                .collect::<Vec<_>>(),
+            "witness records must be decrypted and applied after the backlog drains",
+        );
+        return;
     }
 
     if incomplete_transcript {

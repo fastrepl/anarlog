@@ -21,6 +21,7 @@ import {
   type MenuItemDef,
   useNativeContextMenu,
 } from "~/shared/hooks/useNativeContextMenu";
+import { useTimeFormat } from "~/shared/hooks/useTimeFormat";
 import type { TimelineEventRow } from "~/sidebar/timeline/utils";
 import { useTabs } from "~/store/zustand/tabs";
 
@@ -32,6 +33,7 @@ export function EventChip({
   event: TimelineEventRow | undefined;
 }) {
   const tz = useTimezone();
+  const timeFormat = useTimeFormat();
   const { ignoreEvent, ignoreSeries } = useIgnoredEvents();
   const title = event?.title || t`Busy`;
   const trackingId = event?.tracking_id_event ?? undefined;
@@ -40,7 +42,7 @@ export function EventChip({
   const color = event?.calendar_color || "#888";
 
   const startedAt = event?.started_at
-    ? format(toTz(event.started_at, tz), "h:mm a")
+    ? format(toTz(event.started_at, tz), timeFormat)
     : null;
 
   const handleIgnore = useCallback(() => {

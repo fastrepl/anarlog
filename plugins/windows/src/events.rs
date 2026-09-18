@@ -193,3 +193,18 @@ mod test {
         }
     }
 }
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone, specta::Type, tauri_specta::Event)]
+#[serde(rename_all = "camelCase")]
+pub struct FloatingBarDictationAction {
+    pub session_id: String,
+    pub action: DictationPanelAction,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum DictationPanelAction {
+    Finish,
+    Cancel,
+    TogglePreview,
+}

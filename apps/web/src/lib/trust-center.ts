@@ -170,7 +170,7 @@ export const contractualDocs = [
   },
   {
     label: "Data Processing Addendum",
-    href: "mailto:founders@anarlog.so?subject=Anarlog%20DPA",
+    href: "mailto:team@fastrepl.com?subject=Anarlog%20DPA",
     note: "Available on request for enterprise evaluations",
   },
 ];

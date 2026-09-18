@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-capture-target"
+description = "Enables the capture_target command without any pre-configured scope."
+commands.allow = ["capture_target"]
+
+[[permission]]
+identifier = "deny-capture-target"
+description = "Denies the capture_target command without any pre-configured scope."
+commands.deny = ["capture_target"]

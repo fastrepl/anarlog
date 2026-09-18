@@ -13,6 +13,7 @@ vi.mock("@anlg/ui/components/ui/dancing-sticks", () => ({
 
 function state(overrides: Partial<FloatingBarState> = {}): FloatingBarState {
   return {
+    dictation: null,
     amplitude: 0.4,
     title: "Weekly sync",
     status: "recording",
@@ -46,6 +47,42 @@ describe("FloatingBarOverlay", () => {
     cleanup();
   });
 
+  it.each([true, false])(
+    "keeps legacy backend controls at the top right (minimized=%s)",
+    (liveCaptionMinimized) => {
+      render(
+        <FloatingBarOverlay
+          state={state({ liveCaptionMinimized })}
+          onStop={vi.fn()}
+          onToggleExpanded={vi.fn()}
+        />,
+      );
+      const controls = screen.getByRole("button", { name: "Stop listening" })
+        .parentElement!.parentElement!;
+      expect(controls.style.top).toBe("0px");
+      expect(controls.style.bottom).toBe("");
+      expect(controls.style.left).toBe("calc(100% - 51.5px)");
+    },
+  );
+
+  it("uses backend coordinates when layout metadata is available", () => {
+    render(
+      <FloatingBarOverlay
+        state={state({
+          liveCaptionMinimized: false,
+          layout: { controlsCenterX: 200, expandsUpward: true },
+        })}
+        onStop={vi.fn()}
+        onToggleExpanded={vi.fn()}
+      />,
+    );
+    const controls = screen.getByRole("button", { name: "Stop listening" })
+      .parentElement!.parentElement!;
+    expect(controls.style.top).toBe("");
+    expect(controls.style.bottom).toBe("0px");
+    expect(controls.style.left).toBe("196px");
+  });
+
   it("stops listening from the compact bar", () => {
     const onStop = vi.fn();
 
@@ -63,16 +100,38 @@ describe("FloatingBarOverlay", () => {
     expect(screen.getByTestId("waveform")).toBeTruthy();
   });
 
-  it("keeps showing the waveform when live transcription is degraded", () => {
-    render(
+  it("shows a spinner when live transcription is reconnecting", () => {
+    const { container } = render(
+      <FloatingBarOverlay
+        state={state({ status: "reconnecting" })}
+        onStop={vi.fn()}
+        onToggleExpanded={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: "Reconnecting live transcription; stop listening",
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByTestId("waveform")).toBeNull();
+    expect(container.querySelector(".animate-spin")).toBeTruthy();
+  });
+
+  it("shows a static failure indicator for errors without an active retry", () => {
+    const { container } = render(
       <FloatingBarOverlay
         state={state({ status: "error" })}
         onStop={vi.fn()}
         onToggleExpanded={vi.fn()}
       />,
     );
-
-    expect(screen.getByTestId("waveform")).toBeTruthy();
+    expect(
+      screen.getByRole("button", {
+        name: "Transcription unavailable; stop listening",
+      }),
+    ).toBeTruthy();
+    expect(container.querySelector(".animate-spin")).toBeNull();
   });
 
   it("expands to the live transcript and can collapse again", () => {
@@ -86,9 +145,11 @@ describe("FloatingBarOverlay", () => {
       />,
     );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Expand live transcript" }),
-    );
+    const waveform = screen.getByTestId("waveform");
+    const toggle = screen.getByRole("button", {
+      name: "Expand live transcript",
+    });
+    fireEvent.click(toggle);
     expect(onToggleExpanded).toHaveBeenCalledWith(true);
 
     view.rerender(
@@ -99,6 +160,10 @@ describe("FloatingBarOverlay", () => {
       />,
     );
 
+    expect(screen.getByTestId("waveform")).toBe(waveform);
+    expect(
+      screen.getByRole("button", { name: "Collapse live transcript" }),
+    ).toBe(toggle);
     expect(screen.getByText("Weekly sync")).toBeTruthy();
     expect(screen.getByText("Let's start.")).toBeTruthy();
 

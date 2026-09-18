@@ -115,9 +115,10 @@ Check the affected workflow under `.github/workflows/` for stricter package-spec
 ## Open a pull request
 
 - Write the title as a specific action that states the intended outcome. Do not use a file name, ticket number, or a generic label as the title.
-- Write the description yourself as a concise executive summary: on the labeled `Problem` and `Fix` lines, explain the problem, why it mattered, and how the change fixes it. Do not paste a generated commit log or a file-by-file recap.
+- Write one or two sentences on the labeled `Intent` line: what problem you saw, and what this change should do instead. Cubic already summarizes the code diff, so do not paste a generated commit log, a file-by-file recap, or a long write-up: keep it short.
+- Attach a short screen recording or GIF in the `Demo` section showing the problem and the fix in action. This, plus the one-line intent, is what lets a maintainer understand a contribution without reading a wall of text. Docs-only or non-functional changes can skip the video by writing `N/A` and a one-line reason.
 - List the commands and manual checks you used to verify the change.
-- CI enforces the title and labeled `Problem` / `Fix` summary for external contributors. Org members, collaborators, owners, and bots are not gated.
+- CI enforces the title, the labeled `Intent` line, and the `Demo` section for external contributors. Org members, collaborators, owners, and bots are not gated.
 - External contributors must sign the [Fastrepl Contributor License Agreement](https://gist.github.com/ComputelessComputer/9d8243ec8e2ce92541c5b67462f092a0) through CLA Assistant when prompted. Org members, collaborators, and owners skip the `license/cla` status check.
 
 ## Licensing and contribution boundary

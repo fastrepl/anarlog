@@ -18,7 +18,7 @@ Please do not open a public issue for security vulnerabilities.
 Instead, use one of these private channels:
 
 - **GitHub**: [Report a vulnerability](https://github.com/fastrepl/anarlog/security/advisories/new) via private vulnerability reporting (preferred)
-- **Email**: founders@fastrepl.com
+- **Email**: team@fastrepl.com
 
 When reporting, please include:
 

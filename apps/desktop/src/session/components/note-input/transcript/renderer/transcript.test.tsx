@@ -93,41 +93,50 @@ describe("RenderTranscript", () => {
     });
   });
 
-  it("loads one content record and one metadata projection per transcript", () => {
-    render(
-      <RenderTranscript
-        scrollElement={null}
-        isLastTranscript
-        shouldScrollToEnd={false}
-        transcriptId="transcript-1"
-        currentActive
-        captureGeneration={7}
-        liveSegments={createSegments(500)}
-        currentMs={0}
-        seek={vi.fn()}
-        startPlayback={vi.fn()}
-        audioExists
-      />,
-    );
+  it.each([false, true])(
+    "keeps read and edit mode virtualized with one content and metadata subscription (editMode=%s)",
+    (editMode) => {
+      render(
+        <RenderTranscript
+          scrollElement={null}
+          isLastTranscript
+          shouldScrollToEnd={false}
+          transcriptId="transcript-1"
+          currentActive
+          captureGeneration={7}
+          editMode={editMode}
+          liveSegments={createSegments(500)}
+          currentMs={0}
+          seek={vi.fn()}
+          startPlayback={vi.fn()}
+          audioExists
+        />,
+      );
 
-    expect(document.querySelectorAll("section").length).toBeLessThanOrEqual(30);
-    expect(
-      document
-        .querySelector("[data-transcript-virtual-total]")
-        ?.getAttribute("data-transcript-virtual-total"),
-    ).toBe("500");
-    expect(mocks.useRenderedTranscriptData).toHaveBeenCalledOnce();
-    expect(mocks.useRenderedTranscriptData).toHaveBeenCalledWith(
-      "transcript-1",
-      true,
-      7,
-    );
-    expect(mocks.useTranscriptTimelineMetadata).toHaveBeenCalledTimes(1);
-    expect(mocks.useTranscriptTimelineMetadata).toHaveBeenCalledWith(
-      "transcript-1",
-      false,
-    );
-  });
+      expect(document.querySelectorAll("section").length).toBeLessThanOrEqual(
+        30,
+      );
+      expect(document.querySelectorAll("[data-transcript-editor]").length).toBe(
+        editMode ? document.querySelectorAll("section").length : 0,
+      );
+      expect(
+        document
+          .querySelector("[data-transcript-virtual-total]")
+          ?.getAttribute("data-transcript-virtual-total"),
+      ).toBe("500");
+      expect(mocks.useRenderedTranscriptData).toHaveBeenCalledOnce();
+      expect(mocks.useRenderedTranscriptData).toHaveBeenCalledWith(
+        "transcript-1",
+        true,
+        7,
+      );
+      expect(mocks.useTranscriptTimelineMetadata).toHaveBeenCalledTimes(1);
+      expect(mocks.useTranscriptTimelineMetadata).toHaveBeenCalledWith(
+        "transcript-1",
+        false,
+      );
+    },
+  );
 
   it("preserves persisted history when a recovered live preview only has the tail", () => {
     const prefix = createSegment("persisted", 0);
