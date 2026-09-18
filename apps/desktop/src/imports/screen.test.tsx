@@ -34,13 +34,17 @@ vi.mock("~/auth", () => ({
   }),
 }));
 
-vi.mock("~/auth/useConnections", () => ({
-  useConnections: () => ({
-    data: mocks.connections,
-    error: null,
-    isPending: false,
-  }),
-}));
+vi.mock("~/auth/useConnections", async () => {
+  const { useQuery } = await import("@tanstack/react-query");
+  return {
+    useConnections: () =>
+      useQuery({
+        queryKey: ["integration-status", "user-1"],
+        queryFn: async () => mocks.connections,
+        initialData: mocks.connections,
+      }),
+  };
+});
 
 vi.mock("./detection", () => ({
   detectImportSources: mocks.detectImportSources,
@@ -405,8 +409,12 @@ describe("MeetingImportScreen", () => {
     });
     expect(mocks.connectConnectedImport).not.toHaveBeenCalled();
     expect(
-      screen.getByText(/keep new meetings coming in while you switch/i),
+      await screen.findByRole("button", { name: "Sync now" }),
     ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Connect & import" }),
+    ).toBeNull();
+    expect(screen.getByText(/Connected · New meetings/)).toBeTruthy();
     expect(
       screen.queryByText(/Direct connection is not available yet/i),
     ).toBeNull();

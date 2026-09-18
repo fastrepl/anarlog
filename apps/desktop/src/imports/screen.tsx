@@ -8,6 +8,7 @@ import {
 import { open as selectFiles } from "@tauri-apps/plugin-dialog";
 import { type ReactNode, useEffect, useRef } from "react";
 
+import type { ConnectionItem } from "@anlg/api-client";
 import { commands as importerCommands } from "@anlg/plugin-importer";
 import {
   ArrowsClockwise,
@@ -263,9 +264,15 @@ export function MeetingImportScreen({
     onSuccess: async (result) => {
       if (!result) return;
       if ("connection_id" in result) {
-        await queryClient.invalidateQueries({
-          queryKey: ["integration-status"],
-        });
+        const queryKey = ["integration-status", auth.session?.user.id];
+        await queryClient.cancelQueries({ queryKey });
+        queryClient.setQueryData<ConnectionItem[]>(queryKey, (connections) => [
+          result,
+          ...(connections ?? []).filter(
+            (connection) => connection.connection_id !== result.connection_id,
+          ),
+        ]);
+        await queryClient.invalidateQueries({ queryKey, refetchType: "none" });
         return;
       }
       queryClient.setQueryData(
