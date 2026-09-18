@@ -26,7 +26,10 @@ import {
 } from "./queries";
 
 import { env } from "~/env";
-import { openIntegrationUrl } from "~/shared/integration";
+import {
+  integrationSetupError,
+  openIntegrationUrl,
+} from "~/shared/integration";
 
 const CONNECTED_IMPORT_SECRET_SCOPE = "meeting-imports";
 const CONNECTED_IMPORT_SYNC_INTERVAL_MS = 5 * 60 * 1_000;
@@ -153,13 +156,17 @@ export async function connectNangoImport(
     throw new Error(`${provider.name} connection is not available`);
   }
   throwIfConnectionCancelled(signal);
-  await openIntegrationUrl(
+  const opened = await openIntegrationUrl(
     integrationId,
     undefined,
     "connect",
     "imports",
     headers,
+    false,
   );
+  if (!opened) {
+    throw integrationSetupError();
+  }
   await cancelNangoConnectionIfRequested(signal);
   return waitForNangoConnection(provider.name, integrationId, headers, signal);
 }

@@ -50,6 +50,8 @@ vi.mock("./queries", () => ({
 
 vi.mock("~/shared/integration", () => ({
   openIntegrationUrl: mocks.openIntegrationUrl,
+  integrationSetupError: () =>
+    new Error("Could not start the integration setup. Try again."),
 }));
 
 vi.mock("@anlg/api-client", () => ({
@@ -272,7 +274,7 @@ describe("nango meeting imports", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.openIntegrationUrl.mockResolvedValue(undefined);
+    mocks.openIntegrationUrl.mockResolvedValue(true);
   });
 
   it("opens Zoom OAuth and waits for the Nango connection", async () => {
@@ -300,8 +302,25 @@ describe("nango meeting imports", () => {
       "connect",
       "imports",
       headers,
+      false,
     );
     expect(mocks.listConnections).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    { id: "zoom", name: "Zoom", nangoIntegrationId: "zoom" },
+    {
+      id: "google-meet",
+      name: "Google Meet",
+      nangoIntegrationId: "google-meet",
+    },
+  ])("stops when $name setup fails", async (provider) => {
+    mocks.openIntegrationUrl.mockResolvedValue(false);
+
+    await expect(connectNangoImport(provider, headers)).rejects.toThrow(
+      "Could not start the integration setup. Try again.",
+    );
+    expect(mocks.listConnections).not.toHaveBeenCalled();
   });
 
   it("imports Zoom meetings that are not already present", async () => {

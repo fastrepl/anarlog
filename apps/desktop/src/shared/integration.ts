@@ -14,6 +14,10 @@ import { captureOperationalError } from "~/error-reporting";
 import { addNangoSessionHandoff } from "~/shared/integration-handoff";
 import { buildWebAppUrl } from "~/shared/utils";
 
+export function integrationSetupError() {
+  return new Error(t`Could not start the integration setup. Try again.`);
+}
+
 export async function openIntegrationUrl(
   nangoIntegrationId: string | undefined,
   connectionId: string | undefined,
@@ -22,7 +26,7 @@ export async function openIntegrationUrl(
   headers?: Record<string, string> | null,
   showInstruction = true,
 ) {
-  if (!nangoIntegrationId) return;
+  if (!nangoIntegrationId) return false;
 
   try {
     const params: Record<string, string> = {
@@ -64,8 +68,9 @@ export async function openIntegrationUrl(
     }
 
     if (!showInstruction) {
-      await openerCommands.openUrl(url, null);
-      return;
+      const result = await openerCommands.openUrl(url, null);
+      if (result.status === "error") throw new Error(String(result.error));
+      return true;
     }
 
     await openUrlWithInstruction(
@@ -74,6 +79,7 @@ export async function openIntegrationUrl(
       (u) => openerCommands.openUrl(u, null),
       { integrationId: nangoIntegrationId },
     );
+    return true;
   } catch (error) {
     captureOperationalError(error, {
       operation: "integration_open",
@@ -82,7 +88,8 @@ export async function openIntegrationUrl(
         mode: action,
       },
     });
-    toast.error(t`Could not start the integration setup. Try again.`);
+    toast.error(integrationSetupError().message);
+    return false;
   }
 }
 
