@@ -34,21 +34,13 @@ export function SettingsPrivacy() {
     return null;
   }
 
-  const posthogEnabled = resolveConfigValue(
-    "telemetry_consent",
-    settingsQuery.data,
-  );
-  const sentryEnabled = resolveConfigValue(
-    "crash_reporting_consent",
-    settingsQuery.data,
-  );
   const lockAppEnabled = resolveConfigValue("lock_app", settingsQuery.data);
   const authAvailable = available === true;
   const lockAppDescription = !authAvailable
     ? t`Device authentication is not available on this computer.`
     : platform() === "windows"
-      ? t`Require Windows Hello face, PIN, or password when opening Anarlog.`
-      : t`Require Touch ID or your password when opening Anarlog.`;
+      ? t`Require Windows Hello face, PIN, or password when opening BlackMushi.`
+      : t`Require Touch ID or your password when opening BlackMushi.`;
 
   return (
     <div className="flex flex-col gap-8">
@@ -71,24 +63,6 @@ export function SettingsPrivacy() {
               setSettingValues({ lock_app: next });
               if (next) lockApp();
             })();
-          }}
-        />
-        <SettingSwitchRow
-          title={`${i18n._(privacyMessages.posthogTitle)} (PostHog)`}
-          description={i18n._(privacyMessages.posthogDescription)}
-          checked={posthogEnabled}
-          onChange={(telemetryConsent) => {
-            setSettingValues({ telemetry_consent: telemetryConsent });
-          }}
-        />
-        <SettingSwitchRow
-          title={t`Error`}
-          description={t`Send sanitized crash and error reports to help improve Anarlog.`}
-          checked={sentryEnabled}
-          onChange={(crashReportingConsent) => {
-            setSettingValues({
-              crash_reporting_consent: crashReportingConsent,
-            });
           }}
         />
       </section>
