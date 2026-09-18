@@ -11,7 +11,7 @@ pub use crate::retry::{WebSocketConnectPolicy, WebSocketRetryCallback, WebSocket
 const TRAILING_MESSAGE_GRACE: std::time::Duration = std::time::Duration::from_secs(5);
 
 enum ControlCommand {
-    Finalize(Box<dyn FnOnce() -> Message + Send>),
+    Finalize(Box<dyn FnOnce() -> Vec<Message> + Send>),
 }
 
 struct OutputDropGuard(Option<tokio::sync::oneshot::Sender<()>>);
@@ -42,6 +42,13 @@ impl WebSocketHandle {
     }
 
     pub async fn finalize_with_message(&self, message: impl FnOnce() -> Message + Send + 'static) {
+        self.finalize_with_messages(move || vec![message()]).await;
+    }
+
+    pub async fn finalize_with_messages(
+        &self,
+        message: impl FnOnce() -> Vec<Message> + Send + 'static,
+    ) {
         let _ = self
             .control_tx
             .send(ControlCommand::Finalize(Box::new(message)));
@@ -264,10 +271,13 @@ impl WebSocketClient {
                     command = control_rx.recv(), if !control_closed => {
                         match command {
                             Some(ControlCommand::Finalize(message)) => {
-                                if let Err(e) = ws_sender.send(message()).await {
+                                for message in message() {
+                                    if let Err(e) = ws_sender.send(message).await {
                                         tracing::error!("ws_finalize_failed: {:?}", e);
                                         let _ = error_tx.send(e.into());
+                                        break;
                                     }
+                                }
                                 break SendLoopExit::Finalize;
                             }
                             None => {

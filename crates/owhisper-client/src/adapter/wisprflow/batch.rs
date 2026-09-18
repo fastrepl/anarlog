@@ -29,7 +29,17 @@ impl BatchSttAdapter for WisprFlowAdapter {
         let path = path.as_ref().to_owned();
         Box::pin(async move {
             let audio = tokio::task::spawn_blocking(move || encode(&path)).await??;
-            let response = client.post(Self::endpoint(base, "/api/v1/dash/api")?)
+            let mut endpoint = Self::endpoint(base, "/api/v1/dash/api")?;
+            match endpoint.scheme() {
+                "ws" => {
+                    let _ = endpoint.set_scheme("http");
+                }
+                "wss" => {
+                    let _ = endpoint.set_scheme("https");
+                }
+                _ => {}
+            }
+            let response = client.post(endpoint)
                 .bearer_auth(key).json(&json!({
                     "audio": STANDARD.encode(audio),
                     "language": params.languages.iter().map(|l| l.iso639_code().to_string()).collect::<Vec<_>>(),
@@ -135,7 +145,7 @@ mod tests {
         let response = WisprFlowAdapter::default()
             .transcribe_file(
                 &client,
-                &server.uri(),
+                &server.uri().replacen("http://", "ws://", 1),
                 "test",
                 &ListenParams::default(),
                 file.path(),

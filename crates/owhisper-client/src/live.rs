@@ -189,7 +189,7 @@ pub struct ListenClientDual<A: RealtimeSttAdapter> {
     pub(crate) connect_policy: Option<anlg_ws_client::client::WebSocketConnectPolicy>,
 }
 
-type FinalizeMessage = Arc<dyn Fn() -> Message + Send + Sync>;
+type FinalizeMessage = Arc<dyn Fn() -> Vec<Message> + Send + Sync>;
 
 pub struct SingleHandle {
     inner: WebSocketHandle,
@@ -217,7 +217,7 @@ pub trait FinalizeHandle: Send {
 impl FinalizeHandle for SingleHandle {
     async fn finalize(&self) {
         let message = self.finalize_message.clone();
-        self.inner.finalize_with_message(move || message()).await
+        self.inner.finalize_with_messages(move || message()).await
     }
 
     fn expected_finalize_count(&self) -> usize {
@@ -233,7 +233,7 @@ impl FinalizeHandle for DualHandle {
                 finalize_message,
             } => {
                 let message = finalize_message.clone();
-                inner.finalize_with_message(move || message()).await
+                inner.finalize_with_messages(move || message()).await
             }
             DualHandle::Split {
                 mic,
@@ -244,8 +244,8 @@ impl FinalizeHandle for DualHandle {
                 let mic_message = mic_finalize.clone();
                 let spk_message = spk_finalize.clone();
                 tokio::join!(
-                    mic.finalize_with_message(move || mic_message()),
-                    spk.finalize_with_message(move || spk_message())
+                    mic.finalize_with_messages(move || mic_message()),
+                    spk.finalize_with_messages(move || spk_message())
                 );
             }
         }
@@ -619,7 +619,7 @@ fn websocket_client_with_keep_alive<A: RealtimeSttAdapter>(
 
 fn finalize_message_factory<A: RealtimeSttAdapter>(adapter: &A) -> FinalizeMessage {
     let adapter = adapter.clone();
-    Arc::new(move || adapter.finalize_message())
+    Arc::new(move || adapter.finalize_messages())
 }
 
 #[cfg(test)]

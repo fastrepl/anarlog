@@ -219,6 +219,7 @@ function ActiveDictation({
                 return;
               if (update.type === "amplitude")
                 useDictationStatus.setState({ amplitude: update.amplitude });
+              else if (!livePreview) return;
               else if (update.type === "transcript")
                 useDictationStatus.setState({
                   text: update.text,

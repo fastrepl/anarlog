@@ -14,6 +14,7 @@ pub(super) struct Session {
     packets: usize,
     packet_bytes: usize,
     samples: usize,
+    pending: Vec<u8>,
 }
 
 impl RealtimeSttAdapter for WisprFlowAdapter {
@@ -88,14 +89,16 @@ impl RealtimeSttAdapter for WisprFlowAdapter {
         if state.packet_bytes == 0 {
             state.packet_bytes = audio.len().next_multiple_of(2);
         }
+        state.samples += audio.len() / 2;
+        state.pending.extend_from_slice(&audio);
+        let complete = state.pending.len() / state.packet_bytes * state.packet_bytes;
+        if complete == 0 {
+            return Message::Ping(bytes::Bytes::new());
+        }
         let position = state.packets;
         let mut packets = Vec::new();
         let mut volumes = Vec::new();
-        // Capture frames are uniform except for a possible final tail. Pad that
-        // tail because Wispr requires one packet duration throughout a session.
-        for chunk in audio.chunks(state.packet_bytes) {
-            let mut packet = chunk.to_vec();
-            packet.resize(state.packet_bytes, 0);
+        for packet in state.pending[..complete].chunks(state.packet_bytes) {
             let volume = (packet
                 .chunks_exact(2)
                 .map(|sample| {
@@ -107,8 +110,8 @@ impl RealtimeSttAdapter for WisprFlowAdapter {
             packets.push(STANDARD.encode(packet));
             volumes.push(volume);
         }
+        state.pending.drain(..complete);
         state.packets += packets.len();
-        state.samples += audio.len() / 2;
         // Wispr's quickstart labels raw PCM16 packets as "wav" (no WAV header).
         Message::Text(
             json!({
@@ -122,6 +125,24 @@ impl RealtimeSttAdapter for WisprFlowAdapter {
             .to_string()
             .into(),
         )
+    }
+
+    fn finalize_messages(&self) -> Vec<Message> {
+        let padding = {
+            let state = self.live.lock().unwrap_or_else(|e| e.into_inner());
+            if state.pending.is_empty() {
+                0
+            } else {
+                state.packet_bytes - state.pending.len()
+            }
+        };
+        let mut messages = Vec::new();
+        if padding > 0 {
+            messages.push(self.audio_to_message(vec![0; padding].into()));
+            self.live.lock().unwrap_or_else(|e| e.into_inner()).samples -= padding / 2;
+        }
+        messages.push(self.finalize_message());
+        messages
     }
 
     fn finalize_message(&self) -> Message {
@@ -205,8 +226,16 @@ mod tests {
     fn pads_the_last_packet_to_preserve_the_session_duration() {
         let adapter = WisprFlowAdapter::default();
         adapter.audio_to_message(vec![0; 3200].into());
-        let tail = adapter.audio_to_message(vec![1; 600].into());
-        let tail: serde_json::Value = serde_json::from_str(&tail.into_text().unwrap()).unwrap();
+        assert!(matches!(
+            adapter.audio_to_message(vec![1; 600].into()),
+            Message::Ping(_)
+        ));
+        let mut messages = adapter.finalize_messages().into_iter();
+        let tail: serde_json::Value =
+            serde_json::from_str(&messages.next().unwrap().into_text().unwrap()).unwrap();
+        let commit: serde_json::Value =
+            serde_json::from_str(&messages.next().unwrap().into_text().unwrap()).unwrap();
+        assert_eq!(commit["total_packets"], 2);
         assert_eq!(tail["position"], 1);
         assert_eq!(tail["audio_packets"]["packet_duration"], 0.1);
         let bytes = STANDARD
@@ -216,6 +245,24 @@ mod tests {
         assert_eq!(&bytes[..600], &[1; 600]);
         assert!(bytes[600..].iter().all(|b| *b == 0));
     }
+    #[test]
+    fn buffers_short_chunks_without_inserting_silence() {
+        let adapter = WisprFlowAdapter::default();
+        adapter.audio_to_message(vec![0; 3200].into());
+        assert!(matches!(
+            adapter.audio_to_message(vec![1; 600].into()),
+            Message::Ping(_)
+        ));
+        let message = adapter.audio_to_message(vec![2; 2600].into());
+        let value: serde_json::Value = serde_json::from_str(&message.into_text().unwrap()).unwrap();
+        let packet = STANDARD
+            .decode(value["audio_packets"]["packets"][0].as_str().unwrap())
+            .unwrap();
+        assert_eq!(&packet[..600], &[1; 600]);
+        assert_eq!(&packet[600..], &[2; 2600]);
+        assert_eq!(adapter.finalize_messages().len(), 1);
+    }
+
     #[tokio::test]
     async fn validates_endpoint_and_encodes_authentication() {
         let adapter = WisprFlowAdapter::default();

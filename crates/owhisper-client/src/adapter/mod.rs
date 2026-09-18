@@ -212,6 +212,10 @@ pub trait RealtimeSttAdapter: Clone + Default + Send + Sync + 'static {
 
     fn finalize_message(&self) -> Message;
 
+    fn finalize_messages(&self) -> Vec<Message> {
+        vec![self.finalize_message()]
+    }
+
     fn audio_to_message(&self, audio: bytes::Bytes) -> Message {
         Message::Binary(audio)
     }

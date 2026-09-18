@@ -238,6 +238,7 @@ describe("dictation access and lifecycle", () => {
   });
 
   it("reuses the finalized live transcript even when preview display is disabled", async () => {
+    mocks.settings.dictation_live_preview = false;
     mocks.connection = {
       provider: "wisprflow",
       model: "flow",
@@ -256,6 +257,22 @@ describe("dictation access and lifecycle", () => {
     expect(mocks.startSystemRecording.mock.calls[0]![2]).toEqual(
       expect.objectContaining({ provider: "wisprflow" }),
     );
+    const channel = mocks.startSystemRecording.mock.calls[0]![3];
+    await act(async () => {
+      channel.onmessage({
+        type: "transcript",
+        text: "Hidden",
+        partial: "words",
+      });
+      channel.onmessage({ type: "previewUnavailable" });
+      channel.onmessage({ type: "amplitude", amplitude: 0.5 });
+    });
+    expect(useDictationStatus.getState()).toMatchObject({
+      text: "",
+      partial: "",
+      previewUnavailable: false,
+      amplitude: 0.5,
+    });
     await act(async () => {
       mocks.listener?.({ payload: { type: "released" } });
     });

@@ -370,8 +370,12 @@ mod tests {
             ws.send(Message::Text(r#"{"status":"auth"}"#.into()))
                 .await
                 .unwrap();
-            for position in 0..3 {
-                let packet = ws.next().await.unwrap().unwrap().into_text().unwrap();
+            for position in 0..4 {
+                let packet = loop {
+                    if let Message::Text(text) = ws.next().await.unwrap().unwrap() {
+                        break text;
+                    }
+                };
                 let packet: serde_json::Value = serde_json::from_str(&packet).unwrap();
                 assert_eq!(packet["type"], "append");
                 assert_eq!(packet["position"], position);
@@ -380,7 +384,7 @@ mod tests {
             let commit = ws.next().await.unwrap().unwrap().into_text().unwrap();
             assert_eq!(
                 serde_json::from_str::<serde_json::Value>(&commit).unwrap(),
-                serde_json::json!({"type":"commit","total_packets":3})
+                serde_json::json!({"type":"commit","total_packets":4})
             );
             ws.send(Message::Text(
                 r#"{"status":"text","final":false,"body":{"text":"unfinished"}}"#.into(),
@@ -405,6 +409,7 @@ mod tests {
         for _ in 0..3 {
             assert!(preview.send(&[0.5; 1600]));
         }
+        assert!(preview.send(&[0.5; 300]));
         assert_eq!(
             tokio::time::timeout(Duration::from_secs(3), preview.finish())
                 .await
