@@ -47,7 +47,7 @@ msgstr ""
 
 #. placeholder {0}: transferTarget?.email
 #: src/settings/team/index.tsx
-msgid "{0} must accept before becoming owner. Until then, ownership and permissions stay the same. After acceptance, you become an admin and they control the workspace, including deletion."
+msgid "{0} must accept before becoming Primary owner. Until then, ownership and permissions stay the same. After acceptance, you remain an Owner and they can delete the workspace."
 msgstr ""
 
 #. placeholder {0}: issue.user?.login
@@ -4120,6 +4120,10 @@ msgstr ""
 msgid "Previous match"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Primary owner"
+msgstr ""
+
 #: src/settings/general/app-settings.tsx
 msgid "Privacy"
 msgstr ""
@@ -5783,6 +5787,10 @@ msgstr ""
 msgid "Transcription unavailable"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Transfer primary ownership before changing your role."
+msgstr ""
+
 #: src/templates/template-icon-picker.tsx
 msgid "Travel & Places"
 msgstr ""
@@ -6240,7 +6248,7 @@ msgid "You have an active plan"
 msgstr ""
 
 #: src/settings/team/index.tsx
-msgid "You will become the owner of {workspaceName}, with control over its members, billing, and deletion. The current owner will become an admin."
+msgid "You will become the Primary owner of {workspaceName}, with control over its members, billing, and deletion. The current Primary owner will remain an Owner."
 msgstr ""
 
 #: src/settings/general/account.tsx

@@ -47,8 +47,8 @@ msgstr "{0} min"
 
 #. placeholder {0}: transferTarget?.email
 #: src/settings/team/index.tsx
-msgid "{0} must accept before becoming owner. Until then, ownership and permissions stay the same. After acceptance, you become an admin and they control the workspace, including deletion."
-msgstr "{0} must accept before becoming owner. Until then, ownership and permissions stay the same. After acceptance, you become an admin and they control the workspace, including deletion."
+msgid "{0} must accept before becoming Primary owner. Until then, ownership and permissions stay the same. After acceptance, you remain an Owner and they can delete the workspace."
+msgstr "{0} must accept before becoming Primary owner. Until then, ownership and permissions stay the same. After acceptance, you remain an Owner and they can delete the workspace."
 
 #. placeholder {0}: issue.user?.login
 #: src/task/resource-view.tsx
@@ -4120,6 +4120,10 @@ msgstr "Preview"
 msgid "Previous match"
 msgstr "Previous match"
 
+#: src/settings/team/index.tsx
+msgid "Primary owner"
+msgstr "Primary owner"
+
 #: src/settings/general/app-settings.tsx
 msgid "Privacy"
 msgstr "Privacy"
@@ -5783,6 +5787,10 @@ msgstr "Transcription provider needed"
 msgid "Transcription unavailable"
 msgstr "Transcription unavailable"
 
+#: src/settings/team/index.tsx
+msgid "Transfer primary ownership before changing your role."
+msgstr "Transfer primary ownership before changing your role."
+
 #: src/templates/template-icon-picker.tsx
 msgid "Travel & Places"
 msgstr "Travel & Places"
@@ -6240,8 +6248,8 @@ msgid "You have an active plan"
 msgstr "You have an active plan"
 
 #: src/settings/team/index.tsx
-msgid "You will become the owner of {workspaceName}, with control over its members, billing, and deletion. The current owner will become an admin."
-msgstr "You will become the owner of {workspaceName}, with control over its members, billing, and deletion. The current owner will become an admin."
+msgid "You will become the Primary owner of {workspaceName}, with control over its members, billing, and deletion. The current Primary owner will remain an Owner."
+msgstr "You will become the Primary owner of {workspaceName}, with control over its members, billing, and deletion. The current Primary owner will remain an Owner."
 
 #: src/settings/general/account.tsx
 msgid "You'll need to sign in again to use cloud sync and account features."
