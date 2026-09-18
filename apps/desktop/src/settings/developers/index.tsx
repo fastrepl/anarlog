@@ -5,7 +5,6 @@ import { ArrowSquareOut } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 
 import { CliSettingsSections } from "./cli";
-import { CloudApiSection } from "./cloud-api";
 import { WebhooksSection } from "./webhooks";
 
 import { SettingsPageTitle } from "~/settings/page-title";
@@ -32,7 +31,6 @@ export function SettingsDevelopers() {
         </Button>
       </div>
       <CliSettingsSections />
-      <CloudApiSection />
       <WebhooksSection />
     </div>
   );

@@ -3,14 +3,12 @@ import { useCallback, useState } from "react";
 
 import {
   ArrowUpRight,
-  ArrowsClockwise,
   Bell,
   BookOpen,
   Brain,
   CalendarDots,
   ChartLineUp,
   Code,
-  CreditCard,
   DownloadSimple,
   FileText,
   FolderSimple,
@@ -23,7 +21,6 @@ import {
   Sun,
   User,
   Users,
-  UsersThree,
   VideoCamera,
   Waveform,
   X,
@@ -35,7 +32,6 @@ import { CustomSidebarHeader } from "./custom-sidebar-header";
 
 import { useBillingAccess } from "~/auth/billing-context";
 import { privacyMessages } from "~/settings/general/app-settings";
-import { useMyWorkspacesWithMirror } from "~/settings/team/mirror";
 import { type SettingsTab, type TabInput, useTabs } from "~/store/zustand/tabs";
 
 type SettingsNavItem =
@@ -58,8 +54,6 @@ type SettingsNavGroup = { label: string; items: SettingsNavItem[] };
 export function SettingsNav() {
   const { i18n, t } = useLingui();
   const { isPro } = useBillingAccess();
-  const workspaces = useMyWorkspacesWithMirror();
-  const hasExistingWorkspace = (workspaces.data?.length ?? 0) > 0;
   const [search, setSearch] = useState("");
   const searchRef = useSquircleRef<HTMLDivElement>();
   const currentTab = useTabs((state) => state.currentTab);
@@ -92,14 +86,7 @@ export function SettingsNav() {
       items: [
         { id: "app", label: t`General`, icon: Gear },
         { id: "account", label: t`Account`, icon: User },
-        { id: "billing", label: t`Billing`, icon: CreditCard },
         { id: "insights", label: t`Insights`, icon: ChartLineUp },
-        {
-          id: "team",
-          label: t`Teams`,
-          icon: UsersThree,
-          requiresPro: !workspaces.isLoading && !hasExistingWorkspace,
-        },
         { id: "appearance", label: t`Appearance`, icon: Sun },
         { id: "notifications", label: t`Notifications`, icon: Bell },
       ],
@@ -163,12 +150,6 @@ export function SettingsNav() {
     {
       label: t`Data`,
       items: [
-        {
-          id: "sync",
-          label: t`Sync`,
-          icon: ArrowsClockwise,
-          requiresPro: true,
-        },
         { id: "imports", label: t`Imports`, icon: DownloadSimple },
       ],
     },
@@ -294,7 +275,7 @@ export function SettingsNav() {
                         </span>
                         {requiresPro ? (
                           <Lock
-                            aria-label={t`Requires Anarlog Pro`}
+                            aria-label={t`Requires BlackMushi Pro`}
                             className="size-3.5 shrink-0"
                           />
                         ) : "destination" in item ? (

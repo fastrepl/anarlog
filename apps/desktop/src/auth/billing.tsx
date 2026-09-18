@@ -387,6 +387,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   const value = useMemo<BillingAccess>(
     () => ({
       ...billing,
+      isPro: true, // [fork] verrou Pro levé
       isReady,
       canStartTrial,
       upgradeToPro,
