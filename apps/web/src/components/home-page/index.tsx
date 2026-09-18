@@ -7,6 +7,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { getResizedImageSrcSet, getResizedImageUrl } from "@/lib/image-cdn";
 import { MANIFESTO_SIGNERS } from "@/lib/team";
 
+import { DictationSection } from "./dictation-section";
 import { HeroSection } from "./hero-section";
 import { PricingSection } from "./pricing-section";
 import { PrivacySection } from "./privacy-section";
@@ -34,6 +35,8 @@ export function HomePage({
           <HeroSection />
 
           <PrivacySection />
+
+          <DictationSection />
 
           <TestimonialsSection />
 
