@@ -26,6 +26,7 @@ anlg-transcribe-speechanalyzer = { workspace = true }
 anlg-transcript = { workspace = true }
 anlg-transcription-core = { workspace = true, features = ["specta", "tauri-event"] }
 anlg-voiceprint = { workspace = true }
+anlg-voiceprint-service = { workspace = true }
 
 owhisper-client = { workspace = true }
 owhisper-interface = { workspace = true }

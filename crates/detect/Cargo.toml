@@ -49,8 +49,10 @@ required-features = ["mic", "list", "zoom", "sleep", "app", "language"]
 
 [target."cfg(target_os = \"linux\")".dependencies]
 libpulse-binding = "2.30"
-atspi = { version = "0.25", default-features = false, features = ["tokio"] }
-zbus = { version = "5", default-features = false, features = ["tokio"] }
+# GPUI's Linux platform drives zbus from its own (non-tokio) executor threads, and
+# zbus's `tokio` feature is unified across the binary, so stay on `async-io`.
+atspi = { version = "0.25", default-features = false, features = ["async-std"] }
+zbus = { version = "5", default-features = false, features = ["async-io"] }
 
 [target."cfg(target_os = \"windows\")".dependencies]
 winreg = "0.55"

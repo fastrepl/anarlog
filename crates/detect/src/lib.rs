@@ -1,5 +1,6 @@
 #[cfg(feature = "app")]
 mod app;
+mod app_category;
 mod error;
 #[cfg(feature = "language")]
 mod language;
@@ -13,6 +14,7 @@ mod sleep;
 
 mod utils;
 
+pub use app_category::{AppCategory, default_ignored_bundle_ids};
 pub use error::Error;
 
 pub use utils::BackgroundTask;

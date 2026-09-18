@@ -1,3 +1,4 @@
+use anlg_tray_core::icons;
 use tauri::{Result, image::Image};
 
 pub enum TrayIconState {
@@ -6,24 +7,14 @@ pub enum TrayIconState {
     UpdateAvailable,
 }
 
-pub const RECORDING_FRAMES: &[&[u8]] = &[
-    include_bytes!("../icons/tray_recording_0.png"),
-    include_bytes!("../icons/tray_recording_1.png"),
-    include_bytes!("../icons/tray_recording_2.png"),
-];
+pub const RECORDING_FRAMES: &[&[u8]] = icons::RECORDING_FRAMES;
 
 impl TrayIconState {
     pub fn to_image(&self) -> Result<Image<'static>> {
         match self {
-            TrayIconState::Default => {
-                Image::from_bytes(include_bytes!("../icons/tray_default.png"))
-            }
-            TrayIconState::Degraded => {
-                Image::from_bytes(include_bytes!("../icons/tray_degraded.png"))
-            }
-            TrayIconState::UpdateAvailable => {
-                Image::from_bytes(include_bytes!("../icons/tray_update.png"))
-            }
+            TrayIconState::Default => Image::from_bytes(icons::DEFAULT),
+            TrayIconState::Degraded => Image::from_bytes(icons::DEGRADED),
+            TrayIconState::UpdateAvailable => Image::from_bytes(icons::UPDATE_AVAILABLE),
         }
     }
 }

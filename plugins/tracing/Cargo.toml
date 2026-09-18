@@ -13,6 +13,7 @@ tauri-plugin = { workspace = true, features = ["build"] }
 [dev-dependencies]
 dirs = { workspace = true }
 rquickjs = "0.10"
+sentry = { workspace = true, features = ["tracing"] }
 specta-typescript = { workspace = true }
 tauri = { workspace = true, features = ["test"] }
 tempfile = { workspace = true }
@@ -20,20 +21,15 @@ tracing-appender = { version = "0.2" }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 [dependencies]
-anlg-user-error = { workspace = true }
+anlg-crash-reporting = { workspace = true }
 tauri = { workspace = true }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
-sentry = { workspace = true, features = ["tracing"] }
-tauri-plugin-sentry = { workspace = true }
-
-dirs = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 specta = { workspace = true, features = ["derive", "serde_json"] }
-thiserror = { workspace = true }
 
-regex = "1"
+thiserror = { workspace = true }
 tracing = { workspace = true }
 tracing-appender = { version = "0.2" }
 tracing-subscriber = { workspace = true, features = ["env-filter", "chrono"] }

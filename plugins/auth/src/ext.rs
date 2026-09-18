@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use anlg_supabase_auth::{client::store::AuthStore, session::find_session};
+use anlg_supabase_auth::client::store::AuthStore;
 
 use crate::AccountInfo;
 
@@ -10,20 +10,7 @@ static SECURE_AUTH_WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 pub(crate) fn parse_account_info(
     data: &HashMap<String, String>,
 ) -> Result<Option<AccountInfo>, crate::Error> {
-    let Some(session) = find_session(data)? else {
-        return Ok(None);
-    };
-    let Some(user) = session.user else {
-        return Ok(None);
-    };
-    let metadata = user.user_metadata;
-    Ok(Some(AccountInfo {
-        user_id: user.id,
-        email: user.email,
-        full_name: metadata.as_ref().and_then(|m| m.full_name.clone()),
-        avatar_url: metadata.as_ref().and_then(|m| m.avatar_url.clone()),
-        stripe_customer_id: metadata.as_ref().and_then(|m| m.stripe_customer_id.clone()),
-    }))
+    Ok(anlg_desktop_auth::account_info(data)?)
 }
 
 pub trait AuthPluginExt<R: tauri::Runtime> {
@@ -122,6 +109,6 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> AuthPluginExt<R> for T {
         let Some(store) = self.try_state::<AuthStore>() else {
             return Ok(None);
         };
-        Ok(find_session(&store.snapshot())?.map(|s| s.access_token))
+        Ok(anlg_desktop_auth::access_token(&store.snapshot())?)
     }
 }

@@ -63,7 +63,13 @@ async fn setup_runtime_with_cloudsync(
     .await
     .unwrap();
 
-    (dir, Arc::new(runtime::PluginDbRuntime::new(Arc::new(db))))
+    (
+        dir,
+        Arc::new(runtime::PluginDbRuntime::new(
+            Arc::new(db),
+            tauri::async_runtime::handle().inner().clone(),
+        )),
+    )
 }
 
 pub(super) async fn setup_runtime() -> (tempfile::TempDir, Arc<runtime::PluginDbRuntime>) {
@@ -161,23 +167,6 @@ pub(crate) async fn setup_witness(workspace_id: &str) -> (MockServer, CloudsyncE
     (server, config)
 }
 
-/// One server hosting an independent witness log per workspace; the returned
-/// config points at the first workspace, matching what the API hands out.
-pub(crate) async fn setup_witnesses(workspace_ids: &[&str]) -> (MockServer, CloudsyncE2eeWitness) {
-    let server = MockServer::start().await;
-    for workspace_id in workspace_ids {
-        Mock::given(path(format!("/sync/e2ee/witness/{workspace_id}")))
-            .respond_with(WitnessResponder::default())
-            .mount(&server)
-            .await;
-    }
-    let config = CloudsyncE2eeWitness {
-        endpoint: format!("{}/sync/e2ee/witness/{}", server.uri(), workspace_ids[0]),
-        access_token: "access-token".to_string(),
-    };
-    (server, config)
-}
-
 pub(crate) fn unreachable_witness(workspace_id: &str) -> CloudsyncE2eeWitness {
     CloudsyncE2eeWitness {
         endpoint: format!("http://127.0.0.1:9/sync/e2ee/witness/{workspace_id}"),
@@ -200,7 +189,13 @@ pub(super) async fn setup_unmigrated_runtime_with_max_connections(
     .await
     .unwrap();
 
-    (dir, Arc::new(runtime::PluginDbRuntime::new(Arc::new(db))))
+    (
+        dir,
+        Arc::new(runtime::PluginDbRuntime::new(
+            Arc::new(db),
+            tauri::async_runtime::handle().inner().clone(),
+        )),
+    )
 }
 
 pub(super) async fn setup_unmigrated_runtime() -> (tempfile::TempDir, Arc<runtime::PluginDbRuntime>)

@@ -1,0 +1,14 @@
+[package]
+name = "desktop-updater"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+semver = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt"] }

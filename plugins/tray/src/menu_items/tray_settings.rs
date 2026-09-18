@@ -13,7 +13,13 @@ impl MenuItemHandler for TraySettings {
     const ID: &'static str = "anlg_tray_settings";
 
     fn build(app: &AppHandle<tauri::Wry>) -> Result<MenuItemKind<tauri::Wry>> {
-        let item = MenuItem::with_id(app, Self::ID, "Settings", true, None::<&str>)?;
+        let item = MenuItem::with_id(
+            app,
+            Self::ID,
+            anlg_tray_core::labels::SETTINGS,
+            true,
+            None::<&str>,
+        )?;
         Ok(MenuItemKind::MenuItem(item))
     }
 

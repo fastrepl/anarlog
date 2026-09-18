@@ -20,6 +20,7 @@ crate-type = ["staticlib", "rlib"]
 tauri-build = { workspace = true, features = [] }
 
 [dependencies]
+anlg-crash-reporting = { workspace = true }
 tauri = { workspace = true, features = ["specta", "protocol-asset"] }
 
 tauri-plugin-agent = { workspace = true }
@@ -93,6 +94,7 @@ anlg-db-core = { workspace = true }
 anlg-db-sync = { workspace = true }
 anlg-host = { workspace = true }
 anlg-intercept = { workspace = true }
+anlg-search-index = { workspace = true }
 anlg-storage = { workspace = true }
 anlg-supervisor = { workspace = true }
 
@@ -100,7 +102,6 @@ chrono = { workspace = true }
 dirs = { workspace = true }
 pico-args = { workspace = true }
 ractor = { workspace = true }
-sentry = { workspace = true, features = ["tracing"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 specta = { workspace = true }

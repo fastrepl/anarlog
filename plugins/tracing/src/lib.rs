@@ -1,14 +1,15 @@
 mod commands;
 mod errors;
 mod ext;
-pub mod redaction;
 mod utils;
+
+pub use anlg_crash_reporting::{filter, redaction};
+pub use filter::WEBVIEW_CONSOLE_TARGET;
 
 pub use errors::*;
 pub use ext::*;
 pub use utils::{cleanup_old_daily_logs, make_file_writer};
 
-use sentry::integrations::tracing::EventFilter;
 use tauri::Manager;
 use tracing_subscriber::{
     EnvFilter, fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt,
@@ -17,30 +18,6 @@ use tracing_subscriber::{
 use utils::cleanup_legacy_logs;
 
 const PLUGIN_NAME: &str = "tracing";
-const WEBVIEW_CONSOLE_TARGET: &str = "anarlog.webview.console";
-
-fn sentry_event_filter(metadata: &tracing::Metadata<'_>) -> EventFilter {
-    sentry_event_filter_for(metadata.level(), metadata.target())
-}
-
-fn is_webview_console_target(target: &str) -> bool {
-    target == WEBVIEW_CONSOLE_TARGET
-        || target == "hyprnote.webview.console"
-        || target.starts_with("tauri_plugin_tracing")
-}
-
-fn sentry_event_filter_for(level: &tracing::Level, target: &str) -> EventFilter {
-    if is_webview_console_target(target) {
-        return EventFilter::Ignore;
-    }
-
-    match *level {
-        tracing::Level::ERROR => EventFilter::Event,
-        tracing::Level::WARN | tracing::Level::INFO => EventFilter::Breadcrumb,
-        tracing::Level::DEBUG | tracing::Level::TRACE => EventFilter::Ignore,
-    }
-}
-
 fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::<tauri::Wry>::new()
         .plugin_name(PLUGIN_NAME)
@@ -89,8 +66,7 @@ impl Builder {
                     .add_directive("ort=warn".parse().unwrap())
                     .add_directive("tantivy=error".parse().unwrap());
 
-                let sentry_layer =
-                    sentry::integrations::tracing::layer().event_filter(sentry_event_filter);
+                let sentry_layer = anlg_crash_reporting::tracing_layer();
 
                 let logs_dir = match app.tracing().logs_dir() {
                     Ok(dir) => dir,
@@ -176,24 +152,41 @@ mod test {
     #[test]
     fn sentry_filter_keeps_only_native_errors_as_events() {
         assert_eq!(
-            sentry_event_filter_for(&tracing::Level::ERROR, "native").bits(),
-            EventFilter::Event.bits()
+            anlg_crash_reporting::filter::sentry_event_filter_for(
+                &tracing::Level::ERROR,
+                "native",
+            )
+            .bits(),
+            sentry::integrations::tracing::EventFilter::Event.bits()
         );
         assert_eq!(
-            sentry_event_filter_for(&tracing::Level::WARN, "native").bits(),
-            EventFilter::Breadcrumb.bits()
+            anlg_crash_reporting::filter::sentry_event_filter_for(&tracing::Level::WARN, "native",)
+                .bits(),
+            sentry::integrations::tracing::EventFilter::Breadcrumb.bits()
         );
         assert_eq!(
-            sentry_event_filter_for(&tracing::Level::ERROR, WEBVIEW_CONSOLE_TARGET).bits(),
-            EventFilter::Ignore.bits()
+            anlg_crash_reporting::filter::sentry_event_filter_for(
+                &tracing::Level::ERROR,
+                WEBVIEW_CONSOLE_TARGET,
+            )
+            .bits(),
+            sentry::integrations::tracing::EventFilter::Ignore.bits()
         );
         assert_eq!(
-            sentry_event_filter_for(&tracing::Level::ERROR, "tauri_plugin_tracing::ext").bits(),
-            EventFilter::Ignore.bits()
+            anlg_crash_reporting::filter::sentry_event_filter_for(
+                &tracing::Level::ERROR,
+                "tauri_plugin_tracing::ext",
+            )
+            .bits(),
+            sentry::integrations::tracing::EventFilter::Ignore.bits()
         );
         assert_eq!(
-            sentry_event_filter_for(&tracing::Level::ERROR, "hyprnote.webview.console").bits(),
-            EventFilter::Ignore.bits()
+            anlg_crash_reporting::filter::sentry_event_filter_for(
+                &tracing::Level::ERROR,
+                "hyprnote.webview.console",
+            )
+            .bits(),
+            sentry::integrations::tracing::EventFilter::Ignore.bits()
         );
     }
 }

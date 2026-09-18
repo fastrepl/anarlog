@@ -1,0 +1,41 @@
+[package]
+name = "desktop-db-runtime"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = []
+specta = ["dep:specta"]
+test-hooks = []
+
+[dependencies]
+anlg-db-app = { workspace = true }
+anlg-db-core = { workspace = true }
+anlg-db-execute = { workspace = true }
+anlg-db-migrate = { workspace = true }
+anlg-db-reactive = { workspace = true }
+anlg-db-sync = { workspace = true }
+anlg-e2ee = { workspace = true }
+anlg-fs-sync-core = { workspace = true }
+anlg-session-ingest = { workspace = true }
+anlg-storage = { workspace = true }
+
+futures-util = { workspace = true }
+reqwest = { workspace = true, features = ["json", "query", "stream"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+specta = { workspace = true, features = ["serde_json"], optional = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled", "macros"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt", "sync", "time"] }
+tracing = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+
+[dev-dependencies]
+anlg-db-core = { workspace = true, features = ["test-utils"] }
+anyhow = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
+wiremock = { workspace = true }

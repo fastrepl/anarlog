@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test_fixtures;
 
+pub mod attachments;
 pub mod audio;
 pub mod error;
 pub mod folder;
@@ -192,38 +193,22 @@ impl FsSyncCore {
         filename: &str,
     ) -> Result<AttachmentSaveResult> {
         let session_dir = self.resolve_session_dir(session_id)?;
-        let attachments_dir = session_dir.join("attachments");
-
-        std::fs::create_dir_all(&attachments_dir)?;
-
-        let safe_filename = sanitize_filename(filename)?;
-        let (file_path, final_filename) =
-            write_unique_file(&attachments_dir, &safe_filename, data)?;
-
-        Ok(AttachmentSaveResult {
-            path: file_path.to_string_lossy().to_string(),
-            attachment_id: final_filename,
-        })
+        attachments::save(&session_dir, data, filename)
     }
 
     pub fn attachment_list(&self, session_id: &str) -> Result<Vec<AttachmentInfo>> {
         let session_dir = self.resolve_session_dir(session_id)?;
-        let attachments_dir = session_dir.join("attachments");
-        list_named_files(&attachments_dir)
+        attachments::list(&session_dir)
     }
 
     pub fn attachment_read(&self, session_id: &str, attachment_id: &str) -> Result<Vec<u8>> {
         let session_dir = self.resolve_session_dir(session_id)?;
-        let attachments_dir = session_dir.join("attachments");
-        let safe_attachment_id = sanitize_filename(attachment_id)?;
-
-        Ok(std::fs::read(attachments_dir.join(safe_attachment_id))?)
+        attachments::read(&session_dir, attachment_id)
     }
 
     pub fn attachment_remove(&self, session_id: &str, attachment_id: &str) -> Result<()> {
         let session_dir = self.resolve_session_dir(session_id)?;
-        let attachments_dir = session_dir.join("attachments");
-        remove_named_file(&attachments_dir, attachment_id)
+        attachments::remove(&session_dir, attachment_id)
     }
 
     pub fn folder_attachment_save(
@@ -279,7 +264,7 @@ impl FsSyncCore {
     }
 }
 
-fn list_named_files(dir: &std::path::Path) -> Result<Vec<AttachmentInfo>> {
+pub(crate) fn list_named_files(dir: &std::path::Path) -> Result<Vec<AttachmentInfo>> {
     let mut attachments = Vec::new();
 
     let entries = match std::fs::read_dir(dir) {
@@ -325,7 +310,7 @@ fn list_named_files(dir: &std::path::Path) -> Result<Vec<AttachmentInfo>> {
     Ok(attachments)
 }
 
-fn remove_named_file(dir: &std::path::Path, attachment_id: &str) -> Result<()> {
+pub(crate) fn remove_named_file(dir: &std::path::Path, attachment_id: &str) -> Result<()> {
     let entries = match std::fs::read_dir(dir) {
         Ok(entries) => entries,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
@@ -352,7 +337,7 @@ fn remove_named_file(dir: &std::path::Path, attachment_id: &str) -> Result<()> {
     Ok(())
 }
 
-fn sanitize_filename(filename: &str) -> Result<String> {
+pub(crate) fn sanitize_filename(filename: &str) -> Result<String> {
     let path = std::path::Path::new(filename);
 
     let clean_name = path.file_name().and_then(|n| n.to_str()).ok_or_else(|| {
@@ -372,7 +357,7 @@ fn sanitize_filename(filename: &str) -> Result<String> {
     Ok(clean_name.to_string())
 }
 
-fn write_unique_file(
+pub(crate) fn write_unique_file(
     dir: &std::path::Path,
     filename: &str,
     data: &[u8],

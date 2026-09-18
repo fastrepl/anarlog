@@ -1,0 +1,169 @@
+[
+  {
+    "name": "empty schedule",
+    "events": [],
+    "now_ms": 1000000,
+    "show_events": true,
+    "is_recording": false,
+    "recording_title": null,
+    "expect": { "agenda": [], "title": null, "refresh_ms": null }
+  },
+  {
+    "name": "upcoming today",
+    "events": [
+      {
+        "id": "standup",
+        "title": "Standup",
+        "meetingLink": null,
+        "startsAtMs": 1300000,
+        "endsAtMs": null,
+        "dayStartMs": 0,
+        "previousDayStartMs": -86400000,
+        "timeLabel": "12:13 PM"
+      }
+    ],
+    "now_ms": 1000000,
+    "show_events": true,
+    "is_recording": false,
+    "recording_title": null,
+    "expect": {
+      "agenda": [{ "label": "Today", "events": [{ "id": "standup", "label": "Standup · 12:13 PM" }] }],
+      "title": "Standup • in 5m",
+      "refresh_ms": 1
+    }
+  },
+  {
+    "name": "active and tomorrow events",
+    "events": [
+      {
+        "id": "active",
+        "title": "Active",
+        "meetingLink": null,
+        "startsAtMs": 999000,
+        "endsAtMs": 1060000,
+        "dayStartMs": 0,
+        "previousDayStartMs": -86400000,
+        "timeLabel": "12:00 PM"
+      },
+      {
+        "id": "tomorrow",
+        "title": "Tomorrow",
+        "meetingLink": null,
+        "startsAtMs": 87400000,
+        "endsAtMs": 87500000,
+        "dayStartMs": 86400000,
+        "previousDayStartMs": 0,
+        "timeLabel": "9:00 AM"
+      }
+    ],
+    "now_ms": 1000000,
+    "show_events": true,
+    "is_recording": false,
+    "recording_title": null,
+    "expect": {
+      "agenda": [
+        { "label": "Today", "events": [{ "id": "active", "label": "Active · 12:00 PM" }] },
+        { "label": "Tomorrow", "events": [{ "id": "tomorrow", "label": "Tomorrow · 9:00 AM" }] }
+      ],
+      "title": "Active • 1m left",
+      "refresh_ms": 1
+    }
+  },
+  {
+    "name": "ended events are hidden",
+    "events": [
+      {
+        "id": "finished",
+        "title": "Finished",
+        "meetingLink": null,
+        "startsAtMs": 900000,
+        "endsAtMs": 999999,
+        "dayStartMs": 0,
+        "previousDayStartMs": -86400000,
+        "timeLabel": "11:00 AM"
+      }
+    ],
+    "now_ms": 1000000,
+    "show_events": true,
+    "is_recording": false,
+    "recording_title": null,
+    "expect": { "agenda": [], "title": null, "refresh_ms": null }
+  },
+  {
+    "name": "hidden schedule",
+    "events": [
+      {
+        "id": "standup",
+        "title": "Standup",
+        "meetingLink": null,
+        "startsAtMs": 1300000,
+        "endsAtMs": null,
+        "dayStartMs": 0,
+        "previousDayStartMs": -86400000,
+        "timeLabel": "12:13 PM"
+      }
+    ],
+    "now_ms": 1000000,
+    "show_events": false,
+    "is_recording": false,
+    "recording_title": null,
+    "expect": { "agenda": [], "title": null, "refresh_ms": null }
+  },
+  {
+    "name": "recording title wins",
+    "events": [
+      {
+        "id": "standup",
+        "title": "Standup",
+        "meetingLink": null,
+        "startsAtMs": 1300000,
+        "endsAtMs": null,
+        "dayStartMs": 0,
+        "previousDayStartMs": -86400000,
+        "timeLabel": "12:13 PM"
+      }
+    ],
+    "now_ms": 1000000,
+    "show_events": true,
+    "is_recording": true,
+    "recording_title": "Customer call",
+    "expect": {
+      "agenda": [{ "label": "Today", "events": [{ "id": "standup", "label": "Standup · 12:13 PM" }] }],
+      "title": "Customer call",
+      "refresh_ms": 300000
+    }
+  },
+  {
+    "name": "untitled recording clears title",
+    "events": [],
+    "now_ms": 1000000,
+    "show_events": true,
+    "is_recording": true,
+    "recording_title": "  ",
+    "expect": { "agenda": [], "title": null, "refresh_ms": null }
+  },
+  {
+    "name": "all day events are represented by conversion layers",
+    "events": [
+      {
+        "id": "all-day",
+        "title": "All day",
+        "meetingLink": null,
+        "startsAtMs": 1100000,
+        "endsAtMs": null,
+        "dayStartMs": 0,
+        "previousDayStartMs": -86400000,
+        "timeLabel": "All day"
+      }
+    ],
+    "now_ms": 1000000,
+    "show_events": true,
+    "is_recording": false,
+    "recording_title": null,
+    "expect": {
+      "agenda": [{ "label": "Today", "events": [{ "id": "all-day", "label": "All day · All day" }] }],
+      "title": "All day • in 1m",
+      "refresh_ms": 40001
+    }
+  }
+]

@@ -398,6 +398,9 @@ pub fn log(path: &Path, limit: u32) -> Result<Vec<CommitInfo>, crate::Error> {
         let commit_ref = commit
             .decode()
             .map_err(|e| crate::Error::Custom(e.to_string()))?;
+        let author = commit_ref
+            .author()
+            .map_err(|e| crate::Error::Custom(e.to_string()))?;
 
         let author = commit_ref
             .author()

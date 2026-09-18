@@ -1,0 +1,20 @@
+[package]
+name = "desktop-auth"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = []
+specta = ["dep:specta"]
+
+[dependencies]
+anlg-storage = { workspace = true }
+anlg-supabase-auth = { workspace = true, features = ["client", "refresh"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+specta = { workspace = true, optional = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

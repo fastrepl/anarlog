@@ -199,6 +199,44 @@ fn test_image() {
 }
 
 #[test]
+fn test_block_image_with_editor_width() {
+    // `json2md`: a block-level image gets its own paragraph and its
+    // `editorWidth` rides in the title as `char-editor-width=NN`.
+    let json = serde_json::json!({
+        "type": "doc",
+        "content": [
+            { "type": "paragraph", "content": [{ "type": "text", "text": "before" }] },
+            {
+                "type": "image",
+                "attrs": {
+                    "src": "asset://localhost/%2Fv%2Fattachments%2Fimage.png",
+                    "alt": null,
+                    "title": null,
+                    "attachmentId": "image.png",
+                    "sharedAttachmentId": null,
+                    "editorWidth": 80
+                }
+            },
+            {
+                "type": "image",
+                "attrs": { "src": "https://example.com/a.png", "title": "Shot", "editorWidth": 62.4 }
+            },
+            { "type": "paragraph", "content": [{ "type": "text", "text": "after" }] }
+        ]
+    });
+
+    insta::assert_snapshot!(to_md(json), @r#"
+    before
+
+    ![](asset://localhost/%2Fv%2Fattachments%2Fimage.png "char-editor-width=80")
+
+    ![](https://example.com/a.png "char-editor-width=62|Shot")
+
+    after
+    "#);
+}
+
+#[test]
 fn test_md_to_tiptap_basic() {
     let md = "# Hello\n\nWorld";
     let json = md_to_tiptap_json(md).unwrap();

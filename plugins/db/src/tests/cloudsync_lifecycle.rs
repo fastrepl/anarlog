@@ -52,7 +52,10 @@ async fn sign_out_suspend_command_defers_busy_pool_teardown() {
     .unwrap();
     anlg_db_app::prepare_schema(&db).await.unwrap();
     db.cloudsync_init("sessions", None, None).await.unwrap();
-    let runtime = Arc::new(runtime::PluginDbRuntime::new(Arc::new(db)));
+    let runtime = Arc::new(runtime::PluginDbRuntime::new(
+        Arc::new(db),
+        tauri::async_runtime::handle().inner().clone(),
+    ));
     runtime
         .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
         .await

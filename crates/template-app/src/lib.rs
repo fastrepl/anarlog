@@ -23,7 +23,7 @@ pub use validate::*;
 #[macro_export]
 macro_rules! common_derives {
     ($item:item) => {
-        #[derive(Clone, serde::Deserialize, serde::Serialize, specta::Type)]
+        #[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize, specta::Type)]
         #[serde(rename_all = "camelCase")]
         $item
     };

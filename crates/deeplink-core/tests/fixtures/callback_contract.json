@@ -1,0 +1,67 @@
+[
+  {
+    "name": "subscription callback",
+    "path": "/auth/callback",
+    "query": "code=code-1&state=state-1",
+    "scheme": "anarlog",
+    "expect": {
+      "ok": true,
+      "path": "/auth/callback",
+      "html_contains": ["Connected successfully", "anarlog://auth/callback?code=code-1", "state=state-1"]
+    }
+  },
+  {
+    "name": "token callback",
+    "path": "auth/callback",
+    "query": "access_token=access&refresh_token=refresh",
+    "scheme": "anarlog-dev",
+    "expect": {
+      "ok": true,
+      "path": "/auth/callback",
+      "html_contains": ["Signed in successfully", "anarlog-dev://focus"]
+    }
+  },
+  {
+    "name": "billing callback",
+    "path": "/billing/refresh",
+    "query": "",
+    "scheme": "anarlog-staging",
+    "expect": {
+      "ok": true,
+      "path": "/billing/refresh",
+      "html_contains": ["Subscription updated", "anarlog-staging://focus"]
+    }
+  },
+  {
+    "name": "integration callback",
+    "path": "/integration/callback",
+    "query": "integration_id=calendar&status=success",
+    "scheme": "anarlog",
+    "expect": {
+      "ok": true,
+      "path": "/integration/callback",
+      "html_contains": ["Connected successfully", "anarlog://focus"]
+    }
+  },
+  {
+    "name": "demo completion callback",
+    "path": "onboarding-demo/complete",
+    "query": "",
+    "scheme": "anarlog-dev",
+    "expect": {
+      "ok": true,
+      "path": "/onboarding-demo/complete",
+      "html_contains": ["Demo complete", "anarlog-dev://focus"]
+    }
+  },
+  {
+    "name": "invalid callback",
+    "path": "/unknown",
+    "query": "",
+    "scheme": "anarlog",
+    "expect": {
+      "ok": false,
+      "html_contains": ["Something went wrong"]
+    }
+  }
+]

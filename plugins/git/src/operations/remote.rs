@@ -88,7 +88,7 @@ pub fn pull(path: &Path, remote_name: &str, branch: &str) -> Result<PullResult, 
     let remote_ref = format!("refs/remotes/{}/{}", remote_name, branch);
     let remote_commit = match repo.find_reference(&remote_ref) {
         Ok(mut reference) => reference
-            .peel_to_id_in_place()
+            .peel_to_id()
             .map_err(|e| crate::Error::Custom(e.to_string()))?
             .detach(),
         Err(_) => return Ok(PullResult::AlreadyUpToDate),
@@ -97,7 +97,7 @@ pub fn pull(path: &Path, remote_name: &str, branch: &str) -> Result<PullResult, 
     let local_ref = format!("refs/heads/{}", branch);
     let local_commit = match repo.find_reference(&local_ref) {
         Ok(mut reference) => reference
-            .peel_to_id_in_place()
+            .peel_to_id()
             .map_err(|e| crate::Error::Custom(e.to_string()))?
             .detach(),
         Err(_) => {

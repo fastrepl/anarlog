@@ -6,6 +6,7 @@ mod db;
 mod embedded_cli;
 mod ext;
 mod search_index;
+mod shell;
 mod startup;
 mod store;
 mod supervisor;
@@ -14,6 +15,7 @@ use db::{cloudsync_runtime_config_from_env, open_desktop_db};
 use ext::*;
 use store::*;
 
+use anlg_crash_reporting::{Options as CrashReportingOptions, consent::CONSENT_QUERY};
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -29,7 +31,6 @@ const STAGING_BUNDLE_ID: &str = "com.hyprnote.staging";
 const APP_EXIT_REQUESTED_EVENT: &str = "app-exit-requested";
 static EXIT_FLUSH_COMPLETE: AtomicBool = AtomicBool::new(false);
 static EXIT_FLUSH_REQUESTED: AtomicBool = AtomicBool::new(false);
-static CRASH_REPORTING_ENABLED: AtomicBool = AtomicBool::new(false);
 const EXIT_FLUSH_FALLBACK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 const EXIT_HARD_FALLBACK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(12);
 
@@ -37,12 +38,12 @@ pub(crate) struct CrashReportingState;
 
 impl CrashReportingState {
     fn new(enabled: bool) -> Self {
-        CRASH_REPORTING_ENABLED.store(enabled, Ordering::SeqCst);
+        anlg_crash_reporting::set_enabled(enabled);
         Self
     }
 
     fn set_enabled(&self, enabled: bool) {
-        CRASH_REPORTING_ENABLED.store(enabled, Ordering::SeqCst);
+        anlg_crash_reporting::set_enabled(enabled);
     }
 }
 
@@ -51,27 +52,12 @@ fn run_crash_reporter_process() -> ! {
 }
 
 async fn load_crash_reporting_consent(db: &anlg_db_core::Db) -> bool {
-    let rows = sqlx::query_as::<_, (String, String)>(
-        "SELECT id, value_json FROM app_settings \
-         WHERE id IN ('crash_reporting_consent', 'telemetry_consent')",
-    )
-    .fetch_all(db.pool())
-    .await
-    .unwrap_or_default();
+    let rows = sqlx::query_as::<_, (String, String)>(CONSENT_QUERY)
+        .fetch_all(db.pool())
+        .await
+        .unwrap_or_default();
 
-    crash_reporting_consent_from_rows(&rows)
-}
-
-fn crash_reporting_consent_from_rows(rows: &[(String, String)]) -> bool {
-    let read = |id: &str| {
-        rows.iter()
-            .find(|(key, _)| key == id)
-            .and_then(|(_, value)| serde_json::from_str::<bool>(value).ok())
-    };
-
-    read("crash_reporting_consent")
-        .or_else(|| read("telemetry_consent"))
-        .unwrap_or(false)
+    anlg_crash_reporting::consent::from_rows(&rows)
 }
 
 fn mark_exit_flush_complete() {
@@ -130,6 +116,8 @@ pub fn main() {
     let context = tauri::generate_context!();
     let identifier = context.config().identifier.clone();
 
+    shell::hand_off_if_preferred(&identifier);
+
     // The single-instance plugin only starts with the builder, which is too
     // late to keep a second launch from racing an in-flight startup migration.
     let launch_lock = match startup::acquire_launch_lock(&identifier) {
@@ -181,52 +169,15 @@ pub fn main() {
             )
         });
 
-    let sentry_client = {
-        let dsn = if std::env::var_os("ANARLOG_DISABLE_SENTRY").is_some() {
-            None
-        } else {
-            option_env!("SENTRY_DSN")
-        };
-
-        if let Some(dsn) = dsn {
-            let release =
-                option_env!("APP_VERSION").map(|v| format!("anarlog-desktop@{}", v).into());
-
-            let client = sentry::init((
-                dsn,
-                sentry::ClientOptions {
-                    release,
-                    traces_sample_rate: 1.0,
-                    auto_session_tracking: false,
-                    before_send: Some(Arc::new(|event| {
-                        CRASH_REPORTING_ENABLED
-                            .load(Ordering::SeqCst)
-                            .then(|| tauri_plugin_tracing::redaction::sanitize_sentry_event(event))
-                            .flatten()
-                    })),
-                    before_breadcrumb: Some(Arc::new(|breadcrumb| {
-                        CRASH_REPORTING_ENABLED
-                            .load(Ordering::SeqCst)
-                            .then_some(breadcrumb)
-                    })),
-                    ..Default::default()
-                },
-            ));
-
-            sentry::configure_scope(|scope| {
-                scope.set_tag("service.namespace", "anarlog");
-                scope.set_tag("service.name", "desktop");
-                scope.set_tag(
-                    "release_channel",
-                    option_env!("RELEASE_CHANNEL").unwrap_or("dev"),
-                );
-            });
-
-            Some(client)
-        } else {
-            None
-        }
-    };
+    let sentry_client = anlg_crash_reporting::init(
+        CrashReportingOptions {
+            dsn: option_env!("SENTRY_DSN"),
+            release: option_env!("APP_VERSION").map(|v| format!("anarlog-desktop@{v}")),
+            release_channel: option_env!("RELEASE_CHANNEL").unwrap_or("dev"),
+            service_name: "desktop",
+        },
+        crash_reporting_enabled,
+    );
     let crash_reporting_state = CrashReportingState::new(crash_reporting_enabled);
 
     let audio: std::sync::Arc<dyn anlg_audio_actual::AudioProvider> =
@@ -671,6 +622,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::get_env::<tauri::Wry>,
             commands::show_devtool::<tauri::Wry>,
             commands::is_app_store_build,
+            commands::is_native_shell_available,
+            commands::switch_to_native_shell::<tauri::Wry>,
             commands::request_local_database_reset::<tauri::Wry>,
             commands::complete_app_exit::<tauri::Wry>,
             commands::get_tinybase_values::<tauri::Wry>,
@@ -746,9 +699,9 @@ mod test {
             ("crash_reporting_consent".to_string(), "true".to_string()),
         ];
 
-        assert!(crash_reporting_consent_from_rows(&rows));
-        assert!(!crash_reporting_consent_from_rows(&rows[..1]));
-        assert!(!crash_reporting_consent_from_rows(&[]));
+        assert!(anlg_crash_reporting::consent::from_rows(&rows));
+        assert!(!anlg_crash_reporting::consent::from_rows(&rows[..1]));
+        assert!(!anlg_crash_reporting::consent::from_rows(&[]));
     }
 
     #[test]

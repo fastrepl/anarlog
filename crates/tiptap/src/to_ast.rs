@@ -13,7 +13,20 @@ fn convert_content(json: &serde_json::Value) -> Vec<mdast::Node> {
         return vec![];
     };
 
-    content.iter().filter_map(convert_node).collect()
+    content
+        .iter()
+        .filter_map(|node| {
+            // `json2md`'s `wrapBlockImages`: a block-level image is its own
+            // paragraph, so it serialises on a line of its own.
+            if node.get("type").and_then(|t| t.as_str()) == Some("image") {
+                return Some(mdast::Node::Paragraph(mdast::Paragraph {
+                    children: vec![convert_image(node)],
+                    position: None,
+                }));
+            }
+            convert_node(node)
+        })
+        .collect()
 }
 
 fn convert_node(node: &serde_json::Value) -> Option<mdast::Node> {
@@ -211,14 +224,30 @@ fn convert_image(node: &serde_json::Value) -> mdast::Node {
     let title = attrs
         .and_then(|a| a.get("title"))
         .and_then(|t| t.as_str())
+        .filter(|title| !title.is_empty())
         .map(|s| s.to_string());
+    let editor_width = attrs
+        .and_then(|a| a.get("editorWidth"))
+        .and_then(|w| w.as_f64())
+        .filter(|w| w.is_finite())
+        .map(|w| (w.round() as i64).clamp(15, 100));
 
     mdast::Node::Image(mdast::Image {
         url,
         alt,
-        title,
+        title: image_title_metadata(editor_width, title),
         position: None,
     })
+}
+
+/// `serializeImageTitleMetadata`: the editor width rides in the title as
+/// `char-editor-width=NN`, ahead of any real title after a `|`.
+fn image_title_metadata(editor_width: Option<i64>, title: Option<String>) -> Option<String> {
+    match (editor_width, title) {
+        (Some(width), Some(title)) => Some(format!("char-editor-width={width}|{title}")),
+        (Some(width), None) => Some(format!("char-editor-width={width}")),
+        (None, title) => title,
+    }
 }
 
 fn convert_mention(node: &serde_json::Value) -> mdast::Node {

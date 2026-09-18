@@ -1,5 +1,4 @@
 mod commands;
-mod error;
 mod pending_deep_link;
 mod pending_share_open;
 pub mod server;
@@ -8,7 +7,7 @@ mod types;
 #[cfg(test)]
 mod docs;
 
-pub use error::{Error, Result};
+pub use anlg_deeplink_core::{Error, Result};
 pub use types::{
     AuthCallbackSearch, BillingRefreshSearch, DeepLink, DeepLinkEvent, IntegrationCallbackSearch,
     OnboardingDemoCompleteSearch, ShareOpenPendingEvent, ShareOpenRequest,
@@ -21,18 +20,6 @@ use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_specta::Event;
 
 const PLUGIN_NAME: &str = "deeplink2";
-
-fn redact_url(url_str: &str) -> String {
-    match url::Url::parse(url_str) {
-        Ok(parsed) => {
-            let scheme = parsed.scheme();
-            let host = parsed.host_str().unwrap_or("");
-            let path = parsed.path();
-            format!("{}://{}{}", scheme, host, path)
-        }
-        Err(_) => "[invalid_url]".to_string(),
-    }
-}
 
 fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
     tauri_specta::Builder::<R>::new()
@@ -58,13 +45,32 @@ enum Delivery {
     Queue,
 }
 
+#[derive(Debug)]
+pub(crate) enum Classified {
+    DeepLink(DeepLink),
+    ShareOpen(ShareOpenRequest),
+    Invalid(anlg_deeplink_core::Error),
+}
+
+pub(crate) fn classify(url: &str) -> Classified {
+    match anlg_deeplink_core::IncomingDeepLink::from_str(url) {
+        Ok(anlg_deeplink_core::IncomingDeepLink::Existing(deep_link)) => {
+            Classified::DeepLink(deep_link)
+        }
+        Ok(anlg_deeplink_core::IncomingDeepLink::ShareOpen(request)) => {
+            Classified::ShareOpen(request)
+        }
+        Err(error) => Classified::Invalid(error),
+    }
+}
+
 fn process_url<R: Runtime>(app_handle: &AppHandle<R>, url: &url::Url, delivery: Delivery) {
     let url_str = url.as_str();
-    let redacted = redact_url(url_str);
+    let redacted = anlg_deeplink_core::redact_url(url_str);
     tracing::info!(url = %redacted, "deeplink_received");
 
-    match types::IncomingDeepLink::from_str(url_str) {
-        Ok(types::IncomingDeepLink::Existing(deep_link)) => {
+    match classify(url_str) {
+        Classified::DeepLink(deep_link) => {
             tracing::info!(path = deep_link.path(), "deeplink_parsed");
             match delivery {
                 Delivery::Emit => {
@@ -83,7 +89,7 @@ fn process_url<R: Runtime>(app_handle: &AppHandle<R>, url: &url::Url, delivery: 
                 }
             }
         }
-        Ok(types::IncomingDeepLink::ShareOpen(request)) => {
+        Classified::ShareOpen(request) => {
             let state = app_handle.state::<pending_share_open::PendingShareOpenState>();
             match state.push(request) {
                 Ok(pending_id) => {
@@ -100,7 +106,7 @@ fn process_url<R: Runtime>(app_handle: &AppHandle<R>, url: &url::Url, delivery: 
                 }
             }
         }
-        Err(error) => {
+        Classified::Invalid(error) => {
             tracing::debug!(?error, url = %redacted, "deeplink_parse_failed");
         }
     }
@@ -169,14 +175,6 @@ mod test {
         std::fs::write(OUTPUT_FILE, format!("// @ts-nocheck\n{content}")).unwrap();
     }
 
-    #[test]
-    fn redacts_query_and_fragment_from_logged_urls() {
-        let value = redact_url(
-            "anarlog://share/open?mode=handoff&request_id=ba5ca57a-8f88-44e8-ab92-f9e10c89425c#secret",
-        );
-        assert_eq!(value, "anarlog://share/open");
-    }
-
     fn export_docs() {
         let source_code = std::fs::read_to_string("./js/bindings.gen.ts").unwrap();
         let deeplinks = docs::parse_deeplinks(&source_code).unwrap();
@@ -189,6 +187,40 @@ mod test {
             let filepath = output_dir.join(deeplink.doc_path());
             let content = deeplink.doc_render();
             std::fs::write(&filepath, content).unwrap();
+        }
+    }
+}
+
+#[cfg(test)]
+mod contract_tests {
+    use super::{Classified, classify};
+    use anlg_deeplink_core::contract::deeplink_cases;
+
+    #[test]
+    fn adapter_matches_deeplink_contract() {
+        for case in deeplink_cases() {
+            match (classify(&case.url), case.expect.kind.as_str()) {
+                (Classified::DeepLink(deep_link), "deep_link") => {
+                    assert_eq!(
+                        Some(deep_link.path()),
+                        case.expect.path.as_deref(),
+                        "{}",
+                        case.name
+                    );
+                }
+                (Classified::ShareOpen(_), "share_open") => {
+                    assert_eq!(
+                        case.expect.path.as_deref(),
+                        Some("/share/open"),
+                        "{}",
+                        case.name
+                    );
+                }
+                (Classified::Invalid(_), "invalid") => {}
+                (classified, expected) => {
+                    panic!("{}: expected {expected}, got {classified:?}", case.name)
+                }
+            }
         }
     }
 }
