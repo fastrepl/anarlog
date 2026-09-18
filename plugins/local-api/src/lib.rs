@@ -586,10 +586,14 @@ mod test {
         let path = directory
             .path()
             .join(commands::markdown_export_filename(&export.meeting));
-        let other = "# Another meeting\n\n- ID: `meeting-2`\n- Date: 2026-07-13\n\n## Notes\n\n- ID: `meeting-1`\n";
-        std::fs::write(&path, other).unwrap();
-        assert!(commands::write_markdown_export(directory.path(), &export).is_err());
-        assert_eq!(std::fs::read_to_string(path).unwrap(), other);
+        for other in [
+            "# Another meeting\n\n- ID: `meeting-2`\n- Date: 2026-07-13\n\n## Notes\n\n- ID: `meeting-1`\n",
+            "# My notes\n\nThis meeting needs a follow-up:\n\n- ID: `meeting-1`\n",
+        ] {
+            std::fs::write(&path, other).unwrap();
+            assert!(commands::write_markdown_export(directory.path(), &export).is_err());
+            assert_eq!(std::fs::read_to_string(&path).unwrap(), other);
+        }
     }
 
     #[tokio::test]

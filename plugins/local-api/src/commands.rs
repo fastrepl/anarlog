@@ -321,8 +321,12 @@ pub(crate) fn write_markdown_export_with_options(
     let existing = match std::fs::read_to_string(&path) {
         Ok(content) => {
             let marker = format!("- ID: `{}`", export.meeting.id);
-            let existing_id = content.lines().find(|line| line.starts_with("- ID: `"));
-            if existing_id != Some(marker.as_str()) {
+            let mut lines = content.lines();
+            let existing_id = lines.find(|line| line.starts_with("- ID: `"));
+            let has_export_date = lines
+                .next()
+                .is_some_and(|line| line.starts_with("- Date: "));
+            if existing_id != Some(marker.as_str()) || !has_export_date {
                 return Err(format!(
                     "{filename} already exists for another file; choose a different filename or include the meeting ID suffix"
                 ));
