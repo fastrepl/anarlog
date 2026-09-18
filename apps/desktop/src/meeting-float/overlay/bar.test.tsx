@@ -61,7 +61,7 @@ describe("FloatingBarOverlay", () => {
         .parentElement!.parentElement!;
       expect(controls.style.top).toBe("0px");
       expect(controls.style.bottom).toBe("");
-      expect(controls.style.left).toBe("calc(100% - 51.5px)");
+      expect(controls.style.left).toBe("calc(100% - 50px)");
     },
   );
 
@@ -164,7 +164,7 @@ describe("FloatingBarOverlay", () => {
     expect(
       screen.getByRole("button", { name: "Collapse live transcript" }),
     ).toBe(toggle);
-    expect(screen.getByText("Weekly sync")).toBeTruthy();
+    expect(screen.queryByText("Weekly sync")).toBeNull();
     expect(screen.getByText("Let's start.")).toBeTruthy();
 
     fireEvent.click(

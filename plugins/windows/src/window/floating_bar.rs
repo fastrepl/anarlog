@@ -84,7 +84,7 @@ pub(crate) mod layout {
     pub const COMPACT_STOP_WIDTH: f64 = 62.0;
     pub const COMPACT_SOLO_STOP_WIDTH: f64 = 68.0;
     pub const COMPACT_ICON_SIZE: f64 = 30.0;
-    pub const COMPACT_GAP: f64 = 3.0;
+    pub const COMPACT_GAP: f64 = 0.0;
     pub const COMPACT_HORIZONTAL_PADDING: f64 = 4.0;
     pub const EXPANDED_WIDTH: f64 = 360.0;
     pub const EXPANDED_HEIGHT: f64 = 430.0;
@@ -593,13 +593,13 @@ mod tests {
 
     #[test]
     fn dictation_sizes_preserve_the_shared_panel_anchors() {
-        assert_eq!(layout::dictation_container_size(false), (111.0, 67.0));
+        assert_eq!(layout::dictation_container_size(false), (108.0, 67.0));
         assert_eq!(layout::dictation_container_size(true), (368.0, 459.0));
     }
     #[test]
     fn sizes_the_compact_and_expanded_windows() {
         assert_eq!(layout::container_size(false, false), (84.0, 67.0));
-        assert_eq!(layout::container_size(false, true), (111.0, 67.0));
+        assert_eq!(layout::container_size(false, true), (108.0, 67.0));
         assert_eq!(layout::container_size(true, true), (368.0, 459.0));
     }
 

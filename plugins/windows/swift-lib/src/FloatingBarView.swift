@@ -11,7 +11,7 @@ enum FloatingBarLayout {
   static let compactStopWidth: CGFloat = 62
   static let compactSoloStopWidth: CGFloat = 68
   static let compactIconSize: CGFloat = 30
-  static let compactGap: CGFloat = 3
+  static let compactGap: CGFloat = 0
   static let compactHorizontalPadding: CGFloat = 4
   static let expandedWidth: CGFloat = 360
   static let expandedHeight: CGFloat = 430
@@ -71,13 +71,14 @@ struct FloatingBarView: View {
   private var expandsUpward: Bool { model.placement?.expandsUpward ?? true }
 
   var body: some View {
+    let showsHoverHandle = isBarHovered && !model.isExpanded
     let width = containerSize.width - FloatingBarLayout.inset * 2
     let radius =
       model.isExpanded
       ? FloatingBarLayout.expandedCornerRadius : FloatingBarLayout.compactCornerRadius
     let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
     ZStack(alignment: .bottom) {
-      if isBarHovered {
+      if showsHoverHandle {
         FloatingBarHoverHandle(color: dragHandleDotColor, width: width)
           .frame(height: FloatingBarLayout.hoverHandleHeight)
           .padding(.top, FloatingBarLayout.hoverHandleTopPadding)
@@ -107,7 +108,7 @@ struct FloatingBarView: View {
     }
     .frame(
       width: width,
-      height: bodyHeight + (isBarHovered ? FloatingBarLayout.hoverHandleReservedHeight : 0),
+      height: bodyHeight + (showsHoverHandle ? FloatingBarLayout.hoverHandleReservedHeight : 0),
       alignment: .bottom
     )
     .background(shape.fill(isBarHovered && !model.isExpanded ? envelopeSurfaceColor : surfaceColor))
@@ -130,22 +131,6 @@ struct FloatingBarView: View {
 
   private var expandedPanel: some View {
     VStack(spacing: 12) {
-      HStack {
-        Text(
-          model.dictation?.phase == "transcribing"
-            ? "Finishing…" : model.dictation?.phase == "starting" ? "Starting…" : model.title
-        )
-        .font(.system(size: 13, weight: .semibold))
-        .foregroundStyle(primaryContentColor)
-        .lineLimit(1)
-        .truncationMode(.tail)
-
-        Spacer(minLength: 12)
-      }
-      .padding(.leading, FloatingBarLayout.expandedPadding + 4)
-      .padding(.trailing, FloatingBarLayout.expandedPadding + 4)
-      .frame(height: FloatingBarLayout.compactHeight)
-
       ScrollViewReader { proxy in
         ZStack(alignment: .bottom) {
           ScrollView(.vertical, showsIndicators: false) {
@@ -203,7 +188,7 @@ struct FloatingBarView: View {
       }
       .id(model.dictation?.sessionId)
       .padding(.horizontal, FloatingBarLayout.expandedPadding)
-      .padding(.bottom, FloatingBarLayout.expandedPadding)
+      .padding(.vertical, FloatingBarLayout.expandedPadding)
     }
   }
 
@@ -661,19 +646,13 @@ private struct TranscriptBubbleView: View {
         Spacer(minLength: 40)
       }
 
-      VStack(alignment: bubble.isSelf ? .trailing : .leading, spacing: 4) {
+      VStack(alignment: .leading, spacing: 4) {
         if showsSpeakerLabel || isOverlapping {
           HStack(spacing: 4) {
-            if bubble.isSelf {
-              overlapGlyph
-              speakerLabel
-            } else {
-              speakerLabel
-              overlapGlyph
-            }
+            speakerLabel
+            overlapGlyph
           }
-          .frame(maxWidth: .infinity, alignment: bubble.isSelf ? .trailing : .leading)
-          .padding(.horizontal, 3)
+          .frame(maxWidth: .infinity, alignment: .leading)
         }
 
         let shape = RoundedRectangle(cornerRadius: 11, style: .continuous)
