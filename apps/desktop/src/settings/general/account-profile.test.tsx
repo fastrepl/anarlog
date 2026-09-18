@@ -214,3 +214,44 @@ it("loads saved contact fields and removes a photo without clearing other detail
     }),
   );
 });
+
+it("formats phone numbers on blur and saves the country-specific format", async () => {
+  render(view());
+  const phone = screen.getByLabelText("Phone") as HTMLInputElement;
+  fireEvent.change(phone, { target: { value: "+821012345678" } });
+  expect(phone.value).toBe("+821012345678");
+  fireEvent.blur(phone);
+  expect(phone.value).toBe("+82 10 1234 5678");
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() =>
+    expect(mocks.save).toHaveBeenCalledWith(
+      "account-1",
+      expect.objectContaining({ phone: "+82 10 1234 5678" }),
+    ),
+  );
+});
+
+it("formats a saved phone without marking the profile dirty", () => {
+  mocks.contact.data = { name: "Ada", phone: "+16693299320" };
+  render(view());
+  expect((screen.getByLabelText("Phone") as HTMLInputElement).value).toBe(
+    "+1 669 329 9320",
+  );
+  expect(
+    (screen.getByRole("button", { name: "Save" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+});
+
+it("formats a phone on keyboard submit without requiring blur", async () => {
+  render(view());
+  const phone = screen.getByLabelText("Phone") as HTMLInputElement;
+  fireEvent.change(phone, { target: { value: "+442079460018" } });
+  fireEvent.submit(phone.closest("form")!);
+  await waitFor(() =>
+    expect(mocks.save).toHaveBeenCalledWith(
+      "account-1",
+      expect.objectContaining({ phone: "+44 20 7946 0018" }),
+    ),
+  );
+});

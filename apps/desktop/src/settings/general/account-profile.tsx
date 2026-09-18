@@ -6,6 +6,8 @@ import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
 import { Textarea } from "@anlg/ui/components/ui/textarea";
 
+import { formatProfilePhone } from "./phone";
+
 import { useAuth } from "~/auth";
 import { AvatarUploadButton, ContactImage } from "~/contacts/contact-avatar";
 import { ContactOrganizationSelector } from "~/contacts/details";
@@ -70,7 +72,7 @@ function ProfileForm({
       name:
         human?.name ?? (typeof metadataName === "string" ? metadataName : ""),
       email: human?.email ?? auth.session?.user.email ?? "",
-      phone: human?.phone ?? "",
+      phone: formatProfilePhone(human?.phone ?? "", navigator.language),
       jobTitle: human?.jobTitle ?? "",
       linkedinUsername: human?.linkedinUsername ?? "",
       memo: human?.memo ?? "",
@@ -79,8 +81,12 @@ function ProfileForm({
     },
     onSubmit: async ({ value }) => {
       try {
-        await save.mutateAsync(value);
-        form.reset(value);
+        const formatted = {
+          ...value,
+          phone: formatProfilePhone(value.phone, navigator.language),
+        };
+        await save.mutateAsync(formatted);
+        form.reset(formatted);
       } catch {
         // The mutation keeps the error visible and the draft available to retry.
       }
@@ -152,7 +158,18 @@ function ProfileForm({
                   type={type}
                   value={field.state.value}
                   onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
+                  onBlur={() => {
+                    if (name === "phone") {
+                      field.handleChange(
+                        formatProfilePhone(
+                          field.state.value,
+                          navigator.language,
+                        ),
+                      );
+                    }
+                    field.handleBlur();
+                  }}
+                  placeholder={name === "phone" ? "+1 202 555 0123" : undefined}
                 />
               </label>
             )}
