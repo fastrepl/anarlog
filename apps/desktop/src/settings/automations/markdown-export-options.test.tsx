@@ -23,7 +23,7 @@ describe("Markdown export options", () => {
       "Summary",
       "Transcript",
       "Collect action items",
-      "Include ID [a1b2c3d4]",
+      "Include meeting ID [a1b2c3d4]",
     ]) {
       expect(
         (screen.getByRole("checkbox", { name: label }) as HTMLInputElement)
@@ -32,9 +32,9 @@ describe("Markdown export options", () => {
     }
     fireEvent.click(screen.getByRole("checkbox", { name: "Transcript" }));
     fireEvent.click(
-      screen.getByRole("checkbox", { name: "Include ID [a1b2c3d4]" }),
+      screen.getByRole("checkbox", { name: "Include meeting ID [a1b2c3d4]" }),
     );
-    fireEvent.change(screen.getByRole("textbox", { name: "Name" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Filename" }), {
       target: { value: "{date} {title} recap" },
     });
     expect(
@@ -48,12 +48,13 @@ describe("Markdown export options", () => {
     expect(
       (
         screen.getByRole("checkbox", {
-          name: "Include ID [a1b2c3d4]",
+          name: "Include meeting ID [a1b2c3d4]",
         }) as HTMLInputElement
       ).checked,
     ).toBe(false);
     expect(
-      (screen.getByRole("textbox", { name: "Name" }) as HTMLInputElement).value,
+      (screen.getByRole("textbox", { name: "Filename" }) as HTMLInputElement)
+        .value,
     ).toBe("{date} {title} recap");
   });
 
@@ -67,7 +68,9 @@ describe("Markdown export options", () => {
     ]) {
       fireEvent.click(screen.getByRole("checkbox", { name: label }));
     }
-    expect(screen.getByRole("alert").textContent).toBe("Needs setup");
+    expect(screen.getByRole("alert").textContent).toBe(
+      "Choose at least one section to export.",
+    );
     fireEvent.click(screen.getByRole("checkbox", { name: "Memo" }));
     expect(screen.queryByRole("alert")).toBeNull();
   });

@@ -50,13 +50,13 @@ export function MarkdownExportOptionsConfig({
         </div>
         {!hasMarkdownExportContent(options) && (
           <p role="alert" className="text-destructive text-xs">
-            <Trans>Needs setup</Trans>
+            <Trans>Choose at least one section to export.</Trans>
           </p>
         )}
       </fieldset>
       <div className="flex flex-col gap-2">
         <label htmlFor={filenameId} className="text-xs font-medium">
-          <Trans>Name</Trans>
+          <Trans>Filename</Trans>
         </label>
         <Input
           id={filenameId}
@@ -69,9 +69,7 @@ export function MarkdownExportOptionsConfig({
           }
         />
         <p id={helpId} className="text-muted-foreground text-xs">
-          <Trans>
-            Use a stable filename in the configured export directory.
-          </Trans>
+          <Trans>Leave blank to use the meeting date and title.</Trans>
         </p>
         <dl className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs">
           <div className="flex items-center gap-1.5">
@@ -102,8 +100,7 @@ export function MarkdownExportOptionsConfig({
               onChange({ ...options, include_id_suffix: event.target.checked })
             }
           />
-          <Trans>Include</Trans>
-          {" ID "}
+          <Trans>Include meeting ID</Trans>{" "}
           <code className="text-muted-foreground">[a1b2c3d4]</code>
         </label>
       </div>
