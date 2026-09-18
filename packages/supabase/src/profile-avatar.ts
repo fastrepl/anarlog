@@ -43,11 +43,11 @@ export async function saveProfileAvatar(
     if (updated.error) throw updated.error;
     if (!updated.data.user || updated.data.user.id !== userId)
       throw new Error("Account changed during photo update");
-    const oldUrl = data.user.user_metadata.profile_avatar?.url;
+    const oldUrl = data.user.user_metadata?.profile_avatar?.url;
     const prefix = bucket.getPublicUrl(`${userId}/`).data.publicUrl;
     if (typeof oldUrl === "string" && oldUrl.startsWith(prefix)) {
       const oldPath = `${userId}/${oldUrl.slice(prefix.length)}`;
-      await bucket.remove([oldPath]).catch(() => undefined);
+      await removeAvatar(bucket, oldPath);
     }
     return updated.data.user;
   } catch (error) {
@@ -57,11 +57,28 @@ export async function saveProfileAvatar(
       if (
         !current?.error &&
         current?.data.user?.id === userId &&
-        current.data.user.user_metadata.profile_avatar?.url !== url
+        current.data.user.user_metadata?.profile_avatar?.url !== url
       ) {
-        await bucket.remove([path]).catch(() => undefined);
+        await removeAvatar(bucket, path);
       }
     }
     throw error;
   }
+}
+
+async function removeAvatar(
+  bucket: ReturnType<SupabaseClient["storage"]["from"]>,
+  path: string,
+) {
+  let failure: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const { error } = await bucket.remove([path]);
+      if (!error) return;
+      failure = error;
+    } catch (error) {
+      failure = error;
+    }
+  }
+  console.warn("Profile photo cleanup failed", failure);
 }

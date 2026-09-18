@@ -44,6 +44,9 @@ export function useSharedProfilePhoto(userId: string) {
   useEffect(() => {
     if (
       enabled &&
+      profile.isSuccess &&
+      !profile.isFetching &&
+      profile.isFetchedAfterMount &&
       localExists &&
       custom !== undefined &&
       custom !== localPhoto
@@ -56,6 +59,9 @@ export function useSharedProfilePhoto(userId: string) {
     localExists,
     localPhoto,
     profile.dataUpdatedAt,
+    profile.isSuccess,
+    profile.isFetching,
+    profile.isFetchedAfterMount,
     mirror.mutate,
   ]);
   return profile;
@@ -98,6 +104,9 @@ export function ProfilePhoto({
     if (
       !migrated.current &&
       cloud &&
+      profile.isSuccess &&
+      !profile.isFetching &&
+      profile.isFetchedAfterMount &&
       profile.data &&
       getCustomProfileImageUrl(profile.data) === undefined &&
       localPhoto?.startsWith("data:image/")
@@ -105,7 +114,15 @@ export function ProfilePhoto({
       migrated.current = true;
       save.mutate(localPhoto);
     }
-  }, [cloud, localPhoto, profile.data, save.mutate]);
+  }, [
+    cloud,
+    localPhoto,
+    profile.data,
+    profile.isSuccess,
+    profile.isFetching,
+    profile.isFetchedAfterMount,
+    save.mutate,
+  ]);
   const custom = cloud ? getCustomProfileImageUrl(profile.data) : undefined;
   const photo =
     save.isPending || save.isError

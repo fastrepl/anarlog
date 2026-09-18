@@ -730,6 +730,7 @@ describe("contact SQLite queries", () => {
 });
 
 it("preserves the photo when autosaving unrelated profile fields", async () => {
+  vi.clearAllMocks();
   await savePersonalContact("account-1", {
     name: "Ada",
     email: "ada@example.com",
@@ -739,6 +740,7 @@ it("preserves the photo when autosaving unrelated profile fields", async () => {
     memo: "",
     organizationId: "",
   });
+  expect(mocks.executeTransaction).toHaveBeenCalledTimes(1);
   const statement =
     mocks.executeTransaction.mock.calls[
       mocks.executeTransaction.mock.calls.length - 1

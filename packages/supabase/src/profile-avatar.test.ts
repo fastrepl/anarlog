@@ -58,6 +58,7 @@ it("persists an explicit removal and does not upload", async () => {
   expect(f.updateUser).toHaveBeenCalledWith({
     data: { profile_avatar: { url: null } },
   });
+  expect(f.remove).toHaveBeenCalledWith(["user-1/old.jpg"]);
 });
 
 it("keeps the published photo if upload fails", async () => {
@@ -117,3 +118,28 @@ it("retains an upload when publication may have succeeded but cannot be verified
   ).rejects.toThrow("lost response");
   expect(f.remove).not.toHaveBeenCalled();
 });
+
+it("retries returned storage cleanup errors", async () => {
+  const f = fixture();
+  f.remove.mockResolvedValueOnce({
+    error: new Error("temporary storage failure"),
+  });
+  await saveProfileAvatar(f.client, "user-1", null);
+  expect(f.remove).toHaveBeenCalledTimes(2);
+  expect(f.remove).toHaveBeenLastCalledWith(["user-1/old.jpg"]);
+});
+
+it.each([null, undefined])(
+  "tolerates missing profile metadata",
+  async (metadata) => {
+    const f = fixture();
+    f.getUser.mockResolvedValue({
+      data: { user: { id: "user-1", user_metadata: metadata } },
+      error: null,
+    });
+    await expect(
+      saveProfileAvatar(f.client, "user-1", null),
+    ).resolves.toMatchObject({ id: "user-1" });
+    expect(f.remove).not.toHaveBeenCalled();
+  },
+);

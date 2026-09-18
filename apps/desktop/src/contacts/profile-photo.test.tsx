@@ -56,10 +56,12 @@ function view(
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  if (cachedPhoto)
+  if (cachedPhoto !== undefined)
     queryClient.setQueryData(["profile-photo", "account-1"], {
       id: "account-1",
-      user_metadata: { profile_avatar: { url: cachedPhoto } },
+      user_metadata: cachedPhoto
+        ? { profile_avatar: { url: cachedPhoto } }
+        : {},
     });
   const onSave = vi.fn().mockResolvedValue(undefined);
   const result = render(
@@ -157,6 +159,12 @@ it("keeps a failed upload available to retry", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   expect(mocks.save).toHaveBeenCalledTimes(2);
+  expect(mocks.save).toHaveBeenNthCalledWith(
+    2,
+    expect.anything(),
+    "account-1",
+    "data:image/jpeg;base64,bmV3",
+  );
 });
 
 it("does not migrate a local photo when the cloud account cannot be read", async () => {
@@ -179,4 +187,43 @@ it("keeps guest photo changes local even with a cached signed-in profile", async
   );
   expect(mocks.save).not.toHaveBeenCalled();
   expect(mocks.mirror).not.toHaveBeenCalled();
+});
+
+it("waits for a fresh profile before migrating a cached legacy photo", async () => {
+  let finish!: (value: unknown) => void;
+  mocks.getUser.mockReturnValue(
+    new Promise((resolve) => {
+      finish = resolve;
+    }),
+  );
+  view("data:image/jpeg;base64,bGVnYWN5", "");
+  await waitFor(() => expect(mocks.getUser).toHaveBeenCalled());
+  expect(mocks.save).not.toHaveBeenCalled();
+  finish({
+    data: {
+      user: {
+        id: "account-1",
+        user_metadata: {
+          profile_avatar: { url: "https://storage.example/newer.jpg" },
+        },
+      },
+    },
+    error: null,
+  });
+  await waitFor(() =>
+    expect(screen.getByRole("img").getAttribute("src")).toBe(
+      "https://storage.example/newer.jpg",
+    ),
+  );
+  expect(mocks.save).not.toHaveBeenCalled();
+});
+
+it("does not migrate cached legacy data after a failed refetch", async () => {
+  mocks.getUser.mockResolvedValue({
+    data: { user: null },
+    error: new Error("offline"),
+  });
+  view("data:image/jpeg;base64,bGVnYWN5", "");
+  expect(await screen.findByRole("alert")).toBeTruthy();
+  expect(mocks.save).not.toHaveBeenCalled();
 });
