@@ -1,0 +1,176 @@
+#dictation .speech-flow-stage {
+  position: relative;
+  width: min(100vw, 1280px);
+  height: clamp(340px, 30vw, 380px);
+  margin-top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  overflow: hidden;
+  isolation: isolate;
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    black 10%,
+    black 90%,
+    transparent
+  );
+}
+
+#dictation .speech-flow-svg {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(1360px, 144vw);
+  min-width: 980px;
+  transform: translate(-50%, -50%);
+}
+
+#dictation .speech-flow-svg path {
+  fill: none;
+}
+
+#dictation .speech-flow-ribbon {
+  stroke: var(--color-fg);
+  stroke-linecap: round;
+  stroke-width: 34;
+}
+
+#dictation .speech-flow-text {
+  font-family: var(--font-sans);
+  letter-spacing: 0;
+  dominant-baseline: middle;
+}
+
+#dictation .speech-flow-text--raw {
+  fill: color-mix(in srgb, var(--color-fg) 42%, transparent);
+  font-size: 24px;
+  font-weight: 520;
+}
+
+#dictation .speech-flow-filler {
+  fill: var(--color-red-600);
+  font-weight: 720;
+}
+
+#dictation .speech-flow-text--polished {
+  fill: var(--color-surface);
+  font-size: 23px;
+  font-weight: 520;
+}
+
+#dictation .speech-flow-control {
+  position: absolute;
+  top: 49%;
+  left: 50%;
+  display: inline-flex;
+  width: max-content;
+  min-width: 252px;
+  height: 76px;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  border: 3px solid var(--color-fg);
+  border-radius: 999px;
+  background: var(--color-surface);
+  padding: 0 24px 0 22px;
+  color: var(--color-fg);
+  font-size: 1rem;
+  font-weight: 750;
+  text-decoration: none;
+  transform: translate(-50%, -50%);
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+#dictation .speech-flow-control:hover,
+#dictation .speech-flow-control:focus-visible {
+  color: var(--color-surface);
+  background: var(--color-fg);
+}
+
+#dictation .speech-flow-control:focus-visible {
+  outline: 3px solid var(--color-brand-dark);
+  outline-offset: 4px;
+}
+
+#dictation .speech-flow-control__label {
+  line-height: 1;
+  white-space: nowrap;
+}
+
+#dictation .speech-flow-bars {
+  display: flex;
+  height: 34px;
+  align-items: center;
+  gap: 5px;
+}
+
+#dictation .speech-flow-bars span {
+  display: block;
+  width: 4px;
+  border-radius: 999px;
+  background: currentColor;
+  animation: speech-flow-pulse 920ms ease-in-out infinite;
+}
+
+#dictation .speech-flow-bars span:nth-child(1),
+#dictation .speech-flow-bars span:nth-child(3) {
+  height: 18px;
+}
+
+#dictation .speech-flow-bars span:nth-child(2) {
+  height: 32px;
+  animation-delay: 120ms;
+}
+
+#dictation .speech-flow-bars span:nth-child(3) {
+  animation-delay: 240ms;
+}
+
+@keyframes speech-flow-pulse {
+  0%,
+  100% {
+    transform: scaleY(0.65);
+  }
+
+  50% {
+    transform: scaleY(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #dictation .speech-flow-bars span {
+    animation: none;
+  }
+}
+
+@media (max-width: 760px) {
+  #dictation .speech-flow-stage {
+    height: 300px;
+    margin-top: 18px;
+  }
+
+  #dictation .speech-flow-svg {
+    width: 154vw;
+    min-width: 760px;
+  }
+
+  #dictation .speech-flow-ribbon {
+    stroke-width: 52;
+  }
+
+  #dictation .speech-flow-text--raw {
+    font-size: 24px;
+  }
+
+  #dictation .speech-flow-text--polished {
+    font-size: 22px;
+  }
+
+  #dictation .speech-flow-control {
+    min-width: 232px;
+    height: 74px;
+    gap: 12px;
+    padding: 0 22px 0 20px;
+    font-size: 0.94rem;
+  }
+}
