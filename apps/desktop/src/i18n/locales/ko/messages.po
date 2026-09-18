@@ -1126,7 +1126,7 @@ msgstr ""
 
 #: src/settings/automations/markdown-export-options.tsx
 msgid "Choose at least one section to export."
-msgstr ""
+msgstr "내보낼 섹션을 하나 이상 선택하세요."
 
 #: src/templates/template-icon-picker.tsx
 msgid "Choose custom color"
@@ -2434,7 +2434,7 @@ msgstr ""
 
 #: src/settings/automations/markdown-export-options.tsx
 msgid "Filename"
-msgstr ""
+msgstr "파일 이름"
 
 #: src/shared/open-note-dialog.tsx
 msgid "Find a note..."
@@ -2795,7 +2795,7 @@ msgstr ""
 
 #: src/settings/automations/markdown-export-options.tsx
 msgid "Include meeting ID"
-msgstr ""
+msgstr "회의 ID 포함"
 
 #: src/settings/stats/index.tsx
 msgid "Includes imported transcripts. Deleted conversations are excluded."
@@ -3031,7 +3031,7 @@ msgstr ""
 
 #: src/settings/automations/markdown-export-options.tsx
 msgid "Leave blank to use the meeting date and title."
-msgstr ""
+msgstr "비워 두면 회의 날짜와 제목을 사용합니다."
 
 #: src/settings/team/index.tsx
 msgid "Leave workspace"

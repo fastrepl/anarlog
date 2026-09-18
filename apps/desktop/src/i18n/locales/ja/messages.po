@@ -1126,7 +1126,7 @@ msgstr ""
 
 #: src/settings/automations/markdown-export-options.tsx
 msgid "Choose at least one section to export."
-msgstr ""
+msgstr "エクスポートするセクションを1つ以上選択してください。"
 
 #: src/templates/template-icon-picker.tsx
 msgid "Choose custom color"
@@ -2434,7 +2434,7 @@ msgstr ""
 
 #: src/settings/automations/markdown-export-options.tsx
 msgid "Filename"
-msgstr ""
+msgstr "ファイル名"
 
 #: src/shared/open-note-dialog.tsx
 msgid "Find a note..."
@@ -2795,7 +2795,7 @@ msgstr ""
 
 #: src/settings/automations/markdown-export-options.tsx
 msgid "Include meeting ID"
-msgstr ""
+msgstr "会議IDを含める"
 
 #: src/settings/stats/index.tsx
 msgid "Includes imported transcripts. Deleted conversations are excluded."
@@ -3031,7 +3031,7 @@ msgstr ""
 
 #: src/settings/automations/markdown-export-options.tsx
 msgid "Leave blank to use the meeting date and title."
-msgstr ""
+msgstr "空欄の場合は会議の日付とタイトルを使用します。"
 
 #: src/settings/team/index.tsx
 msgid "Leave workspace"
