@@ -211,7 +211,7 @@ impl WebSocketClient {
             let mut input_end_deadline: Option<tokio::time::Instant> = None;
             let mut waited_for_input_end = false;
 
-            let exit_reason = loop {
+            let exit_reason = 'send: loop {
                 if audio_closed && control_closed {
                     break SendLoopExit::InputEnded;
                 }
@@ -275,7 +275,7 @@ impl WebSocketClient {
                                     if let Err(e) = ws_sender.send(message).await {
                                         tracing::error!("ws_finalize_failed: {:?}", e);
                                         let _ = error_tx.send(e.into());
-                                        break;
+                                        break 'send SendLoopExit::Error;
                                     }
                                 }
                                 break SendLoopExit::Finalize;
