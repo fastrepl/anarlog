@@ -1,5 +1,5 @@
 begin;
-select plan(20);
+select plan(21);
 
 select tests.create_supabase_user('primary', 'primary@example.com');
 select tests.create_supabase_user('coowner', 'coowner@example.com');
@@ -27,6 +27,7 @@ select tests.authenticate_as_hyprnote_pro('coowner');
 select lives_ok($$select public.set_workspace_membership_role((select workspace_id from ownership_state), tests.get_supabase_uid('peerowner'), 'owner')$$, 'Ordinary owners can appoint owners');
 select throws_ok($$select public.set_workspace_membership_role((select workspace_id from ownership_state), tests.get_supabase_uid('primary'), 'admin')$$, '42501', 'workspace membership operation not permitted', 'Ordinary owners cannot demote the primary');
 select throws_ok($$select public.set_workspace_membership_role((select workspace_id from ownership_state), tests.get_supabase_uid('peerowner'), 'admin')$$, '42501', 'workspace membership operation not permitted', 'Ordinary owners cannot strip a peer owner');
+select throws_ok($$select public.revoke_workspace_membership((select workspace_id from ownership_state), tests.get_supabase_uid('peerowner'))$$, '42501', 'workspace membership operation not permitted', 'Ordinary owners cannot remove a peer owner');
 select throws_ok($$select public.revoke_workspace_membership((select workspace_id from ownership_state), tests.get_supabase_uid('primary'))$$, '42501', 'workspace membership operation not permitted', 'Primary cannot be removed');
 select throws_ok($$select public.transfer_workspace_ownership((select workspace_id from ownership_state), tests.get_supabase_uid('peerowner'))$$, '42501', 'workspace ownership operation not permitted', 'Only primary may request a transfer');
 select throws_ok($$select public.delete_workspace((select workspace_id from ownership_state))$$, '42501', 'workspace operation not permitted', 'Only primary may delete the workspace');
