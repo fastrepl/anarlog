@@ -29,6 +29,7 @@ export function GlassDialogCancelButton({
 }: ComponentProps<typeof Button>) {
   return (
     <Button
+      type="button"
       variant="ghost"
       className={cn([
         "border-border/70 bg-background/50 text-foreground h-8 rounded-full border px-4 text-xs font-medium shadow-[0_1px_2px_rgba(0,0,0,0.06)]",
