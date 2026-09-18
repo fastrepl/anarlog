@@ -1,15 +1,14 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { platform } from "@tauri-apps/plugin-os";
 import { useShallow } from "zustand/react/shallow";
 
-import { commands as shortcuts } from "@anlg/plugin-shortcut";
 import { commands as transcription } from "@anlg/plugin-transcription";
 import { Button } from "@anlg/ui/components/ui/button";
-import { Input } from "@anlg/ui/components/ui/input";
 import { Textarea } from "@anlg/ui/components/ui/textarea";
+
+import { DictationShortcut } from "./dictation-shortcut";
 
 import { useBillingAccess } from "~/auth/billing-context";
 import { useDictationStatus } from "~/dictation/state";
@@ -79,7 +78,7 @@ export function SettingsDictation() {
             checked={enabled}
             onChange={setEnabled}
           />
-          <ShortcutSetting key={shortcut} shortcut={shortcut} />
+          <DictationShortcut shortcut={shortcut} />
           <AudioDeviceRow
             title={<Trans>Microphone</Trans>}
             description={
@@ -247,110 +246,5 @@ export function SettingsDictation() {
         </div>
       </PlanGate>
     </div>
-  );
-}
-
-function ShortcutSetting({ shortcut }: { shortcut: string }) {
-  const { t } = useLingui();
-  const save = useSetSettingValue("dictation_shortcut");
-  const form = useForm({
-    defaultValues: { shortcut },
-    onSubmit: ({ value }) => {
-      save(value.shortcut.trim());
-    },
-  });
-  return (
-    <form
-      className="flex flex-col gap-2"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void form.handleSubmit();
-      }}
-    >
-      <form.Field
-        name="shortcut"
-        validators={{
-          onSubmitAsync: async ({ value }) => {
-            const result = await shortcuts.validate(value.trim());
-            return result.status === "error" ? result.error : undefined;
-          },
-        }}
-      >
-        {(field) => (
-          <>
-            <label htmlFor="dictation-shortcut" className="text-sm font-medium">
-              <Trans>Dictation shortcut</Trans>
-            </label>
-            <div className="flex gap-2">
-              <Input
-                id="dictation-shortcut"
-                value={field.state.value}
-                onChange={(event) => field.handleChange(event.target.value)}
-                onKeyDown={(event) => {
-                  if (
-                    !(
-                      event.ctrlKey ||
-                      event.altKey ||
-                      event.metaKey ||
-                      event.shiftKey
-                    ) ||
-                    ["Control", "Alt", "Meta", "Shift"].includes(event.key)
-                  )
-                    return;
-                  event.preventDefault();
-                  const modifiers = [
-                    event.ctrlKey && "Control",
-                    event.altKey && "Alt",
-                    event.shiftKey && "Shift",
-                    event.metaKey && "Super",
-                  ].filter(Boolean);
-                  field.handleChange([...modifiers, event.code].join("+"));
-                }}
-                placeholder="Control+Alt+Space"
-              />
-              <Button
-                type="submit"
-                disabled={
-                  !field.state.value.trim() || field.state.value === shortcut
-                }
-              >
-                <Trans>Save</Trans>
-              </Button>
-            </div>
-            {field.state.meta.errors.map((error) => (
-              <p key={error} role="alert" className="text-destructive text-sm">
-                {error}
-              </p>
-            ))}
-            <p className="text-muted-foreground text-xs">
-              <Trans>
-                Press a key combination here, or type one such as Control+Alt+D.
-              </Trans>
-            </p>
-            {platform() === "macos" && (
-              <div className="flex gap-2">
-                {[
-                  ["Fn", t`Fn / Globe`],
-                  ["RightCommand", t`Right Command`],
-                ].map(([value, label]) => (
-                  <Button
-                    key={value}
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      field.handleChange(value);
-                      void form.handleSubmit();
-                    }}
-                  >
-                    {label}
-                  </Button>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </form.Field>
-    </form>
   );
 }

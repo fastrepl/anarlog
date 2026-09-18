@@ -3,6 +3,7 @@ import { create } from "zustand";
 import type { DictationPhase } from "./controller";
 
 export const useDictationStatus = create<{
+  capturingShortcut: boolean;
   phase: DictationPhase;
   error: string | null;
   lastTranscript: string;
@@ -20,6 +21,7 @@ export const useDictationStatus = create<{
   cancel: (() => void) | null;
   finish: (() => void) | null;
 }>(() => ({
+  capturingShortcut: false,
   phase: "idle",
   error: null,
   lastTranscript: "",

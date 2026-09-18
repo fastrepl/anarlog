@@ -131,8 +131,22 @@ describe("dictation access and lifecycle", () => {
     expect(useDictationStatus.getState().lastTranscript).toBe("");
   });
 
+  it("unregisters dictation while capturing a shortcut and restores it afterwards", async () => {
+    render(<DictationLifecycle />);
+    await waitFor(() => expect(useDictationStatus.getState().ready).toBe(true));
+    act(() => useDictationStatus.setState({ capturingShortcut: true }));
+    await waitFor(() => expect(mocks.configure).toHaveBeenLastCalledWith(null));
+    expect(useDictationStatus.getState().ready).toBe(false);
+    act(() => useDictationStatus.setState({ capturingShortcut: false }));
+    await waitFor(() =>
+      expect(mocks.configure).toHaveBeenLastCalledWith("Control+Alt+Space"),
+    );
+    expect(mocks.startSystemRecording).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
+    useDictationStatus.setState({ capturingShortcut: false });
     mocks.session = { user: { id: "user-1" } };
     mocks.billing = { isPro: true, isReady: true };
     mocks.platform = "macos";

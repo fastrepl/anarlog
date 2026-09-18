@@ -38,6 +38,9 @@ export function DictationLifecycle() {
   const enabled = useConfigValue("dictation_enabled");
   const shortcut = useConfigValue("dictation_shortcut");
   const handsFree = useConfigValue("dictation_hands_free");
+  const capturingShortcut = useDictationStatus(
+    (state) => state.capturingShortcut,
+  );
   const retry = useDictationStatus((state) => state.retry);
   const meetingActive = useListener(
     (state) => state.live.status !== "inactive" || state.live.loading,
@@ -46,7 +49,7 @@ export function DictationLifecycle() {
   if (!session || !isReady || !isPro || !settingsReady || !enabled) return null;
   return (
     <TranscriptRetention key={session.user.id}>
-      {!meetingActive && (
+      {!meetingActive && !capturingShortcut && (
         <ActiveDictation
           key={`${shortcut}:${handsFree}:${retry}`}
           shortcut={shortcut}
@@ -301,7 +304,12 @@ function ActiveDictation({
       .then(async () => {
         if (disposed) return;
         unlisten = await events.shortcutEvent.listen(({ payload }) => {
-          if (disposed || !armed) return;
+          if (
+            disposed ||
+            !armed ||
+            useDictationStatus.getState().capturingShortcut
+          )
+            return;
           if (payload.type === "pressed") controller.press();
           else if (payload.type === "released") controller.release();
           else cancel();
