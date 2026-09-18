@@ -498,12 +498,13 @@ export function MeetingImportScreen({
                     {connectedProvider ? (
                       <div className="flex shrink-0 items-center gap-1">
                         {connected ? (
-                          <>
+                          <ImportSplitButtonGroup signedIn>
                             <Button
                               type="button"
                               size="sm"
-                              variant="outline"
-                              disabled={syncQuery?.isFetching}
+                              smoothCorners={false}
+                              className="hover:bg-primary-foreground/10 rounded-none border-0 bg-transparent shadow-none"
+                              disabled={syncQuery?.isFetching || disconnecting}
                               onClick={() => void syncQuery?.refetch()}
                             >
                               {syncQuery?.isFetching ? (
@@ -513,24 +514,60 @@ export function MeetingImportScreen({
                               )}
                               <Trans>Sync now</Trans>
                             </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              disabled={syncQuery?.isFetching || disconnecting}
-                              onClick={() =>
-                                disconnectMutation.mutate({
-                                  providerId: provider.id,
-                                  nangoIntegrationId: nangoProvider
-                                    ? provider.nangoIntegrationId
-                                    : undefined,
-                                  connectionId: nangoConnection?.connection_id,
-                                })
-                              }
-                            >
-                              <Trans>Disconnect</Trans>
-                            </Button>
-                          </>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  smoothCorners={false}
+                                  aria-label={t`More options`}
+                                  className={cn([
+                                    "relative w-6 rounded-none border-0 px-0 shadow-none",
+                                    "before:absolute before:inset-y-1.5 before:left-0 before:w-px",
+                                    "hover:bg-primary-foreground/10 before:bg-primary-foreground/20 bg-transparent",
+                                  ])}
+                                >
+                                  <CaretDown className="size-3.5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                variant="app"
+                                align="end"
+                                className="w-40"
+                              >
+                                <AppFloatingPanel
+                                  className={appFloatingMenuPanelClassName}
+                                >
+                                  <DropdownMenuItem
+                                    disabled={
+                                      syncQuery?.isFetching || disconnecting
+                                    }
+                                    onClick={() =>
+                                      disconnectMutation.mutate({
+                                        providerId: provider.id,
+                                        nangoIntegrationId: nangoProvider
+                                          ? provider.nangoIntegrationId
+                                          : undefined,
+                                        connectionId:
+                                          nangoConnection?.connection_id,
+                                      })
+                                    }
+                                  >
+                                    <Trans>Disconnect</Trans>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    disabled={fileImportMutation.isPending}
+                                    onClick={() =>
+                                      fileImportMutation.mutate(provider)
+                                    }
+                                  >
+                                    <DownloadSimple />
+                                    <Trans>Use files</Trans>
+                                  </DropdownMenuItem>
+                                </AppFloatingPanel>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </ImportSplitButtonGroup>
                         ) : (
                           <ImportSplitButtonGroup signedIn={signedIn}>
                             <Button
@@ -648,18 +685,6 @@ export function MeetingImportScreen({
                             </DropdownMenu>
                           </ImportSplitButtonGroup>
                         )}
-                        {connected ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            disabled={fileImportMutation.isPending}
-                            onClick={() => fileImportMutation.mutate(provider)}
-                          >
-                            <DownloadSimple className="size-3.5" />
-                            <Trans>Use files</Trans>
-                          </Button>
-                        ) : null}
                       </div>
                     ) : (
                       <Button
