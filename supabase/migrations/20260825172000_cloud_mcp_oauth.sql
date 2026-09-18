@@ -1,5 +1,5 @@
 -- Keep the existing subscription hook intact and bind OAuth access tokens to
--- the MCP resource only so they cannot be used as ordinary BlackMushi sessions.
+-- the MCP resource only so they cannot be used as ordinary Anarlog sessions.
 -- Idempotent so environments that already applied the later repair migrations
 -- can still record this version.
 DO $$

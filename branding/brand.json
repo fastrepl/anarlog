@@ -21,13 +21,14 @@
     "@anlg/"
   ],
 
-  "$comment_exclude": "Paths the overlay never rewrites. The changelog records what upstream actually shipped under its own name -- rewriting it would make the entries false. Lockfiles are generated. Files named LICENSE/NOTICE are additionally protected in apply.mjs.",
+  "$comment_exclude": "Paths the overlay never rewrites. The changelog records what upstream actually shipped under its own name, and a shipped migration is an immutable artefact -- rewriting either would make it lie, and an edited migration can read as drift even when only a comment moved. Lockfiles are generated. Files named LICENSE/NOTICE are additionally protected in apply.mjs.",
   "exclude": [
     "branding/",
     "pnpm-lock.yaml",
     "Cargo.lock",
     "LICENSING.md",
     "packages/changelog/content/",
+    "supabase/migrations/",
     ".git/"
   ]
 }
