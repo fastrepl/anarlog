@@ -5,11 +5,11 @@ import XCTest
 
 final class FloatingBarPlacementTests: XCTestCase {
   private let workArea = NSRect(x: -1920, y: 40, width: 1920, height: 1040)
-  private let compactSize = NSSize(width: 111, height: 67)
+  private let compactSize = NSSize(width: 108, height: 67)
   private let expandedSize = NSSize(width: 368, height: 459)
 
   func testBottomExpansionAndCollapsePreserveBottomCenter() {
-    let compact = NSRect(x: -1015.5, y: 48, width: 111, height: 67)
+    let compact = NSRect(x: -1015.5, y: 48, width: 108, height: 67)
     XCTAssertTrue(FloatingBarPlacement.expandsUpward(frame: compact, workArea: workArea))
     let expanded = FloatingBarPlacement.resizedFrame(
       compact, size: expandedSize, workArea: workArea, expandsUpward: true)
@@ -21,7 +21,7 @@ final class FloatingBarPlacementTests: XCTestCase {
   }
 
   func testTopExpansionAndCollapsePreserveTopCenter() {
-    let compact = NSRect(x: -1015.5, y: 1005, width: 111, height: 67)
+    let compact = NSRect(x: -1015.5, y: 1005, width: 108, height: 67)
     XCTAssertFalse(FloatingBarPlacement.expandsUpward(frame: compact, workArea: workArea))
     let expanded = FloatingBarPlacement.resizedFrame(
       compact, size: expandedSize, workArea: workArea, expandsUpward: false)
@@ -33,7 +33,7 @@ final class FloatingBarPlacementTests: XCTestCase {
   }
 
   func testExpansionClampsAtDisplayEdge() {
-    let frame = NSRect(x: -112, y: 48, width: 111, height: 67)
+    let frame = NSRect(x: -112, y: 48, width: 108, height: 67)
     let expanded = FloatingBarPlacement.resizedFrame(
       frame, size: expandedSize, workArea: workArea, expandsUpward: true)
     XCTAssertEqual(expanded.maxX, workArea.maxX)

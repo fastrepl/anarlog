@@ -56,6 +56,16 @@ export function FloatingBarOverlay({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
+      {isExpanded && (
+        <div
+          data-tauri-drag-region
+          className="absolute inset-x-0 top-0"
+          style={{
+            height:
+              FLOATING_BAR_INSET + FLOATING_BAR_HOVER_HANDLE_RESERVED_HEIGHT,
+          }}
+        />
+      )}
       <div
         className="absolute overflow-hidden"
         style={{

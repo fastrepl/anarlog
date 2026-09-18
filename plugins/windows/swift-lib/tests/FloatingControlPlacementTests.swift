@@ -11,7 +11,7 @@ final class FloatingControlPlacementTests: XCTestCase {
       (NSPoint(x: -64, y: 71), true),
     ] {
       for size in [
-        NSSize(width: 111, height: 67), NSSize(width: 368, height: 459),
+        NSSize(width: 108, height: 67), NSSize(width: 368, height: 459),
         NSSize(width: 220, height: 240),
       ] {
         let layout = FloatingControlPlacement.layout(

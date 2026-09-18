@@ -165,6 +165,13 @@ describe("FloatingBarOverlay", () => {
       screen.getByRole("button", { name: "Collapse live transcript" }),
     ).toBe(toggle);
     expect(screen.queryByText("Weekly sync")).toBeNull();
+    expect(
+      view.container.querySelector('[data-tauri-drag-region=""]'),
+    ).not.toBeNull();
+    fireEvent.mouseEnter(view.container.firstElementChild!);
+    expect(
+      view.container.querySelector('[data-tauri-drag-region=""]'),
+    ).not.toBeNull();
     expect(screen.getByText("Let's start.")).toBeTruthy();
 
     fireEvent.click(

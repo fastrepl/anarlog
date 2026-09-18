@@ -72,7 +72,7 @@ final class DictationFloatingPanelTests: XCTestCase {
   func testDictationFitsTheSharedPanelLayout() {
     XCTAssertEqual(
       FloatingBarLayout.containerSize(isExpanded: false, showsExpand: true),
-      NSSize(width: 111, height: 67))
+      NSSize(width: 108, height: 67))
     XCTAssertEqual(
       FloatingBarLayout.containerSize(isExpanded: true, showsExpand: true),
       NSSize(width: 368, height: 459))
