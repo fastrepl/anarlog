@@ -1,0 +1,71 @@
+---
+title: "Import Zoom meetings"
+description: "Connect Zoom to import cloud recording transcripts and summaries, manage sync, and remove access."
+---
+
+Connect Zoom to bring available meeting transcripts and summaries into your Anarlog notes. The connection reads meeting content; it does not change your Zoom meetings or recordings.
+
+<Note>
+  The Zoom connection is currently limited to approved test accounts while external access awaits Zoom review. If Zoom does not allow you to authorize Anarlog, use [file import](/import-recordings#import-a-transcript) instead.
+</Note>
+
+## Before you connect
+
+- [Install Anarlog](/desktop-installation) and sign in to your Anarlog account.
+- Use the Zoom account that owns the cloud recordings you want to import.
+- Your Zoom plan, account permissions, and meeting settings must make cloud recordings and transcripts or meeting summaries available. Anarlog cannot recover content that Zoom did not generate or no longer retains.
+- If your organization requires app approval, ask your Zoom administrator to approve Anarlog. Administrator approval does not override the current external-access restriction.
+
+The importer checks roughly the past six months of cloud recordings. It imports available transcript text, summaries, action items, meeting titles, and dates. It does not copy audio or video. Meetings without a cloud recording are not discovered by this connection, even if they have a summary elsewhere in Zoom.
+
+## Connect Zoom
+
+1. Open **Settings → Imports** in Anarlog. You can also connect during the **Bring your meeting history** onboarding step.
+2. Find **Zoom** and select **Connect & import**. Sign in to Anarlog if prompted.
+3. In the browser, sign in to the intended Zoom account and review the requested permissions.
+4. Authorize Anarlog and return to the desktop app. Keep Anarlog open while the import completes.
+5. Review the import result and open the imported meeting notes.
+
+The permissions let Anarlog identify your connected Zoom account, list your cloud recordings and retrieve available transcripts, and read meeting summaries. They do not let Anarlog edit meetings or recordings.
+
+## Import new meetings
+
+While connected, Anarlog checks for new meetings while the desktop app is running. Open **Settings → Imports → Zoom** and select **Sync now** to request a check yourself.
+
+Previously imported meeting IDs are skipped. Sync does not continuously replace existing Anarlog notes with later edits from Zoom. See [Import meeting history](/imports#understand-the-result) for the import result categories.
+
+## Disconnect and remove access
+
+1. Open **Settings → Imports** in Anarlog.
+2. On the **Zoom** row, select **Disconnect** and complete the browser flow if prompted.
+3. Return to Anarlog and confirm that Zoom offers **Connect & import** again.
+
+To revoke access directly in Zoom:
+
+1. Sign in to the [Zoom App Marketplace](https://marketplace.zoom.us/) with the connected account.
+2. Open **Manage → Added Apps** and find **Anarlog**.
+3. Select **Remove** and complete Zoom's confirmation.
+
+See Zoom's [app removal instructions](https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0062865) if your account's controls differ.
+
+Disconnecting stops future imports. It does not delete notes already imported into Anarlog or recordings in Zoom. Delete unwanted imported notes separately in Anarlog. To reconnect, repeat the connection steps above.
+
+## Troubleshooting
+
+**Zoom is missing from Imports:** Anarlog detects installed meeting apps. Open or install the Zoom desktop app, restart Anarlog, and check again.
+
+**Authorization is blocked:** Check the test-account restriction above and your organization's app-approval requirements. Make sure you are signing in to the intended Zoom account.
+
+**Setup could not start:** Check your internet connection, sign in to Anarlog, and try **Connect & import** again. If the error persists, contact support with the exact error and your Anarlog version.
+
+**No meetings were imported:** Confirm that the connected account has accessible cloud recordings within the import window. Local Zoom recordings and meetings without cloud recordings are not included. If Zoom has no transcript or summary for a recording, Anarlog skips it. You can [import an exported transcript or audio file](/import-recordings) instead.
+
+**A new meeting is missing:** Wait for Zoom to finish processing the recording and its transcript or summary, then select **Sync now**. Keep Anarlog open during the import.
+
+**The connection expired or was removed:** Disconnect the old connection in Anarlog, then select **Connect & import** to authorize again.
+
+## Data and support
+
+Authorization and import requests pass through Anarlog's hosted API and its integration provider, Nango. Imported notes are stored locally in Anarlog; optional [Cloud Sync](/sync) and sharing follow your app settings. Read the [Privacy Policy](https://anarlog.so/privacy/) and [Terms of Service](https://anarlog.so/terms/).
+
+For help, email [team@fastrepl.com](mailto:team@fastrepl.com). Include your Anarlog version, operating system, the step that failed, and the error message. Do not send passwords or authorization tokens.
