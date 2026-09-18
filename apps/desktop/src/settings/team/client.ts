@@ -421,7 +421,7 @@ export async function setMemberRole(
   context: TeamContext,
   workspaceId: string,
   userId: string,
-  nextRole: "admin" | "member",
+  nextRole: WorkspaceRole,
 ) {
   assertWorkspaceId(workspaceId);
   assertWorkspaceId(userId);

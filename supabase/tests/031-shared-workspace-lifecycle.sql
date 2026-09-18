@@ -200,12 +200,12 @@ select throws_ok(
     select * from public.set_workspace_membership_role(
       (select workspace_id from workspace_lifecycle_test_state where name = 'hq'),
       tests.get_supabase_uid('lifecycle_member'),
-      'owner'
+      'primary_owner'
     )
   $$,
   '22023',
   'invalid workspace role',
-  'Ownership cannot be granted through role management'
+  'Primary ownership cannot be granted through role management'
 );
 
 select tests.clear_authentication();
@@ -338,7 +338,7 @@ select ok(
         select workspace_id from workspace_lifecycle_test_state where name = 'hq'
       )
       and membership.user_id = tests.get_supabase_uid('lifecycle_owner')
-      and membership.role = 'admin'
+      and membership.role = 'owner'
       and membership.deleted_at is null
   )
   and exists (
@@ -351,7 +351,7 @@ select ok(
       and membership.role = 'owner'
       and membership.deleted_at is null
   ),
-  'Transfer swaps the owner column and both membership roles atomically'
+  'Transfer changes the primary owner and preserves the previous owner role'
 );
 
 select tests.authenticate_as_hyprnote_pro('lifecycle_owner');

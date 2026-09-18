@@ -153,9 +153,9 @@ select throws_ok(
       'owner'
     )
   $$,
-  '22023',
-  'invalid workspace role',
-  'Ownership can never be granted through role management'
+  '42501',
+  'workspace membership operation not permitted',
+  'Admins cannot grant ownership through role management'
 );
 
 select tests.clear_authentication();
