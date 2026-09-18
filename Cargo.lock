@@ -4780,7 +4780,6 @@ dependencies = [
  "intercept",
  "pico-args",
  "ractor",
- "sentry",
  "serde",
  "serde_json",
  "specta",
@@ -4799,7 +4798,6 @@ dependencies = [
  "tauri-plugin-auth",
  "tauri-plugin-automation",
  "tauri-plugin-autostart",
- "tauri-plugin-bedrock",
  "tauri-plugin-calendar",
  "tauri-plugin-clipboard-manager",
  "tauri-plugin-db",
@@ -4812,7 +4810,6 @@ dependencies = [
  "tauri-plugin-export",
  "tauri-plugin-fs-sync",
  "tauri-plugin-fs2",
- "tauri-plugin-git",
  "tauri-plugin-hooks",
  "tauri-plugin-http",
  "tauri-plugin-icon",
@@ -4836,8 +4833,6 @@ dependencies = [
  "tauri-plugin-prevent-default",
  "tauri-plugin-process",
  "tauri-plugin-relay",
- "tauri-plugin-screen",
- "tauri-plugin-sentry",
  "tauri-plugin-settings",
  "tauri-plugin-sfx",
  "tauri-plugin-shell",
@@ -4922,7 +4917,7 @@ dependencies = [
  "objc2-foundation",
  "serde",
  "serde_json",
- "swift-rs 1.0.7 (git+https://github.com/Brendonovich/swift-rs?rev=41a1605)",
+ "swift-rs 1.0.8",
 ]
 
 [[package]]
@@ -8736,7 +8731,7 @@ dependencies = [
  "objc2",
  "objc2-app-kit",
  "objc2-foundation",
- "swift-rs 1.0.7 (git+https://github.com/Brendonovich/swift-rs?rev=41a1605)",
+ "swift-rs 1.0.8",
 ]
 
 [[package]]
@@ -10557,7 +10552,7 @@ dependencies = [
  "objc2-foundation",
  "serde",
  "serde_json",
- "swift-rs 1.0.7 (git+https://github.com/Brendonovich/swift-rs?rev=41a1605)",
+ "swift-rs 1.0.8",
 ]
 
 [[package]]
@@ -15968,8 +15963,8 @@ dependencies = [
 
 [[package]]
 name = "swift-rs"
-version = "1.0.7"
-source = "git+https://github.com/Brendonovich/swift-rs?rev=41a1605#41a160524c737c061f5633e4371952544425aa01"
+version = "1.0.8"
+source = "git+https://github.com/Brendonovich/swift-rs?rev=fd82965#fd82965ee1a55b2777122a9ac42a581c613327ac"
 dependencies = [
  "base64 0.21.7",
  "serde",
@@ -16579,7 +16574,7 @@ dependencies = [
  "serde_repr",
  "serialize-to-javascript",
  "specta",
- "swift-rs 1.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "swift-rs 1.0.7",
  "tauri-build",
  "tauri-macros",
  "tauri-runtime",
@@ -17325,7 +17320,7 @@ dependencies = [
  "serde_json",
  "specta",
  "specta-typescript",
- "swift-rs 1.0.7 (git+https://github.com/Brendonovich/swift-rs?rev=41a1605)",
+ "swift-rs 1.0.8",
  "tauri",
  "tauri-plugin",
  "tauri-plugin-settings",
@@ -18023,7 +18018,7 @@ dependencies = [
  "specta",
  "specta-typescript",
  "strum 0.28.0",
- "swift-rs 1.0.7 (git+https://github.com/Brendonovich/swift-rs?rev=41a1605)",
+ "swift-rs 1.0.8",
  "tauri",
  "tauri-nspanel",
  "tauri-plugin",
@@ -18149,7 +18144,7 @@ dependencies = [
  "serde-untagged",
  "serde_json",
  "serde_with",
- "swift-rs 1.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "swift-rs 1.0.7",
  "thiserror 2.0.18",
  "toml 1.1.2+spec-1.1.0",
  "url",
@@ -18173,7 +18168,7 @@ dependencies = [
 name = "tcc"
 version = "0.1.0"
 dependencies = [
- "swift-rs 1.0.7 (git+https://github.com/Brendonovich/swift-rs?rev=41a1605)",
+ "swift-rs 1.0.8",
 ]
 
 [[package]]
@@ -19084,7 +19079,7 @@ dependencies = [
  "serde",
  "serde_json",
  "specta",
- "swift-rs 1.0.7 (git+https://github.com/Brendonovich/swift-rs?rev=41a1605)",
+ "swift-rs 1.0.8",
  "thiserror 2.0.18",
  "tracing",
 ]
@@ -19098,7 +19093,7 @@ dependencies = [
  "serde",
  "serde_json",
  "specta",
- "swift-rs 1.0.7 (git+https://github.com/Brendonovich/swift-rs?rev=41a1605)",
+ "swift-rs 1.0.8",
  "thiserror 2.0.18",
  "tracing",
 ]

@@ -381,7 +381,7 @@ sha2 = "0.11"
 
 whichlang = "0.1"
 
-swift-rs = { git = "https://github.com/Brendonovich/swift-rs", rev = "41a1605" }
+swift-rs = { git = "https://github.com/Brendonovich/swift-rs", rev = "fd82965" }
 
 wasapi = "0.23.0"
 windows = "0.62.2"
