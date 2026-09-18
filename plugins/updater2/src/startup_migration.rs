@@ -74,9 +74,13 @@ fn should_skip_startup_migration(args: &[OsString]) -> bool {
 
 fn legacy_target_app_path(current_app_path: &Path) -> Option<PathBuf> {
     let target_name = match current_app_path.file_name().and_then(|name| name.to_str()) {
-        Some("Hyprnote.app") | Some("Char.app") => "Anarlog.app",
-        Some("Hyprnote Nightly.app") | Some("Char Nightly.app") => "BlackMushi Nightly.app",
-        Some("Hyprnote Staging.app") | Some("Char Staging.app") => "BlackMushi Staging.app",
+        Some("Hyprnote.app") | Some("Char.app") | Some("Anarlog.app") => "BlackMushi.app",
+        Some("Hyprnote Nightly.app") | Some("Char Nightly.app") | Some("Anarlog Nightly.app") => {
+            "BlackMushi Nightly.app"
+        }
+        Some("Hyprnote Staging.app") | Some("Char Staging.app") | Some("Anarlog Staging.app") => {
+            "BlackMushi Staging.app"
+        }
         _ => return None,
     };
 
@@ -202,25 +206,38 @@ mod tests {
     use super::*;
 
     #[test]
-    fn maps_legacy_bundle_names_to_anarlog_names() {
+    fn maps_every_previous_bundle_name_to_the_current_one() {
+        // Each channel installs under its productName, so the rename target has
+        // to track it. The name this fork renamed away from is a source here as
+        // well as Hyprnote and Char: an install that already migrated once still
+        // has to land on the name shipping today.
         let cases = [
-            ("/Applications/Hyprnote.app", "/Applications/Anarlog.app"),
-            ("/Applications/Char.app", "/Applications/Anarlog.app"),
+            ("/Applications/Hyprnote.app", "/Applications/BlackMushi.app"),
+            ("/Applications/Char.app", "/Applications/BlackMushi.app"),
+            ("/Applications/Anarlog.app", "/Applications/BlackMushi.app"),
             (
                 "/Applications/Hyprnote Nightly.app",
-                "/Applications/Anarlog Nightly.app",
+                "/Applications/BlackMushi Nightly.app",
             ),
             (
                 "/Applications/Char Nightly.app",
+                "/Applications/BlackMushi Nightly.app",
+            ),
+            (
                 "/Applications/Anarlog Nightly.app",
+                "/Applications/BlackMushi Nightly.app",
             ),
             (
                 "/Applications/Hyprnote Staging.app",
-                "/Applications/Anarlog Staging.app",
+                "/Applications/BlackMushi Staging.app",
             ),
             (
                 "/Applications/Char Staging.app",
+                "/Applications/BlackMushi Staging.app",
+            ),
+            (
                 "/Applications/Anarlog Staging.app",
+                "/Applications/BlackMushi Staging.app",
             ),
         ];
 
@@ -233,11 +250,14 @@ mod tests {
     }
 
     #[test]
-    fn ignores_non_legacy_bundle_names() {
+    fn ignores_names_already_current_or_unrelated() {
+        // The names shipping today must not be renamed onto themselves, or the
+        // migration would relaunch on every start.
         for path in [
-            "/Applications/Anarlog.app",
-            "/Applications/Anarlog Nightly.app",
-            "/Applications/Anarlog Staging.app",
+            "/Applications/BlackMushi.app",
+            "/Applications/BlackMushi Nightly.app",
+            "/Applications/BlackMushi Staging.app",
+            "/Applications/Safari.app",
         ] {
             assert_eq!(legacy_target_app_path(Path::new(path)), None);
         }

@@ -33,11 +33,20 @@ fn validate_secret_coordinate(caller: SecretCaller, scope: &str, key: &str) -> R
     Ok(())
 }
 
+// The keychain namespace is deliberately not the bundle id. Renaming the bundle
+// would otherwise strand every stored secret -- provider API keys, connected
+// import credentials and the CloudSync identity -- behind a service name nothing
+// looks up any more. Each new id maps onto the namespace its channel already
+// writes to, so a rename costs the user nothing.
 fn secure_store_service(identifier: &str) -> String {
     let identifier = match identifier {
-        "com.hyprnote.dev" => "com.anarlog.dev",
-        "com.hyprnote.staging" => "com.anarlog.staging",
-        "com.hyprnote.stable" | "com.hyprnote.Hyprnote" => "com.anarlog.stable",
+        "com.hyprnote.dev" | "com.blackmushi.dev" => "com.anarlog.dev",
+        "com.hyprnote.staging" | "com.blackmushi.staging" => "com.anarlog.staging",
+        "com.hyprnote.stable"
+        | "com.hyprnote.Hyprnote"
+        | "com.blackmushi.stable"
+        | "com.blackmushi.desktop" => "com.anarlog.stable",
+        "com.blackmushi.nightly" => "com.hyprnote.nightly",
         identifier => identifier,
     };
 
@@ -46,8 +55,10 @@ fn secure_store_service(identifier: &str) -> String {
 
 fn secure_store_account(identifier: &str, scope: &str, key: &str) -> String {
     let account = format!("{scope}:{key}");
-    if identifier == "com.hyprnote.dev" {
+    if matches!(identifier, "com.hyprnote.dev" | "com.blackmushi.dev") {
         // Rotate away from dev items whose ACLs captured unstable ad-hoc signatures.
+        // The renamed dev id has to keep the same prefix, or the service remap
+        // above would find the right keychain service and still miss the account.
         format!("v2:{account}")
     } else {
         account
@@ -463,6 +474,29 @@ fn delete_secret_blocking_for<R: tauri::Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn renaming_the_bundle_keeps_pointing_at_the_same_secrets() {
+        // A stored secret has to stay reachable after the fork renames its
+        // bundle, so each new id must resolve to the same service AND account
+        // as the id it replaces.
+        for (previous, renamed) in [
+            ("com.hyprnote.dev", "com.blackmushi.dev"),
+            ("com.hyprnote.staging", "com.blackmushi.staging"),
+            ("com.hyprnote.stable", "com.blackmushi.stable"),
+        ] {
+            assert_eq!(
+                secure_store_service(previous),
+                secure_store_service(renamed),
+                "service drifted for {renamed}"
+            );
+            assert_eq!(
+                secure_store_account(previous, "ai-provider-api-keys", "openai"),
+                secure_store_account(renamed, "ai-provider-api-keys", "openai"),
+                "account drifted for {renamed}"
+            );
+        }
+    }
 
     #[test]
     fn uses_anarlog_service_names_for_legacy_bundle_identifiers() {

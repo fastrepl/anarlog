@@ -7,7 +7,7 @@
   "$comment_article": "The indefinite article has to agree with the sound the name starts with. Upstream's name is vowel-initial and this fork's is not, so a plain substitution would leave 'an BlackMushi' behind.",
   "article": { "upstream": "an", "fork": "a" },
 
-  "$comment_protected": "Substrings that must survive untouched: they are identifiers, not copy. Renaming any of them changes deep-link routing, bundle identity or on-disk data location, which would orphan existing installs.",
+  "$comment_protected": "Substrings that must survive untouched: they are identifiers or names of shipped artefacts, not copy. Renaming any of them changes deep-link routing, bundle identity or on-disk data location, which would orphan existing installs. The .app names are the bundles this fork renamed FROM, so the migration can still recognise them.",
   "protected": [
     "anarlog://",
     "anarlog.so",
@@ -18,7 +18,9 @@
     "anarlog-nightly",
     "anarlog-staging",
     "AnarlogMcpServer",
-    "@anlg/"
+    "@anlg/",
+    "Anarlog Nightly.app",
+    "Anarlog Staging.app"
   ],
 
   "$comment_exclude": "Paths the overlay never rewrites. The changelog records what upstream actually shipped under its own name, and a shipped migration is an immutable artefact -- rewriting either would make it lie, and an edited migration can read as drift even when only a comment moved. Lockfiles are generated. Files named LICENSE/NOTICE are additionally protected in apply.mjs.",
