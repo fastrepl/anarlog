@@ -1247,6 +1247,10 @@ msgstr ""
 msgid "Click here, then use your dictation shortcut."
 msgstr "Haz clic aquí y usa tu atajo de dictado."
 
+#: src/settings/dictation-shortcut.tsx
+msgid "Click the shortcut to record a new key combination. Press Escape to cancel."
+msgstr ""
+
 #: src/shared/ui/resource-list/preview-header.tsx
 msgid "Clone"
 msgstr ""
@@ -2085,7 +2089,7 @@ msgstr ""
 msgid "Dictation"
 msgstr "Dictado"
 
-#: src/settings/dictation.tsx
+#: src/settings/dictation-shortcut.tsx
 msgid "Dictation shortcut"
 msgstr "Atajo de dictado"
 
@@ -2476,7 +2480,7 @@ msgstr ""
 msgid "Float chat"
 msgstr ""
 
-#: src/settings/dictation.tsx
+#: src/settings/dictation-shortcut.tsx
 msgid "Fn / Globe"
 msgstr "Fn / Globo"
 
@@ -3415,6 +3419,7 @@ msgstr ""
 msgid "More"
 msgstr ""
 
+#: src/imports/screen.tsx
 #: src/session-sharing/delivery-panel.tsx
 msgid "More options"
 msgstr ""
@@ -4085,13 +4090,17 @@ msgstr ""
 msgid "Preparing transcript..."
 msgstr ""
 
-#: src/settings/dictation.tsx
-msgid "Press a key combination here, or type one such as Control+Alt+D."
-msgstr "Pulsa aquí una combinación de teclas o escribe una, como Control+Alt+D."
+#: src/settings/dictation-shortcut.tsx
+msgid "Preparing…"
+msgstr ""
 
 #: src/settings/dictation.tsx
 msgid "Press Escape to cancel. Dictation stops after five minutes and pauses while Anarlog records a meeting."
 msgstr "Pulsa Escape para cancelar. El dictado se detiene a los cinco minutos y se pausa mientras Anarlog graba una reunión."
+
+#: src/settings/dictation-shortcut.tsx
+msgid "Press shortcut…"
+msgstr ""
 
 #: src/settings/dictation.tsx
 msgid "Press your shortcut to start, then press it again to finish."
@@ -4539,7 +4548,7 @@ msgstr ""
 msgid "Revoke"
 msgstr ""
 
-#: src/settings/dictation.tsx
+#: src/settings/dictation-shortcut.tsx
 msgid "Right Command"
 msgstr "Comando derecho"
 
@@ -4552,7 +4561,6 @@ msgstr ""
 msgid "Runs once the AI summary for the meeting is ready."
 msgstr ""
 
-#: src/settings/dictation.tsx
 #: src/settings/dictionary/index.tsx
 #: src/settings/general/account-profile.tsx
 #: src/settings/sync/index.tsx

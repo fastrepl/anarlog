@@ -1247,6 +1247,10 @@ msgstr "CLI & MCP"
 msgid "Click here, then use your dictation shortcut."
 msgstr "Click here, then use your dictation shortcut."
 
+#: src/settings/dictation-shortcut.tsx
+msgid "Click the shortcut to record a new key combination. Press Escape to cancel."
+msgstr "Click the shortcut to record a new key combination. Press Escape to cancel."
+
 #: src/shared/ui/resource-list/preview-header.tsx
 msgid "Clone"
 msgstr "Clone"
@@ -2085,7 +2089,7 @@ msgstr "Devices"
 msgid "Dictation"
 msgstr "Dictation"
 
-#: src/settings/dictation.tsx
+#: src/settings/dictation-shortcut.tsx
 msgid "Dictation shortcut"
 msgstr "Dictation shortcut"
 
@@ -2476,7 +2480,7 @@ msgstr "Flags"
 msgid "Float chat"
 msgstr "Float chat"
 
-#: src/settings/dictation.tsx
+#: src/settings/dictation-shortcut.tsx
 msgid "Fn / Globe"
 msgstr "Fn / Globe"
 
@@ -3415,6 +3419,7 @@ msgstr "Monthly · ${monthlyPrice}/mo"
 msgid "More"
 msgstr "More"
 
+#: src/imports/screen.tsx
 #: src/session-sharing/delivery-panel.tsx
 msgid "More options"
 msgstr "More options"
@@ -4085,13 +4090,17 @@ msgstr "Prepare for events with a 5-minute reminder."
 msgid "Preparing transcript..."
 msgstr "Preparing transcript..."
 
-#: src/settings/dictation.tsx
-msgid "Press a key combination here, or type one such as Control+Alt+D."
-msgstr "Press a key combination here, or type one such as Control+Alt+D."
+#: src/settings/dictation-shortcut.tsx
+msgid "Preparing…"
+msgstr "Preparing…"
 
 #: src/settings/dictation.tsx
 msgid "Press Escape to cancel. Dictation stops after five minutes and pauses while Anarlog records a meeting."
 msgstr "Press Escape to cancel. Dictation stops after five minutes and pauses while Anarlog records a meeting."
+
+#: src/settings/dictation-shortcut.tsx
+msgid "Press shortcut…"
+msgstr "Press shortcut…"
 
 #: src/settings/dictation.tsx
 msgid "Press your shortcut to start, then press it again to finish."
@@ -4539,7 +4548,7 @@ msgstr "Review transfer"
 msgid "Revoke"
 msgstr "Revoke"
 
-#: src/settings/dictation.tsx
+#: src/settings/dictation-shortcut.tsx
 msgid "Right Command"
 msgstr "Right Command"
 
@@ -4552,7 +4561,6 @@ msgstr "Runs after the recording finishes, not during the meeting."
 msgid "Runs once the AI summary for the meeting is ready."
 msgstr "Runs once the AI summary for the meeting is ready."
 
-#: src/settings/dictation.tsx
 #: src/settings/dictionary/index.tsx
 #: src/settings/general/account-profile.tsx
 #: src/settings/sync/index.tsx
