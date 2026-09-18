@@ -106,7 +106,6 @@ it("saves the contact fields and photo to the signed-in personal card", async ()
   }
   fireEvent.click(screen.getByRole("button", { name: "Choose company" }));
   fireEvent.click(screen.getByRole("button", { name: "Change photo" }));
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() =>
     expect(mocks.save).toHaveBeenCalledWith("account-1", {
       name: "Ada Lovelace",
@@ -129,12 +128,11 @@ it("preserves a failed draft for retry and saves offline info to the local owner
   fireEvent.change(screen.getByLabelText("Name"), {
     target: { value: "Local name" },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
   expect(await screen.findByRole("alert")).toBeTruthy();
   expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe(
     "Local name",
   );
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(2));
   expect(mocks.save).toHaveBeenLastCalledWith(
     "local-owner",
@@ -158,7 +156,7 @@ it("waits for the saved profile and reports read failures without exposing an em
   expect(screen.queryByRole("textbox")).toBeNull();
 });
 
-it("discards unsaved edits when the account identity changes", () => {
+it("keeps autosaves bound to the account being edited", async () => {
   const { rerender } = render(view());
   fireEvent.change(screen.getByLabelText("Name"), {
     target: { value: "First account draft" },
@@ -167,16 +165,20 @@ it("discards unsaved edits when the account identity changes", () => {
   rerender(view());
   expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe("Ada");
   expect(mocks.query).toHaveBeenLastCalledWith("account-2");
-  expect(mocks.save).not.toHaveBeenCalled();
+  await waitFor(() =>
+    expect(mocks.save).toHaveBeenCalledWith(
+      "account-1",
+      expect.objectContaining({ name: "First account draft" }),
+    ),
+  );
 });
 
-it("blocks company changes while a save is pending", async () => {
+it("keeps fields editable while a save is pending", async () => {
   mocks.save.mockReturnValue(new Promise(() => {}));
   render(view());
   fireEvent.change(screen.getByLabelText("Name"), {
     target: { value: "Ada Lovelace" },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() => expect(mocks.save).toHaveBeenCalledOnce());
   expect(
     (
@@ -184,7 +186,7 @@ it("blocks company changes while a save is pending", async () => {
         name: "Choose company",
       }) as HTMLButtonElement
     ).disabled,
-  ).toBe(true);
+  ).toBe(false);
 });
 
 it("loads saved contact fields and removes a photo without clearing other details", async () => {
@@ -206,7 +208,6 @@ it("loads saved contact fields and removes a photo without clearing other detail
     "saved@example.com",
   );
   fireEvent.click(screen.getByRole("button", { name: "Remove photo" }));
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() =>
     expect(mocks.save).toHaveBeenCalledWith("account-1", {
       ...mocks.contact.data,
@@ -222,7 +223,6 @@ it("formats phone numbers on blur and saves the country-specific format", async 
   expect(phone.value).toBe("+821012345678");
   fireEvent.blur(phone);
   expect(phone.value).toBe("+82 10 1234 5678");
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() =>
     expect(mocks.save).toHaveBeenCalledWith(
       "account-1",
@@ -237,10 +237,8 @@ it("formats a saved phone without marking the profile dirty", () => {
   expect((screen.getByLabelText("Phone") as HTMLInputElement).value).toBe(
     "+1 669 329 9320",
   );
-  expect(
-    (screen.getByRole("button", { name: "Save" }) as HTMLButtonElement)
-      .disabled,
-  ).toBe(true);
+  expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+  expect(mocks.save).not.toHaveBeenCalled();
 });
 
 it("formats a phone on keyboard submit without requiring blur", async () => {
@@ -252,6 +250,44 @@ it("formats a phone on keyboard submit without requiring blur", async () => {
     expect(mocks.save).toHaveBeenCalledWith(
       "account-1",
       expect.objectContaining({ phone: "+44 20 7946 0018" }),
+    ),
+  );
+});
+
+it("does not replace newer edits when an earlier save finishes", async () => {
+  let finishFirst!: () => void;
+  mocks.save.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        finishFirst = resolve;
+      }),
+  );
+  const { rerender } = render(view());
+  const name = screen.getByLabelText("Name") as HTMLInputElement;
+  fireEvent.change(name, { target: { value: "First edit" } });
+  await waitFor(() => expect(mocks.save).toHaveBeenCalledOnce());
+  fireEvent.change(name, { target: { value: "Latest edit" } });
+  await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(2));
+  finishFirst();
+  mocks.contact.data = { name: "First edit" };
+  rerender(view());
+  expect(name.value).toBe("Latest edit");
+  expect(mocks.save).toHaveBeenLastCalledWith(
+    "account-1",
+    expect.objectContaining({ name: "Latest edit" }),
+  );
+});
+
+it("submits edits immediately even when navigating away without blur", async () => {
+  const { unmount } = render(view());
+  fireEvent.change(screen.getByLabelText("Notes"), {
+    target: { value: "Keep this note" },
+  });
+  unmount();
+  await waitFor(() =>
+    expect(mocks.save).toHaveBeenCalledWith(
+      "account-1",
+      expect.objectContaining({ memo: "Keep this note" }),
     ),
   );
 });

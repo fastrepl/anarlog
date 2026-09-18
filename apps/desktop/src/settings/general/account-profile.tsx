@@ -64,7 +64,10 @@ function ProfileForm({
   const organizations = useOrganizations();
   const save = useMutation({
     mutationFn: (values: Parameters<typeof savePersonalContact>[1]) =>
-      savePersonalContact(humanId, values),
+      savePersonalContact(humanId, {
+        ...values,
+        phone: formatProfilePhone(values.phone, navigator.language),
+      }),
   });
   const metadataName = auth.session?.user.user_metadata?.full_name;
   const form = useForm({
@@ -79,18 +82,10 @@ function ProfileForm({
       organizationId: human?.organizationId ?? "",
       avatarDataUrl: human?.avatarDataUrl ?? (null as string | null),
     },
-    onSubmit: async ({ value }) => {
-      try {
-        const formatted = {
-          ...value,
-          phone: formatProfilePhone(value.phone, navigator.language),
-        };
-        await save.mutateAsync(formatted);
-        form.reset(formatted);
-      } catch {
-        // The mutation keeps the error visible and the draft available to retry.
-      }
+    listeners: {
+      onChange: ({ formApi }) => save.mutate(formApi.state.values),
     },
+    onSubmit: ({ value }) => save.mutate(value),
   });
   const fields = [
     { name: "name", label: t`Name`, type: "text" },
@@ -117,10 +112,7 @@ function ProfileForm({
           separately.
         </Trans>
       </p>
-      <fieldset
-        disabled={save.isPending}
-        className="flex min-w-0 flex-col gap-4"
-      >
+      <fieldset className="flex min-w-0 flex-col gap-4">
         <form.Field name="avatarDataUrl">
           {(field) => (
             <div className="flex items-center gap-4">
@@ -183,7 +175,6 @@ function ProfileForm({
               </span>
               <div>
                 <ContactOrganizationSelector
-                  disabled={save.isPending}
                   organization={
                     organizations.find(
                       (organization) => organization.id === field.state.value,
@@ -211,24 +202,20 @@ function ProfileForm({
         </form.Field>
       </fieldset>
       {save.isError && (
-        <p role="alert" className="text-destructive text-sm">
-          <Trans>Couldn't save your profile. Try again.</Trans>
-        </p>
+        <div className="flex items-center gap-3">
+          <p role="alert" className="text-destructive text-sm">
+            <Trans>Couldn't save your profile. Try again.</Trans>
+          </p>
+          <Button type="submit" variant="outline">
+            <Trans>Retry</Trans>
+          </Button>
+        </div>
       )}
-      <form.Subscribe selector={(state) => [state.isDirty, state.isSubmitting]}>
-        {([isDirty, isSubmitting]) => (
-          <div className="flex items-center gap-3">
-            <Button type="submit" disabled={!isDirty || isSubmitting}>
-              {isSubmitting ? t`Saving...` : t`Save`}
-            </Button>
-            {save.isSuccess && !isDirty && (
-              <span role="status" className="text-muted-foreground text-sm">
-                <Trans>Saved</Trans>
-              </span>
-            )}
-          </div>
-        )}
-      </form.Subscribe>
+      {(save.isPending || save.isSuccess) && (
+        <span role="status" className="text-muted-foreground text-sm">
+          {save.isPending ? t`Saving...` : t`Saved`}
+        </span>
+      )}
     </form>
   );
 }

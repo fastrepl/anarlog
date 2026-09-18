@@ -4513,6 +4513,7 @@ msgstr ""
 
 #: src/chat/components/message/error.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
+#: src/settings/general/account-profile.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
 #: src/settings/sync/index.tsx
 #: src/sidebar/toast/registry.tsx
@@ -4554,7 +4555,6 @@ msgstr ""
 
 #: src/settings/dictation.tsx
 #: src/settings/dictionary/index.tsx
-#: src/settings/general/account-profile.tsx
 #: src/settings/sync/index.tsx
 #: src/templates/auto-form.tsx
 msgid "Save"
