@@ -1,11 +1,12 @@
 use std::marker::PhantomData;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures_util::{Stream, StreamExt};
 
 use anlg_ws_client::client::{
-    ClientRequestBuilder, Message, Utf8Bytes, WebSocketClient, WebSocketHandle, WebSocketIO,
+    ClientRequestBuilder, Message, WebSocketClient, WebSocketHandle, WebSocketIO,
 };
 use owhisper_interface::ListenParams;
 use owhisper_interface::stream::StreamResponse;
@@ -188,20 +189,23 @@ pub struct ListenClientDual<A: RealtimeSttAdapter> {
     pub(crate) connect_policy: Option<anlg_ws_client::client::WebSocketConnectPolicy>,
 }
 
+type FinalizeMessage = Arc<dyn Fn() -> Message + Send + Sync>;
+
 pub struct SingleHandle {
     inner: WebSocketHandle,
-    finalize_text: Utf8Bytes,
+    finalize_message: FinalizeMessage,
 }
 
 pub enum DualHandle {
     Native {
         inner: WebSocketHandle,
-        finalize_text: Utf8Bytes,
+        finalize_message: FinalizeMessage,
     },
     Split {
         mic: WebSocketHandle,
         spk: WebSocketHandle,
-        finalize_text: Utf8Bytes,
+        mic_finalize: FinalizeMessage,
+        spk_finalize: FinalizeMessage,
     },
 }
 
@@ -212,9 +216,8 @@ pub trait FinalizeHandle: Send {
 
 impl FinalizeHandle for SingleHandle {
     async fn finalize(&self) {
-        self.inner
-            .finalize_with_text(self.finalize_text.clone())
-            .await
+        let message = self.finalize_message.clone();
+        self.inner.finalize_with_message(move || message()).await
     }
 
     fn expected_finalize_count(&self) -> usize {
@@ -227,16 +230,22 @@ impl FinalizeHandle for DualHandle {
         match self {
             DualHandle::Native {
                 inner,
-                finalize_text,
-            } => inner.finalize_with_text(finalize_text.clone()).await,
+                finalize_message,
+            } => {
+                let message = finalize_message.clone();
+                inner.finalize_with_message(move || message()).await
+            }
             DualHandle::Split {
                 mic,
                 spk,
-                finalize_text,
+                mic_finalize,
+                spk_finalize,
             } => {
+                let mic_message = mic_finalize.clone();
+                let spk_message = spk_finalize.clone();
                 tokio::join!(
-                    mic.finalize_with_text(finalize_text.clone()),
-                    spk.finalize_with_text(finalize_text.clone())
+                    mic.finalize_with_message(move || mic_message()),
+                    spk.finalize_with_message(move || spk_message())
                 );
             }
         }
@@ -356,7 +365,7 @@ impl<A: RealtimeSttAdapter> ListenClient<A> {
         ),
         anlg_ws_client::Error,
     > {
-        let finalize_text = extract_finalize_text(&self.adapter);
+        let finalize_message = finalize_message_factory(&self.adapter);
         let ws =
             websocket_client_with_keep_alive(&self.request, &self.adapter, self.connect_policy);
 
@@ -385,7 +394,7 @@ impl<A: RealtimeSttAdapter> ListenClient<A> {
 
         let handle = SingleHandle {
             inner,
-            finalize_text,
+            finalize_message,
         };
         Ok((mapped_stream, handle))
     }
@@ -412,7 +421,7 @@ impl<A: RealtimeSttAdapter> ListenClientDual<A> {
         self,
         stream: impl Stream<Item = ListenClientDualInput> + Send + Unpin + 'static,
     ) -> Result<(DualOutputStream, DualHandle), anlg_ws_client::Error> {
-        let finalize_text = extract_finalize_text(&self.adapter);
+        let finalize_message = finalize_message_factory(&self.adapter);
         let ws =
             websocket_client_with_keep_alive(&self.request, &self.adapter, self.connect_policy);
 
@@ -443,7 +452,7 @@ impl<A: RealtimeSttAdapter> ListenClientDual<A> {
 
         let handle = DualHandle::Native {
             inner,
-            finalize_text,
+            finalize_message,
         };
         Ok((Box::pin(mapped_stream), handle))
     }
@@ -453,9 +462,10 @@ impl<A: RealtimeSttAdapter> ListenClientDual<A> {
         self,
         stream: impl Stream<Item = ListenClientDualInput> + Send + Unpin + 'static,
     ) -> Result<(DualOutputStream, DualHandle), anlg_ws_client::Error> {
-        let finalize_text = extract_finalize_text(&self.adapter);
         let mic_adapter = self.adapter.fork_session();
         let spk_adapter = self.adapter.fork_session();
+        let mic_finalize = finalize_message_factory(&mic_adapter);
+        let spk_finalize = finalize_message_factory(&spk_adapter);
         let (mic_tx, mic_rx) = tokio::sync::mpsc::channel::<TransformedInput>(32);
         let (spk_tx, spk_rx) = tokio::sync::mpsc::channel::<TransformedInput>(32);
 
@@ -517,7 +527,8 @@ impl<A: RealtimeSttAdapter> ListenClientDual<A> {
             DualHandle::Split {
                 mic: mic_handle,
                 spk: spk_handle,
-                finalize_text,
+                mic_finalize,
+                spk_finalize,
             },
         ))
     }
@@ -590,7 +601,9 @@ fn websocket_client_with_keep_alive<A: RealtimeSttAdapter>(
 ) -> WebSocketClient {
     let mut client = WebSocketClient::new(request.clone());
     if let Some(event_type) = adapter.initial_response_type() {
-        client = client.with_initial_response_type(event_type);
+        client = client
+            .with_initial_response_type(event_type)
+            .with_initial_response_field(adapter.initial_response_field());
     }
 
     if let Some(connect_policy) = connect_policy {
@@ -604,11 +617,9 @@ fn websocket_client_with_keep_alive<A: RealtimeSttAdapter>(
     client
 }
 
-fn extract_finalize_text<A: RealtimeSttAdapter>(adapter: &A) -> Utf8Bytes {
-    match adapter.finalize_message() {
-        Message::Text(text) => text,
-        _ => r#"{"type":"Finalize"}"#.into(),
-    }
+fn finalize_message_factory<A: RealtimeSttAdapter>(adapter: &A) -> FinalizeMessage {
+    let adapter = adapter.clone();
+    Arc::new(move || adapter.finalize_message())
 }
 
 #[cfg(test)]

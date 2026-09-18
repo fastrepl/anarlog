@@ -235,6 +235,11 @@ function credentialRequest({ provider, baseUrl, apiKey }: ProviderCredential) {
       accept = (value) =>
         record(value).object === "list" && Array.isArray(record(value).data);
       break;
+    case "wisprflow":
+      url = `${origin}/api/v1/dash/warmup_dash`;
+      checkAuthentication = true;
+      accept = (value) => record(value).status === "warmed";
+      break;
     case "smallestai":
       url = `${base}/waves/v1/voice-cloning`;
       checkAuthentication = true;

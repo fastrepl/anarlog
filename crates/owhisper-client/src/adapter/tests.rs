@@ -238,6 +238,10 @@ fn test_adapter_kind_from_url_and_languages() {
 
 #[test]
 fn test_has_live_mode() {
+    assert_eq!(
+        AdapterKind::from_url_and_languages("https://platform-api.wisprflow.ai", &[], None),
+        AdapterKind::WisprFlow
+    );
     let live = [
         AdapterKind::Deepgram,
         AdapterKind::Soniox,
@@ -251,6 +255,7 @@ fn test_has_live_mode() {
         AdapterKind::Meta,
         AdapterKind::Xai,
         AdapterKind::SmallestAI,
+        AdapterKind::WisprFlow,
         AdapterKind::GoogleGenerativeAi,
         AdapterKind::Anarlog,
     ];

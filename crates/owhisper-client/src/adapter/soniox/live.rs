@@ -141,6 +141,10 @@ impl RealtimeSttAdapter for SonioxAdapter {
             ));
         }
 
+        if final_tokens.is_empty() && has_fin_token {
+            responses.push(Self::build_response(&[], true, true, true));
+        }
+
         if !non_final_tokens.is_empty() {
             responses.push(Self::build_response(&non_final_tokens, false, false, false));
         }
@@ -262,6 +266,19 @@ mod tests {
     use crate::ListenClient;
     use crate::adapter::RealtimeSttAdapter;
     use crate::test_utils::{UrlTestCase, run_dual_test, run_single_test, run_url_test_cases};
+
+    #[test]
+    fn standalone_finalization_marker_is_not_discarded() {
+        let responses = SonioxAdapter::default()
+            .parse_response(r#"{"tokens":[{"text":"<fin>","is_final":true}]}"#);
+        assert!(matches!(
+            &responses[..],
+            [StreamResponse::TranscriptResponse {
+                from_finalize: true,
+                ..
+            }]
+        ));
+    }
 
     const API_BASE: &str = "https://api.soniox.com";
 

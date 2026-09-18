@@ -147,6 +147,7 @@ pub fn suggest_providers_for_languages_live(languages: &[anlg_language::Language
         AdapterKind::Xai,
         AdapterKind::Nari,
         AdapterKind::SmallestAI,
+        AdapterKind::WisprFlow,
         AdapterKind::GoogleGenerativeAi,
     ];
 
@@ -194,6 +195,7 @@ pub fn suggest_providers_for_languages_batch(languages: &[anlg_language::Languag
         AdapterKind::Together,
         AdapterKind::Xai,
         AdapterKind::SmallestAI,
+        AdapterKind::WisprFlow,
     ];
 
     let mut with_support: Vec<_> = all_providers

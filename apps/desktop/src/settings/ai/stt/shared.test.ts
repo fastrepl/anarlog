@@ -39,6 +39,7 @@ describe("STT providers", () => {
       "together",
       "xai",
       "smallestai",
+      "wisprflow",
       "nari",
       "pyannote",
       "cohere",

@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
+};
 
 use futures_util::StreamExt;
 use tauri::async_runtime::JoinHandle;
@@ -19,12 +22,14 @@ const MAX_RECORDING_SECONDS: u64 = 300;
 pub struct RecordedAudio {
     pub file_path: String,
     pub duration_ms: u64,
+    pub transcript: Option<String>,
 }
 
 struct ActiveRecording {
     owner: String,
     cancellation: CancellationToken,
     task: JoinHandle<Result<RecordedAudio, Error>>,
+    finalize: Arc<AtomicBool>,
 }
 
 pub struct Recorder {
@@ -80,12 +85,21 @@ impl Recorder {
         let cancellation = CancellationToken::new();
         let task_cancellation = cancellation.clone();
         let task_path = path.clone();
+        let finalize = Arc::new(AtomicBool::new(false));
+        let task_finalize = finalize.clone();
         let task = tauri::async_runtime::spawn(async move {
             let preview = preview
                 .zip(updates.clone())
                 .map(|(config, updates)| Preview::start(config, updates));
-            let result =
-                record_to_file(stream, task_cancellation, &task_path, preview, updates).await;
+            let result = record_to_file(
+                stream,
+                task_cancellation,
+                &task_path,
+                preview,
+                updates,
+                task_finalize,
+            )
+            .await;
             if result.is_err() {
                 let _ = std::fs::remove_file(&task_path);
             }
@@ -96,12 +110,14 @@ impl Recorder {
             owner,
             cancellation,
             task,
+            finalize,
         });
         Ok(())
     }
 
     pub async fn stop(&self, owner: &str) -> Result<RecordedAudio, Error> {
         let active = self.take_active(owner)?.ok_or(Error::NotRecording)?;
+        active.finalize.store(true, Ordering::SeqCst);
         active.cancellation.cancel();
         let recorded = active
             .task
@@ -169,6 +185,7 @@ async fn record_to_file(
     path: &Path,
     mut preview: Option<Preview>,
     updates: Option<Channel<RecordingUpdate>>,
+    finalize: Arc<AtomicBool>,
 ) -> Result<RecordedAudio, Error> {
     let specification = hound::WavSpec {
         channels: 1,
@@ -213,7 +230,17 @@ async fn record_to_file(
         .finalize()
         .map_err(|error| Error::Recording(error.to_string()))?;
 
+    let transcript = if finalize.load(Ordering::SeqCst) {
+        if let Some(preview) = preview {
+            preview.finish().await
+        } else {
+            None
+        }
+    } else {
+        None
+    };
     Ok(RecordedAudio {
+        transcript,
         file_path: path.to_string_lossy().into_owned(),
         duration_ms: sample_count.saturating_mul(1_000) / u64::from(SAMPLE_RATE),
     })

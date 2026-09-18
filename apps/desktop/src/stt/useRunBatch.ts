@@ -111,6 +111,7 @@ const DIRECT_BATCH_PROVIDERS: Set<TranscriptionParams["provider"]> = new Set([
   "together",
   "xai",
   "smallestai",
+  "wisprflow",
 ]);
 
 const STOPPED_TRANSCRIPTION_ERROR_MESSAGE = "Transcription stopped.";

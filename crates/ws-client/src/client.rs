@@ -10,9 +10,8 @@ pub use crate::retry::{WebSocketConnectPolicy, WebSocketRetryCallback, WebSocket
 
 const TRAILING_MESSAGE_GRACE: std::time::Duration = std::time::Duration::from_secs(5);
 
-#[derive(Debug)]
 enum ControlCommand {
-    Finalize(Option<Message>),
+    Finalize(Box<dyn FnOnce() -> Message + Send>),
 }
 
 struct OutputDropGuard(Option<tokio::sync::oneshot::Sender<()>>);
@@ -38,9 +37,14 @@ pub struct WebSocketHandle {
 
 impl WebSocketHandle {
     pub async fn finalize_with_text(&self, text: Utf8Bytes) {
+        self.finalize_with_message(move || Message::Text(text))
+            .await;
+    }
+
+    pub async fn finalize_with_message(&self, message: impl FnOnce() -> Message + Send + 'static) {
         let _ = self
             .control_tx
-            .send(ControlCommand::Finalize(Some(Message::Text(text))));
+            .send(ControlCommand::Finalize(Box::new(message)));
     }
 }
 
@@ -60,6 +64,7 @@ pub struct WebSocketClient {
     connect_policy: WebSocketConnectPolicy,
     on_retry: Option<WebSocketRetryCallback>,
     initial_response_type: Option<&'static str>,
+    initial_response_field: &'static str,
 }
 
 impl WebSocketClient {
@@ -70,6 +75,7 @@ impl WebSocketClient {
             connect_policy: WebSocketConnectPolicy::default(),
             on_retry: None,
             initial_response_type: None,
+            initial_response_field: "type",
         }
     }
 
@@ -84,6 +90,11 @@ impl WebSocketClient {
 
     pub fn with_initial_response_type(mut self, event_type: &'static str) -> Self {
         self.initial_response_type = Some(event_type);
+        self
+    }
+
+    pub fn with_initial_response_field(mut self, field: &'static str) -> Self {
+        self.initial_response_field = field;
         self
     }
 
@@ -132,7 +143,11 @@ impl WebSocketClient {
                                         message: "invalid session acknowledgement".into(),
                                     }
                                 })?;
-                            if event.get("type").and_then(|v| v.as_str()) == Some(expected) {
+                            if event
+                                .get(self.initial_response_field)
+                                .and_then(|v| v.as_str())
+                                == Some(expected)
+                            {
                                 return Ok::<_, crate::Error>(());
                             }
                             return Err(crate::Error::InvalidRequest {
@@ -248,9 +263,8 @@ impl WebSocketClient {
                     }
                     command = control_rx.recv(), if !control_closed => {
                         match command {
-                            Some(ControlCommand::Finalize(maybe_msg)) => {
-                                if let Some(msg) = maybe_msg
-                                    && let Err(e) = ws_sender.send(msg).await {
+                            Some(ControlCommand::Finalize(message)) => {
+                                if let Err(e) = ws_sender.send(message()).await {
                                         tracing::error!("ws_finalize_failed: {:?}", e);
                                         let _ = error_tx.send(e.into());
                                     }

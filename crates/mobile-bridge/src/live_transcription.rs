@@ -8,7 +8,7 @@ use owhisper_client::{
     AdapterKind, AssemblyAIAdapter, CartesiaAdapter, DashScopeAdapter, DeepgramAdapter,
     ElevenLabsAdapter, FinalizeHandle, GladiaAdapter, GoogleGenerativeAiAdapter, ListenClient,
     ListenClientInput, MistralAdapter, NariAdapter, OpenAIAdapter, RealtimeSttAdapter,
-    SmallestAIAdapter, SonioxAdapter, XaiAdapter,
+    SmallestAIAdapter, SonioxAdapter, WisprFlowAdapter, XaiAdapter,
 };
 use owhisper_interface::{ListenParams, MixedMessage, stream::StreamResponse};
 use serde::Deserialize;
@@ -105,6 +105,7 @@ async fn dispatch(
         OpenAI => OpenAIAdapter,
         Nari => NariAdapter,
         SmallestAI => SmallestAIAdapter,
+        WisprFlow => WisprFlowAdapter,
         Soniox => SonioxAdapter,
         Xai => XaiAdapter,
     }

@@ -115,6 +115,7 @@ function ActiveDictation({
     let disposed = false;
     let armed = false;
     let target = "";
+    let finalTranscript: string | null = null;
     let unlisten: (() => void) | undefined;
     let abort = new AbortController();
     let presentation: Promise<void> = Promise.resolve();
@@ -128,6 +129,7 @@ function ActiveDictation({
       handsFree,
       start: async () => {
         abort = new AbortController();
+        finalTranscript = null;
         const recordingAbort = abort;
         const owner = `${id}:${crypto.randomUUID()}`;
         const {
@@ -166,15 +168,14 @@ function ActiveDictation({
           );
         abort.signal.throwIfAborted();
         target = unwrap(await dictation.captureTarget());
-        const previewSession =
-          livePreview && isCloudModel
-            ? await auth.getSessionForRequest().catch(() => null)
-            : null;
+        const previewSession = isCloudModel
+          ? await auth.getSessionForRequest().catch(() => null)
+          : null;
         const apiKey = isCloudModel
           ? previewSession?.access_token
           : conn?.apiKey;
         const preview =
-          livePreview && conn && (!isCloudModel || previewSession)
+          conn && (!isCloudModel || previewSession)
             ? {
                 provider: conn.provider,
                 baseUrl: conn.baseUrl,
@@ -232,11 +233,16 @@ function ActiveDictation({
           ),
         );
       },
-      stop: async () => unwrap(await dictation.stopRecording(id)).filePath,
+      stop: async () => {
+        const recorded = unwrap(await dictation.stopRecording(id));
+        finalTranscript = recorded.transcript ?? null;
+        return recorded.filePath;
+      },
       cancel: async () => {
         unwrap(await dictation.cancelRecording(id));
       },
       transcribe: async (path) => {
+        if (finalTranscript !== null) return finalTranscript;
         let text = "";
         await current.current.runBatch(path, {
           signal: abort.signal,

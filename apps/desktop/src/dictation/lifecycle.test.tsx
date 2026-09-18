@@ -237,6 +237,38 @@ describe("dictation access and lifecycle", () => {
     expect(mocks.discardRecording).toHaveBeenCalledWith("/tmp/dictation.wav");
   });
 
+  it("reuses the finalized live transcript even when preview display is disabled", async () => {
+    mocks.connection = {
+      provider: "wisprflow",
+      model: "flow",
+      apiKey: "test",
+      baseUrl: "https://platform-api.wisprflow.ai",
+    };
+    mocks.stopRecording.mockResolvedValue({
+      status: "ok",
+      data: { filePath: "/tmp/dictation.wav", transcript: "Finished live." },
+    });
+    render(<DictationLifecycle />);
+    await waitFor(() => expect(useDictationStatus.getState().ready).toBe(true));
+    await act(async () => {
+      mocks.listener?.({ payload: { type: "pressed" } });
+    });
+    expect(mocks.startSystemRecording.mock.calls[0]![2]).toEqual(
+      expect.objectContaining({ provider: "wisprflow" }),
+    );
+    await act(async () => {
+      mocks.listener?.({ payload: { type: "released" } });
+    });
+    await waitFor(() =>
+      expect(mocks.insertText).toHaveBeenCalledWith(
+        "focused-field",
+        "Finished live.",
+      ),
+    );
+    expect(mocks.runBatch).not.toHaveBeenCalled();
+    expect(mocks.discardRecording).toHaveBeenCalledWith("/tmp/dictation.wav");
+  });
+
   it("aborts and removes shortcuts when paid access is lost during recording", async () => {
     const view = render(<DictationLifecycle />);
     await waitFor(() => expect(useDictationStatus.getState().ready).toBe(true));

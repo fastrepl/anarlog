@@ -35,6 +35,7 @@ pub(crate) mod soniox;
 mod speechmatics;
 mod together;
 mod whispercpp;
+mod wisprflow;
 mod xai;
 mod zai;
 
@@ -68,6 +69,7 @@ pub use soniox::*;
 pub use speechmatics::*;
 pub use together::*;
 pub use whispercpp::*;
+pub use wisprflow::*;
 pub use xai::*;
 pub use zai::*;
 
@@ -173,6 +175,10 @@ pub trait RealtimeSttAdapter: Clone + Default + Send + Sync + 'static {
 
     fn initial_response_type(&self) -> Option<&'static str> {
         None
+    }
+
+    fn initial_response_field(&self) -> &'static str {
+        "type"
     }
 
     fn required_sample_rate(&self) -> Option<u32> {
@@ -469,6 +475,8 @@ pub struct BatchUploadLimit {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumString)]
 pub enum AdapterKind {
+    #[strum(serialize = "wisprflow")]
+    WisprFlow,
     #[strum(serialize = "aquavoice")]
     AquaVoice,
     #[strum(serialize = "cartesia")]
@@ -539,6 +547,9 @@ impl AdapterKind {
     ) -> Self {
         use crate::providers::Provider;
 
+        if host_matches(base_url, |host| host == "platform-api.wisprflow.ai") {
+            return Self::WisprFlow;
+        }
         if is_anarlog_proxy(base_url) {
             return Self::Anarlog;
         }
@@ -600,6 +611,8 @@ impl AdapterKind {
             Self::GoogleGenerativeAi => (20 * 1024 * 1024, Duration::from_secs(15 * 60)),
             Self::Zai => (OPENAI_COMPATIBLE_MAX_UPLOAD_BYTES, Duration::from_secs(25)),
             Self::SiliconFlow => (50 * 1024 * 1024, Duration::from_secs(50 * 60)),
+            // Six-minute API limit; PCM16 mono at 16 kHz also stays below 25 MB.
+            Self::WisprFlow => (u64::MAX, Duration::from_secs(350)),
             // Pre-recorded requests cap at 250 MB and time out after 10 minutes,
             // and the docs recommend splitting anything longer.
             Self::SmallestAI => (250 * 1024 * 1024, Duration::from_secs(10 * 60)),
@@ -645,6 +658,7 @@ impl AdapterKind {
             | Self::Xai
             | Self::Nari
             | Self::SmallestAI
+            | Self::WisprFlow
             | Self::GoogleGenerativeAi
             | Self::Anarlog => true,
         }
@@ -656,6 +670,7 @@ impl AdapterKind {
         model: Option<&str>,
     ) -> LanguageSupport {
         match self {
+            Self::WisprFlow => WisprFlowAdapter::language_support(languages),
             Self::AquaVoice => LanguageSupport::NotSupported,
             Self::Cartesia => CartesiaAdapter::language_support_live(languages),
             Self::Deepgram => {
@@ -697,6 +712,7 @@ impl AdapterKind {
         model: Option<&str>,
     ) -> LanguageSupport {
         match self {
+            Self::WisprFlow => WisprFlowAdapter::language_support(languages),
             Self::AquaVoice => AquaVoiceAdapter::language_support_batch(languages),
             Self::Cartesia => CartesiaAdapter::language_support_batch(languages),
             Self::Deepgram => {

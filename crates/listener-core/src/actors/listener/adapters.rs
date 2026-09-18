@@ -8,8 +8,8 @@ use owhisper_client::{
     AdapterKind, AnarlogAdapter, ArgmaxAdapter, AssemblyAIAdapter, CartesiaAdapter,
     DashScopeAdapter, DeepgramAdapter, DeepgramFluxAdapter, ElevenLabsAdapter, FireworksAdapter,
     GladiaAdapter, GoogleGenerativeAiAdapter, MetaAdapter, MistralAdapter, NariAdapter,
-    OpenAIAdapter, RealtimeSttAdapter, SmallestAIAdapter, SonioxAdapter, XaiAdapter,
-    anlg_ws_client,
+    OpenAIAdapter, RealtimeSttAdapter, SmallestAIAdapter, SonioxAdapter, WisprFlowAdapter,
+    XaiAdapter, anlg_ws_client,
 };
 use owhisper_interface::stream::{Extra, StreamResponse};
 use owhisper_interface::{ControlMessage, MixedMessage};
@@ -197,6 +197,7 @@ pub(super) async fn spawn_rx_task(
         Xai => XaiAdapter,
         Nari => NariAdapter,
         SmallestAI => SmallestAIAdapter,
+        WisprFlow => WisprFlowAdapter,
         GoogleGenerativeAi => GoogleGenerativeAiAdapter,
         Anarlog => AnarlogAdapter,
     }, batch_only: [

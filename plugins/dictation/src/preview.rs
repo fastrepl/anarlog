@@ -1,5 +1,5 @@
 use futures_util::StreamExt;
-use owhisper_client::{ListenClient, ListenClientInput, RealtimeSttAdapter};
+use owhisper_client::{FinalizeHandle, ListenClient, ListenClientInput, RealtimeSttAdapter};
 use owhisper_interface::{ListenParams, stream::StreamResponse};
 use tauri::ipc::Channel;
 use tokio::sync::mpsc;
@@ -23,7 +23,8 @@ pub enum RecordingUpdate {
 }
 
 pub struct Preview {
-    sender: mpsc::Sender<ListenClientInput>,
+    sender: Option<mpsc::Sender<ListenClientInput>>,
+    task: Option<tauri::async_runtime::JoinHandle<Result<String, ()>>>,
     cancellation: CancellationToken,
 }
 
@@ -32,19 +33,21 @@ impl Preview {
         let (sender, receiver) = mpsc::channel(32);
         let cancellation = CancellationToken::new();
         let cancelled = cancellation.clone();
-        tauri::async_runtime::spawn(async move {
+        let task = tauri::async_runtime::spawn(async move {
             tokio::select! {
                 biased;
-                _ = cancelled.cancelled() => {},
+                _ = cancelled.cancelled() => Err(()),
                 result = run(config, receiver, &updates) => {
                     if result.is_err() {
                         let _ = updates.send(RecordingUpdate::PreviewUnavailable);
                     }
+                    result
                 }
             }
         });
         Self {
-            sender,
+            sender: Some(sender),
+            task: Some(task),
             cancellation,
         }
     }
@@ -56,11 +59,21 @@ impl Preview {
                 (((*sample).clamp(-1.0, 1.0) * i16::MAX as f32).round() as i16).to_le_bytes()
             })
             .collect();
-        // WAV capture must never wait for a slow preview connection.
-        !matches!(
-            self.sender.try_send(ListenClientInput::Audio(bytes.into())),
-            Err(mpsc::error::TrySendError::Closed(_))
-        )
+        self.sender.as_ref().is_some_and(|sender| {
+            sender
+                .try_send(ListenClientInput::Audio(bytes.into()))
+                .is_ok()
+        })
+    }
+
+    pub async fn finish(mut self) -> Option<String> {
+        self.sender.take();
+        let task = self.task.take()?;
+        tokio::time::timeout(std::time::Duration::from_secs(15), task)
+            .await
+            .ok()?
+            .ok()?
+            .ok()
     }
 }
 
@@ -74,7 +87,7 @@ async fn run(
     config: PreviewConfig,
     receiver: mpsc::Receiver<ListenClientInput>,
     updates: &Channel<RecordingUpdate>,
-) -> Result<(), ()> {
+) -> Result<String, ()> {
     use owhisper_client::*;
     let url = url::Url::parse(&config.base_url).map_err(|_| ())?;
     if !matches!(url.scheme(), "http" | "https" | "ws" | "wss") || url.host_str().is_none() {
@@ -100,6 +113,7 @@ async fn run(
         "gladia" => listen::<GladiaAdapter>(config, receiver, updates).await,
         "meta" => listen::<MetaAdapter>(config, receiver, updates).await,
         "dashscope" => listen::<DashScopeAdapter>(config, receiver, updates).await,
+        "wisprflow" => listen::<WisprFlowAdapter>(config, receiver, updates).await,
         "smallestai" => listen::<SmallestAIAdapter>(config, receiver, updates).await,
         "fireworks" => listen::<FireworksAdapter>(config, receiver, updates).await,
         "mistral" => listen::<MistralAdapter>(config, receiver, updates).await,
@@ -117,7 +131,7 @@ async fn listen<A: RealtimeSttAdapter>(
     mut config: PreviewConfig,
     receiver: mpsc::Receiver<ListenClientInput>,
     updates: &Channel<RecordingUpdate>,
-) -> Result<(), ()> {
+) -> Result<String, ()> {
     config.params.channels = 1;
     config.params.sample_rate = 16_000;
     let mut transcript = PreviewTranscript {
@@ -132,21 +146,39 @@ async fn listen<A: RealtimeSttAdapter>(
         .build_single()
         .await
         .map_err(|_| ())?;
-    let (responses, _handle) = client
-        .from_realtime_audio(tokio_stream::wrappers::ReceiverStream::new(receiver))
-        .await
-        .map_err(|_| ())?;
-    tokio::pin!(responses);
-    while let Some(response) = responses.next().await {
-        let response = response.map_err(|_| ())?;
-        if matches!(response, StreamResponse::ErrorResponse { .. }) {
-            return Err(());
+    let (ended_tx, mut ended_rx) = tokio::sync::oneshot::channel();
+    let mut ended_tx = Some(ended_tx);
+    let mut receiver = receiver;
+    let audio = futures_util::stream::poll_fn(move |cx| {
+        let result = receiver.poll_recv(cx);
+        if matches!(result, std::task::Poll::Ready(None)) {
+            if let Some(sender) = ended_tx.take() {
+                let _ = sender.send(());
+            }
         }
-        if let Some(update) = transcript.update(response) {
-            updates.send(update).map_err(|_| ())?;
+        result
+    });
+    let (responses, handle) = client.from_realtime_audio(audio).await.map_err(|_| ())?;
+    tokio::pin!(responses);
+    let mut finalizing = false;
+    loop {
+        tokio::select! {
+            _ = &mut ended_rx, if !finalizing => {
+                finalizing = true;
+                handle.finalize().await;
+            }
+            response = responses.next() => {
+                let response = response.ok_or(())?.map_err(|_| ())?;
+                if matches!(response, StreamResponse::ErrorResponse { .. }) { return Err(()); }
+                let finished = matches!(response, StreamResponse::TranscriptResponse { from_finalize: true, .. });
+                if let Some(update) = transcript.update(response) { updates.send(update).map_err(|_| ())?; }
+                if finalizing && finished {
+                    if transcript.partial.as_ref().is_some_and(|(_, text)| !text.is_empty()) { return Err(()); }
+                    return Ok(transcript.segments.iter().map(|segment| segment.1.as_str()).collect::<Vec<_>>().join(" "));
+                }
+            }
         }
     }
-    Err(())
 }
 
 #[derive(Default)]
@@ -185,7 +217,7 @@ impl PreviewTranscript {
                 self.segments.sort_by(|a, b| a.0.total_cmp(&b.0));
             }
         }
-        if is_final {
+        if is_final && !text.is_empty() {
             if self
                 .partial
                 .as_ref()
@@ -243,14 +275,15 @@ mod tests {
     }
 
     #[test]
-    fn queue_pressure_does_not_disable_a_healthy_preview() {
+    fn queue_pressure_rejects_incomplete_live_transcripts() {
         let (sender, mut receiver) = mpsc::channel(1);
         let preview = Preview {
-            sender,
+            sender: Some(sender),
+            task: None,
             cancellation: CancellationToken::new(),
         };
         assert!(preview.send(&[0.0]));
-        assert!(preview.send(&[0.1]));
+        assert!(!preview.send(&[0.1]));
         assert!(receiver.try_recv().is_ok());
         assert!(preview.send(&[0.2]));
         drop(receiver);
@@ -305,21 +338,81 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn converts_audio_to_pcm_and_drops_overflow_without_disabling_preview() {
+    async fn converts_audio_to_pcm_and_reports_overflow() {
         let (sender, mut receiver) = mpsc::channel(1);
         let cancellation = CancellationToken::new();
         let preview = Preview {
-            sender,
+            sender: Some(sender),
+            task: None,
             cancellation: cancellation.clone(),
         };
         assert!(preview.send(&[-1.0, 0.0, 1.0]));
-        assert!(preview.send(&[0.5]));
+        assert!(!preview.send(&[0.5]));
         let ListenClientInput::Audio(bytes) = receiver.recv().await.unwrap() else {
             panic!()
         };
         assert_eq!(bytes.as_ref(), &[1, 128, 0, 0, 255, 127]);
         drop(preview);
         assert!(cancellation.is_cancelled());
+    }
+
+    #[tokio::test]
+    async fn wispr_finalizes_after_all_audio_and_returns_the_final_text() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (socket, _) = listener.accept().await.unwrap();
+            let mut ws = tokio_tungstenite::accept_async(socket).await.unwrap();
+            let auth = ws.next().await.unwrap().unwrap().into_text().unwrap();
+            let auth: serde_json::Value = serde_json::from_str(&auth).unwrap();
+            assert_eq!(auth["type"], "auth");
+            assert_eq!(auth["access_token"], "test");
+            ws.send(Message::Text(r#"{"status":"auth"}"#.into()))
+                .await
+                .unwrap();
+            for position in 0..3 {
+                let packet = ws.next().await.unwrap().unwrap().into_text().unwrap();
+                let packet: serde_json::Value = serde_json::from_str(&packet).unwrap();
+                assert_eq!(packet["type"], "append");
+                assert_eq!(packet["position"], position);
+                assert_eq!(packet["audio_packets"]["packet_duration"], 0.1);
+            }
+            let commit = ws.next().await.unwrap().unwrap().into_text().unwrap();
+            assert_eq!(
+                serde_json::from_str::<serde_json::Value>(&commit).unwrap(),
+                serde_json::json!({"type":"commit","total_packets":3})
+            );
+            ws.send(Message::Text(
+                r#"{"status":"text","final":false,"body":{"text":"unfinished"}}"#.into(),
+            ))
+            .await
+            .unwrap();
+            ws.send(Message::Text(
+                r#"{"status":"text","final":true,"body":{"text":"Finished sentence."}}"#.into(),
+            ))
+            .await
+            .unwrap();
+        });
+        let preview = Preview::start(
+            PreviewConfig {
+                provider: "wisprflow".into(),
+                base_url: format!("http://{address}"),
+                api_key: "test".into(),
+                params: ListenParams::default(),
+            },
+            Channel::new(|_| Ok(())),
+        );
+        for _ in 0..3 {
+            assert!(preview.send(&[0.5; 1600]));
+        }
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(3), preview.finish())
+                .await
+                .unwrap()
+                .as_deref(),
+            Some("Finished sentence.")
+        );
+        server.await.unwrap();
     }
 
     #[tokio::test]

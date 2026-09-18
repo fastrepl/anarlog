@@ -658,6 +658,23 @@ const _PROVIDERS = [
   },
   {
     disabled: false,
+    id: "wisprflow",
+    displayName: "Wispr Flow",
+    badge: null,
+    icon: <Waveform className="h-4 w-4" />,
+    baseUrl: "https://platform-api.wisprflow.ai",
+    models: ["flow"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "API documentation",
+        url: "https://api-docs.wisprflow.ai/introduction",
+      },
+      setup: { label: "API Keys", url: "https://platform.wisprflow.ai" },
+    },
+  },
+  {
+    disabled: false,
     id: "smallestai",
     displayName: "Smallest AI",
     badge: null,
@@ -1100,6 +1117,7 @@ const PROVIDER_ORDER = [
   "together",
   "xai",
   "smallestai",
+  "wisprflow",
   "nari",
   "pyannote",
   "cohere",
