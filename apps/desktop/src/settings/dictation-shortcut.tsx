@@ -16,6 +16,7 @@ export function DictationShortcut({ shortcut }: { shortcut: string }) {
   const mac = platform() === "macos";
   const [recording, setRecording] = useState(false);
   const attempt = useRef(0);
+  const persisting = useRef(false);
   const prepare = useMutation({ mutationFn: waitForDictationCleanup });
   useEffect(() => {
     if (recording) prepare.mutate();
@@ -25,7 +26,19 @@ export function DictationShortcut({ shortcut }: { shortcut: string }) {
       const result = await shortcuts.validate(value);
       if (token !== attempt.current) return;
       if (result.status === "error") throw new Error(result.error);
-      await setSettingValue("dictation_shortcut", value);
+      persisting.current = true;
+      setRecording(false);
+      useDictationStatus.setState({ capturingShortcut: false });
+      try {
+        await setSettingValue("dictation_shortcut", value);
+      } finally {
+        persisting.current = false;
+      }
+    },
+    onError: (_, { token }) => {
+      if (token !== attempt.current) return;
+      setRecording(false);
+      useDictationStatus.setState({ capturingShortcut: false });
     },
     onSuccess: (_, { token }) => {
       if (token === attempt.current) finish();
@@ -33,6 +46,7 @@ export function DictationShortcut({ shortcut }: { shortcut: string }) {
   });
 
   function finish() {
+    if (persisting.current) return;
     attempt.current += 1;
     setRecording(false);
     useDictationStatus.setState({ capturingShortcut: false });
@@ -69,6 +83,8 @@ export function DictationShortcut({ shortcut }: { shortcut: string }) {
           variant="outline"
           aria-labelledby="dictation-shortcut-label"
           aria-pressed={recording}
+          disabled={save.isPending && !recording}
+          aria-busy={save.isPending && !recording}
           onClick={() => {
             if (recording) return finish();
             attempt.current += 1;

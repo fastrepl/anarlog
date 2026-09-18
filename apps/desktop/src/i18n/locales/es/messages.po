@@ -1249,7 +1249,7 @@ msgstr "Haz clic aquí y usa tu atajo de dictado."
 
 #: src/settings/dictation-shortcut.tsx
 msgid "Click the shortcut to record a new key combination. Press Escape to cancel."
-msgstr ""
+msgstr "Haz clic en el atajo para grabar una nueva combinación de teclas. Pulsa Escape para cancelar."
 
 #: src/shared/ui/resource-list/preview-header.tsx
 msgid "Clone"
@@ -4091,7 +4091,7 @@ msgstr ""
 
 #: src/settings/dictation-shortcut.tsx
 msgid "Preparing…"
-msgstr ""
+msgstr "Preparando…"
 
 #: src/settings/dictation.tsx
 msgid "Press Escape to cancel. Dictation stops after five minutes and pauses while Anarlog records a meeting."
@@ -4099,7 +4099,7 @@ msgstr "Pulsa Escape para cancelar. El dictado se detiene a los cinco minutos y 
 
 #: src/settings/dictation-shortcut.tsx
 msgid "Press shortcut…"
-msgstr ""
+msgstr "Pulsa el atajo…"
 
 #: src/settings/dictation.tsx
 msgid "Press your shortcut to start, then press it again to finish."

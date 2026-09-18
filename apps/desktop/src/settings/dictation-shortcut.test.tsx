@@ -115,7 +115,7 @@ describe("dictation shortcut recorder", () => {
     expect(mocks.validate).not.toHaveBeenCalled();
   });
 
-  it("keeps capture open on validation failure", async () => {
+  it("restores the global shortcut on validation failure", async () => {
     mocks.validate.mockResolvedValue({
       status: "error",
       error: "Choose a modifier.",
@@ -125,8 +125,33 @@ describe("dictation shortcut recorder", () => {
     expect((await screen.findByRole("alert")).textContent).toBe(
       "Choose a modifier.",
     );
-    expect(useDictationStatus.getState().capturingShortcut).toBe(true);
+    expect(useDictationStatus.getState().capturingShortcut).toBe(false);
     expect(mocks.save).not.toHaveBeenCalled();
+  });
+
+  it("stops offering cancellation once persistence starts", async () => {
+    let complete!: () => void;
+    mocks.save.mockReturnValue(
+      new Promise<void>((resolve) => {
+        complete = resolve;
+      }),
+    );
+    setup();
+    const button = await start();
+    fireEvent.keyDown(button, { key: "d", code: "KeyD", ctrlKey: true });
+    await waitFor(() =>
+      expect((button as HTMLButtonElement).disabled).toBe(true),
+    );
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    expect(useDictationStatus.getState().capturingShortcut).toBe(false);
+    fireEvent.keyDown(button, { key: "Escape" });
+    fireEvent.blur(button);
+    expect(button.getAttribute("aria-busy")).toBe("true");
+    complete();
+    await waitFor(() =>
+      expect((button as HTMLButtonElement).disabled).toBe(false),
+    );
+    expect(mocks.save).toHaveBeenCalledTimes(1);
   });
 
   it("does not save a validation result after capture is cancelled", async () => {
