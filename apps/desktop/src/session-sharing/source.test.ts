@@ -35,6 +35,7 @@ function sourceRow(
     id: string;
     document_id: string | null;
     workspace_id: string;
+    owner_user_id: string | null;
     title: string;
     created_at: string;
     started_at: string;
@@ -53,6 +54,7 @@ function sourceRow(
     id: "session-1",
     document_id: "summary-1",
     workspace_id: ACCOUNT_ID,
+    owner_user_id: ACCOUNT_ID,
     title: "Planning notes",
     created_at: "2026-08-06T00:30:00.000Z",
     started_at: "2026-08-06T01:30:00.000Z",
@@ -237,6 +239,36 @@ describe("loadSessionShareSource", () => {
       ).resolves.toMatchObject({ workspaceId: "workspace-shared" });
     },
   );
+
+  it("allows a member to share their own note from a shared workspace", async () => {
+    mocks.execute.mockResolvedValue([
+      sourceRow({
+        workspace_id: "workspace-shared",
+        owner_user_id: ACCOUNT_ID,
+        assigned_workspace_kind: "shared",
+        assigned_workspace_role: "member",
+      }),
+    ]);
+
+    await expect(
+      loadSessionShareSource("session-1", ACCOUNT_ID),
+    ).resolves.toMatchObject({ workspaceId: "workspace-shared" });
+  });
+
+  it("rejects a member sharing another user's note from a shared workspace", async () => {
+    mocks.execute.mockResolvedValue([
+      sourceRow({
+        workspace_id: "workspace-shared",
+        owner_user_id: "other-account",
+        assigned_workspace_kind: "shared",
+        assigned_workspace_role: "member",
+      }),
+    ]);
+
+    await expect(
+      loadSessionShareSource("session-1", ACCOUNT_ID),
+    ).rejects.toThrow("You can no longer share notes from this workspace");
+  });
 
   it("fails closed when a known shared-workspace membership is lost", async () => {
     mocks.execute.mockResolvedValue([
