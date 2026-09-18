@@ -40,6 +40,7 @@ const mocks = vi.hoisted(() => ({
     standaloneWindow?: boolean;
   }>,
   windowControlsGutter: true,
+  windowsStyleTitleBar: false,
   meetingMicInUse: false,
 }));
 
@@ -119,7 +120,7 @@ vi.mock("~/shared/config", () => ({
 
 vi.mock("~/shared/hooks/useWindowControlsGutter", () => ({
   useWindowControlsGutter: () => mocks.windowControlsGutter,
-  usesWindowsStyleTitleBar: () => false,
+  usesWindowsStyleTitleBar: () => mocks.windowsStyleTitleBar,
 }));
 
 vi.mock("~/shared/utils", async (importOriginal) => ({
@@ -164,6 +165,7 @@ import { OuterHeader } from "./index";
 
 describe("OuterHeader", () => {
   beforeEach(() => {
+    mocks.windowsStyleTitleBar = false;
     mocks.leftsidebar.expanded = true;
     mocks.leftsidebar.toggleExpanded.mockClear();
     mocks.canGoBack = false;
@@ -313,6 +315,23 @@ describe("OuterHeader", () => {
     expect(container.firstElementChild?.className).toContain("pl-[32px]");
     expect(container.firstElementChild?.className).not.toContain("pl-[108px]");
     expect(container.firstElementChild?.className).not.toContain("pl-2");
+  });
+
+  it("omits the collapsed sidebar gutter with Windows-style title bars", () => {
+    mocks.leftsidebar.expanded = false;
+    mocks.windowControlsGutter = false;
+    mocks.windowsStyleTitleBar = true;
+
+    const { container } = render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+      />,
+    );
+
+    expect(container.firstElementChild?.className).toContain("pl-2");
+    expect(container.firstElementChild?.className).not.toContain("pl-[108px]");
+    expect(container.firstElementChild?.className).not.toContain("pl-[32px]");
   });
 
   it("does not add a title offset while the sidebar is expanded", () => {

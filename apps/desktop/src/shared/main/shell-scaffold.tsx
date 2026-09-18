@@ -4,6 +4,7 @@ import { Fragment } from "react";
 import { cn } from "@anlg/utils";
 
 import { SyncProvider } from "~/calendar/components/context";
+import { usesWindowsStyleTitleBar } from "~/shared/hooks/useWindowControlsGutter";
 import { useTabs } from "~/store/zustand/tabs";
 
 export type MainSurfaceChrome = "default" | "top" | "top-borderless" | "left";
@@ -21,8 +22,7 @@ export function MainShellScaffold({
   const isCalendarMode = currentTab?.type === "calendar";
   const runtimePlatform = platform();
   const isMacos = runtimePlatform === "macos";
-  const hasCustomTitleBar =
-    runtimePlatform === "windows" || runtimePlatform === "linux";
+  const hasCustomTitleBar = usesWindowsStyleTitleBar();
   const SyncWrapper = isCalendarMode ? SyncProvider : Fragment;
   const resolvedMainSurfaceChrome =
     mainSurfaceChrome ?? (edgeToEdge ? "top" : "default");
