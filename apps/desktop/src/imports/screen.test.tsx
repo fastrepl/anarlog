@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -16,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   connectNangoImport: vi.fn(),
   disconnectConnectedImport: vi.fn(),
   disconnectNangoImport: vi.fn(),
+  sync: vi.fn(),
   signIn: vi.fn(),
   signedIn: true,
   connections: [] as Array<{
@@ -112,16 +114,7 @@ vi.mock("./connected-import", () => ({
     enabled: boolean,
   ) => ({
     queryKey: ["meeting-import", provider.id, "sync", connectionId],
-    queryFn: async () => ({
-      result: {
-        discovered: 0,
-        imported: 0,
-        matched: 0,
-        conflicts: 0,
-        errors: 0,
-      },
-      warnings: [],
-    }),
+    queryFn: () => mocks.sync(),
     enabled,
     retry: false,
   }),
@@ -165,6 +158,16 @@ describe("MeetingImportScreen", () => {
     vi.clearAllMocks();
     mocks.signedIn = true;
     mocks.connections = [];
+    mocks.sync.mockResolvedValue({
+      result: {
+        discovered: 0,
+        imported: 0,
+        matched: 0,
+        conflicts: 0,
+        errors: 0,
+      },
+      warnings: [],
+    });
     mocks.cancelConnectedImport.mockResolvedValue(true);
     mocks.connectNangoImport.mockResolvedValue({
       connection_id: "zoom-1",
@@ -199,15 +202,13 @@ describe("MeetingImportScreen", () => {
     expect(screen.queryByText("Export")).toBeNull();
     expect(screen.queryByText("OAuth")).toBeNull();
     expect(screen.queryByText("Export help")).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Connect" })).toHaveLength(3);
     expect(
-      screen.getAllByRole("button", { name: "Connect & import" }),
-    ).toHaveLength(3);
-    expect(
-      screen.getAllByRole("button", { name: "Connect & import" })[0]?.className,
+      screen.getAllByRole("button", { name: "Connect" })[0]?.className,
     ).toContain("hover:bg-primary-foreground/10");
     expect(
       screen
-        .getAllByRole("button", { name: "Connect & import" })[0]
+        .getAllByRole("button", { name: "Connect" })[0]
         ?.closest('[role="group"]')?.parentElement?.className,
     ).toContain("focus-within:ring-[3px]");
     expect(screen.getAllByRole("button", { name: "Use files" })).toHaveLength(
@@ -313,7 +314,7 @@ describe("MeetingImportScreen", () => {
     const signInButton = await screen.findByRole("button", {
       name: "Sign in to connect",
     });
-    expect(screen.getByText("Connect & import")).toBeTruthy();
+    expect(screen.getByText("Connect")).toBeTruthy();
     expect(screen.getAllByText("Sign in to connect")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Use files" })).toBeTruthy();
 
@@ -333,9 +334,7 @@ describe("MeetingImportScreen", () => {
     expect(await screen.findByText("Granola")).toBeTruthy();
     expect(screen.getByText("Slack Huddles")).toBeTruthy();
     expect(screen.queryByText("Circleback")).toBeNull();
-    expect(
-      screen.getAllByRole("button", { name: "Connect & import" }),
-    ).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Connect" })).toHaveLength(1);
     expect(
       screen.getAllByRole("button", { name: "Choose files" }),
     ).toHaveLength(1);
@@ -374,9 +373,7 @@ describe("MeetingImportScreen", () => {
 
     renderImports();
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Connect & import" }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: "Connect" }));
     const cancelButton = await screen.findByRole("button", { name: "Cancel" });
     fireEvent.click(cancelButton);
 
@@ -384,12 +381,12 @@ describe("MeetingImportScreen", () => {
       expect(mocks.cancelConnectedImport.mock.calls[0]?.[0]).toBe("granola");
       expect(
         screen
-          .getByRole("button", { name: "Connect & import" })
+          .getByRole("button", { name: "Connect" })
           .hasAttribute("disabled"),
       ).toBe(false);
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Connect & import" }));
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
     await waitFor(() => {
       expect(mocks.connectConnectedImport).toHaveBeenCalledTimes(2);
     });
@@ -400,9 +397,7 @@ describe("MeetingImportScreen", () => {
 
     renderImports();
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Connect & import" }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: "Connect" }));
 
     await waitFor(() => {
       expect(mocks.connectNangoImport).toHaveBeenCalledOnce();
@@ -411,13 +406,60 @@ describe("MeetingImportScreen", () => {
     expect(
       await screen.findByRole("button", { name: "Sync now" }),
     ).toBeTruthy();
-    expect(
-      screen.queryByRole("button", { name: "Connect & import" }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
     expect(screen.getByText(/Connected · New meetings/)).toBeTruthy();
     expect(
       screen.queryByText(/Direct connection is not available yet/i),
     ).toBeNull();
+  });
+
+  it("shows sync progress and blocks repeat clicks until syncing finishes", async () => {
+    mockDetected(["zoom"]);
+    mocks.connections = [{ connection_id: "zoom-1", integration_id: "zoom" }];
+    renderImports();
+    const button = await screen.findByRole("button", { name: "Sync now" });
+    await waitFor(() => expect(button.hasAttribute("disabled")).toBe(false));
+    let finish!: (value: unknown) => void;
+    mocks.sync.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    fireEvent.click(button);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("progressbar", { name: "Sync now" }),
+      ).toBeTruthy(),
+    );
+    expect(button.hasAttribute("disabled")).toBe(true);
+    expect(button.getAttribute("aria-busy")).toBe("true");
+    expect(
+      screen
+        .getByRole("button", { name: "More options" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
+    fireEvent.click(button);
+    expect(mocks.sync).toHaveBeenCalledTimes(2);
+    await act(async () =>
+      finish({
+        result: {
+          discovered: 0,
+          imported: 0,
+          matched: 0,
+          conflicts: 0,
+          errors: 0,
+        },
+        warnings: [],
+      }),
+    );
+    await waitFor(() => expect(screen.queryByRole("progressbar")).toBeNull());
+    expect(button.hasAttribute("disabled")).toBe(false);
+    expect(
+      screen
+        .getByRole("button", { name: "More options" })
+        .hasAttribute("disabled"),
+    ).toBe(false);
   });
 
   it("connects Plaud by running the local CLI instead of file-only import", async () => {
@@ -430,9 +472,7 @@ describe("MeetingImportScreen", () => {
 
     renderImports();
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Connect & import" }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: "Connect" }));
 
     await waitFor(() => {
       expect(mocks.connectConnectedImport).toHaveBeenCalledOnce();
@@ -458,9 +498,7 @@ describe("MeetingImportScreen", () => {
 
     renderImports();
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Connect & import" }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: "Connect" }));
 
     await waitFor(() => {
       expect(mocks.connectConnectedImport).toHaveBeenCalledOnce();
