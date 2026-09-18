@@ -928,9 +928,7 @@ describe("SettingsTeam", () => {
     const updatedOwner = within(updatedTable)
       .getByText("Owner", { selector: "p" })
       .closest("tr")!;
-    expect(
-      updatedOwner.querySelector('img[src="https://example.com/old.png"]'),
-    ).toBeNull();
+    expect(updatedOwner.querySelector("img")).toBeNull();
   });
 
   it("shows profile details in the roster and keeps owner controls hidden", async () => {
